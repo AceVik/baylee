@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Sultai Schemers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SultaiSchemers_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Become Immense (KTK) 130
+1 Bitter Revelation (KTK) 65
+1 Black Cat (M15) 86
+1 Dead Drop (KTK) 67
+1 Debilitating Injury (KTK) 68
+1 Dismal Backwater (KTK) 232
+2 Forest (KTK) 266
+2 Forest (KTK) 267
+2 Forest (KTK) 268
+2 Forest (KTK) 269
+1 Gravedigger (M15) 99
+2 Hooting Mandrills (KTK) 137
+2 Island (KTK) 254
+2 Island (KTK) 255
+1 Island (KTK) 256
+1 Island (KTK) 257
+1 Jungle Hollow (KTK) 235
+1 Murderous Cut (KTK) 81
+2 Necromancer's Assistant (M15) 107
+1 Necropolis Fiend (KTK) 82
+2 Opulent Palace (KTK) 238
+1 Rakshasa Vizier (PKTK) 193 *F*
+1 Rakshasa's Secret (KTK) 84
+1 Research Assistant (M15) 77
+1 Rotfeaster Maggot (M15) 112
+2 Satyr Wayfinder (M15) 198
+1 Scout the Borders (KTK) 148
+1 Set Adrift (KTK) 54
+2 Shambling Attendants (KTK) 89
+1 Sultai Banner (KTK) 225
+1 Sultai Charm (KTK) 204
+2 Sultai Scavenger (KTK) 91
+1 Sultai Soothsayer (KTK) 205
+2 Swamp (KTK) 258
+2 Swamp (KTK) 259
+2 Swamp (KTK) 260
+1 Swamp (KTK) 261
+2 Taigam's Scheming (KTK) 57
+1 Thornwood Falls (KTK) 244
+1 Throttle (KTK) 93
+1 Treasure Cruise (KTK) 59
+1 Typhoid Rats (M15) 118
+1 Walking Corpse (M15) 278
+1 Wall of Mulch (M15) 208

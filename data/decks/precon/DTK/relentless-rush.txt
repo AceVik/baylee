@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Relentless Rush
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RelentlessRush_DTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DTK
+# released: 2015-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ambuscade Shaman (DTK) 87
+1 Boltwing Marauder (PDTK) 214 *F*
+1 Defeat (DTK) 97
+1 Duress (DTK) 98
+1 Evolving Wilds (DTK) 248
+2 Flatten (DTK) 100
+1 Foul Renewal (DTK) 101
+1 Foul-Tongue Invocation (DTK) 102
+1 Foul-Tongue Shriek (DTK) 103
+2 Impact Tremors (DTK) 140
+2 Kolaghan Aspirant (DTK) 143
+2 Kolaghan Forerunners (DTK) 144
+1 Kolaghan Monument (DTK) 241
+3 Kolaghan Skirmisher (DTK) 107
+2 Lightning Berserker (DTK) 146
+5 Mountain (DTK) 259
+4 Mountain (DTK) 260
+4 Mountain (DTK) 261
+2 Screamreach Brawler (DTK) 155
+2 Sprinting Warbrute (DTK) 157
+4 Swamp (DTK) 256
+4 Swamp (DTK) 257
+3 Swamp (DTK) 258
+2 Swift Warkite (DTK) 233
+2 Tormenting Voice (DTK) 163
+2 Twin Bolt (DTK) 164
+1 Vial of Dragonfire (DTK) 247
+2 Warbringer (DTK) 168

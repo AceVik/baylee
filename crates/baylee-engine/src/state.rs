@@ -1642,6 +1642,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_card(id, owner, card, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         if let Some(modifier) = printed_pt_cda(def) {
@@ -1667,6 +1668,7 @@ impl GameState {
         let id = self.arena.insert_with(|id| {
             let mut obj = GameObject::new_bare(id, owner, kind, base);
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj
         });
         self.zones.insert(
@@ -1690,7 +1692,11 @@ impl GameState {
         id
     }
 
-    /// Monotonic timestamp (effects ordering, summoning sickness).
+    /// The game's one clock, monotonic: every object timestamp
+    /// ([`GameObject::timestamp`], CR 613.7), every continuous effect's, and
+    /// the moments [`GameObject::controlled_since`] and
+    /// [`Player::turn_start_timestamp`] compare for summoning sickness
+    /// (CR 302.6) are read off it.
     pub fn next_timestamp(&mut self) -> u64 {
         self.timestamp += 1;
         self.timestamp
@@ -1700,10 +1706,14 @@ impl GameState {
     /// its controller's most recent turn began, so *any* control change
     /// makes it summoning-sick again — including the one at end of turn
     /// that hands a stolen creature back.
-    fn restart_summoning_sickness(&mut self, id: ObjectId) {
+    ///
+    /// Only [`GameObject::controlled_since`] moves. A change of control is
+    /// not one of the events CR 613.7 gives an object a new timestamp for,
+    /// so the order its static abilities' effects apply in stays as it was.
+    pub(crate) fn restart_summoning_sickness(&mut self, id: ObjectId) {
         let ts = self.next_timestamp();
         if let Some(obj) = self.object_mut(id) {
-            obj.timestamp = ts;
+            obj.controlled_since = ts;
         }
     }
 
@@ -1721,7 +1731,56 @@ impl GameState {
     /// daybound/nightbound fixpoint step reads: a permanent already showing
     /// the face it should show is not progress, and reporting it as such
     /// would keep the fixpoint spinning.
+    ///
+    /// The permanent stays the object it was, and every effect that applied
+    /// to it goes on applying (CR 712.18). What its own static abilities and
+    /// replacement effects did ends here, because those abilities were the
+    /// face that turned away and the permanent no longer has them
+    /// (CR 604.2); the next scan (`Engine::sync_static_effects`) registers
+    /// what the new face prints, as [`Self::set_doors`] has it for a Room.
+    /// Without this, Dowsing Dagger's "equipped creature gets +2/+1" went
+    /// on applying from Lost Vale.
+    ///
+    /// The other face coming up without the game action is
+    /// [`Self::turn_over`], which this is built on.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
+        let face = face.min(def.faces.len() - 1);
+        if !self.turn_over(id, def, face) {
+            return false;
+        }
+        // CR 613.7g: a new timestamp, which the new face's static abilities
+        // take as the next scan registers them (CR 613.7a), so they apply
+        // after every effect created while the other face was up. Who
+        // controls it has not changed (CR 712.18), so `controlled_since`
+        // stays and it is no more summoning-sick than it was (CR 302.6).
+        let ts = self.next_timestamp();
+        if let Some(obj) = self.object_mut(id) {
+            obj.timestamp = ts;
+        }
+        self.journal.record(GameEvent::Transformed {
+            object: id,
+            face: face as u8,
+        });
+        true
+    }
+
+    /// Puts face `face` of a permanent up in place of the one it shows, and
+    /// ends what the face turning away did: the continuous effects of its
+    /// static abilities and its replacement effects, which the next scan
+    /// (`Engine::sync_static_effects`) registers for the new face (CR 604.2).
+    /// Returns whether the face changed.
+    ///
+    /// This is not the game action of transforming, and it records nothing
+    /// and stamps nothing. Two things need it bare: [`Self::transform`],
+    /// which adds the stamp and the journal entry, and a permanent that
+    /// enters with its back face up (CR 712.14a, daybound at night,
+    /// CR 702.145b). Such a permanent was never turned over (CR 701.27a
+    /// transforms a *permanent*), so it has not transformed: a "transforms
+    /// into" trigger (CR 701.27e) must not see it, the log must not say it
+    /// did, and its timestamp is the one it took as it entered (CR 613.7d).
+    /// It still has the front face's statics to lose, because the engine
+    /// registers them for every arrival before the scan that turns it over.
+    pub fn turn_over(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
         let face = face.min(def.faces.len() - 1);
         if self
             .object(id)
@@ -1729,11 +1788,11 @@ impl GameState {
         {
             return false;
         }
-        self.switch_face(id, def, face);
-        self.journal.record(GameEvent::Transformed {
-            object: id,
-            face: face as u8,
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
         });
+        self.replacement_rules.retain(|r| r.source != id);
+        self.switch_face(id, def, face);
         true
     }
 
@@ -2084,8 +2143,19 @@ impl GameState {
         ids.clear();
         // Cached off-board projections must be revisited after the last
         // cross-zone effect disappears (#120).
+        //
+        // A phased-out permanent is not projected at all: it can't be
+        // affected by anything (CR 702.26b), so what it was as it phased out
+        // is what it stays, and so is its controller, the player it phases
+        // in under (CR 502.1). `phase_in` invalidates, and the next refresh
+        // takes it back in.
         if cross_zone || self.projected_cross_zone {
-            ids.extend(self.arena.iter().map(|(id, _)| id));
+            ids.extend(
+                self.arena
+                    .iter()
+                    .filter(|(_, o)| !o.status.contains(crate::object::Status::PHASED_OUT))
+                    .map(|(id, _)| id),
+            );
         } else {
             // The stack contributes only its *spells*. An ability on the
             // stack has no characteristic a layer can touch, and this pass
@@ -2093,11 +2163,8 @@ impl GameState {
             // triggers to establish that, every time a counter moves, is
             // the difference between a long game and no game at all.
             ids.extend(
-                self.zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .chain(self.zones.stack_projectable().iter())
-                    .copied(),
+                self.battlefield_seen()
+                    .chain(self.zones.stack_projectable().iter().copied()),
             );
             // And the cards that define their own power and toughness,
             // wherever else they are (CR 604.3).
@@ -2609,15 +2676,14 @@ impl GameState {
         // What was attached to it.
         self.ltb_attachments.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield {
+            // A phased-out Aura was attached to nothing the rules can
+            // see (CR 702.26b), so nothing looks back at it.
             let worn: Vec<ObjectId> = self
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|other| {
-                    self.object(**other)
+                    self.object(*other)
                         .is_some_and(|o| o.attached_to == Some(id))
                 })
-                .copied()
                 .collect();
             if !worn.is_empty() {
                 self.ltb_attachments.push((id, worn));
@@ -2732,6 +2798,7 @@ impl GameState {
             obj.zone = to.zone();
             obj.zone_owner = to.player();
             obj.timestamp = ts;
+            obj.controlled_since = ts;
             obj.version = obj.version.wrapping_add(1);
             // CR 400.7: it becomes a new object. The old projection must
             // not survive the move — the refresh pass only revisits the
@@ -2871,9 +2938,7 @@ impl GameState {
         // legitimately lives there and must be allowed to resolve — the bug
         // this rule already caused once, recorded in `sba::run`.
         if !matches!(to.zone(), Zone::Battlefield | Zone::Stack)
-            && self.object(id).is_some_and(|o| {
-                o.card.is_none() || o.riders.contains(&crate::object::Rider::SpellCopy)
-            })
+            && self.object(id).is_some_and(|o| !o.is_card())
         {
             self.watch_token_cleanup(id);
         }
@@ -3849,42 +3914,56 @@ fn hash_ability_list(
 }
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
-    let (effects, next_id, generation) = table.hashed_parts();
+    let (effects, parked, next_id, generation) = table.hashed_parts();
     next_id.hash(h);
     generation.hash(h);
     h.usize(effects.len());
     for fx in effects {
-        let crate::effects::ContinuousEffect {
-            id,
-            source,
-            controller,
-            origin,
-            layer,
-            timestamp,
-            duration,
-            filter,
-            modifier,
-        } = fx;
-        id.hash(h);
-        source.hash(h);
-        controller.hash(h);
-        origin.hash(h);
-        layer.hash(h);
-        timestamp.hash(h);
-        duration.hash(h);
-        match filter {
-            crate::effects::EffectFilter::Dsl(filter) => {
-                h.u8(0);
-                filter_hash(h, filter);
-            }
-            crate::effects::EffectFilter::ObjectIs(id, version) => {
-                h.u8(1);
-                id.hash(h);
-                version.hash(h);
-            }
-        }
-        hash_modifier(h, modifier);
+        hash_effect(h, fx);
     }
+    // The statics parked while their sources are phased out. Nothing is
+    // written while nothing is parked, so a game without phasing hashes as
+    // it did before the table could park; the length above already moves
+    // when an effect is parked.
+    if !parked.is_empty() {
+        h.usize(parked.len());
+        for fx in parked {
+            hash_effect(h, fx);
+        }
+    }
+}
+
+fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
+    let crate::effects::ContinuousEffect {
+        id,
+        source,
+        controller,
+        origin,
+        layer,
+        timestamp,
+        duration,
+        filter,
+        modifier,
+    } = fx;
+    id.hash(h);
+    source.hash(h);
+    controller.hash(h);
+    origin.hash(h);
+    layer.hash(h);
+    timestamp.hash(h);
+    duration.hash(h);
+    match filter {
+        crate::effects::EffectFilter::Dsl(filter) => {
+            h.u8(0);
+            filter_hash(h, filter);
+        }
+        crate::effects::EffectFilter::ObjectIs(id, version) => {
+            h.u8(1);
+            id.hash(h);
+            version.hash(h);
+        }
+    }
+    hash_modifier(h, modifier);
 }
 
 fn hash_player(h: &mut Hasher, player: &Player) {
@@ -3989,6 +4068,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         status,
         attached_to,
         timestamp,
+        controlled_since,
         version,
         riders,
         targets,
@@ -4046,6 +4126,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     status.hash(h);
     attached_to.hash(h);
     timestamp.hash(h);
+    controlled_since.hash(h);
     version.hash(h);
     // Exile riders.
     h.usize(riders.len());
@@ -4148,6 +4229,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 /// the two moments it flips at — a permanent arriving, a turn beginning —
 /// both invalidate for their own reasons already. The day a static prints it,
 /// this is the list it joins and the turn boundary is what needs the door.
+///
+/// `Filter::IsAttached` is not here for a plainer reason: every write of
+/// `attached_to` invalidates the projection itself — the attach in
+/// `resolve`, the unattach in `sba`, and the zone move that clears it.
 pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::Filter;
     match filter {
@@ -4266,6 +4351,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::CmcExactlyX => h.u8(41),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::IsAttached => h.u8(38),
         F::SharesSubtypeWithCommander => h.u8(27),
         F::ToughnessAtMost(n) => {
             h.u8(26);
@@ -4380,45 +4466,37 @@ pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
 }
 
 fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
-    h.u8(cost.len());
-    for s in cost.symbols() {
-        match s {
-            ManaSymbol::Generic(n) => {
-                h.u8(0);
-                h.u32(n);
+    // The cost is counted (`ManaCost`): how many kinds it holds, then one
+    // five-byte record per kind, its tag, what names it and how many of it,
+    // rather than one per symbol. The count fits a byte, and a byte is what
+    // an empty cost, most objects' (tokens'), costs the stream: a wider
+    // prefix measured 7 % slower on `snapshot_hash_3k_tokens`.
+    h.u8(cost.kinds());
+    for (symbol, count) in cost.runs() {
+        let [count_lo, count_hi] = count.to_le_bytes();
+        let (tag, first, second) = match symbol {
+            ManaSymbol::Generic(amount) => {
+                // Always one generic symbol: its amount says it all.
+                let [w0, w1, w2, w3] = amount.to_le_bytes();
+                h.bytes(&[0, w0, w1, w2, w3]);
+                continue;
             }
-            ManaSymbol::Colorless => h.u8(1),
-            ManaSymbol::White => h.u8(2),
-            ManaSymbol::Blue => h.u8(3),
-            ManaSymbol::Black => h.u8(4),
-            ManaSymbol::Red => h.u8(5),
-            ManaSymbol::Green => h.u8(6),
-            ManaSymbol::Hybrid(p) => {
-                h.u8(7);
-                h.u8(p.first() as u8);
-                h.u8(p.second() as u8);
-            }
-            ManaSymbol::TwoOrColor(c) => {
-                h.u8(8);
-                h.u8(c as u8);
-            }
-            ManaSymbol::Phyrexian(c) => {
-                h.u8(9);
-                h.u8(c as u8);
-            }
-            ManaSymbol::HybridPhyrexian(p) => {
-                h.u8(10);
-                h.u8(p.first() as u8);
-                h.u8(p.second() as u8);
-            }
-            ManaSymbol::Snow => h.u8(11),
-            ManaSymbol::Variable(v) => {
-                h.u8(12);
-                h.u8(v as u8);
-            }
-            ManaSymbol::HalfGeneric => h.u8(13),
-            ManaSymbol::Infinite => h.u8(14),
-        }
+            ManaSymbol::Colorless => (1, 0, 0),
+            ManaSymbol::White => (2, 0, 0),
+            ManaSymbol::Blue => (3, 0, 0),
+            ManaSymbol::Black => (4, 0, 0),
+            ManaSymbol::Red => (5, 0, 0),
+            ManaSymbol::Green => (6, 0, 0),
+            ManaSymbol::Hybrid(pair) => (7, pair.first() as u8, pair.second() as u8),
+            ManaSymbol::TwoOrColor(color) => (8, color as u8, 0),
+            ManaSymbol::Phyrexian(color) => (9, color as u8, 0),
+            ManaSymbol::HybridPhyrexian(pair) => (10, pair.first() as u8, pair.second() as u8),
+            ManaSymbol::Snow => (11, 0, 0),
+            ManaSymbol::Variable(variable) => (12, variable as u8, 0),
+            ManaSymbol::HalfGeneric => (13, 0, 0),
+            ManaSymbol::Infinite => (14, 0, 0),
+        };
+        h.bytes(&[tag, first, second, count_lo, count_hi]);
     }
 }
 
@@ -5004,6 +5082,46 @@ mod tests {
             "and the constant is a spelling of the general form, not a second counter"
         );
     }
+
+    /// A mana cost is hashed by every symbol it holds and how many of it,
+    /// and by nothing else.
+    ///
+    /// The cost is counted (`ManaCost`), so the hash walks kinds, not
+    /// symbols; each inequality is a way that walk could lose a cost: the
+    /// count's high byte, the generic amount, which pair a hybrid names, the
+    /// tag between two symbols that name one color, and no mana cost against
+    /// `{0}` (an unpayable cost against a free one, CR 202.1b). The
+    /// equalities hold the other half: one cost, however it was put
+    /// together, is one state.
+    #[test]
+    fn a_mana_cost_is_hashed_by_its_symbols_and_their_counts() {
+        use baylee_core::mana::ManaCost;
+        let hash = |cost: &ManaCost| mana_cost_fingerprint(cost);
+        let text = |text: &str| hash(&ManaCost::parse(text));
+        let blue = ManaCost::parse("{U}");
+        let blues = |n: u32| hash(&ManaCost::ZERO.combine_n(&blue, n));
+
+        assert_ne!(blues(1), blues(257), "257 is 1 in its low byte");
+        assert_ne!(blues(1), blues(2));
+        assert_ne!(text("{1}"), text("{2}"));
+        assert_ne!(text("{W/U}"), text("{U/B}"));
+        assert_ne!(text("{2/W}"), text("{W/P}"));
+        assert_ne!(text("{W}{U}"), text("{W/U}"));
+        assert_ne!(hash(&ManaCost::ZERO), text("{0}"));
+
+        assert_eq!(text("{U}{1}"), text("{1}{U}"), "written in any order");
+        assert_eq!(
+            text("{1}{1}{U}"),
+            text("{2}{U}"),
+            "generic mana is one amount"
+        );
+        assert_eq!(
+            hash(&ManaCost::parse("{1}{U}").combine_n(&blue, 20)),
+            text("{1}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}{U}"),
+            "twenty payments added at once are the twenty written out"
+        );
+    }
+
     /// What an ability has already been used for this turn is part of the
     /// state a loop detector compares.
     ///
@@ -5233,6 +5351,13 @@ mod tests {
             }),
             ("tried_empty_draw", |s, _| {
                 s.players[0].tried_empty_draw = true;
+            }),
+            // Two facts that were one field: the order the object's statics
+            // apply in (CR 613.7) and whether it is summoning-sick
+            // (CR 302.6). Either one alone decides a later board.
+            ("timestamp", |s, id| fixture_object(s, id).timestamp += 7),
+            ("controlled_since", |s, id| {
+                fixture_object(s, id).controlled_since += 7;
             }),
             ("x_value", |s, id| fixture_object(s, id).x_value = 3),
             ("kicked", |s, id| fixture_object(s, id).kicked = true),

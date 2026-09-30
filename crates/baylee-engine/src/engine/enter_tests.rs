@@ -877,6 +877,7 @@ fn a_reveal_land_that_is_shown_a_match_enters_untapped() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -1089,4 +1090,243 @@ fn a_reveal_land_can_ask_for_a_basic_land_type() {
         in_hand(&engine, p0, island).is_some(),
         "a land revealed from hand is still a land drop the player may make"
     );
+}
+
+/// Steam Vents: "As this land enters, you may pay 2 life. If you don't, it
+/// enters tapped."
+fn steam_vents() -> CardIndex {
+    card_index("17039058-822d-409f-938c-b727a366ba63")
+}
+
+/// Urza's Saga, an enchantment land Saga: it enters with a lore counter
+/// (CR 714.3a).
+fn urzas_saga() -> CardIndex {
+    card_index("4c6a0c30-b547-4eff-8ff4-0ca25803c076")
+}
+
+/// Karn, the Great Creator: loyalty 5, which it enters with (CR 306.5b).
+fn karn_the_great_creator() -> CardIndex {
+    card_index("a20dd48d-d344-4db1-b0e9-a2b71c3cc9d1")
+}
+
+/// The duel started, with seat 0 in its main phase.
+fn at_main(duel: Duel) -> Engine<RegistryLookup> {
+    let mut engine = duel.start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    engine
+}
+
+/// Puts `cards` from their seats' hands onto the battlefield together, in
+/// this order, which is the board a Scapeshift or a mass return leaves: the
+/// board is set directly, and it is the board that is set. Seat 0 passing
+/// priority is only the nudge that runs the machine over the arrivals.
+fn enter_together(
+    engine: &mut Engine<RegistryLookup>,
+    cards: &[(PlayerId, CardIndex)],
+) -> Vec<ObjectId> {
+    let p0 = PlayerId::new(0);
+    let mut ids = Vec::new();
+    for &(seat, card) in cards {
+        // Looked up one at a time, so two copies of a card are two cards.
+        let id = in_hand(engine, seat, card).expect("the card is in hand");
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up")
+            .move_object(
+                id,
+                crate::zone::ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+        ids.push(id);
+    }
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("a seat may always pass");
+    ids
+}
+
+/// Whether the question out is a shockland's, put to `seat`.
+fn shockland_asks(engine: &Engine<RegistryLookup>, seat: PlayerId) -> bool {
+    matches!(
+        engine.pending(),
+        Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { amount: 2 },
+            ..
+        } if *player == seat
+    )
+}
+
+fn is_tapped(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.status.contains(Status::TAPPED))
+}
+
+/// Seat 0's shockland question, which the tests below answer "no": the
+/// land enters tapped and no life is paid.
+#[track_caller]
+fn decline_the_shockland(engine: &mut Engine<RegistryLookup>) {
+    let p0 = PlayerId::new(0);
+    assert!(
+        shockland_asks(engine, p0),
+        "Steam Vents asks as it enters: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::YesNo(false))
+        .expect("declining is an answer");
+}
+
+/// Steam Vents and Urza's Saga fetched together (Scapeshift). The Vents
+/// entered first and asked, and the scan used to return with its cursor
+/// past both arrivals, so the Saga never got the lore counter it enters
+/// with (CR 714.3a), and its chapter I never triggered. Both are one event
+/// and each one's own replacements modify how it enters (CR 614.12), so the
+/// counter is on the Saga while the question is out, and stays after it.
+#[test]
+fn a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter() {
+    let p0 = PlayerId::new(0);
+    let mut engine =
+        at_main(Duel::new(931, basic_forest()).hand(0, &[steam_vents(), urzas_saga()]));
+    let [vents, saga] = enter_together(&mut engine, &[(p0, steam_vents()), (p0, urzas_saga())])[..]
+    else {
+        unreachable!("two cards")
+    };
+    let lore = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .object(saga)
+            .map(|o| o.counters.get(CounterKind::Lore))
+    };
+    assert_eq!(
+        lore(&engine),
+        Some(1),
+        "the Saga's counter is there while the Vents ask"
+    );
+
+    decline_the_shockland(&mut engine);
+    assert!(is_tapped(&engine, vents), "the Vents entered tapped");
+    assert_eq!(lore(&engine), Some(1), "and the Saga keeps its one counter");
+    assert!(
+        engine.journal().entries().iter().any(|e| matches!(
+            e.event,
+            GameEvent::AbilityTriggered { source, .. } if source == saga
+        )),
+        "its chapter I triggered"
+    );
+}
+
+/// A planeswalker entering together with a shockland, behind it. It used to
+/// get none of its replacements, so it entered with no loyalty counters
+/// (CR 306.5b) and the state-based action put it into its owner's graveyard
+/// as soon as the question was answered (CR 704.5i).
+#[test]
+fn a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty() {
+    let p0 = PlayerId::new(0);
+    let mut engine =
+        at_main(Duel::new(932, basic_forest()).hand(0, &[steam_vents(), karn_the_great_creator()]));
+    let [_, karn] = enter_together(
+        &mut engine,
+        &[(p0, steam_vents()), (p0, karn_the_great_creator())],
+    )[..] else {
+        unreachable!("two cards")
+    };
+    let loyalty = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .object(karn)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .map(|o| o.counters.get(CounterKind::Loyalty))
+    };
+    assert_eq!(
+        loyalty(&engine),
+        Some(5),
+        "Karn's loyalty is there while the Vents ask"
+    );
+
+    decline_the_shockland(&mut engine);
+    assert_eq!(
+        loyalty(&engine),
+        Some(5),
+        "and Karn is still on the battlefield with it"
+    );
+}
+
+/// Two shocklands entering together with 3 life, enough to pay for one.
+/// Each is asked when its turn comes, so the second is asked against the
+/// life the first one left: a player may not make choices whose combined
+/// costs can't be paid (CR 614.12b). Paying for the first leaves 1 life, and
+/// the second enters tapped without a question. The second used to get
+/// nothing at all behind the first one's question, and entered untapped.
+#[test]
+fn a_second_shockland_is_asked_against_the_life_the_first_one_left() {
+    let p0 = PlayerId::new(0);
+    let mut engine = at_main(
+        Duel::new(933, basic_forest())
+            .hand(0, &[steam_vents(), steam_vents()])
+            .life(0, 3),
+    );
+    let [first, second] =
+        enter_together(&mut engine, &[(p0, steam_vents()), (p0, steam_vents())])[..]
+    else {
+        unreachable!("two cards")
+    };
+    assert!(
+        shockland_asks(&engine, p0),
+        "the first asks: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::YesNo(true))
+        .expect("paying 2 life is an answer");
+
+    assert_eq!(engine.state().players[0].life, 1);
+    assert!(
+        !shockland_asks(&engine, p0),
+        "1 life can't pay for the second, so it is not asked: {:?}",
+        engine.pending()
+    );
+    assert!(!is_tapped(&engine, first), "the first was paid for");
+    assert!(is_tapped(&engine, second), "the second entered tapped");
+}
+
+/// Two players' shocklands entering together, the nonactive player's first.
+/// Players choosing at the same time choose in APNAP order (CR 101.4), so
+/// the active player is asked first, then the other; both lands are asked
+/// about. Only the first to enter used to be asked at all.
+#[test]
+fn shocklands_of_two_players_entering_together_are_asked_in_apnap_order() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = at_main(
+        Duel::new(934, basic_forest())
+            .hand(0, &[steam_vents()])
+            .hand(1, &[steam_vents()]),
+    );
+    let [theirs, mine] =
+        enter_together(&mut engine, &[(p1, steam_vents()), (p0, steam_vents())])[..]
+    else {
+        unreachable!("two cards")
+    };
+    assert!(
+        shockland_asks(&engine, p0),
+        "the active player is asked first: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::YesNo(false))
+        .expect("declining is an answer");
+    assert!(
+        shockland_asks(&engine, p1),
+        "then the nonactive player: {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p1, PlayerAction::YesNo(false))
+        .expect("declining is an answer");
+    assert!(is_tapped(&engine, mine) && is_tapped(&engine, theirs));
 }

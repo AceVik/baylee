@@ -307,3 +307,105 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         );
     }
 }
+
+/// The language-model seat's panel, driven the way a player drives it:
+/// a press adds a profile, keys type into its boxes, `Tab` moves on and
+/// `Enter` saves. A key pasted into the model's box is refused beside it,
+/// Save is gone from the screen, and `Enter` writes nothing; mended, the
+/// file is written. In a scratch directory: a test never opens the
+/// player's own file.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
+    use baylee_client_core::i18n::Phrase;
+    use baylee_client_core::llmseat::panel::{Act, Slot, Spot};
+
+    fn keys(app: &mut App, events: Vec<KeyboardInput>) {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for event in events {
+            messages.write(event);
+        }
+        app.update();
+    }
+    fn text(s: &str) -> Vec<KeyboardInput> {
+        s.chars().map(typed).collect()
+    }
+    fn select_all(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::SuperLeft);
+        keys(app, vec![typed('a')]);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::SuperLeft);
+    }
+    fn focus(app: &App) -> Option<Spot> {
+        app.world()
+            .resource::<LobbyState>()
+            .seat
+            .panel()
+            .and_then(baylee_client_core::llmseat::panel::SeatPanel::focus)
+    }
+
+    let dir = std::env::temp_dir().join(format!("baylee-seatpanel-ui-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(baylee_client_core::llmseat::FILE);
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::OpenSettings);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(path.clone());
+    app.update();
+    let empty = Phrase::SeatEmpty.text(Lang::En);
+    assert!(
+        labels(&mut app).iter().any(|l| l == empty),
+        "no file, and it says so"
+    );
+
+    press(&mut app, Press::Seat(Act::Add));
+    // The new profile's name is selected: typing replaces it.
+    keys(&mut app, text("mine"));
+    keys(&mut app, vec![pressed(KeyCode::Tab, Key::Tab)]);
+    assert_eq!(focus(&app), Some(Spot::Profile(0, Slot::Model)));
+    select_all(&mut app);
+    keys(&mut app, text("sk-ant-api03-AAAABBBBCCCCDDDDEEEE"));
+    let refused = Phrase::SeatFaultKeyShaped.text(Lang::En);
+    assert!(
+        labels(&mut app).iter().any(|l| l == refused),
+        "the key is refused beside its box"
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::Seat(Act::Save)),
+        "Save stands dead while a fault does"
+    );
+    keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
+    assert!(!path.exists(), "a key is never written");
+
+    select_all(&mut app);
+    keys(&mut app, text("claude-opus-5-5"));
+    assert!(presses(&mut app).contains(&Press::Seat(Act::Save)));
+    keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
+    let written = std::fs::read_to_string(&path).expect("saved");
+    assert!(
+        written.contains("\"mine\"") && written.contains("claude-opus-5-5"),
+        "{written}"
+    );
+    assert!(!written.contains("AAAABBBB"), "{written}");
+    let saved = Phrase::SeatSavedNote.text(Lang::En);
+    assert!(labels(&mut app).iter().any(|l| l == saved));
+
+    // Anything else pressed takes the caret out of the panel.
+    press(
+        &mut app,
+        Press::Rebind(baylee_client_core::prefs::Action::Confirm),
+    );
+    assert_eq!(focus(&app), None);
+    let _ = std::fs::remove_dir_all(&dir);
+}

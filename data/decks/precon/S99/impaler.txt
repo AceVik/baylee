@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Impaler
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Impaler_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Bull Hippo (S99) 126
+3 Durkwood Boars (S99) 127
+5 Forest (S99) 170
+4 Forest (S99) 171
+4 Forest (S99) 172
+4 Forest (S99) 173
+3 Grizzly Bears (S99) 129
+2 Lone Wolf (S99) 130
+2 Monstrous Growth (S99) 132
+2 Nature's Lore (S99) 136
+3 Norwood Archers (S99) 137
+1 Pride of Lions (S99) 139
+1 Renewing Touch (S99) 140
+1 Thorn Elemental (S99) 147
+1 Whirlwind (S99) 150
+2 Wild Ox (S99) 151

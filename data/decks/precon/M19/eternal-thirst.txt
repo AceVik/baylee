@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Eternal Thirst
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EternalThirst_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ajani's Pridemate (M19) 5
+2 Ajani's Welcome (M19) 6
+3 Bishop's Soldier (XLN) 6
+3 Call to the Feast (XLN) 219
+1 Champion of Dusk (RIX) 64
+2 Epicure of Blood (M19) 95
+4 Forsaken Sanctuary (M19) 250
+1 Herald of Faith (M19) 13
+2 Inspiring Cleric (XLN) 16
+1 Isolated Chapel (DOM) 241
+2 Legion Lieutenant (RIX) 163
+1 Leonin Warleader (M19) 23
+2 Moment of Triumph (RIX) 15
+3 Murder (M19) 110
+2 Nightmare's Thirst (M19) 111
+1 Paladin of Atonement (RIX) 16
+3 Plains (M19) 261
+3 Plains (M19) 262
+2 Plains (M19) 263
+2 Plains (M19) 264
+1 Resplendent Angel (M19) 34
+1 Sanctum Seeker (XLN) 120
+3 Skymarch Bloodletter (M19) 119
+3 Swamp (M19) 269
+3 Swamp (M19) 270
+2 Swamp (M19) 271
+2 Swamp (M19) 272
+1 Vampire Sovereign (M19) 125
+1 Vraska's Contempt (XLN) 129

@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: White Sample Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteSampleDeck_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aegis Angel (M15) 270
+1 Ajani's Pridemate (M15) 2
+1 Divine Favor (M15) 10
+2 Divine Verdict (M15) 271
+1 Inspired Charge (M15) 272
+1 Kinsbaile Skirmisher (M15) 16
+1 Marked by Honor (M15) 17
+1 Midnight Guard (M15) 20
+2 Oreskos Swiftclaw (M15) 22
+1 Paragon of New Dawns (M15) 23
+4 Plains (M15) 250
+3 Plains (M15) 251
+3 Plains (M15) 252
+3 Plains (M15) 253
+1 Serra Angel (M15) 273
+2 Soulmender (M15) 35
+1 Staff of the Sun Magus (M15) 235
+1 Tireless Missionaries (M15) 39

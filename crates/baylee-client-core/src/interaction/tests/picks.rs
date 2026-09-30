@@ -32,6 +32,7 @@ fn the_focus_keys_can_build_a_whole_answer_on_their_own() {
         min: 0,
         max: 2,
         prompt: ChoicePrompt::Generic,
+        total: None,
     });
     // The focus starts on the first option, so this needs no walk.
     assert_eq!(i.aim(), Some(Pick::Object(obj(1))));
@@ -56,6 +57,7 @@ fn a_question_with_no_focus_ticks_nothing() {
         player: me(),
         taken: 0,
         next_is_free: true,
+        can_take: true,
     });
     assert_eq!(i.aim(), None);
     assert_eq!(i.toggle_focused(), SelectionOutcome::Rejected);

@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Spiraling Doom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpiralingDoom_DKA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: DKA
+# released: 2012-02-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acidic Slime (M12) 161
+2 Birthing Pod (NPH) 104
+1 Bloodgift Demon (ISD) 89
+1 Brutalizer Exarch (NPH) 105
+2 Diabolic Tutor (M12) 92
+3 Doom Blade (M12) 95
+2 Evolving Wilds (DKA) 155
+5 Forest (ISD) 262
+5 Forest (ISD) 263
+4 Forest (ISD) 264
+1 Grim Backwoods (DKA) 156
+1 Hex Parasite (NPH) 137
+1 Morkrut Banshee (ISD) 110
+1 Mortarpod (MBS) 115
+1 Myr Battlesphere (SOM) 180
+1 Perilous Myr (SOM) 192
+1 Phyrexian Rager (MBS) 51
+3 Skinrender (SOM) 78
+1 Solemn Simulacrum (M12) 217
+1 Stingerfling Spider (M12) 197
+4 Strangleroot Geist (DKA) 127
+3 Swamp (ISD) 256
+3 Swamp (ISD) 257
+2 Swamp (ISD) 258
+1 Viridian Corrupter (MBS) 94
+4 Viridian Emissary (MBS) 95
+1 Wakedancer (DKA) 79
+4 Young Wolf (DKA) 134
+SB: 1 Acid Web Spider (SOM) 108
+SB: 3 Autumn's Veil (M12) 164
+SB: 1 Beast Within (NPH) 103
+SB: 1 Despise (NPH) 56
+SB: 1 Dismember (NPH) 57
+SB: 4 Distress (M12) 94
+SB: 1 Entomber Exarch (NPH) 59
+SB: 1 Gravedigger (M12) 99
+SB: 1 Myr Sire (MBS) 116
+SB: 1 Wakedancer (DKA) 79

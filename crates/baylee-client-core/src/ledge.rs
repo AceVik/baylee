@@ -331,6 +331,7 @@ mod tests {
                 player: me,
                 taken: 0,
                 next_is_free: true,
+                can_take: true,
             },
             Pending::ChooseAttackers {
                 player: me,
@@ -348,6 +349,7 @@ mod tests {
                 }],
                 capacity: Vec::new(),
                 obeying: Vec::new(),
+                bounds: Vec::new(),
             },
             yes_no(YesNoPrompt::Kicker),
             yes_no(YesNoPrompt::MayDo),

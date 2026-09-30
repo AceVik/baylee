@@ -335,6 +335,7 @@ fn the_footer_offers_only_what_the_question_allows() {
                 min,
                 max: 3,
                 prompt: ChoicePrompt::SearchLibrary,
+                total: None,
             },
             PlayerId::new(0),
         );
@@ -491,6 +492,7 @@ fn the_veil_rises_while_the_question_stands_and_falls_when_it_is_answered() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::SearchLibrary,
+            total: None,
         },
         PlayerId::new(0),
     );

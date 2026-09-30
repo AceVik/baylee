@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Carnival of Blood
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CarnivalOfBlood_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ISD
+# released: 2011-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blood Seeker (M12) 81
+3 Bloodcrazed Neonate (ISD) 131
+1 Child of Night (M12) 87
+1 Cobbled Wings (ISD) 219
+2 Crossway Vampire (ISD) 135
+1 Curse of Stalked Prey (ISD) 136
+1 Diabolic Tutor (M12) 92
+1 Falkenrath Marauders (ISD) 141 *F*
+2 Falkenrath Noble (ISD) 100
+1 Fireball (M12) 131
+1 Gruesome Deformity (ISD) 103
+2 Markov Patrician (ISD) 107
+2 Mask of Avacyn (ISD) 229
+4 Mountain (ISD) 259
+4 Mountain (ISD) 260
+4 Mountain (ISD) 261
+1 Night Revelers (ISD) 153
+1 Night Terrors (ISD) 111
+2 Rakish Heir (ISD) 158
+1 Sengir Vampire (M12) 107
+2 Stromkirk Patrol (ISD) 118
+4 Swamp (ISD) 256
+4 Swamp (ISD) 257
+4 Swamp (ISD) 258
+1 Tectonic Rift (M12) 157
+1 Traitorous Blood (ISD) 166
+1 Traveler's Amulet (ISD) 234
+2 Tribute to Hunger (ISD) 119
+2 Vampire Interloper (ISD) 123
+2 Vampiric Fury (ISD) 167

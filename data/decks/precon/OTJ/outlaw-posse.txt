@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Outlaw Posse
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OutlawPosse_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Boneyard Desecrator (OTJ) 81
+2 Cerebral Confiscation (MKM) 81
+1 Charming Scoundrel (WOE) 124
+3 Deadeye Duelist (OTJ) 119
+2 Greedy Freebooter (LCI) 109
+1 Hellspur Brute (OTJ) 127
+1 Hellspur Posse Boss (OTJ) 128
+1 Kaervek, the Punisher (OTJ) 92
+1 Laughing Jasper Flint (OTJ) 215
+1 Magda, the Hoardmaster (OTJ) 133
+10 Mountain (ONE) 275
+2 Murder (MKM) 95
+2 Nezumi Linkbreaker (OTJ) 96
+2 Outlaws' Fury (OTJ) 136
+2 Plundering Pirate (LCI) 160
+2 Rakish Crew (OTJ) 99
+1 Raucous Theater (MKM) 266
+1 Scorching Shot (OTJ) 145
+2 Shoot the Sheriff (OTJ) 106
+14 Swamp (MOM) 279
+1 Tinybones, the Pickpocket (OTJ) 109
+2 Trick Shot (OTJ) 151
+1 Vadmir, New Blood (OTJ) 113
+2 Vault Plunderer (OTJ) 114
+1 Vial Smasher, Gleeful Grenadier (OTJ) 235

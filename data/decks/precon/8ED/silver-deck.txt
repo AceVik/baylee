@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Silver Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SilverDeck_8ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 8ED
+# released: 2003-07-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Coral Eel (8ED) 70
+1 Eager Cadet (8ED) S1
+1 Fugitive Wizard (8ED) 81
+3 Giant Octopus (8ED) S3
+4 Glory Seeker (8ED) 21
+1 Index (8ED) 84
+2 Island (8ED) 335
+2 Island (8ED) 336
+2 Island (8ED) 337
+1 Island (8ED) 338
+2 Plains (8ED) 331
+2 Plains (8ED) 332
+2 Plains (8ED) 333
+2 Plains (8ED) 334
+2 Sacred Nectar (8ED) 40
+2 Vengeance (8ED) S2
+2 Vizzerdrix (8ED) S5

@@ -335,6 +335,7 @@ pub(super) fn ui(
             &fonts,
             metrics,
             scrolled_to.get(List::Settings),
+            &state.seat,
         );
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
         return;

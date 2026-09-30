@@ -9,7 +9,8 @@ pub const KIND_PRECONSTRUCTED: &str = "preconstructed";
 /// The kind this project publishes to be played with.
 pub const KIND_HOUSE: &str = "house";
 
-/// Every kind there is, which is also the order a listing shows them in.
+/// Every kind there is. The shared listing shows `house` before
+/// `preconstructed` ([`crate::precons::shared_decks`]), not this order.
 pub const KINDS: [&str; 3] = [KIND_ACCOUNT, KIND_PRECONSTRUCTED, KIND_HOUSE];
 
 /// Whether a string is a deck kind.
@@ -85,6 +86,36 @@ pub struct Model {
     pub playmat: Option<String>,
     /// Last saved.
     pub updated_at: TimeDateTimeWithTimeZone,
+    /// The list a sync wrote this deck from (`E02/sun-empire`), and the key
+    /// it finds the deck by again. `None` for every deck no sync owns: a
+    /// player's, and the house decks a migration seeded
+    /// ([`crate::precons`]).
+    pub source: Option<String>,
+    /// Whether the shared listing offers the deck. `false` is a deck that was
+    /// withdrawn — a precon that stopped being playable — and is kept, not
+    /// deleted, because a player's copy still names it. Always `true` for a
+    /// player's own deck; the database holds that with a `CHECK`.
+    pub offered: bool,
+}
+
+impl Model {
+    /// Whether this deck holds these cards.
+    ///
+    /// What counts as a *change* for the history, and it is deliberately only
+    /// the cards: renaming a deck, giving it a description or picking a new
+    /// sleeve is not an edit anybody wants to roll back, and a version row per
+    /// rename would bury the ones that matter. The owner asked for the history
+    /// of the **cards**. Here once, because a player's save and a precon sync
+    /// both write that history and must agree on what a new version is.
+    #[must_use]
+    pub fn same_cards(
+        &self,
+        cards: &[String],
+        sideboard: &[String],
+        commanders: &[String],
+    ) -> bool {
+        self.cards == cards && self.sideboard == sideboard && self.commanders == commanders
+    }
 }
 
 /// The owning account.

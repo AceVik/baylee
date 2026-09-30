@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Call of the Kor - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CallOfTheKorAdvancedDeck_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Armageddon (5ED) 7
+4 Crusade (5ED) 22
+3 Disenchant (TMP) 16
+2 Empyrial Armor (WTH) 13
+3 Infantry Veteran (VIS) 9
+2 Knight of Dawn (TMP) 26
+4 Order of the White Shield (5ED) 49
+5 Plains (TMP) 331
+5 Plains (TMP) 332
+4 Plains (TMP) 333
+4 Plains (TMP) 334
+2 Shaman en-Kor (STH) 15
+3 Soltari Champion (STH) 18
+4 Soltari Priest (TMP) 46
+4 Tithe (VIS) 23
+4 Warrior en-Kor (STH) 23
+4 White Knight (5ED) 68
+SB: 1 Angelic Renewal (WTH) 4
+SB: 1 Armageddon (5ED) 7
+SB: 1 Aura of Silence (WTH) 7
+SB: 1 Disenchant (TMP) 16
+SB: 1 Light of Day (TMP) 27
+SB: 2 Pacifism (TMP) 34
+SB: 2 Soltari Monk (TMP) 45
+SB: 1 Tariff (WTH) 28
+SB: 3 Ward of Lights (MIR) 47
+SB: 2 Warmth (TMP) 51

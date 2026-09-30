@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Mono-Green Stompy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MonoGreenStompy_Q05.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q05
+# released: 2021-04-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+19 Forest (KHM) 398
+1 Garruk, Unleashed (M21) 183
+2 Gemrazer (IKO) 155
+3 Kazandu Mammoth // Kazandu Valley (ZNR) 189
+4 Lovestruck Beast // Heart's Desire (ELD) 165
+3 Primal Might (M21) 197
+4 Ram Through (IKO) 170
+2 Scavenging Ooze (M21) 204
+2 Snakeskin Veil (KHM) 194
+2 Stonecoil Serpent (ELD) 235
+3 Swarm Shambler (ZNR) 207
+2 Syr Faren, the Hengehammer (ELD) 177
+3 Thrashing Brontodon (M21) 209
+2 Turntimber Symbiosis // Turntimber, Serpentine Wood (ZNR) 215
+2 Wildborn Preserver (ELD) 182
+4 Wildwood Tracker (ELD) 183
+2 Yorvo, Lord of Garenbrig (ELD) 185
+SB: 3 Chainweb Aracnir (THB) 167
+SB: 2 Khalni Ambush // Khalni Territory (ZNR) 192
+SB: 3 Oakhame Adversary (ELD) 167
+SB: 2 Return to Nature (M21) 200
+SB: 2 Run Afoul (M21) 201
+SB: 2 Snakeskin Veil (KHM) 194
+SB: 1 Thrashing Brontodon (M21) 209

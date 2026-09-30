@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Mind Swarm
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MindSwarm_DST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DST
+# released: 2004-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bonesplitter (MRD) 146
+3 Chittering Rats (DST) 39
+1 Clockwork Vorrac (MRD) 156
+3 Dross Golem (DST) 119
+2 Emissary of Despair (DST) 42
+1 Essence Drain (DST) 43
+2 Geth's Grimoire (DST) 123
+3 Grimclaw Bats (DST) 45
+4 Leaden Myr (MRD) 191
+1 Leonin Bola (DST) 127
+1 Leonin Scimitar (MRD) 193
+1 Mephitic Ooze (DST) 47
+2 Murderous Spoils (DST) 48
+1 Nim Replica (MRD) 220
+1 Pulse of the Dross (DST) 50
+2 Relic Bane (MRD) 76
+1 Scavenging Scarab (DST) 51
+1 Skeleton Shard (MRD) 242
+1 Slith Bloodletter (MRD) 77
+2 Specter's Shroud (DST) 142
+5 Swamp (MRD) 295
+4 Swamp (MRD) 296
+4 Swamp (MRD) 297
+4 Swamp (MRD) 298
+2 Terror (MRD) 79
+4 Vault of Whispers (MRD) 286
+3 Wrench Mind (MRD) 84

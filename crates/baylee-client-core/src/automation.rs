@@ -907,6 +907,7 @@ mod tests {
                         attacker: PlayerId::new(1),
                         capacity: Vec::new(),
                         obeying: Vec::new(),
+                        bounds: Vec::new(),
                     },
                     at(true, false, Phase::Combat, Step::DeclareBlockers),
                     &orders,
@@ -1076,6 +1077,7 @@ mod tests {
                     attacker: PlayerId::new(1),
                     capacity: Vec::new(),
                     obeying: Vec::new(),
+                    bounds: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1275,6 +1277,7 @@ mod tests {
                     attacker: PlayerId::new(1),
                     capacity: Vec::new(),
                     obeying: Vec::new(),
+                    bounds: Vec::new(),
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1296,6 +1299,7 @@ mod tests {
                     attacker: PlayerId::new(1),
                     capacity: Vec::new(),
                     obeying: Vec::new(),
+                    bounds: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1332,6 +1336,7 @@ mod tests {
                     attacker: PlayerId::new(1),
                     capacity: Vec::new(),
                     obeying: vec![(blocker, lure)],
+                    bounds: Vec::new(),
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1671,6 +1676,7 @@ mod tests {
             attacker: PlayerId::new(1),
             capacity: Vec::new(),
             obeying: Vec::new(),
+            bounds: Vec::new(),
         };
         assert_eq!(
             auto_answer(

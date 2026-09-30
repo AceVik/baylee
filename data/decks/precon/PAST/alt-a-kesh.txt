@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Alt-A-Kesh
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AltAKesh_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestral Recall (2ED) 48
+2 Birds of Paradise (3ED) 187
+2 Bog Imp (DRK) 41
+2 Cockatrice (3ED) 189
+2 Energy Flux (ATQ) 9
+3 Forest (3ED) 304
+2 Forest (3ED) 305
+2 Forest (3ED) 306
+4 Gem Bazaar (PAST) 12
+3 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+2 Junún Efreet (ARN) 28
+2 Lord of the Pit (3ED) 116
+2 Mahamoti Djinn (3ED) 66
+2 Phantasmal Forces (3ED) 69
+2 Phantom Monster (3ED) 71
+2 Scryb Sprites (3ED) 215
+2 Stream of Life (3ED) 217
+3 Swamp (3ED) 298
+2 Swamp (3ED) 299
+2 Swamp (3ED) 300
+1 Time Walk (2ED) 84
+1 Timetwister (2ED) 85
+2 Untamed Wilds (LEG) 210
+2 Vampire Bats (LEG) 125
+2 Wall of Air (3ED) 90
+2 Wall of Bone (3ED) 134
+2 Wall of Ice (3ED) 225
+2 Zephyr Falcon (LEG) 86

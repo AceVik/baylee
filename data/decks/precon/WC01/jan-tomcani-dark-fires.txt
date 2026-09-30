@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Jan Tomcani - Dark Fires
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JanTomcaniDarkFires_WC01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC01
+# released: 2001-08-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Birds of Paradise (WC01) jt231
+4 Blastoderm (WC01) jt102
+2 City of Brass (WC01) jt327
+4 Fire // Ice (WC01) jt128
+4 Fires of Yavimaya (WC01) jt246
+2 Flametongue Kavu (WC01) jt60
+1 Forest (WC01) jt328
+1 Forest (WC01) jt329
+1 Forest (WC01) jt347
+1 Forest (WC01) jt347a
+1 Forest (WC01) jt348
+1 Forest (WC01) jt348a
+1 Forest (WC01) jt349
+1 Forest (WC01) jt349a
+3 Karplusan Forest (WC01) jt336
+2 Kavu Chameleon (WC01) jt191
+4 Llanowar Elves (WC01) jt253
+2 Llanowar Wastes (WC01) jt141
+1 Mountain (WC01) jt337
+1 Mountain (WC01) jt343
+1 Mountain (WC01) jt343a
+4 Rishadan Port (WC01) jt324
+4 Saproling Burst (WC01) jt113
+2 Spiritmonger (WC01) jt121
+2 Sulfurous Springs (WC01) jt345
+4 Thornscape Battlemage (WC01) jt94
+2 Urza's Rage (WC01) jt178
+SB: 3 Blood Oath (WC01) jt177sb
+SB: 3 Boil (WC01) jt177sba
+SB: 2 Kavu Chameleon (WC01) jt191sb
+SB: 2 Obliterate (WC01) jt156sb
+SB: 2 Tangle (WC01) jt213sb
+SB: 3 Thunderscape Battlemage (WC01) jt75sb

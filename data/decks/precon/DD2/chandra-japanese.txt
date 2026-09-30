@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Chandra Japanese
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraJapanese_DD2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DD2
+# released: 2008-11-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Chandra Nalaar (DD2) 34★ [ja] *F*
+1 Chartooth Cougar (DD2) 47
+1 Cone of Flame (DD2) 54
+1 Demonfire (DD2) 57
+2 Fireball (DD2) 56
+2 Fireblast (DD2) 55
+2 Firebolt (DD2) 49
+1 Fireslinger (DD2) 36
+1 Flame Javelin (DD2) 53
+2 Flamekin Brawler (DD2) 35
+1 Flametongue Kavu (DD2) 42
+1 Flamewave Invoker (DD2) 40
+2 Furnace Whelp (DD2) 43
+1 Hostility (DD2) 48
+2 Incinerate (DD2) 51
+1 Ingot Chewer (DD2) 45
+2 Inner-Flame Acolyte (DD2) 41
+1 Keldon Megaliths (DD2) 58
+1 Magma Jet (DD2) 52
+6 Mountain (DD2) 59
+6 Mountain (DD2) 60
+6 Mountain (DD2) 61
+6 Mountain (DD2) 62
+2 Oxidda Golem (DD2) 46
+1 Pyre Charger (DD2) 38
+1 Rakdos Pit Dragon (DD2) 44
+2 Seal of Fire (DD2) 50
+2 Slith Firewalker (DD2) 39
+2 Soulbright Flamekin (DD2) 37

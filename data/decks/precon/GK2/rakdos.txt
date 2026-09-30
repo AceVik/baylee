@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Rakdos
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Rakdos_GK2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK2
+# released: 2019-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Auger Spree (GK2) 60
+1 Avatar of Discord (GK2) 61
+1 Blade Juggler (RNA) 63
+1 Cackling Flames (GK2) 55
+1 Carnival // Carnage (RNA) 222
+1 Carnival Hellsteed (GK2) 62
+1 Crypt Champion (GK2) 53
+1 Dead Revels (RNA) 71
+1 Demonfire (GK2) 56
+1 Dreadbore (GK2) 63
+1 Jagged Poppet (GK2) 64
+1 Lyzolda, the Blood Witch (GK2) 65
+1 Master of Cruelties (GK2) 66
+8 Mountain (GK2) 79
+2 Rakdos Cackler (GK2) 67
+4 Rakdos Carnarium (GK2) 77
+1 Rakdos Charm (GK2) 68
+1 Rakdos Firewheeler (RNA) 197
+2 Rakdos Guildgate (RNA) 255
+2 Rakdos Guildgate (RNA) 256
+2 Rakdos Guildmage (GK2) 69
+1 Rakdos Keyrune (GK2) 75
+1 Rakdos Pit Dragon (GK2) 57
+1 Rakdos Shred-Freak (GK2) 70
+2 Rakdos Signet (GK2) 76
+1 Rakdos the Defiler (GK2) 71
+1 Rakdos's Return (GK2) 72
+1 Rakdos, Lord of Riots (GK2) 52 *F*
+1 Riot Spikes (GK2) 73
+1 Rix Maadi Reveler (RNA) 109
+1 Skewer the Critics (RNA) 115
+1 Spawn of Mayhem (RNA) 85
+1 Splatter Thug (GK2) 58
+8 Swamp (GK2) 78
+1 Theater of Horrors (RNA) 213
+1 Thrill-Kill Assassin (GK2) 54
+1 Utvara Hellkite (GK2) 59
+1 Wrecking Ball (GK2) 74

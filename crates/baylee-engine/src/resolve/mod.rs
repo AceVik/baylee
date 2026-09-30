@@ -13,7 +13,7 @@ use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
 use crate::mana_pay;
-use crate::object::{Characteristics, GameObject, ObjectKind, Status};
+use crate::object::{Characteristics, GameObject, ObjectKind};
 use crate::sba;
 use crate::state::GameState;
 use crate::zone::{ZoneLocation, ZonePosition};
@@ -190,8 +190,17 @@ pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
 /// (CR 704.5d), and an effect that modifies characteristics fixes the
 /// objects it affects as it begins (CR 611.2c): none. So it registers
 /// nothing, as an ability that said "target" and got none does (#236).
+///
+/// Nor does it register against a phased-out permanent: a continuous effect
+/// from a resolution leaves one out of its set, and "this includes
+/// continuous effects that reference the permanent specifically"
+/// (CR 702.26e).
 pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<ObjectId> {
-    this_object(res).filter(|&id| state.object(id).is_some())
+    this_object(res).filter(|&id| {
+        state
+            .object(id)
+            .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT))
+    })
 }
 
 /// Whether `you` still control the permanent this resolution's ability came
@@ -786,7 +795,7 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
     }
     let least = if optional { 0 } else { want };
     let reveal = reveals(filter, finds);
-    if let Some(agent) = takeover {
+    let player = if let Some(agent) = takeover {
         res.awaiting = Some(AwaitingOp::SearchTakeover {
             agent,
             finds,
@@ -794,27 +803,24 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
             library,
             split,
         });
-        return Some(Pending::ChooseCards {
-            player: agent,
-            options,
-            min: least,
-            max: want,
-            prompt: ChoicePrompt::SearchLibrary,
+        agent
+    } else {
+        res.awaiting = Some(AwaitingOp::SearchLibrary {
+            finds,
+            reveal,
+            library,
+            receiver: searcher,
+            split,
         });
-    }
-    res.awaiting = Some(AwaitingOp::SearchLibrary {
-        finds,
-        reveal,
-        library,
-        receiver: searcher,
-        split,
-    });
+        searcher
+    };
     Some(Pending::ChooseCards {
-        player: searcher,
+        player,
         options,
         min: least,
         max: want,
         prompt: ChoicePrompt::SearchLibrary,
+        total: None,
     })
 }
 
@@ -1005,17 +1011,17 @@ pub(super) fn bound_now(
         );
         return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
+    // Not a phased-out permanent (CR 702.26e): the set is fixed now, so
+    // one that phases in later stays out of it.
     state
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
+        .battlefield_seen()
         .filter(|id| {
-            state.object(**id).is_some_and(|o| {
+            state.object(*id).is_some_and(|o| {
                 only.is_none_or(|seats| seats.contains(&o.controller))
                     && eval::matches(filter, state, o, you, this)
             })
         })
-        .map(|id| crate::effects::EffectFilter::object(state, *id))
+        .map(|id| crate::effects::EffectFilter::object(state, id))
         .collect()
 }
 
@@ -1357,6 +1363,7 @@ fn one_per_type(
             min: 0,
             max: 1,
             prompt: ChoicePrompt::OneOfType { card_type },
+            total: None,
         });
     }
     let mut rest: Vec<ObjectId> = revealed
@@ -1870,6 +1877,7 @@ fn ask_separator(res: &mut Resolution, opponent: PlayerId, cards: Vec<ObjectId>)
         min: 0,
         max: n,
         prompt: ChoicePrompt::FirstPile,
+        total: None,
     }
 }
 
@@ -1925,6 +1933,7 @@ fn ask_splitter(
         min: count,
         max: count,
         prompt: ChoicePrompt::PutIntoGraveyard,
+        total: None,
     }
 }
 
@@ -2253,6 +2262,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::PutOnBottom,
+                    total: None,
                 });
             }
             // One card left is the bottom card: the sentence puts one there
@@ -2450,6 +2460,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: n,
                     max: n,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2468,6 +2479,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 0,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2496,6 +2508,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2544,6 +2557,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     min: 1,
                     max: 1,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
         }
@@ -2716,6 +2730,7 @@ fn put_back_question(
         min: u8::try_from(must_go_back).unwrap_or(n),
         max: n,
         prompt: ChoicePrompt::PutBackOnTop,
+        total: None,
     })
 }
 
@@ -2768,6 +2783,7 @@ fn copy_target_ability(
         copy.controller = you;
         copy.base_controller = you;
         copy.timestamp = timestamp;
+        copy.controlled_since = timestamp;
         copy.cache = crate::object::CachedChar::default();
         copy
     });
@@ -2831,6 +2847,7 @@ fn copy_spell(
     let id = state.arena.insert_with(|oid| {
         let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
         obj.timestamp = ts;
+        obj.controlled_since = ts;
         obj
     });
     {
@@ -3065,6 +3082,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: n as u8,
                 max: n as u8,
                 prompt: ChoicePrompt::PutBackOnTop,
+                total: None,
             })
         }
         Effect::PutFromHandOntoBattlefield {
@@ -3097,6 +3115,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: u8::from(!optional),
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::PlayerMayPayOr {
@@ -3255,6 +3274,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: 1,
                 prompt: cost_wizard::prompt(cost),
+                total: None,
             })
         }
         Effect::ReorderTopLibrary { .. } | Effect::ReorderTopLibraryOf { .. } => {
@@ -3332,6 +3352,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::SearchLibrary,
+                total: None,
             })
         }
         Effect::AddMana { .. } => mana::exec(state, res, op),
@@ -3733,17 +3754,14 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         Effect::ControlRotation => control::ask(state, res),
         Effect::AllCreaturesToOwner => {
             let creatures: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
+                .battlefield_seen()
                 .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
+                    state.object(*id).is_some_and(|o| {
                         o.characteristics()
                             .types
                             .contains(baylee_core::types::TypeSet::CREATURE)
                     })
                 })
-                .copied()
                 .collect();
             let changes: Vec<(ObjectId, PlayerId)> = creatures
                 .into_iter()
@@ -3846,8 +3864,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // holds when you control one of them (Padeem).
             let mut greatest = 0u32;
             let mut holds = false;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                let Some(obj) = state.object(*id) else {
+            for id in state.battlefield_seen() {
+                let Some(obj) = state.object(id) else {
                     continue;
                 };
                 if !eval::matches(filter, state, obj, you, res.source) {
@@ -4295,6 +4313,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::Cascade => {
@@ -4383,6 +4402,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::FromGraveyard,
+                total: None,
             })
         }
         Effect::DiscardUpToThenDraw { count } => {
@@ -4398,6 +4418,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: most,
                 prompt: ChoicePrompt::Discard,
+                total: None,
             })
         }
         Effect::LookAtTopMayPut {
@@ -4435,6 +4456,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
                 },
+                total: None,
             })
         }
         Effect::RevealTopOnePerType { count } => {
@@ -4492,6 +4514,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: pick,
                 max: pick,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::LookAtTopKeepBottomPlay { count } => {
@@ -4515,6 +4538,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::PutIntoHand,
+                total: None,
             })
         }
         Effect::PayLifeOrPutBackDrawn { count, life } => {
@@ -4541,6 +4565,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     min: count,
                     max: count,
                     prompt: ChoicePrompt::Generic,
+                    total: None,
                 });
             }
             put_back_question(state, res, drawn, life)
@@ -4573,6 +4598,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::PlayFromExile,
+                total: None,
             })
         }
         Effect::WishToHand { filter } => {
@@ -4597,6 +4623,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 min: 0,
                 max: 1,
                 prompt: ChoicePrompt::Wish,
+                total: None,
             })
         }
         // The new targets are chosen at resolution (CR 115.7).

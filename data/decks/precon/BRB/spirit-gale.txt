@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Spirit Gale
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpiritGale_BRB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BRB
+# released: 1999-11-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (BRB) 3
+1 Azure Drake (BRB) 8
+1 Blinking Spirit (BRB) 9
+1 Control Magic (BRB) 14
+1 Counterspell (BRB) 15
+1 Curfew (BRB) 17
+1 Disenchant (BRB) 20
+1 Disruptive Student (BRB) 21
+1 Flood (BRB) 28
+1 Healing Salve (BRB) 31
+1 Infantry Veteran (BRB) 34
+2 Island (BRB) 110
+1 Island (BRB) 111
+2 Island (BRB) 112
+2 Island (BRB) 113
+2 Island (BRB) 114
+1 Man-o'-War (BRB) 40
+1 Mana Leak (BRB) 41
+1 Manta Riders (BRB) 43
+1 Opportunity (BRB) 47
+2 Plains (BRB) 126
+2 Plains (BRB) 130
+2 Plains (BRB) 131
+1 Prodigal Sorcerer (BRB) 54
+1 Ray of Command (BRB) 56
+1 Remote Isle (BRB) 58
+1 Songstitcher (BRB) 75
+1 Soul Warden (BRB) 76
+1 Swords to Plowshares (BRB) 84
+1 Thalakos Lowlands (BRB) 88
+1 Wind Drake (BRB) 98
+1 Windfall (BRB) 99
+1 Wrath of God (BRB) 100

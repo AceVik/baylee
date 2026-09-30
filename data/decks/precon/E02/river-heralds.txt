@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: River Heralds
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RiverHeralds_E02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: E02
+# released: 2017-11-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aether Gale (E02) 7
+2 Air Elemental (XLN) 45
+1 Concentrate (E02) 9
+2 Deeproot Warrior (XLN) 186
+3 Forest (XLN) 276
+3 Forest (XLN) 277
+3 Forest (XLN) 278
+3 Forest (XLN) 279
+1 Giant Growth (E02) 32
+3 Island (XLN) 264
+3 Island (XLN) 265
+3 Island (XLN) 266
+3 Island (XLN) 267
+2 Jungle Barrier (E02) 38
+2 Kumena's Speaker (XLN) 196
+1 Merfolk Sovereign (E02) 10
+2 Prey Upon (E02) 34
+2 Prismatic Lens (E02) 43
+2 Rancor (E02) 35
+1 River Sneak (XLN) 70
+2 Shaper Apprentice (XLN) 75
+2 Shapers of Nature (XLN) 228
+1 Soul of the Harvest (E02) 36
+1 Tempest Caller (XLN) 86
+1 Threads of Disloyalty (E02) 11
+1 Time Warp (E02) 12
+2 Unknown Shores (XLN) 259
+2 Unsummon (E02) 13
+2 Vineshaper Mystic (XLN) 214
+1 Vow of Flight (E02) 14
+1 Waker of the Wilds (XLN) 215
+1 Watertrap Weaver (XLN) 87

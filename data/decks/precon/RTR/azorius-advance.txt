@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Azorius Advance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAdvance_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: RTR
+# released: 2012-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel's Mercy (M13) 3
+1 Archon of the Triumvirate (RTR) 142 *F*
+2 Arrest (RTR) 3
+2 Azorius Arrester (RTR) 5
+1 Azorius Guildgate (RTR) 237
+1 Azorius Justiciar (RTR) 6
+2 Azorius Keyrune (RTR) 225
+2 Battleflight Eagle (M13) 7
+2 Bazaar Krovod (RTR) 7
+2 Concordia Pegasus (RTR) 8
+1 Dramatic Rescue (RTR) 156
+1 Inaction Injunction (RTR) 41
+3 Island (RTR) 255
+3 Island (RTR) 256
+2 Island (RTR) 257
+2 Island (RTR) 258
+2 Island (RTR) 259
+1 Lyev Skyknight (RTR) 179
+1 New Prahv Guildmage (RTR) 181
+3 Plains (RTR) 250
+3 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Righteous Authority (RTR) 189
+2 Show of Valor (M13) 34
+3 Silvercoat Lion (M13) 35
+1 Skyline Predator (RTR) 50
+1 Soulsworn Spirit (RTR) 51
+2 Stealer of Secrets (RTR) 53
+1 Swift Justice (RTR) 26
+1 Tablet of the Guilds (RTR) 235
+2 Trained Caracal (RTR) 27
+2 Vassal Soul (RTR) 224

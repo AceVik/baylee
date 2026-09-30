@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Radiant's Revenge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RadiantSRevenge_ULG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ULG
+# released: 1999-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Catalog (USG) 64
+1 Disenchant (USG) 12
+2 Dragon Blood (USG) 293
+1 Drifting Meadow (USG) 320
+1 Erase (ULG) 7
+1 Fog Bank (USG) 75
+3 Island (USG) 335
+3 Island (USG) 336
+3 Island (USG) 337
+3 Island (USG) 338
+2 Miscalculation (ULG) 36
+1 Mobile Fort (USG) 303
+1 Mother of Runes (ULG) 14
+2 Opal Champion (ULG) 16
+2 Opportunity (ULG) 37
+1 Pacifism (USG) 27
+2 Path of Peace (USG) 29
+3 Plains (USG) 331
+3 Plains (USG) 332
+3 Plains (USG) 333
+2 Plains (USG) 334
+1 Power Sink (USG) 89
+1 Radiant's Dragoons (ULG) 21
+3 Radiant's Judgment (ULG) 22
+1 Raven Familiar (ULG) 39
+2 Remote Isle (USG) 324
+1 Ring of Gix (ULG) 131
+2 Sanctum Custodian (USG) 42
+2 Sustainer of the Realm (ULG) 23
+1 Thornwind Faeries (ULG) 44
+2 Ticking Gnomes (ULG) 136
+1 Urza's Blueprints (ULG) 137
+2 Vigilant Drake (ULG) 46

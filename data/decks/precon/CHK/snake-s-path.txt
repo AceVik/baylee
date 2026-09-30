@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Snake's Path
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SnakeSPath_CHK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: CHK
+# released: 2004-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+6 Forest (CHK) 303
+6 Forest (CHK) 304
+6 Forest (CHK) 305
+6 Forest (CHK) 306
+2 Hankyu (CHK) 253
+1 Junkyo Bell (CHK) 258
+3 Kashi-Tribe Reaver (CHK) 220
+2 Kashi-Tribe Warriors (CHK) 221
+1 Lure (CHK) 226
+3 Matsu-Tribe Decoy (CHK) 227
+1 Orochi Eggwatcher // Shidako, Broodmistress (CHK) 233
+1 Orochi Hatchery (CHK) 266
+3 Orochi Leafcaller (CHK) 234
+3 Orochi Ranger (CHK) 235
+4 Orochi Sustainer (CHK) 236
+1 Sachi, Daughter of Seshiro (CHK) 238
+3 Sakura-Tribe Elder (CHK) 239
+1 Sensei's Divining Top (CHK) 268
+2 Serpent Skin (CHK) 240
+1 Sosuke, Son of Seshiro (CHK) 244
+2 Strength of Cedars (CHK) 245
+1 Time of Need (CHK) 247
+1 Wear Away (CHK) 250

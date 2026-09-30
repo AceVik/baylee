@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Enchanter
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Enchanter_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archery Training (UDS) 2
+2 Brilliant Halo (USG) 5
+1 Capashen Standard (UDS) 4
+1 Confiscate (USG) 66
+1 Disenchant (USG) 12
+2 Drifting Meadow (USG) 320
+3 Fledgling Osprey (UDS) 33
+1 Hermetic Study (USG) 78
+1 Horseshoe Crab (USG) 80
+1 Humble (USG) 18
+4 Island (USG) 335
+3 Island (USG) 336
+3 Island (USG) 337
+3 Island (USG) 338
+1 Mask of Law and Grace (UDS) 11
+3 Metathran Elite (UDS) 38
+2 Miscalculation (ULG) 36
+1 Monk Realist (USG) 21
+1 Mother of Runes (ULG) 14
+1 Opportunity (ULG) 37
+2 Plains (USG) 331
+2 Plains (USG) 332
+2 Plains (USG) 333
+1 Plains (USG) 334
+1 Private Research (UDS) 41
+1 Quash (UDS) 42
+1 Radiant's Judgment (ULG) 22
+1 Rayne, Academy Chancellor (UDS) 43
+2 Remote Isle (USG) 324
+1 Sigil of Sleep (UDS) 46
+2 Thieving Magpie (UDS) 49
+2 Thornwind Faeries (ULG) 44
+1 Thran Golem (UDS) 141
+2 Tormented Angel (UDS) 22
+1 Vigilant Drake (ULG) 46
+1 Wall of Glare (UDS) 25
+1 Zephid's Embrace (USG) 114

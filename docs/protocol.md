@@ -3,6 +3,17 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Mana costs as notation (protocol 8, view 43)
+
+Every `ManaCost` on the wire, in a `Pending` (a cast option's price, the
+replicate question) and in a view (`PublicObject.flashback`,
+`PlayerView.owed`), is its notation: `"{2}{U}{U}"`, `""` for no cost. It was
+the engine's own sixteen-slot list, which a replicated cost overflowed; a
+cost now holds any number of symbols, so the list could not carry it.
+Reading refuses text that is no cost (`ManaCost::try_parse`). Protocol 8 and
+view 43 refuse the older shape; deploy the engine, gateway, agent and
+clients together.
+
 ## Ward life payments (protocol 7)
 
 `Pending::YesNo` can carry `PayLife { amount }`. The client displays the
@@ -1230,7 +1241,9 @@ is in that library".
 block, naming the attackers it may block. Evasion is a pairing question,
 so a flat list of "creatures that may block" would be wrong for every
 flier on the table. `CombatCandidates` — the client's own guess at both —
-is gone. No proto change: the taxonomy travels as JSON.
+is gone. No proto change: the taxonomy travels as JSON. What the pairings
+cannot say, how many creatures may block one attacker (menace), is
+`ChooseBlockers.bounds` (§"What a question holds an answer to").
 
 `Pending::ChooseBlockers` also carries, both `#[serde(default)]`:
 
@@ -1955,6 +1968,14 @@ what it came from as `copied_from` plus `copied_version` — the *state* that
 was copied, so it still says what it came from after the original has moved
 on. A copy starts with the generated card back and is dressed like any
 other deck (§"Sleeves and playmats").
+
+**A precon the build no longer plays is withdrawn, not deleted.** The
+`preconstructed` decks are synced from the lists the build plays as the
+gateway starts (`docs/precons.md` §"House decks"). One that leaves those
+lists keeps its row with `offered = false`: `GET /decks/shared` no longer
+lists it, `POST /decks/{id}/copy` answers **410**, and `GET /decks/{id}`
+still reads it, so the copies taken of it still name what they came from.
+It comes back as the same deck when the build plays it again.
 
 **A deck's history is what it no longer holds.** The deck row is the
 present and carries `version`; `deck_version` holds only states that have
@@ -2700,6 +2721,46 @@ neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves. A replicate question
 offers `0..=max`, where `max` is the most payments the caster's mana can
 cover; the copies then ask their new targets as the trigger resolves, with
 the question every copy asks.
+
+### What a question holds an answer to
+
+`apply` refuses an answer only for a reason its question states, and takes
+every answer inside what it states. `Pending::answer_fault(&PlayerAction)`
+returns that reason as an `AnswerFault`, or `None`; the engine runs it
+first and refuses with `IllegalAction(fault.reason())` (`MismatchedAction`
+for an answer of the wrong kind), so a client or an agent that checks an
+answer with it before sending is never refused for it. Only the seat is
+checked before it: a seat the question does not ask gets
+`MismatchedAction` whatever it answered, so a refusal never tells it what
+the question holds (a search's options are cards in a hidden library). Three bounds the
+engine used to hold without saying are fields:
+
+- `ChooseCards.total: Option<CardTotal>`. `CardTotal { of, weights,
+  at_least, at_most }`: `weights[i]` is what `options[i]` counts for, as
+  the engine counts it, and the chosen weights add up to at least
+  `at_least` and at most `at_most` (each inclusive, `None` = no bound).
+  `of` (`Measure::Power`, `Toughness`, `ManaValue`) says what is summed,
+  for a label. Crew N (CR 702.122a) is `of: Power, at_least: Some(N)`
+  over each creature's power; a negative power counts below zero
+  (CR 107.1b), which a client summing the view's powers floored at zero
+  would get wrong. Fault: `TotalTooLow` / `TotalTooHigh`.
+- `ChooseBlockers.bounds: Vec<AttackerBound>`. `AttackerBound { attacker,
+  min_blockers, max_blockers }`: that attacker is blocked by no creature or
+  by `min_blockers..=max_blockers` of them (`u32::MAX` = no most). Menace
+  (CR 702.111b) is `2..=u32::MAX`; an attacker not listed has no bound.
+  Each blocker is named once (CR 509.1a: it blocks one creature). Faults:
+  `TooFewBlockers` / `TooManyBlockers`, `Repeated`.
+- `Mulligan.can_take: bool`. `false` once a further mulligan would leave an
+  opening hand of zero cards (CR 103.5); `MulliganTake` is then refused
+  with `NoFurtherMulligan`.
+
+Each field decodes as `None`, empty and `true` when missing, which is every
+question sent before it, and a reader that does not know a field skips it,
+so neither `PROTOCOL_VERSION` nor `VIEW_VERSION` moves; the fields
+ship with the unreleased protocol 8. What `apply` still
+refuses, and why no field states it (a card not in the seat's own hand, a
+name the pool does not print, another seat's answer), is surveyed in
+`docs/pending-constraints.md`.
 
 ### Dash (`CastModeKind::Dash`)
 

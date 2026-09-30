@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Price Of Glory
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PriceOfGlory_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Accursed Spirit (M15) 85
+2 Ajani's Pridemate (M15) 2
+1 Blood Host (M15) 87
+2 Child of Night (M15) 90
+1 Crippling Blight (M15) 92
+1 Divine Favor (M15) 10
+1 First Response (M15) 12
+1 Geist of the Moors (M15) 13
+1 Kinsbaile Skirmisher (M15) 16
+1 Mass Calcify (M15) 18
+1 Pillar of Light (M15) 24
+3 Plains (M15) 250
+3 Plains (M15) 251
+3 Plains (M15) 252
+3 Plains (M15) 253
+1 Resolute Archangel (M15) 28 *F*
+2 Shadowcloak Vampire (M15) 113
+3 Sign in Blood (M15) 114
+1 Solemn Offering (M15) 33
+3 Soulmender (M15) 35
+1 Staff of the Death Magus (M15) 232
+1 Staff of the Sun Magus (M15) 235
+2 Sungrace Pegasus (M15) 38
+4 Swamp (M15) 258
+3 Swamp (M15) 259
+3 Swamp (M15) 260
+3 Swamp (M15) 261
+1 Tireless Missionaries (M15) 39
+2 Ulcerate (M15) 119
+1 Wall of Essence (M15) 41
+2 Wall of Limbs (M15) 121
+2 Witch's Familiar (M15) 123

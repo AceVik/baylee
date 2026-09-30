@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Gabriel Nassif - Blue-White Anti-Affinity Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GabrielNassifBlueWhiteAntiAffinityControl_WC04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC04
+# released: 2004-09-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Akroma's Vengeance (WC04) gn2
+3 Annul (WC04) gn29
+4 Cloudpost (WC04) gn280
+3 Condescend (WC04) gn27
+4 Decree of Justice (WC04) gn8
+2 Eternal Dragon (WC04) gn12a
+3 Exalted Angel (WC04) gn28
+4 Flooded Strand (WC04) gn316
+3 Island (WC04) gn335
+2 Island (WC04) gn336
+2 Island (WC04) gn337
+4 Mana Leak (WC04) gn89
+3 Plains (WC04) gn331
+2 Plains (WC04) gn332
+2 Plains (WC04) gn333
+3 Rewind (WC04) gn96
+3 Temple of the False God (WC04) gn143
+4 Thirst for Knowledge (WC04) gn53
+3 Wayfarer's Bauble (WC04) gn165
+4 Wrath of God (WC04) gn58
+SB: 3 Pacifism (WC04) gn33sb
+SB: 4 Purge (WC04) gn12sbb
+SB: 2 Relic Barrier (WC04) gn147sb
+SB: 3 Scrabbling Claws (WC04) gn237sb
+SB: 3 Stifle (WC04) gn52sb

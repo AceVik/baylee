@@ -42,6 +42,7 @@ fn blockers(candidates: Vec<BlockOption>) -> Pending {
         blockers: candidates,
         capacity: Vec::new(),
         obeying: Vec::new(),
+        bounds: Vec::new(),
     }
 }
 

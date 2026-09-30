@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Strength in Numbers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StrengthInNumbers_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adeline, Resplendent Cathar (MID) 1
+1 Angelic Observer (SNC) 1
+4 Blossoming Sands (NEO) 265
+2 Botanical Plaza (SNC) 247
+3 Celebrity Fencer (SNC) 7
+2 Citizen's Crowbar (SNC) 8
+3 Civil Servant (SNC) 176
+2 Darling of the Masses (SNC) 181
+5 Forest (SNC) 270
+4 Forest (SNC) 271
+1 Gala Greeters (SNC) 148
+3 Gathering Throng (SNC) 13
+1 Halo Fountain (SNC) 15
+2 Hold for Ransom (SNC) 16
+1 Join the Dance (MID) 229
+2 Luxurious Libation (SNC) 152
+1 Overgrown Farmland (MID) 265
+1 Park Heights Pegasus (SNC) 211
+5 Plains (SNC) 262
+4 Plains (SNC) 263
+2 Refuse to Yield (SNC) 27
+3 Rumor Gatherer (SNC) 29
+2 Take to the Streets (SNC) 158
+1 Torens, Fist of the Angels (VOW) 249
+3 Venom Connoisseur (SNC) 161
+1 Wedding Announcement // Wedding Festivity (VOW) 45

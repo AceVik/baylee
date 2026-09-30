@@ -372,17 +372,14 @@ pub fn defender_options(state: &GameState, player: PlayerId) -> Vec<Defender> {
     let mut options: Vec<Defender> = opponents.iter().copied().map(Defender::Player).collect();
     options.extend(
         state
-            .zones
-            .list(crate::zone::ZoneLocation::Battlefield)
-            .iter()
+            .battlefield_seen()
             .filter(|id| {
-                state.object(**id).is_some_and(|o| {
+                state.object(*id).is_some_and(|o| {
                     opponents.contains(&o.controller)
-                        && !o.status.contains(Status::PHASED_OUT)
                         && o.characteristics().types.contains(TypeSet::PLANESWALKER)
                 })
             })
-            .map(|id| Defender::Planeswalker(*id)),
+            .map(Defender::Planeswalker),
     );
     options
 }
@@ -511,6 +508,10 @@ impl<'a> AttackRules<'a> {
 /// A Vehicle answers this the moment it is crewed and not before, because
 /// the type comes off the *projected* characteristics.
 ///
+/// It reads [`GameObject::controlled_since`], never the object's
+/// timestamp: CR 613.7g gives a permanent a new timestamp as it transforms,
+/// and it has been under its controller's control no less for that.
+///
 /// Measured against the controller's own turn clock, so the answer holds
 /// through an opponent's turn, and strictly, because
 /// [`Player::turn_start_timestamp`] holds the last stamp issued before the
@@ -530,7 +531,7 @@ pub fn summoning_sick(state: &GameState, obj: &GameObject) -> bool {
         .players
         .get(obj.controller.get() as usize)
         .map_or(0, |p| p.turn_start_timestamp);
-    obj.timestamp > began
+    obj.controlled_since > began
 }
 
 /// Whether `b` could block anything at all for `defending`: the half of
@@ -695,7 +696,8 @@ pub fn can_block(
 /// only slower, since [`can_block`] asks the blocker's half again).
 ///
 /// `true` for an attacker without menace, so callers may ask it of every
-/// attacker without asking twice.
+/// attacker without asking twice. The count asked for is the one
+/// [`block_bound`] states, so the offer and the declaration read one number.
 #[must_use]
 pub fn menace_satisfiable(
     state: &GameState,
@@ -703,19 +705,42 @@ pub fn menace_satisfiable(
     attacker: ObjectId,
     candidates: &[ObjectId],
 ) -> bool {
-    let Some(a) = state.object(attacker) else {
+    if state.object(attacker).is_none() {
         return false;
-    };
-    if !a.characteristics().keywords.contains(K::MENACE) {
-        return true;
     }
+    let Some(bound) = block_bound(state, attacker) else {
+        return true;
+    };
+    let need = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
     candidates
         .iter()
         .copied()
         .filter(|blocker| can_block(state, defending, *blocker, attacker))
-        .take(2)
+        .take(need)
         .count()
-        == 2
+        == need
+}
+
+/// How many creatures may block `attacker`, where a rule bounds it: the
+/// restriction on the whole declaration that CR 509.1b checks and no pair
+/// can answer. Menace is two or more (CR 702.111b); an attacker nobody
+/// blocks keeps it.
+///
+/// `None` for an attacker any number of creatures may block. The one
+/// reader of the rule: the offer states what this returns
+/// (`Pending::ChooseBlockers::bounds`), and `Engine::declare_blockers`
+/// holds a declaration to it.
+#[must_use]
+pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choice::AttackerBound> {
+    let a = state.object(attacker)?;
+    a.characteristics()
+        .keywords
+        .contains(K::MENACE)
+        .then_some(crate::choice::AttackerBound {
+            attacker,
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        })
 }
 
 /// The declare-blockers offer for `defending` (CR 509.1a): each creature

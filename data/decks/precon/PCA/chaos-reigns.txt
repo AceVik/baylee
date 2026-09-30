@@ -1,0 +1,61 @@
+# baylee deck export v1
+# name: Chaos Reigns
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChaosReigns_PCA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: PCA
+# released: 2016-11-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arc Trail (PCA) 39
+2 Armillary Sphere (PCA) 108
+1 Beast Within (PCA) 57
+1 Bituminous Blast (PCA) 83
+2 Bloodbraid Elf (PCA) 84
+1 Brutalizer Exarch (PCA) 61
+1 Cultivate (PCA) 62
+1 Deny Reality (PCA) 85
+1 Enigma Sphinx (PCA) 89
+1 Enlisted Wurm (PCA) 90
+1 Erratic Explosion (PCA) 41
+1 Etherium-Horn Sorcerer (PCA) 91
+1 Exotic Orchard (PCA) 117
+2 Fiery Fall (PCA) 43
+1 Forest (PCA) 151
+1 Forest (PCA) 152
+1 Forest (PCA) 153
+1 Forest (PCA) 154
+1 Fractured Powerstone (PCA) 111
+1 Fusion Elemental (PCA) 93
+1 Guard Gomazoa (PCA) 17
+2 Illusory Angel (PCA) 19
+1 Island (PCA) 137
+1 Island (PCA) 138
+1 Island (PCA) 139
+1 Island (PCA) 140
+1 Island (PCA) 141
+1 Kathari Remnant (PCA) 98
+1 Last Stand (PCA) 100
+1 Maelstrom Wanderer (PCA) 101
+1 Mass Mutiny (PCA) 48
+1 Mountain (PCA) 147
+1 Mountain (PCA) 148
+1 Mountain (PCA) 149
+1 Mountain (PCA) 150
+1 Noggle Ransacker (PCA) 102
+1 Ondu Giant (PCA) 71
+1 Peregrine Drake (PCA) 22
+1 Plains (PCA) 132
+1 Plains (PCA) 133
+1 Primal Plasma (PCA) 23
+1 Rivals' Duel (PCA) 51
+2 Rupture Spire (PCA) 124
+2 See Beyond (PCA) 25
+2 Shardless Agent (PCA) 104
+2 Shimmering Grotto (PCA) 126
+1 Sunken Hope (PCA) 26
+1 Swamp (PCA) 142
+1 Swamp (PCA) 143
+1 Terramorphic Expanse (PCA) 129
+1 Vivid Creek (PCA) 131
+1 Whirlpool Warrior (PCA) 29

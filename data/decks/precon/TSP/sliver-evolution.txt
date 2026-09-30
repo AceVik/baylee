@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Sliver Evolution
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SliverEvolution_TSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TSP
+# released: 2006-10-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Avoid Fate (TSB) 73
+3 Bonesplitter Sliver (TSP) 149
+2 Forest (TSP) 298
+2 Forest (TSP) 299
+2 Forest (TSP) 300
+2 Forest (TSP) 301
+1 Fungus Sliver (TSP) 195
+2 Fury Sliver (TSP) 157
+4 Gemhide Sliver (TSP) 196
+1 Gemstone Mine (TSB) 119
+1 Harmonic Sliver (TSP) 240
+2 Might Sliver (TSP) 205
+1 Molder (TSP) 206
+2 Mountain (TSP) 294
+2 Mountain (TSP) 295
+1 Mountain (TSP) 296
+1 Mountain (TSP) 297
+2 Plains (TSP) 282
+2 Plains (TSP) 283
+2 Plains (TSP) 284
+2 Plains (TSP) 285
+1 Pulmonic Sliver (TSP) 36
+3 Quilled Sliver (TSP) 37
+3 Sidewinder Sliver (TSP) 41
+2 Spined Sliver (TSB) 101
+2 Spirit Loop (TSP) 42
+2 Strength in Numbers (TSP) 224
+2 Terramorphic Expanse (TSP) 279
+2 Two-Headed Sliver (TSP) 183
+2 Venser's Sliver (TSP) 267
+3 Watcher Sliver (TSP) 45

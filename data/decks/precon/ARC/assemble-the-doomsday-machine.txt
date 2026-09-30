@@ -1,0 +1,51 @@
+# baylee deck export v1
+# name: Assemble The Doomsday Machine
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AssembleTheDoomsdayMachine_ARC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: ARC
+# released: 2010-06-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aether Spellbomb (ARC) 102
+2 Agony Warp (ARC) 76
+1 Architects of Will (ARC) 77
+1 Azorius Signet (ARC) 103
+1 Batwing Brume (ARC) 80
+1 Dimir Signet (ARC) 104
+1 Dreamstone Hedron (ARC) 105
+1 Duplicant (ARC) 106
+1 Ethersworn Shieldmage (ARC) 84
+1 Everflowing Chalice (ARC) 107
+1 Fieldmist Borderpost (ARC) 85
+4 Island (ARC) 139
+3 Island (ARC) 140
+3 Island (ARC) 141
+1 Juggernaut (ARC) 109
+1 Leonin Abunas (ARC) 1
+1 Lightning Greaves (ARC) 110
+1 Lodestone Golem (ARC) 111
+1 Magister Sphinx (ARC) 89
+1 March of the Machines (ARC) 6
+1 Master Transmuter (ARC) 7
+1 Memnarch (ARC) 112
+1 Metallurgeon (ARC) 2
+1 Mistvein Borderpost (ARC) 90
+1 Obelisk of Esper (ARC) 113
+4 Plains (ARC) 137
+3 Plains (ARC) 138
+2 Sanctum Gargoyle (ARC) 5
+1 Skullcage (ARC) 115
+1 Sorcerer's Strongbox (ARC) 116
+1 Spin into Myth (ARC) 8
+1 Sun Droplet (ARC) 117
+1 Sundering Titan (ARC) 118
+2 Swamp (ARC) 142
+2 Swamp (ARC) 143
+1 Swamp (ARC) 144
+1 Synod Centurion (ARC) 119
+1 Synod Sanctum (ARC) 120
+2 Terramorphic Expanse (ARC) 134
+1 Thunderstaff (ARC) 122
+1 Unbender Tine (ARC) 97
+1 Unmake (ARC) 98

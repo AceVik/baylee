@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Mardu Raiders
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MarduRaiders_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ankle Shanker (PKTK) 164 *F*
+1 Arrow Storm (KTK) 98
+1 Bloodfell Caves (KTK) 229
+2 Borderland Marauder (M15) 131
+1 Bring Low (KTK) 103
+1 Carrion Crow (M15) 88
+1 Crackling Doom (KTK) 171
+1 Crippling Blight (M15) 92
+1 Firehoof Cavalry (KTK) 11
+1 Flesh to Dust (M15) 98
+2 Goblin Roughrider (M15) 146
+1 Gurmag Swiftwing (KTK) 74
+1 Heat Ray (M15) 148
+1 Hordeling Outburst (KTK) 111
+1 Lightning Strike (M15) 155
+1 Mardu Banner (KTK) 224
+1 Mardu Charm (KTK) 186
+1 Mardu Hateblade (KTK) 16
+2 Mardu Hordechief (KTK) 17
+1 Mardu Roughrider (KTK) 187
+2 Mardu Skullhunter (KTK) 78
+2 Mardu Warshrieker (KTK) 117
+2 Mountain (KTK) 262
+2 Mountain (KTK) 263
+2 Mountain (KTK) 264
+2 Mountain (KTK) 265
+1 Necrogen Scudder (M15) 106
+2 Nomad Outpost (KTK) 237
+2 Plains (KTK) 250
+1 Plains (KTK) 251
+1 Plains (KTK) 252
+1 Plains (KTK) 253
+1 Raise the Alarm (M15) 26
+1 Scoured Barrens (KTK) 242
+1 Smite the Monstrous (KTK) 24
+2 Swamp (KTK) 258
+2 Swamp (KTK) 259
+2 Swamp (KTK) 260
+1 Swamp (KTK) 261
+1 Timely Hordemate (KTK) 27
+2 Trumpet Blast (KTK) 124
+1 Valley Dasher (KTK) 125
+2 War-Name Aspirant (KTK) 126
+1 Wind-Scarred Crag (KTK) 247

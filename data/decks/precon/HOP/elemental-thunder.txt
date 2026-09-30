@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Elemental Thunder
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ElementalThunder_HOP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: HOP
+# released: 2009-09-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assault // Battery (HOP) 103
+1 Beast Hunt (HOP) 68
+1 Blaze (HOP) 47
+1 Bogardan Firefiend (HOP) 48
+1 Bogardan Rager (HOP) 49
+1 Branching Bolt (HOP) 83
+1 Briarhorn (HOP) 69
+1 Browbeat (HOP) 50
+1 Cinder Elemental (HOP) 51
+1 Explosive Vegetation (HOP) 70
+1 Fertile Ground (HOP) 71
+1 Fertilid (HOP) 72
+1 Fires of Yavimaya (HOP) 87
+2 Flamekin Harbinger (HOP) 53
+3 Forest (HOP) 165
+2 Forest (HOP) 166
+2 Forest (HOP) 167
+2 Forest (HOP) 168
+1 Forgotten Ancient (HOP) 73
+2 Gruul Turf (HOP) 134
+1 Hull Breach (HOP) 89
+1 Ivy Elemental (HOP) 74
+1 Living Hive (HOP) 75
+1 Mage Slayer (HOP) 91
+1 Mask of Memory (HOP) 119
+3 Mountain (HOP) 156
+2 Mountain (HOP) 157
+2 Mountain (HOP) 158
+2 Mountain (HOP) 159
+1 Pyrotechnics (HOP) 60
+1 Rampant Growth (HOP) 76
+1 Relentless Assault (HOP) 62
+2 Rockslide Elemental (HOP) 63
+1 Rumbling Slum (HOP) 93
+1 Savage Twister (HOP) 94
+1 Search for Tomorrow (HOP) 77
+2 Shivan Oasis (HOP) 137
+1 Silverglade Elemental (HOP) 78
+2 Smokebraider (HOP) 66
+1 Taurean Mauler (HOP) 67
+2 Terramorphic Expanse (HOP) 139
+1 Tornado Elemental (HOP) 79
+1 Tribal Unity (HOP) 80
+1 Verdant Force (HOP) 81

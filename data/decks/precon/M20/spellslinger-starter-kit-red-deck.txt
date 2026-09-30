@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Spellslinger Starter Kit - Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpellslingerStarterKitRedDeck_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Spellslinger Starter Kit
+# set: M20
+# released: 2019-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M20) 124
+2 Daggersail Aeronaut (M20) 133
+1 Drakuseth, Maw of Flames (M20) 136
+3 Engulfing Eruption (M20) 328
+3 Fearless Halberdier (M20) 329
+1 Fire Elemental (M20) 138
+1 Glint-Horn Buccaneer (M20) 141
+4 Goblin Assailant (M20) 330
+2 Goblin Smuggler (M20) 144
+2 Hellkite Whelp (GRN) 106
+2 Hostile Minotaur (M20) 331
+1 Immortal Phoenix (M20) 332
+2 Infuriate (M20) 145
+1 Leyline of Combustion (M20) 148
+7 Mountain (M20) 273
+7 Mountain (M20) 274
+6 Mountain (M20) 275
+6 Mountain (M20) 276
+2 Nimble Birdsticker (M20) 333
+1 Shivan Dragon (M20) 335
+2 Shock (M20) 160
+2 Sure Strike (GRN) 118
+1 Tectonic Rift (M20) 161

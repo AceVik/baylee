@@ -2005,6 +2005,7 @@ mod tests {
                     }],
                     capacity: Vec::new(),
                     obeying: Vec::new(),
+                    bounds: Vec::new(),
                 }
             } else {
                 Pending::ChooseAttackers {
@@ -3714,6 +3715,7 @@ mod tests {
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::SearchLibrary,
+                total: None,
             },
             PlayerId::new(0),
         );

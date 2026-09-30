@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Thought Invoker
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ThoughtInvoker_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Control Magic (3ED) 52
+3 Drain Power (3ED) 56
+2 Energy Flux (ATQ) 9
+4 Ghost Ship (DRK) 28
+4 Giant Tortoise (ARN) 15
+8 Island (3ED) 295
+7 Island (3ED) 296
+7 Island (3ED) 297
+1 Mahamoti Djinn (3ED) 66
+3 Mana Short (3ED) 67
+4 Phantom Monster (3ED) 71
+3 Power Leak (3ED) 73
+3 Power Sink (3ED) 74
+4 Psychic Venom (3ED) 76
+2 Time Elemental (LEG) 81
+3 Twiddle (2ED) 86
+SB: 1 Lifetap (3ED) 63
+SB: 1 Volcanic Eruption (3ED) 89

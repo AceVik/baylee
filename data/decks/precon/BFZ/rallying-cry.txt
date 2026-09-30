@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Rallying Cry
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RallyingCry_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Renewal (BFZ) 18
+1 Angelic Captain (BFZ) 208
+1 Angelic Gift (BFZ) 19
+1 Blighted Gorge (BFZ) 231
+1 Chasm Guide (BFZ) 143
+3 Cliffside Lookout (BFZ) 20
+2 Evolving Wilds (BFZ) 236
+2 Expedition Envoy (BFZ) 24
+2 Firemantle Mage (BFZ) 145
+1 Hero of Goma Fada (PBFZ) 31 *F*
+2 Inspired Charge (BFZ) 32
+2 Kor Bladewhirl (BFZ) 34
+2 Kor Castigator (BFZ) 35
+2 Kor Entanglers (BFZ) 36
+2 Lithomancer's Focus (BFZ) 38
+2 Makindi Patrol (BFZ) 39
+2 Mountain (BFZ) 265a
+2 Mountain (BFZ) 266a
+2 Mountain (BFZ) 267a
+2 Mountain (BFZ) 268a
+2 Mountain (BFZ) 269a
+1 Ondu Champion (BFZ) 149
+2 Outnumber (BFZ) 150
+2 Plains (BFZ) 250a
+2 Plains (BFZ) 251a
+2 Plains (BFZ) 252a
+2 Plains (BFZ) 253a
+2 Plains (BFZ) 254a
+3 Reckless Cohort (BFZ) 152
+1 Resolute Blademaster (BFZ) 218
+2 Sandstone Bridge (BFZ) 243
+2 Shatterskull Recruit (BFZ) 155
+2 Smite the Monstrous (BFZ) 49

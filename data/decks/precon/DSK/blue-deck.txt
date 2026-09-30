@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_DSK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: DSK
+# released: 2024-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Academy Journeymage (PLST) DOM-41
+1 Archaeomancer (PLST) M14-43
+2 Charmed Sleep (PLST) ELD-40
+1 Chart a Course (PLST) XLN-48
+1 Chilling Trap (PLST) ZNR-50
+1 Cloudkin Seer (PLST) M20-54
+1 Cyclone Summoner (PLST) KHM-52
+1 Frost Trickster (PLST) STX-43
+1 Gadwick, the Wizened (PLST) ELD-48
+1 Geistwave (PLST) MID-56
+4 Island (PLST) LCI-396
+4 Island (PLST) MKM-279
+5 Island (PLST) WOE-269
+1 Metropolis Sprite (PLST) M20-66
+1 Quicksilver Fisher (PLST) ONE-287
+1 Serpentine Ambush (PLST) VOW-77
+1 Tetsuko Umezawa, Fugitive (PLST) MUL-12
+2 Vedalken Mesmerist (PLST) GRN-57

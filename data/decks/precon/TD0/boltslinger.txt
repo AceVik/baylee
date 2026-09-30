@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Boltslinger
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Boltslinger_TD0.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: TD0
+# released: 2010-11-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Chain Lightning (TD0) B14
+4 Fireblast (TD0) B15
+4 Flames of the Blood Hand (TD0) B16
+4 Goblin Guide (TD0) B17
+4 Hellspark Elemental (TD0) B18
+4 Keldon Marauders (TD0) B19
+4 Lava Spike (TD0) B20
+4 Lightning Bolt (TD0) B21
+4 Magma Jet (TD0) B22
+5 Mountain (TD0) B38
+5 Mountain (TD0) B39
+5 Mountain (TD0) B40
+5 Mountain (TD0) B41
+1 Price of Progress (TD0) B23
+3 Rift Bolt (TD0) B26
+SB: 3 Price of Progress (TD0) B23
+SB: 4 Pyroblast (TD0) B24
+SB: 4 Pyrostatic Pillar (TD0) B25
+SB: 4 Relic of Progenitus (TD0) B29

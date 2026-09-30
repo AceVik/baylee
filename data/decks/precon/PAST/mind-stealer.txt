@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Mind Stealer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MindStealer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Animate Dead (3ED) 93
+2 Call from the Grave (PAST) 2
+4 Control Magic (3ED) 52
+2 Drain Power (3ED) 56
+2 Fellwar Stone (DRK) 102
+3 Hypnotic Specter (3ED) 115
+4 Island (3ED) 295
+4 Island (3ED) 296
+3 Island (3ED) 297
+2 Junún Efreet (ARN) 28
+1 Mind Twist (3ED) 117
+2 Phantasmal Forces (3ED) 69
+2 Phantom Monster (3ED) 71
+4 Sengir Vampire (3ED) 129
+3 Sindbad (ARN) 21
+2 Siren's Call (3ED) 80
+2 Steal Artifact (3ED) 84
+4 Swamp (3ED) 298
+4 Swamp (3ED) 299
+3 Swamp (3ED) 300
+4 Unholy Strength (3ED) 133
+3 Will-o'-the-Wisp (3ED) 137
+SB: 1 Deathgrip (3ED) 101
+SB: 1 Gloom (3ED) 113
+SB: 1 Lifetap (3ED) 63
+SB: 1 Volcanic Eruption (3ED) 89

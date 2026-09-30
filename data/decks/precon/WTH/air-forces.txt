@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Air Forces
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AirForces_WTH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: WTH
+# released: 2007-12-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abduction (WTH) 30
+1 Alabaster Dragon (WTH) 2
+3 Benalish Knight (WTH) 9
+1 Cloud Djinn (WTH) 36
+1 Debt of Loyalty (WTH) 11
+1 Disrupt (WTH) 37
+1 Dissipate (MIR) 61
+2 Empyrial Armor (WTH) 13
+1 Fog Elemental (WTH) 40
+2 Heavy Ballista (WTH) 17
+2 Impulse (VIS) 34
+4 Island (MIR) 335
+4 Island (MIR) 336
+3 Island (MIR) 337
+3 Island (MIR) 338
+1 Man-o'-War (VIS) 37
+2 Memory Lapse (MIR) 74
+2 Mistmoon Griffin (WTH) 21
+3 Ophidian (WTH) 45
+2 Pacifism (MIR) 32
+3 Plains (MIR) 331
+3 Plains (MIR) 332
+2 Plains (MIR) 333
+2 Plains (MIR) 334
+1 Power Sink (MIR) 83
+1 Sage Owl (WTH) 52
+3 Serrated Biskelion (WTH) 156
+1 Suq'Ata Firewalker (MIR) 94
+3 Vodalian Illusionist (WTH) 58
+1 Waterspout Djinn (VIS) 50

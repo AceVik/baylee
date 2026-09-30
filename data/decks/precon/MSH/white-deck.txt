@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_MSH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: MSH
+# released: 2026-06-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Black Panther, Claws of Bast (MSC) 829
+2 Brave Brawler (MSH) 8
+1 Crowd of True Believers (MSH) 14
+1 Doctor Jane Foster (MSC) 757
+1 Fall to Earth (MSC) 517
+1 Luke Cage, Power Man (MSH) 20
+1 Mockingbird, Bobbi Morse (MSC) 522
+1 Peggy Carter, Secret Agent (MSC) 523
+13 Plains (MSH) 277
+1 Raft Security Officer (MSH) 33
+1 Selfless Police Captain (MSC) 774
+1 Take Up the Shield (MSH) 39
+1 Valkyrior Skyrider (MSC) 525
+1 Vibranium Energy Daggers (MSH) 254
+2 Virtuous Variant (MSC) 758
+1 Web Up (MSH) 41

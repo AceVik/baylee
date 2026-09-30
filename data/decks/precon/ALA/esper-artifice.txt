@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Esper Artifice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EsperArtifice_ALA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ALA
+# released: 2008-10-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arcane Sanctum (ALA) 220
+2 Cloudheath Drake (ALA) 35
+1 Courier's Capsule (ALA) 37
+1 Esper Battlemage (ALA) 40
+2 Esper Panorama (ALA) 223
+2 Etherium Sculptor (ALA) 42
+2 Executioner's Capsule (ALA) 75
+1 Filigree Sages (ALA) 44
+2 Island (ALA) 234
+2 Island (ALA) 235
+2 Island (ALA) 236
+1 Island (ALA) 237
+1 Marble Chalice (ALA) 18
+1 Master of Etherium (ALA) 49 *F*
+1 Obelisk of Esper (ALA) 213
+2 Oblivion Ring (ALA) 20
+1 Onyx Goblet (ALA) 81
+1 Plains (ALA) 230
+1 Plains (ALA) 231
+1 Plains (ALA) 232
+1 Sanctum Gargoyle (ALA) 24
+1 Sharding Sphinx (ALA) 55
+1 Swamp (ALA) 238
+1 Swamp (ALA) 239
+1 Swamp (ALA) 240
+2 Tidehollow Strix (ALA) 203
+1 Tidings (10E) 116
+2 Tower Gargoyle (ALA) 205
+2 Windwright Mage (ALA) 208

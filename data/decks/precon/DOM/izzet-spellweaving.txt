@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Izzet Spellweaving
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IzzetSpellweaving_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abrade (HOU) 83
+2 Bloodwater Entity (HOU) 138
+2 Cancel (XLN) 47
+1 Censor (AKH) 46
+2 Cryptic Serpent (AKH) 48
+1 Desert of the Fervent (HOU) 170
+1 Desert of the Mindful (HOU) 173
+2 Enigma Drake (AKH) 198
+1 Entrancing Melody (XLN) 55
+2 Essence Scatter (AKH) 52
+1 Field of Ruin (XLN) 254
+1 Fiery Cannonade (XLN) 143
+1 Galestrike (AKH) 54
+2 Hieroglyphic Illumination (AKH) 57
+4 Highland Lake (RIX) 189
+1 Hour of Devastation (HOU) 97
+3 Island (DOM) 254
+3 Island (DOM) 255
+3 Island (DOM) 256
+2 Island (DOM) 257
+1 Labyrinth Guardian (AKH) 60
+1 Lightning Strike (XLN) 149
+2 Magma Spray (AKH) 141
+1 Magmaroth (HOU) 102
+2 Mountain (DOM) 262
+2 Mountain (DOM) 263
+2 Mountain (DOM) 264
+2 Mountain (DOM) 265
+1 Negate (RIX) 44
+2 Opt (DOM) 60
+1 Primal Amulet // Primal Wellspring (XLN) 243
+1 Pull from Tomorrow (AKH) 65
+1 Puncturing Blow (HOU) 106
+1 Riddleform (HOU) 43
+1 Seeker of Insight (AKH) 69
+1 Spell Swindle (XLN) 82
+1 Star of Extinction (XLN) 161
+1 Supreme Will (HOU) 49

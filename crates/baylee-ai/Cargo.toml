@@ -26,6 +26,10 @@ baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-engine.workspace = true
 baylee-view.workspace = true
+# An answer refitted to its question is a defect in a picker, and says so
+# (`held`). `log` because this crate also runs in the client's `LocalHost`,
+# which logs through it, and the engine-server's subscriber takes it too.
+log.workspace = true
 
 # Renderer-free coloured payment matching, shared with the human seat.
 baylee-client-core.workspace = true

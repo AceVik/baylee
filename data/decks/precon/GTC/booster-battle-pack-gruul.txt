@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Booster Battle Pack: Gruul
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoosterBattlePackGruul_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Forest (RTR) 270
+1 Forest (RTR) 271
+1 Forest (RTR) 272
+1 Forest (RTR) 273
+1 Forest (RTR) 274
+1 Gruul Guildgate (GTC) 243
+1 Madcap Skills (GTC) 98
+1 Mountain (RTR) 265
+1 Mountain (RTR) 266
+1 Mountain (RTR) 267
+1 Mountain (RTR) 268
+1 Mountain (RTR) 269
+1 Mugging (GTC) 102
+1 Pit Fight (GTC) 223
+1 Predator's Rapport (GTC) 129
+1 Ruination Wurm (GTC) 192
+1 Skarrg Guildmage (GTC) 196
+1 Skinbrand Goblin (GTC) 105
+1 Slaughterhorn (GTC) 134
+1 Spire Tracer (GTC) 135
+1 Viashino Shanktail (GTC) 110
+1 Wildwood Rebirth (GTC) 140

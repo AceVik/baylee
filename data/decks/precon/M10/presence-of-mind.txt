@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Presence of Mind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PresenceOfMind_M10.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M10
+# released: 2009-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (M10) 42
+1 Cancel (M10) 44
+1 Clone (M10) 45
+1 Coral Merfolk (M10) 47
+2 Divination (M10) 49
+1 Djinn of Wishes (M10) 50 *F*
+1 Doom Blade (M10) 93
+1 Essence Scatter (M10) 51
+1 Horned Turtle (M10) 55
+3 Island (M10) 234
+3 Island (M10) 235
+3 Island (M10) 236
+3 Island (M10) 237
+1 Mind Control (M10) 63
+1 Mind Rot (M10) 105
+1 Negate (M10) 65
+1 Phantom Warrior (M10) 66
+1 Rise from the Grave (M10) 109
+2 Sage Owl (M10) 69
+1 Sleep (M10) 71
+2 Snapping Drake (M10) 72
+2 Swamp (M10) 238
+1 Swamp (M10) 239
+1 Swamp (M10) 240
+1 Swamp (M10) 241
+1 Telepathy (M10) 74
+1 Terramorphic Expanse (M10) 229
+1 Wall of Frost (M10) 80
+1 Zephyr Sprite (M10) 82

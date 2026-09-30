@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Elementalist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Elementalist_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Air Elemental (3ED) 47
+4 Drain Power (3ED) 56
+3 Earth Elemental (3ED) 146
+3 Earthquake (3ED) 148
+2 Energy Flux (ATQ) 9
+3 Fire Elemental (3ED) 149
+3 Fireball (3ED) 150
+2 Gem Bazaar (PAST) 12
+4 Island (3ED) 295
+4 Island (3ED) 296
+4 Island (3ED) 297
+2 Lightning Bolt (3ED) 162
+2 Mana Vault (3ED) 263
+12 Mountain (ARN) 77
+2 Unstable Mutation (ARN) 22
+1 Wall of Air (3ED) 90
+1 Wall of Fire (3ED) 183
+1 Wall of Stone (3ED) 184
+1 Wall of Water (3ED) 91
+3 Water Elemental (3ED) 92
+SB: 3 Blue Elemental Blast (3ED) 49
+SB: 3 Red Elemental Blast (3ED) 171

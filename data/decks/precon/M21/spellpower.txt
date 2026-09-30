@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Spellpower
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Spellpower_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Anticipate (IKO) 40
+2 Boon of the Wish-Giver (IKO) 43
+1 Brazen Borrower // Petty Theft (ELD) 39
+1 Double Vision (M21) 142
+3 Experimental Overload (M21) 218
+2 Forbidden Friendship (IKO) 119
+2 Frost Breath (M21) 51
+4 Island (M21) 263
+3 Island (M21) 264
+3 Island (M21) 265
+2 Merfolk Secretkeeper // Venture Deeper (ELD) 53
+4 Mountain (M21) 269
+3 Mountain (M21) 270
+3 Mountain (M21) 271
+3 Opt (M21) 59
+1 Riddleform (M21) 64
+3 Scorching Dragonfire (M21) 158
+1 Shark Typhoon (IKO) 67
+2 Shock (M21) 159
+3 Spelleater Wolverine (IKO) 137
+2 Spellgorger Weird (M21) 161
+1 Stolen by the Fae (ELD) 66
+1 Stormwing Entity (M21) 73
+4 Swiftwater Cliffs (M21) 251
+1 Temple of Epiphany (M21) 252
+2 Vodalian Arcanist (M21) 83
+1 Wavebreak Hippocamp (THB) 80

@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: White Heat - Basic Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteHeatBasicDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Goblin Bombardment (TMP) 179
+4 Kindle (TMP) 184
+2 Knight of Dawn (TMP) 26
+2 Lightning Blast (TMP) 185
+1 Limited Resources (EXO) 10
+2 Master Decoy (TMP) 29
+3 Mountain (TMP) 343
+2 Mountain (TMP) 344
+2 Mountain (TMP) 345
+2 Mountain (TMP) 346
+1 Onslaught (EXO) 92
+1 Paladin en-Vec (EXO) 12
+2 Pegasus Stampede (EXO) 14
+4 Plains (TMP) 331
+3 Plains (TMP) 332
+3 Plains (TMP) 333
+3 Plains (TMP) 334
+1 Reconnaissance (EXO) 17
+2 Searing Touch (TMP) 201
+1 Shackles (EXO) 18
+1 Shattering Pulse (EXO) 102
+2 Shock (STH) 98
+4 Soltari Foot Soldier (TMP) 43
+3 Soltari Visionary (EXO) 20
+2 Sonic Burst (EXO) 103
+1 Temper (STH) 20
+1 Wall of Nets (EXO) 24
+4 Welkin Hawk (EXO) 25

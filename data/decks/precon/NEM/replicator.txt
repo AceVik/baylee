@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Replicator
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Replicator_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blastoderm (NEM) 102
+1 Bog Witch (MMQ) 118
+2 Cackling Witch (MMQ) 119
+1 Coiling Woodworm (NEM) 103
+2 Deepwood Drummer (MMQ) 239
+1 Flowstone Armor (NEM) 131
+5 Forest (MMQ) 347
+4 Forest (MMQ) 348
+4 Forest (MMQ) 349
+4 Forest (MMQ) 350
+4 Howling Wolf (MMQ) 252
+1 Hunted Wumpus (MMQ) 253
+2 Invigorate (MMQ) 254
+4 Nesting Wurm (NEM) 107
+2 Plague Witch (NEM) 66
+1 Saproling Burst (NEM) 113
+1 Saproling Cluster (NEM) 114
+2 Seal of Doom (NEM) 70
+4 Skyshroud Sentinel (NEM) 121
+1 Squallmonger (MMQ) 276
+2 Stampede Driver (NEM) 122
+1 Subterranean Hangar (MMQ) 329
+2 Swamp (MMQ) 339
+2 Swamp (MMQ) 340
+2 Swamp (MMQ) 341
+1 Swamp (MMQ) 342

@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Teferi, Timeless Voyager
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TeferiTimelessVoyager_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Charmed Sleep (ELD) 40
+3 Faerie Vandal (ELD) 45
+4 Frantic Inventory (M21) 50
+2 Gust of Wind (IKO) 54
+3 Historian of Zhalfir (M21) 325
+8 Island (M21) 263
+8 Island (M21) 264
+8 Island (M21) 265
+1 Island (M21) 310
+2 Jeskai Elder (M21) 53
+2 Mantle of Tides (ELD) 52
+4 Mystic Skyfish (M21) 326
+3 Opt (M21) 59
+2 Shipwreck Dowser (M21) 71
+1 Stern Dismissal (THB) 68
+1 Stormwing Entity (M21) 73
+1 Teferi's Ageless Insight (M21) 76
+2 Teferi's Wavecaster (M21) 327
+1 Teferi, Timeless Voyager (M21) 324 *F*
+2 Tome Anima (M21) 81

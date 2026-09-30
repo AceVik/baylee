@@ -1,0 +1,66 @@
+[package]
+name = "baylee-seat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Binary: a seat bridge that sits at a table as an ordinary socket player and hands its questions to a mind"
+
+[lints]
+workspace = true
+
+[dependencies]
+# What a seat is told and what it answers with, read as the client reads them.
+# The engine for its types (`Pending`, `PlayerAction`, `answer_fault`), as
+# client-core links it; the bridge never builds an `Engine`.
+baylee-core.workspace = true
+baylee-engine.workspace = true
+baylee-protocol.workspace = true
+baylee-view.workspace = true
+# The client's transport-free policies (`TicketDial`, `Retry`), its standing
+# orders (`automation::auto_answer`) and its payment matcher (`manaplan`), so
+# the bridge and a person's client wait, redial and pass by one rule.
+baylee-client-core.workspace = true
+# The house AI, for `HouseMind` and for its mana reader (what a seat could
+# reach by tapping lands).
+baylee-ai.workspace = true
+# Deck names to `CardIndex`, and the acceptance decks a bridge brings when
+# told nothing else.
+baylee-cards.workspace = true
+# `KeywordSet::FLASH`, for when a card in hand may be cast.
+baylee-cards-dsl.workspace = true
+# A deck file in any of the four formats a player can export.
+baylee-deckio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+ureq.workspace = true
+# The player's clock for the spend book: the day a game counts in is the
+# player's own, where the platform says what its offset is (the client's
+# log reads it the same way).
+time = { workspace = true, features = ["local-offset"] }
+# `wss://` for a gateway behind TLS. rustls with `ring` and nothing else, as
+# the client builds it: tokio-tungstenite asks for rustls without a provider,
+# and naming `ring` here keeps `aws-lc-rs` (a C build) out of the tree.
+tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+[dev-dependencies]
+# The self-play driver the measurement and the batching test run on: the
+# host's `Session`, fed through the same seat core the socket feeds. Only in
+# tests — the bridge itself holds no engine, no host and no other seat.
+baylee-gamehost.workspace = true
+baylee-client-core = { workspace = true, features = ["test-support"] }
+# A stand-in gateway for the endings a real one takes minutes to stage (a
+# table that could not start, a finished room's socket): a ticket, a lobby
+# row and a seat socket that says what the test tells it to.
+axum.workspace = true
+
+[[bin]]
+name = "baylee-seat"
+path = "src/main.rs"

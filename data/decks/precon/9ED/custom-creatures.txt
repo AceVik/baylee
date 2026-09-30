@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Custom Creatures
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CustomCreatures_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 9ED
+# released: 2005-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blanchwood Armor (9ED) 232
+1 Bottle Gnomes (9ED) 290
+2 Craw Wurm (9ED) 233
+2 Elvish Warrior (9ED) 240
+1 Emperor Crocodile (9ED) 241
+4 Forest (9ED) 347
+4 Forest (9ED) 348
+4 Forest (9ED) 349
+4 Forest (9ED) 350
+1 Giant Spider (9ED) 244
+1 Kavu Climber (9ED) 249
+1 Llanowar Elves (9ED) 253
+1 Naturalize (9ED) 258
+2 Norwood Ranger (9ED) 260
+2 Overgrowth (9ED) 262
+1 Regeneration (9ED) 265
+2 Trained Armodon (9ED) 274
+1 Treetop Bracers (9ED) 276
+1 Verduran Enchantress (9ED) 279
+1 Web (9ED) 281
+1 Wurm's Tooth (9ED) 316
+1 Yavimaya Enchantress (9ED) 284

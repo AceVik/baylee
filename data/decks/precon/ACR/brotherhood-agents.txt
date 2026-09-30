@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Brotherhood Agents
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BrotherhoodAgents_ACR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Kit
+# set: ACR
+# released: 2024-07-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Achilles Davenport (ACR) 294
+2 Assassin Den (ACR) 281
+1 Assassin Initiate (ACR) 22
+2 Auditore Ambush (ACR) 295
+3 Brotherhood Ambushers (ACR) 285
+2 Brotherhood Patriarch (ACR) 286
+3 Brotherhood Spy (ACR) 282
+1 Chain Assassination (ACR) 23
+1 Eagle Vision (ACR) 17
+1 Ezio, Blade of Vengeance (ACR) 275 *F*
+3 Hired Blade (ACR) 299
+2 Hookblade Veteran (ACR) 283
+11 Island (ACR) 303
+3 Merciless Harlequin (ACR) 287
+2 Murder (ACR) 92
+2 Poison-Blade Mentor (ACR) 288
+1 Restart Sequence (ACR) 30
+1 Rooftop Bypass (ACR) 298
+3 Submerged Boneyard (ACR) 301
+11 Swamp (ACR) 304
+1 Towering Viewpoint (ACR) 77
+3 Tranquilize (ACR) 284

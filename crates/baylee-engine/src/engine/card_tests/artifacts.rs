@@ -305,16 +305,40 @@ fn panharmonicon_doubles_a_modal_trigger_and_each_copy_picks_its_own_mode() {
     );
 }
 
-/// The other half of CR 608.2h's question, and the one with no mutant: an
-/// effect that changes its target and then reads it, while the target is
-/// still exactly where the resolution left it.
-///
-/// Inspirit Flagship Vessel stations a creature — tap it, then take its
-/// power in charge counters — and the target never leaves the battlefield,
-/// so the read has to be the *live* one. Nothing in the pool tells the two
-/// answers apart (a tap changes no power, and these three cards are every
-/// reader of `Amount::TargetPower` there is), so this test proves the branch
-/// runs rather than that it is the only right one.
+/// Stations Inspirit by tapping `creature`, answering the cost's question as
+/// a player would, and hands back what the question offered.
+#[track_caller]
+fn station_inspirit(engine: &mut Engine<RegistryLookup>, creature: ObjectId) -> Vec<ObjectId> {
+    let p0 = PlayerId::new(0);
+    activate(engine, p0, inspirit_flagship_vessel(), 0);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "station asks which creature pays, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature],
+            },
+        )
+        .expect("the creature taps");
+    options
+}
+
+/// Station (CR 702.184a): "Tap another untapped creature you control: Put a
+/// number of charge counters on this permanent equal to the tapped
+/// creature's power." The Raptor is paid, not targeted, so the ability on
+/// the stack names nothing, and it is still on the battlefield as the
+/// ability resolves, so the count is its power there, counter and all
+/// (CR 608.2h). Evendo's tests read the other half of that rule, a creature
+/// gone by then.
 #[test]
 fn stationing_a_creature_reads_the_power_it_still_has() {
     let p0 = PlayerId::new(0);
@@ -322,32 +346,21 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
     let bird = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor is out");
     let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the ship is out");
 
-    let Pending::Priority { legal, .. } = engine.pending().clone() else {
-        panic!("expected priority, got {:?}", engine.pending())
-    };
-    let (source, ability_index) = legal
-        .abilities
-        .iter()
-        .copied()
-        .find(|(src, _)| *src == vessel)
-        .expect("the station ability is offered");
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source,
-                ability_index,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![bird],
-            },
-        )
-        .unwrap();
+    station_inspirit(&mut engine, bird);
+    assert!(is_tapped(&engine, bird), "the cost is paid");
+    let ability = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("station is on the stack");
+    assert!(
+        engine
+            .state()
+            .object(ability)
+            .is_some_and(|o| o.targets.is_empty()),
+        "station targets nothing"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
@@ -357,6 +370,75 @@ fn stationing_a_creature_reads_the_power_it_still_has() {
             .map(|o| o.counters.get(CounterKind::Charge)),
         Some(2),
         "the Raptor's power on the battlefield, counter and all",
+    );
+}
+
+/// "Tap another **untapped** creature you control" (CR 702.184a): a
+/// creature already tapped cannot pay the cost (CR 118.3), so station never
+/// offers it. Inspirit wrote station as an effect, `Effect::TapTarget` under
+/// a free cost aimed at "another creature you control", so a tapped Elf was
+/// a legal target, and "tapping" it again put its power in charge counters
+/// for nothing.
+#[test]
+fn inspirit_stations_only_off_an_untapped_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                inspirit_flagship_vessel(),
+                llanowar_elves(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let vessel = on_battlefield(&engine, p0, inspirit_flagship_vessel()).expect("the Vessel");
+    let [tapped, untapped] = all_on_battlefield(&engine, p0, llanowar_elves())[..] else {
+        panic!("two Elves");
+    };
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .set_tapped(tapped, true);
+
+    activate(&mut engine, p0, inspirit_flagship_vessel(), 0);
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "station asks which untapped creature pays, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
+    assert_eq!(options, vec![untapped], "only the untapped Elf can pay");
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![tapped],
+                },
+            )
+            .is_err(),
+        "the tapped Elf is refused"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![untapped],
+            },
+        )
+        .expect("the untapped Elf taps");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        counters_on(&engine, vessel, CounterKind::Charge),
+        1,
+        "one Elf's power"
     );
 }
 
@@ -545,7 +627,8 @@ fn ashnods_altar_eats_the_creature_you_name_and_pays_two_colorless() {
     assert!(
         matches!(
             refused,
-            Err(EngineError::IllegalAction("invalid card selection"))
+            Err(EngineError::IllegalAction(why))
+                if why == crate::choice::AnswerFault::NotOffered.reason()
         ),
         "the answer is validated against the list that was published: {refused:?}"
     );
@@ -669,6 +752,7 @@ fn the_ironworks_is_on_its_own_menu_and_eats_itself_for_two_colorless() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -1105,8 +1189,8 @@ fn station_the_enterprise_d_is_offered(engine: &Engine<RegistryLookup>, ship: Ob
 }
 
 /// Stations `crew`: presses the Spacecraft's printed Station ability
-/// (ability 0 — the two statics behind it are 1 and 2), aims it at `crew`,
-/// lets it resolve, and hands back the options the choice enumerated.
+/// (ability 0 — the two statics behind it are 1 and 2), pays its cost with
+/// `crew`, lets it resolve, and hands back the options the cost offered.
 ///
 /// The options are the return value because the printed cost is "Tap
 /// **another** creature you control", and that word is only readable in what
@@ -1118,12 +1202,16 @@ fn station_the_enterprise_d(
     crew: ObjectId,
 ) -> Vec<ObjectId> {
     activate(engine, seat, u_s_s_enterprise_d(), 0);
-    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseCards {
+        options, prompt, ..
+    } = engine.pending().clone()
+    else {
         panic!(
-            "station asks for another creature you control, got {:?}",
+            "station asks which creature you control pays, got {:?}",
             engine.pending()
         )
     };
+    assert_eq!(prompt, ChoicePrompt::CostTap, "a cost, not a target");
     engine
         .apply(
             seat,
@@ -1131,7 +1219,7 @@ fn station_the_enterprise_d(
                 objects: vec![crew],
             },
         )
-        .expect("the crew it was aimed at was one of the options");
+        .expect("the crew that pays was one of the options");
     pass_until(engine, stack_is_empty);
     options
 }
@@ -1186,7 +1274,7 @@ fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles
             .expect("the Wurm is still an object")
             .status
             .contains(Status::TAPPED),
-        "stationing taps the creature it is aimed at"
+        "stationing taps the creature that pays"
     );
     assert_eq!(
         enterprise_d_charge_counters(&engine, ship),
@@ -1219,11 +1307,9 @@ fn stationing_the_enterprise_d_taps_its_crew_for_that_creatures_power_and_exiles
 /// The second station is what "another" is really worth. In the test above,
 /// the Spacecraft was no creature at all, so leaving it out of the options
 /// proves nothing about the word; here it *is* a creature and its own
-/// ability still must not offer it. That the tapped Wurm is offered a second
-/// time is an observation and not an assertion — the card models the tap as
-/// `Effect::TapTarget` rather than as a cost, which is a deviation from the
-/// printed "Tap another creature you control:" that belongs to a different
-/// test than this one.
+/// ability still must not offer it. Nor is the Wurm offered a second time:
+/// the first station tapped it, and a tapped creature cannot pay
+/// (CR 702.184a says "untapped", CR 118.3 says why).
 #[test]
 fn an_enterprise_d_at_seven_charge_counters_flies_with_vigilance_and_still_cannot_crew_itself() {
     let p0 = PlayerId::new(0);
@@ -1277,6 +1363,10 @@ fn an_enterprise_d_at_seven_charge_counters_flies_with_vigilance_and_still_canno
     assert!(
         offered.contains(&elves),
         "while the other creature you control is still crew: {offered:?}"
+    );
+    assert!(
+        !offered.contains(&crew),
+        "the Wurm the first station tapped cannot pay again: {offered:?}"
     );
     assert_eq!(
         enterprise_d_charge_counters(&engine, ship),
@@ -1750,6 +1840,7 @@ fn grinding_station_mills_three_for_an_artifact_and_untaps_for_one_entering() {
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(
                     prompt,
@@ -3373,6 +3464,7 @@ fn unlicensed_hearse_is_crewed_by_two_elves_and_not_by_one() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected the crew question, got {:?}", engine.pending())
@@ -3447,6 +3539,109 @@ fn unlicensed_hearse_is_not_offered_crew_below_its_number() {
         !hearse_offers(&engine, hearse, 2),
         "one power-1 creature cannot crew 2"
     );
+}
+
+/// Unlicensed Hearse's Crew 2 beside two Llanowar Elves (power 1) and an
+/// Aurochs (power 2), activated and asking which creatures crew it.
+fn hearse_crew_question() -> (Engine<RegistryLookup>, Vec<ObjectId>) {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                unlicensed_hearse(),
+                llanowar_elves(),
+                llanowar_elves(),
+                aurochs(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    activate(&mut engine, p0, unlicensed_hearse(), 2);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the crew question, got {:?}", engine.pending())
+    };
+    (engine, options)
+}
+
+/// Crew 2 (CR 702.122a: "Tap any number of other untapped creatures you
+/// control with total power N or greater") states its total in the
+/// question: each option's power as the engine counts it and the least the
+/// chosen powers add up to. A lone Elf is power 1, so the question itself
+/// names that answer short (`AnswerFault::TotalTooLow`), and `apply` refuses
+/// exactly the answers the question faults: for every subset of the offered
+/// creatures, accepted if and only if the question finds no fault in it.
+///
+/// Before the total was stated, the question said only "one to three of
+/// these", and a player (the trained AI's fuzzer, 38 times in 2000 games)
+/// naming one Elf inside those bounds was refused for a reason it could not
+/// read.
+#[test]
+fn crew_states_its_total_power_and_apply_refuses_only_what_it_states() {
+    let p0 = PlayerId::new(0);
+    let (engine, options) = hearse_crew_question();
+    let question = engine.pending().clone();
+    let Pending::ChooseCards {
+        min, max, total, ..
+    } = &question
+    else {
+        unreachable!("hearse_crew_question returns the crew question")
+    };
+    assert_eq!((*min, *max), (1, 3), "any number of the three creatures");
+    let power = |id: &ObjectId| i32::from(pt(&engine, *id).0);
+    assert_eq!(
+        total.as_ref(),
+        Some(&crate::choice::CardTotal {
+            of: crate::choice::Measure::Power,
+            weights: options.iter().map(power).collect(),
+            at_least: Some(2),
+            at_most: None,
+        }),
+        "the question states Crew 2 as a total power of 2 or more"
+    );
+    let elves = elves_of(&engine, p0);
+    assert_eq!(elves.len(), 2);
+    assert_eq!(
+        question.answer_fault(&PlayerAction::ChooseObjects {
+            objects: vec![elves[0]],
+        }),
+        Some(crate::choice::AnswerFault::TotalTooLow),
+        "a lone power-1 Elf is short of Crew 2, and the question says so"
+    );
+    drop(engine);
+
+    let mut accepted = 0;
+    for mask in 0u32..(1 << options.len()) {
+        let objects: Vec<ObjectId> = options
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| mask & (1 << i) != 0)
+            .map(|(_, id)| *id)
+            .collect();
+        let answer = PlayerAction::ChooseObjects {
+            objects: objects.clone(),
+        };
+        let fault = question.answer_fault(&answer);
+        let (mut engine, again) = hearse_crew_question();
+        assert_eq!(again, options, "the question is asked alike every time");
+        let applied = engine.apply(p0, answer);
+        match fault {
+            None => {
+                applied.unwrap_or_else(|e| {
+                    panic!("{objects:?} keeps every stated bound and was refused: {e:?}")
+                });
+                accepted += 1;
+            }
+            Some(fault) => assert!(
+                matches!(applied, Err(EngineError::IllegalAction(why)) if why == fault.reason()),
+                "{objects:?} is refused for the reason the question states \
+                 ({fault:?}), got {applied:?}"
+            ),
+        }
+    }
+    // Aurochs alone, with either Elf, with both, and the two Elves together.
+    assert_eq!(accepted, 5, "every answer reaching power 2 is taken");
 }
 
 /// Conduit of Worlds: "You may play lands from your graveyard."
@@ -3682,8 +3877,13 @@ fn time_sieve_sacrifices_five_different_artifacts_for_its_extra_turn() {
 /// `Trigger::DealsCombatDamageToPlayer` transform trigger, and equip {2} are implemented. The test
 /// equips `Dowsing Dagger` to an elf, confirms the +2/+1 pump, attacks an opponent with the
 /// equipped creature to deal combat damage, and verifies that `Dowsing Dagger` becomes
-/// `Lost Vale` as a land on face 1 — by exile and return, a new object, and not by transforming
-/// in place (#206).
+/// `Lost Vale` as a land on face 1.
+///
+/// It is the same permanent, turned over (CR 701.27a, CR 712.18), where the stand-in (#206)
+/// exiled it and returned a new object. And the Equipment it was is gone with the face: Lost
+/// Vale prints no static, so nothing of "equipped creature gets +2/+1" is left in the effect
+/// table (CR 604.2), and a land attached to a creature becomes unattached (CR 704.5p), so the
+/// elf is a 1/1 again.
 #[test]
 fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -3696,6 +3896,7 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
 
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("p0 controls the elf");
     let dagger = on_battlefield(&engine, p0, dowsing_dagger()).expect("dagger on battlefield");
+    let dagger_was = identity(&engine, dagger);
     assert_eq!(pt(&engine, elf), (1, 1), "elf starts as a 1/1");
 
     tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
@@ -3751,6 +3952,31 @@ fn dowsing_dagger_pumps_equipped_creature_and_transforms_on_combat_damage() {
         Some(1),
         "dagger transformed to face 1 (Lost Vale)"
     );
+    assert_eq!(
+        identity(&engine, vale),
+        dagger_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert_eq!(
+        engine.state().object(vale).and_then(|o| o.attached_to),
+        None,
+        "a land attached to a creature becomes unattached (CR 704.5p)"
+    );
+    assert!(
+        engine
+            .state()
+            .effects
+            .iter()
+            .all(|fx| fx.source != Some(vale)),
+        "the Equipment's static turned away with its face: {:?}",
+        engine
+            .state()
+            .effects
+            .iter()
+            .filter(|fx| fx.source == Some(vale))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(pt(&engine, elf), (1, 1), "the elf is a 1/1 again");
     let t = types(&engine, vale);
     assert!(
         t.contains(TypeSet::LAND),
@@ -3958,6 +4184,7 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     reach_main_phase(&mut engine, p0);
 
     let compass = on_battlefield(&engine, p0, thaumatic_compass()).expect("compass on battlefield");
+    let compass_was = identity(&engine, compass);
     assert_eq!(
         engine.state().object(compass).map(|o| o.face_index),
         Some(0),
@@ -4017,6 +4244,15 @@ fn thaumatic_compass_searches_for_land_and_transforms_at_end_step_with_seven_lan
     });
 
     let spires = on_battlefield(&engine, p0, thaumatic_compass()).expect("spires on battlefield");
+    assert_eq!(
+        identity(&engine, spires),
+        compass_was,
+        "the same object, turned over: a transform changes no zone (CR 712.18)"
+    );
+    assert!(
+        is_tapped(&engine, spires),
+        "still tapped from the search: turning over is not entering"
+    );
     let t = types(&engine, spires);
     assert!(t.contains(TypeSet::LAND), "transformed permanent is a land");
     assert!(
@@ -4355,6 +4591,7 @@ fn matzalantli_the_great_door_draws_and_discards_and_omits_transform() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stopped on card choice");
@@ -5251,6 +5488,7 @@ fn claws_of_gix_eats_a_permanent_you_control_for_one_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -8176,6 +8414,7 @@ fn zuran_orb_eats_a_land_of_your_own_for_two_life() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which land, got {:?}", engine.pending())
@@ -10190,6 +10429,7 @@ fn diamond_kaleidoscope_builds_a_prism_and_trades_it_for_one_mana_of_any_color()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the seat paying the cost answers it");
                 assert_eq!(
@@ -10929,6 +11169,7 @@ fn honor_worn_shaku_taps_a_legendary_permanent_of_yours_to_untap_itself() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -11422,6 +11663,7 @@ fn phyrexian_altar_sacrifices_a_creature_for_one_mana_of_the_color_its_controlle
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("the cost asks which creature, got {:?}", engine.pending())
@@ -11759,6 +12001,7 @@ fn phyrexian_vault_eats_a_creature_of_its_own_side_for_a_card() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -14322,6 +14565,7 @@ fn skull_catapult_eats_a_creature_of_its_own_side_for_two_damage_at_any_target()
                 min,
                 max,
                 prompt,
+                ..
             } => {
                 assert_eq!(player, p0, "the activating seat pays its own cost");
                 assert_eq!(
@@ -15777,6 +16021,7 @@ fn wand_of_the_elements_sacrifices_an_island_to_create_flying_elemental() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected CostSacrifice prompt, got {:?}", engine.pending());

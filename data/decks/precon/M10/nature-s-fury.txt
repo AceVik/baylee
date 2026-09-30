@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Nature's Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NatureSFury_M10.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M10
+# released: 2009-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Awakener Druid (M10) 167
+2 Borderland Ranger (M10) 169
+1 Bramble Creeper (M10) 171
+1 Divine Verdict (M10) 8
+1 Elvish Visionary (M10) 178
+1 Enormous Baloth (M10) 180
+3 Forest (M10) 246
+3 Forest (M10) 247
+3 Forest (M10) 248
+2 Forest (M10) 249
+2 Giant Growth (M10) 184
+1 Giant Spider (M10) 185
+1 Harm's Way (M10) 14
+1 Kalonian Behemoth (M10) 188 *F*
+2 Llanowar Elves (M10) 189
+1 Might of Oaks (M10) 192
+1 Naturalize (M10) 195
+1 Nature's Spiral (M10) 196
+1 Oakenform (M10) 197
+1 Overrun (M10) 198
+1 Pacifism (M10) 22
+2 Plains (M10) 230
+1 Plains (M10) 231
+1 Plains (M10) 232
+1 Plains (M10) 233
+1 Prized Unicorn (M10) 199
+1 Runeclaw Bear (M10) 203
+1 Stampeding Rhino (M10) 204
+1 Terramorphic Expanse (M10) 229
+1 Windstorm (M10) 205

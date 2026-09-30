@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Overkill
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Overkill_SHM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SHM
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Boggart Ram-Gang (SHM) 203
+4 Elsewhere Flask (SHM) 250
+3 Farhaven Elf (SHM) 113
+2 Flame Javelin (SHM) 92
+4 Forest (SHM) 298
+4 Forest (SHM) 299
+3 Forest (SHM) 300
+3 Forest (SHM) 301
+2 Fossil Find (SHM) 206
+1 Gleeful Sabotage (SHM) 116
+3 Howl of the Night Pack (SHM) 119
+1 Illuminated Folio (SHM) 254
+3 Jaws of Stone (SHM) 97
+2 Juvenile Gloomwidow (SHM) 121
+1 Mossbridge Troll (SHM) 123
+3 Mountain (SHM) 294
+3 Mountain (SHM) 295
+2 Mountain (SHM) 296
+2 Mountain (SHM) 297
+2 Mudbrawler Raiders (SHM) 213
+1 Prismatic Omen (SHM) 126
+2 Puncture Bolt (SHM) 102
+1 Runes of the Deus (SHM) 215
+2 Scuttlemutt (SHM) 263
+2 Scuzzback Scrapper (SHM) 217
+2 Tattermunge Duo (SHM) 218
+1 Tower Above (SHM) 131

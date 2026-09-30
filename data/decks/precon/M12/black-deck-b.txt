@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Black Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeckB_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bloodrage Vampire (M12) 83
+1 Dark Favor (M12) 89
+1 Dementia Bat (NPH) 55
+1 Diabolic Tutor (M12) 92
+1 Disentomb (M12) 93
+2 Duskhunter Bat (M12) 97
+1 Fume Spitter (SOM) 63
+1 Hideous Visage (M12) 100
+2 Moriok Reaver (SOM) 70
+1 Necrogen Scudder (SOM) 71
+1 Onyx Mage (M12) 103
+1 Sorin's Thirst (M12) 110
+3 Swamp (M12) 238
+3 Swamp (M12) 239
+3 Swamp (M12) 240
+3 Swamp (M12) 241
+1 Taste of Blood (M12) 113
+1 Tormented Soul (M12) 114
+1 Vampire Outcasts (M12) 115
+1 Wring Flesh (M12) 118

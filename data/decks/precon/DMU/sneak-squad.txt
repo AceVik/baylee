@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Sneak Squad
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SneakSquad_DMU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Promotional Deck
+# set: DMU
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aven Heartstabber (SNC) 166
+1 Blade of the Oni (NEO) 89
+1 Cemetery Tampering (SNC) 69
+2 Consider (MID) 44
+2 Covert Cutpurse // Covetous Geist (MID) 92
+2 Covetous Castaway // Ghostly Castigator (MID) 45
+2 Deal Gone Bad (SNC) 74
+2 Dismal Backwater (NEO) 267
+3 Dreadhound (MID) 97
+1 Hypnotic Grifter (SNC) 45
+3 Island (DMU) 265
+2 Island (DMU) 266
+2 Island (DMU) 267
+3 Lantern Bearer // Lanterns' Lift (VOW) 66
+1 Malevolent Hermit // Benevolent Geist (MID) 61
+1 Mirrorhall Mimic // Ghastly Mimicry (VOW) 68
+2 Murder (SNC) 88
+3 Obscura Storefront (SNC) 252
+2 Psychic Pickpocket (SNC) 54
+3 Raffine's Silencer (SNC) 90
+3 Snooping Newsie (SNC) 222
+3 Swamp (DMU) 268
+3 Swamp (DMU) 269
+2 Swamp (DMU) 270
+2 Syndicate Infiltrator (SNC) 226
+2 Tainted Indulgence (SNC) 227
+2 Undying Malice (VOW) 134
+4 Waterfront District (SNC) 259

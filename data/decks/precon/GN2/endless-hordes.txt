@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Endless Hordes
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EndlessHordes_GN2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN2
+# released: 2019-11-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Accursed Horde (GN2) 26
+1 Blood for Bones (M20) 89
+1 Bone Splinters (M20) 92
+1 Calculating Lich (GN2) 3 *F*
+1 Carrion Screecher (GN2) 27
+2 Crow of Dark Tidings (GN2) 28
+1 Dread Presence (M20) 96
+1 Gavony Unhallowed (GN2) 29
+3 Gorging Vulture (M20) 102
+2 Grasp of Darkness (GN2) 30
+2 Gravedigger (M20) 103
+1 Howling Golem (GN2) 54
+1 Liliana's Mastery (GN2) 31
+2 Lord of the Accursed (GN2) 32
+2 Murder (M20) 109
+1 Rise from the Grave (GN2) 33
+2 Sanitarium Skeleton (M20) 112
+13 Swamp (GN2) 59
+13 Swamp (GN2) 60
+3 Tattered Mummy (GN2) 34
+1 Torgaar, Famine Incarnate (GN2) 35
+4 Undead Servant (M20) 118
+1 Vilis, Broker of Blood (M20) 122

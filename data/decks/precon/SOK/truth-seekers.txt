@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Truth Seekers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TruthSeekers_SOK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SOK
+# released: 2005-06-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bounteous Kirin (SOK) 123
+2 Briarknit Kami (SOK) 124
+1 Dosan's Oldest Chant (SOK) 127
+2 Dripping-Tongue Zubera (CHK) 206
+1 Eiganjo Free-Riders (SOK) 8
+2 Elder Pine of Jukai (SOK) 128
+3 Forest (CHK) 303
+3 Forest (CHK) 304
+3 Forest (CHK) 305
+3 Forest (CHK) 306
+3 Ghost-Lit Redeemer (SOK) 10
+1 Gnarled Mass (BOK) 127
+2 Haru-Onna (SOK) 132
+1 Honden of Cleansing Fire (CHK) 14
+1 Honden of Life's Web (CHK) 213
+1 Kami of the Honored Dead (BOK) 12
+1 Kodama's Might (CHK) 224
+2 Moonwing Moth (SOK) 20
+2 Nightsoil Kami (SOK) 139
+1 Nikko-Onna (SOK) 21
+3 Plains (CHK) 287
+3 Plains (CHK) 288
+3 Plains (CHK) 289
+2 Plains (CHK) 290
+1 Rune-Tail, Kitsune Ascendant // Rune-Tail's Essence (SOK) 27
+1 Shinen of Life's Roar (SOK) 149
+1 Shinen of Stars' Light (SOK) 28
+2 Silent-Chant Zubera (CHK) 45
+2 Spiritual Visit (SOK) 29
+1 Terashi's Grasp (BOK) 26
+2 Torii Watchward (SOK) 30
+1 Tranquil Garden (CHK) 284
+2 Vital Surge (BOK) 150

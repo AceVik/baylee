@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Peer Kröger - Reanimator
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PeerKrögerReanimator_WC03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC03
+# released: 2003-08-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Anger (WC03) pk77
+1 Arcanis the Omnipotent (WC03) pk66
+4 Barren Moor (WC03) pk312
+4 Bloodstained Mire (WC03) pk313
+3 Buried Alive (WC03) pk118
+4 Burning Wish (WC03) pk83
+1 Cabal Therapy (WC03) pk62
+1 Chainer's Edict (WC03) pk57
+4 Doomed Necromancer (WC03) pk140
+3 Entomb (WC03) pk132
+3 Innocent Blood (WC03) pk145
+2 Mountain (WC03) pk344
+2 Mountain (WC03) pk345
+2 Mountain (WC03) pk346
+1 Phantom Nishoba (WC03) pk190
+1 Recoup (WC03) pk216
+2 Shadowblood Ridge (WC03) pk326
+2 Smother (WC03) pk170
+3 Stitch Together (WC03) pk72
+3 Swamp (WC03) pk339
+3 Swamp (WC03) pk340
+3 Swamp (WC03) pk341
+1 Symbiotic Wurm (WC03) pk289
+1 Undead Gladiator (WC03) pk178
+1 Visara the Dreadful (WC03) pk179
+4 Zombify (WC03) pk174
+SB: 1 Buried Alive (WC03) pk118sb
+SB: 3 Cabal Therapy (WC03) pk62sb
+SB: 1 Decompose (WC03) pk128sb
+SB: 1 Demolish (WC03) pk183sb
+SB: 1 Guiltfeeder (WC03) pk68sb
+SB: 1 Haunting Echoes (WC03) pk142sb
+SB: 1 Last Rites (WC03) pk146sb
+SB: 1 Patriarch's Bidding (WC03) pk161sb
+SB: 1 Pyroclasm (WC03) pk210sb
+SB: 1 Recoup (WC03) pk216sb
+SB: 1 Sickening Dreams (WC03) pk83sb
+SB: 1 Soul Feast (WC03) pk165sb
+SB: 1 Stitch Together (WC03) pk72sb

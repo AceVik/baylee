@@ -326,9 +326,11 @@ Open milestones discovered tonight:
   respects indestructible, unlike the sacrifice path) and
   `DiscardForPlayers` (DiscardChain tracks the CHOOSING player for the
   graveyard, not the controller).
-- `Effect::ExileSelfReturnAsFace { face }` — transform via
+- `Effect::ExileSelfReturnAsFace { face, owner_control }` — transform via
   `obj.pending_face_change` applied in finish_resolution (resolve has no
-  lookup; face switches need the def).
+  lookup; face switches need the def). `owner_control` is the sentence's
+  "under its owner's control"; "your" and a silent sentence are `false`
+  (observed fault 62).
 - **Data catch**: the sheoldred.rs stub header had the WRONG oracle text
   (the Apocalypse's draw triggers). The real MOM Sheoldred: 4/5 menace,
   ETB edict, {4}{B} flip (sorcery, opponent gy >= 8 — new
@@ -455,7 +457,10 @@ Open milestones discovered tonight:
   (Effect::ControlRotation — heads-up swap of all nonland permanents),
   Vendilion Clique (presentation is protocol, engine choice was already
   complete), Inspirit (station: TapTarget + AddType/Keyword-
-  IfCountersAtLeast conditional statics + modal counter trigger),
+  IfCountersAtLeast conditional statics + modal counter trigger; the
+  TapTarget half was wrong, a tapped creature could "pay", and since
+  2026-09-30 station is `cost!(TapOther(..))` + `Amount::TappedPower`,
+  `docs/card-dsl.md` §"Station itself is a cost"),
   Opposition Agent (REAL takeover: Modifier::SearchTakeover redirects the
   search choice to the agent's controller, finds go to exile with
   Rider::PlayableFromExileFor + wild payment on takeover casts),
@@ -1947,8 +1952,10 @@ land type"; both are convention tests that fire on a first try.
   reader gap.
 - **The house AI answers crew but does not choose to crew.** `policy::crew`
   taps the strongest creatures until the total is reached. `activate::gains`
-  does not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
-  `MayCastTarget` is not on that list either.
+  did not count `CreateContinuousEffect` as a gain, and Conduit of Worlds'
+  `MayCastTarget` was not on that list either. (Since 29.09.2026 the list is
+  `worth::effect_worth`, which prices a continuous effect by its modifier and
+  still has no row for `MayCastTarget`.)
 - **A graveyard cast is not flashback unless flashback paid for it.** The
   cast wizard used to put `Rider::Flashback` on every instant or sorcery
   cast from a graveyard, which was true only while the permissions (Wrenn's
@@ -1986,6 +1993,16 @@ land type"; both are convention tests that fire on a first try.
   it when its impulse was written: a new permission effect (here
   `ExileTopMayCast`) belongs on `OFFERS_A_CHOICE` in xtask with its
   argument. Run `xtask validate` before the gate after flipping coverage.
+- **An effect that puts a card onto the battlefield names who controls it.**
+  `ExileSelfReturnAsFace` wrote the owner for all 15 uses, and three
+  kinds of sentence were hidden behind that one default: "its owner's",
+  "your", and silence (CR 110.2a). The fix is a field that the card writes
+  from its own printed line, with a lint that holds the field to the line
+  through `lines::ability_line` and `oracle::sentence`. A test where owner
+  and controller are one seat cannot tell the two apart, so steal the
+  permanent first. The harness can register a layer-2 `GainControl` over
+  any permanent, a Saga included (`dev_state_mut`, then
+  `effects.register`).
 
 ## 30.09.2026 — Limited Edition Alpha, reader first
 

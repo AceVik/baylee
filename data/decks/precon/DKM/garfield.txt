@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Garfield
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Garfield_DKM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DKM
+# released: 2001-12-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Balduvian Bears (DKM) 22
+2 Barbed Sextant (DKM) 34
+1 Bounty of the Hunt (DKM) 23
+2 Death Spark (DKM) 11
+1 Elkin Bottle (DKM) 35
+1 Elvish Bard (DKM) 24
+1 Folk of the Pines (DKM) 25
+4 Forest (DKM) 48
+4 Forest (DKM) 49
+4 Forest (DKM) 50
+2 Fyndhorn Elves (DKM) 26
+2 Giant Growth (DKM) 27
+2 Giant Trap Door Spider (DKM) 33
+1 Hurricane (DKM) 28
+1 Incinerate (DKM) 14
+1 Incinerate (DKM) 14★ *F*
+1 Jokulhaups (DKM) 15
+1 Karplusan Forest (DKM) 39
+2 Lava Burst (DKM) 16
+1 Lhurgoyf (DKM) 29 *F*
+4 Mountain (DKM) 45
+4 Mountain (DKM) 46
+4 Mountain (DKM) 47
+1 Phyrexian War Beast (DKM) 37a
+1 Phyrexian War Beast (DKM) 37b
+1 Pillage (DKM) 18
+1 Shatter (DKM) 20
+1 Storm Shaman (DKM) 21a
+1 Storm Shaman (DKM) 21b
+2 Walking Wall (DKM) 38
+2 Woolly Spider (DKM) 30
+1 Yavimaya Ancients (DKM) 31a
+1 Yavimaya Ancients (DKM) 31b
+2 Yavimaya Ants (DKM) 32

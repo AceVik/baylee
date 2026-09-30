@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Lotus Field Combo
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LotusFieldCombo_Q06.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q06
+# released: 2021-10-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Arboreal Grazer (WAR) 149
+2 Dig Through Time (KTK) 36
+3 Fae of Wishes // Granted (ELD) 44
+6 Forest (MID) 384
+4 Hidden Strings (Q06) 5
+4 Island (MID) 381
+4 Lotus Field (M20) 249
+1 Mastermind's Acquisition (RIX) 77
+4 Opt (M21) 59
+2 Peer into the Abyss (M21) 117
+4 Pore Over the Pages (SOI) 79
+4 Strategic Planning (KHM) 77
+4 Sylvan Scrying (BFZ) 192
+2 Temple of Mystery (M21) 254
+4 Thespian's Stage (GTC) 248
+4 Vizier of Tumbling Sands (AKH) 75
+4 Yavimaya Coast (ORI) 252
+SB: 1 Approach of the Second Sun (Q06) 1
+SB: 1 Blink of an Eye (DOM) 46
+SB: 1 Negate (ZNR) 71
+SB: 1 Omniscience (M19) 65
+SB: 1 Peer into the Abyss (M21) 117
+SB: 2 Shifting Ceratops (M20) 194
+SB: 1 Sweltering Suns (AKH) 149
+SB: 3 Thought Distortion (M20) 117
+SB: 1 Tormod's Crypt (M21) 241
+SB: 1 Void Snare (M15) 82
+SB: 2 Wilt (IKO) 176

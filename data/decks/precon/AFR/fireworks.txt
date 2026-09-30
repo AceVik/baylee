@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Fireworks
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Fireworks_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Aegar, the Freezing Flame (KHM) 200
+2 Air-Cult Elemental (AFR) 45
+2 Arcane Investigator (AFR) 46
+1 Archmage Emeritus (STX) 37
+1 Basalt Ravager (KHM) 122
+1 Creative Outburst (STX) 171
+1 Demilich (AFR) 53
+3 Demon Bolt (KHM) 129
+2 Farideh's Fireball (AFR) 142
+3 Island (AFR) 266
+3 Island (AFR) 267
+2 Island (AFR) 268
+2 Island (AFR) 269
+1 Kaza, Roil Chaser (ZNR) 225
+2 Maelstrom Muse (STX) 202
+3 Mentor's Guidance (STX) 46
+1 Meteor Swarm (AFR) 155
+3 Mountain (AFR) 274
+3 Mountain (AFR) 275
+2 Mountain (AFR) 276
+2 Mountain (AFR) 277
+1 Multiple Choice (STX) 48
+1 Prismari Command (STX) 214
+3 Prismari Pledgemage (STX) 215
+1 Riverglide Pathway // Lavaglide Pathway (ZNR) 264
+2 Rockslide Sorcerer (ZNR) 154
+2 Thundering Rebuke (ZNR) 170
+3 Umara Mystic (ZNR) 238
+4 Volatile Fjord (KHM) 273

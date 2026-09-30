@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Kai Budde - Red-Artifact Wildfire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KaiBuddeRedArtifactWildfire_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC99
+# released: 1999-08-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ancient Tomb (WC99) kb315
+4 City of Traitors (WC99) kb143a
+4 Covetous Dragon (WC99) kb80
+4 Cursed Scroll (WC99) kb281
+4 Fire Diamond (WC99) kb284
+4 Grim Monolith (WC99) kb126
+1 Karn, Silver Golem (WC99) kb298
+3 Masticore (WC99) kb143b
+2 Mishra's Helix (WC99) kb302
+5 Mountain (WC99) kb343
+4 Mountain (WC99) kb344
+4 Mountain (WC99) kb346
+4 Temporal Aperture (WC99) kb310
+4 Thran Dynamo (WC99) kb139
+4 Voltaic Key (WC99) kb314
+4 Wildfire (WC99) kb228
+2 Worn Powerstone (WC99) kb318
+SB: 2 Boil (WC99) kb165sb
+SB: 3 Earthquake (WC99) kb173sb
+SB: 1 Mishra's Helix (WC99) kb302sb
+SB: 1 Phyrexian Processor (WC99) kb306sb
+SB: 2 Rack and Ruin (WC99) kb89sb
+SB: 2 Shattering Pulse (WC99) kb102sb
+SB: 4 Spellshock (WC99) kb104sb

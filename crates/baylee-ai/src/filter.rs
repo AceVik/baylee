@@ -198,6 +198,8 @@ impl HeuristicAgent {
                     .iter()
                     .any(|attacker| attacker.creature == object.id && !attacker.blocked),
             ),
+            // The view names what every public object is attached to.
+            Filter::IsAttached => Some(object.attached_to.is_some()),
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
             Filter::HasKeyword(k) => Some(object.keywords & k.bits() != 0),
@@ -450,7 +452,7 @@ impl HeuristicAgent {
     /// and are `None` here: only a resolution knows who was chosen, who
     /// controls the target or who controls the event's object, and answering
     /// "nobody" reads exactly like "no seat matched".
-    fn seats(&self, rel: PlayerRel, view: &PlayerView) -> Option<Vec<PlayerId>> {
+    pub(crate) fn seats(&self, rel: PlayerRel, view: &PlayerView) -> Option<Vec<PlayerId>> {
         let every = || {
             view.seats
                 .iter()

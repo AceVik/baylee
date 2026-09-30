@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_W16.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W16
+# released: 2016-04-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Servant (W16) 4
+2 Ancient Crab (OGW) 50
+1 Anticipate (BFZ) 69
+1 Blighted Cataract (BFZ) 229
+1 Catalog (SOI) 51
+1 Cloud Manta (BFZ) 71
+1 Coralhelm Guide (BFZ) 74
+1 Disperse (W16) 5
+4 Island (SOI) 286
+4 Island (SOI) 287
+4 Island (SOI) 288
+1 Niblis of Dusk (SOI) 76
+1 Pore Over the Pages (SOI) 79
+1 Roiling Waters (OGW) 62
+2 Sleep Paralysis (SOI) 87
+1 Sphinx of Magosi (W16) 6
+1 Stitched Mangler (SOI) 89
+1 Sweep Away (OGW) 64
+1 Umara Entangler (OGW) 65

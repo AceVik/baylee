@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Warlock
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Warlock_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Dark Ritual (3ED) 99
+4 Drain Life (3ED) 106
+4 El-Hajjâj (ARN) 24
+2 Fear (3ED) 111
+2 Frozen Shade (3ED) 112
+4 Howl from Beyond (3ED) 114
+4 Hypnotic Specter (3ED) 115
+4 Murk Dwellers (DRK) 49
+4 Pit Scorpion (LEG) 114
+8 Swamp (3ED) 298
+8 Swamp (3ED) 299
+7 Swamp (3ED) 300
+4 Tawnos's Wand (ATQ) 69
+1 Terror (3ED) 132
+SB: 1 Conservator (3ED) 241
+SB: 1 Deathgrip (3ED) 101
+SB: 1 Gloom (3ED) 113
+SB: 3 Throne of Bone (3ED) 279

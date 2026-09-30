@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Expulsion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Expulsion_8ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 8ED
+# released: 2003-07-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abyssal Specter (8ED) 117
+1 Coercion (8ED) 122
+2 Dark Banishing (8ED) 123
+2 Deathgazer (8ED) 126
+1 Disrupting Scepter (8ED) 298
+2 Dusk Imp (8ED) 130
+1 Larceny (8ED) 139
+3 Maggot Carrier (8ED) 142
+2 Megrim (8ED) 143
+4 Ravenous Rats (8ED) 158
+1 Sever Soul (8ED) 162
+2 Severed Legion (8ED) 163
+5 Swamp (8ED) 339
+4 Swamp (8ED) 340
+4 Swamp (8ED) 341
+4 Swamp (8ED) 342

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Cries of Rage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CriesOfRage_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Axegrinder Giant (PS11) 91 [es]
+1 Borderland Behemoth (PS11) 95 [es]
+2 Bramblewood Paragon (PS11) 125 [es]
+3 Cloudcrown Oak (PS11) 127 [es]
+1 Dragon's Claw (PS11) 188 [es]
+2 Elvish Warrior (PS11) 135 [es]
+2 Flamekin Brawler (PS11) 103 [es]
+3 Forest (PS11) 221 [es]
+3 Forest (PS11) 222 [es]
+3 Forest (PS11) 223 [es]
+3 Forest (PS11) 224 [es]
+2 Giant Growth (PS11) 138 [es]
+1 Hurricane (PS11) 142 [es]
+2 Impelled Giant (PS11) 111 [es]
+2 Incinerate (PS11) 112 [es]
+1 Jagged Lightning (PS11) 113 [es]
+1 Lava Axe (PS11) 115 [es]
+1 Mirri, Cat Warrior (PS11) 148 [es]
+3 Mountain (PS11) 217 [es]
+3 Mountain (PS11) 218 [es]
+3 Mountain (PS11) 219 [es]
+3 Mountain (PS11) 220 [es]
+2 Mudbutton Torchrunner (PS11) 117 [es]
+2 Naturalize (PS11) 151 [es]
+1 Oakgnarl Warrior (PS11) 153 [es]
+2 Obsidian Battle-Axe (PS11) 196 [es]
+2 Rip-Clan Crasher (PS11) 174 [es]
+1 Sangrite Surge (PS11) 175 [es]
+1 Stonebrow, Krosan Hero (PS11) 177 [es]
+1 Vengeful Firebrand (PS11) 122 [es]
+1 Wurm's Tooth (PS11) 203 [es]

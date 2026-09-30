@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Blue
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Blue_GNT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GNT
+# released: 2018-11-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Advanced Stitchwing (GNT) 18
+2 Air Elemental (GNT) 19
+2 Aviation Pioneer (M19) 46
+2 Claustrophobia (GNT) 20
+2 Favorable Winds (GNT) 21
+2 Gearsmith Guardian (M19) 237
+1 Gearsmith Prodigy (M19) 57
+1 Hydrolash (GNT) 22
+1 Inspired Sphinx (GNT) 2
+13 Island (GNT) 61
+12 Island (GNT) 62
+1 Metamorphic Alteration (M19) 60
+1 One with the Machine (M19) 66
+2 Pilgrim's Eye (GNT) 55
+1 Reckless Scholar (GNT) 23
+1 Sai, Master Thopterist (M19) 69
+2 Scholar of Stars (M19) 71
+2 Skilled Animator (M19) 73
+2 Skyscanner (M19) 245
+2 Snare Thopter (GNT) 57
+1 Soulblade Djinn (GNT) 24
+1 Switcheroo (M19) 78
+2 Wall of Mist (M19) 83
+2 Whirler Rogue (GNT) 25
+1 Zahid, Djinn of the Lamp (GNT) 26

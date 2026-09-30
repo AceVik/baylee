@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Izzet Phoenix
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, IzzetPhoenix_Q08.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pioneer Challenger Deck
+# set: Q08
+# released: 2022-11-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arclight Phoenix (GRN) 91
+4 Chart a Course (XLN) 48
+4 Consider (MID) 44
+4 Crackling Drake (GRN) 163
+2 Expressive Iteration (STX) 186
+2 Fiery Impulse (ORI) 145
+2 Flame-Blessed Bolt (VOW) 158
+2 Island (DMU) 265
+2 Island (DMU) 266
+2 Island (DMU) 267
+3 Izzet Charm (RTR) 172
+3 Lightning Axe (SOI) 170
+2 Mountain (DMU) 271
+1 Mountain (DMU) 272
+1 Mountain (DMU) 273
+4 Opt (M21) 59
+3 Pieces of the Puzzle (SOI) 78
+4 Shivan Reef (DMU) 255
+1 Steam Vents (GRN) 257
+2 Sulfur Falls (DOM) 247
+4 Temple of Epiphany (M21) 252
+2 Thing in the Ice // Awoken Horror (SOI) 92
+4 Treasure Cruise (KTK) 59
+SB: 3 Abrade (VOW) 139
+SB: 1 Invasive Surgery (SOI) 68
+SB: 2 Lava Coil (GRN) 108
+SB: 4 Mystical Dispute (ELD) 58
+SB: 3 Narset, Parter of Veils (WAR) 61
+SB: 2 Sweltering Suns (AKH) 149

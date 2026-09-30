@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Deadspread
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Deadspread_SOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOM
+# released: 2010-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Carnifex Demon (SOM) 57 *F*
+2 Contagion Clasp (SOM) 144
+1 Contagion Engine (SOM) 145
+1 Culling Dais (SOM) 148
+1 Darkslick Drake (SOM) 30
+1 Doom Blade (M11) 95
+2 Fume Spitter (SOM) 63
+1 Harbor Serpent (M11) 56
+2 Instill Infection (SOM) 68
+4 Island (SOM) 234
+3 Island (SOM) 235
+3 Island (SOM) 236
+3 Island (SOM) 237
+2 Leaden Myr (SOM) 170
+2 Maritime Guard (M11) 63
+2 Moriok Reaver (SOM) 70
+2 Necrogen Censer (SOM) 184
+2 Silver Myr (SOM) 202
+1 Skinrender (SOM) 78
+2 Sky-Eel School (SOM) 44
+1 Sorcerer's Strongbox (M11) 213
+2 Steady Progress (SOM) 45
+4 Swamp (SOM) 238
+3 Swamp (SOM) 239
+3 Swamp (SOM) 240
+3 Swamp (SOM) 241
+1 Throne of Geth (SOM) 211
+2 Thrummingbird (SOM) 47
+1 Trigon of Corruption (SOM) 213
+1 Trigon of Thought (SOM) 217
+1 Twisted Image (SOM) 50

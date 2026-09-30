@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Blowout
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Blowout_INV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: INV
+# released: 2000-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Addle (INV) 91
+1 Agonizing Demise (INV) 92
+1 Annihilate (INV) 94
+1 Breath of Darigaaz (INV) 138
+1 Cinder Shade (INV) 240
+1 Firescreamer (INV) 106
+1 Ghitu Fire (INV) 144
+1 Halam Djinn (INV) 146
+1 Hate Weaver (INV) 108
+2 Hooded Kavu (INV) 147
+1 Hypnotic Cloud (INV) 109
+2 Kavu Aggressor (INV) 148
+1 Maniacal Rage (INV) 155
+3 Mountain (INV) 343
+3 Mountain (INV) 344
+2 Mountain (INV) 345
+2 Mountain (INV) 346
+1 Mourning (INV) 111
+1 Phyrexian Delver (INV) 115
+1 Phyrexian Reaper (INV) 117
+1 Phyrexian Slayer (INV) 118
+4 Ravenous Rats (INV) 120
+2 Scorching Lava (INV) 164
+2 Shivan Zombie (INV) 271
+1 Smoldering Tar (INV) 275
+1 Soul Burn (INV) 124
+3 Swamp (INV) 339
+3 Swamp (INV) 340
+3 Swamp (INV) 341
+3 Swamp (INV) 342
+2 Thunderscape Apprentice (INV) 174
+1 Trench Wurm (INV) 127
+2 Urborg Volcano (INV) 330
+2 Vicious Kavu (INV) 284
+1 Zap (INV) 180

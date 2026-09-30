@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Woodland Warriors
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WoodlandWarriors_DDU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDU
+# released: 2018-04-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Dwynen's Elite (DDU) 3
+1 Dwynen, Gilt-Leaf Daen (DDU) 2
+1 Elvish Aberration (DDU) 4
+1 Elvish Archdruid (DDU) 5
+2 Elvish Branchbender (DDU) 6
+2 Elvish Mystic (DDU) 7
+1 Elvish Vanguard (DDU) 8
+2 Ezuri's Archers (DDU) 9
+1 Ezuri, Renegade Leader (DDU) 1 *F*
+1 Fierce Empath (DDU) 10
+5 Forest (DDU) 31
+5 Forest (DDU) 32
+4 Forest (DDU) 33
+4 Forest (DDU) 34
+1 Gladehart Cavalry (DDU) 11
+2 Ivy Lane Denizen (DDU) 12
+2 Jagged-Scar Archers (DDU) 13
+1 Krosan Tusker (DDU) 14
+1 Kujar Seedsculptor (DDU) 15
+1 Lead the Stampede (DDU) 16
+2 Leaf Gilder (DDU) 17
+1 Llanowar Empath (DDU) 18
+1 Naturalize (DDU) 19
+2 Nature's Way (DDU) 20
+2 Nissa's Judgment (DDU) 21
+1 Oran-Rief, the Vastwood (DDU) 28
+1 Regal Force (DDU) 22
+2 Sylvan Advocate (DDU) 23
+1 Talara's Battalion (DDU) 24
+2 Tranquil Thicket (DDU) 29
+2 Treetop Village (DDU) 30
+1 Viridian Shaman (DDU) 25
+1 Wildheart Invoker (DDU) 26
+1 Yeva, Nature's Herald (DDU) 27

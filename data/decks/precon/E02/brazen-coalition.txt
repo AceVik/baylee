@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Brazen Coalition
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BrazenCoalition_E02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: E02
+# released: 2017-11-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adaptive Automaton (E02) 42
+1 Angrath's Marauders (XLN) 132
+1 Blatant Thievery (E02) 8
+1 Coat with Venom (E02) 17
+4 Crumbling Necropolis (E02) 45
+3 Dire Fleet Hoarder (XLN) 102
+1 Doom Blade (E02) 18
+1 Dreamcaller Siren (XLN) 54
+1 Fiery Cannonade (XLN) 143
+2 Headstrong Brute (XLN) 147
+1 Innocent Blood (E02) 19
+2 Island (XLN) 264
+2 Island (XLN) 265
+2 Island (XLN) 266
+1 Island (XLN) 267
+1 Lightning Strike (XLN) 149
+1 Marauding Looter (XLN) 225
+1 Mass Mutiny (E02) 27
+2 Mountain (XLN) 272
+2 Mountain (XLN) 273
+2 Mountain (XLN) 274
+2 Mountain (XLN) 275
+2 Prismatic Lens (E02) 43
+2 Rigging Runner (XLN) 157
+2 Rush of Adrenaline (E02) 28
+2 Sailor of Means (XLN) 73
+1 Shared Animosity (E02) 29
+2 Storm Fleet Aerialist (XLN) 83
+2 Storm Fleet Pyromancer (XLN) 163
+2 Storm Fleet Spy (XLN) 84
+2 Swamp (XLN) 268
+2 Swamp (XLN) 269
+2 Swamp (XLN) 270
+1 Swamp (XLN) 271
+1 Vow of Lightning (E02) 30
+2 Wanted Scoundrels (XLN) 131

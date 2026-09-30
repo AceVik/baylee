@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Mark Le Pine - Sped Red
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MarkLePineSpedRed_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC99
+# released: 1999-08-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ancient Tomb (WC99) mlp315
+2 Arc Lightning (WC99) mlp174
+4 Avalanche Riders (WC99) mlp74
+4 Cursed Scroll (WC99) mlp281
+3 Fireslinger (WC99) mlp173
+2 Ghitu Encampment (WC99) mlp141
+3 Hammer of Bogardan (WC99) mlp188
+4 Jackal Pup (WC99) mlp183
+4 Mogg Fanatic (WC99) mlp190
+5 Mountain (WC99) mlp343
+6 Mountain (WC99) mlp344
+5 Mountain (WC99) mlp346
+4 Pillage (WC99) mlp198
+4 Shock (WC99) mlp98
+4 Stone Rain (WC99) mlp209
+4 Wasteland (WC99) mlp330
+SB: 1 Arc Lightning (WC99) mlp174sb
+SB: 1 Fireslinger (WC99) mlp173sb
+SB: 1 Flowstone Flood (WC99) mlp83sb
+SB: 2 Masticore (WC99) mlp134sb
+SB: 4 Scald (WC99) mlp211sb
+SB: 2 Shattering Pulse (WC99) mlp102sb
+SB: 4 Thran Foundry (WC99) mlp140sb

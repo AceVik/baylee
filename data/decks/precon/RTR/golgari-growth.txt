@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Golgari Growth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariGrowth_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: RTR
+# released: 2012-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acidic Slime (M13) 159
+1 Aerial Predation (RTR) 113
+1 Corpsejack Menace (RTR) 152 *F*
+2 Daggerdrome Imp (RTR) 60
+1 Disentomb (M13) 89
+1 Dreg Mangler (RTR) 158
+2 Drudge Beetle (RTR) 122
+3 Forest (RTR) 270
+3 Forest (RTR) 271
+2 Forest (RTR) 272
+2 Forest (RTR) 273
+2 Forest (RTR) 274
+1 Gobbling Ooze (RTR) 126
+1 Golgari Guildgate (RTR) 239
+2 Golgari Keyrune (RTR) 229
+2 Golgari Longlegs (RTR) 216
+1 Grisly Salvage (RTR) 165
+1 Korozda Guildmage (RTR) 176
+2 Korozda Monitor (RTR) 129
+2 Launch Party (RTR) 69
+1 Murder (M13) 101
+1 Rites of Reaping (RTR) 191
+1 Serpent's Gift (M13) 190
+2 Slitherhead (RTR) 222
+1 Sluiceway Scorpion (RTR) 198
+1 Slum Reaper (RTR) 77
+1 Stonefare Crocodile (RTR) 136
+3 Swamp (RTR) 260
+3 Swamp (RTR) 261
+2 Swamp (RTR) 262
+2 Swamp (RTR) 263
+2 Swamp (RTR) 264
+1 Terrus Wurm (RTR) 80
+1 Treasured Find (RTR) 204
+1 Veilborn Ghoul (M13) 114
+3 Walking Corpse (M13) 116
+1 Wild Beastmaster (RTR) 139

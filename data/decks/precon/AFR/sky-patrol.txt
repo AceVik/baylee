@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Sky Patrol
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SkyPatrol_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Augury Raven (KHM) 44
+2 Behold the Multiverse (KHM) 46
+1 Cosmos Charger (KHM) 51
+3 Dawnbringer Cleric (AFR) 9
+1 Doomskar (KHM) 9
+1 Elite Spellbinder (STX) 17
+3 Expel (STX) 18
+4 Glacial Floodplain (KHM) 257
+1 Grazilaxx, Illithid Scholar (AFR) 60
+1 Hengegate Pathway // Mistgate Pathway (KHM) 260
+1 Iron Verdict (KHM) 17
+3 Island (AFR) 266
+2 Island (AFR) 267
+2 Island (AFR) 268
+2 Island (AFR) 269
+2 Journey to Oblivion (ZNR) 17
+2 Karfell Harbinger (KHM) 65
+1 Luminarch Aspirant (ZNR) 24
+3 Plains (AFR) 262
+3 Plains (AFR) 263
+3 Plains (AFR) 264
+2 Plains (AFR) 265
+2 Portable Hole (AFR) 33
+3 Saw It Coming (KHM) 76
+2 Shepherd of the Cosmos (KHM) 28
+1 Starnheim Unleashed (KHM) 33
+3 Stonebinder's Familiar (STX) 31
+3 Vega, the Watcher (KHM) 233

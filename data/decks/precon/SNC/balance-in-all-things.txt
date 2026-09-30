@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Balance in All Things
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BalanceInAllThings_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Assassin's Ink (NEO) 87
+2 Banishing Slash (NEO) 3
+3 Chainflail Centipede (NEO) 90
+2 Circuit Mender (NEO) 242
+2 Citizen's Crowbar (SNC) 8
+1 Dockside Chef (NEO) 93
+3 Kami of Terrible Secrets (NEO) 105
+1 Liesa, Forgotten Archangel (MID) 232
+1 Life of Toshiro Umezawa // Memory of Toshiro (NEO) 108
+1 Lion Sash (NEO) 26
+1 Michiko's Reign of Truth // Portrait of Michiko (NEO) 29
+1 Mukotai Soulripper (NEO) 113
+1 Mysterious Limousine (SNC) 22
+3 Naomi, Pillar of Order (NEO) 229
+2 Nezumi Bladeblesser (NEO) 115
+5 Plains (SNC) 262
+4 Plains (SNC) 263
+1 Roadside Reliquary (NEO) 272
+4 Scoured Barrens (NEO) 274
+1 Shattered Sanctum (VOW) 264
+1 Soul Transfer (NEO) 122
+1 Spirit-Sister's Call (NEO) 237
+3 Spirited Companion (NEO) 38
+5 Swamp (SNC) 266
+5 Swamp (SNC) 267
+1 The Restoration of Eiganjo // Architect of Restoration (NEO) 34
+1 Touch the Spirit Realm (NEO) 40
+2 Twisted Embrace (NEO) 125

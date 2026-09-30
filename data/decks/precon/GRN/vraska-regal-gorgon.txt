@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Vraska, Regal Gorgon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VraskaRegalGorgon_GRN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: GRN
+# released: 2018-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Attendant of Vraska (GRN) 271
+2 Bartizan Bats (GRN) 62
+1 Beast Whisperer (GRN) 123
+1 Bounty of Might (GRN) 124
+3 Dead Weight (GRN) 67
+1 Devkarin Dissident (GRN) 127
+1 Douser of Lights (GRN) 70
+10 Forest (GRN) 264
+2 Glowspore Shaman (GRN) 173
+2 Golgari Guildgate (GRN) 248
+2 Golgari Guildgate (GRN) 249
+2 Ironshell Beetle (GRN) 134
+1 Kraul Foragers (GRN) 135
+4 Kraul Raider (GRN) 270
+1 Lotleth Giant (GRN) 74
+2 Prey Upon (GRN) 143
+2 Rhizome Lurcher (GRN) 196
+3 Spinal Centipede (GRN) 86
+12 Swamp (GRN) 262
+1 Swarm Guildmage (GRN) 201
+2 Vraska's Stoneglare (GRN) 272
+1 Vraska, Regal Gorgon (GRN) 269 *F*
+1 Wild Ceratok (GRN) 150

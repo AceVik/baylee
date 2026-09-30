@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Green Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeckB_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Civic Wayfinder (10E) 255
+1 Commune with Nature (10E) 256
+1 Creeping Mold (10E) 258
+2 Elvish Berserker (10E) 260
+1 Elvish Eulogist (LRW) 205
+2 Elvish Warrior (MOR) 120
+3 Forest (10E) 380
+3 Forest (10E) 381
+3 Forest (10E) 382
+2 Forest (10E) 383
+2 Giant Growth (10E) 266
+1 Gilt-Leaf Seer (LRW) 215
+1 Jagged-Scar Archers (LRW) 222
+2 Leaf Gilder (LRW) 227
+2 Llanowar Elves (10E) 274
+1 Natural Spring (10E) 281
+1 Treetop Bracers (10E) 304

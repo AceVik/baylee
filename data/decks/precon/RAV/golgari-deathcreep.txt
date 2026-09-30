@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Golgari Deathcreep
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariDeathcreep_RAV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: RAV
+# released: 2005-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Darkblast (RAV) 82
+2 Drooling Groodion (RAV) 204
+2 Elves of Deep Shadow (RAV) 161
+1 Elvish Skysweeper (RAV) 162
+3 Forest (RAV) 303
+3 Forest (RAV) 304
+3 Forest (RAV) 305
+2 Forest (RAV) 306
+2 Golgari Brownscale (RAV) 166
+1 Golgari Grave-Troll (RAV) 167
+1 Golgari Guildmage (RAV) 248
+1 Golgari Rot Farm (RAV) 278
+2 Golgari Rotwurm (RAV) 210
+3 Greater Mossdog (RAV) 169
+2 Infectious Host (RAV) 91
+2 Last Gasp (RAV) 93
+1 Moldervine Cloak (RAV) 173
+1 Necromantic Thirst (RAV) 97
+2 Putrefy (RAV) 221
+2 Recollect (RAV) 178
+1 Rolling Spoil (RAV) 179
+1 Savra, Queen of the Golgari (RAV) 225
+2 Shambling Shell (RAV) 230
+2 Stinkweed Imp (RAV) 107
+1 Svogthos, the Restless Tomb (RAV) 283
+3 Swamp (RAV) 295
+3 Swamp (RAV) 296
+3 Swamp (RAV) 297
+2 Swamp (RAV) 298
+1 Thoughtpicker Witch (RAV) 109
+1 Vigor Mortis (RAV) 111
+2 Woodwraith Strangler (RAV) 241

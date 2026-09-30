@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Garruk
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Garruk_GVL.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: GVL
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Albino Troll (GVL) 3
+2 Basking Rootwalla (GVL) 2
+1 Beast Attack (GVL) 23
+2 Blastoderm (GVL) 7
+1 Elephant Guide (GVL) 18
+6 Forest (GVL) 28
+5 Forest (GVL) 29
+5 Forest (GVL) 30
+5 Forest (GVL) 31
+1 Garruk Wildspeaker (GVL) 1 *F*
+1 Genju of the Cedars (GVL) 13
+1 Giant Growth (GVL) 14
+2 Harmonize (GVL) 21
+2 Indrik Stomphowler (GVL) 10
+1 Invigorate (GVL) 19
+1 Krosan Tusker (GVL) 11
+1 Lignify (GVL) 16
+2 Nature's Lore (GVL) 17
+1 Overrun (GVL) 24
+1 Plated Slagwurm (GVL) 12
+2 Rancor (GVL) 15
+1 Ravenous Baloth (GVL) 8
+1 Rude Awakening (GVL) 22
+2 Serrated Arrows (GVL) 20
+2 Slippery Karst (GVL) 26
+1 Stampeding Wildebeests (GVL) 9
+1 Treetop Village (GVL) 27
+2 Vine Trellis (GVL) 4
+2 Wild Mongrel (GVL) 5
+1 Windstorm (GVL) 25
+2 Wirewood Savage (GVL) 6

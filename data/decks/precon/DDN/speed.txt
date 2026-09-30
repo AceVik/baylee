@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Speed
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Speed_DDN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDN
+# released: 2014-09-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (DDN) 26
+1 Arc Trail (DDN) 23
+1 Banefire (DDN) 31
+2 Beetleback Chief (DDN) 14
+1 Bone Splinters (DDN) 22
+1 Dauntless Onslaught (DDN) 27
+2 Dregscape Zombie (DDN) 5
+2 Evolving Wilds (DDN) 32
+2 Fiery Fall (DDN) 29
+1 Flame-Kin Zealot (DDN) 17
+1 Fleshbag Marauder (DDN) 8
+1 Frenzied Goblin (DDN) 2
+1 Fury of the Horde (DDN) 30
+1 Ghitu Encampment (DDN) 33
+1 Goblin Bombardment (DDN) 24
+1 Goblin Deathraiders (DDN) 6
+1 Goblin Warchief (DDN) 9
+1 Hell's Thunder (DDN) 10
+1 Hellraiser Goblin (DDN) 7
+1 Infantry Veteran (DDN) 3
+1 Kathari Bomber (DDN) 11
+2 Krenko's Command (DDN) 25
+1 Krenko, Mob Boss (DDN) 15
+2 Leonin Snarecaster (DDN) 4
+1 Mardu Heart-Piercer (DDN) 13
+4 Mountain (DDN) 35
+3 Mountain (DDN) 36
+3 Mountain (DDN) 37
+2 Nomad Outpost (DDN) 34
+1 Ogre Battledriver (DDN) 16
+1 Oni of Wild Places (DDN) 19
+1 Orcish Cannonade (DDN) 28
+3 Plains (DDN) 38
+1 Reckless Abandon (DDN) 20
+1 Scourge Devil (DDN) 18
+1 Shambling Remains (DDN) 12
+1 Shock (DDN) 21
+2 Swamp (DDN) 39
+2 Swamp (DDN) 40
+2 Swamp (DDN) 41
+1 Zurgo Helmsmasher (DDN) 1 *F*

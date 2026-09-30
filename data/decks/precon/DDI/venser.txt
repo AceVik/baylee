@@ -1,0 +1,52 @@
+# baylee deck export v1
+# name: Venser
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Venser_DDI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDI
+# released: 2012-03-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angelic Shield (DDI) 27
+1 Augury Owl (DDI) 3
+1 Azorius Chancery (DDI) 33
+1 Cache Raiders (DDI) 18
+1 Clone (DDI) 14
+1 Coral Fighters (DDI) 4
+1 Cryptic Annelid (DDI) 15
+1 Flood Plain (DDI) 34
+1 Galepowder Mage (DDI) 12
+4 Island (DDI) 41
+4 Island (DDI) 42
+3 Island (DDI) 43
+1 Jedit's Dragoons (DDI) 20
+1 Kor Cartographer (DDI) 13
+1 Minamo Sightbender (DDI) 5
+1 Mistmeadow Witch (DDI) 6
+1 Neurok Invisimancer (DDI) 8
+1 New Benalia (DDI) 35
+1 Oblivion Ring (DDI) 28
+2 Overrule (DDI) 32
+1 Path to Exile (DDI) 23
+3 Plains (DDI) 38
+2 Plains (DDI) 39
+2 Plains (DDI) 40
+2 Preordain (DDI) 24
+1 Primal Plasma (DDI) 16
+1 Revoke Existence (DDI) 26
+1 Safe Passage (DDI) 29
+1 Sawtooth Loon (DDI) 17
+2 Scroll Thief (DDI) 7
+2 Sejiri Refuge (DDI) 36
+1 Sigil of Sleep (DDI) 25
+1 Sky Spirit (DDI) 10
+2 Slith Strider (DDI) 9
+1 Soaring Seacliff (DDI) 37
+1 Sphinx of Uthuun (DDI) 22
+1 Steel of the Godhead (DDI) 30
+1 Sunblast Angel (DDI) 21
+1 Vanish into Memory (DDI) 31
+1 Venser, the Sojourner (DDI) 1 *F*
+1 Wall of Denial (DDI) 11
+1 Whitemane Lion (DDI) 2
+1 Windreaver (DDI) 19

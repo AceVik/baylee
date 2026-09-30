@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Morph Mayhem
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MorphMayhem_LGN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LGN
+# released: 2003-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akroma's Blessing (ONS) 1
+2 Ascending Aven (ONS) 68
+1 Aven Redeemer (LGN) 3
+1 Chromeshell Crab (LGN) 32
+1 Daru Lancer (ONS) 20
+1 Daru Mender (LGN) 8
+2 Deftblade Elite (LGN) 12
+1 Discombobulate (ONS) 79
+2 Echo Tracer (LGN) 37
+4 Glory Seeker (ONS) 31
+1 Imagecrafter (ONS) 87
+1 Improvised Armor (ONS) 40
+1 Ironfist Crusher (ONS) 42
+3 Island (ONS) 335
+3 Island (ONS) 336
+3 Island (ONS) 337
+2 Island (ONS) 338
+1 Liege of the Axe (LGN) 16
+2 Lonely Sandbar (ONS) 320
+1 Master of the Veil (LGN) 43
+1 Mistform Mutant (ONS) 95
+2 Pacifism (ONS) 47
+3 Plains (ONS) 331
+3 Plains (ONS) 332
+3 Plains (ONS) 333
+2 Plains (ONS) 334
+2 Secluded Steppe (ONS) 324
+1 Swooping Talon (LGN) 23
+2 Voidmage Apprentice (LGN) 54
+1 Wall of Deceit (LGN) 55
+1 Weaver of Lies (LGN) 57
+1 Whipcorder (ONS) 60
+2 Willbender (LGN) 58
+2 Wingbeat Warrior (LGN) 29

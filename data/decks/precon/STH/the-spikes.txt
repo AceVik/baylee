@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: The Spikes
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSpikes_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bayou Dragonfly (TMP) 215
+1 Canopy Spider (TMP) 217
+1 Elven Rite (STH) 106
+1 Fanning the Flames (STH) 80
+3 Forest (TMP) 347
+3 Forest (TMP) 348
+3 Forest (TMP) 349
+3 Forest (TMP) 350
+2 Heartstone (STH) 134
+1 Hermit Druid (STH) 108
+4 Kindle (TMP) 184
+1 Lowland Basilisk (STH) 109
+3 Mountain (TMP) 343
+2 Mountain (TMP) 344
+2 Mountain (TMP) 345
+2 Mountain (TMP) 346
+2 Pincher Beetles (TMP) 244
+2 Rampant Growth (TMP) 245
+2 Shock (STH) 98
+4 Skyshroud Elf (TMP) 255
+1 Spike Breeder (STH) 116
+2 Spike Colony (STH) 117
+4 Spike Drone (TMP) 258
+2 Spike Feeder (STH) 118
+2 Spike Soldier (STH) 119
+3 Spike Worker (STH) 120
+1 Tempting Licid (STH) 122
+1 Tranquility (TMP) 261
+1 Verdant Touch (STH) 123

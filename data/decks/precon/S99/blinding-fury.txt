@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Blinding Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlindingFury_S99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: S99
+# released: 1999-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Light (S99) 1
+2 Angelic Blessing (S99) 3
+1 Archangel (S99) 4
+1 Armageddon (S99) 6
+1 Breath of Life (S99) 10
+2 Charging Paladin (S99) 12
+1 False Peace (S99) 16
+3 Foot Soldiers (S99) 17
+3 Knight Errant (S99) 19
+2 Path of Peace (S99) 21
+5 Plains (S99) 154
+4 Plains (S99) 155
+4 Plains (S99) 156
+4 Plains (S99) 157
+3 Venerable Monk (S99) 28
+1 Vengeance (S99) 29
+2 Wild Griffin (S99) 31

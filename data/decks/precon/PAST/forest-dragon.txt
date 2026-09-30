@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Forest Dragon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ForestDragon_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Cockatrice (3ED) 189
+4 Craw Wurm (3ED) 190
+1 Crumble (ATQ) 32
+3 Desert Twister (ARN) 46
+8 Forest (3ED) 304
+7 Forest (3ED) 305
+7 Forest (3ED) 306
+3 Living Lands (3ED) 210
+4 Llanowar Elves (3ED) 211
+4 Lure (3ED) 212
+2 Regeneration (3ED) 213
+2 Sandstorm (ARN) 53
+2 Stream of Life (3ED) 217
+4 Thicket Basilisk (3ED) 218
+4 Untamed Wilds (LEG) 210
+2 Wall of Brambles (3ED) 224
+SB: 2 Giant Spider (3ED) 200
+SB: 2 Living Lands (3ED) 210
+SB: 2 Stream of Life (3ED) 217
+SB: 2 Wall of Brambles (3ED) 224

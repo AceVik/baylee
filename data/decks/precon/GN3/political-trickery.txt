@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Political Trickery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PoliticalTrickery_GN3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN3
+# released: 2022-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angler Drake (GN3) 22
+1 Angler Turtle (GN3) 23
+1 Bloodthirsty Blade (GN3) 114
+3 Brineborn Cutthroat (GN3) 24
+1 Counterspell (GN3) 25
+1 Diluvian Primordial (GN3) 26
+2 Fact or Fiction (GN3) 27
+2 Fog Bank (GN3) 28
+1 Howling Golem (GN3) 117
+2 Illusory Ambusher (GN3) 29
+2 Impulse (GN3) 30
+9 Island (GN3) 125
+8 Island (GN3) 126
+8 Island (GN3) 127
+1 Jeering Homunculus (GN3) 31
+1 Maeve, Insidious Singer (GN3) 2 *F*
+3 Murmuring Mystic (GN3) 32
+1 Plea for Power (GN3) 33
+1 Precognitive Perception (GN3) 34
+1 Pull from Tomorrow (GN3) 35
+1 Repulse (GN3) 36
+2 Run Away Together (GN3) 37
+2 Sea Gate Oracle (GN3) 38
+1 Split Decision (GN3) 39
+1 Supreme Will (GN3) 40
+2 Talrand's Invocation (GN3) 41
+1 Vow of Flight (GN3) 42

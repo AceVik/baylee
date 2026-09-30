@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Rats' Nest
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RatsNest_BOK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BOK
+# released: 2005-02-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Befoul (CHK) 102
+1 Dance of Shadows (CHK) 108
+1 Genju of the Fens (BOK) 66
+2 Horobi's Whisper (BOK) 70
+1 Midnight Covenant (CHK) 125
+2 Nezumi Bone-Reader (CHK) 127
+3 Nezumi Cutthroat (CHK) 128
+1 Nezumi Graverobber // Nighteyes the Desecrator (CHK) 129
+4 Nezumi Ronin (CHK) 130
+1 Nezumi Shadow-Watcher (BOK) 74
+2 Numai Outcast (CHK) 134
+1 Okiba-Gang Shinobi (BOK) 76
+1 Patron of the Nezumi (BOK) 77
+1 Psychic Spear (BOK) 78
+1 Ragged Veins (CHK) 139
+1 Rend Flesh (CHK) 140
+1 Shuko (BOK) 159
+4 Skullsnatcher (BOK) 84
+1 Stir the Grave (BOK) 85
+6 Swamp (CHK) 295
+6 Swamp (CHK) 296
+6 Swamp (CHK) 297
+6 Swamp (CHK) 298
+2 Three Tragedies (BOK) 87
+2 Throat Slitter (BOK) 88
+1 Umezawa's Jitte (BOK) 163

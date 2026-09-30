@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Blossoming Growth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlossomingGrowth_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Azusa's Many Journeys // Likeness of the Seeker (NEO) 172
+1 Blossom Prancer (NEO) 175
+3 Boseiju Reaches Skyward // Branch of Boseiju (NEO) 177
+3 Careful Cultivation (NEO) 178
+3 Case the Joint (SNC) 37
+3 Cleanup Crew (SNC) 141
+3 Colossal Skyturtle (NEO) 216
+1 Croaking Counterpart (MID) 215
+1 Dreamroot Cascade (VOW) 262
+2 Fang of Shigeki (NEO) 183
+5 Forest (SNC) 270
+5 Forest (SNC) 271
+1 Glorious Sunrise (VOW) 200
+1 Hullbreaker Horror (VOW) 63
+5 Island (SNC) 264
+5 Island (SNC) 265
+3 Jewel Thief (SNC) 151
+2 Master's Rebuke (NEO) 202
+2 Prizefight (SNC) 154
+1 Psychic Pickpocket (SNC) 54
+1 Sludge Monster (MID) 76
+4 Thornwood Falls (NEO) 279
+1 Titan of Industry (SNC) 159
+1 Triskaidekaphile (MID) 81

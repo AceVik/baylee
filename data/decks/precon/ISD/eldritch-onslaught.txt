@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Eldritch Onslaught
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EldritchOnslaught_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ISD
+# released: 2011-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Armored Skaab (ISD) 43
+2 Burning Vengeance (ISD) 133
+1 Cellar Door (ISD) 218
+1 Charmbreaker Devils (ISD) 134
+2 Curse of the Bloody Tome (ISD) 50
+3 Deranged Assistant (ISD) 52
+2 Desperate Ravings (ISD) 139
+3 Dream Twist (ISD) 54
+2 Fortress Crab (ISD) 56
+1 Geistflame (ISD) 144
+1 Ghoulcaller's Bell (ISD) 224
+2 Grasp of Phantoms (ISD) 58
+1 Harvest Pyre (ISD) 146
+1 Into the Maw of Hell (ISD) 150
+5 Island (ISD) 253
+4 Island (ISD) 254
+4 Island (ISD) 255
+2 Merfolk Mesmerist (M12) 66
+4 Mountain (ISD) 259
+4 Mountain (ISD) 260
+3 Mountain (ISD) 261
+2 Murder of Crows (ISD) 70
+1 Pitchburn Devils (ISD) 156
+1 Rolling Temblor (ISD) 161
+1 Scourge of Geier Reach (ISD) 162
+2 Silent Departure (ISD) 75
+1 Sturmgeist (ISD) 82 *F*
+2 Think Twice (ISD) 83

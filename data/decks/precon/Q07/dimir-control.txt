@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Dimir Control
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirControl_Q07.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q07
+# released: 2022-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Baleful Mastery (STX) 64
+3 Blood on the Snow (KHM) 79
+3 Crippling Fear (KHM) 82
+1 Evolving Wilds (AFR) 256
+1 Evolving Wilds (AFR) 353
+2 Field of Ruin (MID) 262
+3 Graveyard Trespasser // Graveyard Glutton (MID) 104
+2 Hall of Storm Giants (AFR) 257
+2 Hero's Downfall (VOW) 120
+1 Hullbreaker Horror (VOW) 63
+4 Ice Tunnel (KHM) 262
+1 Infernal Grasp (MID) 107
+2 Iymrith, Desert Doom (AFR) 62
+2 Jwari Disruption // Jwari Ruins (ZNR) 64
+1 March of Wretched Sorrow (NEO) 111
+4 Memory Deluge (MID) 62
+2 Parasitic Grasp (VOW) 123
+3 Power Word Kill (AFR) 114
+3 Saw It Coming (KHM) 76
+4 Shipwreck Marsh (MID) 267
+5 Snow-Covered Island (KHM) 278
+7 Snow-Covered Swamp (KHM) 280
+2 Thirst for Discovery (VOW) 85
+SB: 2 Bloodchief's Thirst (ZNR) 94
+SB: 2 Bloodvial Purveyor (VOW) 98
+SB: 2 Duress (MID) 98
+SB: 2 Mischievous Catgeist // Catlike Curiosity (VOW) 69
+SB: 2 Negate (ZNR) 71
+SB: 2 Ray of Enfeeblement (AFR) 116
+SB: 1 Saw It Coming (KHM) 76
+SB: 2 Siphon Insight (MID) 241

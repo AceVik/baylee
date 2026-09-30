@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Gruul Siege
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulSiege_DGM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DGM
+# released: 2013-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armed // Dangerous (DGM) 122
+2 Cobblebrute (RTR) 91
+2 Feral Animist (DGM) 70
+3 Forest (RTR) 270
+3 Forest (RTR) 271
+2 Forest (RTR) 272
+2 Forest (RTR) 273
+2 Forest (RTR) 274
+1 Ghor-Clan Rampager (GTC) 167
+2 Ground Assault (GTC) 168
+2 Gruul Cluestone (DGM) 140
+4 Gruul Guildgate (DGM) 150
+2 Gruul War Chant (DGM) 75
+2 Kraul Warrior (DGM) 42
+2 Mountain (RTR) 265
+2 Mountain (RTR) 266
+2 Mountain (RTR) 267
+2 Mountain (RTR) 268
+2 Mountain (RTR) 269
+1 Pit Fight (GTC) 223
+1 Predator's Rapport (GTC) 129
+1 Ripscale Predator (GTC) 103
+3 Rubblebelt Maaka (DGM) 38
+2 Ruination Wurm (GTC) 192
+1 Ruric Thar, the Unbowed (DGM) 99 *F*
+2 Saruli Gatekeepers (DGM) 48
+1 Skarrg Goliath (GTC) 133
+1 Slaughterhorn (GTC) 134
+2 Viashino Shanktail (GTC) 110
+1 Volcanic Geyser (M13) 154
+3 Zhur-Taa Druid (DGM) 120
+1 Zhur-Taa Swine (GTC) 210

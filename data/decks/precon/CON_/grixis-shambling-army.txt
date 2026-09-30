@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Grixis Shambling Army
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GrixisShamblingArmy_CON.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: CON
+# released: 2009-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Absorb Vis (CON) 40
+1 Agony Warp (ALA) 153
+1 Blood Tyrant (CON) 99 *F*
+1 Bone Saw (CON) 135
+1 Brackwater Elemental (CON) 21
+2 Crumbling Necropolis (ALA) 222
+1 Dregscape Zombie (ALA) 74
+1 Elder Mastery (CON) 104
+1 Extractor Demon (CON) 44
+1 Fire-Field Ogre (ALA) 168
+2 Grixis Slavedriver (CON) 46
+1 Infest (ALA) 80
+1 Island (ALA) 234
+1 Island (ALA) 235
+1 Island (ALA) 236
+2 Kathari Screecher (ALA) 47
+1 Kederekt Creeper (ALA) 176
+1 Mountain (ALA) 242
+1 Mountain (ALA) 243
+1 Mountain (ALA) 244
+1 Pestilent Kathari (CON) 50
+2 Sedraxis Alchemist (CON) 54
+2 Shock (10E) 232
+2 Swamp (ALA) 238
+2 Swamp (ALA) 239
+2 Swamp (ALA) 240
+1 Swamp (ALA) 241
+2 Terramorphic Expanse (10E) 360
+1 Terror (10E) 182
+2 Zombie Outlander (CON) 133

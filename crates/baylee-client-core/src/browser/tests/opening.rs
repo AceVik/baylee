@@ -108,6 +108,7 @@ fn a_sheet_opened_for_a_search_shuts_when_the_search_is_answered() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );
@@ -188,6 +189,7 @@ fn a_tap_on_a_pile_does_not_take_the_sheet_from_a_question() {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            total: None,
         },
         PlayerId::new(0),
     );
@@ -270,6 +272,7 @@ fn the_tray_button_does_not_take_a_question_off_the_screen() {
             min: 1,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         me(),
     );

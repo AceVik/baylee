@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Druid
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Druid_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Craw Wurm (3ED) 190
+2 Durkwood Boars (LEG) 182
+7 Forest (3ED) 304
+7 Forest (3ED) 305
+6 Forest (3ED) 306
+4 Giant Growth (3ED) 199
+2 Giant Spider (3ED) 200
+3 Grizzly Bears (3ED) 201
+3 Instill Energy (3ED) 203
+2 Ironroot Treefolk (3ED) 204
+2 Killer Bees (LEG) 192
+3 Ley Druid (3ED) 206
+3 Llanowar Elves (3ED) 211
+4 Mishra's Factory (ATQ) 80a
+2 Nafs Asp (ARN) 52
+2 Oasis (ARN) 78
+2 Wall of Wood (3ED) 226
+3 Wanderlust (3ED) 227
+3 Wooden Sphere (3ED) 281
+SB: 3 Shanodin Dryads (3ED) 216

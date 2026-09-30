@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Solitary Fiends
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SolitaryFiends_AVR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: AVR
+# released: 2012-05-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Alchemist's Apprentice (AVR) 42
+1 Corpse Traders (AVR) 90
+2 Crippling Chill (AVR) 46
+1 Crypt Creeper (AVR) 91
+1 Demonic Rising (AVR) 94
+2 Doom Blade (M12) 95
+2 Essence Harvest (AVR) 100
+2 Fettergeist (AVR) 52
+2 Frost Breath (M12) 54
+1 Havengul Skaab (AVR) 60
+1 Homicidal Seclusion (AVR) 108
+2 Into the Void (AVR) 62
+4 Island (AVR) 233
+4 Island (AVR) 234
+3 Island (AVR) 235
+1 Lone Revenant (AVR) 64 *F*
+2 Marrow Bats (AVR) 113
+2 Mist Raven (AVR) 67
+2 Peel from Reality (AVR) 71
+1 Predator's Gambit (AVR) 117
+2 Renegade Demon (AVR) 118
+5 Swamp (AVR) 236
+4 Swamp (AVR) 237
+4 Swamp (AVR) 238
+1 Swiftfoot Boots (M12) 219
+2 Tormentor's Trident (AVR) 222
+1 Triumph of Cruelty (AVR) 122
+2 Undead Executioner (AVR) 123

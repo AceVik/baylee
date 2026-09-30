@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Pirates
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Pirates_ECL.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ECL
+# released: 2026-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Broadside Barrage (DFT) 192
+4 Burst Lightning (FDN) 192
+2 Captain Howler, Sea Scourge (DFT) 194
+3 Fearless Swashbuckler (DFT) 204
+1 Gastal Thrillroller (DFT) 129
+3 Inti, Seneschal of the Sun (LCI) 156
+8 Island (ECL) 270
+2 Magmatic Galleon (LCI) 157
+4 Marauding Mako (DFT) 138
+8 Mountain (ECL) 272
+4 Scrounging Skyray (DFT) 60
+4 Secluded Courtyard (FDN) 267
+2 Spell Snare (ECL) 71
+4 Spyglass Siren (LCI) 78
+2 Staunch Crewmate (LCI) 79
+3 Subterranean Schooner (LCI) 80
+4 Swiftwater Cliffs (TDM) 268

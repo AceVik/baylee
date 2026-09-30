@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: The Slivers - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSliversAdvancedDeck_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Clot Sliver (TMP) 112
+3 Counterspell (TMP) 57
+1 Dismiss (TMP) 58
+1 Drain Life (5ED) 156
+1 Fevered Convulsions (TMP) 136
+3 Impulse (VIS) 34
+2 Island (TMP) 335
+2 Island (TMP) 336
+2 Island (TMP) 337
+2 Island (TMP) 338
+1 Lobotomy (TMP) 267
+4 Metallic Sliver (TMP) 297
+1 Mindwhip Sliver (TMP) 145
+3 Mnemonic Sliver (TMP) 77
+2 Nevinyrral's Disk (5ED) 391
+1 Portent (5ED) 110
+1 Power Sink (TMP) 78
+2 Quicksand (VIS) 166
+4 Rootwater Depths (TMP) 323
+3 Stupor (MIR) 147
+2 Swamp (TMP) 339
+2 Swamp (TMP) 340
+1 Swamp (TMP) 341
+1 Swamp (TMP) 342
+2 Terror (5ED) 196
+4 Underground River (5ED) 426
+1 Whispers of the Muse (TMP) 103
+4 Winged Sliver (TMP) 106
+SB: 2 Chill (TMP) 56
+SB: 1 Dread of Night (TMP) 130
+SB: 1 Energy Flux (5ED) 83
+SB: 2 Gloom (5ED) 165
+SB: 1 Insight (TMP) 68
+SB: 1 Living Death (TMP) 142
+SB: 1 Necropotence (5ED) 182
+SB: 2 Nekrataal (VIS) 66
+SB: 1 Perish (TMP) 147
+SB: 1 Phyrexian Furnace (WTH) 155
+SB: 2 Propaganda (TMP) 80

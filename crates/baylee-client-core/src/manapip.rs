@@ -681,18 +681,10 @@ mod tests {
     /// thing that must never happen is a symbol drawn as an empty box.
     #[test]
     fn every_symbol_the_parser_accepts_has_something_to_draw() {
-        // Two costs because `MAX_SYMBOLS` is sixteen; between them they name
-        // every variant of `ManaSymbol`.
-        let mut pips = Vec::new();
-        for text in [
-            "{2}{W}{U}{B}{R}{G}{C}{S}{X}{Y}{Z}{W/U}{2/R}{G/P}{W/U/P}",
-            "{½}{∞}",
-        ] {
-            let cost = ManaCost::parse(text);
-            let drawn = super::cost(&cost);
-            assert_eq!(drawn.len(), cost.symbols().count());
-            pips.extend(drawn);
-        }
+        // One cost that names every variant of `ManaSymbol`.
+        let cost = ManaCost::parse("{2}{W}{U}{B}{R}{G}{C}{S}{X}{Y}{Z}{W/U}{2/R}{G/P}{W/U/P}{½}{∞}");
+        let pips = super::cost(&cost);
+        assert_eq!(pips.len(), cost.symbols().count());
         for pip in pips {
             match pip {
                 Pip::Solid { glyph, .. } => assert!(!glyph.is_control()),

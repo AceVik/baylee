@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Orzhov Oppression
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovOppression_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Angelic Edict (GTC) 2
+2 Basilica Guards (GTC) 5
+3 Basilica Screecher (GTC) 58
+1 Blood Reckoning (M13) 81
+2 Dying Wish (GTC) 64
+1 Executioner's Swing (GTC) 161
+1 Gift of Orzhova (GTC) 219
+1 Guardian Lions (M13) 17
+1 High Priest of Penance (GTC) 171
+1 Jayemdae Tome (M13) 207
+2 Kingpin's Pet (GTC) 173
+1 Knight of Obligation (GTC) 18
+1 Murder (M13) 101
+1 One Thousand Lashes (GTC) 183
+1 Orzhov Guildgate (GTC) 244
+2 Orzhov Keyrune (GTC) 233
+3 Plains (RTR) 250
+3 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Purge the Profane (GTC) 190
+1 Rain of Blades (M13) 28
+1 Shadow Alley Denizen (GTC) 76
+2 Silvercoat Lion (M13) 35
+1 Smog Elemental (GTC) 79
+3 Swamp (RTR) 260
+3 Swamp (RTR) 261
+3 Swamp (RTR) 262
+2 Swamp (RTR) 263
+2 Swamp (RTR) 264
+2 Syndicate Enforcer (GTC) 80
+1 Tormented Soul (M13) 111
+1 Treasury Thrull (GTC) 201 *F*
+1 Vizkopa Guildmage (GTC) 206
+1 Zombie Goliath (M13) 119

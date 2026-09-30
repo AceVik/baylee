@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Lightning Aggro
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LightningAggro_Q02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q02
+# released: 2019-04-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Banefire (M19) 130
+2 Experimental Frenzy (GRN) 99
+4 Fanatical Firebrand (RIX) 101
+4 Ghitu Lavarunner (DOM) 127
+4 Goblin Chainwhirler (DOM) 129
+2 Lava Coil (GRN) 108
+4 Lightning Strike (M19) 152
+22 Mountain (RNA) 263
+1 Rekindling Phoenix (RIX) 111
+4 Runaway Steam-Kin (GRN) 115
+4 Shock (M19) 156
+4 Viashino Pyromancer (M19) 166
+4 Wizard's Lightning (DOM) 152
+SB: 4 Diamond Mare (M19) 231
+SB: 3 Fiery Cannonade (XLN) 143
+SB: 4 Fight with Fire (DOM) 119
+SB: 4 Lightning Mare (M19) 151

@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Blessed
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Blessed_DDQ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDQ
+# released: 2016-02-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bonds of Faith (DDQ) 2
+1 Butcher's Cleaver (DDQ) 31
+1 Captain of the Mists (DDQ) 24
+1 Cathedral Sanctifier (DDQ) 3
+1 Champion of the Parish (DDQ) 4
+1 Chapel Geist (DDQ) 5
+1 Dearly Departed (DDQ) 6
+1 Doomed Traveler (DDQ) 7
+1 Eerie Interlude (DDQ) 8
+2 Elder Cathar (DDQ) 9
+1 Emancipation Angel (DDQ) 10
+1 Fiend Hunter (DDQ) 11
+2 Gather the Townsfolk (DDQ) 12
+1 Geist of Saint Traft (DDQ) 1 *F*
+1 Goldnight Redeemer (DDQ) 13
+1 Gryff Vanguard (DDQ) 25
+1 Increasing Devotion (DDQ) 14
+3 Island (DDQ) 35
+2 Island (DDQ) 36
+2 Island (DDQ) 37
+1 Mist Raven (DDQ) 26
+1 Momentary Blink (DDQ) 15
+1 Moorland Inquisitor (DDQ) 16
+1 Nephalia Smuggler (DDQ) 27
+4 Plains (DDQ) 38
+4 Plains (DDQ) 39
+4 Plains (DDQ) 40
+1 Pore Over the Pages (DDQ) 28
+2 Rebuke (DDQ) 17
+1 Seraph Sanctuary (DDQ) 33
+1 Sharpened Pitchfork (DDQ) 32
+1 Slayer of the Wicked (DDQ) 18
+1 Spectral Gateguards (DDQ) 19
+1 Tandem Lookout (DDQ) 29
+1 Thraben Heretic (DDQ) 20
+2 Topplegeist (DDQ) 21
+1 Tower Geist (DDQ) 30
+4 Tranquil Cove (DDQ) 34
+1 Village Bell-Ringer (DDQ) 22
+1 Voice of the Provinces (DDQ) 23

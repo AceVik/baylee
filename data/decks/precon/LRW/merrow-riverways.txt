@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Merrow Riverways
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MerrowRiverways_LRW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LRW
+# released: 2007-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Avian Changeling (LRW) 4
+1 Broken Ambitions (LRW) 54
+2 Drowner of Secrets (LRW) 58
+1 Fallowsage (LRW) 63
+2 Harpoon Sniper (LRW) 19
+4 Island (LRW) 286
+3 Island (LRW) 287
+3 Island (LRW) 288
+3 Island (LRW) 289
+3 Judge of Currents (LRW) 22
+1 Merrow Commerce (LRW) 72
+1 Merrow Harbinger (LRW) 73
+2 Merrow Reejerey (LRW) 74
+3 Oblivion Ring (LRW) 34
+3 Plains (LRW) 282
+2 Plains (LRW) 283
+2 Plains (LRW) 284
+2 Plains (LRW) 285
+1 Ponder (LRW) 79
+2 Silvergill Adept (LRW) 86
+3 Silvergill Douser (LRW) 87
+2 Springleaf Drum (LRW) 261
+2 Stonybrook Angler (LRW) 90
+3 Streambed Aquitects (LRW) 91
+2 Summon the School (LRW) 42
+1 Sygg, River Guide (LRW) 251
+2 Tideshaper Mystic (LRW) 93
+1 Wanderwine Prophets (LRW) 95
+1 Whirlpool Whelm (LRW) 96

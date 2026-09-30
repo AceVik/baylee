@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Auras of Majesty
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AurasOfMajesty_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ajani's Last Stand (M19) 4
+1 Danitha Capashen, Paragon (DOM) 12
+2 Daybreak Chaplain (M19) 10
+3 Druid of Horns (M19) 176
+3 Forest (M19) 277
+2 Forest (M19) 278
+2 Forest (M19) 279
+2 Forest (M19) 280
+2 Greenwood Sentinel (M19) 187
+3 Hieromancer's Cage (M19) 14
+1 History of Benalia (DOM) 21
+3 Knight's Pledge (M19) 19
+2 Knightly Valor (M19) 20
+3 Luminous Bonds (M19) 25
+3 Novice Knight (M19) 30
+3 Oakenform (M19) 191
+1 On Serra's Wings (DOM) 28
+3 Plains (M19) 261
+3 Plains (M19) 262
+3 Plains (M19) 263
+2 Plains (M19) 264
+1 Prodigious Growth (M19) 194
+3 Satyr Enchanter (M19) 223
+1 Shalai, Voice of Plenty (DOM) 35
+1 Siegehorn Ceratops (RIX) 171
+1 Sunpetal Grove (XLN) 257
+1 Thorn Lieutenant (M19) 203
+4 Tranquil Expanse (M19) 259

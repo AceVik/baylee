@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Black Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeck_SPM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SPM
+# released: 2025-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Eerie Gravestone (SPM) 163
+1 Grendel, Spawn of Knull (SPE) 9
+1 Lethal Protection (SPE) 10
+2 Mechanical Mobster (SPM) 168
+2 Merciless Enforcers (SPM) 58
+1 Risky Research (SPM) 62
+1 Scorpion's Sting (SPM) 65
+1 Scorpion, Seething Striker (SPM) 64
+1 Spider-Bot (SPM) 173
+1 Swamp (SPM) 191
+11 Swamp (SPM) 196
+2 Symbiote Spawn (SPE) 11
+1 Tombstone, Career Criminal (SPM) 70
+2 Venom's Hunger (SPM) 73
+1 Venom, Eddie Brock (SPE) 12
+1 Venom, Evil Unleashed (SPM) 71

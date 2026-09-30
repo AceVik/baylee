@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Raphael
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Raphael_TMT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMT
+# released: 2026-03-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Casey & Raph, Hotheads (TMC) 114
+1 Casey Jones, Asphalt Hooligan (TMC) 115
+1 Casey Jones, Jury-Rig Justiciar (TMT) 87
+1 Definitely Not a Turtle (TMC) 98
+1 General Traag, Heart of Stone (TMT) 90
+3 Manhole Missile (TMT) 94
+2 Mechanized Ninja Cavalry (TMT) 156
+3 Monster Mashup (TMC) 117
+24 Mountain (TMT) 318
+2 Mouser Attack! (TMT) 95
+2 Mouser Foundry (TMT) 96
+2 Mutant Town Musicians (TMT) 97
+3 Null Group Biological Assets (TMT) 98
+2 Raph's Bravado (TMC) 119
+1 Raphael, Most Attitude (TMT) 101
+1 Raphael, Tag Team Tough (TMC) 118
+1 Raphael, Tough Turtle (TMT) 104
+1 Skateboard (TMT) 178
+1 Spicy Oatmeal Pizza (TMT) 109
+2 Storm of Steel (TMC) 120
+2 Ticked Off (TMC) 121
+1 Wingnut, Bat on the Belfry (TMT) 110
+2 Zog, Triceraton Castaway (TMT) 111

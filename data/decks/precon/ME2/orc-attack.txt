@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Orc Attack
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OrcAttack_ME2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: ME2
+# released: 2008-09-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Brassclaw Orcs (ME2) 119
+2 Brothers of Fire (ME1) 89
+2 Death Spark (ME2) 123
+1 Fissure (ME1) 93
+2 Gorilla Shaman (ME2) 129
+1 Imperial Recruiter (ME2) 130
+2 Incinerate (ME2) 131
+4 Ironclaw Orcs (ME2) 132
+2 Lightning Bolt (ME1) 102
+1 Meteor Shower (ME2) 135
+1 Mishra's Factory (ME1) 178
+8 Mountain (ME1) 190
+7 Mountain (ME1) 191
+7 Mountain (ME1) 192
+2 Orc General (ME2) 137
+2 Orcish Cannoneers (ME2) 138
+3 Orcish Captain (ME2) 139
+3 Orcish Conscripts (ME2) 140
+1 Orcish Squatters (ME2) 143
+1 Orcish Veteran (ME2) 144
+1 Panic (ME2) 145
+1 Pillage (ME2) 146
+1 Pyrokinesis (ME2) 147
+1 Skull Catapult (ME2) 219
+2 Stone Giant (ME1) 109
+1 Varchild's Crusader (ME2) 152

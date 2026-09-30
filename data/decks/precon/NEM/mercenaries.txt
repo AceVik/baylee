@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Mercenaries
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Mercenaries_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alley Grifters (MMQ) 115
+1 Battlefield Percher (NEM) 52
+1 Belbe's Portal (NEM) 127
+1 Carrion Wall (NEM) 54
+1 Cateran Brute (MMQ) 120
+1 Cateran Enforcer (MMQ) 121
+1 Cateran Kidnappers (MMQ) 122
+1 Cateran Summons (MMQ) 126
+2 Dark Ritual (MMQ) 129
+1 Dark Triumph (NEM) 55
+1 Haunted Crossroads (MMQ) 138
+1 Intimidation (MMQ) 142
+1 Massacre (NEM) 58
+2 Mind Swords (NEM) 60
+3 Misshapen Fiend (MMQ) 147
+3 Parallax Dementia (NEM) 62
+2 Phyrexian Driver (NEM) 64
+1 Phyrexian Prowler (NEM) 65
+1 Rampart Crawler (MMQ) 156
+1 Rathi Assassin (NEM) 67
+1 Rathi Fiend (NEM) 68
+1 Rathi Intimidator (NEM) 69
+1 Seal of Doom (NEM) 70
+1 Skulking Fugitive (MMQ) 161
+4 Spineless Thug (NEM) 71
+2 Strongarm Thug (MMQ) 165
+6 Swamp (MMQ) 339
+6 Swamp (MMQ) 340
+6 Swamp (MMQ) 341
+5 Swamp (MMQ) 342

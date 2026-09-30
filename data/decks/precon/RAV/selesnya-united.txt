@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Selesnya United
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SelesnyaUnited_RAV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: RAV
+# released: 2005-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Caregiver (RAV) 6
+2 Centaur Safeguard (RAV) 244
+2 Conclave Phalanx (RAV) 10
+1 Conclave's Blessing (RAV) 11
+1 Dowsing Shaman (RAV) 159
+1 Dryad's Caress (RAV) 160
+2 Elvish Skysweeper (RAV) 162
+4 Fists of Ironwood (RAV) 164
+3 Forest (RAV) 303
+3 Forest (RAV) 304
+3 Forest (RAV) 305
+2 Forest (RAV) 306
+3 Gather Courage (RAV) 165
+2 Nullmage Shepherd (RAV) 174
+1 Overwhelm (RAV) 175
+3 Plains (RAV) 287
+3 Plains (RAV) 288
+2 Plains (RAV) 289
+2 Plains (RAV) 290
+2 Root-Kin Ally (RAV) 180
+2 Sandsower (RAV) 28
+2 Scatter the Seeds (RAV) 181
+1 Scion of the Wild (RAV) 182
+2 Selesnya Evangel (RAV) 228
+1 Selesnya Guildmage (RAV) 252
+2 Selesnya Sanctuary (RAV) 281
+3 Siege Wurm (RAV) 183
+1 Tolsimir Wolfblood (RAV) 236
+1 Vitu-Ghazi, the City-Tree (RAV) 285
+1 Watchwolf (RAV) 239

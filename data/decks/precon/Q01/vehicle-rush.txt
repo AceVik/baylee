@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Vehicle Rush
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VehicleRush_Q01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q01
+# released: 2018-04-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Aether Hub (KLD) 242
+1 Aethersphere Harvester (AER) 142
+4 Bomat Courier (KLD) 199
+1 Concealed Courtyard (KLD) 245
+1 Cultivator's Caravan (KLD) 203
+3 Depala, Pilot Exemplar (KLD) 178
+1 Dragonskull Summit (XLN) 252
+2 Evolving Wilds (RIX) 186
+4 Heart of Kiran (AER) 153
+1 Inspiring Vantage (KLD) 246
+4 Lightning Strike (XLN) 149
+3 Mountain (RIX) 195
+2 Pia Nalaar (KLD) 124
+5 Plains (RIX) 192
+4 Scrapheap Scrounger (KLD) 231
+1 Skysovereign, Consul Flagship (KLD) 234
+4 Spire of Industry (AER) 184
+1 Swamp (RIX) 194
+4 Toolcraft Exemplar (KLD) 32
+3 Unclaimed Territory (XLN) 258
+4 Unlicensed Disintegration (KLD) 187
+4 Veteran Motorist (KLD) 188
+SB: 1 Aethersphere Harvester (AER) 142
+SB: 1 Cast Out (AKH) 8
+SB: 2 Chandra's Defeat (HOU) 86
+SB: 2 Crook of Condemnation (HOU) 159
+SB: 4 Duress (XLN) 105
+SB: 3 Harsh Mentor (AKH) 135
+SB: 2 Magma Spray (AKH) 141

@@ -14,8 +14,8 @@
 use baylee_engine::object::{CachedChar, Characteristics, GameObject};
 use baylee_engine::state::GameState;
 
-/// Every characteristic set carries a 1024-bit subtype bitmap and a 16-slot
-/// mana cost; those two dominate it and are what makes storing a second
+/// Every characteristic set carries a 1024-bit subtype bitmap and a mana
+/// cost (a count per symbol); those two dominate it and are what makes storing a second
 /// copy per object expensive. Objects hold it behind an `Arc`, so this
 /// number is paid once per *distinct* base, not once per object.
 ///
@@ -74,7 +74,14 @@ const CACHE_BUDGET: usize = 32;
 /// The two raises were made on two branches the same day, each from 296.
 /// Merged, both fields sit in the one eight-byte step (six of its bytes),
 /// and the object measured 304 with both.
-const OBJECT_BUDGET: usize = 304;
+///
+/// Raised 304 → 312 on 2026-09-30 by `GameObject::controlled_since`, the
+/// moment its controller took it (CR 302.6), split off `timestamp` so that
+/// a transform can take the new timestamp CR 613.7g gives it without
+/// making the permanent summoning-sick. It is a stamp on the game's `u64`
+/// clock like the field it was split from, and there is no hole for it:
+/// the eight-byte step the two fields above share has two bytes left.
+const OBJECT_BUDGET: usize = 312;
 
 #[test]
 fn game_object_stays_within_its_budget() {

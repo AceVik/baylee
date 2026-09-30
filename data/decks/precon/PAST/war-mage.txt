@@ -1,0 +1,23 @@
+# baylee deck export v1
+# name: War Mage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WarMage_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aladdin's Ring (ARN) 57
+4 Ball Lightning (DRK) 57
+3 Detonate (ATQ) 24
+4 Disintegrate (3ED) 142
+4 Earthquake (3ED) 148
+2 Fellwar Stone (DRK) 102
+4 Fireball (3ED) 150
+4 Lightning Bolt (3ED) 162
+4 Mana Flare (3ED) 164
+4 Mana Vault (3ED) 263
+23 Mountain (ARN) 77
+2 Smoke (3ED) 178
+SB: 1 Celestial Prism (3ED) 239
+SB: 1 Red Elemental Blast (3ED) 171

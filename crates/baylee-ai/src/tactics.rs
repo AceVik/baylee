@@ -653,6 +653,11 @@ impl HeuristicAgent {
         if let Some(action) = self.stack_targets(view, offer, context) {
             return Some(action);
         }
+        // An activation's target is the one it was taken for: the question
+        // is answered by the measure `activate::choose` valued it with.
+        if let Some(action) = self.ability_targets(view, offer, context) {
+            return Some(action);
+        }
         if let Some(total) = context.effects.iter().find_map(|e| match e {
             Effect::DealDamageDivided { amount } => Some(*amount),
             _ => None,

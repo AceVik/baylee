@@ -90,6 +90,26 @@ impl<L: CardLookup> Engine<L> {
             }
             other => other,
         };
+        // Who answers comes first, and a bystander is refused in one way
+        // whatever it said. The question's constraints are about what it
+        // holds, and a search's options are cards in the searcher's hidden
+        // library: checked first, they told a bystander which of its
+        // guesses were among them (a card not offered was refused as not
+        // offered, one offered as a mismatch, by the seat guard below).
+        // Every arm below guards on the seat `asked` names, so this refuses
+        // nothing the arms took.
+        if self.pending.asked() != Some(player) {
+            return Err(EngineError::MismatchedAction);
+        }
+        // Then the question's own constraints, all of them, before anything
+        // else reads the answer: an answer is refused for a reason its
+        // question states (`Pending::answer_fault`) and taken otherwise. The
+        // checks below this line are the engine's and never the answer's: a
+        // continuation that cannot go on is reversed and the answer still
+        // taken (`reverse_activation`, `continue_cast_wizard`).
+        if let Some(fault) = self.pending.answer_fault(&action) {
+            return Err(fault.into());
+        }
         match (&self.pending, action) {
             // Passing inside a CR 605.3a payment window says "I have made
             // what mana I am going to make", and must not reach the arm
@@ -111,12 +131,9 @@ impl<L: CardLookup> Engine<L> {
                 self.passes += 1;
                 Ok(())
             }
-            (Pending::Priority { player: p, legal }, PlayerAction::PlayLand { card })
+            (Pending::Priority { player: p, .. }, PlayerAction::PlayLand { card })
                 if *p == player =>
             {
-                if !legal.lands.contains(&card) {
-                    return Err(EngineError::IllegalAction("land not playable now"));
-                }
                 // MDFC: which land face is played (CR 712.12)? Only the
                 // faces the offer counted, so a transforming card's land back
                 // is never one of them.
@@ -160,12 +177,9 @@ impl<L: CardLookup> Engine<L> {
                 self.after_action(player);
                 Ok(())
             }
-            (Pending::Priority { player: p, legal }, PlayerAction::CastSpell { card })
+            (Pending::Priority { player: p, .. }, PlayerAction::CastSpell { card })
                 if *p == player =>
             {
-                if !legal.castable.contains(&card) {
-                    return Err(EngineError::IllegalAction("spell not castable now"));
-                }
                 // A permission that waives the mana cost is the only way this
                 // card is cast from where it lies (Dauthi Voidwalker).
                 let in_hand = self
@@ -179,12 +193,9 @@ impl<L: CardLookup> Engine<L> {
                 }
                 self.start_cast_wizard(player, card)
             }
-            (Pending::ChoosePile { player: p, piles }, PlayerAction::ChooseMode(index))
+            (Pending::ChoosePile { player: p, .. }, PlayerAction::ChooseMode(index))
                 if *p == player =>
             {
-                if index >= piles.len() {
-                    return Err(EngineError::IllegalAction("no such pile"));
-                }
                 let mut res = self.resolution.take().expect("pile choice suspended");
                 match resolve::resume_pile(&mut self.state, &mut res, index) {
                     resolve::Flow::Wait(pending) => {
@@ -298,23 +309,12 @@ impl<L: CardLookup> Engine<L> {
                 self.continue_cast_wizard();
                 Ok(())
             }
-            (
-                Pending::ChooseNumber {
-                    player: p,
-                    min,
-                    max,
-                    ..
-                },
-                PlayerAction::ChooseNumber(n),
-            ) if *p == player => {
-                // The choice contract: the answer must stay inside the
-                // offered range — an unchecked X overflows costs, life
-                // payments, and token counts downstream.
-                if n < *min || n > *max {
-                    return Err(EngineError::IllegalAction(
-                        "number outside the offered range",
-                    ));
-                }
+            (Pending::ChooseNumber { player: p, .. }, PlayerAction::ChooseNumber(n))
+                if *p == player =>
+            {
+                // Inside the offered range, which `answer_fault` checked: an
+                // unchecked X overflows costs, life payments, and token
+                // counts downstream.
                 // Two things ask for a number, and only one of them is the
                 // cast wizard. An activation announcing the X of a counter
                 // cost (CR 601.2b) has no wizard at all, so the plan is what
@@ -377,12 +377,9 @@ impl<L: CardLookup> Engine<L> {
                 self.continue_cast_wizard();
                 Ok(())
             }
-            (Pending::ChoosePlayer { player: p, options }, PlayerAction::ChoosePlayer(chosen))
+            (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
-                if !options.contains(&chosen) {
-                    return Err(EngineError::IllegalAction("player not among the options"));
-                }
                 // The graveyard an activation's targets come from; the
                 // target question follows, narrowed to it.
                 if let Some(PlanKind::ChooseActivationGraveyard {
@@ -392,7 +389,16 @@ impl<L: CardLookup> Engine<L> {
                 {
                     self.pending_plan = None;
                     self.activation_graveyard = Some(chosen);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                    // An offered graveyard is taken; an activation that
+                    // cannot go on from it is reversed, as every re-entry of
+                    // `start_activation` is (`reverse_activation`).
+                    if self
+                        .start_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    return Ok(());
                 }
                 if self.resolution.as_ref().is_some_and(|r| {
                     matches!(
@@ -456,15 +462,12 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::Priority { player: p, legal },
+                Pending::Priority { player: p, .. },
                 PlayerAction::ActivateAbility {
                     source,
                     ability_index,
                 },
             ) if *p == player => {
-                if !legal.abilities.contains(&(source, ability_index)) {
-                    return Err(EngineError::IllegalAction("ability not activatable"));
-                }
                 // A fresh press starts with nothing answered. The field is
                 // accumulated across several `apply` calls, so the one place
                 // it can be cleared without losing an answer is the moment a
@@ -478,12 +481,9 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
-            (Pending::Priority { player: p, legal }, PlayerAction::Suspend { card })
+            (Pending::Priority { player: p, .. }, PlayerAction::Suspend { card })
                 if *p == player =>
             {
-                if !legal.suspendable.contains(&card) {
-                    return Err(EngineError::IllegalAction("card cannot be suspended"));
-                }
                 let (counters, cost) = self
                     .state
                     .object(card)
@@ -527,24 +527,18 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::ChooseTargets {
-                    player: p,
-                    options,
-                    player_options,
-                    min,
-                    max,
-                    ..
-                },
+                Pending::ChooseTargets { player: p, .. },
                 PlayerAction::ChooseTargets { objects, players },
             ) if *p == player => {
-                let total = objects.len() + players.len();
-                // The same target can't be chosen twice for one instance of
-                // the word "target" (CR 115.3), and one question here is one
-                // instance — a second instance is asked on its own. A
-                // repeated seat was counted twice and stored once (the spell
-                // carries a `SeatSet`), and a repeated object was counted
-                // twice and *kept* twice, so a spell taking two targets could
-                // be cast naming one.
+                // Checked against the question (`Pending::answer_fault`):
+                // the count across objects and seats, membership, and that
+                // nothing is named twice. The same target can't be chosen
+                // twice for one instance of the word "target" (CR 115.3),
+                // and one question here is one instance — a second instance
+                // is asked on its own. A repeated seat was counted twice and
+                // stored once (the spell carries a `SeatSet`), and a repeated
+                // object was counted twice and *kept* twice, so a spell
+                // taking two targets could be cast naming one.
                 //
                 // The convoke question arrives as this variant too, and there
                 // the refusal rests on a different rule for the same answer:
@@ -552,15 +546,6 @@ impl<L: CardLookup> Engine<L> {
                 // 702.51a), and only an untapped permanent can be tapped (CR
                 // 701.26a). `convoke_taps.len()` is what reduces the cost, so
                 // `[elf, elf]` bought two mana with one tap.
-                if total < *min as usize
-                    || total > *max as usize
-                    || names_one_twice(&players)
-                    || names_one_twice(&objects)
-                    || !objects.iter().all(|o| options.contains(o))
-                    || !players.iter().all(|p| player_options.contains(p))
-                {
-                    return Err(EngineError::IllegalAction("invalid target selection"));
-                }
                 // Wizard path: a cast in progress is asking, and *which*
                 // question it asked is the stage it is standing in.
                 //
@@ -920,13 +905,9 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (
-                Pending::ChooseSubtype { player: p, options },
-                PlayerAction::ChooseSubtype(subtype),
-            ) if *p == player => {
-                if !options.contains(&subtype) {
-                    return Err(EngineError::IllegalAction("not a type on offer"));
-                }
+            (Pending::ChooseSubtype { player: p, .. }, PlayerAction::ChooseSubtype(subtype))
+                if *p == player =>
+            {
                 let Some(PlanKind::ChooseSubtype { object }) = self.pending_plan.take() else {
                     return Err(EngineError::IllegalAction("no subtype choice pending"));
                 };
@@ -982,13 +963,10 @@ impl<L: CardLookup> Engine<L> {
             // guarded on the plan rather than ordered by luck: the arm below
             // takes the suspended `Resolution`, and there is none while a
             // permanent is entering.
-            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+            (Pending::ChooseColor { player: p, .. }, PlayerAction::ChooseColor(color))
                 if *p == player
                     && matches!(self.pending_plan, Some(PlanKind::IntrinsicMana { .. })) =>
             {
-                if !options.contains(&color) {
-                    return Err(EngineError::IllegalAction("color not allowed"));
-                }
                 let Some(PlanKind::IntrinsicMana { source }) = self.pending_plan.take() else {
                     unreachable!("guarded above");
                 };
@@ -1001,13 +979,10 @@ impl<L: CardLookup> Engine<L> {
                 self.after_action(player);
                 Ok(())
             }
-            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+            (Pending::ChooseColor { player: p, .. }, PlayerAction::ChooseColor(color))
                 if *p == player
                     && matches!(self.pending_plan, Some(PlanKind::ChooseColor { .. })) =>
             {
-                if !options.contains(&color) {
-                    return Err(EngineError::IllegalAction("color not allowed"));
-                }
                 let Some(PlanKind::ChooseColor { object }) = self.pending_plan.take() else {
                     unreachable!("guarded above");
                 };
@@ -1016,12 +991,9 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (Pending::ChooseColor { player: p, options }, PlayerAction::ChooseColor(color))
+            (Pending::ChooseColor { player: p, .. }, PlayerAction::ChooseColor(color))
                 if *p == player =>
             {
-                if !options.contains(&color) {
-                    return Err(EngineError::IllegalAction("color not allowed"));
-                }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_with_color(&mut self.state, &mut res, color) {
                     resolve::Flow::Wait(pending) => {
@@ -1035,20 +1007,12 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (
-                Pending::Arrange {
-                    player: p,
-                    cards,
-                    piles: specs,
-                    ..
-                },
-                PlayerAction::Arrange { piles },
-            ) if *p == player => {
-                // Every offered card exactly once, each pile within its
-                // bounds — anything else would duplicate or vanish cards.
-                if let Some(fault) = crate::choice::arrangement_fault(cards, specs, &piles) {
-                    return Err(EngineError::IllegalAction(fault));
-                }
+            // Every offered card exactly once, each pile within its bounds
+            // (`arrangement_fault`, through `answer_fault`): anything else
+            // would duplicate or vanish cards.
+            (Pending::Arrange { player: p, .. }, PlayerAction::Arrange { piles })
+                if *p == player =>
+            {
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_arranged(&mut self.state, &mut res, &piles) {
                     resolve::Flow::Wait(pending) => {
@@ -1073,7 +1037,15 @@ impl<L: CardLookup> Engine<L> {
                 {
                     self.pending_plan = None;
                     self.activation_phyrexian.push(answer);
-                    return self.start_activation(player, source, ability_index, SmallVec::new());
+                    // Either answer is taken, for the reason the graveyard's
+                    // is: the question was asked only where both can pay.
+                    if self
+                        .start_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.reverse_activation(player);
+                    }
+                    return Ok(());
                 }
                 // A draw offer: unanimous or nothing (CR 104.4i).
                 if matches!(self.pending_plan, Some(PlanKind::DrawOffer { .. })) {
@@ -1346,37 +1318,16 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (
-                Pending::ChooseCards {
-                    player: p,
-                    options,
-                    min,
-                    max,
-                    prompt,
-                },
-                PlayerAction::ChooseObjects { objects },
-            ) if *p == player => {
-                // Every option is a distinct object, so a repeat is never a
-                // second choice — it is one card counted twice. Delve reads
-                // `delve_exiles.len()` and exiles each card once, so `[c, c]`
-                // bought two generic mana with one card (CR 702.66a); a cost
-                // question reads its answers the same way.
-                if objects.len() < *min as usize
-                    || objects.len() > *max as usize
-                    || names_one_twice(&objects)
-                    || !objects.iter().all(|o| options.contains(o))
-                {
-                    return Err(EngineError::IllegalAction("invalid card selection"));
-                }
-                // Crew's total (CR 702.122a), which no count of objects can
-                // say: two creatures with power 1 pay Crew 2 and one does
-                // not. Refused before anything moves, so the question
-                // stands and is asked again.
-                if let crate::choice::ChoicePrompt::CostCrew { power } = *prompt
-                    && super::cost_wizard::crew_power(&self.state, &objects) < i32::from(power)
-                {
-                    return Err(EngineError::IllegalAction("not enough power to crew"));
-                }
+            // Count, membership and repeats were checked against the
+            // question (`Pending::answer_fault`): every option is a distinct
+            // object, so a repeat is one card counted twice — delve reads
+            // `delve_exiles.len()` and exiles each card once, so `[c, c]`
+            // bought two generic mana with one card (CR 702.66a). So was
+            // crew's total (CR 702.122a), which no count of objects can say
+            // and which the question states as its `total`.
+            (Pending::ChooseCards { player: p, .. }, PlayerAction::ChooseObjects { objects })
+                if *p == player =>
+            {
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self
                     .cast_wizard
@@ -1387,7 +1338,14 @@ impl<L: CardLookup> Engine<L> {
                     wizard.pitch = objects.into_iter().collect();
                     wizard.stage = cast_wizard::WizardStage::Escape;
                     self.cast_wizard = Some(wizard);
-                    return self.advance_cast_wizard();
+                    // Taken like every other answer the wizard asks, and a
+                    // cast that cannot go on from it is reversed (CR 601.2,
+                    // 732.1). It was the one wizard answer refused instead,
+                    // after the wizard had already been dropped: a refusal
+                    // that moved the engine, and a question left standing
+                    // with nothing behind it.
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: escape's other cards (CR 702.138a).
                 if self
@@ -1507,13 +1465,9 @@ impl<L: CardLookup> Engine<L> {
                 }
                 Ok(())
             }
-            (
-                Pending::Priority { player: p, legal },
-                PlayerAction::ActivateManaAbility { source },
-            ) if *p == player => {
-                if !legal.mana_abilities.contains(&source) {
-                    return Err(EngineError::IllegalAction("mana ability not activatable"));
-                }
+            (Pending::Priority { player: p, .. }, PlayerAction::ActivateManaAbility { source })
+                if *p == player =>
+            {
                 // `mana_abilities` has two producers, and only one of them is
                 // the CR 305.6 shortcut this action was written for. The other
                 // is a mana ability a continuous effect *granted*, which lives
@@ -1589,18 +1543,14 @@ impl<L: CardLookup> Engine<L> {
                 Pending::ChooseBlockers { player: p, .. },
                 PlayerAction::DeclareBlockers { blockers },
             ) if *p == player => self.declare_blockers(player, &blockers),
-            (
-                Pending::DiscardChoice { player: p, count },
-                PlayerAction::ChooseObjects { objects },
-            ) if *p == player => {
-                // The same hole as the mulligan's: one card named twice
-                // passes the count and leaves the hand over its maximum
-                // (CR 514.1).
-                if objects.len() != *count as usize || names_one_twice(&objects) {
-                    return Err(EngineError::IllegalAction(
-                        "must discard exactly the required number",
-                    ));
-                }
+            (Pending::DiscardChoice { player: p, .. }, PlayerAction::ChooseObjects { objects })
+                if *p == player =>
+            {
+                // The count, and no card named twice, are the question's
+                // (`answer_fault`): one card named twice passed the count
+                // and left the hand over its maximum (CR 514.1). That the
+                // cards are in the hand is the engine's, since the question
+                // offers the seat's whole hand without listing it.
                 for card in &objects {
                     if !self.in_hand(player, *card) {
                         return Err(EngineError::IllegalAction("card not in hand"));
@@ -1628,11 +1578,7 @@ impl<L: CardLookup> Engine<L> {
                 Pending::LegendChoice { player: p, options },
                 PlayerAction::ChooseObjects { objects },
             ) if *p == player => {
-                if objects.len() != 1 || !options.contains(&objects[0]) {
-                    return Err(EngineError::IllegalAction(
-                        "choose exactly one legendary permanent to keep",
-                    ));
-                }
+                // Exactly one of the options, which `answer_fault` checked.
                 let options = options.clone();
                 sba::apply_legend_choice(&mut self.state, player, objects[0], &options);
                 Ok(())
@@ -1918,31 +1864,27 @@ impl<L: CardLookup> Engine<L> {
                 ));
             }
         }
-        // Menace: needs two blockers per attacker (CR 702.111b), checked
-        // against the whole declaration because that is where CR 509.1b puts
-        // it — and because it cannot be checked anywhere else. This loop was
-        // written with the rest of the rule and was unreachable until #156:
-        // `combat::can_block` asked `blockers_of(attacker)` in the per-pair
-        // loop above, which runs to completion before the first
-        // `declare_block`, so every menace pair was refused one line earlier
-        // and no declaration ever arrived here with a count to take. It is
-        // now the only place menace is enforced.
+        // The counts the declaration is held to as a whole (CR 509.1b),
+        // menace's two or more (CR 702.111b) among them. `apply` refused a
+        // declaration short of one already, because the question states
+        // them (`Pending::ChooseBlockers::bounds`, from the same
+        // `combat::block_bound`); this is the rule where the declaration is
+        // made, for a caller that did not come through `apply`.
         //
         // Zero is legal and one is not: "can't be blocked except by two or
         // more creatures" says nothing about a creature nobody blocks.
         for attacker in self.state.combat.attackers() {
-            let has_menace = self.state.object(attacker.creature).is_some_and(|o| {
-                o.characteristics()
-                    .keywords
-                    .contains(baylee_cards_dsl::KeywordSet::MENACE)
-            });
-            if has_menace {
+            if let Some(bound) = combat::block_bound(&self.state, attacker.creature) {
                 let count = blockers
                     .iter()
                     .filter(|(_, a)| *a == attacker.creature)
                     .count();
-                if count == 1 {
-                    return Err(EngineError::IllegalAction("menace requires two blockers"));
+                let count = u32::try_from(count).unwrap_or(u32::MAX);
+                if count > 0 && count < bound.min_blockers {
+                    return Err(crate::choice::AnswerFault::TooFewBlockers.into());
+                }
+                if count > bound.max_blockers {
+                    return Err(crate::choice::AnswerFault::TooManyBlockers.into());
                 }
             }
         }
@@ -1975,13 +1917,4 @@ impl<L: CardLookup> Engine<L> {
     }
 
     // --------------------------------------------------------- turn steps
-}
-
-/// Whether an answer names one thing twice.
-///
-/// Every door that takes a list asks it before anything moves, so a refused
-/// answer leaves the state untouched. Quadratic, because an answer is a
-/// handful of ids.
-pub(super) fn names_one_twice<T: PartialEq>(xs: &[T]) -> bool {
-    xs.iter().enumerate().any(|(at, x)| xs[..at].contains(x))
 }

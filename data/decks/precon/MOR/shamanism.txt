@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Shamanism
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Shamanism_MOR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MOR
+# released: 2008-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Bog-Strider Ash (LRW) 198
+3 Bosk Banneret (MOR) 114
+1 Everbark Shaman (MOR) 121
+4 Forest (LRW) 298
+4 Forest (LRW) 299
+4 Forest (LRW) 300
+3 Forest (LRW) 301
+2 Gilt-Leaf Seer (LRW) 215
+1 Guardian of Cloverdell (LRW) 216
+1 Leaf-Crowned Elder (MOR) 128
+2 Lignify (LRW) 228
+1 Luminescent Rain (MOR) 129
+1 Moonglove Changeling (MOR) 67
+3 Nameless Inversion (LRW) 128
+1 Oblivion Ring (LRW) 34
+2 Orchard Warden (MOR) 131
+1 Plains (LRW) 282
+1 Plains (LRW) 283
+1 Reach of Branches (MOR) 132
+2 Recross the Paths (MOR) 133
+1 Redeem the Lost (MOR) 21
+1 Revive the Fallen (MOR) 76
+2 Squeaking Pie Grubfellows (MOR) 78
+2 Swamp (LRW) 290
+1 Swamp (LRW) 291
+1 Swamp (LRW) 292
+1 Swamp (LRW) 293
+1 Sylvan Echoes (LRW) 237
+1 Thornbite Staff (MOR) 145
+1 Thorntooth Witch (LRW) 144
+2 Vivid Grove (LRW) 277
+2 Wanderer's Twig (LRW) 265
+1 Wolf-Skull Shaman (MOR) 140
+2 Woodland Changeling (LRW) 242

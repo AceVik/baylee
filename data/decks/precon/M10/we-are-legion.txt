@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: We Are Legion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WeAreLegion_M10.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M10
+# released: 2009-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armored Ascension (M10) 3
+1 Divine Verdict (M10) 8
+1 Elite Vanguard (M10) 9
+1 Glorious Charge (M10) 11
+1 Griffin Sentinel (M10) 12
+1 Harm's Way (M10) 14
+1 Honor of the Pure (M10) 16
+1 Lava Axe (M10) 145
+1 Lightning Bolt (M10) 146
+1 Lightwielder Paladin (M10) 19 *F*
+2 Mountain (M10) 242
+1 Mountain (M10) 243
+1 Mountain (M10) 244
+1 Mountain (M10) 245
+2 Pacifism (M10) 22
+1 Palace Guard (M10) 23
+3 Plains (M10) 230
+3 Plains (M10) 231
+3 Plains (M10) 232
+3 Plains (M10) 233
+1 Prodigal Pyromancer (M10) 151
+2 Razorfoot Griffin (M10) 25
+1 Righteousness (M10) 27
+1 Serra Angel (M10) 29
+2 Silvercoat Lion (M10) 32
+1 Soul Warden (M10) 34
+1 Stormfront Pegasus (M10) 35
+1 Terramorphic Expanse (M10) 229
+1 Undead Slayer (M10) 37

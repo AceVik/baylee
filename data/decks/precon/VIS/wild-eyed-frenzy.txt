@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Wild-Eyed Frenzy
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WildEyedFrenzy_VIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: VIS
+# released: 2006-04-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Chaos Charm (MIR) 163
+2 Fireblast (VIS) 79
+1 Flame Elemental (MIR) 175
+3 Flare (MIR) 176
+2 Goblin Elite Infantry (MIR) 177
+2 Goblin Recruiter (VIS) 80
+2 Goblin Scouts (MIR) 178
+2 Goblin Soothsayer (MIR) 179
+3 Goblin Swine-Rider (VIS) 81
+2 Goblin Tinkerer (MIR) 180
+3 Keeper of Kookus (VIS) 85
+1 Kookus (VIS) 86
+2 Mob Mentality (VIS) 88
+6 Mountain (MIR) 343
+6 Mountain (MIR) 344
+6 Mountain (MIR) 345
+5 Mountain (MIR) 346
+1 Ogre Enforcer (VIS) 89
+2 Song of Blood (VIS) 94
+2 Talruum Champion (VIS) 97
+2 Talruum Piper (VIS) 98
+1 Unerring Sling (MIR) 322
+1 Viashino Sandstalker (VIS) 100

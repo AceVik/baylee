@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Infect & Defile
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, InfectDefile_MBS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: MBS
+# released: 2011-02-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Consuming Vapors (ROE) 101
+2 Contagion Clasp (SOM) 144
+4 Corpse Cur (SOM) 147
+4 Corrupted Conscience (MBS) 22
+2 Deprive (ROE) 59
+1 Doom Blade (M11) 95
+2 Drowned Catacomb (M11) 224
+4 Foresee (M11) 54
+1 Hand of the Praetors (SOM) 66
+5 Island (MBS) 148
+5 Island (MBS) 149
+4 Jwar Isle Refuge (ZEN) 215
+2 Mana Leak (M11) 62
+4 Necropede (SOM) 185
+2 Phyrexian Vatmother (MBS) 52
+4 Plague Myr (MBS) 125
+3 Preordain (M11) 70
+2 Smother (WWK) 68
+4 Swamp (MBS) 150
+3 Swamp (MBS) 151
+SB: 3 Deathmark (M11) 91
+SB: 1 Doom Blade (M11) 95
+SB: 3 Flashfreeze (M11) 53
+SB: 2 Go for the Throat (MBS) 43
+SB: 4 Negate (M11) 68
+SB: 2 Smother (WWK) 68

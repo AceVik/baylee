@@ -241,7 +241,9 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // against the face-down permanent. That needs the handle hidden too,
         // disguise is announced from hand, so this case does not apply.
         commander: is_commander(state, id),
-        status: ObjectStatus::from_bits(obj.status.bits()),
+        // The four statuses of CR 110.5: whether a phased-out permanent
+        // phased out with what it is attached to is the engine's to know.
+        status: ObjectStatus::from_bits(obj.status.public().bits()),
         types: chars.types,
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
@@ -2114,6 +2116,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::SearchLibrary,
+            total: None,
         }
     }
 
@@ -2217,6 +2220,7 @@ mod tests {
             min: 0,
             max: 3,
             prompt: baylee_engine::choice::ChoicePrompt::FirstPile,
+            total: None,
         };
         assert_eq!(shown(separator, &separate), revealed);
 
@@ -2331,6 +2335,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::PutBackOnTop,
+            total: None,
         };
 
         let view = player_view(
@@ -2365,6 +2370,7 @@ mod tests {
             min: 1,
             max: 1,
             prompt: baylee_engine::choice::ChoicePrompt::Generic,
+            total: None,
         };
 
         let view = player_view(
@@ -3521,6 +3527,45 @@ mod tests {
             assert!(
                 object.rules.is_none(),
                 "a face-down permanent has its face-down rules, not its printed abilities; the owner can still inspect object.card"
+            );
+        }
+    }
+
+    /// A permanent phased out with what it is attached to (CR 702.26g) is
+    /// shown as phased out, the status CR 110.5 names, and as nothing else:
+    /// the engine's note of how it phased out is not a status a client knows.
+    #[test]
+    fn a_permanent_phased_out_indirectly_is_shown_as_phased_out() {
+        use baylee_engine::object::Status;
+        let engine = Engine::new(&mixed_print_preset(), Registry).expect("game starts");
+        let mut state = engine.state().clone();
+        let id = state
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .first()
+            .copied()
+            .expect("the preset puts Islands on the battlefield");
+        let status = &mut state.object_mut(id).expect("it exists").status;
+        status.insert(Status::PHASED_OUT);
+        status.insert(Status::PHASED_OUT_INDIRECTLY);
+        for seat in [0u8, 1] {
+            let view = player_view(
+                &state,
+                PlayerId::new(seat),
+                0,
+                None,
+                &SeatContext::default(),
+                &[],
+            );
+            let object = view
+                .battlefield
+                .iter()
+                .find(|o| o.id == id)
+                .expect("a phased-out permanent is on the battlefield");
+            assert_eq!(
+                object.status.bits(),
+                Status::PHASED_OUT.bits(),
+                "seat {seat} is shown more than \"phased out\""
             );
         }
     }

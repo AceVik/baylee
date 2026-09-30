@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Simic Mutology
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SimicMutology_DIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DIS
+# released: 2006-05-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Coiling Oracle (DIS) 107
+1 Drowned Rusalka (GPT) 24
+1 Experiment Kraj (DIS) 110
+2 Flash Foliage (DIS) 85
+3 Forest (RAV) 303
+3 Forest (RAV) 304
+2 Forest (RAV) 305
+2 Forest (RAV) 306
+2 Helium Squirter (DIS) 26
+1 Indrik Stomphowler (DIS) 86
+3 Island (RAV) 291
+3 Island (RAV) 292
+3 Island (RAV) 293
+2 Island (RAV) 294
+1 Novijen, Heart of Progress (DIS) 175
+2 Plaxmanta (DIS) 29
+1 Protean Hulk (DIS) 90
+2 Shielding Plax (DIS) 147
+2 Silkwing Scout (DIS) 31
+2 Simic Basilisk (DIS) 91
+2 Simic Growth Chamber (DIS) 180
+1 Simic Guildmage (DIS) 148
+3 Simic Initiate (DIS) 92
+2 Simic Ragworm (DIS) 93
+1 Starved Rusalka (GPT) 97
+2 Stasis Cell (RAV) 66
+2 Surveilling Sprite (RAV) 67
+2 Thrive (DIS) 98
+2 Vigean Graftmage (DIS) 35
+3 Vigean Hydropon (DIS) 135

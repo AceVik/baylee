@@ -2801,6 +2801,7 @@ fn crop_rotation_sacrifices_a_land_to_put_a_land_from_the_library_onto_the_battl
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -3681,6 +3682,7 @@ fn chord_of_calling_announces_x_and_chords_a_creature_of_that_mana_value_onto_th
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -5708,6 +5710,85 @@ fn a_countered_lose_focus_still_copies_itself() {
     assert!(
         in_graveyard(&engine, p1, dark_ritual()).is_some(),
         "the copy of the countered spell countered the Ritual"
+    );
+}
+
+/// Lose Focus replicated eighteen times off twenty Islands: "you may pay
+/// [cost] any number of times" (CR 702.56a), and every payment is part of
+/// the total cost (CR 601.2f).
+///
+/// The fuzzer's panic (2026-09-29), on the engine's own path. A cost was a
+/// list of sixteen symbols, and the replicate question's bound priced one
+/// payment more at a time before it asked whether the pool paid: once
+/// fourteen payments were payable (sixteen mana), pricing the fifteenth made
+/// `{1}{U}` and fifteen `{U}`, seventeen symbols, and the list asserted and
+/// took the game down. The payment and the trigger's copies are counted the
+/// same way, so all eighteen are paid and all eighteen copies are made.
+#[test]
+fn lose_focus_replicated_eighteen_times_is_paid_and_copied_eighteen_times() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &[island(); 20])
+        .hand(0, &[lose_focus()])
+        .battlefield(1, &[swamp()])
+        .hand(1, &[dark_ritual()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let ritual = in_hand(&engine, p1, dark_ritual()).expect("the Ritual in hand");
+    cast_from_hand(&mut engine, p1, dark_ritual());
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let spell = in_hand(&engine, p0, lose_focus()).expect("Lose Focus in hand");
+    cast_lose_focus_replicated(&mut engine, p0, 18, 18, ritual);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{1}}{{U}} and eighteen {{U}}: all twenty Islands paid"
+    );
+    assert_eq!(
+        engine.state().object(spell).map(|o| o.replicated),
+        Some(18),
+        "the spell remembers every payment"
+    );
+    assert!(
+        replicate_trigger(&engine, spell).is_some(),
+        "paid, so it triggers"
+    );
+
+    // Both pass: the trigger resolves into eighteen copies, and each may take
+    // a new target (CR 707.10c). Each keeps the Ritual.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    for copy in 1..=18 {
+        let Pending::ChooseTargets { player, .. } = engine.pending().clone() else {
+            panic!(
+                "copy {copy} may take a new target, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(player, p0, "the trigger's controller controls the copies");
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+            .expect("keeping the target is an answer");
+    }
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(
+        stack.len(),
+        20,
+        "the Ritual, Lose Focus and eighteen copies: {stack:?}"
+    );
+    assert_eq!(
+        stack
+            .iter()
+            .filter(|id| engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.riders.contains(&crate::object::Rider::SpellCopy)))
+            .count(),
+        18,
+        "every payment made its copy"
     );
 }
 
@@ -20143,6 +20224,122 @@ fn clever_concealment_s_convoke_is_asked_for_its_generic_and_no_more_until_230()
     );
 }
 
+/// `{W}` Aura: "Enchanted creature gets +1/+2."
+fn holy_strength() -> CardIndex {
+    card_index("9357de36-f8be-4f49-b2c8-9fe9eaf82b07")
+}
+
+/// "Any number of target nonland permanents you control phase out": every
+/// target does, not the first. Holy Strength on the first Cleric is named as
+/// well, and it phases out with the Cleric it enchants (CR 702.26g, 702.26h)
+/// and phases in with it at seat 0's next untap step, still attached.
+#[test]
+fn clever_concealment_phases_out_every_target() {
+    let seat = PlayerId::new(0);
+    let mut engine = Duel::new(229, plains())
+        .hand(0, &[clever_concealment()])
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                ondu_cleric(),
+                ondu_cleric(),
+                holy_strength(),
+            ],
+        )
+        .start();
+    let clerics = all_on_battlefield(&engine, seat, ondu_cleric());
+    let aura = on_battlefield(&engine, seat, holy_strength()).expect("seated");
+    {
+        // What a starting battlefield cannot say, set before the first
+        // state-based check would put the Aura into a graveyard.
+        let state = engine.dev_state_mut(seat).expect("the harness sets up");
+        state.object_mut(aura).expect("seated").attached_to = Some(clerics[0]);
+        state.invalidate_projections();
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, seat);
+    tap_all_mana(&mut engine, seat);
+
+    let card = in_hand(&engine, seat, clever_concealment()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card })
+        .expect("the spell is offered");
+    let named = vec![clerics[0], clerics[1], aura];
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("the spell asks for its targets, got {:?}", engine.pending());
+    };
+    assert!(
+        named.iter().all(|id| options.contains(id)),
+        "both Clerics and the Aura are nonland permanents seat 0 controls: {options:?}"
+    );
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: named.clone(),
+                players: vec![],
+            },
+        )
+        .expect("any number of targets");
+    if tap_to_pay_question(&engine).is_some() {
+        engine
+            .apply(
+                seat,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![],
+                },
+            )
+            .expect("the Plains pay it all");
+    }
+    pass_until(&mut engine, stack_is_empty);
+    let phased = |engine: &Engine<RegistryLookup>, id| {
+        engine
+            .state()
+            .object(id)
+            .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+    };
+    assert!(phased(&engine, clerics[0]), "the first target phased out");
+    assert!(
+        phased(&engine, clerics[1]),
+        "the second target stayed phased in"
+    );
+    assert!(phased(&engine, aura), "the Aura stayed phased in");
+    let indirectly = |engine: &Engine<RegistryLookup>, id| {
+        engine.state().object(id).is_some_and(|o| {
+            o.status
+                .contains(crate::object::Status::PHASED_OUT_INDIRECTLY)
+        })
+    };
+    assert!(
+        indirectly(&engine, aura),
+        "the Aura was named and is on a Cleric that phased out: it phases out \
+         indirectly (CR 702.26h)"
+    );
+    assert!(
+        !indirectly(&engine, clerics[0]) && !indirectly(&engine, clerics[1]),
+        "the Clerics phased out directly"
+    );
+
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, seat);
+    for id in &named {
+        assert!(
+            !phased(&engine, *id),
+            "all three phase in at seat 0's untap step"
+        );
+    }
+    assert_eq!(
+        engine.state().object(aura).and_then(|o| o.attached_to),
+        Some(clerics[0]),
+        "the Aura phased in attached to the Cleric it enchanted"
+    );
+}
+
 /// Banishing Stroke: its miracle is offered only over something to target.
 ///
 /// "Put target artifact, creature, or enchantment on the bottom of its
@@ -20506,6 +20703,7 @@ fn keep_first(
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -20686,6 +20884,7 @@ fn realms_search(engine: &mut Engine<RegistryLookup>, seat: PlayerId, n: usize) 
         min,
         max,
         prompt,
+        ..
     } = pass_to_card_choice(engine)
     else {
         unreachable!("the helper returns only a card choice")
@@ -20748,6 +20947,7 @@ fn realms_uncharted_lets_the_opponent_bin_two_of_four_lands() {
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         panic!("expected the opponent's choice, got {:?}", engine.pending())
@@ -20895,6 +21095,7 @@ fn fact_or_fiction_revealed(seed: u64) -> (Engine<RegistryLookup>, Vec<ObjectId>
         min,
         max,
         prompt,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("just checked")

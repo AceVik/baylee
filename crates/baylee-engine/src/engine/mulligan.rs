@@ -80,6 +80,8 @@ pub(crate) fn open(table: &GameRng, seats: usize, free_first: bool) -> Vec<SeatM
                 player: PlayerId::new(seat as u8),
                 taken: 0,
                 next_is_free: free_first,
+                // A hand of seven bottoms nothing yet (CR 103.5).
+                can_take: true,
             }),
             rng: table.for_seat(seat as u8),
         })
@@ -87,6 +89,14 @@ pub(crate) fn open(table: &GameRng, seats: usize, free_first: bool) -> Vec<SeatM
 }
 
 impl<L: CardLookup> Engine<L> {
+    /// Whether a seat that has taken `taken` mulligans may take another:
+    /// until its hand would open with no cards (CR 103.5), past which the
+    /// bottom question asks for more cards than the hand holds and nothing
+    /// can answer it. What `Pending::Mulligan::can_take` states.
+    pub(crate) fn may_mulligan(&self, taken: u8) -> bool {
+        self.mulligan_bottom_count(taken) < HAND
+    }
+
     /// The question `seat` is being asked, if it is being asked one.
     ///
     /// During the opening mulligans that is each seat's own; after them, it
@@ -129,6 +139,14 @@ impl<L: CardLookup> Engine<L> {
             .as_ref()
             .and_then(|window| window.get(seat))
             .and_then(|s| s.question.clone());
+        // The seat's own question states what it takes, as every question
+        // does (`Pending::answer_fault`); a concession answers none of them
+        // and is always legal.
+        if !matches!(action, PlayerAction::Concede)
+            && let Some(fault) = question.as_ref().and_then(|q| q.answer_fault(&action))
+        {
+            return Err(fault.into());
+        }
         let next = match (question, action) {
             (_, PlayerAction::Concede) => {
                 sba::eliminate_player(&mut self.state, player, LossReason::Conceded);
@@ -140,13 +158,9 @@ impl<L: CardLookup> Engine<L> {
             }
             (Some(Pending::Mulligan { taken, .. }), PlayerAction::MulliganTake) => {
                 // Until the opening hand would be zero cards, and no further
-                // (CR 103.5): past that the bottom question asks for more
-                // cards than the hand holds, and nothing can answer it.
-                if self.mulligan_bottom_count(taken) >= HAND {
-                    return Err(EngineError::IllegalAction(
-                        "a hand that would open with zero cards takes no further mulligan",
-                    ));
-                }
+                // (CR 103.5): the question says so (`can_take`), and the
+                // check above refused a mulligan past it.
+                debug_assert!(self.may_mulligan(taken), "can_take was checked");
                 // Hand goes back, reshuffle, draw 7 (CR 103.5).
                 let hand = self.state.zones.list(ZoneLocation::Hand(player)).clone();
                 for card in hand {
@@ -165,20 +179,15 @@ impl<L: CardLookup> Engine<L> {
                     player,
                     taken: taken + 1,
                     next_is_free: taken + 1 < self.house_rules.free_mulligan_count(),
+                    can_take: self.may_mulligan(taken + 1),
                 })
             }
-            (
-                Some(Pending::MulliganBottom { count, .. }),
-                PlayerAction::ChooseObjects { objects },
-            ) => {
-                // `[c, c]` has the right length and both halves are in hand;
-                // it bottomed one card for two and kept an eighth (CR 103.5).
-                if objects.len() != usize::from(count) || super::actions::names_one_twice(&objects)
-                {
-                    return Err(EngineError::IllegalAction(
-                        "must bottom exactly the required number of cards",
-                    ));
-                }
+            (Some(Pending::MulliganBottom { .. }), PlayerAction::ChooseObjects { objects }) => {
+                // The count, and no card named twice, were the question's
+                // (`answer_fault`): `[c, c]` had the right length and both
+                // halves in hand, and bottomed one card for two and kept an
+                // eighth (CR 103.5). That they are in the hand is the
+                // engine's, the question offering the whole hand.
                 if !objects.iter().all(|card| self.in_hand(player, *card)) {
                     return Err(EngineError::IllegalAction("card not in hand"));
                 }
@@ -215,7 +224,10 @@ impl<L: CardLookup> Engine<L> {
         // A mulligan draws a new hand and a concession takes a player's
         // objects out of the game (CR 800.4a), while the loop that refreshes
         // the projection is not running yet: whoever is asked next, or told
-        // the game is over, is shown the board as it now is.
+        // the game is over, is shown the board as it now is. That includes
+        // the effects of the statics that left with a conceder's permanents,
+        // which only the sync drops.
+        self.sync_static_effects();
         self.state.refresh_characteristics();
         if let Some(result) = self.game_result() {
             self.mulligans = None;

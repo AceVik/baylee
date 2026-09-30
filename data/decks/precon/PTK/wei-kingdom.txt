@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Wei Kingdom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WeiKingdom_PTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PTK
+# released: 1999-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ambition's Cost (PTK) 67
+1 Cao Cao, Lord of Wei (PTK) 68
+2 Cunning Advisor (PTK) 72
+2 Deception (PTK) 73
+2 Ghostly Visit (PTK) 76
+2 Imperial Edict (PTK) 77
+2 Return to Battle (PTK) 81
+1 Sima Yi, Wei Field Marshal (PTK) 82
+5 Swamp (PTK) 172
+5 Swamp (PTK) 173
+5 Swamp (PTK) 174
+2 Wei Ambush Force (PTK) 85
+2 Wei Assassins (PTK) 86
+2 Wei Elite Companions (PTK) 87
+2 Wei Infantry (PTK) 88
+2 Wei Scout (PTK) 90
+2 Wei Strike Force (PTK) 91

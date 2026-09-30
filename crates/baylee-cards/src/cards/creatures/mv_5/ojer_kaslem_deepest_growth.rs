@@ -18,9 +18,12 @@ use baylee_core::generated::subtypes;
 /// controller has ten permanents.
 static TEMPLE_ABILITIES: &[AbilityDef] = &[
     mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+    // "Transform this land": the same permanent turns over (CR 701.27a) and
+    // keeps its controller, its tapped state and whatever applied to it
+    // (CR 712.18).
     activated!(
         cost!("{2}{G}", TapSelf),
-        &[Effect::ExileSelfReturnAsFace { face: 0 }],
+        &[Effect::TransformSource],
         timing = ActivationTiming::SorcerySpeed,
         condition = Some(Condition::ControlCount(&Filter::Any, 10))
     ),

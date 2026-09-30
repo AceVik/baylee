@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Walk the Plank
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WalkThePlank_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Chart a Course (XLN) 48
+2 Deadeye Rig-Hauler (RIX) 36
+1 Demonlord Belzenlok (DOM) 86
+3 Departed Deckhand (M19) 49
+1 Dire Fleet Poisoner (RIX) 68
+1 Dreamcaller Siren (XLN) 54
+1 Drowned Catacomb (XLN) 253
+2 Exclusion Mage (M19) 55
+2 Fathom Fleet Boarder (RIX) 71
+3 Grasping Scoundrel (M19) 312
+1 Hostage Taker (XLN) 223
+3 Island (M19) 265
+3 Island (M19) 266
+2 Island (M19) 267
+2 Island (M19) 268
+3 Kitesail Corsair (RIX) 41
+2 Kitesail Freebooter (XLN) 110
+3 Murder (M19) 110
+2 Ravenous Chupacabra (RIX) 82
+1 Riddlemaster Sphinx (M19) 287
+1 Ruin Raider (XLN) 118
+2 Siren Reaver (RIX) 54
+3 Siren Stormtamer (XLN) 79
+4 Submerged Boneyard (M19) 257
+3 Swamp (M19) 269
+3 Swamp (M19) 270
+2 Swamp (M19) 271
+2 Swamp (M19) 272

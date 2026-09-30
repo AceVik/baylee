@@ -30,7 +30,7 @@ use super::testkit::{
     reach_main_phase, tap_all_mana,
 };
 use super::*;
-use crate::choice::{PlayerAction, default_arrangement};
+use crate::choice::{AttackerBound, BlockOption, CardTotal, PlayerAction, default_arrangement};
 use baylee_core::ids::Defender;
 
 /// A seeded stream for the driver: splitmix64, small and dependency-free.
@@ -75,6 +75,13 @@ impl Dice {
 /// The floor under [`rings`]' decisions: 20,799 measured on 2026-09-29,
 /// less a tenth.
 const RINGS_FLOOR: usize = 18_700;
+
+/// The floors under the bounds deck's sixteen games: decisions, crew totals
+/// asked and menace bounds asked, measured on 2026-09-29 (10,069, 76 and
+/// 44), each less a tenth.
+const BOUNDS_FLOOR: usize = 9_000;
+const BOUNDS_TOTALS_FLOOR: usize = 68;
+const BOUNDS_BLOCKS_FLOOR: usize = 39;
 
 /// How often, in percent of decisions, the refusals are compared against
 /// the whole print rather than the light one.
@@ -214,7 +221,9 @@ fn offered(
             });
             out.push(PlayerAction::DeclareAttackers { attackers: vec![] });
         }
-        Pending::ChooseBlockers { blockers, .. } => {
+        Pending::ChooseBlockers {
+            blockers, bounds, ..
+        } => {
             for _ in 0..3 {
                 let mut chosen: Vec<(ObjectId, ObjectId)> = Vec::new();
                 for b in blockers {
@@ -222,7 +231,15 @@ fn offered(
                         chosen.push((b.blocker, b.attackers[dice.below(b.attackers.len())]));
                     }
                 }
+                let kept = within_bounds(blockers, bounds, chosen.clone());
                 out.push(PlayerAction::DeclareBlockers { blockers: chosen });
+                if out.last()
+                    != Some(&PlayerAction::DeclareBlockers {
+                        blockers: kept.clone(),
+                    })
+                {
+                    out.push(PlayerAction::DeclareBlockers { blockers: kept });
+                }
             }
             out.push(PlayerAction::DeclareBlockers { blockers: vec![] });
         }
@@ -234,7 +251,11 @@ fn offered(
             }
         }
         Pending::ChooseCards {
-            options, min, max, ..
+            options,
+            min,
+            max,
+            total,
+            ..
         } => {
             let (min, max) = (usize::from(*min), usize::from(*max).min(options.len()));
             for _ in 0..4 {
@@ -250,6 +271,13 @@ fn offered(
             out.push(PlayerAction::ChooseObjects {
                 objects: options.iter().copied().take(min).collect(),
             });
+            // A count inside the bounds is not yet an answer to a stated
+            // total, and the draws above may keep it by luck or not at all.
+            if let Some(total) = total
+                && let Some(objects) = reaching(options, (min, max), total, dice)
+            {
+                out.push(PlayerAction::ChooseObjects { objects });
+            }
         }
         Pending::ChooseTargets {
             options,
@@ -342,9 +370,142 @@ fn offered(
     out
 }
 
+/// A choice keeping a stated total: the options in a random order, the
+/// heaviest first, taken until there are `min` of them and the total
+/// reaches its least, and never more than `max`. `None` where that walk
+/// keeps no answer, which for a total with only a least means none does.
+fn reaching(
+    options: &[ObjectId],
+    (min, max): (usize, usize),
+    total: &CardTotal,
+    dice: &mut Dice,
+) -> Option<Vec<ObjectId>> {
+    let mut order: Vec<usize> = (0..options.len()).collect();
+    dice.shuffle(&mut order);
+    order.sort_by_key(|&i| std::cmp::Reverse(total.weights.get(i).copied().unwrap_or(0)));
+    let mut chosen = Vec::new();
+    for i in order {
+        if chosen.len() >= min && total.fault(options, &chosen).is_none() || chosen.len() == max {
+            break;
+        }
+        chosen.push(options[i]);
+    }
+    ((min..=max).contains(&chosen.len()) && total.fault(options, &chosen).is_none())
+        .then_some(chosen)
+}
+
+/// `chosen` brought inside every stated blocker bound: an attacker blocked
+/// by too few gets more of the creatures offered against it that block
+/// nothing yet, or, where too few are left, loses its blockers; one blocked
+/// by too many keeps the first `max_blockers`.
+fn within_bounds(
+    blockers: &[BlockOption],
+    bounds: &[AttackerBound],
+    mut chosen: Vec<(ObjectId, ObjectId)>,
+) -> Vec<(ObjectId, ObjectId)> {
+    for bound in bounds {
+        let on = |chosen: &[(ObjectId, ObjectId)]| {
+            chosen
+                .iter()
+                .filter(|(_, attacker)| *attacker == bound.attacker)
+                .count()
+        };
+        let least = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
+        let most = usize::try_from(bound.max_blockers).unwrap_or(usize::MAX);
+        let count = on(&chosen);
+        if count == 0 {
+            continue;
+        }
+        if count < least {
+            for option in blockers {
+                if on(&chosen) >= least {
+                    break;
+                }
+                if option.attackers.contains(&bound.attacker)
+                    && !chosen.iter().any(|(blocker, _)| *blocker == option.blocker)
+                {
+                    chosen.push((option.blocker, bound.attacker));
+                }
+            }
+            if on(&chosen) < least {
+                chosen.retain(|(_, attacker)| *attacker != bound.attacker);
+            }
+        } else if count > most {
+            let mut kept = 0;
+            chosen.retain(|(_, attacker)| {
+                if *attacker != bound.attacker {
+                    return true;
+                }
+                kept += 1;
+                kept <= most
+            });
+        }
+    }
+    chosen
+}
+
+/// Answers inside what the question enumerates that break a bound it
+/// states: one card whose weight alone falls short of a total, one creature
+/// blocking an attacker that takes two or more, a mulligan past the last.
+fn stated_faults(pending: &Pending) -> Vec<PlayerAction> {
+    let mut out = Vec::new();
+    match pending {
+        Pending::Mulligan {
+            can_take: false, ..
+        } => out.push(PlayerAction::MulliganTake),
+        Pending::ChooseCards {
+            options,
+            min,
+            max,
+            total: Some(total),
+            ..
+        } if *min <= 1 && *max >= 1 => {
+            if let Some(&short) = options
+                .iter()
+                .find(|&&o| total.fault(options, &[o]).is_some())
+            {
+                out.push(PlayerAction::ChooseObjects {
+                    objects: vec![short],
+                });
+            }
+        }
+        Pending::ChooseBlockers {
+            blockers, bounds, ..
+        } => {
+            for bound in bounds.iter().filter(|b| b.min_blockers > 1) {
+                if let Some(one) = blockers
+                    .iter()
+                    .find(|b| b.attackers.contains(&bound.attacker))
+                {
+                    out.push(PlayerAction::DeclareBlockers {
+                        blockers: vec![(one.blocker, bound.attacker)],
+                    });
+                }
+            }
+        }
+        _ => {}
+    }
+    out
+}
+
+/// The question with the bounds it states taken away, as an engine that
+/// held them without saying so would ask it: what [`play`] is told when a
+/// test shows that the sweep notices such an engine.
+fn unstated(pending: &Pending) -> Pending {
+    let mut told = pending.clone();
+    match &mut told {
+        Pending::ChooseCards { total, .. } => *total = None,
+        Pending::ChooseBlockers { bounds, .. } => bounds.clear(),
+        Pending::Mulligan { can_take, .. } => *can_take = true,
+        _ => {}
+    }
+    told
+}
+
 /// Answers the engine must refuse, whatever the question: a seat that is
 /// not being asked, a mode past the end of every list, a card nobody was
-/// offered, an answer of the wrong kind.
+/// offered, an answer of the wrong kind; and the answers the question
+/// itself names a fault in ([`stated_faults`]).
 fn refused(
     engine: &Engine<RegistryLookup>,
     asked: PlayerId,
@@ -397,6 +558,7 @@ fn refused(
     if !matches!(pending, Pending::Arrange { .. }) {
         out.push((asked, PlayerAction::Arrange { piles: vec![] }));
     }
+    out.extend(stated_faults(pending).into_iter().map(|a| (asked, a)));
     out
 }
 
@@ -410,10 +572,20 @@ struct Findings {
     unanswerable: Vec<String>,
     /// A question whose own numbers say it has no answer.
     malformed: Vec<String>,
-    /// An answer the question did not offer, taken anyway.
+    /// An answer the question did not offer, or one it names a fault in
+    /// (`Pending::answer_fault`), taken anyway.
     accepted: Vec<String>,
+    /// An answer inside every bound the question states, refused: a
+    /// constraint `apply` holds and the question does not say.
+    refused_clean: Vec<String>,
     /// Decisions made, so the sweep cannot pass by reaching nothing.
     decisions: usize,
+    /// Decisions whose question states a total over the chosen cards
+    /// (`ChooseCards::total`).
+    totals: usize,
+    /// Decisions whose question states a blocker bound on an attacker
+    /// (`ChooseBlockers::bounds`).
+    bounds: usize,
 }
 
 impl Findings {
@@ -422,7 +594,10 @@ impl Findings {
         self.unanswerable.extend(other.unanswerable);
         self.malformed.extend(other.malformed);
         self.accepted.extend(other.accepted);
+        self.refused_clean.extend(other.refused_clean);
         self.decisions += other.decisions;
+        self.totals += other.totals;
+        self.bounds += other.bounds;
     }
 }
 
@@ -471,14 +646,39 @@ fn malformed(pending: &Pending) -> Option<String> {
     }
 }
 
+/// How a sweep's games differ from a plain game of two decks.
+#[derive(Clone, Copy)]
+struct Rig {
+    /// What the driver is told each question is: the engine's own, or, to
+    /// show that the sweep notices a bound the question leaves out, one with
+    /// its bounds taken away ([`unstated`]).
+    told: fn(&Pending) -> Pending,
+    /// What each seat has on the battlefield as the game begins.
+    board: fn(&mut baylee_core::preset::GamePreset),
+}
+
+/// The house decks as they are dealt, asked as the engine asks.
+const PLAIN: Rig = Rig {
+    told: Pending::clone,
+    board: |_| {},
+};
+
 /// Plays one game to its end or `cap` decisions.
+///
+/// Every sampled answer is held to the question both ways: one the question
+/// finds no fault in (`Pending::answer_fault`) must be taken, and one it
+/// names a fault in must be refused. A sampled answer that is refused is
+/// otherwise unremarkable (the driver samples wide on purpose), so long as
+/// it changed nothing.
 fn play(
     a: &baylee_cards::decks::LoadedDeck,
     b: &baylee_cards::decks::LoadedDeck,
     seed: u64,
     cap: usize,
+    rig: Rig,
 ) -> Findings {
-    let preset = baylee_cards::decks::preset_for(seed, a, b);
+    let mut preset = baylee_cards::decks::preset_for(seed, a, b);
+    (rig.board)(&mut preset);
     let mut engine = Engine::new(&preset, RegistryLookup).expect("house decks start a game");
     let mut dice = Dice(seed ^ 0x5EED);
     let mut found = Findings::default();
@@ -491,11 +691,16 @@ fn play(
         )
     };
     for decision in 0..cap {
-        let pending = engine.pending().clone();
+        let pending = (rig.told)(engine.pending());
         let Some(asked) = pending.asked() else {
             break; // game over
         };
         found.decisions += 1;
+        match &pending {
+            Pending::ChooseCards { total: Some(_), .. } => found.totals += 1,
+            Pending::ChooseBlockers { bounds, .. } if !bounds.is_empty() => found.bounds += 1,
+            _ => {}
+        }
         if let Some(what) = malformed(&pending) {
             found
                 .malformed
@@ -543,7 +748,23 @@ fn play(
         }
         let mut answered = false;
         for action in offered(&engine, &pending, &mut dice) {
-            if engine.apply(asked, action.clone()).is_ok() {
+            let fault = pending.answer_fault(&action);
+            let applied = engine.apply(asked, action.clone());
+            match (fault, &applied) {
+                (Some(fault), Ok(())) => {
+                    found.accepted.push(format!(
+                        "{}: {action:?}, {fault:?} by the question, taken: {pending:?}",
+                        tag(&engine, decision)
+                    ));
+                    return found;
+                }
+                (None, Err(e)) => found.refused_clean.push(format!(
+                    "{}: {action:?} refused ({e:?}): {pending:?}",
+                    tag(&engine, decision)
+                )),
+                _ => {}
+            }
+            if applied.is_ok() {
                 answered = true;
                 break;
             }
@@ -564,6 +785,16 @@ fn play(
 
 fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
     let decks: Vec<_> = DECKS.iter().map(|(f, n)| house_deck(f, n)).collect();
+    sweep_over(&decks, games, cap, PLAIN)
+}
+
+/// [`sweep`] over any decks, `games` naming them by position.
+fn sweep_over(
+    decks: &[baylee_cards::decks::LoadedDeck],
+    games: &[(usize, usize, u64)],
+    cap: usize,
+    rig: Rig,
+) -> Findings {
     let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
     // Games differ in length by a factor of ten, so each thread takes the
     // next game when it is free rather than a fixed slice: a slice of long
@@ -571,7 +802,7 @@ fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
     // which thread played it, and the findings are sorted below.
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results: Vec<Findings> = std::thread::scope(|scope| {
-        let (decks, next) = (&decks, &next);
+        let next = &next;
         let handles: Vec<_> = (0..threads.min(games.len()))
             .map(|_| {
                 crate::engine::testkit::spawn_named(scope, move || {
@@ -581,7 +812,7 @@ fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
                         let Some(&(a, b, seed)) = games.get(i) else {
                             break;
                         };
-                        all.absorb(play(&decks[a], &decks[b], seed, cap));
+                        all.absorb(play(&decks[a], &decks[b], seed, cap, rig));
                     }
                     all
                 })
@@ -601,6 +832,7 @@ fn sweep(games: &[(usize, usize, u64)], cap: usize) -> Findings {
         &mut all.unanswerable,
         &mut all.malformed,
         &mut all.accepted,
+        &mut all.refused_clean,
     ] {
         list.sort();
     }
@@ -643,12 +875,14 @@ fn assert_clean(found: &Findings, floor: usize) {
         found.changed.is_empty()
             && found.unanswerable.is_empty()
             && found.malformed.is_empty()
-            && found.accepted.is_empty(),
-        "refusals that changed the engine: {:#?}\nquestions nothing answered: {:#?}\nquestions with no answer by their own numbers: {:#?}\nanswers taken that no question offered: {:#?}",
+            && found.accepted.is_empty()
+            && found.refused_clean.is_empty(),
+        "refusals that changed the engine: {:#?}\nquestions nothing answered: {:#?}\nquestions with no answer by their own numbers: {:#?}\nanswers taken that no question offered or that it faulted: {:#?}\nanswers inside every stated bound, refused: {:#?}",
         found.changed,
         found.unanswerable,
         found.malformed,
-        found.accepted
+        found.accepted,
+        found.refused_clean
     );
     // A sweep that reaches nothing passes exactly as loudly as one that
     // reaches everything.
@@ -674,6 +908,129 @@ fn every_pairing_refuses_cleanly_and_answers_every_question() {
     let found = sweep(&pairings(3), 3_000);
     // Measured as above, less a tenth.
     assert_clean(&found, 331_800);
+}
+
+/// A deck whose games ask the bounds a question states: Vehicles to crew
+/// (Crew 2, CR 702.122a: "Tap any number of other untapped creatures you
+/// control with total power N or greater") among creatures of power 1 to 3,
+/// and menace (CR 702.111b) printed, granted by an Aura and granted to every
+/// creature by Goblin War Drums. None of the house decks crews, and few of
+/// their creatures have menace.
+const BOUNDS_DECK: &str = "[deck:Bounds]
+10 Mountain
+8 Forest
+6 Unlicensed Hearse
+4 Goblin War Drums
+4 Imposing Visage
+4 Viashino Runner
+4 Fearful Villager
+8 Llanowar Elves
+4 Aurochs
+8 Wall of Roots
+";
+
+/// What each seat of a bounds game begins with on the battlefield: Goblin
+/// War Drums, so every creature it controls attacks with menace from the
+/// first turn, two Walls of Roots to block one of the other seat's, an
+/// Unlicensed Hearse and two Llanowar Elves to crew it or attack. Dealt
+/// from the library alone, a game reached a menace attacker two creatures
+/// could block once in twelve.
+fn bounds_board(preset: &mut baylee_core::preset::GamePreset) {
+    const BOARD: [&str; 8] = [
+        "Goblin War Drums",
+        "Wall of Roots",
+        "Wall of Roots",
+        "Unlicensed Hearse",
+        "Llanowar Elves",
+        "Llanowar Elves",
+        "Viashino Runner",
+        "Viashino Runner",
+    ];
+    for seat in &mut preset.seats {
+        seat.starting_battlefield = BOARD
+            .iter()
+            .map(|name| {
+                let card = baylee_cards::decks::by_name(name).expect("a card of the pool");
+                // The deck's own entry, so the permanent has the deck's printing.
+                *seat
+                    .deck
+                    .iter()
+                    .find(|e| e.card == card)
+                    .expect("the bounds deck lists every card of its board")
+            })
+            .collect();
+    }
+}
+
+/// A bounds game as the engine asks it.
+const BOUNDS: Rig = Rig {
+    told: Pending::clone,
+    board: bounds_board,
+};
+
+/// A bounds game with the driver told each question less its bounds.
+const BOUNDS_UNSTATED: Rig = Rig {
+    told: unstated,
+    board: bounds_board,
+};
+
+/// The bounds deck against itself, `seeds` games.
+fn bounds_games(
+    seeds: u64,
+) -> (
+    Vec<baylee_cards::decks::LoadedDeck>,
+    Vec<(usize, usize, u64)>,
+) {
+    let deck = baylee_cards::decks::load_acceptance(BOUNDS_DECK, "Bounds")
+        .unwrap_or_else(|e| panic!("the bounds deck: {e}"));
+    (vec![deck], (0..seeds).map(|s| (0, 0, 7_000 + s)).collect())
+}
+
+/// Every answer inside the bounds a question states is taken, where those
+/// bounds are asked: crew's total power and menace's two blockers.
+///
+/// The trained AI's fuzzer, which answers inside what the question states,
+/// was refused 38 crew answers and 11 menace blocks in 2000 games before the
+/// question stated them. Each game here also puts, before its sampled
+/// answers, one the question names a fault in (a lone Elf to Crew 2, one
+/// creature against a menace attacker), and that one must be refused.
+#[test]
+fn every_answer_inside_a_stated_bound_is_taken_where_vehicles_crew_and_menace_attacks() {
+    let (decks, games) = bounds_games(16);
+    let found = sweep_over(&decks, &games, 1_500, BOUNDS);
+    assert_clean(&found, BOUNDS_FLOOR);
+    assert!(
+        found.totals >= BOUNDS_TOTALS_FLOOR && found.bounds >= BOUNDS_BLOCKS_FLOOR,
+        "the games asked {} crew totals and {} menace bounds",
+        found.totals,
+        found.bounds
+    );
+}
+
+/// The sweep notices a bound `apply` holds and the question does not state.
+///
+/// The same games, with the driver told each question less its stated
+/// bounds (what the engine asked before it stated them): the answers the
+/// driver then samples inside what it was told include short crews and lone
+/// menace blockers, `apply` refuses them, and the sweep names each as an
+/// answer inside every stated bound, refused. A sweep blind to that would
+/// have passed the engine the fuzzer found.
+#[test]
+fn the_sweep_names_a_bound_apply_holds_and_the_question_does_not_state() {
+    let (decks, games) = bounds_games(16);
+    let found = sweep_over(&decks, &games, 1_500, BOUNDS_UNSTATED);
+    let named = |what: &str| found.refused_clean.iter().any(|f| f.contains(what));
+    assert!(
+        named("CostCrew") && named("DeclareBlockers"),
+        "an unstated crew total and an unstated menace bound are both named: {:#?}",
+        found.refused_clean
+    );
+    assert!(
+        found.accepted.is_empty() && found.changed.is_empty(),
+        "and the rest of the promise holds: {:#?} {:#?}",
+        found.accepted,
+        found.changed
+    );
 }
 
 /// The watch for endless loops and the latches beside it are put back when

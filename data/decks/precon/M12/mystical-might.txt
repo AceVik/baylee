@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Mystical Might
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MysticalMight_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aether Adept (M12) 41
+1 Arbalest Elite (M12) 5
+2 Aven Fleetwing (M12) 44
+2 Benalish Veteran (M12) 10
+2 Cancel (M12) 47
+3 Coral Merfolk (M12) 49
+2 Elixir of Immortality (M12) 208
+4 Island (M12) 234
+4 Island (M12) 235
+3 Island (M12) 236
+3 Island (M12) 237
+1 Levitation (M12) 61
+1 Lord of the Unreal (M12) 62
+1 Mind Control (M12) 67
+1 Negate (M12) 69
+2 Oblivion Ring (M12) 27
+3 Phantasmal Bear (M12) 70
+2 Phantasmal Dragon (M12) 71
+3 Plains (M12) 230
+3 Plains (M12) 231
+2 Plains (M12) 232
+2 Plains (M12) 233
+2 Rusted Sentinel (M12) 215
+1 Serra Angel (M12) 33
+1 Siege Mastodon (M12) 34
+3 Skywinder Drake (M12) 75
+1 Sphinx of Uthuun (M12) 76 *F*
+2 Stormfront Pegasus (M12) 38
+2 Unsummon (M12) 79

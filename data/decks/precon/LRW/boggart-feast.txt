@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Boggart Feast
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoggartFeast_LRW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LRW
+# released: 2007-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Adder-Staff Boggart (LRW) 148
+2 Boggart Birth Rite (LRW) 101
+2 Boggart Harbinger (LRW) 102
+1 Boggart Mob (LRW) 104
+2 Boggart Shenanigans (LRW) 155
+2 Exiled Boggart (LRW) 109
+3 Facevaulter (LRW) 111
+1 Fodder Launch (LRW) 114
+2 Ghostly Changeling (LRW) 116
+1 Goatnapper (LRW) 172
+1 Hoarder's Greed (LRW) 117
+2 Hornet Harasser (LRW) 118
+2 Lowland Oaf (LRW) 184
+1 Mad Auntie (LRW) 123
+2 Marsh Flitter (LRW) 125
+3 Mountain (LRW) 294
+3 Mountain (LRW) 295
+2 Mountain (LRW) 296
+2 Mountain (LRW) 297
+2 Mudbutton Torchrunner (LRW) 185
+2 Shimmering Grotto (LRW) 273
+1 Spiderwig Boggart (LRW) 141
+1 Squeaking Pie Sneak (LRW) 142
+3 Swamp (LRW) 290
+3 Swamp (LRW) 291
+3 Swamp (LRW) 292
+3 Swamp (LRW) 293
+1 Tar Pitcher (LRW) 193
+2 Tarfire (LRW) 194
+2 Warren Pilferers (LRW) 146

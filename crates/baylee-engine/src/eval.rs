@@ -136,6 +136,7 @@ pub fn matches_projected(
                     .iter()
                     .any(|(host, worn)| *host == obj.id && worn.contains(&this))
         }
+        Filter::IsAttached => obj.attached_to.is_some(),
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.
             // The marker list rather than the command zone, for the reason
@@ -359,8 +360,8 @@ pub fn amount(
         }
         Amount::DistinctColorsAmong(filter) => {
             let mut colors = baylee_core::color::ColorSet::EMPTY;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                if let Some(obj) = state.object(*id)
+            for id in state.battlefield_seen() {
+                if let Some(obj) = state.object(id)
                     && matches(filter, state, obj, you, this)
                 {
                     colors = colors.union(obj.characteristics().colors);
@@ -375,8 +376,8 @@ pub fn amount(
         // so two Forests are one and a Tundra is two.
         Amount::BasicLandTypesAmong(filter) => {
             let mut seen = baylee_core::types::SubtypeSet::EMPTY;
-            for id in state.zones.list(ZoneLocation::Battlefield) {
-                if let Some(obj) = state.object(*id)
+            for id in state.battlefield_seen() {
+                if let Some(obj) = state.object(id)
                     && matches(filter, state, obj, you, this)
                 {
                     seen.union_with(obj.characteristics().subtypes);
@@ -423,7 +424,7 @@ pub fn amount(
             .unwrap_or(0),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
-                ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
+                ZoneSel::Battlefield => state.battlefield_view(),
                 ZoneSel::LibraryYou => state.zones.list(ZoneLocation::Library(you)).clone(),
                 ZoneSel::GraveyardYou => state.zones.list(ZoneLocation::Graveyard(you)).clone(),
                 ZoneSel::HandYou => state.zones.list(ZoneLocation::Hand(you)).clone(),
@@ -504,13 +505,11 @@ pub fn condition_holds(
             .is_some_and(|p| p.most_by_one >= u32::from(n)),
         Condition::ControlCount(filter, min) => {
             let count = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == you && matches(filter, state, o, you, **id)
-                    })
+                .battlefield_seen()
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| o.controller == you && matches(filter, state, o, you, id))
                 })
                 .count();
             count >= min as usize
@@ -521,13 +520,11 @@ pub fn condition_holds(
         // one thing that differs behind a parameter.
         Condition::ControlCountAtMost(filter, max) => {
             let count = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .filter(|id| {
-                    state.object(**id).is_some_and(|o| {
-                        o.controller == you && matches(filter, state, o, you, **id)
-                    })
+                .battlefield_seen()
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| o.controller == you && matches(filter, state, o, you, id))
                 })
                 .count();
             count <= max as usize
@@ -563,12 +560,10 @@ pub fn condition_holds(
             .filter(|id| state.is_opponent(*id, you))
             .any(|them| {
                 state
-                    .zones
-                    .list(ZoneLocation::Battlefield)
-                    .iter()
-                    .filter(|id| {
-                        state.object(**id).is_some_and(|o| {
-                            o.controller == them && matches(filter, state, o, you, **id)
+                    .battlefield_seen()
+                    .filter(|&id| {
+                        state.object(id).is_some_and(|o| {
+                            o.controller == them && matches(filter, state, o, you, id)
                         })
                     })
                     .count()

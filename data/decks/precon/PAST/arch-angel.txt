@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Arch Angel
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArchAngel_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Mana Vault (3ED) 263
+4 Mishra's Factory (ATQ) 80a
+4 Onulet (ATQ) 59
+4 Osai Vultures (LEG) 29
+8 Plains (3ED) 292
+7 Plains (3ED) 293
+7 Plains (3ED) 294
+4 Serra Angel (3ED) 40
+4 Soul Net (3ED) 275
+4 Swords to Plowshares (3ED) 41
+4 Tetravus (ATQ) 71
+4 The Hive (3ED) 277
+4 Wrath of God (3ED) 46
+SB: 3 Disenchant (3ED) 17
+SB: 3 Reverse Damage (3ED) 35

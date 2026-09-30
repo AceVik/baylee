@@ -3327,6 +3327,264 @@ messages! {
     CrashAskSend { en: "Send crash reports", de: "Absturzberichte senden" },
     /// The no.
     CrashAskNever { en: "Don't send", de: "Nicht senden" },
+    /// The settings screen's panel for language-model seats (`docs/llm-seat.md`).
+    SeatPanelTitle { en: "Language-model seats", de: "Sprachmodell-Sitze" },
+    /// Under its title.
+    SeatPanelAbout {
+        en: "Which model the seat bridge (baylee-seat) plays at a table, and what it may spend. No key is ever in this file: each profile names the environment variable its key is read from.",
+        de: "Welches Modell die Sitz-Brücke (baylee-seat) am Tisch spielt und was sie ausgeben darf. Kein Schlüssel steht je in dieser Datei: Jedes Profil nennt die Umgebungsvariable, aus der sein Schlüssel gelesen wird.",
+    },
+    /// Where the file is. `{0}` its path.
+    SeatFileAt { en: "File: {0}", de: "Datei: {0}" },
+    /// A browser or a phone runs no bridge.
+    SeatDesktopOnly {
+        en: "Language-model seats are set up on a desktop, where the seat bridge runs.",
+        de: "Sprachmodell-Sitze werden am Desktop eingerichtet, wo die Sitz-Brücke läuft.",
+    },
+    /// No directory for the file.
+    SeatNoConfigDir {
+        en: "This system names no configuration directory, so there is no settings file for the seat bridge.",
+        de: "Dieses System nennt kein Konfigurationsverzeichnis, daher gibt es keine Einstellungsdatei für die Sitz-Brücke.",
+    },
+    /// No file yet.
+    SeatEmpty {
+        en: "No settings file yet: the seat bridge plays with its built-in defaults, and nothing caps its spend across games. Add a profile to make one.",
+        de: "Noch keine Einstellungsdatei: Die Sitz-Brücke spielt mit ihren eingebauten Vorgaben, und nichts begrenzt ihre Ausgaben über Partien hinweg. Füge ein Profil hinzu, um eine anzulegen.",
+    },
+    /// A file with no profiles.
+    SeatNoProfiles {
+        en: "No profiles: without --mind or --profile, the bridge plays the house AI.",
+        de: "Keine Profile: Ohne --mind oder --profile spielt die Brücke die Haus-KI.",
+    },
+    /// The file cannot be used. `{0}` why, in the file's own words.
+    SeatFileRefused {
+        en: "The settings file cannot be used and is left as it is: {0}. Mend it by hand; this panel reads it again when it changes.",
+        de: "Die Einstellungsdatei ist nicht verwendbar und bleibt, wie sie ist: {0}. Korrigiere sie von Hand; dieser Bereich liest sie neu, sobald sie sich ändert.",
+    },
+    /// The file changed while there were edits here.
+    SeatChangedOnDisk {
+        en: "The file changed on disk since it was read. Saving writes over it; Discard changes shows it.",
+        de: "Die Datei hat sich auf der Festplatte geändert, seit sie gelesen wurde. Speichern überschreibt sie; Änderungen verwerfen zeigt sie.",
+    },
+    /// Adds a profile.
+    SeatAdd { en: "Add a profile", de: "Profil hinzufügen" },
+    /// Adds a copy of the shown profile.
+    SeatDuplicate { en: "Duplicate", de: "Duplizieren" },
+    /// Removes the shown profile.
+    SeatRemove { en: "Remove", de: "Entfernen" },
+    /// The switch that makes the shown profile the default.
+    SeatDefault { en: "Default", de: "Standard" },
+    /// A profile's chip when it is the default. `{0}` its name.
+    SeatChipDefault { en: "{0} · default", de: "{0} · Standard" },
+    /// What the default is.
+    SeatDefaultAbout {
+        en: "The default profile plays when the bridge is given neither --mind nor --profile.",
+        de: "Das Standardprofil spielt, wenn die Brücke weder --mind noch --profile bekommt.",
+    },
+    /// No default.
+    SeatDefaultNone {
+        en: "No default profile: given neither --mind nor --profile, the bridge plays the house AI.",
+        de: "Kein Standardprofil: Ohne --mind und --profile spielt die Brücke die Haus-KI.",
+    },
+    /// A profile's name.
+    SeatName { en: "Name", de: "Name" },
+    /// A profile's provider.
+    SeatProvider { en: "Provider", de: "Anbieter" },
+    /// The Anthropic API.
+    SeatProviderAnthropic { en: "Anthropic", de: "Anthropic" },
+    /// Any OpenAI-compatible endpoint.
+    SeatProviderOpenAi { en: "OpenAI-compatible", de: "OpenAI-kompatibel" },
+    /// A profile's model.
+    SeatModel { en: "Model", de: "Modell" },
+    /// A priced model offered for the model box. `{0}` the model, `{1}` input and `{2}` output price.
+    SeatPriced { en: "{0}: {1} in, {2} out", de: "{0}: {1} Eingabe, {2} Ausgabe" },
+    /// Under the suggestions.
+    SeatPricedAbout {
+        en: "Prices in US dollars per million tokens, as this build knows them.",
+        de: "Preise in US-Dollar je Million Tokens, wie dieser Build sie kennt.",
+    },
+    /// How hard the model thinks.
+    SeatEffort { en: "Effort", de: "Denkaufwand" },
+    /// How the model answers.
+    SeatAnswer { en: "Answers with", de: "Antwortet mit" },
+    /// The build's way of answering.
+    SeatAnswerBuild { en: "Default", de: "Standard" },
+    /// Answering by calling a tool.
+    SeatAnswerTools { en: "Tools", de: "Werkzeugen" },
+    /// Answering with one JSON object.
+    SeatAnswerJson { en: "JSON", de: "JSON" },
+    /// The most one reply may take.
+    SeatMaxTokens { en: "Max output tokens", de: "Höchstens Ausgabe-Tokens" },
+    /// Input price over the build's.
+    SeatPriceIn { en: "Price in ($ per million)", de: "Preis Eingabe ($ je Million)" },
+    /// Output price over the build's.
+    SeatPriceOut { en: "Price out ($ per million)", de: "Preis Ausgabe ($ je Million)" },
+    /// This build's price for the model. `{0}` input, `{1}` output.
+    SeatBuildPrice {
+        en: "This build's price: {0} in, {1} out per million tokens. A price given here replaces it.",
+        de: "Preis dieses Builds: {0} Eingabe, {1} Ausgabe je Million Tokens. Ein hier angegebener Preis ersetzt ihn.",
+    },
+    /// No price for the model.
+    SeatNoBuildPrice {
+        en: "This build has no price for this model: give one here, or limit its games in tokens.",
+        de: "Dieser Build kennt keinen Preis für dieses Modell: Gib hier einen an oder begrenze seine Partien in Tokens.",
+    },
+    /// The most a game may spend in dollars.
+    SeatGameUsd { en: "Per game ($)", de: "Pro Partie ($)" },
+    /// The most a game may spend in tokens.
+    SeatGameTokens { en: "Per game (tokens)", de: "Pro Partie (Tokens)" },
+    /// The longest one answer may take.
+    SeatThinkSecs { en: "Think seconds", de: "Bedenkzeit (Sekunden)" },
+    /// The variable the key is read from.
+    SeatKeyEnv { en: "Key variable", de: "Schlüssel-Variable" },
+    /// The variable is set. `{0}` its name.
+    SeatKeySet {
+        en: "{0} is set in this program's environment.",
+        de: "{0} ist in der Umgebung dieses Programms gesetzt.",
+    },
+    /// The variable is not set. `{0}` its name.
+    SeatKeyUnset {
+        en: "{0} is not set in this program's environment. The bridge reads it from its own.",
+        de: "{0} ist in der Umgebung dieses Programms nicht gesetzt. Die Brücke liest sie aus ihrer eigenen.",
+    },
+    /// Where the API is.
+    SeatBaseUrl { en: "Base URL", de: "Basis-URL" },
+    /// A box's value when left empty. `{0}` the value.
+    SeatByDefault { en: "{0} by default", de: "standardmäßig {0}" },
+    /// The base URL when left empty. `{0}` the variable, `{1}` the address.
+    SeatBaseByDefault { en: "{0}, else {1}", de: "{0}, sonst {1}" },
+    /// An effort left to an OpenAI-compatible endpoint.
+    SeatEffortEndpoint { en: "the endpoint's own", de: "wie der Endpunkt es vorgibt" },
+    /// The caps' heading.
+    SeatCaps { en: "Caps across all games", de: "Obergrenzen über alle Partien" },
+    /// Under it.
+    SeatCapsAbout {
+        en: "Dollars count the games of models with a price, tokens the games of models without one. An empty box is no cap.",
+        de: "Dollar zählen die Partien von Modellen mit Preis, Tokens die von Modellen ohne. Ein leeres Feld ist keine Grenze.",
+    },
+    /// Dollars a day.
+    SeatDayUsd { en: "Per day ($)", de: "Pro Tag ($)" },
+    /// Dollars a month.
+    SeatMonthUsd { en: "Per month ($)", de: "Pro Monat ($)" },
+    /// Tokens a day.
+    SeatDayTokens { en: "Per day (tokens)", de: "Pro Tag (Tokens)" },
+    /// Tokens a month.
+    SeatMonthTokens { en: "Per month (tokens)", de: "Pro Monat (Tokens)" },
+    /// A profile with no price under a daily dollar cap and no daily token cap.
+    SeatUnpricedDay {
+        en: "The caps count dollars per day, and this model has no price: the bridge refuses its games until it has a price or the caps a daily token limit.",
+        de: "Die Obergrenzen zählen Dollar pro Tag, und dieses Modell hat keinen Preis: Die Brücke verweigert seine Partien, bis es einen Preis oder die Obergrenzen ein Tageslimit in Tokens haben.",
+    },
+    /// The same for a month.
+    SeatUnpricedMonth {
+        en: "The caps count dollars per month, and this model has no price: the bridge refuses its games until it has a price or the caps a monthly token limit.",
+        de: "Die Obergrenzen zählen Dollar pro Monat, und dieses Modell hat keinen Preis: Die Brücke verweigert seine Partien, bis es einen Preis oder die Obergrenzen ein Monatslimit in Tokens haben.",
+    },
+    /// The spend's heading.
+    SeatSpent { en: "Spent", de: "Ausgegeben" },
+    /// Periods on the local clock. `{0}` its offset, "UTC+02:00".
+    SeatZoneLocal { en: "Counted in local time, {0}.", de: "Gezählt in Ortszeit, {0}." },
+    /// Periods on UTC.
+    SeatZoneUtc { en: "Counted in UTC.", de: "Gezählt in UTC." },
+    /// Today's spend. `{0}` the day, `{1}` what it counts.
+    SeatSpentDay { en: "Today, {0}: {1}", de: "Heute, {0}: {1}" },
+    /// This month's spend. `{0}` the month, `{1}` what it counts.
+    SeatSpentMonth { en: "This month, {0}: {1}", de: "Diesen Monat, {0}: {1}" },
+    /// Spent against a cap. `{0}` spent, `{1}` the cap.
+    SeatOf { en: "{0} of {1}", de: "{0} von {1}" },
+    /// One token.
+    SeatTokensOne { en: "{0} token", de: "{0} Token" },
+    /// Tokens.
+    SeatTokensMany { en: "{0} tokens", de: "{0} Tokens" },
+    /// How many games a sum is over. `{0}` games, `{1}` of them still open.
+    SeatGames { en: "games: {0}, still open: {1}", de: "Partien: {0}, davon offen: {1}" },
+    /// The book cannot be read. `{0}` why.
+    SeatBookUnreadable { en: "The spend book cannot be read: {0}", de: "Das Ausgabenbuch kann nicht gelesen werden: {0}" },
+    /// Writes the file.
+    SeatSave { en: "Save", de: "Speichern" },
+    /// Drops every edit.
+    SeatRevert { en: "Discard changes", de: "Änderungen verwerfen" },
+    /// There are edits.
+    SeatUnsaved { en: "Unsaved changes.", de: "Ungespeicherte Änderungen." },
+    /// Save waits for the faults.
+    SeatFixFirst { en: "Mend what is marked, then save.", de: "Korrigiere das Markierte, dann speichere." },
+    /// Written.
+    SeatSavedNote { en: "Saved.", de: "Gespeichert." },
+    /// Not written. `{0}` why.
+    SeatNotSaved { en: "Not saved: {0}", de: "Nicht gespeichert: {0}" },
+    /// A box for a whole number holds something else.
+    SeatFaultWhole { en: "A whole number, in digits.", de: "Eine ganze Zahl, in Ziffern." },
+    /// A box for dollars holds something else.
+    SeatFaultDollars {
+        en: "An amount of US dollars, not below zero, such as 2.5.",
+        de: "Ein Betrag in US-Dollar, nicht unter null, etwa 2,5.",
+    },
+    /// Half a price.
+    SeatFaultHalfPrice {
+        en: "Give both prices, input and output, or neither.",
+        de: "Gib beide Preise an, Eingabe und Ausgabe, oder keinen.",
+    },
+    /// Two profiles of one name.
+    SeatFaultNameTaken { en: "Another profile has this name.", de: "Ein anderes Profil hat diesen Namen." },
+    /// A field named like a key.
+    SeatFaultKeyNamed {
+        en: "Named like a key. A key never goes in the settings file: set it in the environment and name its variable under Key variable.",
+        de: "Benannt wie ein Schlüssel. Ein Schlüssel gehört nie in die Einstellungsdatei: Setze ihn in der Umgebung und nenne seine Variable unter Schlüssel-Variable.",
+    },
+    /// A value shaped like a key.
+    SeatFaultKeyShaped {
+        en: "This looks like an API key. A key never goes in the settings file: set it in the environment and name its variable under Key variable.",
+        de: "Das sieht aus wie ein API-Schlüssel. Ein Schlüssel gehört nie in die Einstellungsdatei: Setze ihn in der Umgebung und nenne seine Variable unter Schlüssel-Variable.",
+    },
+    /// The default names no profile.
+    SeatFaultNoDefault { en: "The default names no profile.", de: "Der Standard nennt kein Profil." },
+    /// Not a profile's name.
+    SeatFaultName {
+        en: "A name is up to 32 letters, digits, - and _, starting with a letter or digit.",
+        de: "Ein Name hat bis zu 32 Buchstaben, Ziffern, - und _ und beginnt mit einem Buchstaben oder einer Ziffer.",
+    },
+    /// Not a model id.
+    SeatFaultModel {
+        en: "A model id is up to 100 letters, digits and - _ . : / @.",
+        de: "Eine Modell-ID hat bis zu 100 Buchstaben, Ziffern und - _ . : / @.",
+    },
+    /// Not an effort.
+    SeatFaultEffort {
+        en: "An effort is one lowercase word, such as low, medium or high.",
+        de: "Ein Denkaufwand ist ein kleingeschriebenes Wort, etwa low, medium oder high.",
+    },
+    /// JSON asked of Anthropic.
+    SeatFaultJson {
+        en: "JSON answers are for OpenAI-compatible endpoints; Anthropic's models answer with tools.",
+        de: "JSON-Antworten sind für OpenAI-kompatible Endpunkte; Anthropics Modelle antworten mit Werkzeugen.",
+    },
+    /// No reply at all.
+    SeatFaultMaxTokens {
+        en: "The most one reply may take: at least 1.",
+        de: "Das Höchste, was eine Antwort nehmen darf: mindestens 1.",
+    },
+    /// No time at all.
+    SeatFaultThinkSecs {
+        en: "The longest one answer may take: at least 1 second.",
+        de: "Die längste Zeit für eine Antwort: mindestens 1 Sekunde.",
+    },
+    /// A dollar budget with no price.
+    SeatFaultUnpriced {
+        en: "This build has no price for this model, so a dollar limit cannot be held: give it a price, or make its tokens per game the limit.",
+        de: "Dieser Build kennt keinen Preis für dieses Modell, daher lässt sich keine Dollar-Grenze halten: Gib ihm einen Preis oder mache die Tokens pro Partie zur Grenze.",
+    },
+    /// Not a variable's name. `{0}` an example.
+    SeatFaultKeyEnv {
+        en: "The name of an environment variable, such as {0}: capitals, digits and _. Never the key itself.",
+        de: "Der Name einer Umgebungsvariable, etwa {0}: Großbuchstaben, Ziffern und _. Nie der Schlüssel selbst.",
+    },
+    /// An address a key may not go to.
+    SeatFaultAddress {
+        en: "An https:// address; http:// only on this machine.",
+        de: "Eine https://-Adresse; http:// nur auf diesem Rechner.",
+    },
+    /// Settings that cannot be written at all.
+    SeatFaultFile { en: "These settings cannot be written.", de: "Diese Einstellungen lassen sich nicht schreiben." },
 }
 
 impl Phrase {

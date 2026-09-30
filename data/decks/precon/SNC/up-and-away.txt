@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Up and Away
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UpAndAway_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Kit
+# set: SNC
+# released: 2022-06-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Backup Agent (SNC) 2
+2 Brute Suit (NEO) 241
+1 Consuming Tide (VOW) 53
+1 Dreamshackle Geist (VOW) 58
+1 Extraction Specialist (SNC) 12
+2 Fading Hope (MID) 51
+1 Hullbreaker Horror (VOW) 63
+3 Inspiring Overseer (SNC) 18
+4 Island (NEO) 285
+3 Island (SNC) 264
+4 Island (VOW) 399
+2 Kill Shot (SNC) 19
+2 Nebelgast Beguiler (VOW) 25
+4 Plains (MID) 380
+4 Plains (NEO) 283
+4 Plains (VOW) 398
+3 Serpentine Ambush (VOW) 77
+3 Seven-Tail Mentor (NEO) 36
+2 Stormrider Spirit (MID) 79
+4 Tranquil Cove (NEO) 280
+2 Unholy Officiant (VOW) 41
+1 Welcoming Vampire (VOW) 46 *F*
+4 Wretched Throng (VOW) 91

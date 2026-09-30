@@ -1,0 +1,90 @@
+# baylee deck export v1
+# name: Tyranid Swarm Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TyranidSwarmCollectorSEdition_40K.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: 40K
+# released: 2022-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 The Swarmlord (40K) 4 *F*
+1 Aberrant (40K) 86★ *F*
+1 Abundance (40K) 210★ *F*
+1 Acolyte Hybrid (40K) 70★ *F*
+1 Aetherize (40K) 191★ *F*
+1 Arcane Signet (40K) 227★ *F*
+1 Ash Barrens (40K) 265★ *F*
+1 Atalan Jackal (40K) 105★ *F*
+1 Biophagus (40K) 87★ *F*
+1 Bone Sabres (40K) 88★ *F*
+1 Bred for the Hunt (40K) 222★ *F*
+1 Broodlord (40K) 89★ *F*
+1 Cave of Temptation (40K) 267★ *F*
+1 Cinder Glade (40K) 269★ *F*
+1 Clamavus (40K) 90★ *F*
+1 Command Tower (40K) 270★ *F*
+1 Cultivate (40K) 211★ *F*
+1 Death's Presence (40K) 212★ *F*
+1 Deathleaper, Terror Weapon (40K) 115★ *F*
+1 Evolving Wilds (40K) 277★ *F*
+1 Exocrine (40K) 76★ *F*
+1 Exotic Orchard (40K) 278★ *F*
+1 Explore (40K) 213★ *F*
+1 Farseek (40K) 214★ *F*
+8 Forest (40K) 317★ *F*
+1 Frontier Bivouac (40K) 281★ *F*
+1 Game Trail (40K) 282★ *F*
+1 Gargoyle Flock (40K) 123★ *F*
+1 Genestealer Locus (40K) 21★ *F*
+1 Genestealer Patriarch (40K) 22★ *F*
+1 Ghyrson Starn, Kelermorph (40K) 124★ *F*
+1 Goliath Truck (40K) 158★ *F*
+1 Hardened Scales (40K) 215★ *F*
+1 Harrow (40K) 216★ *F*
+1 Haruspex (40K) 91★ *F*
+1 Herald's Horn (40K) 241★ *F*
+1 Hierophant Bio-Titan (40K) 92★ *F*
+1 Hormagaunt Horde (40K) 93★ *F*
+1 Hull Breach (40K) 224★ *F*
+1 Icon of Ancestry (40K) 242★ *F*
+1 Inspiring Call (40K) 217★ *F*
+7 Island (40K) 309★ *F*
+1 Lictor (40K) 94★ *F*
+1 Magus Lucea Kane (40K) 7 *F*
+1 Malanthrope (40K) 132★ *F*
+1 Mawloc (40K) 133★ *F*
+7 Mountain (40K) 315★ *F*
+1 New Horizons (40K) 218★ *F*
+1 Nexos (40K) 95★ *F*
+1 Old One Eye (40K) 96★ *F*
+1 Opal Palace (40K) 286★ *F*
+1 Overgrowth (40K) 219★ *F*
+1 Path of Ancestry (40K) 287★ *F*
+1 Purestrain Genestealer (40K) 97★ *F*
+1 Rampant Growth (40K) 220★ *F*
+1 Ravener (40K) 138★ *F*
+1 Rugged Highlands (40K) 292★ *F*
+1 Screamer-Killer (40K) 84★ *F*
+1 Shadow in the Warp (40K) 140★ *F*
+1 Sol Ring (40K) 249★ *F*
+1 Sporocyst (40K) 98★ *F*
+1 Starstorm (40K) 208★ *F*
+1 Temple of Abandon (40K) 297★ *F*
+1 Temple of Epiphany (40K) 298★ *F*
+1 Temple of Mystery (40K) 299★ *F*
+1 Termagant Swarm (40K) 99★ *F*
+1 Terramorphic Expanse (40K) 301★ *F*
+1 Tervigon (40K) 100★ *F*
+1 The First Tyrannic War (40K) 121★ *F*
+1 The Red Terror (40K) 83★ *F*
+1 Thornwood Falls (40K) 302★ *F*
+1 Toxicrene (40K) 101★ *F*
+1 Trygon Prime (40K) 143★ *F*
+1 Tyranid Harridan (40K) 144★ *F*
+1 Tyranid Invasion (40K) 102★ *F*
+1 Tyranid Prime (40K) 145★ *F*
+1 Tyrant Guard (40K) 103★ *F*
+1 Unclaimed Territory (40K) 304★ *F*
+1 Venomthrope (40K) 147★ *F*
+1 Winged Hive Tyrant (40K) 148★ *F*
+1 Zoanthrope (40K) 149★ *F*

@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Hands of Fire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HandsOfFire_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Act of Treason (PS11) 90 [es]
+1 Banefire (PS11) 92 [es]
+1 Blaze (PS11) 93 [es]
+1 Bloodmark Mentor (PS11) 94 [es]
+2 Cinder Pyromancer (PS11) 96 [es]
+2 Dragon's Claw (PS11) 188 [es]
+2 Earth Elemental (PS11) 100 [es]
+1 Enrage (PS11) 101 [es]
+1 Furnace of Rath (PS11) 104 [es]
+4 Goblin Piker (PS11) 106 [es]
+2 Goblin Sky Raider (PS11) 107 [es]
+4 Hill Giant (PS11) 110 [es]
+3 Incinerate (PS11) 112 [es]
+1 Kamahl, Pit Fighter (PS11) 114 [es]
+4 Lightning Elemental (PS11) 116 [es]
+6 Mountain (PS11) 217 [es]
+6 Mountain (PS11) 218 [es]
+6 Mountain (PS11) 219 [es]
+6 Mountain (PS11) 220 [es]
+1 Prodigal Pyromancer (PS11) 118 [es]
+1 Rage Reflection (PS11) 119 [es]
+1 Shivan Dragon (PS11) 120 [es]
+2 Shock (PS11) 121 [es]

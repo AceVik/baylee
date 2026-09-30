@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Nicolas Labarre - Chimera
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NicolasLabarreChimera_WC00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC00
+# released: 2000-08-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Academy Rector (WC00) nl1
+4 Ashnod's Altar (WC00) nl274
+4 Birds of Paradise (WC00) nl217
+4 Brushland (WC00) nl320
+3 City of Brass (WC00) nl321
+1 Confiscate (WC00) nl66
+4 Enlightened Tutor (WC00) nl19
+4 Fecundity (WC00) nl251
+8 Forest (WC00) nl347
+2 High Market (WC00) nl320b
+4 Llanowar Elves (WC00) nl239
+1 Pattern of Rebirth (WC00) nl115
+2 Phyrexian Tower (WC00) nl322
+4 Priest of Titania (WC00) nl270
+4 Saproling Cluster (WC00) nl114
+1 Serra Avatar (WC00) nl45
+1 Snake Basket (WC00) nl312
+2 Thran Quarry (WC00) nl329
+1 Whetstone (WC00) nl316
+1 Yawgmoth's Bargain (WC00) nl75
+1 Yawgmoth's Will (WC00) nl171
+SB: 1 Absolute Law (WC00) nl2sba
+SB: 3 Armageddon (WC00) nl4sb
+SB: 1 Aura Fracture (WC00) nl2sbb
+SB: 1 Blaze (WC00) nl168sb
+SB: 1 Defense Grid (WC00) nl125sb
+SB: 1 Energy Flux (WC00) nl78sb
+SB: 1 Heart of Ramos (WC00) nl296sb
+SB: 1 Light of Day (WC00) nl29sb
+SB: 1 Meekstone (WC00) nl299sb
+SB: 1 Parallax Wave (WC00) nl17sb
+SB: 1 Phyrexian Processor (WC00) nl306sb
+SB: 1 Seal of Cleansing (WC00) nl18sb
+SB: 1 Worship (WC00) nl57sb

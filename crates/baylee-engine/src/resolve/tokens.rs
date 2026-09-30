@@ -40,20 +40,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .first()
                 .copied()
                 .unwrap_or(baylee_core::ids::SubtypeId::new(0));
-            let army = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                            && o.characteristics().subtypes.contains(army_type)
-                    })
-                });
+            let army = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                        && o.characteristics().subtypes.contains(army_type)
+                })
+            });
             // The one token creation that deliberately does *not* go through
             // [`create_tokens`]. Doubling Season would make two Armies and
             // the counters then go on one Army you control, which is a
@@ -121,23 +116,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         Effect::CreateTokenCopyOfFirstToken => {
-            let token = state
-                .zones
-                .list(ZoneLocation::Battlefield)
-                .iter()
-                .copied()
-                .find(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        o.card.is_none()
-                            && o.controller == you
-                            && o.characteristics()
-                                .types
-                                .contains(baylee_core::types::TypeSet::CREATURE)
-                    })
-                });
+            let token = state.battlefield_seen().find(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.card.is_none()
+                        && o.controller == you
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                })
+            });
             if let Some(id) = token
                 && let Some(base) = crate::layers::copiable_values(state, id)
             {
@@ -409,6 +400,7 @@ pub(super) fn create_token_copies(
                 let mut obj =
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
+                obj.controlled_since = ts;
                 if let Some(own) = own {
                     obj.take_abilities(own);
                 }
@@ -484,6 +476,7 @@ fn create_token(
     let id = state.arena.insert_with(|id| {
         let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);
         obj.timestamp = ts;
+        obj.controlled_since = ts;
         // What makes this a Treasure rather than a blank artifact: the
         // definition is where the token's abilities live, and it is the only
         // record of which token this is once the characteristics are copied

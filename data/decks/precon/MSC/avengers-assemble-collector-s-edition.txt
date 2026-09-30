@@ -1,0 +1,99 @@
+# baylee deck export v1
+# name: Avengers Assemble Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AvengersAssembleCollectorSEdition_MSC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: MSC
+# released: 2026-06-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Captain America, Team Leader (MSC) 879 *F*
+1 Ant-Man, Elusive Avenger (MSC) 73 *F*
+1 Arcane Denial (MSC) 147 *F*
+1 Arcane Signet (MSC) 191 *F*
+1 Austere Command (MSC) 121 *F*
+1 Avenge (MSC) 11 *F*
+1 Avengers Quinjet (MSC) 102 *F*
+1 Avengers Tower (MSH) 452 *F*
+1 Bastion Protector (MSC) 122 *F*
+1 Black Widow, Agile Avenger (MSC) 77 *F*
+1 Captain America, Living Legend (MSH) 449 *F*
+1 Captain Mar-Vell, Space-Born (MSH) 443 *F*
+1 Captain Marvel, Apex Avenger (MSC) 78 *F*
+1 Clifftop Retreat (MSC) 231 *F*
+1 Coastal Peak (MSC) 232 *F*
+1 Command Tower (MSC) 233 *F*
+1 Destroy Evil (MSC) 128 *F*
+1 Director Nick Fury (MSC) 81 *F*
+1 Dismantling Wave (MSC) 129 *F*
+1 Door of Destinies (MSC) 198 *F*
+1 Exotic Orchard (MSC) 241 *F*
+1 Falcon and Redwing (MSC) 14 *F*
+1 Fellwar Stone (MSC) 285 *F*
+1 Firebird, Blazing Ranger (MSC) 50 *F*
+1 Folk Hero (MSC) 132 *F*
+1 Frostboil Snarl (MSC) 246 *F*
+1 Furycalm Snarl (MSC) 247 *F*
+1 Gift of Immortality (MSC) 134 *F*
+1 Glacial Fortress (MSC) 248 *F*
+1 Glittering Massif (MSC) 249 *F*
+1 Hawkeye, Avenging Archer (MSC) 84 *F*
+1 Herald's Horn (MSC) 287 *F*
+1 Hercules, Olympian Hero (MSC) 16 *F*
+1 Hero's Blade (MSC) 201 *F*
+1 Heroic Return (MSC) 17 *F*
+1 Heroic Sacrifice (MSC) 18 *F*
+1 Hulkbuster Armor (MSC) 107 *F*
+1 Iron Man, Armored Avenger (MSC) 33 *F*
+1 Irrigated Farmland (MSC) 251 *F*
+3 Island (MSH) 435 *F*
+2 Island (MSH) 436 *F*
+1 Jarvis, Earth's Mightiest Butler (MSC) 34 *F*
+1 Jocasta, Automaton Avenger (MSC) 108 *F*
+1 Kindred Discovery (MSC) 150 *F*
+1 Love on the Battlefield (MSC) 87 *F*
+1 Make Your Move (MSC) 137 *F*
+1 Metallic Mimic (MSC) 203 *F*
+1 Methods of the Mighty (MSC) 21 *F*
+3 Mountain (MSH) 439 *F*
+2 Mountain (MSH) 440 *F*
+1 Mystic Monastery (MSC) 253 *F*
+1 Path of Ancestry (MSC) 254 *F*
+1 Patriot, Shield Wielder (MSH) 444 *F*
+1 Photon, Mighty Marvel (MSC) 58 *F*
+3 Plains (MSH) 433 *F*
+3 Plains (MSH) 434 *F*
+1 Plaza of Heroes (MSC) 255 *F*
+1 Port Town (MSC) 256 *F*
+1 Prairie Stream (MSC) 257 *F*
+1 Professor Hulk (MSC) 37 *F*
+1 Quicksilver, Speedster (MSC) 91 *F*
+1 Radiant Summit (MSC) 258 *F*
+1 Raise the Palisade (MSC) 278 *F*
+1 Reconnaissance Mission (MSC) 153 *F*
+1 Relic of Legends (MSC) 209 *F*
+1 Rescue, Pepper Potts (MSC) 882 *F*
+1 Rip Apart (MSC) 187 *F*
+1 Scarlet Witch, Chaotic Avenger (MSC) 93 *F*
+1 Scavenger Grounds (MSC) 263 *F*
+1 Scorched Geyser (MSC) 264 *F*
+1 Secluded Courtyard (MSC) 265 *F*
+1 Shang-Chi and the Ten Rings (MSC) 94 *F*
+1 She-Hulk, Wallbreaker (MSC) 60 *F*
+1 Sol Ring (MSC) 211 *F*
+1 Spectator Seating (MSC) 268 *F*
+1 Speed, Young Avenger (MSH) 448 *F*
+1 Sulfur Falls (MSC) 269 *F*
+1 Swords to Plowshares (MSC) 143 *F*
+1 Talisman of Conviction (MSC) 217 *F*
+1 Talisman of Creativity (MSC) 218 *F*
+1 Talisman of Progress (MSC) 221 *F*
+1 The Wasp, Winsome Avenger (MSC) 39 *F*
+1 Thor, Asgard's Avenger (MSC) 883 *F*
+1 Thought Vessel (MSC) 222 *F*
+1 Tome of Legends (MSC) 223 *F*
+1 Unclaimed Territory (MSC) 275 *F*
+1 Vision, Synthezoid Avenger (MSC) 119 *F*
+1 War Machine, Avenging Arsenal (MSC) 63 *F*
+1 West Coast Expansion (MSC) 40 *F*
+1 Winter Soldier, Reborn Avenger (MSC) 27 *F*

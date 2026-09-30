@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Archenemy Nicol Bolas
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArchenemyNicolBolas_E01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: E01
+# released: 2017-06-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archfiend of Depravity (E01) 31
+1 Baleful Strix (E01) 80
+1 Blood Tyrant (E01) 81
+2 Bone Picker (AKH) 81
+1 Cinder Barrens (AKH) 280
+1 Cruel Ultimatum (E01) 82
+4 Crumbling Necropolis (E01) 92
+1 Deathbringer Regent (E01) 32
+2 Doom Blade (E01) 33
+1 Dragonskull Summit (E01) 93
+1 Dreadbore (E01) 83
+1 Drowned Catacomb (E01) 94
+1 Extract from Darkness (E01) 84
+2 Flametongue Kavu (E01) 48
+1 Grixis Panorama (E01) 95
+1 Harvester of Souls (E01) 34
+2 Highland Lake (AKH) 282
+1 Icefall Regent (E01) 24
+1 Island (AKH) 258
+1 Island (AKH) 259
+1 Island (AKH) 260
+1 Island (E01) 103
+1 Island (E01) 98
+2 Lightning Bolt (E01) 54
+1 Mountain (AKH) 264
+1 Mountain (AKH) 265
+1 Mountain (E01) 105
+1 Nicol Bolas, Planeswalker (E01) 85
+2 Nightscape Familiar (E01) 35
+2 Obelisk of Grixis (E01) 88
+1 Overseer of the Damned (E01) 36
+1 Prognostic Sphinx (E01) 26
+2 Reckless Spite (E01) 37
+1 Slave of Bolas (E01) 86
+1 Soul Ransom (E01) 87
+1 Sphinx of Jwar Isle (E01) 28
+1 Submerged Boneyard (AKH) 284
+1 Sudden Demise (E01) 59
+1 Swamp (AKH) 262
+3 Swamp (E01) 104
+3 Swamp (E01) 99
+1 Talisman of Dominance (E01) 90
+1 Talisman of Indulgence (E01) 91
+2 Vampire Nighthawk (E01) 38

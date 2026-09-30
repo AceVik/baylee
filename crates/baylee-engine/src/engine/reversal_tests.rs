@@ -52,14 +52,23 @@ fn werefox_bodyguard() -> CardIndex {
     card_index("d5ee2ced-29f4-430f-962e-2f930b92624c")
 }
 
-/// Takes `object` off the battlefield and out of the game altogether, as a
-/// token that left it does (CR 111.7): whatever still names it names nothing.
+/// Takes `object` out of `from` and out of the game altogether, as a token
+/// that left the battlefield does (CR 111.7): whatever still names it names
+/// nothing. `from` is the zone the question asked about it in — the
+/// battlefield for a permanent a cost points at, the caster's hand for a
+/// pitch card — so a card gone from hand is gone the same way a card gone
+/// from the battlefield is.
 #[track_caller]
-fn cease(engine: &mut Engine<RegistryLookup>, seat: PlayerId, object: ObjectId) {
+fn cease(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    object: ObjectId,
+    from: ZoneLocation,
+) {
     let state = engine
         .dev_state_mut(seat)
         .expect("the harness may set boards up");
-    assert!(state.zones.remove(object, ZoneLocation::Battlefield));
+    assert!(state.zones.remove(object, from));
     assert!(state.arena.remove(object).is_some());
 }
 
@@ -126,7 +135,7 @@ fn a_reversed_activation_gives_its_mana_and_its_tap_back() {
     };
     assert_eq!(options.len(), 2, "the two Elves: {options:?}");
     let gone = options[0];
-    cease(&mut engine, p0, gone);
+    cease(&mut engine, p0, gone, ZoneLocation::Battlefield);
 
     engine
         .apply(
@@ -196,7 +205,7 @@ fn a_reversed_cast_gives_its_mana_back() {
         panic!("the cost asks which creature, got {:?}", engine.pending())
     };
     assert_eq!(options, vec![elves]);
-    cease(&mut engine, p0, elves);
+    cease(&mut engine, p0, elves, ZoneLocation::Battlefield);
 
     engine
         .apply(
@@ -413,5 +422,362 @@ fn a_reversed_escape_puts_the_exiled_cards_back() {
         pool(&engine, p0),
         4,
         "the {{G}}{{G}}{{U}}{{U}} is back in the pool"
+    );
+}
+
+/// "You may pay 1 life and exile a blue card from your hand rather than
+/// pay this spell's mana cost." / "Counter target spell."
+fn force_of_will() -> CardIndex {
+    card_index("956381ba-6d37-4a8a-846c-bad79222dbee")
+}
+
+/// "Counter target spell." — a blue card, the only one Force of Will finds
+/// to pitch on the board these tests build.
+fn counterspell() -> CardIndex {
+    card_index("cc187110-1148-4090-bbb8-e205694a39f5")
+}
+
+/// Force of Will pitched (CR 118.9): a blue card exiled from hand and 1
+/// life pay for it rather than its mana cost. The pitched card is gone by
+/// the time the answer is paid — the harness makes it so, the way it makes
+/// the Vault's creature and Uro's fifth card so above. The cast is
+/// reversed (CR 732.1): the life is back, Force of Will is back in hand,
+/// and the spell it would have countered sits on the stack exactly as it
+/// did before the question was asked.
+#[test]
+fn a_reversed_pitch_gives_the_life_back_and_the_card_stays_in_hand() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(701, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[llanowar_elves()])
+        .hand(1, &[force_of_will(), counterspell()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    let elves_spell = on_stack(&engine, llanowar_elves()).expect("the Elves spell");
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected p0 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    engine
+        .apply(p0, PlayerAction::PassPriority)
+        .expect("p0 passes after casting");
+
+    let Pending::Priority { player, legal, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    let fow = in_hand(&engine, p1, force_of_will()).expect("Force of Will in hand");
+    assert!(
+        legal.castable.contains(&fow),
+        "Force of Will must be castable via pitch: {:?}",
+        legal.castable
+    );
+    let life_before = engine.state().players[p1.get() as usize].life;
+    let journal = engine.state().journal.len();
+
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: fow })
+        .expect("Force of Will begins casting");
+
+    // With an empty pool only the pitch alternative is payable, so the
+    // wizard auto-selects it and asks for targets directly.
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected targets, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![elves_spell]);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves_spell],
+                players: vec![],
+            },
+        )
+        .expect("the Elves spell is a legal target");
+
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the pitch choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    assert_eq!(options.len(), 1, "only Counterspell is blue: {options:?}");
+    let pitch_card = options[0];
+    cease(&mut engine, p1, pitch_card, ZoneLocation::Hand(p1));
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![pitch_card],
+            },
+        )
+        .expect("an answer the question offered is taken");
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p1),
+        "the cast is reversed and priority is the caster's: {:?}",
+        engine.pending()
+    );
+    assert!(
+        in_hand(&engine, p1, force_of_will()).is_some(),
+        "Force of Will is back in hand"
+    );
+    assert_eq!(
+        engine.state().players[p1.get() as usize].life,
+        life_before,
+        "no life is paid"
+    );
+    assert_eq!(pool(&engine, p1), 0, "no mana is spent");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .is_empty(),
+        "nothing is exiled"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).clone(),
+        vec![elves_spell],
+        "the spell Force of Will would have countered is untouched"
+    );
+    assert_eq!(
+        engine.state().journal.len(),
+        journal,
+        "nothing is journaled"
+    );
+}
+
+/// "{T}: Exile up to two target cards from a single graveyard." /
+/// "Unlicensed Hearse's power and toughness are each equal to the number
+/// of cards exiled with it."
+fn unlicensed_hearse() -> CardIndex {
+    card_index("c640654c-487e-4a2c-aced-126ed835b78f")
+}
+
+/// Unlicensed Hearse's graveyard choice (CR 601.2c, ahead of CR 601.2h's
+/// payment): with more than one graveyard holding a card, the activation
+/// asks which one before it asks which cards. The Hearse itself is gone by
+/// the time the answer is paid — the harness makes it so, the way the
+/// other tests here make a creature or a graveyard card so. The
+/// activation is reversed (CR 732.1, 732.2): neither graveyard is
+/// touched, nothing is exiled, and priority returns to the activator.
+#[test]
+fn a_reversed_graveyard_choice_touches_neither_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(702, forest())
+        .battlefield(0, &[unlicensed_hearse()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    seed_graveyard(&mut engine, p0, 1);
+    seed_graveyard(&mut engine, p1, 1);
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse");
+    let graveyard = |engine: &Engine<RegistryLookup>, seat: PlayerId| {
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(seat))
+            .clone()
+    };
+    let p0_graveyard_before = graveyard(&engine, p0);
+    let p1_graveyard_before = graveyard(&engine, p1);
+    let life0_before = engine.state().players[p0.get() as usize].life;
+    let life1_before = engine.state().players[p1.get() as usize].life;
+    let journal = engine.state().journal.len();
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(hearse, 0)),
+        "{:?}",
+        legal.abilities
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: hearse,
+                ability_index: 0,
+            },
+        )
+        .expect("the Hearse activates");
+
+    let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+        panic!("expected the graveyard choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert_eq!(options.len(), 2, "both graveyards hold a card: {options:?}");
+    let chosen = options[0];
+    cease(&mut engine, p0, hearse, ZoneLocation::Battlefield);
+
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(chosen))
+        .expect("an answer the question offered is taken");
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the activation is reversed and priority is the activator's: {:?}",
+        engine.pending()
+    );
+    assert!(stack_is_empty(&engine), "nothing was activated");
+    assert_eq!(
+        graveyard(&engine, p0),
+        p0_graveyard_before,
+        "p0's graveyard is untouched"
+    );
+    assert_eq!(
+        graveyard(&engine, p1),
+        p1_graveyard_before,
+        "p1's graveyard is untouched"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p0))
+            .is_empty()
+            && engine
+                .state()
+                .zones
+                .list(ZoneLocation::Exile(p1))
+                .is_empty(),
+        "nothing is exiled"
+    );
+    assert_eq!(
+        engine.state().players[p0.get() as usize].life,
+        life0_before,
+        "p0's life is unchanged"
+    );
+    assert_eq!(
+        engine.state().players[p1.get() as usize].life,
+        life1_before,
+        "p1's life is unchanged"
+    );
+    assert_eq!(
+        engine.state().journal.len(),
+        journal,
+        "nothing is journaled"
+    );
+}
+
+/// "{1}{G/P}, {T}, Sacrifice a creature: Search your library for a
+/// creature card with mana value equal to 1 plus the sacrificed
+/// creature's mana value, put that card onto the battlefield, then
+/// shuffle. Activate only as a sorcery."
+fn birthing_pod() -> CardIndex {
+    card_index("f8b9dd54-0837-47f4-ad14-7a0322d46d5f")
+}
+
+/// Birthing Pod's Phyrexian symbol (CR 107.4f, CR 118.13a): paid by mana
+/// or by 2 life, asked only where a board can afford it either way. The
+/// Pod itself is gone by the time the answer is paid — the harness makes
+/// it so, the way the other tests here make their own object so. The
+/// activation is reversed (CR 732.1, 732.2): no life is paid, no mana is
+/// spent, the Elves stand unsacrificed, and priority returns to the
+/// activator.
+#[test]
+fn a_reversed_phyrexian_choice_pays_neither_life_nor_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(703, forest())
+        .battlefield(0, &[birthing_pod(), forest(), forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let pod = on_battlefield(&engine, p0, birthing_pod()).expect("the Pod");
+    let forests: Vec<ObjectId> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == forest()))
+        })
+        .collect();
+    assert_eq!(forests.len(), 2, "two Forests");
+    // The offer reads the pool as it stands, not what tapping could still
+    // make (`Engine::can_pay_mana`), so the mana is floating before the
+    // ability is even offered — the same order the Vault test above taps
+    // its Forests in.
+    tap_mana_where(&mut engine, p0, |id| forests.contains(&id));
+    assert_eq!(pool(&engine, p0), 2);
+    let life_before = engine.state().players[p0.get() as usize].life;
+    let journal = engine.state().journal.len();
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(legal.abilities.contains(&(pod, 0)), "{:?}", legal.abilities);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: pod,
+                ability_index: 0,
+            },
+        )
+        .expect("the Pod activates");
+
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        panic!("expected the Phyrexian choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    assert!(
+        matches!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 }),
+        "{prompt:?}"
+    );
+    cease(&mut engine, p0, pod, ZoneLocation::Battlefield);
+
+    engine
+        .apply(p0, PlayerAction::YesNo(true))
+        .expect("an answer the question offered is taken");
+
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "the activation is reversed and priority is the activator's: {:?}",
+        engine.pending()
+    );
+    assert!(stack_is_empty(&engine), "nothing was activated");
+    assert_eq!(
+        engine.state().players[p0.get() as usize].life,
+        life_before,
+        "no life is paid"
+    );
+    assert_eq!(
+        pool(&engine, p0),
+        2,
+        "the floating mana is spent on nothing — the failure is ahead of \
+         where payment reads the pool, and reversing it moves the pool no \
+         further"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the Elves stand, unsacrificed"
+    );
+    for forest in forests {
+        assert!(
+            engine
+                .state()
+                .object(forest)
+                .expect("the Forest")
+                .status
+                .contains(crate::object::Status::TAPPED),
+            "each Forest is exactly as tapping it for the still-floating \
+             mana above left it"
+        );
+    }
+    assert_eq!(
+        engine.state().journal.len(),
+        journal,
+        "nothing is journaled"
     );
 }

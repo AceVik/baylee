@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Lifeline
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Lifeline_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Accomplished Alchemist (STX) 119
+4 Arctic Treeline (KHM) 249
+1 Branchloft Pathway // Boulderloft Pathway (ZNR) 258
+3 Celestial Unicorn (AFR) 5
+2 Cleric Class (AFR) 6
+3 Devouring Tendrils (STX) 126
+1 Drizzt Do'Urden (AFR) 220
+3 Forest (AFR) 278
+2 Forest (AFR) 279
+2 Forest (AFR) 280
+2 Forest (AFR) 281
+2 Fortifying Draught (STX) 132
+1 Icingdeath, Frost Tyrant (AFR) 20
+1 Inscription of Abundance (ZNR) 186
+3 Kor Celebrant (ZNR) 22
+2 Lurking Roper (AFR) 194
+2 Minimus Containment (AFR) 24
+2 Pillardrop Rescuer (STX) 23
+3 Plains (AFR) 262
+3 Plains (AFR) 263
+2 Plains (AFR) 264
+2 Plains (AFR) 265
+2 Prosperous Innkeeper (AFR) 200
+3 Revitalize (KHM) 23
+1 Righteous Valkyrie (KHM) 24
+2 Story Seeker (KHM) 34
+2 Trelasarra, Moon Dancer (AFR) 236
+1 Valkyrie Harbinger (KHM) 374
+2 You Meet in a Tavern (AFR) 215

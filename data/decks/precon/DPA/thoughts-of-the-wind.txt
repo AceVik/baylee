@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Thoughts of the Wind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ThoughtsOfTheWind_DPA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Of The Planeswalkers Deck
+# set: DPA
+# released: 2010-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (DPA) 1
+2 Boomerang (DPA) 2
+2 Cancel (DPA) 3
+4 Cloud Sprite (DPA) 4
+1 Counterbore (DPA) 5
+2 Deluge (DPA) 6
+1 Denizen of the Deep (DPA) 7
+3 Essence Scatter (DPA) 8
+1 Evacuation (DPA) 9
+6 Island (DPA) 100
+6 Island (DPA) 101
+7 Island (DPA) 98
+6 Island (DPA) 99
+2 Kraken's Eye (DPA) 93
+1 Mahamoti Djinn (DPA) 10 *F*
+1 Mind Control (DPA) 11
+1 Mind Spring (DPA) 12
+2 Negate (DPA) 13
+1 Phantom Warrior (DPA) 14
+3 Snapping Drake (DPA) 15
+2 Thieving Magpie (DPA) 16
+2 Unsummon (DPA) 17
+2 Wall of Spears (DPA) 96

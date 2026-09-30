@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Manipulative Monstrosities
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ManipulativeMonstrosities_THS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: THS
+# released: 2013-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Archaeomancer (M14) 43
+1 Burnished Hart (THS) 213
+2 Coral Merfolk (M14) 49
+2 Crackling Triton (THS) 45
+1 Curse of the Swine (THS) 46
+1 Disperse (M14) 51
+1 Dissolve (THS) 47
+2 Griptide (THS) 50
+2 Ill-Tempered Cyclops (THS) 125
+4 Island (THS) 234
+4 Island (THS) 235
+4 Island (THS) 236
+4 Island (THS) 237
+2 Lightning Strike (THS) 127
+1 Lost in a Labyrinth (THS) 52
+1 Magma Jet (THS) 128
+3 Mountain (THS) 242
+3 Mountain (THS) 243
+2 Mountain (THS) 244
+2 Mountain (THS) 245
+2 Omenspeaker (THS) 57
+1 Ordeal of Purphoros (THS) 131
+2 Rage of Purphoros (THS) 137
+1 Sea God's Revenge (THS) 61
+2 Sealock Monster (THS) 62
+1 Shipbreaker Kraken (THS) 63 *F*
+2 Shock (M14) 155
+2 Stoneshock Giant (THS) 142
+1 Volcanic Geyser (M14) 160
+1 Wall of Frost (M14) 78
+1 Water Servant (M14) 80

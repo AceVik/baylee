@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Phyrexian Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianAssault_ULG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ULG
+# released: 1999-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arc Lightning (USG) 174
+1 Avalanche Riders (ULG) 74
+2 Bone Shredder (ULG) 49
+1 Corrupt (USG) 124
+2 Defender of Chaos (ULG) 75
+1 Engineered Plague (ULG) 51
+2 Expunge (USG) 135
+1 Fog of Gnats (ULG) 53
+1 Ghitu Encampment (ULG) 141
+2 Ghitu Slinger (ULG) 77
+1 Giant Cockroach (ULG) 54
+2 Goblin Medics (ULG) 79
+1 Headlong Rush (USG) 198
+1 Heat Ray (USG) 199
+1 Looming Shade (USG) 139
+1 Molten Hydra (ULG) 85
+3 Mountain (USG) 343
+3 Mountain (USG) 344
+2 Mountain (USG) 345
+2 Mountain (USG) 346
+1 Phyrexian Broodlings (ULG) 58
+2 Phyrexian Debaser (ULG) 59
+2 Phyrexian Defiler (ULG) 60
+1 Phyrexian Denouncer (ULG) 61
+1 Phyrexian Plaguelord (ULG) 62
+1 Phyrexian Reclamation (ULG) 63
+1 Polluted Mire (USG) 323
+1 Smoldering Crater (USG) 328
+1 Spawning Pool (ULG) 142
+3 Swamp (USG) 339
+3 Swamp (USG) 340
+3 Swamp (USG) 341
+3 Swamp (USG) 342
+1 Tethered Skirge (ULG) 70
+1 Treacherous Link (ULG) 71
+1 Viashino Cutthroat (ULG) 94
+1 Viashino Heretic (ULG) 95
+1 Viashino Runner (USG) 224

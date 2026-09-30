@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Red Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeckB_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Battle-Rattle Shaman (ROE) 136
+1 Ember Hauler (M11) 135
+1 Flame Slash (ROE) 145
+1 Forked Bolt (ROE) 146
+2 Goblin Balloon Brigade (M11) 140
+2 Goblin Roughrider (WWK) 82
+2 Goblin Shortcutter (ZEN) 128
+1 Goblin Tunneler (M11) 143
+3 Mountain (M11) 242
+3 Mountain (M11) 243
+3 Mountain (M11) 244
+3 Mountain (M11) 245
+1 Quest for the Goblin Lord (WWK) 86
+1 Shiv's Embrace (M11) 156
+1 Spire Barrage (ZEN) 150
+2 Torch Slinger (ZEN) 151
+1 Volcanic Strength (M11) 158

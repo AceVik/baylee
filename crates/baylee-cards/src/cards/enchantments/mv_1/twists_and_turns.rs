@@ -61,7 +61,7 @@ card!(
         // control explores." — no `Effect` explores.
         triggered!(
             Trigger::EntersBattlefield(&Filter::YOUR_LAND),
-            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            &[Effect::TransformSource],
             condition = Some(Condition::ControlCount(&Filter::LAND, 7)),
         ),
     ],

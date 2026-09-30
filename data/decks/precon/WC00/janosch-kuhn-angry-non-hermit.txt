@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Janosch Kühn - Angry Non-Hermit
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JanoschKühnAngryNonHermit_WC00.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC00
+# released: 2000-08-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Arc Lightning (WC00) jk174
+4 Avalanche Riders (WC00) jk74
+4 Birds of Paradise (WC00) jk217
+4 Blastoderm (WC00) jk102
+1 Creeping Mold (WC00) jk220
+2 Dust Bowl (WC00) jk316
+10 Forest (WC00) jk347
+4 Karplusan Forest (WC00) jk326
+4 Llanowar Elves (WC00) jk239
+2 Masticore (WC00) jk134
+4 Mountain (WC00) jk343
+1 Phyrexian Processor (WC00) jk306
+4 Plow Under (WC00) jk117
+2 Priest of Titania (WC00) jk270
+4 Rishadan Port (WC00) jk324
+2 Saproling Burst (WC00) jk113
+4 Stone Rain (WC00) jk209
+SB: 4 Boil (WC00) jk169sb
+SB: 1 Creeping Mold (WC00) jk220sb
+SB: 2 Flameshot (WC00) jk90sb
+SB: 1 Masticore (WC00) jk134sb
+SB: 1 Phyrexian Processor (WC00) jk306sb
+SB: 2 Rack and Ruin (WC00) jk89sb
+SB: 1 Splinter (WC00) jk121sb
+SB: 3 Uktabi Orangutan (WC00) jk260sb

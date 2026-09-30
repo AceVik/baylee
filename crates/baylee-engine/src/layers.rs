@@ -533,6 +533,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::AttackedThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
+        | Filter::IsAttached
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
         | Filter::CmcExactlyX
@@ -685,7 +686,10 @@ fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId
 ///
 /// Read off each card's own characteristics: a card in a graveyard is
 /// what it prints (CR 400.7 left every effect on it behind), and a
-/// double-faced card is its front face there (CR 712.8a).
+/// double-faced card is its front face there (CR 712.8a). Cards only
+/// ([`GameObject::is_card`]): a token or a copy that died lies in the
+/// graveyard until state-based actions remove it (CR 704.5d, 704.5e), and
+/// the engine projects before it checks them.
 fn card_types_in_all_graveyards(state: &GameState) -> usize {
     use baylee_core::types::TypeSet;
     const CARD_TYPES: [TypeSet; 9] = [
@@ -703,7 +707,7 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
     for player in 0..state.players.len() {
         let seat = PlayerId::new(u8::try_from(player).unwrap_or(u8::MAX));
         for id in state.zones.list(crate::zone::ZoneLocation::Graveyard(seat)) {
-            if let Some(o) = state.object(*id) {
+            if let Some(o) = state.object(*id).filter(|o| o.is_card()) {
                 seen = seen.union(o.characteristics().types);
             }
         }
@@ -713,7 +717,8 @@ fn card_types_in_all_graveyards(state: &GameState) -> usize {
 
 /// The cards in exile that were exiled with `host` as it is now (CR 406.6):
 /// a [`crate::object::Rider::ExiledWith`] naming its id and its version, so
-/// a host that left and came back counts none of them (CR 400.7).
+/// a host that left and came back counts none of them (CR 400.7). Cards
+/// only, as the Hearse says ([`GameObject::is_card`]).
 fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
     let mark = crate::object::Rider::ExiledWith {
         host: host.id,
@@ -722,7 +727,11 @@ fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
     (0..state.players.len())
         .map(|seat| PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX)))
         .flat_map(|seat| state.zones.list(crate::zone::ZoneLocation::Exile(seat)))
-        .filter(|id| state.object(**id).is_some_and(|o| o.riders.contains(&mark)))
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| o.is_card() && o.riders.contains(&mark))
+        })
         .count()
 }
 
@@ -792,6 +801,8 @@ fn apply(
                 .list(crate::zone::ZoneLocation::Graveyard(fx.controller))
                 .iter()
                 .filter_map(|id| state.object(*id))
+                // "Card" in the graveyard, as `card_types_in_all_graveyards`.
+                .filter(|o| o.is_card())
                 .filter(|o| crate::eval::matches(filter, state, o, fx.controller, obj.id))
                 .count();
             let count = i16::try_from(count).unwrap_or(i16::MAX);

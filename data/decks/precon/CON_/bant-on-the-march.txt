@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Bant on the March
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BantOnTheMarch_CON.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: CON
+# released: 2009-02-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aerie Mystics (CON) 1
+1 Asha's Favor (CON) 2
+2 Aven Squire (CON) 3
+1 Deft Duelist (ALA) 165
+1 Forest (ALA) 246
+1 Forest (ALA) 247
+1 Forest (ALA) 248
+1 Frontline Sage (CON) 28
+1 Giltspire Avenger (CON) 108 *F*
+2 Gleam of Resistance (CON) 8
+1 Gwafa Hazid, Profiteer (CON) 110
+1 Island (ALA) 234
+1 Island (ALA) 235
+1 Island (ALA) 236
+1 Jhessian Balmgiver (CON) 112
+1 Outrider of Jhess (ALA) 52
+2 Pacifism (10E) 31
+2 Plains (ALA) 230
+2 Plains (ALA) 231
+2 Plains (ALA) 232
+1 Plains (ALA) 233
+2 Rhox Bodyguard (CON) 122
+1 Rhox Meditant (CON) 16
+1 Rhox War Monk (ALA) 188
+2 Seaside Citadel (ALA) 229
+2 Skyward Eye Prophets (CON) 125
+1 Suntail Hawk (10E) 50
+2 Terramorphic Expanse (10E) 360
+1 Unsummon (CON) 37
+2 Valeron Outlander (CON) 130

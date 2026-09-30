@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_HOB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: HOB
+# released: 2026-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Battle-Scarred Goblin (HOC) 192
+1 Fire of Orthanc (HOC) 193
+1 Gandalf, Spark Starter (HOB) 97
+1 Goblin Cratermaker (HOC) 194
+2 Goblin Fireleaper (HOC) 195
+1 Guttersnipe (HOC) 196
+1 Improvised Club (HOC) 197
+1 Inferno Titan (HOC) 198
+16 Mountain (HOB) 192
+1 Oliphaunt (HOC) 199
+2 Olog-hai Crusher (HOC) 200
+1 Orcish Siegemaster (HOC) 201
+2 Ragged Short Spear (HOB) 108
+1 Rogue's Passage (HOC) 212
+2 Smaug, the Great Calamity // Spew Flame (HOB) 109
+2 Smite the Deathless (HOC) 202
+1 Snowslope Hunter (HOB) 112
+2 Wayfarer's Bauble (HOC) 211

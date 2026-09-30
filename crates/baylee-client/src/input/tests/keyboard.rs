@@ -119,6 +119,7 @@ fn a_question_is_answered_from_the_keyboard() {
         player: PlayerId::new(0),
         taken: 0,
         next_is_free: true,
+        can_take: true,
     };
     assert_eq!(
         pressing(mulligan.clone(), KeyCode::KeyK),

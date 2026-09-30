@@ -7012,6 +7012,14 @@ saved a week earlier and had no row for it. `Keymap::migrated` now gives each
 already holds. An empty row is the player's decision and stays empty, and no
 key the player bound is taken or shadowed.
 
+Below the two columns, on a desktop only, is the language-model seat's panel
+(`seatpanel.rs`, `docs/llm-seat.md` §"The settings panel"). What it edits is
+neither the account's nor the screen's: `llm-seat.json` belongs to the machine
+the seat bridge runs on, so it is in neither store, never leaves the machine,
+and is written only through `llmseat::store::save`. Its boxes type like the
+lobby's (the caret, `Tab`, `Enter` saves, `Escape` puts the caret away), and it
+has no box for a key.
+
 ## The interface's own words
 
 Card text has been translated for as long as `/pool?lang=` existed — the

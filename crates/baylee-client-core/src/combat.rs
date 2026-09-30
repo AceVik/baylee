@@ -523,6 +523,7 @@ mod tests {
                 }],
                 capacity: Vec::new(),
                 obeying: Vec::new(),
+                bounds: Vec::new(),
             },
             seat(0),
         );
@@ -660,6 +661,7 @@ mod tests {
                 }],
                 capacity: Vec::new(),
                 obeying: Vec::new(),
+                bounds: Vec::new(),
             },
             seat(0),
         );

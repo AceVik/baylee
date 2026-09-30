@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Ben Rubin - Sligh
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BenRubinSligh_WC98.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC98
+# released: 1998-08-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Ball Lightning (WC98) br210
+4 Cursed Scroll (WC98) br281
+4 Fireblast (WC98) br79
+2 Goblin Vandal (WC98) br105
+2 Hammer of Bogardan (WC98) br181
+4 Incinerate (WC98) br184
+4 Ironclaw Orcs (WC98) br245
+4 Jackal Pup (WC98) br183
+4 Mogg Fanatic (WC98) br190
+2 Mogg Flunkies (WC98) br92
+5 Mountain (WC98) br343
+4 Mountain (WC98) br344
+4 Mountain (WC98) br345
+4 Mountain (WC98) br346
+4 Shock (WC98) br98b
+1 Viashino Sandstalker (WC98) br100
+4 Wasteland (WC98) br330
+SB: 3 Bottle Gnomes (WC98) br278sb
+SB: 2 Dwarven Miner (WC98) br169sb
+SB: 2 Dwarven Thaumaturgist (WC98) br98sba
+SB: 1 Final Fortune (WC98) br174sb
+SB: 1 Firestorm (WC98) br101sb
+SB: 4 Pyroblast (WC98) br213sb
+SB: 2 Shattering Pulse (WC98) br102sb

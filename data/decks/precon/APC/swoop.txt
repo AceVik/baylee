@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Swoop
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Swoop_APC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: APC
+# released: 2001-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aether Mutation (APC) 91
+2 Ana Disciple (APC) 73
+2 Ceta Sanctuary (APC) 20
+2 Chromatic Sphere (INV) 299
+2 Coastal Drake (APC) 22
+1 Confound (PLS) 22
+1 Fertile Ground (INV) 188
+4 Forest (INV) 347
+3 Forest (INV) 348
+3 Forest (INV) 349
+3 Forest (INV) 350
+3 Gaea's Skyfolk (APC) 101
+2 Glade Gnarr (APC) 78
+3 Island (INV) 335
+2 Island (INV) 336
+2 Island (INV) 337
+2 Island (INV) 338
+1 Jaded Response (APC) 26
+2 Jungle Barrier (APC) 106
+2 Kavu Chameleon (INV) 191
+1 Lay of the Land (APC) 81
+2 Living Airship (APC) 28
+1 Mystic Snake (APC) 112
+1 Pincer Spider (INV) 201
+1 Rainbow Crow (INV) 69
+1 Repulse (INV) 70
+1 Rooting Kavu (INV) 207
+1 Rushing River (PLS) 30
+2 Temporal Spring (APC) 125
+1 Tidal Visionary (INV) 80
+2 Urborg Elf (APC) 90
+1 Wash Out (INV) 87
+1 Yavimaya's Embrace (APC) 127

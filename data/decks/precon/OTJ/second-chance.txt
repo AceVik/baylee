@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Second Chance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SecondChance_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abrade (LCI) 131
+2 Aquatic Alchemist // Bubble Up (WOE) 40
+1 Archmage's Newt (OTJ) 39
+1 Breeches, the Blastmaker (OTJ) 197
+1 Case of the Crimson Pulse (MKM) 114
+3 Demand Answers (MKM) 122
+4 Eroded Canyon (OTJ) 256
+2 Flick a Coin (WOE) 128
+1 Hell to Pay (OTJ) 126
+1 Ill-Timed Explosion (MKM) 207
+10 Island (OTJ) 280
+2 Johann, Apprentice Sorcerer (WOE) 207
+1 Kraum, Violent Cacophony (OTJ) 214
+1 Malcolm, the Eyes (OTJ) 219
+1 Melek, Reforged Researcher (MKM) 430 *F*
+10 Mountain (OTJ) 284
+2 Razzle-Dazzler (OTJ) 63
+2 Reckless Lackey (OTJ) 140
+2 Rodeo Pyromancers (OTJ) 143
+1 Scalding Viper // Steam Clean (WOE) 235
+3 Seize the Secrets (OTJ) 64
+2 Shock (MKM) 144
+2 Slick Sequence (OTJ) 233
+1 Spirebluff Canal (OTJ) 270
+2 Thunder Salvo (OTJ) 150

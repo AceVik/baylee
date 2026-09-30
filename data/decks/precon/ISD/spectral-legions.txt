@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Spectral Legions
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpectralLegions_ISD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ISD
+# released: 2011-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Flight Alabaster (ISD) 2 *F*
+1 Battleground Geist (ISD) 45
+2 Chapel Geist (ISD) 7
+1 Curiosity (ISD) 49
+2 Divine Favor (M12) 14
+2 Doomed Traveler (ISD) 11
+1 Gallows Warden (ISD) 16
+1 Geist-Honored Monk (ISD) 17
+1 Ghostly Possession (ISD) 18
+4 Island (ISD) 253
+3 Island (ISD) 254
+3 Island (ISD) 255
+2 Lantern Spirit (ISD) 62
+1 Lifelink (M12) 24
+1 Lost in the Mist (ISD) 63
+2 Mausoleum Guard (ISD) 20
+2 Midnight Haunting (ISD) 22
+1 Moment of Heroism (ISD) 24
+3 Moon Heron (ISD) 69
+1 Negate (M12) 69
+2 Pacifism (M12) 28
+5 Plains (ISD) 250
+5 Plains (ISD) 251
+4 Plains (ISD) 252
+2 Rebuke (ISD) 29
+2 Spectral Rider (ISD) 35
+1 Spirit Mantle (M12) 35
+2 Unsummon (M12) 79
+2 Voiceless Spirit (ISD) 42

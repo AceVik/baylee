@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Goblin Mob
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoblinMob_SCG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SCG
+# released: 2003-05-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Carbonize (SCG) 83
+1 Enrage (SCG) 91
+1 Flamestick Courier (ONS) 203
+2 Forgotten Cave (ONS) 317
+1 Gempalm Incinerator (LGN) 94
+3 Goblin Brigand (SCG) 94
+2 Goblin Burrows (ONS) 318
+2 Goblin Grappler (LGN) 100
+1 Goblin Psychopath (SCG) 95
+2 Goblin Sky Raider (ONS) 208
+2 Goblin Sledder (ONS) 209
+2 Goblin Taskmaster (ONS) 210
+2 Goblin War Strike (SCG) 96
+1 Goblin Warchief (SCG) 97
+5 Mountain (ONS) 343
+5 Mountain (ONS) 344
+5 Mountain (ONS) 345
+5 Mountain (ONS) 346
+1 Nosy Goblin (ONS) 220
+1 Reckless One (ONS) 222
+3 Rock Jockey (SCG) 101
+1 Siege-Gang Commander (SCG) 103
+2 Skirk Commando (ONS) 228
+1 Skirk Drill Sergeant (LGN) 112
+2 Skirk Marauder (LGN) 113
+2 Skirk Volcanist (SCG) 104
+1 Sparksmith (ONS) 235
+1 Sulfuric Vortex (SCG) 106
+1 Wave of Indifference (ONS) 243

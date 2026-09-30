@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Wolfgang Eder - Goblin Bidding
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WolfgangEderGoblinBidding_WC03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC03
+# released: 2003-08-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Bloodstained Mire (WC03) we313
+1 City of Brass (WC03) we322
+3 Gempalm Incinerator (WC03) we94
+1 Goblin Grappler (WC03) we100
+4 Goblin Piledriver (WC03) we205
+2 Goblin Sharpshooter (WC03) we207
+4 Goblin Sledder (WC03) we209
+3 Goblin Taskmaster (WC03) we210
+4 Goblin Warchief (WC03) we97
+4 Mountain (WC03) we343
+3 Mountain (WC03) we344
+3 Mountain (WC03) we346
+3 Patriarch's Bidding (WC03) we161
+3 Shadowblood Ridge (WC03) we326
+4 Siege-Gang Commander (WC03) we103
+3 Skirk Prospector (WC03) we230
+3 Smother (WC03) we170
+4 Sparksmith (WC03) we235
+2 Swamp (WC03) we339
+1 Swamp (WC03) we340
+1 Swamp (WC03) we342
+SB: 2 Cabal Therapy (WC03) we62sb
+SB: 2 Dark Banishing (WC03) we123sb
+SB: 2 Flaring Pain (WC03) we89sb
+SB: 1 Smother (WC03) we170sb
+SB: 4 Starstorm (WC03) we328sb
+SB: 4 Sulfuric Vortex (WC03) we106sb

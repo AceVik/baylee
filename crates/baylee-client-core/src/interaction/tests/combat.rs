@@ -53,6 +53,7 @@ fn blockers_must_block_an_actual_attacker() {
         }],
         capacity: Vec::new(),
         obeying: Vec::new(),
+        bounds: Vec::new(),
     });
     assert!(!i.declare_blocker(obj(10), obj(99)));
     assert!(i.declare_blocker(obj(10), obj(1)));
@@ -81,6 +82,7 @@ fn the_blocks_a_requirement_asks_for_start_chosen() {
             most: None,
         }],
         obeying: obeying.clone(),
+        bounds: Vec::new(),
     });
     assert_eq!(
         i.confirm(),

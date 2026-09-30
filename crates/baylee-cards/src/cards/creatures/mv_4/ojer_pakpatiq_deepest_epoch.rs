@@ -26,10 +26,12 @@ static TEMPLE_ABILITIES: &[AbilityDef] = &[
     // puts a time counter here either (see the death trigger below), so the
     // dropped half has nothing to remove in any state this pool reaches.
     mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
-    // Transform, spelled the one way the pool reaches the other face.
+    // "Transform this land": the same permanent turns over (CR 701.27a) and
+    // keeps its controller, its tapped state and whatever applied to it
+    // (CR 712.18).
     activated!(
         cost!("{2}{U}", TapSelf),
-        &[Effect::ExileSelfReturnAsFace { face: 0 }],
+        &[Effect::TransformSource],
         timing = ActivationTiming::SorcerySpeed,
         condition = Some(Condition::CountersOnSelfExactly(CounterKind::Time, 0)),
     ),
@@ -78,7 +80,11 @@ card!(
         // }`), which are carried by a face and by no effect.
         triggered!(
             Trigger::Dies(&Filter::This),
-            &[Effect::ExileSelfReturnAsFace { face: 1 }]
+            // "…under its owner's control…"
+            &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: true,
+            }]
         ),
     ],
 );

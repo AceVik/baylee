@@ -33,6 +33,38 @@ one mask OR, not a scan), and the ids in it are **append-only** since #43:
 list rather than a range, because a new creature type no longer sits next to
 the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
+**An object keeps two clocks, and a transform moves only one.** Both read
+the game's one counter (`GameState::next_timestamp`).
+`GameObject::timestamp` is the timestamp of CR 613.7: taken as the object
+enters a zone (613.7d) and again each time the permanent transforms
+(613.7g, `GameState::transform`). The effects of its static abilities take
+it when `sync_static_effects` registers them (613.7a), and `transform` drops
+the old face's effects first, so the new face's statics are registered with
+the new stamp and apply after anything created while the other face was up.
+A daybound card entering at night enters with its back face up
+(CR 702.145b, 712.14a), and that is not a transform: nothing was turned
+over (701.27a transforms a permanent). So the entry scan calls
+`GameState::turn_over`, the half of `transform` that drops the statics of
+the face going down and switches faces. It adds no stamp, since the arrival
+already took one (613.7d), and journals no `Transformed`, which a "transforms
+into" trigger (701.27e) and the log's "transformed" line read
+(`a_werewolf_that_enters_at_night_has_not_transformed`, and in gamehost
+`a_werewolf_entering_at_night_is_not_logged_as_transformed`).
+`GameObject::controlled_since` is the moment its controller took it: taken
+on arrival and again at every change of control
+(`restart_summoning_sickness`). Summoning sickness (`combat::summoning_sick`,
+CR 302.6) reads only this field, because a permanent that transforms is the
+same object under the same controller (CR 712.18). The two used to be one
+field, and that is why a transform could not take its timestamp without
+making the permanent summoning-sick. Two of the events CR 613.7 lists are
+not implemented: an Aura, Equipment or Fortification becoming attached
+(613.7e), and turning face up or face down (613.7f). A Saga taking a lore
+counter restamps `timestamp` (`progress.rs`, both lore sites) with no rule
+behind it, because CR 613.7c stamps the counter and not the object; since
+the split it no longer makes a Saga creature summoning-sick. Tests:
+`mechanics_tests::transforms` covers the ordering and the sickness,
+`mechanics_tests::tokens` both token writers.
+
 **A `Pending` is published from a settled board, and the machine is what
 settles it — including after an action.** The invalidation half has always
 been right: `move_object` marks the projection stale in both directions for
@@ -63,6 +95,55 @@ priority in the game is handed over, after the machine has done the work the
 action made for it. An action is therefore an ordinary re-entry into the
 machine rather than an exception to it, which is the property the three
 failures above all came from lacking.
+
+The mulligan window is the one place a question is still published without
+the machine, which does not run before turn 1. So `Engine::new` and
+`settle_mulligans` do the machine's first step themselves,
+`sync_static_effects` and then `refresh_characteristics`: a starting
+battlefield's static abilities apply to the board every seat keeps its hand
+beside (CR 604.2), and the statics of a player who concedes in the window
+leave with their permanents (CR 800.4a) before anybody is asked again
+(`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
+
+Inside the machine, one step publishes a question after it has moved the
+board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
+choices (a colour, a creature type, a shockland's life, a clone's choice).
+Before its first question it has applied every arrival's replacements that
+ask nobody (below), so it may already have put a daybound permanent entering
+at night back face up (CR 702.145b), and `GameState::turn_over` drops the
+statics of the face going down and leaves the new face's to the next scan.
+It may also have given a Room its door, or put counters on an arrival. So
+when 0b leaves a question out, the machine does what `Engine::new` does, a
+sync and a refresh, before it returns. Every other flip leads back to 0a
+before a question: a resolution's transform (`apply_pending_face_changes`, at
+the end of `finish_resolution`) is followed by the machine or by
+`run_until_choice`, a delayed transform (3b) and daybound's own fixpoint
+(2c) both `continue`
+(`mechanics_tests::transforms::a_question_asked_as_permanents_enter_sees_the_face_that_entered`).
+
+**Permanents that enter together get all their replacements before anyone
+is asked.** They are one event, and each one's own replacements modify how
+it enters (CR 614.12, 614.12a). So 0b walks every arrival since
+`entry_scan_seq` first and applies what needs no answer: entering tapped,
+counters, a planeswalker's loyalty (CR 306.5b), a Saga's lore counter
+(CR 714.3a), daybound's back face, a Room's door. What asks (an
+`EnterModifier` that chooses, or a clone's copy choice, `EntryAsk`) is
+queued in `Engine::entry_questions` and asked one at a time: the active
+player's first, then in turn order (CR 101.4), and one player's in the order
+the permanents entered. CR 101.4c would let that player choose the order;
+that is not offered. Each question is asked when its turn comes, so a
+shockland is asked against the life the ones before it left, and one its
+controller can no longer pay for enters tapped without a question
+(CR 614.12b). The scan used to publish the first question from the middle of
+its loop with the cursor already past every arrival, so every arrival behind
+it got nothing: a Urza's Saga fetched beside Steam Vents had no lore counter,
+and a planeswalker behind a shockland entered with no loyalty and died
+(CR 704.5i). Tests: in `enter_tests`,
+`a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter`,
+`a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty`,
+`a_second_shockland_is_asked_against_the_life_the_first_one_left` and
+`shocklands_of_two_players_entering_together_are_asked_in_apnap_order`;
+`mechanics_tests::transforms::a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it`.
 
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
@@ -131,8 +212,9 @@ timestamps, so a later taker wins (CR 613.7) and an earlier one's control
 returns when the later one ends. `sync_static_effects` drops an indefinite
 effect whose object has moved on, since it names an object that no longer
 exists (CR 400.7). When the controller moves in either direction the
-object's timestamp is bumped, because CR 302.6 wants control held
-*continuously* since the turn began.
+object's `controlled_since` is restarted, because CR 302.6 wants control
+held *continuously* since the turn began. Its timestamp stays: a change of
+control is not one of the events CR 613.7 gives an object a new one for.
 
 **A static ability's "you" is whoever controls its source now** (CR 109.5,
 611.3a); an effect a resolving spell or ability made keeps the player who
@@ -375,6 +457,26 @@ Proposed events are rewritten by applicable replacement effects (each at
 most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
+
+### Attachments (CR 704.5m, 704.5n, 704.5p)
+`sba::run_attachment_sbas` asks the first sentence of CR 704.5p before
+anything else: a battle or creature attached to an object or player becomes
+unattached and stays on the battlefield, whatever else it is. That is how an
+Equipment an effect animates (Karn, the Great Creator's +1) comes off the
+creature it equips; an Equipment's own host rule (CR 301.5b, 704.5n) is
+satisfied by that creature and would keep it on. Only then are an Aura's host
+(its enchant filter, CR 303.4c; illegal or missing → graveyard, 704.5m) and an
+Equipment's (a creature; illegal → unattached, 704.5n) asked, and the second
+sentence of 704.5p takes any other noncreature, nonbattle permanent off what
+it is attached to. Reconfigure keeps its Equipment on because it stops being a
+creature while attached (CR 702.151b), which the card states as a static
+conditioned on `Filter::IsAttached`. An Aura creature with no host stays on
+the battlefield as the stand-in for an unattached bestowed Aura (CR 702.103f);
+there is no bestow yet, and any other Aura creature belongs in the graveyard
+(CR 303.4d). A Fortification's host is not read at all: the second sentence
+of 704.5p spares it and the host check asks only Auras and Equipment, so one
+attached to a nonland (CR 301.6) stays attached, where 704.5n would unattach
+it. No pool card is a Fortification.
 
 ### A delayed trigger that watches an object (CR 603.7)
 Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,
@@ -1038,7 +1140,99 @@ step phases them in). Otherwise it is listed in `phasing_tests::UNAUDITED`.
 Walks over every object (hashing, the projection refresh, cleanup) are not
 battlefield queries and are not counted. The table must
 match exactly: auditing a walk lowers its row, and a new unexplained walk
-fails the test.
+fails the test. It has been empty since 2026-09-29: "destroy all
+creatures" (`Effect::DestroyAll`), mass bounce, counts and conditions,
+control rotation, a Saga's counters and its sacrifice, day and night, the
+untap step, and the rest now walk `battlefield_seen`.
+
+What a phased-out permanent has does nothing either. The offer
+(`compute_legal`) and the trigger scan (`trigger::collect`) walk
+`battlefield_seen`, so none of its abilities is offered, a mana ability
+included, and none of its triggered abilities triggers. Its static effects
+are parked: `EffectTable::follow_phasing`, first in `sync_static_effects`,
+moves them out of the table every reader sees and puts them back, same id,
+same timestamp, same place in registration order, once it has phased in.
+Phasing in is not entering (CR 702.26d), and some statics are registered
+only once (a copy's own, a token's), so they are kept rather than rebuilt.
+Its replacement rules are dropped by `sync_replacement_rules` and scanned
+back from its abilities when it phases in. Effects a resolution made are
+not parked. The leave probe (`docs/verification-hooks.md` §"L4: the leave
+probe") checks all of this per card.
+
+**Phasing out and in** is `GameState::phase_out` and `phase_in`
+(`phasing.rs`), which `Effect::PhaseOut` and the untap step share.
+`Effect::PhaseOut` phases out every target it has (Clever Concealment's
+"any number"), or its source. The Auras, Equipment and Fortifications
+attached to a permanent phasing out go with it, transitively, and carry
+`Status::PHASED_OUT_INDIRECTLY` beside `PHASED_OUT` (CR 702.26g); one also
+named directly phases out only indirectly (CR 702.26h). The set is read
+before any status changes. The untap step phases in what the active player
+controlled as it phased out (CR 502.1) and was not phased out indirectly;
+`phase_in` brings along what phased out indirectly with it. Neither touches
+`attached_to` (CR 702.26d, 702.26j): a directly phased-out Aura whose
+creature has gone phases in attached to nothing there, and the attachment
+state-based actions deal with it (CR 702.26i, 704.5m). The view shows the
+four statuses of CR 110.5 (`Status::public`), so a client sees an
+indirectly phased-out Aura as phased out.
+
+**A phased-out permanent is not projected.** `refresh_characteristics`
+leaves it out of the objects it walks, so nothing changes it while it is
+phased out (CR 702.26b): an anthem that arrives meanwhile applies to it
+once it has phased in, and not before. Its controller stays the one it
+phased out under, which decides the untap step it phases in at: a creature
+stolen until end of turn and phased out comes back at the thief's untap
+step and is then its owner's again, because the theft ended while it was
+away (CR 702.26f). The one reader that must see past the freeze is a
+player leaving: the effects that gave them control end (CR 800.4a), so
+`GameState::release_from_the_departed`, first in
+`sba::exile_what_the_departed_control`, reads layer 2 again for a
+phased-out permanent whose controller has left. What they control by
+default is exiled with the rest (CR 702.26n); what they had through an
+effect goes back and phases in at its controller's untap step. CR 702.26n
+says "the next untap step after that player's next turn would have begun",
+which can be a round later; the engine keeps no such turn. Nor does it
+phase in an Aura that phased out indirectly with a permanent that then left
+the game with its owner (CR 702.26k): the rules say nothing of it, and it
+stays phased out. Both helpers invalidate the projection. One consequence is
+seen only in the view: a permanent that phased out under an anthem that has
+since left still shows the anthem's +1/+1 until it phases in, which is when
+the rules look at it again.
+
+A continuous effect from a resolution leaves a phased-out permanent out of
+its set, "the permanent specifically" included (CR 702.26e): `bound_now`
+walks `battlefield_seen`, and `this_to_affect` names nothing phased out, so
+a set fixed while the permanent was away (CR 611.2c) stays without it after
+it phases in. Targeting already read `battlefield_view`.
+
+**"For as long as" (CR 702.26f), one duration of it.** An effect with a
+"for as long as" duration that tracks a permanent ends when that permanent
+phases out, "because they can no longer see it". One such duration has a
+name: `Duration::WhileYouControlSource` (Extraction Specialist's "for as
+long as you control this creature"). A phased-out source is one nobody
+controls (CR 702.26b), so `end_control_durations` ends the effect at the
+next pass as it would for a stolen source, and it does not begin again as
+the source phases in. An effect that would begin while its source is phased
+out ends at the same pass (CR 611.2b); nothing sees it in between.
+
+**Not yet: the other "for as long as".** The table cannot tell the rest.
+On a resolution's effect `Duration::WhileSourceOnBattlefield` means
+two things. Tishana's Tidebinder's "loses all abilities for as long as this
+creature remains on the battlefield" tracks the Tidebinder and should end
+when it phases out. Urza's Saga "gains '{T}: Add {C}.'" has no duration at
+all: it lasts as long as the Saga is the object it is (CR 400.7), and
+phasing is not a zone change (CR 702.26d), so it should come back with the
+Saga. Both are written the same way, neither is parked (only a static is),
+and so the Tidebinder's effect outlives its phasing out. Ending it would
+take:
+
+- a duration that names what it tracks, apart from the lifetime of an
+  effect on its own source: a `Duration` variant ("for as long as ~ remains
+  on the battlefield") or the tracked object on `ContinuousEffect`;
+- the DSL spelling for it, and the readers and cards that print "for as
+  long as" moved onto it (Tidebinder's resolver writes the duration
+  itself);
+- in `GameState::phase_out`, removing every effect whose tracked object is
+  in the set, never to come back (an effect that ended stays ended).
 
 ## Unusual casting
 Rebound, suspend, miracle, flashback, evoke, adventures, plot, foretell,

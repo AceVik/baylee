@@ -1605,19 +1605,40 @@ pub enum Effect {
     /// "Transform this creature" (CR 701.27a): the source turns over to its
     /// other face where it stands. Only a permanent represented by a
     /// transforming double-faced card does (CR 701.27c) — a token copy or a
-    /// clone of one turns over nothing.
+    /// clone of one turns over nothing. It is the same object, and every
+    /// effect on it goes on applying (CR 712.18). An ability that finds its
+    /// source already transformed since it was put on the stack does nothing
+    /// (CR 701.27f).
     TransformSource,
     /// "Transform [this] at the beginning of the next upkeep" (Archangel
     /// Avacyn): a delayed trigger that fires in the next upkeep whoever's
     /// turn it is, and does nothing if the permanent has left or has already
     /// transformed since it was created (CR 701.27f).
     TransformSourceAtNextUpkeep,
-    /// Exile the source, then return it to the battlefield under its
-    /// owner's control as the given face (transform; Sheoldred's flip,
-    /// saga final chapters).
+    /// Exile the source, then return it to the battlefield as the given face
+    /// (Sheoldred's flip, the Ojers' dies triggers, saga final chapters). Not
+    /// "transform this", which is [`Effect::TransformSource`]: the same
+    /// permanent turning over, where this is a new object that enters.
     ExileSelfReturnAsFace {
         /// The face to return as (0 = front).
         face: u8,
+        /// Under whose control the card comes back: its owner's (`true`) or
+        /// that of the player who controls the resolving ability (`false`).
+        ///
+        /// The same field, and the same question, as [`Effect::Blink`]'s and
+        /// [`Effect::GraveyardToBattlefield`]'s. The card that returns is a
+        /// new object (CR 400.7), so a control effect that held the one that
+        /// was exiled is gone with it, and the new one enters under the
+        /// control the sentence names. Sheoldred's `{4}{B}` and the Ojers'
+        /// dies triggers print "under its owner's control" and take `true`;
+        /// Fable of the Mirror-Breaker III, Welcome to … III and Journey to
+        /// Eternity print "under your control" and take `false`, and so does
+        /// The True Scriptures III, whose "return it to the battlefield"
+        /// names nobody: the player the effect instructs puts it there
+        /// (CR 110.2a), the Saga's controller (CR 603.3a).
+        ///
+        /// Only control is chosen here. The owner never changes (CR 108.3).
+        owner_control: bool,
     },
     /// Each player in `who` sacrifices a permanent they control matching
     /// the filter (their choice; Sheoldred's Edict).

@@ -162,6 +162,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         // Jade Monolith: the creature is the target (still legal, or this
@@ -185,6 +186,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 min: 1,
                 max: 1,
                 prompt: ChoicePrompt::Generic,
+                total: None,
             })
         }
         _ => unreachable!("not a life/damage effect"),

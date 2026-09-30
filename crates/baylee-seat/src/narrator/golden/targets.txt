@@ -1,0 +1,42 @@
+DECISION q12 · turn 7, your turn · precombat main phase · answer within 25 s (table clock 88 s)
+
+You (P1): 17 life · library 45 · hand 4 · graveyard 1 · pool empty
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1 · pool empty
+
+Your battlefield:
+  lands: Forest #21, Forest #22, Mountain #23
+  #30 Llanowar Elves · Creature — Elf Druid · 1/1
+  #31 Prodigal Sorcerer · Creature — Human Wizard Sorcerer · 1/1
+P2's battlefield:
+  lands: Plains #40, Plains #41 (tapped), Island #42
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance
+  #46 face-down card · Creature · 2/2
+Stack (top first; the top resolves next):
+  #50 Lightning Bolt · your instant spell
+Your hand:
+  #51 Giant Growth {G} · Instant
+  #52 Mountain · Basic Land — Mountain
+  #53 Rampant Growth {1}{G} · Sorcery
+Your graveyard (1): Shock #60
+P2's graveyard (1): Counterspell #61
+
+New cards (full text once; later by name):
+  Plains · Basic Land — Plains
+    ({T}: Add {W}.)
+  Island · Basic Land — Island
+    ({T}: Add {U}.)
+  Serra Angel {3}{W}{W} · Creature — Angel · 4/4
+    Flying
+    Vigilance (Attacking doesn't cause this creature to tap.)
+  Counterspell {U}{U} · Instant
+    Counter target spell.
+
+QUESTION: Choose targets for Lightning Bolt #50: "Lightning Bolt deals 3 damage to any target."
+Choose exactly 1 (objects by #id, players by P-id):
+  #30 Llanowar Elves · Creature — Elf Druid · 1/1 (yours)
+  #31 Prodigal Sorcerer · Creature — Human Wizard Sorcerer · 1/1 (yours)
+  #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance (P2's)
+  #46 face-down card · Creature · 2/2 (P2's)
+  P1 = you, 17 life
+  P2 = opponent, 14 life
+Answer with decide: ask="q12", pick=[one id from the list]

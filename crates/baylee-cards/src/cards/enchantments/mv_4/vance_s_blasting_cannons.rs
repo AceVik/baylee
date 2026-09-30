@@ -57,7 +57,7 @@ card!(
             filter: &Filter::Any,
         },
         &[Effect::MayDo {
-            effects: &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            effects: &[Effect::TransformSource],
         }]
     )],
 );

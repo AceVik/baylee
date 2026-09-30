@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Preconstructed deck 1
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck1_P02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: P02
+# released: 1998-06-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Coercion (P02) 66
+1 Dakmor Bat (P02) 68
+1 Dakmor Scorpion (P02) 70
+1 Forest (P02) 163
+1 Forest (P02) 164
+1 Forest (P02) 165
+1 Goblin Cavaliers (P02) 95
+1 Goblin Piker (P02) 102
+1 Goblin Raider (P02) 103
+1 Hand of Death (P02) 74
+1 Lynx (P02) 132
+1 Mind Rot (P02) 78
+1 Moaning Spirit (P02) 79
+2 Mountain (P02) 160
+2 Mountain (P02) 161
+1 Mountain (P02) 162
+1 Norwood Ranger (P02) 138
+1 Obsidian Giant (P02) 109
+1 Ogre Berserker (P02) 111
+1 Plated Wurm (P02) 141
+1 Prowling Nightstalker (P02) 83
+1 Raging Goblin (P02) 114
+2 Swamp (P02) 157
+2 Swamp (P02) 158
+1 Swamp (P02) 159
+1 Volcanic Hammer (P02) 119

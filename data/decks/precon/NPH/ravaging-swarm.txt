@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Ravaging Swarm
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RavagingSwarm_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: NPH
+# released: 2011-05-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blight Mamba (SOM) 112
+3 Blighted Agent (NPH) 29
+2 Chained Throatseeker (NPH) 30
+1 Contagion Clasp (SOM) 144
+1 Core Prowler (MBS) 103
+1 Corrupted Conscience (MBS) 22
+1 Corrupted Resolve (NPH) 32
+2 Cystbearer (SOM) 117
+1 Defensive Stance (NPH) 34
+6 Forest (NPH) 174
+6 Forest (NPH) 175
+1 Fuel for the Cause (MBS) 25
+3 Glistener Elf (NPH) 111
+1 Inexorable Tide (SOM) 35
+6 Island (NPH) 168
+6 Island (NPH) 169
+3 Leeching Bite (NPH) 113
+2 Mycosynth Fiend (NPH) 117
+1 Naturalize (M11) 186
+1 Phyrexian Swarmlord (NPH) 119 *F*
+1 Plaguemaw Beast (MBS) 87
+1 Rot Wolf (MBS) 90
+1 Spinebiter (NPH) 121
+1 Steady Progress (SOM) 45
+2 Trigon of Infestation (SOM) 214
+2 Viral Drake (NPH) 49
+2 Viridian Betrayers (NPH) 124
+1 Wall of Tanglecord (SOM) 222

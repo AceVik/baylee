@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: White Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeckB_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armored Ascension (SHM) 2
+1 Holy Strength (10E) 22
+2 Honor Guard (10E) 23
+1 Loxodon Mystic (10E) 26
+2 Neck Snap (LRW) 32
+3 Plains (10E) 364
+3 Plains (10E) 365
+3 Plains (10E) 366
+3 Plains (10E) 367
+1 Samite Healer (10E) 38
+1 Serra's Embrace (10E) 40
+1 Skyhunter Prowler (10E) 42
+2 Soaring Hope (LRW) 40
+2 Steadfast Guard (10E) 48
+2 Suntail Hawk (10E) 50
+2 Wild Griffin (10E) 59

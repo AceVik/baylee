@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Dimir
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Dimir_GK1.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK1
+# released: 2018-11-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barrier of Bones (GRN) 61
+1 Blood Operative (GRN) 63
+1 Call of the Nightwing (GK1) 8
+1 Circu, Dimir Lobotomist (GK1) 9
+1 Consuming Aberration (GK1) 10
+4 Dimir Aqueduct (GK1) 23
+1 Dimir Charm (GK1) 11
+1 Dimir Doppelganger (GK1) 12
+2 Dimir Guildgate (GRN) 245
+2 Dimir Guildgate (GRN) 246
+2 Dimir Guildmage (GK1) 13
+2 Dimir Signet (GK1) 22
+1 Dinrova Horror (GK1) 14
+1 Discovery // Dispersal (GRN) 223
+1 Disdainful Stroke (GRN) 37
+1 Etrata, the Silencer (GK1) 1 *F*
+1 Glimpse the Unthinkable (GK1) 15
+8 Island (GK1) 24
+1 Last Gasp (GK1) 5
+1 Lazav, Dimir Mastermind (GK1) 16
+1 Mephitic Vapors (GRN) 76
+1 Mirko Vosk, Mind Drinker (GK1) 17
+1 Mission Briefing (GRN) 44
+1 Moroii (GK1) 18
+1 Netherborn Phalanx (GK1) 6
+1 Nightveil Predator (GRN) 191
+1 Nightveil Specter (GK1) 19
+1 Notion Rain (GRN) 193
+1 Price of Fame (GRN) 83
+2 Ribbons of Night (GK1) 7
+1 Stolen Identity (GK1) 2
+8 Swamp (GK1) 25
+1 Syncopate (GK1) 3
+1 Szadek, Lord of Secrets (GK1) 20
+1 Telling Time (GK1) 4
+1 Unexplained Disappearance (GRN) 56
+1 Wall of Mist (GRN) 58
+1 Warped Physique (GK1) 21

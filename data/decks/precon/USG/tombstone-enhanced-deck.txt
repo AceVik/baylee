@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Tombstone - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TombstoneEnhancedDeck_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Abyssal Horror (USG) 115
+2 Adarkar Wastes (5ED) 410
+4 Animate Dead (5ED) 140
+1 Armageddon (5ED) 7
+2 Benthic Behemoth (TMP) 54
+3 Catalog (USG) 64
+2 Counterspell (TMP) 57
+3 Diabolic Servitude (USG) 130
+3 Disenchant (USG) 12
+4 Drifting Djinn (USG) 71
+2 Drifting Meadow (USG) 320
+1 Island (USG) 335
+1 Island (USG) 336
+1 Living Death (TMP) 142
+2 Mana Leak (STH) 36
+3 Merfolk Looter (EXO) 39
+1 Plains (USG) 331
+1 Plains (USG) 332
+2 Polluted Mire (USG) 323
+1 Reanimate (TMP) 151
+3 Reflecting Pool (TMP) 322
+2 Remote Isle (USG) 324
+2 Rootwater Depths (TMP) 323
+1 Swamp (USG) 339
+1 Swamp (USG) 340
+2 Thalakos Lowlands (TMP) 328
+3 Underground River (5ED) 426
+2 Verdant Force (TMP) 263
+1 Warrior Angel (STH) 24
+SB: 1 Circle of Protection: Red (TMP) 11
+SB: 2 Clear (USG) 7
+SB: 2 Counterspell (TMP) 57
+SB: 1 Disenchant (USG) 12
+SB: 2 Dread of Night (TMP) 130
+SB: 2 Mana Leak (STH) 36
+SB: 1 Rune of Protection: Red (USG) 40
+SB: 4 Wall of Essence (STH) 22

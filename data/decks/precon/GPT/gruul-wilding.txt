@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Gruul Wilding
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulWilding_GPT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: GPT
+# released: 2006-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Battering Wurm (GPT) 79
+3 Beastmaster's Magemark (GPT) 80
+2 Bloodscale Prowler (GPT) 64
+1 Borborygmos (GPT) 103
+2 Bramble Elemental (RAV) 154
+1 Burning-Tree Bloodscale (GPT) 104
+2 Dowsing Shaman (RAV) 159
+2 Dryad Sophisticate (GPT) 83
+3 Fencer's Magemark (GPT) 65
+2 Fists of Ironwood (RAV) 164
+3 Forest (RAV) 303
+3 Forest (RAV) 304
+3 Forest (RAV) 305
+3 Forest (RAV) 306
+2 Gatherer of Graces (GPT) 85
+1 Gruul Guildmage (GPT) 144
+1 Gruul Nodorog (GPT) 88
+2 Gruul Scrapper (GPT) 89
+1 Indentured Oaf (RAV) 133
+3 Mountain (RAV) 299
+3 Mountain (RAV) 300
+3 Mountain (RAV) 301
+2 Mountain (RAV) 302
+1 Scab-Clan Mauler (GPT) 128
+1 Scorched Rusalka (GPT) 74
+1 Skarrg, the Rage Pits (GPT) 163
+2 Skarrgan Skybreaker (GPT) 130
+2 Sparkmage Apprentice (RAV) 144
+1 Streetbreaker Wurm (GPT) 133
+1 Wild Cantor (GPT) 149
+1 Wildsize (GPT) 98
+1 Wurmweaver Coil (GPT) 99

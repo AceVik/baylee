@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Dead Again
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadAgain_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 9ED
+# released: 2005-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Consume Spirit (9ED) 119
+1 Contaminated Bond (9ED) 120
+1 Dark Banishing (9ED) 122
+1 Deathgazer (9ED) 124
+1 Demon's Horn (9ED) 294
+1 Drudge Skeletons (9ED) 126
+2 Foul Imp (9ED) 132
+2 Gravedigger (9ED) 136
+2 Highway Robber (9ED) 138
+2 Hollow Dogs (9ED) 139
+1 Nekrataal (9ED) 149
+1 Nightmare (9ED) 150
+1 Phyrexian Gargantua (9ED) 153
+1 Raise Dead (9ED) 156
+2 Serpent Warrior (9ED) 162
+5 Swamp (9ED) 339
+4 Swamp (9ED) 340
+4 Swamp (9ED) 341
+4 Swamp (9ED) 342
+1 Tanglebloom (9ED) 311
+1 Underworld Dreams (9ED) 167
+1 Unholy Strength (9ED) 168

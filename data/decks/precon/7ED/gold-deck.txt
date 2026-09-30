@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Gold Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoldDeck_7ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 7ED
+# released: 2001-04-11
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Forest (7ED) 328
+2 Forest (7ED) 329
+1 Forest (7ED) 330
+1 Forest (7ED) 331
+2 Goblin Raider (7ED) 192
+3 Grizzly Bears (7ED) 251
+1 Hill Giant (7ED) 196
+2 Lava Axe (7ED) 199
+1 Monstrous Growth (7ED) 258
+2 Mountain (7ED) 337
+2 Mountain (7ED) 338
+2 Mountain (7ED) 339
+2 Mountain (7ED) 340
+1 Ogre Taskmaster (7ED) 203
+1 Rampant Growth (7ED) 262
+1 Spined Wurm (7ED) 270
+2 Trained Orgg (7ED) 224
+2 Volcanic Hammer (7ED) 226

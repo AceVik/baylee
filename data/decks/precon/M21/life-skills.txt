@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Life Skills
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LifeSkills_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Anointed Chorister (M21) 4
+2 Bake into a Pie (ELD) 76
+1 Baneslayer Angel (M21) 6
+2 Boot Nipper (IKO) 76
+1 Clackbridge Troll (ELD) 84
+1 Erebos's Intervention (THB) 94
+2 Faith's Fetters (M21) 17
+3 Griffin Aerie (M21) 22
+3 Indulging Patrician (M21) 219
+2 Light of Hope (IKO) 20
+4 Plains (M21) 260
+3 Plains (M21) 261
+3 Plains (M21) 262
+3 Resolute Rider (ELD) 214
+3 Revitalize (M21) 31
+4 Scoured Barrens (M21) 250
+1 Shadowspear (THB) 236
+2 Silversmote Ghoul (M21) 122
+1 Speaker of the Heavens (M21) 38
+4 Swamp (M21) 266
+3 Swamp (M21) 267
+3 Swamp (M21) 268
+3 Tavern Swindler (M21) 124
+1 Temple of Silence (M21) 255
+2 Unexpected Fangs (IKO) 102
+1 Vito, Thorn of the Dusk Rose (M21) 127

@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Eruption - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EruptionEnhancedDeck_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arc Lightning (USG) 174
+1 Armageddon (6ED) 4
+2 Expendable Troops (ULG) 8
+4 Goblin Patrol (USG) 193
+4 Goblin Raider (USG) 194
+1 Hammer of Bogardan (6ED) 188
+1 Healing Salve (6ED) 22
+1 Keldon Champion (UDS) 90
+2 Laccolith Grunt (NEM) 87
+4 Laccolith Whelp (NEM) 91
+1 Lightning Dragon (USG) 202
+4 Mountain (MMQ) 343
+3 Mountain (MMQ) 344
+3 Mountain (MMQ) 345
+3 Mountain (MMQ) 346
+1 Pillage (6ED) 198
+3 Plains (MMQ) 331
+2 Plains (MMQ) 332
+2 Plains (MMQ) 333
+2 Plains (MMQ) 334
+1 Reckless Abandon (UDS) 94
+1 Remedy (6ED) 36
+2 Ring of Gix (ULG) 131
+2 Seal of Cleansing (NEM) 18
+4 Seal of Fire (NEM) 98
+4 Shock (6ED) 206

@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Rakdos Vampires
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RakdosVampires_Q07.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q07
+# released: 2022-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blightstep Pathway // Searstep Pathway (KHM) 252
+4 Bloodfell Caves (NEO) 264
+3 Bloodtithe Harvester (VOW) 232
+1 Bloodtithe Harvester (VOW) 310
+2 Den of the Bugbear (AFR) 254
+2 Dominating Vampire (VOW) 154
+2 Florian, Voldaren Scion (MID) 223
+1 Henrika Domnathi // Henrika, Infernal Seer (VOW) 119
+4 Immersturm Predator (KHM) 214
+2 Infernal Grasp (MID) 107
+6 Mountain (VOW) 274
+2 Mukotai Soulripper (NEO) 113
+2 Oni-Cult Anvil (NEO) 230
+2 Sokenzan Smelter (NEO) 164
+7 Swamp (VOW) 272
+2 Vampire Socialite (MID) 249
+1 Village Rites (KHM) 117
+4 Voldaren Bloodcaster // Bloodbat Summoner (VOW) 137
+4 Voldaren Epicure (VOW) 182
+3 Voldaren Estate (VOW) 267
+4 Voltage Surge (NEO) 171
+SB: 4 Abrade (VOW) 139
+SB: 2 Anje, Maid of Dishonor (VOW) 231
+SB: 2 Callous Bloodmage (STX) 66
+SB: 3 Duress (MID) 98
+SB: 3 Falkenrath Forebear (VOW) 111
+SB: 1 Infernal Grasp (MID) 107

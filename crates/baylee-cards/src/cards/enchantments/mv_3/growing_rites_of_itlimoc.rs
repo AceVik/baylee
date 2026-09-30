@@ -63,7 +63,7 @@ card!(
                 step: StepKind::End,
                 whose: PlayerRel::You,
             },
-            &[Effect::ExileSelfReturnAsFace { face: 1 }],
+            &[Effect::TransformSource],
             condition = Some(Condition::ControlCount(&Filter::CREATURE, 4)),
         ),
     ],

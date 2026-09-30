@@ -160,6 +160,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         min: 0,
         max: 2,
         prompt: baylee_engine::choice::ChoicePrompt::Band { with: obj(1) },
+        total: None,
     });
     let line = i.prompt().headline(Lang::En, Turn::Mine, None, false);
     assert!(line.contains("attackers to join the band"), "{line}");
@@ -372,6 +373,7 @@ fn four_card_choices_read_as_four_different_decisions() {
             min,
             max,
             prompt: reason,
+            total: None,
         })
         .prompt()
         .headline(lang, Turn::Mine, None, false)
@@ -479,6 +481,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             player: me(),
             taken: 0,
             next_is_free: true,
+            can_take: true,
         },
         Pending::MulliganBottom {
             player: me(),
@@ -502,6 +505,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             blockers: vec![],
             capacity: Vec::new(),
             obeying: Vec::new(),
+            bounds: Vec::new(),
         },
         Pending::DiscardChoice {
             player: me(),
@@ -517,6 +521,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             min: 0,
             max: 1,
             prompt: ChoicePrompt::Generic,
+            total: None,
         },
         Pending::ChooseTargets {
             player: me(),
@@ -590,6 +595,7 @@ fn helping_to_pay_is_not_asked_for_as_targeting() {
         min: 0,
         max: 1,
         prompt: ChoicePrompt::Delve,
+        total: None,
     });
     let targeting = interaction(Pending::ChooseTargets {
         player: me(),
@@ -696,6 +702,7 @@ fn owing_changes_the_priority_line_and_no_other() {
             player: me(),
             taken: 1,
             next_is_free: false,
+            can_take: true,
         },
         Pending::MulliganBottom {
             player: me(),
@@ -846,6 +853,7 @@ fn crew_question_names_the_total_power() {
         min: 1,
         max: 3,
         prompt: ChoicePrompt::CostCrew { power: 2 },
+        total: None,
     });
     for (lang, crew, total) in [
         (Lang::En, "Crew 2", "total power 2 or more"),

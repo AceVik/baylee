@@ -1,0 +1,106 @@
+# baylee deck export v1
+# name: Tricky Terrain Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TrickyTerrainCollectorSEdition_M3C.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: M3C
+# released: 2024-06-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Omo, Queen of Vesuva (M3C) 141 *F*
+1 Acidic Slime (M3C) 218 *F*
+1 Aggressive Biomancy (M3C) 69 *F*
+1 Apex Devastator (M3C) 220 *F*
+1 Arcane Denial (M3C) 176 *F*
+1 Arcane Signet (M3C) 283 *F*
+1 Avenger of Zendikar (M3C) 221 *F*
+1 Basilisk Gate (M3C) 320 *F*
+1 Beast Within (M3C) 223 *F*
+1 Blast Zone (M3C) 322 *F*
+1 Chromatic Lantern (M3C) 285 *F*
+1 Cloudpost (M3C) 330 *F*
+1 Command Tower (M3C) 331 *F*
+1 Copy Land (M3C) 47 *F*
+1 Curse of the Swine (M3C) 179 *F*
+1 Dark Depths (M3C) 334 *F*
+1 Desert Warfare (M3C) 64 *F*
+1 Desert of the Indomitable (M3C) 336 *F*
+1 Desert of the Mindful (M3C) 337 *F*
+1 Dreamroot Cascade (M3C) 338 *F*
+1 Drown in Dreams (M3C) 181 *F*
+1 Dryad of the Ilysian Grove (M3C) 225 *F*
+1 Elvish Rejuvenator (M3C) 226 *F*
+1 Eureka Moment (M3C) 260 *F*
+1 Evacuation (M3C) 184 *F*
+1 Expedition Map (M3C) 292 *F*
+1 Finale of Revelation (M3C) 185 *F*
+1 Flooded Grove (M3C) 342 *F*
+1 Floriferous Vinewall (M3C) 228 *F*
+1 Fog Bank (M3C) 186 *F*
+2 Forest (MH3) 505 *F*
+2 Forest (MH3) 506 *F*
+1 Glimmerpost (M3C) 346 *F*
+1 Growth Spiral (M3C) 265 *F*
+1 Harmonize (M3C) 231 *F*
+1 Hashep Oasis (M3C) 347 *F*
+1 Hidden Cataract (M3C) 348 *F*
+1 Hidden Nursery (M3C) 349 *F*
+1 Horizon of Progress (M3C) 78 *F*
+1 Hour of Promise (M3C) 232 *F*
+1 Hydra Broodmaster (M3C) 233 *F*
+1 Hydroid Krasis (M3C) 266 *F*
+2 Island (MH3) 499 *F*
+1 Island (MH3) 500 *F*
+1 Jyoti, Moag Ancient (M3C) 140 *F*
+1 Lair of the Hydra (M3C) 353 *F*
+1 Lazotep Quarry (M3C) 79 *F*
+1 Lumbering Falls (M3C) 355 *F*
+1 Lush Oasis (M3C) 356 *F*
+1 Magus of the Candelabra (M3C) 236 *F*
+1 Mana Reflection (M3C) 237 *F*
+1 March from Velis Vel (M3C) 48 *F*
+1 Mirage Mirror (M3C) 300 *F*
+1 Nissa, Steward of Elements (M3C) 270 *F*
+1 Oblivion Stone (M3C) 303 *F*
+1 Overflowing Basin (M3C) 362 *F*
+1 Planar Nexus (M3C) 80 *F*
+1 Poison Dart Frog (M3C) 238 *F*
+1 Pongify (M3C) 190 *F*
+1 Propaganda (M3C) 191 *F*
+1 Quandrix Campus (M3C) 366 *F*
+1 Rampaging Baloths (M3C) 239 *F*
+1 Rampant Frogantua (M3C) 66 *F*
+1 Ramunap Excavator (M3C) 241 *F*
+1 Replication Technique (M3C) 192 *F*
+1 Sage of the Maze (M3C) 67 *F*
+1 Satyr Wayfinder (M3C) 244 *F*
+1 Scute Swarm (M3C) 245 *F*
+1 Seer's Sundial (M3C) 304 *F*
+1 Simic Growth Chamber (M3C) 377 *F*
+1 Simic Guildgate (M3C) 378 *F*
+1 Skullwinder (M3C) 247 *F*
+1 Sol Ring (M3C) 305 *F*
+1 Summary Dismissal (M3C) 193 *F*
+1 Sunken Palace (M3C) 81 *F*
+1 Sylvan Scrying (M3C) 248 *F*
+1 Talon Gates of Madara (M3C) 82 *F*
+1 Tatyova, Benthic Druid (M3C) 273 *F*
+1 Temple of Mystery (M3C) 390 *F*
+1 Terastodon (M3C) 249 *F*
+1 Thespian's Stage (M3C) 395 *F*
+1 Thornwood Falls (M3C) 396 *F*
+1 Treasure Cruise (M3C) 195 *F*
+1 Trenchpost (M3C) 83 *F*
+1 Ulvenwald Hydra (M3C) 250 *F*
+1 Urban Evolution (M3C) 276 *F*
+1 Uro, Titan of Nature's Wrath (M3C) 277 *F*
+1 Urza's Mine (M3C) 401 *F*
+1 Urza's Power Plant (M3C) 402 *F*
+1 Urza's Tower (M3C) 403 *F*
+1 Vesuva (M3C) 404 *F*
+1 Vineglimmer Snarl (M3C) 405 *F*
+1 Vivien Reid (M3C) 252 *F*
+1 Volatile Fault (M3C) 407 *F*
+1 Wonderscape Sage (M3C) 49 *F*
+1 Yavimaya Coast (M3C) 410 *F*
+1 Yavimaya, Cradle of Growth (M3C) 409 *F*

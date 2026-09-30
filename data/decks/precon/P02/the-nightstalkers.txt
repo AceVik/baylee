@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: The Nightstalkers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheNightstalkers_P02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: P02
+# released: 1998-06-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abyssal Nightstalker (P02) 61
+1 Ancient Craving (P02) 62
+2 Brutal Nightstalker (P02) 64
+2 Cruel Edict (P02) 67
+2 Dakmor Bat (P02) 68
+2 Hand of Death (P02) 74
+3 Lurking Nightstalker (P02) 77
+2 Mind Rot (P02) 78
+1 Nightstalker Engine (P02) 81
+2 Predatory Nightstalker (P02) 82
+3 Prowling Nightstalker (P02) 83
+2 Raiding Nightstalker (P02) 84
+1 Return of the Nightstalkers (P02) 88
+5 Swamp (P02) 157
+5 Swamp (P02) 158
+5 Swamp (P02) 159

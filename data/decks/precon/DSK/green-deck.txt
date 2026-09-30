@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Green Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeck_DSK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: DSK
+# released: 2024-09-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Canopy Baloth (PLST) ZNR-304
+1 Clear Shot (PLST) MID-176
+1 Colossal Dreadmaw (PLST) M21-176
+1 Crushing Canopy (PLST) GRN-126
+1 Dawnhart Rejuvenator (PLST) MID-301
+2 Druid of the Cowl (PLST) M19-177
+4 Forest (PLST) LCI-401
+4 Forest (PLST) MKM-285
+5 Forest (PLST) WOE-276
+1 Giant Growth (PLST) WAR-162
+1 Goreclaw, Terror of Qal Sisma (PLST) M19-186
+1 Iridescent Blademaster (PLST) MOM-195
+1 Leatherback Baloth (PLST) WWK-107
+1 Overcome (PLST) M20-186
+1 Sentinel Spider (PLST) M13-189
+2 Snapping Gnarlid (PLST) BFZ-190
+1 Treeshaker Chimera (PLST) NCC-318
+1 Wildwood Patrol (PLST) M21-339

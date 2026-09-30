@@ -588,6 +588,7 @@ fn untap_menu(engine: &Engine<SyntheticLookup>) -> (PlayerId, Vec<ObjectId>, u8,
         min,
         max,
         prompt: crate::choice::ChoicePrompt::Untap,
+        ..
     } = engine.pending().clone()
     else {
         panic!("not the untap limit's question: {:?}", engine.pending())

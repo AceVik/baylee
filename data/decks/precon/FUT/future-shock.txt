@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Future Shock
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FutureShock_FUT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: FUT
+# released: 2007-05-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Baru, Fist of Krosa (FUT) 142
+2 Bloodshot Trainee (FUT) 110
+1 Boldwyr Intimidator (FUT) 111
+2 Centaur Omenreader (FUT) 143
+1 Dryad Arbor (FUT) 174
+3 Edge of Autumn (FUT) 144
+1 Emblem of the Warmind (FUT) 112
+3 Flowstone Embrace (FUT) 113
+1 Fomori Nomad (FUT) 114
+4 Forest (TSP) 298
+4 Forest (TSP) 299
+3 Forest (TSP) 300
+3 Forest (TSP) 301
+3 Ghostfire (FUT) 115
+3 Grinning Ignus (FUT) 116
+2 Imperiosaur (FUT) 145
+3 Mountain (TSP) 294
+2 Mountain (TSP) 295
+2 Mountain (TSP) 296
+2 Mountain (TSP) 297
+1 Nacatl War-Pride (FUT) 147
+3 Nessian Courser (FUT) 148
+1 Phosphorescent Feast (FUT) 149
+1 Quagnoth (FUT) 150
+1 Skizzik Surger (FUT) 120
+1 Spellwild Ouphe (FUT) 151
+3 Sporoloth Ancient (FUT) 152
+3 Thornweald Archer (FUT) 154

@@ -53,6 +53,18 @@ enum TargetLegality {
     AllIllegal,
 }
 
+/// What a permanent that has just entered still has to ask as it enters,
+/// queued in [`Engine::entry_questions`] until every co-arrival's other
+/// replacements are on the board.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum EntryAsk {
+    /// Which permanent it enters as a copy of (a clone put onto the
+    /// battlefield by another card's effect; `check_copy_on_enter`).
+    Copy,
+    /// The first of its own modifiers that asks.
+    Modifier(&'static baylee_cards_dsl::EnterModifier),
+}
+
 impl<L: CardLookup> Engine<L> {
     /// A seat's automation settings.
     #[must_use]
@@ -294,6 +306,21 @@ impl<L: CardLookup> Engine<L> {
             // 0b. As-it-enters modifiers (taplands, shockland choices).
             let wrote = self.apply_enter_modifiers();
             if self.awaiting_answer {
+                // The question is published from here, and the step that
+                // asks it may already have moved the board behind 0a: a
+                // daybound permanent entering at night entered transformed
+                // (CR 702.145b), and `GameState::turn_over` took away the
+                // statics of the face going down and left the new face's
+                // to the next scan; a Room took its door, and an
+                // earlier arrival its counters. So the board is settled
+                // first, as `Engine::new` and `settle_mulligans` settle the
+                // one the opening hands are kept beside. Nothing else the
+                // pass owes runs before the answer, and that is right: the
+                // rules make an as-it-enters choice before the permanent
+                // enters (CR 614.12a), so no state-based action or trigger
+                // may look at the board first.
+                self.sync_static_effects();
+                self.state.refresh_characteristics();
                 return;
             }
             // A modifier that wrote to the board wrote *behind* 0a, and the
@@ -548,12 +575,24 @@ impl<L: CardLookup> Engine<L> {
                     })
                     .collect();
                 let obeying = rules.obeying(&blockers);
+                // The counts the declaration as a whole is held to
+                // (CR 509.1b), for the attackers somebody may block.
+                let bounds = self
+                    .state
+                    .combat
+                    .attackers()
+                    .iter()
+                    .map(|a| a.creature)
+                    .filter(|a| blockers.iter().any(|o| o.attackers.contains(a)))
+                    .filter_map(|a| combat::block_bound(&self.state, a))
+                    .collect();
                 self.pending = Pending::ChooseBlockers {
                     player: defending,
                     attacker: active,
                     blockers,
                     capacity,
                     obeying,
+                    bounds,
                 };
                 self.awaiting_answer = true;
                 true
@@ -730,6 +769,20 @@ impl<L: CardLookup> Engine<L> {
 
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
+    ///
+    /// Permanents that enter together are one event, and each one's own
+    /// replacements modify how it enters (CR 614.12). So every arrival's
+    /// replacements that need nobody's answer are applied first: entering
+    /// tapped, counters, starting loyalty, a Saga's lore counter, daybound's
+    /// back face, a Room's door. The ones that ask are then asked one at a
+    /// time, from [`Engine::entry_questions`], by seat in APNAP order and in
+    /// the order the permanents entered (CR 101.4). A question used to return
+    /// from the middle of the scan with the cursor already past every
+    /// arrival, so every co-arrival after the one that asked got none of its
+    /// replacements: a Urza's Saga fetched beside Steam Vents had no lore
+    /// counter, and a planeswalker entering behind a shockland had no
+    /// loyalty and died.
+    ///
     /// Returns whether a modifier wrote to the board, which the caller reads
     /// twice over: the legal lists are recomputed from it, and the machine
     /// goes round one more pass. The second is the load-bearing one — this
@@ -739,6 +792,13 @@ impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
+        let mut changed = false;
+        // A question an earlier scan owes comes first. Nothing enters while
+        // one is out, so the queue holds the rest of that batch's questions,
+        // and the arrivals below wait for it to empty.
+        if self.ask_owed_entry_question(&mut changed) {
+            return true;
+        }
         // `from` travels with the arrival because one modifier reads it:
         // the X a `{X}{X}` body enters with belongs to the spell that
         // became this permanent (CR 107.3m), so it exists on the way in
@@ -762,7 +822,7 @@ impl<L: CardLookup> Engine<L> {
             .filter_map(|(id, from)| self.state.object(id).map(|o| (id, o.controller, from)))
             .collect();
         self.entry_scan_seq = self.state.journal.last_seq();
-        let mut changed = false;
+        let mut asks: Vec<(ObjectId, PlayerId, EntryAsk)> = Vec::new();
         for (id, controller, from_zone) in events {
             // CR 107.3m in one place, before anything reads it. The rule
             // gives an entering permanent's own abilities the X announced
@@ -796,6 +856,12 @@ impl<L: CardLookup> Engine<L> {
             // the back face is what entered — the front face's own
             // enter-the-battlefield triggers were never on the board, and
             // `collect_triggers` runs after this in the same pass.
+            //
+            // It enters with its back face up (CR 712.14a); nothing turns
+            // over, so it is `turn_over` and not `transform`: no
+            // `Transformed` entry for a "transforms into" trigger or the
+            // log to read, and no new timestamp over the one it entered
+            // with (CR 613.7d). `transform` gave it both.
             if self.state.day_night == Some(DayNight::Night)
                 && self
                     .state
@@ -811,7 +877,7 @@ impl<L: CardLookup> Engine<L> {
                     .keywords_for_face(0)
                     .contains(baylee_cards_dsl::KeywordSet::DAYBOUND)
             {
-                self.state.transform(id, def, 1);
+                self.state.turn_over(id, def, 1);
                 changed = true;
             }
             // A Room is given the unlocked designation of the half it was
@@ -902,8 +968,16 @@ impl<L: CardLookup> Engine<L> {
             // already in hand: a permanent spell resolves off the **stack**,
             // a token is created `from: OutsideGame`, and everything else
             // comes out of a graveyard, a library, exile or a hand.
-            if from_zone != Zone::Stack && self.check_copy_on_enter(id) {
-                return true;
+            //
+            // Asked after the scan like every other question, and it still
+            // stands in for this permanent's own modifiers, as it always has.
+            if from_zone != Zone::Stack
+                && self
+                    .copy_on_enter_question(id)
+                    .is_some_and(|(options, _)| options.iter().any(|&o| o != id))
+            {
+                asks.push((id, controller, EntryAsk::Copy));
+                continue;
             }
             let Some((card, face_index)) = self
                 .state
@@ -923,15 +997,12 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             // A modifier that *asks* is applied last, whatever order the
-            // card prints it in. Publishing a `Pending` returns from this
-            // scan, and `entry_scan_seq` has already moved past this
-            // arrival — so anything left in the loop behind the question
-            // would never be applied at all. Uncharted Haven is
-            // `ChooseColor` then `Tapped` and was entering untapped; the
-            // same hole had been under `ChooseSubtype` and
-            // `TappedOrPayLife` since they were written, invisible only
-            // because no card in the pool prints another modifier after
-            // one of them.
+            // card prints it in: it is queued, and asked once every
+            // arrival's other modifiers are on the board. Uncharted Haven is
+            // `ChooseColor` then `Tapped` and once entered untapped, when a
+            // question returned from the middle of this loop; the same hole
+            // had been under `ChooseSubtype` and `TappedOrPayLife` since
+            // they were written.
             //
             // The *first* question wins, and a card with two would lose the
             // second. No printed card asks twice as it enters, and the day
@@ -1034,132 +1105,189 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
             }
-            match asked {
-                None => {}
-                Some(EnterModifier::ChooseSubtype) => {
-                    self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                    self.pending = Pending::ChooseSubtype {
-                        player: controller,
-                        options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
-                    };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(EnterModifier::ChooseBasicLandType) => {
-                    // The five basic land types (CR 205.3i), in the order the
-                    // rule names them, and nothing else.
-                    use baylee_core::generated::subtypes::land;
-                    self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                    self.pending = Pending::ChooseSubtype {
-                        player: controller,
-                        options: vec![
-                            land::PLAINS,
-                            land::ISLAND,
-                            land::SWAMP,
-                            land::MOUNTAIN,
-                            land::FOREST,
-                        ],
-                    };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(EnterModifier::ChooseCardName) => {
-                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
-                    self.pending = Pending::ChooseCardName { player: controller };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_))) => {
-                    // Colorless is not a colour (CR 105.1), so it is not
-                    // among the options even though `ManaColor` carries it:
-                    // "choose a color" is one of the five.
-                    let except = match m {
-                        EnterModifier::ChooseColorExcept(c) => Some(*c),
-                        _ => None,
-                    };
-                    let options: Vec<_> = baylee_cards_dsl::ALL_MANA_COLORS
-                        .iter()
-                        .copied()
-                        .filter(|c| Some(*c) != except)
-                        .collect();
-                    self.pending_plan = Some(PlanKind::ChooseColor { object: id });
-                    self.pending = Pending::ChooseColor {
-                        player: controller,
-                        options,
-                    };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(EnterModifier::TappedOrPayLife(amount)) => {
-                    let amount = *amount;
-                    if self.state.can_pay_life(controller, i32::from(amount)) {
-                        let source = self
-                            .state
-                            .object(id)
-                            .and_then(|o| o.card)
-                            .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS));
-                        self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
-                        self.pending = Pending::YesNo {
-                            player: controller,
-                            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
-                            source,
-                        };
-                        self.awaiting_answer = true;
-                        return true; // one choice at a time
-                    }
-                    // Unpayable → tapped without a choice, and the scan goes
-                    // on: nothing was asked, so nothing was interrupted.
-                    self.state.set_tapped(id, true);
-                    changed = true;
-                }
-                Some(EnterModifier::TappedUnlessReveal(filter)) => {
-                    // The one clause in this family read against a hidden
-                    // zone. Every `TappedUnless…` sibling asks
-                    // `controls_at_least`, which walks the battlefield; a
-                    // Faerie held in hand is on nobody's battlefield and the
-                    // question would always answer no.
-                    let filter: &Filter = filter;
-                    let options: Vec<ObjectId> = self
-                        .state
-                        .zones
-                        .list(ZoneLocation::Hand(controller))
-                        .iter()
-                        .filter(|card| {
-                            self.state.object(**card).is_some_and(|o| {
-                                eval::matches(filter, &self.state, o, controller, id)
-                            })
-                        })
-                        .copied()
-                        .collect();
-                    if options.is_empty() {
-                        // Nothing to show → tapped, and no question asked.
-                        // The same branch an unpayable `TappedOrPayLife`
-                        // takes, and for the same reason: a prompt whose
-                        // only legal answer is "no" is not a choice, and
-                        // offering it would hand the opponent the
-                        // information that the hand is empty of Faeries.
-                        self.state.set_tapped(id, true);
-                        changed = true;
-                    } else {
-                        self.pending_plan = Some(PlanKind::EntryReveal { object: id });
-                        self.pending = Pending::ChooseCards {
-                            player: controller,
-                            options,
-                            // Naming nothing is how the offer is declined —
-                            // the card prints "you may", and a `min` of one
-                            // would make the reveal compulsory.
-                            min: 0,
-                            max: 1,
-                            prompt: ChoicePrompt::RevealOrEnterTapped,
-                        };
-                        self.awaiting_answer = true;
-                        return true; // one choice at a time
-                    }
-                }
-                Some(_) => unreachable!("only the asking modifiers are recorded"),
+            if let Some(modifier) = asked {
+                asks.push((id, controller, EntryAsk::Modifier(modifier)));
             }
         }
+        // CR 101.4: players choosing at the same time choose in APNAP
+        // order. One player's questions keep the order the permanents
+        // entered in (the sort is stable); CR 101.4c would let that player
+        // choose the order, which is not offered.
+        let active = self.state.turn.active.get();
+        let seats = self.state.players.len() as u8;
+        asks.sort_by_key(|(_, controller, _)| (controller.get() + seats - active) % seats);
+        self.entry_questions.extend(asks);
+        if self.ask_owed_entry_question(&mut changed) {
+            return true;
+        }
         changed
+    }
+
+    /// Asks the next as-it-enters question [`Engine::entry_questions`]
+    /// holds, and says whether one is out. One whose permanent has left the
+    /// battlefield in the meantime is dropped. One that has no question to
+    /// ask any more is settled without one: a shockland its controller can
+    /// no longer pay for, or a reveal with nothing to reveal, enters tapped,
+    /// and `changed` says the board was written.
+    fn ask_owed_entry_question(&mut self, changed: &mut bool) -> bool {
+        while let Some((id, controller, ask)) = self.entry_questions.pop_front() {
+            if self
+                .state
+                .object(id)
+                .is_none_or(|o| o.zone != Zone::Battlefield)
+            {
+                continue;
+            }
+            let asked = match ask {
+                EntryAsk::Copy => self.check_copy_on_enter(id),
+                EntryAsk::Modifier(modifier) => {
+                    self.ask_entry_modifier(id, controller, modifier, changed)
+                }
+            };
+            if asked {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Asks one permanent's as-it-enters question, or settles it without
+    /// one when there is nothing to choose; says whether a question is out.
+    fn ask_entry_modifier(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        modifier: &'static baylee_cards_dsl::EnterModifier,
+        changed: &mut bool,
+    ) -> bool {
+        use baylee_cards_dsl::EnterModifier;
+        match modifier {
+            EnterModifier::ChooseSubtype => {
+                self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                self.pending = Pending::ChooseSubtype {
+                    player: controller,
+                    options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::ChooseBasicLandType => {
+                // The five basic land types (CR 205.3i), in the order the
+                // rule names them, and nothing else.
+                use baylee_core::generated::subtypes::land;
+                self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                self.pending = Pending::ChooseSubtype {
+                    player: controller,
+                    options: vec![
+                        land::PLAINS,
+                        land::ISLAND,
+                        land::SWAMP,
+                        land::MOUNTAIN,
+                        land::FOREST,
+                    ],
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::ChooseCardName => {
+                self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                self.pending = Pending::ChooseCardName { player: controller };
+                self.awaiting_answer = true;
+                true
+            }
+            m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_)) => {
+                // Colorless is not a colour (CR 105.1), so it is not
+                // among the options even though `ManaColor` carries it:
+                // "choose a color" is one of the five.
+                let except = match m {
+                    EnterModifier::ChooseColorExcept(c) => Some(*c),
+                    _ => None,
+                };
+                let options: Vec<_> = baylee_cards_dsl::ALL_MANA_COLORS
+                    .iter()
+                    .copied()
+                    .filter(|c| Some(*c) != except)
+                    .collect();
+                self.pending_plan = Some(PlanKind::ChooseColor { object: id });
+                self.pending = Pending::ChooseColor {
+                    player: controller,
+                    options,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::TappedOrPayLife(amount) => {
+                let amount = *amount;
+                // Asked when its turn comes, so a second shockland in the
+                // same batch is asked against the life the first one left
+                // (CR 614.12b).
+                if self.state.can_pay_life(controller, i32::from(amount)) {
+                    let source = self
+                        .state
+                        .object(id)
+                        .and_then(|o| o.card)
+                        .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS));
+                    self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
+                    self.pending = Pending::YesNo {
+                        player: controller,
+                        prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+                        source,
+                    };
+                    self.awaiting_answer = true;
+                    return true;
+                }
+                // Unpayable → tapped without a choice: nothing was asked.
+                self.state.set_tapped(id, true);
+                *changed = true;
+                false
+            }
+            EnterModifier::TappedUnlessReveal(filter) => {
+                // The one clause in this family read against a hidden
+                // zone. Every `TappedUnless…` sibling asks
+                // `controls_at_least`, which walks the battlefield; a
+                // Faerie held in hand is on nobody's battlefield and the
+                // question would always answer no.
+                let filter: &Filter = filter;
+                let options: Vec<ObjectId> = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Hand(controller))
+                    .iter()
+                    .filter(|card| {
+                        self.state
+                            .object(**card)
+                            .is_some_and(|o| eval::matches(filter, &self.state, o, controller, id))
+                    })
+                    .copied()
+                    .collect();
+                if options.is_empty() {
+                    // Nothing to show → tapped, and no question asked.
+                    // The same branch an unpayable `TappedOrPayLife`
+                    // takes, and for the same reason: a prompt whose
+                    // only legal answer is "no" is not a choice, and
+                    // offering it would hand the opponent the
+                    // information that the hand is empty of Faeries.
+                    self.state.set_tapped(id, true);
+                    *changed = true;
+                    return false;
+                }
+                self.pending_plan = Some(PlanKind::EntryReveal { object: id });
+                self.pending = Pending::ChooseCards {
+                    player: controller,
+                    options,
+                    // Naming nothing is how the offer is declined —
+                    // the card prints "you may", and a `min` of one
+                    // would make the reveal compulsory.
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::RevealOrEnterTapped,
+                    total: None,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            _ => unreachable!("only the asking modifiers are queued"),
+        }
     }
 
     /// Whether `controller` controls `at_least` permanents matching `filter`,
@@ -1788,6 +1916,24 @@ impl<L: CardLookup> Engine<L> {
     /// static abilities of permanents, drops effects whose source left.
     pub(crate) fn sync_static_effects(&mut self) {
         use baylee_cards_dsl::Duration;
+        // A phased-out permanent's statics apply to nothing (CR 702.26b):
+        // set aside while it is phased out, back as they were once it has
+        // phased in (CR 702.26d). First, so the departure sweep below also
+        // drops what a source that left while phased out had set aside.
+        // phasing: this walk is the one looking for phased-out permanents.
+        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
+        let phased_out: Vec<ObjectId> = battlefield
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state
+                    .object(id)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+            })
+            .collect();
+        self.state
+            .effects
+            .follow_phasing(|source| phased_out.contains(&source));
         // Drop effects whose source left the battlefield (structural
         // anthem removal).
         let gone: Vec<ObjectId> = self
@@ -1878,7 +2024,9 @@ impl<L: CardLookup> Engine<L> {
         // That reads the projection, so it is made current first: the effect
         // that took the abilities may have been registered a moment ago.
         self.state.refresh_characteristics();
-        let ids: Vec<ObjectId> = self.state.zones.list(ZoneLocation::Battlefield).clone();
+        // Not a phased-out permanent: its statics wait parked for it, and a
+        // condition on it is not asked while it does not exist.
+        let ids: Vec<ObjectId> = self.state.battlefield_view();
         let mut to_register = Vec::new();
         let mut lapsed = Vec::new();
         for id in ids {
@@ -1932,8 +2080,10 @@ impl<L: CardLookup> Engine<L> {
         crate::ability_log::note_sources(&self.state, &self.lookup);
     }
 
-    /// Drops the replacement rules of sources that left the battlefield or
-    /// lost their abilities (CR 613.1f) and registers the new ones.
+    /// Drops the replacement rules of sources that left the battlefield,
+    /// phased out (CR 702.26b) or lost their abilities (CR 613.1f) and
+    /// registers the new ones. A permanent that phases in is scanned again
+    /// like one that arrived, so its rules come back from its abilities.
     fn sync_replacement_rules(&mut self) {
         let gone_rules: Vec<ObjectId> = self
             .state
@@ -1943,6 +2093,7 @@ impl<L: CardLookup> Engine<L> {
             .filter(|s| {
                 self.state.object(*s).is_none_or(|o| {
                     o.zone != Zone::Battlefield
+                        || o.status.contains(crate::object::Status::PHASED_OUT)
                         || o.characteristics().abilities_lost.is_some()
                         || o.characteristics().rules_text_lost
                 })
@@ -1952,7 +2103,7 @@ impl<L: CardLookup> Engine<L> {
             .replacement_rules
             .retain(|r| !gone_rules.contains(&r.source));
         let mut rules_to_add = Vec::new();
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
@@ -3432,12 +3583,12 @@ impl<L: CardLookup> Engine<L> {
     /// day it is about to cause.
     fn day_night_statics(&mut self) -> bool {
         use baylee_cards_dsl::KeywordSet as K;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield);
         // The common case by a wide margin: no daybound card at the table,
-        // so the whole step is one scan of the battlefield and out.
+        // so the whole step is one scan of the battlefield and out. A
+        // phased-out permanent is not at the table (CR 702.26b).
         let mut any_daybound = false;
         let mut any_nightbound = false;
-        for &id in battlefield {
+        for id in self.state.battlefield_seen() {
             let Some(kw) = self.state.object(id).map(|o| o.characteristics().keywords) else {
                 continue;
             };
@@ -3466,10 +3617,7 @@ impl<L: CardLookup> Engine<L> {
         let night = self.state.day_night == Some(DayNight::Night);
         let turning: Vec<ObjectId> = self
             .state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|&id| {
                 let Some(obj) = self.state.object(id) else {
                     return false;
@@ -4108,9 +4256,9 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// [`Object::abilities`]: crate::object::GameObject::abilities
     fn finished_sagas(&mut self) -> bool {
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
         let mut changed = false;
-        for id in battlefield {
+        // A phased-out Saga is not sacrificed (CR 702.26b).
+        for id in self.state.battlefield_view() {
             let finished = self.state.object(id).is_some_and(|o| {
                 // Every Saga on the battlefield has at least one lore
                 // counter (CR 714.3a), so this is the whole step for a
@@ -4235,7 +4383,7 @@ impl<L: CardLookup> Engine<L> {
     /// sides of the same rule.
     pub(crate) fn saga_precombat_main_counters(&mut self) {
         let active = self.state.turn.active;
-        for id in self.state.zones.list(ZoneLocation::Battlefield).clone() {
+        for id in self.state.battlefield_view() {
             let Some(old) = self
                 .state
                 .object(id)
@@ -4951,11 +5099,10 @@ impl<L: CardLookup> Engine<L> {
     /// the offer that contradicts its own apply.
     fn untap_optional(&self) -> Vec<ObjectId> {
         let active = self.state.turn.active;
+        // What phased in a moment ago untaps with the rest (CR 502.1 before
+        // 502.3); what is still phased out does not.
         self.state
-            .zones
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
+            .battlefield_seen()
             .filter(|id| {
                 let Some(obj) = self.state.object(*id) else {
                     return false;
@@ -5000,23 +5147,28 @@ impl<L: CardLookup> Engine<L> {
             self.advance_step();
             return false;
         }
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        // Phasing: phased-out permanents the active player controls phase
-        // back in at the untap step (CR 702.26a).
-        for id in &battlefield {
-            let phased = self
-                .state
-                .object(*id)
-                .is_some_and(|o| o.controller == active && o.status.contains(Status::PHASED_OUT));
-            if phased {
-                if let Some(obj) = self.state.object_mut(*id) {
-                    obj.status.remove(Status::PHASED_OUT);
-                }
-                self.state.journal.record(GameEvent::PhaseChanged {
-                    object: *id,
-                    phased_out: false,
-                });
-            }
+        // "All phased-out permanents that the active player controlled when
+        // they phased out phase in" (CR 502.1): a phased-out permanent is
+        // not projected, so its controller is still that one. One that
+        // phased out indirectly phases in with its host and never by itself
+        // (CR 702.26g).
+        let coming: Vec<ObjectId> = self
+            .state
+            .zones
+            // phasing: the walk is for the permanents that are phased out.
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .copied()
+            .filter(|&id| {
+                self.state.object(id).is_some_and(|o| {
+                    o.controller == active
+                        && o.status.contains(Status::PHASED_OUT)
+                        && !o.status.contains(Status::PHASED_OUT_INDIRECTLY)
+                })
+            })
+            .collect();
+        for id in coming {
+            self.state.phase_in(id);
         }
         self.check_day_night();
         // CR 502.3, the third turn-based action: "the active player
@@ -5038,6 +5190,7 @@ impl<L: CardLookup> Engine<L> {
             min: 0,
             max,
             prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            total: None,
         };
         self.awaiting_answer = true;
         true
@@ -5170,6 +5323,7 @@ impl<L: CardLookup> Engine<L> {
             min: 1,
             max: u8::try_from(most).unwrap_or(u8::MAX),
             prompt: crate::choice::ChoicePrompt::Untap,
+            total: None,
         };
         self.awaiting_answer = true;
         true
@@ -5188,8 +5342,7 @@ impl<L: CardLookup> Engine<L> {
     /// permanent to look at.
     pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
         let active = self.state.turn.active;
-        let battlefield = self.state.zones.list(ZoneLocation::Battlefield).clone();
-        for id in battlefield {
+        for id in self.state.battlefield_view() {
             let tapped = self
                 .state
                 .object(id)
@@ -5378,9 +5531,14 @@ fn end_control_durations(state: &mut crate::state::GameState) {
         .filter(|fx| matches!(fx.duration, Duration::WhileYouControlSource))
         .filter_map(|fx| {
             let source = fx.source?;
-            let held = state
-                .object(source)
-                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == fx.controller);
+            // A phased-out source is treated as though it does not exist
+            // (CR 702.26b): nobody controls it, and a "for as long as" that
+            // tracks it ends as it phases out (CR 702.26f).
+            let held = state.object(source).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.controller == fx.controller
+                    && !o.status.contains(crate::object::Status::PHASED_OUT)
+            });
             (!held).then_some((source, fx.controller))
         })
         .collect();

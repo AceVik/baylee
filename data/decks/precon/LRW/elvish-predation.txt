@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Elvish Predation
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ElvishPredation_LRW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LRW
+# released: 2007-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Elvish Eulogist (LRW) 205
+2 Elvish Harbinger (LRW) 207
+2 Elvish Promenade (LRW) 208
+2 Eyeblight's Ending (LRW) 110
+4 Forest (LRW) 298
+4 Forest (LRW) 299
+3 Forest (LRW) 300
+3 Forest (LRW) 301
+2 Gilt-Leaf Ambush (LRW) 214
+3 Gilt-Leaf Seer (LRW) 215
+1 Hunter of Eyeblights (LRW) 119
+1 Immaculate Magistrate (LRW) 219
+2 Imperious Perfect (LRW) 220
+2 Jagged-Scar Archers (LRW) 222
+1 Lammastide Weave (LRW) 226
+2 Leaf Gilder (LRW) 227
+2 Lys Alana Huntmaster (LRW) 229
+1 Lys Alana Scarblade (LRW) 122
+3 Moonglove Winnower (LRW) 126
+1 Nath of the Gilt-Leaf (LRW) 250
+2 Nath's Elite (LRW) 231
+1 Prowess of the Fair (LRW) 136
+3 Scarred Vinebreeder (LRW) 138
+3 Swamp (LRW) 290
+2 Swamp (LRW) 291
+2 Swamp (LRW) 292
+2 Swamp (LRW) 293
+1 Wanderer's Twig (LRW) 265
+1 Wren's Run Vanquisher (LRW) 245

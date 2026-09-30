@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Red Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeckB_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Anaba Bodyguard (10E) 187
+1 Axegrinder Giant (LRW) 151
+1 Blaze (10E) 190
+1 Demolish (10E) 196
+2 Flamekin Brawler (LRW) 166
+1 Hill Giant (10E) 212
+2 Incinerate (10E) 213
+1 Kindled Fury (MOR) 92
+2 Lava Axe (10E) 215
+2 Lightning Elemental (10E) 217
+3 Mountain (10E) 376
+3 Mountain (10E) 377
+3 Mountain (10E) 378
+3 Mountain (10E) 379
+1 Prodigal Pyromancer (10E) 221
+2 Shock (10E) 232
+1 Wall of Fire (10E) 247

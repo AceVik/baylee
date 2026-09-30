@@ -22,6 +22,10 @@ baylee-view.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The language-model seat's spend book counts a game in the player's
+# calendar day: the date of a moment it is handed. Arithmetic only; the
+# bridge reads the clock.
+time.workspace = true
 
 [dev-dependencies]
 baylee-cards-dsl.workspace = true

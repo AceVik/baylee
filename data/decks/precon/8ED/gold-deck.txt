@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Gold Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoldDeck_8ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 8ED
+# released: 2003-07-28
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Enormous Baloth (8ED) S6
+2 Forest (8ED) 347
+2 Forest (8ED) 348
+2 Forest (8ED) 349
+1 Forest (8ED) 350
+2 Goblin Raider (8ED) 191
+2 Grizzly Bears (8ED) 256
+2 Hill Giant (8ED) 194
+2 Lava Axe (8ED) 197
+2 Mountain (8ED) 343
+2 Mountain (8ED) 344
+2 Mountain (8ED) 345
+2 Mountain (8ED) 346
+2 Norwood Ranger (8ED) 271
+1 Ogre Taskmaster (8ED) 205
+1 Rampant Growth (8ED) 274
+1 Spined Wurm (8ED) 279
+1 Stone Rain (8ED) 225
+2 Volcanic Hammer (8ED) 231

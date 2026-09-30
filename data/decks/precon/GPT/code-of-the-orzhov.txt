@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Code of the Orzhov
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CodeOfTheOrzhov_GPT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: GPT
+# released: 2006-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Agent of Masks (GPT) 100
+1 Belfry Spirit (GPT) 2
+2 Blind Hunter (GPT) 102
+2 Castigate (GPT) 106
+1 Festival of the Guildpact (RAV) 17
+2 Hissing Miasma (GPT) 51
+2 Infectious Host (RAV) 91
+1 Martyred Rusalka (GPT) 12
+1 Mortify (GPT) 122
+2 Mourning Thrull (GPT) 146
+2 Orzhov Basilica (GPT) 161
+2 Orzhov Euthanist (GPT) 54
+1 Orzhov Guildmage (GPT) 147
+1 Orzhova, the Church of Deals (GPT) 162
+2 Ostiary Thrull (GPT) 55
+2 Pillory of the Sleepless (GPT) 125
+1 Plagued Rusalka (GPT) 56
+3 Plains (RAV) 287
+3 Plains (RAV) 288
+2 Plains (RAV) 289
+2 Plains (RAV) 290
+2 Poisonbelly Ogre (GPT) 57
+2 Shrieking Grotesque (GPT) 15
+1 Skeletal Vampire (GPT) 62
+2 Souls of the Faultless (GPT) 131
+2 Strands of Undeath (RAV) 108
+3 Swamp (RAV) 295
+3 Swamp (RAV) 296
+3 Swamp (RAV) 297
+2 Swamp (RAV) 298
+1 Teysa, Orzhov Scion (GPT) 134
+2 Thoughtpicker Witch (RAV) 109

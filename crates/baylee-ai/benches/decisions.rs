@@ -137,6 +137,7 @@ fn token_army(c: &mut Criterion) {
                 .collect(),
             capacity: Vec::new(),
             obeying: Vec::new(),
+            bounds: Vec::new(),
         };
         (view, pending)
     };

@@ -460,9 +460,10 @@ fn a_mechanic_the_pool_already_prints_is_owed_now_and_not_later() {
         // breakdown that does not sum to its own total is how it was
         // caught, for the second time in one day.
         //
-        // Refused, #223: `a_card_is_not_given_up_for_a_small_gain`. Another
-        // card as the price of a whitelisted gain is not paid; the source
-        // paying for itself still is.
+        // Weighed since 29.09.2026 (`worth`): a sacrifice, discard or exile
+        // is priced at what it gives up and paid when the effect is worth
+        // more (#223, `a_card_is_not_given_up_for_a_small_gain`, and the
+        // Wasteland and Recurring Nightmare pairs in `baylee-ai`).
         (
             "Alternate resource engines (a sacrifice or discard cost)",
             count(|def| {

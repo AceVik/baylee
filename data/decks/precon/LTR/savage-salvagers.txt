@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Savage Salvagers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SavageSalvagers_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Blanchwood Prowler (BRO) 172
+2 Burrowing Razormaw (BRO) 173
+1 Conduit of Worlds (ONE) 163
+2 Cult Conscript (DMU) 88
+1 Deathbloom Ritualist (BRO) 208
+2 Diminished Returner (YDMU) 9
+4 Forest (LTR) 270
+4 Forest (LTR) 271
+2 Gaea's Courser (BRO) 181
+1 Gixian Recycler (YBRO) 27
+1 Glissa Sunslayer (ONE) 202
+2 Go for the Throat (BRO) 102
+4 Haunted Mire (DMU) 248
+4 Jungle Hollow (MOM) 270
+1 Llanowar Wastes (BRO) 264
+2 Phyrexian Gargantua (MOM) 121
+3 Ravenous Gigamole (BRO) 113
+1 Sauron, the Necromancer (LTR) 106
+1 Shadow of the Enemy (LTR) 107
+2 Skyfisher Spider (BRO) 221
+4 Swamp (LTR) 266
+4 Swamp (LTR) 267
+1 Terror of Towashi (MOM) 331
+2 Urborg Repossession (DMU) 114
+3 Vanquish the Weak (MOM) 129
+3 Wary Thespian (MOM) 215

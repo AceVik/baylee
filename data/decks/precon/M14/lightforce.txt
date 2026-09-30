@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Lightforce
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Lightforce_M14.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M14
+# released: 2013-07-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ajani's Chosen (M14) 2 *F*
+1 Angelic Accord (M14) 3
+1 Auramancer (M14) 6
+2 Banisher Priest (M14) 7
+2 Brave the Elements (M14) 10
+2 Capashen Knight (M14) 11
+1 Charging Griffin (M14) 13
+1 Congregate (M14) 14
+2 Dawnstrike Paladin (M14) 15
+1 Divine Favor (M14) 17
+1 Elixir of Immortality (M14) 209
+3 Forest (M14) 246
+2 Forest (M14) 247
+2 Forest (M14) 248
+2 Forest (M14) 249
+2 Fortify (M14) 19
+1 Hunt the Weak (M14) 179
+1 Indestructibility (M14) 23
+3 Pacifism (M14) 25
+3 Pillarfield Ox (M14) 28
+4 Plains (M14) 230
+4 Plains (M14) 231
+4 Plains (M14) 232
+4 Plains (M14) 233
+2 Serra Angel (M14) 32
+2 Soulmender (M14) 37
+1 Staff of the Sun Magus (M14) 222
+3 Trollhide (M14) 197
+2 Voracious Wurm (M14) 200

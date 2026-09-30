@@ -69,6 +69,7 @@ impl<L: CardLookup> Engine<L> {
                 prompt: ChoicePrompt::Band {
                     with: leader.creature,
                 },
+                total: None,
             };
             self.awaiting_answer = true;
             return true;

@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Fate Blaster
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FateBlaster_FUT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: FUT
+# released: 2007-05-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aven Augur (FUT) 32
+2 Barbed Shocker (TSP) 144
+3 Blind Phantasm (FUT) 49
+1 Boldwyr Intimidator (FUT) 111
+3 Cryptic Annelid (FUT) 34
+1 Dandân (TSB) 19
+2 Emberwilde Augur (FUT) 97
+1 Fatal Attraction (FUT) 98
+1 Foresee (FUT) 36
+1 Frozen Aether (PLC) 54
+4 Island (TSP) 286
+4 Island (TSP) 287
+3 Island (TSP) 288
+3 Island (TSP) 289
+1 Magus of the Future (FUT) 40
+3 Mountain (TSP) 294
+3 Mountain (TSP) 295
+3 Mountain (TSP) 296
+2 Mountain (TSP) 297
+2 Mystic Speculation (FUT) 41
+2 Riddle of Lightning (FUT) 105
+2 Sage of Epityr (TSP) 74
+1 Shapeshifter's Marrow (FUT) 58
+1 Shivan Meteor (PLC) 106
+2 Spin into Myth (FUT) 60
+2 Stingscourger (PLC) 107
+1 Uthden Troll (TSB) 71
+2 Vedalken Aethermage (FUT) 61
+2 Venser's Diffusion (FUT) 47

@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Army of Justice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArmyOfJustice_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 9ED
+# released: 2005-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Angel of Mercy (9ED) 1
+1 Angel's Feather (9ED) 287
+1 Ballista Squad (9ED) 5
+1 Chastise (9ED) 9
+3 Crossbow Infantry (9ED) 12
+1 Glorious Anthem (9ED) 16
+1 Infantry Veteran (9ED) 21
+2 Master Decoy (9ED) 27
+1 Mending Hands (9ED) 29
+2 Pacifism (9ED) 31
+1 Phyrexian Hulk (9ED) 306
+4 Plains (9ED) 331
+4 Plains (9ED) 332
+4 Plains (9ED) 333
+4 Plains (9ED) 334
+1 Righteousness (9ED) 36
+1 Skyhunter Prowler (9ED) 45
+2 Suntail Hawk (9ED) 49
+1 Venerable Monk (9ED) 51
+2 Veteran Cavalier (9ED) 52

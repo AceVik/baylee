@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Ears of the Elves
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EarsOfTheElves_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Coat of Arms (PS11) 186 [es]
+1 Drove of Elves (PS11) 128 [es]
+2 Elven Riders (PS11) 130 [es]
+1 Elvish Champion (PS11) 131 [es]
+3 Elvish Eulogist (PS11) 132 [es]
+1 Elvish Promenade (PS11) 133 [es]
+2 Elvish Visionary (PS11) 134 [es]
+3 Elvish Warrior (PS11) 135 [es]
+2 Essence Drain (PS11) 68 [es]
+3 Eyeblight's Ending (PS11) 69 [es]
+4 Forest (PS11) 221 [es]
+4 Forest (PS11) 222 [es]
+4 Forest (PS11) 223 [es]
+4 Forest (PS11) 224 [es]
+1 Gaea's Herald (PS11) 137 [es]
+4 Giant Growth (PS11) 138 [es]
+1 Greenweaver Druid (PS11) 140 [es]
+1 Immaculate Magistrate (PS11) 143 [es]
+1 Imperious Perfect (PS11) 144 [es]
+1 Jagged-Scar Archers (PS11) 145 [es]
+1 Lys Alana Huntmaster (PS11) 147 [es]
+2 Moonglove Winnower (PS11) 77 [es]
+1 Naturalize (PS11) 151 [es]
+1 Nature's Spiral (PS11) 152 [es]
+2 Swamp (PS11) 213 [es]
+2 Swamp (PS11) 214 [es]
+2 Swamp (PS11) 215 [es]
+2 Swamp (PS11) 216 [es]
+1 Talara's Battalion (PS11) 160 [es]
+2 Wurm's Tooth (PS11) 203 [es]

@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Carlos Romão - Psychatog
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CarlosRomãoPsychatog_WC02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC02
+# released: 2002-08-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Cephalid Coliseum (WC02) cr317
+3 Chainer's Edict (WC02) cr57
+3 Circular Logic (WC02) cr33
+4 Counterspell (WC02) cr67
+3 Cunning Wish (WC02) cr37
+1 Darkwater Catacombs (WC02) cr319
+3 Deep Analysis (WC02) cr36
+3 Fact or Fiction (WC02) cr57a
+1 Island (WC02) cr332
+1 Island (WC02) cr333
+1 Island (WC02) cr334
+1 Island (WC02) cr335
+1 Island (WC02) cr335a
+1 Island (WC02) cr335b
+1 Island (WC02) cr336
+1 Island (WC02) cr337a
+1 Island (WC02) cr337b
+1 Island (WC02) cr338
+3 Memory Lapse (WC02) cr88
+4 Nightscape Familiar (WC02) cr48
+4 Psychatog (WC02) cr292
+4 Repulse (WC02) cr70
+4 Salt Marsh (WC02) cr326
+1 Swamp (WC02) cr340
+1 Swamp (WC02) cr341
+1 Swamp (WC02) cr342
+4 Underground River (WC02) cr350
+2 Upheaval (WC02) cr113
+SB: 1 Coffin Purge (WC02) cr124sb
+SB: 4 Duress (WC02) cr131sb
+SB: 1 Fact or Fiction (WC02) cr57sb
+SB: 1 Gainsay (WC02) cr26sb
+SB: 3 Ghastly Demise (WC02) cr139sb
+SB: 1 Hibernation (WC02) cr79sb
+SB: 1 Mana Short (WC02) cr86sb
+SB: 1 Recoil (WC02) cr264sb
+SB: 1 Slay (WC02) cr55sb
+SB: 1 Teferi's Response (WC02) cr78sb

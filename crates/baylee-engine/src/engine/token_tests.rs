@@ -1412,3 +1412,168 @@ fn a_token_that_ceased_to_exist_still_fires_the_triggers_its_death_caused() {
         "the departed objects are dropped by the scan that read them"
     );
 }
+
+fn pyrogoyf() -> CardIndex {
+    card_index("7fd7457a-388d-4cca-a7cf-86b4ea922037")
+}
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+fn raise_the_alarm() -> CardIndex {
+    card_index("5b2364d7-a811-4595-a1b4-224c70555ffa")
+}
+fn ashnods_altar() -> CardIndex {
+    card_index("4d18bcba-a346-445e-a182-6cc30b7e066d")
+}
+
+/// A token put into a graveyard lies there until the next check of
+/// state-based actions removes it (CR 704.5d), and a projection taken in
+/// between must not outlive it. Sacrificed to Ashnod's Altar, a Soldier
+/// reaches the graveyard through `move_object`, which invalidates; the
+/// engine's loop refreshes the projection before it checks state-based
+/// actions, so Pyrogoyf read the Soldier there; and the removal invalidated
+/// nothing, so with the effect table unmoved that reading was what every
+/// reader got afterwards. Pyrogoyf stayed a 2/3 over graveyards holding
+/// one instant card and nothing else.
+#[test]
+fn a_token_ceasing_to_exist_in_a_graveyard_is_seen_by_the_projection() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, island())
+        .battlefield(0, &[pyrogoyf(), ashnods_altar(), plains(), plains()])
+        .hand(0, &[raise_the_alarm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).expect("Pyrogoyf starts out");
+    let altar = on_battlefield(&engine, p0, ashnods_altar()).expect("the Altar stands");
+
+    cast_from_hand(&mut engine, p0, raise_the_alarm());
+    pass_until(&mut engine, stack_is_empty);
+    let soldier = *tokens_on_battlefield(&engine)
+        .first()
+        .expect("Raise the Alarm made two Soldiers");
+    assert_eq!(
+        power_and_toughness(&engine, goyf),
+        (1, 2),
+        "an instant card in a graveyard"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: altar,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![soldier],
+            },
+        )
+        .unwrap();
+
+    assert!(
+        engine.state().object(soldier).is_none(),
+        "the Soldier was sacrificed and ceased to exist"
+    );
+    assert_eq!(
+        power_and_toughness(&engine, goyf),
+        (1, 2),
+        "an instant card in a graveyard, and no creature card"
+    );
+    assert!(engine.projection_is_fresh(), "nothing is left stale");
+}
+
+fn fiend_artisan() -> CardIndex {
+    card_index("43b8456a-3333-4936-a09c-324327619c36")
+}
+fn unlicensed_hearse() -> CardIndex {
+    card_index("c640654c-487e-4a2c-aced-126ed835b78f")
+}
+
+/// "Card types among cards in all graveyards" (Pyrogoyf), "each creature
+/// card in your graveyard" (Fiend Artisan), "the number of cards exiled
+/// with it" (Unlicensed Hearse): each counts cards, and a token is not one
+/// (CR 108.2b). A token lies in a graveyard or in exile from the moment it
+/// arrives until state-based actions remove it (CR 704.5d), and the
+/// engine's loop projects in between; the three counts read every object
+/// there. The board is what that projection sees: one Soldier token in the
+/// graveyard and one in exile with the Hearse, beside the instant card that
+/// made them.
+#[test]
+fn a_token_in_a_graveyard_or_in_exile_is_no_card_to_a_count() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(11, island())
+        .battlefield(
+            0,
+            &[
+                pyrogoyf(),
+                fiend_artisan(),
+                unlicensed_hearse(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[raise_the_alarm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let goyf = on_battlefield(&engine, p0, pyrogoyf()).expect("Pyrogoyf starts out");
+    let fiend = on_battlefield(&engine, p0, fiend_artisan()).expect("the Fiend starts out");
+    let hearse = on_battlefield(&engine, p0, unlicensed_hearse()).expect("the Hearse stands");
+    cast_from_hand(&mut engine, p0, raise_the_alarm());
+    pass_until(&mut engine, stack_is_empty);
+    let [dead, exiled] = tokens_on_battlefield(&engine)[..] else {
+        panic!("Raise the Alarm made two Soldiers");
+    };
+    let sizes = |engine: &Engine<RegistryLookup>| {
+        [goyf, fiend, hearse].map(|id| power_and_toughness(engine, id))
+    };
+    let before = sizes(&engine);
+    assert_eq!(
+        before,
+        [(1, 2), (1, 1), (0, 0)],
+        "an instant card in the graveyard, no creature card, nothing exiled"
+    );
+
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    let mark = {
+        let host = state.object(hearse).expect("the Hearse is an object");
+        crate::object::Rider::ExiledWith {
+            host: hearse,
+            version: crate::object::Rider::version_of(host),
+        }
+    };
+    for (token, to) in [
+        (dead, ZoneLocation::Graveyard(p0)),
+        (exiled, ZoneLocation::Exile(p0)),
+    ] {
+        state
+            .move_object(
+                token,
+                to,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the token moves");
+    }
+    state
+        .object_mut(exiled)
+        .expect("the token lies in exile")
+        .riders
+        .push(mark);
+    state.refresh_characteristics();
+
+    assert_eq!(
+        sizes(&engine),
+        before,
+        "a Soldier token counts as no creature card in a graveyard and as no card exiled \
+         with the Hearse"
+    );
+}

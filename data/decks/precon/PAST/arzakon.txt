@@ -1,0 +1,92 @@
+# baylee deck export v1
+# name: Arzakon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Arzakon_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aladdin's Ring (ARN) 57
+1 Ancestral Recall (2ED) 48
+2 Animate Dead (3ED) 93
+1 Berserk (2ED) 186
+1 Black Mana Battery (LEG) 274
+2 Blood Lust (LEG) 135
+1 Blue Mana Battery (LEG) 275
+1 Braingeyser (3ED) 50
+2 Brass Man (ARN) 59
+1 Circle of Protection: Artifacts (ATQ) 4
+1 Circle of Protection: Black (3ED) 9
+1 Circle of Protection: Blue (3ED) 10
+1 Circle of Protection: Green (3ED) 11
+1 Circle of Protection: Red (3ED) 12
+1 Circle of Protection: White (3ED) 13
+1 Clockwork Avian (ATQ) 45
+1 Clockwork Beast (3ED) 240
+1 Colossus of Sardia (ATQ) 46
+1 Dancing Scimitar (ARN) 61
+2 Desert Twister (ARN) 46
+1 Diabolic Machine (DRK) 101
+2 Disintegrate (3ED) 142
+2 Elvish Archers (3ED) 193
+2 Erg Raiders (ARN) 25
+4 Fellwar Stone (DRK) 102
+2 Fog (3ED) 195
+2 Forest (3ED) 304
+2 Forest (3ED) 305
+2 Forest (3ED) 306
+4 Gem Bazaar (PAST) 12
+2 Giant Growth (3ED) 199
+2 Giant Strength (LEG) 149
+1 Grapeshot Catapult (ATQ) 52
+1 Green Mana Battery (LEG) 279
+2 Grizzly Bears (3ED) 201
+2 Howl from Beyond (3ED) 114
+2 Hurr Jackal (ARN) 39
+2 Immolation (LEG) 153
+2 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+2 Lightning Bolt (3ED) 162
+2 Mesa Pegasus (3ED) 28
+1 Mind Twist (3ED) 117
+4 Mishra's Factory (ATQ) 80a
+1 Mishra's Workshop (ATQ) 81
+6 Mountain (ARN) 77
+1 Mox Emerald (2ED) 262
+1 Mox Jet (2ED) 263
+1 Mox Pearl (2ED) 264
+1 Mox Ruby (2ED) 265
+1 Mox Sapphire (2ED) 266
+1 Obsianus Golem (3ED) 268
+2 Paralyze (3ED) 121
+2 Pikemen (DRK) 15
+2 Plains (3ED) 292
+2 Plains (3ED) 293
+2 Plains (3ED) 294
+2 Power Sink (3ED) 74
+2 Pyrotechnics (LEG) 161
+2 Raise Dead (3ED) 124
+1 Red Mana Battery (LEG) 291
+1 Regrowth (3ED) 214
+2 Samite Healer (3ED) 38
+2 Savannah Lions (3ED) 39
+1 Shapeshifter (ATQ) 64
+2 Siren's Call (3ED) 80
+1 Sol Ring (3ED) 274
+2 Spirit Link (LEG) 37
+2 Swamp (3ED) 298
+2 Swamp (3ED) 299
+2 Swamp (3ED) 300
+1 Tetravus (ATQ) 71
+2 The Hive (3ED) 277
+1 Time Walk (2ED) 84
+1 Timetwister (2ED) 85
+1 Triskelion (ATQ) 73
+1 Urza's Avenger (ATQ) 74
+2 Wall of Dust (LEG) 168
+1 Wheel of Fortune (3ED) 185
+1 White Mana Battery (LEG) 299
+2 Will-o'-the-Wisp (3ED) 137
+2 Zephyr Falcon (LEG) 86

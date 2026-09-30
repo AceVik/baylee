@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Wrath of Mages
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WrathOfMages_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aven Wind Mage (M19) 45
+1 Banefire (M19) 130
+2 Blink of an Eye (DOM) 46
+3 Disperse (M19) 50
+3 Enigma Drake (M19) 216
+1 Entrancing Melody (XLN) 55
+2 Fight with Fire (DOM) 119
+3 Ghitu Lavarunner (DOM) 127
+2 Guttersnipe (M19) 145
+4 Highland Lake (M19) 252
+3 Island (M19) 265
+3 Island (M19) 266
+2 Island (M19) 267
+2 Island (M19) 268
+2 Lightning Strike (M19) 152
+3 Mountain (M19) 273
+3 Mountain (M19) 274
+2 Mountain (M19) 275
+2 Mountain (M19) 276
+1 Mystic Archaeologist (M19) 63
+1 Repeating Barrage (XLN) 156
+1 River's Rebuke (XLN) 71
+1 Rowdy Crew (XLN) 159
+1 Salvager of Secrets (M19) 70
+3 Shivan Fire (DOM) 142
+3 Sift (M19) 72
+1 Sulfur Falls (DOM) 247
+3 Vodalian Arcanist (DOM) 73

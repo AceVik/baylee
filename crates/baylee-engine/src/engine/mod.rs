@@ -48,6 +48,17 @@ pub enum EngineError {
     State(#[from] StateError),
 }
 
+impl From<crate::choice::AnswerFault> for EngineError {
+    /// An answer of the wrong kind is a mismatch, as it always was; every
+    /// other fault is an illegal answer, in the fault's words.
+    fn from(fault: crate::choice::AnswerFault) -> Self {
+        match fault {
+            crate::choice::AnswerFault::WrongKind => Self::MismatchedAction,
+            other => Self::IllegalAction(other.reason()),
+        }
+    }
+}
+
 /// Which combat declaration has already happened this step.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum CombatDeclared {
@@ -354,6 +365,12 @@ pub struct Engine<L: CardLookup> {
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
+    /// The as-it-enters questions still owed to permanents that entered
+    /// together, in the order they are asked: by seat in APNAP order, then
+    /// in the order the permanents entered (CR 101.4). Step 0b applies every
+    /// co-arrival's other replacements first and asks these one at a time
+    /// ([`Self::apply_enter_modifiers`]).
+    entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
     /// Delayed actions come due, each with the player who controls it
     /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
@@ -719,6 +736,7 @@ impl<L: CardLookup> Engine<L> {
                 player: PlayerId::new(0),
                 taken: 0,
                 next_is_free: preset.house_rules.free_mulligan_count() > 0,
+                can_take: true,
             },
             passes: 0,
             priority_holder: None,
@@ -744,6 +762,7 @@ impl<L: CardLookup> Engine<L> {
             activation_phyrexian: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
+            entry_questions: VecDeque::new(),
             delayed_queue: VecDeque::new(),
             upkeep_payments: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),
@@ -764,7 +783,12 @@ impl<L: CardLookup> Engine<L> {
         // What the preset dealt moved the projection's inputs: a starting
         // battlefield, and a card defining its own power and toughness drawn
         // into an opening hand. An Ashaya in hand with two Forests out was
-        // asked about as the 0/0 its card prints.
+        // asked about as the 0/0 its card prints. And a starting
+        // battlefield's static abilities apply from the moment it is there
+        // (CR 604.2), not from turn 1: the loop registers them in the same
+        // first step, so they are registered here too, or every hand is
+        // kept beside a board shown without them.
+        engine.sync_static_effects();
         engine.state.refresh_characteristics();
         Ok(engine)
     }
@@ -1074,6 +1098,7 @@ impl<L: CardLookup> Engine<L> {
             activating_abilities,
             capabilities,
             entry_scan_seq,
+            entry_questions,
             delayed_queue,
             upkeep_payments,
             synthetic_fx,
@@ -1137,6 +1162,7 @@ impl<L: CardLookup> Engine<L> {
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("capabilities", format!("{capabilities:?}")),
             ("entry_scan_seq", format!("{entry_scan_seq:?}")),
+            ("entry_questions", format!("{entry_questions:?}")),
             ("delayed_queue", format!("{delayed_queue:?}")),
             ("upkeep_payments", format!("{upkeep_payments:?}")),
             ("synthetic_fx", format!("{fx:?}")),
@@ -1523,6 +1549,8 @@ mod land_mana_tests;
 mod land_play_tests;
 #[cfg(test)]
 mod land_type_tests;
+#[cfg(test)]
+mod leave_probe_tests;
 #[cfg(test)]
 mod leave_tests;
 #[cfg(test)]

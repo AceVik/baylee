@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Artful Destruction
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ArtfulDestruction_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: NPH
+# released: 2011-05-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blade Splicer (NPH) 4 *F*
+1 Brutalizer Exarch (NPH) 105
+1 Conversion Chamber (NPH) 133
+3 Copper Myr (SOM) 146
+2 Cultivate (M11) 168
+2 Forced Worship (NPH) 11
+6 Forest (NPH) 174
+6 Forest (NPH) 175
+1 Garruk's Packleader (M11) 177
+1 Giant Growth (M11) 178
+1 Glissa's Scorn (NPH) 110
+3 Gold Myr (SOM) 157
+1 Golem Artisan (SOM) 159
+3 Master Splicer (NPH) 16
+1 Maul Splicer (NPH) 114
+1 Mighty Leap (M11) 22
+2 Palladium Myr (SOM) 190
+1 Phyrexian Hulk (NPH) 150
+6 Plains (NPH) 166
+6 Plains (NPH) 167
+1 Precursor Golem (SOM) 194
+2 Sensor Splicer (NPH) 22
+1 Stone Golem (M11) 215
+2 Suture Priest (NPH) 25
+1 Viridian Harvest (NPH) 125
+2 Vital Splicer (NPH) 126
+2 War Report (NPH) 26

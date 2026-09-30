@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: On the Hunt
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OnTheHunt_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arlinn, the Pack's Hope // Arlinn, the Moon's Fury (MID) 211
+3 Child of the Pack // Savage Packmate (VOW) 234
+1 Fangblade Brigand // Fangblade Eviscerator (MID) 139
+5 Forest (SNC) 270
+4 Forest (SNC) 271
+1 Halana and Alena, Partners (VOW) 239
+1 Howling Moon (VOW) 204
+1 Howlpack Piper // Wildsong Howler (VOW) 205
+3 Hungry Ridgewolf (VOW) 161
+3 Kessig Naturalist // Lord of the Ulvenwald (MID) 231
+2 Lunar Frenzy (MID) 147
+3 Moonrager's Slash (MID) 148
+5 Mountain (SNC) 268
+4 Mountain (SNC) 269
+2 Outland Liberator // Frenzied Trapbreaker (MID) 190
+2 Packsong Pup (VOW) 213
+2 Racers' Ring (SNC) 253
+1 Reckless Stormseeker // Storm-Charged Slasher (MID) 157
+1 Rockfall Vale (MID) 266
+4 Rugged Highlands (NEO) 273
+3 Snarling Wolf (VOW) 219
+1 Tovolar, Dire Overlord // Tovolar, the Midnight Scourge (MID) 246
+2 Unnatural Moonrise (MID) 247
+3 Weaver of Blossoms // Blossom-Clad Werewolf (VOW) 226
+2 Wolf Strike (VOW) 228

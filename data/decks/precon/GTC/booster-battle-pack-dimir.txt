@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Booster Battle Pack: Dimir
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoosterBattlePackDimir_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Call of the Nightwing (GTC) 149
+1 Death's Approach (GTC) 62
+1 Deathcult Rogue (GTC) 218
+1 Dimir Guildgate (GTC) 241
+1 Gridlock (GTC) 36
+1 Hands of Binding (GTC) 37
+1 Horror of the Dim (GTC) 68
+1 Island (RTR) 255
+1 Island (RTR) 256
+1 Island (RTR) 257
+1 Island (RTR) 258
+1 Island (RTR) 259
+1 Metropolis Sprite (GTC) 42
+1 Mortus Strider (GTC) 179
+1 Shadow Alley Denizen (GTC) 76
+1 Shadow Slice (GTC) 77
+1 Skygames (GTC) 51
+1 Swamp (RTR) 260
+1 Swamp (RTR) 261
+1 Swamp (RTR) 262
+1 Swamp (RTR) 263
+1 Swamp (RTR) 264

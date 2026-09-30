@@ -150,6 +150,17 @@ pub enum Filter {
     /// The object the SOURCE is attached to (equipment/auras): matches the
     /// creature the source is attached to.
     AttachedToBySource,
+    /// Is attached to an object or player — the object itself, not what it
+    /// holds on to (that is [`Self::AttachedToBySource`], read from the other
+    /// end).
+    ///
+    /// Reconfigure's "While attached, this isn't a creature" asks it of its
+    /// own source (CR 702.151b), which is what lets an attached reconfigure
+    /// Equipment stay on the creature it equips: a creature that is
+    /// attached to anything becomes unattached (CR 704.5p). Game state
+    /// rather than a characteristic, so no continuous effect changes whether
+    /// an object matches.
+    IsAttached,
     /// Has this keyword.
     HasKeyword(KeywordSet),
     /// Converted mana cost at most N.

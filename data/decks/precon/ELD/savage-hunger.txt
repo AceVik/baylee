@@ -1,0 +1,65 @@
+# baylee deck export v1
+# name: Savage Hunger
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SavageHunger_ELD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Brawl Deck
+# set: ELD
+# released: 2019-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Korvold, Fae-Cursed King (ELD) 329 *F*
+1 Angrath, Captain of Chaos (WAR) 227
+1 Arcane Signet (ELD) 331
+1 Bake into a Pie (ELD) 76
+1 Bloodfell Caves (M20) 242
+1 Bloodsoaked Altar (M20) 90
+1 Chittering Witch (ELD) 319
+1 Command Tower (ELD) 333
+1 Cryptic Caves (M20) 244
+1 Deathsprout (WAR) 189
+1 Dreadhorde Invasion (WAR) 86
+1 Evolution Sage (WAR) 159
+1 Evolving Wilds (M20) 246
+1 Find // Finality (GRN) 225
+2 Forest (ELD) 266
+2 Forest (ELD) 267
+1 Forest (ELD) 268
+1 Forest (ELD) 269
+1 Gluttonous Troll (ELD) 327
+1 Goblin Cratermaker (GRN) 103
+1 Golden Egg (ELD) 220
+1 Golgari Findbroker (GRN) 175
+1 Golgari Guildgate (GRN) 249
+1 Gruul Guildgate (RNA) 249
+1 Judith, the Scourge Diva (RNA) 185
+1 Jungle Hollow (M20) 248
+1 Keeper of Fables (ELD) 163
+1 Krenko, Tin Street Kingpin (WAR) 137
+1 Leyline Prowler (WAR) 202
+1 Mayhem Devil (WAR) 204
+1 Moldervine Reclamation (M20) 214
+1 Mountain (ELD) 262
+1 Mountain (ELD) 263
+1 Orzhov Enforcer (RNA) 79
+1 Paradise Druid (WAR) 171
+1 Plaguecrafter (GRN) 82
+1 Pollenbright Druid (WAR) 173
+1 Priest of Forgotten Gods (RNA) 83
+1 Rakdos Guildgate (RNA) 256
+1 Rapacious Dragon (M20) 153
+1 Rhythm of the Wild (RNA) 201
+1 Rugged Highlands (M20) 250
+1 Savvy Hunter (ELD) 200
+1 Stomping Ground (RNA) 259
+2 Swamp (ELD) 258
+2 Swamp (ELD) 259
+1 Swamp (ELD) 260
+1 Swamp (ELD) 261
+1 Syr Konrad, the Grim (ELD) 107
+1 Taste of Death (ELD) 320
+1 Temple of Malady (M20) 254
+1 Thorn Mammoth (ELD) 323
+1 Thrashing Brontodon (M20) 197
+1 Vindictive Vampire (RNA) 90
+1 Witch's Oven (ELD) 237
+1 Woodland Champion (M20) 205

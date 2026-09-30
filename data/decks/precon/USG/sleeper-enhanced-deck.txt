@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Sleeper - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SleeperEnhancedDeck_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Argothian Enchantress (USG) 234
+3 Brilliant Halo (USG) 5
+2 Citanul Centaurs (USG) 243
+2 Clear (USG) 7
+1 Disenchant (USG) 12
+4 Drifting Meadow (USG) 320
+4 Endless Wurm (USG) 249
+3 Forest (USG) 347
+3 Forest (USG) 348
+2 Forest (USG) 349
+2 Forest (USG) 350
+1 Fortitude (USG) 253
+2 Harrow (TMP) 230
+1 Hidden Ancients (USG) 260
+1 Hidden Guerrillas (USG) 261
+1 Hidden Herd (USG) 262
+2 Hidden Predators (USG) 263
+2 Hidden Stag (USG) 265
+3 Humble (USG) 18
+1 Hurricane (5ED) 303
+1 Lhurgoyf (5ED) 309
+1 Oath of Lieges (EXO) 11
+3 Pariah (USG) 28
+2 Plains (USG) 331
+2 Plains (USG) 332
+1 Plains (USG) 333
+1 Plains (USG) 334
+4 Slippery Karst (USG) 327
+1 Worship (USG) 57
+SB: 3 Disenchant (USG) 12
+SB: 1 Feldon's Cane (5ED) 368
+SB: 1 Hurricane (5ED) 303
+SB: 2 Light of Day (TMP) 27
+SB: 1 Rune of Protection: Black (USG) 36
+SB: 2 Rune of Protection: Red (USG) 40
+SB: 2 Scragnoth (TMP) 253
+SB: 2 Spreading Algae (USG) 274
+SB: 1 Worship (USG) 57

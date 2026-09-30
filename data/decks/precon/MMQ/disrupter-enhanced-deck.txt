@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Disrupter - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DisrupterEnhancedDeck_MMQ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: MMQ
+# released: 1999-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Avalanche Riders (ULG) 74
+2 Befoul (USG) 116
+2 Bone Shredder (ULG) 49
+1 Cateran Enforcer (MMQ) 121
+2 Cinder Elemental (MMQ) 183
+4 Dark Ritual (MMQ) 129
+2 Deepwood Ghoul (MMQ) 131
+2 Duress (USG) 132
+2 Enslaved Horror (MMQ) 134
+2 Goblin War Buggy (USG) 196
+2 Mountain (MMQ) 343
+2 Mountain (MMQ) 344
+1 Mountain (MMQ) 345
+1 Mountain (MMQ) 346
+2 Pillage (6ED) 198
+1 Rain of Tears (MMQ) 155
+2 Shock (6ED) 206
+3 Shock Troops (MMQ) 212
+1 Silent Assassin (MMQ) 160
+2 Snuff Out (MMQ) 162
+2 Stone Rain (MMQ) 215
+4 Sulfurous Springs (6ED) 328
+3 Swamp (MMQ) 339
+2 Swamp (MMQ) 340
+2 Swamp (MMQ) 341
+2 Swamp (MMQ) 342
+1 Thrashing Wumpus (MMQ) 166
+2 Thunderclap (MMQ) 219
+3 Undertaker (MMQ) 167
+1 Vendetta (MMQ) 170

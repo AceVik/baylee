@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeckB_5ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 5ED
+# released: 1997-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bog Imp (5ED) 145
+1 Bog Rats (5ED) 146
+1 Bog Wraith (5ED) 147
+1 Counterspell (5ED) 77
+1 Erg Raiders (5ED) 158
+1 Frozen Shade (5ED) 163
+2 Island (5ED) 434
+2 Island (5ED) 435
+1 Island (5ED) 436
+1 Island (5ED) 437
+1 Merfolk of the Pearl Trident (5ED) 104
+1 Mole Worms (5ED) 179
+1 Phantom Monster (5ED) 108
+1 Prodigal Sorcerer (5ED) 112
+1 Rod of Ruin (5ED) 396
+1 Scathe Zombies (5ED) 192
+1 Soul Barrier (5ED) 125
+1 Soul Net (5ED) 400
+2 Swamp (5ED) 438
+2 Swamp (5ED) 439
+1 Swamp (5ED) 440
+1 Swamp (5ED) 441
+1 Terror (5ED) 196
+1 Unholy Strength (5ED) 201
+1 Vodalian Soldiers (5ED) 134
+1 Zephyr Falcon (5ED) 137

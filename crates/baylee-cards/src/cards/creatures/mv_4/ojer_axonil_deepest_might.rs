@@ -59,6 +59,10 @@ card!(
     ],
     abilities = &[triggered!(
         Trigger::Dies(&Filter::This),
-        &[Effect::ExileSelfReturnAsFace { face: 1 }]
+        // "…under its owner's control."
+        &[Effect::ExileSelfReturnAsFace {
+            face: 1,
+            owner_control: true,
+        }]
     )],
 );

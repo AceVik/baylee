@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Scout
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Scout_PLS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PLS
+# released: 2001-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Amphibious Kavu (PLS) 78
+1 Ancient Kavu (INV) 136
+1 Armadillo Cloak (INV) 229
+1 Aurora Griffin (PLS) 2
+1 Eladamri's Call (PLS) 106
+1 Elfhame Palace (INV) 322
+2 Fertile Ground (INV) 188
+1 Fleetfoot Panther (PLS) 108
+3 Forest (INV) 347
+3 Forest (INV) 348
+3 Forest (INV) 349
+2 Forest (INV) 350
+1 Geothermal Crevice (INV) 323
+2 Gerrard's Command (PLS) 109
+1 Harrow (INV) 189
+1 Horned Kavu (PLS) 110
+1 Irrigation Ditch (INV) 324
+1 Magma Burst (PLS) 66
+1 Mirrorwood Treefolk (PLS) 83
+1 Mountain (INV) 343
+1 Mountain (INV) 344
+1 Nomadic Elf (INV) 200
+1 Plains (INV) 331
+1 Plains (INV) 332
+1 Plains (INV) 333
+1 Pollen Remedy (PLS) 13
+1 Quirion Elves (INV) 203
+2 Quirion Explorer (PLS) 90
+1 Radiant Kavu (PLS) 120
+1 Rampant Elephant (INV) 28
+1 Rith's Charm (PLS) 122
+2 Rith's Grove (PLS) 141
+1 Shivan Oasis (INV) 327
+1 Singe (PLS) 71
+1 Slingshot Goblin (PLS) 72
+1 Steel Leaf Paladin (PLS) 127
+3 Stone Kavu (PLS) 93
+2 Sunscape Battlemage (PLS) 16
+1 Thornscape Apprentice (INV) 215
+2 Thornscape Battlemage (PLS) 94
+1 Thornscape Familiar (PLS) 95
+2 Thunderscape Battlemage (PLS) 75
+1 Viashino Grappler (INV) 179
+1 Zap (INV) 180

@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Alex Borteh - Merfolk Opposition
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AlexBortehMerfolkOpposition_WC01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC01
+# released: 2001-08-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Counterspell (WC01) ab67
+2 Counterspell (WC01) ab69
+2 Darting Merfolk (WC01) ab72
+4 Gush (WC01) ab82
+2 Island (WC01) ab332
+2 Island (WC01) ab333
+2 Island (WC01) ab334
+2 Island (WC01) ab335
+2 Island (WC01) ab335a
+2 Island (WC01) ab335b
+2 Island (WC01) ab336
+2 Island (WC01) ab336a
+1 Island (WC01) ab337
+1 Island (WC01) ab337a
+1 Island (WC01) ab338
+1 Island (WC01) ab338a
+4 Lord of Atlantis (WC01) ab83
+4 Merfolk Looter (WC01) ab89
+4 Merfolk of the Pearl Trident (WC01) ab90
+4 Opposition (WC01) ab92
+4 Static Orb (WC01) ab319
+4 Thwart (WC01) ab108
+4 Vodalian Merchant (WC01) ab85
+2 Waterfront Bouncer (WC01) ab114
+SB: 3 Hibernation (WC01) ab79sb
+SB: 3 Mana Maze (WC01) ab59sb
+SB: 2 Misdirection (WC01) ab87sb
+SB: 2 Prodigal Sorcerer (WC01) ab94sb
+SB: 1 Rushing River (WC01) ab30sb
+SB: 2 Teferi's Response (WC01) ab78sb
+SB: 2 Wash Out (WC01) ab87bsb

@@ -646,6 +646,11 @@ impl Status {
     pub const PHASED_OUT: Self = Self(4);
     /// Flipped (flip cards).
     pub const FLIPPED: Self = Self(8);
+    /// Beside [`Self::PHASED_OUT`]: phased out *indirectly*, with the
+    /// permanent it is attached to (CR 702.26g), so it phases in with that
+    /// permanent and never by itself. Not a status of CR 110.5, which has
+    /// four; the view leaves it out ([`Self::public`]).
+    pub const PHASED_OUT_INDIRECTLY: Self = Self(16);
 
     /// Whether all bits of `other` are set.
     #[must_use]
@@ -667,6 +672,14 @@ impl Status {
     #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
+    }
+
+    /// The four statuses of CR 110.5, which is what a player is shown: how
+    /// a permanent phased out is the engine's bookkeeping for when it phases
+    /// in, and "phased out" says all a player can see of it.
+    #[must_use]
+    pub const fn public(self) -> Self {
+        Self(self.0 & !Self::PHASED_OUT_INDIRECTLY.0)
     }
 }
 
@@ -962,9 +975,23 @@ pub struct GameObject {
     pub status: Status,
     /// What this object is attached to (auras/equipment).
     pub attached_to: Option<ObjectId>,
-    /// Entered-the-current-zone timestamp (effects ordering, summoning
-    /// sickness evaluation).
+    /// The object's timestamp in the sense of CR 613.7: what orders the
+    /// continuous effects of its static abilities against other effects in
+    /// the same layer (CR 613.7a). It is taken as the object enters a zone
+    /// (CR 613.7d) and again each time the permanent transforms
+    /// (CR 613.7g). It says nothing about summoning sickness; that is
+    /// [`Self::controlled_since`].
     pub timestamp: u64,
+    /// The moment the object's current controller began controlling it
+    /// without a break, on the same clock as [`Self::timestamp`]: the
+    /// object's arrival in its zone, and again at every change of control.
+    /// This is what CR 302.6 asks about (read by
+    /// [`crate::combat::summoning_sick`] against
+    /// [`crate::state::Player::turn_start_timestamp`]). A transform does not
+    /// move it, because the permanent stays the same object under the same
+    /// controller (CR 712.18); the two fields used to be one, which is why a
+    /// transform could not take the timestamp CR 613.7g gives it.
+    pub controlled_since: u64,
     /// Identity version; bumped on every zone change (CR 400.7).
     pub version: u32,
     /// Exile riders.
@@ -1168,6 +1195,7 @@ impl GameObject {
             status: Status::NONE,
             attached_to: None,
             timestamp: 0,
+            controlled_since: 0,
             version: 0,
             riders: RiderSet::new(),
             targets: SmallVec::new(),
@@ -1411,6 +1439,22 @@ impl GameObject {
         Arc::make_mut(&mut self.base)
     }
 
+    /// Whether this object is a card: "a Magic card or an object
+    /// represented by a Magic card" (CR 108.2), which is what text means by
+    /// "card".
+    ///
+    /// A token is not one (CR 108.2b), nor is an emblem or an ability on the
+    /// stack, and none of them has a card behind it. A copy of a card or of
+    /// a spell is not one either (CR 109.1 names "a card" and "a copy of a
+    /// card" as different objects), and it does carry the copied card, so
+    /// its [`Rider::SpellCopy`] is what tells it apart. Both kinds cease to
+    /// exist outside the battlefield and the stack (CR 704.5d, 704.5e), but
+    /// not before a projection or a trigger may have looked at them there.
+    #[must_use]
+    pub fn is_card(&self) -> bool {
+        self.card.is_some() && !self.riders.contains(&Rider::SpellCopy)
+    }
+
     /// Current characteristics.
     ///
     /// Returns the layer-projected cache when it has been computed (the
@@ -1535,13 +1579,14 @@ mod object_tests {
 
     // ---- status flags --------------------------------------------------
 
-    /// The four flags a permanent can wear, so a test can say "each" and a
-    /// fifth one added to `Status` is one line away from being covered.
-    const FLAGS: [(&str, Status); 4] = [
+    /// The five flags a permanent can wear, so a test can say "each" and a
+    /// sixth one added to `Status` is one line away from being covered.
+    const FLAGS: [(&str, Status); 5] = [
         ("tapped", Status::TAPPED),
         ("face down", Status::FACE_DOWN),
         ("phased out", Status::PHASED_OUT),
         ("flipped", Status::FLIPPED),
+        ("phased out indirectly", Status::PHASED_OUT_INDIRECTLY),
     ];
 
     #[test]
@@ -1632,5 +1677,27 @@ mod object_tests {
             status.remove(flag);
         }
         assert_eq!(status.bits(), Status::NONE.bits());
+    }
+
+    #[test]
+    fn a_player_is_shown_the_four_statuses_and_not_how_it_phased_out() {
+        for (name, flag) in FLAGS {
+            let mut status = Status::NONE;
+            status.insert(flag);
+            let shown = flag != Status::PHASED_OUT_INDIRECTLY;
+            assert_eq!(
+                status.public().contains(flag),
+                shown,
+                "{name}: shown is {shown}"
+            );
+        }
+        let mut indirect = Status::NONE;
+        indirect.insert(Status::PHASED_OUT);
+        indirect.insert(Status::PHASED_OUT_INDIRECTLY);
+        assert_eq!(
+            indirect.public().bits(),
+            Status::PHASED_OUT.bits(),
+            "an Aura phased out with its creature shows as phased out"
+        );
     }
 }

@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Phyrexian Poison
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianPoison_SOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: SOM
+# released: 2010-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Assassinate (M11) 81
+1 Blackcleave Goblin (SOM) 54
+2 Bladed Pinions (SOM) 140
+2 Carrion Call (SOM) 115
+1 Contagious Nim (SOM) 58
+2 Corpse Cur (SOM) 147
+2 Cystbearer (SOM) 117
+4 Forest (SOM) 246
+3 Forest (SOM) 247
+3 Forest (SOM) 248
+3 Forest (SOM) 249
+2 Giant Growth (M11) 178
+1 Hand of the Praetors (SOM) 66
+1 Heavy Arbalest (SOM) 164
+2 Ichor Rats (SOM) 67
+3 Ichorclaw Myr (SOM) 166
+2 Necropede (SOM) 185
+3 Plague Stinger (SOM) 75
+1 Putrefax (SOM) 126 *F*
+1 Relic Putrescence (SOM) 77
+1 Rise from the Grave (M11) 114
+2 Slice in Twain (SOM) 127
+1 Strider Harness (SOM) 207
+4 Swamp (SOM) 238
+3 Swamp (SOM) 239
+3 Swamp (SOM) 240
+3 Swamp (SOM) 241
+2 Tangle Angler (SOM) 128

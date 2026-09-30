@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Sedge Beast
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SedgeBeast_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blight (LEG) 89
+4 Cyclopean Mummy (LEG) 93
+2 Dancing Scimitar (ARN) 61
+2 Diabolic Machine (DRK) 101
+4 Erg Raiders (ARN) 25
+4 Fissure (DRK) 63
+2 Immolation (LEG) 153
+4 Ironclaw Orcs (2ED) 160
+10 Mountain (ARN) 77
+4 Stone Rain (3ED) 180
+4 Strip Mine (ATQ) 82a
+4 Swamp (3ED) 298
+3 Swamp (3ED) 299
+3 Swamp (3ED) 300
+4 Uthden Troll (3ED) 182
+2 Weakness (3ED) 136
+SB: 2 Hurr Jackal (ARN) 39

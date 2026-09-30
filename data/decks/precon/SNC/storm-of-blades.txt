@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Storm of Blades
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StormOfBlades_SNC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: SNC
+# released: 2022-09-09
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestral Katana (NEO) 1
+3 Asari Captain (NEO) 215
+1 Blade-Blizzard Kitsune (NEO) 5
+3 Eiganjo Exemplar (NEO) 10
+1 Goro-Goro, Disciple of Ryusei (NEO) 145
+1 Imperial Oath (NEO) 17
+2 Kami's Flare (NEO) 150
+1 Lion Sash (NEO) 26
+5 Mountain (SNC) 268
+5 Mountain (SNC) 269
+5 Plains (SNC) 262
+4 Plains (SNC) 263
+2 Play with Fire (MID) 154
+2 Rabbit Battery (NEO) 157
+1 Raiyuu, Storm's Edge (NEO) 232
+3 Reinforced Ronin (NEO) 158
+1 Risona, Asari Commander (NEO) 233
+2 Selfless Samurai (NEO) 35
+1 Simian Sling (NEO) 163
+1 Sundown Pass (VOW) 266
+2 Tempered in Solitude (NEO) 165
+1 The Wandering Emperor (NEO) 42
+1 Thundering Raiju (NEO) 166
+2 Twinblade Geist // Twinblade Invocation (VOW) 40
+3 Usher of the Fallen (KHM) 35
+2 Valorous Stance (VOW) 42
+4 Wind-Scarred Crag (NEO) 282

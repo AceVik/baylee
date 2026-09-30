@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Fiendish Nature
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FiendishNature_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Silverback (UDS) 101
+1 Braidwood Cup (UDS) 126
+1 Chime of Night (UDS) 56
+1 Cradle Guard (USG) 245
+1 Diabolic Servitude (USG) 130
+2 Elvish Lyrist (USG) 248
+2 Expunge (USG) 135
+4 Forest (USG) 347
+3 Forest (USG) 348
+3 Forest (USG) 349
+3 Forest (USG) 350
+2 Gamekeeper (UDS) 106
+1 Goliath Beetle (UDS) 107
+3 Heart Warden (UDS) 108
+2 Hunting Moa (UDS) 109
+1 Marker Beetles (UDS) 112
+1 No Rest for the Wicked (USG) 142
+1 Pattern of Rebirth (UDS) 115
+1 Phyrexian Monitor (UDS) 64
+1 Phyrexian Reclamation (ULG) 63
+2 Plague Dogs (UDS) 66
+3 Plated Spider (UDS) 116
+1 Polluted Mire (USG) 323
+1 Rancor (ULG) 110
+2 Slippery Karst (USG) 327
+1 Splinter (UDS) 121
+2 Swamp (USG) 339
+2 Swamp (USG) 340
+1 Swamp (USG) 341
+1 Swamp (USG) 342
+2 Symbiosis (USG) 275
+2 Twisted Experiment (UDS) 74
+1 Victimize (USG) 166
+1 Winding Wurm (USG) 285
+3 Yavimaya Elder (UDS) 124

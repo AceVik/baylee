@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Vicious Cycle
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ViciousCycle_OGW.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: OGW
+# released: 2016-01-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Altar's Reap (BFZ) 103
+1 Baloth Null (OGW) 152
+1 Blighted Woodland (BFZ) 233
+2 Blisterpod (BFZ) 163
+2 Bone Splinters (BFZ) 105
+1 Brood Monitor (BFZ) 164
+1 Broodhunter Wurm (BFZ) 171
+2 Carrier Thrall (BFZ) 106
+2 Corpse Churn (OGW) 83
+1 Dread Defiler (POGW) 68 *F*
+1 Essence Depleter (OGW) 69
+1 Evolving Wilds (BFZ) 236
+2 Fertile Thicket (BFZ) 237
+2 Forest (BFZ) 270a
+2 Forest (BFZ) 271a
+2 Forest (BFZ) 272a
+2 Forest (BFZ) 273a
+1 Forest (BFZ) 274a
+1 Grasp of Darkness (OGW) 85
+1 Kozilek's Pathfinder (OGW) 5
+2 Loam Larva (OGW) 135
+2 Natural Connection (BFZ) 179
+2 Netcaster Spider (OGW) 137
+1 Null Caller (OGW) 88
+2 Oblivion Strike (OGW) 75
+1 Pulse of Murasa (OGW) 141
+2 Rot Shambler (BFZ) 187
+2 Seed Guardian (OGW) 143
+1 Smothering Abomination (BFZ) 99
+2 Stalking Drone (OGW) 124
+2 Swamp (BFZ) 260a
+2 Swamp (BFZ) 261a
+2 Swamp (BFZ) 262a
+1 Swamp (BFZ) 263a
+1 Swamp (BFZ) 264a
+1 Vines of the Recluse (OGW) 146
+1 Voracious Null (BFZ) 125
+2 Wastes (OGW) 183a
+2 Wastes (OGW) 184a

@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Angelic Army
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AngelicArmy_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2019-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ajani's Pridemate (WAR) 4
+3 Angel of Vitality (ANB) 1
+2 Angelic Reward (ANB) 3
+2 Bond of Discipline (ANB) 4
+1 Confront the Assault (ANB) 6
+1 Dawn of Hope (GRN) 8
+3 Fencing Ace (ANB) 7
+4 Impassioned Orator (ANB) 10
+2 Inspiring Commander (ANB) 11
+1 Loxodon Lifechanter (M20) 27
+1 Meteor Golem (M20) 232
+3 Moment of Heroism (M20) 30
+4 Pacifism (ANB) 16
+25 Plains (ANB) 115
+2 Serra Angel (ANB) 18
+2 Serra's Guardian (M20) 310
+1 Tactical Advantage (ANB) 22

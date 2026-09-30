@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Nissa
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Nissa_E01.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: E01
+# released: 2017-06-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Compulsive Research (E01) 23
+1 Cultivate (E01) 62
+2 Explore (E01) 63
+2 Fertilid (E01) 64
+2 Forest (AKH) 267
+2 Forest (AKH) 268
+3 Forest (AKH) 269
+3 Forest (E01) 101
+3 Forest (E01) 106
+1 Forgotten Ancient (E01) 65
+1 Greater Sandwurm (AKH) 168
+1 Hunter's Prowess (E01) 66
+1 Initiate's Companion (AKH) 174
+1 Ior Ruin Expedition (E01) 25
+1 Island (AKH) 258
+1 Island (AKH) 259
+2 Island (AKH) 260
+1 Island (E01) 103
+2 Island (E01) 98
+2 Khalni Heart Expedition (E01) 67
+1 Nissa, Worldwaker (E01) 68
+1 Oran-Rief Hydra (E01) 69
+1 Press the Advantage (E01) 70
+1 Rampaging Baloths (E01) 71
+1 Reckless Scholar (E01) 27
+1 Retreat to Kazandu (E01) 72
+1 Scaled Behemoth (AKH) 184
+1 Scute Mob (E01) 73
+1 Sixth Sense (AKH) 187
+1 Sword of the Animist (E01) 89
+2 Sylvan Bounty (E01) 74
+1 Thragtusk (E01) 75
+2 Turntimber Basilisk (E01) 76
+1 Vastwood Zendikon (E01) 77
+1 Vines of the Recluse (E01) 78
+2 Vision Skeins (E01) 29
+2 Windrider Eel (E01) 30
+1 Woodborn Behemoth (E01) 79
+4 Woodland Stream (AKH) 287
