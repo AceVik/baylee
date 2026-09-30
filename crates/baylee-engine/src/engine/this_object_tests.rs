@@ -332,6 +332,9 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "Destroy { target: EventObject",
         // Dragon Whelp's delayed "sacrifice this creature": `spec_object`.
         "SacrificeObject { target: EventObject",
+        // Cockatrice's delayed trigger remembers the block's other creature:
+        // `AtEndOfCombat` reads `about` through `spec_object`.
+        "AtEndOfCombat { about: EventObject",
         // Pyrogoyf's "that creature deals damage equal to its power": the
         // variant names the event object itself and `resolve::life` reads
         // `res.event_object`; its `target` is the damage's recipient.

@@ -54,7 +54,9 @@
 /// Raised 25 → 26 for `IfActivatedThisTurnAtLeast` (Dragon Whelp: "if this
 /// ability has been activated four or more times this turn");
 /// `verb_tests::activated_at_least_body_is_visited`.
-const NESTING_FIELDS: usize = 26;
+/// Raised 26 → 27 for `AtEndOfCombat` (Cockatrice's delayed "destroy that
+/// creature at end of combat"); `verb_tests::at_end_of_combat_body_is_visited`.
+const NESTING_FIELDS: usize = 27;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -83,8 +85,9 @@ const NESTING_FIELDS: usize = 26;
 /// two new carriers, one branch each. `AtNextEndStep` moved both on
 /// 2026-09-30: one new carrier, one branch.
 /// `IfActivatedThisTurnAtLeast` moved both on 2026-09-30: one new carrier,
+/// one branch. `AtEndOfCombat` moved both on 2026-09-30: one new carrier,
 /// one branch.
-const CARRYING_VARIANTS: usize = 23;
+const CARRYING_VARIANTS: usize = 24;
 
 /// The floor under the reader itself.
 ///

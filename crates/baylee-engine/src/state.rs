@@ -192,6 +192,10 @@ pub enum DelayedWhen {
     NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
+    /// At end of combat: as the next end of combat step begins, whoever's
+    /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
+    /// combat").
+    EndOfCombat,
     /// At the controller's next cleanup.
     NextCleanup,
     /// As the resolution that made it finishes — before anything else

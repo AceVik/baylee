@@ -1376,6 +1376,26 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// "[Effects] at end of combat": a delayed triggered ability (CR 603.7)
+    /// created as this resolves, with this ability's source and controller
+    /// (CR 603.7d, 603.7e), that triggers as the next end of combat step
+    /// begins (CR 511.2). It triggers once (CR 603.7b) and uses the stack.
+    ///
+    /// `about` names the object the delayed trigger remembers, read as this
+    /// resolves, and "that creature" in `effects` is it,
+    /// [`TargetSpec::EventObject`], as the object it was then: one that has
+    /// left its zone since is not affected (CR 603.7c). It is named rather
+    /// than derived because one ability can have a target, an event object
+    /// and a source, and the sentence says which one it means: Cockatrice's
+    /// "whenever this creature blocks or becomes blocked by a non-Wall
+    /// creature, destroy that creature at end of combat" is about the
+    /// trigger's event object, the other creature.
+    AtEndOfCombat {
+        /// What the delayed trigger remembers.
+        about: TargetSpec,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -3222,7 +3242,8 @@ impl Effect {
                 effects,
             }
             // What the delayed trigger will do.
-            | Effect::AtNextEndStep { effects } => (effects, NONE),
+            | Effect::AtNextEndStep { effects }
+            | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
@@ -3545,6 +3566,23 @@ mod verb_tests {
     #[test]
     fn at_next_end_step_body_is_visited() {
         static EFFECTS: &[Effect] = &[Effect::AtNextEndStep {
+            effects: &[Effect::destroy(TargetSpec::EventObject)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "Destroy that creature at end of combat" (Cockatrice) carries the
+    /// delayed trigger's effects, and the walk goes into them.
+    #[test]
+    fn at_end_of_combat_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtEndOfCombat {
+            about: TargetSpec::EventObject,
             effects: &[Effect::destroy(TargetSpec::EventObject)],
         }];
         let mut seen = 0;

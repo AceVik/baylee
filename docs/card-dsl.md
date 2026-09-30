@@ -1916,6 +1916,26 @@ hashes, layers and does nothing. This paragraph said THREE until
   of the next end step" is `AtNextEndStep { effects:
   &[Effect::SacrificeObject { target: TargetSpec::EventObject }] }`, and a
   Whelp that left and came back is not sacrificed.
+- **`Effect::AtEndOfCombat { about, effects }`** is "[effects] at end of
+  combat", a delayed trigger (CR 603.7) with this ability's source and
+  controller that triggers as the next end of combat step begins
+  (CR 511.2) and uses the stack. `about` **names** the object it
+  remembers, read as this resolves (`EventObject`, `ThisObject`, or a
+  target spec for the first target), and "that creature" in `effects` is
+  `TargetSpec::EventObject`, that object as it was then (CR 603.7c).
+  Named rather than derived, as `AtNextEndStep` derives it, because one
+  triggered ability can have a target, an event object and a source.
+  Cockatrice: `AtEndOfCombat { about: TargetSpec::EventObject, effects:
+  &[Effect::destroy(TargetSpec::EventObject)] }`.
+- **`Trigger::BlocksOrBecomesBlockedBy(filter)`** is "whenever this
+  creature blocks or becomes blocked by a [filter] creature": once per
+  blocker–attacker pair (CR 509.3b, 509.3d), so blocked by two it
+  triggers twice. The filter is the **other** creature, as it is when the
+  block is declared (CR 509.3f), and that creature is the event object —
+  whichever side of the block this creature is on. The reader reads the
+  reference's two-line spelling (`AttackerBlockedByCreature`, one line
+  per side, the second `Secondary$ True`) as one ability, and only whole:
+  either half alone is another sentence and is refused.
 - **`Effect::SacrificeObject { target }`** is "sacrifice that creature": the
   ability's controller sacrifices the object the spec names, only if they
   control it, it is on the battlefield and phased in (CR 701.21a).

@@ -74,7 +74,7 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
 /// asking for it reads as "nobody chose anything" there. Every variant is
 /// listed now, so the next implicit spec is a compile error instead of a
 /// card that quietly does nothing.
-fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
+pub(super) fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     match target {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,

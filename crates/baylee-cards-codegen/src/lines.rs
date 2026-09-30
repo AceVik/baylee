@@ -602,6 +602,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::PlaysLand(_) => &["play a land"],
         T::Attacks(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
+        // Cockatrice, "Whenever this creature blocks or becomes blocked by
+        // a non-Wall creature". Its filter is the *other* creature, so it
+        // stays out of `whose_trigger_fits`, where a filter is the subject.
+        T::BlocksOrBecomesBlockedBy(_) => &["block"],
         // The step, not the word "beginning" — every one of these sentences
         // opens with it, so on its own it says nothing and a card printing
         // two of them was a coin toss. Mana Vault prints an upkeep sentence

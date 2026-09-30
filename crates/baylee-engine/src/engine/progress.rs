@@ -4194,12 +4194,22 @@ impl<L: CardLookup> Engine<L> {
     /// (Venser +2's returned permanents) — fires for ANY controller, not
     /// just the active player.
     pub(crate) fn queue_end_step_delayed(&mut self) {
+        self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
+    }
+
+    /// Queues the delayed triggers that wait for "end of combat": they
+    /// trigger as the end of combat step begins (CR 511.2), for any
+    /// controller.
+    pub(crate) fn queue_end_of_combat_delayed(&mut self) {
+        self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
+    }
+
+    /// Takes every delayed trigger waiting for `when` off the list and
+    /// queues it, whoever controls it.
+    fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {
-            if matches!(
-                self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextEndStep
-            ) {
+            if self.state.delayed[i].when == when {
                 let trigger = self.state.delayed.remove(i);
                 self.delayed_queue
                     .push_back((trigger.controller, trigger.action));
@@ -4774,6 +4784,12 @@ impl<L: CardLookup> Engine<L> {
         self.state.turn.step = next_step;
         if next_step == Step::Cleanup {
             self.cleanup = Cleanup::Due;
+        }
+        // "At end of combat" triggers as the end of combat step begins
+        // (CR 511.2), and two arms above enter it: after combat damage, and
+        // straight from the declare attackers step when nothing attacked.
+        if next_step == Step::CombatEnd {
+            self.queue_end_of_combat_delayed();
         }
         self.state.journal.record(GameEvent::StepChanged {
             phase: next_phase,

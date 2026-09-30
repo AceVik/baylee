@@ -15,6 +15,7 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod blocks;
 mod branches;
 mod costs;
 mod effects;

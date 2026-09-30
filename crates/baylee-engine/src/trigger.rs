@@ -157,7 +157,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                     let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
-                        let event_object = event_object_of(&entry.event);
+                        let event_object = event_object_for(trigger, &entry.event, emblem);
                         let event_damage = event_damage_of(&entry.event);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
@@ -582,6 +582,31 @@ fn event_damage_of(event: &GameEvent) -> Option<(PlayerId, u16)> {
             ..
         } => Some((*player, *amount)),
         _ => None,
+    }
+}
+
+/// The object a trigger's event is about, as the triggered ability reads it
+/// ([`TargetSpec::EventObject`](baylee_cards_dsl::TargetSpec)).
+///
+/// The event decides, except where one event names two objects and the
+/// trigger says which it means. A blocker's declaration names the blocker
+/// and the creature it blocks; "whenever this creature blocks or becomes
+/// blocked by a non-Wall creature, destroy that creature" is about the one
+/// that is not the source, whichever side of the block that is.
+fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> Option<ObjectId> {
+    match (trigger, event) {
+        (
+            Trigger::BlocksOrBecomesBlockedBy(_),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => Some(if *blocker == source {
+            *attacker
+        } else {
+            *blocker
+        }),
+        _ => event_object_of(event),
     }
 }
 
@@ -1058,7 +1083,7 @@ fn collect_for_objects(
                     obj.controller,
                 );
                 if hit > 0 {
-                    let event_object = event_object_of(&entry.event);
+                    let event_object = event_object_for(trigger, &entry.event, permanent);
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -1159,7 +1184,7 @@ fn collect_for_objects(
                 );
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
-                    let event_object = event_object_of(&entry.event);
+                    let event_object = event_object_for(trigger, &entry.event, permanent);
                     let event_damage = event_damage_of(&entry.event);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -1500,6 +1525,29 @@ fn matches(
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        // CR 509.3b and 509.3d: one event per blocker–attacker pair, so the
+        // ability triggers once for each creature this one blocks and once
+        // for each creature that blocks it. The filter is asked of the other
+        // creature as it is now, when it has just blocked or been blocked
+        // (CR 509.3f).
+        (
+            Trigger::BlocksOrBecomesBlockedBy(filter),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            let other = if *blocker == source {
+                *attacker
+            } else if *attacker == source {
+                *blocker
+            } else {
+                return false;
+            };
+            state
+                .object(other)
+                .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
             batch
                 .iter()

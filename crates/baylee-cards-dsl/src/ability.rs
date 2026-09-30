@@ -418,6 +418,15 @@ pub enum Trigger {
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
+    /// This creature blocks a creature matching the filter (CR 509.3b) or
+    /// becomes blocked by one (CR 509.3d): once for each such pair, each
+    /// time a blocker is declared, so a creature blocked by two of them
+    /// triggers twice. The filter describes the *other* creature, as it is
+    /// when it blocks or is blocked (CR 509.3f), and that creature is the
+    /// trigger's event object, [`TargetSpec::EventObject`](crate::TargetSpec)
+    /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
+    /// non-Wall creature, destroy that creature at end of combat".
+    BlocksOrBecomesBlockedBy(&'static Filter),
     /// A matching creature is the sole declared attacker (exalted).
     /// This is checked when attacking, not again when the trigger resolves.
     AttacksAlone(&'static Filter),

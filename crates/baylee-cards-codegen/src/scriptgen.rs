@@ -242,6 +242,28 @@ enum Price {
     Part(String),
 }
 
+/// Which side of a block a `T:Mode$ AttackerBlockedByCreature` line puts
+/// its source on.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum BlockRole {
+    /// `ValidBlocker$ Card.Self`: "whenever this creature blocks …".
+    Blocks,
+    /// `ValidCard$ Card.Self`: "whenever this creature becomes blocked by …".
+    Blocked,
+}
+
+/// One half of a "blocks or becomes blocked by" trigger, read and waiting
+/// for its mirror ([`Tx::block_trigger`]).
+struct BlockHalf {
+    role: BlockRole,
+    /// The valid-string of the other creature.
+    other: String,
+    /// Whether this half carried `Secondary$ True`.
+    secondary: bool,
+    /// The ability this half wrote.
+    ability: String,
+}
+
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     cats: &'a SubtypeCatalogs,
@@ -268,6 +290,17 @@ struct Tx<'a> {
     /// `None` on every other kind of line: what "that player" means is the
     /// trigger's to say.
     trigger_mode: Option<String>,
+    /// Which side of a block the `T:` line being read puts its source on,
+    /// and the half it read ([`Tx::block_trigger`]); `None` on every other
+    /// line.
+    block_line: Option<(BlockRole, String, bool)>,
+    /// The first half of a "blocks or becomes blocked by" trigger, while its
+    /// mirror has not been read. A script that ends with one here printed a
+    /// sentence this reader does not say, and is refused.
+    block_half: Option<BlockHalf>,
+    /// Whether the chain being read is a delayed trigger's `Execute$`, where
+    /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
+    in_delayed: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -1569,6 +1602,7 @@ impl Tx<'_> {
                 }
             }
             "Mana" => self.mana_effect(p)?,
+            "DelayedTrigger" => vec![self.delayed_trigger(p, target)?],
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
                 // It was vacuous while this engine had no regeneration at
@@ -1587,7 +1621,21 @@ impl Tx<'_> {
                 } else {
                     "destroy"
                 };
-                vec![format!("Effect::{verb}({aimed})")]
+                // "Destroy that creature" in a delayed trigger's body: the
+                // object it remembers ([`Tx::delayed_trigger`]). Anywhere
+                // else the key is left for the unclaimed check to refuse.
+                let remembered = self.in_delayed
+                    && target.is_none()
+                    && matches!(
+                        p.peek("Defined"),
+                        Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
+                    );
+                if remembered {
+                    p.take("Defined");
+                    vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
+                } else {
+                    vec![format!("Effect::{verb}({aimed})")]
+                }
             }
             // "Destroy all lands", "destroy all creatures. They can't be
             // regenerated": every permanent the valid-string names, none of
@@ -3319,6 +3367,7 @@ impl Tx<'_> {
             Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
         }
         match mode {
+            "AttackerBlockedByCreature" => self.block_trigger(p),
             "ChangesZone" => {
                 let origin = p.take("Origin");
                 let dest = p.take("Destination");
@@ -3727,6 +3776,7 @@ impl Tx<'_> {
         self.has_x = kind == 'A';
         self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");
         self.trigger_mode = None;
+        self.block_line = None;
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
@@ -4934,10 +4984,181 @@ impl Tx<'_> {
             None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
-        self.body.abilities.push(format!(
-            "triggered!({trigger}, &[{effects}]{targets}{condition})"
-        ));
+        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{condition})");
+        if let Some((role, other, secondary)) = self.block_line.take() {
+            return self.pair_block_half(role, other, secondary, ability);
+        }
+        self.body.abilities.push(ability);
         Some(())
+    }
+
+    /// `T:Mode$ AttackerBlockedByCreature` — "whenever this creature blocks
+    /// or becomes blocked by a non-Wall creature" (Cockatrice), as
+    /// `Trigger::BlocksOrBecomesBlockedBy`.
+    ///
+    /// The reference writes the one printed ability as **two** lines, one
+    /// for each side of the block: `ValidCard$ <other> | ValidBlocker$
+    /// Card.Self` for "blocks" and `ValidCard$ Card.Self | ValidBlocker$
+    /// <other>` for "becomes blocked by", the second marked `Secondary$
+    /// True`. Each line is read here; [`Tx::pair_block_half`] keeps the
+    /// first, drops its mirror, and a script that ends with a half unpaired
+    /// is refused, because either half alone is another sentence ("whenever
+    /// this creature blocks a creature", CR 509.3b, or "becomes blocked by
+    /// a creature", 509.3d) that the trigger here would over-read.
+    ///
+    /// A source on neither side is an Aura's or an Equipment's "enchanted
+    /// creature blocks", and an other side relative to another permanent
+    /// (`AttachedBy`, `EnchantedBy`) is a sentence about it; both refuse.
+    fn block_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let card = p.take("ValidCard");
+        let blocker = p.take("ValidBlocker");
+        let secondary = match p.take("Secondary").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        };
+        let (role, other) = match (card, blocker) {
+            (Some(card), Some(blocker)) if blocker == "Card.Self" && card != "Card.Self" => {
+                (BlockRole::Blocks, card)
+            }
+            (Some(card), Some(blocker)) if card == "Card.Self" && blocker != "Card.Self" => {
+                (BlockRole::Blocked, blocker)
+            }
+            (card, blocker) => {
+                return self.deny(format!(
+                    "a block between `{}` and `{}`",
+                    card.unwrap_or_default(),
+                    blocker.unwrap_or_default()
+                ));
+            }
+        };
+        if other.split([',', '.', '+']).any(|atom| {
+            matches!(
+                atom.trim(),
+                "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+            )
+        }) {
+            return self.deny(format!("a block with `{other}`, relative to another card"));
+        }
+        let expr = self.filter_expr(&other)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        self.block_line = Some((role, other, secondary));
+        Some(format!("Trigger::BlocksOrBecomesBlockedBy(&{filter})"))
+    }
+
+    /// The pairing half of [`Tx::block_trigger`]: the first half read is
+    /// written and kept; the second must be its mirror — the other side of
+    /// the block, the same other creature, `Secondary$` on exactly one of
+    /// the two, and the same ability once read — and writes nothing, since
+    /// the card prints one ability.
+    fn pair_block_half(
+        &mut self,
+        role: BlockRole,
+        other: String,
+        secondary: bool,
+        ability: String,
+    ) -> Option<()> {
+        match self.block_half.take() {
+            None => {
+                self.body.abilities.push(ability.clone());
+                self.block_half = Some(BlockHalf {
+                    role,
+                    other,
+                    secondary,
+                    ability,
+                });
+                Some(())
+            }
+            Some(first)
+                if first.role != role
+                    && first.other == other
+                    && first.secondary != secondary
+                    && first.ability == ability =>
+            {
+                Some(())
+            }
+            Some(_) => {
+                self.deny("two block triggers that are not the halves of one sentence".to_string())
+            }
+        }
+    }
+
+    /// Refuses a script that ended with one half of a "blocks or becomes
+    /// blocked by" trigger read and its mirror never met.
+    fn block_halves_paired(&self) -> Option<()> {
+        match &self.block_half {
+            None => Some(()),
+            Some(half) => self.deny(format!(
+                "a `{}` trigger without its mirror",
+                match half.role {
+                    BlockRole::Blocks => "blocks",
+                    BlockRole::Blocked => "becomes blocked by",
+                }
+            )),
+        }
+    }
+
+    /// `DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat` — "destroy that
+    /// creature at end of combat" (Cockatrice): a delayed trigger that
+    /// triggers as the end of combat step begins (CR 511.2),
+    /// `Effect::AtEndOfCombat`.
+    ///
+    /// Only under a block trigger ([`Tx::block_trigger`]) and only
+    /// remembering the **other** creature of the block — the attacker on the
+    /// "blocks" half, the blocker on the "becomes blocked by" one — which is
+    /// the trigger's event object. Its `Execute$` is read as a chain of its
+    /// own in which `Defined$ DelayTriggerRememberedLKI` is that object, and
+    /// which may target nothing. Every other phase, player, remembered
+    /// object or delayed mode is refused by name.
+    fn delayed_trigger(&mut self, p: &mut Params, target: Option<&str>) -> Option<String> {
+        let mode = p.take("Mode").unwrap_or_default();
+        let phase = p.take("Phase").unwrap_or_default();
+        if mode != "Phase" || phase != "EndCombat" {
+            return self.deny(format!("a delayed trigger at `{mode} {phase}`"));
+        }
+        match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => {}
+            Some(other) => {
+                return self.deny(format!("a delayed trigger in `{other}`'s turn"));
+            }
+        }
+        let remembered = p.take("RememberObjects").unwrap_or_default();
+        let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
+            Some(BlockRole::Blocks) => "TriggeredAttacker",
+            Some(BlockRole::Blocked) => "TriggeredBlocker",
+            None => {
+                return self.deny(format!(
+                    "a delayed trigger remembering `{remembered}` outside a block trigger"
+                ));
+            }
+        };
+        if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
+            return self.deny(format!("a delayed trigger remembering `{remembered}`"));
+        }
+        if target.is_some() {
+            return self.deny("a delayed trigger on a line that targets".to_string());
+        }
+        let Some(execute) = p.take("Execute") else {
+            return self.deny("a delayed trigger with no `Execute$`".to_string());
+        };
+        let Some(body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no SVar"));
+        };
+        let mut inner = Chain::default();
+        let outer = std::mem::replace(&mut self.in_delayed, true);
+        let read = self.chain(&body, &mut inner);
+        self.in_delayed = outer;
+        read?;
+        if inner.target.is_some() {
+            return self.deny("a delayed trigger that targets".to_string());
+        }
+        if inner.effects.is_empty() {
+            return self.deny("a delayed trigger that reads as no effect".to_string());
+        }
+        Some(format!(
+            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{}] }}",
+            inner.effects.join(", ")
+        ))
     }
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
@@ -5306,6 +5527,9 @@ pub fn transcode(
         has_x: false,
         on_a_spell: false,
         trigger_mode: None,
+        block_line: None,
+        block_half: None,
+        in_delayed: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -5315,6 +5539,7 @@ pub fn transcode(
     for (kind, spec) in &script.rules {
         tx.rule(*kind, spec)?;
     }
+    tx.block_halves_paired()?;
     if tx.body.is_empty() {
         return None;
     }
@@ -5362,6 +5587,9 @@ pub fn refusal_reason(
         has_x: false,
         on_a_spell: false,
         trigger_mode: None,
+        block_line: None,
+        block_half: None,
+        in_delayed: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -5374,6 +5602,9 @@ pub fn refusal_reason(
         if tx.rule(*kind, spec).is_none() {
             return tx.unclaimed.into_inner();
         }
+    }
+    if tx.block_halves_paired().is_none() {
+        return tx.unclaimed.into_inner();
     }
     // [`transcode`]'s last refusal, mirrored. A script that is read in full
     // and yields nothing is a card whose rules text this transcoder has no
@@ -5414,6 +5645,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Mana",
     "Destroy",
     "DestroyAll",
+    "DelayedTrigger",
     "DamageAll",
     "DamageResolve",
     "PreventDamage",
@@ -5527,7 +5759,10 @@ pub fn apis_used(spec: &str, svars: &BTreeMap<String, String>) -> Vec<String> {
                 queue.push(body.clone());
             }
         }
-        if !matches!(api.as_str(), "ChangesZone" | "Phase" | "Attacks" | "Taps") {
+        if !matches!(
+            api.as_str(),
+            "ChangesZone" | "Phase" | "Attacks" | "Taps" | "AttackerBlockedByCreature"
+        ) {
             out.push(api);
         }
     }
@@ -5931,6 +6166,9 @@ SVar:X:Count$xPaid",
             has_x: false,
             on_a_spell: false,
             trigger_mode: None,
+            block_line: None,
+            block_half: None,
+            in_delayed: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -7497,6 +7735,109 @@ SVar:X:Count$xPaid",
         }
     }
 
+    /// Cockatrice: "whenever this creature blocks or becomes blocked by a
+    /// non-Wall creature, destroy that creature at end of combat", written
+    /// by the reference as two lines, each executing a delayed trigger that
+    /// remembers the other creature of its side of the block.
+    const BLOCK_PAIR: &str = "Name:X\nTypes:Creature\nPT:2/4\n\
+        T:Mode$ AttackerBlockedByCreature | ValidCard$ Creature.nonGoblin | \
+        ValidBlocker$ Card.Self | Execute$ DelBlocked | TriggerDescription$ …\n\
+        T:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | \
+        ValidBlocker$ Creature.nonGoblin | Execute$ DelBlocker | Secondary$ True | \
+        TriggerDescription$ …\n\
+        SVar:DelBlocked:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | \
+        ValidPlayer$ Player | Execute$ TrigDestroy | \
+        RememberObjects$ TriggeredAttackerLKICopy | TriggerDescription$ …\n\
+        SVar:DelBlocker:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | \
+        ValidPlayer$ Player | Execute$ TrigDestroy | \
+        RememberObjects$ TriggeredBlockerLKICopy | TriggerDescription$ …\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ DelayTriggerRememberedLKI";
+
+    /// The pair is one ability — the card prints one — about the other
+    /// creature, destroyed by a delayed trigger at end of combat.
+    #[test]
+    fn a_blocks_or_becomes_blocked_pair_is_one_ability_at_end_of_combat() {
+        let body = read(BLOCK_PAIR);
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+        let a = &body.abilities[0];
+        assert!(a.contains("Trigger::BlocksOrBecomesBlockedBy(&"), "{a}");
+        assert!(
+            a.contains(
+                "Effect::AtEndOfCombat { about: TargetSpec::EventObject, \
+                 effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            body.statics.contains("creature::GOBLIN"),
+            "{}",
+            body.statics
+        );
+    }
+
+    /// Either half alone is another sentence, and so is a pair whose halves
+    /// disagree; the remembered object outside a delayed body, a delayed
+    /// trigger remembering its own source's side, and another phase are
+    /// each refused.
+    #[test]
+    fn a_block_trigger_is_read_only_as_the_whole_pair() {
+        let lines: Vec<&str> = BLOCK_PAIR.lines().collect();
+        let without = |skip: usize| {
+            lines
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != skip)
+                .map(|(_, l)| *l)
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        // The "blocks" half alone, and the "becomes blocked by" half alone.
+        for skip in [3, 4] {
+            let text = without(skip);
+            assert!(refused(&text), "{text}");
+            let reason = refusal_reason(&parse(&text), &cats(), None);
+            assert!(
+                reason
+                    .as_deref()
+                    .is_some_and(|r| r.contains("without its mirror")),
+                "{reason:?}"
+            );
+        }
+        for (from, to) in [
+            // The halves are about different creatures.
+            ("ValidBlocker$ Creature.nonGoblin", "ValidBlocker$ Creature"),
+            // Both halves marked, or neither.
+            (
+                "Execute$ DelBlocked |",
+                "Execute$ DelBlocked | Secondary$ True |",
+            ),
+            ("Secondary$ True | ", ""),
+            // A delayed trigger about the source's own side of the block.
+            (
+                "RememberObjects$ TriggeredAttackerLKICopy",
+                "RememberObjects$ TriggeredBlockerLKICopy",
+            ),
+            // Another phase.
+            (
+                "Phase$ EndCombat | ValidPlayer$ Player | Execute$ TrigDestroy | \
+              RememberObjects$ TriggeredBlockerLKICopy",
+                "Phase$ End of Turn | ValidPlayer$ Player | Execute$ TrigDestroy | \
+              RememberObjects$ TriggeredBlockerLKICopy",
+            ),
+        ] {
+            assert_eq!(BLOCK_PAIR.matches(from).count(), 1, "{from}");
+            let text = BLOCK_PAIR.replace(from, to);
+            assert!(refused(&text), "{from} → {to}");
+        }
+        // "Destroy that creature" remembered by nothing.
+        assert!(refused(
+            "Name:X\nTypes:Creature\nPT:2/4\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             ValidCard$ Card.Self | Execute$ TrigDestroy\n\
+             SVar:TrigDestroy:DB$ Destroy | Defined$ DelayTriggerRememberedLKI"
+        ));
+    }
+
     /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of
     /// combat, "that player" the one dealt damage, and "is dealt damage"
     /// once however many sources. A player dealt damage "once", a creature
@@ -8810,6 +9151,9 @@ SVar:X:Count$xPaid",
             has_x: false,
             on_a_spell: false,
             trigger_mode: None,
+            block_line: None,
+            block_half: None,
+            in_delayed: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };

@@ -2082,3 +2082,15 @@ land type"; both are convention tests that fire on a first try.
   `targets` and shielded nobody for Rock Hydra's "prevent the next 1
   damage that would be dealt to this creature". Grep for every `match` on
   the enum, not for the function the last fix touched.
+- **One event can name two objects, and the trigger picks which one it
+  means.** A blocker's declaration names the blocker and the creature it
+  blocks, and the event's own object is the blocker. Cockatrice's "destroy
+  that creature" means the *other* one on both sides of the block, so
+  reading the event alone destroyed the Cockatrice whenever it blocked.
+  `trigger::event_object_for` asks the trigger first.
+- **Two lines in the reference can be one printed ability.** The corpus
+  writes "blocks or becomes blocked by" as a `T:` line per side, the
+  second marked `Secondary$ True`. Read each as its own ability and the
+  card triggers twice per block, or once for a sentence it does not print.
+  Pair the halves, write one ability, and refuse a script that ends with a
+  half unpaired, in `refusal_reason` as well as in `transcode`.

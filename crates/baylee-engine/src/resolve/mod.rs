@@ -3872,6 +3872,31 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             });
             None
         }
+        // The delayed trigger is about the object `about` names as this
+        // resolves, as the object it is now (CR 603.7c); naming nothing, it
+        // is about nothing.
+        Effect::AtEndOfCombat { about, effects } => {
+            let action = match zones::spec_object(res, about)
+                .and_then(|t| state.object(t).map(|o| (t, o.version)))
+            {
+                Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
+                    source: res.source,
+                    effects,
+                    object,
+                    version,
+                },
+                None => crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    effects,
+                },
+            };
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::EndOfCombat,
+                action,
+            });
+            None
+        }
         Effect::CantBeRegeneratedThisTurn { target } => {
             for id in zones::spec_objects(res, target) {
                 if let Some(obj) = state.object(id)
