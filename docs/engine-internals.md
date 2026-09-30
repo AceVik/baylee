@@ -213,6 +213,23 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### Attachments (CR 704.5m, 704.5n, 704.5p)
+`sba::run_attachment_sbas` asks the first sentence of CR 704.5p before
+anything else: a battle or creature attached to an object or player becomes
+unattached and stays on the battlefield, whatever else it is. That is how an
+Equipment an effect animates (Karn, the Great Creator's +1) comes off the
+creature it equips; an Equipment's own host rule (CR 301.5b, 704.5n) is
+satisfied by that creature and would keep it on. Only then are an Aura's host
+(its enchant filter, CR 303.4c; illegal or missing → graveyard, 704.5m) and an
+Equipment's (a creature; illegal → unattached, 704.5n) asked, and the second
+sentence of 704.5p takes any other noncreature, nonbattle permanent off what
+it is attached to. Reconfigure keeps its Equipment on because it stops being a
+creature while attached (CR 702.151b), which the card states as a static
+conditioned on `Filter::IsAttached`. An Aura creature with no host stays on
+the battlefield as the stand-in for an unattached bestowed Aura (CR 702.103f);
+there is no bestow yet, and any other Aura creature belongs in the graveyard
+(CR 303.4d).
+
 ### A delayed trigger that watches an object (CR 603.7)
 Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,
 return it to the battlefield tapped under your control" behind. It is a

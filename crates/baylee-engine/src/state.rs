@@ -4013,6 +4013,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 /// the two moments it flips at — a permanent arriving, a turn beginning —
 /// both invalidate for their own reasons already. The day a static prints it,
 /// this is the list it joins and the turn boundary is what needs the door.
+///
+/// `Filter::IsAttached` is not here for a plainer reason: every write of
+/// `attached_to` invalidates the projection itself — the attach in
+/// `resolve`, the unattach in `sba`, and the zone move that clears it.
 pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::Filter;
     match filter {
@@ -4106,6 +4110,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Attacking => h.u8(19),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::IsAttached => h.u8(38),
         F::SharesSubtypeWithCommander => h.u8(27),
         F::ToughnessAtMost(n) => {
             h.u8(26);

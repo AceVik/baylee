@@ -166,6 +166,8 @@ impl HeuristicAgent {
                     .iter()
                     .any(|attacker| attacker.creature == object.id),
             ),
+            // The view names what every public object is attached to.
+            Filter::IsAttached => Some(object.attached_to.is_some()),
             // `KeywordSet::contains` is an intersection test, so this is
             // has-*any* rather than has-all whatever a filter names.
             Filter::HasKeyword(k) => Some(object.keywords & k.bits() != 0),
