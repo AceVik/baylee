@@ -105,8 +105,10 @@ goes. The WSL disk image stays on C: and still works from Windows.
 | `verify/` | the ability log, L5 mutant outputs and coverage exports from d7's hooks branch |
 | `reports/house-usage-d003` | house-AI batch 1: cards offered and never used |
 | `models/v3-a-dyn` | v3-a exported in row buckets (32–192): the RL loop's first learner |
-| `runs/rl-lNN`, `models/rl-NN`, `arena/rl-NN` | the RL loop of the night of 29–30 September (on main f7390913): league games, each learner, and its arena against expert |
-| `fuzz/f004-main` | fuzzing main f7390913: 4 panics ("mana cost has too many symbols"), 38 crew refusals, 11 menace |
+| `runs/rl-lNN`, `models/rl-NN`, `arena/rl-NN` | the RL loop of the night of 29–30 September: league games, each learner, and its 1000-game arena against expert (`arena/rl-0{1,2,3}-300`: the first 300-game arenas, noise) |
+| `arena/base-v3a-1000`, `base-v3a-94ee`, `base-v3a-<sha>` | v3-a-dyn's 1000-game arena on each engine build the loop ran on: the paired baseline for `paired_arena.py` |
+| `models/rl-01-outcome` | the first AWR step with the game's result as advantage (discarded) |
+| `fuzz/f004-main` … `f008-menace` | fuzzing main: f004 4 panics, 38 crew, 11 menace; f007 (50050ff3, answer_fault masks) 0 refused inside the stated bounds; f008 (blocker room) 0 stated faults, 1 house bug since fixed on main |
 
 A dataset can always be made again from its run: the converters are
 deterministic, and a record that no longer replays is refused whole.
@@ -198,28 +200,102 @@ deterministic, and a record that no longer replays is refused whole.
 
 ## The night of 29–30 September, and resuming it
 
-- The branch merged main f7390913, which carries night-decks. Everything
-  since trains on the newest engine, as the owner asked.
-- `rl_loop.sh` runs from v3-a-dyn (`TAG=rl`, 2000 league games an iteration,
-  300 arena games against expert).
-- To stop it: `tools/trainer/switch_stop.sh`. It stops every job, copies to
-  `C:\baylee-data` and pushes, in under 15 minutes.
+- The branch follows main at iteration boundaries: a watcher stops the loop
+  when an iteration's league begins, merges, rebuilds and restarts it, because
+  a record converts only on the build that played it. The loop trains on
+  main 89e5eb13's engine (branch b40e71d3). The merge of main 6d55786e
+  waits on the local branch `local/merge-6d55786e` (540df20b, never push it):
+  main's own `baylee-gateway` test `e2e_seat_llm` fails on this machine, on a
+  clean main worktree too. The game stops at turn 22 with no seat owing an
+  answer, after an Aminatou −6. It was reported to d7. Merge once main
+  passes here.
+- `rl_loop.sh` runs from v3-a-dyn: `TAG=rl`, 2000 league games an iteration,
+  1000 arena games against expert, `ITERS=20`, `TEMP=0.7`. The league is the
+  house profiles, policy-v1 (the frozen yardstick), itself and the two latest
+  former learners (each costs every worker memory).
+- **What the night showed.**
+  - 300-game arenas are noise. Judge a checkpoint only by `paired_arena.py`
+    against the base's arena on the same build: the same seeds, the games
+    both finished, a sign test on the games only one won.
+  - AWR (iterations 1–7) only sharpened the policy: mean top probability
+    0.921 → 0.950, entropy 0.20 → 0.13 (`eval_shift.py`), with no paired
+    gain. Its weights are all positive and 96 % of the samples are the net's
+    own top answer.
+  - From iteration 8 `train_rl.py` takes a clipped policy-gradient (PPO)
+    step on the standardised GAE advantage, against the frozen net that
+    played, corrected for its sampling temperature, plus an entropy bonus.
+    It climbed steadily: rl-15 won 46.5 % of 849 paired games against
+    expert, where v3-a won 37.2 % (177 won only by rl-15, 98 only by v3-a,
+    p < 0.001). rl-10 and every later one are significant.
+  - Refused answers: 0 in every arena since the blocker-room fix (c69da323).
+    Offered objects dropped: 0. The net leaves Arrange questions to the
+    house.
+- To stop it: `tools/trainer/switch_stop.sh`, only on the owner's word. It
+  stops every job, copies to `C:\baylee-data` (pre-synced on the 30th, so
+  only a small delta is left) and pushes. Everything is pushed gated
+  beforehand: that push must have nothing new to send.
 - To go on after the switch:
-  - rsync the data back into `/home/ace/baylee-data`;
-  - build;
-  - run `BASE=$HOME/baylee-data/models/v3-a-dyn TAG=rl tools/trainer/rl_loop.sh`.
+  1. rsync the data back into `/home/ace/baylee-data`;
+  2. build `convert3`, `league` and `arena` (the `rl_loop.sh` header);
+  3. run the base arena on the new build (`arena --model
+     ~/baylee-data/models/v3-a-dyn/net.onnx --against expert --games 1000
+     --max-secs 300 --out ~/baylee-data/arena/base-v3a-<sha>`);
+  4. run `BASE=$HOME/baylee-data/models/v3-a-dyn ITERS=20 GAMES=2000
+     ARENA=1000 TAG=rl TEMP=0.7 tools/trainer/rl_loop.sh`.
 
   Finished stages are skipped, a stage in progress restarts (training resumes
   from `last.pt`), and a dataset missing from the copy is made again from its
-  run.
+  run. The same commit rebuilt on Ubuntu converts the same records; if the
+  in-progress league run's records refuse, delete that run and it is played
+  again.
 - A record replays only on the engine that wrote it (its run's `build`
   stamp). d7 warned that a stale-projection fix changes `snapshot_hash` after
   `Engine::new`. From then on, older records report `Diverged`: regenerate
   games instead.
 
+## Next work package (after the switch, not before): does the net know what cards do?
+
+The owner asks whether the net understands cards, synergies included. d7's
+reading of v3 is:
+- an id embedding;
+- the `cardwalk` features: 42 explicit fields, plus DSL keys hashed into 512
+  buckets;
+- 40 % id dropout;
+- an entity transformer on top.
+
+It finds three gaps:
+
+1. **A bag, not a structure.** Which effect belongs to which trigger, and
+   whether "creature" is in a trigger's filter or in an effect, is lost.
+   That producer-to-listener binding is what synergy needs.
+2. **Hash collisions** in the 512 buckets.
+3. **Synergy is rare in the data.** Generated decks seldom hold combos, and
+   the house barely plays them.
+
+Measure first, and send d7 the numbers for (a) and (b). The design choice is
+d7's.
+- (a) Distinct `cardwalk` keys over the pool, against 512 buckets.
+- (b) A synergy probe set: curated positions where the right move needs a
+  combo, scored for the net against the house. Examples:
+  - a sacrifice outlet with a death trigger;
+  - an anthem before attacks;
+  - a token maker with "whenever a creature enters".
+- (c) The planned held-out-card test.
+
+Then the fixes, cheapest first:
+- an exact DSL vocabulary instead of hashing, each key tagged with its role
+  (trigger, cost, condition, effect, target, duration) and grouped per
+  ability;
+- a small ability encoder, with abilities as their own entities in the
+  trunk, so a listener attends to its producer;
+- themed generators in `deckgen` (tribal, tokens, sacrifice, artifacts), so
+  combos occur often.
+
 ## Open threads with d7
 
-- **Engine branches to reach main**, then regenerate data and re-measure:
+- **Engine branches to reach main**, then regenerate data and re-measure.
+  Night-decks (hooks, Karn, pay-scaling, lethal-first) is on main since
+  f7390913; check `git log origin/main` for the rest before step 1:
   - `c42/engine-karn-targets`: refused applies change nothing; offered
     answers are taken; `Engine::fingerprint_light` behind `fuzz`.
   - `c42/engine-verify-hooks` and `c42/engine-leave-probe`: the L4/L5 hooks.
@@ -234,16 +310,18 @@ deterministic, and a record that no longer replays is refused whole.
      `projection_is_fresh` after every apply.
   4. Generate broad-pool v3 data from the L4 pool (duels and 3–8 seats).
   5. Re-run `house_usage.py` on it (batch 2).
-- **Crew**: `ChooseCards` with `CostCrew { power }` asks min 1, but the
-  chosen creatures' power must reach `power`. The policy should respect it,
-  as it will menace's minimum. It's mine to do. The fuzzer on main counted
-  38 such refusals.
-- **The 35,707 offered objects v3 dropped** were all combat with a swarm
-  (18 games). Combat piles fix them; re-measure `offered_objects_dropped` on
-  the next converted run: it must be 0.
-- **`ChooseBlockers` will state `min_blockers`/`max_blockers`** (a branch
-  after pay-scaling). Until then the net falls back to the house on a menace
-  attacker blocked alone.
+- **Done in the night:**
+  - crew power, menace and the other stated bounds: the policy offers
+    "done" only where `Pending::answer_fault` passes the answer, and a block
+    only where the attackers' stated counts can still be met;
+  - offered objects dropped: 0 with combat piles;
+  - the house's out-of-bounds targets: fixed on main.
+- **NetMind** for the seat bridge (`crates/baylee-seat`, trait `Mind` in
+  `src/mind.rs`): `Disclosure::Net`, `BatchMind::decide_batch` wrapped by
+  `Batched::spawn` so many seats share one GPU call. For arenas and live
+  play; in-process self-play stays as it is. No rush.
+- **The Alpha set** (`c42/set-lea`) is the next pool change; d7 says when it
+  lands. A pool change means new card-table rows (held-out ids until seen).
 - **`redeal_hidden`** (after the hooks) enables the rollout ceiling and the
   soft value targets.
 - **`land_mana_tests`** will take its expectation from `generated_oracle.rs`,

@@ -250,6 +250,25 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
 - **The value net's early edge** is partly the decks (a baseline on deck, seat and
   turn scores Brier 0.245 at turns 1–3, v2 0.238), but it survives mirror
   matches, where the deck says nothing (`tools/trainer/eval_value.py --no-deck`).
+- **Reinforcement learning** (`bin/league`, `train_rl.py`, `rl_loop.sh`): the
+  learner samples at temperature 0.7 against a league (the house profiles,
+  policy-v1 as the frozen yardstick, itself and its two latest former
+  selves). Each iteration is 2000 league games and one step on the learner's
+  decisions, with a GAE advantage from its own value head.
+  - Judge checkpoints paired, never by two intervals. Every arena game has a
+    fixed seed, so `paired_arena.py` compares two nets on the games both
+    finished, with a sign test on the games only one won. At 300 games the
+    intervals had shown a gain and a loss that 1000 paired games erased.
+  - Advantage-weighted regression (AWR) sharpened the policy without a gain:
+    over three steps the mean top probability rose 0.921 → 0.950 and the
+    entropy fell 0.20 → 0.13 (`eval_shift.py`). Its weights are all positive,
+    and 96 % of the samples are the net's own top answer. The data rated the
+    off-top samples slightly better than expected (+0.09 sd).
+  - A clipped policy-gradient step (PPO) moves probability between answers
+    by a zero-mean advantage, against the frozen net that played, corrected
+    for its sampling temperature, with an entropy bonus. Seven PPO steps later,
+    rl-15 won 46.5 % of 849 paired games against the house's expert profile,
+    where v3-a won 37.2 % (p < 0.001), and the climb had not flattened.
 - **Engine findings** from self-play, handed to the engine agents with replayable
   records: Karn, the Great Creator's loyalty targets (a panic), a refused `apply`
   that changed the engine (records that do not replay), a question with no legal
@@ -262,8 +281,8 @@ one creature. The second is a constraint `ChooseBlockers` does not state yet.
   Self-play already seats 2 to 8 decks (`--seats`, `--teams`). A four-seat
   game of house decks takes about 3000 answers and 5 s, against 40 ms for a
   duel.
-- The arena: win rate against each house profile with 95 % intervals, then RL
-  against a league of house profiles and older nets.
+- RL: head-to-head against v3-a and against every house profile, not only
+  expert; the value head as the critic is the noise floor of the advantage.
 - The scaling measurement and the student's latency on `acenb`.
 - Regenerating data once the house AI's lethal-first fix lands: the policy
   imitates the house, so it learns whatever the house does.
