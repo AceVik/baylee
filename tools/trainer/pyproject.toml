@@ -14,7 +14,9 @@ dependencies = [
 package = false
 
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu132" }]
+# CUDA 13.2 wheels on Linux (bigace); PyPI's elsewhere, whose macOS wheels
+# run on the Mac's GPU (MPS).
+torch = [{ index = "pytorch-cu132", marker = "sys_platform == 'linux'" }]
 
 [[tool.uv.index]]
 name = "pytorch-cu132"
