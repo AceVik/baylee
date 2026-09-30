@@ -2016,3 +2016,26 @@ land type"; both are convention tests that fire on a first try.
   card with `mandatory_additional_costs`; a reader rule for `Sacrificed$`
   was written and removed again, because it read the effect and not the
   cost.
+- **A permanent spell keeps what was done to it on the stack (CR 400.7a).**
+  Purelace cast at a creature spell made a white spell and a creature of its
+  old colour: the effect named the spell's version, and the permanent is a
+  new one. `GameState::move_object` re-points `Resolution` effects on the
+  stack-to-battlefield move and no other.
+- **A clone's choice is made before it enters (CR 614.12a).** The reference
+  writes `Choices$ Creature.Other`; nothing that has not entered can be
+  among the choices, so `Other` names nothing and is dropped rather than
+  read as `Filter::Another`. `AddTypes$` is the one except-clause read.
+- **`Defined$ Targeted` is read against the chain's own target.** A player
+  target makes it `Chosen`, an object or spell target makes
+  `TargetedController` its controller (`ControllerOfTarget`); a word that
+  names a target the chain lacks is refused, never guessed as "you".
+- **"Tap or untap" is a yes or a no.** One of the two always does nothing
+  (CR 701.26a, 701.26b), so choosing it is declining:
+  `MayDo { ToggleTapTarget }`, asked on resolution. A pair of modes would
+  have asked on casting, which is Derevi's written deviation.
+- **A trigger's "its controller adds" is not the trigger's controller.**
+  `AddMana` fills the ability controller's pool; Gauntlet of Might's {R}
+  for an opponent's Mountain is the opponent's (`AddManaFor`,
+  `ControllerOfEvent`). Two silent gaps sat under it: `TappedForMana`
+  answered only "you", and the mana event named no event object, so
+  "that player" of Manabarbs was nobody and the damage reached no one.

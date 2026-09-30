@@ -3567,7 +3567,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
+        Effect::DelayedManaAtNextFirstMain { .. } | Effect::AddManaFor { .. } => {
+            mana::exec(state, res, op)
+        }
         Effect::AddCounter { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DoubleCountersFilter { .. }

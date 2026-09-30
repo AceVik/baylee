@@ -240,7 +240,13 @@ ability (CR 605.1b: no target, triggers from a mana ability, could add mana;
 `ManaProduced` whose nearest earlier journal entry about the same object is
 its `ObjectTapped` under `Cause::Cost` — the pair every {T} mana ability
 writes (CR 106.12, 106.12a) — so the second colour of one activation and a
-tap to attack both miss. `collect_triggers` resolves every queued triggered
+tap to attack both miss. Who tapped is the event's `player`, held against the
+trigger's `by` relation, and the tapped permanent is the trigger's event
+object (`trigger::event_object_of`), which is how "its controller" and "that
+player" (`PlayerRel::ControllerOfEvent`) find a seat. A triggered mana
+ability adds to its own controller's pool unless its effect names another
+(`Effect::AddManaFor`, `resolve::mana::add_to`): Gauntlet of Might's {R} for
+an opponent's Mountain is the opponent's. `collect_triggers` resolves every queued triggered
 mana ability first, through `resolve::run` with `mana_ability: true`, before
 any ordinary trigger is asked about: the mana is in the pool when the player
 who tapped next has priority, and nothing went on the stack. One that asked

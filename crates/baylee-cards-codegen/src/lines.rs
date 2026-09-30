@@ -500,11 +500,13 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
     printed.dedup();
     let mut made: Vec<String> = Vec::new();
     for effect in effects {
-        let Effect::AddMana { source, .. } = effect else {
-            continue;
+        let source = match effect {
+            Effect::AddMana { source, .. } => *source,
+            Effect::AddManaFor { color, .. } => ManaSource::Fixed(*color),
+            _ => continue,
         };
         match source {
-            ManaSource::Fixed(color) => made.push(symbol(*color).to_string()),
+            ManaSource::Fixed(color) => made.push(symbol(color).to_string()),
             ManaSource::Choice(colors) => {
                 made.extend(colors.iter().map(|c| symbol(*c).to_string()));
             }
@@ -589,7 +591,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::DealsCombatDamageToPlayer(_) | T::DealsCombatDamageToOpponent(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
-        T::TappedForMana(_) => &["for mana"],
+        T::TappedForMana { .. } => &["for mana"],
         // Druid Class, "When this Class becomes level 3".
         T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
@@ -683,7 +685,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::BecomesTapped(filter)
-        | Trigger::TappedForMana(filter)
+        | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
@@ -1344,7 +1346,10 @@ mod tests {
             LineShape::Triggered,
         );
         let cub = baylee_cards_dsl::AbilityDef::Triggered {
-            trigger: baylee_cards_dsl::Trigger::TappedForMana(&baylee_cards_dsl::Filter::CREATURE),
+            trigger: baylee_cards_dsl::Trigger::TappedForMana {
+                by: baylee_cards_dsl::PlayerRel::You,
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+            },
             effects: &GREEN,
             targets: None,
             second_targets: None,

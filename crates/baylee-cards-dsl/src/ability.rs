@@ -360,11 +360,24 @@ pub enum Trigger {
     /// {T} in the cost (CR 106.12), and that ability resolves and produces
     /// mana (CR 106.12a). Once per activation, however many colours it made.
     ///
+    /// `by` is who tapped it: `You` for "whenever you tap", `EachPlayer` for
+    /// "whenever a player taps a land" (Manabarbs) and for "whenever a
+    /// Mountain is tapped for mana" (Gauntlet of Might), which names nobody,
+    /// `EachOpponent` for "an opponent". The permanent is the event's
+    /// object, so `PlayerRel::ControllerOfEvent` is "that player" and "its
+    /// controller": only its controller can activate its abilities
+    /// (CR 602.2).
+    ///
     /// Without a target and with effects that add mana, the ability is
     /// itself a mana ability (CR 605.1b) and resolves at once, off the
     /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
     /// player acts again.
-    TappedForMana(&'static Filter),
+    TappedForMana {
+        /// Who tapped it.
+        by: crate::effect::PlayerRel,
+        /// What was tapped.
+        filter: &'static Filter,
+    },
     /// A player draws a card except the first one they draw in each of
     /// their draw steps (Orcish Bowmasters). A card drawn in their upkeep
     /// or on another player's turn is in none of their draw steps.
@@ -707,13 +720,14 @@ impl AbilityDef {
         matches!(
             self,
             Self::Triggered {
-                trigger: Trigger::TappedForMana(_),
+                trigger: Trigger::TappedForMana { .. },
                 targets: None,
                 effects,
                 ..
-            } if effects
-                .iter()
-                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
+            } if effects.iter().any(|effect| matches!(
+                effect,
+                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. }
+            ))
         )
     }
 }

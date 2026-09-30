@@ -779,7 +779,7 @@ fn as_granted_activated(modifier: &Modifier) -> Option<(bool, &'static [Effect])
 
 /// Whether an effect adds mana.
 fn makes_mana(effect: &Effect) -> bool {
-    matches!(effect, Effect::AddMana { .. })
+    matches!(effect, Effect::AddMana { .. } | Effect::AddManaFor { .. })
 }
 
 /// Whether an activated ability's `mana_ability` flag disagrees with what
@@ -896,6 +896,7 @@ fn color_of(mana: ManaColor) -> Option<Color> {
 fn mana_symbol_colors(effect: &Effect) -> ColorSet {
     let union = |set: ColorSet, effect: &Effect| set.union(mana_symbol_colors(effect));
     match effect {
+        Effect::AddManaFor { color, .. } => color_of(*color).map_or(ColorSet::EMPTY, ColorSet::of),
         Effect::AddMana { source, .. } => match source {
             ManaSource::Fixed(mana) => color_of(*mana).map_or(ColorSet::EMPTY, ColorSet::of),
             ManaSource::Choice(colors) => {

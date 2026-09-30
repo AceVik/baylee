@@ -964,16 +964,24 @@ land under a Doubling Season enters with four charge counters.
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
-`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana(filter)`.
+`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana { by, filter }`.
 
-`TappedForMana(filter)` is "whenever you tap [a permanent] for mana"
-(Badgermole Cub): its controller activated a mana ability of a permanent
+`TappedForMana { by, filter }` is "whenever [a player] taps [a permanent]
+for mana": a player `by` names activated a mana ability of a permanent
 matching `filter` with {T} in the cost (CR 106.12), and it resolved and made
-mana (CR 106.12a) — once per activation, however many colours. Written with
-no target and effects that add mana, the ability is itself a mana ability
-(CR 605.1b, `AbilityDef::is_triggered_mana_ability`) and resolves as it
-triggers, off the stack (CR 605.4a): write it as a plain `triggered!`, with
-no flag. One that targets (Forbidden Orchard's) is an ordinary trigger.
+mana (CR 106.12a) — once per activation, however many colours. `by` is
+`PlayerRel::You` for "whenever you tap" (Badgermole Cub), `EachPlayer` for
+"whenever a player taps a land" (Manabarbs) and for "whenever a Mountain is
+tapped for mana" (Gauntlet of Might), which names nobody, and `EachOpponent`
+for "an opponent". The tapped permanent is the event's object, so
+`PlayerRel::ControllerOfEvent` is "that player" and "its controller": only a
+permanent's controller can activate its abilities (CR 602.2). Written with
+no target and effects that add mana (`AddMana`, or `AddManaFor` for another
+player's pool), the ability is itself a mana ability (CR 605.1b,
+`AbilityDef::is_triggered_mana_ability`) and resolves as it triggers, off
+the stack (CR 605.4a): write it as a plain `triggered!`, with no flag. One
+that targets (Forbidden Orchard's) or makes no mana (Manabarbs') is an
+ordinary trigger.
 
 `PlaysLand(rel)` is "whenever [a player] plays a land" (Fastbond): the
 special action (CR 116.2a, 305.1), out of the hand or from wherever a
@@ -2059,6 +2067,12 @@ Filters, conditions, modifiers and durations:
   (CR 106.4: "the player is said to lose this mana"), all of it, including
   mana an effect lets stay as steps end: the effect empties the pool, not
   the end of a step.
+- **`Effect::AddManaFor { who, color, amount }`** is fixed mana in the pool
+  of each player `who` names, who need not be the ability's controller:
+  Gauntlet of Might's and Wild Growth's "its controller adds an additional
+  {R}" (`who: PlayerRel::ControllerOfEvent` under `TappedForMana`). It is
+  mana like `AddMana`'s otherwise, so a trigger that makes it with no target
+  is a mana ability.
 - **`Effect::ToggleTapTarget`** taps each untapped target and untaps each
   tapped one. "Tap or untap target permanent" is `MayDo { effects:
   &[Effect::ToggleTapTarget] }` (Twiddle), with or without a printed "may":

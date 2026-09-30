@@ -564,7 +564,13 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::BecameTarget { object, .. }
         | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
-        | GameEvent::BecameBlocker { object, .. } => Some(*object),
+        | GameEvent::BecameBlocker { object, .. }
+        // The permanent tapped for mana (CR 106.12a): "its controller" and
+        // "that player" of Gauntlet of Might and Manabarbs.
+        | GameEvent::ManaProduced {
+            source: Some(object),
+            ..
+        } => Some(*object),
         _ => None,
     }
 }
@@ -1369,15 +1375,18 @@ fn matches(
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
         (
-            Trigger::TappedForMana(filter),
+            Trigger::TappedForMana { by, filter },
             GameEvent::ManaProduced {
                 player,
                 source: Some(tapped),
                 ..
             },
         ) => {
-            // "Whenever **you** tap": the mana is the activating player's.
-            *player == you
+            // Who tapped it: the mana is the activating player's, and the
+            // relation is asked of the state alone (`You`, `EachPlayer`,
+            // `EachOpponent`; a relation that needs a resolution names
+            // nobody here).
+            eval::players(*by, state, you).is_some_and(|seats| seats.contains(player))
                 && first_mana_of_a_tap(event, batch, *tapped)
                 && state
                     .object(*tapped)

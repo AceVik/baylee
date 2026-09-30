@@ -1008,6 +1008,12 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("ChangesZone") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            // The permanent tapped for mana is the event's object, and its
+            // controller is the only player who can have tapped it for mana
+            // (CR 602.2): "its controller" and "that player" are one seat.
+            "TriggeredCardController" | "TriggeredActivator" if trigger == Some("TapsForMana") => {
+                "PlayerRel::ControllerOfEvent"
+            }
             _ => return None,
         })
     }
@@ -2349,6 +2355,13 @@ impl Tx<'_> {
 
     /// `Produced$ Combo W U | Amount$ 2` and friends.
     fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        // "Its controller adds an additional {R}" (Gauntlet of Might): mana
+        // in another player's pool, which is fixed mana or nothing.
+        let defined = p.take("Defined");
+        if let Some(who) = defined.as_deref().filter(|d| *d != "You") {
+            let who = self.player_rel(Some(who))?;
+            return self.mana_for(p, who);
+        }
         let produced = p.take("Produced")?;
         let restrict = match p.take("RestrictValid") {
             None => None,
@@ -2441,6 +2454,37 @@ impl Tx<'_> {
         Some(vec![format!(
             "{only}.restricted(&{name}, SpendRider::None)"
         )])
+    }
+
+    /// [`Self::mana_effect`] for a pool other than the controller's:
+    /// `Effect::AddManaFor`, one per colour, of a fixed amount and with no
+    /// restriction. Anything else is refused by name.
+    fn mana_for(&mut self, p: &mut Params, who: &str) -> Option<Vec<String>> {
+        let produced = p.take("Produced")?;
+        if p.peek("RestrictValid").is_some() {
+            return self.deny("restricted mana for another player".to_string());
+        }
+        let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
+        let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok())
+        else {
+            return self.deny(format!("mana for another player of `Amount$ {raw}`"));
+        };
+        let mut out = Vec::new();
+        for symbol in produced.split_whitespace() {
+            let color = match symbol {
+                "W" => "ManaColor::White",
+                "U" => "ManaColor::Blue",
+                "B" => "ManaColor::Black",
+                "R" => "ManaColor::Red",
+                "G" => "ManaColor::Green",
+                "C" => "ManaColor::Colorless",
+                other => return self.deny(format!("mana for another player of `{other}`")),
+            };
+            out.push(format!(
+                "Effect::AddManaFor {{ who: {who}, color: {color}, amount: {amount} }}"
+            ));
+        }
+        Some(out)
     }
 
     /// `Produced$ Combo …` — a choice among the colours listed, and how many.
@@ -2854,6 +2898,39 @@ impl Tx<'_> {
         Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
+    /// `T:Mode$ TapsForMana` — "whenever a Mountain is tapped for mana"
+    /// (Gauntlet of Might), "whenever a player taps a land for mana"
+    /// (Manabarbs): CR 106.12a. No `Activator$` is anybody, as the two
+    /// sentences say. `Static$ True` is the reference's mark on the ones that
+    /// resolve at once, which the engine derives from the ability's shape
+    /// instead (CR 605.1b) and so needs no word for.
+    fn taps_for_mana_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `TapsForMana` trigger with no `ValidCard$`".to_string());
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        let by = match p.take("Activator").as_deref() {
+            None => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => {
+                return self.deny(format!("a permanent tapped for mana by `{other}`"));
+            }
+        };
+        match p.take("Static").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Static$ {other}`")),
+        }
+        Some(format!(
+            "Trigger::TappedForMana {{ by: {by}, filter: {filter} }}"
+        ))
+    }
+
     /// `T:Mode$ …` as a `Trigger` expression.
     fn trigger_expr(&mut self, p: &mut Params, mode: &str) -> Option<String> {
         // Where the ability triggers **from**. This used to be taken and
@@ -2949,6 +3026,7 @@ impl Tx<'_> {
                 Some(format!("Trigger::Attacks({filter})"))
             }
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
+            "TapsForMana" => self.taps_for_mana_trigger(p),
             "Taps" => {
                 let valid = p.take("ValidCard").unwrap_or_default();
                 if valid == "Card.Self" {
@@ -6797,6 +6875,59 @@ SVar:X:Count$xPaid",
             "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+        ));
+    }
+
+    /// Gauntlet of Might, Manabarbs, Badgermole Cub: who tapped it is
+    /// `Activator$` (nobody named is anybody), "its controller" and "that
+    /// player" are the tapped permanent's controller, and mana for them is
+    /// `AddManaFor`.
+    #[test]
+    fn a_permanent_tapped_for_mana_names_who_tapped_it_and_whose_mana_it_is() {
+        let gauntlet = read(
+            "Name:X\nTypes:Artifact\n\
+             T:Mode$ TapsForMana | ValidCard$ Mountain | Execute$ TrigMana | TriggerZones$ \
+             Battlefield | Static$ True | TriggerDescription$ x\n\
+             SVar:TrigMana:DB$ Mana | Produced$ R | Amount$ 1 | Defined$ TriggeredCardController",
+        );
+        let a = gauntlet.abilities.join("");
+        assert!(a.contains("by: PlayerRel::EachPlayer"), "{a}");
+        assert!(
+            a.contains(
+                "Effect::AddManaFor { who: PlayerRel::ControllerOfEvent, color: ManaColor::Red, \
+                 amount: 1 }"
+            ),
+            "{a}"
+        );
+        let barbs = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ TapsForMana | ValidCard$ Land | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredActivator | NumDmg$ 1",
+        );
+        assert!(
+            barbs
+                .abilities
+                .join("")
+                .contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{:?}",
+            barbs.abilities
+        );
+        let cub = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TapsForMana | ValidCard$ Creature | Activator$ You | Execute$ M | \
+             TriggerZones$ Battlefield | Static$ True\n\
+             SVar:M:DB$ Mana | Produced$ G",
+        );
+        assert!(
+            cub.abilities.join("").contains("by: PlayerRel::You"),
+            "{:?}",
+            cub.abilities
+        );
+        // "That player" of any other trigger is not the tapper.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Attacks | ValidCard$ Creature | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredActivator | NumDmg$ 1"
         ));
     }
 

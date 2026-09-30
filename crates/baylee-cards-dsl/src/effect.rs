@@ -1877,6 +1877,24 @@ pub enum Effect {
         /// Who.
         target: PlayerRel,
     },
+    /// "Its controller adds an additional {R}" (Gauntlet of Might, Wild
+    /// Growth): `amount` mana of `color` in the pool of each player `who`
+    /// names, which need not be the ability's controller. A trigger on a
+    /// permanent tapped for mana names the permanent's controller as
+    /// `PlayerRel::ControllerOfEvent`: the tapped permanent is the event's
+    /// object, and only its controller can have activated its mana ability
+    /// (CR 602.2).
+    ///
+    /// Mana like [`Self::AddMana`]'s in every other way: a triggered ability
+    /// with no target that makes it is a mana ability (CR 605.1b).
+    AddManaFor {
+        /// Whose pool.
+        who: PlayerRel,
+        /// Which type.
+        color: ManaColor,
+        /// How much.
+        amount: u16,
+    },
     /// Add mana to your pool.
     ///
     /// Prefer the constructors — [`Effect::mana`], [`Effect::mana_choice`],
@@ -3231,6 +3249,7 @@ impl Effect {
             | Effect::SetPTFilter { .. }
             | Effect::Mill { .. }
             | Effect::AddMana { .. }
+            | Effect::AddManaFor { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::AddCounterFilter { .. }

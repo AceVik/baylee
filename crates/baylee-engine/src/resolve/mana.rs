@@ -20,6 +20,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             combination,
             restriction,
         } => add_mana(state, res, source, &amount, combination, restriction),
+        Effect::AddManaFor { who, color, amount } => {
+            for player in players_of(who, state, res.controller, res) {
+                add_to(state, res, player, color, amount, None);
+            }
+            None
+        }
         Effect::DelayedManaAtNextFirstMain { color } => {
             let cmc = res
                 .targets
@@ -86,7 +92,20 @@ pub(super) fn add(
     amount: u16,
     restriction: Option<ManaRestriction>,
 ) {
-    let you = res.controller;
+    add_to(state, res, res.controller, color, amount, restriction);
+}
+
+/// [`add`] into `you`'s pool, which is the ability's controller's unless
+/// the effect names another player ("its controller adds", Gauntlet of
+/// Might).
+fn add_to(
+    state: &mut GameState,
+    res: &Resolution,
+    you: PlayerId,
+    color: ManaColor,
+    amount: u16,
+    restriction: Option<ManaRestriction>,
+) {
     let snow = state.object(res.source).is_some_and(|o| {
         o.characteristics()
             .supertypes
