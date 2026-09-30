@@ -1815,6 +1815,19 @@ pub enum Effect {
         /// Effects when it is.
         then: &'static [Effect],
     },
+    /// "… that creature if it [filter]": the effects run only when the
+    /// event object, as it is when this runs, matches `filter`. Written for
+    /// a delayed trigger's "that creature" ([`TargetSpec::EventObject`],
+    /// [`Self::AtNextEndStep`]): Berserk's "destroy that creature if it
+    /// attacked this turn", Nettling Imp's "destroy it … if it didn't attack
+    /// this turn". An event object that has left its zone is none, so the
+    /// effects do not run (CR 603.7c), whatever `filter` says.
+    IfEventObjectMatches {
+        /// What the event object has to be.
+        filter: &'static crate::Filter,
+        /// Effects when it is.
+        then: &'static [Effect],
+    },
     /// Branch when at least N creatures died this turn (Emeritus of
     /// Woe's re-prepare condition).
     IfCreaturesDiedAtLeast {
@@ -3247,6 +3260,7 @@ impl Effect {
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
+            | Effect::IfEventObjectMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfResolvedTimesThisTurn { times: _, then }
@@ -3656,6 +3670,23 @@ mod verb_tests {
 
     /// "… if it's [filter]" carries its effects the way the other one-branch
     /// conditionals do, and the walk goes into them.
+    #[test]
+    fn if_event_object_matches_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtNextEndStep {
+            effects: &[Effect::IfEventObjectMatches {
+                filter: &crate::Filter::AttackedThisTurn,
+                then: &[Effect::destroy(TargetSpec::EventObject)],
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(body_seen);
+    }
+
     #[test]
     fn if_target_matches_body_is_visited() {
         static EFFECTS: &[Effect] = &[Effect::IfTargetMatches {

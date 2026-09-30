@@ -984,12 +984,36 @@ pub(crate) fn timing_allows(
 pub(crate) fn face_timing_allows(
     state: &GameState,
     player: PlayerId,
+    card: ObjectId,
     def: &baylee_cards_dsl::CardDef,
     face: usize,
 ) -> bool {
     def.faces
         .get(face)
         .is_some_and(|f| timing_allows(state, player, f.types, def.keywords_for_face(face)))
+        && spell_condition_allows(state, player, card, def, face)
+}
+
+/// "Cast this spell only [when]" (CR 506.7; Berserk's "only before the
+/// combat damage step"): whether the condition the face's spell prints, if
+/// it prints one, holds now for `player` casting `card`. A restriction of
+/// the card's own, asked beside the timing its type gives it (CR 601.3):
+/// an instant restricted to combat is still cast whenever an instant could
+/// be, inside that window.
+pub(crate) fn spell_condition_allows(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> bool {
+    def.abilities_for_face(face).iter().all(|a| match a {
+        baylee_cards_dsl::AbilityDef::Spell {
+            condition: Some(condition),
+            ..
+        } => crate::eval::condition_holds(state, player, card, *condition),
+        _ => true,
+    })
 }
 
 /// Whether a continuous effect forbids `player` casting `obj` at all
@@ -1204,11 +1228,12 @@ pub(crate) fn can_cast_form(
     // an enchantment, and it is cast in answer to an ability on the stack
     // or not at all. A prototype or a disguise is the front, cast another
     // way.
-    let front_now = timing_allows(state, player, c.types, c.keywords);
     let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let front_now = timing_allows(state, player, c.types, c.keywords)
+        && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let a_back_face_now = printed.is_some_and(|def| {
         castable_back_faces(def, on_adventure)
-            .any(|(i, _)| face_timing_allows(state, player, def, i))
+            .any(|(i, _)| face_timing_allows(state, player, card, def, i))
     });
     if !front_now && (form.is_some() || !a_back_face_now) {
         return Err(CastError::BadTiming);
@@ -1269,7 +1294,7 @@ pub(crate) fn can_cast_form(
     let a_back_face_castable = || {
         printed.is_some_and(|def| {
             castable_back_faces(def, on_adventure).any(|(i, f)| {
-                face_timing_allows(state, player, def, i)
+                face_timing_allows(state, player, card, def, i)
                     && probe(&f.mana_cost.with_x(0))
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })

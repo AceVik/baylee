@@ -400,6 +400,10 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        // Which creatures attacked, and since when a controller has held a
+        // permanent, are history of the same kind.
+        | Filter::AttackedThisTurn
+        | Filter::ControlledSinceTurnBegan
         // The engine's counter kind against the view's wire kind, and the
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::HasCounter(_)

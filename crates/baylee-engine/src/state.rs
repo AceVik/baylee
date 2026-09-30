@@ -399,6 +399,11 @@ pub struct PerTurn {
     /// with its version (`Effect::CantBeRegeneratedThisTurn`, CR 701.19c):
     /// read by `sba::destroy`.
     pub cant_regenerate: Vec<(ObjectId, u32)>,
+    /// The creatures declared as attackers this turn, each with its
+    /// version (`Filter::AttackedThisTurn`, CR 508.1): written by
+    /// `Engine::declare_attackers` and nothing else, so a creature put onto
+    /// the battlefield attacking is not in it (CR 508.4).
+    pub attacked: Vec<(ObjectId, u32)>,
 }
 
 /// One card played or cast from a graveyard under a
@@ -483,6 +488,7 @@ impl PerTurn {
             entered_graveyard: Vec::new(),
             exile_if_dies: Vec::new(),
             cant_regenerate: Vec::new(),
+            attacked: Vec::new(),
         }
     }
 
@@ -542,6 +548,7 @@ impl PerTurn {
         self.entered_graveyard.clear();
         self.exile_if_dies.clear();
         self.cant_regenerate.clear();
+        self.attacked.clear();
     }
 }
 
@@ -4227,6 +4234,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // them one.
         F::EnteredThisTurn => h.u8(30),
         F::PutIntoGraveyardThisTurn => h.u8(35),
+        F::AttackedThisTurn => h.u8(44),
+        F::ControlledSinceTurnBegan => h.u8(45),
         F::HasCounter(kind) => {
             h.u8(36);
             hash_counter(h, *kind);
@@ -5032,6 +5041,9 @@ mod tests {
             }),
             ("per_turn.cant_regenerate", |s, id| {
                 s.per_turn.cant_regenerate.push((id, 0));
+            }),
+            ("per_turn.attacked", |s, id| {
+                s.per_turn.attacked.push((id, 0));
             }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);

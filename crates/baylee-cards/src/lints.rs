@@ -1380,6 +1380,7 @@ mod tests {
             effects: &WRATH,
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert!(target_reuse(&wrath).is_none(), "a wrath is not a mistake");
 
@@ -1388,6 +1389,7 @@ mod tests {
             effects: &OTHER_SWEEP,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
             second_targets: None,
+            condition: None,
         };
         assert!(
             target_reuse(&tutor).is_none(),
@@ -1405,6 +1407,7 @@ mod tests {
             effects: &BURN_EVERY_ONE,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
             second_targets: None,
+            condition: None,
         };
         assert!(
             target_reuse(&broken).is_some(),
@@ -1584,6 +1587,7 @@ mod tests {
             }],
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert_eq!(
             layer_fault(&via_effect),
@@ -1611,6 +1615,7 @@ mod tests {
             }],
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert_eq!(
             layer_fault(&nested).map(|(declared, derived, _)| (declared, derived)),
@@ -1844,6 +1849,7 @@ mod tests {
                     effects: DIVIDE,
                     targets: targets(4),
                     second_targets: None,
+                    condition: None,
                 },
             ),
         ] {

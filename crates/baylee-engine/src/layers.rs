@@ -492,10 +492,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::BecomeCopyOf(_)
         ),
         // Layer 2 moves a permanent from one side of the table to the
-        // other, which is the whole of what these two read.
+        // other, which is the whole of what these read: a change of
+        // control also restarts how long it has been controlled (CR 302.6).
         Filter::ControlledByYou
         | Filter::ControlledByOpponent
-        | Filter::ControlledByActivePlayer => matches!(modifier, Modifier::GainControl),
+        | Filter::ControlledByActivePlayer
+        | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f))
         }
@@ -526,6 +528,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::AttackedThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::CmcAtMost(_)

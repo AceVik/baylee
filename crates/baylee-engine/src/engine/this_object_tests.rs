@@ -339,6 +339,10 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // variant names the event object itself and `resolve::life` reads
         // `res.event_object`; its `target` is the damage's recipient.
         "EventObjectDealsDamageEqualToPower",
+        // Berserk's delayed "if it attacked this turn": the variant asks
+        // `res.event_object` itself, and the destroy inside it is counted
+        // above.
+        "IfEventObjectMatches",
     ];
 
     let mut unread = Vec::new();

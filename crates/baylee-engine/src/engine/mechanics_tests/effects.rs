@@ -21,6 +21,7 @@ static SPELL_GAIN_ONE: &[AbilityDef] = &[AbilityDef::Spell {
     effects: GAIN_ONE,
     targets: None,
     second_targets: None,
+    condition: None,
 }];
 
 static INSTANT_OR_SORCERY: Filter = Filter::INSTANT_OR_SORCERY;

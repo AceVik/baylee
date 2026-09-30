@@ -2167,3 +2167,12 @@ land type"; both are convention tests that fire on a first try.
   The reader also moved the ping from ability 0 to ability 2, in the order
   of the script's lines. A card handed back to the reader has its tests
   reread.
+- **"Before the combat damage step" is a place in the turn, not a step.**
+  Comparing the current step with a named one answers nothing in a combat
+  with no damage step (CR 506.7e: no attackers, so the window ends with the
+  declare attackers step) and nothing in the second main phase, which is a
+  `Step::Main` like the first. `TurnInfo::position` puts every step on one
+  scale; a test walks a whole turn and asserts both sides of each window.
+- **A synthetic `{0}` spell is `ManaCost::parse("{0}")`.** `ManaCost::ZERO`
+  is *no* mana cost, and a card without one cannot be cast (CR 118.6): the
+  offer answered `NotEnoughMana`, which read like a broken window.

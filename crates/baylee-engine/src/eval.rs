@@ -97,6 +97,14 @@ pub fn matches_projected(
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
+        Filter::AttackedThisTurn => state.per_turn.attacked.contains(&(obj.id, obj.version)),
+        Filter::ControlledSinceTurnBegan => {
+            obj.zone == crate::zone::Zone::Battlefield
+                && state
+                    .players
+                    .get(obj.controller.get() as usize)
+                    .is_some_and(|p| obj.timestamp <= p.turn_start_timestamp)
+        }
         Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
         // The object's own counters. A leaves-the-battlefield trigger asks
         // the object as it last existed there, and `trigger::departed_matches`
@@ -626,6 +634,12 @@ pub fn condition_holds(
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
         Condition::DuringCombat => state.turn.phase == crate::turn::Phase::Combat,
+        Condition::All(all) => all.iter().all(|c| condition_holds(state, you, source, *c)),
+        Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
+        Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
+        // CR 506.7: "before" a point of the turn is before that point's
+        // place in it, whether or not the step itself happens (506.7e).
+        Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
         Condition::CanSacrifice(filter) => {
             !controlled_matching(state, you, filter, you, source).is_empty()
         }

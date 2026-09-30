@@ -51,7 +51,10 @@ pub enum ActivationZone {
     Graveyard,
 }
 
-/// Steps/phases triggers can listen to.
+/// Steps a trigger can listen to, and a step a timing restriction names.
+///
+/// Listed in turn order, which is the order [`Condition::BeforeStep`]
+/// compares in.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum StepKind {
     /// Upkeep step.
@@ -60,6 +63,15 @@ pub enum StepKind {
     Draw,
     /// Beginning of combat.
     CombatBegin,
+    /// Declare attackers step (CR 508): attackers are declared as it
+    /// begins.
+    DeclareAttackers,
+    /// Declare blockers step (CR 509): blockers are declared as it begins.
+    DeclareBlockers,
+    /// A combat damage step (CR 510), the first-strike one included: a
+    /// combat with first strike has two, and "the combat damage step" is
+    /// reached at the first of them.
+    CombatDamage,
     /// End step.
     End,
 }
@@ -252,13 +264,31 @@ pub enum Condition {
     /// "or you control a basic land" would have to be added to every
     /// `Condition` the cycle could ever pair it with.
     ///
-    /// There is no `All`. A conjunction is printed, but inside an effect:
-    /// the Urza lands' "if you control an Urza's Mine and an Urza's
-    /// Power-Plant, add {C}{C}{C} instead" is two nested
-    /// `Effect::IfCondition`s. It is added the day one stands where a single
-    /// condition is all there is room for (an activation restriction, an
-    /// intervening `if`), and not before.
+    /// A conjunction printed inside an effect is nested
+    /// `Effect::IfCondition`s (the Urza lands' "if you control an Urza's
+    /// Mine and an Urza's Power-Plant"); [`Condition::All`] is for one that
+    /// stands where a single condition is all there is room for.
     Any(&'static [Condition]),
+    /// Every one of these holds. "Activate only during your upkeep" is
+    /// `All(&[YourTurn, DuringStep(StepKind::Upkeep)])`: a restriction on
+    /// activating (CR 602.5) is one condition, and the sentence is two.
+    All(&'static [Condition]),
+    /// It is an opponent's turn: the active player is an opponent of
+    /// "you". Not `Not(&YourTurn)`, which a teammate's turn also satisfies.
+    OpponentsTurn,
+    /// The current step is this one ("activate only during the declare
+    /// blockers step"). A turn's two main phases have no step and are never
+    /// it.
+    DuringStep(StepKind),
+    /// This turn has not yet reached this step (CR 506.7): "cast this spell
+    /// only before blockers are declared" is `BeforeStep(DeclareBlockers)`,
+    /// since blockers are declared as that step begins (CR 506.7b), and
+    /// "before the combat damage step" is `BeforeStep(CombatDamage)`. Past
+    /// the step's place in the turn it is false, whether or not the step
+    /// happened: with no attackers there is no combat damage step (CR
+    /// 508.8), and the end of combat step is after it all the same (CR
+    /// 506.7e).
+    BeforeStep(StepKind),
     /// "If X is N or more" — the X announced for the spell that is the
     /// source (Finale of Devastation). Read off the source's announced X,
     /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
@@ -495,6 +525,11 @@ pub enum AbilityDef {
         /// illegal target *and the position it held*. An effect reaches this
         /// list only by naming [`crate::effect::TargetSlot::Second`].
         second_targets: Option<crate::effect::TargetReq>,
+        /// "Cast this spell only [when]" (CR 506.7, 601.3): asked before the
+        /// spell may be cast, as an activated ability's condition is asked
+        /// before it may be activated. `None` for the spell every other
+        /// card is.
+        condition: Option<Condition>,
     },
     /// Activated ability (`cost: effect`).
     Activated {
@@ -1070,6 +1105,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                condition: None,
             },
             AbilityDef::Triggered {
                 trigger: Trigger::ETB,

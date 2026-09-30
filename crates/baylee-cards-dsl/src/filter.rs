@@ -111,6 +111,20 @@ pub enum Filter {
     /// History like [`Self::EnteredThisTurn`], kept in the same per-turn
     /// record and refused by a view for the same reason.
     PutIntoGraveyardThisTurn,
+    /// Was declared as an attacker this turn (CR 508.1): Berserk's
+    /// "destroy that creature if it attacked this turn". A creature put
+    /// onto the battlefield attacking never attacked (CR 508.4), and one
+    /// that left the battlefield since is a new object that did not
+    /// (CR 400.7). History like [`Self::EnteredThisTurn`], kept in the same
+    /// per-turn record and refused by a view for the same reason.
+    AttackedThisTurn,
+    /// Its controller has controlled it continuously since their most
+    /// recent turn began: the half of summoning sickness (CR 302.6) that is
+    /// about control, with no exception for haste and asked of any
+    /// permanent. Nettling Imp's "non-Wall creature the active player has
+    /// controlled continuously since the beginning of the turn" is this
+    /// beside [`Self::ControlledByActivePlayer`].
+    ControlledSinceTurnBegan,
     /// Has at least one counter of this kind on it (The Reaper, King No
     /// More: "a creature an opponent controls with a -1/-1 counter on it").
     ///

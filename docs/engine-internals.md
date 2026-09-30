@@ -201,6 +201,39 @@ required creatures and nothing else, each at the first defender it may
 attack; the house AI keeps its own choice and adds what the rules make it
 (`combat::obey_attack_rules`).
 
+### Windows in the turn (CR 506.7)
+"Cast this spell only before the combat damage step", "activate only during
+an opponent's turn, before attackers are declared", "activate only during
+your upkeep": each is a `Condition`, asked where the permission is asked.
+
+- **Where.** An activated ability carries it as `condition` (the
+  `ActivatedConditional` twin). A spell carries it on `AbilityDef::Spell`'s
+  own `condition`, asked by `casting::spell_condition_allows` beside the
+  timing the card's type gives it (CR 601.3), in the offer (`can_cast_form`)
+  and in the cast wizard. An instant restricted to combat is still cast
+  whenever an instant could be, inside its window.
+- **Which.** `DuringStep(kind)` is the step; `BeforeStep(kind)` compares
+  `TurnInfo::position` with `turn::position_of(kind)`, a place in turn order
+  (CR 500.1), so "before the combat damage step" still holds in a declare
+  attackers step that has no combat damage step after it and is over at
+  end of combat (CR 506.7a, 506.7e). `OpponentsTurn` asks the active
+  player's relation to "you", which a teammate's turn does not satisfy;
+  `All` joins them. `Step::kind` is the one door from the engine's steps to
+  the ones a card names, for `Trigger::StepBegin` as well: both combat
+  damage steps are "the combat damage step".
+- **What a card with a window asks of the turn.** `PerTurn.attacked` holds
+  each creature declared as an attacker, with its version, written by
+  `declare_attackers` and nothing else (`Filter::AttackedThisTurn`): a
+  creature put onto the battlefield attacking never attacked (CR 508.4), and
+  one that left and came back is a new object (CR 400.7).
+  `Filter::ControlledSinceTurnBegan` is summoning sickness's measure without
+  the creature or haste clauses (CR 302.6). `Effect::IfEventObjectMatches`
+  asks a delayed trigger's "that creature" (Berserk's "if it attacked this
+  turn").
+
+This engine has one combat phase a turn, so CR 506.7c–d (which of several
+combats a window means) never arises.
+
 ### Bands, and who divides combat damage (CR 702.22)
 Banding is a bit (`KeywordSet::BANDING`) and three questions
 (`engine/banding.rs`); "bands with other" (702.22b) is a family a bit cannot

@@ -1279,6 +1279,7 @@ fn selected_effect_context_routes_positive_and_negative_counters_in_the_engine()
                     &baylee_cards_dsl::Filter::CREATURE,
                 ))),
                 second_targets: None,
+                condition: None,
             }])),
             ..CardDef::DEFAULT
         }));

@@ -989,9 +989,10 @@ impl<L: CardLookup> Engine<L> {
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
         let front = obj.characteristics();
-        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords);
+        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords)
+            && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
-            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, def, i),
+            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, card, def, i),
             _ => front_now,
         });
         for (i, option) in options.iter_mut().enumerate() {

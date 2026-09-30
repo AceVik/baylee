@@ -3748,6 +3748,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // CR 603.7c: an event object that has left its zone is none here,
+        // and nothing about it holds.
+        Effect::IfEventObjectMatches { filter, then } => {
+            let holds = res
+                .event_object
+                .and_then(|t| state.object(t))
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            if holds {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfCreaturesDiedAtLeast { n, then } => {
             if state.per_turn.creatures_died >= n {
                 return run_nested(state, res, then);

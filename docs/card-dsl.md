@@ -2299,6 +2299,30 @@ Filters, conditions, modifiers and durations:
   again as the ability resolves, and a state trigger is not. It triggers
   whenever the condition holds for its controller and the ability is neither
   waiting to go on the stack nor on it.
+- **Windows in the turn** (CR 506.7) are `Condition`s. On an activated
+  ability, `condition = Some(…)` as always; on a spell,
+  `spell!(effects, condition = Some(…))` is "cast this spell only [when]".
+  `Condition::BeforeStep(StepKind::CombatDamage)` is "only before the combat
+  damage step" (Berserk); "only during an opponent's turn, before attackers
+  are declared" is `Condition::All(&[Condition::OpponentsTurn,
+  Condition::BeforeStep(StepKind::DeclareAttackers)])` (Siren's Call,
+  Nettling Imp); "only during your upkeep" is `Condition::All(&[
+  Condition::YourTurn, Condition::DuringStep(StepKind::Upkeep)])`. `StepKind`
+  names the steps a card can name: `Upkeep`, `Draw`, `CombatBegin`,
+  `DeclareAttackers`, `DeclareBlockers`, `CombatDamage`, `End`.
+- **`Filter::AttackedThisTurn`** is "attacked this turn": declared as an
+  attacker this turn, as the object it is now (one put onto the battlefield
+  attacking never attacked, CR 508.4). **`Filter::ControlledSinceTurnBegan`**
+  is "its controller has controlled it continuously since the beginning of
+  the turn" (CR 302.6's measure, asked of any permanent); beside
+  `Filter::ControlledByActivePlayer` it is Nettling Imp's target. Both are
+  history, so the house AI and the client's target preview refuse them.
+- **`Effect::IfEventObjectMatches { filter, then }`** runs `then` when a
+  delayed trigger's "that creature" ([`TargetSpec::EventObject`]) still is
+  that object and matches `filter`: Berserk's `Effect::AtNextEndStep {
+  effects: &[Effect::IfEventObjectMatches { filter:
+  &Filter::AttackedThisTurn, then: &[Effect::destroy(TargetSpec::EventObject)]
+  }] }`. It is `IfTargetMatches` for the event object.
 
 ## Worked examples
 

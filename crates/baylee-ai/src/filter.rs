@@ -51,6 +51,11 @@
 //!   will refuse as a target.
 //! - [`Filter::PutIntoGraveyardThisTurn`] is the same history for the
 //!   graveyards: a view shows the cards there and not when they arrived.
+//! - [`Filter::AttackedThisTurn`] is the same history for combat: a view
+//!   shows who is attacking now, not who attacked earlier in the turn.
+//! - [`Filter::ControlledSinceTurnBegan`] asks how long a permanent has
+//!   been controlled, which a view does not say for anything that is not
+//!   a creature, and says only through summoning sickness for one that is.
 //!
 //! [`Filter::IsToken`] is a seventh refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
@@ -215,6 +220,8 @@ impl HeuristicAgent {
             | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
+            | Filter::AttackedThisTurn
+            | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
             // Not one of those: a gap, and the header says why.
             | Filter::HasCounter(_) => None,

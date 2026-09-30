@@ -29,6 +29,7 @@ static SPARK_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: GAIN_ONE,
     targets: None,
     second_targets: None,
+    condition: None,
 }];
 
 fn cards() -> Vec<&'static CardDef> {

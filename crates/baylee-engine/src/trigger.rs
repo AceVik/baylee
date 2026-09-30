@@ -10,7 +10,7 @@ use crate::eval;
 use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, StepKind, Trigger};
+use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// A triggered ability waiting to go on the stack.
@@ -1634,36 +1634,13 @@ fn matches(
                 .unwrap_or(0);
             is_noncreature && count == 1
         }
-        (Trigger::StepBegin { step, whose }, GameEvent::StepChanged { .. }) => {
-            let step_matches = matches!(
-                (step, event),
-                (
-                    StepKind::Upkeep,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::Upkeep,
-                        ..
-                    }
-                ) | (
-                    StepKind::Draw,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::Draw,
-                        ..
-                    }
-                ) | (
-                    StepKind::End,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::End,
-                        ..
-                    }
-                ) | (
-                    StepKind::CombatBegin,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::CombatBegin,
-                        ..
-                    }
-                )
-            );
-            if !step_matches {
+        (
+            Trigger::StepBegin { step, whose },
+            GameEvent::StepChanged {
+                step: began_step, ..
+            },
+        ) => {
+            if began_step.kind() != Some(*step) {
                 return false;
             }
             match whose {

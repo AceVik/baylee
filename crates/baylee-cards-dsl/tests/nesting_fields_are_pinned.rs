@@ -56,7 +56,10 @@
 /// `verb_tests::activated_at_least_body_is_visited`.
 /// Raised 26 → 27 for `AtEndOfCombat` (Cockatrice's delayed "destroy that
 /// creature at end of combat"); `verb_tests::at_end_of_combat_body_is_visited`.
-const NESTING_FIELDS: usize = 27;
+/// Raised 27 → 28 for `IfEventObjectMatches` (Berserk's delayed "destroy that
+/// creature if it attacked this turn");
+/// `verb_tests::if_event_object_matches_body_is_visited`.
+const NESTING_FIELDS: usize = 28;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -86,8 +89,9 @@ const NESTING_FIELDS: usize = 27;
 /// 2026-09-30: one new carrier, one branch.
 /// `IfActivatedThisTurnAtLeast` moved both on 2026-09-30: one new carrier,
 /// one branch. `AtEndOfCombat` moved both on 2026-09-30: one new carrier,
-/// one branch.
-const CARRYING_VARIANTS: usize = 24;
+/// one branch. `IfEventObjectMatches` moved both on 2026-09-30: one new
+/// carrier, one branch.
+const CARRYING_VARIANTS: usize = 25;
 
 /// The floor under the reader itself.
 ///

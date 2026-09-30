@@ -274,6 +274,8 @@ pub struct SpellParts {
     /// A second instance of the word "target", if the card prints one —
     /// see [`AbilityDef::Spell::second_targets`].
     pub second_targets: Option<TargetReq>,
+    /// "Cast this spell only [when]" — see [`AbilityDef::Spell::condition`].
+    pub condition: Option<crate::Condition>,
 }
 
 impl SpellParts {
@@ -284,6 +286,7 @@ impl SpellParts {
             effects,
             targets: None,
             second_targets: None,
+            condition: None,
         }
     }
 
@@ -294,6 +297,7 @@ impl SpellParts {
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
+            condition: self.condition,
         }
     }
 }
