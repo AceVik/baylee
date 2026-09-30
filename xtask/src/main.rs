@@ -540,6 +540,7 @@ enum Cmd {
     },
 }
 
+#[allow(clippy::too_many_lines)] // one flat table: a subcommand, its function
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
