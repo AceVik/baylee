@@ -501,9 +501,17 @@ pub async fn attach_agent_watching(
 ) {
     let (presets, seen) = tokio::sync::mpsc::unbounded_channel();
     (
-        attach_agent_inner(gateway, presets, EngineProbe::new().1).await,
+        attach_agent_inner(gateway, presets, EngineProbe::new().1, None).await,
         seen,
     )
+}
+
+/// The same agent, with every game it runs shuffled from `seed` instead of
+/// the seed the gateway drew: the same game on every run, for a test that
+/// plays one through and must not wait on a deal it has never seen.
+pub async fn attach_agent_seeded(gateway: &Gateway, seed: u64) -> tokio::task::JoinHandle<()> {
+    let presets = tokio::sync::mpsc::unbounded_channel().0;
+    attach_agent_inner(gateway, presets, EngineProbe::new().1, Some(seed)).await
 }
 
 /// What a test can see of, and change about, the engines an agent runs:
@@ -565,13 +573,14 @@ impl EngineProbe {
 pub async fn attach_agent_probed(gateway: &Gateway) -> (tokio::task::JoinHandle<()>, EngineProbe) {
     let (probe, end) = EngineProbe::new();
     let presets = tokio::sync::mpsc::unbounded_channel().0;
-    (attach_agent_inner(gateway, presets, end).await, probe)
+    (attach_agent_inner(gateway, presets, end, None).await, probe)
 }
 
 async fn attach_agent_inner(
     gateway: &Gateway,
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
     probe: ProbeEnd,
+    seed: Option<u64>,
 ) -> tokio::task::JoinHandle<()> {
     let url = format!("ws://127.0.0.1:{}/agent/ws", gateway.port);
     let mut ws = dial(&url).await.expect("agent socket");
@@ -595,7 +604,7 @@ async fn attach_agent_inner(
     tokio::spawn(async move {
         while let Some(msg) = next_msg(&mut ws).await {
             if let v1::envelope::Msg::StartEngine(start) = msg {
-                tokio::spawn(run_engine(start, presets.clone(), probe.clone()));
+                tokio::spawn(run_engine(start, presets.clone(), probe.clone(), seed));
             }
         }
     })
@@ -605,11 +614,13 @@ async fn attach_agent_inner(
 ///
 /// No decision clock: a test that wants a seat to run out of time can say so
 /// itself, and a clock running under every other test would only add a way for
-/// them to fail on a slow machine.
+/// them to fail on a slow machine. `seed`, where given, replaces the one in
+/// the game's preset before the engine reads it.
 async fn run_engine(
     start: v1::StartEngine,
     presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
     probe: ProbeEnd,
+    seed: Option<u64>,
 ) {
     let Some(mut ws) = dial(&start.gateway_url).await else {
         return;
@@ -648,12 +659,18 @@ async fn run_engine(
                 runner.finish_entrance()
             }
             msg = next_msg(&mut ws) => {
-                let Some(msg) = msg else { break };
+                let Some(mut msg) = msg else { break };
                 if let v1::envelope::Msg::FlushRecord(_) = &msg {
                     probe.flushes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     if probe.mute.load(std::sync::atomic::Ordering::SeqCst) {
                         continue;
                     }
+                }
+                if let (Some(seed), v1::envelope::Msg::GameSetup(setup)) = (seed, &mut msg) {
+                    let mut preset: baylee_core::preset::GamePreset =
+                        serde_json::from_slice(&setup.preset_json).expect("the gateway's preset");
+                    preset.seed = seed;
+                    setup.preset_json = serde_json::to_vec(&preset).expect("a preset");
                 }
                 if let v1::envelope::Msg::GameSetup(setup) = &msg
                     && let Ok(preset) = serde_json::from_slice(&setup.preset_json) {

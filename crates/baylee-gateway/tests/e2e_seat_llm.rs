@@ -12,6 +12,11 @@
 //! list, and the mind has to send that back and take the second answer. No
 //! network and no key: the key is a placeholder shaped like one, so the
 //! scrubber's patterns are held to it too.
+//!
+//! The deal is fixed ([`SEED`]), so every run plays the same game, and a
+//! watchdog fails the test within seconds of the table going quiet, or of
+//! the game outrunning several times its usual length, naming the seat
+//! that owed an answer and the question it owed.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -29,15 +34,35 @@ use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{ApiMind, Provider, Settings, Spec, credentials};
 use baylee_seat::lobby::{GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::Outcome;
-use baylee_seat::{BridgeConfig, HouseMind, Mind, SeatCore, Transcript};
-use common::{attach_agent, spawn_gateway};
+use baylee_seat::transcript::{Event, Note};
+use baylee_seat::{
+    BridgeConfig, Disclosure, HouseMind, Mind, Request, SeatCore, Thinking, Transcript,
+};
+use common::{attach_agent_seeded, spawn_gateway};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-/// A whole game, with room to spare.
-const GAME_BUDGET: Duration = Duration::from_secs(600);
+/// The game's shuffle: the same deal every run.
+const SEED: u64 = 0x5EA7_0001;
+
+/// The table the house seat takes itself to be at. The house seeds its
+/// tie-breaks from the table's id (`policy_seed`), which the gateway draws
+/// afresh for every room: with the deal fixed alone, the house still played
+/// a different game from one run to the next.
+const HOUSE_TABLE: &str = "TEST-seeded-table";
+
+/// A whole game: five times the nine seconds or so this deal takes, so a
+/// mind that keeps answering without the game getting anywhere fails in
+/// well under a minute.
+const GAME_BUDGET: Duration = Duration::from_secs(45);
+
+/// The longest the table may go without either seat noting anything (a
+/// question asked, an answer sent). Between two notes this game spends
+/// milliseconds; before the first, the table's entrance
+/// (`TABLE_ENTRANCE_LEAD_MS` and `TABLE_ENTRANCE_MS`, some three seconds).
+const QUIET: Duration = Duration::from_secs(10);
 
 /// Shaped like an Anthropic key so the scrubber would know it; not a key
 /// anywhere.
@@ -58,12 +83,137 @@ struct Books {
     sent_back: bool,
     /// Questions answered, by the shape of their answer.
     shapes: BTreeMap<&'static str, u32>,
+    /// The head of the last question the stand-in answered, as the
+    /// narrator wrote it.
+    last_question: String,
 }
 
 type Shared = Arc<Mutex<Books>>;
 
-fn lock(books: &Shared) -> MutexGuard<'_, Books> {
-    books.lock().unwrap_or_else(PoisonError::into_inner)
+fn lock<T>(shared: &Mutex<T>) -> MutexGuard<'_, T> {
+    shared.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// The house, seeded as at [`HOUSE_TABLE`] whatever room it sits in.
+struct SeededHouse(HouseMind);
+
+impl Mind for SeededHouse {
+    fn decide(&self, mut request: Request) -> Thinking<'_> {
+        Arc::make_mut(&mut request.context).game_id = HOUSE_TABLE.into();
+        self.0.decide(request)
+    }
+
+    fn disclosure(&self) -> Disclosure {
+        self.0.disclosure()
+    }
+}
+
+/// What a seat last noted, for the watchdog.
+struct Watched {
+    /// Whose seat, in words.
+    who: &'static str,
+    /// When it last noted anything.
+    last: Instant,
+    /// Its last event.
+    event: String,
+    /// The last question it met: number, kind, turn and step.
+    question: Option<String>,
+    /// Whether it was asked that question and has not answered it yet.
+    owes: bool,
+}
+
+impl Watched {
+    fn new(who: &'static str) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            who,
+            last: Instant::now(),
+            event: "nothing yet".into(),
+            question: None,
+            owes: false,
+        }))
+    }
+
+    fn note(&mut self, note: &Note) {
+        self.last = Instant::now();
+        self.event = serde_json::to_value(&note.event).map_or_else(
+            |_| "?".into(),
+            |v| v["event"].as_str().unwrap_or("?").to_string(),
+        );
+        let question = |kind: &str| {
+            format!(
+                "q{} ({kind}, turn {}, seq {})",
+                note.question, note.turn, note.seq
+            )
+        };
+        match &note.event {
+            Event::Asked { kind, step, .. } => {
+                self.question = Some(format!("{} in {step:?}", question(kind)));
+                self.owes = true;
+            }
+            Event::Standing { kind, .. } => {
+                self.question = Some(question(kind));
+                self.owes = false;
+            }
+            Event::Answered { .. } | Event::Withdrawn | Event::Late | Event::Over { .. } => {
+                self.owes = false;
+            }
+            _ => {}
+        }
+    }
+
+    /// A transcript that also tells `watched` of every note.
+    fn transcript(watched: &Arc<Mutex<Self>>) -> Transcript {
+        let watched = Arc::clone(watched);
+        Transcript::memory().echo(move |note| lock(&watched).note(note))
+    }
+}
+
+/// Why the watchdog stopped the game, if it has: the table quiet past
+/// [`QUIET`], or the game past [`GAME_BUDGET`].
+fn stalled(seats: &[&Arc<Mutex<Watched>>], started: Instant) -> Option<String> {
+    let quiet = seats
+        .iter()
+        .map(|seat| lock(seat).last.elapsed())
+        .min()
+        .unwrap_or_default();
+    let why = if quiet >= QUIET {
+        format!("the table was quiet for {:.1} s", quiet.as_secs_f64())
+    } else if started.elapsed() >= GAME_BUDGET {
+        format!("the game did not end within {GAME_BUDGET:?}")
+    } else {
+        return None;
+    };
+    let owing: Vec<String> = seats
+        .iter()
+        .map(|seat| lock(seat))
+        .filter(|seat| seat.owes)
+        .map(|seat| {
+            format!(
+                "{} owed an answer to {} for {:.1} s",
+                seat.who,
+                seat.question.as_deref().unwrap_or("?"),
+                seat.last.elapsed().as_secs_f64()
+            )
+        })
+        .collect();
+    let owing = if owing.is_empty() {
+        let last: Vec<String> = seats
+            .iter()
+            .map(|seat| lock(seat))
+            .map(|seat| {
+                format!(
+                    "{} last noted `{}` on {}",
+                    seat.who,
+                    seat.event,
+                    seat.question.as_deref().unwrap_or("no question")
+                )
+            })
+            .collect();
+        format!("neither seat owed an answer ({})", last.join("; "))
+    } else {
+        owing.join("; ")
+    };
+    Some(format!("{why}: {owing}"))
 }
 
 /// A stand-in provider on a free loopback port.
@@ -115,6 +265,7 @@ async fn messages(State(books): State<Shared>, headers: HeaderMap, body: Bytes) 
     }
 
     let question = latest_question(&request);
+    books.last_question = question.lines().take(6).collect::<Vec<_>>().join("\n");
     let (shape, mut input) = decide(&question);
     *books.shapes.entry(shape).or_default() += 1;
     let id = format!("toolu_TEST{call}");
@@ -433,7 +584,7 @@ async fn guest(lobby: &Lobby, name: &str) -> Session {
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     let gateway = spawn_gateway("seat_llm");
-    let _agent = attach_agent(&gateway).await;
+    let _agent = attach_agent_seeded(&gateway, SEED).await;
     let lobby = Lobby::new(&format!("http://127.0.0.1:{}", gateway.port));
     let (base, books) = stand_in().await;
 
@@ -461,7 +612,7 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     );
     let tally = api.tally();
     let llm: Arc<dyn Mind> = Arc::new(api);
-    let house: Arc<dyn Mind> = Arc::new(HouseMind::default());
+    let house: Arc<dyn Mind> = Arc::new(SeededHouse(HouseMind::default()));
     let llm_name = seat_name(llm.disclosure(), &spec.tag()).unwrap();
     let house_name = seat_name(house.disclosure(), "house").unwrap();
     assert_eq!(llm_name, "LLM-sonnet-5");
@@ -507,10 +658,20 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     };
     let mut llm_link = SeatLink::new(lobby.clone(), llm_chair, Some(llm_session));
     let mut house_link = SeatLink::new(lobby.clone(), house_chair, Some(house_session));
-    let mut llm_transcript = Transcript::memory();
-    let mut house_transcript = Transcript::memory();
-    let started = std::time::Instant::now();
-    let played = tokio::time::timeout(GAME_BUDGET, async {
+    let llm_seat = Watched::new("the model's seat");
+    let house_seat = Watched::new("the house seat");
+    let mut llm_transcript = Watched::transcript(&llm_seat);
+    let mut house_transcript = Watched::transcript(&house_seat);
+    let started = Instant::now();
+    let watchdog = async {
+        loop {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            if let Some(why) = stalled(&[&llm_seat, &house_seat], started) {
+                return why;
+            }
+        }
+    };
+    let game = async {
         tokio::join!(
             bridge::play(
                 &mut llm_link,
@@ -527,21 +688,26 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
                 &options,
             ),
         )
-    })
-    .await;
-    let Ok((llm_played, house_played)) = played else {
-        // Where each seat was when the time ran out.
+    };
+    let played = tokio::select! {
+        played = game => Ok(played),
+        why = watchdog => Err(why),
+    };
+    let (llm_played, house_played) = played.unwrap_or_else(|why| {
+        // Where each seat was when the watchdog stopped the game.
         let tail = |t: &Transcript| {
             let lines = t.lines();
             lines[lines.len().saturating_sub(12)..].join("\n")
         };
-        let faults: Vec<String> = lock(&books).faults.iter().take(5).cloned().collect();
+        let books = lock(&books);
+        let faults: Vec<&String> = books.faults.iter().take(5).collect();
         panic!(
-            "the game did not end within {GAME_BUDGET:?}; faults {faults:#?}\nthe model's seat:\n{}\nthe house seat:\n{}",
+            "{why}\nthe last question the stand-in answered:\n{}\nfaults {faults:#?}\nthe model's seat:\n{}\nthe house seat:\n{}",
+            books.last_question,
             tail(&llm_transcript),
             tail(&house_transcript)
         );
-    };
+    });
     let llm_played = llm_played.unwrap_or_else(|e| panic!("the model's seat: {e:#}"));
     let house_played = house_played.unwrap_or_else(|e| panic!("the house seat: {e:#}"));
     let tally = tally.lock().unwrap_or_else(PoisonError::into_inner).clone();
