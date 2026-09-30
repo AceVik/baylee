@@ -63,13 +63,20 @@ struct Args {
     /// Threads; 0 = one per core.
     #[arg(long, default_value_t = 0)]
     threads: usize,
-    /// Answers a game may take before it is stopped.
-    #[arg(long, default_value_t = 100_000)]
+    /// Decisions a game may take, every seat's questions together
+    /// (`Session::decision_seq`), before it is stopped, per two seats. The
+    /// cap that shapes the data: it stops a game at the same move on every
+    /// machine. In mac-d001's 50,000 house duels finished games took 619
+    /// decisions at the median and 5,136 at the 99.9th percentile; the
+    /// games a 15 s clock stopped had reached 10,018 at the median, loops
+    /// rather than long games.
+    #[arg(long, default_value_t = 6000)]
     max_answers: u64,
-    /// Seconds a game may take before it is stopped. A duel of the house
-    /// decks takes about 40 ms; a game still going after this long has
-    /// found an engine that got slow, which is a report, not data.
-    #[arg(long, default_value_t = 15)]
+    /// Seconds a game may take, per two seats: only a guard against an
+    /// engine that stops deciding. Where it stops a game depends on the
+    /// machine, so such a game is reported as `time_cap`, which is a report
+    /// and not data.
+    #[arg(long, default_value_t = 600)]
     max_secs: u64,
     /// Games per record shard.
     #[arg(long, default_value_t = 1000)]
