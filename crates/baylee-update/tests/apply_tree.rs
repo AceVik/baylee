@@ -91,8 +91,13 @@ fn macos_in_applications_touches_nothing_but_the_bundle() {
         .filter(|(rel, _)| rel.starts_with("Baylee.app/"))
         .collect();
     write_tree(&base, &old);
-    std::fs::create_dir_all(base.join("Safari.app/Contents")).unwrap();
-    std::fs::write(base.join("Safari.app/Contents/Info.plist"), "safari").unwrap();
+    // Through `write_tree`, which states the mode: a plain write takes the
+    // umask's, 664 under Ubuntu's 002 for a user.
+    let safari = support::Node::File(b"safari".to_vec(), 0o644);
+    write_tree(
+        &base,
+        &Tree::from([("Safari.app/Contents/Info.plist".to_owned(), safari)]),
+    );
     let install = Install::around(&support::exe(Os::MacOs, &base), Os::MacOs).unwrap();
     let new = stage(&install);
     apply::apply(&install, OLD).unwrap();
