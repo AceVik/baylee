@@ -1938,7 +1938,18 @@ Effects:
 - **`Effect::OwnerPutsOnTopOrBottom { target }`** (Subtlety): the owner,
   not the controller, picks the end of the library.
 - **`Effect::ExileIfDiesThisTurn { target }`** (Mawloc) is a replacement
-  effect on that object for the rest of the turn.
+  effect on that object for the rest of the turn. The reader writes it from
+  `ReplaceDyingDefined$ Targeted` on any line with an object target
+  ("if that creature would die this turn, exile it instead"), and
+  `ThisTargetedCard.Creature` inside `IfTargetMatches { CREATURE }`
+  (Disintegrate's "if it's a creature"). `Remembered` ("a creature dealt
+  damage this way") is refused: it asks whether damage was dealt.
+- **`Effect::CantBeRegeneratedThisTurn { target }`** (Disintegrate) is "it
+  can't be regenerated this turn" (CR 701.19c): a shield on that object
+  still stands and saves nothing, for the rest of the turn and that object
+  only. "Destroy … It can't be regenerated" is `destroy_no_regen`, not
+  this. The reader writes it from an `Effect` whose one static is
+  `CantRegenerate` on what it remembers, the line's target.
 - **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
   returns every matching card in your graveyard. Nothing is targeted.
 

@@ -378,6 +378,10 @@ pub struct PerTurn {
     /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
     /// `replacement::graveyard_destination`.
     pub exile_if_dies: Vec<(ObjectId, u32)>,
+    /// The permanents no regeneration shield is applied to this turn, each
+    /// with its version (`Effect::CantBeRegeneratedThisTurn`, CR 701.19c):
+    /// read by `sba::destroy`.
+    pub cant_regenerate: Vec<(ObjectId, u32)>,
 }
 
 /// One card played or cast from a graveyard under a
@@ -461,6 +465,7 @@ impl PerTurn {
             graveyard_plays: Vec::new(),
             entered_graveyard: Vec::new(),
             exile_if_dies: Vec::new(),
+            cant_regenerate: Vec::new(),
         }
     }
 
@@ -519,6 +524,7 @@ impl PerTurn {
         self.graveyard_plays.clear();
         self.entered_graveyard.clear();
         self.exile_if_dies.clear();
+        self.cant_regenerate.clear();
     }
 }
 
@@ -4980,6 +4986,9 @@ mod tests {
             }),
             ("per_turn.exile_if_dies", |s, id| {
                 s.per_turn.exile_if_dies.push((id, 0));
+            }),
+            ("per_turn.cant_regenerate", |s, id| {
+                s.per_turn.cant_regenerate.push((id, 0));
             }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);

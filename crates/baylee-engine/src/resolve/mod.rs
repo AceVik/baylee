@@ -3796,6 +3796,19 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::CantBeRegeneratedThisTurn { target } => {
+            for id in zones::spec_objects(res, target) {
+                if let Some(obj) = state.object(id)
+                    && obj.zone == crate::zone::Zone::Battlefield
+                {
+                    let named = (id, obj.version);
+                    if !state.per_turn.cant_regenerate.contains(&named) {
+                        state.per_turn.cant_regenerate.push(named);
+                    }
+                }
+            }
+            None
+        }
         Effect::Discover { mana_value } => {
             // CR 701.57a, the part that is done as the ability resolves: the
             // exiling, and the cards passed over put on the bottom in a
@@ -5019,6 +5032,66 @@ mod mana_short_tests {
             state.players[0].mana_pool.available(ManaColor::Blue),
             1,
             "and the caster's stays"
+        );
+    }
+}
+
+/// Disintegrate's "it can't be regenerated this turn" (CR 701.19c): the
+/// resolution records the target as it is now, and a later destruction —
+/// lethal damage, which no card calls unregeneratable — goes through the
+/// shield it already had.
+#[cfg(test)]
+mod no_regeneration_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    static NO_REGEN: &[Effect] = &[Effect::CantBeRegeneratedThisTurn {
+        target: TargetSpec::AnyTarget,
+    }];
+
+    #[test]
+    fn the_target_keeps_its_shield_and_is_destroyed_through_it() {
+        let me = PlayerId::new(0);
+        let mut state = GameState::from_preset(&preset(19, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(me, ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        };
+        let troll = bare(&mut state, "Troll");
+        let spell = bare(&mut state, "Disintegrate");
+        state
+            .object_mut(troll)
+            .expect("seated")
+            .regeneration_shields = 1;
+        let mut res = Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: me,
+            effects: NO_REGEN.to_vec(),
+            pc: 0,
+            targets: SmallVec::from_slice(&[troll]),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        let version = state.object(troll).expect("still there").version;
+        assert_eq!(state.per_turn.cant_regenerate, vec![(troll, version)]);
+        crate::sba::destroy(&mut state, troll);
+        assert_ne!(
+            state.object(troll).map(|o| o.zone),
+            Some(crate::zone::Zone::Battlefield),
+            "the shield stands and is not applied"
         );
     }
 }

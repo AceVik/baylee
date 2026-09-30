@@ -1364,6 +1364,15 @@ pub enum Effect {
         /// Which creature.
         target: TargetSpec,
     },
+    /// "It can't be regenerated this turn" (Disintegrate): a regeneration
+    /// shield is not applied to the objects the spec names for the rest of
+    /// the turn (CR 701.19c) — a shield may still be created, it just
+    /// saves nothing. For that object only, as `ExileIfDiesThisTurn`: one
+    /// that left the battlefield and came back is a new object (CR 400.7).
+    CantBeRegeneratedThisTurn {
+        /// Which permanent.
+        target: TargetSpec,
+    },
     /// Discover N (CR 701.57a): "Exile cards from the top of your library
     /// until you exile a nonland card with mana value N or less. You may
     /// cast that card without paying its mana cost if the resulting spell's
@@ -3209,6 +3218,7 @@ impl Effect {
             | Effect::ExileAndReturnAtEndStep
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
+            | Effect::CantBeRegeneratedThisTurn { .. }
             | Effect::Discover { .. }
             | Effect::RevealTopOnePerType { .. }
             | Effect::DealDamageDivided { .. }

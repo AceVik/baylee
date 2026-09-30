@@ -2039,3 +2039,8 @@ land type"; both are convention tests that fire on a first try.
   `ControllerOfEvent`). Two silent gaps sat under it: `TappedForMana`
   answered only "you", and the mana event named no event object, so
   "that player" of Manabarbs was nobody and the damage reached no one.
+- **"It can't be regenerated this turn" outlives the spell.** Destroy's
+  "it can't be regenerated" is a flag on that one destruction; Disintegrate's
+  is a record for the turn (`CantBeRegeneratedThisTurn`), because the
+  destruction it stops is lethal damage checked after the spell is gone,
+  and the shield it ignores may have been made before it (CR 701.19c).

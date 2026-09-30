@@ -519,6 +519,12 @@ fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regenerat
     }) {
         return;
     }
+    // "It can't be regenerated this turn" (Disintegrate): the shield
+    // stands and is not applied (CR 701.19c), for this object only.
+    let regeneratable = regeneratable
+        && state
+            .object(id)
+            .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
     if regeneratable
         && let Some(obj) = state.object_mut(id)
         && obj.regeneration_shields > 0

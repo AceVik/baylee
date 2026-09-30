@@ -1139,8 +1139,14 @@ impl Tx<'_> {
             Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref())?),
             None => None,
         };
+        // "If that creature would die this turn, exile it instead": a rider
+        // on whatever the line does to its target, read for every API.
+        let dying = match p.take("ReplaceDyingDefined") {
+            Some(defined) => Some(self.exile_if_dies(&defined, target.as_deref())?),
+            None => None,
+        };
 
-        let Some(effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
+        let Some(mut effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
         else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
@@ -1158,6 +1164,7 @@ impl Tx<'_> {
             }
             return None;
         }
+        effects.extend(dying);
         let effects = match unless {
             Some(unless) => vec![self.unless_wrap(unless, &effects)?],
             None => effects,
@@ -1171,6 +1178,38 @@ impl Tx<'_> {
                 self.chain(&body, chain)
             }
             None => Some(()),
+        }
+    }
+
+    /// `ReplaceDyingDefined$` — "if that creature would die this turn,
+    /// exile it instead" (Magma Spray), a replacement on the line's own
+    /// target for the rest of the turn.
+    ///
+    /// `Targeted` is the target whatever it is (Scorching Dragonfire's
+    /// "that creature or planeswalker"); `ThisTargetedCard.Creature` is
+    /// Disintegrate's "if it's a creature", asked of an any-target as the
+    /// spell resolves. `Remembered` is "a creature dealt damage this way",
+    /// which asks whether damage was dealt, and is refused, as is a
+    /// condition on the rider (`ReplaceDyingCondition$`, left unclaimed) and
+    /// a line whose target is a player.
+    fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
+        let Some(target) = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        }) else {
+            return self.deny(format!(
+                "`ReplaceDyingDefined$ {defined}` with no object target"
+            ));
+        };
+        let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
+        match defined {
+            "Targeted" => Some(exile),
+            "ThisTargetedCard.Creature" => Some(format!(
+                "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
+            )),
+            other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
         }
     }
 
@@ -1608,7 +1647,7 @@ impl Tx<'_> {
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
-            "Effect" => self.unblockable_effect(p, target)?,
+            "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,
             "Sacrifice" => self.sacrifice_effect(p)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
@@ -2075,6 +2114,79 @@ impl Tx<'_> {
             }
             Some(_) => return None,
         })
+    }
+
+    /// An `Effect` line: a static ability that lasts the turn, read by the
+    /// one sentence its static says. Every other static stays refused.
+    fn static_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let statics = p.peek("StaticAbilities")?.trim().to_string();
+        let body = self.svars.get(&statics)?.clone();
+        let (mode, _) = Params::parse(&body)?;
+        match mode.as_str() {
+            "CantBlockBy" => self.unblockable_effect(p, target),
+            "CantRegenerate" => self.cant_regenerate_effect(p, target),
+            _ => None,
+        }
+    }
+
+    /// "It can't be regenerated this turn" (Disintegrate, Carbonize): an
+    /// `Effect` whose one static says no regeneration applies to what it
+    /// remembers, which is the line's target, and which ends when that
+    /// leaves the battlefield — `Effect::CantBeRegeneratedThisTurn`, kept
+    /// for that object only (CR 400.7, 701.19c).
+    ///
+    /// "If it's a creature" (`ConditionDefined$ ParentTarget |
+    /// ConditionPresent$ Creature`) is asked of the target as the line
+    /// resolves. "A creature dealt damage this way" (`Remembered.Creature`
+    /// after `RememberDamaged$`) asks whether damage was dealt, and is
+    /// refused.
+    fn cant_regenerate_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantRegenerate"
+            || st.take("ValidCard").as_deref() != Some("Card.IsRemembered")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+            return None;
+        }
+        p.take("IsCurse");
+        let target = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        })?;
+        if !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget")
+        ) {
+            return None;
+        }
+        let effect = format!("Effect::CantBeRegeneratedThisTurn {{ target: {target} }}");
+        let creature = match (p.peek("ConditionDefined"), p.peek("ConditionPresent")) {
+            (None, None) => false,
+            (Some("ParentTarget" | "Targeted"), Some("Creature")) => {
+                p.take("ConditionDefined");
+                p.take("ConditionPresent");
+                true
+            }
+            _ => return None,
+        };
+        Some(vec![if creature {
+            format!("Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{effect}] }}")
+        } else {
+            effect
+        }])
     }
 
     /// "Target creature can't be blocked this turn" (Dwarven Warriors,
@@ -6988,6 +7100,71 @@ SVar:X:Count$xPaid",
             "{:?}",
             lifetap.abilities
         );
+    }
+
+    /// Disintegrate and Magma Spray: "if it's a creature, it can't be
+    /// regenerated this turn, and if it would die this turn, exile it
+    /// instead", on an any-target and on a creature target. "A creature
+    /// dealt damage this way" (`Remembered`), a condition on the rider and
+    /// a player target are refused.
+    #[test]
+    fn exile_if_it_dies_and_no_regeneration_read_the_lines_target() {
+        let disintegrate = read(
+            "Name:X\nTypes:Sorcery\nManaCost:X R\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X | SubAbility$ E | \
+             ReplaceDyingDefined$ ThisTargetedCard.Creature\n\
+             SVar:E:DB$ Effect | RememberObjects$ ParentTarget | ForgetOnMoved$ Battlefield | \
+             StaticAbilities$ NoRegen | IsCurse$ True | ConditionDefined$ ParentTarget | \
+             ConditionPresent$ Creature | AILogic$ CantRegenerate\n\
+             SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered | \
+             Description$ It can't be regenerated.\n\
+             SVar:X:Count$xPaid",
+        );
+        let a = disintegrate.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::IfTargetMatches { filter: &Filter::CREATURE, then: \
+                 &[Effect::ExileIfDiesThisTurn { target: TargetSpec::AnyTarget }] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::IfTargetMatches { filter: &Filter::CREATURE, then: \
+                 &[Effect::CantBeRegeneratedThisTurn { target: TargetSpec::AnyTarget }] }"
+            ),
+            "{a}"
+        );
+        let spray = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | ReplaceDyingDefined$ Targeted",
+        );
+        let a = spray.abilities.join("");
+        assert!(
+            a.contains("Effect::ExileIfDiesThisTurn { target: TargetSpec::Object("),
+            "{a}"
+        );
+        assert!(!a.contains("IfTargetMatches"), "{a}");
+        for refused_line in [
+            "A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | ReplaceDyingDefined$ Remembered.Creature",
+            "A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | ReplaceDyingDefined$ Targeted",
+            "A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | \
+             ReplaceDyingDefined$ ThisTargetedCard.Creature | ReplaceDyingCondition$ Kicked",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Instant\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+        // "A creature dealt damage this way can't be regenerated"
+        // (Incinerate) asks whether damage was dealt.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SubAbility$ E | RememberDamaged$ True\n\
+             SVar:E:DB$ Effect | RememberObjects$ Remembered.Creature | ForgetOnMoved$ Battlefield | \
+             StaticAbilities$ NoRegen | IsCurse$ True\n\
+             SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered"
+        ));
     }
 
     /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of
