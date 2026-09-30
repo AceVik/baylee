@@ -24241,7 +24241,7 @@ fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
     let first = in_hand(&engine, p0, blaze_of_glory()).expect("the first copy is in hand");
     refused(
         engine.apply(p0, PlayerAction::CastSpell { card: first }),
-        "spell not castable now",
+        "not among the options",
     );
 
     pass_until(&mut engine, |e| {
@@ -24302,7 +24302,7 @@ fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
     float_one_white(&mut engine, p0);
     refused(
         engine.apply(p0, PlayerAction::CastSpell { card: second }),
-        "spell not castable now",
+        "not among the options",
     );
 }
 
@@ -24381,7 +24381,7 @@ fn blaze_of_glory_is_castable_by_the_defending_player_with_no_attackers_declared
     let second = in_hand(&engine, p1, blaze_of_glory()).expect("the second copy is still in hand");
     refused(
         engine.apply(p1, PlayerAction::CastSpell { card: second }),
-        "spell not castable now",
+        "not among the options",
     );
 }
 
@@ -24507,7 +24507,7 @@ fn blaze_of_glorys_target_must_block_every_attacker_it_can() {
                 blockers: vec![(unicorn, flier)],
             },
         ),
-        "creature cannot block",
+        "not among the options",
     );
 
     // The question's own declaration (the Unicorn alone) is legal — but so
@@ -24794,7 +24794,7 @@ fn simulacrum_needs_a_creature_you_control_to_be_cast() {
     assert!(
         matches!(
             engine.apply(p0, PlayerAction::CastSpell { card }),
-            Err(EngineError::IllegalAction("spell not castable now"))
+            Err(EngineError::IllegalAction("not among the options"))
         ),
         "and naming it anyway is refused, not quietly allowed"
     );

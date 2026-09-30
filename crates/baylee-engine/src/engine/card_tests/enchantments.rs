@@ -22346,7 +22346,7 @@ fn lure_does_not_require_a_creature_that_cannot_block_it() {
                 blockers: vec![(bear, sprite)],
             },
         ),
-        "creature cannot block",
+        "not among the options",
     );
     refused(
         engine.apply(
@@ -22355,7 +22355,7 @@ fn lure_does_not_require_a_creature_that_cannot_block_it() {
                 blockers: vec![(tapped_wall, sprite)],
             },
         ),
-        "creature cannot block",
+        "not among the options",
     );
     engine
         .apply(
