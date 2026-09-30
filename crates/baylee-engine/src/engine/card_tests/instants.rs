@@ -21479,3 +21479,95 @@ fn cryptic_command_counters_a_spell_and_bounces_a_permanent() {
     assert!(in_hand(&engine, p1, llanowar_elves()).is_some(), "bounced");
     assert_eq!(library_size(&engine, p0), library, "no card drawn");
 }
+
+/// Word of Command, Magical Hack, Sleight of Mind, Camouflage and False
+/// Orders are `Coverage::Partial` with none of their text written: each is
+/// cast, resolves doing nothing, and goes to the graveyard.
+#[test]
+fn partial_instants_with_no_text_written_resolve_doing_nothing() {
+    for (name, card, land, lands) in [
+        (
+            "Word of Command",
+            card_index("e8ad3a77-b293-4d69-b080-27ca9f95d443"),
+            swamp(),
+            2,
+        ),
+        (
+            "Magical Hack",
+            card_index("cba229fa-9035-405b-b091-3798898a37ee"),
+            island(),
+            1,
+        ),
+        (
+            "Sleight of Mind",
+            card_index("99dba614-40d3-41c1-a3b2-edc8777b010f"),
+            island(),
+            1,
+        ),
+        (
+            "Camouflage",
+            card_index("9cf44db4-627a-4197-9588-6da72e41f03d"),
+            forest(),
+            1,
+        ),
+        (
+            "False Orders",
+            card_index("38c5c952-8153-4d98-89b5-a75260383345"),
+            mountain(),
+            1,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Graveyard,
+            "{name}"
+        );
+    }
+}
+
+/// Guardian Angel — "Prevent the next X damage that would be dealt to any
+/// target this turn." (Its "pay {1} any time" half is not written.) X = 2
+/// on p0 itself, then a Lightning Bolt at p0: 2 of the 3 are prevented.
+#[test]
+fn guardian_angel_prevents_the_next_x_damage_to_its_target() {
+    let p0 = PlayerId::new(0);
+    let angel = card_index("1a91ca69-e890-41dc-866b-3aabf10c9a9c");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), mountain()])
+        .hand(0, &[angel, lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let red = on_battlefield(&engine, p0, mountain()).expect("the Mountain is out");
+    tap_mana_except(&mut engine, p0, red);
+    cast_with_floating(&mut engine, p0, angel);
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    let life = engine.state().players[0].life;
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("the Bolt at p0");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        life - 1,
+        "3 dealt, 2 prevented"
+    );
+}

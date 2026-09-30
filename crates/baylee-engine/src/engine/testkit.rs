@@ -1160,6 +1160,17 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
                 prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
                 ..
             } => engine.apply(player, PlayerAction::YesNo(true)).is_err(),
+            // Mana Vault's upkeep "you may pay {4}. If you do, untap this
+            // artifact": declined, which for a price is the answer that
+            // moves nothing. A tax declined does what its card says, and
+            // whatever reads the board afterwards reads that.
+            Pending::YesNo {
+                player,
+                prompt:
+                    crate::choice::YesNoPrompt::PayTax { .. }
+                    | crate::choice::YesNoPrompt::PayMana { .. },
+                ..
+            } => engine.apply(player, PlayerAction::YesNo(false)).is_err(),
             _ => return false,
         };
         if refused {

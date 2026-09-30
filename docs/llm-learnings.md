@@ -2076,3 +2076,9 @@ land type"; both are convention tests that fire on a first try.
   sacrifice of the source by id sacrifices a Whelp that was bounced and
   recast; the delayed trigger is about the Whelp as it was (CR 603.7c), so
   it names the event object and checks its version when it comes due.
+- **A fix for one reader of a spec is not a fix for every reader.** #147
+  taught `zones::spec_object` that `ThisObject` is the source, but the
+  damage side kept its own reader (`life::recipients`), which still read
+  `targets` and shielded nobody for Rock Hydra's "prevent the next 1
+  damage that would be dealt to this creature". Grep for every `match` on
+  the enum, not for the function the last fix touched.

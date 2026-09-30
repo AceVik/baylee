@@ -1843,6 +1843,24 @@ fn mana_vault() -> CardIndex {
     card_index("736892cb-a34b-4bb9-b56c-e26e3db207a2")
 }
 
+/// The first upkeep asks "you may pay {4}" of an untapped Vault too; that
+/// one is declined, so the tests start from a Vault nobody paid for.
+fn decline_the_vaults_upkeep(engine: &mut Engine<RegistryLookup>) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 4 },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+}
+
 /// Mana Vault's `Coverage::Partial` note leaves three printed sentences
 /// live: it does not untap during its controller's untap step, it taps for
 /// {C}{C}{C}, and its draw-step trigger charges a *tapped* Vault one life.
@@ -1852,8 +1870,7 @@ fn mana_vault() -> CardIndex {
 /// advancing, the three colourless are the mana ability landing with no
 /// stack (CR 605.3b), and the life p0 is missing on the following draw step
 /// fires only because the artifact is *still* tapped. The `{4}` upkeep untap
-/// payment is the clause the file says is not written, so nothing here
-/// presses it.
+/// payment is declined here; `mana_vault_untaps_for_four_at_upkeep` pays it.
 #[test]
 fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_step() {
     let p0 = PlayerId::new(0);
@@ -1864,6 +1881,7 @@ fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_s
         .life(1, 20)
         .start();
     keep_mulligans(&mut engine);
+    decline_the_vaults_upkeep(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let vault = on_battlefield(&engine, p0, mana_vault()).expect("the Vault is on the table");
@@ -1933,6 +1951,15 @@ fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_s
                     .apply(player, PlayerAction::ChooseTargets { objects, players })
                     .unwrap();
             }
+            // The upkeep's "you may pay {4}", declined: this test is about
+            // the Vault staying tapped.
+            Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana: 4 },
+                ..
+            } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
             other => panic!("unexpected on the way to the next turn: {other:?}"),
         }
     }
@@ -1959,6 +1986,58 @@ fn mana_vault_taps_for_three_never_untaps_and_bites_its_controller_on_the_draw_s
         engine.state().players[1].life,
         20,
         "and the damage belongs to the Vault's controller, not the opponent"
+    );
+}
+
+/// Mana Vault — "At the beginning of your upkeep, you may pay {4}. If you
+/// do, untap this artifact." Tapped on p0's first turn, it is asked about at
+/// p0's next upkeep; four green floated from the Forests pay for it, the
+/// Vault untaps, and so the draw step that follows charges no life.
+#[test]
+fn mana_vault_untaps_for_four_at_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(5173, forest())
+        .battlefield(0, &[mana_vault(), forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    decline_the_vaults_upkeep(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let vault = on_battlefield(&engine, p0, mana_vault()).expect("the Vault is out");
+    activate(&mut engine, p0, mana_vault(), 1);
+    assert!(is_tapped(&engine, vault));
+
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && !stack_is_empty(e)
+    });
+    assert!(is_tapped(&engine, vault), "its own untap step left it down");
+    tap_all_mana_but(&mut engine, p0, Some(mana_vault()));
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 4 },
+                ..
+            }
+        )
+    });
+    let life = engine.state().players[0].life;
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert!(!is_tapped(&engine, vault), "paid, so it untaps");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "{{4}} spent"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.step == crate::turn::Step::Main
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        life,
+        "untapped by the draw step, so it deals no damage"
     );
 }
 
@@ -17649,4 +17728,96 @@ fn pithing_needle_returned_to_hand_forgets_its_name_and_asks_again() {
         cycles(&engine),
         "cast again, the Needle names Boomerang, and the Desert is free"
     );
+}
+
+/// Helm of Chatzuk (banding), Illusionary Mask, Sunglasses of Urza and Jade
+/// Monolith are `Coverage::Partial` with none of their text written: each
+/// is cast and sits on the battlefield offering nothing.
+#[test]
+fn partial_artifacts_with_no_text_written_sit_doing_nothing() {
+    for (name, card, lands) in [
+        (
+            "Helm of Chatzuk",
+            card_index("948e3bb7-8265-4e95-acd1-a0c4f22441df"),
+            1,
+        ),
+        (
+            "Illusionary Mask",
+            card_index("05ac866d-0405-4d25-986a-c10fcfc097e6"),
+            2,
+        ),
+        (
+            "Sunglasses of Urza",
+            card_index("eea64b1f-d6a9-4f72-8612-efab4b124b63"),
+            3,
+        ),
+        (
+            "Jade Monolith",
+            card_index("1e105ab7-fb10-4cfd-ac2f-5e11488cf1b0"),
+            4,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, forest(), lands),
+            Zone::Battlefield,
+            "{name}"
+        );
+    }
+}
+
+/// Library of Leng — "You have no maximum hand size." (Its discard
+/// replacement is not written.) p0 holds sixteen cards through its own
+/// cleanup step and keeps every one.
+#[test]
+fn library_of_leng_leaves_no_maximum_hand_size() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let library = card_index("867def48-4be8-4056-bcf1-d6b00450b9a3");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[library])
+        .hand(0, &[forest(); 9])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hand = |e: &Engine<RegistryLookup>| e.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let held = hand(&engine);
+    assert!(held > 7, "more than seven in hand: {held}");
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(hand(&engine), held, "nothing discarded at cleanup");
+}
+
+/// Time Vault, its written half: it enters tapped and doesn't untap during
+/// the untap step, and "{T}: Take an extra turn after this one." (Skipping a
+/// turn to untap it is not written.) Cast, it is tapped; untapped by the
+/// harness, its ability gives p0 the next turn too.
+#[test]
+fn time_vault_enters_tapped_and_takes_an_extra_turn() {
+    let p0 = PlayerId::new(0);
+    let vault_card = card_index("99d4d99d-cf56-45aa-aa39-a250695612f2");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[vault_card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, vault_card);
+    pass_until(&mut engine, stack_is_empty);
+    let vault = on_battlefield(&engine, p0, vault_card).expect("it resolved");
+    assert!(is_tapped(&engine, vault), "it enters tapped");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(vault)
+        .expect("seated")
+        .status
+        .remove(Status::TAPPED);
+    engine.refresh_offer();
+    activate(&mut engine, p0, vault_card, 1);
+    pass_until(&mut engine, stack_is_empty);
+    let turn = engine.state().turn.number;
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == turn + 1 && e.state().turn.step == crate::turn::Step::Main
+    });
+    assert_eq!(engine.state().turn.active, p0, "the extra turn is p0's");
+    assert!(is_tapped(&engine, vault), "and it did not untap");
 }

@@ -243,6 +243,11 @@ fn recipients(
         // `TargetReq`, which is why the catch-all that used to be
         // here could hold this and stay green.
         TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => players(res.target_players).collect(),
+        // "This creature": the source, which nothing chose (#147, the rule
+        // `zones::spec_object` keeps for the moving effects). Rock Hydra's
+        // "prevent the next 1 damage that would be dealt to this creature"
+        // read `targets`, found nothing, and shielded nobody.
+        TargetSpec::ThisObject => vec![DamageTarget::Object(res.source)],
         // Everything else names an object, and the damage goes to
         // the one that was chosen. Spelled out rather than left to
         // a `_` arm: a new player-flavoured `TargetSpec` would land
@@ -256,7 +261,6 @@ fn recipients(
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
-        | TargetSpec::ThisObject
         | TargetSpec::AbilityOnStack(_)
         | TargetSpec::SpellOrAbility(_)
         | TargetSpec::EventObject => res

@@ -5540,3 +5540,58 @@ fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usiz
         .position(|o| o.kind == kind)
         .unwrap_or_else(|| panic!("{kind:?} is not offered: {options:?}"))
 }
+
+/// A `Coverage::Partial` card none of whose printed text is written yet,
+/// cast by p0 off `lands` of `land`: it resolves, and nothing but the card
+/// itself has moved — no life total changed, and the only permanent that
+/// came is the card, which offers no ability. Answers the zone it ended in.
+/// Writing any of its text is what makes this test move.
+#[track_caller]
+fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, land)
+        .battlefield(0, &vec![land; lands])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let life = |e: &Engine<RegistryLookup>| [e.state().players[0].life, e.state().players[1].life];
+    let before = life(&engine);
+    let permanents = |e: &Engine<RegistryLookup>, seat| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter(|&&id| e.state().object(id).is_some_and(|o| o.controller == seat))
+            .count()
+    };
+    let theirs = permanents(&engine, p1);
+    let ours = permanents(&engine, p0);
+    let spell = in_hand(&engine, p0, card).expect("the card is in hand");
+    cast_from_hand(&mut engine, p0, card);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), before, "no life moved");
+    assert_eq!(
+        permanents(&engine, p1),
+        theirs,
+        "nothing of theirs came or went"
+    );
+    let zone = engine
+        .state()
+        .object(spell)
+        .map(|o| o.zone)
+        .expect("the card is still an object");
+    let arrived = usize::from(zone == Zone::Battlefield);
+    assert_eq!(
+        permanents(&engine, p0),
+        ours + arrived,
+        "nothing else of ours"
+    );
+    if let Pending::Priority { legal, .. } = engine.pending() {
+        assert!(
+            legal.abilities.iter().all(|&(source, _)| source != spell),
+            "it offers no ability"
+        );
+    }
+    zone
+}

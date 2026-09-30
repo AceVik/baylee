@@ -18954,3 +18954,91 @@ fn white_ward_protects_from_white_and_stays_attached() {
         "a white spell cannot target it: {offered:?}"
     );
 }
+
+/// Lich, Raging River and Island Sanctuary are `Coverage::Partial` with none
+/// of their text written: each is cast and sits on the battlefield doing
+/// nothing — Lich takes no life as it enters.
+#[test]
+fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
+    for (name, card, land, lands) in [
+        (
+            "Lich",
+            card_index("5b7515f2-7a5a-4e2a-9784-6cbacd768172"),
+            swamp(),
+            4,
+        ),
+        (
+            "Raging River",
+            card_index("a2310312-6e1e-4e34-a351-9aef499a810f"),
+            mountain(),
+            2,
+        ),
+        (
+            "Island Sanctuary",
+            card_index("7d1769d0-d942-45b3-a31c-2bbe45e68661"),
+            plains(),
+            2,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Battlefield,
+            "{name}"
+        );
+    }
+}
+
+/// Animate Dead is `Coverage::Partial` with none of its text written, its
+/// "enchant creature card in a graveyard" included: cast, it enchants
+/// nothing and is put into its owner's graveyard (CR 704.5m).
+#[test]
+fn animate_dead_with_nothing_written_enchants_nothing() {
+    assert_eq!(
+        cast_saying_nothing(
+            card_index("c0d8fef4-65f4-4769-982d-b397d2b7e977"),
+            swamp(),
+            2
+        ),
+        Zone::Graveyard
+    );
+}
+
+/// Kudzu and Power Leak, their written half: each is cast onto what it
+/// enchants — a land, an enchantment — and stays attached.
+#[test]
+fn kudzu_and_power_leak_enchant_what_they_name() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let kudzu = card_index("51ca5965-ae39-4e51-8948-9a230a03f906");
+    let leak = card_index("dc2f0000-870b-487f-9623-618fc8eb9765");
+    let river = card_index("a2310312-6e1e-4e34-a351-9aef499a810f");
+    for (name, card, land, host_card) in [
+        ("Kudzu", kudzu, forest(), mountain()),
+        ("Power Leak", leak, island(), river),
+    ] {
+        let mut engine = Duel::new(SEED, land)
+            .battlefield(0, &[land, land, land])
+            .battlefield(1, &[host_card])
+            .hand(0, &[card])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let host = on_battlefield(&engine, p1, host_card).expect("the host is out");
+        cast_from_hand(&mut engine, p0, card);
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![host],
+                    players: vec![],
+                },
+            )
+            .unwrap_or_else(|e| panic!("{name}: {e:?}"));
+        pass_until(&mut engine, stack_is_empty);
+        let aura = on_battlefield(&engine, p0, card).expect("the Aura resolved");
+        assert_eq!(
+            engine.state().object(aura).and_then(|o| o.attached_to),
+            Some(host),
+            "{name}"
+        );
+    }
+}

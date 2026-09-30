@@ -96353,3 +96353,157 @@ fn dragon_whelp_pumps_and_is_sacrificed_after_four_activations() {
         "sacrificed at the beginning of the end step"
     );
 }
+
+/// Benalish Hero, Timber Wolves and Mesa Pegasus (banding not written),
+/// Veteran Bodyguard and Personal Incarnation (damage redirection not
+/// written) are `Coverage::Partial` bodies: each is cast, enters offering
+/// no ability, and is the printed creature with its printed keywords.
+#[test]
+fn partial_creatures_are_their_printed_bodies() {
+    let p0 = PlayerId::new(0);
+    for (name, card, land, lands, body, flying) in [
+        (
+            "Benalish Hero",
+            card_index("4c81cfb7-8765-4e28-ae33-4287fa9a86cc"),
+            plains(),
+            1,
+            (1, 1),
+            false,
+        ),
+        (
+            "Timber Wolves",
+            card_index("35d07ac9-b184-4b5f-8192-34b1db042f69"),
+            forest(),
+            1,
+            (1, 1),
+            false,
+        ),
+        (
+            "Mesa Pegasus",
+            card_index("8161f5b8-6aab-4133-ba2c-2e7b5774153e"),
+            plains(),
+            2,
+            (1, 1),
+            true,
+        ),
+        (
+            "Veteran Bodyguard",
+            card_index("d29078c0-1fb8-437a-81d1-bb319f646941"),
+            plains(),
+            5,
+            (2, 5),
+            false,
+        ),
+        (
+            "Personal Incarnation",
+            card_index("6e49a5b8-6bc4-4c7b-82c1-957f1fb0ca5f"),
+            plains(),
+            6,
+            (6, 6),
+            false,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Battlefield,
+            "{name}"
+        );
+        let mut engine = Duel::new(SEED, land).battlefield(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        let id = on_battlefield(&engine, p0, card).expect("seated");
+        assert_eq!(pt(&engine, id), body, "{name}");
+        assert_eq!(
+            keywords(&engine, id).contains(KeywordSet::FLYING),
+            flying,
+            "{name}"
+        );
+    }
+}
+
+/// Rock Hydra, its written half: it enters with X +1/+1 counters, and
+/// "{R}: Prevent the next 1 damage that would be dealt to this creature this
+/// turn." X = 3, the shield bought, then a Lightning Bolt at it: 1 of the 3
+/// is prevented. The counter it would remove instead of taking damage is
+/// not written, so the other 2 are marked — the line to move when it is.
+#[test]
+fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
+    let p0 = PlayerId::new(0);
+    let hydra_card = card_index("aff84707-f5f8-4f53-869e-feec78da8d8d");
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 7])
+        .hand(0, &[hydra_card, lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, hydra_card);
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let hydra = on_battlefield(&engine, p0, hydra_card).expect("the Hydra entered");
+    assert_eq!(pt(&engine, hydra), (3, 3), "three +1/+1 counters on a 0/0");
+
+    activate(&mut engine, p0, hydra_card, 0);
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![hydra],
+                players: vec![],
+            },
+        )
+        .expect("the Hydra is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(hydra).map(|o| (o.zone, o.damage)),
+        Some((Zone::Battlefield, 2)),
+        "1 of the Bolt's 3 prevented"
+    );
+}
+
+/// Vesuvan Doppelganger, its written half: it enters as a copy of a
+/// creature on the battlefield, except that it keeps its own colour.
+#[test]
+fn vesuvan_doppelganger_enters_as_a_blue_copy() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let doppelganger = card_index("aeaccab9-3e2c-4a40-a483-52c4972b2014");
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 5])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[doppelganger])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    cast_from_hand(&mut engine, p0, doppelganger);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, doppelganger).expect("it entered");
+    let c = engine
+        .state()
+        .object(copy)
+        .expect("seated")
+        .characteristics();
+    assert_eq!(
+        (c.power, c.toughness),
+        (Some(1), Some(1)),
+        "the Elves' body"
+    );
+    assert_eq!(
+        c.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+        "blue, not the Elves' green"
+    );
+}
