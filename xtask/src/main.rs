@@ -2057,15 +2057,21 @@ fn check_code_matches_the_printing(
         // is `CharacteristicPT`, so a card claiming `Coverage::Implemented`
         // with a printed `*` and no such modifier is claiming something no
         // rule performs. Pyrogoyf writes it; this is the gate that keeps
-        // the rest honest rather than a count that goes stale.
+        // the rest honest rather than a count that goes stale. The other
+        // door is `SetPTToCount`: a `*` whose sentence holds only "as long
+        // as" something is not characteristic-defining (CR 604.3a, its
+        // fifth criterion) and sets power and toughness in layer 7b under a
+        // condition (Gaea's Liege).
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
             if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
                 && !content.contains("Modifier::CharacteristicPT")
+                && !content.contains("Modifier::SetPTToCount")
             {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented without a Modifier::CharacteristicPT"
+                     claims Coverage::Implemented without a Modifier::CharacteristicPT or \
+                     Modifier::SetPTToCount"
                 );
                 *problems += 1;
             }

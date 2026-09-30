@@ -1990,11 +1990,10 @@ impl GameState {
     /// board where no effect reads tap or attack status — nearly every board
     /// — this is one walk of a short table and nothing else.
     pub fn board_state_changed(&mut self) {
-        if self
-            .effects
-            .iter()
-            .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f)))
-        {
+        if self.effects.iter().any(|fx| {
+            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f))
+                || modifier_reads_combat(fx.modifier)
+        }) {
             self.invalidate_projections();
         }
     }
@@ -4161,6 +4160,22 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         Filter::Not(f) => filter_reads_board_state(f),
         _ => false,
     }
+}
+
+/// Whether a modifier's number reads combat: a count of what the defending
+/// player controls (`PtCount::DefendingPlayerControls`, CR 508.5), which
+/// changes as an attack is declared and as combat ends while no effect
+/// begins or ends — the input [`filter_reads_board_state`] announces for a
+/// filter, here in the modifier.
+fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
+    use baylee_cards_dsl::{Modifier, PtCount};
+    let (Modifier::CharacteristicPT { count, .. }
+    | Modifier::SetPTToCount(count)
+    | Modifier::ModifyPTHalfCount(count)) = modifier
+    else {
+        return false;
+    };
+    matches!(count, PtCount::DefendingPlayerControls(_))
 }
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect

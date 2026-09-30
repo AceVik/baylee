@@ -1657,6 +1657,7 @@ Modal/sequence: `Sequence(&[..])`.
 `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
+`ModifyPTHalfCount(count)`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
@@ -2378,6 +2379,30 @@ Filters, conditions, modifiers and durations:
   effects: &[Effect::IfEventObjectMatches { filter:
   &Filter::AttackedThisTurn, then: &[Effect::destroy(TargetSpec::EventObject)]
   }] }`. It is `IfTargetMatches` for the event object.
+- **`Modifier::ModifyPTHalfCount(count)`** is "+X/+Y, where X is half
+  [count], rounded down, and Y is half [count], rounded up" (Aspect of
+  Wolf), layer 7c like `ModifyPTPerCount`. "You" in the count is the
+  static's controller: an Aura's "Forests you control" are the Aura's
+  controller's, whoever controls the creature.
+- **`PtCount::DefendingPlayerControls(&filter)`** counts what the defending
+  player controls, for a creature that is attacking (CR 508.5): the player
+  it attacks, or the controller of the planeswalker it attacks, also after
+  that planeswalker has left (CR 506.4c keeps the creature attacking). It
+  is 0 while the creature is not attacking. Declaring attackers and the end
+  of combat re-project a permanent whose count this is
+  (`GameState::board_state_changed`), so the count needs no condition to
+  stay current. Keep the filter free of `ControlledByYou`: the count
+  already names whose permanents it reads.
+- **A P/T sentence that holds only "as long as" something is not
+  characteristic-defining** (CR 604.3a's fifth criterion), even printed on
+  the card: it is a layer 7b `SetPTToCount` static with a `condition`, and
+  off the battlefield the card is its printed `*/*`, 0/0. Gaea's Liege is
+  two of them, `SetPTToCount(YouControl(&FORESTS))` under
+  `Condition::SourceMatches(&NOT_ATTACKING)` and
+  `SetPTToCount(DefendingPlayerControls(&FORESTS))` under
+  `SourceMatches(&Filter::Attacking)`: their conditions exclude each other,
+  so their order never matters. `CharacteristicPT` stays for the
+  unconditional printed `*/*`.
 
 ## Worked examples
 

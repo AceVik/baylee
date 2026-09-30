@@ -1485,6 +1485,8 @@ mod condition_tests;
 #[cfg(test)]
 mod convoke_tests;
 #[cfg(test)]
+mod counted_pt_tests;
+#[cfg(test)]
 mod cycling_tests;
 #[cfg(test)]
 mod day_night_tests;

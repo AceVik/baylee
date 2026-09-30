@@ -2224,3 +2224,17 @@ land type"; both are convention tests that fire on a first try.
 - **A new ability on an old card goes after the ones it had.** A seat's
   standing answers are keyed by ability index, so Rock Hydra's `{R}` shield
   kept index 0 and the static and the upkeep ability were appended.
+- **"As long as" makes a printed `*/*` a 7b effect.** CR 604.3a's fifth
+  criterion: a P/T sentence that holds only while a condition does is not
+  characteristic-defining, even on the card. Gaea's Liege was written as a
+  `CharacteristicPT`, which read its Forests in hand too; it is two
+  conditional `SetPTToCount` statics now, 0/0 off the battlefield.
+- **A count that reads combat needs a door, not only a condition.** The
+  projection is re-read when the effect table moves; declaring attackers
+  moves none. A conditional static is swapped between passes and moves it,
+  but a count of the defending player's permanents without a condition
+  would stay stale, so `board_state_changed` asks the modifiers as well as
+  the filters.
+- **An attacker keeps attacking a planeswalker that left** (CR 506.4c), so
+  "defending player" still names that planeswalker's controller. A count
+  that read `None` there made an attacking Gaea's Liege a 0/0.

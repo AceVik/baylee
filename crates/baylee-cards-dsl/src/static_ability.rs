@@ -527,6 +527,12 @@ pub enum Modifier {
         /// Toughness per match.
         t: i16,
     },
+    /// The affected object gets +X/+Y, where X is half of `count` rounded
+    /// down and Y half of it rounded up (Aspect of Wolf: "half the number of
+    /// Forests you control"). Layer 7c like [`Self::ModifyPTPerCount`], and
+    /// "you" in the count is the effect's controller — an Aura's, not the
+    /// enchanted creature's.
+    ModifyPTHalfCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -570,6 +576,13 @@ pub enum PtCount {
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Permanents matching the filter that the defending player controls,
+    /// for an object that is attacking: the player it attacks, or the
+    /// controller of the planeswalker it attacks (CR 508.5). Gaea's Liege,
+    /// "as long as Gaea's Liege is attacking, its power and toughness are
+    /// each equal to the number of Forests defending player controls".
+    /// Nothing while the object is not attacking.
+    DefendingPlayerControls(&'static crate::Filter),
     /// Cards exiled with the object (CR 406.6): "the number of cards exiled
     /// with it" (Unlicensed Hearse), the cards in exile that
     /// `Effect::ExileTargetsWithSource` put there for this object.
@@ -668,6 +681,7 @@ impl Modifier {
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTHalfCount(_)
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -992,6 +1006,10 @@ mod tests {
                 Layer::PtSet,
             ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
+            (
+                Modifier::ModifyPTHalfCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtModify,
+            ),
             (
                 Modifier::ModifyPTPerCount {
                     filter: &Filter::CREATURE,

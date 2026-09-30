@@ -26,7 +26,7 @@ use crate::eval;
 use crate::object::{Characteristics, GameObject};
 use crate::state::GameState;
 use baylee_cards_dsl::{Filter, KeywordSet, LAYERS, Layer, Modifier};
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::SubtypeSet;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -488,6 +488,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::ModifyPTHalfCount(_)
                 | Modifier::ModifyPTPerGraveyardCard { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
@@ -642,10 +643,42 @@ fn pt_count(
         baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
             count_controlled(state, obj, c, None, you, filter, read_board)
         }
+        baylee_cards_dsl::PtCount::DefendingPlayerControls(filter) => {
+            match defending_player_of(state, obj.id) {
+                Some(defending) => {
+                    count_controlled(state, obj, c, Some(defending), you, filter, read_board)
+                }
+                None => 0,
+            }
+        }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
     };
     i16::try_from(n).unwrap_or(i16::MAX)
+}
+
+/// The defending player for `attacker` (CR 508.5's first sentence): the
+/// player it attacks, or the controller of the planeswalker it attacks —
+/// the one it was declared attacking, even after that planeswalker has left
+/// (CR 506.4c keeps the creature attacking), so its last controller then:
+/// in a two-player game the defending player stays the nonactive player
+/// for the whole combat phase (CR 506.2).
+///
+/// `None` while it is not attacking. CR 508.5's second sentence (a creature
+/// removed from combat still refers to the player it was attacking) is not
+/// modelled, because combat keeps no record of an attacker it removed; the
+/// one card counting this way, Gaea's Liege, reads it only while it is
+/// attacking, and its other sentence applies once it is not.
+fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId> {
+    let info = state
+        .combat
+        .attackers()
+        .iter()
+        .find(|info| info.creature == attacker)?;
+    match info.defending {
+        Defender::Player(player) => Some(player),
+        Defender::Planeswalker(walker) => state.last_known_controller(walker),
+    }
 }
 
 /// The number of card types (CR 205.2a) among cards in all graveyards.
@@ -741,6 +774,16 @@ fn apply(
             }
             if let Some(tou) = &mut c.toughness {
                 *tou = tou.saturating_add(count.saturating_mul(*t));
+            }
+        }
+        Modifier::ModifyPTHalfCount(count) => {
+            // Half the count, rounded down for power and up for toughness.
+            let n = pt_count(state, obj, c, fx.controller, *count, read_board).max(0);
+            if let Some(pow) = &mut c.power {
+                *pow = pow.saturating_add(n / 2);
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou = tou.saturating_add(n - n / 2);
             }
         }
         Modifier::ModifyPTPerGraveyardCard { filter, p, t } => {

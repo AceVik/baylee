@@ -87,7 +87,12 @@ that is *not* an effect leaves every projection stale. Naming a creature type
 is one — Steely Resolve's static is registered as the enchantment enters and
 the type is chosen one question later — so `ChooseSubtype` calls
 `GameState::invalidate_projections`, as anything writing a counter already
-does. `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
+does. Tap and combat status are others, announced through
+`GameState::board_state_changed` only when an effect reads them: a filter
+naming `Tapped`, `Attacking`, `Blocking` or `Unblocked`, or a count of what
+the defending player controls (`PtCount::DefendingPlayerControls`, CR
+508.5), which changes as attackers are declared and as combat ends.
+`card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
 is the guard for both: a recompute may not disagree with the cache.
 
 **A characteristic-defining ability works in every zone** (CR 604.3), and
