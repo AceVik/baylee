@@ -282,6 +282,21 @@ impl<L: CardLookup> Engine<L> {
             // 0b. As-it-enters modifiers (taplands, shockland choices).
             let wrote = self.apply_enter_modifiers();
             if self.awaiting_answer {
+                // The question is published from here, and the step that
+                // asks it may already have moved the board behind 0a: a
+                // daybound permanent entering at night entered transformed
+                // (CR 702.145b), and `GameState::transform` took away the
+                // statics of the face that turned away and left the new
+                // face's to the next scan; a Room took its door, and an
+                // earlier arrival its counters. So the board is settled
+                // first, as `Engine::new` and `settle_mulligans` settle the
+                // one the opening hands are kept beside. Nothing else the
+                // pass owes runs before the answer, and that is right: the
+                // rules make an as-it-enters choice before the permanent
+                // enters (CR 614.12a), so no state-based action or trigger
+                // may look at the board first.
+                self.sync_static_effects();
+                self.state.refresh_characteristics();
                 return;
             }
             // A modifier that wrote to the board wrote *behind* 0a, and the

@@ -13,11 +13,21 @@
 //! base power and toughness N/N" (layer 7b, CR 613.4b), the front face also
 //! "{0}: transform this", and the back face sets its own base power and
 //! toughness to 5/5 as a static ability.
+//!
+//! The last test here asks what a player is shown while a question is out
+//! that was asked in the same pass a permanent entered transformed: a
+//! daybound werewolf of the same make, whose back face's 5/5 is a static
+//! ability, entering at night beside a creature that asks for a colour as
+//! it enters.
 
 use super::*;
-use baylee_cards_dsl::{Duration, Filter, Modifier};
+use crate::turn::DayNight;
+use crate::zone::ZonePosition;
+use baylee_cards_dsl::{Duration, EnterModifier, Filter, Modifier};
 
 const FLIPPER: u32 = 7300;
+const WEREWOLF: u32 = 7302;
+const CHOOSER: u32 = 7303;
 
 static TRANSFORM: &[Effect] = &[Effect::TransformSource];
 static BECOME_ONE: &[Effect] = &[Effect::continuous(
@@ -39,6 +49,30 @@ static BACK: &[AbilityDef] = &[
     free(BECOME_TWO, None),
 ];
 
+/// The werewolf's back face: "This creature has base power and toughness
+/// 5/5", over a printed 3/3.
+static WEREWOLF_BACK: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
+    Filter::This,
+    Modifier::SetPT(5, 5)
+)];
+
+/// A transforming double-faced card. Its back face is reached only by
+/// turning over, so each caller marks it not castable from a hand.
+fn double_faced(index: u32, front: FaceDef, back: FaceDef) -> &'static CardDef {
+    Box::leak(Box::new(CardDef {
+        index: CardIndex::new(index),
+        oracle_id: "test",
+        scryfall_id: "test",
+        faces: Box::leak(Box::new([front, back])),
+        color_identity: baylee_core::color::ColorSet::EMPTY,
+        keywords: KeywordSet::EMPTY,
+        commander: CommanderRule::NotEligible,
+        partner: PartnerKind::None,
+        coverage: Coverage::Implemented,
+        abilities: &[],
+    }))
+}
+
 fn cards() -> Vec<&'static CardDef> {
     let front = FaceDef {
         abilities: FRONT,
@@ -49,18 +83,30 @@ fn cards() -> Vec<&'static CardDef> {
         castable_from_hand: false,
         ..creature_face("Flipped", "{0}", 3, 3)
     };
-    vec![Box::leak(Box::new(CardDef {
-        index: CardIndex::new(FLIPPER),
-        oracle_id: "test",
-        scryfall_id: "test",
-        faces: Box::leak(Box::new([front, back])),
-        color_identity: baylee_core::color::ColorSet::EMPTY,
-        keywords: KeywordSet::EMPTY,
-        commander: CommanderRule::NotEligible,
-        partner: PartnerKind::None,
-        coverage: Coverage::Implemented,
-        abilities: &[],
-    }))]
+    vec![double_faced(FLIPPER, front, back)]
+}
+
+/// The werewolf, daybound on its front face and nightbound on its back
+/// (CR 702.145a), and "As this creature enters, choose a color".
+fn night_cards() -> Vec<&'static CardDef> {
+    let front = FaceDef {
+        keywords: KeywordSet::DAYBOUND,
+        ..creature_face("Pup", "{0}", 2, 2)
+    };
+    let back = FaceDef {
+        keywords: KeywordSet::NIGHTBOUND,
+        abilities: WEREWOLF_BACK,
+        castable_from_hand: false,
+        ..creature_face("Werewolf", "{0}", 3, 3)
+    };
+    let chooser = FaceDef {
+        enter_modifiers: &[EnterModifier::ChooseColor],
+        ..creature_face("Chooser", "{0}", 1, 1)
+    };
+    vec![
+        double_faced(WEREWOLF, front, back),
+        card(CHOOSER, chooser, KeywordSet::EMPTY, &[]),
+    ]
 }
 
 /// The permanent's projected power and toughness.
@@ -159,5 +205,76 @@ fn a_permanent_that_transforms_is_not_summoning_sick_again() {
         attackers,
         vec![id],
         "on the battlefield since before the turn began, and transformed since: it may attack"
+    );
+}
+
+/// A question asked in step 0b of the machine, as a permanent enters, is
+/// published from a board whose projection that step has moved: a daybound
+/// permanent that enters at night enters transformed (CR 702.145b), and
+/// the transform takes away the front face's statics and leaves the back
+/// face's to the next scan (`GameState::transform`). A second arrival in
+/// the same batch that asks as it enters stopped the pass there, before
+/// the next scan, so the question went out with the werewolf showing its
+/// printed 3/3 and not the 5/5 its static ability says, and with the
+/// projection stale for every seat's view. It is now asked from a synced,
+/// refreshed board, as `Engine::new` and `settle_mulligans` ask theirs.
+///
+/// The board is set directly, and it is the board that is set: it is night,
+/// and the two creatures enter together, in the order a mass return would
+/// journal them (the werewolf first, since the step asks one question and
+/// stops). Passing priority is only the nudge that runs the machine.
+#[test]
+fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
+    let mut engine = bench(
+        7302,
+        night_cards(),
+        [
+            Seat::default().holding(&[WEREWOLF, CHOOSER]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut engine, me());
+    let werewolf = the(&engine, ZoneLocation::Hand(me()), WEREWOLF);
+    let chooser = the(&engine, ZoneLocation::Hand(me()), CHOOSER);
+    let state = engine
+        .dev_state_mut(me())
+        .expect("the harness may set boards up");
+    state.day_night = Some(DayNight::Night);
+    for card in [werewolf, chooser] {
+        state
+            .move_object(
+                card,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+    }
+    engine
+        .apply(me(), PlayerAction::PassPriority)
+        .expect("a seat may always pass");
+
+    assert!(
+        matches!(engine.pending(), Pending::ChooseColor { player, .. } if *player == me()),
+        "the chooser asks for its colour as it enters: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(werewolf)
+            .expect("on the battlefield")
+            .face_index,
+        1,
+        "it entered transformed"
+    );
+    assert_eq!(
+        pt(&engine, werewolf),
+        (Some(5), Some(5)),
+        "the back face's static applies while the question is out"
+    );
+    assert!(
+        engine.projection_is_fresh(),
+        "and the board the question is asked from is settled"
     );
 }

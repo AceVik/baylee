@@ -96,6 +96,21 @@ beside (CR 604.2), and the statics of a player who concedes in the window
 leave with their permanents (CR 800.4a) before anybody is asked again
 (`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
 
+Inside the machine, one step publishes a question after it has moved the
+board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
+choices (a colour, a creature type, a shockland's life, a clone's choice).
+In the same scan it may already have turned a daybound permanent entering at
+night over (CR 702.145b), and `GameState::transform` drops the statics of
+the face that turned away and leaves the new face's to the next scan. It may
+also have given a Room its door, or put counters on an earlier arrival. So
+when 0b leaves a question out, the machine does what `Engine::new` does, a
+sync and a refresh, before it returns. Every other flip leads back to 0a
+before a question: a resolution's transform (`apply_pending_face_changes`, at
+the end of `finish_resolution`) is followed by the machine or by
+`run_until_choice`, a delayed transform (3b) and daybound's own fixpoint
+(2c) both `continue`
+(`mechanics_tests::transforms::a_question_asked_as_permanents_enter_sees_the_face_that_entered`).
+
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
 while it runs, that object's cached characteristics are still the previous
