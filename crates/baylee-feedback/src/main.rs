@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{Context as _, bail};
+use axum::serve::ListenerExt as _;
 use tracing_subscriber::EnvFilter;
 
 const USAGE: &str = "usage: baylee-feedback [admin add <name> | admin remove <name> | admin list]";
@@ -66,7 +67,14 @@ async fn serve() -> anyhow::Result<()> {
     let web = ui.web_dir().map(|d| d.display().to_string());
     let db = database().await?;
     let bind = std::env::var("FEEDBACK_BIND").unwrap_or_else(|_| "127.0.0.1:28780".to_owned());
-    let listener = tokio::net::TcpListener::bind(&bind).await?;
+    // Nagle's algorithm off on every accepted connection (`TCP_NODELAY`), as
+    // on the gateway: a reply is not held back for an acknowledgement that
+    // Linux delays by up to 40 ms.
+    let listener = tokio::net::TcpListener::bind(&bind).await?.tap_io(|tcp| {
+        if let Err(e) = tcp.set_nodelay(true) {
+            tracing::debug!(error = %e, "TCP_NODELAY was not set on a connection");
+        }
+    });
     tracing::info!(
         bind,
         web = web.as_deref().unwrap_or("off"),

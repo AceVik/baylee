@@ -14,9 +14,18 @@
 //! scrubber's patterns are held to it too.
 //!
 //! The deal is fixed ([`SEED`]), so every run plays the same game, and a
-//! watchdog fails the test within seconds of the table going quiet, or of
-//! the game outrunning several times its usual length, naming the seat
+//! watchdog fails the test within seconds of the table going quiet, or once
+//! the game has taken several times the actions it takes, naming the seat
 //! that owed an answer and the question it owed.
+//!
+//! Only the pace of a run depends on the machine, never the game: the
+//! opening-hand window, the one place both seats are asked at once and
+//! their answers race to the engine, shuffles each seat on its own stream
+//! (`GameRng::for_seat`), so either order deals the same hands. On
+//! 30.09.2026 two runs on macOS and two in a Linux container noted the same
+//! questions, answers, `seq` and turns from first to last, and the last
+//! notes of three CI jobs that had run out of time were notes of that game,
+//! at the same question numbers, `seq` and turns.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -28,6 +37,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
+use axum::serve::ListenerExt as _;
 use baylee_client_core::llmseat::ledger::Book;
 use baylee_client_core::llmseat::{Caps, FIRST_CALL_BYTES};
 use baylee_seat::bridge::{self, PlayOptions};
@@ -56,10 +66,18 @@ const SEED: u64 = 0x5EA7_0001;
 /// a different game from one run to the next.
 const HOUSE_TABLE: &str = "TEST-seeded-table";
 
-/// A whole game: five times the nine seconds or so this deal takes, so a
-/// mind that keeps answering without the game getting anywhere fails in
-/// well under a minute.
-const GAME_BUDGET: Duration = Duration::from_secs(45);
+/// A whole game, counted in the actions the table applied (the frames'
+/// `seq`, which every action moves): three times the 1472 this deal took on
+/// 30.09.2026 (40 turns), so a mind that keeps answering without the game
+/// getting anywhere fails however fast or slow the machine is.
+const GAME_ACTIONS: u64 = 4500;
+
+/// The last resort, for a game that crawls on with every action in time for
+/// [`QUIET`]: generous, because the pace is the machine's. On 30.09.2026 an
+/// action took 4 ms on an M1 Max and 5 ms in a Linux container; before the
+/// sockets were opened with `TCP_NODELAY` it took 49 ms there (74 to 78 s a
+/// game), and every CI job ran out of the 45 s this test then allowed.
+const GAME_WALL: Duration = Duration::from_secs(300);
 
 /// The longest the table may go without either seat noting anything (a
 /// question asked, an answer sent). Between two notes this game spends
@@ -126,6 +144,10 @@ struct Watched {
     question: Option<String>,
     /// Whether it was asked that question and has not answered it yet.
     owes: bool,
+    /// How far along the game it has been told: the table's `seq`, and the
+    /// turn.
+    seq: u64,
+    turn: u32,
 }
 
 impl Watched {
@@ -136,11 +158,15 @@ impl Watched {
             event: "nothing yet".into(),
             question: None,
             owes: false,
+            seq: 0,
+            turn: 0,
         }))
     }
 
     fn note(&mut self, note: &Note) {
         self.last = Instant::now();
+        self.seq = self.seq.max(note.seq);
+        self.turn = self.turn.max(note.turn);
         self.event = serde_json::to_value(&note.event).map_or_else(
             |_| "?".into(),
             |v| v["event"].as_str().unwrap_or("?").to_string(),
@@ -175,17 +201,28 @@ impl Watched {
 }
 
 /// Why the watchdog stopped the game, if it has: the table quiet past
-/// [`QUIET`], or the game past [`GAME_BUDGET`].
+/// [`QUIET`], or the game past [`GAME_ACTIONS`] or [`GAME_WALL`].
 fn stalled(seats: &[&Arc<Mutex<Watched>>], started: Instant) -> Option<String> {
     let quiet = seats
         .iter()
         .map(|seat| lock(seat).last.elapsed())
         .min()
         .unwrap_or_default();
+    let (seq, turn) = seats.iter().fold((0, 0), |(seq, turn), seat| {
+        let seat = lock(seat);
+        (seq.max(seat.seq), turn.max(seat.turn))
+    });
+    let elapsed = started.elapsed();
+    let at = format!("seq {seq}, turn {turn}, {:.1} s in", elapsed.as_secs_f64());
     let why = if quiet >= QUIET {
-        format!("the table was quiet for {:.1} s", quiet.as_secs_f64())
-    } else if started.elapsed() >= GAME_BUDGET {
-        format!("the game did not end within {GAME_BUDGET:?}")
+        format!(
+            "the table was quiet for {:.1} s ({at})",
+            quiet.as_secs_f64()
+        )
+    } else if seq > GAME_ACTIONS {
+        format!("the game took more than {GAME_ACTIONS} actions without ending ({at})")
+    } else if elapsed >= GAME_WALL {
+        format!("the game did not end within {GAME_WALL:?} ({at})")
     } else {
         return None;
     };
@@ -238,6 +275,10 @@ async fn stand_in() -> (String, Shared) {
         .await
         .expect("a port");
     let addr = listener.local_addr().expect("an address");
+    // Nagle's algorithm off, as the gateway's own listener has it.
+    let listener = listener.tap_io(|tcp| {
+        let _ = tcp.set_nodelay(true);
+    });
     tokio::spawn(async move { axum::serve(listener, app).await });
     (format!("http://{addr}"), books)
 }

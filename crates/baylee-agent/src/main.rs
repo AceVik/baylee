@@ -130,10 +130,25 @@ async fn session(
             .map_err(|err| format!("dial {}: {err}", config.gateway))?;
         return run(ws, config, running).await;
     }
-    let (ws, _) = tokio_tungstenite::connect_async_with_config(&url, Some(ws_config()), false)
+    let ws = dial(&url)
         .await
         .map_err(|err| format!("dial {url}: {err}"))?;
     run(ws, config, running).await
+}
+
+/// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`),
+/// as every TCP socket between gateway, agent, engine and seat is: a frame
+/// goes out when it is written, not after the peer has acknowledged the one
+/// before it, which Linux delays by up to 40 ms.
+async fn dial(
+    url: &str,
+) -> Result<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    tokio_tungstenite::tungstenite::Error,
+> {
+    let (ws, _) =
+        tokio_tungstenite::connect_async_with_config(url, Some(ws_config()), true).await?;
+    Ok(ws)
 }
 
 /// One connection to the gateway, once dialled, over whichever socket.
@@ -347,7 +362,23 @@ fn stop(running: &Running, game_id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Ended, RETRY_MAX, RETRY_START, redial_after};
+    use super::{Ended, RETRY_MAX, RETRY_START, dial, redial_after};
+
+    /// The control socket is opened with Nagle's algorithm off.
+    #[tokio::test]
+    async fn the_gateway_is_dialled_with_nagle_off() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/agent/ws", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let _ = tokio_tungstenite::accept_async(stream).await;
+        });
+        let ws = dial(&url).await.unwrap();
+        let tokio_tungstenite::MaybeTlsStream::Plain(tcp) = ws.get_ref() else {
+            panic!("a plain TCP socket");
+        };
+        assert!(tcp.nodelay().unwrap());
+    }
 
     /// A refused agent backs off as a failed one does (#271), and a socket
     /// the gateway closed starts again from the first second.

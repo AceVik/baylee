@@ -135,8 +135,8 @@ impl SeatLink {
                 DialStep::FetchTicket => dial.answered(self.lobby.seat_ticket(&self.chair).await),
                 DialStep::Dial(ticket) => {
                     let path = baylee_protocol::seat_socket_path(&self.chair.game_id, &ticket);
-                    match tokio_tungstenite::connect_async(format!("{base}{path}")).await {
-                        Ok((socket, _)) => {
+                    match open(&format!("{base}{path}")).await {
+                        Ok(socket) => {
                             dial.opened();
                             return Ok(socket);
                         }
@@ -169,6 +169,15 @@ impl SeatLink {
             };
         }
     }
+}
+
+/// Opens a seat socket with Nagle's algorithm off (`TCP_NODELAY`), as the
+/// client does: an answer goes out when it is written, not after the table
+/// has acknowledged what this seat sent before, which Linux delays by up to
+/// 40 ms.
+async fn open(url: &str) -> Result<Socket, tokio_tungstenite::tungstenite::Error> {
+    let (socket, _) = tokio_tungstenite::connect_async_with_config(url, None, true).await?;
+    Ok(socket)
 }
 
 /// The socket address of a gateway named by its HTTP address.
@@ -214,5 +223,21 @@ mod tests {
             "wss://play.example"
         );
         assert!(ws_base("unix:/run/baylee.sock").is_err());
+    }
+
+    /// A seat socket is opened with Nagle's algorithm off.
+    #[tokio::test]
+    async fn a_seat_socket_sends_at_once() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/games/g/ws", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let _ = tokio_tungstenite::accept_async(stream).await;
+        });
+        let socket = open(&url).await.unwrap();
+        let MaybeTlsStream::Plain(tcp) = socket.get_ref() else {
+            panic!("a plain TCP socket");
+        };
+        assert!(tcp.nodelay().unwrap());
     }
 }
