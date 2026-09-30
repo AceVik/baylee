@@ -20,6 +20,7 @@ mod m20260925_000008_upload_owners;
 mod m20260927_000009_game_records;
 mod m20260927_000010_invites;
 mod m20260929_000011_maik_deck;
+mod m20260930_000012_precons;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260927_000009_game_records::Migration),
             Box::new(m20260927_000010_invites::Migration),
             Box::new(m20260929_000011_maik_deck::Migration),
+            Box::new(m20260930_000012_precons::Migration),
         ]
     }
 }

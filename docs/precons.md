@@ -169,6 +169,45 @@ four cards (`10E/white-deck-b`, `8ED/speed-scorch`), and nearly every
 failing card is simply not in the pool yet (3569 of the first-three
 entries say `pool`, 39 `stub`, 1 `ledger`).
 
+## House decks
+
+The playable precons are offered to players on the house-deck page
+(Hausdecks), beside the decks this project seeded by hand, as decks of kind
+`preconstructed` that belong to nobody. No precon ever needs a migration:
+
+- `decks-status` embeds the playable lists in the gateway
+  (`crates/baylee-db/src/precons/generated.rs`, `include_str!` of each
+  file), so a deployed gateway needs no file beside it and offers exactly
+  what its build plays.
+- As the gateway starts, after its migrations, `baylee_db::precons::sync`
+  makes the database agree with that list, in one transaction under an
+  advisory lock, so two gateways on one database take turns. It first
+  compares a stamp of the lists (and of `precons::SYNC_VERSION`) with the
+  one it wrote last (`deck_sync`): the same build starting again is one read.
+- A list is found again by its key (`deck.source`, unique). A new one
+  becomes a deck at version 1. One whose cards changed leaves the state it
+  replaces in the deck's history and moves one version on, as a player's
+  save does, with the source's build as the change's summary; a copy names
+  the version it came from, and that version stays readable. A rename or a
+  new description is not a version.
+- A precon the build no longer plays — its list left, or a card in it is no
+  longer implemented or tested — is **withdrawn**: `offered` goes false, the
+  listing stops showing it and a copy of it is refused (410), but the deck
+  stays readable and is never deleted, so the copies players took keep
+  playing and keep naming their deck. When it is playable again it is
+  offered again as the same deck, history and all.
+- A deck with no `source` — a player's, or a house deck a migration seeded —
+  is never read or written by a sync, and a `CHECK` keeps `source` and
+  `offered = false` off a player's deck.
+- The listing (`precons::shared_decks`, the gateway's `GET /decks/shared`)
+  shows the house's own decks first, then the precons. The client shows
+  both on its one house-deck page, unchanged; with none playable today the
+  page needs no grouping. Grouping by set and type is the client's next step
+  once the list grows long, and is not built.
+
+A precon's description is what the product was: its type, set and release
+date (`Theme Deck · E02 · 2017-11-24`).
+
 ## For training
 
 The trained-AI session reads, from a checkout of `main`:
