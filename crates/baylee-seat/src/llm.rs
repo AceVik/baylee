@@ -30,7 +30,10 @@
 //! time allows; after that, and for a model that refuses, the house answers
 //! ([`MindError::Declined`]). A network or provider failure is
 //! [`MindError::Unavailable`], and a run of them takes the mind off the
-//! table until [`Mind::ready`] says the endpoint answers again. Past the
+//! table until [`Mind::ready`] says the endpoint answers again. A request
+//! the provider turns down as such (400, 413) would be turned down again
+//! with the same history, so the next question starts a new conversation,
+//! as a new turn does. Past the
 //! game's budget in tokens or dollars (§8) every question is declined and
 //! the house finishes the game.
 //!
@@ -617,7 +620,16 @@ impl ApiMind {
             if !alive.load(Ordering::SeqCst) && result.is_ok() {
                 lock(&seat).late = Some(question);
             }
-            result.map_err(|why| scrub(&why, key.as_ref()))
+            // A conversation the provider turned down would be turned
+            // down at every question until the turn ends and take the
+            // mind off the table: the next question starts a new one, with
+            // the notes carried over as at a new turn.
+            if result.as_ref().is_err_and(|failed| failed.turned_down) {
+                let mut seat = lock(&seat);
+                seat.messages.clear();
+                seat.results.clear();
+            }
+            result.map_err(|failed| scrub(&failed.why, key.as_ref()))
         })
         .await
         .map_err(|e| MindError::Unavailable(format!("the call did not finish: {e}")))?;
@@ -813,6 +825,24 @@ impl Drop for Alive {
     }
 }
 
+/// A call that failed.
+struct Failed {
+    /// Why, in words (not yet scrubbed).
+    why: String,
+    /// The provider turned the request itself down (400, 413): the same
+    /// conversation would be turned down again.
+    turned_down: bool,
+}
+
+impl From<String> for Failed {
+    fn from(why: String) -> Self {
+        Self {
+            why,
+            turned_down: false,
+        }
+    }
+}
+
 /// One blocking call: the post, the status, the body.
 fn call(
     agent: &ureq::Agent,
@@ -822,7 +852,7 @@ fn call(
     timeout: Duration,
     provider: Provider,
     mode: AnswerMode,
-) -> Result<Reply, String> {
+) -> Result<Reply, Failed> {
     let bytes = serde_json::to_vec(body).map_err(|e| e.to_string())?;
     let mut request = agent.post(url);
     for (name, value) in headers {
@@ -850,12 +880,15 @@ fn call(
             Provider::OpenAi => openai::error_message(&body),
         }
         .unwrap_or_else(|| "no reason given".into());
-        return Err(format!("{status}: {why}"));
+        return Err(Failed {
+            why: format!("{status}: {why}"),
+            turned_down: matches!(status, 400 | 413),
+        });
     }
-    match provider {
+    Ok(match provider {
         Provider::Anthropic => anthropic::parse(&body),
         Provider::OpenAi => openai::parse(&body, mode),
-    }
+    }?)
 }
 
 /// An answer read against its question.

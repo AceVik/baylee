@@ -568,6 +568,52 @@ async fn a_new_turn_starts_a_new_conversation_with_the_notes() {
     );
 }
 
+/// A conversation the provider turned down is not sent again: the next
+/// question, in the same turn, starts a new one.
+#[tokio::test]
+async fn a_conversation_the_provider_turned_down_is_started_again() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_1",
+        "decide",
+        json!({"ask": "q12", "pick": ["a1"], "say": "TEST note a1"}),
+    )])));
+    provider.script(Scripted {
+        status: 400,
+        body: json!({"type": "error", "error": {
+            "type": "invalid_request_error", "message": "TEST: messages.1: a bad replay"
+        }}),
+        delay: Duration::ZERO,
+    });
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_3",
+        "decide",
+        json!({"ask": "q12", "pick": ["p"]}),
+    )])));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    mind.decide(a_priority()).await.expect("the first answer");
+    let refused = mind.decide(a_priority()).await;
+    assert!(
+        matches!(&refused, Err(MindError::Unavailable(why)) if why.starts_with("400:")),
+        "{refused:?}"
+    );
+    mind.decide(a_priority()).await.expect("the third answer");
+    let seen = provider.seen();
+    let lengths: Vec<usize> = seen
+        .iter()
+        .map(|s| s.body["messages"].as_array().map_or(0, Vec::len))
+        .collect();
+    assert_eq!(lengths, [1, 3, 1], "the third call starts again");
+    let blocks = last_user(&seen[2]);
+    assert!(
+        blocks[0]["text"]
+            .as_str()
+            .is_some_and(|t| t.starts_with("THE GAME"))
+    );
+    let wake = blocks[1]["text"].as_str().expect("wake");
+    assert!(wake.contains("  - TEST note a1"), "{wake}");
+}
+
 /// The OpenAI-compatible path: a function call whose arguments are a JSON
 /// string, the bearer key, and the JSON mode for a server without tools.
 #[tokio::test]
