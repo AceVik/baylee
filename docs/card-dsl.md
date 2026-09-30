@@ -1606,8 +1606,8 @@ Modal/sequence: `Sequence(&[..])`.
 `PlayersCantLose`,
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
-`MayChooseNotToUntap`, `SkipUntapStep { who }`, `PlayLandsFromGraveyard`,
-`ExtraLandDrops`,
+`MayChooseNotToUntap`, `SkipUntapStep { who }`, `UntapAtMost { who, of, count }`,
+`PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
@@ -1691,7 +1691,8 @@ CR 613.11 puts such an effect outside the layer order — so it sits in the
 reads it. Whose untap step is not a field: CR 502.3 only untaps the active
 player's permanents, which is the same player every printing of the sentence
 names. It is **not** the way to say "doesn't untap during your *next* untap
-step" — that is a created effect with a duration, and does not exist yet.
+step" — that is a created effect with `Duration::UntilYourNextUntapStep`
+(`Effect::continuous(&Filter::This, Modifier::DoesNotUntap, …)`).
 
 `MayChooseNotToUntap` is the other half of the same rule and the storage
 lands' clause: CR 502.3 has the active player *determine* which of their
@@ -1714,6 +1715,20 @@ step" is not spent by a skipped one (CR 614.10a): it waits for the first
 untap step that happens, which is why the skip does not pass through
 `finish_untap_step`. The reader writes it from `R:Event$ BeginPhase |
 Phase$ Untap | Skip$ True` on the battlefield with no player named.
+
+`UntapAtMost { who, of, count }` is "players can't untap more than one
+creature during their untap steps" (Smoke; Winter Orb's lands, with the
+Orb's "as long as this is untapped" as the static's `condition`). It limits
+CR 502.3's determination and nothing else: everything still untaps by
+default, so the active player names *which* permanents counted by `of`
+untap (`ChoicePrompt::Untap`, at least one per answer), and the question is
+asked again until no limit has room for anything left. Limits add up and do
+not merge: a permanent counts against every limit it matches (the Smoke and
+Winter Moon rulings), and two copies of one limit still let `count` through.
+The "may choose not to untap" question (`LeaveTapped`) is asked first, so a
+permanent kept tapped by choice takes no room. Nothing is asked when every
+limit can take everything still tapped. The reader writes it from
+`Affected$ <player> | AddKeyword$ UntapAdjust:<valid>:<n>`.
 
 `GainControl` is layer 2 and must be paired with `Layer::Control` — any
 other layer applies it out of order with respect to the effects that read

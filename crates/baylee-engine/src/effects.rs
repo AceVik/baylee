@@ -159,6 +159,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // that arrives later and matches the filter is kept tapped too.
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
+        | Modifier::UntapAtMost { .. }
         // A replacement for a player's graveyard: the cards it catches are
         // whichever arrive, not a set fixed as it began.
         | Modifier::ExileInsteadOfYourGraveyard
@@ -799,6 +800,11 @@ mod tests {
             Modifier::SkipUntapStep {
                 who: PlayerRel::EachPlayer,
             },
+            Modifier::UntapAtMost {
+                who: PlayerRel::EachPlayer,
+                of: &Filter::CREATURE,
+                count: 1,
+            },
             Modifier::PlayerHexproof,
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
@@ -845,7 +851,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            58,
+            59,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -897,7 +903,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: twenty-eight
-    /// modifiers lock the objects they found, thirty do not.
+    /// modifiers lock the objects they found, thirty-one do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -905,10 +911,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_eight_modifiers_lock_a_set_and_thirty_do_not() {
+    fn twenty_eight_modifiers_lock_a_set_and_thirty_one_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (28, 30));
+        assert_eq!((locking, all.len() - locking), (28, 31));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

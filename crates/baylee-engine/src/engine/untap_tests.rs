@@ -487,3 +487,239 @@ fn an_effect_for_the_next_untap_step_waits_past_a_skipped_one() {
         "the skipped untap step is not the one it was waiting for"
     );
 }
+
+// ------------------- "Players can't untap more than one land" (Winter Orb)
+//
+// A limit on CR 502.3's determination (`Modifier::UntapAtMost`). Everything
+// still untaps by default, so the player chooses which, not whether; and
+// limits add up, each counting every permanent it matches (the Smoke and
+// Winter Moon rulings).
+
+/// "Players can't untap more than one land during their untap steps", on a
+/// land with nothing to tap, so it is never tapped itself.
+const ORB_BASIN: u32 = 1104;
+/// Two limits at once: at most two lands, at most one of them basic.
+const MOON_BASIN: u32 = 1105;
+/// A nonbasic land that only taps for mana.
+const PLAIN_BASIN: u32 = 1106;
+
+static BASIC_LAND_F: Filter = Filter::BASIC_LAND;
+static LAND_F: Filter = Filter::LAND;
+
+static ORB_ABILITIES: &[AbilityDef] = &[AbilityDef::Static(StaticAbility {
+    layer: Layer::Text,
+    filter: Filter::Any,
+    modifier: Modifier::UntapAtMost {
+        who: baylee_cards_dsl::PlayerRel::EachPlayer,
+        of: &LAND_F,
+        count: 1,
+    },
+    condition: None,
+})];
+
+static MOON_ABILITIES: &[AbilityDef] = &[
+    AbilityDef::Static(StaticAbility {
+        layer: Layer::Text,
+        filter: Filter::Any,
+        modifier: Modifier::UntapAtMost {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+            of: &LAND_F,
+            count: 2,
+        },
+        condition: None,
+    }),
+    AbilityDef::Static(StaticAbility {
+        layer: Layer::Text,
+        filter: Filter::Any,
+        modifier: Modifier::UntapAtMost {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+            of: &BASIC_LAND_F,
+            count: 1,
+        },
+        condition: None,
+    }),
+];
+
+static PLAIN_ABILITIES: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost::TAP,
+    effects: MANA,
+    targets: None,
+    second_targets: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: true,
+    zone: ActivationZone::Battlefield,
+    limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
+}];
+
+fn limit_lookup() -> SyntheticLookup {
+    SyntheticLookup::new(vec![
+        land(STORAGE_BASIN, "Storage Basin", BASIN_ABILITIES),
+        land(ORB_BASIN, "Orb Basin", ORB_ABILITIES),
+        land(MOON_BASIN, "Moon Basin", MOON_ABILITIES),
+        land(PLAIN_BASIN, "Plain Basin", PLAIN_ABILITIES),
+    ])
+}
+
+/// Passes until the untap step asks what untaps under a limit, and says
+/// whether it did before anything else was asked.
+fn pass_until_untap_limit(engine: &mut Engine<SyntheticLookup>) -> bool {
+    for _ in 0..200 {
+        let pending = engine.pending().clone();
+        if let Pending::ChooseCards {
+            prompt: crate::choice::ChoicePrompt::Untap,
+            ..
+        } = pending
+        {
+            return true;
+        }
+        if !walk_past(engine, &pending) {
+            return false;
+        }
+    }
+    false
+}
+
+/// The menu, its bounds, and who is asked.
+fn untap_menu(engine: &Engine<SyntheticLookup>) -> (PlayerId, Vec<ObjectId>, u8, u8) {
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt: crate::choice::ChoicePrompt::Untap,
+    } = engine.pending().clone()
+    else {
+        panic!("not the untap limit's question: {:?}", engine.pending())
+    };
+    (player, options, min, max)
+}
+
+/// One land of three untaps, the one the active player names; the other
+/// two stay tapped.
+#[test]
+fn under_an_untap_limit_the_named_land_untaps_and_the_rest_stay_tapped() {
+    let f = forest();
+    let mut engine = Engine::new(&preset(18, &[ORB_BASIN, f, f, f]), limit_lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let forests = permanents(&engine, f);
+    tap_every_land(&mut engine, p0);
+    assert!(forests.iter().all(|id| tapped(&engine, *id)));
+
+    assert!(
+        pass_until_untap_limit(&mut engine),
+        "the untap step asks which land untaps"
+    );
+    let (player, options, min, max) = untap_menu(&engine);
+    assert_eq!(player, p0, "the active player determines (CR 502.3)");
+    assert_eq!(options, forests, "every tapped land is on the menu");
+    assert_eq!((min, max), (1, 1), "one must untap, and only one may");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![forests[1]],
+            },
+        )
+        .unwrap();
+    assert!(!tapped(&engine, forests[1]), "the named Forest untapped");
+    assert!(
+        tapped(&engine, forests[0]) && tapped(&engine, forests[2]),
+        "the limit kept the other two tapped"
+    );
+}
+
+/// Two limits add up, and a land counts against both (the Winter Moon
+/// ruling): after a basic land untaps, no other basic land is offered, and
+/// one more land of any kind may still untap.
+#[test]
+fn untap_limits_add_up_and_a_permanent_counts_against_each() {
+    let f = forest();
+    let mut engine = Engine::new(
+        &preset(19, &[MOON_BASIN, f, f, PLAIN_BASIN, PLAIN_BASIN]),
+        limit_lookup(),
+    )
+    .unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    let forests = permanents(&engine, f);
+    let plains = permanents(&engine, PLAIN_BASIN);
+    tap_every_land(&mut engine, p0);
+    assert!(forests.iter().chain(&plains).all(|id| tapped(&engine, *id)));
+
+    assert!(pass_until_untap_limit(&mut engine));
+    let (_, options, min, max) = untap_menu(&engine);
+    assert_eq!(options.len(), 4, "every tapped land is on the first menu");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "one basic land may untap, so no answer may name two"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![forests[0]],
+            },
+        )
+        .unwrap();
+
+    let (_, options, min, max) = untap_menu(&engine);
+    assert_eq!(
+        options, plains,
+        "the basic limit is full, so only the nonbasic lands are left"
+    );
+    assert_eq!((min, max), (1, 1), "and the land limit has room for one");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![plains[1]],
+            },
+        )
+        .unwrap();
+
+    assert!(!tapped(&engine, forests[0]) && !tapped(&engine, plains[1]));
+    assert!(
+        tapped(&engine, forests[1]) && tapped(&engine, plains[0]),
+        "both limits are full, so the rest stay tapped"
+    );
+}
+
+/// A permanent the player keeps tapped by choice takes no room: the
+/// "may choose not to untap" question comes first, and the land left over
+/// is the only one the limit could untap, so it untaps without a question.
+/// Declining to keep it puts it on the limit's menu instead.
+#[test]
+fn a_permanent_kept_tapped_by_choice_takes_no_room_under_a_limit() {
+    let f = forest();
+    for keep in [true, false] {
+        let mut engine =
+            Engine::new(&preset(20, &[ORB_BASIN, STORAGE_BASIN, f]), limit_lookup()).unwrap();
+        keep_mulligans(&mut engine);
+        let p0 = PlayerId::new(0);
+        let basin = permanents(&engine, STORAGE_BASIN)[0];
+        let forest_id = permanents(&engine, f)[0];
+        tap_every_land(&mut engine, p0);
+        assert!(tapped(&engine, basin) && tapped(&engine, forest_id));
+
+        assert!(pass_until_question(&mut engine), "the basin is asked about");
+        let objects = if keep { vec![basin] } else { vec![] };
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects })
+            .unwrap();
+        if keep {
+            assert!(tapped(&engine, basin), "kept tapped by choice");
+            assert!(
+                !tapped(&engine, forest_id),
+                "the Forest was the only land the limit had to decide about"
+            );
+        } else {
+            let (_, options, min, max) = untap_menu(&engine);
+            assert_eq!(options, vec![basin, forest_id]);
+            assert_eq!((min, max), (1, 1));
+        }
+    }
+}

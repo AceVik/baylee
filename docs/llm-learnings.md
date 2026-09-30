@@ -2100,3 +2100,11 @@ land type"; both are convention tests that fire on a first try.
   every "until your next untap step" effect, which CR 614.10a says waits
   for the first untap step that is not skipped. The skip leaves the step
   before its turn-based actions, not through the step's own ending.
+- **"Can't untap more than one" limits a choice; it does not make one
+  optional.** Winter Orb leaves the default of CR 502.3 in place, that
+  everything untaps, and only stops the untap once the limit is full. So
+  the player names which land untaps and must name one while any can. Two
+  limits add up (the Winter Moon ruling): a basic land counts against "one
+  basic land" and "two lands" both, so the menu shrinks after each answer,
+  and a question's `max` is the smallest room among the limits that cannot
+  take the whole menu.

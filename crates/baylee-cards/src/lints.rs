@@ -1693,7 +1693,8 @@ mod tests {
                 for modifier in printed.into_iter().chain(granted) {
                     let (Modifier::DrawLimitPerTurn { who, .. }
                     | Modifier::CantLoseLife { who }
-                    | Modifier::SkipUntapStep { who }) = modifier
+                    | Modifier::SkipUntapStep { who }
+                    | Modifier::UntapAtMost { who, .. }) = modifier
                     else {
                         continue;
                     };

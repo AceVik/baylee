@@ -1745,6 +1745,16 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
+    /// permanent to untap
+    NounPermanentToUntap {
+        en: "permanent to untap",
+        de: "bleibende Karte, die enttappt wird",
+    },
+    /// permanents to untap
+    NounPermanentsToUntap {
+        en: "permanents to untap",
+        de: "bleibende Karten, die enttappt werden",
+    },
     /// card to reveal
     NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
     /// cards to reveal
@@ -3583,6 +3593,7 @@ mod tests {
                 Phrase::NounPermanentToLeaveTapped,
                 Phrase::NounPermanentsToLeaveTapped,
             ),
+            (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
             (Phrase::NounCardToHand, Phrase::NounCardsToHand),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),

@@ -408,6 +408,13 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// "Which of these untap?" — the same determination (CR 502.3) under a
+    /// limit on how many may untap (`Modifier::UntapAtMost`: Smoke, Winter
+    /// Orb). The menu holds what may still untap and the answer is what
+    /// untaps, so it is the opposite of [`Self::LeaveTapped`]: naming more
+    /// is the better answer. Only the limit keeps a permanent tapped, so the
+    /// question is asked again until no limit has room for anything on it.
+    Untap,
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type

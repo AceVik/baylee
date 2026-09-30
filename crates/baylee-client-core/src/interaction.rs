@@ -652,7 +652,9 @@ pub fn table_losses(
 /// active player which of their permanents stay tapped (CR 502.3). Its noun
 /// says what *not* choosing does, because the empty answer is the whole
 /// board untapping and a player shown "permanent to untap" over a menu of
-/// one would read the question backwards.
+/// one would read the question backwards. `Untap` is the same step under a
+/// limit (Smoke, Winter Orb), where the menu is what may untap and at least
+/// one must, so its noun says what choosing does.
 ///
 /// `RevealOrEnterTapped` is a reveal land asking which card from hand to
 /// show. Its noun says what happens to the card and not what declining
@@ -685,6 +687,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounPermanentToLeaveTapped,
             Phrase::NounPermanentsToLeaveTapped,
         ),
+        ChoicePrompt::Untap => (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
         ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
         ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
         ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),

@@ -701,7 +701,7 @@ impl<L: CardLookup> Engine<L> {
                     // determination is not targeting at all (CR 115.1), and
                     // the step it belongs to grants nobody priority to cast
                     // anything that could be.
-                    PlanKind::UntapChoice => {
+                    PlanKind::UntapChoice | PlanKind::UntapLimit { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
@@ -1436,12 +1436,19 @@ impl<L: CardLookup> Engine<L> {
                         return Ok(());
                     }
                     // The untap step's determination (CR 502.3). The answer
-                    // names what stays tapped, and the step carries on from
-                    // "then they untap them all simultaneously" — never
-                    // from the top, where phasing and the day/night check
-                    // have already happened.
+                    // names what stays tapped, and the step carries on with
+                    // any untap limit and then "then they untap them all
+                    // simultaneously" — never from the top, where phasing
+                    // and the day/night check have already happened.
                     Some(PlanKind::UntapChoice) => {
-                        self.finish_untap_step(&objects);
+                        self.untap_under_limits(objects, Vec::new());
+                        return Ok(());
+                    }
+                    // What untaps under a limit (CR 502.3): counted against
+                    // every limit, and asked again while any has room.
+                    Some(PlanKind::UntapLimit { kept, mut chosen }) => {
+                        chosen.extend(objects);
+                        self.untap_under_limits(kept, chosen);
                         return Ok(());
                     }
                     // A reveal land's entry clause. CR 701.20a shows the

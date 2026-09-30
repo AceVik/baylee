@@ -308,6 +308,20 @@ pub fn pass_until(
                     .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
                     .unwrap();
             }
+            // Under an untap limit the answer is what untaps: as many as
+            // the limit lets through, the first ones offered.
+            Pending::ChooseCards {
+                player,
+                prompt: crate::choice::ChoicePrompt::Untap,
+                options,
+                max,
+                ..
+            } => {
+                let objects = options.into_iter().take(usize::from(max)).collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
             Pending::Arrange {
                 player,
                 cards,

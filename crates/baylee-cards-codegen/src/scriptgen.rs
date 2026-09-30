@@ -4206,6 +4206,11 @@ impl Tx<'_> {
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".to_string());
         };
+        if p.peek("AddKeyword")
+            .is_some_and(|k| k.starts_with("UntapAdjust:"))
+        {
+            return self.untap_limit(&affected, p);
+        }
         let filter = self.filter_expr(&affected)?;
         // "Gets +1/+1 as long as you control a Swamp" (Sedge Troll): the
         // clause the `A:` line reads as a restriction is, on a static, the
@@ -4247,6 +4252,42 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// "Players can't untap more than one creature during their untap
+    /// steps" (Smoke), and Winter Orb's "…one land…" while it is untapped:
+    /// `Affected$ <player> | AddKeyword$ UntapAdjust:<valid>:<n>` as
+    /// `Modifier::UntapAtMost`. The keyword is all the line may grant, the
+    /// player one this reader can name, and the only other clause read is
+    /// the `IsPresent$` condition every continuous static may carry.
+    fn untap_limit(&mut self, affected: &str, mut p: Params) -> Option<()> {
+        let who = match affected {
+            "Player" => "PlayerRel::EachPlayer",
+            "You" => "PlayerRel::You",
+            "Opponent" | "Player.Opponent" => "PlayerRel::EachOpponent",
+            other => return self.deny(format!("an untap limit on `Affected$ {other}`")),
+        };
+        let keyword = p.take("AddKeyword")?;
+        let mut parts = keyword.split(':');
+        let (Some("UntapAdjust"), Some(valid), Some(count), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return self.deny(format!("keyword `{keyword}` beside an untap limit"));
+        };
+        let Ok(count) = count.trim().parse::<u8>() else {
+            return self.deny(format!("an untap limit of `{count}`"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("UNTAPPING", &expr);
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::Any, Modifier::UntapAtMost {{ who: {who}, of: &{name}, \
+             count: {count} }}{condition})"
+        ));
         Some(())
     }
 
@@ -7796,6 +7837,51 @@ SVar:X:Count$xPaid",
             "R:Event$ BeginPhase | ActiveZones$ Command | Phase$ Untap | Skip$ True",
             "R:Event$ BeginPhase | Phase$ Draw | Skip$ True",
             "R:Event$ BeginPhase | Phase$ Untap | Skip$ True | ValidPlayer$ You",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Enchantment\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// Smoke's and Winter Orb's "players can't untap more than one …
+    /// during their untap steps": a limit on the players the line affects,
+    /// with the Orb's "as long as this is untapped" as the static's
+    /// condition. Another keyword beside it, another player, or a key the
+    /// reader does not claim refuses.
+    #[test]
+    fn an_untap_limit_is_read_for_the_players_it_names() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Creature:1 | \
+             Description$ Players can't untap more than one creature during their untap steps.",
+        );
+        assert_eq!(
+            body.abilities,
+            vec![
+                "static_ability!(Filter::Any, Modifier::UntapAtMost { who: PlayerRel::EachPlayer, \
+                 of: &Filter::CREATURE, count: 1 })"
+            ]
+        );
+        let body = read(
+            "Name:X\nTypes:Artifact\n\
+             S:Mode$ Continuous | Affected$ Player.Opponent | AddKeyword$ UntapAdjust:Land:2 | \
+             IsPresent$ Card.Self+untapped | Description$ …",
+        );
+        assert_eq!(body.abilities.len(), 1);
+        assert!(
+            body.abilities[0].contains("who: PlayerRel::EachOpponent")
+                && body.abilities[0].contains("count: 2")
+                && body.abilities[0].contains("condition = Some(Condition::SourceMatches(&CHECK"),
+            "{}",
+            body.abilities[0]
+        );
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Creature | AddKeyword$ UntapAdjust:Land:1",
+            "S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Land:one",
+            "S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Land:1 | \
+             AddHiddenKeyword$ Shroud",
         ] {
             assert!(
                 refused(&format!("Name:X\nTypes:Enchantment\n{refused_line}")),

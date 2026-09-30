@@ -247,6 +247,21 @@ pub enum Modifier {
         /// Who skips, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
+    /// These players can't untap more than `count` permanents matching `of`
+    /// during their untap steps (Smoke: one creature; Winter Orb: one land;
+    /// Static Orb: two permanents). A limit on CR 502.3's determination: the
+    /// active player chooses which untap, and everything the limit leaves
+    /// over stays tapped. Limits add up and do not merge — a permanent
+    /// counts against every limit it matches, and two copies of one limit
+    /// still let only `count` untap (the Smoke and Winter Moon rulings).
+    UntapAtMost {
+        /// Whose untap steps, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// Which permanents the limit counts.
+        of: &'static crate::Filter,
+        /// How many of them may untap.
+        count: u8,
+    },
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
@@ -596,6 +611,7 @@ impl Modifier {
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
+            | Self::UntapAtMost { .. }
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor

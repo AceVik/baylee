@@ -578,6 +578,16 @@ enum PlanKind {
     /// The one plan with no fields: what it is about is the step the game
     /// is in, and the step cannot have moved on while the question stands.
     UntapChoice,
+    /// The same determination under untap limits (`Modifier::UntapAtMost`),
+    /// waiting for the active player to name what untaps
+    /// (`ChoicePrompt::Untap`), one answer at a time.
+    UntapLimit {
+        /// What stays tapped by the player's own answer to the
+        /// `ChoicePrompt::LeaveTapped` question before it.
+        kept: Vec<ObjectId>,
+        /// What earlier answers named to untap.
+        chosen: Vec<ObjectId>,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.

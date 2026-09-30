@@ -345,7 +345,8 @@ impl HeuristicAgent {
                 // card alone, so whichever pile they take, they do not take
                 // all of them, which is what naming none would hand over.
                 let n = match prompt {
-                    ChoicePrompt::Delve => max,
+                    // Under an untap limit the answer is what untaps.
+                    ChoicePrompt::Delve | ChoicePrompt::Untap => max,
                     ChoicePrompt::LeaveTapped => min,
                     ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
@@ -5405,6 +5406,25 @@ mod tests {
             panic!("expected a card choice")
         };
         assert_eq!(objects.len(), 1, "a short menu is otherwise taken whole");
+    }
+
+    /// Under an untap limit (Static Orb) the menu is what untaps, so the
+    /// agent untaps as many as the limit lets through rather than the `min`
+    /// a long menu otherwise gets.
+    #[test]
+    fn an_untap_limit_is_answered_with_as_many_as_it_allows() {
+        let v = view(0, &[20, 20], vec![]);
+        let menu = Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: (10..15).map(obj).collect(),
+            min: 1,
+            max: 3,
+            prompt: ChoicePrompt::Untap,
+        };
+        let PlayerAction::ChooseObjects { objects } = agent().act(&v, &menu) else {
+            panic!("expected a card choice")
+        };
+        assert_eq!(objects.len(), 3, "everything the limit lets untap");
     }
 
     /// The three modes of Sheoldred's Edict, as the engine offers them.

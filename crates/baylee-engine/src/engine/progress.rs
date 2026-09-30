@@ -16,6 +16,18 @@ use baylee_cards_dsl::{Effect, Filter, PlayerRel, SpellMode, TargetReq, TargetSp
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
+/// One `Modifier::UntapAtMost` binding the active player's untap step.
+struct UntapLimit {
+    /// What it counts.
+    of: &'static Filter,
+    /// The effect's controller, the filter's "you".
+    you: PlayerId,
+    /// The effect's source, the filter's "this".
+    this: Option<ObjectId>,
+    /// How many of them may untap.
+    count: u8,
+}
+
 /// What CR 608.2b's re-check found about the object on top of the stack.
 ///
 /// Three answers and not two, because "no legal target left" and "this was
@@ -4953,8 +4965,7 @@ impl<L: CardLookup> Engine<L> {
         // untap them all simultaneously."
         let optional = self.untap_optional();
         if optional.is_empty() {
-            self.finish_untap_step(&[]);
-            return false;
+            return self.untap_under_limits(Vec::new(), Vec::new());
         }
         // The answer names the permanents that stay tapped, so an empty one
         // is "untap everything" — the determination every board without
@@ -4968,6 +4979,138 @@ impl<L: CardLookup> Engine<L> {
             min: 0,
             max,
             prompt: crate::choice::ChoicePrompt::LeaveTapped,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// The limits on the active player's untap step
+    /// (`Modifier::UntapAtMost`), each with the "you" and "this" its filter
+    /// is read against.
+    fn untap_limits(&self) -> Vec<UntapLimit> {
+        let active = self.state.turn.active;
+        self.state
+            .effects
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::UntapAtMost { who, of, count } = fx.modifier else {
+                    return None;
+                };
+                crate::eval::players(who, &self.state, fx.controller)
+                    .is_some_and(|p| p.contains(&active))
+                    .then_some(UntapLimit {
+                        of,
+                        you: fx.controller,
+                        this: fx.source,
+                        count,
+                    })
+            })
+            .collect()
+    }
+
+    /// Whether `limit` counts the permanent `id`.
+    fn counts(&self, limit: &UntapLimit, id: ObjectId) -> bool {
+        self.state.object(id).is_some_and(|obj| {
+            crate::eval::matches(
+                limit.of,
+                &self.state,
+                obj,
+                limit.you,
+                limit.this.unwrap_or(id),
+            )
+        })
+    }
+
+    /// CR 502.3's determination under untap limits (Smoke, Winter Orb):
+    /// of the permanents that would untap, the ones a limit counts untap as
+    /// the active player names them, and the rest of them stay tapped once
+    /// no limit has room left for any of them.
+    ///
+    /// "Can't untap more than one" keeps a permanent tapped only when the
+    /// limit is full: the default is still that everything untaps (CR
+    /// 502.3), so the player chooses *which*, not *whether*. The question
+    /// is asked again after every answer, and each answer counts against
+    /// every limit the permanents in it match — an animated land under
+    /// Smoke and Winter Orb is the one creature and the one land (the Smoke
+    /// ruling), and Static Orb beside Winter Moon lets two permanents untap,
+    /// at most one of them a nonbasic land (the Winter Moon ruling).
+    ///
+    /// `max` is the most a single answer can name without breaking a limit
+    /// whatever it names: the smallest room among the limits that cannot
+    /// take everything still on the menu. Anything from one to that is
+    /// legal, so the menu never offers an answer the apply would refuse.
+    /// When every limit can take everything on the menu, nothing is asked.
+    ///
+    /// `kept` is what the player already chose to leave tapped
+    /// (`ChoicePrompt::LeaveTapped`), asked first so that a permanent the
+    /// player keeps by choice does not take a limit's room. Returns `true`
+    /// when a question was asked.
+    pub(crate) fn untap_under_limits(
+        &mut self,
+        kept: Vec<ObjectId>,
+        chosen: Vec<ObjectId>,
+    ) -> bool {
+        let active = self.state.turn.active;
+        let limits = self.untap_limits();
+        let counted = |id: ObjectId| limits.iter().any(|l| self.counts(l, id));
+        // What would untap if no limit applied. A phased-out permanent is
+        // treated as though it does not exist (CR 702.26b): no limit counts
+        // it and no menu offers it.
+        let would: Vec<ObjectId> =
+            self.state
+                .battlefield_seen()
+                .filter(|id| {
+                    self.state.object(*id).is_some_and(|o| {
+                        o.controller == active && o.status.contains(Status::TAPPED)
+                    }) && !kept.contains(id)
+                        && !self.keeps_tapped(*id)
+                })
+                .collect();
+        let room: Vec<usize> = limits
+            .iter()
+            .map(|l| {
+                let used = chosen.iter().filter(|c| self.counts(l, **c)).count();
+                usize::from(l.count).saturating_sub(used)
+            })
+            .collect();
+        // Counted, not yet named, and every limit counting it has room.
+        let open: Vec<ObjectId> = would
+            .iter()
+            .copied()
+            .filter(|id| {
+                !chosen.contains(id)
+                    && counted(*id)
+                    && limits
+                        .iter()
+                        .zip(&room)
+                        .all(|(l, r)| *r > 0 || !self.counts(l, *id))
+            })
+            .collect();
+        let most = limits
+            .iter()
+            .zip(&room)
+            .filter(|(l, r)| open.iter().filter(|id| self.counts(l, **id)).count() > **r)
+            .map(|(_, r)| *r)
+            .min();
+        let Some(most) = most else {
+            // Everything still open fits: it untaps with what was named, and
+            // what the limits shut out stays tapped.
+            let mut stays = kept;
+            stays.extend(
+                would
+                    .iter()
+                    .filter(|id| counted(**id) && !chosen.contains(id) && !open.contains(id)),
+            );
+            self.finish_untap_step(&stays);
+            return false;
+        };
+        self.pending_plan = Some(PlanKind::UntapLimit { kept, chosen });
+        self.pending = Pending::ChooseCards {
+            player: active,
+            options: open,
+            min: 1,
+            max: u8::try_from(most).unwrap_or(u8::MAX),
+            prompt: crate::choice::ChoicePrompt::Untap,
         };
         self.awaiting_answer = true;
         true
