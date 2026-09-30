@@ -486,7 +486,8 @@ enum Cmd {
         /// `scripted`, `anthropic[:<model>]` or `openai:<model>`, whose key
         /// the bridge reads from this environment) under the name its mind
         /// discloses (`HOUSE-house`, `TEST-scripted`, `LLM-sonnet-5`), with
-        /// the other acceptance deck.
+        /// the other acceptance deck. Its transcripts go to
+        /// `target/seat-transcripts/`.
         #[arg(long, value_name = "MIND")]
         bridge: Option<String>,
     },
@@ -5251,7 +5252,9 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
     let opponents = seats - 1 - usize::from(bridge.is_some());
     println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
     if let Some(mind) = bridge {
-        println!("chair {BRIDGE_CHAIR}: a bridge playing the {mind} mind");
+        println!(
+            "chair {BRIDGE_CHAIR}: a bridge playing the {mind} mind; transcripts in {BRIDGE_TRANSCRIPTS}/"
+        );
     }
     if !teams.is_empty() {
         let sides: Vec<String> = teams.iter().map(ToString::to_string).collect();
@@ -5319,9 +5322,16 @@ fn seat_bridge(
     std::process::Command::new("cargo")
         .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
         .args(["--mind", mind, "--gateway", gateway, "--acceptance", theirs])
+        .arg("--transcripts")
+        .arg(root.join(BRIDGE_TRANSCRIPTS))
         .current_dir(root)
         .spawn()
 }
+
+/// Where a dev table's bridge writes down what it was asked and answered
+/// (and a language model's mind, what it was told and said), under the
+/// repository.
+const BRIDGE_TRANSCRIPTS: &str = "target/seat-transcripts";
 
 /// How long a bridge may take to sit down: long enough for `cargo run` to
 /// build it on a cold target.
