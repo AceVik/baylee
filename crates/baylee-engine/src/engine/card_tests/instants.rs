@@ -23166,3 +23166,783 @@ fn berserk_pumps_by_the_targets_power_at_resolution_and_only_until_end_of_turn()
         "the trample granted \"until end of turn\" does not outlast it"
     );
 }
+
+fn siren_s_call() -> CardIndex {
+    card_index("269fc857-a052-4f0a-9759-467ccf42bebb")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+/// Taps whichever untapped basic land `seat` still has, floating one mana
+/// of its color. `legal.castable` reads the pool that is already floating
+/// (CR 106.4 empties it at the end of every step), never a land that merely
+/// *could* be tapped, so a "not castable" reading is only about timing when
+/// this was called first — otherwise it is indistinguishable from "no mana".
+///
+/// Filtered for an actual land rather than taking `mana_abilities.first()`
+/// blind: that list also carries a granted mana ability with no printed
+/// source (`docs/protocol.md` §"Granted mana"), which is not a land this
+/// helper could have meant to tap.
+#[track_caller]
+fn float_one_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let source = *priority_offer(engine)
+        .mana_abilities
+        .iter()
+        .find(|&&id| {
+            engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.characteristics().types.contains(TypeSet::LAND))
+        })
+        .expect("an untapped basic land is still available");
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("the land taps for mana");
+}
+
+/// Berserk: "Cast this spell only before the combat damage step" (CR 506.7).
+/// Offered in the upkeep, the first main phase, the beginning of combat,
+/// the declare attackers step (both before and after the attacker is
+/// declared — that step is not skipped, CR 508.8, since one is) and through
+/// the declare blockers step, and refused everywhere the combat damage step
+/// has already begun or passed: that step itself, end of combat, the second
+/// main phase, the end step. A Forest is tapped fresh at every checkpoint,
+/// open or shut, so a "not castable" reading is never merely "no floating
+/// mana".
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_is_castable_before_combat_damage_and_refused_from_it_on() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut lands = vec![forest(); 9];
+    lands.push(llanowar_elves());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &lands)
+        .hand(0, &[berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p0, berserk()).expect("Berserk is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the upkeep step is well before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the first main phase is before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "beginning of combat, still before attackers are even declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(attackers.contains(&elf));
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("the Elf came out of the list that offered it");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the declare attackers step, with an attacker now named, is still \
+         before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareBlockers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the declare blockers step is still before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatDamage
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        !castable(&engine),
+        "the combat damage step has begun — \"only before\" it is over, \
+         and the mana just floated proves this is not about affording it"
+    );
+    let refused = in_hand(&engine, p0, berserk()).expect("Berserk is still in hand");
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: refused })
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatEnd
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "end of combat, later still");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "the second main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "the end step");
+}
+
+/// Berserk carries no clause about whose turn it is, so p1 casts it freely
+/// during p0's turn. And when nothing is declared this combat, the declare
+/// blockers and combat damage steps are skipped outright (CR 508.8), so the
+/// stated point — the combat damage step — never exists this combat; CR
+/// 506.7e then closes the window at the end of the declare attackers step
+/// instead. A Forest is tapped fresh at every checkpoint, open or shut, so
+/// a "not castable" reading is never merely "no floating mana".
+#[test]
+fn berserk_is_castable_on_an_opponents_turn_and_closes_at_the_declare_attackers_step_when_nothing_attacked()
+ {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            1,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                grizzly_bears(),
+            ],
+        )
+        .hand(1, &[berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // A legal target throughout: without one Berserk is withheld for that
+    // reason alone (CR 601.2c), which would say nothing about the window
+    // this test is about.
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p1, berserk()).expect("Berserk is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    // Turn 1 is p0's; p0 has nothing to attack with, so the declare
+    // attackers turn-based action declares nobody on its own.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "an opponent's turn is no obstacle: Berserk names none"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(castable(&engine), "p0's main phase, still before combat");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(castable(&engine), "beginning of combat");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "the declare attackers step, before it ends, is open even though \
+         nothing was named this combat (CR 506.7a: the rule reads the step, \
+         not the declaration)"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatEnd
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "declare blockers and combat damage were both skipped (CR 508.8), \
+         so the stated point never existed this combat; CR 506.7e closes \
+         the window at the declare attackers step's end instead, and the \
+         mana just floated proves this is not about affording it"
+    );
+}
+
+/// Berserk's delayed destruction: "At the beginning of the next end step,
+/// destroy that creature if it attacked this turn." Two Berserks are cast
+/// in the same main phase, one on a creature that then attacks unblocked
+/// and survives combat, one on a creature that stays home. Both gain the
+/// same trample and +X/+0; combat over, neither has been claimed yet — the
+/// trigger fires at the *beginning* of the end step, not during combat —
+/// and the attacker is untapped again before that step begins, so what
+/// destroys it afterward can only be that it attacked this turn, not that
+/// it is still tapped from doing so.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_destroys_the_creature_it_pumped_only_if_it_attacked_this_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), llanowar_elves(), festering_goblin()],
+        )
+        .hand(0, &[berserk(), berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("the Goblin is seated");
+
+    // Not `tap_all_mana`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for its own Berserk, leaving it unable to attack for a
+    // reason that has nothing to do with what this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, berserk());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_with_floating(&mut engine, p0, berserk());
+    aim_at(&mut engine, p0, goblin);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE)
+            && keywords(&engine, goblin).contains(KeywordSet::TRAMPLE),
+        "both creatures were pumped by their own Berserk the same way"
+    );
+
+    let blocks = attack_and_collect_blocks(&mut engine, elf, p1);
+    assert!(
+        blocks.is_empty(),
+        "p1 has nothing on the battlefield to block with"
+    );
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("p1 declares no blocks");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "combat is over and the end step has not begun yet: the delayed \
+         destruction has not fired"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "same reading for the creature the trigger will end up sparing"
+    );
+
+    // Untapped here, before the end step begins: what the delayed trigger
+    // reads is whether the Elf attacked this turn (`Filter::AttackedThisTurn`),
+    // a fact recorded at the declaration and never erased by an untap, not
+    // whether it is still tapped from having done so.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elf, false);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the Elf attacked this turn, so its own Berserk's delayed \
+         destruction claims it as the end step begins, untapped or not"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "the Goblin never attacked, so the same delayed destruction from \
+         its own Berserk spares it"
+    );
+}
+
+/// Siren's Call: "Cast this spell only during an opponent's turn, before
+/// attackers are declared." Offered to p1 through p0's beginning of
+/// combat, refused from the declare attackers step on, and never offered
+/// at all on p1's own turn, however early. An Island is tapped fresh at
+/// every checkpoint, open or shut, so a "not castable" reading is never
+/// merely "no floating mana".
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_is_castable_before_p0_declares_attackers_and_never_on_p1_s_own_turn() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            1,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p1, siren_s_call()).expect("Siren's Call is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    // Turn 1 is p0's — an opponent's turn for p1 — and open until attackers
+    // are declared.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "p0's upkeep, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "p0's main phase, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "beginning of combat, still before attackers"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "the declare attackers step has begun — CR 506.7a reads that as \
+         the window closing regardless of whether p0 (with nothing to \
+         attack with here) actually declared anyone — and the mana just \
+         floated proves this is not about affording it"
+    );
+    let refused = in_hand(&engine, p1, siren_s_call()).expect("Siren's Call is still in hand");
+    assert!(
+        engine
+            .apply(p1, PlayerAction::CastSpell { card: refused })
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "well past the declare attackers step");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "the end step, later still");
+
+    // Turn 2 is p1's own — never a legal window regardless of step.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "p1's own upkeep");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "p1's own main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "p1's own beginning of combat: still before attackers, but not an opponent's turn"
+    );
+}
+
+/// Siren's Call: "Creatures the active player controls attack this turn
+/// if able" forces a declaration that cannot leave out an able creature.
+/// "Destroy all non-Wall creatures that player controls that didn't
+/// attack this turn. Ignore this effect for each creature the player
+/// didn't control continuously since the beginning of the turn": an
+/// ordinary creature unable to obey the forced attack is claimed, but a
+/// Wall and a creature cast this same turn are spared even though neither
+/// attacked either; the creature that did attack is spared for that; and
+/// p1's own board is never touched.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_forces_the_attack_and_destroys_only_who_it_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                llanowar_elves(),
+                wild_elephant(),
+                wall_of_swords(),
+            ],
+        )
+        .hand(0, &[grizzly_bears()])
+        .battlefield(1, &[island(), island(), island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let elephant = on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let wall = on_battlefield(&engine, p0, wall_of_swords()).expect("the Wall is seated");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elephant, true);
+    engine.refresh_offer();
+
+    // Not `cast_from_hand`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for the Bear, tapping itself out of the very
+    // declaration this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, grizzly_bears());
+    pass_until(&mut engine, stack_is_empty);
+    let fresh_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the fresh Bear resolved");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player,
+        attackers,
+        required,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert!(attackers.contains(&elf));
+    assert_eq!(
+        required,
+        vec![elf],
+        "only the Elf is able to attack: the Elephant is tapped, the Wall \
+         has defender, and the Bear cast this turn is summoning sick"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "\"attack this turn if able\": leaving out the one creature that \
+         could obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with the required Elf obeys the requirement");
+
+    // `pass_until` declares empty blockers on the way for us (p1's own Bear
+    // could block but the point here is combat's aftermath, not blocking).
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "combat is over and the end step has not begun yet: the delayed \
+         destruction has not fired"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "same reading for the creature the trigger will end up sparing"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "it attacked this turn — the effect's own exception"
+    );
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_none(),
+        "tapped and unable to obey the forced attack, a non-Wall the \
+         active player held since the turn began: destroyed"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, wall_of_swords()),
+        Some(wall),
+        "a Wall is never touched, attacked or not"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(fresh_bear),
+        "cast this turn: not controlled since the turn began, so the \
+         delayed effect ignores it even though it too did not attack"
+    );
+    assert!(
+        on_battlefield(&engine, p1, grizzly_bears()).is_some(),
+        "p1's own creature was never the active player's to touch"
+    );
+}
+
+fn control_magic() -> CardIndex {
+    card_index("cd0d7141-46d2-4aa3-bc77-6b3b4513803e")
+}
+
+/// "Ignore this effect for each creature the player didn't control
+/// continuously since the beginning of the turn" scopes only the destroy
+/// sentence — the force-attack sentence before it carries no such clause
+/// of its own. Proven on turn 3, not turn 1, so what is read is the
+/// ordinary per-turn mechanism and not turn 1's own "no seat has had a
+/// turn yet" dispensation (`Engine::new`): p0 steals a Bear from p1 with
+/// Control Magic in the very main phase Siren's Call is about to reach —
+/// too fresh, this turn, to be reached by the destroy sentence, and
+/// (for an ordinary reason: summoning sickness) not by the force-attack
+/// sentence either — beside two creatures already on the battlefield since
+/// long before turn 3 began, one left free to attack and survive, one
+/// tapped just before the declare-attackers turn-based action and
+/// destroyed for not attacking despite its age.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_ignores_a_creature_taken_this_turn_but_reaches_one_held_since_an_earlier_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                wild_elephant(),
+                rib_cage_spider(),
+            ],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_attacker =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let old_stay_home =
+        on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's Bear is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic's static ability moved the Bear to p0's side"
+    );
+
+    // Tapped now, in the same priority window, before the declare-attackers
+    // turn-based action computes who is required — not after.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(old_stay_home, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert!(
+        required.contains(&old_attacker),
+        "held since long before turn 3 began, able, and the active \
+         player's: \"attacks this turn if able\" reaches it"
+    );
+    assert!(
+        !required.contains(&old_stay_home),
+        "tapped moments ago: not able, so \"if able\" cannot reach it \
+         either, regardless of age"
+    );
+    assert!(
+        !required.contains(&their_bear),
+        "taken this very turn: summoning sick for its new controller \
+         (CR 302.6), so \"if able\" cannot reach it — an ordinary \
+         summoning-sickness exclusion, since the force-attack sentence \
+         itself carries no \"since the turn began\" clause of its own; \
+         only the destroy sentence below does"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the one able, required creature obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(old_attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_some(),
+        "same reading for the creature the trigger will end up destroying"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "it attacked this turn — the effect's own exception"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_none(),
+        "held since long before turn 3 began, non-Wall, and didn't attack: \
+         destroyed exactly as it would have been on turn 1"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "taken this turn: not controlled continuously since the turn \
+         began, so the destroy sentence's own exception spares it even \
+         though it too never attacked"
+    );
+}

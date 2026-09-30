@@ -100214,3 +100214,508 @@ fn mesa_pegasus_bands_attacking_so_a_single_blocker_divides_for_the_active_playe
          killed the ally"
     );
 }
+
+fn nettling_imp() -> CardIndex {
+    card_index("c58dfcbf-49e6-4ef0-bd31-ebd81b0cfa41")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+/// Nettling Imp: "Activate only during an opponent's turn, before
+/// attackers are declared." Offered to p1 through p0's beginning of
+/// combat, refused from the declare attackers step on, and never offered
+/// at all on p1's own turn, however early.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_is_offered_only_before_p0_declares_attackers_and_never_on_p1_s_own_turn() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        // A legal target throughout: without one, the ability has nothing
+        // it could name (CR 601.2c, applied to activations by CR 602.2b) and
+        // is withheld for that reason alone, which would say nothing about
+        // the window this test is about.
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let offered = |e: &Engine<RegistryLookup>| priority_offer(e).abilities.contains(&(imp, 0));
+
+    // Turn 1 is p0's — an opponent's turn for p1 — and open until attackers
+    // are declared.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "p0's upkeep, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "p0's main phase, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "beginning of combat, still before attackers"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        !offered(&engine),
+        "the declare attackers step has begun — CR 506.7a reads that as \
+         the window closing regardless of whether the Elf p0 could attack \
+         with was actually declared"
+    );
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::ActivateAbility {
+                    source: imp,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "the end step, later still");
+
+    // Turn 2 is p1's own — never a legal window regardless of step.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "p1's own upkeep");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "p1's own main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        !offered(&engine),
+        "p1's own beginning of combat: still before attackers, but not an opponent's turn"
+    );
+}
+
+/// Nettling Imp: "Choose target non-Wall creature the active player has
+/// controlled continuously since the beginning of the turn." A Wall, a
+/// creature p0 cast this turn, and the Imp's own controller's creature are
+/// left off the menu; a creature p0 has held since the turn began is on
+/// it. "That creature attacks this turn if able": a declaration leaving it
+/// out is refused, and the creature that attacked survives the end step.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_targets_only_a_held_since_the_turn_began_non_wall_creature_and_forces_its_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves(), wall_of_swords()])
+        .hand(0, &[grizzly_bears()])
+        .battlefield(1, &[nettling_imp(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let wall = on_battlefield(&engine, p0, wall_of_swords()).expect("the Wall is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's own Bear is seated");
+
+    // Not `cast_from_hand`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for the fresh Bear, tapping itself out of the very
+    // targeting question this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, grizzly_bears());
+    pass_until(&mut engine, stack_is_empty);
+    let fresh_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the fresh Bear resolved");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's beginning of combat, before attackers are declared");
+    let options = aim_at(&mut engine, p1, elf);
+    assert!(
+        options.contains(&elf),
+        "held since the turn began: on the menu"
+    );
+    assert!(!options.contains(&wall), "a Wall is never a legal target");
+    assert!(
+        !options.contains(&fresh_bear),
+        "cast this turn: not controlled since the turn began"
+    );
+    assert!(
+        !options.contains(&their_bear),
+        "the Imp's own controller's creature, not the active player's"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, imp), "the Imp paid its own {{T}} cost");
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(imp, 0)),
+        "tapped, the Imp cannot pay {{T}} again to activate a second time \
+         this turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(required, vec![elf], "\"attacks this turn if able\"");
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the Elf disobeys the Imp's requirement"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with the Elf obeys it");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "it attacked this turn, so the delayed destruction spares it"
+    );
+}
+
+/// Nettling Imp's delayed destruction claims only the creature it named:
+/// tapped after the ability resolved, that creature cannot obey "attacks
+/// this turn if able" and is destroyed as the next end step begins, while
+/// a bystander that also never attacked — because the Imp never named it
+/// — is untouched.
+#[test]
+fn nettling_imp_destroys_only_its_named_target_when_it_could_not_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves(), grizzly_bears()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the Bear is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's main phase, before attackers are declared");
+    aim_at(&mut engine, p1, elf);
+    pass_until(&mut engine, stack_is_empty);
+
+    // Tapped after the forced-attack effect is already in place, the Elf
+    // cannot obey it — the same board state a summoning-sick or defending
+    // creature would show up with.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elf, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.is_empty(),
+        "tapped, the Elf is not able to attack, so nothing is required of it any more"
+    );
+
+    // `pass_until` declares empty attackers and blockers on the way for us.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, llanowar_elves()),
+        Some(elf),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(bear),
+        "same reading for the bystander"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "it did not attack this turn, and the Imp's delayed destruction claims it"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(bear),
+        "the Bear beside it also never attacked, but the Imp never named \
+         it — the destruction is not a board-wide sweep"
+    );
+}
+
+fn control_magic() -> CardIndex {
+    card_index("cd0d7141-46d2-4aa3-bc77-6b3b4513803e")
+}
+
+/// "The active player has controlled continuously since the beginning of
+/// the turn" is only ever proven against a creature seated at game start
+/// versus one cast the same turn. Proven here instead on turn 3, not turn
+/// 1, so what is read is the ordinary per-turn mechanism and not turn 1's
+/// own "no seat has had a turn yet" dispensation (`Engine::new`): an
+/// Elephant that has sat on p0's battlefield since long before turn 3
+/// began is on the Imp's menu, targetable, required and — attacked —
+/// spared; a Bear p0 takes from p1 with Control Magic in the very main
+/// phase the Imp is about to reach is not, however the destruction turns
+/// out, since it is never even offered as a target.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_reaches_a_creature_held_since_an_earlier_turn_but_not_one_taken_this_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                island(),
+                island(),
+                island(),
+                island(),
+                wild_elephant(),
+            ],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[nettling_imp(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_creature =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's own Bear is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic's static ability moved the Bear to p0's side"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's beginning of combat, before attackers are declared");
+    let options = aim_at(&mut engine, p1, old_creature);
+    assert!(
+        options.contains(&old_creature),
+        "held since long before turn 3 began: on the menu"
+    );
+    assert!(
+        !options.contains(&their_bear),
+        "taken this very turn: not controlled continuously since turn 3 \
+         began, so never offered — whatever the destruction would later \
+         make of it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        required,
+        vec![old_creature],
+        "\"attacks this turn if able\""
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the Elephant disobeys the Imp's requirement"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(old_creature, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "it attacked this turn, so the delayed destruction spares it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "the Imp's ability was never used on the stolen Bear at all"
+    );
+}
+
+/// The same "controlled continuously since the beginning of the turn"
+/// read, on the destroying branch: an Elephant that has sat on p0's
+/// battlefield since long before turn 3 began is targeted, then tapped
+/// before the declare-attackers turn-based action, and destroyed for not
+/// attacking exactly as a creature held since turn 1 would be — this is
+/// not the trivial turn-1 case (`Engine::new`'s dispensation for a seat
+/// that has not had a turn yet), because it is checked on turn 3.
+#[test]
+fn nettling_imp_destroys_a_creature_held_since_an_earlier_turn_when_it_could_not_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wild_elephant()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_creature =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's main phase, before attackers are declared");
+    aim_at(&mut engine, p1, old_creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    // Tapped after the forced-attack effect is already in place, the
+    // Elephant cannot obey it.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(old_creature, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.is_empty(),
+        "tapped, the Elephant is not able to attack, so nothing is \
+         required of it any more"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, wild_elephant()),
+        Some(old_creature),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_none(),
+        "held since long before turn 3 began, and it did not attack this \
+         turn: the Imp's delayed destruction claims it exactly as it \
+         would have on turn 1"
+    );
+}
