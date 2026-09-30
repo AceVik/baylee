@@ -23,6 +23,7 @@
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
+use crate::prevention::{Redirected, redirect};
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
 use baylee_core::color::Color;
@@ -1173,7 +1174,14 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
         let mut dealt = 0i16;
         for (attacker, amount) in shares(state, blocker, &blocked, power) {
             if amount > 0 {
-                dealt += deal_damage_to_object(state, blocker, attacker, amount, true);
+                dealt += deal_damage_to_object(
+                    state,
+                    blocker,
+                    attacker,
+                    amount,
+                    true,
+                    &mut Redirected::default(),
+                );
             }
         }
         if has_keyword(state, blocker, K::LIFELINK)
@@ -1217,7 +1225,14 @@ fn assign_attacker_damage(
         if power > 0 {
             for (blocker, amount) in shares(state, attacker, &live, power) {
                 if amount > 0 {
-                    lifelinked += deal_damage_to_object(state, attacker, blocker, amount, true);
+                    lifelinked += deal_damage_to_object(
+                        state,
+                        attacker,
+                        blocker,
+                        amount,
+                        true,
+                        &mut Redirected::default(),
+                    );
                 }
             }
         }
@@ -1237,7 +1252,14 @@ fn assign_attacker_damage(
             // Assignment and dealing are separate steps (CR 510.1c/510.2):
             // prevented damage is still assigned, so it still uses up the
             // attacker's power — but it was never dealt, so it links no life.
-            lifelinked += deal_damage_to_object(state, attacker, *blocker, assigned, true);
+            lifelinked += deal_damage_to_object(
+                state,
+                attacker,
+                *blocker,
+                assigned,
+                true,
+                &mut Redirected::default(),
+            );
             remaining -= assigned;
         }
         if trample && remaining > 0 {
@@ -1262,25 +1284,63 @@ fn deal_damage_to_defender(
     amount: i16,
 ) -> i16 {
     match defender {
-        Defender::Player(player) => deal_damage_to_player(state, source, player, amount, true),
+        Defender::Player(player) => deal_damage_to_player(
+            state,
+            source,
+            player,
+            amount,
+            true,
+            &mut Redirected::default(),
+        ),
         // CR 506.4c: the attack stands even after the planeswalker has
         // gone, but there is nothing left for the damage to land on.
         Defender::Planeswalker(walker) => {
             if defending_player(state, defender).is_none() {
                 return 0;
             }
-            deal_damage_to_object(state, source, walker, amount, true)
+            deal_damage_to_object(
+                state,
+                source,
+                walker,
+                amount,
+                true,
+                &mut Redirected::default(),
+            )
         }
     }
 }
 
-/// Deals damage to a player and returns how much landed.
+/// Damage a redirection moved (CR 614.9): the same damage from the same
+/// source, now dealt through the door for its new recipient, where that
+/// recipient's own protection and shields meet it. `done` goes with it, so
+/// no redirection moves it twice (CR 614.5).
+fn deal_redirected(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    amount: i16,
+    is_combat: bool,
+    done: &mut Redirected,
+) -> i16 {
+    match recipient {
+        DamageTarget::Player(player) => {
+            deal_damage_to_player(state, source, player, amount, is_combat, done)
+        }
+        DamageTarget::Object(id) => {
+            deal_damage_to_object(state, source, id, amount, is_combat, done)
+        }
+    }
+}
+
+/// Deals damage to a player and returns how much landed, there or wherever
+/// a redirection moved it.
 fn deal_damage_to_player(
     state: &mut GameState,
     source: ObjectId,
     player: PlayerId,
     amount: i16,
     is_combat: bool,
+    done: &mut Redirected,
 ) -> i16 {
     if amount <= 0 {
         return 0;
@@ -1297,6 +1357,12 @@ fn deal_damage_to_player(
     );
     if amount <= 0 {
         return 0;
+    }
+    // After the shields, before the life: damage a Veteran Bodyguard takes
+    // instead is never dealt to the player, so it is neither lost, counted
+    // nor a commander's (CR 614.9).
+    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
+        return deal_redirected(state, source, to, amount, is_combat, done);
     }
     state.damage_player(
         source,
@@ -1327,13 +1393,15 @@ fn deal_damage_to_player(
     amount
 }
 
-/// Deals damage to a permanent and returns how much landed.
+/// Deals damage to a permanent and returns how much landed, there or
+/// wherever a redirection moved it.
 fn deal_damage_to_object(
     state: &mut GameState,
     source: ObjectId,
     target: ObjectId,
     amount: i16,
     is_combat: bool,
+    done: &mut Redirected,
 ) -> i16 {
     if amount <= 0 {
         return 0;
@@ -1354,6 +1422,9 @@ fn deal_damage_to_object(
     );
     if amount <= 0 {
         return 0;
+    }
+    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
+        return deal_redirected(state, source, to, amount, is_combat, done);
     }
     // Damage to a planeswalker removes loyalty instead of marking damage
     // (CR 306.8), the same way the spell-resolution path does it.

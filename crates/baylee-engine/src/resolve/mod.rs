@@ -533,6 +533,12 @@ pub enum AwaitingOp {
         /// The controller gains what it prevents.
         gain_life: bool,
     },
+    /// After `RedirectNextFromChosenSource`: the shield on the creature
+    /// waits for the chosen source.
+    RedirectFromChosenSource {
+        /// The creature, as the object it was when the ability resolved.
+        protects: crate::prevention::Shielded,
+    },
     /// After `Populate`: copy the chosen creature token.
     Populate,
     /// After `LookAtTopPick`: chosen go to hand, the rest to the bottom.
@@ -2588,6 +2594,24 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
+        AwaitingOp::RedirectFromChosenSource { protects } => {
+            let you = res.controller;
+            if let Some(source) = chosen.first().and_then(|&id| {
+                crate::prevention::ChosenSource::new(
+                    state,
+                    id,
+                    &baylee_cards_dsl::Filter::Any,
+                    you,
+                    res.source,
+                )
+            }) {
+                state.shields.push(crate::prevention::Shield {
+                    protects,
+                    kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
+                    controller: you,
+                });
+            }
+        }
         AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
@@ -3556,7 +3580,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DealDamageEach { .. }
         | Effect::PreventNextDamage { .. }
         | Effect::PreventAllCombatDamageThisTurn
-        | Effect::PreventNextFromChosenSource { .. } => life::exec(state, res, op),
+        | Effect::PreventNextFromChosenSource { .. }
+        | Effect::RedirectNextFromChosenSource { .. } => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }

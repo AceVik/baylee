@@ -3,7 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
-use crate::prevention::{Shield, ShieldKind, Shielded};
+use crate::prevention::{Redirected, Shield, ShieldKind, Shielded, redirect};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
@@ -155,6 +155,29 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 combat_only,
                 all_but,
                 gain_life,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+            })
+        }
+        // Jade Monolith: the creature is the target (still legal, or this
+        // would not be resolving), and the source is chosen now, as the
+        // prevention sibling's is (CR 609.7a) — any source at all.
+        Effect::RedirectNextFromChosenSource { target } => {
+            let DamageTarget::Object(id) = *recipients(state, res, you, target).first()? else {
+                return None;
+            };
+            let version = state.object(id)?.version;
+            let options = crate::prevention::source_options(state, &Filter::Any, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RedirectFromChosenSource {
+                protects: Shielded::Object(id, version),
             });
             Some(Pending::ChooseCards {
                 player: you,
@@ -404,6 +427,31 @@ pub(super) fn deal_to_object_with_loyalty(
     n: i16,
     source: ObjectId,
 ) {
+    deal_to_object(state, target, n, source, &mut Redirected::default());
+}
+
+/// Damage a redirection moved (CR 614.9), dealt through the door for its
+/// new recipient with the redirections that already moved it (CR 614.5).
+fn deal_redirected(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    n: i16,
+    done: &mut Redirected,
+) {
+    match recipient {
+        DamageTarget::Player(player) => deal_to_player_after(state, source, player, n, done),
+        DamageTarget::Object(id) => deal_to_object(state, id, n, source, done),
+    }
+}
+
+fn deal_to_object(
+    state: &mut GameState,
+    target: ObjectId,
+    n: i16,
+    source: ObjectId,
+    done: &mut Redirected,
+) {
     if n <= 0 {
         return;
     }
@@ -413,6 +461,10 @@ pub(super) fn deal_to_object_with_loyalty(
     }
     let n = crate::combat::shielded(state, source, DamageTarget::Object(target), n, false);
     if n <= 0 {
+        return;
+    }
+    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
+        deal_redirected(state, source, to, n, done);
         return;
     }
     let is_walker = state.object(target).is_some_and(|o| {
@@ -458,11 +510,26 @@ pub(super) fn deal_to_object_with_loyalty(
 }
 
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
+    deal_to_player_after(state, source, player, n, &mut Redirected::default());
+}
+
+fn deal_to_player_after(
+    state: &mut GameState,
+    source: ObjectId,
+    player: PlayerId,
+    n: i16,
+    done: &mut Redirected,
+) {
     if n <= 0 {
         return;
     }
     let n = crate::combat::shielded(state, source, DamageTarget::Player(player), n, false);
     if n <= 0 {
+        return;
+    }
+    // After the shields and before the life, as combat's door does it.
+    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
+        deal_redirected(state, source, to, n, done);
         return;
     }
     state.damage_player(source, player, n as u16, false, Cause::Effect);

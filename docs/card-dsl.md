@@ -1545,6 +1545,19 @@ damage … all but 1 of that damage", and `gain_life` is Reverse Damage's
 what may be chosen and what the source must still be when it deals the
 damage. All of them last until the turn's cleanup; `docs/engine-internals.md`
 §"Prevention shields" says how they are spent.
+Its redirection sibling is `RedirectNextFromChosenSource { target }`, Jade
+Monolith's "the next time a source of your choice would deal damage to
+target creature this turn, that source deals that damage to you instead":
+any source may be chosen as it resolves, and `target` names the creature as
+`DealDamage`'s target does (the ability's own `target` makes the choice).
+The standing kind is `Modifier::RedirectDamageToYou(&from)`, Veteran
+Bodyguard's "all damage that would be dealt to you by unblocked creatures is
+dealt to this creature instead": `from` is what the source must be, the
+affected filter is what takes the damage, and a condition on that ("as long
+as this creature is untapped") goes into the affected filter,
+`Filter::And(&[Filter::This, Filter::Untapped])`, so that it is read as the
+damage is dealt. `docs/engine-internals.md` §"Redirection" says how both
+apply.
 The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
 "you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
 same question and payment, with the effects on a yes; the price *is* the
@@ -1633,7 +1646,7 @@ Modal/sequence: `Sequence(&[..])`.
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
-`CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
+`CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`, `RedirectDamageToYou(&from)`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `SkipUntapStep { who }`, `UntapAtMost { who, of, count }`,
 `AttacksDespiteDefender`, `AttacksAsThoughHaste`,

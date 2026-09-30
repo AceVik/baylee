@@ -155,6 +155,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
         | Modifier::BlocksEachAttackerIfAble
+        | Modifier::RedirectDamageToYou(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::SkipUntapStep { .. }
@@ -815,6 +816,7 @@ mod tests {
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
             Modifier::BlocksEachAttackerIfAble,
+            Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::SkipUntapStep {
@@ -873,7 +875,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            69,
+            70,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -925,7 +927,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty
-    /// modifiers lock the objects they found, thirty-nine do not.
+    /// modifiers lock the objects they found, forty do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -933,10 +935,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_modifiers_lock_a_set_and_thirty_nine_do_not() {
+    fn thirty_modifiers_lock_a_set_and_forty_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (30, 39));
+        assert_eq!((locking, all.len() - locking), (30, 40));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

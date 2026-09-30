@@ -2203,3 +2203,17 @@ land type"; both are convention tests that fire on a first try.
   that wants a departed card *with* counters (what an effect resolving after
   it left can leave behind) sets them after the move, or the zone check
   under test is never reached.
+- **Redirection is a replacement, not prevention.** It moves the damage to
+  another door, where that recipient's protection and shields still meet
+  it, and it ignores "can't be prevented". Ask it after the first
+  recipient's shields and before the life: redirecting after
+  `damage_player` would count and trigger on damage the player was never
+  dealt.
+- **"Once to an event" needs a memory that travels with the damage.** A
+  static that redirects is asked again at the door the damage is moved to;
+  without a record of what already applied (CR 614.5), a Bodyguard and a
+  Jade Monolith hand the damage back and forth until the shield runs out.
+- **"As long as this is untapped" can live in the affected filter.** A
+  static condition is registered and dropped between passes, so a check
+  inside one resolution sees the old answer. A filter such as
+  `And(This, Untapped)` is read when the damage is dealt.

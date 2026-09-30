@@ -3592,6 +3592,11 @@ fn hash_shields(
                 h.boolean(gain_life);
                 h.boolean(combat_only);
             }
+            crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
+                h.u8(3);
+                h.u32(position(source.id));
+                h.u8(to.get());
+            }
         }
         h.u8(shield.controller.get());
     }

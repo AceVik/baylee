@@ -1281,6 +1281,20 @@ pub enum Effect {
         /// Damage; CR 615.5).
         gain_life: bool,
     },
+    /// "The next time a source of your choice would deal damage to target
+    /// creature this turn, that source deals that damage to you instead"
+    /// (Jade Monolith): the redirection sibling of
+    /// [`Self::PreventNextFromChosenSource`] (CR 609.7, 614.9). The source
+    /// is chosen as this resolves, any source at all; a shield on the
+    /// creature `target` names waits for that source's next damage to it
+    /// this turn and moves all of it to the ability's controller. Damage
+    /// from any other source leaves it waiting (CR 609.7b), and so does the
+    /// creature leaving the battlefield: the creature that comes back is a
+    /// new object (CR 400.7) with no shield.
+    RedirectNextFromChosenSource {
+        /// The creature the damage would have been dealt to.
+        target: TargetSpec,
+    },
     /// "You may reveal a card you own from outside the game, or choose a
     /// face-up card you own in exile. Put that card into your hand."
     /// (wishes; Karn, the Great Creator's −2).
@@ -3353,6 +3367,7 @@ impl Effect {
             | Effect::PreventNextDamage { .. }
             | Effect::PreventAllCombatDamageThisTurn
             | Effect::PreventNextFromChosenSource { .. }
+            | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary

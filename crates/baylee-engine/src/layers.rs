@@ -844,6 +844,7 @@ fn apply(
         | Modifier::CanBlockAnyNumber
         | Modifier::MustBeBlockedByAllAble
         | Modifier::BlocksEachAttackerIfAble
+        | Modifier::RedirectDamageToYou(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)

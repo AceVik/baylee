@@ -285,6 +285,15 @@ pub enum Modifier {
     /// own limit's business, and obeying as many as that allows is what the
     /// rule asks.
     BlocksEachAttackerIfAble,
+    /// Damage a source matching the filter would deal to the effect's
+    /// controller is dealt to the affected permanent instead (Veteran
+    /// Bodyguard: "all damage that would be dealt to you by unblocked
+    /// creatures is dealt to this creature instead"). A redirection effect
+    /// (CR 614.9): it does nothing once the permanent is no longer a
+    /// creature on the battlefield, and it applies once to an event
+    /// (CR 614.5). Read where damage is dealt, as the prevention shields
+    /// are (`prevention::redirect`); the source is asked as it is then.
+    RedirectDamageToYou(&'static Filter),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -678,6 +687,7 @@ impl Modifier {
             | Self::CanBlockAnyNumber
             | Self::MustBeBlockedByAllAble
             | Self::BlocksEachAttackerIfAble
+            | Self::RedirectDamageToYou(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
@@ -1022,6 +1032,7 @@ mod tests {
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
             Modifier::BlocksEachAttackerIfAble,
+            Modifier::RedirectDamageToYou(&Filter::CREATURE),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

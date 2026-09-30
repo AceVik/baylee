@@ -744,6 +744,51 @@ its one). A new kind of shield is placed in that order with its reason; a
 pair for which the fixed order would often be the wrong answer needs the
 question rather than a rank.
 
+### Redirection: damage dealt to another instead (CR 614.9)
+
+"All damage that would be dealt to you by unblocked creatures is dealt to
+this creature instead" (Veteran Bodyguard) and "the next time a source of
+your choice would deal damage to target creature this turn, that source
+deals that damage to you instead" (Jade Monolith) are replacement effects
+that move damage (CR 614.9). `prevention::redirect` answers where a writer's
+damage goes instead, and all four writers ask it after the shields in front
+of the first recipient and before anything is lost, marked or journalled; a
+redirected amount goes through the door for the new recipient, where that
+recipient's protection and shields meet it (Veteran Bodyguard with
+protection from red takes nothing from a red attacker). The damage keeps its
+source and whether it is combat damage, so deathtouch and lifelink read it
+as ever; the player it was moved off is dealt nothing — no life, no
+`per_turn.damage_dealt_to`, no "whenever you're dealt damage", no commander
+damage.
+
+- **The static** is `Modifier::RedirectDamageToYou(&from)`: damage a source
+  matching `from` would deal to the effect's controller is dealt to the
+  permanent the effect applies to. `from` is read on the source as it is
+  then (CR 609.7c); the affected permanent is read then too
+  (`effects::applies_to`), so Veteran Bodyguard's "as long as this creature
+  is untapped" is in its affected filter, `And(This, Untapped)`, and a
+  Bodyguard tapped earlier in the same resolution is already out of the way.
+- **The shield** is `ShieldKind::RedirectNextFrom { source, to }`, made by
+  `Effect::RedirectNextFromChosenSource` as it resolves: the source is
+  chosen then (CR 609.7a), rechecked when the damage comes, used up by the
+  damage it moves and kept by damage it does not (CR 609.7b), and on the
+  creature as the object it was (CR 400.7). `prevention::apply` passes it by.
+- **Once to an event** (CR 614.5): a writer starts a `prevention::Redirected`
+  per event and hands it on with the damage, and a static that moved the
+  damage is not asked again — Jade Monolith's shield on a Veteran Bodyguard
+  sends the damage the Bodyguard took back to its controller, who is dealt
+  it. A shield needs no entry: it is gone once it has moved something.
+- **Nothing** is moved from or to a permanent that is no longer a creature
+  on the battlefield, or to or from a player who has left the game (CR
+  614.9); such a shield is still waiting afterwards.
+
+**An engine simplification**, beside the one above: CR 616.1 lets the
+affected player order redirection and prevention too, and the engine always
+prevents first. That is a trade: preventing first spares the creature a
+Bodyguard puts in the way and spends the shield; redirecting first keeps the
+shield and costs the creature. Among several redirections the oldest shield
+goes first, then the oldest static, again without asking.
+
 ### The monarch's abilities have no source (CR 724.2)
 
 `trigger::monarch_triggers` reads both off the events and queues synthetic

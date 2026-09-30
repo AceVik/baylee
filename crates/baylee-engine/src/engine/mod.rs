@@ -1552,6 +1552,8 @@ mod printed_tests;
 #[cfg(test)]
 mod priority_tests;
 #[cfg(test)]
+mod redirection_tests;
+#[cfg(test)]
 mod reflexive_tests;
 #[cfg(test)]
 mod refusal_tests;

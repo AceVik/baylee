@@ -17,6 +17,11 @@
 //!
 //! Every shield here lasts for the turn: all of them say "this turn", and
 //! the cleanup step ends them with every other such effect (CR 514.2).
+//!
+//! Redirection (CR 614.9) is here too, because the same four writers ask
+//! it at the same point, right after [`apply`]: [`redirect`] reads the
+//! redirection shields and the statics that move a player's damage onto a
+//! permanent, and says where the damage is dealt instead.
 
 use crate::event::DamageTarget;
 use crate::object::ObjectKind;
@@ -59,6 +64,17 @@ pub enum ShieldKind {
         gain_life: bool,
         /// Only combat damage from that source.
         combat_only: bool,
+    },
+    /// "The next time a source of your choice would deal damage to target
+    /// creature this turn, that source deals that damage to you instead"
+    /// (Jade Monolith): not a prevention shield but a redirection one
+    /// (CR 614.9), made by a resolved ability like the rest and used up the
+    /// same way. [`apply`] passes it by; [`redirect`] reads it.
+    RedirectNextFrom {
+        /// The source it waits for.
+        source: ChosenSource,
+        /// The player the damage is dealt to instead.
+        to: PlayerId,
     },
 }
 
@@ -258,6 +274,15 @@ impl Shielded {
 ///   Damage; Fog first keeps it for that source's next damage this turn.
 /// - A chosen-source shield before "the next N" keeps the N for any source;
 ///   the other order keeps the chosen-source shield for its one source.
+///
+/// Redirection comes after all of them (rank 5, which [`apply`] never uses):
+/// every writer of damage asks [`redirect`] only once the shields in front of
+/// the first recipient have prevented what they prevent, and the damage it
+/// moves then meets the new recipient's own shields. CR 616.1 lets the
+/// affected player choose that order too, and it is a trade: preventing
+/// first spares the creature a Veteran Bodyguard would put in the way and
+/// spends the shield; redirecting first keeps the shield for later and
+/// costs the creature.
 fn rank(shield: &Shield) -> u8 {
     match shield.kind {
         ShieldKind::NextFrom {
@@ -267,6 +292,7 @@ fn rank(shield: &Shield) -> u8 {
         ShieldKind::NextFrom { all_but: 0, .. } => 2,
         ShieldKind::NextFrom { .. } => 3,
         ShieldKind::Next(_) => 4,
+        ShieldKind::RedirectNextFrom { .. } => 5,
     }
 }
 
@@ -336,6 +362,8 @@ pub fn apply(
                     paid_back.push((shield.controller, prevented));
                 }
             }
+            // Not prevention: `redirect` reads it once this is done.
+            ShieldKind::RedirectNextFrom { .. } => {}
         }
     }
     spent.sort_unstable();
@@ -347,6 +375,101 @@ pub fn apply(
         state.change_life(player, life, crate::event::Cause::Effect);
     }
     left
+}
+
+/// The redirection effects that have already moved one event of damage,
+/// which may not move it again (CR 614.5).
+///
+/// A writer of damage starts one of these for each event and hands it on
+/// with the damage when it is redirected, so a Veteran Bodyguard that took
+/// the damage off its controller is not asked again when a Jade Monolith
+/// sends it back. A shield needs no entry: one that redirects is used up.
+#[derive(Default, Debug)]
+pub(crate) struct Redirected {
+    statics: Vec<baylee_core::ids::EffectId>,
+}
+
+/// Where damage `source` would deal to `recipient` is dealt instead, if a
+/// redirection effect moves it (CR 614.9): all of it, as the same damage
+/// from the same source.
+///
+/// Asked by every writer of damage once [`apply`] has had the damage, and
+/// again, with the same `done`, by the writer the damage is moved to. First
+/// the resolved shields on `recipient`, oldest first: one waiting for this
+/// source (rechecked, CR 609.7b) whose player is still in the game moves it
+/// and is used up; one that moves nothing stays. Then, for damage to a
+/// player, the static abilities that player controls saying "damage that
+/// would be dealt to you by … is dealt to this instead", oldest first, each
+/// once (CR 614.5). Such a static reads its source filter on the source as
+/// it is now, wherever it is (CR 609.7c), and does nothing while what it
+/// applies to is not a creature on the battlefield (CR 614.9).
+///
+/// CR 616.1 gives the choice among several to the affected player; the
+/// engine takes them in this fixed order and does not ask.
+pub(crate) fn redirect(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    done: &mut Redirected,
+) -> Option<DamageTarget> {
+    let shield = state.shields.iter().position(|shield| {
+        let ShieldKind::RedirectNextFrom { source: chosen, to } = shield.kind else {
+            return false;
+        };
+        shield.protects.covers(state, recipient)
+            && still_a_creature(state, recipient)
+            && !state.has_left(to)
+            && chosen.deals(state, source)
+    });
+    if let Some(i) = shield {
+        let ShieldKind::RedirectNextFrom { to, .. } = state.shields.remove(i).kind else {
+            unreachable!("found as a redirection shield");
+        };
+        return Some(DamageTarget::Player(to));
+    }
+    let DamageTarget::Player(player) = recipient else {
+        return None;
+    };
+    if state.has_left(player) {
+        return None;
+    }
+    let from = state.object(source)?;
+    let moved = state.effects.iter().find_map(|fx| {
+        let baylee_cards_dsl::Modifier::RedirectDamageToYou(filter) = fx.modifier else {
+            return None;
+        };
+        if fx.controller != player
+            || done.statics.contains(&fx.id)
+            || !crate::eval::matches(filter, state, from, player, fx.source.unwrap_or(source))
+        {
+            return None;
+        }
+        let to = state.battlefield_view().into_iter().find(|&id| {
+            still_a_creature(state, DamageTarget::Object(id))
+                && state
+                    .object(id)
+                    .is_some_and(|obj| crate::effects::applies_to(state, fx, obj))
+        })?;
+        Some((fx.id, to))
+    });
+    let (id, to) = moved?;
+    done.statics.push(id);
+    Some(DamageTarget::Object(to))
+}
+
+/// Whether `recipient` is something a redirection may move damage from or
+/// to: a player, or a creature on the battlefield (CR 614.9).
+fn still_a_creature(state: &GameState, recipient: DamageTarget) -> bool {
+    match recipient {
+        DamageTarget::Player(_) => true,
+        DamageTarget::Object(id) => state.object(id).is_some_and(|obj| {
+            obj.zone == Zone::Battlefield
+                && obj
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -676,6 +799,184 @@ mod tests {
                 ShieldKind::NextFrom { all_but: 1, .. }
             ),
             "Forcefield stands"
+        );
+    }
+
+    /// Jade Monolith's shield on P0's creature, sending `source`'s next
+    /// damage to P1.
+    fn redirect_shield(state: &mut GameState, creature: ObjectId, source: ObjectId) {
+        let version = state.object(creature).expect("on the board").version;
+        let chosen = ChosenSource::new(state, source, &Filter::Any, P1, source).expect("there");
+        state.shields.push(Shield {
+            protects: Shielded::Object(creature, version),
+            kind: ShieldKind::RedirectNextFrom {
+                source: chosen,
+                to: P1,
+            },
+            controller: P1,
+        });
+    }
+
+    /// CR 614.9 with 609.7b: the chosen source's next damage to the
+    /// creature goes to the player instead, all of it, and the shield is
+    /// used up; damage from another source, or to anything else, leaves it
+    /// waiting. It prevents nothing, so `apply` passes it by.
+    #[test]
+    fn a_redirection_shield_moves_its_sources_next_damage_once() {
+        let (mut state, creature) = board();
+        let source = another(&mut state);
+        redirect_shield(&mut state, creature, source);
+        let to_it = DamageTarget::Object(creature);
+
+        assert_eq!(
+            apply(&mut state, source, to_it, 3, false),
+            3,
+            "not prevention"
+        );
+        let mut done = Redirected::default();
+        assert_eq!(
+            redirect(&mut state, creature, to_it, &mut done),
+            None,
+            "another source"
+        );
+        assert_eq!(
+            redirect(&mut state, source, DamageTarget::Object(source), &mut done),
+            None,
+            "another creature"
+        );
+        assert_eq!(
+            redirect(&mut state, source, DamageTarget::Player(P0), &mut done),
+            None,
+            "a player"
+        );
+        assert_eq!(state.shields.len(), 1, "still waiting (CR 609.7b)");
+
+        assert_eq!(
+            redirect(&mut state, source, to_it, &mut done),
+            Some(DamageTarget::Player(P1))
+        );
+        assert!(state.shields.is_empty(), "used up");
+        assert_eq!(redirect(&mut state, source, to_it, &mut done), None);
+    }
+
+    /// CR 614.9: to a player who has left the game, a redirection does
+    /// nothing, and so replaces nothing and is not used up — nor from a
+    /// permanent that is no longer a creature.
+    #[test]
+    fn a_redirection_to_a_player_who_has_left_does_nothing() {
+        let (mut state, creature) = board();
+        let source = another(&mut state);
+        redirect_shield(&mut state, creature, source);
+        state.players[1].loss = Some(crate::event::LossReason::Conceded);
+        assert_eq!(
+            redirect(
+                &mut state,
+                source,
+                DamageTarget::Object(creature),
+                &mut Redirected::default()
+            ),
+            None
+        );
+        assert_eq!(state.shields.len(), 1);
+
+        let (mut state, creature) = board();
+        let source = another(&mut state);
+        redirect_shield(&mut state, creature, source);
+        state
+            .object_mut(creature)
+            .expect("on the board")
+            .base_mut()
+            .types = TypeSet::ARTIFACT;
+        state.refresh_characteristics();
+        assert_eq!(
+            redirect(
+                &mut state,
+                source,
+                DamageTarget::Object(creature),
+                &mut Redirected::default()
+            ),
+            None,
+            "no longer a creature"
+        );
+        assert_eq!(state.shields.len(), 1);
+    }
+
+    /// Veteran Bodyguard's static, on `bodyguard`, for P0: red sources'
+    /// damage to P0 is dealt to it instead.
+    fn bodyguard(state: &mut GameState, bodyguard: ObjectId) {
+        let modifier = baylee_cards_dsl::Modifier::RedirectDamageToYou(&RED);
+        state.effects.register(crate::effects::ContinuousEffect {
+            // `register` assigns the real one.
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(bodyguard),
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Static,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
+            filter: crate::effects::EffectFilter::Dsl(&Filter::This),
+            modifier,
+        });
+    }
+
+    /// A redirecting static: damage to its controller from a matching
+    /// source goes to the permanent, and never twice in one event
+    /// (CR 614.5) — a new event is another matter. Not another player's
+    /// damage, not a source that does not match, and nothing once the
+    /// permanent is no longer a creature (CR 614.9).
+    #[test]
+    fn a_redirecting_static_moves_its_controllers_damage_once_an_event() {
+        let (mut state, guard) = board();
+        let red = another(&mut state);
+        bodyguard(&mut state, guard);
+        let to_p0 = DamageTarget::Player(P0);
+        let mut done = Redirected::default();
+
+        assert_eq!(
+            redirect(&mut state, red, DamageTarget::Player(P1), &mut done),
+            None,
+            "its controller's damage only"
+        );
+        assert_eq!(
+            redirect(&mut state, guard, to_p0, &mut done),
+            None,
+            "not red"
+        );
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut done),
+            Some(DamageTarget::Object(guard))
+        );
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut done),
+            None,
+            "once to an event (CR 614.5)"
+        );
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut Redirected::default()),
+            Some(DamageTarget::Object(guard)),
+            "and again to the next one"
+        );
+
+        state
+            .object_mut(guard)
+            .expect("on the board")
+            .base_mut()
+            .types = TypeSet::ARTIFACT;
+        state.refresh_characteristics();
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut Redirected::default()),
+            None,
+            "no longer a creature (CR 614.9)"
+        );
+
+        let (mut state, guard) = board();
+        let red = another(&mut state);
+        bodyguard(&mut state, guard);
+        state.players[0].loss = Some(crate::event::LossReason::Conceded);
+        assert_eq!(
+            redirect(&mut state, red, to_p0, &mut Redirected::default()),
+            None,
+            "from a player who has left the game (CR 614.9)"
         );
     }
 }
