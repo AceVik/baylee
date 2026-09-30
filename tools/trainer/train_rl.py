@@ -1,4 +1,5 @@
-"""Reinforcement learning from league games: advantage-weighted regression.
+"""Reinforcement learning from league games: a clipped policy-gradient step
+(or advantage-weighted regression).
 
     uv run python train_rl.py --data ~/baylee-data/datasets/d3-l001 \\
         --init ~/baylee-data/models/v3-b/net.pt --out ~/baylee-data/models/rl-001
@@ -6,9 +7,18 @@
 A league run (`bin/league`) has the learner sample its answers against a
 league of house profiles, frozen nets and itself; `convert3` turns it into a
 v3 dataset. Here the learner's own decisions (the seat `games.jsonl` names
-`learner`) are imitated, each weighted by exp(A / beta), clipped at
-`--w-max` (AWR, Peng et al. 2019): answers that did better than expected are
-made likelier, worse ones less likely. A is a generalised advantage (GAE,
+`learner`) are the samples. The default step (`--objective ppo`) raises
+the log-probability of each sampled answer by its advantage A, clipped where
+the new policy's ratio to the net that played leaves 1 +- `--clip` (PPO,
+Schulman et al. 2017), corrected for the learner having sampled at
+`--behavior-temp` (weight pi/mu of the net that played, capped at
+`--iw-max`), with an entropy bonus `--entropy`. A has mean zero, so the step
+moves probability between answers without sharpening the policy as a whole.
+`--objective awr` imitates each sampled answer weighted by exp(A / beta),
+clipped at `--w-max` (AWR, Peng et al. 2019): every weight is positive, and
+on samples that are mostly the net's own top answer that sharpened the
+policy (mean top probability 0.921 -> 0.950 over three steps) without a
+measurable gain. A is a generalised advantage (GAE,
 lambda `--lam`) over the learner's own decisions in a game: how much its
 value head's estimate of its side rose from one decision to its next, the
 last step ending at the result. The game's result alone, over hundreds of
@@ -89,9 +99,10 @@ def advantages(net, ds, is_learner, entities, lam):
     return out
 
 
-def step(net, ds, b, entities, is_learner, adv, beta, w_max):
-    """Weighted policy loss on the learner's samples, value loss on all
-    first steps, and the mean weight."""
+def forward(net, ds, b, entities, is_learner, adv):
+    """The net on batch `b`: per sample its option logits (padded with
+    -inf), the value head, the chosen option, and which samples are the
+    learner's with a real choice and an advantage."""
     opt, sample, live, flat_chosen, count, first = gather_options(ds, b.idx, entities)
     dev = b.cards.device
     learner = torch.from_numpy(is_learner[b.idx]).to(dev)
@@ -106,22 +117,51 @@ def step(net, ds, b, entities, is_learner, adv, beta, w_max):
     chosen = flat_chosen - first
     ok = (flat_chosen >= 0) & (count > 1) & (ds.col("offered_dropped")[b.idx] == 0)
     ok &= np.array([live[f] if f >= 0 else False for f in flat_chosen])
-    a = adv[b.idx]
-    ok &= ~np.isnan(a)
+    ok &= ~np.isnan(adv[b.idx])
     ok_t = torch.from_numpy(ok).to(dev) & learner
-    weight = torch.clamp(torch.exp(torch.from_numpy(np.nan_to_num(a) / beta).to(dev).float()), max=w_max)
-    if ok_t.any():
-        ce = F.cross_entropy(padded[ok_t], torch.from_numpy(np.where(ok, chosen, 0)).to(dev)[ok_t], reduction="none")
+    return padded, value, torch.from_numpy(np.where(ok, chosen, 0)).to(dev), ok_t
+
+
+def step(net, ref, ds, b, entities, is_learner, adv, args):
+    """Policy loss on the learner's samples, value loss on all first steps,
+    and what to log about the policy step."""
+    padded, value, chosen, ok_t = forward(net, ds, b, entities, is_learner, adv)
+    dev = padded.device
+    a = torch.from_numpy(np.nan_to_num(adv[b.idx])).to(dev).float()
+    stats = {}
+    if not ok_t.any():
+        policy = padded[torch.isfinite(padded)].sum() * 0
+    elif args.objective == "awr":
+        weight = torch.clamp(torch.exp(a / args.beta), max=args.w_max)
+        ce = F.cross_entropy(padded[ok_t], chosen[ok_t], reduction="none")
         policy = (ce * weight[ok_t]).sum() / weight[ok_t].sum().clamp(min=1e-6)
-        mean_w = float(weight[ok_t].mean())
+        stats["mean weight"] = float(weight[ok_t].mean())
     else:
-        policy, mean_w = padded.sum() * 0, 0.0
+        with torch.no_grad():
+            ref_padded, _, _, _ = forward(ref, ds, b, entities, is_learner, adv)
+            ref_lp = torch.log_softmax(ref_padded[ok_t], dim=1)
+            mu_lp = torch.log_softmax(ref_padded[ok_t] / args.behavior_temp, dim=1)
+            c = chosen[ok_t].unsqueeze(1)
+            old = ref_lp.gather(1, c).squeeze(1)
+            iw = torch.clamp(torch.exp(old - mu_lp.gather(1, c).squeeze(1)), max=args.iw_max)
+        lp = torch.log_softmax(padded[ok_t], dim=1)
+        new = lp.gather(1, chosen[ok_t].unsqueeze(1)).squeeze(1)
+        ratio = torch.exp(new - old)
+        adv_ok = a[ok_t]
+        surr = torch.minimum(ratio * adv_ok, torch.clamp(ratio, 1 - args.clip, 1 + args.clip) * adv_ok)
+        p = lp.exp()
+        # Masked options are -inf: zero them before the product, or the
+        # gradient of 0 * -inf is NaN even where the value is dropped.
+        entropy = -(p * lp.masked_fill(~torch.isfinite(lp), 0.0)).sum(1)
+        policy = -(iw * surr).sum() / iw.sum().clamp(min=1e-6) - args.entropy * entropy.mean()
+        stats["clipped"] = float(((ratio - 1).abs() > args.clip).float().mean())
+        stats["entropy"] = entropy.mean().item()
     logp = torch.log_softmax(value, dim=1)
     t = b.value_target
     per = -torch.where(t > 0, t * logp, torch.zeros_like(logp)).sum(1)
     first_step = torch.from_numpy(ds.col("step")[b.idx] == 0).to(dev)
     val = per[first_step].mean() if first_step.any() else per.sum() * 0
-    return policy, val, mean_w
+    return policy, val, stats
 
 
 def main() -> None:
@@ -134,6 +174,11 @@ def main() -> None:
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--lr", type=float, default=5e-5)
     ap.add_argument("--wd", type=float, default=0.01)
+    ap.add_argument("--objective", choices=("ppo", "awr"), default="ppo")
+    ap.add_argument("--clip", type=float, default=0.2, help="ppo: the ratio's clip around 1")
+    ap.add_argument("--behavior-temp", type=float, default=0.7, help="ppo: the temperature the learner sampled at")
+    ap.add_argument("--iw-max", type=float, default=5.0, help="ppo: cap on the behaviour correction pi/mu")
+    ap.add_argument("--entropy", type=float, default=0.01, help="ppo: entropy bonus")
     ap.add_argument("--beta", type=float, default=1.0, help="AWR temperature, in standard deviations of the advantage")
     ap.add_argument("--lam", type=float, default=0.9, help="GAE lambda over the learner's decisions")
     ap.add_argument("--w-max", type=float, default=20.0)
@@ -156,6 +201,14 @@ def main() -> None:
     cfg = {k: v for k, v in base["config"].items() if k not in skip}
     net = M.build(ds.meta, ds.card_ids, ds.card_feats, **cfg).cuda()
     net.load_state_dict(base["state"])
+    # The net that played, frozen: the ratio's reference.
+    ref = None
+    if args.objective == "ppo":
+        ref = M.build(ds.meta, ds.card_ids, ds.card_feats, **cfg).cuda()
+        ref.load_state_dict(base["state"])
+        ref.eval()
+        for q in ref.parameters():
+            q.requires_grad_(False)
     seen_src = Path(args.init).expanduser().parent / "seen_ids.npy"
     if seen_src.exists():
         # The ids this line of nets has met: the base's and this data's.
@@ -180,11 +233,12 @@ def main() -> None:
         log(f"resumed at step {n:,}")
     log(f"{total:,} steps of {args.batch} from {args.init}")
     adv = advantages(net, ds, is_learner, args.entities, args.lam)
-    t0, t_ckpt, run_p, run_v, run_w = time.time(), time.time(), None, None, None
+    t0, t_ckpt, run_p, run_v = time.time(), time.time(), None, None
+    run_s: dict[str, float] = {}
     while n < total:
         for b in loader:
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                pol, val, mean_w = step(net, ds, b, args.entities, is_learner, adv, args.beta, args.w_max)
+                pol, val, stats = step(net, ref, ds, b, args.entities, is_learner, adv, args)
                 loss = pol + args.value_weight * val
             opt.zero_grad(set_to_none=True)
             loss.backward()
@@ -194,9 +248,11 @@ def main() -> None:
             n += 1
             run_p = pol.item() if run_p is None else 0.98 * run_p + 0.02 * pol.item()
             run_v = val.item() if run_v is None else 0.98 * run_v + 0.02 * val.item()
-            run_w = mean_w if run_w is None else 0.98 * run_w + 0.02 * mean_w
+            for k_, v_ in stats.items():
+                run_s[k_] = v_ if k_ not in run_s else 0.98 * run_s[k_] + 0.02 * v_
             if n % 500 == 0 or n == total:
-                log(f"step {n:,}/{total:,} · weighted policy {run_p:.4f} · value {run_v:.4f} · mean weight {run_w:.2f} · "
+                extra = " · ".join(f"{k_} {v_:.3f}" for k_, v_ in run_s.items())
+                log(f"step {n:,}/{total:,} · policy {run_p:.4f} · value {run_v:.4f} · {extra} · "
                     f"{(time.time() - t0) / 60:.0f} min")
             if time.time() - t_ckpt > args.ckpt_minutes * 60:
                 tmp = out / "last.pt.tmp"
@@ -208,7 +264,9 @@ def main() -> None:
     torch.save({"state": net.state_dict(), "config": base["config"], "glob": D3.glob_layout(ds.meta),
                 "dataset": ds.meta["sources"], "encoder_version": ds.meta["encoder_version"],
                 "walk_version": ds.meta["walk_version"], "verification": ds.meta.get("verification"),
-                "rl": {"from": args.init, "beta": args.beta, "lam": args.lam, "w_max": args.w_max, "lr": args.lr,
+                "rl": {"from": args.init, "objective": args.objective, "clip": args.clip,
+                       "behavior_temp": args.behavior_temp, "iw_max": args.iw_max, "entropy": args.entropy,
+                       "beta": args.beta, "lam": args.lam, "w_max": args.w_max, "lr": args.lr,
                        "steps": n, "advantage": "gae over the value head, standardised"}},
                out / "net.pt")
     # The value on held-out games, as the other trainers report it.
