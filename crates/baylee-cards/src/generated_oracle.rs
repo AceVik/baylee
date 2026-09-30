@@ -830,7 +830,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Other Zombie creatures have swampwalk. (They can't be blocked as long as defending player controls a Swamp.)\nOther Zombies have \"{B}: Regenerate this permanent.\"",
     ],
-    &[],
+    // Circle of Protection: Black
+    &[
+        "{1}: The next time a black source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Volcanic Island
     &["({T}: Add {U} or {R}.)"],
     &[],

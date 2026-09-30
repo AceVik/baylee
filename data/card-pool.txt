@@ -2835,3 +2835,7 @@ Wooden Sphere
 Word of Command
 Wrath of God
 Zombie Master
+
+# Limited Edition Beta and Unlimited: Beta added two cards to Alpha,
+# Volcanic Island (above, with the other lands) and the fifth Circle.
+Circle of Protection: Black

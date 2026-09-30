@@ -849,6 +849,8 @@ pub mod cinder_glade;
 pub mod cinder_marsh;
 #[path = "sorceries/mv_7/cinder_storm.rs"]
 pub mod cinder_storm;
+#[path = "enchantments/mv_2/circle_of_protection_black.rs"]
+pub mod circle_of_protection_black;
 #[path = "enchantments/mv_2/circle_of_protection_blue.rs"]
 pub mod circle_of_protection_blue;
 #[path = "enchantments/mv_2/circle_of_protection_green.rs"]
