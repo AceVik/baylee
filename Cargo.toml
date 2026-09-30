@@ -51,6 +51,8 @@ baylee-db = { path = "crates/baylee-db" }
 baylee-feedback = { path = "crates/baylee-feedback" }
 baylee-update = { path = "crates/baylee-update" }
 baylee-seat = { path = "crates/baylee-seat" }
+# Without `play` by default: its one dependent, xtask, reads only the card rule.
+baylee-train = { path = "crates/baylee-train", default-features = false }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -77,6 +79,11 @@ ureq = { version = "3", features = ["json"] }
 # as bevy's own web reader did; already in the tree through `async-fs`.
 blocking = "1"
 heck = "0.5"
+# Rust source read as data by xtask (`verify --coverage`: the DSL's types and
+# the engine's match arms, with their lines); both already in the tree
+# through the derive macros.
+syn = { version = "2", features = ["full", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
 # The facade bevy's command errors are logged through (`bevy_ecs::error::warn`);
 # a client test installs its own logger to count them (#321).
 log = "0.4"
@@ -134,6 +141,10 @@ time = { version = "0.3", features = ["serde"] }
 # Scryfall ships its bulk data gzipped; the ingest streams it rather than
 # holding 400 MB of JSON in memory.
 flate2 = "1"
+# ONNX Runtime for the trained AI's own player (`baylee-train`, feature
+# `onnx`, trainer-only). Pinned exactly: 2.0 is still a release candidate.
+# Nothing builds it by default, so CI never downloads the runtime.
+ort = { version = "=2.0.0-rc.13", default-features = false }
 base64 = "0.22"
 # The client's updater (`baylee-update`, #326). `semver` orders release tags,
 # pre-releases included, and was already in the tree. `ed25519-dalek` checks
@@ -248,6 +259,14 @@ lto = "off"
 codegen-units = 16
 debug-assertions = false
 overflow-checks = false
+
+# The trainer's self-play runner (`baylee-train`): release speed, but a panic
+# unwinds, so one game that breaks the engine is caught, kept with its record
+# as a finding, and the thousands of games around it play on. `release` aborts.
+[profile.selfplay]
+inherits = "release"
+panic = "unwind"
+debug = "line-tables-only"
 
 [profile.dev]
 # Line tables instead of full debug info. A backtrace keeps its file and line

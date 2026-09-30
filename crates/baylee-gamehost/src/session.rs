@@ -970,8 +970,21 @@ impl Session {
     /// choice request for every seat being asked (or game over for
     /// everyone). Capped so an all-AI game can never hang the server.
     pub fn pump(&mut self) -> Vec<(PlayerId, Envelope)> {
+        self.pump_at_most(4096)
+    }
+
+    /// [`Session::pump`], answering at most `answers` house questions before
+    /// it returns.
+    ///
+    /// For a host that plays whole games with nobody at the table (the
+    /// self-play runner in `baylee-train`): it reads the wall clock between
+    /// calls, so it can stop a game whose every answer has become slow
+    /// instead of waiting out a full `pump`. A call that runs out of answers
+    /// returns no envelopes, as a full `pump` that reaches its cap does; a
+    /// table with a human chair wants `pump`.
+    pub fn pump_at_most(&mut self, answers: usize) -> Vec<(PlayerId, Envelope)> {
         let mut out = Vec::new();
-        for _ in 0..4096 {
+        for _ in 0..answers {
             let awaited = self.engine.awaited();
             if awaited.is_empty() {
                 let pending = self.engine.pending().clone();
@@ -1395,6 +1408,22 @@ impl Session {
             },
             &self.house_answered,
         )
+    }
+
+    /// What an agent that is not the house answers `seat`'s current question
+    /// from — the question and [`Session::agent_view`]'s view of it — or
+    /// `None` when `seat` is asked nothing.
+    ///
+    /// For an offline player of a chair taken over with
+    /// [`Session::take_over`] (the trained AI's self-play in `baylee-train`),
+    /// which then answers with [`Session::act`]. It is the house's answering
+    /// view, not what a socket is sent: no clock, no policy acts, and never a
+    /// teammate's shared hand, because an AI chair is shown nothing (#265).
+    #[must_use]
+    pub fn view_for(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
+        let pending = self.engine.pending_for(seat)?.clone();
+        let view = self.agent_view(seat, &pending);
+        Some((pending, view))
     }
 
     /// The sequence number a client should report back when it resumes.

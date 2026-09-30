@@ -17,15 +17,15 @@
 //!   the same comparison, so neither can drift from the pool.
 //! - A deck is **playable** when every card in it passes [`verdict`], which is
 //!   also what `deck-check` asks: the card is in the pool, `Implemented`, and
-//!   named in the engine's test code (`crate::working`, the trained AI's
+//!   named in the engine's test code (`baylee_train::working`, the trained AI's
 //!   rule), and a commander may lead.
 
-use crate::working::{Refusal, Working};
 use anyhow::{Context as _, bail};
 use baylee_core::deckrow::{self, PrintChoice, Row};
 use baylee_core::ids::CardIndex;
 use baylee_core::preset::Finish;
 use baylee_deckio::{Document, FormatId, Zone};
+use baylee_train::working::{Refusal, Working};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
@@ -1158,7 +1158,7 @@ mod tests {
     use super::*;
 
     fn working() -> Working {
-        Working::scan(&crate::working::repo_root()).expect("the engine's sources read")
+        Working::scan(&baylee_train::working::repo_root()).expect("the engine's sources read")
     }
 
     /// A card entry as MTGJSON writes one, reduced to what is read.
@@ -1410,7 +1410,7 @@ mod tests {
     /// list are what the pool and the engine's tests say today.
     #[test]
     fn the_precon_status_is_the_pools() {
-        let root = crate::working::repo_root();
+        let root = baylee_train::working::repo_root();
         check(
             &root.join(DECKS_DIR),
             &root.join(STATUS_FILE),

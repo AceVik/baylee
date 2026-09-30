@@ -1,9 +1,14 @@
 # Banlists & Formats
 
-**Status: [Spec].** No banlist, format-legality, singleton, or color-
-identity check exists in the gateway today — deck validation is
-registry-membership + count rules only. This document is the design
-target, not a description of shipped behavior.
+**Status: [Spec], one part built.** The deck *shapes* exist as one pure
+predicate, `baylee_cards::formats::check` (constructed: at least 60 cards
+and 4 copies; Highlander: 100 singletons; Commander: one or two leaders
+that may lead together, 100 singletons with them, every card inside their
+colour identity as the registry records it, back faces included; basic
+lands exempt from every copy limit). The trained AI's deck generator calls
+it today. The gateway does not yet: its deck validation is still
+registry-membership + count rules only, and no banlist exists. The rest of
+this document is the design target, not a description of shipped behavior.
 
 Legality lives entirely in the gateway; the engine enforces game rules only.
 

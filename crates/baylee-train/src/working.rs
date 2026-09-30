@@ -23,15 +23,6 @@
 //!
 //! The tests are read as text, from the checkout the binary was built in: the
 //! rule is about which tests exist, not about which of them ran.
-//!
-//! # Where this came from
-//!
-//! This is `baylee_train::working` from `c42/trained-ai` (9ac1a56f), copied
-//! whole so that the precon status (`crate::precons`) and `deck-check` hold a
-//! deck to exactly the rule the trained AI is dealt from. Only `repo_root`
-//! moved (this crate sits one level up). When that branch lands, one of the
-//! two copies goes and the other is the rule; they must not drift apart
-//! before then.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -46,12 +37,10 @@ pub const ENGINE_SRC: &str = "crates/baylee-engine/src";
 /// The ledger's constants, relative to the repository root.
 pub const INDEX_SRC: &str = "crates/baylee-core/src/generated/index";
 
-/// The checkout this crate was built in. The binary is handed its root by
-/// `main`; the tests ask this.
-#[cfg(test)]
+/// The checkout this crate was built in.
 #[must_use]
 pub fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 /// How test code names a card, strongest first.

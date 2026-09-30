@@ -1,9 +1,11 @@
 //! xtask — baylee development tasks (codegen, card explanation, …).
 
 mod cr_check;
+mod hooks;
+mod mechanics;
 mod precons;
 mod update_key;
-mod working;
+mod verify;
 
 use baylee_cards_codegen::{
     acceptance, cardindex, catalog, landgen, layout, ledger, lines, names, scriptgen, scripts,
@@ -126,6 +128,9 @@ enum Cmd {
         #[arg(long)]
         verbose: bool,
     },
+    /// How far each card is verified, L1 (implemented) to L5 (mutation-
+    /// killed), for the pool and every house deck (`xtask/src/verify.rs`).
+    Verify(verify::Args),
     /// Import the retail precons from MTGJSON as Baylee text under
     /// `data/decks/precon/`, then write their status (`docs/precons.md`).
     ///
@@ -565,6 +570,7 @@ fn main() -> anyhow::Result<()> {
         } => ledger_cmd(&root, &corpus, check, reseed),
         Cmd::AbilityLines => ability_lines(&root),
         Cmd::DeckCheck { file, verbose } => deck_check(&root, &file, verbose),
+        Cmd::Verify(args) => verify::verify(&root, &args),
         Cmd::DecksImport { archive, refresh } => {
             precons::import(&root, archive.as_deref(), refresh)
         }
@@ -4874,12 +4880,18 @@ fn check_printing_floors(tally: &PrintingTally, problems: &mut usize) {
 /// `data/decks/precon/` is written in. The last line is the verdict the
 /// precon status unlocks a deck by (`precons::verdict`): every card in the
 /// pool, `Implemented`, and named in the engine's test code.
+/// With `--verbose` it also says how and where a test names each working
+/// card of the deck.
 #[allow(clippy::too_many_lines)] // one pass over the rows owns every tally it reports
 fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
     use anyhow::Context as _;
     use baylee_cards::dsl::Coverage;
     use baylee_core::deckrow;
 
+    let working =
+        baylee_train::working::Working::scan(root).context("reading the engine's test code")?;
+    // Each working card of the deck, with how and where a test names it.
+    let mut tested_by: Vec<String> = Vec::new();
     let path = if file.is_absolute() {
         file.to_path_buf()
     } else {
@@ -4953,7 +4965,14 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
         match baylee_cards::decks::by_name(&name).and_then(baylee_cards::by_index) {
             None => unknown.push(name.clone()),
             Some(def) => match def.coverage {
-                Coverage::Implemented => {}
+                Coverage::Implemented => {
+                    if let Some(e) = working.tested.get(&def.index) {
+                        let line = format!("{name} — {} in {}", e.how, e.file);
+                        if !tested_by.contains(&line) {
+                            tested_by.push(line);
+                        }
+                    }
+                }
                 Coverage::Partial(why) => partial.push(format!("{name} — {why}")),
                 Coverage::Unimplemented => stubs.push(name.clone()),
             },
@@ -4979,6 +4998,9 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
         println!("  NOT IN POOL {name}");
     }
     if verbose {
+        for line in &tested_by {
+            println!("  TESTED      {line}");
+        }
         for name in &partial {
             println!("  PARTIAL     {name}");
         }
@@ -4986,7 +5008,6 @@ fn deck_check(root: &Path, file: &Path, verbose: bool) -> anyhow::Result<()> {
             println!("  STUB        {name}");
         }
     }
-    let working = working::Working::scan(root).context("reading the engine's test code")?;
     let refused: Vec<(String, precons::Why)> = names
         .iter()
         .filter_map(|name| {

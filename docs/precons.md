@@ -10,7 +10,7 @@ that allow it.
 | What | Where |
 |---|---|
 | the importer, the status, the rule | `xtask/src/precons.rs` (`decks-import`, `decks-status`) |
-| "which cards work" | `xtask/src/working.rs` (the trained AI's rule) |
+| "which cards work" | `crates/baylee-train/src/working.rs` (the trained AI's rule) |
 | the lists | `data/decks/precon/<set>/<slug>.txt` |
 | the status | `data/decks/precon/STATUS.tsv` |
 | the gateway's embedded playable list | `crates/baylee-db/src/precons/generated.rs` |
@@ -141,9 +141,8 @@ A deck is **playable** when every card in it passes `precons::verdict`, and
 2. it is `Coverage::Implemented`, else `stub`;
 3. the engine's test code names it — `card_index("<oracle id>")`, its oracle
    id as a literal, or its `index::` constant, anywhere in the engine's test
-   code — else `untested`. This is the trained AI's rule, copied whole from
-   `baylee_train::working` (`c42/trained-ai`) into `xtask/src/working.rs`;
-   the two copies must not drift until one of them goes;
+   code — else `untested`. This is the trained AI's rule,
+   `baylee_train::working`, which xtask links without `play`;
 4. a commander may lead (CR 903.3), and two may lead together, else `leader`.
 
 `decks-status` writes `data/decks/precon/STATUS.tsv`, one line per deck in

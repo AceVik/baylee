@@ -12,6 +12,10 @@
 #   baylee-engine          fuzz
 #   baylee-cards           mutate
 #
+# plus one default switched off, `baylee-train` without `play`, which is how
+# `xtask` links it. (`baylee-train`'s `onnx` is trainer-only and in no gate:
+# it downloads ONNX Runtime when it builds.)
+#
 # so eight pieces of this workspace were compiled by nobody. It fails in
 # **both** directions, which is the half that is easy to miss. A feature adds
 # code the default build never sees — `devctl.rs` broke on `Option<Refusal>`
@@ -168,6 +172,14 @@ fi
 # reaching for something only `cfg(test)` provides would break.
 step test-support \
     cargo clippy -p baylee-client-core --features test-support --lib -- -D warnings
+
+# The other direction: a default feature switched *off*. `xtask` links
+# `baylee-train` without `play` (the card rule for `deck-check`, no
+# engine), so that is the build every `cargo run -p xtask` makes, and the
+# workspace build never makes it: there the crate's own default turns `play`
+# on for everyone. An import only `play` code uses fails here first.
+step train-without-play \
+    cargo clippy -p baylee-train --no-default-features --all-targets -- -D warnings
 
 # The same shape for the same reason: `fuzz` is `cfg(any(test, feature =
 # "fuzz"))` (`Engine::fingerprint`), so the engine's own tests compile it

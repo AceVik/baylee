@@ -1,0 +1,92 @@
+[package]
+name = "baylee-train"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Training data for the trained AI: which cards work, recorded self-play, record converters"
+
+[lints]
+workspace = true
+
+# Nothing that ships depends on this crate: it plays games offline and writes
+# files for the trainer under `tools/trainer/`. Only `xtask` links it, without
+# `play`, so `deck-check`, the precon status and the trainer read one
+# rule and xtask does not build an engine for it.
+[features]
+default = ["play"]
+# Playing and recording games: everything past the card rule.
+play = [
+    "dep:baylee-build",
+    "dep:baylee-engine",
+    "dep:baylee-gamehost",
+    "dep:baylee-view",
+    "dep:clap",
+    "dep:flate2",
+    "dep:serde",
+    "dep:serde_json",
+]
+# The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
+# Not default and in no gate: it downloads the runtime when it builds, and
+# only the trainer's machine needs it.
+onnx = ["play", "dep:ort"]
+# The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
+# libraries on LD_LIBRARY_PATH). `BAYLEE_EP=cpu` keeps a build of it on the CPU.
+onnx-cuda = ["onnx", "ort/cuda"]
+
+[dependencies]
+anyhow.workspace = true
+baylee-build = { workspace = true, optional = true }
+baylee-cards.workspace = true
+baylee-core.workspace = true
+baylee-engine = { workspace = true, optional = true }
+baylee-gamehost = { workspace = true, optional = true }
+baylee-view = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+sha2.workspace = true
+ort = { workspace = true, optional = true, features = [
+    "std",
+    "download-binaries",
+    "copy-dylibs",
+    "tls-rustls",
+    "api-27",
+] }
+
+[[bin]]
+name = "selfplay"
+path = "src/bin/selfplay.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "inspect"
+path = "src/bin/inspect.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "convert"
+path = "src/bin/convert.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "convert3"
+path = "src/bin/convert3.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "fuzz"
+path = "src/bin/fuzz.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "arena"
+path = "src/bin/arena.rs"
+required-features = ["onnx"]
+
+[[bin]]
+name = "league"
+path = "src/bin/league.rs"
+required-features = ["onnx"]
