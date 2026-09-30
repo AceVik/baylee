@@ -13,7 +13,14 @@
 //!   table asked for what the seat missed ([`SeatCore::resumed`]);
 //! - **a mind that is down**: the socket is left, so the table sees an
 //!   absent player and its house holds the chair, and the mind is asked
-//!   every [`PlayOptions::mind_poll`] whether it is ready again.
+//!   every [`PlayOptions::mind_poll`] whether it is ready again;
+//! - **a room that closed**: a table that could not start, or whose engine
+//!   was lost, ends without a word on the seat's socket, which stays open;
+//!   the room only leaves the lobby. So the lobby is asked whenever the
+//!   socket has been quiet for [`PlayOptions::room_check`], before the seat
+//!   dials again, and at every poll of a mind that is down
+//!   ([`SeatLink::room_closed`]). A seat that finds its room gone ends its
+//!   game with no result ([`SeatCore::closed`]).
 //!
 //! An answer the core gives while there is no socket is dropped: the table
 //! asks the question again on the next socket, at the same `seq`, and the
@@ -42,6 +49,9 @@ pub struct PlayOptions {
     pub min_think: Duration,
     /// How often a mind that is down is asked whether it is ready.
     pub mind_poll: Duration,
+    /// How long the socket may be quiet before the lobby is asked whether
+    /// the room is still open.
+    pub room_check: Duration,
 }
 
 impl Default for PlayOptions {
@@ -49,6 +59,7 @@ impl Default for PlayOptions {
         Self {
             min_think: Duration::from_millis(1500),
             mind_poll: Duration::from_secs(5),
+            room_check: Duration::from_secs(20),
         }
     }
 }
@@ -58,8 +69,9 @@ impl Default for PlayOptions {
 pub struct Played {
     /// The counts.
     pub stats: Stats,
-    /// How the game ended.
-    pub result: GameResult,
+    /// How the game ended; `None` when the room closed without showing
+    /// the seat ([`SeatCore::closed`]).
+    pub result: Option<GameResult>,
     /// Sockets opened, the first included.
     pub dials: u32,
 }
@@ -76,6 +88,7 @@ enum Woken {
     Frame(Option<Result<Message, tokio_tungstenite::tungstenite::Error>>),
     Joined(Result<Result<Answer, MindError>, tokio::task::JoinError>),
     Expired,
+    Quiet,
 }
 
 /// What a batch of steps came to.
@@ -120,10 +133,20 @@ async fn run(
         thinking: None,
         asked: None,
     };
-    let mut socket = Some(link.connect().await?);
+    let mut socket = link.connect().await?;
+    if socket.is_none() {
+        return Ok(bridge.closed(&mut core, transcript, link).await);
+    }
     loop {
         let Some(ws) = socket.as_mut() else {
-            socket = Some(link.connect().await?);
+            socket = if link.room_closed().await {
+                None
+            } else {
+                link.connect().await?
+            };
+            if socket.is_none() {
+                return Ok(bridge.closed(&mut core, transcript, link).await);
+            }
             let steps = core.resumed();
             record(&mut core, transcript);
             if let Next::Lost = bridge.carry_out(steps, socket.as_mut()).await {
@@ -156,6 +179,15 @@ async fn run(
                 thinking.task.abort();
                 core.expired(thinking.question)
             }
+            Woken::Quiet => {
+                if !link.room_closed().await {
+                    continue;
+                }
+                if let Some(mut ws) = socket.take() {
+                    let _ = ws.close(None).await;
+                }
+                return Ok(bridge.closed(&mut core, transcript, link).await);
+            }
         };
         record(&mut core, transcript);
         match bridge.carry_out(steps, socket.as_mut()).await {
@@ -165,7 +197,9 @@ async fn run(
                 if let Some(mut ws) = socket.take() {
                     let _ = ws.close(None).await;
                 }
-                bridge.wait_for_mind().await;
+                if !bridge.wait_for_mind(link).await {
+                    return Ok(bridge.closed(&mut core, transcript, link).await);
+                }
             }
             Next::Over(result) => {
                 if let Some(mut ws) = socket.take() {
@@ -174,7 +208,7 @@ async fn run(
                 transcript.flush();
                 return Ok(Played {
                     stats: core.stats().clone(),
-                    result,
+                    result: Some(result),
                     dials: link.dials(),
                 });
             }
@@ -205,7 +239,8 @@ struct Bridge {
 }
 
 impl Bridge {
-    /// Waits for a frame, the mind's answer, or the mind's deadline.
+    /// Waits for a frame, the mind's answer, the mind's deadline, or a
+    /// quiet spell long enough to ask the lobby about the room.
     async fn wait(&mut self, ws: &mut Socket) -> Woken {
         let deadline = self.thinking.as_ref().map(|t| t.deadline);
         let task = self.thinking.as_mut().map(|t| &mut t.task);
@@ -223,6 +258,27 @@ impl Bridge {
                     None => std::future::pending().await,
                 }
             } => Woken::Expired,
+            () = tokio::time::sleep(self.options.room_check) => Woken::Quiet,
+        }
+    }
+
+    /// The room closed without a result: whatever the mind is thinking
+    /// about is dropped, and the seat's game is over.
+    async fn closed(
+        &mut self,
+        core: &mut SeatCore,
+        transcript: &mut Transcript,
+        link: &SeatLink,
+    ) -> Played {
+        tracing::info!("the room closed without a result for this seat");
+        let steps = core.closed();
+        self.carry_out(steps, None).await;
+        record(core, transcript);
+        transcript.flush();
+        Played {
+            stats: core.stats().clone(),
+            result: None,
+            dials: link.dials(),
         }
     }
 
@@ -286,13 +342,19 @@ impl Bridge {
         next
     }
 
-    /// Asks a mind that is down whether it is ready, until it is.
-    async fn wait_for_mind(&self) {
+    /// Asks a mind that is down whether it is ready, until it is (`true`)
+    /// or the room has closed meanwhile (`false`): the house plays on for a
+    /// seat whose socket is gone, and may finish the game before the mind
+    /// comes back, if it ever does.
+    async fn wait_for_mind(&self, link: &SeatLink) -> bool {
         loop {
             tokio::time::sleep(self.options.mind_poll).await;
             if self.mind.ready().await {
                 tracing::info!("the mind is ready again");
-                return;
+                return true;
+            }
+            if link.room_closed().await {
+                return false;
             }
         }
     }

@@ -10,6 +10,11 @@
 //! opened while the game's engine is still starting. A seat token the table
 //! no longer takes is traded for a new one with the session, as a client
 //! that restarted takes its chair back.
+//!
+//! A room that closed is not dialled again. A finished game's seat socket
+//! still opens and is then held without a frame until the gateway gives up
+//! on its engine, so a dial alone never learns the game is gone: the lobby
+//! is asked ([`SeatLink::room_closed`]) whenever a dial fails.
 
 use crate::lobby::{Chair, Lobby, Session};
 use anyhow::{anyhow, bail};
@@ -67,19 +72,20 @@ impl SeatLink {
     }
 
     /// Opens the socket, dialling again on the client's back-off until it
-    /// opens or the schedule gives up.
+    /// opens or the schedule gives up; `None` when the room closed.
     ///
     /// # Errors
     /// When the seat's token is refused and cannot be replaced, or after
     /// [`Retry::GIVE_UP`] dials that reached nothing.
-    pub async fn connect(&mut self) -> anyhow::Result<Socket> {
+    pub async fn connect(&mut self) -> anyhow::Result<Option<Socket>> {
         let mut retry = Retry::new();
         loop {
             match self.dial().await {
                 Ok(socket) => {
                     self.dials += 1;
-                    return Ok(socket);
+                    return Ok(Some(socket));
                 }
+                Err(_) if self.room_closed().await => return Ok(None),
                 Err(Missed::Refused(why)) => bail!("the table refused this seat: {why}"),
                 Err(Missed::Unreachable(why)) => {
                     if retry.exhausted() {
@@ -93,6 +99,27 @@ impl SeatLink {
                     tokio::time::sleep(Duration::from_secs_f32(wait)).await;
                     retry.tick(wait);
                 }
+            }
+        }
+    }
+
+    /// Whether the room has closed: the lobby no longer lists it (it lists
+    /// no finished room), or lists it as anything but playing.
+    ///
+    /// `false` when that cannot be told (no session to ask with, a lobby
+    /// that did not answer): a seat does not leave a table on a guess.
+    pub async fn room_closed(&self) -> bool {
+        let Some(session) = self.session.as_ref() else {
+            return false;
+        };
+        match self.lobby.room(session, &self.chair.game_id).await {
+            Ok(room) => room.is_none_or(|room| !room.playing()),
+            Err(e) => {
+                tracing::info!(
+                    error = %format!("{e:#}"),
+                    "the lobby could not say whether the room is open"
+                );
+                false
             }
         }
     }

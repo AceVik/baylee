@@ -115,6 +115,7 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
     let house_played = house_played.unwrap_or_else(|e| panic!("the house seat: {e:#}"));
 
     // One game, one result, seen the same from both chairs: the house won.
+    assert!(house_played.result.is_some(), "{house_played:?}");
     assert_eq!(scripted_played.result, house_played.result);
     assert_eq!(
         house_played.stats.outcome,

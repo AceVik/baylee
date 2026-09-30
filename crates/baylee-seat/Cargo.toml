@@ -52,6 +52,10 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 # tests — the bridge itself holds no engine, no host and no other seat.
 baylee-gamehost.workspace = true
 baylee-client-core = { workspace = true, features = ["test-support"] }
+# A stand-in gateway for the endings a real one takes minutes to stage (a
+# table that could not start, a finished room's socket): a ticket, a lobby
+# row and a seat socket that says what the test tells it to.
+axum.workspace = true
 
 [[bin]]
 name = "baylee-seat"

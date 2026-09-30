@@ -566,6 +566,21 @@ impl SeatCore {
             .map(|c| c.question)
     }
 
+    /// The room closed with no result for this seat: the table could not
+    /// start (a seat never finished loading), or its engine was lost. The
+    /// seat's socket hears neither: the room only leaves the lobby, which is
+    /// where the bridge learns it. What the mind is thinking about is
+    /// dropped, and nothing more is heard.
+    pub fn closed(&mut self) -> Vec<Step> {
+        if self.life != Life::Playing {
+            return Vec::new();
+        }
+        self.life = Life::Over;
+        let steps = self.cancel_thinking();
+        self.note(0, Event::Closed);
+        steps
+    }
+
     /// Whether the game is over for this seat.
     #[must_use]
     pub const fn is_over(&self) -> bool {

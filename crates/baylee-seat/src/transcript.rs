@@ -114,6 +114,9 @@ pub enum Event {
         /// How, as the engine said it.
         result: String,
     },
+    /// The room closed without showing the seat how the game ended: the
+    /// table could not start, or its engine was lost.
+    Closed,
 }
 
 /// Where the notes go.

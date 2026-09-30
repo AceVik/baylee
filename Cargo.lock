@@ -1094,6 +1094,7 @@ name = "baylee-seat"
 version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
+ "axum",
  "baylee-ai",
  "baylee-cards",
  "baylee-cards-dsl",

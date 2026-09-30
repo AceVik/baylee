@@ -452,6 +452,29 @@ fn the_end_of_the_game_stops_the_thinking_and_says_who_won() {
 }
 
 #[test]
+fn a_room_that_closed_stops_the_thinking_and_says_no_result() {
+    let mut core = seated(BridgeConfig::default());
+    let question = ask_mind(&mut core, 2, &colour());
+    core.take_notes();
+    let steps = core.closed();
+    assert!(
+        matches!(steps.as_slice(), [Step::Cancel(q)] if *q == question),
+        "{steps:?}"
+    );
+    assert!(core.is_over());
+    assert_eq!(core.stats().outcome, None, "no result was seen");
+    let notes = core.take_notes();
+    assert!(
+        matches!(notes.as_slice(), [note] if matches!(note.event, Event::Closed)),
+        "{notes:?}"
+    );
+    // Nothing is asked or answered after it, and it is said once.
+    assert!(core.answered(question, Ok(Answer::new(GREEN))).is_empty());
+    assert!(core.hear(&asked(3, &colour())).is_empty());
+    assert!(core.closed().is_empty());
+}
+
+#[test]
 fn every_answer_names_the_game_and_no_token() {
     let mut core = seated(BridgeConfig::default());
     let steps = core.hear(&asked(1, &nothing()));

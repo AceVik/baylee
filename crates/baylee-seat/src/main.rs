@@ -257,6 +257,7 @@ fn report(played: &bridge::Played) {
         Some(Outcome::Won) => "won",
         Some(Outcome::Lost) => "lost",
         Some(Outcome::Draw) => "drew",
+        None if played.result.is_none() => "the room closed without a result",
         None => "ended",
     };
     println!(
