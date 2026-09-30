@@ -21,11 +21,14 @@
 //! - [`mind`]: what answers the real decisions ([`HouseMind`] and
 //!   [`ScriptedMind`] here; a language model and a trained net later);
 //! - [`transcript`]: what happened, one JSON line at a time;
-//! - [`lobby`] and [`deck`]: signing in, the deck, the room.
+//! - [`lobby`] and [`deck`]: signing in, the deck, the room;
+//! - [`config`] and [`spend`]: a language model's settings file and the
+//!   spend book that holds its caps across games (`docs/llm-seat.md`).
 //!
 //! [`bridge::play`] runs them all against a gateway.
 
 pub mod bridge;
+pub mod config;
 pub mod deck;
 pub mod house;
 pub mod link;
@@ -38,6 +41,7 @@ pub mod referee;
 pub mod scripted;
 pub mod seat;
 pub mod show;
+pub mod spend;
 #[cfg(test)]
 mod testnet;
 pub mod transcript;

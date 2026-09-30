@@ -479,6 +479,36 @@ fn no_key_no_mind() {
     assert!(!format!("{fine:?}").contains("0123456789"));
 }
 
+/// A profile's key comes from the variable it names, and its address beats
+/// the environment's: the key goes only to the address written beside it.
+/// Without one, the environment's address, then the provider's.
+#[test]
+fn a_profile_names_its_key_s_variable_and_its_address() {
+    let env = |name: &str| match name {
+        "DEEPSEEK_API_KEY" => Some(KEY.to_string()),
+        "BAYLEE_LLM_BASE_URL" => Some("https://elsewhere.example/v1".to_string()),
+        _ => None,
+    };
+    let at = |base: Option<&str>| credentials_at(Provider::OpenAi, "DEEPSEEK_API_KEY", base, &env);
+    let own = at(Some("https://api.deepseek.com/v1/")).expect("the profile's address");
+    assert_eq!(own.base, "https://api.deepseek.com/v1");
+    assert!(own.key.is_some());
+    assert_eq!(at(None).unwrap().base, "https://elsewhere.example/v1");
+    let plain = credentials_at(Provider::OpenAi, "DEEPSEEK_API_KEY", None, &|name: &str| {
+        (name == "DEEPSEEK_API_KEY").then(|| KEY.to_string())
+    })
+    .unwrap();
+    assert_eq!(plain.base, Provider::OpenAi.default_base());
+    // The key in a variable the profile does not name is not its key.
+    let refused = credentials_at(Provider::OpenAi, "OTHER_KEY", None, &env).unwrap_err();
+    assert!(refused.contains("set OTHER_KEY"), "{refused}");
+    // A profile's address in the clear to another machine is refused by
+    // its own name.
+    let refused = at(Some("http://api.deepseek.com/v1")).unwrap_err();
+    assert!(refused.contains("base_url"), "{refused}");
+    assert!(at(Some("http://127.0.0.1:8080/v1")).is_ok());
+}
+
 /// A provider that echoes the key back in its error: the key reaches no
 /// error, no transcript line and no note.
 #[tokio::test]

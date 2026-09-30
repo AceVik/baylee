@@ -40,6 +40,10 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
+# The player's clock for the spend book: the day a game counts in is the
+# player's own, where the platform says what its offset is (the client's
+# log reads it the same way).
+time = { workspace = true, features = ["local-offset"] }
 # `wss://` for a gateway behind TLS. rustls with `ring` and nothing else, as
 # the client builds it: tokio-tungstenite asks for rustls without a provider,
 # and naming `ring` here keeps `aws-lc-rs` (a C build) out of the tree.

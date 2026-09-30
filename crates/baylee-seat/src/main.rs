@@ -20,18 +20,25 @@
 //! an OpenAI-compatible endpoint), and a command line that carries one is
 //! refused. Its decisions are shown on the terminal as it plays
 //! (`baylee_seat::show`), with what it spent at the end.
+//!
+//! A language model's model and limits may come from the settings file
+//! instead (`--profile`, `--config`; `docs/llm-seat.md`), whose daily and
+//! monthly caps the spend book holds across games: a game reserves what it
+//! may spend before it sits down, and settles when it is over.
 
 use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
+use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
+use baylee_client_core::llmseat::ledger::Moment;
 use baylee_seat::bridge::{self, PlayOptions};
+use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
-use baylee_seat::llm::{
-    AnswerMode, ApiMind, Price, Provider, Secret, Settings, Spec, Tally, credentials, scrub,
-};
+use baylee_seat::llm::{AnswerMode, ApiMind, Price, Secret, Spec, Tally, credentials_at, scrub};
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
 use baylee_seat::show::Show;
+use baylee_seat::spend::{self, Booked};
 use baylee_seat::{BridgeConfig, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
@@ -66,17 +73,37 @@ struct Join {
     gateway: Option<String>,
     /// What decides: `house`, `scripted`, `anthropic[:<model>]` (key in
     /// `ANTHROPIC_API_KEY`) or `openai:<model>` (key and address in
-    /// `BAYLEE_LLM_API_KEY` and `BAYLEE_LLM_BASE_URL`).
-    #[arg(long, default_value = "house", value_parser = MindKind::parse)]
-    mind: MindKind,
+    /// `BAYLEE_LLM_API_KEY` and `BAYLEE_LLM_BASE_URL`) [default: the
+    /// settings file's default profile, else house].
+    #[arg(long, value_parser = MindKind::parse)]
+    mind: Option<MindKind>,
+    /// A profile of the settings file to play: its model, its limits and
+    /// its key's variable, under any flag given here [default: the file's
+    /// default profile].
+    #[arg(long)]
+    profile: Option<String>,
+    /// The settings file (`docs/llm-seat.md`) [default:
+    /// `BAYLEE_SEAT_CONFIG`, else `llm-seat.json` in the client's config
+    /// directory]; a file named here must be there.
+    #[arg(long)]
+    config: Option<PathBuf>,
+    /// The spend book that holds the settings file's daily and monthly caps
+    /// [default: `llm-spend.json` beside the settings file, kept only when
+    /// there is one].
+    #[arg(long)]
+    ledger: Option<PathBuf>,
     /// How hard a language model thinks (`low`, `medium`, `high`, …)
     /// [default: medium on Anthropic, the endpoint's own elsewhere].
     #[arg(long)]
     effort: Option<String>,
     /// How an OpenAI-compatible model answers: by calling a tool, or with a
-    /// JSON object, for a server without tools.
-    #[arg(long, value_enum, default_value_t = Answering::Tools)]
-    answer: Answering,
+    /// JSON object, for a server without tools [default: tools].
+    #[arg(long, value_enum)]
+    answer: Option<Answering>,
+    /// The most tokens one reply may take, thinking included [default:
+    /// 16000 on Anthropic, 8000 elsewhere].
+    #[arg(long)]
+    max_tokens: Option<u32>,
     /// The most a language model may spend on one game, in US dollars
     /// [default: 5]; past it the house finishes the game. It needs the
     /// model's price: this build's, or --price-in and --price-out. A model
@@ -122,9 +149,10 @@ struct Join {
     /// A closed beta's key [default: `BAYLEE_INVITE_KEY`].
     #[arg(long)]
     invite_key: Option<String>,
-    /// The longest one answer may take, whatever the table's clock allows.
-    #[arg(long, default_value_t = 60)]
-    think_secs: u64,
+    /// The longest one answer may take, whatever the table's clock allows
+    /// [default: 60].
+    #[arg(long)]
+    think_secs: Option<u64>,
     /// The least time between a woken question and its answer.
     #[arg(long, default_value_t = 1500)]
     min_think_ms: u64,
@@ -159,7 +187,118 @@ enum Answering {
 /// A mind to play with, and what it spends, when it spends anything.
 struct Chosen {
     mind: Arc<dyn Mind>,
+    /// The name after the mind's prefix when `--name` gives none: the
+    /// mind's kind, or a language model's tag.
+    label: String,
     tally: Option<Arc<Mutex<Tally>>>,
+    /// The game's reservation in the spend book, for a language model
+    /// that plays under a settings file or `--ledger`.
+    booked: Option<Booked>,
+    /// The longest one answer may take, in seconds.
+    think_secs: u64,
+    /// What the player should be told about the choice.
+    note: Option<String>,
+}
+
+impl Join {
+    /// What the command line says over a profile.
+    fn overrides(&self) -> Overrides {
+        Overrides {
+            effort: self.effort.clone(),
+            answer: self.answer.map(|answer| match answer {
+                Answering::Tools => AnswerMode::Tools,
+                Answering::Json => AnswerMode::Json,
+            }),
+            max_tokens: self.max_tokens,
+            price: self
+                .price_in
+                .zip(self.price_out)
+                .map(|(input, output)| Price::per_million(input, output)),
+            spend_usd: self.spend_usd,
+            spend_tokens: self.spend_tokens,
+            think_secs: self.think_secs,
+        }
+    }
+}
+
+/// The mind `join` plays with, at `level` where the house decides. A
+/// language model's settings are the settings file's under the command
+/// line ([`config::plan`]), found through `env`; its key comes from `env`
+/// and nowhere else; and under a settings file (or `--ledger`) its game is
+/// reserved in the spend book at `now` before anything else is done.
+fn choose(
+    join: &Join,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    level: AIProfile,
+    now: Moment,
+) -> anyhow::Result<Chosen> {
+    let quiet = |mind: Arc<dyn Mind>, label: &str| Chosen {
+        mind,
+        label: label.into(),
+        tally: None,
+        booked: None,
+        think_secs: join.think_secs.unwrap_or(DEFAULT_THINK_SECS),
+        note: None,
+    };
+    let spec = match &join.mind {
+        Some(kind @ (MindKind::House | MindKind::Scripted)) => {
+            anyhow::ensure!(
+                join.profile.is_none(),
+                "--profile names a language model's settings, and --mind {} plays none",
+                kind.label()
+            );
+            return Ok(match kind {
+                MindKind::House => quiet(Arc::new(HouseMind::new(level)), "house"),
+                _ => quiet(Arc::new(ScriptedMind::idle()), "scripted"),
+            });
+        }
+        Some(MindKind::Llm(spec)) => Some(spec),
+        None => None,
+    };
+    let paths = Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), env);
+    let file = paths.load().map_err(anyhow::Error::msg)?;
+    let planned = config::plan(
+        spec,
+        file.as_ref(),
+        &paths,
+        join.profile.as_deref(),
+        &join.overrides(),
+    )
+    .map_err(anyhow::Error::msg)?;
+    let Some(plan) = planned else {
+        // Nothing names a model: the house, as with no settings file.
+        return Ok(quiet(Arc::new(HouseMind::new(level)), "house"));
+    };
+    no_key_in(args, env, &[&plan.key_env])?;
+    let mut settings = plan.settings;
+    settings.transcripts.clone_from(&join.transcripts);
+    let credentials = credentials_at(
+        settings.provider,
+        &plan.key_env,
+        plan.base_url.as_deref(),
+        env,
+    )
+    .map_err(anyhow::Error::msg)?;
+    let caps = file.as_ref().map(|file| file.caps).unwrap_or_default();
+    let mut booked = paths
+        .book(file.is_some())
+        .map(|book| spend::reserve(&book, &caps, &mut settings, plan.profile.as_deref(), now))
+        .transpose()
+        .map_err(anyhow::Error::msg)?;
+    let mind = ApiMind::new(settings, credentials);
+    let tally = mind.tally();
+    if let Some(booked) = &mut booked {
+        booked.watch(Arc::clone(&tally));
+    }
+    Ok(Chosen {
+        mind: Arc::new(mind),
+        label: plan.spec.tag(),
+        tally: Some(tally),
+        booked,
+        think_secs: plan.think_secs,
+        note: plan.note,
+    })
 }
 
 impl MindKind {
@@ -175,62 +314,6 @@ impl MindKind {
                 )),
             },
         }
-    }
-
-    /// The mind this choice plays with. A language model's key comes from
-    /// `env` and nowhere else.
-    fn mind(
-        &self,
-        profile: AIProfile,
-        join: &Join,
-        env: &dyn Fn(&str) -> Option<String>,
-    ) -> anyhow::Result<Chosen> {
-        Ok(match self {
-            Self::House => Chosen {
-                mind: Arc::new(HouseMind::new(profile)),
-                tally: None,
-            },
-            Self::Scripted => Chosen {
-                mind: Arc::new(ScriptedMind::idle()),
-                tally: None,
-            },
-            Self::Llm(spec) => {
-                let mut settings = Settings::new(spec);
-                if let Some(effort) = &join.effort {
-                    anyhow::ensure!(
-                        !effort.is_empty()
-                            && effort.len() <= 10
-                            && effort.chars().all(|c| c.is_ascii_lowercase()),
-                        "an effort is a word such as low, medium or high"
-                    );
-                    settings.effort = Some(effort.clone());
-                }
-                if matches!(join.answer, Answering::Json) {
-                    anyhow::ensure!(
-                        spec.provider == Provider::OpenAi,
-                        "--answer json is for an OpenAI-compatible endpoint; Anthropic's models \
-                         answer with tools"
-                    );
-                    settings.answer = AnswerMode::Json;
-                }
-                let price = join
-                    .price_in
-                    .zip(join.price_out)
-                    .map(|(input, output)| Price::per_million(input, output));
-                settings
-                    .budget(price, join.spend_usd, join.spend_tokens)
-                    .map_err(|why| anyhow::anyhow!(why))?;
-                settings.transcripts.clone_from(&join.transcripts);
-                let credentials =
-                    credentials(spec.provider, env).map_err(|why| anyhow::anyhow!(why))?;
-                let mind = ApiMind::new(settings, credentials);
-                let tally = mind.tally();
-                Chosen {
-                    mind: Arc::new(mind),
-                    tally: Some(tally),
-                }
-            }
-        })
     }
 
     fn label(&self) -> String {
@@ -252,10 +335,17 @@ fn usd(text: &str) -> Result<f64, String> {
 
 /// Refuses a command line that carries an API key: a key belongs in the
 /// environment, where no process list and no shell history shows it. Says
-/// which argument without printing it.
-fn no_key_in(args: &[String], env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<()> {
+/// which argument without printing it. The keys looked for are the
+/// providers' variables' and those of the variables in `also` (a profile's
+/// `key_env`).
+fn no_key_in(
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+    also: &[&str],
+) -> anyhow::Result<()> {
     let keys: Vec<Secret> = ["ANTHROPIC_API_KEY", "BAYLEE_LLM_API_KEY"]
         .iter()
+        .chain(also)
         .filter_map(|name| env(name).as_deref().and_then(Secret::new))
         .collect();
     for (at, arg) in args.iter().enumerate() {
@@ -264,7 +354,8 @@ fn no_key_in(args: &[String], env: &dyn Fn(&str) -> Option<String>) -> anyhow::R
         anyhow::ensure!(
             !(shaped || named),
             "argument {at} looks like an API key: set the key in the environment \
-             (ANTHROPIC_API_KEY, BAYLEE_LLM_API_KEY), never on the command line"
+             (ANTHROPIC_API_KEY, BAYLEE_LLM_API_KEY, or the variable a profile's key_env names), \
+             never on the command line"
         );
     }
     Ok(())
@@ -281,25 +372,43 @@ async fn main() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let env = |name: &str| std::env::var(name).ok();
     let args: Vec<String> = std::env::args().skip(1).collect();
-    no_key_in(&args, &env)?;
+    no_key_in(&args, &env, &[])?;
     match Cli::parse().command {
         Command::Join(join) => {
-            let seated = sit_down(&join, &env).await?;
-            let tally = seated.tally.clone();
-            let show = (join.show || matches!(join.mind, MindKind::Llm(_)))
-                .then(|| Arc::new(Mutex::new(Show::new())));
-            let played = play_out(&join, seated, show.clone()).await?;
-            report(&played);
-            if let Some(show) = show {
-                let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
-                let show = show.lock().unwrap_or_else(PoisonError::into_inner);
-                for line in show.summary(&played.stats, tally.as_ref()) {
-                    println!("{line}");
-                }
+            // Stopped with ctrl-c, the game is dropped where it stands, and
+            // its reservation settles with what it spent (`spend::Booked`).
+            tokio::select! {
+                done = join_and_play(&join, &args, &env) => done,
+                _ = tokio::signal::ctrl_c() => bail!("stopped before the game was over"),
             }
-            Ok(())
         }
     }
+}
+
+/// Sits down, plays the game out, and says how it went.
+async fn join_and_play(
+    join: &Join,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+) -> anyhow::Result<()> {
+    let mut seated = sit_down(join, args, env).await?;
+    let tally = seated.tally.clone();
+    let booked = seated.booked.take();
+    let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
+    let played = play_out(join, seated, show.clone()).await?;
+    report(&played);
+    if let Some(show) = show {
+        let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
+        let show = show.lock().unwrap_or_else(PoisonError::into_inner);
+        for line in show.summary(&played.stats, tally.as_ref()) {
+            println!("{line}");
+        }
+    }
+    if let Some(mut booked) = booked {
+        booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
+        println!("the game is settled in the spend book");
+    }
+    Ok(())
 }
 
 /// A chair taken, and what the seat plays with.
@@ -311,13 +420,15 @@ struct Seated {
     profile: AIProfile,
     mind: Arc<dyn Mind>,
     tally: Option<Arc<Mutex<Tally>>>,
+    booked: Option<Booked>,
+    think_secs: u64,
 }
 
 /// The name a chair played by `mind` signs in under: the prefix of what
-/// the mind says it is, then `--name` or the mind's kind (a language
-/// model's is its model: `LLM-sonnet-5-5`).
-fn display_name(name: Option<&str>, kind: &MindKind, mind: &dyn Mind) -> anyhow::Result<String> {
-    seat_name(mind.disclosure(), name.unwrap_or(&kind.label()))
+/// the mind says it is, then `--name` or the mind's `label` (its kind, or
+/// a language model's model: `LLM-sonnet-5-5`).
+fn display_name(name: Option<&str>, label: &str, mind: &dyn Mind) -> anyhow::Result<String> {
+    seat_name(mind.disclosure(), name.unwrap_or(label))
 }
 
 /// The seat that plays for `mind`, held at the table to the name
@@ -326,13 +437,28 @@ fn seat_core(config: BridgeConfig, deck: &Deck, mind: &dyn Mind) -> SeatCore {
     SeatCore::new(config, deck.list.clone(), mind.disclosure())
 }
 
-/// Signs in, checks the room, takes a chair, says ready and waits for the
-/// host to start.
-async fn sit_down(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Seated> {
+/// Chooses the mind (a language model's game reserved in the spend book
+/// first), signs in, checks the room, takes a chair, says ready and waits
+/// for the host to start.
+async fn sit_down(
+    join: &Join,
+    args: &[String],
+    env: &dyn Fn(&str) -> Option<String>,
+) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
         .with_context(|| format!("no house level called «{}»", join.level))?;
-    let Chosen { mind, tally } = join.mind.mind(profile, join, env)?;
-    let display_name = display_name(join.name.as_deref(), &join.mind, &*mind)?;
+    let Chosen {
+        mind,
+        label,
+        tally,
+        booked,
+        think_secs,
+        note,
+    } = choose(join, args, env, profile, spend::now())?;
+    if let Some(note) = note {
+        println!("{note}");
+    }
+    let display_name = display_name(join.name.as_deref(), &label, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {
         (Some(path), _) => Deck::from_file(path)?,
         (None, name) => Deck::acceptance(name.as_deref().unwrap_or("Allytifact"))?,
@@ -404,6 +530,8 @@ async fn sit_down(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> anyhow::
         profile,
         mind,
         tally,
+        booked,
+        think_secs,
     })
 }
 
@@ -415,7 +543,7 @@ async fn play_out(
     show: Option<Arc<Mutex<Show>>>,
 ) -> anyhow::Result<bridge::Played> {
     let config = BridgeConfig {
-        think: Duration::from_secs(join.think_secs),
+        think: Duration::from_secs(seated.think_secs),
         allow_blitz: join.allow_blitz,
         house: seated.profile,
         ..BridgeConfig::default()
@@ -485,7 +613,15 @@ fn report(played: &bridge::Played) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_client_core::llmseat::ledger::{Book, Budget};
     use baylee_seat::Disclosure;
+    use std::path::Path;
+
+    /// 2026-09-30 12:00 UTC, two hours east.
+    const NOW: Moment = Moment {
+        unix: 1_790_769_600,
+        offset: Some(7200),
+    };
 
     /// A chair's name tells the truth about its mind (the owner's rule):
     /// the house signs in as the house and a script as a test, never as a
@@ -496,17 +632,73 @@ mod tests {
 
     /// `join` with more arguments after `--mind`.
     fn join_with(mind: &str, more: &[&str]) -> Result<Join, clap::Error> {
-        let head = ["baylee-seat", "join", "TEST-room", "--mind", mind];
-        Cli::try_parse_from(head.iter().chain(more)).map(|cli| match cli.command {
+        let head = ["--mind", mind];
+        join_args(&head.iter().chain(more).copied().collect::<Vec<_>>())
+    }
+
+    /// `join TEST-room` with `args`.
+    fn join_args(args: &[&str]) -> Result<Join, clap::Error> {
+        let head = ["baylee-seat", "join", "TEST-room"];
+        Cli::try_parse_from(head.iter().chain(args)).map(|cli| match cli.command {
             Command::Join(join) => join,
         })
     }
 
     /// A placeholder key, so a language-model mind can be built without
-    /// one; nothing is ever sent with it.
+    /// one; nothing is ever sent with it. No other variable is set: no
+    /// config directory, so no settings file, as on a machine without one.
     fn placeholder(name: &str) -> Option<String> {
         (name == "ANTHROPIC_API_KEY" || name == "BAYLEE_LLM_API_KEY")
             .then(|| "TEST-placeholder-key".to_string())
+    }
+
+    fn chosen(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Chosen> {
+        choose(join, &[], env, AIProfile::default(), NOW)
+    }
+
+    /// A directory of this test's own, empty.
+    fn scratch(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("baylee-seat-main-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A settings file at `dir/llm-seat.json`: a default Sonnet profile of
+    /// $2 a game under a day's cap of $3.
+    fn settings_in(dir: &Path) -> PathBuf {
+        let path = dir.join("llm-seat.json");
+        std::fs::write(
+            &path,
+            r#"{
+              "default": "sonnet",
+              "caps": {"day_usd": 3},
+              "profiles": {
+                "sonnet": {"provider": "anthropic", "model": "claude-sonnet-5-5",
+                           "game_usd": 2, "think_secs": 30},
+                "keyed": {"provider": "anthropic", "model": "claude-opus-5-5",
+                          "key_env": "TEST_OWN_KEY"}
+              }
+            }"#,
+        )
+        .unwrap();
+        path
+    }
+
+    /// The file's content and each file's bytes in `dir`, to see that
+    /// nothing there was touched.
+    fn snapshot(dir: &Path) -> Vec<(String, Vec<u8>)> {
+        let mut files: Vec<(String, Vec<u8>)> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                let name = path.file_name().unwrap().to_string_lossy().into_owned();
+                (name, std::fs::read(&path).unwrap())
+            })
+            .collect();
+        files.sort();
+        files
     }
 
     #[test]
@@ -522,18 +714,15 @@ mod tests {
         for (spec, named, prefix) in minds {
             // A model with no price sits down only with a token budget.
             let join = join_with(spec, &["--spend-tokens", "100000"]).unwrap();
-            let kind = &join.mind;
-            let chosen_mind = kind
-                .mind(AIProfile::default(), &join, &placeholder)
-                .unwrap();
-            let mind = &*chosen_mind.mind;
-            assert_eq!(display_name(None, kind, mind).unwrap(), named);
-            let chosen = display_name(Some("x1"), kind, mind).unwrap();
-            assert_eq!(chosen, format!("{prefix}x1"), "--name keeps the prefix");
+            let chosen = chosen(&join, &placeholder).unwrap();
+            let mind = &*chosen.mind;
+            assert_eq!(display_name(None, &chosen.label, mind).unwrap(), named);
+            let named_too = display_name(Some("x1"), &chosen.label, mind).unwrap();
+            assert_eq!(named_too, format!("{prefix}x1"), "--name keeps the prefix");
             let core = seat_core(BridgeConfig::default(), &deck, mind);
             assert_eq!(core.disclosure(), mind.disclosure());
-            let llm = matches!(kind, MindKind::Llm(_));
-            for name in [named, chosen.as_str()] {
+            let llm = matches!(join.mind, Some(MindKind::Llm(_)));
+            for name in [named, named_too.as_str()] {
                 assert!(core.disclosure().names(name), "the seat refuses «{name}»");
                 assert_eq!(Disclosure::Llm.names(name), llm, "«{name}» and a model");
             }
@@ -541,21 +730,28 @@ mod tests {
     }
 
     /// A key on the command line is refused, by its shape or by being the
-    /// environment's key, and the refusal does not repeat it.
+    /// environment's key (a profile's own variable's too), and the refusal
+    /// does not repeat it.
     #[test]
     fn a_key_on_the_command_line_is_refused_without_being_printed() {
         let args = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();
         let fine = args(&["join", "room", "--mind", "anthropic"]);
-        assert!(no_key_in(&fine, &placeholder).is_ok());
+        assert!(no_key_in(&fine, &placeholder, &[]).is_ok());
         let shaped = args(&["join", "room", "--name", "sk-ant-api03-AAAABBBBCCCCDDDD"]);
-        let refused = no_key_in(&shaped, &|_| None).unwrap_err().to_string();
+        let refused = no_key_in(&shaped, &|_| None, &[]).unwrap_err().to_string();
         assert!(refused.contains("argument 3"), "{refused}");
         assert!(!refused.contains("AAAABBBB"), "{refused}");
         let same = args(&["join", "room", "--password", "TEST-placeholder-key"]);
-        assert!(no_key_in(&same, &placeholder).is_err());
+        assert!(no_key_in(&same, &placeholder, &[]).is_err());
+        let own = |name: &str| (name == "TEST_OWN_KEY").then(|| "TEST-own-key-value".to_string());
+        let theirs = args(&["join", "room", "--password", "TEST-own-key-value"]);
+        assert!(
+            no_key_in(&theirs, &own, &[]).is_ok(),
+            "not a variable it knows"
+        );
+        assert!(no_key_in(&theirs, &own, &["TEST_OWN_KEY"]).is_err());
         // No key in the environment, no language model.
-        let join = join("anthropic");
-        let missing = join.mind.mind(AIProfile::default(), &join, &|_| None);
+        let missing = chosen(&join("anthropic"), &|_| None);
         assert!(missing.is_err());
     }
 
@@ -566,8 +762,7 @@ mod tests {
     fn a_model_with_no_price_states_its_price_or_its_token_limit() {
         let sits = |mind: &str, more: &[&str]| {
             let join = join_with(mind, more).expect("a command line");
-            join.mind
-                .mind(AIProfile::default(), &join, &placeholder)
+            chosen(&join, &placeholder)
                 .map(|_| ())
                 .map_err(|e| e.to_string())
         };
@@ -628,8 +823,173 @@ mod tests {
             "required, for a model this build has no price for",
             "--price-in",
             "--price-out",
+            "--profile",
+            "BAYLEE_SEAT_CONFIG",
+            "llm-spend.json",
         ] {
             assert!(help.contains(said), "--help lacks «{said}»:\n{help}");
         }
+    }
+
+    /// With no settings file the bridge is what it was: the house when told
+    /// nothing, a model with the build's limits and no spend book, and a
+    /// profile it cannot have.
+    #[test]
+    fn with_no_settings_file_the_bridge_plays_as_before() {
+        let bare = chosen(&join_args(&[]).unwrap(), &placeholder).unwrap();
+        assert_eq!(bare.label, "house");
+        assert!(bare.tally.is_none() && bare.booked.is_none());
+        assert_eq!(bare.think_secs, DEFAULT_THINK_SECS);
+        let model = chosen(&join("anthropic"), &placeholder).unwrap();
+        assert!(model.tally.is_some());
+        assert!(model.booked.is_none(), "no file, no book");
+        assert_eq!(model.think_secs, 60);
+        let refused = chosen(&join_args(&["--profile", "sonnet"]).unwrap(), &placeholder)
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            refused.contains("--profile sonnet") && refused.contains("none"),
+            "{refused}"
+        );
+        let refused = chosen(
+            &join_with("house", &["--profile", "x"]).unwrap(),
+            &placeholder,
+        )
+        .map(|_| ())
+        .unwrap_err()
+        .to_string();
+        assert!(refused.contains("--mind house plays none"), "{refused}");
+    }
+
+    /// Given `--config` (or `BAYLEE_SEAT_CONFIG`), the player's own config
+    /// directory is neither read nor written, whatever it holds: here a
+    /// file that would refuse if it were read, beside which no book grows.
+    #[test]
+    fn a_named_file_keeps_the_real_config_directory_out_of_it() {
+        let dir = scratch("real-dir");
+        let real = dir.join("xdg").join("baylee");
+        std::fs::create_dir_all(&real).unwrap();
+        std::fs::write(real.join("llm-seat.json"), r#"{"caps": {"week_usd": 1}}"#).unwrap();
+        let before = snapshot(&real);
+        let mine = dir.join("mine");
+        std::fs::create_dir_all(&mine).unwrap();
+        let config = settings_in(&mine);
+        let xdg = dir.join("xdg").display().to_string();
+        let env = |name: &str| match name {
+            "XDG_CONFIG_HOME" => Some(xdg.clone()),
+            _ => placeholder(name),
+        };
+        // The premise: without the flag, the real directory is where the
+        // bridge looks, and its file is refused.
+        let refused = chosen(&join_args(&[]).unwrap(), &env)
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("week_usd"), "{refused}");
+
+        let named = join_args(&["--config", config.to_str().unwrap()]).unwrap();
+        let game = chosen(&named, &env).expect("the named file plays");
+        assert_eq!(game.label, "sonnet-5-5");
+        assert_eq!(game.think_secs, 30);
+        drop(game);
+        let by_env = |name: &str| match name {
+            "BAYLEE_SEAT_CONFIG" => Some(config.display().to_string()),
+            _ => env(name),
+        };
+        drop(chosen(&join_args(&[]).unwrap(), &by_env).expect("the file the environment names"));
+        assert_eq!(snapshot(&real), before, "the real directory is untouched");
+        let book = Book::beside(&config).read().unwrap();
+        assert_eq!(
+            book.games.len(),
+            2,
+            "both games are in the book beside the named file"
+        );
+        assert!(book.games.iter().all(|g| g.settled.is_some()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A file named must be there: a mistyped path never drops the caps.
+    #[test]
+    fn a_named_settings_file_must_be_there() {
+        let dir = scratch("missing");
+        let gone = dir.join("nothing-here.json");
+        let named = join_args(&["--config", gone.to_str().unwrap()]).unwrap();
+        let refused = chosen(&named, &placeholder)
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("there is no settings file"), "{refused}");
+        let by_env = |name: &str| match name {
+            "BAYLEE_SEAT_CONFIG" => Some(gone.display().to_string()),
+            _ => placeholder(name),
+        };
+        assert!(chosen(&join("anthropic"), &by_env).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Under the file, a game reserves before it sits down and plays under
+    /// what it was granted; with the day's cap taken it is refused with a
+    /// sentence, and a game that ended gives back what it did not spend.
+    #[test]
+    fn under_a_settings_file_a_game_reserves_before_it_sits_down() {
+        let dir = scratch("reserve");
+        let config = settings_in(&dir);
+        let named = join_args(&["--config", config.to_str().unwrap()]).unwrap();
+        let first = chosen(&named, &placeholder).unwrap();
+        assert_eq!(
+            first.booked.as_ref().unwrap().grant().budget,
+            Budget::Usd(2.0)
+        );
+        let second = chosen(&named, &placeholder).unwrap();
+        let left = match second.booked.as_ref().unwrap().grant().budget {
+            Budget::Usd(usd) => usd,
+            Budget::Tokens(_) => panic!("dollars"),
+        };
+        assert!((left - 1.0).abs() < 1e-9, "what the day's cap left: {left}");
+        let refused = chosen(&named, &placeholder)
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("the day's cap of $3.00"), "{refused}");
+        assert!(refused.contains("local time, UTC+02:00"), "{refused}");
+        drop(first);
+        let third = chosen(&named, &placeholder).expect("the first game gave its $2 back");
+        drop((second, third));
+
+        // --mind over the file still counts in its book; the house does not.
+        let model = join_with(
+            "anthropic:claude-opus-5-5",
+            &["--config", config.to_str().unwrap()],
+        )
+        .unwrap();
+        assert!(chosen(&model, &placeholder).unwrap().booked.is_some());
+        let house = join_with("house", &["--config", config.to_str().unwrap()]).unwrap();
+        assert!(chosen(&house, &placeholder).unwrap().booked.is_none());
+        let games = Book::beside(&config).read().unwrap().games.len();
+        assert_eq!(games, 4, "the refusal reserved nothing, the house nothing");
+
+        // A profile's key comes from its own variable.
+        let keyed =
+            join_args(&["--config", config.to_str().unwrap(), "--profile", "keyed"]).unwrap();
+        let refused = chosen(&keyed, &placeholder)
+            .map(|_| ())
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("set TEST_OWN_KEY"), "{refused}");
+        let own = |name: &str| (name == "TEST_OWN_KEY").then(|| "TEST-own-key-value".to_string());
+        assert!(chosen(&keyed, &own).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `--ledger` puts the book where it says, file or no file.
+    #[test]
+    fn the_book_is_where_ledger_says() {
+        let dir = scratch("ledger");
+        let book = dir.join("elsewhere.json");
+        let named = join_with("anthropic", &["--ledger", book.to_str().unwrap()]).unwrap();
+        drop(chosen(&named, &placeholder).unwrap());
+        assert_eq!(Book::new(book).read().unwrap().games.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
