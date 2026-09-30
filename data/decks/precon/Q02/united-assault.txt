@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: United Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnitedAssault_Q02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q02
+# released: 2019-04-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adanto Vanguard (XLN) 1
+4 Ajani's Pridemate (M19) 5
+4 Benalish Marshal (DOM) 6
+3 Conclave Tribunal (GRN) 6
+4 Dauntless Bodyguard (DOM) 14
+4 Healer's Hawk (GRN) 14
+2 History of Benalia (DOM) 21
+1 Hunted Witness (GRN) 15
+2 Legion's Landing // Adanto, the First Fort (XLN) 22
+4 Leonin Vanguard (M19) 22
+21 Plains (RNA) 260
+3 Pride of Conquerors (RIX) 17
+4 Skymarcher Aspirant (RIX) 21
+SB: 3 Baffling End (RIX) 1
+SB: 1 Conclave Tribunal (GRN) 6
+SB: 3 Knight of Grace (DOM) 23
+SB: 2 Make a Stand (M19) 26
+SB: 1 Remorseful Cleric (M19) 33
+SB: 3 Shield Mare (M19) 37
+SB: 2 Tocatli Honor Guard (XLN) 42

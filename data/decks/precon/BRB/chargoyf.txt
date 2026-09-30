@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Chargoyf
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Chargoyf_BRB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BRB
+# released: 1999-11-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arc Lightning (BRB) 5
+1 Broken Fall (BRB) 10
+1 Forest (BRB) 101
+2 Forest (BRB) 104
+2 Forest (BRB) 106
+1 Forest (BRB) 107
+1 Forest (BRB) 108
+2 Forest (BRB) 109
+1 Gorilla Warrior (BRB) 30
+1 Lhurgoyf (BRB) 36
+1 Llanowar Elves (BRB) 39
+1 Maniacal Rage (BRB) 42
+1 Mogg Hollows (BRB) 45
+1 Mountain (BRB) 116
+1 Mountain (BRB) 118
+1 Mountain (BRB) 120
+1 Mountain (BRB) 121
+1 Mountain (BRB) 122
+1 Mountain (BRB) 123
+1 Pincher Beetles (BRB) 51
+1 Plated Rootwalla (BRB) 52
+1 Raging Goblin (BRB) 55
+1 River Boa (BRB) 59
+1 Scryb Sprites (BRB) 66
+1 Seeker of Skybreak (BRB) 68
+1 Shower of Sparks (BRB) 71
+1 Skyshroud Elite (BRB) 72
+1 Slippery Karst (BRB) 73
+1 Spike Feeder (BRB) 78
+1 Spike Weaver (BRB) 79
+1 Steam Blast (BRB) 81
+1 Symbiosis (BRB) 85
+1 Tranquility (BRB) 89
+1 Trumpeting Armodon (BRB) 90
+1 Uthden Troll (BRB) 92
+1 Village Elder (BRB) 94
+1 Wildfire Emissary (BRB) 97

@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Haze of Spores
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, HazeOfSpores_ME2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: ME2
+# released: 2008-09-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aeolipile (ME2) 202
+1 Elvish Farmer (ME2) 156
+3 Feral Thallid (ME2) 161
+1 Folk of the Pines (ME2) 162
+1 Forbidden Lore (ME2) 163
+7 Forest (ME1) 193
+7 Forest (ME1) 194
+7 Forest (ME1) 195
+1 Fungal Bloom (ME2) 165
+2 Fyndhorn Elves (ME1) 118
+1 Giant Growth (ME2) 167
+2 Havenwood Battleground (ME2) 230
+1 Kaysa (ME2) 170
+1 Mishra's Factory (ME1) 178
+1 Night Soil (ME2) 173
+1 Singing Tree (ME1) 130
+2 Skull Catapult (ME2) 219
+1 Spectral Bears (ME1) 131
+1 Spore Cloud (ME2) 176
+2 Spore Flower (ME2) 177
+4 Thallid (ME2) 180
+3 Thallid Devourer (ME2) 181
+3 Thorn Thallid (ME1) 135
+1 Whirling Catapult (ME2) 224
+2 Woolly Spider (ME2) 189
+1 Wyluli Wolf (ME1) 139
+1 Yavimaya Ancients (ME2) 190

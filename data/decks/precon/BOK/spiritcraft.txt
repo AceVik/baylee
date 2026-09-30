@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Spiritcraft
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Spiritcraft_BOK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BOK
+# released: 2005-02-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blessed Breath (CHK) 1
+1 Budoka Pupil // Ichiga, Who Topples Oaks (BOK) 122
+2 Faithful Squire // Kaiso, Memory of Loyalty (BOK) 3
+4 Forest (CHK) 303
+4 Forest (CHK) 304
+3 Forest (CHK) 305
+3 Forest (CHK) 306
+2 Horizon Seed (CHK) 15
+1 Kami of Tattered Shoji (BOK) 11
+3 Kami of the Hunt (CHK) 219
+1 Kodama of the Center Tree (BOK) 131
+2 Kodama's Might (CHK) 224
+2 Lantern Kami (CHK) 32
+2 Loam Dweller (BOK) 134
+1 Orbweaver Kumo (CHK) 231
+1 Otherworldly Journey (CHK) 37
+1 Oyobi, Who Split the Heavens (BOK) 18
+2 Petalmane Baku (BOK) 139
+3 Plains (CHK) 287
+3 Plains (CHK) 288
+2 Plains (CHK) 289
+2 Plains (CHK) 290
+1 Roar of Jukai (BOK) 140
+2 Scaled Hulk (BOK) 143
+2 Terashi's Verdict (BOK) 27
+1 Traproot Kami (BOK) 147
+2 Unchecked Growth (BOK) 148
+2 Vital Surge (BOK) 150
+2 Waxmane Baku (BOK) 29
+1 Wear Away (CHK) 250

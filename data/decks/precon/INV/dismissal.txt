@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Dismissal
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Dismissal_INV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: INV
+# released: 2000-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agonizing Demise (INV) 92
+1 Cursed Flesh (INV) 98
+1 Disrupt (INV) 51
+1 Drake-Skull Cameo (INV) 302
+2 Dream Thrush (INV) 53
+1 Duskwalker (INV) 104
+2 Faerie Squadron (INV) 58
+1 Hate Weaver (INV) 108
+3 Island (INV) 335
+3 Island (INV) 336
+3 Island (INV) 337
+2 Island (INV) 338
+1 Lobotomy (INV) 255
+1 Metathran Zombie (INV) 63
+1 Nightscape Apprentice (INV) 112
+1 Opt (INV) 64
+1 Phyrexian Infiltrator (INV) 116
+2 Probe (INV) 66
+1 Prohibit (INV) 67
+3 Ravenous Rats (INV) 120
+3 Recoil (INV) 264
+1 Repulse (INV) 70
+2 Salt Marsh (INV) 326
+1 Seer's Vision (INV) 270
+1 Slinking Serpent (INV) 274
+1 Spite // Malice (INV) 293
+1 Stalking Assassin (INV) 277
+1 Sulfur Vent (INV) 328
+3 Swamp (INV) 339
+2 Swamp (INV) 340
+2 Swamp (INV) 341
+2 Swamp (INV) 342
+1 Tidal Visionary (INV) 80
+2 Urborg Drake (INV) 283
+1 Urborg Emissary (INV) 131
+1 Vodalian Hypnotist (INV) 84
+2 Vodalian Serpent (INV) 86
+1 Vodalian Zombie (INV) 286

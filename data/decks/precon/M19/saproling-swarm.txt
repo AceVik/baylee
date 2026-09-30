@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Saproling Swarm
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SaprolingSwarm_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M19
+# released: 2018-09-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Costly Plunder (XLN) 96
+3 Deathbloom Thallid (DOM) 84
+3 Doomed Dissenter (M19) 93
+3 Forest (M19) 277
+3 Forest (M19) 278
+2 Forest (M19) 279
+2 Forest (M19) 280
+4 Foul Orchard (M19) 251
+3 Fungal Infection (DOM) 94
+1 Path of Discovery (RIX) 142
+3 Poison-Tip Archer (M19) 220
+1 Rite of Belzenlok (DOM) 102
+3 Saproling Migration (DOM) 178
+1 Slimefoot, the Stowaway (DOM) 205
+2 Spore Swarm (DOM) 180
+3 Swamp (M19) 269
+3 Swamp (M19) 270
+2 Swamp (M19) 271
+2 Swamp (M19) 272
+1 Tendershoot Dryad (RIX) 147
+2 Thallid Omnivore (DOM) 106
+1 Torgaar, Famine Incarnate (DOM) 108
+1 Twilight Prophet (RIX) 88
+1 Verdant Force (DOM) 187
+3 Vicious Offering (DOM) 110
+1 Whisper, Blood Liturgist (DOM) 111
+1 Woodland Cemetery (DOM) 248
+3 Yavimaya Sapherd (DOM) 189

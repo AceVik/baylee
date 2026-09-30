@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Dangerous Knowledge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DangerousKnowledge_EMN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: EMN
+# released: 2016-07-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bedlam Reveler (EMN) 118
+1 Convolute (EMN) 53
+1 Dance with Devils (SOI) 150
+1 Drag Under (EMN) 57
+3 Galvanic Bombardment (EMN) 129
+2 Geistblast (SOI) 160
+1 Incendiary Flow (EMN) 133
+2 Ingenious Skaab (EMN) 66
+5 Island (SOI) 286
+4 Island (SOI) 287
+4 Island (SOI) 288
+2 Make Mischief (EMN) 135
+2 Mercurial Geists (EMN) 186
+4 Mountain (SOI) 292
+4 Mountain (SOI) 293
+4 Mountain (SOI) 294
+1 Niblis of Dusk (SOI) 76
+1 Niblis of Frost (PEMN) 72 *F*
+1 Pieces of the Puzzle (SOI) 78
+1 Pore Over the Pages (SOI) 79
+1 Pyre Hound (SOI) 174
+1 Reduce to Ashes (SOI) 176
+1 Rise from the Tides (SOI) 83
+1 Sanguinary Mage (SOI) 178
+2 Shreds of Sanity (EMN) 141
+1 Silburlind Snapper (SOI) 85
+3 Take Inventory (EMN) 76
+2 Thermo-Alchemist (EMN) 147
+1 Turn Aside (EMN) 78
+2 Weaver of Lightning (EMN) 149

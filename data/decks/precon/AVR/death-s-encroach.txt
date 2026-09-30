@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Death's Encroach
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathSEncroach_AVR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: AVR
+# released: 2012-05-25
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Altar's Reap (ISD) 86
+1 Cemetery Reaper (M12) 86
+2 Crypt Creeper (AVR) 91
+3 Despise (NPH) 56
+4 Diregraf Ghoul (ISD) 97
+2 Dismember (NPH) 57
+2 Doom Blade (M12) 95
+1 Geralf's Messenger (DKA) 63
+3 Ghoulraiser (ISD) 102
+1 Gloom Surgeon (AVR) 104
+3 Go for the Throat (MBS) 43
+1 Gravecrawler (DKA) 64
+4 Highborn Ghoul (DKA) 68
+2 Lashwrithe (NPH) 143
+4 Skinrender (SOM) 78
+8 Swamp (AVR) 236
+8 Swamp (AVR) 237
+8 Swamp (AVR) 238
+SB: 2 Appetite for Brains (AVR) 84
+SB: 2 Crypt Creeper (AVR) 91
+SB: 3 Deathmark (M12) 90
+SB: 1 Despise (NPH) 56
+SB: 2 Distress (M12) 94
+SB: 1 Ghoulraiser (ISD) 102
+SB: 1 Surgical Extraction (NPH) 74
+SB: 3 Triumph of Cruelty (AVR) 122

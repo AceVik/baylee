@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Widowmaker - Basic Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WidowmakerBasicDeck_EXO.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: EXO
+# released: 1998-06-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Capsize (TMP) 55
+2 Counterspell (TMP) 57
+2 Dark Banishing (TMP) 117
+2 Dark Ritual (TMP) 118
+2 Diabolic Edict (TMP) 128
+2 Forbid (EXO) 35
+4 Island (TMP) 335
+4 Island (TMP) 336
+3 Island (TMP) 337
+3 Island (TMP) 338
+1 Keeper of the Mind (EXO) 36
+2 Mana Leak (STH) 36
+3 Manta Riders (TMP) 74
+4 Merfolk Looter (EXO) 39
+2 Mind Maggots (EXO) 66
+1 Mindless Automaton (EXO) 135
+2 Necrologia (EXO) 68
+1 Null Brooch (EXO) 136
+1 Oath of Scholars (EXO) 42
+1 Rootwater Hunter (TMP) 82
+1 Skyshroud Vampire (TMP) 157
+3 Swamp (TMP) 339
+3 Swamp (TMP) 340
+3 Swamp (TMP) 341
+2 Swamp (TMP) 342
+1 Thalakos Scout (EXO) 48
+1 Treasure Trove (EXO) 50
+3 Vampire Hounds (EXO) 77

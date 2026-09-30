@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: Conquering Hordes
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ConqueringHordes_KTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: KTK
+# released: 2014-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Banishing Light (JOU) 5
+1 Bile Blight (BNG) 61
+1 Bloodsoaked Champion (KTK) 66
+1 Caves of Koilos (M15) 241
+2 Chief of the Edge (KTK) 169
+2 Chief of the Scale (KTK) 170
+1 Dictate of Erebos (JOU) 65
+1 Dictate of Heliod (JOU) 8
+1 Herald of Anafenza (KTK) 12
+1 Herald of Torment (BNG) 75
+3 Mardu Hateblade (KTK) 16
+1 Mardu Hordechief (KTK) 17
+3 Mardu Skullhunter (KTK) 78
+3 Oreskos Swiftclaw (M15) 22
+1 Pain Seer (BNG) 80
+3 Plains (KTK) 250
+3 Plains (KTK) 251
+2 Plains (KTK) 252
+2 Plains (KTK) 253
+2 Raiders' Spoils (KTK) 83
+1 Rush of Battle (KTK) 19
+4 Scoured Barrens (KTK) 242
+2 Seeker of the Way (KTK) 22
+1 Silence the Believers (JOU) 82
+1 Spear of Heliod (THS) 33
+1 Spirit Bonds (M15) 37
+3 Swamp (KTK) 258
+2 Swamp (KTK) 259
+2 Swamp (KTK) 260
+2 Swamp (KTK) 261
+2 Timely Hordemate (KTK) 27
+3 Tormented Hero (THS) 108
+SB: 2 Brain Maggot (JOU) 62
+SB: 3 Dark Betrayal (THS) 83
+SB: 2 Despise (KTK) 69
+SB: 1 Drown in Sorrow (BNG) 65
+SB: 3 Glare of Heresy (THS) 15
+SB: 2 Solemn Offering (M15) 33
+SB: 2 Tormod's Crypt (M15) 237

@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Stampede
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Stampede_5DN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 5DN
+# released: 2004-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barbed Lightning (DST) 55
+1 Cosmic Larva (5DN) 63
+1 Eternal Witness (5DN) 86
+1 Fangren Hunter (MRD) 119
+2 Fangren Pathcutter (5DN) 87
+1 Ferocious Charge (5DN) 88
+3 Forest (MRD) 303
+3 Forest (MRD) 304
+3 Forest (MRD) 305
+2 Forest (MRD) 306
+2 Goblin Brawler (5DN) 66
+1 Goblin Cannon (5DN) 125
+1 Goblin Replica (MRD) 178
+1 Grab the Reins (MRD) 95
+1 Iron-Barb Hellion (5DN) 69
+1 Magma Jet (5DN) 73
+3 Mountain (MRD) 299
+3 Mountain (MRD) 300
+3 Mountain (MRD) 301
+3 Mountain (MRD) 302
+1 Pyrite Spellbomb (MRD) 232
+1 Rain of Rust (5DN) 76
+1 Rite of Passage (5DN) 91
+1 Slith Firewalker (MRD) 107
+1 Spark Elemental (5DN) 79
+2 Spikeshot Goblin (MRD) 108
+2 Sylvok Explorer (5DN) 93
+2 Talisman of Impulse (MRD) 254
+1 Tangle Asp (5DN) 94
+1 Tel-Jilad Chosen (MRD) 132
+2 Tel-Jilad Exile (MRD) 133
+1 Tel-Jilad Justice (5DN) 95
+1 Tel-Jilad Lifebreather (5DN) 96
+2 Tyrranax (5DN) 98
+2 Viridian Lorebearers (5DN) 99
+1 Vulshok Berserker (MRD) 111
+1 Vulshok Sorcerer (5DN) 80

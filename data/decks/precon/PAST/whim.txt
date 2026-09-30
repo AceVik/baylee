@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Whim
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Whim_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Alabaster Potion (LEG) 2
+1 Black Lotus (2ED) 233
+2 Carrion Ants (LEG) 90
+2 Colossus of Sardia (ATQ) 46
+2 Drain Power (3ED) 56
+3 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+2 Kismet (LEG) 25
+1 Kormus Bell (3ED) 260
+2 Meekstone (3ED) 264
+1 Mox Jet (2ED) 263
+1 Mox Pearl (2ED) 264
+1 Mox Sapphire (2ED) 266
+2 Plains (3ED) 292
+2 Plains (3ED) 293
+2 Plains (3ED) 294
+4 Power Sink (3ED) 74
+4 Psychic Venom (3ED) 76
+4 Royal Assassin (3ED) 125
+2 Serra Angel (3ED) 40
+2 Shapeshifter (ATQ) 64
+2 Siren's Call (3ED) 80
+2 Swamp (3ED) 298
+2 Swamp (3ED) 299
+2 Swamp (3ED) 300
+2 Twiddle (2ED) 86
+1 Whimsy (PAST) 10
+2 Word of Binding (DRK) 55
+4 Yotian Soldier (ATQ) 79

@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Shawn Hammer Regnier, Quarterfinalist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ShawnHammerRegnierQuarterfinalist_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pro Tour Deck
+# set: PTC
+# released: 1996-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adarkar Wastes (PTC) shr351
+1 Balance (PTC) shr6
+1 City of Brass (PTC) shr112
+4 Counterspell (PTC) shr65
+4 Disenchant (PTC) shr22
+3 Icy Manipulator (PTC) shr322
+2 Island (PTC) shr367
+1 Island (PTC) shr368
+1 Island (PTC) shr369
+1 Ivory Tower (PTC) shr328
+3 Land Tax (PTC) shr34
+3 Millstone (PTC) shr336
+3 Mishra's Factory (PTC) shr361
+2 Plains (PTC) shr364
+2 Plains (PTC) shr365
+2 Plains (PTC) shr366
+4 Power Sink (PTC) shr93
+1 Recall (PTC) shr24
+1 Ruins of Trokair (PTC) shr100
+4 Spell Blast (PTC) shr103
+4 Svyelunite Temple (PTC) shr102
+4 Swords to Plowshares (PTC) shr52
+4 Wrath of God (PTC) shr58
+1 Zuran Orb (PTC) shr350
+SB: 1 Abbey Gargoyles (PTC) shr1sb
+SB: 1 Arenson's Aura (PTC) shr3sb
+SB: 2 Circle of Protection: Black (PTC) shr14sb
+SB: 2 Circle of Protection: Red (PTC) shr15sb
+SB: 1 Divine Offering (PTC) shr6sb
+SB: 1 Feldon's Cane (PTC) shr50sb
+SB: 1 Fountain of Youth (PTC) shr98sb
+SB: 1 Memory Lapse (PTC) shr32asb
+SB: 1 Memory Lapse (PTC) shr32bsb
+SB: 1 Sea Sprite (PTC) shr38sb
+SB: 2 Steal Artifact (PTC) shr105sb
+SB: 1 Truce (PTC) shr20sb

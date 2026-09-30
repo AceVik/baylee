@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Charge of the Boros
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ChargeOfTheBoros_RAV.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: RAV
+# released: 2005-10-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agrus Kos, Wojek Veteran (RAV) 190
+1 Bathe in Light (RAV) 2
+2 Boros Garrison (RAV) 275
+1 Boros Guildmage (RAV) 242
+3 Boros Recruit (RAV) 243
+2 Boros Swiftblade (RAV) 193
+2 Cleansing Beam (RAV) 118
+1 Cyclopean Snare (RAV) 259
+2 Dogpile (RAV) 120
+2 Flame-Kin Zealot (RAV) 206
+1 Greater Forgeling (RAV) 129
+2 Lightning Helix (RAV) 213
+3 Mountain (RAV) 299
+3 Mountain (RAV) 300
+2 Mountain (RAV) 301
+2 Mountain (RAV) 302
+2 Nightguard Patrol (RAV) 26
+2 Ordruun Commando (RAV) 137
+3 Plains (RAV) 287
+3 Plains (RAV) 288
+2 Plains (RAV) 289
+2 Plains (RAV) 290
+2 Rally the Righteous (RAV) 222
+1 Screeching Griffin (RAV) 29
+3 Skyknight Legionnaire (RAV) 232
+1 Sunforger (RAV) 272
+1 Sunhome, Fortress of the Legion (RAV) 282
+1 Terrarion (RAV) 273
+3 Thundersong Trumpeter (RAV) 235
+2 Viashino Slasher (RAV) 149
+2 War-Torch Goblin (RAV) 151

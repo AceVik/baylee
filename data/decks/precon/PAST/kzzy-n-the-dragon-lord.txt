@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Kzzy'n - The Dragon Lord
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, KzzyNTheDragonLord_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Birds of Paradise (3ED) 187
+2 Celestial Prism (3ED) 239
+2 Craw Wurm (3ED) 190
+2 Disenchant (3ED) 17
+2 Dragon Engine (ATQ) 49
+4 Dragon Whelp (3ED) 143
+2 Elder Land Wurm (LEG) 11
+2 Faerie Dragon (PAST) 3
+2 Fellwar Stone (DRK) 102
+1 Forest (3ED) 304
+1 Forest (3ED) 305
+4 Gem Bazaar (PAST) 12
+1 Ivory Tower (ATQ) 53
+4 Lightning Bolt (3ED) 162
+2 Mana Flare (3ED) 164
+18 Mountain (ARN) 77
+1 Plains (3ED) 292
+1 Plains (3ED) 293
+2 Prismatic Dragon (PAST) 8
+4 Shivan Dragon (3ED) 177
+3 Winds of Change (LEG) 172

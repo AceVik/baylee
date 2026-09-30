@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Bomber
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Bomber_7ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 7ED
+# released: 2001-04-11
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Air Elemental (7ED) 58
+1 Ancestral Memories (7ED) 59
+2 Boomerang (7ED) 64
+1 Confiscate (7ED) 65
+1 Coral Merfolk (7ED) 66
+2 Counterspell (7ED) 67
+1 Daring Apprentice (7ED) 68
+1 Fighting Drake (7ED) 73
+1 Force Spike (7ED) 76
+1 Glacial Wall (7ED) 78
+1 Horned Turtle (7ED) 80
+1 Inspiration (7ED) 81
+5 Island (7ED) 332
+4 Island (7ED) 333
+4 Island (7ED) 334
+4 Island (7ED) 335
+1 Merfolk Looter (7ED) 89
+1 Merfolk of the Pearl Trident (7ED) 90
+1 Prodigal Sorcerer (7ED) 94
+1 Sage Owl (7ED) 96
+1 Thieving Magpie (7ED) 104
+1 Unsummon (7ED) 108
+1 Wall of Air (7ED) 111
+2 Wind Drake (7ED) 114

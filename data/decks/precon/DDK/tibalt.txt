@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Tibalt
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Tibalt_DDK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDK
+# released: 2013-03-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Akoum Refuge (DDK) 73
+2 Ashmouth Hound (DDK) 45
+1 Blazing Salvo (DDK) 58
+1 Blightning (DDK) 69
+1 Breaking Point (DDK) 67
+2 Browbeat (DDK) 66
+1 Bump in the Night (DDK) 57
+1 Coal Stoker (DDK) 49
+1 Corpse Connoisseur (DDK) 54
+1 Devil's Play (DDK) 72
+1 Faithless Looting (DDK) 59
+1 Flame Javelin (DDK) 70
+1 Flame Slash (DDK) 60
+1 Gang of Devils (DDK) 56
+1 Geistflame (DDK) 61
+1 Goblin Arsonist (DDK) 42
+1 Hellrider (DDK) 52
+2 Hellspark Elemental (DDK) 46
+1 Lavaborn Muse (DDK) 50
+1 Mad Prophet (DDK) 51
+5 Mountain (DDK) 75
+5 Mountain (DDK) 76
+4 Mountain (DDK) 77
+1 Pyroclasm (DDK) 62
+2 Rakdos Carnarium (DDK) 74
+1 Reassembling Skeleton (DDK) 44
+1 Recoup (DDK) 63
+1 Scorched Rusalka (DDK) 43
+1 Scourge Devil (DDK) 55
+1 Shambling Remains (DDK) 48
+1 Skirsdag Cultist (DDK) 53
+1 Strangling Soot (DDK) 65
+1 Sulfuric Vortex (DDK) 68
+2 Swamp (DDK) 78
+2 Swamp (DDK) 79
+2 Swamp (DDK) 80
+1 Terminate (DDK) 64
+1 Tibalt, the Fiend-Blooded (DDK) 41 *F*
+1 Torrent of Souls (DDK) 71
+2 Vithian Stinger (DDK) 47

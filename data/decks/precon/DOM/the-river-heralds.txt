@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: The River Heralds
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheRiverHeralds_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Chart a Course (XLN) 48
+1 Deeproot Waters (XLN) 51
+2 Dive Down (XLN) 53
+2 Forerunner of the Heralds (RIX) 129
+3 Forest (DOM) 266
+3 Forest (DOM) 267
+3 Forest (DOM) 268
+2 Forest (DOM) 269
+1 Hadana's Climb // Winged Temple of Orazca (RIX) 158
+1 Herald of Secret Streams (XLN) 59
+3 Island (DOM) 254
+3 Island (DOM) 255
+3 Island (DOM) 256
+2 Island (DOM) 257
+1 Jade Bearer (RIX) 134
+2 Jade Guardian (XLN) 194
+1 Jungle Delver (XLN) 195
+1 Kopala, Warden of Waves (XLN) 61
+1 Kumena's Speaker (XLN) 196
+1 Merfolk Branchwalker (XLN) 197
+1 Merfolk Mistbinder (RIX) 164
+2 Mist-Cloaked Herald (RIX) 43
+2 One With the Wind (XLN) 64
+2 River Heralds' Boon (XLN) 204
+2 River Sneak (XLN) 70
+1 Seafloor Oracle (RIX) 51
+1 Shapers of Nature (XLN) 228
+1 Silvergill Adept (RIX) 53
+1 Swift Warden (RIX) 146
+1 Tempest Caller (XLN) 86
+2 Tishana's Wayfinder (XLN) 211
+1 Tishana, Voice of Thunder (XLN) 230
+2 Vineshaper Mystic (XLN) 214
+1 Waker of the Wilds (XLN) 215
+1 Wind Strider (XLN) 88
+2 Woodland Stream (RIX) 191

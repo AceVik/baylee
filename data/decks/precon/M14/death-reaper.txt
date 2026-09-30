@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Death Reaper
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathReaper_M14.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M14
+# released: 2013-07-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Academy Raider (M14) 124
+1 Act of Treason (M14) 125
+1 Barrage of Expendables (M14) 127
+2 Blood Bairn (M14) 87
+1 Bogbrew Witch (M14) 88
+1 Bubbling Cauldron (M14) 205
+2 Child of Night (M14) 89
+2 Corrupt (M14) 91
+1 Deathgaze Cockatrice (M14) 94
+3 Festering Newt (M14) 98
+2 Gnawing Zombie (M14) 99
+1 Liliana's Reaver (M14) 103 *F*
+1 Minotaur Abomination (M14) 107
+2 Mountain (M14) 242
+2 Mountain (M14) 243
+2 Mountain (M14) 244
+2 Mountain (M14) 245
+2 Sengir Vampire (M14) 113
+1 Smelt (M14) 156
+1 Staff of the Death Magus (M14) 219
+5 Swamp (M14) 238
+4 Swamp (M14) 239
+4 Swamp (M14) 240
+4 Swamp (M14) 241
+2 Tenacious Dead (M14) 118
+3 Thunder Strike (M14) 159
+2 Undead Minotaur (M14) 119
+1 Vampire Warlord (M14) 120
+3 Wring Flesh (M14) 122

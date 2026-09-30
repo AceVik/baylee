@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Liftoff
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Liftoff_ODY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ODY
+# released: 2001-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abandoned Outpost (ODY) 312
+1 Angelic Wall (ODY) 3
+2 Aven Windreader (ODY) 65
+1 Beloved Chaplain (ODY) 11
+2 Blessed Orator (ODY) 12
+2 Cephalid Broker (ODY) 71
+2 Cephalid Looter (ODY) 72
+1 Cephalid Retainer (ODY) 73
+2 Cephalid Scout (ODY) 74
+1 Embolden (ODY) 22
+2 Hallowed Healer (ODY) 25
+3 Island (ODY) 335
+2 Island (ODY) 336
+2 Island (ODY) 337
+2 Island (ODY) 338
+3 Kirtar's Desire (ODY) 27
+2 Millikin (ODY) 302
+1 Mystic Crusader (ODY) 33
+1 Mystic Penitent (ODY) 34
+2 Mystic Visionary (ODY) 35
+3 Mystic Zealot (ODY) 36
+1 Nomad Decoy (ODY) 37
+1 Peek (ODY) 91
+1 Pilgrim of Justice (ODY) 40
+3 Plains (ODY) 331
+3 Plains (ODY) 332
+2 Plains (ODY) 333
+2 Plains (ODY) 334
+1 Puppeteer (ODY) 97
+1 Seafloor Debris (ODY) 325
+1 Second Thoughts (ODY) 45
+1 Shelter (ODY) 46
+1 Skycloud Egg (ODY) 309
+2 Syncopate (ODY) 103
+2 Think Tank (ODY) 104

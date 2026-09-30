@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Feast of Flesh
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FeastOfFlesh_NPH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: NPH
+# released: 2011-05-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Artillerize (NPH) 79
+2 Blistergrub (SOM) 56
+2 Blisterstick Shaman (MBS) 58
+2 Caustic Hound (MBS) 40
+1 Chancellor of the Dross (NPH) 54 *F*
+1 Despise (NPH) 56
+1 Disentomb (M11) 94
+1 Enslave (NPH) 58
+2 Entomber Exarch (NPH) 59
+2 Flameborn Viron (NPH) 83
+1 Fling (M11) 139
+2 Furnace Scamp (NPH) 84
+2 Geth's Verdict (NPH) 61
+1 Go for the Throat (MBS) 43
+1 Ichor Explosion (NPH) 64
+1 Morbid Plunder (MBS) 47
+6 Mountain (NPH) 172
+5 Mountain (NPH) 173
+2 Parasitic Implant (NPH) 67
+2 Phyrexian Rager (MBS) 51
+1 Prodigal Pyromancer (M11) 152
+1 Scoria Elemental (SOM) 102
+2 Shrine of Burning Rage (NPH) 153
+7 Swamp (NPH) 170
+6 Swamp (NPH) 171
+2 Tormentor Exarch (NPH) 97
+1 Tower of Calamities (SOM) 212
+1 Whipflare (NPH) 102

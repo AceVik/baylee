@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Mark Justice, Quarterfinalist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MarkJusticeQuarterfinalist_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pro Tour Deck
+# set: PTC
+# released: 1996-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Balance (PTC) mj6
+1 Black Vise (PTC) mj299
+2 City of Brass (PTC) mj112
+1 Detonate (PTC) mj184
+4 Dwarven Ruins (PTC) mj94
+1 Earthquake (PTC) mj189
+1 Elkin Bottle (PTC) mj317
+1 Feldon's Cane (PTC) mj50
+3 Fellwar Stone (PTC) mj319
+3 Fireball (PTC) mj192
+1 Havenwood Battleground (PTC) mj96
+4 Howling Mine (PTC) mj325
+4 Icy Manipulator (PTC) mj322
+2 Incinerate (PTC) mj194
+1 Ivory Tower (PTC) mj328
+1 Jester's Cap (PTC) mj324
+4 Karplusan Forest (PTC) mj356
+4 Lightning Bolt (PTC) mj208
+4 Mishra's Factory (PTC) mj361
+1 Mountain (PTC) mj373
+1 Mountain (PTC) mj374
+1 Mountain (PTC) mj375
+1 Plains (PTC) mj364
+1 Plains (PTC) mj365
+1 Plains (PTC) mj366
+2 Shatter (PTC) mj219
+2 Stormbind (PTC) mj304
+3 Swords to Plowshares (PTC) mj52
+3 Winter Orb (PTC) mj358
+1 Zuran Orb (PTC) mj350
+SB: 2 Anarchy (PTC) mj49sb
+SB: 1 Detonate (PTC) mj184sb
+SB: 2 Eron the Relentless (PTC) mj73sb
+SB: 2 Fountain of Youth (PTC) mj98sb
+SB: 3 Pyroblast (PTC) mj213sb
+SB: 3 Serrated Arrows (PTC) mj110sb
+SB: 2 Shatter (PTC) mj219sb

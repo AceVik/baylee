@@ -1,0 +1,89 @@
+# baylee deck export v1
+# name: Wakanda Forever Collector's Edition
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WakandaForeverCollectorSEdition_MSC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: MSC
+# released: 2026-06-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 T'Challa, the Black Panther (MSC) 881 *F*
+1 Ancestral Communion (MSC) 64 *F*
+1 Arcane Signet (MSC) 194 *F*
+1 Bast, Panther Goddess (MSC) 75 *F*
+1 Beast Within (MSC) 169 *F*
+1 Birds of Paradise (MSC) 170 *F*
+1 Bountiful Promenade (MSC) 226 *F*
+1 Canopy Vista (MSC) 227 *F*
+1 Command Tower (MSC) 236 *F*
+1 Conduit of Worlds (MSC) 171 *F*
+1 Coveted Jewel (MSC) 196 *F*
+1 Dispatch (MSC) 130 *F*
+1 Divine Visitation (MSC) 131 *F*
+1 Dora Milaje Elite (MSC) 12 *F*
+1 Everett K. Ross, Hapless Attaché (MSC) 13 *F*
+1 Evolving Wilds (MSC) 240 *F*
+1 Fight for the Throne (MSC) 65 *F*
+1 Fleecemane Lion (MSC) 282 *F*
+6 Forest (MSH) 441 *F*
+6 Forest (MSH) 442 *F*
+1 Fortified Village (MSC) 245 *F*
+1 Generous Gift (MSC) 133 *F*
+1 Gilded Lotus (MSC) 199 *F*
+1 Greater Good (MSC) 174 *F*
+1 Hammer of Nazahn (MSC) 286 *F*
+1 Harmonize (MSC) 175 *F*
+1 Hatut Zeraze Strike Force (MSC) 15 *F*
+1 Heart-Shaped Herb (MSC) 105 *F*
+1 Helm of the Host (MSC) 200 *F*
+1 Ingenious Smith (MSC) 135 *F*
+1 Kimoyo Beads (MSC) 109 *F*
+1 King Solomon's Frogs (MSC) 20 *F*
+1 Loyal Guardian (MSC) 176 *F*
+1 Loyal Retainers (MSC) 136 *F*
+1 M'Baku, Jabari Chieftain (MSC) 67 *F*
+1 Martial Coup (MSC) 138 *F*
+1 Metalwork Colossus (MSC) 204 *F*
+1 Meteor Golem (MSC) 205 *F*
+1 Midnight Angel Armor (MSC) 22 *F*
+1 Mind's Eye (MSC) 288 *F*
+1 N'Yami-Class Mother Ship (MSC) 110 *F*
+1 Nakia, Wakandan Operative (MSC) 69 *F*
+1 Nature's Lore (MSC) 177 *F*
+1 Okoye, Mighty and Adored (MSC) 89 *F*
+1 Overwhelming Stampede (MSC) 178 *F*
+1 Palace Jailer (MSC) 140 *F*
+1 Panther Habit (MSC) 112 *F*
+1 Panther Robot (MSC) 113 *F*
+1 Path of Ancestry (MSC) 254 *F*
+6 Plains (MSH) 433 *F*
+6 Plains (MSH) 434 *F*
+1 Queen Mother Ramonda (MSC) 23 *F*
+1 Razorverge Thicket (MSC) 259 *F*
+1 Royal Talon Fighter Jet (MSC) 24 *F*
+1 Scattered Groves (MSC) 262 *F*
+1 Scavenger Grounds (MSC) 263 *F*
+1 Scourglass (MSC) 276 *F*
+1 Shuri's Fabricator (MSC) 114 *F*
+1 Shuri, the Black Panther (MSC) 95 *F*
+1 Sol Ring (MSC) 214 *F*
+1 Solemn Simulacrum (MSC) 215 *F*
+1 Storm, Queen of Wakanda (MSC) 97 *F*
+1 Sungrass Prairie (MSC) 270 *F*
+1 Sunpetal Grove (MSC) 272 *F*
+1 Sword of the Animist (MSC) 289 *F*
+1 T'Chaka, Venerable King (MSC) 98 *F*
+1 Terramorphic Expanse (MSC) 273 *F*
+1 The Great Mound (MSC) 120 *F*
+1 The Spear of Bashenga (MSC) 25 *F*
+1 Thran Dynamo (MSC) 290 *F*
+1 Throne of the High City (MSC) 274 *F*
+1 Trading Post (MSC) 224 *F*
+1 Valorous Stance (MSC) 145 *F*
+1 Vanquish the Horde (MSC) 146 *F*
+1 Vibranium Mining Mech (MSC) 117 *F*
+1 Vibranium Strike Gauntlets (MSC) 118 *F*
+1 W'Kabi, Shield of the Nation (MSC) 70 *F*
+1 Wakanda Forever! (MSC) 71 *F*
+1 Whispersilk Cloak (MSC) 225 *F*
+1 Zuri, Warrior of Wakanda (MSC) 72 *F*

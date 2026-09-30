@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Black Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeck_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: M20
+# released: 2019-07-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Agonizing Syphon (M20) 83
+2 Barony Vampire (M20) 85
+2 Bartizan Bats (M20) 319
+1 Bogstomper (M20) 320
+1 Dark Remedy (M20) 321
+1 Disentomb (M20) 322
+1 Disfigure (M20) 95
+1 Feral Abomination (M20) 101
+1 Gravedigger (M20) 103
+1 Gravewaker (M20) 323
+1 Murder (M20) 109
+1 Skeleton Archer (M20) 324
+4 Swamp (M20) 269
+3 Swamp (M20) 270
+3 Swamp (M20) 271
+3 Swamp (M20) 272
+3 Walking Corpse (M20) 327

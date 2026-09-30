@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Pressure Cooker
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PressureCooker_ODY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ODY
+# released: 2001-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Barbarian Lunatic (ODY) 175
+1 Bog Wreckage (ODY) 314
+1 Braids, Cabal Minion (ODY) 117
+2 Cabal Pit (ODY) 315
+2 Chainflinger (ODY) 181
+2 Childhood Horror (ODY) 123
+1 Crypt Creeper (ODY) 125
+1 Dwarven Strike Force (ODY) 188
+2 Engulfing Flames (ODY) 191
+1 Face of Fear (ODY) 134
+2 Famished Ghoul (ODY) 135
+2 Firebolt (ODY) 193
+3 Flame Burst (ODY) 194
+1 Frightcrawler (ODY) 138
+2 Ghastly Demise (ODY) 139
+1 Halberdier (ODY) 196
+1 Innocent Blood (ODY) 145
+1 Liquid Fire (ODY) 201
+2 Morbid Hunger (ODY) 150
+1 Morgue Theft (ODY) 151
+3 Mountain (ODY) 343
+2 Mountain (ODY) 344
+2 Mountain (ODY) 345
+2 Mountain (ODY) 346
+3 Pardic Firecat (ODY) 211
+1 Ravaged Highlands (ODY) 324
+1 Reckless Charge (ODY) 215
+1 Repentant Vampire (ODY) 157
+2 Shadowblood Egg (ODY) 308
+3 Swamp (ODY) 339
+3 Swamp (ODY) 340
+3 Swamp (ODY) 341
+2 Swamp (ODY) 342
+1 Thermal Blast (ODY) 224

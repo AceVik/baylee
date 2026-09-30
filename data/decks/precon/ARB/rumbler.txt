@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Rumbler
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Rumbler_ARB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ARB
+# released: 2009-04-30
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Algae Gharial (ALA) 123
+1 Blitz Hellion (ARB) 49
+1 Bloodbraid Elf (ARB) 50
+1 Colossal Might (ARB) 51
+2 Dragon Fodder (ALA) 97
+1 Elvish Visionary (ALA) 130
+2 Forest (ALA) 246
+2 Forest (ALA) 247
+2 Forest (ALA) 248
+2 Forest (ALA) 249
+1 Gluttonous Slime (CON) 83
+1 Godtracker of Jund (ARB) 55
+1 Gorger Wurm (ARB) 56
+2 Incinerate (10E) 213
+2 Mountain (ALA) 242
+2 Mountain (ALA) 243
+2 Mountain (ALA) 244
+2 Mountain (ALA) 245
+1 Rhox Brute (ARB) 59
+1 Rockslide Elemental (ALA) 112
+1 Sangrite Surge (ALA) 190
+2 Shock (10E) 232
+1 Spellbreaker Behemoth (ARB) 60 *F*
+2 Terramorphic Expanse (10E) 360
+1 Thunder-Thrash Elder (ALA) 117
+1 Tukatongue Thallid (CON) 96
+2 Valley Rannet (ARB) 61
+1 Vengeful Rebirth (ARB) 62

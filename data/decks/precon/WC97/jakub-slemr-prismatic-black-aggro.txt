@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Jakub Šlemr - Prismatic Black Aggro
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JakubŠlemrPrismaticBlackAggro_WC97.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC97
+# released: 1997-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Black Knight (WC97) js143
+4 Choking Sands (WC97) js113
+3 City of Brass (WC97) js413
+4 Contagion (WC97) js45
+2 Earthquake (WC97) js223
+4 Fallen Askari (WC97) js59
+3 Gemstone Mine (WC97) js164
+4 Incinerate (WC97) js242
+4 Knight of Stromgald (WC97) js171
+4 Man-o'-War (WC97) js37
+1 Necratog (WC97) js76
+4 Nekrataal (WC97) js66
+2 Shadow Guildmage (WC97) js140
+2 Sulfurous Springs (WC97) js424
+3 Swamp (WC97) js438
+3 Swamp (WC97) js439
+2 Swamp (WC97) js440
+2 Swamp (WC97) js441
+2 Uktabi Orangutan (WC97) js123
+1 Underground River (WC97) js426
+3 Undiscovered Paradise (WC97) js167
+SB: 2 Disenchant (WC97) js26sb
+SB: 2 Dystopia (WC97) js47sb
+SB: 2 Ebony Charm (WC97) js120sb
+SB: 1 Exile (WC97) js3sb
+SB: 2 Forsaken Wastes (WC97) js125sb
+SB: 1 Honorable Passage (WC97) js7sb
+SB: 2 Hydroblast (WC97) js94sb
+SB: 3 Pyroblast (WC97) js262sb

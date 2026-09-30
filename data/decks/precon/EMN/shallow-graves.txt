@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Shallow Graves
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ShallowGraves_EMN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: EMN
+# released: 2016-07-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Advanced Stitchwing (EMN) 49
+1 Boon of Emrakul (EMN) 81
+3 Cemetery Recruitment (EMN) 83
+2 Compelling Deterrence (SOI) 52
+1 Crow of Dark Tidings (SOI) 105
+1 Cryptbreaker (EMN) 86
+2 Exultant Cultist (EMN) 59
+1 Ghostly Wings (SOI) 66
+2 Graf Harvest (EMN) 90
+4 Island (SOI) 286
+4 Island (SOI) 287
+4 Island (SOI) 288
+1 Laboratory Brute (EMN) 67
+1 Lamplighter of Selhoff (SOI) 72
+2 Liliana's Elite (EMN) 94
+1 Liliana's Indignation (SOI) 120
+1 Murder (EMN) 97
+1 Noosegraf Mob (PEMN) 98 *F*
+1 Reckless Scholar (SOI) 82
+2 Seagraf Skaab (SOI) 84
+2 Spontaneous Mutation (EMN) 74
+2 Stitched Mangler (SOI) 89
+1 Stitchwing Skaab (SOI) 90
+1 Succumb to Temptation (EMN) 107
+5 Swamp (SOI) 289
+4 Swamp (SOI) 290
+4 Swamp (SOI) 291
+2 Tattered Haunter (EMN) 77
+1 Throttle (SOI) 138
+1 Wailing Ghoul (EMN) 112

@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Eyes of Shadow
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EyesOfShadow_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abyssal Specter (PS11) 60 [es]
+1 Ascendant Evincar (PS11) 62 [es]
+2 Consume Spirit (PS11) 64 [es]
+1 Crowd of Cinders (PS11) 65 [es]
+2 Demon's Horn (PS11) 187 [es]
+3 Drudge Skeletons (PS11) 66 [es]
+2 Dusk Imp (PS11) 67 [es]
+2 Megrim (PS11) 74 [es]
+4 Mind Rot (PS11) 75 [es]
+1 Mind Shatter (PS11) 76 [es]
+1 Mortivore (PS11) 78 [es]
+3 Ravenous Rats (PS11) 81 [es]
+1 Sengir Vampire (PS11) 83 [es]
+2 Severed Legion (PS11) 84 [es]
+7 Swamp (PS11) 213 [es]
+6 Swamp (PS11) 214 [es]
+6 Swamp (PS11) 215 [es]
+6 Swamp (PS11) 216 [es]
+4 Terror (PS11) 85 [es]
+1 The Rack (PS11) 199 [es]
+1 Underworld Dreams (PS11) 86 [es]
+2 Unholy Strength (PS11) 87 [es]

@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Profit
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Profit_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Baleful Eidolon (THS) 78
+2 Brain Maggot (JOU) 62
+3 Commune with the Gods (THS) 155
+1 Courser of Kruphix (CP2) 6 *F*
+2 Dark Betrayal (THS) 83
+1 Debilitating Injury (KTK) 68
+1 Defend the Hearth (THS) 156
+1 Doomwake Giant (JOU) 66
+1 Eidolon of Blossoms (JOU) 122
+1 Font of Fertility (JOU) 123
+12 Forest (KTK) 269
+1 Graverobber Spider (BNG) 122
+2 Grim Guardian (JOU) 73
+2 Jungle Hollow (FRF) 169
+1 Leafcrown Dryad (THS) 161
+1 Loathsome Catoblepas (THS) 95
+2 Nemesis of Mortals (THS) 163
+1 Nighthowler (THS) 98
+1 Noble Quarry (BNG) 130
+1 Nyx Infusion (JOU) 77
+3 Nyx Weaver (JOU) 153
+2 Oakheart Dryads (JOU) 133
+1 Plummet (M15) 192
+1 Reaper of the Wilds (CP2) 4 *F*
+1 Reviving Melody (JOU) 138
+11 Swamp (FRF) 181
+2 Vineweft (M15) 207
+1 Whip of Erebos (CP2) 5 *F*

@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Relics of Doom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RelicsOfDoom_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alpha Myr (PS11) 183 [es]
+2 Bottle Gnomes (PS11) 185 [es]
+2 Cancel (PS11) 28 [es]
+1 Demon's Horn (PS11) 187 [es]
+3 Etherium Sculptor (PS11) 36 [es]
+1 Faerie Mechanist (PS11) 38 [es]
+1 Font of Mythos (PS11) 189 [es]
+4 Glaze Fiend (PS11) 70 [es]
+1 Howling Mine (PS11) 190 [es]
+4 Island (PS11) 209 [es]
+3 Island (PS11) 210 [es]
+3 Island (PS11) 211 [es]
+3 Island (PS11) 212 [es]
+1 Kraken's Eye (PS11) 192 [es]
+2 Leonin Scimitar (PS11) 193 [es]
+1 Master of Etherium (PS11) 43 [es]
+2 Onyx Goblet (PS11) 79 [es]
+2 Ornithopter (PS11) 197 [es]
+1 Parasitic Strix (PS11) 48 [es]
+1 Razormane Masticore (PS11) 198 [es]
+2 Salvage Slasher (PS11) 82 [es]
+1 Sharding Sphinx (PS11) 51 [es]
+3 Swamp (PS11) 213 [es]
+3 Swamp (PS11) 214 [es]
+3 Swamp (PS11) 215 [es]
+2 Swamp (PS11) 216 [es]
+4 Tidehollow Strix (PS11) 179 [es]
+2 Trusty Machete (PS11) 200 [es]

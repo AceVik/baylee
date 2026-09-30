@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Repeat Performance
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RepeatPerformance_M13.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: M13
+# released: 2012-08-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Acidic Slime (M13) 159
+2 Arbor Elf (M13) 160
+3 Attended Knight (M13) 5
+4 Avacyn's Pilgrim (ISD) 170
+1 Blade Splicer (NPH) 4
+3 Borderland Ranger (AVR) 169
+1 Brutalizer Exarch (NPH) 105
+2 Elvish Visionary (M13) 169
+1 Fiend Hunter (ISD) 15
+3 Forest (M13) 246
+3 Forest (M13) 247
+3 Forest (M13) 248
+3 Forest (M13) 249
+1 Geist-Honored Monk (ISD) 17
+1 Glimmerpoint Stag (SOM) 9
+1 Green Sun's Zenith (MBS) 81
+4 Lead the Stampede (MBS) 82
+4 Llanowar Elves (M12) 182
+1 Mwonvuli Beast Tracker (M13) 177
+2 Plains (M13) 230
+2 Plains (M13) 231
+2 Plains (M13) 232
+2 Plains (M13) 233
+2 Razorverge Thicket (SOM) 228
+4 Roaring Primadox (M13) 188
+1 Stingerfling Spider (M12) 197
+1 Stonehorn Dignitary (M12) 37
+1 Sunblast Angel (SOM) 22
+1 Thragtusk (M13) 193
+SB: 3 Cloudshift (AVR) 12
+SB: 2 Dismember (NPH) 57
+SB: 3 Kemba's Skyguard (SOM) 13
+SB: 4 Oblivion Ring (M13) 22
+SB: 3 War Priest of Thune (M13) 39

@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Blue Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlueDeck_SPM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SPM
+# released: 2025-09-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Alchemax Slayer-Bots (SPE) 5
+1 Beetle, Legacy Criminal (SPM) 26
+2 Doc Ock's Henchmen (SPM) 30
+1 Doc Ock, Sinister Scientist (SPM) 29
+2 Flying Octobot (SPM) 31
+1 Future Flight (SPE) 6
+1 Island (SPM) 190
+11 Island (SPM) 195
+1 Lyla, Holographic Assistant (SPE) 7
+1 Oscorp Research Team (SPM) 40
+1 Spider-Bot (SPM) 173
+1 Spider-Byte, Web Warden (SPM) 44
+1 Spider-Man 2099, Miguel O'Hara (SPE) 8
+2 Unstable Experiment (SPM) 47
+2 Whoosh! (SPM) 48

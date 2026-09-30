@@ -1,0 +1,103 @@
+# baylee deck export v1
+# name: Counter Blitz Collector's Edition (FINAL FANTASY X)
+# format: commander
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CounterBlitzCollectorSEditionFinalFantasyX_FIC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Commander Deck
+# set: FIC
+# released: 2025-06-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+CMD: 1 Tidus, Yuna's Guardian (FIC) 224 *F*
+1 Altered Ego (FIC) 317 *F*
+1 An Offer You Can't Refuse (FIC) 267 *F*
+1 Arcane Signet (FIC) 334 *F*
+1 Ash Barrens (FIC) 374 *F*
+1 Auron, Venerated Guardian (FIC) 10 *F*
+1 Bane of Progress (FIC) 299 *F*
+1 Blitzball Stadium (FIC) 34 *F*
+1 Bred for the Hunt (FIC) 321 *F*
+1 Brushland (FIC) 377 *F*
+1 Canopy Vista (FIC) 378 *F*
+1 Chasm Skulker (FIC) 262 *F*
+1 Chocobo Knights (FIC) 12 *F*
+1 Collective Effort (FIC) 237 *F*
+1 Command Tower (FIC) 486 *F*
+1 Damning Verdict (FIC) 239 *F*
+1 Destroy Evil (FIC) 240 *F*
+1 Duskshell Crawler (FIC) 301 *F*
+1 Endless Detour (FIC) 324 *F*
+1 Everflowing Chalice (FIC) 343 *F*
+1 Evolving Wilds (FIC) 389 *F*
+1 Exotic Orchard (FIC) 390 *F*
+1 Farewell (FIC) 242 *F*
+1 Farseek (FIC) 302 *F*
+1 Fathom Mage (FIC) 325 *F*
+1 Fight Rigging (FIC) 303 *F*
+1 Flooded Grove (FIC) 393 *F*
+3 Forest (FIN) 576 *F*
+1 Forge of Heroes (FIC) 395 *F*
+1 Forgotten Ancient (FIC) 304 *F*
+1 Fortified Village (FIC) 396 *F*
+1 Gatta and Luzzu (FIC) 19 *F*
+1 Generous Patron (FIC) 305 *F*
+1 Glacial Fortress (FIC) 400 *F*
+1 Grateful Apparition (FIC) 244 *F*
+1 Gyre Sage (FIC) 306 *F*
+1 Hardened Scales (FIC) 307 *F*
+1 Hinterland Harbor (FIC) 403 *F*
+1 Idyllic Beachfront (FIC) 404 *F*
+1 Incubation Druid (FIC) 309 *F*
+1 Inexorable Tide (FIC) 265 *F*
+1 Inspiring Call (FIC) 310 *F*
+3 Island (FIN) 573 *F*
+1 Kimahri, Valiant Guardian (FIC) 85 *F*
+1 Lord Jyscal Guado (FIC) 23 *F*
+1 Lulu, Stern Guardian (FIC) 38 *F*
+1 Luminous Broodmoth (FIC) 246 *F*
+1 Maester Seymour (FIC) 68 *F*
+1 Nesting Grounds (FIC) 408 *F*
+1 O'aka, Traveling Merchant (FIC) 39 *F*
+1 Overflowing Basin (FIC) 410 *F*
+1 Path of Ancestry (FIC) 411 *F*
+1 Path of Discovery (FIC) 312 *F*
+1 Path to Exile (FIC) 248 *F*
+3 Plains (FIN) 572 *F*
+1 Port Town (FIC) 412 *F*
+1 Prairie Stream (FIC) 413 *F*
+1 Promise of Loyalty (FIC) 249 *F*
+1 Protection Magic (FIC) 24 *F*
+1 Pull from Tomorrow (FIC) 269 *F*
+1 Radiant Grove (FIC) 414 *F*
+1 Rampant Rejuvenator (FIC) 314 *F*
+1 Resourceful Defense (FIC) 251 *F*
+1 Rikku, Resourceful Guardian (FIC) 41 *F*
+1 Scholar of New Horizons (FIC) 252 *F*
+1 Seaside Citadel (FIC) 420 *F*
+1 Shelinda, Yevon Acolyte (FIC) 94 *F*
+1 Sin, Unending Cataclysm (FIC) 95 *F*
+1 Skycloud Expanse (FIC) 423 *F*
+1 Sol Ring (FIC) 358 *F*
+1 Sphere Grid (FIC) 70 *F*
+1 Summon: Ixion (FIC) 27 *F*
+1 Summon: Magus Sisters (FIC) 71 *F*
+1 Summon: Valefor (FIC) 42 *F*
+1 Summon: Yojimbo (FIC) 28 *F*
+1 Summoner's Sending (FIC) 29 *F*
+1 Sungrass Prairie (FIC) 428 *F*
+1 Sunpetal Grove (FIC) 432 *F*
+1 Sunscorch Regent (FIC) 255 *F*
+1 Tangled Islet (FIC) 434 *F*
+1 Temple of Enlightenment (FIC) 435 *F*
+1 Temple of Mystery (FIC) 436 *F*
+1 Temple of Plenty (FIC) 437 *F*
+1 Temple of the False God (FIC) 438 *F*
+1 Three Visits (FIC) 315 *F*
+1 Tireless Tracker (FIC) 316 *F*
+1 Together Forever (FIC) 257 *F*
+1 Tromell, Seymour's Butler (FIC) 73 *F*
+1 Vineglimmer Snarl (FIC) 440 *F*
+1 Wakka, Devoted Guardian (FIC) 97 *F*
+1 Walking Ballista (FIC) 371 *F*
+1 Yuna's Decision (FIC) 74 *F*
+1 Yuna's Whistle (FIC) 75 *F*
+1 Yuna, Grand Summoner (FIC) 227 *F*

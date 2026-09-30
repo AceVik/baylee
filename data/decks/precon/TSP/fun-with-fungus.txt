@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Fun With Fungus
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FunWithFungus_TSP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TSP
+# released: 2006-10-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assassinate (TSP) 95
+1 Claws of Gix (TSB) 107
+3 Deathspore Thallid (TSP) 102
+1 Dread Return (TSP) 104
+2 Fallen Ideal (TSP) 109
+1 Feebleness (TSP) 110
+4 Forest (TSP) 298
+3 Forest (TSP) 299
+3 Forest (TSP) 300
+3 Forest (TSP) 301
+2 Herd Gnarr (TSP) 200
+1 Krosan Grip (TSP) 202
+1 Might of Old Krosa (TSP) 204
+1 Pendelhaven (TSB) 120
+2 Pendelhaven Elder (TSP) 209
+2 Savage Thallid (TSP) 213
+2 Sporesower Thallid (TSP) 220
+2 Sprout (TSP) 221
+2 Strength in Numbers (TSP) 224
+2 Sudden Death (TSP) 134
+3 Swamp (TSP) 290
+3 Swamp (TSP) 291
+2 Swamp (TSP) 292
+2 Swamp (TSP) 293
+2 Thallid (TSB) 86
+3 Thallid Germinator (TSP) 225
+3 Thallid Shell-Dweller (TSP) 226
+1 Thelon of Havenwood (TSP) 227
+1 Verdant Embrace (TSP) 232
+1 Wormwood Dryad (TSP) 233

@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Forest's Might 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ForestSMight2_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-03-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aggressive Mammoth (M20) 337
+3 Barkhide Troll (M20) 165
+25 Forest (ANB) 112
+2 Gargos, Vicious Watcher (M20) 172
+4 Giant Growth (WAR) 162
+3 Gnarlback Rhino (M20) 300
+4 Greenwood Sentinel (ANB) 97
+4 Growth Cycle (M20) 175
+2 Oakenform (M20) 341
+1 Prized Unicorn (ANB) 100
+3 Rabid Bite (ANB) 101
+3 Season of Growth (M20) 191
+2 Silverback Shaman (M20) 195
+1 Voracious Hydra (M20) 200
+1 Wakeroot Elemental (M20) 202

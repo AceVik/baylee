@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Azorius Ascendant
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAscendant_DIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: DIS
+# released: 2006-05-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Azorius Chancery (DIS) 170
+2 Azorius First-Wing (DIS) 105
+1 Azorius Guildmage (DIS) 141
+3 Beacon Hawk (DIS) 3
+2 Benevolent Ancestor (RAV) 3
+1 Faith's Fetters (RAV) 16
+1 Halcyon Glaze (RAV) 54
+3 Island (RAV) 291
+2 Island (RAV) 292
+2 Island (RAV) 293
+2 Island (RAV) 294
+1 Isperia the Inscrutable (DIS) 114
+2 Minister of Impediments (DIS) 144
+2 Mistral Charger (DIS) 13
+2 Ocular Halo (DIS) 28
+1 Paladin of Prahv (DIS) 14
+1 Palliation Accord (DIS) 122
+3 Plains (RAV) 287
+3 Plains (RAV) 288
+3 Plains (RAV) 289
+3 Plains (RAV) 290
+2 Plumes of Peace (DIS) 124
+1 Prahv, Spires of Order (DIS) 177
+1 Sinstriker's Will (GPT) 16
+2 Sky Hussar (DIS) 131
+3 Soulsworn Jury (DIS) 17
+1 Steeling Stance (DIS) 18
+2 Stoic Ephemera (DIS) 19
+3 Tidewater Minion (RAV) 71
+1 To Arms! (GPT) 20
+1 Wakestone Gargoyle (DIS) 21
+1 Zephyr Spirit (RAV) 76

@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Way Wild
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WayWild_7ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 7ED
+# released: 2001-04-11
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancient Silverback (7ED) 230
+1 Blanchwood Armor (7ED) 232
+2 Creeping Mold (7ED) 236
+4 Forest (7ED) 328
+4 Forest (7ED) 329
+3 Forest (7ED) 330
+3 Forest (7ED) 331
+1 Fyndhorn Elder (7ED) 246
+1 Giant Growth (7ED) 248
+2 Giant Spider (7ED) 249
+1 Gorilla Chieftain (7ED) 250
+3 Grizzly Bears (7ED) 251
+2 Llanowar Elves (7ED) 253
+1 Lure (7ED) 255
+1 Pride of Lions (7ED) 261
+1 Redwood Treefolk (7ED) 264
+1 Regeneration (7ED) 265
+1 Rod of Ruin (7ED) 314
+1 Spined Wurm (7ED) 270
+1 Stream of Life (7ED) 272
+1 Thorn Elemental (7ED) 273
+2 Trained Armodon (7ED) 275
+1 Wild Growth (7ED) 282
+1 Wood Elves (7ED) 284

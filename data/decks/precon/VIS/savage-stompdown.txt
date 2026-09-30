@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Savage Stompdown
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SavageStompdown_VIS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: VIS
+# released: 2006-04-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bull Elephant (VIS) 101
+1 Crash of Rhinos (MIR) 210
+1 Creeping Mold (VIS) 103
+3 Ekundu Cyclops (MIR) 171
+1 Emerald Charm (VIS) 106
+3 Feral Instinct (VIS) 107
+3 Forest (MIR) 347
+3 Forest (MIR) 348
+3 Forest (MIR) 349
+3 Forest (MIR) 350
+2 Giant Caterpillar (VIS) 108
+1 Granger Guildmage (MIR) 220
+1 Hearth Charm (VIS) 82
+2 Hulking Cyclops (VIS) 84
+2 Jungle Troll (MIR) 269
+1 King Cheetah (VIS) 110
+2 Kyscu Drake (VIS) 111
+1 Locust Swarm (MIR) 226
+3 Mountain (MIR) 343
+3 Mountain (MIR) 344
+3 Mountain (MIR) 345
+3 Mountain (MIR) 346
+1 Natural Order (VIS) 114
+2 Quirion Elves (MIR) 234
+3 Raging Gorilla (VIS) 90
+2 Rock Slide (VIS) 92
+2 Spitting Drake (VIS) 95
+2 Unyaro Bee Sting (MIR) 250
+1 Viashivan Dragon (VIS) 140
+1 Volcanic Geyser (MIR) 202

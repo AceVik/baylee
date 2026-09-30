@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Spellweaver
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Spellweaver_P02.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: P02
+# released: 1998-06-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (P02) 31
+2 Apprentice Sorcerer (P02) 32
+1 Exhaustion (P02) 37
+2 False Summoning (P02) 40
+5 Island (P02) 154
+5 Island (P02) 155
+5 Island (P02) 156
+2 Mystic Denial (P02) 41
+2 Talas Air Ship (P02) 48
+2 Talas Explorer (P02) 49
+3 Talas Merchant (P02) 50
+1 Talas Researcher (P02) 51
+3 Talas Scout (P02) 52
+1 Talas Warrior (P02) 53
+2 Time Ebb (P02) 57
+2 Touch of Brilliance (P02) 58

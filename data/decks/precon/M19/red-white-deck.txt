@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Red-White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedWhiteDeck_M19.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Spellslinger Starter Kit
+# set: M19
+# released: 2018-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Burning Sun's Avatar (XLN) 135
+2 Charging Monstrosaur (XLN) 138
+1 Citywide Bust (GRN) 4
+1 Demanding Dragon (M19) 135
+2 Dual Shot (XLN) 141
+2 Exultant Skymarcher (RIX) 7
+1 Frenzied Raptor (XLN) 146
+1 Goblin Motivator (M19) 143
+1 Hostile Minotaur (M19) 147
+2 Inspired Charge (M19) 15
+1 Inspiring Captain (GNT) 14
+3 Knight of New Benalia (DOM) 24
+2 Lightning Strike (M19) 152
+2 Luminous Bonds (M19) 25
+1 Moment of Triumph (RIX) 15
+3 Mountain (M19) 273
+3 Mountain (M19) 274
+2 Mountain (M19) 275
+2 Mountain (M19) 276
+3 Plains (M19) 261
+3 Plains (M19) 262
+2 Plains (M19) 263
+2 Plains (M19) 264
+2 Pyromantic Pilgrim (DOM) 278
+2 Rustwing Falcon (M19) 36
+1 Serra's Guardian (M19) 284
+1 Shivan Dragon (M19) 300
+1 Silverbeak Griffin (M19) 285
+2 Sky Terror (XLN) 229
+2 Skyknight Legionnaire (GRN) 198
+4 Stone Quarry (M19) 256
+2 Sun Sentinel (M19) 307

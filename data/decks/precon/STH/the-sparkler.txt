@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: The Sparkler
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSparkler_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Capsize (TMP) 55
+1 Contempt (STH) 27
+1 Counterspell (TMP) 57
+1 Evacuation (STH) 30
+2 Fanning the Flames (STH) 80
+2 Flowstone Blade (STH) 83
+1 Intruder Alarm (STH) 34
+4 Island (TMP) 335
+4 Island (TMP) 336
+3 Island (TMP) 337
+3 Island (TMP) 338
+3 Lightning Blast (TMP) 185
+3 Mana Leak (STH) 36
+1 Mind Games (STH) 38
+1 Mogg Fanatic (TMP) 190
+4 Mountain (TMP) 343
+3 Mountain (TMP) 344
+3 Mountain (TMP) 345
+3 Mountain (TMP) 346
+2 Power Sink (TMP) 78
+2 Propaganda (TMP) 80
+1 Ransack (STH) 39
+1 Reins of Power (STH) 41
+1 Searing Touch (TMP) 201
+1 Shatter (TMP) 203
+2 Shock (STH) 98
+2 Spell Blast (TMP) 89
+1 Wall of Razors (STH) 100
+1 Wall of Tears (STH) 50
+1 Whispers of the Muse (TMP) 103

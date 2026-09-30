@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Graveborn
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Graveborn_PD3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Premium Deck
+# set: PD3
+# released: 2011-11-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Animate Dead (PD3) 16 *F*
+1 Avatar of Woe (PD3) 6 *F*
+1 Blazing Archon (PD3) 11 *F*
+2 Buried Alive (PD3) 20 *F*
+1 Cabal Therapy (PD3) 12 *F*
+1 Crosis, the Purger (PD3) 5 *F*
+1 Crystal Vein (PD3) 24 *F*
+2 Diabolic Servitude (PD3) 22 *F*
+2 Dread Return (PD3) 23 *F*
+3 Duress (PD3) 13 *F*
+1 Ebon Stronghold (PD3) 25 *F*
+1 Entomb (PD3) 14 *F*
+3 Exhume (PD3) 17 *F*
+1 Faceless Butcher (PD3) 3 *F*
+2 Hidden Horror (PD3) 2 *F*
+1 Inkwell Leviathan (PD3) 10 *F*
+2 Last Rites (PD3) 21 *F*
+1 Polluted Mire (PD3) 26 *F*
+2 Putrid Imp (PD3) 1 *F*
+1 Reanimate (PD3) 15 *F*
+2 Sickening Dreams (PD3) 18 *F*
+1 Sphinx of the Steel Wind (PD3) 9 *F*
+6 Swamp (PD3) 27 *F*
+5 Swamp (PD3) 28 *F*
+5 Swamp (PD3) 29 *F*
+5 Swamp (PD3) 30 *F*
+1 Terastodon (PD3) 7 *F*
+1 Twisted Abomination (PD3) 4 *F*
+1 Verdant Force (PD3) 8 *F*
+1 Zombie Infestation (PD3) 19 *F*

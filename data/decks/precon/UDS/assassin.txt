@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Assassin
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Assassin_UDS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: UDS
+# released: 1999-06-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Attrition (UDS) 52
+1 Body Snatcher (UDS) 53
+1 Bone Shredder (ULG) 49
+2 Dark Ritual (USG) 127
+1 Despondency (USG) 129
+2 Disease Carriers (UDS) 57
+2 Duress (USG) 132
+1 Dying Wail (UDS) 58
+1 Engineered Plague (ULG) 51
+1 Eradicate (UDS) 60
+1 Festering Wound (UDS) 61
+2 Looming Shade (USG) 139
+1 Mantis Engine (UDS) 133
+2 Nightshade Seer (UDS) 63
+2 Order of Yawgmoth (USG) 144
+1 Ostracize (ULG) 57
+1 Plague Dogs (UDS) 66
+4 Polluted Mire (USG) 323
+4 Ravenous Rats (UDS) 68
+1 Sanguine Guard (USG) 155
+2 Scent of Nightshade (UDS) 69
+2 Sicken (USG) 156
+2 Slinking Skirge (UDS) 71
+1 Soul Feast (UDS) 72
+1 Spawning Pool (ULG) 142
+2 Squirming Mass (UDS) 73
+4 Swamp (USG) 339
+4 Swamp (USG) 340
+4 Swamp (USG) 341
+4 Swamp (USG) 342
+2 Unnerve (USG) 162

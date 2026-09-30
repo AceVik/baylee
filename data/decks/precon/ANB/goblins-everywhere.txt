@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Goblins Everywhere!
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GoblinsEverywhere_ANB.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: ANB
+# released: 2020-08-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Burn Bright (ANB) 68
+2 Goblin Gang Leader (ANB) 70
+4 Goblin Gathering (ANB) 71
+1 Goblin Trashmaster (ANB) 72
+2 Goblin Tunneler (ANB) 73
+1 Immortal Phoenix (ANB) 75
+2 Inescapable Blaze (ANB) 76
+2 Molten Ravager (ANB) 78
+25 Mountain (ANB) 114
+4 Nest Robber (ANB) 79
+2 Ogre Battledriver (ANB) 80
+2 Raid Bombardment (ANB) 82
+3 Shock (ANB) 84
+2 Siege Dragon (ANB) 85
+2 Storm Strike (ANB) 86
+3 Tin Street Cadet (ANB) 87
+1 Volcanic Dragon (ANB) 88
+SB: 4 Hurloon Minotaur (ANB) 74
+SB: 2 Raging Goblin (ANB) 81
+SB: 3 Reduce to Ashes (ANB) 83

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Flyover
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Flyover_WWK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: WWK
+# released: 2010-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Apex Hawks (WWK) 2
+1 Archon of Redemption (WWK) 3 *F*
+1 Divine Verdict (M10) 8
+1 Dread Statuary (WWK) 135
+1 Enclave Elite (WWK) 27
+1 Everflowing Chalice (WWK) 123
+1 Gomazoa (ZEN) 46
+2 Guardian Zendikon (WWK) 6
+1 Iona's Judgment (WWK) 8
+2 Island (ZEN) 234a
+2 Island (ZEN) 235a
+2 Island (ZEN) 236a
+1 Island (ZEN) 237a
+2 Kor Cartographer (ZEN) 18
+1 Lightkeeper of Emeria (WWK) 12
+1 Marshal's Anthem (WWK) 15
+1 Pacifism (M10) 22
+3 Plains (ZEN) 230a
+2 Plains (ZEN) 231a
+2 Plains (ZEN) 232a
+2 Plains (ZEN) 233a
+1 Righteousness (M10) 27
+1 Silvercoat Lion (M10) 32
+1 Sleep (M10) 71
+1 Stormfront Pegasus (M10) 35
+1 Surrakar Banisher (WWK) 39
+1 Terramorphic Expanse (M10) 229
+1 Unsummon (M10) 79
+1 Veteran's Reflexes (WWK) 23
+1 Voyager Drake (WWK) 45

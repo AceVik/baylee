@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Tezzeret, Master of Metal
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TezzeretMasterOfMetal_AER.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: AER
+# released: 2017-01-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Augmenting Automaton (AER) 143
+1 Barricade Breaker (AER) 144
+2 Bastion Inventor (AER) 30
+2 Dhund Operative (KLD) 74
+1 Dukhara Peafowl (KLD) 207
+1 Essence Extraction (KLD) 80
+1 Fen Hauler (AER) 58
+1 Foundry Assembler (AER) 151
+2 Implement of Examination (AER) 156
+1 Ironclad Revolutionary (AER) 65
+4 Island (KLD) 253
+4 Island (KLD) 254
+3 Island (KLD) 255
+1 Merchant's Dockhand (AER) 163
+1 Ornithopter (AER) 167
+4 Pendulum of Patterns (AER) 192
+1 Quicksmith Spy (AER) 41
+1 Reverse Engineer (AER) 42
+4 Submerged Boneyard (AER) 194
+4 Swamp (KLD) 256
+3 Swamp (KLD) 257
+3 Swamp (KLD) 258
+2 Tezzeret's Betrayal (AER) 191
+3 Tezzeret's Simulacrum (AER) 193
+2 Tezzeret's Touch (AER) 138
+1 Tezzeret, Master of Metal (AER) 190 *F*
+1 Treasure Keeper (AER) 177
+2 Universal Solvent (AER) 178
+2 Wind-Kin Raiders (AER) 50

@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Trample Civilization Underfoot
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TrampleCivilizationUnderfoot_ARC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: ARC
+# released: 2010-06-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armadillo Cloak (ARC) 78
+1 Feral Hydra (ARC) 53
+2 Fertilid (ARC) 54
+1 Fog (ARC) 56
+4 Forest (ARC) 148
+3 Forest (ARC) 149
+3 Forest (ARC) 150
+1 Forgotten Ancient (ARC) 57
+1 Gleeful Sabotage (ARC) 58
+1 Graypelt Refuge (ARC) 125
+1 Harmonize (ARC) 59
+1 Heroes' Reunion (ARC) 87
+1 Hunting Moa (ARC) 60
+1 Kamahl, Fist of Krosa (ARC) 61
+1 Khalni Garden (ARC) 127
+1 Krosan Tusker (ARC) 62
+1 Krosan Verge (ARC) 128
+1 Leaf Gilder (ARC) 63
+1 Llanowar Reborn (ARC) 129
+1 Molimo, Maro-Sorcerer (ARC) 64
+1 Mosswort Bridge (ARC) 130
+1 Nantuko Monastery (ARC) 131
+2 Oblivion Ring (ARC) 3
+1 Pale Recluse (ARC) 91
+1 Path to Exile (ARC) 4
+3 Plains (ARC) 137
+2 Plains (ARC) 138
+1 Plummet (ARC) 65
+1 Primal Command (ARC) 66
+1 Rancor (ARC) 67
+2 Sakura-Tribe Elder (ARC) 68
+1 Secluded Steppe (ARC) 133
+1 Selesnya Guildmage (ARC) 94
+1 Shinen of Life's Roar (ARC) 69
+1 Spider Umbra (ARC) 70
+1 Thelonite Hermit (ARC) 71
+1 Tranquil Thicket (ARC) 135
+1 Verdeloth the Ancient (ARC) 72
+1 Vitu-Ghazi, the City-Tree (ARC) 136
+2 Wall of Roots (ARC) 73
+1 Watchwolf (ARC) 100
+1 Wax // Wane (ARC) 101
+2 Wickerbough Elder (ARC) 74
+2 Yavimaya Dryad (ARC) 75

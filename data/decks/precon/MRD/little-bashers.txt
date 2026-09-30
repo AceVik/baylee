@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Little Bashers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LittleBashers_MRD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MRD
+# released: 2003-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Altar's Light (MRD) 1
+2 Arrest (MRD) 2
+2 Auriok Bladewarden (MRD) 3
+1 Auriok Steelshaper (MRD) 4
+2 Auriok Transfixer (MRD) 5
+1 Banshee's Blade (MRD) 144
+2 Bonesplitter (MRD) 146
+1 Fireshrieker (MRD) 171
+2 Gold Myr (MRD) 180
+4 Leonin Den-Guard (MRD) 9
+2 Leonin Scimitar (MRD) 193
+2 Leonin Skyhunter (MRD) 11
+1 Loxodon Punisher (MRD) 14
+1 Loxodon Warhammer (MRD) 201
+2 Myr Adapter (MRD) 210
+6 Plains (MRD) 287
+6 Plains (MRD) 288
+5 Plains (MRD) 289
+5 Plains (MRD) 290
+1 Roar of the Kha (MRD) 18
+3 Skyhunter Cub (MRD) 21
+1 Skyhunter Patrol (MRD) 22
+2 Slith Ascendant (MRD) 23
+2 Soldier Replica (MRD) 244
+1 Taj-Nar Swordsmith (MRD) 27
+1 Viridian Longbow (MRD) 270

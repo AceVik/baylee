@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Rise of the Vampires
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RiseOfTheVampires_ZEN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ZEN
+# released: 2009-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Acolyte of Xathrid (M10) 83
+1 Blood Tribute (ZEN) 81
+2 Child of Night (M10) 88
+1 Diabolic Tutor (M10) 91
+2 Feast of Blood (ZEN) 88
+1 Gatekeeper of Malakir (ZEN) 89
+2 Guul Draz Vampire (ZEN) 93
+1 Heartstabber Mosquito (ZEN) 97
+1 Hideous End (ZEN) 98
+1 Malakir Bloodwitch (ZEN) 100 *F*
+1 Mindless Null (ZEN) 103
+2 Piranha Marsh (ZEN) 222
+1 Rise from the Grave (M10) 109
+4 Swamp (ZEN) 238a
+4 Swamp (ZEN) 239a
+4 Swamp (ZEN) 240a
+4 Swamp (ZEN) 241a
+2 Vampire Aristocrat (M10) 117
+2 Vampire Nighthawk (ZEN) 116
+2 Vampire's Bite (ZEN) 117
+1 Zombie Goliath (M10) 123

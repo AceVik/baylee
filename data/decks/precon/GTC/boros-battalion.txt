@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Boros Battalion
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BorosBattalion_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (GTC) 85
+1 Aerial Maneuver (GTC) 1
+1 Armored Transport (GTC) 226
+2 Arrows of Justice (GTC) 211
+1 Bomber Corps (GTC) 86
+1 Boros Elite (GTC) 7
+1 Boros Guildgate (GTC) 239
+2 Boros Keyrune (GTC) 227
+2 Canyon Minotaur (M13) 122
+1 Court Street Denizen (GTC) 8
+2 Daring Skyjek (GTC) 9
+1 Ember Beast (GTC) 89
+1 Firefist Striker (GTC) 90
+1 Firemane Avenger (GTC) 163
+2 Fortress Cyclops (GTC) 164
+1 Foundry Champion (GTC) 165 *F*
+1 Mark for Death (GTC) 99
+3 Mountain (RTR) 265
+3 Mountain (RTR) 266
+2 Mountain (RTR) 267
+2 Mountain (RTR) 268
+2 Mountain (RTR) 269
+1 Mugging (GTC) 102
+1 Ordruun Veteran (GTC) 184
+3 Plains (RTR) 250
+3 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Righteous Charge (GTC) 23
+1 Shielded Passage (GTC) 24
+2 Skyknight Legionnaire (GTC) 197
+1 Sunhome Guildmage (GTC) 200
+2 Warclamp Mastiff (M13) 40
+2 Warmind Infantry (GTC) 111
+3 Wojek Halberdiers (GTC) 208

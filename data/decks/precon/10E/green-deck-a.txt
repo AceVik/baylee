@@ -1,0 +1,23 @@
+# baylee deck export v1
+# name: Green Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreenDeckA_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: 10E
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blanchwood Armor (10E) 253
+2 Crabapple Cohort (SHM) 109
+2 Craw Wurm (10E) 257
+4 Forest (10E) 380
+3 Forest (10E) 381
+3 Forest (10E) 382
+3 Forest (10E) 383
+2 Giant Spider (10E) 267
+2 Grizzly Bears (10E) 268
+1 Naturalize (10E) 282
+1 Overrun (10E) 284
+2 Rampant Growth (10E) 288
+2 Rootwalla (10E) 293
+2 Spined Wurm (10E) 298

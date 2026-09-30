@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_SOS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: SOS
+# released: 2026-04-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ajani's Pridemate (FDN) 135
+1 Banishing Light (FDN) 138
+1 Bishop's Soldier (FDN) 491
+1 Cathar Commando (FDN) 139
+1 Crusader of Odric (FDN) 731
+1 Cryptic Caves (FDN) 771
+1 Dauntless Veteran (FDN) 8
+1 Dazzling Angel (FDN) 732
+1 Diamond Mare (FDN) 770
+1 Exemplar of Light (FDN) 733
+2 Healer's Hawk (FDN) 734
+2 Helpful Hunter (FDN) 16
+1 Herald of Faith (FDN) 735
+1 Hinterland Sanctifier (FDN) 730
+1 Inspiring Overseer (FDN) 736
+1 Joust Through (FDN) 19
+1 Linden, the Steadfast Queen (FDN) 737
+1 Lyra Dawnbringer (FDN) 738
+1 Moment of Triumph (FDN) 500
+1 Pacifism (FDN) 501
+16 Plains (FDN) 272
+1 Prayer of Binding (FDN) 739
+1 Serra Angel (FDN) 740

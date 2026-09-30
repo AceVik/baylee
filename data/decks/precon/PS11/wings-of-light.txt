@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Wings of Light
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WingsOfLight_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Angel of Mercy (PS11) 1 [es]
+2 Angel's Feather (PS11) 184 [es]
+3 Angelic Blessing (PS11) 2 [es]
+1 Glorious Anthem (PS11) 6 [es]
+2 Goldenglow Moth (PS11) 7 [es]
+3 Holy Day (PS11) 9 [es]
+2 Holy Strength (PS11) 10 [es]
+1 Honor of the Pure (PS11) 11 [es]
+1 Luminarch Ascension (PS11) 13 [es]
+1 Mass Calcify (PS11) 14 [es]
+6 Plains (PS11) 205 [es]
+6 Plains (PS11) 206 [es]
+6 Plains (PS11) 207 [es]
+6 Plains (PS11) 208 [es]
+1 Serra Angel (PS11) 17 [es]
+1 Serra's Embrace (PS11) 18 [es]
+1 Skyhunter Skirmisher (PS11) 19 [es]
+1 Spirit of the Hearth (PS11) 20 [es]
+4 Suntail Hawk (PS11) 21 [es]
+3 Venerable Monk (PS11) 23 [es]
+1 Voice of All (PS11) 24 [es]
+4 Youthful Knight (PS11) 25 [es]

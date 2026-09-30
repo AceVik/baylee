@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: The Coalition
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheCoalition_DDE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDE
+# released: 2010-03-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Allied Strategies (DDE) 63
+2 Armadillo Cloak (DDE) 58
+1 Charging Troll (DDE) 45
+1 Coalition Relic (DDE) 54
+1 Darigaaz's Charm (DDE) 59
+1 Darigaaz, the Igniter (DDE) 47
+1 Elfhame Palace (DDE) 64
+1 Evasive Action (DDE) 50
+1 Exotic Curse (DDE) 56
+2 Fertile Ground (DDE) 52
+5 Forest (DDE) 70
+5 Forest (DDE) 71
+1 Gerrard Capashen (DDE) 46
+1 Gerrard's Command (DDE) 53
+2 Harrow (DDE) 57
+1 Island (DDE) 68
+4 Mountain (DDE) 69
+1 Narrow Escape (DDE) 55
+2 Nomadic Elf (DDE) 38
+4 Plains (DDE) 67
+1 Power Armor (DDE) 62
+1 Quirion Elves (DDE) 39
+1 Rith's Charm (DDE) 60
+1 Rith, the Awakener (DDE) 48
+1 Shivan Oasis (DDE) 65
+1 Sunscape Battlemage (DDE) 40
+1 Swamp (DDE) 33
+3 Terramorphic Expanse (DDE) 66
+2 Thornscape Apprentice (DDE) 37
+2 Thornscape Battlemage (DDE) 42
+1 Thunderscape Battlemage (DDE) 41
+1 Treva's Charm (DDE) 61
+1 Treva, the Renewer (DDE) 49
+1 Tribal Flames (DDE) 51
+1 Urza's Rage (DDE) 36 *F*
+1 Verduran Emissary (DDE) 43
+2 Yavimaya Elder (DDE) 44

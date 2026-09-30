@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Unflinching Assault
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UnflinchingAssault_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abzan Skycaptain (FRF) 4
+2 Aven Skirmisher (FRF) 6
+1 Battle Brawler (FRF) 63
+1 Chief of the Edge (KTK) 169
+1 Chief of the Scale (KTK) 170
+1 Cruel Sadist (M15) 93
+2 Debilitating Injury (KTK) 68
+1 Diplomacy of the Wastes (FRF) 67
+1 Dragonscale General (PFRF) 11 *F*
+1 Elite Scaleguard (FRF) 12
+1 Gravedigger (M15) 99
+2 Harsh Sustenance (FRF) 154
+2 Honor's Reward (FRF) 14
+1 Hooded Assassin (FRF) 73
+2 Mardu Hateblade (KTK) 16
+1 Merciless Executioner (FRF) 76
+3 Oreskos Swiftclaw (M15) 22
+7 Plains (FRF) 176
+6 Plains (FRF) 177
+2 Raiders' Spoils (KTK) 83
+1 Razorfoot Griffin (M15) 27
+1 Rush of Battle (KTK) 19
+1 Sandblast (FRF) 24
+2 Sandsteppe Outcast (FRF) 25
+3 Scoured Barrens (FRF) 171
+5 Swamp (FRF) 180
+4 Swamp (FRF) 181
+1 Take Up Arms (KTK) 26
+1 Throttle (KTK) 93
+1 Unyielding Krumar (KTK) 94

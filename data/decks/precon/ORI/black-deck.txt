@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Black Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeck_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Catacomb Slug (ORI) 86
+1 Cruel Revival (ORI) 88
+1 Deadbridge Shaman (ORI) 91
+1 Eyeblight Assassin (ORI) 95
+1 Flesh to Dust (ORI) 280
+1 Gold-Forged Sentinel (ORI) 226
+1 Infernal Scarring (ORI) 102
+1 Malakir Cullblade (ORI) 108
+1 Mind Rot (ORI) 281
+1 Nightmare (ORI) 282
+1 Rabid Bloodsucker (ORI) 113
+1 Reave Soul (ORI) 115
+1 Sengir Vampire (ORI) 283
+2 Shambling Ghoul (ORI) 119
+4 Swamp (ORI) 261
+3 Swamp (ORI) 262
+3 Swamp (ORI) 263
+3 Swamp (ORI) 264
+1 Weight of the Underworld (ORI) 126

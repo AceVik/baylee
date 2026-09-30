@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Jace, Ingenious Mind Mage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JaceIngeniousMindMage_XLN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: XLN
+# released: 2017-09-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (XLN) 45
+4 Castaway's Despair (XLN) 281
+2 Deeproot Warrior (XLN) 186
+1 Fleet Swallower (XLN) 57
+3 Forest (XLN) 276
+3 Forest (XLN) 277
+3 Forest (XLN) 278
+2 Forest (XLN) 279
+2 Grasping Current (XLN) 282
+2 Headwater Sentries (XLN) 58
+1 Herald of Secret Streams (XLN) 59
+3 Island (XLN) 264
+3 Island (XLN) 265
+3 Island (XLN) 266
+2 Island (XLN) 267
+3 Jace's Sentinel (XLN) 283
+1 Jace, Ingenious Mind-Mage (XLN) 280 *F*
+2 Jade Guardian (XLN) 194
+2 Jungle Delver (XLN) 195
+2 Kumena's Speaker (XLN) 196
+3 River Heralds' Boon (XLN) 204
+2 Shaper Apprentice (XLN) 75
+2 Shapers of Nature (XLN) 228
+1 Tempest Caller (XLN) 86
+2 Vineshaper Mystic (XLN) 214
+4 Woodland Stream (XLN) 284

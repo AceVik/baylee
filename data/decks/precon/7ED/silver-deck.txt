@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Silver Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SilverDeck_7ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 7ED
+# released: 2001-04-11
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Breath of Life (7ED) 4
+2 Coral Merfolk (7ED) 66
+1 Eager Cadet (7ED) 14
+2 Giant Octopus (7ED) 77
+2 Island (7ED) 332
+2 Island (7ED) 333
+2 Island (7ED) 334
+1 Island (7ED) 335
+2 Knight Errant (7ED) 24
+1 Merfolk of the Pearl Trident (7ED) 90
+2 Plains (7ED) 341
+2 Plains (7ED) 342
+2 Plains (7ED) 343
+1 Plains (7ED) 344
+2 Sacred Nectar (7ED) 37
+1 Sleight of Hand (7ED) 98
+2 Vengeance (7ED) 54
+2 Vizzerdrix (7ED) 110

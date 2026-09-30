@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Manuel Bevand - Myr Incubator Combo
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ManuelBevandMyrIncubatorCombo_WC04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC04
+# released: 2004-09-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ancient Den (WC04) mb278
+4 Chrome Mox (WC04) mb152
+4 Condescend (WC04) mb27
+4 Darksteel Citadel (WC04) mb164
+3 Fabricate (WC04) mb35
+1 Fireball (WC04) mb60
+1 Goblin Charbelcher (WC04) mb176
+4 Great Furnace (WC04) mb282
+4 Krark-Clan Ironworks (WC04) mb134
+4 Myr Incubator (WC04) mb212
+4 Pentad Prism (WC04) mb143
+4 Seat of the Synod (WC04) mb283
+3 Serum Visions (WC04) mb36
+3 Talisman of Dominance (WC04) mb253
+3 Talisman of Progress (WC04) mb256
+3 Thirst for Knowledge (WC04) mb53
+4 Thoughtcast (WC04) mb54
+3 Tree of Tales (WC04) mb285
+2 Vault of Whispers (WC04) mb286
+SB: 4 Furnace Dragon (WC04) mb62sb
+SB: 4 Mana Leak (WC04) mb89sb
+SB: 3 Pyroclasm (WC04) mb210sb
+SB: 4 Seething Song (WC04) mb104sb

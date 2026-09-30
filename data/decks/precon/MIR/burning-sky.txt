@@ -1,0 +1,40 @@
+# baylee deck export v1
+# name: Burning Sky
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BurningSky_MIR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: MIR
+# released: 2006-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Azimaet Drake (MIR) 53
+3 Bay Falcon (MIR) 54
+2 Boomerang (MIR) 56
+1 Burning Palm Efreet (MIR) 161
+1 Dissipate (MIR) 61
+2 Dream Cache (MIR) 62
+1 Dream Fighter (MIR) 63
+2 Flame Elemental (MIR) 175
+1 Goblin Scouts (MIR) 178
+1 Harmattan Efreet (MIR) 69
+1 Incinerate (MIR) 184
+3 Island (MIR) 335
+3 Island (MIR) 336
+3 Island (MIR) 337
+3 Island (MIR) 338
+1 Kaervek's Torch (MIR) 185
+2 Meddle (MIR) 73
+1 Mist Dragon (MIR) 79
+3 Mountain (MIR) 343
+3 Mountain (MIR) 344
+3 Mountain (MIR) 345
+3 Mountain (MIR) 346
+1 Mystical Tutor (MIR) 80
+1 Power Sink (MIR) 83
+3 Pyric Salamander (MIR) 187
+1 Subterranean Spirit (MIR) 195
+1 Suq'Ata Firewalker (MIR) 94
+2 Talruum Minotaur (MIR) 196
+3 Teferi's Drake (MIR) 97
+1 Vaporous Djinn (MIR) 101
+2 Wildfire Emissary (MIR) 203

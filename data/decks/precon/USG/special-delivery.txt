@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Special Delivery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDelivery_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Acridian (USG) 230
+1 Anaconda (USG) 232
+3 Arc Lightning (USG) 174
+1 Argothian Wurm (USG) 236
+1 Bull Hippo (USG) 239
+2 Cradle Guard (USG) 245
+1 Fiery Mantle (USG) 186
+3 Forest (USG) 347
+3 Forest (USG) 348
+2 Forest (USG) 349
+2 Forest (USG) 350
+2 Goblin Patrol (USG) 193
+2 Goblin War Buggy (USG) 196
+1 Heat Ray (USG) 199
+1 Hidden Ancients (USG) 260
+1 Hidden Spider (USG) 264
+1 Hush (USG) 266
+1 Jagged Lightning (USG) 200
+3 Mountain (USG) 343
+3 Mountain (USG) 344
+3 Mountain (USG) 345
+2 Mountain (USG) 346
+1 Pouncing Jaguar (USG) 269
+1 Scrap (USG) 213
+1 Shiv's Embrace (USG) 216
+2 Shivan Raptor (USG) 215
+1 Shower of Sparks (USG) 217
+2 Slippery Karst (USG) 327
+2 Smoldering Crater (USG) 328
+1 Symbiosis (USG) 275
+1 Thran Turbine (USG) 311
+2 Thundering Giant (USG) 221
+1 Torch Song (USG) 222
+3 Wild Dogs (USG) 284
+1 Wildfire (USG) 228

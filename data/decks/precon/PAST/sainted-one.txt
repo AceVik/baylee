@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Sainted One
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SaintedOne_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Armageddon (3ED) 2
+3 Armageddon Clock (ATQ) 37
+1 Balance (3ED) 3
+1 Black Lotus (2ED) 233
+2 Blessing (3ED) 6
+3 Bottle of Suleiman (ARN) 58
+4 Circle of Protection: Artifacts (ATQ) 4
+3 Dingus Egg (3ED) 244
+1 Disenchant (3ED) 17
+1 Mishra's Workshop (ATQ) 81
+1 Mox Pearl (2ED) 264
+2 Personal Incarnation (3ED) 31
+8 Plains (3ED) 292
+7 Plains (3ED) 293
+7 Plains (3ED) 294
+3 Rainbow Knights (PAST) 9
+2 Serra Angel (3ED) 40
+1 Sol Ring (3ED) 274
+2 Swords to Plowshares (3ED) 41
+3 White Knight (3ED) 44
+2 White Mana Battery (LEG) 299
+SB: 1 Angry Mob (DRK) 1
+SB: 1 Circle of Protection: Black (3ED) 9
+SB: 2 Circle of Protection: Blue (3ED) 10
+SB: 2 Circle of Protection: Green (3ED) 11
+SB: 2 Circle of Protection: Red (3ED) 12
+SB: 3 Circle of Protection: White (3ED) 13
+SB: 1 Conversion (3ED) 14
+SB: 2 Disenchant (3ED) 17
+SB: 1 Karma (3ED) 26

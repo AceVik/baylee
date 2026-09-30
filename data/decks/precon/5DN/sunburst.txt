@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Sunburst
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Sunburst_5DN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 5DN
+# released: 2004-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Chromatic Sphere (MRD) 151
+3 Darksteel Ingot (DST) 112
+2 Darksteel Pendant (DST) 113
+1 Dawn's Reflection (5DN) 85
+2 Energy Chamber (5DN) 117
+2 Etched Oracle (5DN) 121
+3 Forest (MRD) 303
+2 Forest (MRD) 304
+2 Forest (MRD) 305
+2 Forest (MRD) 306
+2 Heliophial (5DN) 130
+2 Infused Arrows (5DN) 133
+1 Island (MRD) 291
+1 Island (MRD) 292
+1 Island (MRD) 293
+1 Joiner Adept (5DN) 89
+1 Journey of Discovery (MRD) 123
+1 Lunar Avenger (5DN) 136
+2 Mirrodin's Core (DST) 165
+1 Mountain (MRD) 299
+1 Mountain (MRD) 300
+1 Mountain (MRD) 301
+2 Pentad Prism (5DN) 143
+1 Plains (MRD) 287
+1 Plains (MRD) 288
+1 Plains (MRD) 289
+1 Sawtooth Thresher (5DN) 149
+3 Skyreach Manta (5DN) 152
+2 Spinal Parasite (5DN) 155
+1 Suncrusher (5DN) 159
+3 Suntouched Myr (5DN) 160
+1 Swamp (MRD) 295
+1 Swamp (MRD) 296
+1 Swamp (MRD) 297
+2 Sylvok Explorer (5DN) 93
+2 Tel-Jilad Justice (5DN) 95
+1 Viridian Acolyte (DST) 89
+1 Wayfarer's Bauble (5DN) 165

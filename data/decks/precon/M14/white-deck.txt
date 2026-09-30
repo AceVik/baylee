@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: White Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeck_M14.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M14
+# released: 2014-07-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assault Griffin (GTC) 4
+1 Auramancer (M14) 6
+1 Brave the Elements (M14) 10
+1 Capashen Knight (M14) 11
+1 Concordia Pegasus (RTR) 8
+1 Divine Favor (M14) 17
+1 Ethereal Armor (RTR) 9
+2 Master of Diversion (M14) 24
+2 Pacifism (M14) 25
+4 Plains (M14) 230
+3 Plains (M14) 231
+3 Plains (M14) 232
+3 Plains (M14) 233
+1 Righteous Charge (GTC) 23
+1 Serra Angel (M14) 32
+1 Show of Valor (M14) 33
+1 Soulmender (M14) 37
+1 Stonehorn Chanter (M14) 39
+1 Sunspire Griffin (RTR) 25

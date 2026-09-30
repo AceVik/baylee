@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Saddle Up
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SaddleUp_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Acrobatic Leap (LCI) 2
+2 Ankle Biter (OTJ) 153
+1 Bounding Felidar (OTJ) 5
+3 Bristlepack Sentry (OTJ) 156
+2 Congregation Gryff (OTJ) 200
+2 Cooped Up (WOE) 8
+4 Creosote Heath (OTJ) 255
+2 Drover Grizzly (OTJ) 161
+10 Forest (LTR) 270
+1 Fortune, Loyal Steed (OTJ) 12
+2 Giant Beaver (OTJ) 165
+1 Gruff Triplets (WOE) 172
+2 Intrepid Stablemaster (OTJ) 169
+1 Lush Portico (MKM) 263
+2 Moment of Valor (WOE) 20
+1 Ornery Tumblewagg (OTJ) 171
+1 Outcaster Trailblazer (OTJ) 173
+10 Plains (OTJ) 278
+1 Railway Brawler (OTJ) 175
+1 Seraphic Steed (OTJ) 232
+2 Steer Clear (OTJ) 31
+2 Thousand Moons Infantry (LCI) 38
+2 Throw from the Saddle (OTJ) 185
+2 Vengeful Townsfolk (OTJ) 37
+1 Wylie Duke, Atiin Hero (OTJ) 239

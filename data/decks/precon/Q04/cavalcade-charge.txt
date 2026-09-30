@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Cavalcade Charge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CavalcadeCharge_Q04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q04
+# released: 2020-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Bonecrusher Giant // Stomp (ELD) 115
+3 Castle Embereth (ELD) 239
+4 Cavalcade of Calamity (RNA) 95
+3 Chandra, Acolyte of Flame (M20) 126
+1 Embercleave (ELD) 120
+4 Fervent Champion (ELD) 124
+4 Light Up the Stage (RNA) 107
+9 Mountain (THB) 284
+9 Mountain (THB) 285
+4 Rimrock Knight // Boulder Rush (ELD) 137
+4 Runaway Steam-Kin (GRN) 115
+4 Scorch Spitter (M20) 159
+3 Tin Street Dodger (RNA) 120
+4 Torbran, Thane of Red Fell (ELD) 147
+SB: 3 Experimental Frenzy (GRN) 99
+SB: 3 Satyr's Cunning (THB) 152
+SB: 4 Shock (M20) 160
+SB: 3 Slaying Fire (ELD) 143
+SB: 2 Tibalt, Rakish Instigator (WAR) 146

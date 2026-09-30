@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Black Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BlackDeckB_M11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M11
+# released: 2010-07-16
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Barony Vampire (M11) 82
+1 Blood Seeker (ZEN) 80
+2 Blood Tithe (M11) 84
+2 Child of Night (M11) 88
+1 Feast of Blood (ZEN) 88
+1 Pulse Tracker (WWK) 62
+1 Rise from the Grave (M11) 114
+1 Ruthless Cullblade (WWK) 65
+2 Stabbing Pain (M11) 118
+3 Swamp (M11) 238
+3 Swamp (M11) 239
+3 Swamp (M11) 240
+3 Swamp (M11) 241
+2 Unholy Strength (M11) 119
+1 Urge to Feed (WWK) 70
+1 Vampire Lacerator (ZEN) 115
+1 Vampire Nighthawk (ZEN) 116

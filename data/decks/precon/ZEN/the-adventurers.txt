@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: The Adventurers
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheAdventurers_ZEN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ZEN
+# released: 2009-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M10) 124
+1 Awakener Druid (M10) 167
+1 Beast Hunt (ZEN) 158
+1 Borderland Ranger (M10) 169
+1 Fireball (M10) 136
+3 Forest (ZEN) 246a
+2 Forest (ZEN) 247a
+2 Forest (ZEN) 248a
+2 Forest (ZEN) 249a
+2 Giant Growth (M10) 184
+1 Greenweaver Druid (ZEN) 164
+2 Highland Berserker (ZEN) 132
+1 Joraga Bard (ZEN) 166
+1 Kazuul Warlord (ZEN) 134
+2 Lightning Bolt (M10) 146
+2 Mountain (ZEN) 242a
+2 Mountain (ZEN) 243a
+2 Mountain (ZEN) 244a
+2 Mountain (ZEN) 245a
+1 Murasa Pyromancer (ZEN) 139
+2 Oran-Rief Survivalist (ZEN) 174
+1 Overrun (M10) 198
+1 Stonework Puma (ZEN) 207
+1 Tajuru Archer (ZEN) 185
+1 Terramorphic Expanse (M10) 229
+2 Tuktuk Grunts (ZEN) 152
+1 Turntimber Ranger (ZEN) 191 *F*

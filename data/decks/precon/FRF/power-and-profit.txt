@@ -1,0 +1,53 @@
+# baylee deck export v1
+# name: Power and Profit
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerAndProfit_FRF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Clash Pack
+# set: FRF
+# released: 2015-01-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Brain Maggot (JOU) 62
+3 Commune with the Gods (THS) 155
+1 Courser of Kruphix (CP2) 6 *F*
+1 Debilitating Injury (KTK) 68
+1 Doomwake Giant (JOU) 66
+1 Eidolon of Blossoms (JOU) 122
+2 Evolving Wilds (M15) 243
+1 Font of Fertility (JOU) 123
+8 Forest (KTK) 269
+1 Gurmag Angler (FRF) 72
+1 Herald of Torment (BNG) 75
+1 Hero's Downfall (CP2) 2 *F*
+3 Island (KTK) 257
+2 Jungle Hollow (FRF) 169
+1 Merciless Executioner (FRF) 76
+1 Monastery Siege (FRF) 43
+2 Murderous Cut (KTK) 81
+1 Necropolis Fiend (CP2) 1 *F*
+2 Nemesis of Mortals (THS) 163
+1 Nighthowler (THS) 98
+3 Nyx Weaver (JOU) 153
+4 Opulent Palace (KTK) 238
+1 Reaper of the Wilds (CP2) 4 *F*
+4 Satyr Wayfinder (M15) 198
+1 Scuttling Doom Engine (M15) 229
+1 Sultai Ascendancy (CP2) 3 *F*
+2 Sultai Charm (KTK) 204
+2 Sultai Soothsayer (KTK) 205
+5 Swamp (FRF) 181
+1 Whip of Erebos (CP2) 5 *F*
+SB: 1 Annul (THS) 38
+SB: 1 Baleful Eidolon (THS) 78
+SB: 2 Dark Betrayal (THS) 83
+SB: 1 Dead Drop (KTK) 67
+SB: 1 Defend the Hearth (THS) 156
+SB: 1 Despise (KTK) 69
+SB: 1 Graverobber Spider (BNG) 122
+SB: 1 Naturalize (KTK) 142
+SB: 1 Neutralizing Blast (FRF) 44
+SB: 1 Noble Quarry (BNG) 130
+SB: 1 Plummet (M15) 192
+SB: 1 Reviving Melody (JOU) 138
+SB: 1 Set Adrift (KTK) 54
+SB: 1 Typhoid Rats (FRF) 89

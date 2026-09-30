@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Gideon, the Oathsworn
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GideonTheOathsworn_WAR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: WAR
+# released: 2019-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ajani's Pridemate (WAR) 4
+1 Bond of Discipline (WAR) 6
+4 Charmed Stray (WAR) 8
+1 Command the Dreadhorde (WAR) 82
+3 Cruel Celebrant (WAR) 188
+4 Desperate Lunge (WAR) 266
+2 Enforcer Griffin (WAR) 11
+2 Gideon's Battle Cry (WAR) 267
+3 Gideon's Company (WAR) 268
+1 Gideon, the Oathsworn (WAR) 265 *F*
+1 Kaya, Bane of the Dead (WAR) 231
+3 Makeshift Battalion (WAR) 22
+1 Oath of Kaya (WAR) 209
+3 Ob Nixilis's Cruelty (WAR) 101
+4 Orzhov Guildgate (WAR) 269
+4 Plains (WAR) 250
+4 Plains (WAR) 251
+4 Plains (WAR) 252
+3 Swamp (WAR) 256
+3 Swamp (WAR) 257
+2 Swamp (WAR) 258
+2 Trusted Pegasus (WAR) 36
+1 Vampire Opportunist (WAR) 110
+1 War Screecher (WAR) 39

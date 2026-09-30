@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Thoughts of the Wind
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ThoughtsOfTheWind_PS11.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PS11
+# released: 2011-01-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Air Elemental (PS11) 26 [es]
+2 Boomerang (PS11) 27 [es]
+2 Cancel (PS11) 28 [es]
+4 Cloud Sprite (PS11) 29 [es]
+1 Counterbore (PS11) 30 [es]
+2 Deluge (PS11) 31 [es]
+1 Denizen of the Deep (PS11) 32 [es]
+3 Essence Scatter (PS11) 35 [es]
+1 Evacuation (PS11) 37 [es]
+7 Island (PS11) 209 [es]
+6 Island (PS11) 210 [es]
+6 Island (PS11) 211 [es]
+6 Island (PS11) 212 [es]
+2 Kraken's Eye (PS11) 192 [es]
+1 Mahamoti Djinn (PS11) 41 [es]
+1 Mind Control (PS11) 45 [es]
+1 Mind Spring (PS11) 46 [es]
+2 Negate (PS11) 47 [es]
+1 Phantom Warrior (PS11) 49 [es]
+3 Snapping Drake (PS11) 54 [es]
+2 Thieving Magpie (PS11) 56 [es]
+2 Unsummon (PS11) 59 [es]
+2 Wall of Spears (PS11) 201 [es]

@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Elvish Magi
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ElvishMagi_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Elven Riders (LEG) 183
+4 Elvish Archers (3ED) 193
+8 Forest (3ED) 304
+7 Forest (3ED) 305
+7 Forest (3ED) 306
+4 Giant Spider (3ED) 200
+4 Hurricane (3ED) 202
+2 Jayemdae Tome (3ED) 258
+4 Llanowar Elves (3ED) 211
+4 Stream of Life (3ED) 217
+4 Untamed Wilds (LEG) 210
+4 War Mammoth (3ED) 228
+4 Winter Blast (LEG) 213
+SB: 1 Living Artifact (3ED) 209
+SB: 1 Tranquility (3ED) 221
+SB: 1 Wall of Brambles (3ED) 224
+SB: 1 Web (3ED) 229
+SB: 1 Whirling Dervish (LEG) 211

@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Replicator - Enhanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ReplicatorEnhancedDeck_NEM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Enhanced Deck
+# set: NEM
+# released: 2000-02-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arc Lightning (USG) 174
+1 Collective Unconscious (MMQ) 236
+2 Earthquake (6ED) 173
+4 Forest (MMQ) 347
+4 Forest (MMQ) 348
+3 Forest (MMQ) 349
+3 Forest (MMQ) 350
+4 Howling Wolf (MMQ) 252
+3 Maro (6ED) 241
+1 Mercadian Bazaar (MMQ) 321
+1 Mountain (MMQ) 343
+1 Mountain (MMQ) 344
+1 Mountain (MMQ) 345
+4 Nesting Wurm (NEM) 107
+3 Rancor (ULG) 110
+4 Repopulate (ULG) 111
+2 Revive (MMQ) 262
+4 Skyshroud Sentinel (NEM) 121
+4 Smoldering Crater (USG) 328
+1 Spontaneous Generation (MMQ) 274
+2 Squallmonger (MMQ) 276
+2 Thran Foundry (UDS) 140
+2 Treetop Village (ULG) 143
+3 Vine Trellis (MMQ) 285

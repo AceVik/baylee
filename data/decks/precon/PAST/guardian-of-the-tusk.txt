@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Guardian of the Tusk
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GuardianOfTheTusk_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Berserk (2ED) 186
+4 Birds of Paradise (3ED) 187
+2 Colossus of Sardia (ATQ) 46
+2 Desert Twister (ARN) 46
+2 Divine Transformation (LEG) 10
+2 Elder Land Wurm (LEG) 11
+2 Force of Nature (3ED) 196
+4 Forest (3ED) 304
+4 Forest (3ED) 305
+4 Forest (3ED) 306
+4 Giant Growth (3ED) 199
+4 Holy Strength (3ED) 24
+4 Plains (3ED) 292
+4 Plains (3ED) 293
+4 Plains (3ED) 294
+3 Savannah Lions (3ED) 39
+3 Timber Wolves (3ED) 219
+3 Tundra Wolves (LEG) 40
+4 War Mammoth (3ED) 228

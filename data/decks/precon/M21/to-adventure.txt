@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: To Adventure!
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ToAdventure_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M21
+# released: 2021-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Ardenvale Tactician // Dizzying Swoop (ELD) 5
+3 Banishing Light (THB) 4
+4 Blossoming Sands (M21) 244
+4 Edgewall Innkeeper (ELD) 151
+3 Faerie Guidemother // Gift of the Fae (ELD) 11
+4 Forest (M21) 272
+3 Forest (M21) 273
+3 Forest (M21) 274
+3 Garenbrig Squire (ELD) 158
+1 Giant Killer // Chop Down (ELD) 14
+1 Ironscale Hydra (THB) 296
+1 Lovestruck Beast // Heart's Desire (ELD) 165
+2 Mysterious Pathlighter (ELD) 22
+3 Oakhame Ranger // Bring Back (ELD) 212
+4 Plains (M21) 260
+3 Plains (M21) 261
+3 Plains (M21) 262
+1 Primal Might (M21) 197
+1 Realm-Cloaked Giant // Cast Off (ELD) 26
+3 Shepherd of the Flock // Usher to Safety (ELD) 28
+2 Silverflame Squire // On Alert (ELD) 31
+1 Temple of Plenty (THB) 248
+1 Victory's Envoy (THB) 289
+4 Wandermare (ELD) 204

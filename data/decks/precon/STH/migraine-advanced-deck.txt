@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Migraine - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MigraineAdvancedDeck_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Abyssal Specter (5ED) 139
+3 Anvil of Bogardan (VIS) 141
+2 Bottomless Pit (STH) 51
+2 Coercion (TMP) 113
+3 Dark Ritual (TMP) 118
+1 Dauthi Mindripper (TMP) 125
+2 Diabolic Edict (TMP) 128
+2 Disrupting Scepter (5ED) 365
+2 Drain Life (5ED) 156
+2 Ensnaring Bridge (STH) 133
+1 Infernal Tribute (WTH) 73
+4 Megrim (STH) 62
+1 Mind Warp (5ED) 177
+3 Pit Imp (TMP) 148
+2 Pox (5ED) 189
+4 Quicksand (VIS) 166
+2 Stupor (MIR) 147
+5 Swamp (TMP) 339
+5 Swamp (TMP) 340
+4 Swamp (TMP) 341
+4 Swamp (TMP) 342
+1 Vampiric Tutor (VIS) 72
+1 Wasteland (TMP) 330
+SB: 2 Bottomless Pit (STH) 51
+SB: 2 Dread of Night (TMP) 130
+SB: 4 Gloom (5ED) 165
+SB: 1 Infernal Tribute (WTH) 73
+SB: 2 Nekrataal (VIS) 66
+SB: 3 Perish (TMP) 147
+SB: 1 Teferi's Puzzle Box (VIS) 156

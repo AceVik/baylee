@@ -1,0 +1,50 @@
+# baylee deck export v1
+# name: Ajani Goldmane
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AjaniGoldmane_DDH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDH
+# released: 2011-09-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ageless Entity (DDH) 18
+1 Ajani Vengeant (DDH) 1 *F*
+1 Ajani's Mantra (DDH) 22
+2 Ajani's Pridemate (DDH) 9
+1 Behemoth Sledge (DDH) 28
+1 Briarhorn (DDH) 14
+1 Canyon Wildcat (DDH) 6
+1 Essence Warden (DDH) 3
+2 Evolving Wilds (DDH) 32
+1 Firemane Angel (DDH) 21
+1 Fleetfoot Panther (DDH) 12
+4 Forest (DDH) 38
+4 Forest (DDH) 39
+1 Graypelt Refuge (DDH) 33
+1 Grazing Gladehart (DDH) 11
+1 Griffin Guide (DDH) 25
+1 Jade Mage (DDH) 7
+2 Jungle Shrine (DDH) 34
+1 Kazandu Refuge (DDH) 35
+1 Kird Ape (DDH) 2
+1 Lead the Stampede (DDH) 24
+1 Lightning Helix (DDH) 23
+1 Loam Lion (DDH) 5
+1 Loxodon Hierarch (DDH) 15
+1 Marisi's Twinclaws (DDH) 17
+3 Mountain (DDH) 41
+1 Nacatl Hunt-Pride (DDH) 20
+1 Naya Charm (DDH) 29
+6 Plains (DDH) 40
+1 Pride of Lions (DDH) 19
+1 Qasali Pridemage (DDH) 10
+2 Recumbent Bliss (DDH) 26
+1 Sapseep Forest (DDH) 36
+1 Searing Meditation (DDH) 27
+1 Spitemare (DDH) 16
+2 Sylvan Bounty (DDH) 30
+2 Sylvan Ranger (DDH) 8
+1 Titanic Ultimatum (DDH) 31
+1 Vitu-Ghazi, the City-Tree (DDH) 37
+1 Wild Nacatl (DDH) 4
+1 Woolly Thoctar (DDH) 13

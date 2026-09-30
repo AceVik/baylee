@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Night Terrors
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NightTerrors_MIR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: MIR
+# released: 2006-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blighted Shaman (MIR) 107
+2 Bone Harvest (MIR) 108
+3 Breathstealer (MIR) 109
+3 Charcoal Diamond (MIR) 296
+2 Dark Banishing (MIR) 115
+1 Drain Life (MIR) 118
+2 Dread Specter (MIR) 119
+3 Feral Shadow (MIR) 122
+1 Fetid Horror (MIR) 123
+1 Gravebane Zombie (MIR) 127
+1 Kaervek's Hex (MIR) 130
+1 Nocturnal Raid (MIR) 132
+1 Phyrexian Vault (MIR) 316
+1 Ravenous Vampire (MIR) 136
+2 Restless Dead (MIR) 138
+1 Shallow Grave (MIR) 141
+2 Skulking Ghost (MIR) 143
+1 Soulshriek (MIR) 145
+1 Spirit of the Night (MIR) 146
+2 Stupor (MIR) 147
+6 Swamp (MIR) 339
+6 Swamp (MIR) 340
+5 Swamp (MIR) 341
+5 Swamp (MIR) 342
+3 Urborg Panther (MIR) 150
+2 Wall of Corpses (MIR) 151
+1 Withering Boon (MIR) 152

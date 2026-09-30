@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Donatello
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Donatello_TMT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMT
+# released: 2026-03-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 April O'Neil, Human Element (TMC) 107
+2 Buzz Bots (TMT) 32
+4 Containment Protocol (TMC) 108
+3 Crustacean Commando (TMT) 33
+1 Definitely Not a Turtle (TMC) 98
+2 Donatello's Science Lesson (TMC) 110
+1 Donatello, Rad Scientist (TMC) 109
+1 Donatello, Turtle Techie (TMT) 37
+1 Donatello, Way with Machines (TMT) 38
+1 Donnie & April, Adorkable Duo (TMC) 111
+1 Henchbots (TMT) 174
+24 Island (TMT) 316
+2 Manhole Cover (TMC) 130
+2 Mind Transfer Protocol (TMT) 45
+2 Mouser Mark III (TMT) 159
+1 Ray Fillet, Man Ray (TMT) 49
+1 Sewer-veillance Cam (TMT) 53
+3 Slithering Cryptid (TMT) 168
+2 Stockman, Mad Fly-entist (TMT) 54
+3 Utrom Monitor (TMC) 113
+2 Utrom Scientists (TMT) 56

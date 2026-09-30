@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Amonkhet Welcome Deck - Red
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckRed_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W17
+# released: 2017-04-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Brazen Scourge (KLD) 107†
+2 Falkenrath Reaver (W17) 21
+1 Flame Lash (KLD) 266
+1 Fling (AKH) 132
+2 Frontline Rebel (AER) 82
+1 Hungry Flames (AER) 84
+1 Hyena Pack (AKH) 139
+5 Mountain (AKH) 264
+4 Mountain (AKH) 265
+4 Mountain (AKH) 266
+1 Renegade Tactics (KLD) 127
+1 Shivan Dragon (W17) 22
+2 Shock (AER) 98
+2 Terror of the Fairgrounds (KLD) 137
+1 Thundering Giant (W17) 23
+1 Wrangle (AER) 101†

@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Ajani, Inspiring Leader
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AjaniInspiringLeader_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M20
+# released: 2019-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ajani, Inspiring Leader (M20) 282 *F*
+3 Angel of Vitality (M20) 4
+3 Dawning Angel (M20) 11
+4 Daybreak Chaplain (M20) 12
+3 Fencing Ace (M20) 16
+2 Goldmane Griffin (M20) 283
+3 Impassioned Orator (M20) 306
+1 Loxodon Lifechanter (M20) 27
+4 Moment of Heroism (M20) 30
+3 Pacifism (M20) 32
+7 Plains (M20) 261
+6 Plains (M20) 262
+6 Plains (M20) 263
+6 Plains (M20) 264
+4 Savannah Sage (M20) 284
+1 Serra's Guardian (M20) 310
+3 Twinblade Paladin (M20) 285

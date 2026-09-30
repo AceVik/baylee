@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeckA_6ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: 6ED
+# released: 1999-04-21
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ardent Militia (6ED) 3
+1 Blood Pet (6ED) 115
+1 Call of the Wild (6ED) 218
+1 Creeping Mold (6ED) 220
+1 Drudge Skeletons (6ED) 123
+1 Enfeeblement (6ED) 125
+2 Forest (6ED) 347
+2 Forest (6ED) 348
+2 Forest (6ED) 349
+1 Forest (6ED) 350
+1 Giant Growth (6ED) 233
+1 Giant Spider (6ED) 234
+1 Gravebane Zombie (6ED) 133
+1 Healing Salve (6ED) 22
+1 Hidden Horror (6ED) 137
+1 Llanowar Elves (6ED) 239
+1 Mischievous Poltergeist (6ED) 144
+1 Obsianus Golem (6ED) 303
+1 Panther Warriors (6ED) 243
+1 Plains (6ED) 331
+1 Plains (6ED) 332
+1 Plains (6ED) 333
+1 Raise Dead (6ED) 152
+1 Rampant Growth (6ED) 246
+1 Rod of Ruin (6ED) 309
+1 Samite Healer (6ED) 40
+1 Scaled Wurm (6ED) 251
+2 Swamp (6ED) 339
+2 Swamp (6ED) 340
+2 Swamp (6ED) 341
+1 Swamp (6ED) 342
+1 Terror (6ED) 160
+1 Trained Armodon (6ED) 257
+1 Warrior's Honor (6ED) 53

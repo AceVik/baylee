@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Simic Combine
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SimicCombine_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M20
+# released: 2019-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Aeromunculus (RNA) 152
+3 Applied Biomancy (RNA) 153
+1 Benthic Biomancer (RNA) 32
+1 Biomancer's Familiar (RNA) 158
+1 Breeding Pool (RNA) 246
+1 Chillbringer (RNA) 33
+2 Combine Guildmage (RNA) 163
+3 Forest (M20) 277
+3 Forest (M20) 278
+2 Forest (M20) 279
+2 Forest (M20) 280
+2 Growth Spiral (RNA) 178
+2 Gyre Engineer (RNA) 180
+1 Hydroid Krasis (RNA) 183
+2 Incubation // Incongruity (RNA) 226
+1 Incubation Druid (RNA) 131
+3 Island (M20) 265
+3 Island (M20) 266
+2 Island (M20) 267
+2 Island (M20) 268
+2 Kasmina's Transmutation (WAR) 57
+2 Merfolk Skydiver (WAR) 205
+1 Pteramander (RNA) 47
+1 Repudiate // Replicate (RNA) 227
+2 Sauroform Hybrid (RNA) 140
+3 Sharktocrab (RNA) 206
+4 Simic Guildgate (RNA) 257
+2 Stony Strength (RNA) 143
+2 Titanic Brawl (RNA) 146
+1 Zegana, Utopian Speaker (RNA) 214

@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Jace
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Jace_DD2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DD2
+# released: 2008-11-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aethersnipe (DD2) 17
+1 Air Elemental (DD2) 13
+1 Ancestral Vision (DD2) 21
+1 Bottle Gnomes (DD2) 7
+1 Brine Elemental (DD2) 18
+2 Condescend (DD2) 28
+2 Counterspell (DD2) 24
+1 Daze (DD2) 23
+1 Errant Ephemeron (DD2) 20
+1 Fact or Fiction (DD2) 26
+2 Fathom Seer (DD2) 3
+1 Fledgling Mawcor (DD2) 10
+1 Guile (DD2) 14
+1 Gush (DD2) 27
+6 Island (DD2) 30
+6 Island (DD2) 31
+6 Island (DD2) 32
+5 Island (DD2) 33
+1 Jace Beleren (DD2) 1 *F*
+2 Man-o'-War (DD2) 8
+1 Martyr of Frost (DD2) 2
+1 Mind Stone (DD2) 22
+2 Mulldrifter (DD2) 12
+1 Ophidian (DD2) 9
+1 Quicksilver Dragon (DD2) 19
+2 Repulse (DD2) 25
+1 Riftwing Cloudskate (DD2) 15
+2 Spire Golem (DD2) 16
+1 Terrain Generator (DD2) 29
+1 Voidmage Apprentice (DD2) 4
+2 Wall of Deceit (DD2) 5
+1 Waterspout Djinn (DD2) 11
+1 Willbender (DD2) 6

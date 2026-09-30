@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Dark Sacrifice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkSacrifice_GN3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN3
+# released: 2022-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bloodsoaked Altar (GN3) 43
+1 Bushmeat Poacher (GN3) 44
+1 Demon of Loathing (GN3) 45
+1 Demonic Embrace (GN3) 46
+3 Doom Blade (GN3) 47
+2 Doomed Dissenter (GN3) 48
+1 Dusk Legion Zealot (GN3) 49
+1 Fleshbag Marauder (GN3) 50
+2 Gavony Unhallowed (GN3) 51
+2 Gifted Aetherborn (GN3) 52
+1 Gravewaker (GN3) 53
+1 Howling Golem (GN3) 117
+1 Liliana's Mastery (GN3) 54
+2 Lord of the Accursed (GN3) 55
+1 Maalfeld Twins (GN3) 56
+2 Moan of the Unhallowed (GN3) 57
+1 Priest of the Blood Rite (GN3) 58
+1 Ravenous Chupacabra (GN3) 59
+1 Reassembling Skeleton (GN3) 60
+2 Sign in Blood (GN3) 61
+1 Supernatural Stamina (GN3) 62
+9 Swamp (GN3) 128
+9 Swamp (GN3) 129
+8 Swamp (GN3) 130
+1 Vilis, Broker of Blood (GN3) 63
+2 Village Rites (GN3) 64
+1 Vogar, Necropolis Tyrant (GN3) 3 *F*
+1 Vow of Torment (GN3) 65

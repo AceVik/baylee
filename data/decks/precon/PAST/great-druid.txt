@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Great Druid
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GreatDruid_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Aspect of Wolf (3ED) 186
+3 Birds of Paradise (3ED) 187
+3 Desert Twister (ARN) 46
+8 Forest (3ED) 304
+7 Forest (3ED) 305
+7 Forest (3ED) 306
+3 Gaea's Liege (3ED) 198
+3 Instill Energy (3ED) 203
+3 Jayemdae Tome (3ED) 258
+4 Killer Bees (LEG) 192
+2 Living Artifact (3ED) 209
+2 Living Lands (3ED) 210
+3 Llanowar Elves (3ED) 211
+3 Stream of Life (3ED) 217
+3 Untamed Wilds (LEG) 210
+2 Verduran Enchantress (3ED) 223
+SB: 2 Lifeforce (3ED) 207
+SB: 2 Shanodin Dryads (3ED) 216
+SB: 2 Tsunami (3ED) 222

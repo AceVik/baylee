@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Pulverize
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Pulverize_SCG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SCG
+# released: 2003-05-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aven Fateshaper (ONS) 69
+1 Bloodstoke Howler (LGN) 89
+2 Carbonize (SCG) 83
+3 Chartooth Cougar (SCG) 84
+2 Dispersal Shield (SCG) 33
+2 Dragon Breath (SCG) 86
+2 Erratic Explosion (ONS) 201
+1 Frenetic Raptor (LGN) 93
+2 Goblin Machinist (ONS) 204
+3 Island (ONS) 335
+3 Island (ONS) 336
+3 Island (ONS) 337
+3 Island (ONS) 338
+1 Macetail Hystrodon (LGN) 106
+1 Mischievous Quanar (SCG) 42
+2 Mistform Warchief (SCG) 43
+3 Mountain (ONS) 343
+3 Mountain (ONS) 344
+3 Mountain (ONS) 345
+3 Mountain (ONS) 346
+1 Parallel Thoughts (SCG) 44
+2 Pyrostatic Pillar (SCG) 100
+2 Rush of Knowledge (SCG) 49
+3 Scornful Egotist (SCG) 50
+2 Shoreline Ranger (SCG) 51
+1 Skittish Valesk (ONS) 231
+1 Slice and Dice (ONS) 232
+1 Thundercloud Elemental (SCG) 54
+3 Torrent of Fire (SCG) 107

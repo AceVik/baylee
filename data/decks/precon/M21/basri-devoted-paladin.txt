@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Basri, Devoted Paladin
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BasriDevotedPaladin_M21.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: M21
+# released: 2020-07-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Adherent of Hope (M21) 321
+3 Anointed Chorister (M21) 4
+2 Aven Gagglemaster (M21) 5
+2 Banishing Light (THB) 4
+3 Basri's Acolyte (M21) 8
+2 Basri's Aegis (M21) 322
+1 Basri's Lieutenant (M21) 9
+1 Basri, Devoted Paladin (M21) 320 *F*
+3 Fight as One (IKO) 12
+4 Makeshift Battalion (M21) 26
+1 Perimeter Sergeant (IKO) 27
+8 Plains (M21) 260
+8 Plains (M21) 261
+8 Plains (M21) 262
+1 Plains (M21) 309
+3 Sigiled Contender (M21) 323
+1 Speaker of the Heavens (M21) 38
+2 Swift Response (M21) 40
+3 Tempered Veteran (M21) 41

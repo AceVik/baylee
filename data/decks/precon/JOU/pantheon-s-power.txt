@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Pantheon's Power
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PantheonSPower_JOU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: JOU
+# released: 2014-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Akroan Mastiff (JOU) 3
+1 Archetype of Courage (BNG) 4
+1 Archetype of Finality (BNG) 58
+1 Armament of Nyx (JOU) 4
+1 Aspect of Gorgon (JOU) 60
+1 Banishing Light (JOU) 5
+1 Brain Maggot (JOU) 62
+1 Cast into Darkness (JOU) 63
+1 Doomwake Giant (JOU) 66 *F*
+2 Dreadbringer Lampads (JOU) 67
+1 Eagle of the Watch (JOU) 9
+1 Fate Unraveler (BNG) 68
+1 Font of Return (JOU) 71
+1 Font of Vigor (JOU) 11
+2 Grim Guardian (JOU) 73
+2 Harvestguard Alseids (JOU) 13
+2 Nyx Infusion (JOU) 77
+2 Nyx-Fleece Ram (JOU) 18
+2 Odunos River Trawler (BNG) 79
+2 Oppressive Rays (JOU) 19
+1 Pharika's Chosen (JOU) 78
+3 Plains (THS) 230
+3 Plains (THS) 231
+3 Plains (THS) 232
+2 Plains (THS) 233
+1 Rotted Hulk (JOU) 81
+4 Swamp (THS) 238
+4 Swamp (THS) 239
+4 Swamp (THS) 240
+3 Swamp (THS) 241
+2 Thoughtrender Lamia (JOU) 85
+2 Underworld Coinsmith (JOU) 157

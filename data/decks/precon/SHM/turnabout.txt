@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Turnabout
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Turnabout_SHM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SHM
+# released: 2008-05-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barkshell Blessing (SHM) 224
+1 Barrenton Medic (SHM) 4
+1 Dawnglow Infusion (SHM) 225
+2 Devoted Druid (SHM) 110
+2 Drove of Elves (SHM) 112
+1 Elvish Hexhunter (SHM) 226
+3 Forest (SHM) 298
+3 Forest (SHM) 299
+3 Forest (SHM) 300
+2 Forest (SHM) 301
+2 Gleeful Sabotage (SHM) 116
+1 Gloomwidow's Feast (SHM) 118
+2 Mercy Killing (SHM) 231
+2 Old Ghastbark (SHM) 232
+2 Pale Wayfarer (SHM) 17
+2 Pili-Pala (SHM) 258
+3 Plains (SHM) 282
+3 Plains (SHM) 283
+3 Plains (SHM) 284
+3 Plains (SHM) 285
+3 Presence of Gond (SHM) 125
+1 Resplendent Mentor (SHM) 19
+1 Revelsong Horn (SHM) 261
+1 Rhys the Redeemed (SHM) 237
+2 Safehold Duo (SHM) 238
+3 Safehold Sentry (SHM) 22
+1 Sapseep Forest (SHM) 279
+1 Seedcradle Witch (SHM) 241
+1 Shield of the Oversoul (SHM) 242
+1 Toil to Renown (SHM) 130
+1 Umbral Mantle (SHM) 267
+1 Wilt-Leaf Cavaliers (SHM) 244
+1 Wilt-Leaf Liege (SHM) 245

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Red-White
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedWhite_FIN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Kit
+# set: FIN
+# released: 2025-06-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adelbert Steiner (FIN) 3
+1 Barret Wallace (FIN) 129
+1 Beatrix, Loyal General (FIN) 554
+1 Cloud, Planet's Champion (FIN) 552 *F*
+2 Cloudbound Moogle (FIN) 11
+2 Coeurl (FIN) 12
+1 Dragoon's Lance (FIN) 17
+4 Dwarven Castle Guard (FIN) 18
+2 Fate of the Sun-Cryst (FIN) 19
+1 Freya Crescent (FIN) 138
+1 G'raha Tia (FIN) 21
+3 Item Shopkeep (FIN) 142
+1 Judgment Bolt (FIN) 559
+1 Lightning, Security Sergeant (FIN) 560
+3 Mountain (FIN) 303
+3 Mountain (FIN) 304
+2 Mountain (FIN) 305
+5 Plains (FIN) 294
+4 Plains (FIN) 295
+4 Plains (FIN) 296
+4 Rabanastre, Royal City (FIN) 287
+1 Rosa, Resolute White Mage (FIN) 555
+2 Samurai's Katana (FIN) 154
+2 Slash of Light (FIN) 32
+1 Suplex (FIN) 164
+1 The Crystal's Chosen (FIN) 14
+1 Ultima Weapon (FIN) 563
+2 Warrior's Sword (FIN) 169
+2 White Auracite (FIN) 41
+1 White Mage's Staff (FIN) 42

@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Molimo's Might
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MolimoSMight_10E.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 10E
+# released: 2007-07-13
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Blanchwood Armor (10E) 253
+2 Canopy Spider (10E) 254
+2 Civic Wayfinder (10E) 255
+2 Commune with Nature (10E) 256
+1 Craw Wurm (10E) 257
+1 Enormous Baloth (10E) 263
+4 Forest (10E) 380
+4 Forest (10E) 381
+4 Forest (10E) 382
+4 Forest (10E) 383
+1 Giant Growth (10E) 266
+1 Hurricane (10E) 270
+1 Kavu Climber (10E) 273
+1 Mantis Engine (10E) 333
+1 Molimo, Maro-Sorcerer (10E) 280
+1 Overrun (10E) 284
+2 Rampant Growth (10E) 288
+2 Rootwalla (10E) 293
+2 Spined Wurm (10E) 298
+1 Stampeding Wildebeests (10E) 300
+1 Wurm's Tooth (10E) 346

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Max Attax
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MaxAttax_SCG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: SCG
+# released: 2003-05-26
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Accelerated Mutation (SCG) 109
+2 Barren Moor (ONS) 312
+2 Chill Haunting (SCG) 60
+2 Dragon Fangs (SCG) 117
+1 Dragon Shadow (SCG) 65
+2 Elvish Aberration (SCG) 118
+3 Fierce Empath (SCG) 119
+1 Final Punishment (SCG) 67
+4 Forest (ONS) 347
+4 Forest (ONS) 348
+3 Forest (ONS) 349
+3 Forest (ONS) 350
+1 Gluttonous Zombie (ONS) 151
+3 Krosan Drover (SCG) 122
+2 Kurgadon (SCG) 124
+1 Root Elemental (SCG) 127
+1 Smother (ONS) 170
+2 Spitting Gourna (ONS) 284
+2 Sprouting Vines (SCG) 128
+2 Swamp (ONS) 339
+2 Swamp (ONS) 340
+1 Swamp (ONS) 341
+1 Swamp (ONS) 342
+2 Symbiotic Beast (ONS) 287
+2 Temple of the False God (SCG) 143
+2 Titanic Bulvox (SCG) 129
+2 Tranquil Thicket (ONS) 326
+1 Treespring Lorian (ONS) 293
+1 Venomspout Brackus (ONS) 295
+2 Wirewood Guardian (SCG) 132

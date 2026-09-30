@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Vivien's Hunt
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VivienSHunt_ONE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Promotional Deck
+# set: ONE
+# released: 2023-02-10
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Augur of Autumn (MID) 168
+3 Dawnhart Rejuvenator (MID) 180
+2 Deathbloom Gardener (DMU) 159
+3 Elfhame Wurm (DMU) 161
+3 Epic Confrontation (BRO) 176
+2 Fang of Shigeki (NEO) 183
+26 Forest (ONE) 276
+1 Gaea's Courser (BRO) 181
+1 Gala Greeters (SNC) 148
+3 Giant Growth (BRO) 183
+1 Graaz, Unstoppable Juggernaut (ONE) 229
+1 Howlpack Piper // Wildsong Howler (VOW) 205
+3 Jewel Thief (SNC) 151
+2 Orochi Merge-Keeper (NEO) 203
+2 Reclusive Taxidermist (VOW) 214
+1 Shigeki, Jukai Visionary (NEO) 206
+1 Titan of Industry (SNC) 159
+1 Tovolar's Huntmaster // Tovolar's Packleader (MID) 204
+2 Vivien on the Hunt (SNC) 162
+1 Workshop Warchief (SNC) 165

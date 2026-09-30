@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Beast Master
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BeastMaster_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Aspect of Wolf (3ED) 186
+4 Aswan Jaguar (PAST) 1
+2 Birds of Paradise (3ED) 187
+2 Desert Twister (ARN) 46
+2 Durkwood Boars (LEG) 182
+7 Forest (3ED) 304
+7 Forest (3ED) 305
+7 Forest (3ED) 306
+4 Giant Growth (3ED) 199
+2 Giant Spider (3ED) 200
+4 Grizzly Bears (3ED) 201
+4 Nafs Asp (ARN) 52
+3 Stream of Life (3ED) 217
+4 Timber Wolves (3ED) 219
+2 Untamed Wilds (LEG) 210
+2 Web (3ED) 229
+SB: 1 Tranquility (3ED) 221
+SB: 1 Tsunami (3ED) 222

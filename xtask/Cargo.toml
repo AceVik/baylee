@@ -14,8 +14,15 @@ baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-cards-codegen.workspace = true
 baylee-cards-index.workspace = true
+# The Baylee-text reader a precon file is written for (`decks-status`).
+baylee-deckio.workspace = true
 baylee-update.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 ureq.workspace = true
+# MTGJSON's deck archive is a .tar.gz (`decks-import`).
+flate2.workspace = true
+tar.workspace = true
+# The working set's fingerprint (`working::Working::hash`).
+sha2.workspace = true

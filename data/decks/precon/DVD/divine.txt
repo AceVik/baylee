@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Divine
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Divine_DVD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DVD
+# released: 2014-12-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akroma, Angel of Wrath (DVD) 1 *F*
+2 Angel of Mercy (DVD) 9
+1 Angel's Feather (DVD) 23
+1 Angelic Benediction (DVD) 19
+2 Angelic Page (DVD) 3
+1 Angelic Protector (DVD) 6
+1 Angelsong (DVD) 15
+2 Charging Paladin (DVD) 4
+2 Faith's Fetters (DVD) 20
+1 Healing Salve (DVD) 14
+2 Icatian Priest (DVD) 2
+1 Luminous Angel (DVD) 12
+2 Marble Diamond (DVD) 24
+2 Otherworldly Journey (DVD) 16
+1 Pacifism (DVD) 17
+6 Plains (DVD) 26
+6 Plains (DVD) 27
+6 Plains (DVD) 28
+6 Plains (DVD) 29
+1 Reya Dawnbringer (DVD) 13
+1 Righteous Cause (DVD) 22
+2 Secluded Steppe (DVD) 25
+2 Serra Advocate (DVD) 7
+1 Serra Angel (DVD) 10
+1 Serra's Boon (DVD) 18
+1 Serra's Embrace (DVD) 21
+2 Sustainer of the Realm (DVD) 8
+1 Twilight Shepherd (DVD) 11
+2 Venerable Monk (DVD) 5

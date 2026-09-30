@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Booster Battle Pack: Orzhov
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoosterBattlePackOrzhov_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angelic Edict (GTC) 2
+1 Beckon Apparition (GTC) 212
+1 Contaminated Ground (GTC) 59
+1 Dutiful Thrull (GTC) 11
+1 Gift of Orzhova (GTC) 219
+1 Gutter Skulk (GTC) 67
+1 Kingpin's Pet (GTC) 173
+1 Orzhov Guildgate (GTC) 244
+1 Plains (RTR) 250
+1 Plains (RTR) 251
+1 Plains (RTR) 252
+1 Plains (RTR) 253
+1 Plains (RTR) 254
+1 Shielded Passage (GTC) 24
+1 Smog Elemental (GTC) 79
+1 Swamp (RTR) 260
+1 Swamp (RTR) 261
+1 Swamp (RTR) 262
+1 Swamp (RTR) 263
+1 Swamp (RTR) 264
+1 Syndic of Tithes (GTC) 26
+1 Syndicate Enforcer (GTC) 80

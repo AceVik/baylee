@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Scorch The World With Dragonfire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ScorchTheWorldWithDragonfire_ARC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Archenemy Deck
+# set: ARC
+# released: 2010-06-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Battering Craghorn (ARC) 30
+2 Branching Bolt (ARC) 82
+1 Breath of Darigaaz (ARC) 31
+1 Chameleon Colossus (ARC) 52
+1 Chandra's Outrage (ARC) 32
+1 Colossal Might (ARC) 83
+1 Dragon Breath (ARC) 33
+2 Dragon Fodder (ARC) 34
+2 Dragon Whelp (ARC) 35
+2 Dragonspeaker Shaman (ARC) 36
+1 Fierce Empath (ARC) 55
+1 Fireball (ARC) 37
+1 Fires of Yavimaya (ARC) 86
+1 Flameblast Dragon (ARC) 38
+2 Forest (ARC) 148
+2 Forest (ARC) 149
+1 Forest (ARC) 150
+2 Furnace Whelp (ARC) 39
+1 Gathan Raiders (ARC) 40
+2 Gruul Signet (ARC) 108
+1 Hellkite Charger (ARC) 41
+1 Imperial Hellkite (ARC) 42
+2 Kazandu Refuge (ARC) 126
+1 Kilnmouth Dragon (ARC) 44
+6 Mountain (ARC) 145
+6 Mountain (ARC) 146
+5 Mountain (ARC) 147
+1 Ryusei, the Falling Star (ARC) 45
+1 Savage Twister (ARC) 93
+2 Seething Song (ARC) 46
+1 Skirk Commando (ARC) 47
+1 Skirk Marauder (ARC) 48
+1 Taurean Mauler (ARC) 49
+1 Thran Dynamo (ARC) 121
+1 Two-Headed Dragon (ARC) 50
+1 Volcanic Fallout (ARC) 51

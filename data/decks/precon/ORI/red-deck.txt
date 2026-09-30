@@ -1,0 +1,27 @@
+# baylee deck export v1
+# name: Red Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeck_ORI.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: ORI
+# released: 2015-07-17
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Act of Treason (ORI) 129
+1 Bellows Lizard (ORI) 132
+1 Chandra's Fury (ORI) 136
+2 Cobblebrute (ORI) 138
+1 Enthralling Victor (ORI) 142
+1 Fiery Conclusion (ORI) 144
+1 Fiery Hellhound (ORI) 284
+1 Lightning Javelin (ORI) 153
+4 Mountain (ORI) 265
+3 Mountain (ORI) 266
+3 Mountain (ORI) 267
+3 Mountain (ORI) 268
+1 Runed Servitor (ORI) 238
+1 Seismic Elemental (ORI) 161
+1 Shivan Dragon (ORI) 285
+2 Subterranean Scout (ORI) 164
+1 Titan's Strength (ORI) 166
+1 Volcanic Rambler (ORI) 167

@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Red Sample Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedSampleDeck_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Borderland Marauder (M15) 131
+1 Cone of Flame (M15) 137
+1 Foundry Street Denizen (M15) 141
+1 Furnace Whelp (M15) 279
+2 Goblin Roughrider (M15) 146
+1 Lava Axe (M15) 154
+2 Lightning Strike (M15) 155
+4 Mountain (M15) 262
+3 Mountain (M15) 263
+3 Mountain (M15) 264
+3 Mountain (M15) 265
+1 Paragon of Fierce Defiance (M15) 158
+1 Rummaging Goblin (M15) 159
+2 Seismic Strike (M15) 280
+1 Shivan Dragon (M15) 281
+1 Staff of the Flame Magus (M15) 233
+1 Thundering Giant (M15) 165

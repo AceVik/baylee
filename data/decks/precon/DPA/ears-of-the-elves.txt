@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Ears of the Elves
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, EarsOfTheElves_DPA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Of The Planeswalkers Deck
+# set: DPA
+# released: 2010-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Coat of Arms (DPA) 90
+1 Drove of Elves (DPA) 57
+2 Elven Riders (DPA) 59
+1 Elvish Champion (DPA) 60
+3 Elvish Eulogist (DPA) 61
+1 Elvish Promenade (DPA) 62
+2 Elvish Visionary (DPA) 63
+3 Elvish Warrior (DPA) 64
+2 Essence Drain (DPA) 24
+3 Eyeblight's Ending (DPA) 25
+4 Forest (DPA) 110
+4 Forest (DPA) 111
+4 Forest (DPA) 112
+4 Forest (DPA) 113
+1 Gaea's Herald (DPA) 65
+4 Giant Growth (DPA) 66
+1 Greenweaver Druid (DPA) 68
+1 Immaculate Magistrate (DPA) 70 *F*
+1 Imperious Perfect (DPA) 71
+1 Jagged-Scar Archers (DPA) 72
+1 Lys Alana Huntmaster (DPA) 73
+2 Moonglove Winnower (DPA) 29
+1 Naturalize (DPA) 76
+1 Nature's Spiral (DPA) 77
+2 Swamp (DPA) 102
+2 Swamp (DPA) 103
+2 Swamp (DPA) 104
+2 Swamp (DPA) 105
+1 Talara's Battalion (DPA) 84
+2 Wurm's Tooth (DPA) 97

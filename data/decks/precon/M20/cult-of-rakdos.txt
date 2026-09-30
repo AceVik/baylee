@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Cult of Rakdos
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, CultOfRakdos_M20.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: M20
+# released: 2019-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bedeck // Bedazzle (RNA) 221
+1 Bedevil (RNA) 157
+2 Blade Juggler (RNA) 63
+1 Blood Crypt (RNA) 245
+2 Carnival // Carnage (RNA) 222
+2 Cult Guildmage (RNA) 164
+1 Dreadhorde Butcher (WAR) 194
+3 Footlight Fiend (RNA) 216
+2 Get the Point (RNA) 176
+3 Hackrobat (RNA) 181
+1 Judith, the Scourge Diva (RNA) 185
+2 Light Up the Stage (RNA) 107
+1 Mayhem Devil (WAR) 204
+3 Mountain (M20) 273
+3 Mountain (M20) 274
+2 Mountain (M20) 275
+2 Mountain (M20) 276
+2 Rakdos Firewheeler (RNA) 197
+4 Rakdos Guildgate (RNA) 255
+2 Rakdos Roustabout (RNA) 198
+3 Shock (M20) 160
+3 Skewer the Critics (RNA) 115
+1 Spawn of Mayhem (RNA) 85
+2 Spear Spewer (RNA) 117
+3 Swamp (M20) 269
+3 Swamp (M20) 270
+2 Swamp (M20) 271
+2 Swamp (M20) 272
+1 Theater of Horrors (RNA) 213

@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Fire and Lightning
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FireAndLightning_PD2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Premium Deck
+# set: PD2
+# released: 2010-11-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ball Lightning (PD2) 12 *F*
+1 Barbarian Ring (PD2) 28 *F*
+1 Boggart Ram-Gang (PD2) 13 *F*
+1 Browbeat (PD2) 21 *F*
+1 Chain Lightning (PD2) 16 *F*
+1 Cinder Pyromancer (PD2) 9 *F*
+1 Figure of Destiny (PD2) 5 *F*
+1 Fire Servant (PD2) 15 *F*
+1 Fireball (PD2) 27 *F*
+1 Fireblast (PD2) 26 *F*
+1 Flames of the Blood Hand (PD2) 22 *F*
+1 Ghitu Encampment (PD2) 29 *F*
+1 Grim Lavamancer (PD2) 1 *F*
+1 Hammer of Bogardan (PD2) 23 *F*
+1 Hellspark Elemental (PD2) 6 *F*
+2 Jackal Pup (PD2) 2 *F*
+1 Jaya Ballard, Task Mage (PD2) 10 *F*
+1 Keldon Champion (PD2) 14 *F*
+2 Keldon Marauders (PD2) 7 *F*
+4 Lightning Bolt (PD2) 17 *F*
+2 Mogg Fanatic (PD2) 3 *F*
+2 Mogg Flunkies (PD2) 8 *F*
+6 Mountain (PD2) 31 *F*
+5 Mountain (PD2) 32 *F*
+5 Mountain (PD2) 33 *F*
+5 Mountain (PD2) 34 *F*
+1 Pillage (PD2) 24 *F*
+1 Price of Progress (PD2) 18 *F*
+1 Reverberate (PD2) 20 *F*
+2 Spark Elemental (PD2) 4 *F*
+1 Sudden Impact (PD2) 25 *F*
+2 Teetering Peaks (PD2) 30 *F*
+1 Thunderbolt (PD2) 19 *F*
+1 Vulshok Sorcerer (PD2) 11 *F*

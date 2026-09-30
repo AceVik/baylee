@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Slither
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Slither_PCY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PCY
+# released: 2000-06-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Barbed Field (PCY) 83
+1 Chimeric Idol (PCY) 136
+1 Citadel of Pain (PCY) 86
+1 Desert Twister (MMQ) 243
+1 Flameshot (PCY) 90
+3 Forest (MMQ) 347
+3 Forest (MMQ) 348
+2 Forest (MMQ) 349
+2 Forest (MMQ) 350
+2 Invigorate (MMQ) 254
+3 Keldon Berserker (PCY) 93
+1 Kyren Negotiations (MMQ) 198
+1 Latulla, Keldon Overseer (PCY) 95
+4 Mountain (MMQ) 343
+4 Mountain (MMQ) 344
+3 Mountain (MMQ) 345
+3 Mountain (MMQ) 346
+1 Mungha Wurm (PCY) 119
+1 Reverent Silence (NEM) 111
+2 Rhystic Lightning (PCY) 99
+2 Scoria Cat (PCY) 101
+2 Seal of Fire (NEM) 98
+4 Silt Crawler (PCY) 123
+4 Spur Grappler (PCY) 104
+2 Squallmonger (MMQ) 276
+1 Stampede Driver (NEM) 122
+2 Vine Trellis (MMQ) 285
+1 Vintara Snapper (PCY) 132
+1 War Cadence (MMQ) 224
+1 Zerapa Minotaur (PCY) 108

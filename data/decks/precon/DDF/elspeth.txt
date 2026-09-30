@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Elspeth
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Elspeth_DDF.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Duel Deck
+# set: DDF
+# released: 2010-09-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abolish (DDF) 29
+1 Angel of Salvation (DDF) 20
+1 Blinding Beam (DDF) 28
+1 Burrenton Bombardier (DDF) 11
+1 Catapult Master (DDF) 18
+1 Celestial Crusader (DDF) 14
+1 Conclave Equenaut (DDF) 19
+1 Conclave Phalanx (DDF) 16
+1 Crusade (DDF) 27
+1 Daru Encampment (DDF) 32
+2 Elite Vanguard (DDF) 2
+1 Elspeth, Knight-Errant (DDF) 1 *F*
+1 Glory Seeker (DDF) 7
+1 Goldmeadow Harrier (DDF) 3
+1 Infantry Veteran (DDF) 4
+1 Journey to Nowhere (DDF) 23
+1 Kabira Crossroads (DDF) 33
+1 Kemba's Skyguard (DDF) 13
+1 Kor Aeronaut (DDF) 10
+1 Kor Hookmaster (DDF) 12
+2 Kor Skyfisher (DDF) 8
+1 Loyal Sentry (DDF) 5
+1 Mighty Leap (DDF) 24
+1 Mosquito Guard (DDF) 6
+6 Plains (DDF) 35
+6 Plains (DDF) 36
+5 Plains (DDF) 37
+5 Plains (DDF) 38
+2 Raise the Alarm (DDF) 25
+1 Razor Barrier (DDF) 26
+1 Rustic Clachan (DDF) 34
+1 Saltblast (DDF) 30
+1 Seasoned Marshal (DDF) 15
+1 Stormfront Riders (DDF) 17
+1 Sunlance (DDF) 21
+1 Swell of Courage (DDF) 31
+2 Swords to Plowshares (DDF) 22
+1 Temple Acolyte (DDF) 9

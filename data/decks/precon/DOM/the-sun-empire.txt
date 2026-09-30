@@ -1,0 +1,48 @@
+# baylee deck export v1
+# name: The Sun Empire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSunEmpire_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abrade (HOU) 83
+1 Burning Sun's Avatar (XLN) 135
+1 Channeler Initiate (AKH) 160
+1 Charging Monstrosaur (XLN) 138
+2 Commune with Dinosaurs (XLN) 181
+1 Drover of the Mighty (XLN) 187
+1 Etali, Primal Storm (RIX) 100
+2 Forerunner of the Empire (RIX) 102
+3 Forest (DOM) 266
+3 Forest (DOM) 267
+2 Forest (DOM) 268
+2 Forest (DOM) 269
+1 Frilled Deathspitter (RIX) 104
+1 Hashep Oasis (HOU) 177
+1 Lightning Strike (XLN) 149
+3 Mountain (DOM) 262
+2 Mountain (DOM) 263
+2 Mountain (DOM) 264
+2 Mountain (DOM) 265
+1 Mouth // Feed (AKH) 214
+1 Naga Vitalist (AKH) 176
+2 Needletooth Raptor (RIX) 107
+1 Otepec Huntmaster (XLN) 153
+1 Puncturing Blow (HOU) 106
+2 Raging Regisaur (RIX) 168
+2 Raging Swordtooth (XLN) 226
+2 Ranging Raptors (XLN) 201
+1 Raptor Hatchling (XLN) 155
+1 Rile (XLN) 158
+1 Samut, Voice of Dissent (AKH) 205
+2 Savage Stomp (XLN) 205
+1 Shake the Foundations (RIX) 113
+1 Snapping Sailback (XLN) 208
+1 Thrashing Brontodon (RIX) 148
+1 Thunderherd Migration (RIX) 149
+1 Thundering Spineback (XLN) 210
+4 Timber Gorge (DOM) 279
+1 Unclaimed Territory (XLN) 258
+1 Verdant Sun's Avatar (XLN) 213

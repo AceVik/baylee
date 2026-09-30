@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Preconstructed deck 2
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PreconstructedDeck2_PTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Starter Deck
+# set: PTK
+# released: 1999-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Borrowing 100,000 Arrows (PTK) 35
+1 Council of Advisors (PTK) 40
+1 Forced Retreat (PTK) 44
+1 Forest (PTK) 178
+1 Forest (PTK) 179
+1 Forest (PTK) 180
+1 Forest Bear (PTK) 135
+2 Island (PTK) 169
+2 Island (PTK) 170
+1 Island (PTK) 171
+1 Misfortune's Gain (PTK) 13
+2 Plains (PTK) 166
+2 Plains (PTK) 167
+1 Plains (PTK) 168
+1 Shu Cavalry (PTK) 19
+1 Shu Elite Companions (PTK) 21
+1 Shu Elite Infantry (PTK) 22
+1 Shu Foot Soldiers (PTK) 24
+1 Shu Grain Caravan (PTK) 26
+1 Southern Elephant (PTK) 146
+1 Straw Soldiers (PTK) 54
+1 Trip Wire (PTK) 156
+1 Volunteer Militia (PTK) 30
+1 Wu Elite Cavalry (PTK) 58
+1 Wu Light Cavalry (PTK) 60
+1 Wu Scout (PTK) 62

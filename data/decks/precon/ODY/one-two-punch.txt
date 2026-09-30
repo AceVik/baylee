@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: One-Two Punch
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OneTwoPunch_ODY.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: ODY
+# released: 2001-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Beast Attack (ODY) 230
+3 Chatter of the Squirrel (ODY) 233
+2 Deep Reconnaissance (ODY) 236
+2 Druid Lyrist (ODY) 238
+1 Earth Rift (ODY) 189
+3 Elephant Ambush (ODY) 240
+2 Engulfing Flames (ODY) 191
+1 Firebolt (ODY) 193
+4 Forest (ODY) 347
+4 Forest (ODY) 348
+4 Forest (ODY) 349
+3 Forest (ODY) 350
+1 Gorilla Titan (ODY) 241
+1 Howling Gale (ODY) 244
+1 Krosan Archer (ODY) 246
+2 Leaf Dancer (ODY) 249
+1 Moment's Peace (ODY) 251
+3 Mountain (ODY) 343
+3 Mountain (ODY) 344
+2 Mountain (ODY) 345
+2 Mountain (ODY) 346
+1 Nantuko Mentor (ODY) 255
+1 Rabid Elephant (ODY) 263
+2 Reckless Charge (ODY) 215
+1 Refresh (ODY) 264
+2 Roar of the Wurm (ODY) 266
+2 Scorching Missile (ODY) 219
+1 Seize the Day (ODY) 220
+2 Sylvan Might (ODY) 277
+1 Volcanic Spray (ODY) 226

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Dark Sacrifice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkSacrifice_DKA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DKA
+# released: 2012-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Altar's Reap (ISD) 86
+1 Avacyn's Collar (DKA) 145
+1 Champion of the Parish (ISD) 6
+2 Death's Caress (DKA) 59
+1 Demonmail Hauberk (ISD) 221
+1 Disciple of Griselbrand (ISD) 98
+2 Doomed Traveler (ISD) 11
+2 Elder Cathar (ISD) 12
+2 Elgaud Inquisitor (DKA) 6
+3 Falkenrath Torturer (DKA) 60
+1 Fiend of the Shadows (DKA) 62 *F*
+2 Galvanic Juggernaut (ISD) 222
+3 Gather the Townsfolk (DKA) 8
+1 Gravepurge (DKA) 65
+1 Haunted Fengraf (DKA) 157
+1 Lingering Souls (DKA) 12
+1 Mausoleum Guard (ISD) 20
+2 Night Terrors (ISD) 111
+4 Plains (ISD) 250
+4 Plains (ISD) 251
+4 Plains (ISD) 252
+1 Selfless Cathar (ISD) 30
+1 Skirsdag Flayer (DKA) 74
+4 Swamp (ISD) 256
+4 Swamp (ISD) 257
+3 Swamp (ISD) 258
+1 Unburial Rites (ISD) 122
+2 Unruly Mob (ISD) 39
+2 Village Cannibals (ISD) 125
+1 Wakedancer (DKA) 79

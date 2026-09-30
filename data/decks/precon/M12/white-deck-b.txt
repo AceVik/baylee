@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: White Deck B
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteDeckB_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arbalest Elite (M12) 5
+1 Armored Warhorse (M12) 7
+1 Gideon's Lawkeeper (M12) 18
+1 Griffin Rider (M12) 20
+2 Griffin Sentinel (M12) 21
+1 Kite Shield (M12) 210
+1 Leonin Skyhunter (MBS) 11
+1 Loxodon Convert (NPH) 14
+1 Loxodon Partisan (MBS) 12
+1 Mighty Leap (M12) 26
+2 Pacifism (M12) 28
+1 Peregrine Griffin (M12) 29
+3 Plains (M12) 230
+3 Plains (M12) 231
+3 Plains (M12) 232
+3 Plains (M12) 233
+1 Revoke Existence (SOM) 18
+1 Serra Angel (M12) 33
+1 Spirit Mantle (M12) 35
+1 Stave Off (M12) 36

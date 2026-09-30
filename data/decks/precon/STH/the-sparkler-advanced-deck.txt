@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: The Sparkler - Advanced Deck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSparklerAdvancedDeck_STH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Advanced Deck
+# set: STH
+# released: 1998-03-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Capsize (TMP) 55
+1 Coral Atoll (VIS) 160
+4 Counterspell (TMP) 57
+1 Dismiss (TMP) 58
+2 Disrupt (WTH) 37
+1 Dissipate (MIR) 61
+1 Dwarven Ruins (5ED) 415
+1 Earthquake (5ED) 223
+1 Fanning the Flames (STH) 80
+4 Impulse (VIS) 34
+4 Incinerate (5ED) 242
+4 Island (TMP) 335
+3 Island (TMP) 336
+3 Island (TMP) 337
+3 Island (TMP) 338
+1 Jokulhaups (5ED) 246
+3 Mana Leak (STH) 36
+3 Mountain (TMP) 343
+2 Mountain (TMP) 344
+2 Mountain (TMP) 345
+2 Mountain (TMP) 346
+1 Portent (5ED) 110
+1 Power Sink (TMP) 78
+2 Propaganda (TMP) 80
+4 Quicksand (VIS) 166
+1 Searing Touch (TMP) 201
+2 Shock (STH) 98
+1 Whispers of the Muse (TMP) 103
+SB: 1 Disrupt (WTH) 37
+SB: 2 Earthquake (5ED) 223
+SB: 1 Hurkyl's Recall (5ED) 93
+SB: 3 Hydroblast (5ED) 94
+SB: 2 Nevinyrral's Disk (5ED) 391
+SB: 3 Pyroblast (5ED) 262
+SB: 3 Steel Golem (WTH) 157

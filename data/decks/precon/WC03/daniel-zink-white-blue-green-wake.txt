@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Daniel Zink - White-Blue-Green Wake
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DanielZinkWhiteBlueGreenWake_WC03.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC03
+# released: 2003-08-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Circular Logic (WC03) dz33
+3 Compulsion (WC03) dz34
+3 Cunning Wish (WC03) dz37
+2 Decree of Justice (WC03) dz8
+4 Deep Analysis (WC03) dz36
+2 Elfhame Palace (WC03) dz324
+2 Flooded Strand (WC03) dz316
+2 Forest (WC03) dz347
+1 Forest (WC03) dz348
+1 Forest (WC03) dz349
+3 Island (WC03) dz335
+2 Island (WC03) dz336
+2 Island (WC03) dz337
+4 Krosan Verge (WC03) dz141
+4 Mana Leak (WC03) dz89
+1 Mirari (WC03) dz303
+3 Mirari's Wake (WC03) dz139
+3 Moment's Peace (WC03) dz251
+2 Plains (WC03) dz331
+1 Plains (WC03) dz332
+1 Plains (WC03) dz333
+3 Renewed Faith (WC03) dz50
+4 Skycloud Expanse (WC03) dz327
+2 Vengeful Dreams (WC03) dz21
+4 Wrath of God (WC03) dz58
+SB: 3 Anurid Brushhopper (WC03) dz137sb
+SB: 1 Circular Logic (WC03) dz33sb
+SB: 2 Exalted Angel (WC03) dz28sb
+SB: 1 Hunting Pack (WC03) dz121sb
+SB: 1 Krosan Reclamation (WC03) dz122sb
+SB: 1 Ray of Distortion (WC03) dz42sb
+SB: 3 Ray of Revelation (WC03) dz20sb
+SB: 1 Renewed Faith (WC03) dz50sb
+SB: 1 Vengeful Dreams (WC03) dz21sb
+SB: 1 Wing Shards (WC03) dz25sb

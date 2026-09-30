@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Ancient Discovery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AncientDiscovery_OTJ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: OTJ
+# released: 2024-07-08
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Abraded Bluffs (OTJ) 251
+1 Anim Pakal, Thousandth Moon (LCI) 223
+2 Attentive Sunscribe (LCI) 4
+1 Aurelia, the Law Above (MKM) 188
+1 Bonehoard Dracosaur (LCI) 134
+2 Brazen Blademaster (LCI) 136
+1 Caparocti Sunborn (LCI) 226
+1 Connecting the Dots (MKM) 118
+2 Curator of Sun's Creation (LCI) 141
+2 Daring Discovery (LCI) 142
+3 Etali's Favor (LCI) 149
+2 Geological Appraiser (LCI) 150
+2 Guardian of the Great Door (LCI) 16
+2 Hidden Courtyard (LCI) 274
+2 Hidden Volcano (LCI) 277
+1 Hit the Mother Lode (LCI) 153
+1 Inspiring Vantage (OTJ) 269
+2 Mine Raider (OTJ) 135
+8 Mountain (OTJ) 283
+2 Oltec Cloud Guard (LCI) 28
+2 On the Job (MKM) 30
+2 Petrify (LCI) 30
+8 Plains (OTJ) 278
+2 Stockpiling Celebrant (WOE) 32
+1 Thousand Moons Infantry (LCI) 38
+2 Tinker's Tote (LCI) 40
+1 Warleader's Call (MKM) 242

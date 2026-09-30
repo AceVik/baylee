@@ -1,0 +1,66 @@
+# baylee deck export v1
+# name: Queltosh
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Queltosh_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ancestral Recall (2ED) 48
+1 Black Vise (3ED) 236
+1 Brass Man (ARN) 59
+1 Candelabra of Tawnos (ATQ) 43
+1 Clockwork Avian (ATQ) 45
+1 Control Magic (3ED) 52
+1 Counterspell (3ED) 54
+1 Disenchant (3ED) 17
+1 Divine Transformation (LEG) 10
+1 Eye for an Eye (ARN) 4
+1 Feedback (3ED) 58
+1 Fire Elemental (3ED) 149
+1 Fireball (3ED) 150
+1 Giant Tortoise (ARN) 15
+3 Island (3ED) 295
+3 Island (3ED) 296
+2 Island (3ED) 297
+1 Land Tax (LEG) 26
+1 Lightning Bolt (3ED) 162
+1 Mahamoti Djinn (3ED) 66
+1 Mesa Pegasus (3ED) 28
+8 Mountain (ARN) 77
+1 Pearled Unicorn (3ED) 30
+1 Phantasmal Forces (3ED) 69
+1 Phantom Monster (3ED) 71
+1 Pikemen (DRK) 15
+3 Plains (3ED) 292
+3 Plains (3ED) 293
+2 Plains (3ED) 294
+1 Power Sink (3ED) 74
+1 Prodigal Sorcerer (3ED) 75
+1 Reverse Damage (3ED) 35
+1 Serra Angel (3ED) 40
+1 Spell Blast (3ED) 82
+1 Spirit Link (LEG) 37
+1 The Hive (3ED) 277
+1 Time Elemental (LEG) 81
+1 Unstable Mutation (ARN) 22
+1 Urza's Avenger (ATQ) 74
+1 Wall of Air (3ED) 90
+1 Wall of Dust (LEG) 168
+1 White Knight (3ED) 44
+1 Zephyr Falcon (LEG) 86
+SB: 1 Angry Mob (DRK) 1
+SB: 1 Blue Elemental Blast (3ED) 49
+SB: 1 Burrowing (3ED) 140
+SB: 1 Circle of Protection: Red (3ED) 12
+SB: 1 Crystal Rod (3ED) 242
+SB: 1 Disenchant (3ED) 17
+SB: 1 Flashfires (3ED) 152
+SB: 1 Ivory Cup (3ED) 253
+SB: 1 Karma (3ED) 26
+SB: 1 Lifetap (3ED) 63
+SB: 1 Magnetic Mountain (ARN) 41
+SB: 1 Northern Paladin (3ED) 29
+SB: 1 Red Elemental Blast (3ED) 171
+SB: 1 Wooden Sphere (3ED) 281

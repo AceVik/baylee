@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Orzhov
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Orzhov_GK2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK2
+# released: 2019-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Despair (GK2) 37
+1 Basilica Bell-Haunt (RNA) 156
+1 Belfry Spirit (GK2) 29
+1 Consecrate // Consume (RNA) 224
+1 Deathpact Angel (GK2) 38
+1 Debtors' Knell (GK2) 39
+1 Ethereal Absolution (RNA) 170
+1 Final Payment (RNA) 171
+1 Ghost Council of Orzhova (GK2) 40
+2 Imperious Oligarch (RNA) 184
+1 Keening Banshee (GK2) 31
+1 Martyred Rusalka (GK2) 30
+1 Ministrant of Obligation (RNA) 16
+1 Mortify (RNA) 192
+1 One Thousand Lashes (GK2) 41
+4 Orzhov Basilica (GK2) 49
+1 Orzhov Charm (GK2) 42
+1 Orzhov Enforcer (RNA) 79
+2 Orzhov Guildgate (RNA) 252
+2 Orzhov Guildgate (RNA) 253
+1 Orzhov Pontiff (GK2) 43
+2 Orzhov Signet (GK2) 48
+1 Pillory of the Sleepless (GK2) 44
+1 Pitiless Pontiff (RNA) 194
+1 Plagued Rusalka (GK2) 32
+8 Plains (GK2) 50
+1 Pontiff of Blight (GK2) 33
+1 Sin Collector (GK2) 45
+1 Skeletal Vampire (GK2) 34
+1 Smothering Tithe (RNA) 22
+1 Stab Wound (GK2) 35
+8 Swamp (GK2) 51
+1 Teysa Karlov (RNA) 212
+1 Teysa, Orzhov Scion (GK2) 28 *F*
+1 Treasury Thrull (GK2) 46
+1 Ultimate Price (GK2) 36
+1 Vindictive Vampire (RNA) 90
+2 Vizkopa Guildmage (GK2) 47

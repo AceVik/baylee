@@ -1,0 +1,43 @@
+# baylee deck export v1
+# name: Wrath of the Mortals
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WrathOfTheMortals_JOU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: JOU
+# released: 2014-05-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aetherling (DGM) 11
+1 Anger of the Gods (THS) 112
+1 Battlefield Thaumaturge (JOU) 31
+1 Chandra's Phoenix (M14) 134
+2 Divination (BNG) 36
+1 Fated Conflagration (BNG) 94
+2 Flames of the Firebrand (M14) 139
+3 Guttersnipe (RTR) 98
+1 Harness by Force (JOU) 100
+3 Island (THS) 234
+2 Island (THS) 235
+2 Island (THS) 236
+2 Island (THS) 237
+4 Izzet Guildgate (DGM) 151
+4 Lightning Strike (THS) 127
+3 Magma Jet (THS) 128
+1 Mizzium Mortars (RTR) 101
+3 Mountain (THS) 242
+3 Mountain (THS) 243
+3 Mountain (THS) 244
+3 Mountain (THS) 245
+1 Ogre Battledriver (M14) 148
+1 Oracle of Bones (BNG) 103
+2 Searing Blood (BNG) 111
+4 Spellheart Chimera (THS) 204
+1 Steam Augury (THS) 205
+2 Turn // Burn (DGM) 134
+3 Young Pyromancer (M14) 163
+SB: 2 Dispel (RTR) 36
+SB: 2 Elixir of Immortality (M14) 209
+SB: 3 Essence Scatter (M14) 55
+SB: 2 Flames of the Firebrand (M14) 139
+SB: 3 Izzet Staticaster (RTR) 173
+SB: 3 Negate (M14) 64

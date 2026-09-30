@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Fiery Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FieryFury_WTH.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: MTGO Theme Deck
+# set: WTH
+# released: 2007-12-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Bloodrock Cyclops (WTH) 90
+3 Cone of Flame (WTH) 95
+1 Crystal Vein (MIR) 325
+2 Fireblast (VIS) 79
+1 Firestorm (WTH) 101
+3 Goblin Vandal (WTH) 105
+1 Heart of Bogardan (WTH) 106
+1 Hulking Cyclops (VIS) 84
+3 Incinerate (MIR) 184
+2 Kaervek's Torch (MIR) 185
+3 Lava Hounds (WTH) 109
+3 Mind Stone (WTH) 153
+6 Mountain (MIR) 343
+6 Mountain (MIR) 344
+6 Mountain (MIR) 345
+5 Mountain (MIR) 346
+2 Roc Hatchling (WTH) 113
+2 Spitting Earth (MIR) 193
+1 Suq'Ata Lancer (VIS) 96
+2 Talruum Minotaur (MIR) 196
+1 Thunderbolt (WTH) 115
+2 Viashino Sandstalker (VIS) 100
+1 Wildfire Emissary (MIR) 203

@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Zombie Empire
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZombieEmpire_HOP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: HOP
+# released: 2009-09-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ascendant Evincar (HOP) 17
+1 Beacon of Unrest (HOP) 18
+1 Beseech the Queen (HOP) 19
+1 Cabal Coffers (HOP) 132
+2 Cadaverous Knight (HOP) 20
+1 Consume Spirit (HOP) 21
+1 Corpse Harvester (HOP) 22
+1 Cruel Revival (HOP) 23
+2 Dark Ritual (HOP) 24
+1 Death Baron (HOP) 25
+1 Dregscape Zombie (HOP) 26
+2 Festering Goblin (HOP) 27
+1 Grave Pact (HOP) 28
+1 Gravedigger (HOP) 29
+1 Helldozer (HOP) 30
+1 Hideous End (HOP) 31
+1 Incremental Blight (HOP) 32
+1 Innocent Blood (HOP) 33
+2 Leechridden Swamp (HOP) 135
+1 Nefashu (HOP) 34
+1 Noxious Ghoul (HOP) 35
+1 Phyrexian Arena (HOP) 36
+2 Phyrexian Ghoul (HOP) 37
+1 Profane Command (HOP) 38
+1 Rotting Rats (HOP) 39
+1 Shepherd of Rot (HOP) 40
+1 Soulless One (HOP) 41
+6 Swamp (HOP) 152
+6 Swamp (HOP) 153
+6 Swamp (HOP) 154
+5 Swamp (HOP) 155
+1 Syphon Mind (HOP) 42
+1 Syphon Soul (HOP) 43
+2 Undead Warchief (HOP) 44
+1 Withered Wretch (HOP) 45

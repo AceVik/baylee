@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: The Flames of Rath
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TheFlamesOfRath_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Blood Frenzy (TMP) 164
+1 Coiled Tinviper (TMP) 279
+2 Disenchant (TMP) 16
+1 Firefly (TMP) 172
+3 Fireslinger (TMP) 173
+1 Flowstone Giant (TMP) 174
+1 Flowstone Salamander (TMP) 175
+1 Furnace of Rath (TMP) 177
+1 Goblin Bombardment (TMP) 179
+4 Kindle (TMP) 184
+3 Lightning Blast (TMP) 185
+2 Lightning Elemental (TMP) 186
+1 Magmasaur (TMP) 188
+1 Maze of Shadows (TMP) 319
+4 Mogg Fanatic (TMP) 190
+5 Mountain (TMP) 343
+5 Mountain (TMP) 344
+5 Mountain (TMP) 345
+4 Mountain (TMP) 346
+2 Plains (TMP) 331
+1 Plains (TMP) 332
+1 Plains (TMP) 333
+1 Plains (TMP) 334
+2 Rolling Thunder (TMP) 198
+1 Sandstone Warrior (TMP) 199
+1 Searing Touch (TMP) 201
+1 Soltari Guerrillas (TMP) 272
+1 Squee's Toy (TMP) 309
+1 Tahngarth's Rage (TMP) 209
+2 Wild Wurm (TMP) 212

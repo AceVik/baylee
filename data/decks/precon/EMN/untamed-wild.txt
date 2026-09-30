@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Untamed Wild
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UntamedWild_EMN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: EMN
+# released: 2016-07-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assembled Alphas (PEMN) 117 *F*
+2 Blood Mist (EMN) 119
+2 Bold Impaler (EMN) 120
+3 Brazen Wolves (EMN) 122
+1 Clear Shot (EMN) 152
+1 Clip Wings (SOI) 197
+4 Forest (SOI) 295
+4 Forest (SOI) 296
+4 Forest (SOI) 297
+2 Furyblade Vampire (EMN) 128
+2 Howlpack Wolf (SOI) 164
+1 Lightning Axe (SOI) 170
+1 Mad Prophet (SOI) 171
+1 Magmatic Chasm (SOI) 172
+5 Mountain (SOI) 292
+4 Mountain (SOI) 293
+4 Mountain (SOI) 294
+1 Noose Constrictor (EMN) 164
+2 Prey Upon (EMN) 166
+2 Primal Druid (EMN) 167
+2 Quilled Wolf (SOI) 222
+1 Rush of Adrenaline (SOI) 177
+1 Silverfur Partisan (SOI) 228
+2 Somberwald Stag (EMN) 169
+2 Spreading Flames (EMN) 143
+1 Uncaged Fury (SOI) 188
+1 Voldaren Duelist (SOI) 191
+3 Wolfkin Bond (EMN) 178

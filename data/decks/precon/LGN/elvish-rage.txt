@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Elvish Rage
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ElvishRage_LGN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LGN
+# released: 2003-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Birchlore Rangers (ONS) 248
+1 Bloodline Shaman (ONS) 249
+3 Defiant Elf (LGN) 123
+2 Elven Riders (ONS) 254
+1 Elvish Pathcutter (ONS) 256
+1 Elvish Pioneer (ONS) 257
+1 Elvish Scrapper (ONS) 258
+1 Elvish Soultiller (LGN) 124
+1 Elvish Warrior (ONS) 260
+2 Everglove Courier (ONS) 262
+7 Forest (ONS) 347
+6 Forest (ONS) 348
+6 Forest (ONS) 349
+6 Forest (ONS) 350
+2 Gempalm Strider (LGN) 127
+1 Heedless One (ONS) 265
+3 Patron of the Wild (LGN) 134
+1 Snarling Undorak (ONS) 283
+3 Stonewood Invoker (LGN) 139
+1 Taunting Elf (ONS) 290
+2 Timberwatch Elf (LGN) 140
+1 Tribal Forcemage (LGN) 142
+1 Wellwisher (ONS) 300
+2 Wirewood Channeler (LGN) 144
+2 Wirewood Elf (ONS) 301
+2 Wirewood Hivemaster (LGN) 145

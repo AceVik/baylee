@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Angrath, Minotaur Pirate
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AngrathMinotaurPirate_RIX.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: RIX
+# released: 2018-01-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Angrath's Ambusher (RIX) 202
+2 Angrath's Fury (RIX) 204
+1 Angrath, Minotaur Pirate (RIX) 201 *F*
+4 Cinder Barrens (RIX) 205
+1 Daring Buccaneer (RIX) 98
+2 Dire Fleet Captain (XLN) 221
+1 Dire Fleet Neckbreaker (RIX) 156
+2 Fathom Fleet Boarder (RIX) 71
+1 Fathom Fleet Cutthroat (XLN) 107
+2 Gilded Sentinel (XLN) 239
+2 Goblin Trailblazer (RIX) 105
+1 Grasping Scoundrel (RIX) 74
+2 Headstrong Brute (XLN) 147
+1 Impale (RIX) 76
+2 Lightning Strike (XLN) 149
+11 Mountain (RIX) 195
+1 Repeating Barrage (XLN) 156
+2 Storm Fleet Pyromancer (XLN) 163
+3 Sure Strike (XLN) 166
+4 Swab Goblin (RIX) 203
+2 Swaggering Corsair (RIX) 119
+9 Swamp (RIX) 194
+1 Vanquisher's Banner (XLN) 251

@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Michealangelo
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Michealangelo_TMT.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMT
+# released: 2026-03-06
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Cowabunga! (TMT) 113
+1 Definitely Not a Turtle (TMC) 98
+2 Foe-liage (TMC) 122
+24 Forest (TMT) 319
+3 Frog Butler (TMT) 114
+2 Guac & Marshmallow Pizza (TMT) 116
+1 Michelangelo, Game Master (TMT) 118
+1 Michelangelo, Mutant BFF (TMT) 120
+1 Michelangelo, On the Scene (TMC) 124
+1 Mikey & Mona, Mutant Sitters (TMC) 125
+1 Mona Lisa, Ever Adaptable (TMC) 126
+1 Mona Lisa, Science Geek (TMT) 123
+1 Novel Nunchaku (TMT) 127
+3 Prehistoric Turtlesaurus (TMC) 127
+1 Primordial Pachyderm (TMT) 129
+2 Ragamuffin Raptor (TMT) 130
+2 Slithering Cryptid (TMT) 168
+2 Study the Classics (TMC) 128
+2 Tenderize (TMT) 133
+3 Turtle Tracks (TMC) 129
+3 Zoo Escapees (TMT) 138

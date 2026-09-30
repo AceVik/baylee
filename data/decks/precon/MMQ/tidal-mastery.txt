@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Tidal Mastery
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, TidalMastery_MMQ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: MMQ
+# released: 1999-10-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Afterlife (MMQ) 1
+2 Alabaster Wall (MMQ) 2
+1 Ballista Squad (MMQ) 5
+1 Cho-Arrim Legate (MMQ) 10
+1 Cloud Sprite (MMQ) 67
+1 Coastal Piracy (MMQ) 68
+2 Counterspell (MMQ) 69
+2 Crossbow Infantry (MMQ) 16
+1 Customs Depot (MMQ) 71
+2 Darting Merfolk (MMQ) 72
+1 Devout Witness (MMQ) 17
+1 Diplomatic Escort (MMQ) 74
+2 Disenchant (MMQ) 18
+2 Drake Hatchling (MMQ) 76
+4 Island (MMQ) 335
+4 Island (MMQ) 336
+4 Island (MMQ) 337
+4 Island (MMQ) 338
+1 Kyren Archive (MMQ) 302
+1 Noble Purpose (MMQ) 32
+1 Overtaker (MMQ) 89
+3 Plains (MMQ) 331
+3 Plains (MMQ) 332
+2 Plains (MMQ) 333
+2 Plains (MMQ) 334
+1 Puffer Extract (MMQ) 310
+1 Ramosian Rally (MMQ) 38
+2 Saprazzan Legate (MMQ) 100
+3 Stinging Barrier (MMQ) 107
+1 Story Circle (MMQ) 51
+1 Thwart (MMQ) 108
+1 War Tax (MMQ) 113

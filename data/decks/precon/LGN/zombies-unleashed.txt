@@ -1,0 +1,35 @@
+# baylee deck export v1
+# name: Zombies Unleashed
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ZombiesUnleashed_LGN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: LGN
+# released: 2003-02-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aphetto Exterminator (LGN) 59
+2 Barren Moor (ONS) 312
+1 Boneknitter (ONS) 128
+2 Corpse Harvester (LGN) 62
+1 Cruel Revival (ONS) 135
+2 Deathmark Prelate (LGN) 65
+1 Dirge of Dread (ONS) 138
+2 Dripping Dead (LGN) 67
+2 Embalmed Brawler (LGN) 69
+1 Feeding Frenzy (ONS) 147
+1 Festering Goblin (ONS) 148
+2 Frightshroud Courier (ONS) 149
+2 Gempalm Polluter (LGN) 70
+1 Ghastly Remains (LGN) 71
+1 Graveborn Muse (LGN) 73
+2 Infernal Caretaker (LGN) 76
+1 Noxious Ghoul (LGN) 77
+2 Shepherd of Rot (ONS) 168
+4 Skinthinner (LGN) 80
+3 Smokespew Invoker (LGN) 81
+1 Soulless One (ONS) 171
+6 Swamp (ONS) 339
+6 Swamp (ONS) 340
+6 Swamp (ONS) 341
+5 Swamp (ONS) 342
+2 Withered Wretch (LGN) 86

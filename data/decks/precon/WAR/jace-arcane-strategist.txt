@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Jace, Arcane Strategist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, JaceArcaneStrategist_WAR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: WAR
+# released: 2019-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Band Together (WAR) 153
+1 Bioessence Hydra (WAR) 186
+3 Bloom Hulk (WAR) 154
+2 Courage in Crisis (WAR) 158
+4 Forest (WAR) 262
+4 Forest (WAR) 263
+3 Forest (WAR) 264
+4 Guildpact Informant (WAR) 271
+4 Island (WAR) 253
+3 Island (WAR) 254
+3 Island (WAR) 255
+3 Jace's Projection (WAR) 272
+2 Jace's Ruse (WAR) 273
+1 Jace's Triumph (WAR) 55
+1 Jace, Arcane Strategist (WAR) 270 *F*
+2 Kiora's Dambreaker (WAR) 58
+1 Kiora, Behemoth Beckoner (WAR) 232
+2 Merfolk Skydiver (WAR) 205
+2 New Horizons (WAR) 168
+3 Pollenbright Druid (WAR) 173
+1 Primordial Wurm (WAR) 174
+4 Simic Guildgate (WAR) 274
+1 Spark Double (WAR) 68
+2 Stealth Mission (WAR) 70
+2 Wardscale Crocodile (WAR) 183

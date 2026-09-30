@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Amonkhet Welcome Deck - Green
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckGreen_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: W17
+# released: 2017-04-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arborback Stomper (KLD) 142†
+1 Cowl Prowler (KLD) 149
+2 Druid of the Cowl (AER) 106
+5 Forest (AKH) 267
+4 Forest (AKH) 268
+4 Forest (AKH) 269
+1 Garruk's Horde (W17) 24
+1 Giant Spider (AKH) 166
+1 Oakenform (W17) 25
+2 Rabid Bite (W17) 26
+2 Rootwalla (W17) 27
+1 Sixth Sense (AKH) 187
+1 Spidery Grasp (AKH) 188
+1 Stalking Tiger (W17) 28
+1 Stampeding Rhino (W17) 29
+1 Terrain Elemental (KLD) 272†
+1 Wing Snare (W17) 30

@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Orzhov Power
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovPower_DGM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: DGM
+# released: 2013-05-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assassin's Strike (RTR) 57
+3 Bane Alley Blackguard (DGM) 21
+1 Basilica Guards (GTC) 5
+2 Basilica Screecher (GTC) 58
+1 Bazaar Krovod (RTR) 7
+1 Crypt Ghast (GTC) 61
+1 Crypt Incursion (DGM) 23
+2 Dark Revenant (RTR) 61
+1 Dying Wish (GTC) 64
+2 Fatal Fumes (DGM) 24
+1 Gift of Orzhova (GTC) 219
+1 Kingpin's Pet (GTC) 173
+2 Maw of the Obzedat (DGM) 83
+2 Orzhov Cluestone (DGM) 142
+4 Orzhov Guildgate (DGM) 153
+3 Plains (RTR) 250
+2 Plains (RTR) 251
+2 Plains (RTR) 252
+2 Plains (RTR) 253
+2 Plains (RTR) 254
+1 Profit // Loss (DGM) 130
+1 Riot Control (DGM) 6
+2 Sin Collector (DGM) 103
+1 Smog Elemental (GTC) 79
+2 Steeple Roc (DGM) 8
+3 Swamp (RTR) 260
+3 Swamp (RTR) 261
+2 Swamp (RTR) 262
+2 Swamp (RTR) 263
+2 Swamp (RTR) 264
+1 Teysa, Envoy of Ghosts (DGM) 108 *F*
+2 Tithe Drinker (DGM) 109
+2 Ubul Sar Gatekeepers (DGM) 30

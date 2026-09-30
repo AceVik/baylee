@@ -1,0 +1,29 @@
+# baylee deck export v1
+# name: Aeo Paquette - Affinity
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AeoPaquetteAffinity_WC04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC04
+# released: 2004-09-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Arcbound Ravager (WC04) ap100
+4 Arcbound Worker (WC04) ap104a
+3 Blinkmoth Nexus (WC04) ap163
+4 Chrome Mox (WC04) ap152
+4 Cranial Plating (WC04) ap113
+4 Disciple of the Vault (WC04) ap62a
+4 Frogmite (WC04) ap172
+3 Glimmervoid (WC04) ap281
+4 Great Furnace (WC04) ap282
+4 Ornithopter (WC04) ap224
+4 Seat of the Synod (WC04) ap283
+4 Shrapnel Blast (WC04) ap106
+2 Somber Hoverguard (WC04) ap51
+4 Thoughtcast (WC04) ap54
+4 Vault of Whispers (WC04) ap286
+4 Welding Jar (WC04) ap274
+SB: 4 Annul (WC04) ap29sb
+SB: 4 Furnace Dragon (WC04) ap62sb
+SB: 4 Seething Song (WC04) ap104sb
+SB: 3 Serum Visions (WC04) ap36sb

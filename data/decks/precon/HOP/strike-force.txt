@@ -1,0 +1,54 @@
+# baylee deck export v1
+# name: Strike Force
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, StrikeForce_HOP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planechase Deck
+# set: HOP
+# released: 2009-09-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Akroma's Vengeance (HOP) 1
+1 Arc Lightning (HOP) 46
+1 Balefire Liege (HOP) 97
+1 Battlegate Mimic (HOP) 98
+2 Boros Garrison (HOP) 131
+1 Boros Guildmage (HOP) 99
+1 Boros Signet (HOP) 107
+2 Boros Swiftblade (HOP) 82
+1 Bull Cerodon (HOP) 84
+1 Captain's Maneuver (HOP) 85
+1 Cerodon Yearling (HOP) 86
+1 Cone of Flame (HOP) 52
+1 Congregate (HOP) 2
+1 Double Cleave (HOP) 100
+1 Duergar Hedge-Mage (HOP) 101
+1 Flametongue Kavu (HOP) 54
+1 Furnace of Rath (HOP) 55
+1 Glory of Warfare (HOP) 88
+1 Goblin Offensive (HOP) 56
+1 Hearthfire Hobgoblin (HOP) 102
+1 Insurrection (HOP) 57
+1 Keldon Champion (HOP) 58
+1 Kor Sanctifiers (HOP) 3
+2 Lightning Helix (HOP) 90
+1 Menacing Ogre (HOP) 59
+3 Mountain (HOP) 161
+2 Mountain (HOP) 162
+2 Mountain (HOP) 163
+2 Mountain (HOP) 164
+1 Oblivion Ring (HOP) 4
+1 Order // Chaos (HOP) 104
+1 Orim's Thunder (HOP) 5
+1 Plains (HOP) 143
+2 Plains (HOP) 144
+3 Plains (HOP) 145
+3 Plains (HOP) 146
+1 Prison Term (HOP) 6
+1 Razia, Boros Archangel (HOP) 92
+1 Reckless Charge (HOP) 61
+1 Relic of Progenitus (HOP) 124
+1 Rolling Thunder (HOP) 64
+1 Rorix Bladewing (HOP) 65
+1 Soul Warden (HOP) 7
+2 Sunhome, Fortress of the Legion (HOP) 138
+2 Terramorphic Expanse (HOP) 139

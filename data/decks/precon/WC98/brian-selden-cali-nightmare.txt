@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Brian Selden - Cali Nightmare
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BrianSeldenCaliNightmare_WC98.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: World Championship Deck
+# set: WC98
+# released: 1998-08-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Birds of Paradise (WC98) bs280
+3 City of Brass (WC98) bs112a
+1 Cloudchaser Eagle (WC98) bs15
+2 Firestorm (WC98) bs101
+2 Forest (WC98) bs347
+2 Forest (WC98) bs348
+2 Forest (WC98) bs349
+2 Forest (WC98) bs350
+1 Gemstone Mine (WC98) bs164
+2 Karplusan Forest (WC98) bs356
+2 Lobotomy (WC98) bs267
+1 Man-o'-War (WC98) bs37
+2 Nekrataal (WC98) bs66
+1 Orcish Settlers (WC98) bs112b
+4 Recurring Nightmare (WC98) bs72
+2 Reflecting Pool (WC98) bs322
+2 Scroll Rack (WC98) bs308
+2 Spike Feeder (WC98) bs118
+1 Spike Weaver (WC98) bs128
+1 Spirit of the Night (WC98) bs146
+4 Survival of the Fittest (WC98) bs129
+1 Swamp (WC98) bs340
+1 Thrull Surgeon (WC98) bs76
+1 Tradewind Rider (WC98) bs98
+2 Uktabi Orangutan (WC98) bs123
+2 Underground River (WC98) bs362
+2 Undiscovered Paradise (WC98) bs167
+1 Verdant Force (WC98) bs263
+1 Volrath's Stronghold (WC98) bs143
+4 Wall of Blossoms (WC98) bs125
+2 Wall of Roots (WC98) bs253
+SB: 4 Boil (WC98) bs165sb
+SB: 2 Dread of Night (WC98) bs130sb
+SB: 3 Emerald Charm (WC98) bs106sb
+SB: 1 Hall of Gemstone (WC98) bs221sb
+SB: 2 Phyrexian Furnace (WC98) bs155sb
+SB: 2 Pyroblast (WC98) bs213sb
+SB: 1 Staunch Defenders (WC98) bs49sb

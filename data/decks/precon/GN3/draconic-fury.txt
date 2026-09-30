@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Draconic Fury
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DraconicFury_GN3.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Game Night Deck
+# set: GN3
+# released: 2022-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Abrade (GN3) 67
+1 Ancient Hellkite (GN3) 68
+2 Blaze (GN3) 69
+1 Crucible of Fire (GN3) 70
+1 Dragon Egg (GN3) 71
+2 Dragon Hatchling (GN3) 72
+1 Dragon Mage (GN3) 73
+1 Dragon Tempest (GN3) 74
+3 Dragonspeaker Shaman (GN3) 75
+1 Drakuseth, Maw of Flames (GN3) 76
+1 Flameblast Dragon (GN3) 77
+1 Flametongue Kavu (GN3) 78
+2 Furnace Whelp (GN3) 79
+1 Goblin Motivator (GN3) 80
+1 Howling Golem (GN3) 117
+3 Kargan Dragonrider (GN3) 81
+1 Knollspine Dragon (GN3) 82
+2 Lightning Bolt (GN3) 83
+1 Mana Geyser (GN3) 84
+9 Mountain (GN3) 131
+8 Mountain (GN3) 132
+8 Mountain (GN3) 133
+1 Nogi, Draco-Zealot (GN3) 4 *F*
+2 Rapacious Dragon (GN3) 85
+2 Seize the Spoils (GN3) 86
+1 Shivan Dragon (GN3) 87
+1 Vow of Lightning (GN3) 88

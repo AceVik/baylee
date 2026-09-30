@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Landslide Charge
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LandslideCharge_DTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: DTK
+# released: 2015-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Arc Lightning (KTK) 97
+1 Boon Satyr (THS) 152
+1 Crater's Claws (KTK) 106
+4 Elvish Mystic (M15) 173
+4 Evolving Wilds (DTK) 248
+4 Fanatic of Xenagos (BNG) 147
+4 Forest (DTK) 262
+3 Forest (DTK) 263
+3 Forest (DTK) 264
+4 Frontier Bivouac (KTK) 234
+2 Golden Hind (JOU) 124
+4 Heir of the Wilds (KTK) 134
+1 Island (DTK) 253
+2 Lightning Strike (M15) 155
+1 Mistcutter Hydra (THS) 162
+2 Mogis's Warhound (JOU) 104
+2 Mountain (DTK) 259
+2 Mountain (DTK) 260
+1 Mountain (DTK) 261
+1 Outpost Siege (FRF) 110
+1 Polis Crusher (THS) 198
+2 Roast (DTK) 151
+1 Savage Knuckleblade (KTK) 197
+1 Stubborn Denial (KTK) 56
+1 Surrak, the Hunt Caller (DTK) 210
+1 Temple of Abandon (THS) 224
+2 Temur Charm (KTK) 208
+1 Thunderbreak Regent (DTK) 162
+2 Wild Slash (FRF) 118
+1 Yasova Dragonclaw (FRF) 148
+SB: 2 Abzan Beastmaster (FRF) 119
+SB: 2 Act of Treason (KTK) 95
+SB: 2 Arc Lightning (KTK) 97
+SB: 2 Disdainful Stroke (KTK) 37
+SB: 2 Encase in Ice (DTK) 54
+SB: 2 Reclamation Sage (M15) 194
+SB: 2 Rending Volley (DTK) 150
+SB: 1 Stubborn Denial (KTK) 56

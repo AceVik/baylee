@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Doom Inevitable
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DoomInevitable_MBS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: MBS
+# released: 2011-02-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Armored Cancrix (M11) 44
+1 Barony Vampire (M11) 82
+1 Bonehoard (MBS) 100
+1 Caustic Hound (MBS) 40
+2 Contagion Clasp (SOM) 144
+1 Disentomb (M11) 94
+1 Doom Blade (M11) 95
+1 Flayer Husk (MBS) 107
+2 Fume Spitter (SOM) 63
+1 Horrifying Revelation (MBS) 45
+7 Island (MBS) 148
+6 Island (MBS) 149
+1 Mind Control (M11) 67
+2 Myr Sire (MBS) 116
+3 Oculus (MBS) 29
+2 Phyrexian Rager (MBS) 51
+2 Pierce Strider (MBS) 123
+1 Psychosis Crawler (MBS) 126 *F*
+1 Skinrender (SOM) 78
+2 Skinwing (MBS) 133
+1 Spread the Sickness (MBS) 56
+1 Steady Progress (SOM) 45
+1 Steel Sabotage (MBS) 33
+1 Strandwalker (MBS) 137
+6 Swamp (MBS) 150
+6 Swamp (MBS) 151
+2 Trigon of Corruption (SOM) 213
+1 Vedalken Anatomist (MBS) 36
+2 Vivisection (MBS) 38

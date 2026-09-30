@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Flash of Ferocity
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, FlashOfFerocity_Q04.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Challenger Deck
+# set: Q04
+# released: 2020-03-27
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Brazen Borrower // Petty Theft (ELD) 39
+4 Brineborn Cutthroat (M20) 50
+2 Castle Vantress (ELD) 242
+1 Fabled Passage (ELD) 244
+2 Forest (ELD) 266
+2 Forest (ELD) 267
+2 Forest (ELD) 268
+2 Forest (ELD) 269
+4 Frilled Mystic (RNA) 174
+2 Island (ELD) 254
+2 Island (ELD) 255
+2 Island (ELD) 256
+2 Island (ELD) 257
+4 Nightpack Ambusher (M20) 185
+4 Opt (ELD) 59
+4 Quench (RNA) 48
+2 Sinister Sabotage (GRN) 54
+4 Spectral Sailor (M20) 76
+2 Temple of Mystery (M20) 255
+2 Thassa's Intervention (THB) 72
+3 Thornwood Falls (M20) 258
+2 Unsummon (M20) 78
+1 Wavebreak Hippocamp (THB) 80
+4 Wildborn Preserver (ELD) 182
+SB: 3 Aether Gust (M20) 42
+SB: 2 Disdainful Stroke (GRN) 37
+SB: 2 Mystical Dispute (ELD) 58
+SB: 2 Negate (M20) 69
+SB: 3 Shifting Ceratops (M20) 194
+SB: 3 Threnody Singer (THB) 75

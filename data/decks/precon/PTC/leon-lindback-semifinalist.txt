@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Leon Lindback, Semifinalist
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LeonLindbackSemifinalist_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Pro Tour Deck
+# set: PTC
+# released: 1996-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Dance of the Dead (PTC) ll118
+1 Dark Banishing (PTC) ll119
+4 Dark Ritual (PTC) ll129
+4 Drain Life (PTC) ll132
+2 Ebon Stronghold (PTC) ll95
+1 Hymn to Tourach (PTC) ll38a
+1 Hymn to Tourach (PTC) ll38b
+1 Hymn to Tourach (PTC) ll38c
+1 Hymn to Tourach (PTC) ll38d
+4 Hypnotic Specter (PTC) ll142
+1 Ivory Tower (PTC) ll328
+1 Jalum Tome (PTC) ll54
+3 Knight of Stromgald (PTC) ll138
+4 Necropotence (PTC) ll154
+2 Nevinyrral's Disk (PTC) ll338
+2 Order of the Ebon Hand (PTC) ll42a
+1 Order of the Ebon Hand (PTC) ll42b
+1 Order of the Ebon Hand (PTC) ll42c
+2 Serrated Arrows (PTC) ll110
+1 Soul Burn (PTC) ll161
+4 Strip Mine (PTC) ll363
+6 Swamp (PTC) ll370
+6 Swamp (PTC) ll371
+5 Swamp (PTC) ll372
+1 Zuran Orb (PTC) ll350
+SB: 1 Apocalypse Chime (PTC) ll101sb
+SB: 1 Ashes to Ashes (PTC) ll33sb
+SB: 1 City of Brass (PTC) ll112sb
+SB: 1 Feldon's Cane (PTC) ll50sb
+SB: 1 Jalum Tome (PTC) ll54sb
+SB: 1 Meekstone (PTC) ll335sb
+SB: 2 Nevinyrral's Disk (PTC) ll338sb
+SB: 1 Safe Haven (PTC) ll118sb
+SB: 1 Serrated Arrows (PTC) ll110sb
+SB: 1 Stromgald Cabal (PTC) ll166sb
+SB: 3 The Rack (PTC) ll352sb
+SB: 1 Torture (PTC) ll59sb

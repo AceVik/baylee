@@ -1,0 +1,45 @@
+# baylee deck export v1
+# name: Simic
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Simic_GK2.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Guild Kit
+# set: GK2
+# released: 2019-02-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Applied Biomancy (RNA) 153
+2 Cloudfin Raptor (GK2) 108
+2 Coiling Oracle (GK2) 115
+1 Cytoplast Root-Kin (GK2) 110
+1 Elusive Krasis (GK2) 116
+1 Experiment Kraj (GK2) 117
+1 Experiment One (GK2) 111
+1 Fathom Mage (GK2) 118
+8 Forest (GK2) 133
+1 Frilled Mystic (RNA) 174
+1 Galloping Lizrog (RNA) 175
+1 Guardian Project (RNA) 130
+1 Gyre Sage (GK2) 112
+8 Island (GK2) 132
+1 Miming Slime (GK2) 113
+1 Momir Vig, Simic Visionary (GK2) 119
+1 Nimbus Swimmer (GK2) 120
+1 Omnibian (GK2) 121
+1 Plaxcaster Frogling (GK2) 122
+1 Progenitor Mimic (GK2) 123
+2 Rapid Hybridization (GK2) 109
+1 Simic Ascendancy (RNA) 207
+4 Simic Growth Chamber (GK2) 131
+2 Simic Guildgate (RNA) 257
+2 Simic Guildgate (RNA) 258
+2 Simic Signet (GK2) 130
+1 Simic Sky Swallower (GK2) 124
+1 Skitter Eel (RNA) 53
+1 Trollbred Guardian (RNA) 148
+1 Trygon Predator (GK2) 125
+1 Urban Evolution (GK2) 126
+1 Vinelasher Kudzu (GK2) 114
+1 Voidslime (GK2) 127
+1 Vorel of the Hull Clade (GK2) 128
+2 Zameck Guildmage (GK2) 129
+1 Zegana, Utopian Speaker (GK2) 107 *F*

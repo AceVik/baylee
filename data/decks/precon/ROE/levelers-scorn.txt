@@ -1,0 +1,38 @@
+# baylee deck export v1
+# name: Levelers Scorn
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LevelersScorn_ROE.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ROE
+# released: 2010-04-23
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Coral Merfolk (M10) 47
+1 Domestication (ROE) 61
+1 Doom Blade (M10) 93
+1 Echo Mage (ROE) 64
+1 Enatu Golem (ROE) 217
+1 Fleeting Distraction (ROE) 67
+1 Hada Spy Patrol (ROE) 71
+3 Island (ROE) 233
+3 Island (ROE) 234
+3 Island (ROE) 235
+2 Island (ROE) 236
+2 Last Kiss (ROE) 116
+1 Negate (M10) 65
+1 Phantasmal Abomination (ROE) 80
+1 Phantom Warrior (M10) 66
+1 Sea Gate Oracle (ROE) 85
+1 See Beyond (ROE) 86
+2 Skywatcher Adept (ROE) 88
+1 Snapping Drake (M10) 72
+1 Sphinx of Magosi (ROE) 89 *F*
+2 Swamp (ROE) 237
+2 Swamp (ROE) 238
+2 Swamp (ROE) 239
+1 Swamp (ROE) 240
+1 Telepathy (M10) 74
+1 Unsummon (M10) 79
+1 Venerated Teacher (ROE) 93
+1 Wall of Bone (M10) 119
+1 Zombie Goliath (M10) 123

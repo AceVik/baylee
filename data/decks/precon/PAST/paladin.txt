@@ -1,0 +1,30 @@
+# baylee deck export v1
+# name: Paladin
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Paladin_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Angry Mob (DRK) 1
+2 Benalish Hero (3ED) 4
+2 Circle of Protection: Black (3ED) 9
+1 Disenchant (3ED) 17
+4 Holy Strength (3ED) 24
+2 Island (3ED) 295
+2 Island (3ED) 296
+2 Island (3ED) 297
+3 Karma (3ED) 26
+3 Magical Hack (3ED) 65
+4 Northern Paladin (3ED) 29
+6 Plains (3ED) 292
+6 Plains (3ED) 293
+6 Plains (3ED) 294
+2 Red Ward (3ED) 33
+2 Segovian Leviathan (LEG) 76
+4 Sleight of Mind (3ED) 81
+1 Swords to Plowshares (3ED) 41
+4 White Knight (3ED) 44
+SB: 2 Divine Transformation (LEG) 10
+SB: 1 Swords to Plowshares (3ED) 41

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Weapons and Wards
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WeaponsAndWards_EMN.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: EMN
+# released: 2016-07-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Choking Restraints (EMN) 16
+1 Courageous Outrider (EMN) 18
+2 Crossroads Consecrator (EMN) 154
+2 Cultist's Staff (EMN) 194
+1 Emrakul's Evangel (EMN) 156
+1 Equestrian Skill (SOI) 204
+2 Faith Unbroken (EMN) 24
+2 Fiend Binder (EMN) 26
+4 Forest (SOI) 295
+4 Forest (SOI) 296
+4 Forest (SOI) 297
+1 Gryff's Boon (SOI) 20
+2 Hamlet Captain (EMN) 161
+1 Hope Against Hope (SOI) 22
+1 Inspiring Captain (SOI) 25
+2 Intrepid Provisioner (SOI) 213
+2 Ironclad Slayer (EMN) 31
+1 Ironwright's Cleansing (EMN) 32
+1 Militant Inquisitor (SOI) 26
+1 Open the Armory (SOI) 32
+5 Plains (SOI) 283
+4 Plains (SOI) 284
+4 Plains (SOI) 285
+1 Sigardian Priest (EMN) 42
+2 Slayer's Cleaver (EMN) 198
+1 Steadfast Cathar (EMN) 44
+2 Strength of Arms (SOI) 40
+2 Subjugator Angel (EMN) 45
+2 Thraben Standard Bearer (EMN) 48
+1 Ulvenwald Observer (PEMN) 176 *F*

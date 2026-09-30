@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Brute Force
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BruteForce_WWK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: WWK
+# released: 2010-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M10) 124
+2 Borderland Ranger (M10) 169
+1 Canopy Cover (WWK) 98
+1 Deathforge Shaman (WWK) 80
+3 Forest (ZEN) 246a
+3 Forest (ZEN) 247a
+2 Forest (ZEN) 248a
+2 Forest (ZEN) 249a
+2 Giant Growth (M10) 184
+1 Giant Spider (M10) 185
+2 Gnarlid Pack (WWK) 101
+1 Goblin Roughrider (WWK) 82
+1 Grappler Spider (WWK) 102
+1 Greenweaver Druid (ZEN) 164
+1 Leatherback Baloth (WWK) 107
+2 Lightning Bolt (M10) 146
+2 Mountain (ZEN) 242a
+2 Mountain (ZEN) 243a
+2 Mountain (ZEN) 244a
+1 Mountain (ZEN) 245a
+1 Overrun (M10) 198
+1 Rumbling Aftershocks (WWK) 89
+1 Skitter of Lizards (WWK) 91
+1 Terastodon (WWK) 115
+1 Terramorphic Expanse (M10) 229
+2 Vastwood Zendikon (WWK) 117
+1 Wolfbriar Elemental (WWK) 118 *F*

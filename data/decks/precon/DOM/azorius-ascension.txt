@@ -1,0 +1,49 @@
+# baylee deck export v1
+# name: Azorius Ascension
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAscension_DOM.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: DOM
+# released: 2018-03-22
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Angel of Sanctions (AKH) 1
+1 Angler Drake (AKH) 41
+1 Arch of Orazca (RIX) 185
+1 Baffling End (RIX) 1
+2 Cancel (XLN) 47
+1 Cast Out (AKH) 8
+1 Censor (AKH) 46
+1 Compulsory Rest (AKH) 9
+1 Desert's Hold (HOU) 8
+1 Edifice of Authority (AKH) 226
+2 Essence Scatter (AKH) 52
+1 Expel from Orazca (RIX) 37
+1 Field of Ruin (XLN) 254
+1 Forsake the Worldly (AKH) 13
+1 Glyph Keeper (AKH) 55
+2 Hieroglyphic Illumination (AKH) 57
+3 Island (DOM) 254
+3 Island (DOM) 255
+2 Island (DOM) 256
+2 Island (DOM) 257
+1 Ixalan's Binding (XLN) 17
+1 Kumena's Awakening (RIX) 42
+1 Labyrinth Guardian (AKH) 60
+4 Meandering River (DOM) 274
+1 Negate (RIX) 44
+2 Opt (DOM) 60
+1 Pious Interdiction (XLN) 26
+3 Plains (DOM) 250
+2 Plains (DOM) 251
+2 Plains (DOM) 252
+2 Plains (DOM) 253
+1 Resplendent Griffin (RIX) 170
+1 River's Rebuke (XLN) 71
+2 Secrets of the Golden City (RIX) 52
+1 Slippery Scoundrel (RIX) 55
+2 Snubhorn Sentry (RIX) 23
+1 Spell Swindle (XLN) 82
+1 Sunscourge Champion (HOU) 26
+1 Supreme Will (HOU) 49
+1 Vizier of Many Faces (AKH) 74

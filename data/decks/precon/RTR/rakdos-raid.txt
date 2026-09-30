@@ -1,0 +1,46 @@
+# baylee deck export v1
+# name: Rakdos Raid
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RakdosRaid_RTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: RTR
+# released: 2012-10-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Assassin's Strike (RTR) 57
+1 Auger Spree (RTR) 144
+1 Bellows Lizard (RTR) 88
+1 Blood Reckoning (M13) 81
+1 Bloodfray Giant (RTR) 89
+2 Canyon Minotaur (M13) 122
+1 Carnival Hellsteed (RTR) 147 *F*
+1 Cower in Fear (M13) 84
+2 Crippling Blight (M13) 85
+1 Cryptborn Horror (RTR) 212
+1 Deviant Glee (RTR) 65
+2 Gore-House Chainwalker (RTR) 96
+1 Hellhole Flailer (RTR) 167
+1 Mind Rot (RTR) 70
+1 Minotaur Aggressor (RTR) 100
+3 Mountain (RTR) 265
+3 Mountain (RTR) 266
+2 Mountain (RTR) 267
+2 Mountain (RTR) 268
+2 Mountain (RTR) 269
+2 Rakdos Cackler (RTR) 220
+1 Rakdos Guildgate (RTR) 244
+2 Rakdos Keyrune (RTR) 232
+2 Rakdos Shred-Freak (RTR) 221
+1 Ravenous Rats (M13) 106
+1 Rix Maadi Guildmage (RTR) 192
+1 Sewer Shambler (RTR) 75
+1 Shrieking Affliction (RTR) 76
+1 Spawn of Rix Maadi (RTR) 199
+3 Swamp (RTR) 260
+3 Swamp (RTR) 261
+2 Swamp (RTR) 262
+2 Swamp (RTR) 263
+2 Swamp (RTR) 264
+3 Tormented Soul (M13) 111
+1 Traitorous Instinct (RTR) 109
+2 Zombie Goliath (M13) 119

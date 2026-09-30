@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Necromancer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Necromancer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Animate Dead (3ED) 93
+2 Bad Moon (3ED) 94
+4 Bog Wraith (3ED) 96
+2 Cosmic Horror (LEG) 92
+2 Dark Ritual (3ED) 99
+2 Drain Life (3ED) 106
+4 Evil Presence (3ED) 110
+4 Lost Soul (LEG) 111
+2 Necropolis of Azar (PAST) 5
+2 Raise Dead (3ED) 124
+4 Scathe Zombies (3ED) 127
+8 Swamp (3ED) 298
+7 Swamp (3ED) 299
+7 Swamp (3ED) 300
+2 Unholy Strength (3ED) 133
+2 Wall of Bone (3ED) 134
+4 Zombie Master (3ED) 138
+SB: 2 Paralyze (3ED) 121
+SB: 1 Throne of Bone (3ED) 279

@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Grixis Undead
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GrixisUndead_ALA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ALA
+# released: 2008-10-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Agony Warp (ALA) 153
+2 Blightning (ALA) 156
+1 Blood Cultist (ALA) 157
+1 Bone Splinters (ALA) 67
+1 Cruel Ultimatum (ALA) 164
+2 Crumbling Necropolis (ALA) 222
+1 Dreg Reaver (ALA) 73
+1 Dregscape Zombie (ALA) 74
+1 Essence Drain (10E) 141
+2 Fire-Field Ogre (ALA) 168
+1 Fleshbag Marauder (ALA) 76
+1 Gravedigger (10E) 146
+2 Grixis Panorama (ALA) 224
+1 Hidden Horror (10E) 149
+2 Incurable Ogre (ALA) 105
+1 Island (ALA) 234
+1 Island (ALA) 235
+1 Island (ALA) 236
+2 Kederekt Creeper (ALA) 176
+1 Mountain (ALA) 242
+1 Mountain (ALA) 243
+1 Mountain (ALA) 244
+1 Obelisk of Grixis (ALA) 214
+2 Swamp (ALA) 238
+2 Swamp (ALA) 239
+2 Swamp (ALA) 240
+1 Swamp (ALA) 241
+2 Terror (10E) 182
+1 Vein Drinker (ALA) 91 *F*
+1 Vithian Stinger (ALA) 120

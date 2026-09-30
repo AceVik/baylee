@@ -1,0 +1,34 @@
+# baylee deck export v1
+# name: Vraska, Scheming Gorgon
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, VraskaSchemingGorgon_RIX.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: RIX
+# released: 2018-01-19
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Bishop of the Bloodstained (XLN) 91
+1 Bright Reprisal (XLN) 7
+1 Champion of Dusk (RIX) 64
+1 Deathless Ancient (XLN) 100
+1 Dusk Legion Zealot (RIX) 70
+1 Exultant Skymarcher (RIX) 7
+2 Famished Paladin (RIX) 8
+4 Forsaken Sanctuary (RIX) 187
+2 Gilded Sentinel (XLN) 239
+2 Inspiring Cleric (XLN) 16
+1 Legion Lieutenant (RIX) 163
+2 Moment of Craving (RIX) 79
+2 Moment of Triumph (RIX) 15
+1 Paladin of Atonement (RIX) 16
+9 Plains (RIX) 192
+2 Queen's Bay Soldier (XLN) 115
+1 Recover (RIX) 84
+2 Skyblade of the Legion (XLN) 37
+2 Skymarch Bloodletter (XLN) 124
+11 Swamp (RIX) 194
+4 Vampire Champion (RIX) 198
+1 Vicious Conquistador (XLN) 128
+3 Vraska's Conquistador (RIX) 199
+2 Vraska's Scorn (RIX) 200
+1 Vraska, Scheming Gorgon (RIX) 197 *F*

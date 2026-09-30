@@ -1,0 +1,39 @@
+# baylee deck export v1
+# name: Will Of The Masses
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, WillOfTheMasses_M15.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: M15
+# released: 2014-07-18
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Devouring Light (M15) 9
+2 Feral Incarnation (M15) 174
+4 Forest (M15) 266
+3 Forest (M15) 267
+3 Forest (M15) 268
+3 Forest (M15) 269
+1 Gather Courage (M15) 175
+1 Hornet Queen (M15) 178
+2 Living Totem (M15) 184
+1 Meditation Puzzle (M15) 19
+2 Midnight Guard (M15) 20
+1 Naturalize (M15) 185
+1 Nissa's Expedition (M15) 188
+2 Oreskos Swiftclaw (M15) 22
+1 Overwhelm (M15) 189
+1 Phytotitan (M15) 191 *F*
+3 Plains (M15) 250
+3 Plains (M15) 251
+3 Plains (M15) 252
+3 Plains (M15) 253
+3 Raise the Alarm (M15) 26
+1 Sanctified Charge (M15) 30
+2 Selfless Cathar (M15) 31
+2 Seraph of the Masses (M15) 32
+2 Siege Wurm (M15) 200
+2 Sunblade Elf (M15) 202
+1 Titanic Growth (M15) 203
+2 Triplicate Spirits (M15) 40
+1 Wall of Mulch (M15) 208
+2 Will-Forged Golem (M15) 239

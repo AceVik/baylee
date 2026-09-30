@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Ultimate Sacrifice
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, UltimateSacrifice_BFZ.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Event Deck
+# set: BFZ
+# released: 2015-10-02
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+4 Blisterpod (BFZ) 163
+4 Bone Splinters (BFZ) 105
+1 Brood Butcher (BFZ) 199
+4 Catacomb Sifter (BFZ) 201
+1 Corpseweft (DTK) 92
+1 Evolutionary Leap (ORI) 176
+4 Evolving Wilds (BFZ) 236
+1 Eyeless Watcher (BFZ) 166
+2 Forest (BFZ) 270a
+2 Forest (BFZ) 271a
+1 Forest (BFZ) 272a
+1 Forest (BFZ) 273a
+1 Forest (BFZ) 274a
+1 Grim Haruspex (KTK) 73
+1 Hangarback Walker (ORI) 229
+4 Jungle Hollow (FRF) 169
+1 Llanowar Wastes (ORI) 248
+2 Murderous Cut (KTK) 81
+2 Nantuko Husk (ORI) 109
+2 Rogue's Passage (ORI) 250
+4 Rot Shambler (BFZ) 187
+1 Smothering Abomination (BFZ) 99
+2 Sultai Emissary (FRF) 85
+2 Swamp (BFZ) 260a
+1 Swamp (BFZ) 261a
+1 Swamp (BFZ) 262a
+1 Swamp (BFZ) 263a
+1 Swamp (BFZ) 264a
+1 Tasigur, the Golden Fang (FRF) 87
+2 Vampiric Rites (BFZ) 124
+1 Warden of the First Tree (FRF) 143
+1 Whisperwood Elemental (FRF) 145
+2 Zulaport Cutthroat (BFZ) 126
+SB: 3 Caustic Caterpillar (ORI) 170
+SB: 3 Cranial Archive (KTK) 218
+SB: 3 Duress (DTK) 98
+SB: 4 Jaddi Offshoot (BFZ) 176
+SB: 2 Ultimate Price (DTK) 124

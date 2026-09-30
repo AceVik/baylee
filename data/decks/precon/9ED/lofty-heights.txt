@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Lofty Heights
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, LoftyHeights_9ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: 9ED
+# released: 2005-07-29
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Archivist (9ED) 60
+1 Aven Fisher (9ED) 61
+1 Aven Windreader (9ED) 62
+1 Azure Drake (9ED) 63
+2 Boomerang (9ED) 66
+1 Confiscate (9ED) 68
+3 Horned Turtle (9ED) 81
+5 Island (9ED) 335
+4 Island (9ED) 336
+4 Island (9ED) 337
+4 Island (9ED) 338
+1 Kraken's Eye (9ED) 302
+1 Mahamoti Djinn (9ED) 85
+1 Mana Leak (9ED) 86
+1 Puppeteer (9ED) 91
+1 Remove Soul (9ED) 93
+1 Rod of Ruin (9ED) 307
+1 Sleight of Hand (9ED) 99
+1 Storm Crow (9ED) 100
+1 Telepathy (9ED) 101
+1 Thieving Magpie (9ED) 103
+3 Wind Drake (9ED) 112

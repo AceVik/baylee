@@ -1,0 +1,54 @@
+# baylee deck export v1
+# name: Ground Pounder
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundPounder_BTD.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: BTD
+# released: 2000-10-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Balduvian Horde (BTD) 34
+1 Ball Lightning (BTD) 35
+1 Bloodrock Cyclops (BTD) 36
+1 Clockwork Beast (BTD) 70
+1 Crash of Rhinos (BTD) 51
+1 Crashing Boars (BTD) 52
+1 Deadly Insect (BTD) 53
+1 Dwarven Ruins (BTD) 71
+1 Erhnam Djinn (BTD) 54 *F*
+1 Fireball (BTD) 37
+1 Fog (BTD) 55
+1 Force of Nature (BTD) 56
+4 Forest (BTD) 88
+4 Forest (BTD) 89
+3 Forest (BTD) 90
+1 Giant Growth (BTD) 57
+1 Havenwood Battleground (BTD) 73
+1 Hulking Cyclops (BTD) 38
+1 Kird Ape (BTD) 39
+1 Lava Axe (BTD) 40
+1 Lightning Bolt (BTD) 41
+1 Llanowar Elves (BTD) 58
+1 Lowland Giant (BTD) 42
+4 Mountain (BTD) 85
+4 Mountain (BTD) 86
+3 Mountain (BTD) 87
+1 Plated Spider (BTD) 59
+1 Quirion Elves (BTD) 60
+1 Raging Goblin (BTD) 43
+1 Rampant Growth (BTD) 61
+1 Scaled Wurm (BTD) 62
+1 Segmented Wurm (BTD) 68
+1 Shambling Strider (BTD) 63
+1 Shivan Dragon (BTD) 44
+1 Shock (BTD) 45
+1 Slippery Karst (BTD) 76
+1 Smoldering Crater (BTD) 77
+1 Sonic Burst (BTD) 46
+1 Talruum Minotaur (BTD) 47
+1 Thunderbolt (BTD) 48
+1 Thundering Giant (BTD) 49
+1 Viashino Warrior (BTD) 50
+1 Wild Growth (BTD) 64
+1 Woolly Spider (BTD) 65
+1 Yavimaya Wurm (BTD) 66

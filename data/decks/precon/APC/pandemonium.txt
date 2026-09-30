@@ -1,0 +1,47 @@
+# baylee deck export v1
+# name: Pandemonium
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Pandemonium_APC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: APC
+# released: 2001-06-04
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Allied Strategies (PLS) 20
+1 Captain's Maneuver (APC) 92
+1 Emblazoned Golem (APC) 136
+2 Evasive Action (APC) 23
+2 Exotic Curse (INV) 105
+2 Fertile Ground (INV) 188
+3 Forest (INV) 347
+3 Forest (INV) 348
+3 Forest (INV) 349
+3 Forest (INV) 350
+1 Gaea's Balance (APC) 77
+3 Harrow (INV) 189
+1 Helionaut (APC) 13
+1 Island (INV) 335
+1 Island (INV) 336
+1 Island (INV) 337
+1 Last Stand (APC) 107
+3 Lay of the Land (APC) 81
+1 Life // Death (APC) 130
+1 Mountain (INV) 343
+1 Mountain (INV) 344
+1 Nomadic Elf (INV) 200
+1 Order // Chaos (APC) 132
+3 Penumbra Bobcat (APC) 82
+2 Penumbra Kavu (APC) 83
+1 Penumbra Wurm (APC) 84
+1 Plains (INV) 331
+1 Plains (INV) 332
+1 Plains (INV) 333
+2 Quirion Elves (INV) 203
+1 Quirion Trailblazer (INV) 205
+1 Stratadon (PLS) 135
+1 Swamp (INV) 339
+1 Swamp (INV) 340
+1 Swamp (INV) 341
+2 Tribal Flames (INV) 176
+2 Urborg Elf (APC) 90
+1 Wayfaring Giant (INV) 44

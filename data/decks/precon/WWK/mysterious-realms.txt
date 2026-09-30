@@ -1,0 +1,37 @@
+# baylee deck export v1
+# name: Mysterious Realms
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, MysteriousRealms_WWK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: WWK
+# released: 2010-02-05
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Aether Tradewinds (WWK) 24
+1 Baloth Woodcrasher (ZEN) 157
+2 Calcite Snapper (WWK) 25
+1 Coral Merfolk (M10) 47
+2 Forest (ZEN) 246a
+2 Forest (ZEN) 247a
+2 Forest (ZEN) 248a
+2 Forest (ZEN) 249a
+1 Frontier Guide (ZEN) 161
+1 Goliath Sphinx (WWK) 28 *F*
+2 Halimar Depths (WWK) 137
+1 Hedron Rover (WWK) 125
+2 Island (ZEN) 234a
+2 Island (ZEN) 235a
+2 Island (ZEN) 236a
+2 Island (ZEN) 237a
+1 Living Tsunami (ZEN) 52
+1 Merfolk Wayfinder (ZEN) 56
+1 Mysteries of the Deep (WWK) 33
+2 Paralyzing Grasp (ZEN) 58
+1 Seer's Sundial (WWK) 130
+1 Telepathy (M10) 74
+1 Territorial Baloth (ZEN) 188
+1 Tideforce Elemental (WWK) 41
+2 Treasure Hunt (WWK) 42
+1 Vapor Snare (WWK) 44
+1 Walking Atlas (WWK) 131
+2 Wind Zendikon (WWK) 46

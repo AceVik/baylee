@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Sylvan Wisdom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, SylvanWisdom_LTR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: LTR
+# released: 2023-06-20
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Arwen Undómiel (LTR) 194
+2 Bite Down (DMU) 155
+2 Celeborn the Wise (LTR) 156
+3 Chance-Met Elves (LTR) 157
+2 Desynchronize (BRO) 46
+1 Elrond, Master of Healing (LTR) 200
+3 Elven Farsight (LTR) 161
+1 Ezuri, Stalker of Spheres (ONE) 201
+5 Forest (LTR) 270
+5 Forest (LTR) 271
+2 Galadhrim Guide (LTR) 168
+1 Glorfindel, Dauntless Rescuer (LTR) 171
+3 Grey Havens Navigator (LTR) 53
+2 Impede Momentum (DMU) 54
+3 Island (LTR) 264
+3 Island (LTR) 265
+1 Llanowar Loamspeaker (DMU) 170
+1 Lost Isle Calling (LTR) 61
+2 Lothlórien Lookout (LTR) 175
+1 Marwyn's Kindred (YDMU) 16
+1 Mirror of Galadriel (LTR) 244
+3 Nimrodel Watcher (LTR) 63
+1 Nissa, Resurgent Animist (MAT) 22
+4 Tangled Islet (DMU) 258
+4 Thornwood Falls (MOM) 274
+1 Tribute to the World Tree (MOM) 211
+1 Yavimaya Coast (DMU) 261

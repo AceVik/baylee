@@ -1,0 +1,44 @@
+# baylee deck export v1
+# name: Tombstone
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Tombstone_USG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: USG
+# released: 1998-10-12
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Abyssal Horror (USG) 115
+2 Catalog (USG) 64
+1 Confiscate (USG) 66
+1 Despondency (USG) 129
+3 Diabolic Servitude (USG) 130
+3 Disenchant (USG) 12
+2 Drifting Meadow (USG) 320
+1 Exhume (USG) 134
+1 Expunge (USG) 135
+2 Humble (USG) 18
+3 Island (USG) 335
+2 Island (USG) 336
+2 Island (USG) 337
+2 Island (USG) 338
+3 Pendrell Drake (USG) 86
+1 Phyrexian Ghoul (USG) 148
+1 Plains (USG) 331
+1 Plains (USG) 332
+1 Plains (USG) 333
+2 Polluted Mire (USG) 323
+2 Power Sink (USG) 89
+2 Remote Isle (USG) 324
+1 Rescind (USG) 92
+1 Sandbar Merfolk (USG) 94
+3 Sandbar Serpent (USG) 95
+1 Sicken (USG) 156
+1 Somnophore (USG) 97
+1 Stern Proctor (USG) 99
+3 Swamp (USG) 339
+2 Swamp (USG) 340
+2 Swamp (USG) 341
+2 Swamp (USG) 342
+1 Turnabout (USG) 105
+2 Victimize (USG) 166
+1 Wizard Mentor (USG) 112

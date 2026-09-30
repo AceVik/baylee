@@ -1,0 +1,31 @@
+# baylee deck export v1
+# name: Booster Battle Pack: Simic
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, BoosterBattlePackSimic_GTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Welcome Deck
+# set: GTC
+# released: 2013-02-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Adaptive Snapjaw (GTC) 113
+1 Bioshift (GTC) 214
+1 Cloudfin Raptor (GTC) 32
+1 Crocanura (GTC) 116
+1 Forest (RTR) 270
+1 Forest (RTR) 271
+1 Forest (RTR) 272
+1 Forest (RTR) 273
+1 Forest (RTR) 274
+1 Frilled Oculus (GTC) 35
+1 Hindervines (GTC) 124
+1 Hydroform (GTC) 172
+1 Island (RTR) 255
+1 Island (RTR) 256
+1 Island (RTR) 257
+1 Island (RTR) 258
+1 Island (RTR) 259
+1 Ivy Lane Denizen (GTC) 125
+1 Nimbus Swimmer (GTC) 181
+1 Simic Guildgate (GTC) 246
+1 Spell Rupture (GTC) 52
+1 Totally Lost (GTC) 54

@@ -1,0 +1,33 @@
+# baylee deck export v1
+# name: Nicol Bolas, the Deceiver
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, NicolBolasTheDeceiver_HOU.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Planeswalker Deck
+# set: HOU
+# released: 2017-07-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aerial Guide (HOU) 29
+1 Ammit Eternal (HOU) 57
+2 Burning-Fist Minotaur (HOU) 85
+4 Cinder Barrens (HOU) 209
+4 Crypt of the Eternals (HOU) 169
+2 Eternal of Harsh Truths (HOU) 34
+3 Final Reward (AKH) 92
+3 Island (HOU) 192
+2 Island (HOU) 193
+3 Khenra Eternal (HOU) 66
+2 Magma Spray (AKH) 141
+2 Manticore Eternal (HOU) 103
+2 Marauding Boneslasher (HOU) 70
+4 Mountain (HOU) 196
+3 Mountain (HOU) 197
+1 Nicol Bolas, the Deceiver (HOU) 205 *F*
+2 Open Fire (HOU) 105
+2 Supernatural Stamina (AKH) 111
+3 Swamp (HOU) 194
+3 Swamp (HOU) 195
+1 Throne of the God-Pharaoh (AKH) 237
+2 Visage of Bolas (HOU) 208
+3 Wasp of the Bitter End (HOU) 206
+4 Zealot of the God-Pharaoh (HOU) 207

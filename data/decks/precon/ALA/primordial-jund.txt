@@ -1,0 +1,36 @@
+# baylee deck export v1
+# name: Primordial Jund
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, PrimordialJund_ALA.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: ALA
+# released: 2008-10-03
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Carrion Thrash (ALA) 162
+2 Dragon Fodder (ALA) 97
+1 Flameblast Dragon (ALA) 100 *F*
+1 Forest (ALA) 246
+1 Forest (ALA) 247
+1 Forest (ALA) 248
+2 Goblin Deathraiders (ALA) 169
+2 Goblin Piker (10E) 209
+2 Hissing Iguanar (ALA) 104
+2 Jund Battlemage (ALA) 106
+2 Jund Panorama (ALA) 225
+2 Mountain (ALA) 242
+2 Mountain (ALA) 243
+2 Mountain (ALA) 244
+1 Mountain (ALA) 245
+1 Mycoloth (ALA) 140
+1 Obelisk of Jund (ALA) 215
+1 Resounding Thunder (ALA) 110
+1 Rip-Clan Crasher (ALA) 189
+2 Savage Lands (ALA) 228
+2 Shock (10E) 232
+2 Sprouting Thrinax (ALA) 197
+1 Swamp (ALA) 238
+1 Swamp (ALA) 239
+1 Swamp (ALA) 240
+2 Thorn-Thrash Viashino (ALA) 116
+1 Thunder-Thrash Elder (ALA) 117

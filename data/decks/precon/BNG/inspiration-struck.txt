@@ -1,0 +1,42 @@
+# baylee deck export v1
+# name: Inspiration-Struck
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, InspirationStruck_BNG.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Intro Pack
+# set: BNG
+# released: 2014-02-07
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Aerie Worshippers (BNG) 30
+1 Arbiter of the Ideal (BNG) 31 *F*
+2 Black Oak of Odunos (BNG) 62
+1 Breaching Hippocamp (THS) 43
+1 Curse of the Swine (THS) 46
+2 Deepwater Hypnotist (BNG) 35
+2 Evanescent Intellect (BNG) 38
+1 Felhide Minotaur (THS) 87
+1 Forlorn Pseudamma (BNG) 71
+2 Griptide (THS) 50
+1 Horizon Scholar (THS) 51
+1 Insatiable Harpy (THS) 92
+4 Island (THS) 234
+4 Island (THS) 235
+4 Island (THS) 236
+3 Island (THS) 237
+1 Oracle's Insight (BNG) 47
+2 Retraction Helix (BNG) 49
+2 Returned Phalanx (THS) 104
+2 Servant of Tymaret (BNG) 82
+1 Shipwreck Singer (THS) 203
+1 Sip of Hemlock (THS) 106
+1 Siren Song Lyre (BNG) 161
+1 Siren of the Silent Song (BNG) 155
+2 Sphinx's Disciple (BNG) 51
+1 Springleaf Drum (BNG) 162
+3 Swamp (THS) 238
+3 Swamp (THS) 239
+3 Swamp (THS) 240
+2 Swamp (THS) 241
+1 Thassa's Bounty (THS) 67
+1 Triton Shorethief (THS) 70
+1 Warchanter of Mogis (BNG) 85

@@ -1,0 +1,25 @@
+# baylee deck export v1
+# name: Shu Kingdom
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, ShuKingdom_PTK.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: PTK
+# released: 1999-05-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+2 Flanking Troops (PTK) 5
+1 Guan Yu, Sainted Warrior (PTK) 6
+1 Kongming, "Sleeping Dragon" (PTK) 9
+1 Liu Bei, Lord of Shu (PTK) 11
+2 Misfortune's Gain (PTK) 13
+5 Plains (PTK) 166
+5 Plains (PTK) 167
+5 Plains (PTK) 168
+3 Shu Cavalry (PTK) 19
+2 Shu Farmer (PTK) 23
+3 Shu Foot Soldiers (PTK) 24
+2 Shu General (PTK) 25
+2 Shu Grain Caravan (PTK) 26
+2 Vengeance (PTK) 28
+2 Virtuous Charge (PTK) 29
+2 Volunteer Militia (PTK) 30

@@ -1,0 +1,26 @@
+# baylee deck export v1
+# name: Red Deck A
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, RedDeckA_M12.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Sample Deck
+# set: M12
+# released: 2011-07-15
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Act of Treason (M12) 121
+1 Arc Trail (SOM) 81
+1 Bonebreaker Giant (M12) 123
+2 Chandra's Outrage (M12) 125
+1 Crimson Mage (M12) 129
+2 Fiery Hellhound (M12) 130
+1 Fireball (M12) 131
+1 Flameborn Viron (NPH) 83
+1 Fling (M12) 134
+1 Furnace Scamp (NPH) 84
+2 Lava Axe (M12) 148
+2 Lightning Elemental (M12) 149
+4 Mountain (M12) 242
+3 Mountain (M12) 243
+3 Mountain (M12) 244
+3 Mountain (M12) 245
+1 Volcanic Dragon (M12) 158

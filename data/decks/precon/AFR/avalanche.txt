@@ -1,0 +1,32 @@
+# baylee deck export v1
+# name: Avalanche!
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Avalanche_AFR.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Arena Starter Deck
+# set: AFR
+# released: 2021-09-24
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Ascendant Spirit (KHM) 43
+1 Ashaya, Soul of the Wild (ZNR) 179
+1 Avalanche Caller (KHM) 45
+1 Barkchannel Pathway // Tidechannel Pathway (KHM) 251
+2 Berg Strider (KHM) 47
+3 Blizzard Brawl (KHM) 162
+2 Bookwurm (STX) 123
+3 Bubble Snare (ZNR) 47
+3 Emergent Sequence (STX) 129
+2 Eureka Moment (STX) 184
+1 Graven Lore (KHM) 61
+1 Gretchen Titchwillow (AFR) 223
+1 Icebreaker Kraken (KHM) 63
+1 Lotus Cobra (ZNR) 193
+1 Quandrix Command (STX) 217
+2 Quandrix Cultivator (STX) 218
+4 Rimewood Falls (KHM) 266
+1 Rootless Yew (KHM) 189
+3 Sculptor of Winter (KHM) 193
+11 Snow-Covered Forest (KHM) 284
+10 Snow-Covered Island (KHM) 278
+3 Spirit of the Aldergard (KHM) 195
+2 Zimone, Quandrix Prodigy (STX) 250

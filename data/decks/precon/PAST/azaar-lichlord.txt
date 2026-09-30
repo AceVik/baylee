@@ -1,0 +1,28 @@
+# baylee deck export v1
+# name: Azaar - Lichlord
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, AzaarLichlord_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Black Lotus (2ED) 233
+1 Black Vise (3ED) 236
+3 Bog Imp (DRK) 41
+4 Dark Ritual (3ED) 99
+4 Drain Life (3ED) 106
+1 Gloom (3ED) 113
+2 Greed (LEG) 101
+4 Howl from Beyond (3ED) 114
+4 Hypnotic Specter (3ED) 115
+2 Lord of the Pit (3ED) 116
+1 Mind Twist (3ED) 117
+1 Mox Jet (2ED) 263
+4 Sengir Vampire (3ED) 129
+1 Sol Ring (3ED) 274
+8 Swamp (3ED) 298
+7 Swamp (3ED) 299
+7 Swamp (3ED) 300
+3 Tetravus (ATQ) 71
+3 Will-o'-the-Wisp (3ED) 137

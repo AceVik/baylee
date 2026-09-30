@@ -9239,9 +9239,13 @@ dependencies = [
  "baylee-cards-codegen",
  "baylee-cards-index",
  "baylee-core",
+ "baylee-deckio",
  "baylee-update",
  "clap",
+ "flate2",
  "serde_json",
+ "sha2 0.11.0",
+ "tar",
  "ureq",
 ]
 

@@ -1,0 +1,41 @@
+# baylee deck export v1
+# name: Deep Freeze
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, DeepFreeze_TMP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Theme Deck
+# set: TMP
+# released: 1997-10-14
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+1 Anoint (TMP) 3
+1 Avenging Angel (TMP) 7
+1 Cloudchaser Eagle (TMP) 15
+3 Counterspell (TMP) 57
+1 Disenchant (TMP) 16
+2 Dismiss (TMP) 58
+1 Dream Cache (TMP) 59
+1 Emmessi Tome (TMP) 284
+2 Gaseous Form (TMP) 65
+2 Horned Turtle (TMP) 67
+1 Invulnerability (TMP) 25
+4 Island (TMP) 335
+3 Island (TMP) 336
+3 Island (TMP) 337
+3 Island (TMP) 338
+1 Knight of Dawn (TMP) 26
+1 Legacy's Allure (TMP) 71
+2 Master Decoy (TMP) 29
+3 Pacifism (TMP) 34
+3 Plains (TMP) 331
+3 Plains (TMP) 332
+3 Plains (TMP) 333
+2 Plains (TMP) 334
+2 Power Sink (TMP) 78
+1 Precognition (TMP) 79
+1 Puppet Strings (TMP) 304
+2 Repentance (TMP) 37
+1 Sky Spirit (TMP) 271
+2 Soltari Lancer (TMP) 44
+1 Spell Blast (TMP) 89
+1 Time Ebb (TMP) 96
+2 Wind Drake (TMP) 105

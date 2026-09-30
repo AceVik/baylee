@@ -1,0 +1,24 @@
+# baylee deck export v1
+# name: Sorcerer
+# format: freeform
+# source: MTGJSON 5.3.0+20260929, https://mtgjson.com, Sorcerer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+# type: Shandalar Enemy Deck
+# set: PAST
+# released: 1997-04-01
+# written by `cargo run -p xtask -- decks-import`; do not edit by hand
+3 Ali Baba (ARN) 35
+3 Brass Man (ARN) 59
+4 Giant Strength (LEG) 149
+4 Goblin Balloon Brigade (3ED) 154
+3 Hurr Jackal (ARN) 39
+3 Immolation (LEG) 153
+4 Lightning Bolt (3ED) 162
+4 Manabarbs (3ED) 165
+4 Mons's Goblin Raiders (3ED) 167
+20 Mountain (ARN) 77
+4 Sisters of the Flame (DRK) 74
+4 Winds of Change (LEG) 172
+SB: 2 Burrowing (3ED) 140
+SB: 1 Celestial Prism (3ED) 239
+SB: 2 Ornithopter (ATQ) 60
