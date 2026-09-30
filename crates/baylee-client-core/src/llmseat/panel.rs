@@ -504,6 +504,12 @@ impl SeatPanel {
     /// it is still there, and the caret stays in a box that still is.
     fn load(&mut self, disk: Disk) {
         let shown = self.selected_name();
+        // The caret goes with its profile, by name: a profile the file
+        // added above it moves the box it is in.
+        let caret = self.focus.map(|spot| match spot {
+            Spot::Profile(at, _) => (self.drafts.get(at).map(Draft::name), spot),
+            other => (None, other),
+        });
         let empty = SeatSettings::default();
         let settings = match &disk {
             Disk::Read(settings) => settings,
@@ -536,9 +542,17 @@ impl SeatPanel {
         self.selected = shown
             .and_then(|name| self.drafts.iter().position(|d| d.name() == name))
             .or_else(|| (!self.drafts.is_empty()).then_some(0));
-        if self.focus.is_some_and(|spot| !self.holds(spot)) {
-            self.focus = None;
-        }
+        self.focus = caret
+            .and_then(|(name, spot)| match (spot, name) {
+                (Spot::Profile(_, slot), Some(name)) => self
+                    .drafts
+                    .iter()
+                    .position(|d| d.name() == name)
+                    .map(|at| Spot::Profile(at, slot)),
+                (Spot::Profile(..), None) => None,
+                (other, _) => Some(other),
+            })
+            .filter(|spot| self.holds(*spot));
         self.disk = disk;
         self.newer = None;
         self.pristine = self.form();
@@ -906,6 +920,19 @@ impl SeatPanel {
                 },
             });
         }
+        // A model the panel already refuses has no price to speak of, and
+        // the dollar limit's fault would be a second word about that one box.
+        let refused_models: Vec<usize> = faults
+            .iter()
+            .filter_map(|fault| match fault.spot {
+                Spot::Profile(at, Slot::Model) => Some(at),
+                _ => None,
+            })
+            .collect();
+        faults.retain(|fault| {
+            !(fault.problem == Problem::Refused(Why::Unpriced)
+                && matches!(fault.spot, Spot::Profile(at, _) if refused_models.contains(&at)))
+        });
         (settings, faults)
     }
 
@@ -1091,7 +1118,11 @@ impl SeatPanel {
             Slot::MaxTokens => by_default(&provider.default_max_tokens().to_string()),
             Slot::PriceIn => by_default(&usd_text(self.build_price(at)?.input)),
             Slot::PriceOut => by_default(&usd_text(self.build_price(at)?.output)),
-            Slot::GameUsd => by_default(&usd_text(super::DEFAULT_SPEND_USD)),
+            // A model with no price has no dollar limit to default to.
+            Slot::GameUsd => {
+                self.drafts.get(at)?.read().0.price()?;
+                by_default(&usd_text(super::DEFAULT_SPEND_USD))
+            }
             Slot::GameTokens => by_default(&super::DEFAULT_SPEND_TOKENS.to_string()),
             Slot::ThinkSecs => by_default(&super::DEFAULT_THINK_SECS.to_string()),
             Slot::KeyEnv => by_default(provider.default_key_env()),

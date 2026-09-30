@@ -204,6 +204,17 @@ fn every_refusal_shows_beside_its_field() {
         [],
         "json is an OpenAI-compatible endpoint's"
     );
+    // A key in the model's box is one fault, beside it: the model it
+    // blanks has no price, and that is not said a second time.
+    let mut panel = self::panel();
+    type_into(&mut panel, Spot::Profile(1, Slot::Model), KEY);
+    assert_eq!(
+        panel.faults(),
+        [PanelFault {
+            spot: Spot::Profile(1, Slot::Model),
+            problem: Problem::Refused(Why::KeyShaped),
+        }]
+    );
     // A dollar budget for a model with no price, and the price that mends it.
     let mut panel = self::panel();
     type_into(&mut panel, Spot::Profile(1, Slot::Model), "mystery-1");
@@ -488,6 +499,17 @@ fn a_file_changed_on_disk_is_shown_unless_there_are_edits() {
         Some("")
     );
 
+    // The caret goes with its profile when the file adds one above it.
+    let mut panel = self::panel();
+    panel.act(Act::Focus(Spot::Profile(1, Slot::Model)));
+    let mut more = three();
+    more.profiles
+        .insert("aa".into(), more.profiles["a"].clone());
+    assert!(panel.found(Disk::Read(more)));
+    assert_eq!(panel.selected(), Some(2));
+    assert_eq!(panel.focus(), Some(Spot::Profile(2, Slot::Model)));
+    assert_eq!(panel.name(2), Some("b"));
+
     // A file that goes away, with nothing edited, is the empty panel.
     assert!(panel.found(Disk::Missing));
     assert!(panel.is_empty());
@@ -636,6 +658,15 @@ fn an_empty_box_says_what_the_bridge_plays_instead() {
         Some("BAYLEE_LLM_BASE_URL, else https://api.openai.com/v1")
     );
     assert_eq!(hint(Slot::Model), None);
+    assert_eq!(hint(Slot::GameUsd).as_deref(), Some("5 by default"));
+    let mut panel = panel;
+    type_into(&mut panel, Spot::Profile(2, Slot::PriceIn), "");
+    type_into(&mut panel, Spot::Profile(2, Slot::PriceOut), "");
+    assert_eq!(
+        panel.hint(Spot::Profile(2, Slot::GameUsd), Lang::En),
+        None,
+        "a model with no price has no dollar limit to default to"
+    );
     assert_eq!(panel.hint(Spot::Cap(CapField::DayUsd), Lang::En), None);
 }
 
