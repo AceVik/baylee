@@ -325,6 +325,11 @@ async fn handle_connection(
     stream: tokio::net::TcpStream,
     games: Games,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Nagle's algorithm off, as on every socket of the topology
+    // (`attached::dial`).
+    if let Err(e) = stream.set_nodelay(true) {
+        tracing::debug!(error = %e, "TCP_NODELAY was not set on a connection");
+    }
     let mut ws = tokio_tungstenite::accept_async_with_config(stream, Some(ws_config())).await?;
     let mut state = Sitting {
         game_id: None,
@@ -642,10 +647,27 @@ mod attached {
             .await?;
             return play(ws, attach).await;
         }
-        let (ws, _) =
-            tokio_tungstenite::connect_async_with_config(&attach.url, Some(ws_config()), false)
-                .await?;
+        let ws = dial(&attach.url).await?;
         play(ws, attach).await
+    }
+
+    /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).
+    ///
+    /// An engine sends its frames in bursts (a view, then the question about
+    /// it), and with Nagle on each after the first waits until the gateway
+    /// acknowledges the one before it, which Linux delays by up to 40 ms (the
+    /// gateway's `send_at_once` has the numbers).
+    pub(super) async fn dial(
+        url: &str,
+    ) -> Result<
+        tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        tokio_tungstenite::tungstenite::Error,
+    > {
+        let (ws, _) =
+            tokio_tungstenite::connect_async_with_config(url, Some(ws_config()), true).await?;
+        Ok(ws)
     }
 
     /// The game itself, on whichever socket reached the gateway.
@@ -1075,5 +1097,22 @@ mod tests {
             .collect();
         assert_eq!(left, [std::ffi::OsString::from("engine.port")]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The engine's socket to the gateway is opened with Nagle's algorithm
+    /// off.
+    #[tokio::test]
+    async fn the_gateway_is_dialled_with_nagle_off() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/engine/ws", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let _ = tokio_tungstenite::accept_async(stream).await;
+        });
+        let ws = attached::dial(&url).await.unwrap();
+        let tokio_tungstenite::MaybeTlsStream::Plain(tcp) = ws.get_ref() else {
+            panic!("a plain TCP socket");
+        };
+        assert!(tcp.nodelay().unwrap());
     }
 }

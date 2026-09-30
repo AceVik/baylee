@@ -698,9 +698,14 @@ async fn run_engine(
 }
 
 /// Dials a websocket, retrying while the listener comes up.
+///
+/// With Nagle's algorithm off, as the agent and the engine dial: the engine
+/// this harness runs sends its frames in bursts, and with Nagle on each after
+/// the first waited for an acknowledgement Linux delays by up to 40 ms.
 pub async fn dial(url: &str) -> Option<Socket> {
     for _ in 0..WAIT_TRIES {
-        if let Ok((socket, _)) = tokio_tungstenite::connect_async(url).await {
+        if let Ok((socket, _)) = tokio_tungstenite::connect_async_with_config(url, None, true).await
+        {
             return Some(socket);
         }
         tokio::time::sleep(WAIT_STEP).await;
@@ -732,7 +737,9 @@ pub async fn dial_seat(port: u16, game_id: &str, seat_token: &str) -> Socket {
     let mut opened = None;
     for _ in 0..WAIT_TRIES {
         let url = seat_url(port, game_id, seat_token);
-        if let Ok((socket, _)) = tokio_tungstenite::connect_async(&url).await {
+        if let Ok((socket, _)) =
+            tokio_tungstenite::connect_async_with_config(&url, None, true).await
+        {
             opened = Some(socket);
             break;
         }
