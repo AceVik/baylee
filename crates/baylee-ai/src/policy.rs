@@ -646,7 +646,11 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let (cost, floats_first) = aim(view, card, f, spell_cost(view, id, f), &plain, budget);
+            let printed = spell_cost(view, id, f);
+            let (cost, floats_first) = aim(view, card, f, printed, &plain, budget);
+            if stillborn(f, &printed, &cost) {
+                continue;
+            }
             // A price floated before the cast is checked against the pool the
             // planner reads, which holds no restricted mana (`restricted`).
             let paying = if floats_first || restricted.is_empty() {
@@ -1238,6 +1242,25 @@ fn aim(
                 .find(fits)
         })
         .map_or((cost, false), |net| (net, true))
+}
+
+/// Whether casting `face` at the X `cost` pays for puts a creature onto
+/// the battlefield with no toughness, where it dies at once (CR 704.5f).
+///
+/// Shifting Wall and Walking Ballista are 0/0 and have only the counters X
+/// gives them, and a seat with no mana to spend names X = 0 — the one X it
+/// can pay. Cast that way they did nothing but die, and where the card came
+/// back to be cast again the seat cast it again, for as long as the game
+/// ran (self-play mac-d001, games 26229 and 49723).
+fn stillborn(
+    face: &FaceDef,
+    printed: &baylee_core::mana::ManaCost,
+    cost: &baylee_core::mana::ManaCost,
+) -> bool {
+    printed.has_variable()
+        && cost.cmc() == printed.with_x(0).cmc()
+        && face.types.contains(TypeSet::CREATURE)
+        && face.toughness.is_some_and(|t| t <= 0)
 }
 
 /// The effects of the spell ability on the face `card` names.

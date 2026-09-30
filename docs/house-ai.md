@@ -455,6 +455,48 @@ r001 games 431, 1055 and 2091 hit the trainer's 60-second cap and 685 was
 still running when the run gave up on it after ten minutes, and all four end
 in turns 29 to 58 now.
 
+**The house does not loop on its own answers.** Self-play mac-d001 (01.10.2026)
+ran 1,881 of its 50,000 house-against-house games into a cap, and nearly all
+of them were the house repeating itself in four shapes. Each is now ruled
+out without memory, from the view alone, so it holds for every host,
+including the two that build a fresh agent for each question
+(`Session::house_action`, `baylee-seat`):
+
+- *An ability is not activated again while an activation of it waits on the
+  stack* (`activate::on_the_stack`). The view shows no effect before it
+  resolves, so the second activation was judged on the first one's board
+  and taken again, thousands of times in one round of priority (Hopping
+  Automaton, Flowstone Hellion, every `{0}` pump). After it resolves the
+  active player gets priority again (CR 117.3b) and anything it answered is
+  still on the stack, so nothing is lost but stacking several before anyone
+  can respond. Mana abilities never use the stack (CR 605.3b).
+- *A free ability is refused unless its worth runs out by itself*
+  (`activate::settles`). A printed `{0}` is one generic symbol of nothing,
+  not `ManaCost::ZERO`, so it had passed for a cost that spends something.
+  Two shapes are taken anyway: an equip, whose worth is a difference (what
+  it gives where it goes less what it gave where it hung, the attack it
+  makes possible counted on both sides, so a move back is never worth it
+  too), and a pump of the source until end of turn, which is worth the
+  damage it adds and must add more each time, up to the defender's life. A
+  pump that takes the creature's toughness to nothing is worth losing the
+  creature (CR 704.5f). Lightning Greaves's equip, `Cost::FREE`, is taken
+  now for the same reason.
+- *Shuko does not travel between two creatures that could both attack with
+  it*: the swing was counted only where it went, so each move was worth
+  it.
+- *An `{X}` creature is not cast for an X that leaves it no toughness*
+  (`policy::stillborn`). With no mana the only X is 0; Shifting Wall and
+  Walking Ballista died as they arrived, came back and were cast again in
+  the same main phase. The X itself was never above what the pool pays:
+  `number` plans it against the pool.
+
+Replaying a seeded sample of 300 of those games (`selfplay --only`, same
+arguments), 300 hit a cap before and 1 after; the others finish, at a median
+of 673 answers. The one left is Earthcraft untapping two animated Forests
+that tap for each other. A count of repeated positions would catch it, but
+the view carries no position hash and an agent built per question could
+not keep one; the trainer counts at the host (`Session::snapshot_hash`).
+
 **One illegal pair costs the whole declaration, so legality is checked
 against the finished answer.** Menace is two blockers or none (CR 702.111b),
 and the shallow path pairs one blocker with one attacker by construction — so
