@@ -188,6 +188,27 @@ fn shielded(def: &CardDef) -> Vec<Field> {
     {
         out.push(Field::Subtypes);
     }
+    // "Enters with seven +1/+0 counters" (Clockwork Beast): the placed
+    // permanent meets its enter modifiers on the first pass (`settle`), and
+    // the counters it gets are layer 7c (CR 613.4c), so its box is not what
+    // it projects, by rule. An X that is zero here puts none on.
+    let counted = def.faces[0].enter_modifiers.iter().any(|m| {
+        matches!(
+            m,
+            EnterModifier::WithCounters {
+                kind: baylee_cards_dsl::CounterKind::Plus { .. }
+                    | baylee_cards_dsl::CounterKind::Minus { .. },
+                ..
+            }
+        )
+    });
+    if counted {
+        for field in [Field::Power, Field::Toughness] {
+            if !out.contains(&field) {
+                out.push(field);
+            }
+        }
+    }
     out
 }
 

@@ -2120,3 +2120,16 @@ land type"; both are convention tests that fire on a first try.
   the grants too and, with its layer-6 timestamp rule, let an older grant
   fall. Read a rule's own list of what goes before borrowing a flag that
   takes away more.
+- **A Partial keeps whole sentences.** The last 31 Alpha stubs went Partial
+  keeping only sentences the DSL says completely: Pirate Ship's ping,
+  Demonic Hordes' land destruction, Berserk's pump. Demonic Hordes' upkeep
+  ("unless you pay {B}{B}{B}, tap this creature and sacrifice a land of an
+  opponent's choice") is left out whole rather than kept as the tap alone:
+  half a sentence reads as the card and plays as another one. The reason
+  names what is missing and what the card still does.
+- **A placed permanent still enters with its counters.** The printed-sweep
+  bench seeds permanents, and `settle` runs their enter modifiers, so
+  Clockwork Beast's seven +1/+0 counters are on it and it projects a 7/4
+  against a printed 0/4. That is layer 7c (CR 613.4c), not a defect, and the
+  sweep now shields power and toughness for a face that enters with P/T
+  counters, as it does for a static that moves them.

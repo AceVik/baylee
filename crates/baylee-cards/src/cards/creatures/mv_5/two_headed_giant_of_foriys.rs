@@ -2,7 +2,8 @@
 //! Oracle: Trample
 //! Oracle: This creature can block an additional creature each combat.
 //! Set: ME4 #139 — Masters Edition IV | Scryfall ID: 203186e6-843d-4296-ab27-10ac444e651c | Oracle ID: 38aa31bd-7145-43b9-9409-463d9ad6cd69
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — blocking an additional creature is not in the engine; it has
+// trample.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,6 +13,9 @@ card!(
     oracle_id = "38aa31bd-7145-43b9-9409-463d9ad6cd69",
     scryfall_id = "203186e6-843d-4296-ab27-10ac444e651c",
     color_identity = ColorSet::from_slice(&[Color::Red]),
+    keywords = KeywordSet::TRAMPLE,
+    coverage =
+        Coverage::Partial("blocking an additional creature is not in the engine; it has trample"),
     faces = &[face!(
         name = "Two-Headed Giant of Foriys",
         mana_cost = mana!("{4}{R}"),
@@ -20,6 +24,7 @@ card!(
         power = Some(4),
         toughness = Some(4),
     ),],
+    abilities = &[
+        // NOT SUPPORTED: This creature can block an additional creature each combat.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

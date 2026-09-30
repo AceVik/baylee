@@ -3,7 +3,8 @@
 //! Oracle: Creatures the active player controls attack this turn if able.
 //! Oracle: At the beginning of the next end step, destroy all non-Wall creatures that player controls that didn't attack this turn. Ignore this effect for each creature the player didn't control continuously since the beginning of the turn.
 //! Set: 4ED #101 — Fourth Edition | Scryfall ID: 51832cfb-0a2e-4674-bb36-38027a71ac6d | Oracle ID: 269fc857-a052-4f0a-9759-467ccf42bebb
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// PARTIAL — the timing restriction, forced attacks and the end-step destruction
+// are not in the engine; it does nothing.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,11 +13,21 @@ card!(
     oracle_id = "269fc857-a052-4f0a-9759-467ccf42bebb",
     scryfall_id = "51832cfb-0a2e-4674-bb36-38027a71ac6d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial(
+        "the timing restriction, forced attacks and the end-step destruction are not in the engine; it does nothing"
+    ),
     faces = &[face!(
         name = "Siren's Call",
         mana_cost = mana!("{U}"),
         types = TypeSet::INSTANT,
     ),],
+    abilities = &[
+        // NOT SUPPORTED: Cast this spell only during an opponent's turn, before attackers
+        // are declared.
+        // NOT SUPPORTED: Creatures the active player controls attack this turn if able.
+        // NOT SUPPORTED: At the beginning of the next end step, destroy all non-Wall
+        // creatures that player controls that didn't attack this turn. Ignore this effect
+        // for each creature the player didn't control continuously since the beginning of
+        // the turn.
+    ],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.
