@@ -614,6 +614,93 @@ async fn a_conversation_the_provider_turned_down_is_started_again() {
     assert!(wake.contains("  - TEST note a1"), "{wake}");
 }
 
+/// A turn whose conversation has grown past its bound starts a new one at
+/// its next question, the notes carried over; under the bound it grows.
+#[tokio::test]
+async fn a_long_turn_starts_a_new_conversation() {
+    let (base, provider) = stand_in().await;
+    for call in 1..=4 {
+        provider.script(Scripted::ok(claude(&[(
+            &format!("toolu_{call}"),
+            "decide",
+            json!({"ask": "q12", "pick": ["a1"], "say": format!("TEST note {call}")}),
+        )])));
+    }
+    let roomy = mind(&base, Provider::Anthropic, |_| {});
+    roomy.decide(a_priority()).await.expect("the first answer");
+    roomy.decide(a_priority()).await.expect("the second answer");
+    // Bounded under one decision and its answer.
+    let tight = mind(&base, Provider::Anthropic, |s| s.conversation_tokens = 1);
+    tight.decide(a_priority()).await.expect("the first answer");
+    tight.decide(a_priority()).await.expect("the second answer");
+    let seen = provider.seen();
+    let lengths: Vec<usize> = seen
+        .iter()
+        .map(|s| s.body["messages"].as_array().map_or(0, Vec::len))
+        .collect();
+    assert_eq!(lengths, [1, 3, 1, 1]);
+    let wake = last_user(&seen[3])[1]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(wake.contains("  - TEST note 3"), "{wake}");
+}
+
+/// A cast the table took back is said at the next priority: without a
+/// word the model sees the same question and may answer it the same way.
+/// A cast that happened is not.
+#[tokio::test]
+async fn a_cast_the_table_took_back_is_said() {
+    let (base, provider) = stand_in().await;
+    // Lightning Bolt castable with {R} floating: the option is the cast
+    // itself, not a plan of taps.
+    let bolt = || {
+        let (mut view, log) = board();
+        view.seats[0].mana_pool.red = 1;
+        let mut pending = priority(&view);
+        if let Pending::Priority { legal, .. } = &mut pending {
+            legal.castable.push(id(50));
+        }
+        request(view, pending, log)
+    };
+    let wake = Narrator::new(&bolt().context).wake(&bolt(), &[]);
+    let option = wake
+        .text
+        .lines()
+        .find(|l| l.contains("Cast Lightning Bolt #50"))
+        .and_then(|l| l.split_whitespace().next())
+        .expect("the Bolt is offered")
+        .to_string();
+    for call in 1..=4 {
+        let pick = if call % 2 == 1 { option.as_str() } else { "p" };
+        provider.script(Scripted::ok(claude(&[(
+            &format!("toolu_{call}"),
+            "decide",
+            json!({"ask": "q12", "pick": [pick]}),
+        )])));
+    }
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    let cast = mind.decide(bolt()).await.expect("the cast");
+    assert_eq!(cast.action, PlayerAction::CastSpell { card: id(50) });
+    // The next priority, and the Bolt is still in the hand.
+    mind.decide(bolt()).await.expect("a pass");
+    let told = |seen: &Seen| {
+        last_user(seen)
+            .iter()
+            .filter_map(|b| b["text"].as_str())
+            .any(|t| t.contains("Your cast of Lightning Bolt #50 did not happen"))
+    };
+    let seen = provider.seen();
+    assert!(!told(&seen[0]));
+    assert!(told(&seen[1]), "{:?}", last_user(&seen[1]));
+    // Cast again, and this time the Bolt leaves the hand.
+    mind.decide(bolt()).await.expect("the cast again");
+    let mut gone = bolt();
+    gone.view.hand.retain(|c| c.id != id(50));
+    mind.decide(gone).await.expect("a pass");
+    assert!(!told(&provider.seen()[3]));
+}
+
 /// The OpenAI-compatible path: a function call whose arguments are a JSON
 /// string, the bearer key, and the JSON mode for a server without tools.
 #[tokio::test]

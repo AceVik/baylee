@@ -14,7 +14,9 @@
 //! and never edited, so the provider's cache and the model's own thinking
 //! carry from one decision to the next. At each new turn it starts again
 //! from the prefix, with the seat's own earlier `say` lines as its notes:
-//! the board in every message is whole, so nothing else is lost.
+//! the board in every message is whole, so nothing else is lost. A turn
+//! whose conversation outgrows [`Settings::conversation_tokens`] starts
+//! again the same way at its next question.
 //!
 //! # Answers the model does not need to give
 //!
@@ -56,6 +58,7 @@ use crate::mind::{Answer, Disclosure, Mind, MindError, Readiness, Request, Think
 use crate::narrator::{self, Act, Decision, Hint, Menu, Narrator};
 use crate::transcript::Transcript;
 use baylee_client_core::manaplan;
+use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
 use serde::Serialize;
@@ -206,6 +209,11 @@ pub struct Settings {
     pub spend_usd: f64,
     /// The game's budget in tokens, input and output together.
     pub spend_tokens: u64,
+    /// How long a turn's conversation may grow, in estimated tokens, before
+    /// the next question starts a new one with the notes carried over: a
+    /// long turn neither outgrows the model's context nor has every call
+    /// send all of it again.
+    pub conversation_tokens: usize,
     /// A directory for the mind's own transcript: every message it sent and
     /// every reply, one JSON line each.
     pub transcripts: Option<PathBuf>,
@@ -228,6 +236,7 @@ impl Settings {
             },
             spend_usd: 5.0,
             spend_tokens: 5_000_000,
+            conversation_tokens: 100_000,
             transcripts: None,
         }
     }
@@ -459,6 +468,9 @@ struct SeatState {
     late: Option<u64>,
     /// How many calls this seat has started, to tell a stale one.
     asked: u64,
+    /// The card this seat last answered a cast of, until the next priority
+    /// shows whether the cast happened ([`SeatState::undone`]).
+    casting: Option<ObjectId>,
     transcript: Transcript,
 }
 
@@ -539,6 +551,7 @@ impl ApiMind {
                 says: VecDeque::new(),
                 late: None,
                 asked: 0,
+                casting: None,
                 transcript,
             }))
         }))
@@ -736,6 +749,9 @@ impl ApiMind {
     ) -> Result<Prepared, Result<Answer, MindError>> {
         let mut state = lock(seat);
         state.narrator.hear(&request.log);
+        if let Some(undone) = state.undone(request) {
+            state.notes.push(undone);
+        }
         if let Some(question) = state.late.take() {
             state.notes.push(format!(
                 "Your answer to q{question} came after its time ran out; the house answered it."
@@ -943,6 +959,41 @@ struct Prepared {
 }
 
 impl SeatState {
+    /// What to tell the model when the cast it last answered did not
+    /// happen: at the next priority its card is still in the hand, the
+    /// graveyard, exile or the command zone, not on the stack. The table
+    /// takes back a cast whose whole cost cannot be paid and gives priority
+    /// back (CR 601.2h, 732.1, 732.2), so without a word the model sees the
+    /// same question again and may answer it the same way, again.
+    fn undone(&mut self, request: &Request) -> Option<String> {
+        if !matches!(request.pending, Pending::Priority { .. }) {
+            return None;
+        }
+        let card = self.casting.take()?;
+        let view = &request.view;
+        let name = view
+            .hand
+            .iter()
+            .find(|c| c.id == card)
+            .map(|c| c.name.clone())
+            .or_else(|| {
+                view.graveyards
+                    .iter()
+                    .flatten()
+                    .chain(view.exile.iter().flatten())
+                    .chain(view.command.iter().flatten())
+                    .find(|o| o.id == card)
+                    .map(|o| o.name.clone())
+            })?;
+        Some(format!(
+            "Your cast of {name} {} did not happen: the card is where it was, and you have \
+             priority again. The table takes back a cast whose whole cost cannot be paid, \
+             with any kicker or additional cost you said yes to (CR 601.2h, 732.1); count \
+             the cost before you cast it again.",
+            narrator::tag(card)
+        ))
+    }
+
     /// The table or the referee refused the seat's last answer.
     fn refused(&mut self, reason: &str, action: &PlayerAction, mode: AnswerMode) {
         self.plan = None;
@@ -1058,7 +1109,11 @@ impl SeatState {
 
     /// Tells the decision and builds the conversation that asks it.
     fn prepare(&mut self, request: &Request, settings: &Settings) -> Prepared {
-        let fresh = self.messages.is_empty() || request.view.turn != self.turn;
+        let long = || {
+            serde_json::to_string(&self.messages).map_or(0, |text| narrator::estimate_tokens(&text))
+                > settings.conversation_tokens
+        };
+        let fresh = self.messages.is_empty() || request.view.turn != self.turn || long();
         let mut told = Vec::new();
         if fresh && !self.says.is_empty() {
             let said: Vec<String> = self.says.iter().map(|s| format!("  - {s}")).collect();
@@ -1217,7 +1272,18 @@ fn offered(legal: &LegalActions, action: &PlayerAction) -> bool {
 
 impl Mind for ApiMind {
     fn decide(&self, request: Request) -> Thinking<'_> {
-        Box::pin(self.think(request))
+        Box::pin(async move {
+            let seat = self.seat(&request);
+            let answer = self.think(request).await;
+            if let Ok(Answer {
+                action: PlayerAction::CastSpell { card },
+                ..
+            }) = &answer
+            {
+                lock(&seat).casting = Some(*card);
+            }
+            answer
+        })
     }
 
     fn disclosure(&self) -> Disclosure {

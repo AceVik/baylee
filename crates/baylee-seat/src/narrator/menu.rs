@@ -1454,8 +1454,21 @@ impl Builder<'_, '_> {
         let about = source.and_then(ability_ref_sentence);
         let (question, yes, no) = yes_no_words(table, prompt);
         self.line(format!("QUESTION: {question}"));
+        let kicker = matches!(prompt, YesNoPrompt::Kicker);
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
+        } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
+            self.line(format!("The spell: {name}: \"{sentence}\""));
+        }
+        if kicker {
+            // Said here because the table does not say it later: a cast
+            // it cannot finish is taken back without a word, and the
+            // same question comes again.
+            self.line(
+                "Say yes only if you can pay the whole cost with it now: a cast whose cost \
+                 cannot be paid is taken back, and you get priority again (CR 601.2h, 732.1, \
+                 732.2).",
+            );
         }
         self.option(
             "y",
@@ -1802,6 +1815,29 @@ fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&
 fn ability_ref_sentence(source: AbilityRef) -> Option<&'static str> {
     let at = baylee_cards::lines::ability_line(source.card, 0, source.index)?;
     baylee_cards::oracle::sentence(source.card, 0, at.line)
+}
+
+/// A spell's name and its printed kicker or additional-cost sentence, for
+/// the question whether to pay it.
+fn additional_cost(source: AbilityRef) -> Option<(&'static str, &'static str)> {
+    const KEYWORDS: [&str; 9] = [
+        "Kicker",
+        "Multikicker",
+        "Buyback",
+        "Entwine",
+        "Bargain",
+        "Casualty",
+        "Offspring",
+        "Squad",
+        "Gift",
+    ];
+    let def = baylee_cards::by_index(source.card)?;
+    let line = baylee_cards::oracle::face(source.card, 0)?
+        .lines()
+        .find(|line| {
+            line.contains("additional cost") || KEYWORDS.iter().any(|k| line.starts_with(k))
+        })?;
+    Some((def.name(), line))
 }
 
 /// The sentence a target question is about.

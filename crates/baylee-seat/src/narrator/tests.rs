@@ -651,6 +651,46 @@ fn a_scry_reads_as_its_golden_text() {
 }
 
 /// Log lines already heard are not told twice, and a gap is said.
+/// Whether to pay an additional cost is asked with the spell and its cost,
+/// and with what a yes without the mana does. Found by the gateway e2e: a
+/// yes to Spirit Water Revival's {6} it could not pay took the cast back,
+/// the same question came again, and a thousand questions went by in one
+/// turn.
+#[test]
+fn a_kicker_question_names_the_cost_and_what_an_unpaid_one_does() {
+    use baylee_core::ids::AbilityRef;
+    use baylee_engine::choice::YesNoPrompt;
+    let (view, _) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::Kicker,
+        source: Some(AbilityRef::new(
+            identity("Spirit Water Revival").index,
+            AbilityRef::ADDITIONAL_COST,
+        )),
+    };
+    let request = request(
+        view,
+        pending,
+        LogTail {
+            from: 0,
+            entries: Vec::new(),
+        },
+    );
+    let text = Narrator::new(&request.context).wake(&request, &[]).text;
+    assert!(
+        text.contains(
+            "The spell: Spirit Water Revival: \"As an additional cost to cast this spell, you \
+             may waterbend {6}."
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains("a cast whose cost cannot be paid is taken back"),
+        "{text}"
+    );
+}
+
 #[test]
 fn the_log_is_told_once_and_a_gap_is_said() {
     let (view, log) = board();
