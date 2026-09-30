@@ -5,6 +5,29 @@ the project continues there, headless. This file is for the session that
 picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
 `CLAUDE.md`/`AGENTS.md` (the rules) beside it. Nothing here is secret.
 
+## First steps for the Linux session
+
+1. **Data.** Copy `C:\baylee-data` into `/home/ace/baylee-data`. The copy
+   was made at the stop on 30 September, about 80 GB. It has every run,
+   model and arena, plus the newest league dataset only. See "Where the
+   data lives".
+2. **Disk.** Ubuntu got about 1 TB on D:.
+   - Build targets need about 150 GB.
+   - Data and the Python environment need about 150 GB.
+   - A league dataset is 7.3 GB an iteration, about 245 GB a day if every
+     one is kept. `rl_loop.sh` keeps only the newest (`PRUNE=1`, the
+     default); any older one can be rebuilt from its run on the build that
+     played it.
+3. **Environment.** Rebuild it as in "Rebuilding the environment", then
+   resume the loop as in "The night of 29–30 September".
+4. **Main.** Merge the pending main (see the night's section), gated, before
+   the first new iteration.
+5. **The WSL disk image.** `C:\Users\vikto\AppData\Local\wsl\{b5158feb-…}\ext4.vhdx`
+   (451 GB) holds the only other copy. Delete it only after the Linux
+   session has confirmed the data: runs, models and arenas, and the
+   paired arenas reproduce.
+6. **Tell d7** when it runs, with the numbers.
+
 ## Who and how
 
 - It is the owner's side project: Baylee's own Magic AI, trained on this PC
@@ -202,13 +225,23 @@ deterministic, and a record that no longer replays is refused whole.
 
 - The branch follows main at iteration boundaries: a watcher stops the loop
   when an iteration's league begins, merges, rebuilds and restarts it, because
-  a record converts only on the build that played it. The loop trains on
-  main 89e5eb13's engine (branch b40e71d3). The merge of main 6d55786e
-  waits on the local branch `local/merge-6d55786e` (540df20b, never push it):
-  main's own `baylee-gateway` test `e2e_seat_llm` fails on this machine, on a
-  clean main worktree too. The game stops at turn 22 with no seat owing an
-  answer, after an Aminatou −6. It was reported to d7. Merge once main
-  passes here.
+  a record converts only on the build that played it. The loop trained on
+  main 89e5eb13's engine (branch b40e71d3) to the end.
+- **The pending main merge.** Main is now 3f92a6eb. It carries:
+  - 723dbcfd: TCP_NODELAY on every socket;
+  - ab676ff5's engine fixes (704.5p, 613.7g with `controlled_since`,
+    simultaneous arrivals);
+  - the precons (#331) and the seat settings.
+  Merge it and gate it before the next iteration.
+  - `local/merge-6d55786e` (never pushed) is superseded: drop it.
+  - `e2e_seat_llm` failed here before 723dbcfd. The cause was Nagle plus
+    delayed ACK, about 48 ms a question on Linux, not a stall.
+  - Cargo.toml and Cargo.lock conflict where `baylee-seat` and
+    `baylee-train` were both added: keep both.
+  - `xtask/src/working.rs` on main is a copy of `baylee_train::working`:
+    delete one copy in the merge (xtask can call the train crate's).
+  - After the merge, rebuild the loop's bins and play the base arena on the
+    new build before judging anything.
 - `rl_loop.sh` runs from v3-a-dyn: `TAG=rl`, 2000 league games an iteration,
   1000 arena games against expert, `ITERS=20`, `TEMP=0.7`. The league is the
   house profiles, policy-v1 (the frozen yardstick), itself and the two latest
@@ -224,30 +257,31 @@ deterministic, and a record that no longer replays is refused whole.
   - From iteration 8 `train_rl.py` takes a clipped policy-gradient (PPO)
     step on the standardised GAE advantage, against the frozen net that
     played, corrected for its sampling temperature, plus an entropy bonus.
-    It climbed steadily: rl-15 won 46.5 % of 849 paired games against
-    expert, where v3-a won 37.2 % (177 won only by rl-15, 98 only by v3-a,
-    p < 0.001). rl-10 and every later one are significant.
+    It climbed steadily: rl-10 and every later one are significant.
+  - Where it stopped (paired against `arena/base-v3a-94ee`, the same build's
+    games): rl-17 47.9 % vs 37.0 % (856 games, 184 won only by rl-17, 91
+    only by v3-a). rl-19, the last checkpoint, 47.3 % vs 37.0 % (824
+    games, 182 vs 97, p < 0.001); its own arena says 48.6 %
+    [45.3, 51.9]. No head-to-head against v3-a was played.
   - Refused answers: 0 in every arena since the blocker-room fix (c69da323).
     Offered objects dropped: 0. The net leaves Arrange questions to the
     house.
-- To stop it: `tools/trainer/switch_stop.sh`, only on the owner's word. It
-  stops every job, copies to `C:\baylee-data` (pre-synced on the 30th, so
-  only a small delta is left) and pushes. Everything is pushed gated
-  beforehand: that push must have nothing new to send.
+- It was stopped on 30 September at 13:30, for the switch, 600 games into
+  iteration 20's league. `runs/rl-l20` is incomplete and is played again.
 - To go on after the switch:
   1. rsync the data back into `/home/ace/baylee-data`;
-  2. build `convert3`, `league` and `arena` (the `rl_loop.sh` header);
-  3. run the base arena on the new build (`arena --model
+  2. merge main (above);
+  3. build `convert3`, `league` and `arena` (the `rl_loop.sh` header);
+  4. run the base arena on the new build (`arena --model
      ~/baylee-data/models/v3-a-dyn/net.onnx --against expert --games 1000
      --max-secs 300 --out ~/baylee-data/arena/base-v3a-<sha>`);
-  4. run `BASE=$HOME/baylee-data/models/v3-a-dyn ITERS=20 GAMES=2000
+  5. run `BASE=$HOME/baylee-data/models/v3-a-dyn ITERS=40 GAMES=2000
      ARENA=1000 TAG=rl TEMP=0.7 tools/trainer/rl_loop.sh`.
 
-  Finished stages are skipped, a stage in progress restarts (training resumes
-  from `last.pt`), and a dataset missing from the copy is made again from its
-  run. The same commit rebuilt on Ubuntu converts the same records; if the
-  in-progress league run's records refuse, delete that run and it is played
-  again.
+  An iteration with its `net.onnx` and its arena is skipped whole, so
+  iterations 1–19 cost nothing and the loop goes on from rl-19. It does not
+  need their datasets, whose records may not convert on the new build. The
+  league of iteration 20 is new games on the new build.
 - A record replays only on the engine that wrote it (its run's `build`
   stamp). d7 warned that a stale-projection fix changes `snapshot_hash` after
   `Engine::new`. From then on, older records report `Diverged`: regenerate
@@ -290,6 +324,23 @@ Then the fixes, cheapest first:
   trunk, so a listener attends to its producer;
 - themed generators in `deckgen` (tribal, tokens, sacrifice, artifacts), so
   combos occur often.
+
+## Decks for training
+
+- **Precons** (main #331): `data/decks/precon/<set>/<slug>.txt`, 1203
+  MTGJSON (MIT) lists matched on oracle id; `docs/precons.md`.
+  `STATUS.tsv`'s `playable` uses `deck-check`'s predicate. None is playable
+  today; the closest, 10E white-deck-b and 8ED speed-scorch, are 4 cards
+  short. Each finished set unlocks its own. Train on them as they unlock,
+  mixed with the other decks.
+- **Decks from sources without rights** (the owner's decision): training
+  only, never in git or the database. The conditions:
+  - only lawfully accessible pages;
+  - respect robots.txt and text-and-data-mining opt-outs (§ 44b UrhG);
+  - bypass nothing;
+  - a low request rate;
+  - no usernames.
+  Archidekt and MTGTop8 need a request first.
 
 ## Open threads with d7
 

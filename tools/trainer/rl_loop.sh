@@ -9,6 +9,11 @@
 #
 # The two latest former learners join the league of the ones after them,
 # beside the house profiles, the frozen yardstick (policy-v1) and itself.
+#
+# An iteration with its exported net and its arena is finished and skipped
+# whole, even without its dataset: a dataset is 7 GB, only the newest is
+# kept (`PRUNE=0` keeps them all), and older records may not convert on a
+# newer build.
 set -euo pipefail
 BASE=${BASE:?the first learner: a model dir with net.pt, net.onnx and seen_ids.npy}
 ITERS=${ITERS:-8}
@@ -16,6 +21,7 @@ GAMES=${GAMES:-10000}
 ARENA=${ARENA:-500}
 TAG=${TAG:-rl}
 TEMP=${TEMP:-1.0}
+PRUNE=${PRUNE:-1}
 DATA=${DATA:-$HOME/baylee-data}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 YARDSTICK=${YARDSTICK:-$DATA/models/policy-v1/policy.onnx}
@@ -30,6 +36,12 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     ds=$DATA/datasets/d3-$TAG-l$it
     model=$DATA/models/$TAG-$it
     arena=$DATA/arena/$TAG-$it
+    if [ -f "$model/net.onnx" ] && [ -f "$arena/arena.json" ]; then
+        formers+=("net:$prev/net.onnx")
+        older=$(printf ',%s' "${formers[@]: -2}")
+        prev=$model
+        continue
+    fi
     echo "[rl_loop] iteration $it: learner $prev ($(date +%H:%M))"
     if [ ! -f "$run/summary.json" ]; then
         rm -rf "$run"
@@ -47,6 +59,13 @@ for it in $(seq -f %02g 1 "$ITERS"); do
     fi
     if [ ! -f "$model/net.onnx" ]; then
         (cd tools/trainer && uv run python export_onnx3.py --model "$model" --data "$ds") >> "$model.log" 2>&1
+    fi
+    if [ "$PRUNE" = 1 ]; then
+        for old in "$DATA"/datasets/d3-"$TAG"-l*; do
+            if [ "$old" != "$ds" ] && [ -f "$old/dataset.json" ]; then
+                rm -rf "$old"
+            fi
+        done
     fi
     if [ ! -f "$arena/arena.json" ]; then
         rm -rf "$arena"
