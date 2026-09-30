@@ -43,7 +43,8 @@ const GAME_BUDGET: Duration = Duration::from_secs(600);
 /// anywhere.
 const KEY: &str = "sk-ant-TEST-0123456789abcdefghijklmn";
 
-/// The call the stand-in answers with an id that is on no list.
+/// From this call on, the stand-in answers the first question it answers
+/// with a pick with an id that is on no list.
 const SPOILED_CALL: u64 = 3;
 
 /// What the stand-in saw and said.
@@ -55,7 +56,7 @@ struct Books {
     said: Vec<Value>,
     /// Requests that broke the API's rules, and why.
     faults: Vec<String>,
-    /// The id of the call answered with an id on no list.
+    /// The call answered with an id on no list.
     spoiled: Option<String>,
     /// The next request carried that call's error back.
     sent_back: bool,
@@ -121,7 +122,9 @@ async fn messages(State(books): State<Shared>, headers: HeaderMap, body: Bytes) 
     let (shape, mut input) = decide(&question);
     *books.shapes.entry(shape).or_default() += 1;
     let id = format!("toolu_TEST{call}");
-    if call == SPOILED_CALL {
+    // Only where a pick is the answer: beside `attacks` or `number` the
+    // menu reads the field the question asks for and passes over a `pick`.
+    if call >= SPOILED_CALL && books.spoiled.is_none() && matches!(shape, "option" | "pick") {
         input["pick"] = json!(["zz9"]);
         books.spoiled = Some(id.clone());
     }
