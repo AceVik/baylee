@@ -6,7 +6,7 @@
 //! ```
 //!
 //! Signs in as a guest under the name its mind discloses (`HOUSE-house`,
-//! `TEST-scripted`, `LLM-sonnet-5`), stores the deck,
+//! `TEST-scripted`, `LLM-sonnet-5-5`), stores the deck,
 //! takes a free chair in the room, says ready, waits for the host to start,
 //! and plays the game to its end. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
@@ -315,7 +315,7 @@ struct Seated {
 
 /// The name a chair played by `mind` signs in under: the prefix of what
 /// the mind says it is, then `--name` or the mind's kind (a language
-/// model's is its model: `LLM-sonnet-5`).
+/// model's is its model: `LLM-sonnet-5-5`).
 fn display_name(name: Option<&str>, kind: &MindKind, mind: &dyn Mind) -> anyhow::Result<String> {
     seat_name(mind.disclosure(), name.unwrap_or(&kind.label()))
 }
@@ -515,7 +515,7 @@ mod tests {
         let minds = [
             ("house", "HOUSE-house", "HOUSE-"),
             ("scripted", "TEST-scripted", "TEST-"),
-            ("anthropic", "LLM-sonnet-5", "LLM-"),
+            ("anthropic", "LLM-sonnet-5-5", "LLM-"),
             ("anthropic:claude-opus-5-5", "LLM-opus-5-5", "LLM-"),
             ("openai:deepseek-chat", "LLM-deepseek", "LLM-"),
         ];

@@ -2,7 +2,7 @@
 //! gateway, against a stand-in provider on this machine.
 //!
 //! The seat is `baylee-seat`'s `ApiMind` behind the bridge, seated as
-//! `baylee-seat join --mind anthropic:claude-sonnet-5` seats it; only the
+//! `baylee-seat join --mind anthropic:claude-sonnet-5-5` seats it; only the
 //! provider is a stand-in. It reads every request as the Messages API
 //! would and refuses one that breaks the API's rules (roles alternate, a
 //! result for every call, the model's own turns replayed unchanged,
@@ -224,7 +224,7 @@ async fn stand_in() -> (String, Shared) {
         // Where a mind that is down asks whether it may come back.
         .route(
             "/v1/models/{model}",
-            get(|| async { axum::Json(json!({"type": "model", "id": "claude-sonnet-5"})) }),
+            get(|| async { axum::Json(json!({"type": "model", "id": "claude-sonnet-5-5"})) }),
         )
         .fallback(elsewhere)
         .with_state(books.clone());
@@ -306,7 +306,7 @@ fn check(headers: &HeaderMap, raw: &str, request: &Value, said: &[Value]) -> Vec
     if raw.contains(KEY) {
         fault("the key is in the body".into());
     }
-    if request["model"] != "claude-sonnet-5" || request["max_tokens"].as_u64().is_none() {
+    if request["model"] != "claude-sonnet-5-5" || request["max_tokens"].as_u64().is_none() {
         fault(format!(
             "model {} / max_tokens {}",
             request["model"], request["max_tokens"]
@@ -615,7 +615,7 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
     let house: Arc<dyn Mind> = Arc::new(SeededHouse(HouseMind::default()));
     let llm_name = seat_name(llm.disclosure(), &spec.tag()).unwrap();
     let house_name = seat_name(house.disclosure(), "house").unwrap();
-    assert_eq!(llm_name, "LLM-sonnet-5");
+    assert_eq!(llm_name, "LLM-sonnet-5-5");
 
     let llm_session = guest(&lobby, &llm_name).await;
     let house_session = guest(&lobby, &house_name).await;

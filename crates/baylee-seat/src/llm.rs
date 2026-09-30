@@ -73,7 +73,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 /// The Anthropic model a bare `anthropic` names.
-pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-sonnet-5";
+pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-sonnet-5-5";
 
 /// Where the Anthropic API is, unless `ANTHROPIC_BASE_URL` says otherwise.
 const ANTHROPIC_BASE: &str = "https://api.anthropic.com";
@@ -391,7 +391,7 @@ impl Price {
 #[must_use]
 pub fn price(model: &str) -> Option<Price> {
     match model {
-        "claude-sonnet-5" => Some(Price {
+        "claude-sonnet-5-5" | "claude-sonnet-5" => Some(Price {
             input: 2.0,
             output: 10.0,
             cache_write: 2.5,

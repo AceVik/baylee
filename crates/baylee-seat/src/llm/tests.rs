@@ -649,7 +649,7 @@ fn a_dollar_budget_is_held_only_with_a_price() {
 
     // A given price errs high on the cache: a write at this build's ratio,
     // a read at no discount.
-    for model in ["claude-sonnet-5", "claude-opus-5-5"] {
+    for model in ["claude-sonnet-5-5", "claude-sonnet-5", "claude-opus-5-5"] {
         let table = price(model).expect("a price");
         let given = Price::per_million(table.input, table.output);
         assert!(
@@ -921,7 +921,7 @@ async fn an_openai_compatible_endpoint_answers_by_function_or_by_json() {
 fn a_spec_names_a_provider_and_a_model() {
     let default = Spec::parse("anthropic").expect("anthropic").expect("valid");
     assert_eq!(default.model, DEFAULT_ANTHROPIC_MODEL);
-    assert_eq!(default.tag(), "sonnet-5");
+    assert_eq!(default.tag(), "sonnet-5-5");
     let opus = Spec::parse("anthropic:claude-opus-5-5")
         .expect("anthropic")
         .expect("valid");
