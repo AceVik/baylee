@@ -21888,9 +21888,9 @@ fn aspect_of_wolf() -> CardIndex {
     card_index("77b7277d-90a1-4774-a998-8c35c3f94e4a")
 }
 
-/// Aspect of Wolf — PARTIAL: only "Enchant creature" is modeled; the
-/// +X/+Y from half the Forests you control is not. Offered only a
-/// creature, never Sol Ring, and ends attached to the Elves.
+/// Aspect of Wolf's Enchant line: offered only a creature, never Sol Ring,
+/// and ends attached to the Elves; its +X/+Y from Forests you control is
+/// played in the tests near the end of this file.
 #[test]
 fn aspect_of_wolf_attaches_only_to_a_creature() {
     let p0 = PlayerId::new(0);
@@ -22807,5 +22807,223 @@ fn living_artifact_gets_no_counter_when_damage_to_its_controller_is_fully_preven
         counters_on(&engine, aura, counters::VITALITY),
         0,
         "no damage, no trigger, no counters"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Aspect of Wolf.
+// ---------------------------------------------------------------------------
+
+/// Aspect of Wolf: "Enchanted creature gets +X/+Y, where X is half the
+/// number of Forests you control, rounded down, and Y is half the number
+/// of Forests you control, rounded up." Three Forests (a Mountain beside
+/// them that must not count) give the Elves +1/+2 on a 1/1; a fourth
+/// Forest played through the engine brings it to +2/+2.
+#[test]
+fn aspect_of_wolf_scales_with_its_controllers_forests() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), mountain(), llanowar_elves()],
+        )
+        .hand(0, &[aspect_of_wolf(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    assert_eq!(pt(&engine, elf), (1, 1), "printed 1/1, before the Aura");
+
+    cast_from_hand(&mut engine, p0, aspect_of_wolf());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Enchant creature asks for a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&elf));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elves is a legal \"enchant creature\" target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elf),
+        (2, 3),
+        "three Forests give +1/+2 (floor(3/2)=1, ceil(3/2)=2) on a 1/1; \
+         the Mountain beside them does not count"
+    );
+
+    play_land(&mut engine, p0, forest());
+    assert_eq!(
+        pt(&engine, elf),
+        (3, 3),
+        "a fourth Forest: +2/+2 (floor(4/2)=ceil(4/2)=2)"
+    );
+}
+
+/// Aspect of Wolf's "Forests you control" reads its own controller's, not
+/// the enchanted creature's controller's: cast at an opponent's creature,
+/// the bonus follows the caster's two Forests rather than the four Forests
+/// on the other side of the table, which would give a larger bonus.
+#[test]
+fn aspect_of_wolf_reads_its_controllers_forests_not_the_enchanted_creatures_controllers() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[aspect_of_wolf()])
+        .battlefield(
+            1,
+            &[forest(), forest(), forest(), forest(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves is seated");
+    assert_eq!(pt(&engine, elf), (1, 1), "printed 1/1, before the Aura");
+
+    cast_from_hand(&mut engine, p0, aspect_of_wolf());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Enchant creature asks for a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&elf),
+        "an opponent's creature is a legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elves is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, elf),
+        (2, 2),
+        "the Aura's controller's two Forests give +1/+1 \
+         (floor(2/2)=ceil(2/2)=1); the enchanted creature's controller's \
+         four Forests, which would give +2/+2, do not apply"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Circle of Protection: Black.
+// ---------------------------------------------------------------------------
+
+fn circle_of_protection_black() -> CardIndex {
+    card_index("7a5a8414-4da4-4dd0-93ae-210d50f4d6f6")
+}
+
+/// Circle of Protection: Black: "{1}: The next time a black source of your
+/// choice would deal damage to you this turn, prevent that damage."
+/// Both the black Festering Goblin and a green Llanowar Elves attack
+/// together: the choice may only name the Goblin, never the green Elves,
+/// and only the Goblin's combat damage is prevented — the Elves' 1 still
+/// connects, which is what proves the shield stops the one chosen source
+/// and nothing else (an over-broad "prevent every attacker" bug would also
+/// leave life at 20 here). The shield does not linger: once it has
+/// prevented that one event, it is gone.
+#[test]
+fn circle_of_protection_black_prevents_a_chosen_black_attacker_and_only_once() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let cop = circle_of_protection_black();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cop, forest()])
+        .battlefield(1, &[festering_goblin(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let goblin = on_battlefield(&engine, p1, festering_goblin()).expect("their Goblin");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    reach_their_main_phase(&mut engine, p1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&goblin) && attackers.contains(&elf),
+        "both the Goblin and the Elves may attack: {attackers:?}"
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(goblin, Defender::Player(p0)), (elf, Defender::Player(p0))],
+            },
+        )
+        .expect("both attackers came out of the list that offered them");
+    let blockers = loop {
+        match engine.pending().clone() {
+            Pending::ChooseBlockers { blockers, .. } => break blockers,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the blockers: {other:?}"),
+        }
+    };
+    assert!(blockers.is_empty(), "p0 has nothing to block with");
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, cop, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        options,
+        vec![goblin],
+        "a black source of your choice: the Goblin, never the green Elves"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![goblin],
+            },
+        )
+        .expect("off the list");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().players[0].life,
+        19,
+        "the Goblin's combat damage was prevented, but the Elves' 1 still \
+         connected: the shield stopped the chosen source and nothing else"
+    );
+    assert!(
+        engine.state().shields.is_empty(),
+        "\"the next time\": once it has prevented one event, the shield is gone"
     );
 }
