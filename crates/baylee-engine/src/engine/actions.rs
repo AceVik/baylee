@@ -1588,7 +1588,7 @@ impl<L: CardLookup> Engine<L> {
             (
                 Pending::ChooseBlockers { player: p, .. },
                 PlayerAction::DeclareBlockers { blockers },
-            ) if *p == player => self.declare_blockers(player, blockers),
+            ) if *p == player => self.declare_blockers(player, &blockers),
             (
                 Pending::DiscardChoice { player: p, count },
                 PlayerAction::ChooseObjects { objects },
@@ -1864,11 +1864,11 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn declare_blockers(
         &mut self,
         defending: PlayerId,
-        blockers: Vec<(ObjectId, ObjectId)>,
+        blockers: &[(ObjectId, ObjectId)],
     ) -> Result<(), EngineError> {
         // A set for the reason `declare_attackers` keeps one.
         let mut seen = std::collections::BTreeSet::new();
-        for (blocker, attacker) in &blockers {
+        for (blocker, attacker) in blockers {
             if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
             }
@@ -1907,14 +1907,14 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        for &(blocker, attacker) in &blockers {
+        for &(blocker, attacker) in blockers {
             self.state.combat.declare_block(blocker, attacker);
             self.state.journal.record(GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
             });
         }
-        self.spread_blocks_through_bands(&blockers);
+        self.spread_blocks_through_bands(blockers);
         // `Filter::Blocking` and `Filter::Unblocked` just changed for the
         // reason `declare_attackers` gives for `Filter::Attacking`.
         self.state.board_state_changed();

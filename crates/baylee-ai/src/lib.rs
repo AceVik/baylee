@@ -347,13 +347,12 @@ impl HeuristicAgent {
                 let n = match prompt {
                     // Under an untap limit the answer is what untaps.
                     ChoicePrompt::Delve | ChoicePrompt::Untap => max,
-                    ChoicePrompt::LeaveTapped => min,
                     // A band (CR 702.22c) is a judgement this heuristic does
                     // not make: blocking one member blocks them all, which
                     // can cost a flier its evasion, and the menu may hold
                     // two creatures without banding, which one band cannot.
                     // Attacking unbanded is always legal.
-                    ChoicePrompt::Band { .. } => min,
+                    ChoicePrompt::LeaveTapped | ChoicePrompt::Band { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,
