@@ -8,12 +8,22 @@
 //! Each game is hosted by a `Session` as a table is: the net's chair is taken
 //! over (`Session::take_over`) and answered through `Session::act`, so its
 //! answers are recorded as a seat's and the house opponent keeps everything it
-//! has at a real table, scouting included. The net plays each seat half the
-//! time. A question the net does not answer yet (`Arrange`, a wide number)
-//! and an answer the engine refuses are handed to the house and counted.
+//! has at a real table, scouting included. A question the net does not answer
+//! yet (`Arrange`, a wide number) and an answer the engine refuses are handed
+//! to the house and counted.
 //!
-//! Writes `arena.json` (win rates with 95 % Wilson intervals, per opponent
-//! profile) and the games' records, like a self-play run. A v2 export
+//! **Duplicate deals.** Magic's decks and draws move a result more than play
+//! does, so games come in deals, as in duplicate bridge. A deal fixes the
+//! seed (the shuffles), the opponent and which deck sits in which seat. The
+//! net plays it from both seats, and the house at `--as-profile` plays it
+//! from the same two seats as the baseline. Every game of a deal carries one
+//! game id, so the house's noise (`Session::describe`) is the same in all of
+//! them, and a result that differs from the baseline is the net's doing.
+//! Deck strength, draw luck and the seat cancel within a deal.
+//!
+//! Writes `arena.json`: win rates with 95 % Wilson intervals per opponent
+//! profile, and under `duplicate` the net against the house's baseline per
+//! matchup and overall. Also writes the games' records, like a self-play run. A v2 export
 //! (`policy.onnx`) and a v3 one (`net.onnx`) both play; the export's JSON says
 //! which encoder it reads.
 
@@ -66,10 +76,11 @@ struct Args {
     /// Cut each deck to its working cards, as the training games were.
     #[arg(long, default_value_t = true)]
     working_only: bool,
-    /// Games.
-    #[arg(long, default_value_t = 1000)]
-    games: u64,
-    /// The first game's seed.
+    /// Deals: each is played by the net from both seats and by the house from
+    /// both seats (once, when the net plays as the opponent's own profile).
+    #[arg(long, default_value_t = 500)]
+    deals: u64,
+    /// The first deal's seed.
     #[arg(long, default_value_t = 7_000_001)]
     first_seed: u64,
     /// Threads; 0 = one per core.
@@ -115,9 +126,35 @@ fn profile(name: &str) -> anyhow::Result<AIProfile> {
     AIProfile::named(name).with_context(|| format!("unknown profile {name}"))
 }
 
-/// A game's result from the net's side.
+/// Who plays a deal's watched seat: the net, or the house at the net's
+/// profile (the baseline).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Role {
+    Net(u8),
+    House(u8),
+}
+
+impl Role {
+    const fn seat(self) -> u8 {
+        match self {
+            Self::Net(s) | Self::House(s) => s,
+        }
+    }
+}
+
+/// Which deck of `decks` sits in seat 0 and seat 1 in `deal`, and the
+/// opponent's profile: every opponent meets both deck orders.
+fn deal_setup(deal: u64, opponents: usize) -> (usize, [usize; 2]) {
+    let opp = usize::try_from(deal).unwrap_or(0) % opponents;
+    let order = (deal / opponents as u64) % 2;
+    (opp, if order == 0 { [0, 1] } else { [1, 0] })
+}
+
+/// A game's result from the watched seat's side.
 struct Played {
     i: u64,
+    deal: u64,
+    role: Role,
     against: usize,
     net_seat: u8,
     outcome: &'static str,
@@ -215,9 +252,24 @@ fn main() -> anyhow::Result<()> {
         n => n,
     };
     let run = args.name.clone();
+    let as_house = profile(&args.as_profile)?;
+    // Each deal: the net from both seats, then the house's baseline from
+    // both. Against its own profile the house's two baseline games are one
+    // game, so it is played once.
+    let tasks: Vec<(u64, Role)> = (0..args.deals)
+        .flat_map(|deal| {
+            let mirror = against[deal_setup(deal, against.len()).0] == as_house;
+            [Role::Net(0), Role::Net(1), Role::House(0)]
+                .into_iter()
+                .chain((!mirror).then_some(Role::House(1)))
+                .map(move |role| (deal, role))
+        })
+        .collect();
+    let total = tasks.len() as u64;
+    let tasks = Arc::new(tasks);
     eprintln!(
-        "[arena] {} games on {threads} threads · net as {} vs {:?} · model {}",
-        args.games,
+        "[arena] {} deals, {total} games on {threads} threads · net as {} vs {:?} · model {}",
+        args.deals,
         args.as_profile,
         args.against,
         args.model.display()
@@ -236,8 +288,9 @@ fn main() -> anyhow::Result<()> {
             args.model.clone(),
             run.clone(),
         );
-        let (games, first_seed, entities, wall) = (
-            args.games,
+        let (tasks, as_house, first_seed, entities, wall) = (
+            tasks.clone(),
+            as_house,
             args.first_seed,
             args.entities,
             Duration::from_secs(args.max_secs),
@@ -257,30 +310,25 @@ fn main() -> anyhow::Result<()> {
             };
             loop {
                 let i = next.fetch_add(1, Ordering::Relaxed);
-                if i >= games {
+                let Some(&(deal, role)) = usize::try_from(i).ok().and_then(|i| tasks.get(i)) else {
                     break;
-                }
+                };
                 // A game that panics the engine is a finding, not the end of this
                 // worker: it is reported with its seed and decks, and the next
                 // game is played.
                 let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
                     || -> anyhow::Result<Played> {
-                        let seed = first_seed + i;
-                        let opp = (i / 2) as usize % against.len();
-                        let net_seat = (i % 2) as u8;
-                        let deck_order = ((i / 2) / against.len() as u64) % 2;
-                        let (a, b) = if deck_order == 0 {
-                            (&decks[0], &decks[1])
-                        } else {
-                            (&decks[1], &decks[0])
-                        };
+                        let seed = first_seed + deal;
+                        let (opp, [a, b]) = deal_setup(deal, against.len());
+                        let net_seat = role.seat();
                         let mut profiles = [against[opp]; 2];
-                        profiles[usize::from(net_seat)] =
-                            AIProfile::named("expert").unwrap_or(against[opp]);
-                        let preset = table(seed, a, b, profiles);
+                        profiles[usize::from(net_seat)] = as_house;
+                        let preset = table(seed, &decks[a], &decks[b], profiles);
                         let mut session = Session::new_recorded(&preset, baylee_build::short())
                             .context("the preset builds")?;
-                        session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
+                        // One id for every game of the deal: the house's
+                        // noise is seeded from it, seat by seat.
+                        session.describe(format!("{run}-{deal:07}"), vec!["0".into(), "1".into()]);
                         let me = PlayerId::new(net_seat);
                         // What a v3 net reads beyond the view: the sides and
                         // its own deck list.
@@ -290,7 +338,10 @@ fn main() -> anyhow::Result<()> {
                             teams: &teams,
                             deck: &deck,
                         };
-                        session.take_over(me);
+                        let net_plays = matches!(role, Role::Net(_));
+                        if net_plays {
+                            session.take_over(me);
+                        }
                         let started = Instant::now();
                         let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
                             (0, 0, 0, Duration::ZERO);
@@ -308,6 +359,9 @@ fn main() -> anyhow::Result<()> {
                                 break "time_cap";
                             }
                             session.pump_at_most(32);
+                            if !net_plays {
+                                continue;
+                            }
                             if let Some((pending, view)) = session.view_for(me) {
                                 let t = Instant::now();
                                 let answer = net.answer(&view, &pending, &seat_table)?;
@@ -348,6 +402,8 @@ fn main() -> anyhow::Result<()> {
                         };
                         Ok(Played {
                             i,
+                            deal,
+                            role,
                             against: opp,
                             net_seat,
                             outcome,
@@ -362,21 +418,22 @@ fn main() -> anyhow::Result<()> {
                     },
                 ));
                 let result = played.unwrap_or_else(|panic| {
-                    let seed = first_seed + i;
-                    let deck_order = ((i / 2) / against.len() as u64) % 2;
+                    let seed = first_seed + deal;
+                    let (_, deck_order) = deal_setup(deal, against.len());
                     let message = panic
                         .downcast_ref::<&str>()
                         .map(ToString::to_string)
                         .or_else(|| panic.downcast_ref::<String>().cloned())
                         .unwrap_or_default();
                     eprintln!(
-                        "[arena] game {i} (seed {seed}, deck order {deck_order}, net seat {}) panicked: {message}",
-                        i % 2
+                        "[arena] game {i} (seed {seed}, decks {deck_order:?}, {role:?}) panicked: {message}",
                     );
                     Ok(Played {
                         i,
-                        against: (i / 2) as usize % against.len(),
-                        net_seat: (i % 2) as u8,
+                        deal,
+                        role,
+                        against: deal_setup(deal, against.len()).0,
+                        net_seat: role.seat(),
                         outcome: "panicked",
                         turn: 0,
                         net_answers: 0,
@@ -384,7 +441,7 @@ fn main() -> anyhow::Result<()> {
                         refused: 0,
                         net_ms: 0.0,
                         record: Vec::new(),
-                        refusals: vec![json!({"game": i, "seed": seed, "deck_order": deck_order, "panic": message})],
+                        refusals: vec![json!({"game": i, "seed": seed, "decks": deck_order, "panic": message})],
                     })
                 });
                 if tx.send(result).is_err() {
@@ -404,8 +461,10 @@ fn main() -> anyhow::Result<()> {
     // Refusals by question kind, and whether the refused answer was made of
     // enumerated options (true: the engine refused what it offered).
     let mut refusal_kinds: BTreeMap<String, [u64; 2]> = BTreeMap::new();
-    // Per opponent: wins, losses, draws, other.
+    // Per opponent: the net's wins, losses, draws, other.
     let mut tally: BTreeMap<usize, [u64; 4]> = BTreeMap::new();
+    // Per deal, [net, house] by seat: the watched seat's outcome.
+    let mut deals: BTreeMap<u64, [[Option<&'static str>; 2]; 2]> = BTreeMap::new();
     let (mut answers, mut fallbacks, mut refused, mut net_ms) = (0_u64, 0_u64, 0_u64, 0.0_f64);
     let started = Instant::now();
     let mut done = 0_u64;
@@ -413,13 +472,19 @@ fn main() -> anyhow::Result<()> {
     for result in rx {
         let p = result?;
         done += 1;
-        let t = tally.entry(p.against).or_default();
-        t[match p.outcome {
-            "win" => 0,
-            "loss" => 1,
-            "draw" => 2,
-            _ => 3,
-        }] += 1;
+        let (who, net) = match p.role {
+            Role::Net(_) => (0, true),
+            Role::House(_) => (1, false),
+        };
+        deals.entry(p.deal).or_default()[who][usize::from(p.net_seat)] = Some(p.outcome);
+        if net {
+            tally.entry(p.against).or_default()[match p.outcome {
+                "win" => 0,
+                "loss" => 1,
+                "draw" => 2,
+                _ => 3,
+            }] += 1;
+        }
         answers += p.net_answers;
         fallbacks += p.house_fallbacks;
         refused += p.refused;
@@ -434,11 +499,13 @@ fn main() -> anyhow::Result<()> {
         writeln!(
             games_log,
             "{}",
-            json!({"i": p.i, "against": args.against[p.against], "net_seat": p.net_seat, "outcome": p.outcome,
+            json!({"i": p.i, "deal": p.deal, "role": if net { "net" } else { "house" },
+                   "deck": decks[deal_setup(p.deal, args.against.len()).1[usize::from(p.net_seat)]].key,
+                   "against": args.against[p.against], "net_seat": p.net_seat, "outcome": p.outcome,
                    "turn": p.turn, "net_answers": p.net_answers, "house_fallbacks": p.house_fallbacks,
                    "refused": p.refused, "net_ms": p.net_ms})
         )?;
-        if last.elapsed() >= Duration::from_secs(5) || done == args.games {
+        if last.elapsed() >= Duration::from_secs(5) || done == total {
             last = Instant::now();
             let line: Vec<String> = tally
                 .iter()
@@ -448,8 +515,7 @@ fn main() -> anyhow::Result<()> {
                 })
                 .collect();
             eprintln!(
-                "[arena] {done}/{} games · net wins vs {} · {:.2} ms/answer · fallbacks {fallbacks} · refused {refused}",
-                args.games,
+                "[arena] {done}/{total} games · net wins vs {} · {:.2} ms/answer · fallbacks {fallbacks} · refused {refused}",
                 line.join(", "),
                 net_ms / answers.max(1) as f64
             );
@@ -468,8 +534,10 @@ fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
+    let duplicate = duplicate(&deals, &decks, &args.against);
     let report = json!({
-        "model": args.model, "as_profile": args.as_profile, "games": done, "results": results,
+        "model": args.model, "as_profile": args.as_profile, "name": run, "deals": args.deals,
+        "games": done, "results": results, "duplicate": duplicate,
         "net_answers": answers, "house_fallbacks": fallbacks, "refused": refused,
         "refused_by_kind": refusal_kinds.iter().map(|(k, [not_enumerated, enumerated])| (k.clone(), json!({"enumerated": enumerated, "not_enumerated": not_enumerated}))).collect::<BTreeMap<_, _>>(),
         "ms_per_answer": net_ms / answers.max(1) as f64, "seconds": started.elapsed().as_secs_f64(),
@@ -481,4 +549,86 @@ fn main() -> anyhow::Result<()> {
     )?;
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
+}
+
+/// The net against the house's baseline, deal by deal: in each seat of each
+/// deal both played, the net scores 1, ½ or 0 and so does the house at the
+/// net's profile, and the difference is the net's doing. A deal counts only
+/// when all its games ended (no cap, no panic). Per matchup (the watched
+/// seat's deck against the other deck, and the opponent's profile), and
+/// overall with a 95 % interval over deals.
+#[allow(clippy::cast_precision_loss)] // counts stay far below 2^52
+fn duplicate(
+    deals: &BTreeMap<u64, [[Option<&'static str>; 2]; 2]>,
+    decks: &[HouseDeck],
+    against: &[String],
+) -> serde_json::Value {
+    #[derive(Default)]
+    struct Duel {
+        games: u64,
+        net: f64,
+        house: f64,
+        net_only: u64,
+        house_only: u64,
+    }
+    let score = |o: Option<&str>| match o? {
+        "win" => Some(1.0),
+        "loss" => Some(0.0),
+        "draw" => Some(0.5),
+        _ => None,
+    };
+    // Against its own profile the house played one baseline game: the other
+    // seat's side of it.
+    let other_side = |o: &'static str| match o {
+        "win" => "loss",
+        "loss" => "win",
+        o => o,
+    };
+    let mut by_matchup: BTreeMap<String, Duel> = BTreeMap::new();
+    let mut per_deal: Vec<f64> = Vec::new();
+    let mut incomplete = 0_u64;
+    for (&deal, [net, house]) in deals {
+        let house = [house[0], house[1].or_else(|| house[0].map(other_side))];
+        let scored: Option<Vec<(f64, f64)>> = (0..2)
+            .map(|s| Some((score(net[s])?, score(house[s])?)))
+            .collect();
+        let Some(scored) = scored else {
+            incomplete += 1;
+            continue;
+        };
+        let (opp, order) = deal_setup(deal, against.len());
+        for (s, &(n, h)) in scored.iter().enumerate() {
+            let key = format!(
+                "{} vs {} ({})",
+                decks[order[s]].key,
+                decks[order[1 - s]].key,
+                against[opp]
+            );
+            let m = by_matchup.entry(key).or_default();
+            m.games += 1;
+            m.net += n;
+            m.house += h;
+            m.net_only += u64::from(n > h);
+            m.house_only += u64::from(h > n);
+        }
+        per_deal.push(scored.iter().map(|(n, h)| n - h).sum::<f64>() / 2.0);
+    }
+    let n = per_deal.len() as f64;
+    let mean = per_deal.iter().sum::<f64>() / n.max(1.0);
+    let var = per_deal.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+    let half = 1.96 * (var / n.max(1.0)).sqrt();
+    let rate = |x: f64, games: u64| x / games.max(1) as f64;
+    let games: u64 = by_matchup.values().map(|m| m.games).sum();
+    json!({
+        "deals": per_deal.len(), "incomplete": incomplete,
+        "net": rate(by_matchup.values().map(|m| m.net).sum(), games),
+        "house": rate(by_matchup.values().map(|m| m.house).sum(), games),
+        "delta": mean, "ci95": [mean - half, mean + half],
+        "net_only": by_matchup.values().map(|m| m.net_only).sum::<u64>(),
+        "house_only": by_matchup.values().map(|m| m.house_only).sum::<u64>(),
+        "by_matchup": by_matchup.iter().map(|(k, m)| (k.clone(), json!({
+            "games": m.games, "net": rate(m.net, m.games), "house": rate(m.house, m.games),
+            "delta": rate(m.net - m.house, m.games), "net_only": m.net_only, "house_only": m.house_only,
+        }))).collect::<BTreeMap<_, _>>(),
+    })
 }
