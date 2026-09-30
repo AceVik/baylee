@@ -168,7 +168,12 @@ that is *not* an effect leaves every projection stale. Naming a creature type
 is one — Steely Resolve's static is registered as the enchantment enters and
 the type is chosen one question later — so `ChooseSubtype` calls
 `GameState::invalidate_projections`, as anything writing a counter already
-does. `card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
+does. Tap and combat status are others, announced through
+`GameState::board_state_changed` only when an effect reads them: a filter
+naming `Tapped`, `Attacking`, `Blocking` or `Unblocked`, or a count of what
+the defending player controls (`PtCount::DefendingPlayerControls`, CR
+508.5), which changes as attackers are declared and as combat ends.
+`card_tests::rules::a_cached_projection_is_what_a_fresh_one_would_compute`
 is the guard for both: a recompute may not disagree with the cache.
 
 **A characteristic-defining ability works in every zone** (CR 604.3), and
@@ -255,6 +260,203 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+### What must attack, and what may attack whom (CR 508.1c–d)
+Two sentences change a declaration of attackers, and both are statics the
+layers carry as rules modifiers (`Layer::Text`, beside the other
+modifiers that change what a creature may do):
+
+- **A requirement**, `Modifier::AttacksEachCombat` ("attacks each combat if
+  able"). A grant is an until-end-of-turn effect with the same modifier, so
+  losing the creature's own abilities does not lose one another permanent
+  gave it.
+- **A restriction on the pair**, `Modifier::CantAttackUnlessDefenderControls`
+  ("can't attack unless defending player controls an Island"): the filter
+  is asked of the permanents of the player the creature would attack, and
+  of a planeswalker's controller when it attacks one.
+
+`combat::AttackRules` collects both once per declaration. The offer drops
+a creature that no defender allows, names in `limits` a creature some
+defenders do not allow (with the ones it may attack), and lists in
+`required` the creatures that must attack. `declare_attackers` refuses a
+pair a restriction forbids, and refuses a declaration that leaves out a
+creature that must attack and could: untapped, able to attack under CR
+508.1a, and allowed at least one defender. That is the whole of CR
+508.1d's maximum here, because this engine has no attack costs and no
+restriction on how many creatures attack, so obeying one requirement never
+costs another. The clock's answer (`choice::timeout_answer`) declares the
+required creatures and nothing else, each at the first defender it may
+attack; the house AI keeps its own choice and adds what the rules make it
+(`combat::obey_attack_rules`).
+
+### Damage dealt to a player
+
+`GameState::damage_player` is the door for damage that reaches a player, as
+`change_life` is for life: combat damage (`combat::deal_damage_to_player`)
+and an effect's (`resolve::life::deal_to_player`) both come through it once
+the prevention shields have had their say. It loses the life (CR 120.3a),
+adds to `PerTurn::damage_dealt_to` and journals `DamageDealt`. The tally is
+kept here and not in `change_life`, because it counts damage and not life:
+a payment is no damage, and a player whose life can't change is still dealt
+it. `Amount::DamageDealtToYouThisTurn` reads it.
+
+`Trigger::PlayerDealtDamage` fires once for all the combat damage of a step
+to one player (CR 510.2, 603.2c), on the first of its journal entries, and
+its event amount is the step's total to that player (`trigger::event_damage_of`
+takes the trigger for that reason). A source's trigger in the same batch
+(`DealsCombatDamageToOpponent`) keeps its own share.
+
+At a table of several defending players (CR 802.2, the attack multiple
+players option: Team vs. Team's default, 808.3a, and one of Free-for-All's
+three options, 806.2b), "each defending player
+in APNAP order declares blockers", each all their blocks before the next
+(802.4), and "those creatures can block only creatures attacking that
+player, a planeswalker that player controls" (802.4a). `can_block` asks
+`combat::blocking_player` of the attacker's `Defender` (a departed
+planeswalker's last known controller, CR 506.4c, 802.2a), so the offer,
+`declare_blockers` and `answer_fault` agree on it.
+`Engine::next_defending_player` walks turn order from the active player
+(CR 101.4) over the seats something attacks; `declare_blockers` asks the
+next one itself (`CombatDeclared::BlockersBy`) rather than returning to the
+machine, so no block trigger reaches the stack before the last declaration
+(509.2a).
+
+## What must block, and how many (CR 509.1a, 509.1c)
+Four rules modifiers change a declaration of blockers, statics or
+until-end-of-turn effects on `Layer::Text` like the attack ones:
+
+- **How many attackers a creature may block.** CR 509.1a gives each
+  blocker one. `Modifier::CanBlockAdditional(n)` adds `n` (two such effects
+  add up) and `Modifier::CanBlockAnyNumber` lifts the limit.
+- **Requirements, each about one pair.** `Modifier::MustBeBlockedByAllAble`
+  on an attacker (Lure) asks each creature able to block it to do so;
+  `Modifier::BlocksEachAttackerIfAble` on a blocker (Blaze of Glory) asks it
+  to block each attacker. `BlockRules::demands(blocker, attacker)` counts the
+  requirements asking for one pair, so two lures on one attacker ask twice,
+  and a declaration obeys the sum over its pairs.
+
+`combat::block_options` is the offer (the `BlockOption`s), and it is also
+the universe the maximum is taken in: a pair outside it breaks a restriction
+(evasion, protection, a menace attacker no two creatures could block).
+`combat::BlockRules` collects the four once per declaration. The question
+names, in `capacity`, each offered creature that may block more than one
+attacker, and in `obeying` one legal declaration that obeys as many
+requirements as the engine holds a declaration to. `declare_blockers`
+refuses a pair named twice, a blocker over its limit, and a declaration that
+obeys fewer requirements than `obeying` does.
+
+`BlockRules::obeying` gives each blocker the attackers most requirements ask
+of it, up to its limit, attackers without menace first; a menace attacker
+left with one blocker then gets a second from any creature with room that
+may block it, or loses the one it has (CR 702.111b). Without a menace
+attacker that a requirement names, the blockers do not touch one another
+and this is the maximum CR 509.1c asks for. With one, a blocker's help costs
+it its own requirements, and the constructed declaration can fall short of
+the best one. Two attackers each enchanted with Lure, one on the ground with
+menace and one with flying; two blockers with reach and one without, each
+able to block one attacker. `obeying` sends both reach creatures to the
+flier (attackers without menace first), leaves the third alone on the
+menace attacker, finds it no helper with room and drops it: two obeyed.
+One reach creature and the one without reach on the menace attacker, the
+other reach creature on the flier, obey three. **An engine
+simplification**, lenient only — a declaration
+obeying at least as many as `obeying` is accepted, so no legal declaration
+is ever refused and the engine never asks for more than it can name. The
+clock answers with `obeying` (`choice::timeout_answer`); the house AI keeps
+its own blocks for every blocker `obeying` does not use and drops a menace
+block left alone (`combat::obey_block_rules`); client-core preselects
+`obeying` and never declines blocks by itself while it is not empty.
+
+Counting is over the declared pairs, not the pairs banding adds afterwards
+(CR 702.22h makes the band blocked as the block is made, after 509.1c has
+checked the declaration). Block triggers are per pair already (CR 509.3b,
+509.3d), so a creature blocking two attackers triggers twice; a blocker's
+damage divided among the attackers it blocks is asked of its controller
+(CR 510.1d, `divisions_owed`).
+
+### Windows in the turn (CR 506.7)
+"Cast this spell only before the combat damage step", "activate only during
+an opponent's turn, before attackers are declared", "activate only during
+your upkeep": each is a `Condition`, asked where the permission is asked.
+
+- **Where.** An activated ability carries it as `condition` (the
+  `ActivatedConditional` twin). A spell carries it on `AbilityDef::Spell`'s
+  own `condition`, asked by `casting::spell_condition_allows` beside the
+  timing the card's type gives it (CR 601.3), in the offer (`can_cast_form`)
+  and in the cast wizard. An instant restricted to combat is still cast
+  whenever an instant could be, inside its window.
+- **Which.** `DuringStep(kind)` is the step; `BeforeStep(kind)` compares
+  `TurnInfo::position` with `turn::position_of(kind)`, a place in turn order
+  (CR 500.1), so "before the combat damage step" still holds in a declare
+  attackers step that has no combat damage step after it and is over at
+  end of combat (CR 506.7a, 506.7e). `OpponentsTurn` asks the active
+  player's relation to "you", which a teammate's turn does not satisfy;
+  `All` joins them. `Step::kind` is the one door from the engine's steps to
+  the ones a card names, for `Trigger::StepBegin` as well: both combat
+  damage steps are "the combat damage step".
+- **What a card with a window asks of the turn.** `PerTurn.attacked` holds
+  each creature declared as an attacker, with its version, written by
+  `declare_attackers` and nothing else (`Filter::AttackedThisTurn`): a
+  creature put onto the battlefield attacking never attacked (CR 508.4), and
+  one that left and came back is a new object (CR 400.7).
+  `Filter::ControlledSinceTurnBegan` is summoning sickness's measure without
+  the creature or haste clauses (CR 302.6). `Effect::IfEventObjectMatches`
+  asks a delayed trigger's "that creature" (Berserk's "if it attacked this
+  turn").
+
+This engine has one combat phase a turn, so CR 506.7c–d (which of several
+combats a window means) never arises.
+
+### Bands, and who divides combat damage (CR 702.22)
+Banding is a bit (`KeywordSet::BANDING`) and three questions
+(`engine/banding.rs`); "bands with other" (702.22b) is a family a bit cannot
+carry, so the reader refuses it and those cards stay unread.
+
+- **The band is announced with the attack** (CR 508.1e). `declare_attackers`
+  ends with `ask_band`: each attacker with banding that is in no band yet is
+  asked, in declaration order, which other unbanded attackers of the same
+  defender join it (`Pending::ChooseCards` with `ChoicePrompt::Band`, none
+  allowed). An answer with two creatures without banding is refused and the
+  question stands (702.22c, 702.22d). The question stands before the machine
+  collects attack triggers, which trigger only on the whole declaration
+  (508.1m). Each member is journalled as `GameEvent::Banded`, a log line every
+  seat reads, and the view carries the bands as `CombatView::bands`.
+- **The band is combat state**, `AttackerInfo::band`: it lasts the combat even
+  if banding is lost (702.22e) and a creature removed from combat leaves it
+  (702.22f, the attacker entry goes).
+- **A block on one member blocks the band** (702.22h):
+  `spread_blocks_through_bands` runs after the declared blocks are made and
+  asks no legality of the pairs it adds, since the rule's own example is a
+  flier's mate blocked by what could block only the flier. Each added pair
+  is journalled as `BecameBlocker`, so block triggers fire per pair.
+- **Divisions are asked as the damage step begins** (`ask_combat_division`,
+  from the priority round that would leave declare blockers or the
+  first-strike step). Nobody holds priority between the answer and the
+  damage (510.1, 510.2), so no answer meets a board it was not given. The
+  last share calls `advance_step` directly: the priority round was complete
+  when the first share was asked. `combat::divisions_owed` says who divides:
+  an attacker blocked by two or more is divided by its controller, "divided
+  as its controller chooses among them" (510.1c), unless one of them has
+  banding: then by the defending player (702.22j), among the blockers only,
+  so trample puts nothing past them; a blocker on two or more creatures is
+  divided by the active player if one of them has banding (702.22k), and
+  otherwise by its own controller (510.1d). A blocker deals its power once,
+  split across what it blocks, never once per pair. The recorded
+  `Division`s are hashed and cleared once the damage is dealt. The house AI
+  gives each creature what finishes it, in turn, and the last the rest
+  (`NumberPrompt::CombatDamage`); client-core names both creatures in the
+  question.
+
+What is still decided for the player: an attacker with trample blocked by
+two or more creatures without banding is not asked. The engine assigns
+lethal damage to each blocker in declaration order and the rest to what it
+attacks, one of the assignments CR 702.19b lets its controller make ("once
+all those blocking creatures are assigned lethal damage, any excess damage
+is assigned as its controller chooses"); a share question whose last
+recipient takes the rest cannot say that bound
+(`banding_tests::an_attacker_blocked_by_two_is_divided_by_its_controller`
+pins the question without trample). No effect in the pool makes a creature
+become blocked, so 702.22i has no door yet.
+
 ## Teams: an opponent is a side
 A seat carries a `team` from the preset. `GameState::side_of` answers which
 side it plays for — its team, or itself when it has none — and `Side` is an
@@ -324,6 +526,45 @@ checks only that the card is in a graveyard or in exile (CR 603.7c); a card
 moved from the graveyard into exile in response would come back from exile,
 because a synthetic trigger carries no version.
 
+### A permanent spell keeps what was done to it (CR 400.7a)
+An effect a resolution registers on one object names it by id and version
+(`EffectFilter::ObjectIs`), and the permanent a spell becomes is a new object
+(CR 400.7). The one exception is CR 400.7a: an effect from a spell or ability
+that changed a permanent spell on the stack goes on applying to the
+permanent. `GameState::move_object` re-points those effects, the
+`EffectOrigin::Resolution` ones naming the spell's version, on the move from
+the stack to the battlefield (`EffectTable::follow_into_permanent`), and no
+other move. A Lace cast at a creature spell makes a creature of the new
+colour.
+
+### The source on the stack has no version (CR 400.7)
+"An object that moves from one zone to another becomes a new object with no
+memory of, or relation to, its previous existence" (CR 400.7). An ability
+on the stack names its source by id alone (`Resolution.source`), and an id
+survives a move: the card that left and came back is at the same id, one
+version on. Two scenarios in the pool show it, both through Kenrith, the
+Returned King ("{4}{B}: Put target creature card from a graveyard onto the
+battlefield under its owner's control"), and both are **known defects**:
+
+- **Scavenging Ghoul.** Its end-step trigger ("put a corpse counter on this
+  creature for each creature that died this turn") is on the stack; the
+  Ghoul dies in response and Kenrith returns it. `this_object(res)` answers
+  `res.source`, compares no version, and the counters land on the new Ghoul,
+  an object the ability has no relation to (`resolve::counters`,
+  `Effect::AddCounter`).
+- **Circle of Protection: Blue.** A Prodigal Sorcerer's ping is on the stack
+  and the Circle's controller has chosen the Sorcerer ("the next time a
+  blue source of your choice would deal damage to you this turn"). The
+  Sorcerer dies and Kenrith returns it before the ping resolves. The
+  damage comes from the id, now on the battlefield two versions on (v+2),
+  and `ChosenSource::deals` accepts there only the same version or the one
+  a chosen spell became: the shield misses damage from the very source
+  chosen. Left in the graveyard, the Sorcerer would have been read as it
+  last was and the damage prevented (CR 609.7a).
+
+The fix is a version on the stack object and on `Resolution.source`,
+compared where the source is read; it is engine-core work and not yet done.
+
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
 ability (CR 605.1b: no target, triggers from a mana ability, could add mana;
@@ -331,7 +572,13 @@ ability (CR 605.1b: no target, triggers from a mana ability, could add mana;
 `ManaProduced` whose nearest earlier journal entry about the same object is
 its `ObjectTapped` under `Cause::Cost` — the pair every {T} mana ability
 writes (CR 106.12, 106.12a) — so the second colour of one activation and a
-tap to attack both miss. `collect_triggers` resolves every queued triggered
+tap to attack both miss. Who tapped is the event's `player`, held against the
+trigger's `by` relation, and the tapped permanent is the trigger's event
+object (`trigger::event_object_of`), which is how "its controller" and "that
+player" (`PlayerRel::ControllerOfEvent`) find a seat. A triggered mana
+ability adds to its own controller's pool unless its effect names another
+(`Effect::AddManaFor`, `resolve::mana::add_to`): Gauntlet of Might's {R} for
+an opponent's Mountain is the opponent's. `collect_triggers` resolves every queued triggered
 mana ability first, through `resolve::run` with `mana_ability: true`, before
 any ordinary trigger is asked about: the mana is in the pool when the player
 who tapped next has priority, and nothing went on the stack. One that asked
@@ -448,6 +695,26 @@ A spell leaves by `Engine::leave_stack_without_resolving` and not by
 card *as it resolves*, and one that never resolved has done neither.
 Flashback is the rider that does apply, because CR 702.34a exiles the card
 "any time it would leave the stack".
+
+### State triggers (CR 603.8)
+"When you control no Islands, sacrifice this creature" triggers on a state
+and not on an event: `Trigger::State(&Condition)`. No journal entry matches
+it (`trigger::hits` answers 0), and `trigger::state_triggers` walks the
+battlefield on every pass of `queue_new_triggers`, asking the condition
+with the permanent's controller as "you". An ability that is still waiting
+in the trigger queue, or is on the stack (an `AbilityOnStack` whose
+`AbilityLoc` names the same source and index), does not trigger again;
+once it has left the stack it triggers at once if the state still matches.
+The condition is the trigger's and not an intervening "if": the ability
+resolves even when the state has ended by then.
+
+Two limits. The in-flight check keys on the source's id, which this engine
+keeps across a zone change, so a permanent that left and came back while
+its ability is on the stack waits for that ability to leave before its own
+can trigger (CR 603.8 would let the new object trigger at once; the same
+missing version as an event object on the stack). And a copy of the
+ability carries the same `AbilityLoc`, so it too holds the next trigger
+back until it has left the stack.
 
 ### The one check in the fixpoint that is not a state-based action
 Daybound and nightbound (CR 702.145c–g) are checked as their own step of
@@ -594,6 +861,126 @@ Three things about it are easy to get backwards:
   `hash_object_situation`, because a board with a shield up is not the same
   position as the board without one and loop detection would otherwise call
   them equal.
+
+### Prevention shields, and the question the engine does not ask (CR 615)
+
+"Prevent the next 3 damage that would be dealt to any target this turn" and
+Fog leave a shield behind as they resolve (CR 615.1, 615.3), and the shield
+waits for damage. The shields live in `GameState::shields` in the order they
+were made, and `prevention::apply` is the one function that spends them:
+every writer of damage asks it how much of what it is about to deal still
+gets through, after the standing prevention it already asked (a permanent's
+protection, which every writer asks, and Maze of Ith's `PreventDamageToIt`
+and `PreventDamageFromIt`, which only combat's two ask: both cards that
+carry them, Maze of Ith and Kor Haven, prevent combat damage only; none of
+these is ever used up) and before anything is lost, marked or journalled. Four writers ask today — two
+in `combat`, two in `resolve::life` — and damage prevented in full is never
+dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
+
+- **A shield on a permanent is on that object** (id and version, CR 400.7):
+  the creature that leaves and comes back is a new object with no shield.
+- **Damage that can't be prevented passes every shield untouched** and
+  reduces none of them (CR 615.12).
+- **Every shield ends at the cleanup step** (CR 514.2); they all say "this
+  turn". They are in `snapshot_hash`, `loop_signature` and the fingerprint.
+- **A chosen-source shield** ("the next time a red source of your choice
+  would deal damage to you", CR 615.8) is chosen as the ability resolves,
+  from `prevention::source_options` (CR 609.7a: permanents, spells, and the
+  source of an ability on the stack even once it has left), and waits for
+  that source's next instance of damage to its controller. It rechecks the
+  source's properties when the damage comes, against the source's last
+  known characteristics if it has left, and a shield that prevents nothing
+  is not used up (CR 609.7b). A damage source is an id, so which incarnation
+  dealt the damage is read from where the id is now
+  (`ChosenSource::deals` names the two corners that reading gets wrong).
+
+- **Counters that prevent** (Rock Hydra, `Modifier::CountersPreventDamage`)
+  are a static prevention effect, asked by both object doors through
+  `prevention::absorb` after the shields and after any redirection: each 1
+  damage takes a counter and is prevented while one is there. Damage that
+  can't be prevented still takes the counters and is dealt in full, the
+  removal being an effect of its own (CR 615.12), once for the event
+  (615.12a).
+
+The question the engine does not ask is CR 616.1's: when two shields could
+apply to one event, the affected player (or the controller of the affected
+permanent) chooses which applies first — and CR 615.7's last sentence, which
+of several simultaneous sources one shield prevents. `prevention::rank`
+applies them in a fixed order instead. For most pairs it is the order the
+player would always pick: a shield that prevents nothing is not used up, so
+the fuller shield first leaves the other standing (Fog before a Circle of
+Protection, a Circle before Forcefield), and two "next N" shields spend the
+same total either way. Two pairs are trades, and there the engine decides
+what the player would be asked — **an engine simplification**: Reverse
+Damage goes before Fog (the life now, rather than Reverse Damage kept for
+that source's later damage: a creature chosen for Reverse Damage attacks
+into a Fog, its combat damage spends Reverse Damage and gains its life,
+and that creature's later damage that turn is dealt in full), and a
+chosen-source shield before "the next N"
+(the N kept for any source, rather than the chosen-source shield kept for
+its one). A new kind of shield is placed in that order with its reason; a
+pair for which the fixed order would often be the wrong answer needs the
+question rather than a rank. Counters that prevent come after every
+shield: a shield ends with the turn and a counter does not, so spending
+the shield first is the choice a player would always make.
+
+### Redirection: damage dealt to another instead (CR 614.9)
+
+"All damage that would be dealt to you by unblocked creatures is dealt to
+this creature instead" (Veteran Bodyguard) and "the next time a source of
+your choice would deal damage to target creature this turn, that source
+deals that damage to you instead" (Jade Monolith) are replacement effects
+that move damage (CR 614.9). `prevention::redirect` answers where a writer's
+damage goes instead, and all four writers ask it after the shields in front
+of the first recipient and before anything is lost, marked or journalled; a
+redirected amount goes through the door for the new recipient, where that
+recipient's protection and shields meet it (Veteran Bodyguard with
+protection from red takes nothing from a red attacker). The damage keeps its
+source and whether it is combat damage, so deathtouch and lifelink read it
+as ever; the player it was moved off is dealt nothing — no life, no
+`per_turn.damage_dealt_to`, no "whenever you're dealt damage", no commander
+damage.
+
+- **The static** is `Modifier::RedirectDamageToYou(&from)`: damage a source
+  matching `from` would deal to the effect's controller is dealt to the
+  permanent the effect applies to. `from` is read on the source as it is
+  then, or as it last was once it has left the battlefield (CR 609.7c): the
+  ability of a red creature killed in response is still a red source's.
+  Combat status is not remembered, so an unblocked creature that has left
+  is no longer one. That is **a guess** where the rules do not settle it:
+  CR 609.7c applies such an effect "to any sources that aren't on the
+  battlefield that have that property", and CR 506.4 says only that a
+  creature removed from combat "stops being an attacking, blocking,
+  blocked, and/or unblocked creature". An unblocked Mogg Fanatic sacrificed
+  ("Sacrifice this creature: It deals 1 damage to any target") at the
+  Bodyguard's controller deals that 1 to the player; read by its last
+  known information, as it was just before it left, it would be an
+  unblocked creature's damage and go to the Bodyguard. The affected permanent is read then too
+  (`effects::applies_to`), so Veteran Bodyguard's "as long as this creature
+  is untapped" is in its affected filter, `And(This, Untapped)`, and a
+  Bodyguard tapped earlier in the same resolution is already out of the way.
+- **The shield** is `ShieldKind::RedirectNextFrom { source, to }`, made by
+  `Effect::RedirectNextFromChosenSource` as it resolves: the source is
+  chosen then (CR 609.7a), rechecked when the damage comes, used up by the
+  damage it moves and kept by damage it does not (CR 609.7b), and on the
+  creature as the object it was (CR 400.7). `prevention::apply` passes it by.
+- **Once to an event** (CR 614.5): a writer starts a `prevention::Redirected`
+  per event and hands it on with the damage, and a static that moved the
+  damage is not asked again — Jade Monolith's shield on a Veteran Bodyguard
+  sends the damage the Bodyguard took back to its controller, who is dealt
+  it. A shield needs no entry: it is gone once it has moved something.
+- **Nothing** is moved from or to a permanent that is no longer a creature
+  on the battlefield, or to or from a player who has left the game (CR
+  614.9); such a shield is still waiting afterwards.
+
+**An engine simplification**, beside the one above: CR 616.1 lets the
+affected player order redirection and prevention too, and the engine always
+applies the shields first. That is a trade: preventing first spares the
+creature a Bodyguard puts in the way and spends the shield; redirecting
+first keeps the shield and costs the creature. Counters that prevent (Rock
+Hydra) come after the redirection, so damage a Jade Monolith moves off the
+Hydra costs it no counter. Among several redirections the oldest shield goes
+first, then the oldest static, again without asking.
 
 ### The monarch's abilities have no source (CR 724.2)
 

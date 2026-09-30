@@ -87,3 +87,53 @@ fn a_spell_that_exiles_itself_is_not_put_into_a_graveyard_afterwards() {
         "\"Exile Spirit Water Revival\" — it is where the card put itself"
     );
 }
+
+/// What a spell did to a permanent spell, it goes on doing to the permanent
+/// that spell becomes (CR 400.7a). Purelace cast at Llanowar Elves on the
+/// stack makes a white spell and then a white creature: the permanent is a
+/// new object (CR 400.7), and the colour effect named the spell's version,
+/// so it reached nothing once the Elves resolved — a green creature, from a
+/// spell that had been white a moment before.
+#[test]
+fn a_permanent_spell_keeps_what_was_done_to_it_on_the_stack() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let elves = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
+    let purelace = card_index("3773001a-8868-49ec-a406-298cf72359c2");
+    let plains = card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99");
+    let forest = card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6");
+    let mut engine = Duel::new(3, forest)
+        .battlefield(0, &[forest])
+        .hand(0, &[elves])
+        .battlefield(1, &[plains])
+        .hand(1, &[purelace])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, elves);
+    let spell = on_stack(&engine, elves).expect("the Elves are a spell");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, purelace);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("target spell or permanent, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&spell),
+        "the spell on the stack is a target"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![spell],
+            },
+        )
+        .unwrap();
+    let white = baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::White]);
+    pass_until(&mut engine, |e| on_stack(e, purelace).is_none());
+    let colors =
+        |e: &Engine<RegistryLookup>| e.state().object(spell).map(|o| o.characteristics().colors);
+    assert_eq!(colors(&engine), Some(white), "a white spell");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, elves).is_some());
+    assert_eq!(colors(&engine), Some(white), "and a white creature");
+}

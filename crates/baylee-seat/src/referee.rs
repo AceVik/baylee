@@ -185,6 +185,8 @@ mod tests {
                     player: ME,
                     attackers: vec![o(5)],
                     defenders: vec![Defender::Player(THEM)],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 PlayerAction::DeclareAttackers {
                     attackers: vec![(o(5), Defender::Player(THEM))],
@@ -192,6 +194,7 @@ mod tests {
             ),
             (
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: ME,
                     attacker: THEM,
                     blockers: vec![BlockOption {
@@ -199,6 +202,8 @@ mod tests {
                         attackers: vec![o(9)],
                     }],
                     bounds: Vec::new(),
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 PlayerAction::DeclareBlockers {
                     blockers: vec![(o(6), o(9))],

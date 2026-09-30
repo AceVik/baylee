@@ -122,6 +122,8 @@ mod tests {
                 Defender::Player(PlayerId::new(1)),
                 Defender::Player(PlayerId::new(2)),
             ],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         Duel {
             interaction: Some(Interaction::new(pending, view.seat)),

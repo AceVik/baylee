@@ -94,7 +94,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveType(_)
         | Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
+        | Modifier::ReplaceCreatureTypes(_)
         | Modifier::AllBasicLandTypes
+        | Modifier::SetLandType(_)
+        | Modifier::SetLandTypeToChosen
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
@@ -112,6 +115,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::GrantTriggered { .. }
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTHalfCount(_)
         | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::ModifyPT(..)
         | Modifier::SetPT(..)
@@ -146,8 +150,17 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::AttacksEachCombat
+        | Modifier::CanBlockAdditional(_)
+        | Modifier::CanBlockAnyNumber
+        | Modifier::MustBeBlockedByAllAble
+        | Modifier::BlocksEachAttackerIfAble
+        | Modifier::RedirectDamageToYou(_)
+        | Modifier::CountersPreventDamage(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
+        | Modifier::SkipUntapStep { .. }
         | Modifier::PlayerHexproof
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
@@ -157,6 +170,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // that arrives later and matches the filter is kept tapped too.
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
+        | Modifier::UntapAtMost { .. }
+        // A permission read as the attack is declared: whatever matches the
+        // filter then may attack, not a set fixed as the effect began.
+        | Modifier::AttacksDespiteDefender
+        | Modifier::AttacksAsThoughHaste
         // A replacement for a player's graveyard: the cards it catches are
         // whichever arrive, not a set fixed as it began.
         | Modifier::ExileInsteadOfYourGraveyard
@@ -339,6 +357,29 @@ impl EffectTable {
             {
                 fx.controller = now;
             }
+        }
+    }
+
+    /// CR 400.7a: an effect from a spell or ability that changed a
+    /// permanent spell on the stack goes on applying to the permanent that
+    /// spell becomes. The permanent is a new object (CR 400.7), so the
+    /// effect named the spell's `version` and would reach nothing once it
+    /// resolved: Purelace cast at a creature spell made a white spell and a
+    /// creature of its old colour. Only [`EffectOrigin::Resolution`] effects
+    /// move, and only those that named the spell as it was.
+    pub(crate) fn follow_into_permanent(&mut self, id: ObjectId, spell: u32, permanent: u32) {
+        let mut moved = false;
+        for fx in &mut self.effects {
+            if fx.origin == EffectOrigin::Resolution
+                && matches!(fx.filter, EffectFilter::ObjectIs(object, version)
+                    if object == id && version == spell)
+            {
+                fx.filter = EffectFilter::ObjectIs(id, permanent);
+                moved = true;
+            }
+        }
+        if moved {
+            self.generation += 1;
         }
     }
 
@@ -725,9 +766,10 @@ mod tests {
     /// below, because `locks_its_set` is exhaustive and a new variant is a
     /// compile error *there* — the risk here is a variant quietly missing
     /// from the comparison, which is silent.
+    #[allow(clippy::too_many_lines)] // one row per `Modifier` variant
     fn every_modifier() -> Vec<Modifier> {
         const NOTHING: &[baylee_cards_dsl::Effect] = &[];
-        use baylee_cards_dsl::{CounterKind, KeywordSet};
+        use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
         use baylee_core::types::TypeSet;
@@ -738,7 +780,10 @@ mod tests {
             Modifier::RemoveType(TypeSet::CREATURE),
             Modifier::AddSubtype(SubtypeId::new(1)),
             Modifier::AllCreatureTypes,
+            Modifier::ReplaceCreatureTypes(SubtypeId::new(1)),
             Modifier::AllBasicLandTypes,
+            Modifier::SetLandType(SubtypeId::new(1)),
+            Modifier::SetLandTypeToChosen,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
                 subtype: SubtypeId::new(1),
@@ -788,6 +833,7 @@ mod tests {
                 p: 1,
                 t: 1,
             },
+            Modifier::ModifyPTHalfCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::SwitchPT,
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
@@ -802,19 +848,37 @@ mod tests {
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
             Modifier::DrawLimitPerTurn {
-                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                who: PlayerRel::EachPlayer,
                 limit: 1,
             },
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
-                who: baylee_cards_dsl::PlayerRel::EachPlayer,
+                who: PlayerRel::EachPlayer,
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::AttacksEachCombat,
+            Modifier::CanBlockAdditional(1),
+            Modifier::CanBlockAnyNumber,
+            Modifier::MustBeBlockedByAllAble,
+            Modifier::BlocksEachAttackerIfAble,
+            Modifier::RedirectDamageToYou(&Filter::CREATURE),
+            Modifier::CountersPreventDamage(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
+            Modifier::SkipUntapStep {
+                who: PlayerRel::EachPlayer,
+            },
+            Modifier::UntapAtMost {
+                who: PlayerRel::EachPlayer,
+                of: &Filter::CREATURE,
+                count: 1,
+            },
+            Modifier::AttacksDespiteDefender,
+            Modifier::AttacksAsThoughHaste,
             Modifier::PlayerHexproof,
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
@@ -861,7 +925,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            56,
+            72,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -912,8 +976,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: twenty-seven
-    /// modifiers lock the objects they found, twenty-nine do not.
+    /// the other is a failure and not a quiet re-balancing: thirty-one
+    /// modifiers lock the objects they found, forty-one do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -921,10 +985,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn twenty_seven_modifiers_lock_a_set_and_twenty_nine_do_not() {
+    fn thirty_one_modifiers_lock_a_set_and_forty_one_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (27, 29));
+        assert_eq!((locking, all.len() - locking), (31, 41));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

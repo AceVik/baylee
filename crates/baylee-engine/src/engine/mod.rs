@@ -64,6 +64,10 @@ impl From<crate::choice::AnswerFault> for EngineError {
 enum CombatDeclared {
     None,
     Attackers,
+    /// The blocks of every defending player up to and including this one,
+    /// in APNAP order, are declared, and more defending players are still
+    /// to declare (CR 802.4).
+    BlockersBy(PlayerId),
     Blockers,
 }
 
@@ -595,6 +599,30 @@ enum PlanKind {
     /// The one plan with no fields: what it is about is the step the game
     /// is in, and the step cannot have moved on while the question stands.
     UntapChoice,
+    /// The same determination under untap limits (`Modifier::UntapAtMost`),
+    /// waiting for the active player to name what untaps
+    /// (`ChoicePrompt::Untap`), one answer at a time.
+    UntapLimit {
+        /// What stays tapped by the player's own answer to the
+        /// `ChoicePrompt::LeaveTapped` question before it.
+        kept: Vec<ObjectId>,
+        /// What earlier answers named to untap.
+        chosen: Vec<ObjectId>,
+    },
+    /// The attacking player naming the band an attacker with banding
+    /// forms (`ChoicePrompt::Band`, CR 508.1e).
+    Band {
+        /// The attacker with banding asked about.
+        leader: ObjectId,
+    },
+    /// A player dividing one creature's combat damage
+    /// (`NumberPrompt::CombatDamage`), share by share.
+    CombatDamage {
+        /// What is divided, among what, and by whom.
+        owed: crate::combat::OwedDivision,
+        /// The shares given so far, one per recipient from the first.
+        shares: Vec<i16>,
+    },
     /// A loyalty ability waiting for its target player.
     LoyaltyPlayer {
         /// The walker.
@@ -811,13 +839,10 @@ impl<L: CardLookup> Engine<L> {
                 Some((window.player, *cost))
             }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
-                Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. })
+                Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
                     if player == window.player =>
                 {
-                    Some((
-                        player,
-                        baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-                    ))
+                    Some((player, cost))
                 }
                 _ => None,
             },
@@ -1426,6 +1451,7 @@ impl<L: CardLookup> Engine<L> {
 
 mod abilities;
 mod ascend;
+mod banding;
 mod decision;
 pub(crate) mod disguise;
 mod room;
@@ -1457,7 +1483,11 @@ mod arrival_tests;
 #[cfg(test)]
 mod automation_tests;
 #[cfg(test)]
+mod banding_tests;
+#[cfg(test)]
 mod base_sharing_tests;
+#[cfg(test)]
+mod block_requirement_tests;
 #[cfg(test)]
 mod capability_tests;
 #[cfg(test)]
@@ -1485,6 +1515,8 @@ mod condition_tests;
 #[cfg(test)]
 mod convoke_tests;
 #[cfg(test)]
+mod counted_pt_tests;
+#[cfg(test)]
 mod cycling_tests;
 #[cfg(test)]
 mod day_night_tests;
@@ -1498,7 +1530,15 @@ mod enter_tests;
 mod fight_tests;
 #[cfg(test)]
 mod flashback_tests;
+#[cfg(test)]
+mod requirements_tests;
+#[cfg(test)]
+mod state_trigger_tests;
+#[cfg(test)]
+mod timing_window_tests;
 
+#[cfg(test)]
+mod end_step_tests;
 #[cfg(test)]
 mod granted_this_tests;
 #[cfg(test)]
@@ -1511,6 +1551,8 @@ mod keyword_tests;
 mod land_mana_tests;
 #[cfg(test)]
 mod land_play_tests;
+#[cfg(test)]
+mod land_type_tests;
 #[cfg(test)]
 mod leave_probe_tests;
 #[cfg(test)]
@@ -1538,9 +1580,13 @@ mod pact_payment_tests;
 #[cfg(test)]
 mod phasing_tests;
 #[cfg(test)]
+mod player_damage_tests;
+#[cfg(test)]
 mod printed_tests;
 #[cfg(test)]
 mod priority_tests;
+#[cfg(test)]
+mod redirection_tests;
 #[cfg(test)]
 mod reflexive_tests;
 #[cfg(test)]

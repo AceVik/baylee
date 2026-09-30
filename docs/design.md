@@ -1255,10 +1255,13 @@ this batch is a bump to **12**.
   `ChoiceRequest`, not an absolute time; clients share no clock.
 - **`LossReason` per seat**, so a concession is not drawn as a death, and so a
   future rating can tell concede from timeout from disconnect.
-- **Combat damage division.** The engine divides automatically in blocker
-  order; under post-Foundations CR 510.1c that is a player's decision being made
-  for them. A 6/6 blocked by a 2/2 and a 4/4 should be able to put all six into
-  the 4/4.
+- **Combat damage division.** Banding's divisions (CR 702.22j–k) and a blocker
+  on two or more creatures (510.1d) are asked (`docs/engine-internals.md`
+  §"Bands, and who divides combat damage"). An attacker blocked by two or more
+  creatures without banding is still divided automatically in blocker order;
+  under post-Foundations CR 510.1c that is a player's decision being made for
+  them. A 6/6 blocked by a 2/2 and a 4/4 should be able to put all six into the
+  4/4.
 - **Trigger ordering**, **split piles**, **modal min/max** (choose two, choose
   one or both), **`Pending: PartialEq`** so a re-offered question does not wipe
   a half-made selection, and **`Cancel` before costs are paid**.

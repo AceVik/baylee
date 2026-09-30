@@ -569,6 +569,14 @@ impl GameLog {
                     vec![blocker_sees, attacker_sees],
                 );
             }
+            GameEvent::Banded { object, with } => {
+                let (attacker, attacker_sees) = self.refer(state, *object);
+                let (with, with_sees) = self.refer(state, *with);
+                self.push(
+                    LogEvent::Banded { attacker, with },
+                    vec![attacker_sees, with_sees],
+                );
+            }
             GameEvent::PlayerLost { player, reason } => self.push(
                 LogEvent::Lost {
                     player: *player,
@@ -1131,6 +1139,11 @@ mod tests {
     }
 
     fn looping_game() -> Engine<TestPool> {
+        game(vec![LOOPING])
+    }
+
+    /// A duel with `battlefield` on seat 0's side and nothing on seat 1's.
+    fn game(battlefield: Vec<CardIndex>) -> Engine<TestPool> {
         let entry = |card| DeckEntry {
             card,
             print: PrintRef::new(0),
@@ -1161,7 +1174,10 @@ mod tests {
                 lang: "EN".into(),
                 finish: Finish::Normal,
             }],
-            seats: vec![seat(vec![entry(LOOPING)]), seat(vec![])],
+            seats: vec![
+                seat(battlefield.into_iter().map(entry).collect()),
+                seat(vec![]),
+            ],
         };
         Engine::new(&preset, TestPool).expect("duel starts")
     }
@@ -1194,6 +1210,65 @@ mod tests {
             };
             engine.apply(player, action).expect("a passive answer");
             log.consume(engine.state());
+        }
+    }
+
+    /// A band is announced (CR 508.1e), so its line is told to every seat,
+    /// the defending one included: the band decides what a block on one of
+    /// its members blocks (CR 702.22h).
+    #[test]
+    fn a_band_is_a_line_every_seat_reads() {
+        let card = |oracle| {
+            baylee_cards::by_oracle_id(oracle)
+                .expect("in the pool")
+                .index
+        };
+        let hero = card("4c81cfb7-8765-4e28-ae33-4287fa9a86cc");
+        let wolves = card("35d07ac9-b184-4b5f-8192-34b1db042f69");
+        let mut engine = game(vec![hero, wolves]);
+        let mut log = GameLog::new(engine.state());
+        play_passively(&mut engine, &mut log, 2);
+        for _ in 0..20 {
+            match engine.pending().clone() {
+                Pending::ChooseAttackers { .. } => break,
+                Pending::Priority { player, .. } => {
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected: {other:?}"),
+            }
+        }
+        let Pending::ChooseAttackers {
+            player, attackers, ..
+        } = engine.pending().clone()
+        else {
+            panic!("seat 0 was never asked to attack");
+        };
+        let them = baylee_core::ids::Defender::Player(PlayerId::new(1));
+        engine
+            .apply(
+                player,
+                PlayerAction::DeclareAttackers {
+                    attackers: attackers.iter().map(|a| (*a, them)).collect(),
+                },
+            )
+            .unwrap();
+        let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+            panic!("expected the band question, got {:?}", engine.pending());
+        };
+        engine
+            .apply(player, PlayerAction::ChooseObjects { objects: options })
+            .unwrap();
+        log.consume(engine.state());
+        for seat in [PlayerId::new(0), PlayerId::new(1)] {
+            let lines = log.told(seat, 0, log.len());
+            assert_eq!(
+                lines
+                    .iter()
+                    .filter(|l| matches!(l.event, LogEvent::Banded { .. }))
+                    .count(),
+                1,
+                "seat {seat:?} reads one band line: {lines:?}"
+            );
         }
     }
 

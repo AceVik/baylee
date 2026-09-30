@@ -202,6 +202,67 @@ impl HeuristicAgent {
         self.held_to(view, pending, proposal)
     }
 
+    /// The attack this seat would like to make, before the rules have their
+    /// say: [`combat::obey_attack_rules`] adds what must attack and moves
+    /// what may not attack where it was sent.
+    fn attack(
+        &self,
+        view: &PlayerView,
+        squad: &[ObjectId],
+        defenders: &[Defender],
+    ) -> Vec<(ObjectId, Defender)> {
+        let opponents: Vec<PlayerId> = defenders
+            .iter()
+            .filter_map(|d| match d {
+                Defender::Player(p) => Some(*p),
+                Defender::Planeswalker(_) => None,
+            })
+            .collect();
+        if squad.is_empty() || opponents.is_empty() {
+            return Vec::new();
+        }
+        let victim = self.pick_defender(view, &opponents);
+        // Indexed once for the whole decision: every step below
+        // looks creatures up by handle, one per creature.
+        let board = board::Board::new(view);
+        let report = search::attackers_on(&board, squad, victim, self.profile);
+        // An attack that wins goes at the player, whatever walker is
+        // standing there. The search's proof is one way to know, but
+        // it gives up above sixteen creatures a side and never runs
+        // for the shallow profiles, so every profile also asks the
+        // estimate. Before it did, a squad only the estimate saw as
+        // lethal went at the cheapest walker whenever its power
+        // reached the loyalty, and a board that doubled every turn
+        // killed a recast commander walker every turn and never its
+        // controller (self-play r001 #431).
+        let lethal = report.lethal || combat::breaks_through(&board, &report.attackers, victim);
+        let searched = report.attackers.len();
+        let going = combat::hold_back_for_the_crack_back(
+            &board,
+            report.attackers,
+            victim,
+            lethal,
+            |seat| self.hostile(seat, view.seat),
+        );
+        if going.is_empty() {
+            return Vec::new();
+        }
+        // What they aim at is decided by the squad that is actually
+        // going, not by the whole board: the creatures staying home
+        // add nothing to either sum. Where the crack-back pass kept
+        // some home, the verdict is the estimate's on what is left.
+        let wins =
+            lethal && (going.len() == searched || combat::breaks_through(&board, &going, victim));
+        if wins && defenders.contains(&Defender::Player(victim)) {
+            going
+                .into_iter()
+                .map(|id| (id, Defender::Player(victim)))
+                .collect()
+        } else {
+            combat::aim(&board, victim, &going, defenders)
+        }
+    }
+
     fn priority(
         &self,
         view: &PlayerView,
@@ -303,69 +364,34 @@ impl HeuristicAgent {
             Pending::ChooseAttackers {
                 attackers: squad,
                 defenders,
+                required,
+                limits,
                 ..
             } => {
-                let opponents: Vec<PlayerId> = defenders
-                    .iter()
-                    .filter_map(|d| match d {
-                        Defender::Player(p) => Some(*p),
-                        Defender::Planeswalker(_) => None,
-                    })
-                    .collect();
-                if squad.is_empty() || opponents.is_empty() {
-                    return PlayerAction::DeclareAttackers { attackers: vec![] };
+                let chosen = self.attack(view, &squad, &defenders);
+                PlayerAction::DeclareAttackers {
+                    attackers: combat::obey_attack_rules(chosen, &required, &limits, &defenders),
                 }
-                let victim = self.pick_defender(view, &opponents);
-                // Indexed once for the whole decision: every step below
-                // looks creatures up by handle, one per creature.
-                let board = board::Board::new(view);
-                let report = search::attackers_on(&board, &squad, victim, self.profile);
-                // An attack that wins goes at the player, whatever walker is
-                // standing there. The search's proof is one way to know, but
-                // it gives up above sixteen creatures a side and never runs
-                // for the shallow profiles, so every profile also asks the
-                // estimate. Before it did, a squad only the estimate saw as
-                // lethal went at the cheapest walker whenever its power
-                // reached the loyalty, and a board that doubled every turn
-                // killed a recast commander walker every turn and never its
-                // controller (self-play r001 #431).
-                let lethal =
-                    report.lethal || combat::breaks_through(&board, &report.attackers, victim);
-                let searched = report.attackers.len();
-                let going = combat::hold_back_for_the_crack_back(
-                    &board,
-                    report.attackers,
-                    victim,
-                    lethal,
-                    |seat| self.hostile(seat, view.seat),
-                );
-                if going.is_empty() {
-                    return PlayerAction::DeclareAttackers { attackers: vec![] };
-                }
-                // What they aim at is decided by the squad that is actually
-                // going, not by the whole board: the creatures staying home
-                // add nothing to either sum. Where the crack-back pass kept
-                // some home, the verdict is the estimate's on what is left.
-                let wins = lethal
-                    && (going.len() == searched || combat::breaks_through(&board, &going, victim));
-                let attackers = if wins && defenders.contains(&Defender::Player(victim)) {
-                    going
-                        .into_iter()
-                        .map(|id| (id, Defender::Player(victim)))
-                        .collect()
-                } else {
-                    combat::aim(&board, victim, &going, &defenders)
-                };
-                PlayerAction::DeclareAttackers { attackers }
             }
             Pending::ChooseBlockers {
-                blockers, bounds, ..
+                blockers,
+                obeying,
+                bounds,
+                ..
             } => {
-                let mut pairs = search::blockers(
-                    view,
-                    &blockers,
-                    view.seat(player).map_or(0, |s| s.life),
-                    self.profile,
+                let mut pairs = combat::obey_block_rules(
+                    search::blockers(
+                        view,
+                        &blockers,
+                        view.seat(player).map_or(0, |s| s.life),
+                        self.profile,
+                    ),
+                    &obeying,
+                    |attacker| {
+                        view.object(attacker).is_some_and(|o| {
+                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                        })
+                    },
                 );
                 // Whatever chose them, the blocks are held to the counts the
                 // question states (menace, CR 702.111b), which are the ones
@@ -426,8 +452,14 @@ impl HeuristicAgent {
                 // card alone, so whichever pile they take, they do not take
                 // all of them, which is what naming none would hand over.
                 let n = match prompt {
-                    ChoicePrompt::Delve => max,
-                    ChoicePrompt::LeaveTapped => min,
+                    // Under an untap limit the answer is what untaps.
+                    ChoicePrompt::Delve | ChoicePrompt::Untap => max,
+                    // A band (CR 702.22c) is a judgement this heuristic does
+                    // not make: blocking one member blocks them all, which
+                    // can cost a flier its evasion, and the menu may hold
+                    // two creatures without banding, which one band cannot.
+                    // Attacking unbanded is always legal.
+                    ChoicePrompt::LeaveTapped | ChoicePrompt::Band { .. } => min,
                     ChoicePrompt::FirstPile => max.min(1),
                     _ if max <= 2 => max,
                     _ => min,
@@ -552,6 +584,12 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
                     self.damage_share(view, target, min, max)
                 }
+                // A creature's combat damage divided among two or more
+                // (CR 510.1c–d, 702.22j–k): what finishes each creature in
+                // turn, and the last takes the rest.
+                baylee_engine::choice::NumberPrompt::CombatDamage {
+                    source, recipient, ..
+                } => self.combat_share(view, source, recipient, min, max),
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
@@ -600,8 +638,13 @@ impl HeuristicAgent {
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
                 // prompt: ward counters the spell this seat has just cast.
-                YesNoPrompt::PayTax { mana } => {
-                    PlayerAction::YesNo(policy::pays_tax(view, mana, context))
+                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(policy::pays_tax(
+                    view,
+                    baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
+                    context,
+                )),
+                YesNoPrompt::PayMana { cost } => {
+                    PlayerAction::YesNo(policy::pays_tax(view, cost, context))
                 }
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
@@ -1203,6 +1246,48 @@ mod tests {
                         index: 0,
                         of: 2,
                         left: 4,
+                    },
+                },
+            );
+            assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+        }
+    }
+
+    /// An attacker's combat damage divided among its blockers (CR 510.1c):
+    /// what finishes each blocker in turn, the engine giving the last the
+    /// rest; from a deathtouch source one is lethal (CR 702.2c).
+    #[test]
+    fn a_combat_share_finishes_each_blocker_in_turn() {
+        use baylee_engine::choice::NumberPrompt;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut toucher = permanent(obj(8), me, 5);
+        toucher.keywords |= baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits();
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), them, 2),
+                permanent(obj(2), them, 3),
+                permanent(obj(9), me, 5),
+                toucher,
+            ],
+        );
+        for (source, expected, why) in [
+            (obj(9), 2, "a 2/2 takes two, and three are left for the 3/3"),
+            (obj(8), 1, "deathtouch: one is lethal"),
+        ] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 0,
+                    max: 5,
+                    reason: NumberPrompt::CombatDamage {
+                        source,
+                        recipient: obj(1),
+                        index: 0,
+                        of: 2,
+                        left: 5,
                     },
                 },
             );
@@ -2180,12 +2265,15 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
@@ -2327,6 +2415,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),
@@ -2416,6 +2506,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -2443,12 +2535,15 @@ mod tests {
             })
             .collect();
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(3),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
@@ -2480,12 +2575,15 @@ mod tests {
             })
             .collect();
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
@@ -2516,6 +2614,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
         let attack = PlayerAction::DeclareAttackers {
@@ -2562,6 +2662,8 @@ mod tests {
                 Defender::Player(PlayerId::new(1)),
                 Defender::Planeswalker(obj(2)),
             ],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         // Every profile, since the shallow ones ask the estimate too: until
         // they did, only the two that search took the kill.
@@ -2609,6 +2711,7 @@ mod tests {
             d == Defender::Player(PlayerId::new(0)) || d == Defender::Planeswalker(obj(4))
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
@@ -2619,6 +2722,8 @@ mod tests {
                     .map(|a| obj(a.0))
                     .collect(),
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         (v, pending)
@@ -2748,12 +2853,15 @@ mod tests {
             },
         ];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         for (name, profile) in PROFILES {
@@ -2804,6 +2912,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_ne!(
             answer(AIProfile::STEADY, &v, &pending),
@@ -2828,6 +2938,8 @@ mod tests {
             player: v.seat,
             attackers: vec![obj(1), obj(3)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         assert_ne!(
             answer(AIProfile::SHARP, &v, &pending),
@@ -3606,6 +3718,7 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: defender,
             attacker,
             blockers: (0..blockers)
@@ -3614,6 +3727,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         (v, pending)
@@ -3644,6 +3759,7 @@ mod tests {
             blocked: false,
         }];
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: defender,
             attacker: attacking,
             blockers: (0..blockers.len())
@@ -3652,6 +3768,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         (v, pending)
@@ -3691,6 +3809,8 @@ mod tests {
             player: v.seat,
             attackers: (1..=8).map(obj).collect(),
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         (v, pending)
     }
@@ -4322,6 +4442,7 @@ mod tests {
             blocked: false,
         });
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: v.seat,
             attacker: PlayerId::new(1),
             blockers: vec![
@@ -4334,6 +4455,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 },
             ],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         assert_eq!(
@@ -4416,6 +4539,7 @@ mod tests {
             v
         };
         let ask = |blockers: &[u32]| Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me,
             attacker: PlayerId::new(1),
             blockers: blockers
@@ -4430,6 +4554,8 @@ mod tests {
                 min_blockers: 2,
                 max_blockers: u32::MAX,
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         for blockers in [&[2, 3][..], &[2]] {
             let pending = ask(blockers);
@@ -4769,6 +4895,8 @@ mod tests {
             player: v.seat,
             attackers: (1..=count).map(obj).collect(),
             defenders: vec![Defender::Player(victim), Defender::Planeswalker(obj(200))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
         (v, pending)
     }
@@ -4947,14 +5075,18 @@ mod tests {
                 blocked: false,
             }],
             blockers: vec![],
+            bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(0),
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
 
@@ -4981,14 +5113,18 @@ mod tests {
                 blocked: false,
             }],
             blockers: vec![],
+            bands: vec![],
         };
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(0),
             attacker: PlayerId::new(1),
             blockers: vec![baylee_engine::choice::BlockOption {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
 
@@ -5011,6 +5147,8 @@ mod tests {
             player: PlayerId::new(0),
             attackers: vec![obj(1), obj(2)],
             defenders: vec![Defender::Player(PlayerId::new(1))],
+            required: Vec::new(),
+            limits: Vec::new(),
         };
 
         let PlayerAction::DeclareAttackers { attackers } = agent().act(&v, &pending) else {
@@ -5803,6 +5941,26 @@ mod tests {
             panic!("expected a card choice")
         };
         assert_eq!(objects.len(), 1, "a short menu is otherwise taken whole");
+    }
+
+    /// Under an untap limit (Static Orb) the menu is what untaps, so the
+    /// agent untaps as many as the limit lets through rather than the `min`
+    /// a long menu otherwise gets.
+    #[test]
+    fn an_untap_limit_is_answered_with_as_many_as_it_allows() {
+        let v = view(0, &[20, 20], vec![]);
+        let menu = Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: (10..15).map(obj).collect(),
+            min: 1,
+            max: 3,
+            prompt: ChoicePrompt::Untap,
+            total: None,
+        };
+        let PlayerAction::ChooseObjects { objects } = agent().act(&v, &menu) else {
+            panic!("expected a card choice")
+        };
+        assert_eq!(objects.len(), 3, "everything the limit lets untap");
     }
 
     /// The three modes of Sheoldred's Edict, as the engine offers them.

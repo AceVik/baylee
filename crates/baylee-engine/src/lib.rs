@@ -66,6 +66,9 @@ pub mod effects;
 /// Replacement rules that multiply, CR 614: Doubling Season and its kin.
 pub mod replacement;
 
+/// Prevention shields, CR 615: "prevent the next N damage", Fog.
+pub mod prevention;
+
 /// Endless-loop detection for decision-free segments (house rule).
 pub mod loops;
 

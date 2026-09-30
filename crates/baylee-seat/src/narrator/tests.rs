@@ -474,6 +474,7 @@ fn a_block_names_only_what_may_block_what() {
         blocked: false,
     }];
     let pending = Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: ME,
         attacker: THEM,
         blockers: vec![BlockOption {
@@ -481,6 +482,8 @@ fn a_block_names_only_what_may_block_what() {
             attackers: vec![id(45)],
         }],
         bounds: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
     };
     let request = request(
         view,

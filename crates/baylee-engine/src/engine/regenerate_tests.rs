@@ -493,3 +493,66 @@ fn a_regenerated_attacker_leaves_combat() {
         "the blocker took the Troll's four, so combat damage did happen"
     );
 }
+
+/// Only a permanent is destroyed (CR 701.8a): a destruction that names a
+/// card which has gone back to its owner's hand leaves it there. Stone
+/// Giant's delayed "destroy that creature" is the effect that can name one.
+#[test]
+fn a_destruction_of_a_card_that_is_no_longer_a_permanent_does_nothing() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, _hollow, elf) = shielded(83, 0);
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    let _ = state.move_object(
+        elf,
+        crate::zone::ZoneLocation::Hand(p0),
+        crate::zone::ZonePosition::Top,
+        crate::event::Cause::Effect,
+    );
+    crate::sba::destroy(state, elf);
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(crate::zone::Zone::Hand),
+        "the card stays in its owner's hand"
+    );
+}
+
+/// "It can't be regenerated this turn" (Disintegrate, CR 701.19c): a
+/// shield that was already standing is not applied to a plain destruction
+/// for the rest of the turn — and only for that object, so the record names
+/// the version the effect saw.
+///
+/// The same `sba::destroy` as every other test here, not
+/// `destroy_no_regen`: lethal damage from a later source is a destruction
+/// no card calls unregeneratable, and the turn's record is what stops the
+/// shield.
+#[test]
+fn a_creature_that_cant_be_regenerated_this_turn_is_destroyed_through_its_shield() {
+    let p0 = PlayerId::new(0);
+    let (mut engine, hollow, elf) = shielded(79, 1);
+    regenerate(&mut engine, hollow, elf);
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    let version = state.object(elf).expect("the Elf is there").version;
+    state.per_turn.cant_regenerate.push((elf, version + 1));
+    crate::sba::destroy(state, elf);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "a record for another version of the object leaves this one's shield alone"
+    );
+
+    let (mut engine, hollow, elf) = shielded(79, 1);
+    regenerate(&mut engine, hollow, elf);
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    let version = state.object(elf).expect("the Elf is there").version;
+    state.per_turn.cant_regenerate.push((elf, version));
+    crate::sba::destroy(state, elf);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the shield stands and is not applied"
+    );
+}

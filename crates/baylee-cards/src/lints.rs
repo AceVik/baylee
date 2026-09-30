@@ -779,7 +779,7 @@ fn as_granted_activated(modifier: &Modifier) -> Option<(bool, &'static [Effect])
 
 /// Whether an effect adds mana.
 fn makes_mana(effect: &Effect) -> bool {
-    matches!(effect, Effect::AddMana { .. })
+    matches!(effect, Effect::AddMana { .. } | Effect::AddManaFor { .. })
 }
 
 /// Whether an activated ability's `mana_ability` flag disagrees with what
@@ -896,6 +896,7 @@ fn color_of(mana: ManaColor) -> Option<Color> {
 fn mana_symbol_colors(effect: &Effect) -> ColorSet {
     let union = |set: ColorSet, effect: &Effect| set.union(mana_symbol_colors(effect));
     match effect {
+        Effect::AddManaFor { color, .. } => color_of(*color).map_or(ColorSet::EMPTY, ColorSet::of),
         Effect::AddMana { source, .. } => match source {
             ManaSource::Fixed(mana) => color_of(*mana).map_or(ColorSet::EMPTY, ColorSet::of),
             ManaSource::Choice(colors) => {
@@ -1379,6 +1380,7 @@ mod tests {
             effects: &WRATH,
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert!(target_reuse(&wrath).is_none(), "a wrath is not a mistake");
 
@@ -1387,6 +1389,7 @@ mod tests {
             effects: &OTHER_SWEEP,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
             second_targets: None,
+            condition: None,
         };
         assert!(
             target_reuse(&tutor).is_none(),
@@ -1404,6 +1407,7 @@ mod tests {
             effects: &BURN_EVERY_ONE,
             targets: Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
             second_targets: None,
+            condition: None,
         };
         assert!(
             target_reuse(&broken).is_some(),
@@ -1583,6 +1587,7 @@ mod tests {
             }],
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert_eq!(
             layer_fault(&via_effect),
@@ -1610,6 +1615,7 @@ mod tests {
             }],
             targets: None,
             second_targets: None,
+            condition: None,
         };
         assert_eq!(
             layer_fault(&nested).map(|(declared, derived, _)| (declared, derived)),
@@ -1690,8 +1696,10 @@ mod tests {
                     .flat_map(|b| b.effects.iter().flat_map(declared_layers))
                     .map(|(_, modifier)| modifier);
                 for modifier in printed.into_iter().chain(granted) {
-                    let (Modifier::DrawLimitPerTurn { who, .. } | Modifier::CantLoseLife { who }) =
-                        modifier
+                    let (Modifier::DrawLimitPerTurn { who, .. }
+                    | Modifier::CantLoseLife { who }
+                    | Modifier::SkipUntapStep { who }
+                    | Modifier::UntapAtMost { who, .. }) = modifier
                     else {
                         continue;
                     };
@@ -1700,11 +1708,13 @@ mod tests {
                         PlayerRel::You
                         | PlayerRel::Opponent
                         | PlayerRel::EachOpponent
-                        | PlayerRel::EachPlayer => true,
+                        | PlayerRel::EachPlayer
+                        | PlayerRel::ActivePlayer => true,
                         PlayerRel::Chosen
                         | PlayerRel::ControllerOfTarget
                         | PlayerRel::ControllerOfEvent
-                        | PlayerRel::DamagedPlayer => false,
+                        | PlayerRel::DamagedPlayer
+                        | PlayerRel::ControllerOfAttached => false,
                     };
                     if !answerable {
                         wrong.push(format!("{}: {modifier:?}", def.name()));
@@ -1839,6 +1849,7 @@ mod tests {
                     effects: DIVIDE,
                     targets: targets(4),
                     second_targets: None,
+                    condition: None,
                 },
             ),
         ] {
@@ -3308,6 +3319,7 @@ mod tests {
         // entered the pool carrying a question this sweep could not see.
         let asks = |m: &EnterModifier| match m {
             EnterModifier::ChooseSubtype
+            | EnterModifier::ChooseBasicLandType
             | EnterModifier::ChooseCardName
             | EnterModifier::ChooseColor
             | EnterModifier::ChooseColorExcept(_)

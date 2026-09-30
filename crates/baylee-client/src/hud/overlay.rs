@@ -410,7 +410,7 @@ pub fn sync_overlay(
         .as_ref()
         .filter(|_| !over)
         .map(|m| (m.card, m.modes.len(), m.pick));
-    let prompt = duel.headline(lang);
+    let prompt = duel.headline(lang, &texts);
     // A refusal used to *stand in* for the headline, which meant it was only
     // ever seen when nothing was being asked — and the engine refuses an
     // answer precisely while a question is standing. The player clicked, the
@@ -1997,12 +1997,15 @@ mod tests {
             let attacker = ObjectId::new(4, 0);
             let pending = if blocking {
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: PlayerId::new(0),
                     attacker: PlayerId::new(1),
                     blockers: vec![baylee_engine::choice::BlockOption {
                         blocker: creature,
                         attackers: vec![attacker],
                     }],
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                     bounds: Vec::new(),
                 }
             } else {
@@ -2010,6 +2013,8 @@ mod tests {
                     player: PlayerId::new(0),
                     attackers: vec![creature],
                     defenders: vec![Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 }
             };
             let mut duel = duel_with(false);

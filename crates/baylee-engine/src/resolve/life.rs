@@ -3,6 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
+use crate::prevention::{Redirected, Shield, ShieldKind, Shielded, redirect};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
@@ -107,6 +108,87 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             damage_each(state, res, &amount, filter);
             None
         }
+        Effect::PreventNextDamage { target, amount } => {
+            let n = amount2(&amount, state, you, res);
+            if n == 0 {
+                return None;
+            }
+            for recipient in recipients(state, res, you, target) {
+                let protects = match recipient {
+                    DamageTarget::Player(player) => Shielded::Player(player),
+                    DamageTarget::Object(id) => match state.object(id) {
+                        Some(obj) => Shielded::Object(id, obj.version),
+                        None => continue,
+                    },
+                };
+                state.shields.push(Shield {
+                    protects,
+                    kind: ShieldKind::Next(n),
+                    controller: you,
+                });
+            }
+            None
+        }
+        Effect::PreventAllCombatDamageThisTurn => {
+            state.shields.push(Shield {
+                protects: Shielded::Everything,
+                kind: ShieldKind::AllCombat,
+                controller: you,
+            });
+            None
+        }
+        // The source is chosen as this resolves (CR 609.7a), and the choice
+        // is an instruction, so `min: 1`; with no source to choose there is
+        // no shield and no question (CR 609.3).
+        Effect::PreventNextFromChosenSource {
+            sources,
+            combat_only,
+            all_but,
+            gain_life,
+        } => {
+            let options = crate::prevention::source_options(state, sources, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ShieldFromChosenSource {
+                sources,
+                combat_only,
+                all_but,
+                gain_life,
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+        // Jade Monolith: the creature is the target (still legal, or this
+        // would not be resolving), and the source is chosen now, as the
+        // prevention sibling's is (CR 609.7a) — any source at all.
+        Effect::RedirectNextFromChosenSource { target } => {
+            let DamageTarget::Object(id) = *recipients(state, res, you, target).first()? else {
+                return None;
+            };
+            let version = state.object(id)?.version;
+            let options = crate::prevention::source_options(state, &Filter::Any, you, res.source);
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RedirectFromChosenSource {
+                protects: Shielded::Object(id, version),
+            });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         _ => unreachable!("not a life/damage effect"),
     }
 }
@@ -125,40 +207,58 @@ fn deal_to_spec(
     n: i16,
     target: TargetSpec,
 ) {
-    match target {
-        TargetSpec::Player(rel) => {
-            for player in super::players_of(rel, state, you, res) {
-                deal_to_player(state, source, player, n);
-            }
+    for recipient in recipients(state, res, you, target) {
+        match recipient {
+            DamageTarget::Player(player) => deal_to_player(state, source, player, n),
+            DamageTarget::Object(id) => deal_to_object_with_loyalty(state, id, n, source),
         }
+    }
+}
+
+/// Whom `target` names as this resolves: the objects and players an
+/// effect that deals damage deals it to, and an effect that prevents
+/// damage shields, in the order they are dealt to.
+fn recipients(
+    state: &GameState,
+    res: &Resolution,
+    you: PlayerId,
+    target: TargetSpec,
+) -> Vec<DamageTarget> {
+    let players = |list: baylee_core::ids::SeatSet| list.iter().map(DamageTarget::Player);
+    match target {
+        TargetSpec::Player(rel) => super::players_of(rel, state, you, res)
+            .into_iter()
+            .map(DamageTarget::Player)
+            .collect(),
         // "Any target" (CR 115.4) chose from one set spanning both,
         // so both halves are dealt to — a spell with two any-targets
         // can have picked a creature and a face.
-        TargetSpec::AnyTarget => {
-            for &target_id in &res.targets.clone() {
-                deal_to_object_with_loyalty(state, target_id, n, source);
-            }
-            for player in res.target_players.iter() {
-                deal_to_player(state, source, player, n);
-            }
-        }
+        TargetSpec::AnyTarget => res
+            .targets
+            .iter()
+            .copied()
+            .map(DamageTarget::Object)
+            .chain(players(res.target_players))
+            .collect(),
         // "Target opponent or planeswalker": one choice over both lists, so
         // whichever half it landed in is dealt to.
-        TargetSpec::OpponentOrObject(_) => {
-            if let Some(&target_id) = res.targets.first() {
-                deal_to_object_with_loyalty(state, target_id, n, source);
-            }
-            for player in res.target_players.iter() {
-                deal_to_player(state, source, player, n);
-            }
-        }
+        TargetSpec::OpponentOrObject(_) => res
+            .targets
+            .first()
+            .copied()
+            .map(DamageTarget::Object)
+            .into_iter()
+            .chain(players(res.target_players))
+            .collect(),
         // Only ever a second instance of "target": the damage goes to what
         // that instance chose, if it chose anything ("up to one").
-        TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
-            if let Some(&target_id) = res.second_targets.first() {
-                deal_to_object_with_loyalty(state, target_id, n, source);
-            }
-        }
+        TargetSpec::ObjectOfFirstTargetsPlayer(_) => res
+            .second_targets
+            .first()
+            .copied()
+            .map(DamageTarget::Object)
+            .into_iter()
+            .collect(),
         // A chosen player is a player. The choice landed in
         // `target_players`, so reading `targets` here would deal to
         // whatever object the spell also happened to point at — or,
@@ -167,11 +267,12 @@ fn deal_to_spec(
         // `Player(Chosen)` with the choice on the ability's
         // `TargetReq`, which is why the catch-all that used to be
         // here could hold this and stay green.
-        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => {
-            for player in res.target_players.iter() {
-                deal_to_player(state, source, player, n);
-            }
-        }
+        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => players(res.target_players).collect(),
+        // "This creature": the source, which nothing chose (#147, the rule
+        // `zones::spec_object` keeps for the moving effects). Rock Hydra's
+        // "prevent the next 1 damage that would be dealt to this creature"
+        // read `targets`, found nothing, and shielded nobody.
+        TargetSpec::ThisObject => vec![DamageTarget::Object(res.source)],
         // Everything else names an object, and the damage goes to
         // the one that was chosen. Spelled out rather than left to
         // a `_` arm: a new player-flavoured `TargetSpec` would land
@@ -185,14 +286,15 @@ fn deal_to_spec(
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
-        | TargetSpec::ThisObject
         | TargetSpec::AbilityOnStack(_)
         | TargetSpec::SpellOrAbility(_)
-        | TargetSpec::EventObject => {
-            if let Some(&target_id) = res.targets.first() {
-                deal_to_object_with_loyalty(state, target_id, n, source);
-            }
-        }
+        | TargetSpec::EventObject => res
+            .targets
+            .first()
+            .copied()
+            .map(DamageTarget::Object)
+            .into_iter()
+            .collect(),
     }
 }
 
@@ -327,11 +429,48 @@ pub(super) fn deal_to_object_with_loyalty(
     n: i16,
     source: ObjectId,
 ) {
+    deal_to_object(state, target, n, source, &mut Redirected::default());
+}
+
+/// Damage a redirection moved (CR 614.9), dealt through the door for its
+/// new recipient with the redirections that already moved it (CR 614.5).
+fn deal_redirected(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    n: i16,
+    done: &mut Redirected,
+) {
+    match recipient {
+        DamageTarget::Player(player) => deal_to_player_after(state, source, player, n, done),
+        DamageTarget::Object(id) => deal_to_object(state, id, n, source, done),
+    }
+}
+
+fn deal_to_object(
+    state: &mut GameState,
+    target: ObjectId,
+    n: i16,
+    source: ObjectId,
+    done: &mut Redirected,
+) {
     if n <= 0 {
         return;
     }
     // Protection (CR 702.16e): matching sources deal no damage.
     if eval::protected_from(state, target, source) {
+        return;
+    }
+    let n = crate::combat::shielded(state, source, DamageTarget::Object(target), n, false);
+    if n <= 0 {
+        return;
+    }
+    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
+        deal_redirected(state, source, to, n, done);
+        return;
+    }
+    let n = crate::combat::absorbed(state, source, target, n, false);
+    if n <= 0 {
         return;
     }
     let is_walker = state.object(target).is_some_and(|o| {
@@ -377,16 +516,29 @@ pub(super) fn deal_to_object_with_loyalty(
 }
 
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
+    deal_to_player_after(state, source, player, n, &mut Redirected::default());
+}
+
+fn deal_to_player_after(
+    state: &mut GameState,
+    source: ObjectId,
+    player: PlayerId,
+    n: i16,
+    done: &mut Redirected,
+) {
     if n <= 0 {
         return;
     }
-    state.change_life(player, -i32::from(n), Cause::Effect);
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Player(player),
-        amount: n as u16,
-        is_combat: false,
-    });
+    let n = crate::combat::shielded(state, source, DamageTarget::Player(player), n, false);
+    if n <= 0 {
+        return;
+    }
+    // After the shields and before the life, as combat's door does it.
+    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
+        deal_redirected(state, source, to, n, done);
+        return;
+    }
+    state.damage_player(source, player, n as u16, false, Cause::Effect);
 }
 
 #[cfg(test)]
@@ -498,6 +650,54 @@ mod tests {
     /// damage to a player" reads. A door recording only the life change
     /// would leave every damage trigger blind, and one recording only the
     /// damage would leave every life trigger blind.
+    /// Both writers here ask the prevention shields (CR 615.7): damage an
+    /// effect deals to a shielded player or permanent is prevented before
+    /// anything is lost, marked or journalled, and what the shield does not
+    /// cover is dealt. On the old writers the player lost all 3 and the
+    /// creature was marked with all 3.
+    #[test]
+    fn an_effects_damage_meets_the_prevention_shields() {
+        let mut state = state();
+        let source = permanent(&mut state, "Shock");
+        let creature = permanent(&mut state, "Grizzly Bears");
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(2),
+            controller: me(),
+        });
+        let version = state.object(creature).unwrap().version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(creature, version),
+            kind: ShieldKind::Next(1),
+            controller: me(),
+        });
+        let start = life(&state, me());
+        let entries = state.journal.len();
+
+        deal_to_player(&mut state, source, me(), 3);
+        assert_eq!(life(&state, me()), start - 1, "2 of the 3 prevented");
+        assert!(matches!(
+            state.journal.entries().last().expect("an entry").event,
+            GameEvent::DamageDealt { amount: 1, .. }
+        ));
+
+        deal_to_object_with_loyalty(&mut state, creature, 3, source);
+        assert_eq!(state.object(creature).unwrap().damage, 2);
+        assert!(state.shields.is_empty(), "both used up");
+
+        // Damage a shield prevents in full is never dealt at all.
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(5),
+            controller: me(),
+        });
+        let entries_now = state.journal.len();
+        deal_to_player(&mut state, source, me(), 3);
+        assert_eq!(life(&state, me()), start - 1);
+        assert_eq!(state.journal.len(), entries_now, "no event, no life change");
+        assert!(entries_now > entries);
+    }
+
     #[test]
     fn damage_to_a_player_is_a_life_change_and_a_damage_event() {
         let mut state = state();
@@ -580,6 +780,76 @@ mod tests {
             !state.can_pay_life(me(), 1) && state.can_pay_life(me(), 0),
             "nor can life be paid, except none at all (CR 119.8, CR 119.4b)"
         );
+    }
+
+    /// "The damage dealt to you this turn" (Simulacrum) is damage and only
+    /// damage: what reached the player past the shields (CR 615.1), whether
+    /// or not it cost life, and not a payment of life or a gain after it.
+    /// The turn's reset starts it again. On the old doors nothing counted it,
+    /// and `Amount::DamageDealtToYouThisTurn` reads what this door counts.
+    #[test]
+    fn the_damage_dealt_to_a_player_this_turn_is_counted_where_it_is_dealt() {
+        let mut state = state();
+        let source = permanent(&mut state, "Shock");
+        let seat = me().get() as usize;
+        let dealt = |state: &GameState| {
+            crate::eval::amount(
+                &baylee_cards_dsl::Amount::DamageDealtToYouThisTurn,
+                state,
+                me(),
+                source,
+                None,
+            )
+        };
+
+        deal_to_player(&mut state, source, me(), 3);
+        assert_eq!(state.per_turn.damage_dealt_to[seat], 3);
+        assert_eq!(dealt(&state), 3, "the amount reads the tally");
+        gain_life(&mut state, me(), 1);
+        state.change_life(me(), -2, Cause::Cost);
+        assert_eq!(dealt(&state), 3, "a gain and a payment are no damage");
+
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(1),
+            controller: me(),
+        });
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(dealt(&state), 4, "what the shield let through");
+        state.shields.push(Shield {
+            protects: Shielded::Player(me()),
+            kind: ShieldKind::Next(5),
+            controller: me(),
+        });
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(dealt(&state), 4, "prevented in full, never dealt");
+        state.shields.clear(); // three of the five are left
+
+        let modifier = Modifier::CantLoseLife {
+            who: baylee_cards_dsl::PlayerRel::EachPlayer,
+        };
+        state.effects.register(ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: me(),
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::UntilEndOfTurn,
+            filter: EffectFilter::Dsl(&Filter::Any),
+            modifier,
+        });
+        let before = life(&state, me());
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(life(&state, me()), before, "no life moved");
+        assert_eq!(dealt(&state), 6, "and the damage was still dealt");
+
+        assert_eq!(
+            state.per_turn.damage_dealt_to[1], 0,
+            "the other seat's is its own"
+        );
+        state.per_turn.reset();
+        assert_eq!(dealt(&state), 0, "a new turn counts from nothing");
     }
 
     /// A point of damage and a point of life gained back leave the total
@@ -734,6 +1004,49 @@ mod tests {
         deal_to_object_with_loyalty(&mut state, unprotected, 3, source);
         assert_eq!(state.object(unprotected).expect("still there").damage, 3);
         assert_eq!(state.journal.len(), entries + 1);
+    }
+
+    /// Maze of Ith's two modifiers prevent combat damage only ("Prevent
+    /// all combat damage that would be dealt to and dealt by that
+    /// creature"), as Kor Haven's, the other card that carries one, does.
+    /// Combat's doors ask them; an effect's damage is dealt.
+    #[test]
+    fn maze_of_ith_s_modifiers_leave_an_effect_s_damage_alone() {
+        let mut state = state();
+        let source = permanent(&mut state, "Bolt");
+        let bear = permanent(&mut state, "Bear");
+        for (on, modifier) in [
+            (bear, Modifier::PreventDamageToIt),
+            (source, Modifier::PreventDamageFromIt),
+        ] {
+            let version = state.object(on).expect("just made it").version;
+            state.effects.register(ContinuousEffect {
+                // `register` assigns the real one.
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(on),
+                controller: me(),
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp: 1,
+                duration: Duration::UntilEndOfTurn,
+                filter: EffectFilter::ObjectIs(on, version),
+                modifier,
+            });
+        }
+
+        deal_to_object_with_loyalty(&mut state, bear, 3, source);
+        assert_eq!(
+            state.object(bear).expect("still there").damage,
+            3,
+            "neither modifier stops an effect's damage to the creature"
+        );
+        let before = life(&state, me());
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(
+            life(&state, me()),
+            before - 2,
+            "nor the creature's damage to a player"
+        );
     }
 
     /// A permanent of `types` on `seat`'s side, and nothing else about it.

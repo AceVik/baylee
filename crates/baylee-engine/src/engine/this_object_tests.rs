@@ -153,6 +153,74 @@ fn naming_your_own_source_asks_no_question() {
     );
 }
 
+const SHIELDBEARER: u32 = 1_402;
+
+/// `{0}: Prevent the next 1 damage that would be dealt to this permanent.`
+/// Rock Hydra's `{R}` sentence with the price taken off.
+static SHIELD_SELF: &[AbilityDef] = &[AbilityDef::Activated {
+    cost: Cost::FREE,
+    effects: &[Effect::PreventNextDamage {
+        target: TargetSpec::ThisObject,
+        amount: baylee_cards_dsl::Amount::Fixed(1),
+    }],
+    targets: None,
+    second_targets: None,
+    timing: ActivationTiming::InstantSpeed,
+    mana_ability: false,
+    zone: ActivationZone::Battlefield,
+    limit: ActivationLimit::Unlimited,
+    cost_reduction: None,
+}];
+
+/// The same rule on the damage side (`resolve::life::recipients`): a shield
+/// on "this creature" is on the source. Reading `targets` there, as the
+/// object specs do, found nothing and put the shield on nobody.
+#[test]
+fn a_shield_on_its_own_source_is_on_the_source() {
+    let me = PlayerId::new(0);
+    let lookup = SyntheticLookup::new(vec![land(SHIELDBEARER, "Shieldbearer", SHIELD_SELF)]);
+    let mut engine = Engine::new(&preset(3, &[SHIELDBEARER]), lookup).expect("the game starts");
+    keep_mulligans(&mut engine);
+    for _ in 0..400 {
+        if matches!(engine.pending(), Pending::Priority { player, .. } if *player == me) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(walk_past(&mut engine, &pending), "walked past {pending:?}");
+    }
+    let source = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .first()
+        .expect("the bench seated one permanent");
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 0,
+            },
+        )
+        .expect("the ability activates");
+    while !engine.state().zones.list(ZoneLocation::Stack).is_empty() {
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected priority, got {:?}", engine.pending())
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    let version = engine.state().object(source).expect("seated").version;
+    assert!(
+        engine
+            .state()
+            .shields
+            .iter()
+            .any(|s| s.protects == crate::prevention::Shielded::Object(source, version)),
+        "no shield on the source: {:?}",
+        engine.state().shields
+    );
+}
+
 /// Which effects may be spelled with `ThisObject`, held against the pool.
 ///
 /// The spec is read by [`resolve::zones::spec_object`] and by nothing else,
@@ -185,6 +253,10 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "Destroy { target: ThisObject, no_regen: true }",
         "GraveyardToBattlefield { target: ThisObject }",
         "Regenerate { target: ThisObject }",
+        // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
+        // to this creature": `resolve::life::recipients`. Left open, the
+        // amount after the target is not this list's business.
+        "PreventNextDamage { target: ThisObject",
     ];
 
     let mut unread = Vec::new();
@@ -255,10 +327,22 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "spec: EventObject",
         "GraveyardToBattlefield { target: EventObject",
         "PutOnBottomOfLibraryFromGraveyard { target: EventObject",
+        // Stone Giant's delayed "destroy that creature": `Destroy` reads
+        // its spec through `spec_objects`, which asks `spec_object`.
+        "Destroy { target: EventObject",
+        // Dragon Whelp's delayed "sacrifice this creature": `spec_object`.
+        "SacrificeObject { target: EventObject",
+        // Cockatrice's delayed trigger remembers the block's other creature:
+        // `AtEndOfCombat` reads `about` through `spec_object`.
+        "AtEndOfCombat { about: EventObject",
         // Pyrogoyf's "that creature deals damage equal to its power": the
         // variant names the event object itself and `resolve::life` reads
         // `res.event_object`; its `target` is the damage's recipient.
         "EventObjectDealsDamageEqualToPower",
+        // Berserk's delayed "if it attacked this turn": the variant asks
+        // `res.event_object` itself, and the destroy inside it is counted
+        // above.
+        "IfEventObjectMatches",
     ];
 
     let mut unread = Vec::new();

@@ -26,7 +26,7 @@ use crate::eval;
 use crate::object::{Characteristics, GameObject};
 use crate::state::GameState;
 use baylee_cards_dsl::{Filter, KeywordSet, LAYERS, Layer, Modifier};
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{Defender, ObjectId, PlayerId};
 use baylee_core::types::SubtypeSet;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -452,7 +452,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::RemoveType(_)
                 | Modifier::AddSubtype(_)
                 | Modifier::AllCreatureTypes
+                | Modifier::ReplaceCreatureTypes(_)
                 | Modifier::AllBasicLandTypes
+                | Modifier::SetLandType(_)
+                | Modifier::SetLandTypeToChosen
                 | Modifier::BecomeType { .. }
                 | Modifier::AddTypeIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
@@ -467,13 +470,17 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::RemoveKeyword(_)
                 | Modifier::LoseKeywords
                 | Modifier::LoseAllAbilities
+                | Modifier::SetLandType(_)
+                | Modifier::SetLandTypeToChosen
                 | Modifier::AddKeywordIfCountersAtLeast { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
         Filter::ToughnessAtMost(_)
         | Filter::ToughnessAtLeast(_)
         | Filter::PowerAtLeast(_)
-        | Filter::PowerAtMost(_) => matches!(
+        | Filter::PowerAtMost(_)
+        | Filter::PowerLessThanSourcePower
+        | Filter::ToughnessLessThanSourcePower => matches!(
             modifier,
             Modifier::ModifyPT(..)
                 | Modifier::SetPT(..)
@@ -481,14 +488,18 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
                 | Modifier::SwitchPT
                 | Modifier::CharacteristicPT { .. }
                 | Modifier::ModifyPTPerCount { .. }
+                | Modifier::ModifyPTHalfCount(_)
                 | Modifier::ModifyPTPerGraveyardCard { .. }
                 | Modifier::BecomeCopyOf(_)
         ),
         // Layer 2 moves a permanent from one side of the table to the
-        // other, which is the whole of what these two read.
-        Filter::ControlledByYou | Filter::ControlledByOpponent => {
-            matches!(modifier, Modifier::GainControl)
-        }
+        // other, which is the whole of what these read: a change of
+        // control also restarts how long it has been controlled (CR 302.6).
+        Filter::ControlledByYou
+        | Filter::ControlledByOpponent
+        | Filter::ControlledByActivePlayer
+        | Filter::ControlledByDefendingPlayer
+        | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f))
         }
@@ -515,21 +526,26 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::Tapped
         | Filter::Untapped
         | Filter::Attacking
+        | Filter::Blocking
+        | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        | Filter::AttackedThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::IsAttached
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
+        | Filter::CmcExactlyX
         | Filter::CmcAtMostColorsSpent
         | Filter::CmcAtLeast(_)
         | Filter::InZone(_) => false,
     }
 }
 
-/// The permanents `controller` controls that match `filter`, as a count for
-/// a P/T that grows with the board.
+/// The permanents `controller` controls that match `filter` — every
+/// permanent that does, with no controller — as a count for a P/T that grows
+/// with the board. `you` is who "you" is to the filter.
 ///
 /// CR 613.1: every earlier layer is already applied, and for the object
 /// being projected that result lives in `c` and not yet in its cache —
@@ -549,11 +565,47 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
 /// dependency: CR 613.8a asks for two effects in the same layer or
 /// sublayer, and a count in layer 7 and the type change it reads in layer 4
 /// are not. Phased-out permanents are not there to count (CR 702.26b).
+/// CR 305.7: a land's subtype set to the basic land type `subtype`. Its old
+/// land types go and the new one comes, and it loses every ability its rules
+/// text gives it — the keywords here, the rest through `rules_text_lost`,
+/// which `GameObject::abilities` reads. Layer 4 comes before layer 6, so a
+/// keyword another effect grants still lands, whatever its timestamp. What
+/// the land makes is now its new type's mana alone.
+fn set_land_type(c: &mut Characteristics, subtype: baylee_core::ids::SubtypeId) {
+    c.subtypes = c
+        .subtypes
+        .difference(baylee_core::generated::subtypes::ALL_LAND_TYPES);
+    c.subtypes.insert(subtype);
+    c.keywords = KeywordSet::EMPTY;
+    c.rules_text_lost = true;
+    c.produced_colors = basic_land_color(subtype);
+    c.produced_colorless = false;
+    c.produced_chosen = false;
+}
+
+/// The colour of mana a basic land type's ability makes (CR 305.6); none for
+/// any other subtype.
+fn basic_land_color(subtype: baylee_core::ids::SubtypeId) -> baylee_core::color::ColorSet {
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::generated::subtypes::land;
+    [
+        (land::PLAINS, Color::White),
+        (land::ISLAND, Color::Blue),
+        (land::SWAMP, Color::Black),
+        (land::MOUNTAIN, Color::Red),
+        (land::FOREST, Color::Green),
+    ]
+    .into_iter()
+    .find(|(basic, _)| *basic == subtype)
+    .map_or(ColorSet::EMPTY, |(_, color)| ColorSet::of(color))
+}
+
 fn count_controlled(
     state: &GameState,
     obj: &GameObject,
     c: &Characteristics,
-    controller: PlayerId,
+    controller: Option<PlayerId>,
+    you: PlayerId,
     filter: &baylee_cards_dsl::Filter,
     read_board: &mut bool,
 ) -> usize {
@@ -562,11 +614,11 @@ fn count_controlled(
         .battlefield_seen()
         .filter_map(|id| state.object(id))
         .filter(|o| {
-            o.controller == controller
+            controller.is_none_or(|p| o.controller == p)
                 && if o.id == obj.id {
-                    crate::eval::matches_projected(filter, state, o, c, controller, o.id)
+                    crate::eval::matches_projected(filter, state, o, c, you, o.id)
                 } else {
-                    crate::eval::matches(filter, state, o, controller, o.id)
+                    crate::eval::matches(filter, state, o, you, o.id)
                 }
         })
         .count()
@@ -587,12 +639,47 @@ fn pt_count(
     *read_board = true;
     let n = match count {
         baylee_cards_dsl::PtCount::YouControl(filter) => {
-            count_controlled(state, obj, c, you, filter, read_board)
+            count_controlled(state, obj, c, Some(you), you, filter, read_board)
+        }
+        baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
+            count_controlled(state, obj, c, None, you, filter, read_board)
+        }
+        baylee_cards_dsl::PtCount::DefendingPlayerControls(filter) => {
+            match defending_player_of(state, obj.id) {
+                Some(defending) => {
+                    count_controlled(state, obj, c, Some(defending), you, filter, read_board)
+                }
+                None => 0,
+            }
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
     };
     i16::try_from(n).unwrap_or(i16::MAX)
+}
+
+/// The defending player for `attacker` (CR 508.5's first sentence): the
+/// player it attacks, or the controller of the planeswalker it attacks —
+/// the one it was declared attacking, even after that planeswalker has left
+/// (CR 506.4c keeps the creature attacking), so its last controller then:
+/// in a two-player game the defending player stays the nonactive player
+/// for the whole combat phase (CR 506.2).
+///
+/// `None` while it is not attacking. CR 508.5's second sentence (a creature
+/// removed from combat still refers to the player it was attacking) is not
+/// modelled, because combat keeps no record of an attacker it removed; the
+/// one card counting this way, Gaea's Liege, reads it only while it is
+/// attacking, and its other sentence applies once it is not.
+fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId> {
+    let info = state
+        .combat
+        .attackers()
+        .iter()
+        .find(|info| info.creature == attacker)?;
+    match info.defending {
+        Defender::Player(player) => Some(player),
+        Defender::Planeswalker(walker) => state.last_known_controller(walker),
+    }
 }
 
 /// The number of card types (CR 205.2a) among cards in all graveyards.
@@ -689,13 +776,23 @@ fn apply(
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            let count = count_controlled(state, obj, c, fx.controller, filter, read_board);
+            let count = count_controlled(state, obj, c, Some(fx.controller), fx.controller, filter, read_board);
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
             }
             if let Some(tou) = &mut c.toughness {
                 *tou = tou.saturating_add(count.saturating_mul(*t));
+            }
+        }
+        Modifier::ModifyPTHalfCount(count) => {
+            // Half the count, rounded down for power and up for toughness.
+            let n = pt_count(state, obj, c, fx.controller, *count, read_board).max(0);
+            if let Some(pow) = &mut c.power {
+                *pow = pow.saturating_add(n / 2);
+            }
+            if let Some(tou) = &mut c.toughness {
+                *tou = tou.saturating_add(n - n / 2);
             }
         }
         Modifier::ModifyPTPerGraveyardCard { filter, p, t } => {
@@ -738,6 +835,10 @@ fn apply(
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
+        Modifier::ReplaceCreatureTypes(s) => {
+            c.subtypes = c.subtypes.difference(SubtypeSet::ALL_CREATURE);
+            c.subtypes.insert(*s);
+        }
         Modifier::BecomeType { types, subtype } => {
             let kept = c.types.intersection(baylee_core::types::TypeSet::INSTANT.union(baylee_core::types::TypeSet::SORCERY));
             c.types = types.union(kept);
@@ -745,6 +846,22 @@ fn apply(
             c.subtypes.insert(*subtype);
         }
         Modifier::AllBasicLandTypes => c.subtypes = c.subtypes.union(SubtypeSet::BASIC_LANDS),
+        // CR 305.7: the old land types go and the new one comes, and the
+        // land loses every ability its rules text gives it — the keywords
+        // here, the rest through `rules_text_lost`, which
+        // `GameObject::abilities` reads. Layer 4 comes before layer 6, so a
+        // keyword another effect grants still lands, whatever its
+        // timestamp. What the land makes is now its new type's mana alone.
+        Modifier::SetLandType(s) => set_land_type(c, *s),
+        Modifier::SetLandTypeToChosen => {
+            if let Some(s) = fx
+                .source
+                .and_then(|source| state.object(source))
+                .and_then(|source| source.chosen_subtype)
+            {
+                set_land_type(c, s);
+            }
+        }
         Modifier::AddColor(col) => c.colors = c.colors.union(*col),
         Modifier::SetColor(col) => c.colors = *col,
         Modifier::AddKeyword(k) => c.keywords = c.keywords.union(*k),
@@ -775,6 +892,14 @@ fn apply(
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBeBlockedBy(_)
+        | Modifier::CantAttackUnlessDefenderControls(_)
+        | Modifier::AttacksEachCombat
+        | Modifier::CanBlockAdditional(_)
+        | Modifier::CanBlockAnyNumber
+        | Modifier::MustBeBlockedByAllAble
+        | Modifier::BlocksEachAttackerIfAble
+        | Modifier::RedirectDamageToYou(_)
+        | Modifier::CountersPreventDamage(_)
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)
@@ -787,6 +912,10 @@ fn apply(
         | Modifier::SearchTakeover
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
+        | Modifier::SkipUntapStep { .. }
+        | Modifier::UntapAtMost { .. }
+        | Modifier::AttacksDespiteDefender
+        | Modifier::AttacksAsThoughHaste
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         // A replacement, read where a card would reach a graveyard
@@ -1062,6 +1191,72 @@ mod tests {
         (c.power, c.toughness)
     }
 
+    /// CR 205.1b: "becomes a Golem artifact creature" replaces the creature
+    /// types it had and keeps every other type and subtype.
+    #[test]
+    fn a_new_creature_type_replaces_the_old_ones_and_keeps_the_rest() {
+        use baylee_core::generated::subtypes::{artifact, creature};
+        let mut state = fresh();
+        let statue = permanent(
+            &mut state,
+            "Statue",
+            TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+            Some((1, 1)),
+        );
+        {
+            let base = state.object_mut(statue).expect("in play").base_mut();
+            base.subtypes.insert(creature::HUMAN);
+            base.subtypes.insert(artifact::EQUIPMENT);
+        }
+        register(
+            &mut state,
+            1,
+            Modifier::ReplaceCreatureTypes(creature::GOLEM),
+        );
+        let obj = state.object(statue).expect("in play");
+        let c = recompute(&state, obj).characteristics;
+        assert!(c.subtypes.contains(creature::GOLEM));
+        assert!(
+            !c.subtypes.contains(creature::HUMAN),
+            "the old creature type goes"
+        );
+        assert!(
+            c.subtypes.contains(artifact::EQUIPMENT),
+            "an artifact type stays"
+        );
+        assert_eq!(c.types, TypeSet::ARTIFACT.union(TypeSet::CREATURE));
+    }
+
+    /// "A creature died" asks what the permanent was on the battlefield
+    /// (CR 700.4): a land an effect made a creature dies as a creature,
+    /// though the card in the graveyard is only a land.
+    #[test]
+    fn a_land_that_was_a_creature_as_it_died_is_a_creature_that_died() {
+        let mut state = fresh();
+        let land = permanent(&mut state, "Animated", TypeSet::LAND, None);
+        register(&mut state, 1, Modifier::AddType(TypeSet::CREATURE));
+        state.refresh_characteristics();
+        assert!(
+            state
+                .object(land)
+                .expect("in play")
+                .characteristics()
+                .types
+                .contains(TypeSet::CREATURE),
+            "the effect made it a creature"
+        );
+        let before = state.per_turn.creatures_died;
+        state
+            .move_object(
+                land,
+                crate::zone::ZoneLocation::Graveyard(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("it moves");
+        assert_eq!(state.per_turn.creatures_died, before + 1);
+    }
+
     /// CR 613.4: within layer 7 the sublayers run in order, and the order is
     /// the answer — 7b sets, 7c modifies (effects and counters both), 7d
     /// switches. The timestamps here **contradict** it: the anthem is older
@@ -1117,6 +1312,38 @@ mod tests {
             (Some(2), Some(6)),
             "the switch reads what every earlier sublayer left (CR 613.4d)"
         );
+    }
+
+    /// "The number of creatures named Plague Rats on the battlefield": every
+    /// controller's, where "you control" counts one side of the table.
+    #[test]
+    fn a_count_on_the_battlefield_is_everybodys() {
+        static RATS: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Named("Plague Rats");
+        let mut state = fresh();
+        let mine = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let _second = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let theirs = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        state.object_mut(theirs).expect("in play").controller = PlayerId::new(1);
+        let _bear = permanent(&mut state, "Bear", TypeSet::CREATURE, Some((2, 2)));
+
+        register(
+            &mut state,
+            1,
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::OnBattlefield(&RATS)),
+        );
+        assert_eq!(body(&state, mine), (Some(3), Some(3)));
+        assert_eq!(body(&state, theirs), (Some(3), Some(3)));
+
+        let mut state = fresh();
+        let mine = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        let theirs = permanent(&mut state, "Plague Rats", TypeSet::CREATURE, Some((0, 0)));
+        state.object_mut(theirs).expect("in play").controller = PlayerId::new(1);
+        register(
+            &mut state,
+            1,
+            Modifier::SetPTToCount(baylee_cards_dsl::PtCount::YouControl(&RATS)),
+        );
+        assert_eq!(body(&state, mine), (Some(1), Some(1)), "the control");
     }
 
     /// A setting effect asks whether the permanent is a creature **now**,

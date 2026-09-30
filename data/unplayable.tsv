@@ -1,0 +1,23 @@
+# Cards that are never built: oracle_id<TAB>name<TAB>reason.
+#
+# The owner's plan (29.09.2026) implements the whole corpus set by set, in
+# release order by first printing, and "the whole corpus" leaves out three
+# kinds of card on purpose. Each is banned in every sanctioned format, and
+# none of them can be played by a rules engine as printed:
+#
+#   ante       - plays for ante (CR 407). "When not playing for ante,
+#                players can't include these cards in their decks or
+#                sideboards" (CR 407.3), and no table here plays for ante:
+#                its stakes are cards from each player's collection.
+#   dexterity  - asks a physical act of the player (Chaos Orb's flip), which
+#                no game state describes.
+#   subgame    - starts a game within the game (CR 728, Shahrazad), which
+#                this engine, one game per process, does not host.
+#
+# A card is listed here after its oracle text was read, never from its name.
+# It is never added to data/card-pool.txt, and a set is counted complete
+# without it. Keep one row per card, the reason one of the three words above.
+edb455f4-8dc9-4b7c-b25c-cb51b7dfbb41	Chaos Orb	dexterity
+9e0ed4b0-28b5-44be-ab83-f1e8eb07138d	Contract from Below	ante
+74f10b9a-a286-49b2-bfa1-a427ff041bd4	Darkpact	ante
+65a9f643-063f-406a-8d5a-5ebbe0f04c3d	Demonic Attorney	ante

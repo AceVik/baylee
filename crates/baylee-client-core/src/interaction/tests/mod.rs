@@ -33,6 +33,8 @@ fn attack_choice(attackers: Vec<ObjectId>, defenders: Vec<Defender>) -> Pending 
         player: me(),
         attackers,
         defenders,
+        required: Vec::new(),
+        limits: Vec::new(),
     }
 }
 
@@ -54,9 +56,12 @@ fn put_back(cards: Vec<ObjectId>) -> Pending {
 /// A blocking choice with one attacker per listed blocker.
 fn block_choice(options: Vec<BlockOption>) -> Pending {
     Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: me(),
         attacker: PlayerId::new(1),
         blockers: options,
+        capacity: Vec::new(),
+        obeying: Vec::new(),
         bounds: Vec::new(),
     }
 }

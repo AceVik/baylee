@@ -41,6 +41,41 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
     );
 }
 
+/// "As Phantasmal Terrain enters, choose a basic land type" is not headed
+/// "Choose a creature type": the engine offers the five basic land types
+/// (CR 205.3i) and the sentence names them. A list with a creature type in
+/// it is still the creature question.
+#[test]
+fn a_choice_of_the_five_basic_land_types_is_headed_as_one() {
+    use baylee_core::generated::subtypes::{creature, land};
+    let basics = vec![
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ];
+    let headline = |options: Vec<baylee_core::ids::SubtypeId>, lang| {
+        interaction(Pending::ChooseSubtype {
+            player: me(),
+            options,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false)
+    };
+    assert_eq!(
+        headline(basics.clone(), Lang::En),
+        "Choose a basic land type"
+    );
+    assert_eq!(
+        headline(basics.clone(), Lang::De),
+        "Wähle einen Standardlandtyp"
+    );
+    let mut mixed = basics;
+    mixed.push(creature::ELF);
+    assert_eq!(headline(mixed, Lang::En), "Choose a creature type");
+}
+
 /// And `Turn` is read off the seat, not guessed at.
 #[test]
 fn a_turn_belongs_to_the_seat_that_is_active() {
@@ -94,6 +129,41 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
         "Schaden an Ziel 1 von 3, noch 4 zu verteilen (1–2)"
     );
+
+    // Banding's division of a creature's combat damage says it is combat
+    // damage, and which creature of how many the share is for.
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 3,
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(2),
+            index: 0,
+            of: 2,
+            left: 3,
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Combat damage to creature 1 of 2, 3 left to divide (0–3)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Kampfschaden an Kreatur 1 von 2, noch 3 zu verteilen (0–3)"
+    );
+
+    // The band question counts attackers joining the band, not cards.
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(2), obj(3)],
+        min: 0,
+        max: 2,
+        prompt: baylee_engine::choice::ChoicePrompt::Band { with: obj(1) },
+        total: None,
+    });
+    let line = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+    assert!(line.contains("attackers to join the band"), "{line}");
 
     // The same question counting replicate payments says so, and what each
     // one costs: "choose a number" over a Lose Focus did not.
@@ -430,9 +500,12 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
         },
         attack_choice(vec![obj(1)], vec![seat(1)]),
         Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me(),
             attacker: PlayerId::new(1),
             blockers: vec![],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         },
         Pending::DiscardChoice {
@@ -808,4 +881,64 @@ fn cast_paying_question_says_the_mana_is_made_first() {
         assert!(text.contains(cost), "{text}");
         assert!(text.contains(first), "{text}");
     }
+}
+
+/// The band and combat damage questions name their creatures where the
+/// renderer can: a double block by two Bears is two shares (CR 510.1c), and
+/// "creature 1 of 2" does not say which Bear is first.
+#[test]
+fn division_and_band_questions_name_their_creatures() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(2), obj(3)],
+        min: 0,
+        max: 2,
+        prompt: baylee_engine::choice::ChoicePrompt::Band { with: obj(1) },
+        total: None,
+    });
+    let names = |id: ObjectId| {
+        [(obj(1), "Craw Wurm"), (obj(2), "Grizzly Bears")]
+            .into_iter()
+            .find(|(o, _)| *o == id)
+            .map(|(_, n)| n.to_string())
+    };
+    let line = i
+        .prompt()
+        .headline_naming(Lang::En, Turn::Mine, None, false, &names);
+    assert_eq!(line, "Choose up to 2 attackers to band with Craw Wurm");
+    let line = i
+        .prompt()
+        .headline_naming(Lang::De, Turn::Mine, None, false, &names);
+    assert_eq!(
+        line,
+        "Wähle bis zu 2 Angreifer, die mit Craw Wurm eine Gruppe bilden"
+    );
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 6,
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(2),
+            index: 0,
+            of: 2,
+            left: 6,
+        },
+    });
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &names),
+        "Combat damage from Craw Wurm to Grizzly Bears (1 of 2), 6 left to divide (0–6)"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::De, Turn::Mine, None, false, &names),
+        "Kampfschaden von Craw Wurm an Grizzly Bears (1 von 2), noch 6 zu verteilen (0–6)"
+    );
+    // A creature the renderer cannot name keeps the count.
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &|_| None),
+        "Combat damage to creature 1 of 2, 6 left to divide (0–6)"
+    );
 }

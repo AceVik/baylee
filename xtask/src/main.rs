@@ -185,6 +185,14 @@ enum Cmd {
         /// finish, which is the one a player would notice.
         #[arg(long)]
         stubs: bool,
+        /// Rank only the cards named in this file, one Scryfall name a line.
+        ///
+        /// A set is worked through before its cards are in the pool, so
+        /// `--stubs` cannot see them yet; this is the ranking over a set's
+        /// worklist (`#` lines and blanks are skipped). With `--stubs`, the
+        /// two narrow together: a stub the file does not name is left out.
+        #[arg(long)]
+        names: Option<PathBuf>,
         /// How many refusal causes to rank. 0 prints every one of them.
         ///
         /// The ranking is long — a corpus run distinguishes several hundred
@@ -537,6 +545,7 @@ enum Cmd {
     },
 }
 
+#[allow(clippy::too_many_lines)] // one flat table: a subcommand, its function
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -571,9 +580,20 @@ fn main() -> anyhow::Result<()> {
             scripts,
             samples,
             stubs,
+            names,
             reason,
             causes,
-        } => transcode_report(&root, &scripts, samples, stubs, reason.as_deref(), causes),
+        } => transcode_report(
+            &root,
+            &scripts,
+            samples,
+            &Narrow {
+                stubs,
+                names: names.as_deref(),
+            },
+            reason.as_deref(),
+            causes,
+        ),
         Cmd::Batch {
             count,
             dry_run,
@@ -2099,15 +2119,21 @@ fn check_code_matches_the_printing(
         // is `CharacteristicPT`, so a card claiming `Coverage::Implemented`
         // with a printed `*` and no such modifier is claiming something no
         // rule performs. Pyrogoyf writes it; this is the gate that keeps
-        // the rest honest rather than a count that goes stale.
+        // the rest honest rather than a count that goes stale. The other
+        // door is `SetPTToCount`: a `*` whose sentence holds only "as long
+        // as" something is not characteristic-defining (CR 604.3a, its
+        // fifth criterion) and sets power and toughness in layer 7b under a
+        // condition (Gaea's Liege).
         if printed.parse::<i32>().is_err() {
             tally.defined_pt += 1;
             if knob(content, "coverage").is_some_and(|v| v.starts_with("Coverage::Implemented"))
                 && !content.contains("Modifier::CharacteristicPT")
+                && !content.contains("Modifier::SetPTToCount")
             {
                 println!(
                     "{slug}: the printing defines {key} by an ability ({printed}) and the card \
-                     claims Coverage::Implemented without a Modifier::CharacteristicPT"
+                     claims Coverage::Implemented without a Modifier::CharacteristicPT or \
+                     Modifier::SetPTToCount"
                 );
                 *problems += 1;
             }
@@ -2454,6 +2480,10 @@ fn check_optional_clauses_are_offered(
         "min: 0",
         "PayLifeOrEnterTapped",
         "PlayerMayPayOr",
+        "PlayerMayPayThen",
+        "PlayerMayPayManaOr",
+        "PlayerMayPayManaThen",
+        "PreventNextFromChosenSource",
         "CopyOnEnter",
         "CopyTargetSpell",
         "CopyTargetAbility",
@@ -4243,10 +4273,6 @@ fn with_oracle_header(text: &str, printed: &str) -> Option<String> {
 const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
     ("Bleachbone Verge", "an Condition, not a filter"),
     ("Mox Opal", "metalcraft is an Condition"),
-    (
-        "Treachery",
-        "\"you control enchanted creature\" is Modifier::GainControl, not a filter",
-    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",
@@ -4332,11 +4358,15 @@ fn check_scope_matches_the_text(
     // control", `layers.rs`), and the rendering reaches into a token's
     // abilities, so Voice of Resurgence's Elemental says it there.
     // `Duration::WhileYouControlSource` is "for as long as you control this
-    // creature" (CR 611.2b): a duration, not a set of objects.
+    // creature" (CR 611.2b): a duration, not a set of objects. And
+    // `Modifier::GainControl` is "you control enchanted creature" (Control
+    // Magic, Steal Artifact, Treachery): the sentence is the change of
+    // control itself, whose new controller is the effect's (CR 613.1b).
     let filters_you = built.contains("ControlledByYou")
         || built.contains("ControlCount(")
         || built.contains("YouControl(")
-        || built.contains("WhileYouControlSource");
+        || built.contains("WhileYouControlSource")
+        || built.contains("GainControl");
     let filters_theirs = built.contains("ControlledByOpponent");
 
     if says_you && !filters_you {
@@ -4529,9 +4559,42 @@ fn fill_pinned_printings(
 /// was measuring whether it still was.
 const PINNED_PRINTING_HINT: usize = 100;
 
+/// The oracle ids `data/unplayable.tsv` rules out: ante, dexterity and
+/// subgame cards, which are never built (the file's header says why).
+///
+/// A row that is not `oracle_id<TAB>name<TAB>reason`, or whose reason is not
+/// one of the three words, fails rather than being skipped: a misspelt row is
+/// a card that would quietly count as buildable again.
+fn unplayable_ids(root: &Path) -> anyhow::Result<BTreeMap<String, String>> {
+    let text = fs::read_to_string(root.join("data/unplayable.tsv"))?;
+    let mut out = BTreeMap::new();
+    for (n, line) in text.lines().enumerate() {
+        if line.trim().is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let cols: Vec<&str> = line.split('\t').collect();
+        anyhow::ensure!(
+            cols.len() == 3 && matches!(cols[2], "ante" | "dexterity" | "subgame"),
+            "data/unplayable.tsv:{}: expected oracle_id<TAB>name<TAB>ante|dexterity|subgame",
+            n + 1
+        );
+        out.insert(cols[0].to_string(), cols[1].to_string());
+    }
+    anyhow::ensure!(!out.is_empty(), "data/unplayable.tsv lists no card");
+    Ok(out)
+}
+
 fn validate(root: &Path) -> anyhow::Result<()> {
     let decks_text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
     let rows = acceptance::parse_decks(&decks_text)?;
+    // An unplayable card is never built, so one in the pool is a card that
+    // somebody built by mistake.
+    let unplayable = unplayable_ids(root)?;
+    for def in baylee_cards::all() {
+        if let Some(name) = unplayable.get(def.oracle_id) {
+            anyhow::bail!("{name} is listed in data/unplayable.tsv and is in the pool");
+        }
+    }
     // The same set `codegen` writes. Reading only the acceptance decks here
     // meant every card added for its own sake was generated and then never
     // checked — the header-vs-code comparison below is the whole point of
@@ -5486,11 +5549,58 @@ fn wait_for_bridge(
 /// The number is the honest ceiling on what `codegen` can generate from the
 /// rules reference: a script it refuses becomes an ordinary stub, so this is
 /// also the list of rules worth adding next.
+/// Which cards `transcode-report` ranks: all of the corpus, this pool's
+/// stubs, the names in a file, or the stubs among those names.
+struct Narrow<'a> {
+    stubs: bool,
+    names: Option<&'a Path>,
+}
+
+impl Narrow<'_> {
+    /// The names to keep and how many cards they stand for, or `None` for
+    /// the whole corpus.
+    fn wanted(&self, root: &Path) -> anyhow::Result<Option<(BTreeSet<String>, usize)>> {
+        let listed = match self.names {
+            Some(path) => {
+                let text = fs::read_to_string(path)
+                    .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?;
+                let set: BTreeSet<String> = text
+                    .lines()
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                    .map(str::to_string)
+                    .collect();
+                anyhow::ensure!(!set.is_empty(), "{} names no card", path.display());
+                Some(set)
+            }
+            None => None,
+        };
+        let stubs = if self.stubs {
+            Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
+        } else {
+            None
+        };
+        Ok(match (listed, stubs) {
+            (None, None) => None,
+            (Some(set), None) => {
+                let n = set.len();
+                Some((set, n))
+            }
+            (None, Some(stubs)) => Some(stubs),
+            (Some(set), Some((stubs, _))) => {
+                let both: BTreeSet<String> = stubs.intersection(&set).cloned().collect();
+                let n = both.len();
+                Some((both, n))
+            }
+        })
+    }
+}
+
 fn transcode_report(
     root: &Path,
     scripts_dir: &Path,
     samples: usize,
-    stubs: bool,
+    narrow: &Narrow<'_>,
     reason: Option<&str>,
     top: usize,
 ) -> anyhow::Result<()> {
@@ -5506,11 +5616,7 @@ fn transcode_report(
     let mut files = Vec::new();
     collect_scripts(&dir, &mut files)?;
     files.sort();
-    let wanted: Option<(BTreeSet<String>, usize)> = if stubs {
-        Some(stub_names(&root.join("crates/baylee-cards/src/cards"))?)
-    } else {
-        None
-    };
+    let wanted = narrow.wanted(root)?;
     let (mut read, mut refused) = (0usize, 0usize);
     let mut causes: BTreeMap<String, usize> = BTreeMap::new();
     let mut shown = 0usize;
@@ -5534,16 +5640,18 @@ fn transcode_report(
             hit.insert(name.to_string());
         }
         let script = scriptgen::parse(&text);
-        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
+            || scriptgen::is_vanilla(&script)
+        {
             read += 1;
         } else {
             refused += 1;
             let cause = refusal_cause(&script, &cats, tokens.as_ref());
             let wanted_cause = reason.is_none_or(|want| cause.contains(want));
-            *causes.entry(cause).or_insert(0usize) += 1;
+            *causes.entry(cause.clone()).or_insert(0usize) += 1;
             if shown < samples && wanted_cause {
                 shown += 1;
-                println!("--- refused: {}\n{text}", path.display());
+                println!("--- refused ({cause}): {}\n{text}", path.display());
             }
         }
     }
@@ -5578,7 +5686,7 @@ fn transcode_report(
     }
     if let Some((_, cards)) = &wanted {
         println!(
-            "  over our own stubs: {} of {cards} have a reference script",
+            "  over the cards asked for: {} of {cards} have a reference script",
             hit.len()
         );
     }
@@ -5969,6 +6077,8 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
         "data/script-index.json is missing or empty; run `cargo xtask codegen`"
     );
     let have: BTreeSet<&str> = baylee_cards::all().map(|def| def.oracle_id).collect();
+    // Never built, so never proposed (data/unplayable.tsv).
+    let unplayable = unplayable_ids(root)?;
     let (mut mine, mut scripted, mut refused, mut front) = (0usize, 0usize, 0usize, 0usize);
     let mut names: Vec<&'static str> = Vec::new();
     // By reference: `ROWS` is a 33 694-element array and not a slice, so
@@ -5980,6 +6090,9 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
             mine += 1;
             continue;
         }
+        if unplayable.contains_key(row.oracle_id) {
+            continue;
+        }
         let Some(rel) = script_for(&script_index, row.name) else {
             continue;
         };
@@ -5989,7 +6102,9 @@ fn reach_measure(root: &Path, scripts_dir: &Path, cache: &Path) -> anyhow::Resul
         }
         let text = fs::read_to_string(dir.join(rel))?;
         let script = scriptgen::parse(&text);
-        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some() {
+        if scriptgen::transcode(&script, &cats, tokens.as_ref()).is_some()
+            || scriptgen::is_vanilla(&script)
+        {
             names.push(row.name);
         } else {
             refused += 1;
@@ -6850,6 +6965,41 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    /// "You control enchanted creature" is the change of control, not a
+    /// filter the card forgot: Control Magic passes the scope check with no
+    /// exception written for it, and a card that says "you control" with
+    /// nothing behind it still does not.
+    #[test]
+    fn a_change_of_control_is_the_you_control_the_text_says() {
+        let payload = serde_json::json!({
+            "oracle_text": "Enchant creature\nYou control enchanted creature."
+        });
+        let def = baylee_cards::decks::by_name("Control Magic")
+            .and_then(baylee_cards::by_index)
+            .expect("Control Magic is in the pool");
+        let mut problems = 0;
+        super::check_scope_matches_the_text(
+            "control_magic",
+            "Not An Exception",
+            def,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 0);
+
+        let fog = baylee_cards::decks::by_name("Fog")
+            .and_then(baylee_cards::by_index)
+            .expect("Fog is in the pool");
+        super::check_scope_matches_the_text(
+            "fog",
+            "Not An Exception",
+            fog,
+            &payload,
+            &mut problems,
+        );
+        assert_eq!(problems, 1, "no filter and no change of control");
+    }
+
     /// A batch is allowed to write the cards it asked for and nothing else.
     ///
     /// Codegen rewrites every machine-owned card on every run, so a rewrite is

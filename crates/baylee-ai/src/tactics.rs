@@ -116,7 +116,10 @@ pub(crate) fn only_replaces_itself(o: &PublicObject) -> bool {
                 amount: Amount::Fixed(n),
             } => net += i64::from(*n),
             Effect::PutFromHandOnTop { count } => net -= i64::from(*count),
-            Effect::Scry { .. } | Effect::Surveil { .. } | Effect::ReorderTopLibrary { .. } => {}
+            Effect::Scry { .. }
+            | Effect::Surveil { .. }
+            | Effect::ReorderTopLibrary { .. }
+            | Effect::ReorderTopLibraryOf { .. } => {}
             _ => return false,
         }
     }

@@ -32,6 +32,7 @@ static NOTHING: &[AbilityDef] = &[AbilityDef::Spell {
     effects: &[],
     targets: None,
     second_targets: None,
+    condition: None,
 }];
 
 static AN_INSTANT: Filter = Filter::HasType(TypeSet::INSTANT);

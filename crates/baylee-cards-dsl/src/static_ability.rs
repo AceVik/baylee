@@ -71,6 +71,11 @@ pub enum Modifier {
     AddSubtype(SubtypeId),
     /// Affected creatures are every creature type (Maskwood Nexus).
     AllCreatureTypes,
+    /// "Becomes a [creature type] artifact creature" (CR 205.1b): the
+    /// creature types it had are replaced by this one, and every other card
+    /// type and subtype is kept (Jade Statue: "becomes a 3/6 Golem artifact
+    /// creature"). The card types it gains are `AddType` beside it.
+    ReplaceCreatureTypes(SubtypeId),
     /// "Becomes a [subtype] [types]" with nothing retained (CR 205.1a):
     /// `types` replace every card type (an instant or sorcery keeps its
     /// own) and `subtype` replaces every subtype, since those of the card
@@ -84,6 +89,18 @@ pub enum Modifier {
     },
     /// Affected lands are every basic land type (Great Divide Guide).
     AllBasicLandTypes,
+    /// "Enchanted land is a Swamp" (Evil Presence): an effect that sets a
+    /// land's subtype to a basic land type (CR 305.7). The land's old land
+    /// types go, and so does every ability its rules text gives it; it has
+    /// the new type's mana ability (CR 305.6), and it keeps its card types,
+    /// supertypes and every ability another effect grants it. "In addition
+    /// to its other types" is `AddSubtype`, not this.
+    SetLandType(SubtypeId),
+    /// "Enchanted land is the chosen type" (Phantasmal Terrain):
+    /// [`Self::SetLandType`] for the basic land type the effect's source was
+    /// given as it entered (`EnterModifier::ChooseBasicLandType`). Nothing
+    /// while no type was chosen.
+    SetLandTypeToChosen,
     /// Adds colors.
     AddColor(ColorSet),
     /// Sets colors (Mycosynth Lattice: "…are colorless").
@@ -210,11 +227,13 @@ pub enum Modifier {
         /// Who can't lose life, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
-    /// Prevent all damage that would be dealt TO the affected object
-    /// (Maze of Ith).
+    /// Prevent all combat damage that would be dealt TO the affected object
+    /// (Maze of Ith). Combat's damage doors ask it and an effect's do not:
+    /// an effect's damage to the object is dealt.
     PreventDamageToIt,
-    /// Prevent all damage that would be dealt BY the affected object
-    /// (Maze of Ith).
+    /// Prevent all combat damage that would be dealt BY the affected object
+    /// (Maze of Ith, Kor Haven). Combat's damage doors ask it and an
+    /// effect's do not.
     PreventDamageFromIt,
     /// Combat damage the affected object would deal can't be prevented
     /// (Questing Beast: "Combat damage that would be dealt by creatures you
@@ -228,11 +247,102 @@ pub enum Modifier {
     /// declaration of blockers, CR 509.1b, read against each blocker as it
     /// stands; the filter's "you" is the effect's controller.
     CantBeBlockedBy(&'static crate::Filter),
+    /// The affected creature can't attack unless the defending player
+    /// controls a permanent the filter matches (Sea Serpent: "can't attack
+    /// unless defending player controls an Island"). A restriction on the
+    /// declaration of attackers (CR 508.1c), and one about the pair: it is
+    /// asked of each player or planeswalker the creature could attack, with
+    /// the defending player the one CR 506.2 names for it.
+    CantAttackUnlessDefenderControls(&'static crate::Filter),
+    /// The affected creature attacks each combat if able: a requirement on
+    /// the declaration of attackers (CR 508.1d). The card's own sentence
+    /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
+    /// this turn if able" is the same modifier in an effect that lasts
+    /// until end of turn, which CR 508.1d reads as each combat of that
+    /// turn. A rule and not a keyword: granted by another permanent, it is
+    /// that permanent's ability, and the creature losing its own abilities
+    /// does not end it.
+    AttacksEachCombat,
+    /// The affected creature can block this many additional creatures each
+    /// combat (Two-Headed Giant of Foriys: one). CR 509.1a gives each
+    /// blocker one attacker; this raises that, and two such effects add up
+    /// ("an additional creature" is one more each time). A creature with
+    /// [`Modifier::CanBlockAnyNumber`] as well has no limit.
+    CanBlockAdditional(u8),
+    /// The affected creature can block any number of creatures (Blaze of
+    /// Glory, Palace Guard): no limit on how many attackers the declaration
+    /// names for it (CR 509.1a).
+    CanBlockAnyNumber,
+    /// Every creature able to block the affected creature does so (Lure:
+    /// "All creatures able to block enchanted creature do so"). A
+    /// requirement on the declaration of blockers (CR 509.1c), one for each
+    /// creature that could block the affected one, read on the attacker:
+    /// a creature that may not block it — tapped, or a ground creature
+    /// facing a flier — is under no requirement.
+    MustBeBlockedByAllAble,
+    /// The affected creature blocks each attacking creature if able (Blaze
+    /// of Glory: "It blocks each attacking creature this turn if able"). A
+    /// requirement on the declaration of blockers (CR 509.1c), one for each
+    /// attacker, read on the blocker: how many of them it may block is its
+    /// own limit's business, and obeying as many as that allows is what the
+    /// rule asks.
+    BlocksEachAttackerIfAble,
+    /// Damage a source matching the filter would deal to the effect's
+    /// controller is dealt to the affected permanent instead (Veteran
+    /// Bodyguard: "all damage that would be dealt to you by unblocked
+    /// creatures is dealt to this creature instead"). A redirection effect
+    /// (CR 614.9): it does nothing once the permanent is no longer a
+    /// creature on the battlefield, and it applies once to an event
+    /// (CR 614.5). Read where damage is dealt, as the prevention shields
+    /// are (`prevention::redirect`); the source is asked as it is then.
+    RedirectDamageToYou(&'static Filter),
+    /// For each 1 damage that would be dealt to the affected permanent, if
+    /// it has a counter of this kind on it, one is removed and that 1
+    /// damage is prevented (Rock Hydra, with +1/+1 counters). A prevention
+    /// effect from a static ability (CR 615): read where damage is dealt,
+    /// after the resolved shields and any redirection
+    /// (`prevention::absorb`). Damage that can't be prevented still takes
+    /// the counters and is dealt in full (CR 615.12).
+    CountersPreventDamage(crate::CounterKind),
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
+    /// These players skip their untap steps (Stasis: `EachPlayer`). A skip
+    /// replaces the step with nothing (CR 614.1b, 614.10): none of its
+    /// turn-based actions happen — phasing, the day/night check, the untap
+    /// (CR 502.1–502.3) — and what waits for a player's "next" untap step
+    /// waits for one that is not skipped (CR 614.10a).
+    SkipUntapStep {
+        /// Who skips, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
+    /// Can attack as though it didn't have defender (Animate Wall). An "as
+    /// though" effect applies only to what it states (CR 609.4): defender
+    /// stops nothing else it would (CR 702.3b says only that it can't
+    /// attack), and a "can't attack" from anything else still holds.
+    AttacksDespiteDefender,
+    /// Can attack as though it had haste (Instill Energy): the half of the
+    /// summoning-sickness rule about attacking (CR 302.6, 702.10b), and not
+    /// its {T} abilities (CR 702.10c), which an "as though" effect leaves
+    /// alone (CR 609.4).
+    AttacksAsThoughHaste,
+    /// These players can't untap more than `count` permanents matching `of`
+    /// during their untap steps (Smoke: one creature; Winter Orb: one land;
+    /// Static Orb: two permanents). A limit on CR 502.3's determination: the
+    /// active player chooses which untap, and everything the limit leaves
+    /// over stays tapped. Limits add up and do not merge — a permanent
+    /// counts against every limit it matches, and two copies of one limit
+    /// still let only `count` untap (the Smoke and Winter Moon rulings).
+    UntapAtMost {
+        /// Whose untap steps, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// Which permanents the limit counts.
+        of: &'static crate::Filter,
+        /// How many of them may untap.
+        count: u8,
+    },
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
@@ -419,6 +529,12 @@ pub enum Modifier {
         /// Toughness per match.
         t: i16,
     },
+    /// The affected object gets +X/+Y, where X is half of `count` rounded
+    /// down and Y half of it rounded up (Aspect of Wolf: "half the number of
+    /// Forests you control"). Layer 7c like [`Self::ModifyPTPerCount`], and
+    /// "you" in the count is the effect's controller — an Aura's, not the
+    /// enchanted creature's.
+    ModifyPTHalfCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
     /// Sets power/toughness to specific values.
@@ -454,10 +570,21 @@ pub enum PtCount {
     /// Permanents the ability's controller controls that match the filter
     /// ("the number of creatures you control").
     YouControl(&'static crate::Filter),
+    /// Permanents on the battlefield that match the filter, whoever controls
+    /// them ("the number of creatures named Plague Rats on the
+    /// battlefield").
+    OnBattlefield(&'static crate::Filter),
     /// Card types among cards in all graveyards (Tarmogoyf's number): the
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Permanents matching the filter that the defending player controls,
+    /// for an object that is attacking: the player it attacks, or the
+    /// controller of the planeswalker it attacks (CR 508.5). Gaea's Liege,
+    /// "as long as Gaea's Liege is attacking, its power and toughness are
+    /// each equal to the number of Forests defending player controls".
+    /// Nothing while the object is not attacking.
+    DefendingPlayerControls(&'static crate::Filter),
     /// Cards exiled with the object (CR 406.6): "the number of cards exiled
     /// with it" (Unlicensed Hearse), the cards in exile that
     /// `Effect::ExileTargetsWithSource` put there for this object.
@@ -526,7 +653,10 @@ impl Modifier {
             | Self::RemoveType(_)
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
+            | Self::ReplaceCreatureTypes(_)
             | Self::AllBasicLandTypes
+            | Self::SetLandType(_)
+            | Self::SetLandTypeToChosen
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
             // Layer 5: color-changing effects.
@@ -553,6 +683,7 @@ impl Modifier {
             Self::SetPT(..) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::ModifyPT(..)
             | Self::ModifyPTPerCount { .. }
+            | Self::ModifyPTHalfCount(_)
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -574,8 +705,20 @@ impl Modifier {
             | Self::PreventDamageFromIt
             | Self::CombatDamageCantBePrevented
             | Self::CantBeBlockedBy(_)
+            | Self::CantAttackUnlessDefenderControls(_)
+            | Self::AttacksEachCombat
+            | Self::CanBlockAdditional(_)
+            | Self::CanBlockAnyNumber
+            | Self::MustBeBlockedByAllAble
+            | Self::BlocksEachAttackerIfAble
+            | Self::RedirectDamageToYou(_)
+            | Self::CountersPreventDamage(_)
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
+            | Self::SkipUntapStep { .. }
+            | Self::UntapAtMost { .. }
+            | Self::AttacksDespiteDefender
+            | Self::AttacksAsThoughHaste
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
@@ -796,7 +939,13 @@ mod tests {
             (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),
+            (
+                Modifier::ReplaceCreatureTypes(SubtypeId::new(1)),
+                Layer::Type,
+            ),
             (Modifier::AllBasicLandTypes, Layer::Type),
+            (Modifier::SetLandType(SubtypeId::new(1)), Layer::Type),
+            (Modifier::SetLandTypeToChosen, Layer::Type),
             (
                 Modifier::BecomeType {
                     types: TypeSet::CREATURE,
@@ -860,6 +1009,10 @@ mod tests {
             ),
             (Modifier::ModifyPT(1, 1), Layer::PtModify),
             (
+                Modifier::ModifyPTHalfCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtModify,
+            ),
+            (
                 Modifier::ModifyPTPerCount {
                     filter: &Filter::CREATURE,
                     p: 1,
@@ -902,6 +1055,14 @@ mod tests {
             Modifier::PreventDamageFromIt,
             Modifier::CombatDamageCantBePrevented,
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
+            Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
+            Modifier::AttacksEachCombat,
+            Modifier::CanBlockAdditional(1),
+            Modifier::CanBlockAnyNumber,
+            Modifier::MustBeBlockedByAllAble,
+            Modifier::BlocksEachAttackerIfAble,
+            Modifier::RedirectDamageToYou(&Filter::CREATURE),
+            Modifier::CountersPreventDamage(crate::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

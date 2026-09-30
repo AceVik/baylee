@@ -274,6 +274,8 @@ pub struct SpellParts {
     /// A second instance of the word "target", if the card prints one —
     /// see [`AbilityDef::Spell::second_targets`].
     pub second_targets: Option<TargetReq>,
+    /// "Cast this spell only [when]" — see [`AbilityDef::Spell::condition`].
+    pub condition: Option<crate::Condition>,
 }
 
 impl SpellParts {
@@ -284,6 +286,7 @@ impl SpellParts {
             effects,
             targets: None,
             second_targets: None,
+            condition: None,
         }
     }
 
@@ -294,6 +297,7 @@ impl SpellParts {
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
+            condition: self.condition,
         }
     }
 }
@@ -527,7 +531,8 @@ macro_rules! face {
 /// The adjective list is **closed**, and every entry is one nullary
 /// [`Filter`] variant (or `Not` of one): `your`, `opponents`, `owned`,
 /// `another`, `token`, `nontoken`, `tapped`, `untapped`, `attacking`,
-/// `colorless`. The noun is a bare identifier resolved as `Filter::$noun`
+/// `blocking`, `unblocked`, `colorless`. The noun is a bare identifier
+/// resolved as `Filter::$noun`
 /// (`CREATURE`, `LAND`, `BASIC_LAND`, `NONLAND`, `INSTANT_OR_SORCERY`, …) or
 /// any `Filter` expression.
 ///
@@ -596,6 +601,12 @@ macro_rules! __f_adjectives {
     };
     ([$($acc:expr),*] attacking $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::Attacking] $($rest)+)
+    };
+    ([$($acc:expr),*] blocking $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Blocking] $($rest)+)
+    };
+    ([$($acc:expr),*] unblocked $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Unblocked] $($rest)+)
     };
     ([$($acc:expr),*] colorless $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::IsColorless] $($rest)+)

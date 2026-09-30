@@ -29,15 +29,20 @@ fn attackers(candidates: Vec<ObjectId>) -> Pending {
         player: PlayerId::new(0),
         attackers: candidates,
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     }
 }
 
 /// A declare-blockers question offering `blocker` against one attacker.
 fn blockers(candidates: Vec<BlockOption>) -> Pending {
     Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: PlayerId::new(0),
         attacker: PlayerId::new(1),
         blockers: candidates,
+        capacity: Vec::new(),
+        obeying: Vec::new(),
         bounds: Vec::new(),
     }
 }

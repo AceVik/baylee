@@ -1506,6 +1506,11 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {{{mana}}}"),
             "don't pay".into(),
         ),
+        YesNoPrompt::PayMana { cost } => (
+            format!("Pay {cost}?"),
+            format!("pay {cost}"),
+            "don't pay".into(),
+        ),
         YesNoPrompt::PayPact { cost } => (
             format!("Pay {cost} for the pact? If you don't, you lose the game."),
             format!("pay {cost}"),
@@ -1619,6 +1624,18 @@ impl Builder<'_, '_> {
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }
+            NumberPrompt::CombatDamage {
+                source,
+                recipient,
+                index,
+                of,
+                left,
+            } => format!(
+                "Divide {}'s combat damage: how much goes to {} (creature {} of {of})? {left} is left to divide",
+                table.named(*source),
+                table.named(*recipient),
+                u16::from(*index) + 1
+            ),
             NumberPrompt::DivideDamage {
                 target,
                 index,

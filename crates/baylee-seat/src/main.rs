@@ -386,9 +386,14 @@ async fn run() -> anyhow::Result<()> {
         Command::Join(join) => {
             // Stopped, the game is dropped where it stands, and its
             // reservation settles with what it spent (`spend::Booked`).
+            // Biased, so `stopped` is polled first and its listeners stand
+            // before the game reserves: polled second, a SIGTERM sent once
+            // "reserved" was printed could find none and kill the process
+            // unsettled.
             tokio::select! {
-                done = join_and_play(&join, &args, &env) => done,
+                biased;
                 by = stopped() => bail!("stopped by {by} before the game was over"),
+                done = join_and_play(&join, &args, &env) => done,
             }
         }
     }

@@ -126,8 +126,13 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         Modifier::BecomeCopyOf(_) => EVERYTHING,
         Modifier::AddType(_) | Modifier::RemoveType(_) => &[Field::Types],
         Modifier::BecomeType { .. } => &[Field::Types, Field::Subtypes],
-        Modifier::AddSubtype(_) | Modifier::AllCreatureTypes | Modifier::AllBasicLandTypes => {
-            &[Field::Subtypes]
+        Modifier::AddSubtype(_)
+        | Modifier::AllCreatureTypes
+        | Modifier::ReplaceCreatureTypes(_)
+        | Modifier::AllBasicLandTypes => &[Field::Subtypes],
+        // CR 305.7: the land types, and the keywords its text gave it.
+        Modifier::SetLandType(_) | Modifier::SetLandTypeToChosen => {
+            &[Field::Subtypes, Field::Keywords]
         }
         Modifier::AddColor(_) | Modifier::SetColor(_) => &[Field::Colors],
         Modifier::AddKeyword(_)
@@ -139,7 +144,8 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::SetPTToCount(_)
         | Modifier::SwitchPT
         | Modifier::CharacteristicPT { .. }
-        | Modifier::ModifyPTPerCount { .. } => PT,
+        | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTHalfCount(_) => PT,
         _ => &[],
     };
     if by_modifier.is_empty()
@@ -182,6 +188,27 @@ fn shielded(def: &CardDef) -> Vec<Field> {
         && !out.contains(&Field::Subtypes)
     {
         out.push(Field::Subtypes);
+    }
+    // "Enters with seven +1/+0 counters" (Clockwork Beast): the placed
+    // permanent meets its enter modifiers on the first pass (`settle`), and
+    // the counters it gets are layer 7c (CR 613.4c), so its box is not what
+    // it projects, by rule. An X that is zero here puts none on.
+    let counted = def.faces[0].enter_modifiers.iter().any(|m| {
+        matches!(
+            m,
+            EnterModifier::WithCounters {
+                kind: baylee_cards_dsl::CounterKind::Plus { .. }
+                    | baylee_cards_dsl::CounterKind::Minus { .. },
+                ..
+            }
+        )
+    });
+    if counted {
+        for field in [Field::Power, Field::Toughness] {
+            if !out.contains(&field) {
+                out.push(field);
+            }
+        }
     }
     out
 }
@@ -384,11 +411,14 @@ struct Tally {
     /// that field.
     shielded: usize,
     /// Cards that were placed and were gone again before anyone held
-    /// priority, and that no rule here can name. See [`LEAVING_CEILING`].
+    /// priority, and that no rule here can name. See [`prints_zero_toughness`].
     left: Vec<&'static str>,
     /// Auras, which leave for a rule this test can cite (CR 704.5m) and are
     /// therefore counted rather than tolerated.
     auras: usize,
+    /// Creatures that print a toughness of 0 and left, which is CR 704.5f;
+    /// counted for the same reason. See [`prints_zero_toughness`].
+    zero_toughness: usize,
 }
 
 impl Tally {
@@ -398,6 +428,7 @@ impl Tally {
         self.shielded += other.shielded;
         self.left.append(&mut other.left);
         self.auras += other.auras;
+        self.zero_toughness += other.zero_toughness;
     }
 }
 
@@ -440,14 +471,33 @@ const CHECK_FLOOR: usize = 11000;
 /// whose size is defined by something an empty board does not have (Shifting
 /// Wall, Ivy Elemental, Arcbound Ravager, Walking Ballista, Faeburrow Elder,
 /// Lumra) — beside 52 Auras named by their rule.
-const LEAVING_CEILING: usize = 20;
+///
+/// Every one of the fourteen prints a toughness of 0 or a star, and Alpha's
+/// stubs brought seven more of the same kind (Clone, Rock Hydra, Plague Rats
+/// and four others), which took the bucket over the ceiling of 20 it had then.
+/// So they left the bucket the way the Auras did, named by their rule
+/// ([`prints_zero_toughness`], CR 704.5f), and the ceiling fell to what is
+/// left to explain: nothing. There is no number left to raise; a card that
+/// leaves for any other reason fails the sweep and is one somebody reads.
+///
+/// So this is also the test's answer to "is that creature gone": it is a
+/// creature that prints a toughness of 0. A star counts: a characteristic-defining ability uses 0 for a number
+/// that can't be determined (CR 208.2a), and the pool writes a printed `*`
+/// as that 0. Such a creature, placed alone, is put into its owner's
+/// graveyard as soon as state-based actions are checked unless something on
+/// the board makes it bigger (CR 704.5f): a clone with nothing to copy, a
+/// Hydra that entered with no counters, a Nightmare with no Swamps. One that
+/// stays is read like any other permanent; only its departure is named here.
+fn prints_zero_toughness(face: &FaceDef) -> bool {
+    face.types.contains(TypeSet::CREATURE) && face.toughness == Some(0)
+}
 
 /// Whether the face prints `Aura`.
 ///
 /// CR 704.5m: an Aura attached to nothing goes to its owner's graveyard, and
 /// a sweep that *places* a permanent attaches it to nothing — so every Aura
 /// in the pool leaves before anyone holds priority, by a rule this test can
-/// cite. Counting them against [`LEAVING_CEILING`] made that ceiling a number
+/// cite. Counting them against the ceiling (see [`prints_zero_toughness`]) made it a number
 /// somebody had to raise on a green run every time the pool took an Aura: a
 /// batch of a hundred Alpha cards put nine more in the bucket at once. A
 /// bound that is raised whenever it fires is not a bound.
@@ -472,10 +522,12 @@ fn walk(slice: &[&'static CardDef]) -> (Vec<String>, Tally) {
         // a clone with nothing to copy and an Aura with nothing to enchant
         // are both gone by the time anyone holds priority, and both are the
         // rules working. The Aura half is named by its rule and the rest is
-        // capped by [`LEAVING_CEILING`].
+        // must be empty (see [`prints_zero_toughness`]).
         let Ok((object, name)) = read(&engine, def.index) else {
             if is_aura(face) {
                 tally.auras += 1;
+            } else if prints_zero_toughness(face) {
+                tally.zero_toughness += 1;
             } else {
                 tally.left.push(face.name);
             }
@@ -536,11 +588,13 @@ fn every_permanent_in_the_pool_projects_what_its_own_face_prints() {
     let (offenders, tally) = sweep();
     println!(
         "{} permanents read, {} characteristics compared, {} shielded by the card's own text, \
-         {} Auras gone to CR 704.5m, {} otherwise gone before priority: {:?}",
+         {} Auras gone to CR 704.5m, {} zero-toughness creatures gone to CR 704.5f, \
+         {} otherwise gone before priority: {:?}",
         tally.cards,
         tally.checked,
         tally.shielded,
         tally.auras,
+        tally.zero_toughness,
         tally.left.len(),
         tally.left
     );
@@ -561,9 +615,9 @@ fn every_permanent_in_the_pool_projects_what_its_own_face_prints() {
         tally.checked
     );
     assert!(
-        tally.left.len() <= LEAVING_CEILING,
-        "{} permanents were gone before anyone held priority, over the ceiling of \
-         {LEAVING_CEILING}: {:?}",
+        tally.left.is_empty(),
+        "{} permanents were gone before anyone held priority for no rule this sweep \
+         names (an Aura, CR 704.5m; a zero-toughness creature, CR 704.5f): {:?}",
         tally.left.len(),
         tally.left
     );

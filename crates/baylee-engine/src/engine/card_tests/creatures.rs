@@ -5,6 +5,35 @@
 use super::*;
 use crate::choice::ChoicePrompt;
 
+/// Verdant Force — "At the beginning of **each** upkeep, create a 1/1 green
+/// Saproling creature token": the opponent's upkeep as well as its
+/// controller's. The reader read a phase trigger naming no player as "your
+/// upkeep", and the card made a Saproling on one upkeep in two.
+#[test]
+fn verdant_force_makes_a_saproling_on_every_players_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let force = card_index("7a21ea22-3cd7-4c11-8895-5943c0d93a0d");
+    let mut engine = Duel::new(7, forest()).battlefield(0, &[force]).start();
+    keep_mulligans(&mut engine);
+    let saprolings = |e: &Engine<RegistryLookup>| {
+        e.state()
+            .battlefield_view()
+            .iter()
+            .filter(|id| {
+                e.state()
+                    .object(**id)
+                    .is_some_and(|o| o.card.is_none() && o.controller == p0)
+            })
+            .count()
+    };
+    reach_main_phase(&mut engine, p0);
+    let before = saprolings(&engine);
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(saprolings(&engine), before + 1, "the opponent's upkeep");
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(saprolings(&engine), before + 2, "and its controller's");
+}
+
 #[test]
 fn a_copied_rebound_spell_does_not_schedule_a_cast_of_a_vanished_copy() {
     let p0 = PlayerId::new(0);
@@ -9187,6 +9216,7 @@ fn hapatra_marks_the_creature_she_points_at_when_she_connects() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")
@@ -11613,6 +11643,7 @@ fn strangleroot_geist_attacks_the_turn_it_arrives_and_the_elves_beside_it_cannot
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stopped on nothing else")
@@ -58954,6 +58985,7 @@ fn standing_troops_attacks_without_tapping_because_of_vigilance() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stops on nothing but the attack declaration")
@@ -74987,6 +75019,7 @@ fn serra_angel_has_flying_and_attacks_without_tapping() {
         player,
         attackers,
         defenders,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("pass_until stops on declare-attackers")
@@ -96595,5 +96628,5665 @@ fn uro_escaped_and_blinked_is_sacrificed() {
         engine.state().object(uro).map(|o| o.zone),
         Some(Zone::Graveyard),
         "the blinked Uro did not escape"
+    );
+}
+
+/// The play test for stubgen's vanilla rule: a card that prints no rules
+/// text is written with nothing but its face, and that face is the card.
+/// Grizzly Bears is cast for the `{1}{G}` it prints and stands on the
+/// battlefield as the 2/2 it prints, with no ability to offer.
+#[test]
+fn grizzly_bears_is_cast_for_its_cost_and_is_the_two_two_it_prints() {
+    let p0 = PlayerId::new(0);
+    let bears = card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0");
+    let mut engine = Duel::new(7, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[bears])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, bears);
+    assert!(matches!(drive_to_rest(&mut engine, p0), Rest::Reached));
+    let object = on_battlefield(&engine, p0, bears).expect("the Bears resolved");
+    assert_eq!(pt(&engine, object), (2, 2));
+    let def = baylee_cards::by_index(bears).expect("in the pool");
+    assert!(def.abilities.is_empty() && def.keywords.is_empty());
+}
+
+/// Passes until `seat` is asked to pick something or holds priority in its
+/// own first main phase, and hands back what the question offered.
+fn picks_before_main(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+) -> Option<(PlayerId, Vec<ObjectId>)> {
+    for _ in 0..200 {
+        if engine.state().turn.phase == Phase::FirstMain && engine.state().turn.active == seat {
+            return None;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                player, options, ..
+            } => return Some((player, options)),
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to the main phase: {other:?}"),
+        }
+    }
+    panic!("never reached {seat:?}'s main phase");
+}
+
+/// Lord of the Pit — "At the beginning of your upkeep, sacrifice a creature
+/// other than this creature. If you can't, this creature deals 7 damage to
+/// you." With another creature the seat must give it up, and the Lord is not
+/// among the choices; with none the Lord deals 7 to its controller.
+#[test]
+fn lord_of_the_pit_eats_another_creature_or_deals_seven_to_you() {
+    let p0 = PlayerId::new(0);
+    let lord = card_index("ea152809-85a2-4fde-8251-3b1f267e4443");
+
+    let mut engine = Duel::new(96, basic_forest())
+        .battlefield(0, &[lord, quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    let demon = on_battlefield(&engine, p0, lord).expect("the Lord is out");
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("so is the Elf");
+    let start = engine.state().players[0].life;
+    let (asked, options) = picks_before_main(&mut engine, p0).expect("the upkeep asks");
+    assert_eq!(asked, p0);
+    assert_eq!(options, vec![elf], "a creature other than the Lord");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    assert_eq!(picks_before_main(&mut engine, p0), None);
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(
+        engine.state().object(demon).map(|o| o.zone),
+        Some(Zone::Battlefield)
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        start,
+        "no damage once it ate"
+    );
+
+    let mut engine = Duel::new(96, basic_forest())
+        .battlefield(0, &[lord])
+        .start();
+    keep_mulligans(&mut engine);
+    let start = engine.state().players[0].life;
+    assert_eq!(
+        picks_before_main(&mut engine, p0),
+        None,
+        "nothing to ask about"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        start - 7,
+        "it can't, so 7 to you"
+    );
+}
+
+/// Dragon Whelp — "Flying. {R}: This creature gets +1/+0 until end of turn.
+/// If this ability has been activated four or more times this turn,
+/// sacrifice this creature at the beginning of the next end step." Four
+/// activations make it a 6/3 flier for the turn, and it is still there as
+/// the end step begins; the delayed trigger sacrifices it from the stack.
+#[test]
+fn dragon_whelp_pumps_and_is_sacrificed_after_four_activations() {
+    let p0 = PlayerId::new(0);
+    let whelp_card = card_index("705a1985-ed39-4a4b-812e-a677170b596e");
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[whelp_card, mountain(), mountain(), mountain(), mountain()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let whelp = on_battlefield(&engine, p0, whelp_card).expect("the Whelp is out");
+    assert_eq!(pt(&engine, whelp), (2, 3));
+    assert!(keywords(&engine, whelp).contains(KeywordSet::FLYING));
+
+    tap_all_mana(&mut engine, p0);
+    for _ in 0..4 {
+        activate(&mut engine, p0, whelp_card, 0);
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, whelp), (6, 3), "+1/+0 four times");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End
+    });
+    assert_eq!(
+        engine.state().object(whelp).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "nothing happens before the trigger resolves"
+    );
+    assert!(!stack_is_empty(&engine), "the sacrifice is on the stack");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(whelp).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "sacrificed at the beginning of the end step"
+    );
+}
+
+/// Personal Incarnation (damage redirection not written) is a
+/// `Coverage::Partial` body: it is cast, enters offering no ability, and
+/// is the printed 6/6 with no flying.
+#[test]
+fn partial_creatures_are_their_printed_bodies() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("6e49a5b8-6bc4-4c7b-82c1-957f1fb0ca5f");
+    let def = baylee_cards::by_index(card).expect("in the pool");
+    assert!(
+        matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
+        "Personal Incarnation is fully Implemented now; this test no longer proves anything"
+    );
+    assert_eq!(
+        cast_saying_nothing(card, plains(), 6),
+        Zone::Battlefield,
+        "Personal Incarnation"
+    );
+    let mut engine = Duel::new(SEED, plains()).battlefield(0, &[card]).start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, card).expect("seated");
+    assert_eq!(pt(&engine, id), (6, 6), "Personal Incarnation");
+    assert!(
+        !keywords(&engine, id).contains(KeywordSet::FLYING),
+        "Personal Incarnation has no flying"
+    );
+}
+
+/// Rock Hydra: it enters with X +1/+1 counters, and "{R}: Prevent the next
+/// 1 damage that would be dealt to this creature this turn." X = 3, the
+/// shield bought, then a Lightning Bolt at it: the shield prevents 1 of the
+/// 3, and each of the other 2 takes a +1/+1 counter instead of being dealt
+/// (the shield goes first: `prevention::absorb`).
+#[test]
+fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
+    let p0 = PlayerId::new(0);
+    let hydra_card = card_index("aff84707-f5f8-4f53-869e-feec78da8d8d");
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(); 7])
+        .hand(0, &[hydra_card, lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, hydra_card);
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let hydra = on_battlefield(&engine, p0, hydra_card).expect("the Hydra entered");
+    assert_eq!(pt(&engine, hydra), (3, 3), "three +1/+1 counters on a 0/0");
+
+    activate(&mut engine, p0, hydra_card, 0);
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![hydra],
+                players: vec![],
+            },
+        )
+        .expect("the Hydra is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(hydra).map(|o| (o.zone, o.damage)),
+        Some((Zone::Battlefield, 0)),
+        "1 of the Bolt's 3 prevented by the shield, 2 by counters"
+    );
+    assert_eq!(pt(&engine, hydra), (1, 1), "one counter left");
+}
+
+/// Vesuvan Doppelganger, its written half: it enters as a copy of a
+/// creature on the battlefield, except that it keeps its own colour.
+#[test]
+fn vesuvan_doppelganger_enters_as_a_blue_copy() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let doppelganger = card_index("aeaccab9-3e2c-4a40-a483-52c4972b2014");
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(); 5])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[doppelganger])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    cast_from_hand(&mut engine, p0, doppelganger);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, doppelganger).expect("it entered");
+    let c = engine
+        .state()
+        .object(copy)
+        .expect("seated")
+        .characteristics();
+    assert_eq!(
+        (c.power, c.toughness),
+        (Some(1), Some(1)),
+        "the Elves' body"
+    );
+    assert_eq!(
+        c.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]),
+        "blue, not the Elves' green"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Alpha-era cards (set LEA and its reprints): played by their printed Oracle
+// text, one function per card handle, tests grouped by colour in the order
+// they were assigned.
+// ---------------------------------------------------------------------------
+
+fn northern_paladin() -> CardIndex {
+    card_index("f5975294-508a-453e-893a-2fbea2487d17")
+}
+
+fn pearled_unicorn() -> CardIndex {
+    card_index("c071be90-0531-40cc-af46-0cbe80c4ddd4")
+}
+
+fn samite_healer() -> CardIndex {
+    card_index("95a0ca48-d924-47f4-86ed-42c673ee778c")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+fn white_knight() -> CardIndex {
+    card_index("ddb021df-ae4a-4ac1-8353-d0b375761714")
+}
+
+fn clone() -> CardIndex {
+    card_index("42226b87-0746-4ebf-9fd0-108d508462af")
+}
+
+fn lord_of_atlantis() -> CardIndex {
+    card_index("cc7f290f-ca00-4285-9bdb-4b4402444f30")
+}
+
+fn merfolk_of_the_pearl_trident() -> CardIndex {
+    card_index("218d9277-c179-4de3-9c7f-79b5a6d4fa38")
+}
+
+fn wall_of_water() -> CardIndex {
+    card_index("608cc65c-f99a-4ca3-be24-190d2556b411")
+}
+
+fn water_elemental() -> CardIndex {
+    card_index("c470fbe1-0538-46ec-8741-3143f5e78af8")
+}
+
+fn black_knight() -> CardIndex {
+    card_index("9456c5b6-946d-403a-8ed0-dff9f921d98c")
+}
+
+fn bog_wraith() -> CardIndex {
+    card_index("508248d1-09a4-4e41-a4c9-286618e5061e")
+}
+
+fn drudge_skeletons() -> CardIndex {
+    card_index("c180ed02-07f4-4538-9bea-8c249234a8e2")
+}
+
+fn hypnotic_specter() -> CardIndex {
+    card_index("759af941-f6a3-4726-91f2-9b1e4e55ea71")
+}
+
+fn nightmare() -> CardIndex {
+    card_index("375932e6-1b3e-48dc-8154-9b664c3add34")
+}
+
+fn plague_rats() -> CardIndex {
+    card_index("16cf1cf9-6900-406c-a5b4-0e5750f530e0")
+}
+
+fn scathe_zombies() -> CardIndex {
+    card_index("e0fefaf0-da20-4d58-8db7-019dba16c780")
+}
+
+fn scavenging_ghoul() -> CardIndex {
+    card_index("68c0c04e-b0d5-4721-83bf-bf18e8b7e680")
+}
+
+fn wall_of_bone() -> CardIndex {
+    card_index("8ffe4986-9e09-4421-ad26-296a4c0df9e4")
+}
+
+fn will_o_the_wisp() -> CardIndex {
+    card_index("8b60fcfe-fb90-4a00-a708-25b59bfc9b5a")
+}
+
+fn zombie_master() -> CardIndex {
+    card_index("5446c92f-ff22-4e9b-a2f6-e64c8560c1e0")
+}
+
+fn dwarven_warriors() -> CardIndex {
+    card_index("cfc553cd-3b4c-47a9-bffb-e5790befb32c")
+}
+
+fn fire_elemental() -> CardIndex {
+    card_index("3912d21e-1ebc-4a81-9dc9-f404248d564a")
+}
+
+fn goblin_king() -> CardIndex {
+    card_index("d236b3fc-0d3f-4d99-875d-e32a33fe5767")
+}
+
+fn hurloon_minotaur() -> CardIndex {
+    card_index("8f1dae40-b307-446e-bbd2-86aa35813871")
+}
+
+fn ironclaw_orcs() -> CardIndex {
+    card_index("c645a616-0d7d-416c-b5f3-057b3a1666a0")
+}
+
+fn keldon_warlord() -> CardIndex {
+    card_index("acc869f8-dcbe-4d57-baa0-3eef4aceb251")
+}
+
+fn mons_s_goblin_raiders() -> CardIndex {
+    card_index("a37159df-f6d7-4db6-85de-0ea77f425993")
+}
+
+fn sedge_troll() -> CardIndex {
+    card_index("a6a43190-cca2-4f07-afe9-8af681d777da")
+}
+
+fn shivan_dragon() -> CardIndex {
+    card_index("711eea87-0fa3-46e0-a42b-fa5a86455f04")
+}
+
+fn uthden_troll() -> CardIndex {
+    card_index("d6329dcc-b450-482a-8ee3-45449f7a4b3d")
+}
+
+fn wall_of_fire() -> CardIndex {
+    card_index("f38c8b47-e8e0-4d2f-b1da-d8d986805a48")
+}
+
+fn cockatrice() -> CardIndex {
+    card_index("af354337-424c-4c7e-8ca5-6149261368d2")
+}
+
+fn craw_wurm() -> CardIndex {
+    card_index("6a462a69-3e42-41de-a3aa-a488d9f38d69")
+}
+
+fn force_of_nature() -> CardIndex {
+    card_index("e3c4c27d-f263-4c69-a4fe-2928136ff68b")
+}
+
+fn fungusaur() -> CardIndex {
+    card_index("3e771f5b-2de3-4a1b-8281-ab1f7491e5a1")
+}
+
+fn ironroot_treefolk() -> CardIndex {
+    card_index("b7c0bb85-fb87-4c73-bc1b-7b4dc763c7e8")
+}
+
+fn shanodin_dryads() -> CardIndex {
+    card_index("998484cc-fefc-4da5-9987-5d6e89599c34")
+}
+
+fn thicket_basilisk() -> CardIndex {
+    card_index("c4822813-cd81-465d-9fe8-3a4c2dcd31ef")
+}
+
+fn wall_of_brambles() -> CardIndex {
+    card_index("f8d82a00-c10e-4b9e-9642-d05706900a97")
+}
+
+/// Twelve vanilla reprints whose whole printed text is a body: cast each and
+/// check the P/T, the creature type and the creature subtype the card
+/// prints, with nothing else on the battlefield afterward.
+#[test]
+#[allow(clippy::too_many_lines)] // one loop table, twelve vanilla bodies checked the same way
+fn alpha_vanilla_creatures_are_their_printed_bodies() {
+    let p0 = PlayerId::new(0);
+    for (name, card, land, lands, body, subtype) in [
+        (
+            "Pearled Unicorn",
+            pearled_unicorn(),
+            plains(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::UNICORN,
+        ),
+        (
+            "Savannah Lions",
+            savannah_lions(),
+            plains(),
+            1,
+            (2, 1),
+            baylee_core::generated::subtypes::creature::CAT,
+        ),
+        (
+            "Merfolk of the Pearl Trident",
+            merfolk_of_the_pearl_trident(),
+            island(),
+            1,
+            (1, 1),
+            baylee_core::generated::subtypes::creature::MERFOLK,
+        ),
+        (
+            "Water Elemental",
+            water_elemental(),
+            island(),
+            5,
+            (5, 4),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Scathe Zombies",
+            scathe_zombies(),
+            swamp(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::ZOMBIE,
+        ),
+        (
+            "Earth Elemental",
+            earth_elemental(),
+            mountain(),
+            5,
+            (4, 5),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Fire Elemental",
+            fire_elemental(),
+            mountain(),
+            5,
+            (5, 4),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Gray Ogre",
+            gray_ogre(),
+            mountain(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::OGRE,
+        ),
+        (
+            "Hurloon Minotaur",
+            hurloon_minotaur(),
+            mountain(),
+            3,
+            (2, 3),
+            baylee_core::generated::subtypes::creature::MINOTAUR,
+        ),
+        (
+            "Mons's Goblin Raiders",
+            mons_s_goblin_raiders(),
+            mountain(),
+            1,
+            (1, 1),
+            baylee_core::generated::subtypes::creature::GOBLIN,
+        ),
+        (
+            "Craw Wurm",
+            craw_wurm(),
+            forest(),
+            6,
+            (6, 4),
+            baylee_core::generated::subtypes::creature::WURM,
+        ),
+        (
+            "Ironroot Treefolk",
+            ironroot_treefolk(),
+            forest(),
+            5,
+            (3, 5),
+            baylee_core::generated::subtypes::creature::TREEFOLK,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Battlefield,
+            "{name}"
+        );
+        let mut engine = Duel::new(SEED, land).battlefield(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        let id = on_battlefield(&engine, p0, card).expect("seated");
+        assert_eq!(pt(&engine, id), body, "{name}");
+        assert!(
+            types(&engine, id).contains(TypeSet::CREATURE),
+            "{name} is a creature"
+        );
+        assert!(
+            engine
+                .state()
+                .object(id)
+                .expect("seated")
+                .characteristics()
+                .subtypes
+                .contains(subtype),
+            "{name} carries its printed creature subtype"
+        );
+    }
+}
+
+/// Northern Paladin — `{W}{W}`, `{T}`: Destroy target black permanent. The
+/// menu offers a black permanent and refuses a white one, and the paladin
+/// itself taps to pay.
+#[test]
+fn northern_paladin_destroys_a_black_permanent_and_no_other() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                northern_paladin(),
+                plains(),
+                plains(),
+                plains(),
+                scathe_zombies(),
+                pearled_unicorn(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let paladin = on_battlefield(&engine, p0, northern_paladin()).expect("seated");
+    let black = on_battlefield(&engine, p0, scathe_zombies()).expect("a black permanent");
+    let white = on_battlefield(&engine, p0, pearled_unicorn()).expect("a white one, for contrast");
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, northern_paladin(), 0);
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected a target for the destroy, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1), "one target");
+    assert!(options.contains(&black), "\"target black permanent\"");
+    assert!(
+        !options.contains(&white),
+        "a white permanent is not a legal target: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![black],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, scathe_zombies()).is_some(),
+        "destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, pearled_unicorn()).is_some(),
+        "left alone"
+    );
+    assert!(is_tapped(&engine, paladin), "it paid its own tap");
+}
+
+/// Samite Healer — `{T}`: Prevent the next 1 damage that would be dealt to
+/// any target this turn. Shielding an opponent and then bolting them for 3
+/// leaves only 2 through.
+#[test]
+fn samite_healer_prevents_the_first_point_of_damage_to_any_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[samite_healer(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    activate(&mut engine, p0, samite_healer(), 0);
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected a target for the shield, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "\"any target\" reaches either player: {player_options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected Lightning Bolt's target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(player_options.contains(&p1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "3 damage, 1 of it prevented by the shield"
+    );
+}
+
+/// White Knight — First strike; Protection from black. A black instant
+/// cannot even name it as a target while a legal white one sits beside it.
+#[test]
+fn white_knight_has_first_strike_and_protection_from_black() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[white_knight(), pearled_unicorn()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    let knight = on_battlefield(&engine, p0, white_knight()).expect("seated");
+    let unicorn =
+        on_battlefield(&engine, p0, pearled_unicorn()).expect("a legal, unprotected target");
+    assert!(
+        keywords(&engine, knight).contains(KeywordSet::FIRST_STRIKE),
+        "first strike is the card's other printed line"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, hero_s_downfall());
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected Hero's Downfall's target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(
+        options.contains(&unicorn),
+        "the unprotected creature is offered"
+    );
+    assert!(
+        !options.contains(&knight),
+        "protection from black: a black spell cannot target it: {options:?}"
+    );
+}
+
+/// Clone — "You may have this creature enter as a copy of any creature on
+/// the battlefield." Answered yes, it becomes the Water Elemental's body;
+/// answered no, it is a 0/0 Shapeshifter and dies to state-based actions on
+/// the spot (CR 704.5f applies to whatever a 0/0 creature turns out to be).
+#[test]
+fn clone_may_enter_as_a_copy_of_a_creature_on_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[water_elemental()])
+        .hand(0, &[clone()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elemental = on_battlefield(&engine, p1, water_elemental()).expect("their Elemental");
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 1), "\"you may\": zero is a legal answer");
+    assert!(
+        options.contains(&elemental),
+        "any creature on the battlefield"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elemental],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, clone()).expect("it entered");
+    assert_eq!(pt(&engine, copy), (5, 4), "the Elemental's printed body");
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("seated")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELEMENTAL),
+        "copied the Elemental's subtype, not its own Shapeshifter"
+    );
+}
+
+/// Clone declining the copy: a 0/0 Shapeshifter with lethal toughness of
+/// zero, so it never stands on the battlefield at all.
+#[test]
+fn clone_declining_the_copy_is_a_zero_zero_that_dies_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[water_elemental()])
+        .hand(0, &[clone()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, clone()).is_none(),
+        "a 0/0 does not survive state-based actions"
+    );
+    assert!(
+        in_graveyard(&engine, p0, clone()).is_some(),
+        "it dies to its own zero toughness the instant it arrives"
+    );
+}
+
+/// Lord of Atlantis — "Other Merfolk get +1/+1 and have islandwalk." The
+/// lord does not pump itself, a non-Merfolk beside it is untouched, and the
+/// other Merfolk gets both the bonus and the keyword.
+#[test]
+fn lord_of_atlantis_pumps_other_merfolk_and_grants_islandwalk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                lord_of_atlantis(),
+                merfolk_of_the_pearl_trident(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let lord = on_battlefield(&engine, p0, lord_of_atlantis()).expect("seated");
+    let merfolk =
+        on_battlefield(&engine, p0, merfolk_of_the_pearl_trident()).expect("another Merfolk");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("not a Merfolk");
+
+    assert_eq!(pt(&engine, lord), (2, 2), "it does not pump itself");
+    assert!(!keywords(&engine, lord).contains(KeywordSet::ISLANDWALK));
+    assert_eq!(
+        pt(&engine, merfolk),
+        (2, 2),
+        "1/1 printed, +1/+1 from the lord"
+    );
+    assert!(keywords(&engine, merfolk).contains(KeywordSet::ISLANDWALK));
+    assert_eq!(pt(&engine, elf), (1, 1), "not a Merfolk: untouched");
+    assert!(!keywords(&engine, elf).contains(KeywordSet::ISLANDWALK));
+}
+
+/// Merfolk of the Pearl Trident — vanilla `{U}` 1/1 Merfolk.
+#[test]
+fn merfolk_of_the_pearl_trident_is_a_one_one_merfolk_for_u() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(merfolk_of_the_pearl_trident(), island(), 1),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[merfolk_of_the_pearl_trident()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, merfolk_of_the_pearl_trident()).expect("seated");
+    assert_eq!(pt(&engine, id), (1, 1));
+    assert!(
+        engine
+            .state()
+            .object(id)
+            .expect("seated")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::MERFOLK)
+    );
+}
+
+/// Wall of Water — Defender; `{U}`: This creature gets +1/+0 until end of
+/// turn. Defender keeps it off the attackers list, the pump is real and
+/// wears off at cleanup.
+#[test]
+fn wall_of_water_pumps_for_u_until_end_of_turn_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[wall_of_water(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_water()).expect("seated");
+    assert_eq!(pt(&engine, wall), (0, 5));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_water(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, wall), (1, 5), "+1/+0 until end of turn");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert_eq!(pt(&engine, wall), (0, 5), "the pump ended at cleanup");
+}
+
+/// Water Elemental — vanilla `{3}{U}{U}` 5/4 Elemental.
+#[test]
+fn water_elemental_is_a_five_four_elemental_for_3uu() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(water_elemental(), island(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[water_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, water_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (5, 4));
+}
+
+/// Black Knight — First strike; Protection from white. A white instant
+/// cannot even name it as a target.
+#[test]
+fn black_knight_has_first_strike_and_protection_from_white() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[black_knight(), pearled_unicorn()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    let knight = on_battlefield(&engine, p0, black_knight()).expect("seated");
+    let unicorn =
+        on_battlefield(&engine, p0, pearled_unicorn()).expect("a legal, unprotected target");
+    assert!(keywords(&engine, knight).contains(KeywordSet::FIRST_STRIKE));
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected Swords to Plowshares' target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(options.contains(&unicorn));
+    assert!(
+        !options.contains(&knight),
+        "protection from white: a white spell cannot target it: {options:?}"
+    );
+}
+
+/// Bog Wraith — vanilla 3/3 body plus Swampwalk: unblockable while the
+/// defending player controls a Swamp, and an ordinary attacker without one.
+#[test]
+fn bog_wraith_is_unblockable_while_the_defender_controls_a_swamp() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[bog_wraith()])
+        .battlefield(1, &[llanowar_elves(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let wraith = on_battlefield(&engine, p0, bog_wraith()).expect("seated");
+    assert_eq!(pt(&engine, wraith), (3, 3));
+    assert!(keywords(&engine, wraith).contains(KeywordSet::SWAMPWALK));
+
+    let blocks = attack_and_collect_blocks(&mut engine, wraith, p1);
+    assert!(
+        blocks.is_empty(),
+        "the defender controls a Swamp, so nothing may block it: {blocks:?}"
+    );
+}
+
+/// Bog Wraith without a Swamp on the other side of the table: an ordinary
+/// blockable attacker, the control for the test above.
+#[test]
+fn bog_wraith_is_blockable_without_a_swamp_to_walk_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[bog_wraith()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let wraith = on_battlefield(&engine, p0, bog_wraith()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, wraith, p1);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&wraith)),
+        "no Swamp: an ordinary block is legal: {blocks:?}"
+    );
+}
+
+/// Drudge Skeletons — vanilla 1/1 plus `{B}`: Regenerate this creature.
+#[test]
+fn drudge_skeletons_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[drudge_skeletons(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let skeleton = on_battlefield(&engine, p0, drudge_skeletons()).expect("seated");
+    assert_eq!(pt(&engine, skeleton), (1, 1));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, drudge_skeletons(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(skeleton)
+            .unwrap()
+            .regeneration_shields,
+        1,
+        "the floating {{B}} bought a shield"
+    );
+}
+
+/// Hypnotic Specter — Flying; "Whenever this creature deals damage to an
+/// opponent, that player discards a card at random." An unblocked attack
+/// costs the life and the random card.
+#[test]
+fn hypnotic_specter_makes_a_damaged_opponent_discard_at_random() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[hypnotic_specter()])
+        .hand(1, &[swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let specter = on_battlefield(&engine, p0, hypnotic_specter()).expect("seated");
+    assert!(keywords(&engine, specter).contains(KeywordSet::FLYING));
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    assert_eq!(hand_before, 1, "one card seeded, to be discarded");
+
+    let blocks = attack_and_collect_blocks(&mut engine, specter, p1);
+    assert!(blocks.is_empty(), "no flying or reach blocker to stop it");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(engine.state().players[1].life, 18, "2 combat damage");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        hand_before - 1,
+        "the damaged opponent discarded one card at random"
+    );
+}
+
+/// Nightmare — Flying; "Nightmare's power and toughness are each equal to
+/// the number of Swamps you control." Only its controller's Swamps count.
+#[test]
+fn nightmares_power_and_toughness_equal_the_swamps_its_controller_has() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[nightmare(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let horse = on_battlefield(&engine, p0, nightmare()).expect("seated");
+    assert!(keywords(&engine, horse).contains(KeywordSet::FLYING));
+    assert_eq!(
+        pt(&engine, horse),
+        (3, 3),
+        "three Swamps of its own; the opponent's Swamp does not count"
+    );
+}
+
+/// Plague Rats — "Plague Rats's power and toughness are each equal to the
+/// number of creatures named Plague Rats on the battlefield," counted
+/// across both sides of the table.
+#[test]
+fn plague_ratss_power_and_toughness_count_every_plague_rats_on_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[plague_rats()])
+        .battlefield(1, &[plague_rats()])
+        .start();
+    keep_mulligans(&mut engine);
+    let mine = on_battlefield(&engine, p0, plague_rats()).expect("seated");
+    let theirs = on_battlefield(&engine, p1, plague_rats()).expect("seated");
+    assert_eq!(
+        pt(&engine, mine),
+        (2, 2),
+        "two on the battlefield, whoever controls them"
+    );
+    assert_eq!(pt(&engine, theirs), (2, 2));
+}
+
+/// Scathe Zombies — vanilla `{2}{B}` 2/2 Zombie.
+#[test]
+fn scathe_zombies_is_a_two_two_zombie_for_2b() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(scathe_zombies(), swamp(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[scathe_zombies()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, scathe_zombies()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 2));
+}
+
+/// Scavenging Ghoul — "At the beginning of **each** end step, put a corpse
+/// counter on this creature **for each** creature that died this turn." /
+/// "Remove a corpse counter from this creature: Regenerate this creature."
+/// Both italicized words get their own witness here: the two creatures
+/// that die are the opponent's, killed on the opponent's own turn (p1's),
+/// not the Ghoul controller's (p0's) — so the counter must still land, and
+/// it must land as 2, not 1.
+#[test]
+fn scavenging_ghoul_gathers_a_corpse_counter_and_spends_it_to_regenerate() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[
+                scavenging_ghoul(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .battlefield(1, &[pearled_unicorn(), llanowar_elves()])
+        .hand(0, &[hero_s_downfall(), hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    let ghoul = on_battlefield(&engine, p0, scavenging_ghoul()).expect("seated");
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        0
+    );
+
+    // p0's lands stand untapped through the whole of turn 1 (p0's own
+    // turn): nothing is cast there, so both copies of Hero's Downfall wait
+    // for p1's turn, cast at instant speed after the active player passes.
+    reach_their_main_phase(&mut engine, p1);
+    let unicorn = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let _ = aim_at(&mut engine, p0, unicorn);
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let _ = aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
+        "destroyed on p1's turn, not p0's"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "a second creature destroyed the same turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p0
+            && e.state().turn.number >= 3
+    });
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        2,
+        "two creatures died on p1's turn; \"each end step\" fired on p1's turn too, \
+         and \"for each\" counted both"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(ghoul, 1)),
+        "the removal ability is offered while a counter sits on it: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, scavenging_ghoul(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ghoul).unwrap().regeneration_shields,
+        1,
+        "the removed counter paid for a regeneration shield"
+    );
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        1,
+        "one of the two counters spent, one left"
+    );
+}
+
+/// Wall of Bone — Defender; `{B}`: Regenerate this creature.
+#[test]
+fn wall_of_bone_regenerates_for_b_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[wall_of_bone(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_bone()).expect("seated");
+    assert_eq!(pt(&engine, wall), (1, 4));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_bone(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wall).unwrap().regeneration_shields, 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
+
+/// Will-o'-the-Wisp — Flying; `{B}`: Regenerate this creature.
+#[test]
+fn will_o_the_wisp_flies_and_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[will_o_the_wisp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wisp = on_battlefield(&engine, p0, will_o_the_wisp()).expect("seated");
+    assert_eq!(pt(&engine, wisp), (0, 1));
+    assert!(keywords(&engine, wisp).contains(KeywordSet::FLYING));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, will_o_the_wisp(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wisp).unwrap().regeneration_shields, 1);
+}
+
+/// Zombie Master — "Other Zombie creatures have swampwalk." / "Other
+/// Zombies have '{B}: Regenerate this permanent.'" Neither line reaches the
+/// master itself.
+#[test]
+fn zombie_master_grants_other_zombies_swampwalk_and_a_regenerate_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[zombie_master(), scathe_zombies(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let master = on_battlefield(&engine, p0, zombie_master()).expect("seated");
+    let zombie = on_battlefield(&engine, p0, scathe_zombies()).expect("another Zombie");
+
+    assert!(
+        !keywords(&engine, master).contains(KeywordSet::SWAMPWALK),
+        "\"other\" Zombies, not itself"
+    );
+    assert!(keywords(&engine, zombie).contains(KeywordSet::SWAMPWALK));
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|&(id, _)| id == master),
+        "the master itself is granted nothing: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal
+            .abilities
+            .contains(&(zombie, crate::choice::GRANTED_ABILITY)),
+        "the granted regeneration is offered on the other Zombie: {:?}",
+        legal.abilities
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: zombie,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the floating {B} pays for the grant");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(zombie).unwrap().regeneration_shields,
+        1,
+        "the granted ability regenerates the Zombie it was granted to"
+    );
+}
+
+/// Dwarven Warriors — `{T}`: Target creature with power 2 or less can't be
+/// blocked this turn. A power-5 creature is not on the menu, and the
+/// keyword wears off at the next cleanup.
+#[test]
+fn dwarven_warriors_makes_a_weak_creature_unblockable_this_turn_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[dwarven_warriors(), pearled_unicorn(), water_elemental()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let warriors = on_battlefield(&engine, p0, dwarven_warriors()).expect("seated");
+    let weak = on_battlefield(&engine, p0, pearled_unicorn()).expect("power 2");
+    let strong = on_battlefield(&engine, p0, water_elemental()).expect("power 5");
+
+    activate(&mut engine, p0, dwarven_warriors(), 0);
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(options.contains(&weak), "power 2 or less is offered");
+    assert!(
+        !options.contains(&strong),
+        "power 5 is not \"power 2 or less\": {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![weak],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, weak).contains(KeywordSet::UNBLOCKABLE));
+    assert!(is_tapped(&engine, warriors));
+
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert!(
+        !keywords(&engine, weak).contains(KeywordSet::UNBLOCKABLE),
+        "\"this turn\" ended at cleanup"
+    );
+}
+
+/// Earth Elemental — vanilla `{3}{R}{R}` 4/5 Elemental.
+#[test]
+fn earth_elemental_is_a_four_five_elemental_for_3rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(earth_elemental(), mountain(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[earth_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, earth_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (4, 5));
+}
+
+/// Fire Elemental — vanilla `{3}{R}{R}` 5/4 Elemental.
+#[test]
+fn fire_elemental_is_a_five_four_elemental_for_3rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(fire_elemental(), mountain(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[fire_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, fire_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (5, 4));
+}
+
+/// Goblin King — "Other Goblins get +1/+1 and have mountainwalk." The king
+/// leaves itself and a non-Goblin beside it untouched.
+#[test]
+fn goblin_king_pumps_other_goblins_and_grants_mountainwalk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[goblin_king(), mons_s_goblin_raiders(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let king = on_battlefield(&engine, p0, goblin_king()).expect("seated");
+    let goblin = on_battlefield(&engine, p0, mons_s_goblin_raiders()).expect("another Goblin");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("not a Goblin");
+
+    assert_eq!(pt(&engine, king), (2, 2), "it does not pump itself");
+    assert!(!keywords(&engine, king).contains(KeywordSet::MOUNTAINWALK));
+    assert_eq!(
+        pt(&engine, goblin),
+        (2, 2),
+        "1/1 printed, +1/+1 from the king"
+    );
+    assert!(keywords(&engine, goblin).contains(KeywordSet::MOUNTAINWALK));
+    assert_eq!(pt(&engine, elf), (1, 1), "not a Goblin: untouched");
+    assert!(!keywords(&engine, elf).contains(KeywordSet::MOUNTAINWALK));
+}
+
+/// Gray Ogre — vanilla `{2}{R}` 2/2 Ogre.
+#[test]
+fn gray_ogre_is_a_two_two_ogre_for_2r() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(gray_ogre(), mountain(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 2));
+}
+
+/// Hurloon Minotaur — vanilla `{1}{R}{R}` 2/3 Minotaur.
+#[test]
+fn hurloon_minotaur_is_a_two_three_minotaur_for_1rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(hurloon_minotaur(), mountain(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 3));
+}
+
+/// Ironclaw Orcs — "This creature can't block creatures with power 2 or
+/// greater." A power-2 attacker slips past it; a power-1 attacker does not.
+#[test]
+fn ironclaw_orcs_cannot_block_a_creature_with_power_two_or_more() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[pearled_unicorn(), llanowar_elves()])
+        .battlefield(1, &[ironclaw_orcs()])
+        .start();
+    keep_mulligans(&mut engine);
+    let strong = on_battlefield(&engine, p0, pearled_unicorn()).expect("power 2");
+    let weak = on_battlefield(&engine, p0, llanowar_elves()).expect("power 1");
+    let orcs = on_battlefield(&engine, p1, ironclaw_orcs()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { player, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(strong, Defender::Player(p1)), (weak, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        panic!("expected the block offer, got {:?}", engine.pending())
+    };
+    let pairing = blockers
+        .iter()
+        .find(|b| b.blocker == orcs)
+        .unwrap_or_else(|| panic!("the Orcs could still block the weak attacker: {blockers:?}"));
+    assert!(
+        !pairing.attackers.contains(&strong),
+        "power 2 or greater: not blockable by the Orcs: {pairing:?}"
+    );
+    assert!(
+        pairing.attackers.contains(&weak),
+        "power 1: the Orcs may still block it: {pairing:?}"
+    );
+}
+
+/// Keldon Warlord — "Keldon Warlord's power and toughness are each equal
+/// to the number of non-Wall creatures you control." A Wall and an
+/// opponent's creature both fail to count.
+#[test]
+fn keldon_warlords_power_and_toughness_count_its_controllers_non_wall_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[keldon_warlord(), pearled_unicorn(), wall_of_fire()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let warlord = on_battlefield(&engine, p0, keldon_warlord()).expect("seated");
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "seated"
+    );
+    assert_eq!(
+        pt(&engine, warlord),
+        (2, 2),
+        "itself and the Unicorn; the Wall and the opponent's Elf do not count"
+    );
+}
+
+/// Mons's Goblin Raiders — vanilla `{R}` 1/1 Goblin.
+#[test]
+fn mons_s_goblin_raiders_is_a_one_one_goblin_for_r() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(mons_s_goblin_raiders(), mountain(), 1),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mons_s_goblin_raiders()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, mons_s_goblin_raiders()).expect("seated");
+    assert_eq!(pt(&engine, id), (1, 1));
+}
+
+/// Sedge Troll — "This creature gets +1/+1 as long as you control a
+/// Swamp." / "{B}: Regenerate this creature." Two boards, with and without
+/// the Swamp, and the regeneration itself.
+#[test]
+fn sedge_troll_is_pumped_only_with_a_swamp_and_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+
+    let mut without_swamp = Duel::new(SEED, mountain())
+        .battlefield(0, &[sedge_troll(), mountain()])
+        .start();
+    keep_mulligans(&mut without_swamp);
+    let troll = on_battlefield(&without_swamp, p0, sedge_troll()).expect("seated");
+    assert_eq!(
+        pt(&without_swamp, troll),
+        (2, 2),
+        "no Swamp: the printed body"
+    );
+
+    let mut with_swamp = Duel::new(SEED, mountain())
+        .battlefield(0, &[sedge_troll(), mountain(), swamp()])
+        .start();
+    keep_mulligans(&mut with_swamp);
+    reach_main_phase(&mut with_swamp, p0);
+    let troll = on_battlefield(&with_swamp, p0, sedge_troll()).expect("seated");
+    assert_eq!(pt(&with_swamp, troll), (3, 3), "a Swamp under its control");
+
+    tap_all_mana(&mut with_swamp, p0);
+    activate(&mut with_swamp, p0, sedge_troll(), 1);
+    pass_until(&mut with_swamp, stack_is_empty);
+    assert_eq!(
+        with_swamp
+            .state()
+            .object(troll)
+            .unwrap()
+            .regeneration_shields,
+        1,
+        "the {{B}} the Swamp made pays the regeneration"
+    );
+}
+
+/// Shivan Dragon — Flying; `{R}`: This creature gets +1/+0 until end of
+/// turn.
+#[test]
+fn shivan_dragon_flies_and_pumps_for_r_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[shivan_dragon(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let dragon = on_battlefield(&engine, p0, shivan_dragon()).expect("seated");
+    assert_eq!(pt(&engine, dragon), (5, 5));
+    assert!(keywords(&engine, dragon).contains(KeywordSet::FLYING));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, shivan_dragon(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, dragon), (6, 5), "+1/+0 until end of turn");
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert_eq!(pt(&engine, dragon), (5, 5), "the pump ended at cleanup");
+}
+
+/// Uthden Troll — vanilla 2/2 plus `{R}`: Regenerate this creature.
+#[test]
+fn uthden_troll_regenerates_for_r() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[uthden_troll(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let troll = on_battlefield(&engine, p0, uthden_troll()).expect("seated");
+    assert_eq!(pt(&engine, troll), (2, 2));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, uthden_troll(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(troll).unwrap().regeneration_shields,
+        1
+    );
+}
+
+/// Wall of Fire — Defender; `{R}`: This creature gets +1/+0 until end of
+/// turn.
+#[test]
+fn wall_of_fire_pumps_for_r_until_end_of_turn_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[wall_of_fire(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_fire()).expect("seated");
+    assert_eq!(pt(&engine, wall), (0, 5));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_fire(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, wall), (1, 5), "+1/+0 until end of turn");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
+
+/// Cockatrice — Flying; "Whenever this creature blocks or becomes blocked
+/// by a non-Wall creature, destroy that creature at end of combat." The
+/// attacker is a 2/3 Hurloon Minotaur, not the 2/2 Pearled Unicorn: it
+/// survives the Cockatrice's 2 combat damage on its own, so only the
+/// delayed trigger — not the fight — can be what kills it.
+#[test]
+fn cockatrice_destroys_a_non_wall_creature_it_blocks_at_end_of_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cockatrice()])
+        .battlefield(1, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    let bird = on_battlefield(&engine, p0, cockatrice()).expect("seated");
+    assert!(keywords(&engine, bird).contains(KeywordSet::FLYING));
+    reach_their_main_phase(&mut engine, p1);
+    let attacker = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, attacker, p0);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == bird)
+        .unwrap_or_else(|| panic!("the Cockatrice may block a ground creature: {blocks:?}"));
+    assert!(pairing.attackers.contains(&attacker));
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(bird, attacker)],
+            },
+        )
+        .expect("the pairing came out of the list that offered it");
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(
+        engine.state().object(attacker).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "2 damage to a 2/3: the fight itself did not kill it"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        in_graveyard(&engine, p1, hurloon_minotaur()).is_some(),
+        "destroyed at end of combat for having been blocked by the Cockatrice, not by the fight"
+    );
+    assert!(
+        on_battlefield(&engine, p0, cockatrice()).is_some(),
+        "the Cockatrice itself is untouched"
+    );
+}
+
+/// Craw Wurm — vanilla `{4}{G}{G}` 6/4 Wurm.
+#[test]
+fn craw_wurm_is_a_six_four_wurm_for_4gg() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(craw_wurm(), forest(), 6),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[craw_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+    assert_eq!(pt(&engine, id), (6, 4));
+}
+
+/// Force of Nature — Trample; "At the beginning of your upkeep, this
+/// creature deals 8 damage to you unless you pay `{G}{G}{G}{G}`." Declined,
+/// its controller takes the 8.
+#[test]
+fn force_of_nature_deals_8_to_its_controller_unless_gggg_is_paid() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[force_of_nature()])
+        .start();
+    keep_mulligans(&mut engine);
+    let treant = on_battlefield(&engine, p0, force_of_nature()).expect("seated");
+    assert_eq!(pt(&engine, treant), (8, 8));
+    assert!(keywords(&engine, treant).contains(KeywordSet::TRAMPLE));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 12, "8 damage, left unpaid");
+    assert!(on_battlefield(&engine, p0, force_of_nature()).is_some());
+}
+
+/// Force of Nature, the other branch: paying the `{G}{G}{G}{G}` spares its
+/// controller the damage. Life alone at 20 would also hold for a cost of
+/// `{G}` or free, so the pool is checked too: exactly four Forests stand
+/// here, and the payment window leaves the pool empty — not merely
+/// nonzero — showing the full `{G}{G}{G}{G}` was what left it.
+#[test]
+fn force_of_nature_paying_gggg_spares_its_controller_the_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[force_of_nature(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let made = tap_all_mana(&mut engine, p0);
+    assert_eq!(made, 4, "all four Forests, and no more, stand here");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        4,
+        "four green floating, matching the printed cost exactly"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the payment window spent every last one of the four: not {{G}}, not free"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "paid the {{G}}{{G}}{{G}}{{G}}"
+    );
+}
+
+/// Fungusaur — "Whenever this creature is dealt damage, put a +1/+1
+/// counter on it." One point of (non-lethal) combat damage grows it.
+#[test]
+fn fungusaur_gains_a_counter_whenever_it_is_dealt_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[fungusaur()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dino = on_battlefield(&engine, p0, fungusaur()).expect("seated");
+    assert_eq!(pt(&engine, dino), (2, 2));
+
+    reach_their_main_phase(&mut engine, p1);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, elf, p0);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == dino)
+        .unwrap_or_else(|| panic!("Fungusaur may block the Elf: {blocks:?}"));
+    assert!(pairing.attackers.contains(&elf));
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(dino, elf)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().object(dino).map(|o| (o.zone, o.damage)),
+        Some((Zone::Battlefield, 1)),
+        "the Elf's 1 damage was not lethal to a 3-toughness Fungusaur"
+    );
+    assert_eq!(counters_on(&engine, dino, CounterKind::P1P1), 1);
+    assert_eq!(
+        pt(&engine, dino),
+        (3, 3),
+        "the printed 2/2 plus the counter"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "2 power killed the 1-toughness Elf"
+    );
+}
+
+/// Ironroot Treefolk — vanilla `{4}{G}` 3/5 Treefolk.
+#[test]
+fn ironroot_treefolk_is_a_three_five_treefolk_for_4g() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(ironroot_treefolk(), forest(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ironroot_treefolk()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, ironroot_treefolk()).expect("seated");
+    assert_eq!(pt(&engine, id), (3, 5));
+}
+
+/// Shanodin Dryads — vanilla 1/1 body plus Forestwalk: unblockable while
+/// the defending player controls a Forest.
+#[test]
+fn shanodin_dryads_is_unblockable_while_the_defender_controls_a_forest() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[shanodin_dryads()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dryads = on_battlefield(&engine, p0, shanodin_dryads()).expect("seated");
+    assert_eq!(pt(&engine, dryads), (1, 1));
+    assert!(keywords(&engine, dryads).contains(KeywordSet::FORESTWALK));
+
+    let blocks = attack_and_collect_blocks(&mut engine, dryads, p1);
+    assert!(
+        blocks.is_empty(),
+        "the defender controls a Forest, so nothing may block it: {blocks:?}"
+    );
+}
+
+/// Shanodin Dryads without a Forest on the other side: an ordinary
+/// blockable attacker, the control for the test above.
+#[test]
+fn shanodin_dryads_is_blockable_without_a_forest_to_walk_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[shanodin_dryads()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dryads = on_battlefield(&engine, p0, shanodin_dryads()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, dryads, p1);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&dryads)),
+        "no Forest: an ordinary block is legal: {blocks:?}"
+    );
+}
+
+/// Thicket Basilisk — "Whenever this creature blocks or becomes blocked by
+/// a non-Wall creature, destroy that creature at end of combat." Here, the
+/// "becomes blocked" direction, and its one printed exception: a Wall. The
+/// blocker is a 2/3 Hurloon Minotaur, not the 2/2 Pearled Unicorn: it
+/// survives the Basilisk's 2 combat damage on its own, so only the delayed
+/// trigger — not the fight — can be what kills it.
+#[test]
+fn thicket_basilisk_destroys_a_non_wall_creature_that_blocks_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thicket_basilisk()])
+        .battlefield(1, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
+    let blocker = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, basilisk, p1);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == blocker)
+        .unwrap_or_else(|| panic!("the Minotaur may block the Basilisk: {blocks:?}"));
+    assert!(pairing.attackers.contains(&basilisk));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, basilisk)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(
+        engine.state().object(blocker).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "2 damage to a 2/3: the fight itself did not kill it"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        in_graveyard(&engine, p1, hurloon_minotaur()).is_some(),
+        "destroyed at end of combat for blocking the Basilisk, not by the fight"
+    );
+    assert!(on_battlefield(&engine, p0, thicket_basilisk()).is_some());
+}
+
+/// Thicket Basilisk's one exception: a Wall that blocks it is not
+/// destroyed.
+#[test]
+fn thicket_basilisk_does_not_destroy_a_wall_that_blocks_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thicket_basilisk()])
+        .battlefield(1, &[wall_of_brambles()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
+    let wall = on_battlefield(&engine, p1, wall_of_brambles()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, basilisk, p1);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == wall)
+        .unwrap_or_else(|| panic!("the Wall may still block: {blocks:?}"));
+    assert!(pairing.attackers.contains(&basilisk));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(wall, basilisk)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        on_battlefield(&engine, p1, wall_of_brambles()).is_some(),
+        "a Wall is the one exception the trigger names"
+    );
+}
+
+/// Wall of Brambles — Defender; `{G}`: Regenerate this creature.
+#[test]
+fn wall_of_brambles_regenerates_for_g_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wall_of_brambles(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_brambles()).expect("seated");
+    assert_eq!(pt(&engine, wall), (2, 3));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_brambles(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wall).unwrap().regeneration_shields, 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
+
+// ---------------------------------------------------------------------
+// Alpha batch B: Pirate Ship, Demonic Hordes, Nether Shadow, Sengir
+// Vampire, Two-Headed Giant of Foriys, Gaea's Liege.
+// ---------------------------------------------------------------------
+
+fn pirate_ship() -> CardIndex {
+    card_index("c6b3f924-806d-47d3-b044-72b48470196c")
+}
+
+/// Pirate Ship — {4}{U} 4/3 Human Pirate. Its `{T}: This creature deals 1
+/// damage to any target` is ability index **2** (index 0 is "can't attack
+/// unless defending player controls an Island", index 1 the "when you
+/// control no Islands, sacrifice this creature" state trigger — both
+/// played below). Its controller keeps an Island here so that trigger never
+/// fires. Aimed at the opponent, "any target" reaches a player: the life
+/// total moves by exactly one and the ship pays its own tap.
+#[test]
+fn pirate_ship_taps_to_deal_one_damage_to_a_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[pirate_ship(), island()])
+        .life(0, 20)
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    assert_eq!(pt(&engine, ship), (4, 3), "the body the card prints");
+
+    activate(&mut engine, p0, pirate_ship(), 2);
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"any target\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "either player is a legal \"any target\": {player_options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, ship),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("a player is a legal target for \"any target\"");
+    assert!(is_tapped(&engine, ship), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "\"deals 1 damage\" to the player \"any target\" named"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the activating seat took none of it"
+    );
+}
+
+/// Pirate Ship, the other half of "any target": aimed at a creature
+/// instead of a player. The Minotaur's marked damage moves by exactly the
+/// ship's printed 1, on its printed 3 toughness, so it lives to say so.
+/// Its controller keeps an Island so the sacrifice trigger never fires
+/// here (that sentence is played below).
+#[test]
+fn pirate_ship_taps_to_deal_one_damage_to_a_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[pirate_ship(), island()])
+        .battlefield(1, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    assert_eq!(pt(&engine, ship), (4, 3), "the body the card prints");
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    activate(&mut engine, p0, pirate_ship(), 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"any target\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&minotaur),
+        "a creature is a legal \"any target\": {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![minotaur],
+                players: vec![],
+            },
+        )
+        .expect("the Minotaur was among the options the ability enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(minotaur).map(|o| o.damage),
+        Some(1),
+        "\"deals 1 damage\" — one, marked on the creature it named"
+    );
+    assert!(
+        on_battlefield(&engine, p1, hurloon_minotaur()).is_some(),
+        "a 2/3 survives 1 damage"
+    );
+}
+
+/// Pirate Ship, "can't attack unless defending player controls an Island"
+/// (CR 508.1c): with none on the defending side it is not offered and a
+/// declaration naming it is refused — even though its own controller's
+/// Island is what keeps the ship itself from being sacrificed, which does
+/// not count for the opponent's side. A vanilla Savannah Lions, on the
+/// battlefield since the game began like the ship, is offered in the same
+/// question: this board can offer an attacker, so the ship's absence is
+/// its restriction at work, not a question that offers nothing at all.
+#[test]
+fn pirate_ship_cannot_attack_when_the_defending_player_controls_no_island() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[pirate_ship(), island(), savannah_lions()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&lions),
+        "a vanilla creature on the same board is offered: this question can \
+         offer an attacker at all: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&ship),
+        "no Island on the defending side, and its own controller's Island \
+         does not count: {attackers:?}"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(ship, Defender::Player(p1))]
+                }
+            )
+            .is_err(),
+        "a declaration naming it is refused"
+    );
+}
+
+/// The same restriction, the other side of it: an Island on the defending
+/// player's side and the ship is offered and attacks.
+#[test]
+fn pirate_ship_attacks_when_the_defending_player_controls_an_island() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[pirate_ship(), island()])
+        .battlefield(1, &[island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&ship),
+        "an Island on the defending side offers it: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(ship, Defender::Player(p1))],
+            },
+        )
+        .expect("an Island across the table lets it attack");
+    assert!(engine.state().combat.is_attacking(ship));
+}
+
+/// Pirate Ship, "when you control no Islands, sacrifice this creature"
+/// (CR 603.8): destroying its controller's last Island puts the ability on
+/// the stack, and resolving it sacrifices the ship.
+#[test]
+fn pirate_ship_sacrifices_itself_when_its_last_island_is_destroyed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[pirate_ship(), island(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[stone_rain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    let isle = on_battlefield(&engine, p0, island()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, stone_rain());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"destroy target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&isle));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![isle],
+                players: vec![],
+            },
+        )
+        .expect("its own Island is a legal target for \"destroy target land\"");
+
+    let before = engine.journal().entries().len();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, pirate_ship()).is_none()
+    });
+
+    assert!(
+        on_battlefield(&engine, p0, island()).is_none(),
+        "the last Island is gone"
+    );
+    assert!(
+        in_graveyard(&engine, p0, pirate_ship()).is_some(),
+        "\"sacrifice this creature\" put it in its owner's graveyard"
+    );
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered {
+                    source,
+                    ability_index: 1,
+                    ..
+                } if source == ship
+            )),
+        "the sacrifice came from the state trigger (ability index 1), not \
+         from Stone Rain itself"
+    );
+}
+
+/// "When you control no Islands, sacrifice this creature": with an Island
+/// standing the whole time, the ship survives an entire turn of its
+/// controller's own — through combat, second main and the end step —
+/// without the trigger ever firing.
+#[test]
+fn pirate_ship_with_its_own_island_survives_its_controllers_whole_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[pirate_ship(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+
+    reach_their_main_phase(&mut engine, p1);
+
+    assert_eq!(
+        on_battlefield(&engine, p0, pirate_ship()),
+        Some(ship),
+        "an Island standing the whole time, so the state trigger never fired"
+    );
+}
+
+/// The condition is what makes the ability trigger, not an "if" it
+/// rechecks as it resolves — this printed sentence has no intervening "if"
+/// clause for CR 603.4 to apply to — so an Island arriving while the
+/// ability is on the stack does not stop it (CR 603.8).
+#[test]
+fn a_new_island_while_the_sacrifice_trigger_waits_does_not_save_the_pirate_ship() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[pirate_ship(), island(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[stone_rain(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ship = on_battlefield(&engine, p0, pirate_ship()).expect("seated");
+    let isle = on_battlefield(&engine, p0, island()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, stone_rain());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![isle],
+                players: vec![],
+            },
+        )
+        .expect("its own Island is a legal target for \"destroy target land\"");
+
+    // Stops the instant the Island is gone and the sacrifice trigger has
+    // taken its place on the stack, with p0 — who acts next — holding
+    // priority: the dev move below is read fresh from there on.
+    let before = engine.journal().entries().len();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, island()).is_none() && !stack_is_empty(e)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, pirate_ship()),
+        Some(ship),
+        "the trigger is only waiting to resolve so far"
+    );
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered {
+                    source,
+                    ability_index: 1,
+                    ..
+                } if source == ship
+            )),
+        "what is waiting on the stack is the state trigger (ability index 1)"
+    );
+
+    let fresh_island = in_hand(&engine, p0, island()).expect("a second Island is in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            fresh_island,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("the harness moves a card");
+    assert!(
+        on_battlefield(&engine, p0, island()).is_some(),
+        "an Island is back under its control before the trigger resolves"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, pirate_ship()).is_some(),
+        "the ability had already triggered on the earlier absence and \
+         sacrifices the ship regardless of the Island that arrived after"
+    );
+}
+
+fn sea_serpent() -> CardIndex {
+    card_index("c16495fc-784d-4bac-9a68-ed437008df73")
+}
+
+/// Sea Serpent, "can't attack unless defending player controls an Island"
+/// (CR 508.1c): with none on the defending side it is not offered and a
+/// declaration naming it is refused — even though its own controller's
+/// Island is what keeps the Serpent from being sacrificed, which does not
+/// count for the opponent's side. A vanilla Savannah Lions, on the
+/// battlefield since the game began like the Serpent, is offered in the
+/// same question: this board can offer an attacker, so the Serpent's
+/// absence is its restriction at work, not a question that offers nothing
+/// at all.
+#[test]
+fn sea_serpent_cannot_attack_when_the_defending_player_controls_no_island() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sea_serpent(), island(), savannah_lions()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&lions),
+        "a vanilla creature on the same board is offered: this question can \
+         offer an attacker at all: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&serpent),
+        "no Island on the defending side, and its own controller's Island \
+         does not count: {attackers:?}"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(serpent, Defender::Player(p1))]
+                }
+            )
+            .is_err(),
+        "a declaration naming it is refused"
+    );
+}
+
+/// The same restriction, the other side of it: an Island on the defending
+/// player's side and the Serpent is offered and attacks.
+#[test]
+fn sea_serpent_attacks_when_the_defending_player_controls_an_island() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sea_serpent(), island()])
+        .battlefield(1, &[island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        attackers.contains(&serpent),
+        "an Island on the defending side offers it: {attackers:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(serpent, Defender::Player(p1))],
+            },
+        )
+        .expect("an Island across the table lets it attack");
+    assert!(engine.state().combat.is_attacking(serpent));
+}
+
+/// "When you control no Islands, sacrifice this creature": with an Island
+/// standing the whole time, the Serpent survives an entire turn of its
+/// controller's own — through combat, second main and the end step —
+/// without the trigger ever firing.
+#[test]
+fn a_sea_serpent_with_its_own_island_survives_its_controllers_whole_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sea_serpent(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+
+    reach_their_main_phase(&mut engine, p1);
+
+    assert_eq!(
+        on_battlefield(&engine, p0, sea_serpent()),
+        Some(serpent),
+        "an Island standing the whole time, so the state trigger never fired"
+    );
+}
+
+/// "When you control no Islands, sacrifice this creature" (CR 603.8):
+/// destroying the Serpent's controller's last Island puts the ability on
+/// the stack, and resolving it sacrifices the Serpent.
+#[test]
+fn a_sea_serpent_sacrifices_itself_when_its_last_island_is_destroyed() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[sea_serpent(), island(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[stone_rain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+    let isle = on_battlefield(&engine, p0, island()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, stone_rain());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"destroy target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(options.contains(&isle));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![isle],
+                players: vec![],
+            },
+        )
+        .expect("its own Island is a legal target for \"destroy target land\"");
+
+    let before = engine.journal().entries().len();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, sea_serpent()).is_none()
+    });
+
+    assert!(
+        on_battlefield(&engine, p0, island()).is_none(),
+        "the last Island is gone"
+    );
+    assert!(
+        in_graveyard(&engine, p0, sea_serpent()).is_some(),
+        "\"sacrifice this creature\" put it in its owner's graveyard"
+    );
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered {
+                    source,
+                    ability_index: 1,
+                    ..
+                } if source == serpent
+            )),
+        "the sacrifice came from the state trigger (ability index 1), not \
+         from Stone Rain itself"
+    );
+}
+
+/// The condition is what makes the ability trigger, not an "if" it
+/// rechecks as it resolves — this printed sentence has no intervening "if"
+/// clause for CR 603.4 to apply to — so an Island arriving while the
+/// ability is on the stack does not stop it (CR 603.8).
+#[test]
+fn a_new_island_while_the_sacrifice_trigger_waits_does_not_save_the_sea_serpent() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[sea_serpent(), island(), mountain(), mountain(), mountain()],
+        )
+        .hand(0, &[stone_rain(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let serpent = on_battlefield(&engine, p0, sea_serpent()).expect("seated");
+    let isle = on_battlefield(&engine, p0, island()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, stone_rain());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![isle],
+                players: vec![],
+            },
+        )
+        .expect("its own Island is a legal target for \"destroy target land\"");
+
+    // Stops the instant the Island is gone and the sacrifice trigger has
+    // taken its place on the stack, with p0 — who acts next — holding
+    // priority: the dev move below is read fresh from there on.
+    let before = engine.journal().entries().len();
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, island()).is_none() && !stack_is_empty(e)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, sea_serpent()),
+        Some(serpent),
+        "the trigger is only waiting to resolve so far"
+    );
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::AbilityTriggered {
+                    source,
+                    ability_index: 1,
+                    ..
+                } if source == serpent
+            )),
+        "what is waiting on the stack is the state trigger (ability index 1)"
+    );
+
+    let fresh_island = in_hand(&engine, p0, island()).expect("a second Island is in hand");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            fresh_island,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("the harness moves a card");
+    assert!(
+        on_battlefield(&engine, p0, island()).is_some(),
+        "an Island is back under its control before the trigger resolves"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, sea_serpent()).is_some(),
+        "the ability had already triggered on the earlier absence and \
+         sacrifices the Serpent regardless of the Island that arrived after"
+    );
+}
+
+fn demonic_hordes() -> CardIndex {
+    card_index("2847c8a0-f6aa-4e4a-a7b8-fc116436a264")
+}
+
+/// Demonic Hordes — {3}{B}{B}{B} 5/5 Demon. `Coverage::Partial`: the
+/// upkeep tax and the opponent's-choice land sacrifice are not in the
+/// engine, but its `{T}: Destroy target land` is. `Filter::LAND` names no
+/// side, so the menu holds a land from either seat and excludes the
+/// creature standing beside them.
+#[test]
+fn demonic_hordes_taps_to_destroy_a_targeted_land_of_either_seat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[demonic_hordes(), swamp()])
+        .battlefield(1, &[forest(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hordes = on_battlefield(&engine, p0, demonic_hordes()).expect("seated");
+    assert_eq!(pt(&engine, hordes), (5, 5), "the body the card prints");
+    let my_swamp = on_battlefield(&engine, p0, swamp()).expect("seated");
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("seated");
+    let their_elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+
+    activate(&mut engine, p0, demonic_hordes(), 0);
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1), "one land, and the ability asks once");
+    assert!(
+        options.contains(&my_swamp) && options.contains(&their_forest),
+        "\"target land\" is any land, on either side of the table: {options:?}"
+    );
+    assert!(
+        !options.contains(&their_elf),
+        "a creature is no land, whatever side it stands on: {options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, hordes),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![their_forest],
+                players: vec![],
+            },
+        )
+        .expect("the Forest was among the options the ability enumerated");
+    assert!(is_tapped(&engine, hordes), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p1, forest()).is_some(),
+        "\"destroy target land\": the targeted Forest was destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_none(),
+        "and left the battlefield, which is what destroy means"
+    );
+    assert!(
+        on_battlefield(&engine, p0, swamp()).is_some(),
+        "the Swamp nobody targeted stands untouched"
+    );
+    assert!(
+        on_battlefield(&engine, p0, demonic_hordes()).is_some(),
+        "the activation cost Demonic Hordes nothing but its tap"
+    );
+}
+
+fn nether_shadow() -> CardIndex {
+    card_index("c358b9e2-524c-434b-b3fa-74d2aa6d1df7")
+}
+
+/// Nether Shadow — {B}{B} 1/1 Spirit with haste and nothing else the
+/// engine reads (its graveyard-return trigger is `Coverage::Partial` and
+/// not implemented). Haste (CR 702.10b) is the one permission a
+/// summoning-sick creature (CR 302.6) otherwise lacks: cast this turn and
+/// walked straight to combat, it may still attack, while an ordinary
+/// Llanowar Elves cast beside it off the same mana may not.
+#[test]
+fn nether_shadow_attacks_the_turn_it_is_cast_while_the_elf_beside_it_may_not() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), forest()])
+        .hand(0, &[nether_shadow(), llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, nether_shadow());
+    pass_until(&mut engine, stack_is_empty);
+    cast_with_floating(&mut engine, p0, llanowar_elves());
+    pass_until(&mut engine, stack_is_empty);
+
+    let shadow = on_battlefield(&engine, p0, nether_shadow()).expect("resolved");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("resolved");
+    assert_eq!(pt(&engine, shadow), (1, 1), "the body the card prints");
+    assert!(
+        keywords(&engine, shadow).contains(KeywordSet::HASTE),
+        "\"Haste\" is the printed line"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::HASTE),
+        "and the Elf beside it, cast the same turn, has none"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        attackers,
+        defenders,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the attack declaration")
+    };
+    assert!(
+        attackers.contains(&shadow),
+        "haste: still offered the very turn it arrived: {attackers:?}"
+    );
+    assert!(
+        !attackers.contains(&elf),
+        "the Elf arrived the same turn and has no such permission: {attackers:?}"
+    );
+
+    let defender = defenders.into_iter().next().expect("opponent is defender");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(shadow, defender)],
+            },
+        )
+        .expect("haste lets it attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocker was offered");
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "the attack connected: haste was real permission, not just an offer"
+    );
+}
+
+fn sengir_vampire() -> CardIndex {
+    card_index("749141aa-f6c4-4ad8-b146-406e68ae9b0b")
+}
+
+/// Sengir Vampire — {3}{B}{B} 4/4 Vampire. `Coverage::Partial`: the
+/// +1/+1-counter trigger on a creature it damaged this turn dying is not in
+/// the engine, but flying is. Attacking with it, the opponent's
+/// non-flying, non-reach Llanowar Elves cannot legally be assigned to
+/// block — while a flying Wall of Swords beside it still may, which is
+/// what says the menu reads flying and not "nothing may block it" — and
+/// the unblocked flier's 4 damage connects.
+#[test]
+fn sengir_vampire_cannot_be_blocked_by_a_creature_without_flying_or_reach() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sengir_vampire()])
+        .battlefield(1, &[llanowar_elves(), wall_of_swords()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let vamp = on_battlefield(&engine, p0, sengir_vampire()).expect("seated");
+    assert_eq!(pt(&engine, vamp), (4, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, vamp).contains(KeywordSet::FLYING),
+        "\"Flying\" is the printed line"
+    );
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let flying_wall = on_battlefield(&engine, p1, wall_of_swords()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, vamp, p1);
+    assert!(
+        !blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&vamp)),
+        "a non-flying, non-reach creature cannot legally block a flier: {blocks:?}"
+    );
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == flying_wall && b.attackers.contains(&vamp)),
+        "a flier beside it is still offered as a legal blocker: {blocks:?}"
+    );
+
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("declining every legal block still stands");
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "unblocked, all 4 of the flier's damage connects"
+    );
+}
+
+fn two_headed_giant_of_foriys() -> CardIndex {
+    card_index("38aa31bd-7145-43b9-9409-463d9ad6cd69")
+}
+
+/// Two-Headed Giant of Foriys — "Trample" (CR 702.19b): blocked by a
+/// 1-toughness Llanowar Elves, 1 of its 4 is lethal on the blocker and the
+/// excess 3 go to the defending player; the additional-block sentence is
+/// played in
+/// `two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_damage`.
+#[test]
+fn two_headed_giant_of_foriys_tramples_excess_damage_over_its_blocker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[two_headed_giant_of_foriys()])
+        .battlefield(1, &[llanowar_elves()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let giant = on_battlefield(&engine, p0, two_headed_giant_of_foriys()).expect("seated");
+    assert_eq!(pt(&engine, giant), (4, 4), "the body the card prints");
+    assert!(
+        keywords(&engine, giant).contains(KeywordSet::TRAMPLE),
+        "\"Trample\" is the printed line"
+    );
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(giant, Defender::Player(p1))],
+            },
+        )
+        .expect("the Giant declares");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, giant)],
+            },
+        )
+        .expect("the Elf blocks");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        17,
+        "trample sent the remaining 3 damage through to the defending player"
+    );
+}
+
+fn gaea_s_liege() -> CardIndex {
+    card_index("8d134a60-e1e5-4163-8bdc-36af91567185")
+}
+
+/// Gaea's Liege — {3}{G}{G}{G}, printed 0/0. Its "isn't attacking" half:
+/// two Forests of its own, a Swamp beside them that must not count, and an
+/// opponent's Forest that must not count either — read once, and again
+/// after a third Forest is played as this turn's land, through the engine,
+/// so the characteristic is shown tracking the count rather than a value
+/// fixed once at entry. The "is attacking" half, which counts the
+/// *defending* player's Forests instead, is played in the tests near the
+/// end of this file.
+#[test]
+fn gaea_s_lieges_power_and_toughness_track_its_controllers_forests() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gaea_s_liege(), forest(), forest(), swamp()])
+        .battlefield(1, &[forest()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
+    assert!(
+        on_battlefield(&engine, p1, forest()).is_some(),
+        "the opponent has a Forest of their own, which must not count"
+    );
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "two Forests of its own; the Swamp beside them and the opponent's \
+         Forest across the table do not count"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    play_land(&mut engine, p0, forest());
+    assert_eq!(
+        pt(&engine, liege),
+        (3, 3),
+        "a third Forest played as this turn's land, and the printed \
+         characteristic followed the count up"
+    );
+}
+
+/// Gaea's Liege's second sentence: "{T}: Target land becomes a Forest
+/// until this creature leaves the battlefield." Aimed at a Swamp: it
+/// gains the Forest type (which the first sentence's count reads too), it
+/// can tap for {G} under the CR 305.6 shortcut a printed Swamp never had,
+/// and once Gaea's Liege is destroyed by Hero's Downfall — leaving the
+/// battlefield through the engine, not by rewriting the board — the
+/// effect ends: the land is a Forest no longer, and is a Swamp again.
+#[allow(clippy::too_many_lines)] // one target, one tap, one mana ability, one destroy spell
+#[test]
+fn gaea_s_lieges_second_ability_turns_a_land_into_a_forest_until_it_leaves() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gaea_s_liege(), forest(), swamp(), swamp(), swamp()])
+        .hand(0, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
+    let swamps = all_on_battlefield(&engine, p0, swamp());
+    assert_eq!(swamps.len(), 3, "three Swamps are seated");
+    let swamp_obj = swamps[0];
+    let payment = [swamps[1], swamps[2]];
+    assert_eq!(pt(&engine, liege), (1, 1), "one Forest so far");
+    assert!(
+        !engine
+            .state()
+            .object(swamp_obj)
+            .expect("on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "a Swamp is not a Forest before the ability resolves"
+    );
+
+    activate(&mut engine, p0, gaea_s_liege(), 1);
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target land\" is a target choice, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        options.contains(&swamp_obj),
+        "the Swamp is a legal \"target land\": {options:?}"
+    );
+    assert!(
+        !is_tapped(&engine, liege),
+        "targets are chosen before the {{T}} cost is paid"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![swamp_obj],
+                players: vec![],
+            },
+        )
+        .expect("the Swamp was among the options the ability enumerated");
+    assert!(is_tapped(&engine, liege), "the {{T}} was the price");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        engine
+            .state()
+            .object(swamp_obj)
+            .expect("still on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "\"becomes a Forest\": the target land now carries the type"
+    );
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "two Forests now, and the first sentence's count followed the change"
+    );
+
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: swamp_obj })
+        .expect("a Forest taps for green under CR 305.6, even one that used to be a Swamp");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "the mana it made was green"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "and nothing else floated"
+    );
+
+    // Destroy Gaea's Liege with a spell — through the engine, not by
+    // rewriting the board — so the "until this creature leaves" effect
+    // ends for the reason its own text names.
+    tap_mana_where(&mut engine, p0, |id| payment.contains(&id));
+    cast_with_floating(&mut engine, p0, hero_s_downfall());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "Hero's Downfall asks for a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&liege),
+        "the Liege is a legal \"target creature\": {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![liege],
+            },
+        )
+        .expect("the Liege was among the options the spell enumerated");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, gaea_s_liege()).is_some(),
+        "Hero's Downfall destroyed it"
+    );
+    assert!(
+        !engine
+            .state()
+            .object(swamp_obj)
+            .expect("the land itself did not leave")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::FOREST),
+        "\"until this creature leaves the battlefield\": Gaea's Liege is gone, \
+         and the land is a Forest no longer"
+    );
+    assert!(
+        engine
+            .state()
+            .object(swamp_obj)
+            .expect("still on the table")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::land::SWAMP),
+        "the effect ending returns it to its own printed type, a Swamp"
+    );
+}
+
+// ---------------------------------------------------------------------
+// Alpha batch D: banding — Benalish Hero, Timber Wolves, Mesa Pegasus
+// (CR 702.22).
+// ---------------------------------------------------------------------
+
+fn benalish_hero() -> CardIndex {
+    card_index("4c81cfb7-8765-4e28-ae33-4287fa9a86cc")
+}
+
+fn timber_wolves() -> CardIndex {
+    card_index("35d07ac9-b184-4b5f-8192-34b1db042f69")
+}
+
+fn mesa_pegasus() -> CardIndex {
+    card_index("8161f5b8-6aab-4133-ba2c-2e7b5774153e")
+}
+
+/// Declares `attackers`, each aimed at `p1`, once the engine asks for them.
+#[track_caller]
+fn declare_band_attack(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+    p1: PlayerId,
+    attackers: &[ObjectId],
+) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|a| (*a, Defender::Player(p1)))
+                    .collect(),
+            },
+        )
+        .expect("the attack is legal");
+}
+
+/// Answers the one banding question a single leader with banding raises
+/// (CR 508.1e) with `band`, and passes on to the declare-blockers question.
+#[track_caller]
+fn answer_band_and_reach_blockers(
+    engine: &mut Engine<RegistryLookup>,
+    p0: PlayerId,
+    band: Vec<ObjectId>,
+) {
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::Band { .. },
+                ..
+            }
+        ),
+        "expected the band question, got {:?}",
+        engine.pending()
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: band })
+        .expect("the band answer is legal");
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+}
+
+/// Declares `pairs` as blocks.
+#[track_caller]
+fn declare_band_blocks(
+    engine: &mut Engine<RegistryLookup>,
+    p1: PlayerId,
+    pairs: &[(ObjectId, ObjectId)],
+) {
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: pairs.to_vec(),
+            },
+        )
+        .expect("the block is legal");
+}
+
+/// Passes priority until something other than priority is asked, or combat
+/// ends — the division question banding raises stands here, before the
+/// damage step deals anything (CR 510.1, then 510.2).
+#[track_caller]
+fn next_combat_question(engine: &mut Engine<RegistryLookup>) -> Pending {
+    for _ in 0..40 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. }
+                if engine.state().turn.step != crate::turn::Step::CombatEnd =>
+            {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => return other,
+        }
+    }
+    panic!("combat never reached a division or its end")
+}
+
+/// Benalish Hero — "Banding": a band forms with an ally at the attack
+/// declaration (CR 508.1e, 702.22c), and once formed, a block declared on
+/// only the ally blocks the Hero too — "Bands are blocked as a group"
+/// (CR 702.22h). Unbanded, the same declared block never touches the Hero.
+///
+/// A third attacker (no banding of its own) rides along so the "up to one"
+/// cap (CR 702.22c) is a live board fact: naming both non-banding attackers
+/// as the band is refused and the question stands, while naming just one
+/// of them is accepted. The question's own `max` is asserted too — it
+/// offers both, uncapped — so that refusal is shown to be CR 702.22c's
+/// count of non-banding members, not this question's ordinary limit. A
+/// second scenario is the stronger proof: a second banding creature
+/// (Timber Wolves) rides in the same band as the Hero and one non-banding
+/// ally, and is accepted outright, since only the ally counts against the
+/// cap.
+#[test]
+#[allow(clippy::too_many_lines)] // the banded/unbanded loop plus the stronger-proof scenario, in full
+fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[benalish_hero(), savannah_lions(), hurloon_minotaur()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let minotaur = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[hero, lions, minotaur]);
+        let Pending::ChooseCards {
+            player,
+            options,
+            min,
+            max,
+            prompt,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected the band question, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p0, "the attacking player announces the band");
+        assert_eq!(prompt, ChoicePrompt::Band { with: hero });
+        assert_eq!(min, 0, "attacking without a band is a legal answer");
+        assert_eq!(
+            options,
+            vec![lions, minotaur],
+            "both other attackers are on offer, neither of them banding"
+        );
+        assert_eq!(
+            max, 2,
+            "the menu itself offers both — it is not capped at one pick, so \
+             the refusal below is CR 702.22c's own count of non-banding \
+             members, not this question's ordinary maximum"
+        );
+
+        let refused = engine.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lions, minotaur],
+            },
+        );
+        assert!(
+            refused.is_err(),
+            "CR 702.22c: \"up to one\" attacking creature without banding, \
+             and this board offers two"
+        );
+        let Pending::ChooseCards { prompt, .. } = engine.pending().clone() else {
+            panic!(
+                "a refused answer leaves the band question standing, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(
+            prompt,
+            ChoicePrompt::Band { with: hero },
+            "the same question — same leader — is still open after the refusal"
+        );
+
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        assert_eq!(
+            engine.state().combat.band_of(hero).is_some(),
+            banded,
+            "the Hero joined a band only when one was named"
+        );
+
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+        assert!(
+            engine.state().combat.is_blocked(lions),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(hero),
+            banded,
+            "\"bands are blocked as a group\": the Hero is blocked only in a band"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(hero).contains(&ogre),
+            banded,
+            "the ogre never declared a block against the Hero: only banding put it there"
+        );
+    }
+
+    // The stronger proof: the cap counts non-banding members, not band
+    // size. Timber Wolves also has banding, so a band of the Hero, Timber
+    // Wolves and one non-banding ally (Savannah Lions) holds only one
+    // creature without banding and is accepted outright.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[benalish_hero(), timber_wolves(), savannah_lions()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+    let wolves = on_battlefield(&engine, p0, timber_wolves()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+
+    declare_band_attack(&mut engine, p0, p1, &[hero, wolves, lions]);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the band question, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![wolves, lions],
+        "both other attackers on offer, one of them also banding"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wolves, lions],
+            },
+        )
+        .expect(
+            "CR 702.22c: \"one or more attacking creatures with banding and \
+             up to one attacking creature without banding\" — Timber Wolves' \
+             own banding does not count against the cap, and Lions is the \
+             only one that does",
+        );
+    let mates = engine.state().combat.band_mates(hero);
+    assert!(
+        mates.contains(&wolves) && mates.contains(&lions),
+        "the band formed with both, not just one of them: {mates:?}"
+    );
+}
+
+/// Benalish Hero's reminder text: "you divide that creature's combat
+/// damage, not its controller, among any of the creatures it's being
+/// blocked by or is blocking" (CR 702.22k). Banded with an ally, a single
+/// blocker ends up blocking both (CR 702.22h), and its damage is divided by
+/// the *active* player — the Hero's own controller — not by the blocker's
+/// own controller, who would ordinarily be the one dividing a blocker's
+/// damage (CR 510.1d). The active player puts it all on the Hero and none
+/// on the ally: the *opposite* of what the engine's own fallback would do
+/// with no division recorded at all (put everything on the first-declared
+/// recipient, the ally), so the answer given is the one that actually
+/// landed. Unbanded, the same block touches only the ally and nothing is
+/// ever divided.
+#[test]
+#[allow(clippy::too_many_lines)] // one loop, both branches of the division read out in full
+fn benalish_heros_band_divides_a_blockers_damage_by_the_active_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[benalish_hero(), savannah_lions()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        assert_eq!(pt(&engine, ogre), (2, 2), "two power to divide");
+
+        declare_band_attack(&mut engine, p0, p1, &[hero, lions]);
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+
+        let question = next_combat_question(&mut engine);
+        if banded {
+            let Pending::ChooseNumber {
+                player,
+                min,
+                max,
+                reason,
+            } = question
+            else {
+                panic!("expected the division, got {question:?}")
+            };
+            assert_eq!(
+                player, p0,
+                "CR 702.22k: the active player divides, not the blocker's own controller"
+            );
+            assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
+            assert_eq!(
+                reason,
+                crate::choice::NumberPrompt::CombatDamage {
+                    source: ogre,
+                    recipient: lions,
+                    index: 0,
+                    of: 2,
+                    left: 2,
+                },
+                "the declared block's recipient asked first, the band's after it"
+            );
+            engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+
+            assert!(
+                on_battlefield(&engine, p0, savannah_lions()).is_some(),
+                "the active player put none of it on the ally, sparing it"
+            );
+            assert_eq!(
+                engine.state().object(lions).map(|o| o.damage),
+                Some(0),
+                "not even a fraction reached the ally"
+            );
+            assert!(
+                on_battlefield(&engine, p0, benalish_hero()).is_none(),
+                "and put both points on the Hero instead — the reverse of the \
+                 engine's own fallback, which would have spared the Hero and \
+                 killed the ally"
+            );
+        } else {
+            assert!(
+                !matches!(question, Pending::ChooseNumber { .. }),
+                "unbanded, the ogre blocks only the ally: no division is asked, got {question:?}"
+            );
+            assert!(
+                on_battlefield(&engine, p0, savannah_lions()).is_none(),
+                "the whole of the ogre's power landed on the only creature it blocks"
+            );
+            assert!(
+                on_battlefield(&engine, p0, benalish_hero()).is_some(),
+                "unblocked, the Hero was never in reach of it"
+            );
+        }
+    }
+}
+
+/// Timber Wolves — the same band-and-block-spread contract as Benalish
+/// Hero (CR 508.1e, 702.22c, 702.22h), played on a different board so the
+/// assertions are not simply the Hero's copied over.
+#[test]
+fn timber_wolves_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[timber_wolves(), hurloon_minotaur()])
+            .battlefield(1, &[craw_wurm()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let wolves = on_battlefield(&engine, p0, timber_wolves()).expect("seated");
+        let minotaur = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
+        let wurm = on_battlefield(&engine, p1, craw_wurm()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[wolves, minotaur]);
+        let Pending::ChooseCards {
+            player,
+            options,
+            prompt,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected the band question, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p0, "the attacking player announces the band");
+        assert_eq!(prompt, ChoicePrompt::Band { with: wolves });
+        assert_eq!(options, vec![minotaur], "the only other attacker on offer");
+
+        let band = if banded { vec![minotaur] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+        declare_band_blocks(&mut engine, p1, &[(wurm, minotaur)]);
+
+        assert!(
+            engine.state().combat.is_blocked(minotaur),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(wolves),
+            banded,
+            "\"bands are blocked as a group\": Timber Wolves is blocked only in a band"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(wolves).contains(&wurm),
+            banded,
+            "the Wurm never declared a block against Timber Wolves: only banding put it there"
+        );
+    }
+}
+
+/// Timber Wolves — the reminder text's other clause: "you divide that
+/// creature's combat damage ... among any of the creatures it's being
+/// blocked by" (CR 702.22j). No band is needed for this half: a creature
+/// with banding *blocking* alongside another creature is enough. The
+/// attacker's damage is then divided by Timber Wolves' own controller —
+/// the *defending* player — not by the attacker's own controller, who
+/// ordinarily divides a multiply-blocked attacker's damage (CR 510.1c) and
+/// would have no reason to spare a creature on the other side of the
+/// table. Without a banding blocker anywhere in it, the defending player
+/// is never handed that division at all — CR 702.22j names banding as the
+/// only reason it would be. The engine's own fallback for this unbanded
+/// double block — automatic assignment, all to the first-declared blocker
+/// — is a simplification of the attacking player's own division under
+/// CR 510.1c, which the engine does not yet ask for; it is not the rule,
+/// and this counter-check does not assert it.
+#[test]
+#[allow(clippy::too_many_lines)] // the banding case and its vanilla counter-check, in full
+fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[craw_wurm()])
+            .battlefield(1, &[timber_wolves(), gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+        let wolves = on_battlefield(&engine, p1, timber_wolves()).expect("seated");
+        assert_eq!(pt(&engine, wurm), (6, 4), "six power to divide");
+
+        declare_band_attack(&mut engine, p0, p1, &[wurm]);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseBlockers { .. })
+        });
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        declare_band_blocks(&mut engine, p1, &[(wolves, wurm), (ogre, wurm)]);
+
+        let Pending::ChooseNumber {
+            player,
+            min,
+            max,
+            reason,
+        } = next_combat_question(&mut engine)
+        else {
+            panic!("expected the division, got {:?}", engine.pending())
+        };
+        assert_eq!(
+            player, p1,
+            "CR 702.22j: the defending player divides, not the Wurm's own controller"
+        );
+        assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
+        assert_eq!(
+            reason,
+            crate::choice::NumberPrompt::CombatDamage {
+                source: wurm,
+                recipient: wolves,
+                index: 0,
+                of: 2,
+                left: 6,
+            },
+            "the first-declared blocker asked first"
+        );
+        engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+        assert_eq!(
+            engine.state().object(wolves).map(|o| o.damage),
+            Some(0),
+            "the defending player spared its own banding creature"
+        );
+        assert!(
+            on_battlefield(&engine, p1, gray_ogre()).is_none(),
+            "and put the whole six on the ogre instead — which the Wurm's own \
+             controller had no reason to do"
+        );
+    }
+
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[craw_wurm()])
+            .battlefield(1, &[pearled_unicorn(), gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+
+        declare_band_attack(&mut engine, p0, p1, &[wurm]);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseBlockers { .. })
+        });
+        let unicorn = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        declare_band_blocks(&mut engine, p1, &[(unicorn, wurm), (ogre, wurm)]);
+
+        let question = next_combat_question(&mut engine);
+        assert!(
+            !matches!(question, Pending::ChooseNumber { player, .. } if player == p1),
+            "no banding anywhere in this block: CR 702.22j never hands the \
+             defending player that division here, got {question:?}"
+        );
+    }
+}
+
+/// Trample into a banding blocker. Two-Headed Giant of Foriys — trample —
+/// attacks, blocked together by Timber Wolves and Gray Ogre. Timber
+/// Wolves' own reminder text is the rule in play here: the defending
+/// player divides the Giant's combat damage "among any creatures blocking
+/// it" (CR 702.22j) — the blockers only; that division names no player, so
+/// trample's own excess-to-the-player clause (CR 702.19b) is never on
+/// offer here. Timber Wolves' 1 toughness plus Gray Ogre's 2 is one short
+/// of the Giant's 4 power — 1 + 2 is one short of 4, so an ordinary
+/// trample assignment (CR 702.19b) would put that point on p1 once both
+/// blockers had lethal damage — but here it does not: the whole 4 stays
+/// on the blockers, however p1 divides it.
+#[test]
+fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[two_headed_giant_of_foriys()])
+        .battlefield(1, &[timber_wolves(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let giant = on_battlefield(&engine, p0, two_headed_giant_of_foriys()).expect("seated");
+    let wolves = on_battlefield(&engine, p1, timber_wolves()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    assert!(keywords(&engine, giant).contains(KeywordSet::TRAMPLE));
+    assert_eq!(
+        pt(&engine, giant),
+        (4, 4),
+        "four power: more than the two blockers' combined toughness"
+    );
+
+    declare_band_attack(&mut engine, p0, p1, &[giant]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    declare_band_blocks(&mut engine, p1, &[(wolves, giant), (ogre, giant)]);
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p1,
+        "CR 702.22j: the defending player divides, not the Giant's own controller"
+    );
+    assert_eq!((min, max), (0, 4), "the Giant's whole power, any of it");
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: giant,
+            recipient: wolves,
+            index: 0,
+            of: 2,
+            left: 4,
+        },
+        "the first-declared blocker asked first"
+    );
+    engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert_eq!(
+        engine.state().object(wolves).map(|o| o.damage),
+        Some(0),
+        "the division answered — 0 to Timber Wolves — landed exactly: a \
+         lethal-first assignment would have put 1 on it regardless"
+    );
+    assert!(
+        on_battlefield(&engine, p1, timber_wolves()).is_some(),
+        "0 damage, and 1 toughness: Timber Wolves survives"
+    );
+    assert!(
+        on_battlefield(&engine, p1, gray_ogre()).is_none(),
+        "the rest of the division — all 4 — landed on the Ogre instead, \
+         which closes the case of a recorded division the Giant never dealt"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "nothing tramples past a banding division: it only ever reaches the \
+         blockers, however p1 divides it"
+    );
+}
+
+/// Mesa Pegasus — banded with a grounded ally, a grounded blocker (no
+/// flying or reach) ends up blocking the Pegasus too — exactly the case
+/// "bands are blocked as a group" covers (CR 702.22h): a flier in a band
+/// with a creature it never could have blocked alone. Unbanded, the same
+/// declared block never touches the flier, which the offer itself never
+/// lets a grounded creature block on its own.
+#[test]
+#[allow(clippy::too_many_lines)] // the offer check plus the banded/unbanded contrast, in full
+fn mesa_pegasus_bands_with_a_grounded_ally_so_a_grounded_blocker_ends_up_blocking_the_flier() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for banded in [false, true] {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[mesa_pegasus(), savannah_lions()])
+            .battlefield(1, &[gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+        let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+        assert!(keywords(&engine, pegasus).contains(KeywordSet::FLYING));
+        assert!(!keywords(&engine, ogre).contains(KeywordSet::FLYING));
+        assert!(!keywords(&engine, ogre).contains(KeywordSet::REACH));
+
+        declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
+        let band = if banded { vec![lions] } else { vec![] };
+        answer_band_and_reach_blockers(&mut engine, p0, band);
+
+        // The offer itself: a grounded ogre is only ever paired with the
+        // grounded ally, band or no band — the enumeration reads flying off
+        // the board, not off what the ogre eventually ends up blocking.
+        let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+            panic!("expected the block offer, got {:?}", engine.pending())
+        };
+        let pairing = blockers
+            .iter()
+            .find(|b| b.blocker == ogre)
+            .expect("the ogre may block something");
+        assert!(pairing.attackers.contains(&lions), "the grounded ally");
+        assert!(
+            !pairing.attackers.contains(&pegasus),
+            "flying: a grounded creature was never offered the Pegasus"
+        );
+
+        declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+        assert!(
+            engine.state().combat.is_blocked(lions),
+            "the declared block always lands on the ally"
+        );
+        assert_eq!(
+            engine.state().combat.is_blocked(pegasus),
+            banded,
+            "the Pegasus is blocked only in a band — the ogre was never \
+             offered it on its own"
+        );
+        assert_eq!(
+            engine.state().combat.blockers_of(pegasus).contains(&ogre),
+            banded,
+            "banding put a creature there that flying alone would have kept out"
+        );
+    }
+}
+
+/// Mesa Pegasus attacking alone: flying keeps a creature without flying or
+/// reach from blocking it at all, while a flier is offered normally — the
+/// half of the card banding never touches.
+#[test]
+fn mesa_pegasus_flying_keeps_a_grounded_creature_from_blocking_it_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mesa_pegasus()])
+        .battlefield(1, &[gray_ogre(), wild_griffin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    let griffin = on_battlefield(&engine, p1, wild_griffin()).expect("seated");
+
+    let blockers = attack_and_collect_blocks(&mut engine, pegasus, p1);
+    assert!(
+        !blockers.iter().any(|b| b.blocker == ogre),
+        "no flying, no reach: the ogre is offered nothing at all: {blockers:?}"
+    );
+    assert!(
+        blockers
+            .iter()
+            .any(|b| b.blocker == griffin && b.attackers.contains(&pegasus)),
+        "a flier may still block it: {blockers:?}"
+    );
+}
+
+/// Mesa Pegasus — the CR 702.22j clause, played from the flier's side:
+/// blocking alongside another creature (no band needed for this half) hands
+/// the attacker's damage division to Mesa Pegasus' own controller — the
+/// *defending* player — not the attacker's own controller, who ordinarily
+/// divides a multiply-blocked attacker's damage (CR 510.1c) and would have
+/// no reason to spare the second blocker.
+#[test]
+fn mesa_pegasus_blocking_divides_the_attackers_damage_for_its_own_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[craw_wurm()])
+        .battlefield(1, &[mesa_pegasus(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+    let pegasus = on_battlefield(&engine, p1, mesa_pegasus()).expect("seated");
+    assert_eq!(pt(&engine, wurm), (6, 4), "six power to divide");
+
+    declare_band_attack(&mut engine, p0, p1, &[wurm]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    declare_band_blocks(&mut engine, p1, &[(pegasus, wurm), (ogre, wurm)]);
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p1,
+        "CR 702.22j: the defending player divides, not the Wurm's own controller"
+    );
+    assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: wurm,
+            recipient: pegasus,
+            index: 0,
+            of: 2,
+            left: 6,
+        },
+        "the first-declared blocker asked first"
+    );
+    engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert_eq!(
+        engine.state().object(pegasus).map(|o| o.damage),
+        Some(0),
+        "the defending player spared its own banding creature"
+    );
+    assert!(
+        on_battlefield(&engine, p1, gray_ogre()).is_none(),
+        "and put the whole six on the ogre instead — which the Wurm's own \
+         controller had no reason to do"
+    );
+}
+
+/// Mesa Pegasus — the CR 702.22k clause, played from the attacker's side:
+/// banded with a grounded ally, a single grounded block declared on the
+/// ally alone ends up blocking the Pegasus too (CR 702.22h, "bands are
+/// blocked as a group"), and the blocker's own damage is then divided by
+/// the *active* player — the Pegasus' own controller — among the whole
+/// band, not by the blocker's own controller, who would ordinarily divide
+/// a blocker's damage among multiple creatures it blocks (CR 510.1d). The
+/// active player puts it all on the Pegasus and none on the ally: the
+/// *opposite* of what the engine's own fallback would do with no division
+/// recorded at all (put everything on the first-declared recipient, the
+/// ally), so the answer given is the one that actually landed.
+#[test]
+fn mesa_pegasus_bands_attacking_so_a_single_blocker_divides_for_the_active_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mesa_pegasus(), savannah_lions()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
+    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    assert_eq!(pt(&engine, ogre), (2, 2), "two power to divide");
+
+    declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
+    answer_band_and_reach_blockers(&mut engine, p0, vec![lions]);
+    declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
+    assert!(
+        engine.state().combat.is_blocked(pegasus),
+        "grounded and alone, the ogre could only ever have been declared \
+         against the ally — the band is what put it on the flier too"
+    );
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p0,
+        "CR 702.22k: the active player divides, not the Ogre's own controller"
+    );
+    assert_eq!((min, max), (0, 2), "the ogre's power, any of it");
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: ogre,
+            recipient: lions,
+            index: 0,
+            of: 2,
+            left: 2,
+        },
+        "the declared block's recipient asked first, the band's after it"
+    );
+    engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, savannah_lions()).is_some(),
+        "the active player put none of it on the ally, sparing it"
+    );
+    assert_eq!(
+        engine.state().object(lions).map(|o| o.damage),
+        Some(0),
+        "not even a fraction reached the ally"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mesa_pegasus()).is_none(),
+        "and put both points on the Pegasus instead — the reverse of the \
+         engine's own fallback, which would have spared the flier and \
+         killed the ally"
+    );
+}
+
+fn nettling_imp() -> CardIndex {
+    card_index("c58dfcbf-49e6-4ef0-bd31-ebd81b0cfa41")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+/// Nettling Imp: "Activate only during an opponent's turn, before
+/// attackers are declared." Offered to p1 through p0's beginning of
+/// combat, refused from the declare attackers step on, and never offered
+/// at all on p1's own turn, however early.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_is_offered_only_before_p0_declares_attackers_and_never_on_p1_s_own_turn() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        // A legal target throughout: without one, the ability has nothing
+        // it could name (CR 601.2c, applied to activations by CR 602.2b) and
+        // is withheld for that reason alone, which would say nothing about
+        // the window this test is about.
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let offered = |e: &Engine<RegistryLookup>| priority_offer(e).abilities.contains(&(imp, 0));
+
+    // Turn 1 is p0's — an opponent's turn for p1 — and open until attackers
+    // are declared.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "p0's upkeep, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "p0's main phase, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        offered(&engine),
+        "beginning of combat, still before attackers"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        !offered(&engine),
+        "the declare attackers step has begun — CR 506.7a reads that as \
+         the window closing regardless of whether the Elf p0 could attack \
+         with was actually declared"
+    );
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::ActivateAbility {
+                    source: imp,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "the end step, later still");
+
+    // Turn 2 is p1's own — never a legal window regardless of step.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "p1's own upkeep");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(!offered(&engine), "p1's own main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        !offered(&engine),
+        "p1's own beginning of combat: still before attackers, but not an opponent's turn"
+    );
+}
+
+/// Nettling Imp: "Choose target non-Wall creature the active player has
+/// controlled continuously since the beginning of the turn." A Wall, a
+/// creature p0 cast this turn, and the Imp's own controller's creature are
+/// left off the menu; a creature p0 has held since the turn began is on
+/// it. "That creature attacks this turn if able": a declaration leaving it
+/// out is refused, and the creature that attacked survives the end step.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_targets_only_a_held_since_the_turn_began_non_wall_creature_and_forces_its_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), llanowar_elves(), wall_of_swords()])
+        .hand(0, &[grizzly_bears()])
+        .battlefield(1, &[nettling_imp(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let wall = on_battlefield(&engine, p0, wall_of_swords()).expect("the Wall is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's own Bear is seated");
+
+    // Not `cast_from_hand`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for the fresh Bear, tapping itself out of the very
+    // targeting question this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, grizzly_bears());
+    pass_until(&mut engine, stack_is_empty);
+    let fresh_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the fresh Bear resolved");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's beginning of combat, before attackers are declared");
+    let options = aim_at(&mut engine, p1, elf);
+    assert!(
+        options.contains(&elf),
+        "held since the turn began: on the menu"
+    );
+    assert!(!options.contains(&wall), "a Wall is never a legal target");
+    assert!(
+        !options.contains(&fresh_bear),
+        "cast this turn: not controlled since the turn began"
+    );
+    assert!(
+        !options.contains(&their_bear),
+        "the Imp's own controller's creature, not the active player's"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(is_tapped(&engine, imp), "the Imp paid its own {{T}} cost");
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(imp, 0)),
+        "tapped, the Imp cannot pay {{T}} again to activate a second time \
+         this turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(required, vec![elf], "\"attacks this turn if able\"");
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the Elf disobeys the Imp's requirement"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with the Elf obeys it");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "it attacked this turn, so the delayed destruction spares it"
+    );
+}
+
+/// Nettling Imp's delayed destruction claims only the creature it named:
+/// tapped after the ability resolved, that creature cannot obey "attacks
+/// this turn if able" and is destroyed as the next end step begins, while
+/// a bystander that also never attacked — because the Imp never named it
+/// — is untouched.
+#[test]
+fn nettling_imp_destroys_only_its_named_target_when_it_could_not_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves(), grizzly_bears()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the Bear is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's main phase, before attackers are declared");
+    aim_at(&mut engine, p1, elf);
+    pass_until(&mut engine, stack_is_empty);
+
+    // Tapped after the forced-attack effect is already in place, the Elf
+    // cannot obey it — the same board state a summoning-sick or defending
+    // creature would show up with.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elf, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.is_empty(),
+        "tapped, the Elf is not able to attack, so nothing is required of it any more"
+    );
+
+    // `pass_until` declares empty attackers and blockers on the way for us.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, llanowar_elves()),
+        Some(elf),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(bear),
+        "same reading for the bystander"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "it did not attack this turn, and the Imp's delayed destruction claims it"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(bear),
+        "the Bear beside it also never attacked, but the Imp never named \
+         it — the destruction is not a board-wide sweep"
+    );
+}
+
+fn control_magic() -> CardIndex {
+    card_index("cd0d7141-46d2-4aa3-bc77-6b3b4513803e")
+}
+
+/// "The active player has controlled continuously since the beginning of
+/// the turn" is only ever proven against a creature seated at game start
+/// versus one cast the same turn. Proven here instead on turn 3, not turn
+/// 1, so what is read is the ordinary per-turn mechanism and not turn 1's
+/// own "no seat has had a turn yet" dispensation (`Engine::new`): an
+/// Elephant that has sat on p0's battlefield since long before turn 3
+/// began is on the Imp's menu, targetable, required and — attacked —
+/// spared; a Bear p0 takes from p1 with Control Magic in the very main
+/// phase the Imp is about to reach is not, however the destruction turns
+/// out, since it is never even offered as a target.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn nettling_imp_reaches_a_creature_held_since_an_earlier_turn_but_not_one_taken_this_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                island(),
+                island(),
+                island(),
+                island(),
+                wild_elephant(),
+            ],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[nettling_imp(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_creature =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's own Bear is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic's static ability moved the Bear to p0's side"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's beginning of combat, before attackers are declared");
+    let options = aim_at(&mut engine, p1, old_creature);
+    assert!(
+        options.contains(&old_creature),
+        "held since long before turn 3 began: on the menu"
+    );
+    assert!(
+        !options.contains(&their_bear),
+        "taken this very turn: not controlled continuously since turn 3 \
+         began, so never offered — whatever the destruction would later \
+         make of it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        required,
+        vec![old_creature],
+        "\"attacks this turn if able\""
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the Elephant disobeys the Imp's requirement"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(old_creature, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "it attacked this turn, so the delayed destruction spares it"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "the Imp's ability was never used on the stolen Bear at all"
+    );
+}
+
+/// The same "controlled continuously since the beginning of the turn"
+/// read, on the destroying branch: an Elephant that has sat on p0's
+/// battlefield since long before turn 3 began is targeted, then tapped
+/// before the declare-attackers turn-based action, and destroyed for not
+/// attacking exactly as a creature held since turn 1 would be — this is
+/// not the trivial turn-1 case (`Engine::new`'s dispensation for a seat
+/// that has not had a turn yet), because it is checked on turn 3.
+#[test]
+fn nettling_imp_destroys_a_creature_held_since_an_earlier_turn_when_it_could_not_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wild_elephant()])
+        .battlefield(1, &[nettling_imp()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_creature =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let imp = on_battlefield(&engine, p1, nettling_imp()).expect("the Imp is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: imp,
+                ability_index: 0,
+            },
+        )
+        .expect("offered in p0's main phase, before attackers are declared");
+    aim_at(&mut engine, p1, old_creature);
+    pass_until(&mut engine, stack_is_empty);
+
+    // Tapped after the forced-attack effect is already in place, the
+    // Elephant cannot obey it.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(old_creature, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.is_empty(),
+        "tapped, the Elephant is not able to attack, so nothing is \
+         required of it any more"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        on_battlefield(&engine, p0, wild_elephant()),
+        Some(old_creature),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_none(),
+        "held since long before turn 3 began, and it did not attack this \
+         turn: the Imp's delayed destruction claims it exactly as it \
+         would have on turn 1"
+    );
+}
+
+/// Two-Headed Giant of Foriys — "This creature can block an additional
+/// creature each combat": the declare-blockers question names it in
+/// `capacity` with `most: Some(2)`, blocking all three of the three
+/// attackers is refused, and a vanilla creature (Gray Ogre) beside it still
+/// blocks one at most. Blocking two is accepted, both are fully blocked (so
+/// neither reaches the Giant's own controller), and its 4 power is then
+/// divided between the two by that same controller (CR 510.1d).
+#[allow(clippy::too_many_lines)] // one capacity, two refusals, one accepted block, one division
+#[test]
+fn two_headed_giant_of_foriys_blocks_an_additional_creature_and_divides_its_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves(), llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[two_headed_giant_of_foriys(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 3, "three Elves are seated");
+    let giant = on_battlefield(&engine, p1, two_headed_giant_of_foriys()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+    declare_band_attack(&mut engine, p0, p1, &elves);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { capacity, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on exactly this")
+    };
+    assert_eq!(
+        capacity,
+        vec![crate::choice::BlockCapacity {
+            blocker: giant,
+            most: Some(2)
+        }],
+        "only the Giant may block more than one, and up to two: {capacity:?}"
+    );
+
+    match engine.apply(
+        p1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(giant, elves[0]), (giant, elves[1]), (giant, elves[2])],
+        },
+    ) {
+        Err(EngineError::IllegalAction(message)) => {
+            assert_eq!(message, "creature cannot block that many attackers");
+        }
+        other => panic!("expected the capacity refusal, got {other:?}"),
+    }
+    match engine.apply(
+        p1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(ogre, elves[0]), (ogre, elves[1])],
+        },
+    ) {
+        Err(EngineError::IllegalAction(message)) => {
+            assert_eq!(message, "creature cannot block that many attackers");
+        }
+        other => panic!("a vanilla creature still blocks one at most, got {other:?}"),
+    }
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(giant, elves[0]), (giant, elves[1]), (ogre, elves[2])],
+            },
+        )
+        .expect("the Giant's extra block and the Ogre's ordinary one are both legal");
+    assert_eq!(
+        engine.state().combat.blocked_by(giant),
+        vec![elves[0], elves[1]],
+        "it blocks both"
+    );
+    assert!(
+        engine.state().combat.is_blocked(elves[2]),
+        "the Ogre took the third"
+    );
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        reason: crate::choice::NumberPrompt::CombatDamage { source, .. },
+        ..
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the Giant's controller to divide its own damage")
+    };
+    assert_eq!(
+        (player, source),
+        (p1, giant),
+        "the Giant's own controller divides it, not the attackers'"
+    );
+    engine
+        .apply(player, PlayerAction::ChooseNumber(min))
+        .unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "every attacker was blocked, and the damage step kept it so"
+    );
+}
+
+/// Veteran Bodyguard — "As long as this creature is untapped, all damage
+/// that would be dealt to you by unblocked creatures is dealt to this
+/// creature instead." An unblocked Gray Ogre's 2 combat damage is marked
+/// on the untapped Bodyguard instead: its controller's life and the
+/// turn's damage tally are untouched, and the journal names the Ogre as
+/// the source, the Bodyguard as the target, and the damage as combat
+/// (CR 614.9).
+#[test]
+fn an_unblocked_attackers_combat_damage_marks_the_untapped_bodyguard_and_not_its_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gray_ogre()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    assert!(!is_tapped(&engine, guard), "untapped to start");
+    let before_life = engine.state().players[1].life;
+    let before_journal = engine.journal().entries().len();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(ogre, Defender::Player(p1))],
+            },
+        )
+        .expect("the Ogre attacks");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocks: the Ogre is unblocked");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        2,
+        "the Ogre's 2 power, marked on the Bodyguard instead of its controller"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life,
+        "not a point off its controller"
+    );
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[1],
+        0,
+        "the player was never dealt damage this turn"
+    );
+    assert_eq!(
+        damage_events(&engine, before_journal),
+        vec![(ogre, crate::event::DamageTarget::Object(guard), 2, true)],
+        "one event of combat damage, from the Ogre to the Bodyguard"
+    );
+}
+
+/// Veteran Bodyguard — "all damage that would be dealt to you by
+/// unblocked creatures is dealt to this creature instead": two unblocked
+/// attackers whose combined power reaches the Bodyguard's 5 toughness are
+/// both redirected onto it, and the marked total is lethal (CR 704.5g),
+/// while its controller still takes nothing off their own life total.
+#[test]
+fn two_unblocked_attackers_whose_combined_damage_reaches_five_kill_the_untapped_bodyguard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gray_ogre(), earth_elemental()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let elemental = on_battlefield(&engine, p0, earth_elemental()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    let before_life = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (ogre, Defender::Player(p1)),
+                    (elemental, Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("both attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocks: both are unblocked");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().object(guard).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "2 plus 4 marked on a 5-toughness creature is lethal"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life,
+        "still not a point off its controller"
+    );
+}
+
+/// Veteran Bodyguard counter-check: "unblocked creatures" — a blocked
+/// attacker's damage goes to its blocker only, and neither the Bodyguard
+/// nor its controller sees it, while an unblocked attacker beside it is
+/// still redirected onto the Bodyguard.
+#[test]
+fn a_blocked_attackers_damage_stays_on_its_blocker_while_an_unblocked_one_beside_it_is_redirected()
+{
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gray_ogre(), earth_elemental()])
+        .battlefield(1, &[veteran_bodyguard(), hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let elemental = on_battlefield(&engine, p0, earth_elemental()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+    let before_life = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (ogre, Defender::Player(p1)),
+                    (elemental, Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("both attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(minotaur, ogre)],
+            },
+        )
+        .expect("the Minotaur blocks the Ogre; the Elemental is unblocked");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().object(minotaur).unwrap().damage,
+        2,
+        "the blocked Ogre's damage: on its blocker, not the Bodyguard"
+    );
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        4,
+        "the unblocked Elemental's damage: still redirected"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life,
+        "neither attacker's damage reached the player"
+    );
+    assert_eq!(engine.state().per_turn.damage_dealt_to[1], 0);
+}
+
+/// Veteran Bodyguard counter-check: a blocked trampler's excess over its
+/// blocker reaches the player directly — a blocked attacker is never
+/// "unblocked" (CR 509.1h), so the Bodyguard's static does not apply to
+/// it — while an unblocked attacker beside it is still redirected.
+#[test]
+fn a_blocked_tramplers_excess_reaches_the_player_while_an_unblocked_attacker_beside_it_is_redirected()
+ {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ebony_rhino(), gray_ogre()])
+        .battlefield(1, &[veteran_bodyguard(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let rhino = on_battlefield(&engine, p0, ebony_rhino()).expect("seated");
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let before_life = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(rhino, Defender::Player(p1)), (ogre, Defender::Player(p1))],
+            },
+        )
+        .expect("both attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elf, rhino)],
+            },
+        )
+        .expect("the Elf blocks the trampling Rhino; the Ogre is unblocked");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the Elf took the Rhino's lethal 1"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life - 3,
+        "the Rhino's trample excess (4 minus the Elf's 1 toughness): on the player"
+    );
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        2,
+        "the unblocked Ogre's damage: still redirected onto the Bodyguard"
+    );
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[1],
+        3,
+        "only the trample excess counted for the player, not the Ogre's redirected 2"
+    );
+}
+
+/// Veteran Bodyguard counter-check: a Lightning Bolt at the Bodyguard's
+/// controller is not damage "by unblocked creatures" — a spell is no
+/// creature — so nothing redirects it: the player takes the full 3.
+#[test]
+fn a_lightning_bolt_at_the_bodyguards_controller_is_not_from_a_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[lightning_bolt()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    let before_life = engine.state().players[1].life;
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("the Bolt targets, got {:?}", engine.pending())
+    };
+    assert!(player_options.contains(&p1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the opposing player is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life - 3,
+        "a spell, not a creature: the Bodyguard does not intercept it"
+    );
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        0,
+        "nothing marked on the Bodyguard"
+    );
+}
+
+/// Veteran Bodyguard — "As long as this creature is untapped, all damage
+/// that would be dealt to you by unblocked creatures is dealt to this
+/// creature instead." Its own controller attacks with it, so it stays
+/// tapped through the opponent's following untap step (only the active
+/// player's permanents untap, CR 502.3), and the opponent's unblocked
+/// attacker deals its damage straight to the player instead of to the
+/// now-tapped Bodyguard. Paired on the same board: once the Bodyguard's
+/// own next untap step frees it again, the same attacker's damage is
+/// redirected exactly as before the first attack — the tapped half is
+/// not a coincidence of this board, and the static is not gone for good.
+#[test]
+#[allow(clippy::too_many_lines)] // one board, carried through four turns to pair tapped and untapped
+fn the_bodyguard_stays_tapped_from_its_own_attack_and_lets_the_next_unblocked_attack_through() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[veteran_bodyguard()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let guard = on_battlefield(&engine, p0, veteran_bodyguard()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+
+    // Turn 1: the Bodyguard's own controller attacks with it.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(guard, Defender::Player(p1))],
+            },
+        )
+        .expect("the Bodyguard attacks");
+    assert!(
+        is_tapped(&engine, guard),
+        "attacking taps it (no vigilance)"
+    );
+
+    // Turn 2: p1's untap step untaps only p1's permanents.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    assert!(
+        is_tapped(&engine, guard),
+        "still tapped: p1's untap step is not the Bodyguard's own"
+    );
+    let before_life = engine.state().players[0].life;
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(ogre, Defender::Player(p0))],
+            },
+        )
+        .expect("the Ogre attacks p0");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("a tapped Bodyguard cannot block anyway");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[0].life,
+        before_life - 2,
+        "the tapped Bodyguard no longer redirects: the Ogre's damage reached the player"
+    );
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        0,
+        "nothing marked on the tapped Bodyguard"
+    );
+    assert_eq!(engine.state().per_turn.damage_dealt_to[0], 2);
+
+    // Turn 3: p0's own untap step frees the Bodyguard again. It holds it
+    // back this time, so it stays untapped for what follows.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    assert!(
+        !is_tapped(&engine, guard),
+        "p0's own untap step untaps the Bodyguard again"
+    );
+    engine
+        .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .expect("p0 holds it back this time");
+
+    // Turn 4: the same Ogre attacks again, unblocked. The pairing: the
+    // same board, the same attacker, only the Bodyguard's tapped status
+    // changed, and the redirection is back.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(ogre, Defender::Player(p0))],
+            },
+        )
+        .expect("the Ogre attacks p0 again");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocks");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[0].life,
+        before_life - 2,
+        "untapped again: the redirection resumed, so no further life was lost"
+    );
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        2,
+        "the Ogre's damage, marked on the Bodyguard now that it is untapped"
+    );
+}
+
+/// Veteran Bodyguard counter-check, with a real deathtouch attacker: an
+/// unblocked Baleful Strix's damage is still redirected onto the untapped
+/// Bodyguard (CR 614.9), and the source's own deathtouch travels with the
+/// damage it deals wherever it lands (CR 702.2b + 704.5h: any nonzero
+/// damage from a deathtouch source is lethal) — one marked point is
+/// lethal regardless of the Bodyguard's 5 toughness.
+#[test]
+fn an_unblocked_deathtouchers_redirected_damage_still_destroys_the_untapped_bodyguard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[baleful_strix()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let strix = on_battlefield(&engine, p0, baleful_strix()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    assert!(keywords(&engine, strix).contains(KeywordSet::DEATHTOUCH));
+    assert!(!is_tapped(&engine, guard), "untapped to start");
+    let before_life = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(strix, Defender::Player(p1))],
+            },
+        )
+        .expect("the Strix attacks");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("flying: the Bodyguard has neither flying nor reach");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life,
+        "not a point off its controller: the static caught it first"
+    );
+    assert_eq!(
+        engine.state().object(guard).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "one point of deathtouch damage is lethal, even redirected onto it"
+    );
+}
+
+/// Veteran Bodyguard counter-check, with a real lifelink attacker: an
+/// unblocked Murderous Rider's damage is redirected onto the untapped
+/// Bodyguard exactly as any other unblocked creature's would be, and its
+/// controller still gains the life lifelink promises — the keyword reads
+/// off the source, not off where the damage actually lands.
+#[test]
+fn an_unblocked_lifelinkers_redirected_damage_still_gains_its_controller_the_life() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[murderous_rider()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let rider = on_battlefield(&engine, p0, murderous_rider()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    assert!(keywords(&engine, rider).contains(KeywordSet::LIFELINK));
+    assert!(!is_tapped(&engine, guard), "untapped to start");
+    let before_life0 = engine.state().players[0].life;
+    let before_life1 = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(rider, Defender::Player(p1))],
+            },
+        )
+        .expect("the Rider attacks");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("no blocks: the Rider is unblocked");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        2,
+        "the Rider's power, redirected onto the Bodyguard"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life1,
+        "not a point off the Bodyguard's controller"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        before_life0 + 2,
+        "lifelink still pays the Rider's controller, wherever the damage landed"
+    );
+}
+
+/// Veteran Bodyguard counter-check, with a real triggered attacker: an
+/// unblocked Hypnotic Specter's damage is redirected onto the untapped
+/// Bodyguard, and its trigger — "whenever this creature deals damage to
+/// an opponent" — never fires, because the damage it actually dealt went
+/// to a creature, not a player: nobody discards.
+#[test]
+fn an_unblocked_specters_redirected_damage_makes_nobody_discard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[hypnotic_specter()])
+        .battlefield(1, &[veteran_bodyguard()])
+        .hand(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let specter = on_battlefield(&engine, p0, hypnotic_specter()).expect("seated");
+    let guard = on_battlefield(&engine, p1, veteran_bodyguard()).expect("seated");
+    assert!(keywords(&engine, specter).contains(KeywordSet::FLYING));
+    assert!(!is_tapped(&engine, guard), "untapped to start");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    assert_eq!(
+        hand_before, 1,
+        "one card seeded, so a discard would be visible"
+    );
+    let before_life = engine.state().players[1].life;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(specter, Defender::Player(p1))],
+            },
+        )
+        .expect("the Specter attacks");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("flying: the Bodyguard has neither flying nor reach");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+
+    assert_eq!(
+        engine.state().object(guard).unwrap().damage,
+        2,
+        "the Specter's power, redirected onto the Bodyguard"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        before_life,
+        "not a point off the Bodyguard's controller"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        hand_before,
+        "no opponent was dealt damage, so the trigger never fired: no discard"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Rock Hydra.
+// ---------------------------------------------------------------------------
+
+/// Rock Hydra's counter ability, without any shield in play: "For each 1
+/// damage that would be dealt to this creature, if it has a +1/+1 counter
+/// on it, remove a +1/+1 counter from it and prevent that 1 damage." A
+/// three-counter Hydra hit by a Lightning Bolt has all three damage points
+/// prevented — no `DamageDealt` event reaches it at all — but a 0/0 with
+/// no counters left still dies (CR 704.5f), not from the Bolt's damage but
+/// from its own toughness. With only one counter to spend, the same Bolt
+/// still marks it for the other 2 (a journaled `DamageDealt` of exactly
+/// that amount) before it dies the same way.
+#[allow(clippy::too_many_lines)] // two counter counts, each read from the journal
+#[test]
+fn rock_hydra_s_counters_prevent_one_point_of_damage_each() {
+    let p0 = PlayerId::new(0);
+    let hydra_card = card_index("aff84707-f5f8-4f53-869e-feec78da8d8d");
+
+    // Three counters absorb all three of the Bolt's damage points. The
+    // counters are seeded before the first mulligan question, not after:
+    // the printed body is a 0/0, and a state-based action would otherwise
+    // bury it (CR 704.5f) the moment the engine next checks, before this
+    // test ever gets to add any.
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[hydra_card, mountain(), mountain(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    let hydra = on_battlefield(&engine, p0, hydra_card).expect("the Hydra is seated");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        state
+            .object_mut(hydra)
+            .expect("seated")
+            .counters
+            .add(CounterKind::P1P1, 3);
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(pt(&engine, hydra), (3, 3), "three +1/+1 counters on a 0/0");
+
+    let before = engine.journal().entries().len();
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![hydra],
+                players: vec![],
+            },
+        )
+        .expect("the Hydra is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::CounterChanged {
+                    object,
+                    kind: CounterKind::P1P1,
+                    old: 3,
+                    new: 0,
+                } if object == hydra
+            )),
+        "all three counters were removed absorbing the Bolt's damage \
+         (so the negative below cannot pass on a Bolt that never \
+         touched the Hydra)"
+    );
+    assert!(
+        !engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::DamageDealt {
+                    target: crate::event::DamageTarget::Object(hit),
+                    ..
+                } if hit == hydra
+            )),
+        "all 3 of the Bolt's damage was prevented: no `DamageDealt` event \
+         ever names the Hydra"
+    );
+    assert!(
+        in_graveyard(&engine, p0, hydra_card).is_some(),
+        "0 counters left is a printed 0/0 (CR 704.5f): it dies either way, \
+         so this alone doesn't distinguish working prevention from a \
+         mechanic that never fired at all — the CounterChanged and \
+         DamageDealt checks above are what prove it"
+    );
+
+    // One counter absorbs 1 of the Bolt's 3; the other 2 are marked.
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[hydra_card, mountain(), mountain(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    let hydra = on_battlefield(&engine, p0, hydra_card).expect("the Hydra is seated");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        state
+            .object_mut(hydra)
+            .expect("seated")
+            .counters
+            .add(CounterKind::P1P1, 1);
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(pt(&engine, hydra), (1, 1), "one +1/+1 counter on a 0/0");
+
+    let before = engine.journal().entries().len();
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![hydra],
+                players: vec![],
+            },
+        )
+        .expect("the Hydra is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::DamageDealt {
+                    target: crate::event::DamageTarget::Object(hit),
+                    amount: 2,
+                    ..
+                } if hit == hydra
+            )),
+        "the one counter stopped only 1 of the Bolt's 3: the Hydra is \
+         marked for the other 2"
+    );
+    assert!(
+        in_graveyard(&engine, p0, hydra_card).is_some(),
+        "0 counters left is a printed 0/0 (CR 704.5f): it dies anyway, \
+         just like the three-counter case above — this doesn't prove the \
+         one-counter absorption worked, only the DamageDealt check above \
+         does that"
+    );
+}
+
+/// Rock Hydra's counters remove even damage that "can't be prevented":
+/// Questing Beast's "Combat damage that would be dealt by creatures you
+/// control can't be prevented" reaches every creature its controller
+/// controls, not only the Beast itself. Llanowar Elves (no deathtouch, not
+/// the Beast) attacks alongside a Questing Beast it shares a controller
+/// with; a three-counter Hydra blocks the Elves and is still dealt the
+/// full point of combat damage even though the counter ability removes a
+/// counter for it (CR 615.12, 615.12a). Counter-check: the identical block
+/// without the Beast on the board leaves the same counter lost, but none
+/// of the damage marked.
+#[test]
+fn rock_hydra_takes_unpreventable_combat_damage_from_a_questing_beasts_teammate() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let hydra_card = card_index("aff84707-f5f8-4f53-869e-feec78da8d8d");
+
+    // With Questing Beast beside the attacker. The counters are seeded
+    // before the first mulligan question, not after: the printed body is a
+    // 0/0, and a state-based action would otherwise bury it (CR 704.5f)
+    // before this test ever gets to add any.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast(), llanowar_elves()])
+        .battlefield(1, &[hydra_card])
+        .start();
+    let hydra = on_battlefield(&engine, p1, hydra_card).expect("the Hydra is seated");
+    {
+        let state = engine
+            .dev_state_mut(p1)
+            .expect("the harness may set boards up");
+        state
+            .object_mut(hydra)
+            .expect("seated")
+            .counters
+            .add(CounterKind::P1P1, 3);
+    }
+    keep_mulligans(&mut engine);
+    assert_eq!(pt(&engine, hydra), (3, 3), "three +1/+1 counters on a 0/0");
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    let blockers = attack_and_collect_blocks(&mut engine, elf, p1);
+    assert!(
+        blockers
+            .iter()
+            .any(|o| o.blocker == hydra && o.attackers.contains(&elf)),
+        "the Hydra may block the Elves: {blockers:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(hydra, elf)],
+            },
+        )
+        .expect("the Hydra blocks");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        pt(&engine, hydra),
+        (2, 2),
+        "one counter removed absorbing the Elves' 1 damage"
+    );
+    assert_eq!(
+        engine.state().object(hydra).map(|o| o.damage),
+        Some(1),
+        "Questing Beast: the Elves' combat damage to it can't be prevented, \
+         so the Hydra is still dealt the point despite the counter's removal"
+    );
+
+    // Counter-check: the identical block, minus Questing Beast.
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[llanowar_elves()])
+        .battlefield(1, &[hydra_card])
+        .start();
+    let hydra = on_battlefield(&engine, p1, hydra_card).expect("the Hydra is seated");
+    {
+        let state = engine
+            .dev_state_mut(p1)
+            .expect("the harness may set boards up");
+        state
+            .object_mut(hydra)
+            .expect("seated")
+            .counters
+            .add(CounterKind::P1P1, 3);
+    }
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    attack_and_collect_blocks(&mut engine, elf, p1);
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(hydra, elf)],
+            },
+        )
+        .expect("the Hydra blocks");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::Ending)
+    });
+    assert_eq!(
+        pt(&engine, hydra),
+        (2, 2),
+        "the same counter is lost absorbing the same 1 damage"
+    );
+    assert_eq!(
+        engine.state().object(hydra).map(|o| o.damage),
+        Some(0),
+        "without Questing Beast, the 1 damage is preventable, so the \
+         counter ability prevents all of it: nothing is marked"
+    );
+}
+
+/// Rock Hydra's third ability, "{R}{R}{R}: Put a +1/+1 counter on this
+/// creature. Activate only during your upkeep" (ability index 2): offered
+/// and working in its controller's own upkeep; not offered once its
+/// controller's main phase begins, and not offered during the opponent's
+/// upkeep either (the "your" half of the restriction, not only the
+/// "upkeep" half) — the engine refuses the activation in both windows,
+/// even by address.
+#[allow(clippy::too_many_lines)] // three windows, each read from a fresh floating pool
+#[test]
+fn rock_hydra_s_growth_ability_activates_only_in_its_controllers_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let hydra_card = card_index("aff84707-f5f8-4f53-869e-feec78da8d8d");
+    // Nine Mountains, not three: three pay the ability's cost in the
+    // upkeep half below, three more in the main-phase half, and the last
+    // three are held back, untapped, for the opponent's-upkeep half —
+    // so none of the three "offered"/"not offered" readings is a reading
+    // of mana affordability instead of the timing restriction (this
+    // engine's activation offer reads the floating pool, not untapped
+    // sources — `Engine::can_pay_mana` — so an empty pool alone would
+    // also refuse the ability, timing restriction or not).
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[
+                hydra_card,
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .start();
+    // The counter is seeded before the first mulligan question, not after:
+    // the printed body is a 0/0, and a state-based action would otherwise
+    // bury it (CR 704.5f) before this test ever gets to add one.
+    let hydra = on_battlefield(&engine, p0, hydra_card).expect("the Hydra is seated");
+    {
+        let state = engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up");
+        state
+            .object_mut(hydra)
+            .expect("seated")
+            .counters
+            .add(CounterKind::P1P1, 1);
+    }
+    keep_mulligans(&mut engine);
+    let mountains = all_on_battlefield(&engine, p0, mountain());
+    assert_eq!(mountains.len(), 9, "nine Mountains are seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    for &source in &mountains[..3] {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    assert!(
+        priority_offer(&engine).abilities.contains(&(hydra, 2)),
+        "\"Activate only during your upkeep\": offered right here, with \
+         its {{R}}{{R}}{{R}} floating"
+    );
+
+    activate(&mut engine, p0, hydra_card, 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, hydra),
+        (2, 2),
+        "the ability worked: a second +1/+1 counter"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    for &source in &mountains[3..6] {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        3,
+        "three more Mountains are floating {{R}}{{R}}{{R}}: the refusal \
+         below is not for want of mana"
+    );
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(hydra, 2)),
+        "not offered once its controller's main phase begins, mana \
+         floating or not"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: hydra,
+                    ability_index: 2,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    // "Your" upkeep, not any upkeep: the opponent's upkeep (turn 2) is
+    // still a window this controller could float mana in, and still not
+    // the right one.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    for &source in &mountains[6..9] {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        3,
+        "the last three Mountains are floating {{R}}{{R}}{{R}} during the \
+         opponent's upkeep: the refusal below is not for want of mana"
+    );
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(hydra, 2)),
+        "\"your upkeep\": not offered in the opponent's upkeep, mana \
+         floating or not"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: hydra,
+                    ability_index: 2,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Gaea's Liege.
+// ---------------------------------------------------------------------------
+
+/// Gaea's Liege's "is attacking" half: "As long as Gaea's Liege is
+/// attacking, its power and toughness are each equal to the number of
+/// Forests defending player controls." Its own controller holds two
+/// Forests and the defending player holds five: once attackers are
+/// declared, the Liege is a 5/5, not a 2/2, deals combat damage
+/// accordingly, and reverts to its controller's count once combat ends.
+#[test]
+fn gaea_s_lieges_power_and_toughness_track_the_defending_players_forests_while_attacking() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[gaea_s_liege(), forest(), forest()])
+        .battlefield(1, &[forest(), forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    let liege = on_battlefield(&engine, p0, gaea_s_liege()).expect("seated");
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "not attacking: its own controller's two Forests"
+    );
+
+    reach_main_phase(&mut engine, p0);
+    attack_and_collect_blocks(&mut engine, liege, p1);
+    assert_eq!(
+        pt(&engine, liege),
+        (5, 5),
+        "attacking: the defending player's five Forests, not its \
+         controller's two"
+    );
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().players[1].life,
+        15,
+        "5 combat damage, matching the defending player's Forest count \
+         while the Liege was attacking"
+    );
+    assert_eq!(
+        pt(&engine, liege),
+        (2, 2),
+        "combat is over: back to its own controller's two Forests"
+    );
+}
+
+/// Off the battlefield, neither of Gaea's Liege's sentences function: CR
+/// 113.6 says an ability other than a spell's usually works only while its
+/// object is on the battlefield, and lists several lettered exceptions
+/// (113.6a through 113.6p). The exception that would matter here is
+/// 113.6a, characteristic-defining abilities, which function everywhere —
+/// but these two sentences are not CDAs: CR 604.3a's fifth criterion
+/// excludes any ability that "does not set the values of such
+/// characteristics only if certain conditions are met," which is exactly
+/// what "as long as … isn't/is attacking" does. In hand, with three
+/// Forests on the battlefield, the Liege stands at its printed 0/0.
+#[test]
+fn gaea_s_lieges_power_and_toughness_are_off_the_battlefield_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[gaea_s_liege()])
+        .start();
+    keep_mulligans(&mut engine);
+    let liege = in_hand(&engine, p0, gaea_s_liege()).expect("the Liege sits in hand");
+    assert_eq!(
+        pt(&engine, liege),
+        (0, 0),
+        "its printed 0/0 stands off the battlefield despite three Forests"
     );
 }

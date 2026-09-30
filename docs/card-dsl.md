@@ -428,6 +428,24 @@ express at all yet.
   mana cost, when there is one), and the spell is exiled afterwards.
   `validate` holds it against the printing. What the cast paid is
   `Amount::ManaSpentToCast` (Memory Deluge).
+- `Amount::TargetsPutIntoGraveyard` — "the number of Mountains put into a
+  graveyard this way" (Volcanic Eruption): the resolving ability's targets
+  that a graveyard holds as new objects since the resolution began, so a
+  regenerated target, one exiled instead, or one dropped as illegal is not
+  counted. Written after the effect that moves them.
+- `Amount::CreaturesDiedThisTurn` — "for each creature that died this turn"
+  (Scavenging Ghoul): every player's creatures put into a graveyard from the
+  battlefield this turn (CR 700.4), each counted if it was a creature as it
+  left, read as the effect applies (CR 608.2h). The reader writes it for
+  `Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature` wherever it
+  reads an amount, an `etbCounter` included.
+- `Amount::DamageDealtToYouThisTurn` — "the damage dealt to you this turn"
+  (Simulacrum): every point dealt to the ability's controller since the turn
+  began, combat or not, counted where the damage is dealt
+  (`GameState::damage_player`). Damage, not life lost: a payment is not in
+  it, a gain does not take it back, and a player whose life can't change is
+  still dealt it; prevented damage never was. The reader writes it for
+  `PlayerCountPropertyYou$DamageThisTurn`.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -447,7 +465,10 @@ express at all yet.
   of **your own** graveyard, the zone saying whose, so the filter says only
   what kind of card; Mines of Moria's "three cards" is the part written three
   times, one question each, the way Time Sieve writes five sacrifices),
-  `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge),
+  `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge,
+  Scavenging Ghoul's `counters::CORPSE`; the reader writes it for
+  `SubCounter<n/KIND>` with a fixed `n`, never for a loyalty cost or one
+  that names where the counters come from),
   `RemoveCounterSelfX { kind }` (the storage lands: a number the player
   chooses as the ability is activated, bounded by the counters on the source
   and allowed to be zero, which the effects read back as `Amount::X`),
@@ -620,6 +641,13 @@ has built.
   `Engine::compute_legal` offers no spell, no suspend and no activation but
   mana abilities and turning a face-down permanent up (CR 702.61b, 116.2b).
   Triggers still trigger. Krosan Grip
+- `KeywordSet::BANDING` — banding (CR 702.22) is a bit; the engine asks the
+  band as attackers are declared and who divides combat damage where a band
+  is involved (`docs/engine-internals.md` §"Bands, and who divides combat
+  damage"). Benalish Hero; granted like any keyword, Helm of Chatzuk's
+  `PumpTarget { keywords: KeywordSet::BANDING, .. }`. "Bands with other"
+  (702.22b) names a quality a bit cannot carry: the reader refuses
+  `K:Bands with Other`, and such a card stays unread
 - `AbilityDef::Suspend { counters }`
 
 #### Write them through the macros
@@ -763,7 +791,15 @@ reader. `ControlCount(&filter, n)` is metalcraft and the verge lands,
 `CountersOnSelf(kind, n)`, `CountersOnSelfExactly(kind, n)` and
 `CountersOnSelfBetween(kind, lo, hi)` read the permanent the ability is
 printed on, `SourceMatches(&filter)` points a
-filter back at that permanent — "if this land is tapped" — and
+filter back at that permanent — "if this land is tapped" —
+`DuringCombat` is "activate only during combat": the combat phase of any
+turn (CR 506.1); the reader writes it for `ActivationPhases$
+BeginCombat->EndCombat` and refuses the other phase spellings by name.
+`CanSacrifice(&filter)` is whether you control a permanent the filter
+matches with the source as its `This` (Lord of the Pit's "sacrifice a
+creature other than this creature. If you can't, …", an `IfCondition`
+around `SacrificeFilter`; `ControlCount` asks each permanent with itself as
+`This`, so `Filter::Another` never matches there), and
 `Any(&[..])` holds while **one** of the conditions it names does, and
 `Not(&c)` while `c` does not — the printed "unless". One reader answers
 all of them, `eval::condition_holds`.
@@ -899,6 +935,11 @@ rule: a teammate is not an opponent and a player who has lost is out),
 `TappedOrPayLife(n)`, `ChooseSubtype`
 (Roaming Throne, Reflections of Littjara, Cavern of Souls — answer stored
 on `obj.chosen_subtype`; creatures also gain the subtype in their base),
+`ChooseBasicLandType` (Phantasmal Terrain — the same question and the same
+place for the answer, offering the five basic land types of CR 205.3i and
+nothing else; read back by `Modifier::SetLandTypeToChosen`; the reader
+writes it for `DB$ ChooseType | Type$ Basic Land` behind
+`K:ETBReplacement:Other`),
 `ChooseColor` and `ChooseColorExcept(c)` (Uncharted Haven, the Thriving
 cycle, the Gates — answer stored on `obj.chosen_color` and read back by
 `ManaSource::Chosen`), `ChooseCardName` (Pithing Needle — any face of any
@@ -978,16 +1019,25 @@ land under a Doubling Season enters with four charge counters.
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
-`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana(filter)`.
+`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana { by, filter }`,
+`State(&condition)` (a state trigger, CR 603.8; see the Alpha pieces).
 
-`TappedForMana(filter)` is "whenever you tap [a permanent] for mana"
-(Badgermole Cub): its controller activated a mana ability of a permanent
+`TappedForMana { by, filter }` is "whenever [a player] taps [a permanent]
+for mana": a player `by` names activated a mana ability of a permanent
 matching `filter` with {T} in the cost (CR 106.12), and it resolved and made
-mana (CR 106.12a) — once per activation, however many colours. Written with
-no target and effects that add mana, the ability is itself a mana ability
-(CR 605.1b, `AbilityDef::is_triggered_mana_ability`) and resolves as it
-triggers, off the stack (CR 605.4a): write it as a plain `triggered!`, with
-no flag. One that targets (Forbidden Orchard's) is an ordinary trigger.
+mana (CR 106.12a) — once per activation, however many colours. `by` is
+`PlayerRel::You` for "whenever you tap" (Badgermole Cub), `EachPlayer` for
+"whenever a player taps a land" (Manabarbs) and for "whenever a Mountain is
+tapped for mana" (Gauntlet of Might), which names nobody, and `EachOpponent`
+for "an opponent". The tapped permanent is the event's object, so
+`PlayerRel::ControllerOfEvent` is "that player" and "its controller": only a
+permanent's controller can activate its abilities (CR 602.2). Written with
+no target and effects that add mana (`AddMana`, or `AddManaFor` for another
+player's pool), the ability is itself a mana ability (CR 605.1b,
+`AbilityDef::is_triggered_mana_ability`) and resolves as it triggers, off
+the stack (CR 605.4a): write it as a plain `triggered!`, with no flag. One
+that targets (Forbidden Orchard's) or makes no mana (Manabarbs') is an
+ordinary trigger.
 
 `PlaysLand(rel)` is "whenever [a player] plays a land" (Fastbond): the
 special action (CR 116.2a, 305.1), out of the hand or from wherever a
@@ -1511,6 +1561,40 @@ a `PayLife(2)` there
 would put up an empty menu and decline itself on every board, which
 `vocabulary_tests::every_price_paid_by_naming_an_object_puts_a_menu_up`
 refuses over the compiled pool.
+Prevention is a shield the effect leaves behind (CR 615.7):
+`PreventNextDamage { target, amount }` is "prevent the next N damage that
+would be dealt to <target> this turn", its `target` naming recipients as
+`DealDamage`'s does (Samite Healer's any target, Conservator's
+`Player(PlayerRel::You)`), and `PreventAllCombatDamageThisTurn` is Fog.
+`PreventNextFromChosenSource { sources, combat_only, all_but, gain_life }`
+is "the next time a <sources> of your choice would deal damage to you this
+turn, prevent that damage" (the Circles of Protection): the source is chosen
+as it resolves, `combat_only` and `all_but: 1` make Forcefield's "combat
+damage … all but 1 of that damage", and `gain_life` is Reverse Damage's
+"you gain life equal to the damage prevented this way". `sources` is both
+what may be chosen and what the source must still be when it deals the
+damage. All of them last until the turn's cleanup; `docs/engine-internals.md`
+§"Prevention shields" says how they are spent.
+Its redirection sibling is `RedirectNextFromChosenSource { target }`, Jade
+Monolith's "the next time a source of your choice would deal damage to
+target creature this turn, that source deals that damage to you instead":
+any source may be chosen as it resolves, and `target` names the creature as
+`DealDamage`'s target does (the ability's own `target` makes the choice).
+The standing kind is `Modifier::RedirectDamageToYou(&from)`, Veteran
+Bodyguard's "all damage that would be dealt to you by unblocked creatures is
+dealt to this creature instead": `from` is what the source must be, the
+affected filter is what takes the damage, and a condition on that ("as long
+as this creature is untapped") goes into the affected filter,
+`Filter::And(&[Filter::This, Filter::Untapped])`, so that it is read as the
+damage is dealt. `docs/engine-internals.md` §"Redirection" says how both
+apply.
+`Modifier::CountersPreventDamage(kind)` on `Filter::This` is Rock Hydra's
+"for each 1 damage that would be dealt to this creature, if it has a +1/+1
+counter on it, remove a +1/+1 counter from it and prevent that 1 damage".
+The mirror of the first is `PlayerMayPayThen { player, mana, effects }`:
+"you may pay {1}. If you do, you gain 1 life" (Crystal Rod, Soul Net). The
+same question and payment, with the effects on a yes; the price *is* the
+"may", so it is never wrapped in a `MayDo` as well, which would ask twice.
 "That player" in a cast trigger's tax is `PlayerRel::ControllerOfEvent`
 — the one who cast the spell. `PlayerRel::Opponent` is the first living
 opponent, which is the same seat heads-up and the wrong one at a table of
@@ -1546,6 +1630,14 @@ player lose life" is a `TargetReq` with a minimum of zero, "you may pay 2
 life" as a land enters is an `EnterModifier`, and "you may play those cards"
 is a permission with nothing to ask. `xtask validate` holds every card
 printing "you may" against that list and says which construct it accepted.
+"You may [pay]. If you do, [effect]" makes the action a cost paid as the
+ability resolves (CR 118.12): write the action as the **head** of the list
+and what it buys after it — `MayDo { effects: &[SacrificeSelf, …] }` (Safe
+Haven), `MayDo { effects: &[RemoveCounterSelf { kind, n }, …] }` (Living
+Artifact). The engine reads the head and does not ask while the payment is
+impossible (CR 608.2d): the source gone, or too few counters on it. A head
+it has no rule for is asked unconditionally, so check `may_clause_possible`
+before writing a new one.
 Reflexive: `Reflexive { when, effects, target }` — "When you do, …"
 (CR 603.12). It is written as the **last** op of the list, directly after
 the action it waits for:
@@ -1581,15 +1673,21 @@ Modal/sequence: `Sequence(&[..])`.
 ### Modifiers (layer effects)
 
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
-`AllBasicLandTypes`, `BecomeType { types, subtype }`, `AddColor`, `SetColor`,
+`ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`, `SetLandType(subtype)`,
+`SetLandTypeToChosen`,
+`BecomeType { types, subtype }`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
-`CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
+`CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`, `RedirectDamageToYou(&from)`,
+`CountersPreventDamage(kind)`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
-`MayChooseNotToUntap`, `PlayLandsFromGraveyard`, `ExtraLandDrops`,
+`MayChooseNotToUntap`, `SkipUntapStep { who }`, `UntapAtMost { who, of, count }`,
+`AttacksDespiteDefender`, `AttacksAsThoughHaste`,
+`PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
+`ModifyPTHalfCount(count)`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
@@ -1623,10 +1721,39 @@ abilities from nongreen sources your opponents control" is one filter.
 205.1a): the card types and subtypes are replaced, supertypes stay, so
 Oko's Elk is still legendary and no longer an artifact. A sentence that
 says "in addition to its other types" or "still a …" (CR 205.1b) is
-`AddType`/`AddSubtype` instead. `LoseAllAbilities` (CR 613.1f) takes
+`AddType`/`AddSubtype` instead. "Becomes a [creature type] artifact
+creature" (CR 205.1b's last sentence, Jade Statue's "3/6 Golem artifact
+creature") keeps every card type and subtype except the creature types,
+which `ReplaceCreatureTypes(subtype)` replaces; the card types it gains are
+`AddType` beside it. The reader writes it for `Animate`'s
+`RemoveCreatureTypes$ True`, and reads `Duration$ UntilEndOfCombat` as
+`Duration::UntilEndOfCombat`. `LoseAllAbilities` (CR 613.1f) takes
 keywords and printed abilities alike; a static of the object keeps only its
 parts in layers 1, 2, 4 and 5 (CR 613.6), and a grant with a later
 timestamp still lands (CR 613.7).
+
+`SetLandType(subtype)` is "enchanted land is a Swamp" (Evil Presence), "all
+Mountains are Plains" (Conversion) and "target land becomes a Forest"
+(Gaea's Liege): an effect that sets a land's subtype to one basic land type
+(CR 305.7). In layer 4 the land's other land types go and the new one comes,
+and the land loses every ability its rules text gives it — its printed
+keywords there, the rest through `Characteristics::rules_text_lost`, which
+`GameObject::abilities` answers with nothing and which ends the land's own
+statics except their layer-1 and layer-2 parts (the effect is layer 4, so a
+layer-4 static of the land depends on it and never applies, CR 613.8a). It
+makes the new type's mana through CR 305.6 alone. It is not
+`LoseAllAbilities`: a keyword or ability another effect grants the land
+stays, whatever its timestamp, and its card types and supertypes stay (a
+basic Mountain made a Plains is still basic). "In addition to its other
+types" is `AddSubtype`. The reader writes it for `RemoveLandTypes$ True`
+beside one basic land type, on `S: Mode$ Continuous`'s `AddType$` and on
+`Animate`'s `Types$`, and reads `Animate`'s `Duration$ UntilHostLeavesPlay`
+as `Duration::WhileSourceOnBattlefield`. `SetLandTypeToChosen` is "enchanted
+land is the chosen type" (Phantasmal Terrain): the same, for the basic land
+type the effect's source was given as it entered
+(`EnterModifier::ChooseBasicLandType`), and nothing while none was chosen;
+the reader writes it for `AddType$ ChosenType` only on a card that asks that
+question.
 
 `DrawLimitPerTurn { who, limit }` is "each player can't draw more than one
 card each turn" (Spirit of the Labyrinth) and its opponents-only twin
@@ -1665,7 +1792,8 @@ CR 613.11 puts such an effect outside the layer order — so it sits in the
 reads it. Whose untap step is not a field: CR 502.3 only untaps the active
 player's permanents, which is the same player every printing of the sentence
 names. It is **not** the way to say "doesn't untap during your *next* untap
-step" — that is a created effect with a duration, and does not exist yet.
+step" — that is a created effect with `Duration::UntilYourNextUntapStep`
+(`Effect::continuous(&Filter::This, Modifier::DoesNotUntap, …)`).
 
 `MayChooseNotToUntap` is the other half of the same rule and the storage
 lands' clause: CR 502.3 has the active player *determine* which of their
@@ -1676,6 +1804,42 @@ granted, which CR 502.4 forbids and this is not. It takes `Filter::This` and
 no duration like its neighbour, and the two compose: a permanent an effect
 already keeps from untapping is left off the menu, because both answers to
 that question would do the same thing.
+
+`SkipUntapStep { who }` is Stasis's "players skip their untap steps". A
+skip is a replacement effect that replaces the step with nothing (CR 614.1b,
+614.10), but it is written as a static ability because nothing is put in the
+step's place: `progress::untap_step` asks it first and goes straight on to
+the upkeep, so no permanent phases (502.1), the day/night check does not run
+(502.2) and nothing untaps (502.3). `who` is read from the effect's
+controller like `CantLoseLife`'s. An effect lasting "until your next untap
+step" is not spent by a skipped one (CR 614.10a): it waits for the first
+untap step that happens, which is why the skip does not pass through
+`finish_untap_step`. The reader writes it from `R:Event$ BeginPhase |
+Phase$ Untap | Skip$ True` on the battlefield with no player named.
+
+`UntapAtMost { who, of, count }` is "players can't untap more than one
+creature during their untap steps" (Smoke; Winter Orb's lands, with the
+Orb's "as long as this is untapped" as the static's `condition`). It limits
+CR 502.3's determination and nothing else: everything still untaps by
+default, so the active player names *which* permanents counted by `of`
+untap (`ChoicePrompt::Untap`, at least one per answer), and the question is
+asked again until no limit has room for anything left. Limits add up and do
+not merge: a permanent counts against every limit it matches (the Smoke and
+Winter Moon rulings), and two copies of one limit still let `count` through.
+The "may choose not to untap" question (`LeaveTapped`) is asked first, so a
+permanent kept tapped by choice takes no room. Nothing is asked when every
+limit can take everything still tapped. The reader writes it from
+`Affected$ <player> | AddKeyword$ UntapAdjust:<valid>:<n>`.
+
+`AttacksDespiteDefender` and `AttacksAsThoughHaste` are "can attack as
+though it didn't have defender" (Animate Wall) and "…as though it had
+haste" (Instill Energy), on the creatures the static's filter names. An "as
+though" effect applies only to what it states (CR 609.4), so
+`combat::can_attack` reads them only where defender (CR 702.3b) or summoning
+sickness (CR 302.6) would stop the attack: a "can't attack" from anything
+else still holds, and the creature's {T} abilities still wait (CR 702.10c is
+not part of it). The reader writes them from `S:Mode$ CanAttackDefender` and
+`S:Mode$ CanAttackIfHaste` with `ValidCard$`.
 
 `GainControl` is layer 2 and must be paired with `Layer::Control` — any
 other layer applies it out of order with respect to the effects that read
@@ -1875,6 +2039,57 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Modifier::CantBeBlockedBy(filter)`** is "can't be blocked by [filter]".
   Examples: Questing Beast (`PowerAtMost(2)`) and Delney (`PowerAtLeast(3)`).
   `combat::can_block` enforces it.
+- **`Filter::PowerLessThanSourcePower`** and
+  **`Filter::ToughnessLessThanSourcePower`** compare with the source's
+  projected power, strictly: Stone Giant's "target creature you control
+  with toughness less than this creature's power". A source with no power
+  bounds nothing in. The reader writes them from `powerLTX` and
+  `toughnessLTX` only where `X` is `Count$CardPower`.
+- **`Effect::AtNextEndStep { effects }`** is "[effects] at the beginning of
+  the next end step", a delayed trigger (CR 603.7) with this ability's
+  source and controller that uses the stack. "That creature" in `effects`
+  is `TargetSpec::EventObject`, the first target as the object it was when
+  this resolved; one that has left its zone since is a new object and is
+  not affected (CR 603.7c, 400.7). Stone Giant: `AtNextEndStep { effects:
+  &[Effect::destroy(TargetSpec::EventObject)] }` after its pump. The reader
+  reads `AtEOT$ Destroy` on a targeted `Pump` only. An ability that never
+  said "target" has its **source** there instead, as the object it is as
+  this resolves: Dragon Whelp's "sacrifice this creature at the beginning
+  of the next end step" is `AtNextEndStep { effects:
+  &[Effect::SacrificeObject { target: TargetSpec::EventObject }] }`, and a
+  Whelp that left and came back is not sacrificed.
+- **`Effect::AtEndOfCombat { about, effects }`** is "[effects] at end of
+  combat", a delayed trigger (CR 603.7) with this ability's source and
+  controller that triggers as the next end of combat step begins
+  (CR 511.2) and uses the stack. `about` **names** the object it
+  remembers, read as this resolves (`EventObject`, `ThisObject`, or a
+  target spec for the first target), and "that creature" in `effects` is
+  `TargetSpec::EventObject`, that object as it was then (CR 603.7c).
+  Named rather than derived, as `AtNextEndStep` derives it, because one
+  triggered ability can have a target, an event object and a source.
+  Cockatrice: `AtEndOfCombat { about: TargetSpec::EventObject, effects:
+  &[Effect::destroy(TargetSpec::EventObject)] }`.
+- **`Trigger::BlocksOrBecomesBlockedBy(filter)`** is "whenever this
+  creature blocks or becomes blocked by a [filter] creature": once per
+  blocker–attacker pair (CR 509.3b, 509.3d), so blocked by two it
+  triggers twice. The filter is the **other** creature, as it is when the
+  block is declared (CR 509.3f), and that creature is the event object —
+  whichever side of the block this creature is on. The reader reads the
+  reference's two-line spelling (`AttackerBlockedByCreature`, one line
+  per side, the second `Secondary$ True`) as one ability, and only whole:
+  either half alone is another sentence and is refused.
+- **`Effect::SacrificeObject { target }`** is "sacrifice that creature": the
+  ability's controller sacrifices the object the spec names, only if they
+  control it, it is on the battlefield and phased in (CR 701.21a).
+  `SacrificeSelf` is the source by id and cannot tell a source that came
+  back from the one the delayed trigger was about.
+- **`Effect::IfActivatedThisTurnAtLeast { n, then }`** is "if this ability
+  has been activated `n` or more times this turn" (Dragon Whelp). It counts
+  **activations** (CR 602.2), taken as each is put on the stack and paid
+  for, in `GameState::ability_fires` — only for an ability whose effects
+  carry this branch, the way "activate only once each turn" is counted — so
+  four stacked activations all count before the first resolves. A source
+  that left the battlefield has a fresh count (CR 400.7).
 - **`Modifier::CombatDamageCantBePrevented`** makes combat damage dealt by the
   matching creatures unpreventable. It overrides prevention effects and
   protection's prevention (CR 615.12, 702.16e).
@@ -1945,7 +2160,18 @@ Effects:
 - **`Effect::OwnerPutsOnTopOrBottom { target }`** (Subtlety): the owner,
   not the controller, picks the end of the library.
 - **`Effect::ExileIfDiesThisTurn { target }`** (Mawloc) is a replacement
-  effect on that object for the rest of the turn.
+  effect on that object for the rest of the turn. The reader writes it from
+  `ReplaceDyingDefined$ Targeted` on any line with an object target
+  ("if that creature would die this turn, exile it instead"), and
+  `ThisTargetedCard.Creature` inside `IfTargetMatches { CREATURE }`
+  (Disintegrate's "if it's a creature"). `Remembered` ("a creature dealt
+  damage this way") is refused: it asks whether damage was dealt.
+- **`Effect::CantBeRegeneratedThisTurn { target }`** (Disintegrate) is "it
+  can't be regenerated this turn" (CR 701.19c): a shield on that object
+  still stands and saves nothing, for the rest of the turn and that object
+  only. "Destroy … It can't be regenerated" is `destroy_no_regen`, not
+  this. The reader writes it from an `Effect` whose one static is
+  `CantRegenerate` on what it remembers, the line's target.
 - **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
   returns every matching card in your graveyard. Nothing is targeted.
 
@@ -1958,6 +2184,18 @@ Triggers, reflexive events and amounts:
 - **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
   carries the player and the amount on the trigger. **`Amount::EventAmount`**
   is "that much".
+- **`Trigger::DealsDamageToOpponent(filter)`** is the same with any damage,
+  combat or not (Hypnotic Specter: "whenever this creature deals damage to
+  an opponent, that player discards a card at random", `PlayerRel::DamagedPlayer`).
+- **`Trigger::DealtDamage(filter)`** is "whenever [a permanent] is dealt
+  damage" (Fungusaur). All combat damage in a step is dealt at once
+  (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);
+  every other damage event triggers it once, and prevented damage never.
+- **`Trigger::PlayerDealtDamage(rel)`** is "whenever you're dealt damage"
+  (Living Artifact, Lich), the player's side of `DealtDamage`: once for a
+  step's combat damage to that player and once for every other damage
+  event. "That many" is `Amount::EventAmount`, which for combat is the
+  step's whole total to that player, not the first attacker's share.
 - **`ReflexiveEvent::ExiledThis`** is "You may exile it. When you do, …"
   (The Balrog of Moria). The action is `Effect::ExileSource`.
 
@@ -2030,6 +2268,174 @@ Filters, conditions, modifiers and durations:
   `IfCondition { condition: Escaped, then: &[], otherwise: &[SacrificeSelf] }`
   on an enters trigger. "Escapes with" counters (CR 702.138c) are not
   written yet.
+
+### Pieces added for Limited Edition Alpha (30.09.2026)
+
+- **`PtCount::OnBattlefield(&filter)`** counts every permanent on the
+  battlefield the filter matches, whoever controls it: Plague Rats' "the
+  number of creatures named Plague Rats on the battlefield", beside
+  `YouControl`'s one side of the table.
+- **`Effect::UntapAll { filter }`** and **`Effect::RegenerateAll { filter }`**
+  are `TapAll`'s mirror and a regeneration shield (CR 701.19a) on every
+  permanent the filter matches as the effect resolves, targeting nothing.
+  An Aura's "untap enchanted creature" (Instill Energy) and "regenerate
+  enchanted creature" (Regeneration) name the host through
+  `Filter::AttachedToBySource`.
+- **`Condition::BattlefieldCount(&filter, n)`** and
+  **`BattlefieldCountAtMost(&filter, n)`** are `ControlCount` and
+  `ControlCountAtMost` over the whole battlefield: Pestilence's "if no
+  creatures are on the battlefield" is `BattlefieldCountAtMost(&CREATURE, 0)`.
+- **`Filter::ControlledByActivePlayer`** matches what the player whose turn
+  it is controls (CR 102.1): Karma's "the number of Swamps they control", at
+  the beginning of each player's upkeep. It is not a relation to "you".
+- **`Filter::CmcExactlyX`** is "mana value X" read off the source's
+  announced X, where `CmcAtMostX` reads "X or less" (Spell Blast). X is
+  announced before targets are chosen (CR 601.2b, 601.2c), so the target
+  menu is the objects of the X just announced; the cast is offered while
+  any X would find one.
+- **`Effect::PlayerMayPayManaOr { player, cost, effect }`** and
+  **`PlayerMayPayManaThen { player, cost, effects }`** are `PlayerMayPayOr`
+  and `PlayerMayPayThen` with a printed price that has colour in it:
+  Phantasmal Forces' "sacrifice it unless you pay {U}" (`cost: mana!("{U}")`),
+  Force of Nature's `{G}{G}{G}{G}`, Farmstead's "you may pay {W}{W}. If you
+  do, …". "Unless" means "may pay; if they don't" (CR 118.12a), and the
+  question is put and paid exactly as the generic tax's, CR 605.3a window
+  included; only the pool that can pay differs, since two red do not pay
+  `{U}`. Generic prices stay on the `Amount` pair: that price may be known
+  only as the ability resolves (Esper Sentinel), a printed colour never is.
+- **`Effect::TapAllOf { who, filter }`** is `TapAll` over the permanents the
+  players in `who` control as it resolves: Mana Short's "tap all lands target
+  player controls" is `TapAllOf { who: PlayerRel::Chosen, filter:
+  &Filter::LAND }` beside `targets = Some(TargetReq::one(TargetSpec::AnyPlayer))`.
+  The player may be targeted; the permanents are not.
+- **`Effect::LoseUnspentMana { who }`** empties each named player's mana pool
+  (CR 106.4: "the player is said to lose this mana"), all of it, including
+  mana an effect lets stay as steps end: the effect empties the pool, not
+  the end of a step.
+- **`Effect::AddManaFor { who, color, amount }`** is fixed mana in the pool
+  of each player `who` names, who need not be the ability's controller:
+  Gauntlet of Might's and Wild Growth's "its controller adds an additional
+  {R}" (`who: PlayerRel::ControllerOfEvent` under `TappedForMana`). It is
+  mana like `AddMana`'s otherwise, so a trigger that makes it with no target
+  is a mana ability.
+- **`Trigger::BecomesTapped(filter)`** is any permanent the filter matches
+  becoming tapped, for any reason: City of Brass's `Filter::This`, Lifetap's
+  "a Forest an opponent controls", Psychic Venom's enchanted land. The
+  tapped permanent is the event's object: `PlayerRel::ControllerOfEvent` is
+  "that land's controller".
+- **`Effect::ToggleTapTarget`** taps each untapped target and untaps each
+  tapped one. "Tap or untap target permanent" is `MayDo { effects:
+  &[Effect::ToggleTapTarget] }` (Twiddle), with or without a printed "may":
+  only an untapped permanent can be tapped and only a tapped one untapped
+  (CR 701.26a, 701.26b), so one of the two choices always does nothing and
+  choosing it is declining. The yes or no is asked as the effect resolves,
+  which is when the printed choice is made; a pair of modes would ask it on
+  casting.
+- **`Effect::DiscardHand { who }`** is "each player discards their hand"
+  (Wheel of Fortune): every card of each named hand, nobody choosing, each
+  journaled as a discard of its own.
+- **`Effect::ShuffleIntoLibrary { who, hand, graveyard }`** moves each named
+  player's hand and/or graveyard into their own library, then each of them
+  shuffles (Timetwister's "each player shuffles their hand and graveyard
+  into their library"; "target player shuffles their graveyard into their
+  library" is `who: PlayerRel::Chosen, hand: false, graveyard: true`). A
+  commander among the cards is asked about first (CR 903.9b).
+  `ShuffleGraveyardIntoLibrary` is yours alone and older.
+- **`Effect::ShuffleLibrary { who }`** shuffles each named library: Natural
+  Selection's "you may have that player shuffle" is `MayDo { effects:
+  &[Effect::ShuffleLibrary { who: PlayerRel::Chosen }] }`.
+- **`Effect::ReorderTopLibraryOf { who, count }`** is `ReorderTopLibrary`
+  on another player's library: the ability's controller looks at the top
+  `count` cards of the first player `who` names and orders them (Natural
+  Selection). Seeing them is the question's entitlement, as for a scry of
+  another library.
+- **`Modifier::AttacksEachCombat`** is "attacks each combat if able" (CR
+  508.1d): `static_ability!(Filter::This, Modifier::AttacksEachCombat)` on
+  Juggernaut, and the same modifier in an until-end-of-turn
+  `CreateContinuousEffect` for a grant. It is a modifier and not a keyword
+  bit, so a creature that loses its abilities keeps what another permanent
+  gave it. The engine refuses a declaration that leaves out a creature that
+  must attack and could.
+- **Blocks** (CR 509.1a, 509.1c) are four rules modifiers.
+  `Modifier::CanBlockAdditional(n)` is "can block `n` additional creatures
+  each combat" (Two-Headed Giant of Foriys, `n = 1`; two such effects add
+  up), `Modifier::CanBlockAnyNumber` is "can block any number of
+  creatures". `Modifier::MustBeBlockedByAllAble` is Lure's "all creatures
+  able to block enchanted creature do so", on the attacker:
+  `static_ability!(Filter::And(&[Filter::CREATURE,
+  Filter::AttachedToBySource]), Modifier::MustBeBlockedByAllAble)`.
+  `Modifier::BlocksEachAttackerIfAble` is "blocks each attacking creature if
+  able", on the blocker. Blaze of Glory grants the last two to its target
+  until end of turn, as two `Effect::continuous(&Filter::This, …)`.
+- **`Filter::ControlledByDefendingPlayer`** is "[a creature] defending player
+  controls": during combat, an opponent of the active player's (CR 506.2,
+  802.2); outside combat nothing matches. The client's target preview reads
+  it in a duel only, as it does `ControlledByOpponent`.
+- **`Modifier::CantAttackUnlessDefenderControls(&filter)`** is "can't attack
+  unless defending player controls [filter]" (CR 508.1c): Sea Serpent's and
+  Pirate Ship's Island. The filter is asked of the permanents of the player
+  the creature would attack, so an Island of your own does nothing.
+- **`Trigger::State(&condition)`** is a state trigger (CR 603.8): "When you
+  control no Islands, sacrifice this creature" is
+  `triggered!(Trigger::State(&NO_ISLANDS), &[Effect::SacrificeSelf])` with
+  `static NO_ISLANDS: Condition = Condition::ControlCountAtMost(&ISLAND, 0);`
+  above the literal (a named static, because the condition borrows a filter
+  static and a promoted temporary may not). The condition is the trigger's,
+  never `condition = Some(…)`: that is an intervening "if" (CR 603.4), asked
+  again as the ability resolves, and a state trigger is not. It triggers
+  whenever the condition holds for its controller and the ability is neither
+  waiting to go on the stack nor on it.
+- **Windows in the turn** (CR 506.7) are `Condition`s. On an activated
+  ability, `condition = Some(…)` as always; on a spell,
+  `spell!(effects, condition = Some(…))` is "cast this spell only [when]".
+  `Condition::BeforeStep(StepKind::CombatDamage)` is "only before the combat
+  damage step" (Berserk); "only during an opponent's turn, before attackers
+  are declared" is `Condition::All(&[Condition::OpponentsTurn,
+  Condition::BeforeStep(StepKind::DeclareAttackers)])` (Siren's Call,
+  Nettling Imp); "only during your upkeep" is `Condition::All(&[
+  Condition::YourTurn, Condition::DuringStep(StepKind::Upkeep)])`. `StepKind`
+  names the steps a card can name: `Upkeep`, `Draw`, `CombatBegin`,
+  `DeclareAttackers`, `DeclareBlockers`, `CombatDamage`, `End`. "Only during
+  combat before blockers are declared" is `Condition::All(&[
+  Condition::DuringCombat, Condition::BeforeStep(StepKind::DeclareBlockers)])`
+  (Blaze of Glory).
+- **`Filter::AttackedThisTurn`** is "attacked this turn": declared as an
+  attacker this turn, as the object it is now (one put onto the battlefield
+  attacking never attacked, CR 508.4). **`Filter::ControlledSinceTurnBegan`**
+  is "its controller has controlled it continuously since the beginning of
+  the turn" (CR 302.6's measure, asked of any permanent); beside
+  `Filter::ControlledByActivePlayer` it is Nettling Imp's target. Both are
+  history, so the house AI and the client's target preview refuse them.
+- **`Effect::IfEventObjectMatches { filter, then }`** runs `then` when a
+  delayed trigger's "that creature" ([`TargetSpec::EventObject`]) still is
+  that object and matches `filter`: Berserk's `Effect::AtNextEndStep {
+  effects: &[Effect::IfEventObjectMatches { filter:
+  &Filter::AttackedThisTurn, then: &[Effect::destroy(TargetSpec::EventObject)]
+  }] }`. It is `IfTargetMatches` for the event object.
+- **`Modifier::ModifyPTHalfCount(count)`** is "+X/+Y, where X is half
+  [count], rounded down, and Y is half [count], rounded up" (Aspect of
+  Wolf), layer 7c like `ModifyPTPerCount`. "You" in the count is the
+  static's controller: an Aura's "Forests you control" are the Aura's
+  controller's, whoever controls the creature.
+- **`PtCount::DefendingPlayerControls(&filter)`** counts what the defending
+  player controls, for a creature that is attacking (CR 508.5): the player
+  it attacks, or the controller of the planeswalker it attacks, also after
+  that planeswalker has left (CR 506.4c keeps the creature attacking). It
+  is 0 while the creature is not attacking. Declaring attackers and the end
+  of combat re-project a permanent whose count this is
+  (`GameState::board_state_changed`), so the count needs no condition to
+  stay current. Keep the filter free of `ControlledByYou`: the count
+  already names whose permanents it reads.
+- **A P/T sentence that holds only "as long as" something is not
+  characteristic-defining** (CR 604.3a's fifth criterion), even printed on
+  the card: it is a layer 7b `SetPTToCount` static with a `condition`, and
+  off the battlefield the card is its printed `*/*`, 0/0. Gaea's Liege is
+  two of them, `SetPTToCount(YouControl(&FORESTS))` under
+  `Condition::SourceMatches(&NOT_ATTACKING)` and
+  `SetPTToCount(DefendingPlayerControls(&FORESTS))` under
+  `SourceMatches(&Filter::Attacking)`: their conditions exclude each other,
+  so their order never matters. `CharacteristicPT` stays for the
+  unconditional printed `*/*`.
 
 ## Worked examples
 

@@ -10,7 +10,7 @@ use crate::eval;
 use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, StepKind, Trigger};
+use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// A triggered ability waiting to go on the stack.
@@ -159,8 +159,8 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                     let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
-                        let event_object = event_object_of(&entry.event);
-                        let event_damage = event_damage_of(&entry.event);
+                        let event_object = event_object_for(trigger, &entry.event, emblem);
+                        let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 event_mana_value: None,
@@ -247,6 +247,60 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
 static REPLICATE_COPIES: [baylee_cards_dsl::Effect;
     crate::engine::cast_wizard::X_CEILING as usize] =
     [baylee_cards_dsl::Effect::CopyThisSpell; crate::engine::cast_wizard::X_CEILING as usize];
+
+/// The state triggers that trigger now (CR 603.8): every
+/// [`Trigger::State`] on the battlefield whose condition holds, asked with
+/// its source as `this` and the source's controller as "you".
+///
+/// `in_flight` answers whether the ability of `(source, index)` is already
+/// waiting to go on the stack or is on it; one that is does not trigger
+/// again until it has left the stack, and then only if its source is still
+/// on the battlefield and the condition still holds, which asking again is.
+#[must_use]
+pub fn state_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    in_flight: impl Fn(ObjectId, u32) -> bool,
+) -> Vec<PendingTrigger> {
+    let mut triggers = Vec::new();
+    for permanent in state.battlefield_seen() {
+        let Some(obj) = state.object(permanent) else {
+            continue;
+        };
+        let list = obj.ability_list(lookup);
+        for (index, ability) in list.abilities.iter().enumerate() {
+            let Some(firing) = triggered_parts(ability) else {
+                continue;
+            };
+            let Trigger::State(condition) = firing.trigger else {
+                continue;
+            };
+            let index = index as u32;
+            if in_flight(permanent, index)
+                || !eval::condition_holds(state, obj.controller, permanent, **condition)
+                || !eval::intervening_if(state, firing.condition, obj.controller, permanent)
+            {
+                continue;
+            }
+            triggers.push(PendingTrigger {
+                event_mana_value: None,
+                event_damage: None,
+                source: permanent,
+                ability_index: index,
+                abilities: Some(list),
+                controller: obj.controller,
+                timestamp: obj.timestamp,
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: None,
+                once_per_turn: firing.once_per_turn,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
+    }
+    triggers
+}
 
 /// Replicate's triggered ability (CR 702.56a): "when you cast this spell, if
 /// a replicate cost was paid for it, copy it for each time its replicate cost
@@ -408,6 +462,54 @@ fn first_mana_of_a_tap(
         .unwrap_or(false)
 }
 
+/// Whether a combat `DamageDealt` is the first of its combat damage step to
+/// reach `dealt` — a permanent or a player. All combat damage in a step is
+/// dealt at once (CR 510.2), so however many creatures dealt it, `dealt`
+/// was dealt damage in one event, and "whenever this creature is dealt
+/// damage" or "whenever you're dealt damage" triggers once (CR 603.2c).
+/// One step's damage is one batch: nothing is scanned between its events,
+/// and first strike's damage is another step.
+fn first_combat_damage_to(
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    dealt: crate::event::DamageTarget,
+) -> bool {
+    let Some(at) = batch
+        .iter()
+        .position(|entry| std::ptr::eq(&raw const entry.event, event))
+    else {
+        return false;
+    };
+    !batch[..at].iter().any(|entry| {
+        matches!(
+            entry.event,
+            GameEvent::DamageDealt {
+                target,
+                amount,
+                is_combat: true,
+                ..
+            } if target == dealt && amount > 0
+        )
+    })
+}
+
+/// All the combat damage a batch dealt to `player`: the one event
+/// [`first_combat_damage_to`] fires on, as an amount (CR 510.2).
+fn combat_damage_in_batch(batch: &[crate::event::JournalEntry], player: PlayerId) -> u16 {
+    batch
+        .iter()
+        .filter_map(|entry| match entry.event {
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Player(to),
+                amount,
+                is_combat: true,
+                ..
+            } if to == player => Some(amount),
+            _ => None,
+        })
+        .fold(0u16, u16::saturating_add)
+}
+
 /// The monarch is read once for the whole batch. A batch is what happened
 /// between two scans, and nothing that makes a player the monarch shares
 /// one with a step beginning or with combat damage: a resolution is scanned
@@ -545,15 +647,58 @@ static WARD_PAY_OR_COUNTER: [[baylee_cards_dsl::Effect; 1]; 11] = [
 pub(crate) const WARD_CEILING: usize = WARD_PAY_OR_COUNTER.len() - 1;
 
 /// The player a damage event dealt damage to and the amount, if it is one
-/// dealt to a player.
-fn event_damage_of(event: &GameEvent) -> Option<(PlayerId, u16)> {
+/// dealt to a player, as `trigger` reads it.
+///
+/// Per entry, except where the trigger is about the player rather than the
+/// source: [`Trigger::PlayerDealtDamage`] fires once for a step's combat
+/// damage (CR 510.2, 603.2c), and "that many" is all of it, so its amount
+/// is the batch's total to that player. A source's trigger
+/// (`DealsCombatDamageToOpponent`) keeps its own share: two creatures are
+/// two sources, each dealing its own damage.
+fn event_damage_of(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+) -> Option<(PlayerId, u16)> {
     match event {
+        GameEvent::DamageDealt {
+            target: crate::event::DamageTarget::Player(player),
+            is_combat: true,
+            ..
+        } if matches!(trigger, Trigger::PlayerDealtDamage(_)) => {
+            Some((*player, combat_damage_in_batch(batch, *player)))
+        }
         GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             amount,
             ..
         } => Some((*player, *amount)),
         _ => None,
+    }
+}
+
+/// The object a trigger's event is about, as the triggered ability reads it
+/// ([`TargetSpec::EventObject`](baylee_cards_dsl::TargetSpec)).
+///
+/// The event decides, except where one event names two objects and the
+/// trigger says which it means. A blocker's declaration names the blocker
+/// and the creature it blocks; "whenever this creature blocks or becomes
+/// blocked by a non-Wall creature, destroy that creature" is about the one
+/// that is not the source, whichever side of the block that is.
+fn event_object_for(trigger: &Trigger, event: &GameEvent, source: ObjectId) -> Option<ObjectId> {
+    match (trigger, event) {
+        (
+            Trigger::BlocksOrBecomesBlockedBy(_),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => Some(if *blocker == source {
+            *attacker
+        } else {
+            *blocker
+        }),
+        _ => event_object_of(event),
     }
 }
 
@@ -566,7 +711,16 @@ fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::BecameTarget { object, .. }
         | GameEvent::PlayerBecameTarget { object, .. }
         | GameEvent::BecameAttacker { object, .. }
-        | GameEvent::BecameBlocker { object, .. } => Some(*object),
+        | GameEvent::BecameBlocker { object, .. }
+        // The permanent that became tapped: "that land's controller" of
+        // Psychic Venom.
+        | GameEvent::ObjectTapped { object, .. }
+        // The permanent tapped for mana (CR 106.12a): "its controller" and
+        // "that player" of Gauntlet of Might and Manabarbs.
+        | GameEvent::ManaProduced {
+            source: Some(object),
+            ..
+        } => Some(*object),
         _ => None,
     }
 }
@@ -1021,7 +1175,7 @@ fn collect_for_objects(
                     obj.controller,
                 );
                 if hit > 0 {
-                    let event_object = event_object_of(&entry.event);
+                    let event_object = event_object_for(trigger, &entry.event, permanent);
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
@@ -1122,8 +1276,8 @@ fn collect_for_objects(
                 );
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
-                    let event_object = event_object_of(&entry.event);
-                    let event_damage = event_damage_of(&entry.event);
+                    let event_object = event_object_for(trigger, &entry.event, permanent);
+                    let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             event_mana_value: None,
@@ -1359,6 +1513,56 @@ fn matches(
                     .object(*damage_source)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
+        (
+            Trigger::DealsDamageToOpponent(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                amount,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && state.is_opponent(*player, you)
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
+        (
+            Trigger::DealtDamage(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                is_combat,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && (!*is_combat
+                    || first_combat_damage_to(
+                        event,
+                        batch,
+                        crate::event::DamageTarget::Object(*dealt),
+                    ))
+                && state
+                    .object(*dealt)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
+        // The player's side of the arm above: once for a step's combat
+        // damage to that player, once for every other damage event.
+        (
+            Trigger::PlayerDealtDamage(rel),
+            GameEvent::DamageDealt {
+                target: target @ crate::event::DamageTarget::Player(player),
+                amount,
+                is_combat,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+                && (!*is_combat || first_combat_damage_to(event, batch, *target))
+        }
         // CR 714.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
         (
@@ -1371,26 +1575,29 @@ fn matches(
             },
         ) => *object == source && changed == kind && *old < u16::from(*n) && u16::from(*n) <= *new,
         (
-            Trigger::TappedForMana(filter),
+            Trigger::TappedForMana { by, filter },
             GameEvent::ManaProduced {
                 player,
                 source: Some(tapped),
                 ..
             },
         ) => {
-            // "Whenever **you** tap": the mana is the activating player's.
-            *player == you
+            // Who tapped it: the mana is the activating player's, and the
+            // relation is asked of the state alone (`You`, `EachPlayer`,
+            // `EachOpponent`; a relation that needs a resolution names
+            // nobody here).
+            eval::players(*by, state, you).is_some_and(|seats| seats.contains(player))
                 && first_mana_of_a_tap(event, batch, *tapped)
                 && state
                     .object(*tapped)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
-        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => {
-            *object == source
-                && state
-                    .object(*object)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
-        }
+        // Any permanent the filter matches: City of Brass's `Filter::This`
+        // is its source, Lifetap's is a Forest an opponent controls, and
+        // Psychic Venom's the land it enchants.
+        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
+            .object(*object)
+            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
@@ -1430,6 +1637,29 @@ fn matches(
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+        // CR 509.3b and 509.3d: one event per blocker–attacker pair, so the
+        // ability triggers once for each creature this one blocks and once
+        // for each creature that blocks it. The filter is asked of the other
+        // creature as it is now, when it has just blocked or been blocked
+        // (CR 509.3f).
+        (
+            Trigger::BlocksOrBecomesBlockedBy(filter),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            let other = if *blocker == source {
+                *attacker
+            } else if *attacker == source {
+                *blocker
+            } else {
+                return false;
+            };
+            state
+                .object(other)
+                .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
             batch
                 .iter()
@@ -1462,41 +1692,23 @@ fn matches(
                 .unwrap_or(0);
             is_noncreature && count == 1
         }
-        (Trigger::StepBegin { step, whose }, GameEvent::StepChanged { .. }) => {
-            let step_matches = matches!(
-                (step, event),
-                (
-                    StepKind::Upkeep,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::Upkeep,
-                        ..
-                    }
-                ) | (
-                    StepKind::Draw,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::Draw,
-                        ..
-                    }
-                ) | (
-                    StepKind::End,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::End,
-                        ..
-                    }
-                ) | (
-                    StepKind::CombatBegin,
-                    GameEvent::StepChanged {
-                        step: crate::turn::Step::CombatBegin,
-                        ..
-                    }
-                )
-            );
-            if !step_matches {
+        (
+            Trigger::StepBegin { step, whose },
+            GameEvent::StepChanged {
+                step: began_step, ..
+            },
+        ) => {
+            if began_step.kind() != Some(*step) {
                 return false;
             }
             match whose {
                 PlayerRel::You => state.turn.active == you,
                 PlayerRel::Opponent => state.is_opponent(state.turn.active, you),
+                // "At the beginning of the upkeep of enchanted land's
+                // controller" (Cursed Land): that controller's step only.
+                PlayerRel::ControllerOfAttached => {
+                    crate::eval::controller_of_attached(state, source) == Some(state.turn.active)
+                }
                 _ => true,
             }
         }
@@ -1614,6 +1826,236 @@ mod tests {
             controller,
             rule,
         });
+    }
+
+    /// "At the beginning of the upkeep of enchanted land's controller"
+    /// (Cursed Land) is that controller's upkeep, whoever controls the Aura
+    /// (CR 303.4e) — and nobody's once the Aura enchants nothing. Before
+    /// `PlayerRel::ControllerOfAttached` was sorted into `whose`, anything
+    /// that was not `You` or `Opponent` fired on every player's step.
+    #[test]
+    fn an_upkeep_of_the_enchanted_permanents_controller_is_theirs_alone() {
+        let mut state = state();
+        let land = permanent(&mut state, them(), "Forest");
+        let aura = permanent(&mut state, me(), "Cursed Land");
+        state.object_mut(aura).expect("just made").attached_to = Some(land);
+        let upkeep = GameEvent::StepChanged {
+            phase: crate::turn::Phase::Beginning,
+            step: crate::turn::Step::Upkeep,
+        };
+        let cursed = Trigger::StepBegin {
+            step: baylee_cards_dsl::StepKind::Upkeep,
+            whose: PlayerRel::ControllerOfAttached,
+        };
+
+        state.turn.active = them();
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            1,
+            "the land's controller's upkeep, though the Aura is mine"
+        );
+        state.turn.active = me();
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            0,
+            "not the Aura controller's own"
+        );
+        state.turn.active = them();
+        state.object_mut(aura).expect("still here").attached_to = None;
+        assert_eq!(
+            hits(&cursed, &upkeep, &[], &state, aura, me()),
+            0,
+            "an Aura attached to nothing has no enchanted land's controller"
+        );
+    }
+
+    /// "Whenever a Forest an opponent controls becomes tapped" (Lifetap) is
+    /// about another permanent than the trigger's source, which the tapped
+    /// trigger answered only for its source; and the tapped permanent is the
+    /// event's object, "that land" of Psychic Venom.
+    #[test]
+    fn a_tapped_trigger_answers_for_any_permanent_its_filter_names() {
+        let mut state = state();
+        let lifetap = permanent(&mut state, me(), "Lifetap");
+        let (theirs, mine) = (
+            permanent(&mut state, them(), "Forest"),
+            permanent(&mut state, me(), "Forest"),
+        );
+        let tapped = |object| GameEvent::ObjectTapped {
+            object,
+            cause: crate::event::Cause::Cost,
+        };
+        let theirs_tapped = Trigger::BecomesTapped(&Filter::ControlledByOpponent);
+        assert_eq!(
+            hits(&theirs_tapped, &tapped(theirs), &[], &state, lifetap, me()),
+            1
+        );
+        assert_eq!(
+            hits(&theirs_tapped, &tapped(mine), &[], &state, lifetap, me()),
+            0
+        );
+        let own = Trigger::BecomesTapped(&Filter::This);
+        assert_eq!(
+            hits(&own, &tapped(theirs), &[], &state, lifetap, me()),
+            0,
+            "City of Brass"
+        );
+        assert_eq!(hits(&own, &tapped(lifetap), &[], &state, lifetap, me()), 1);
+        assert_eq!(event_object_of(&tapped(theirs)), Some(theirs), "that land");
+    }
+
+    /// Hypnotic Specter's "deals damage to an opponent" is any damage, where
+    /// the combat trigger sees combat damage only. Fungusaur's "is dealt
+    /// damage" is one event for all the combat damage of a step (CR 510.2,
+    /// 603.2c), one for each other damage event, and none for damage
+    /// prevented to nothing (CR 603.2g).
+    #[test]
+    fn damage_to_an_opponent_and_damage_dealt_to_this_count_their_events() {
+        use crate::event::{DamageTarget, JournalEntry};
+        let mut state = state();
+        let specter = permanent(&mut state, me(), "Hypnotic Specter");
+        let fungusaur = permanent(&mut state, me(), "Fungusaur");
+        let (one, two) = (
+            permanent(&mut state, them(), "Blocker"),
+            permanent(&mut state, them(), "Blocker"),
+        );
+        let dealt = |source, target, amount, is_combat| GameEvent::DamageDealt {
+            source: Some(source),
+            target,
+            amount,
+            is_combat,
+        };
+
+        let specter_trigger = Trigger::DealsDamageToOpponent(&Filter::This);
+        let to_them = dealt(specter, DamageTarget::Player(them()), 1, false);
+        assert_eq!(
+            hits(&specter_trigger, &to_them, &[], &state, specter, me()),
+            1,
+            "damage out of combat"
+        );
+        assert_eq!(
+            hits(
+                &Trigger::DealsCombatDamageToOpponent(&Filter::This),
+                &to_them,
+                &[],
+                &state,
+                specter,
+                me()
+            ),
+            0,
+            "which the combat trigger does not see"
+        );
+        let to_me = dealt(specter, DamageTarget::Player(me()), 1, false);
+        assert_eq!(
+            hits(&specter_trigger, &to_me, &[], &state, specter, me()),
+            0
+        );
+
+        let fungus = Trigger::DealtDamage(&Filter::This);
+        let entry = |seq, event| JournalEntry { seq, event };
+        let blocked = vec![
+            entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, true)),
+            entry(2, dealt(two, DamageTarget::Object(fungusaur), 1, true)),
+        ];
+        let fired = |batch: &[JournalEntry], at: usize| {
+            hits(&fungus, &batch[at].event, batch, &state, fungusaur, me())
+        };
+        assert_eq!(fired(&blocked, 0), 1, "blocked by two, dealt damage once");
+        assert_eq!(
+            fired(&blocked, 1),
+            0,
+            "the second blocker's is the same event"
+        );
+        let burned = vec![
+            entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, false)),
+            entry(2, dealt(two, DamageTarget::Object(fungusaur), 1, false)),
+        ];
+        assert_eq!(
+            fired(&burned, 0) + fired(&burned, 1),
+            2,
+            "two spells, two events"
+        );
+        let prevented = vec![entry(
+            1,
+            dealt(one, DamageTarget::Object(fungusaur), 0, false),
+        )];
+        assert_eq!(fired(&prevented, 0), 0, "prevented damage was not dealt");
+        let elsewhere = vec![entry(1, dealt(one, DamageTarget::Object(two), 1, false))];
+        assert_eq!(fired(&elsewhere, 0), 0, "another creature's damage");
+    }
+
+    /// "Whenever you're dealt damage, put that many …" (Living Artifact):
+    /// two unblocked attackers are one event (CR 510.2, 603.2c), so the
+    /// ability triggers on the first of their entries only, and "that many"
+    /// is both creatures' damage. A source's trigger in the same batch keeps
+    /// its own share. Out of combat, each damage event triggers it once for
+    /// its own amount; damage to somebody else, and damage prevented to
+    /// nothing (CR 603.2g), trigger nothing.
+    #[test]
+    fn being_dealt_damage_is_one_event_per_combat_step_and_counts_all_of_it() {
+        use crate::event::{DamageTarget, JournalEntry};
+        let mut state = state();
+        let aura = permanent(&mut state, me(), "Living Artifact");
+        let (bear, ogre) = (
+            permanent(&mut state, them(), "Bear"),
+            permanent(&mut state, them(), "Ogre"),
+        );
+        let dealt = |source, player, amount, is_combat| GameEvent::DamageDealt {
+            source: Some(source),
+            target: DamageTarget::Player(player),
+            amount,
+            is_combat,
+        };
+        let entry = |seq, event| JournalEntry { seq, event };
+        let you = Trigger::PlayerDealtDamage(PlayerRel::You);
+        let fired = |batch: &[JournalEntry], at: usize| {
+            hits(&you, &batch[at].event, batch, &state, aura, me())
+        };
+
+        let combat = vec![
+            entry(1, dealt(bear, them(), 1, true)),
+            entry(2, dealt(bear, me(), 2, true)),
+            entry(3, dealt(ogre, me(), 3, true)),
+        ];
+        assert_eq!(fired(&combat, 0), 0, "somebody else's damage");
+        assert_eq!(fired(&combat, 1), 1, "the step's first to me");
+        assert_eq!(
+            fired(&combat, 2),
+            0,
+            "the second attacker's is the same event"
+        );
+        assert_eq!(
+            event_damage_of(&you, &combat[1].event, &combat),
+            Some((me(), 5)),
+            "that many: all of the step's damage to me"
+        );
+        assert_eq!(
+            event_damage_of(
+                &Trigger::DealsCombatDamageToOpponent(&Filter::This),
+                &combat[2].event,
+                &combat
+            ),
+            Some((me(), 3)),
+            "a source's trigger counts its own damage"
+        );
+
+        let burned = vec![
+            entry(1, dealt(bear, me(), 2, false)),
+            entry(2, dealt(ogre, me(), 3, false)),
+        ];
+        assert_eq!(fired(&burned, 0) + fired(&burned, 1), 2, "two events");
+        assert_eq!(
+            event_damage_of(&you, &burned[1].event, &burned),
+            Some((me(), 3))
+        );
+        let prevented = vec![entry(1, dealt(bear, me(), 0, false))];
+        assert_eq!(fired(&prevented, 0), 0, "prevented damage was not dealt");
+        let opponents = Trigger::PlayerDealtDamage(PlayerRel::EachOpponent);
+        assert_eq!(
+            hits(&opponents, &combat[0].event, &combat, &state, aura, me()),
+            1,
+            "the relation is the trigger's"
+        );
     }
 
     /// "Except the first one they draw in each of their draw steps" skips

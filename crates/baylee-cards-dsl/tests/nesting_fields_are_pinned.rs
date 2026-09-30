@@ -44,7 +44,22 @@
 /// Raised 20 → 21 by the merge with the library group's
 /// `IfResolvedTimesThisTurn` (Nissa, Resurgent Animist); its branch walk is
 /// `verb_tests::the_nth_resolution_branch_is_visited`.
-const NESTING_FIELDS: usize = 21;
+/// Raised 21 → 22 for `PlayerMayPayThen` (Crystal Rod: "you may pay {1}. If
+/// you do, …"); `verb_tests::a_price_paid_body_is_visited`.
+/// Raised 22 → 24 for `PlayerMayPayManaOr` and `PlayerMayPayManaThen`
+/// (Phantasmal Forces, Farmstead: a price with colour in it);
+/// `verb_tests::a_coloured_price_body_is_visited`.
+/// Raised 24 → 25 for `AtNextEndStep` (Stone Giant's delayed "destroy that
+/// creature"); `verb_tests::at_next_end_step_body_is_visited`.
+/// Raised 25 → 26 for `IfActivatedThisTurnAtLeast` (Dragon Whelp: "if this
+/// ability has been activated four or more times this turn");
+/// `verb_tests::activated_at_least_body_is_visited`.
+/// Raised 26 → 27 for `AtEndOfCombat` (Cockatrice's delayed "destroy that
+/// creature at end of combat"); `verb_tests::at_end_of_combat_body_is_visited`.
+/// Raised 27 → 28 for `IfEventObjectMatches` (Berserk's delayed "destroy that
+/// creature if it attacked this turn");
+/// `verb_tests::if_event_object_matches_body_is_visited`.
+const NESTING_FIELDS: usize = 28;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -67,7 +82,16 @@ const NESTING_FIELDS: usize = 21;
 /// branch. `MayDoOnceEachTurn`, `NthResolutionThisTurn`, `IfTargetMatches`
 /// and `ChooseYoursThen` moved both on 2026-09-29, the same shape, and so
 /// did `IfResolvedTimesThisTurn` the same day.
-const CARRYING_VARIANTS: usize = 18;
+///
+/// `PlayerMayPayThen` moved both on 2026-09-29: one new carrier, one branch.
+/// `PlayerMayPayManaOr` and `PlayerMayPayManaThen` moved both on 2026-09-30:
+/// two new carriers, one branch each. `AtNextEndStep` moved both on
+/// 2026-09-30: one new carrier, one branch.
+/// `IfActivatedThisTurnAtLeast` moved both on 2026-09-30: one new carrier,
+/// one branch. `AtEndOfCombat` moved both on 2026-09-30: one new carrier,
+/// one branch. `IfEventObjectMatches` moved both on 2026-09-30: one new
+/// carrier, one branch.
+const CARRYING_VARIANTS: usize = 25;
 
 /// The floor under the reader itself.
 ///

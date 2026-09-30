@@ -24,7 +24,7 @@ card!(
     abilities = &[triggered!(
         Trigger::StepBegin {
             step: StepKind::Upkeep,
-            whose: PlayerRel::You
+            whose: PlayerRel::EachPlayer
         },
         &[Effect::CreateToken {
             token: &generated_tokens::SAPROLING_1_1_GREEN

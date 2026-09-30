@@ -34,10 +34,14 @@
 //!   source (CR 107.3a), which the engine keeps on the source object and no
 //!   view carries. Answering `true` would let an agent plan a tutor for a
 //!   card the search may not legally find, which is exactly the
-//!   considered-looking wrong decision above. [`Filter::CmcAtMostColorsSpent`]
+//!   considered-looking wrong decision above. [`Filter::CmcExactlyX`] reads
+//!   the same number. [`Filter::CmcAtMostColorsSpent`]
 //!   is the same refusal for the same reason: its bound is what the source's
 //!   payment spent, which the engine keeps on the source and no view
 //!   carries.
+//! - [`Filter::PowerLessThanSourcePower`] and
+//!   [`Filter::ToughnessLessThanSourcePower`] compare with the source's
+//!   power, and this reader is handed the candidate and not the source.
 //!
 //! - [`Filter::EnteredThisTurn`] is history rather than a characteristic: the
 //!   engine keeps its own per-turn record of arrivals, and a view carries
@@ -47,6 +51,11 @@
 //!   will refuse as a target.
 //! - [`Filter::PutIntoGraveyardThisTurn`] is the same history for the
 //!   graveyards: a view shows the cards there and not when they arrived.
+//! - [`Filter::AttackedThisTurn`] is the same history for combat: a view
+//!   shows who is attacking now, not who attacked earlier in the turn.
+//! - [`Filter::ControlledSinceTurnBegan`] asks how long a permanent has
+//!   been controlled, which a view does not say for anything that is not
+//!   a creature, and says only through summoning sickness for one that is.
 //!
 //! [`Filter::IsToken`] is a seventh refusal, and only sometimes. The engine
 //! asks `card.is_none()`, which in a view is three objects and not one: a
@@ -83,7 +92,7 @@ use baylee_cards_dsl::{AbilityDef, Effect, Filter, PlayerRel, SpellMode, ZoneRef
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::{CastModeDesc, CastModeKind};
-use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
+use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace, Step};
 
 use crate::HeuristicAgent;
 
@@ -157,6 +166,10 @@ impl HeuristicAgent {
             },
             Filter::ControlledByYou => Some(object.controller == view.seat),
             Filter::ControlledByOpponent => Some(self.hostile(object.controller, view.seat)),
+            Filter::ControlledByActivePlayer => Some(object.controller == view.active),
+            Filter::ControlledByDefendingPlayer => Some(
+                view.phase == baylee_view::Phase::Combat && self.hostile(object.controller, view.active),
+            ),
             Filter::OwnedByYou => Some(object.owner == view.seat),
             Filter::Tapped => Some(object.status.contains(ObjectStatus::TAPPED)),
             Filter::Untapped => Some(!object.status.contains(ObjectStatus::TAPPED)),
@@ -165,6 +178,25 @@ impl HeuristicAgent {
                     .attackers
                     .iter()
                     .any(|attacker| attacker.creature == object.id),
+            ),
+            Filter::Blocking => Some(
+                view.combat
+                    .blockers
+                    .iter()
+                    .any(|blocker| blocker.blocker == object.id),
+            ),
+            Filter::Unblocked => Some(
+                matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                ) && view
+                    .combat
+                    .attackers
+                    .iter()
+                    .any(|attacker| attacker.creature == object.id && !attacker.blocked),
             ),
             // The view names what every public object is attached to.
             Filter::IsAttached => Some(object.attached_to.is_some()),
@@ -181,17 +213,22 @@ impl HeuristicAgent {
             // The view lists every instance's targets and every player on a
             // stack object, which is the count CR 115.9a asks for.
             Filter::WithSingleTarget => Some(object.targets.len() == 1),
-            // The six the view cannot answer. Named in this module's own
+            // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
             Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
+            | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent
+            | Filter::PowerLessThanSourcePower
+            | Filter::ToughnessLessThanSourcePower
             | Filter::EnteredThisTurn
             | Filter::PutIntoGraveyardThisTurn
+            | Filter::AttackedThisTurn
+            | Filter::ControlledSinceTurnBegan
             | Filter::SharesSubtypeWithCommander
-            // Not one of the six: a gap, and the header says why.
+            // Not one of those: a gap, and the header says why.
             | Filter::HasCounter(_) => None,
         }
     }
@@ -425,6 +462,7 @@ impl HeuristicAgent {
         Some(match rel {
             PlayerRel::You => vec![view.seat],
             PlayerRel::EachPlayer => every().collect(),
+            PlayerRel::ActivePlayer => every().filter(|p| *p == view.active).collect(),
             // One opponent or all of them is the same question for
             // reachability: either way the effect has somewhere to land.
             PlayerRel::Opponent | PlayerRel::EachOpponent => {
@@ -433,7 +471,8 @@ impl HeuristicAgent {
             PlayerRel::Chosen
             | PlayerRel::ControllerOfTarget
             | PlayerRel::ControllerOfEvent
-            | PlayerRel::DamagedPlayer => {
+            | PlayerRel::DamagedPlayer
+            | PlayerRel::ControllerOfAttached => {
                 return None;
             }
         })
@@ -455,7 +494,8 @@ impl HeuristicAgent {
             .collect();
         any(effects.iter().map(|effect| match effect {
             Effect::SacrificeFilter { who, filter }
-            | Effect::DestroyChosenForPlayers { who, filter } => {
+            | Effect::DestroyChosenForPlayers { who, filter }
+            | Effect::TapAllOf { who, filter } => {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
             Effect::DestroyAll { filter, .. }

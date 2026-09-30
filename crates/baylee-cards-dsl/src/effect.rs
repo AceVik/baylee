@@ -288,6 +288,25 @@ pub enum Amount {
     /// does not stop it. Read off the stack object, where `pay_cost` wrote
     /// which creature it tapped; nothing tapped reads 0.
     TappedPower,
+    /// "For each creature that died this turn" (Scavenging Ghoul): the
+    /// creatures put into a graveyard from the battlefield this turn
+    /// (CR 700.4), every player's, tokens included. A permanent counts as
+    /// a creature if it was one as it left, not if the card in the graveyard
+    /// is one. It is counted once, as the effect applies (CR 608.2h).
+    CreaturesDiedThisTurn,
+    /// "The damage dealt to you this turn" (Simulacrum): every point of
+    /// damage dealt to the ability's controller since the turn began,
+    /// combat and not, from any source. Damage dealt, not life lost: a
+    /// player whose life can't change is still dealt it, and life gained
+    /// back since takes none of it away. Prevented damage was never dealt
+    /// (CR 615.1). Read as the effect applies (CR 608.2h).
+    DamageDealtToYouThisTurn,
+    /// "The number of Mountains put into a graveyard this way" (Volcanic
+    /// Eruption): how many of the resolving ability's targets a graveyard
+    /// now holds as new objects, read after the effect that moved them. A
+    /// target that was regenerated, went somewhere else instead, or was
+    /// dropped as illegal (CR 608.2b) is not one. Outside a resolution, 0.
+    TargetsPutIntoGraveyard,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -486,6 +505,17 @@ pub enum PlayerRel {
     /// triggered on, and a player who has since left the game is nobody's
     /// "that player" (CR 800.4a).
     DamagedPlayer,
+    /// The active player, the one whose turn it is (CR 102.1): "that
+    /// player" of a trigger at the beginning of a step — Copper Tablet's
+    /// "at the beginning of each player's upkeep, this artifact deals 1
+    /// damage to that player". The ability resolves in the step it
+    /// triggered in, so the player whose step it was is still the active
+    /// one.
+    ActivePlayer,
+    /// The controller of the permanent the source is attached to —
+    /// "enchanted land's controller" (Cursed Land). Not the Aura's own
+    /// controller: the two need not be the same (CR 303.4e).
+    ControllerOfAttached,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -1212,6 +1242,59 @@ pub enum Effect {
         /// Which permanents.
         filter: &'static Filter,
     },
+    /// "Prevent the next N damage that would be dealt to any target this
+    /// turn" (Samite Healer; CR 615.7): a shield on each recipient the
+    /// target names, reduced by 1 for each 1 damage it prevents and gone
+    /// once it reaches 0 or the turn's cleanup ends it (CR 514.2).
+    ///
+    /// The recipient is fixed as this resolves and the shield is on that
+    /// object — a creature that leaves the battlefield and comes back is a
+    /// new object (CR 400.7) with no shield.
+    PreventNextDamage {
+        /// Whom the shield is on, as [`Effect::DealDamage`] names a
+        /// recipient.
+        target: TargetSpec,
+        /// How much it prevents in all.
+        amount: Amount,
+    },
+    /// "Prevent all combat damage that would be dealt this turn" (Fog):
+    /// every combat damage event until the turn's cleanup, to anything
+    /// and from anything, and never used up.
+    PreventAllCombatDamageThisTurn,
+    /// "The next time a red source of your choice would deal damage to you
+    /// this turn, prevent that damage" (Circle of Protection: Red; CR 609.7,
+    /// 615.8): the controller chooses a source as this resolves, and a
+    /// shield on them waits for the next damage that source would deal
+    /// them this turn — one instance of it, however much.
+    ///
+    /// The source must still match `sources` when it would deal the damage,
+    /// or the shield neither prevents it nor is used up (CR 609.7b, 615.9).
+    PreventNextFromChosenSource {
+        /// What may be chosen, and what it must still be.
+        sources: &'static Filter,
+        /// Only combat damage (Forcefield).
+        combat_only: bool,
+        /// How much of that damage is still dealt: 0 is "prevent that
+        /// damage", 1 is Forcefield's "prevent all but 1 of that damage".
+        all_but: u8,
+        /// "You gain life equal to the damage prevented this way" (Reverse
+        /// Damage; CR 615.5).
+        gain_life: bool,
+    },
+    /// "The next time a source of your choice would deal damage to target
+    /// creature this turn, that source deals that damage to you instead"
+    /// (Jade Monolith): the redirection sibling of
+    /// [`Self::PreventNextFromChosenSource`] (CR 609.7, 614.9). The source
+    /// is chosen as this resolves, any source at all; a shield on the
+    /// creature `target` names waits for that source's next damage to it
+    /// this turn and moves all of it to the ability's controller. Damage
+    /// from any other source leaves it waiting (CR 609.7b), and so does the
+    /// creature leaving the battlefield: the creature that comes back is a
+    /// new object (CR 400.7) with no shield.
+    RedirectNextFromChosenSource {
+        /// The creature the damage would have been dealt to.
+        target: TargetSpec,
+    },
     /// "You may reveal a card you own from outside the game, or choose a
     /// face-up card you own in exile. Put that card into your hand."
     /// (wishes; Karn, the Great Creator's −2).
@@ -1266,6 +1349,16 @@ pub enum Effect {
     TapTarget,
     /// Untap each target.
     UntapTarget,
+    /// The half of "tap or untap target permanent" that does something:
+    /// each target that is untapped becomes tapped and each that is tapped
+    /// becomes untapped. Only an untapped permanent can be tapped and only a
+    /// tapped one untapped (CR 701.26a, 701.26b), so of the two choices one
+    /// always does nothing, and choosing it is declining. The choice is
+    /// therefore the `MayDo` around this, asked as the effect resolves:
+    /// Twiddle's "you may tap or untap target artifact, creature, or land"
+    /// is `MayDo { effects: &[ToggleTapTarget] }`, and so is a "tap or
+    /// untap" printed without "may".
+    ToggleTapTarget,
     /// Untap the source permanent, which names no target and asks nobody
     /// anything (Basalt Monolith's `{3}: Untap this artifact`).
     ///
@@ -1286,6 +1379,44 @@ pub enum Effect {
     /// Exile each target; return it to the battlefield under its owner's
     /// control at the beginning of the next end step (Venser +2).
     ExileAndReturnAtEndStep,
+    /// "[Effects] at the beginning of the next end step": a delayed
+    /// triggered ability (CR 603.7) created as this resolves, with this
+    /// ability's source and controller (CR 603.7d, 603.7e). It triggers
+    /// once (CR 603.7b) and uses the stack.
+    ///
+    /// "That creature" in `effects` is [`TargetSpec::EventObject`]: the
+    /// first target of the ability that created it, as the object it was
+    /// then. One that has left its zone since — and so is a new object even
+    /// if it came back (CR 400.7) — is not affected (CR 603.7c): Stone
+    /// Giant's "destroy that creature at the beginning of the next end
+    /// step". An ability with no target has the source there instead, as
+    /// the object it is as this resolves: Dragon Whelp's "sacrifice this
+    /// creature at the beginning of the next end step" does not sacrifice
+    /// a Whelp that left the battlefield and came back.
+    AtNextEndStep {
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// "[Effects] at end of combat": a delayed triggered ability (CR 603.7)
+    /// created as this resolves, with this ability's source and controller
+    /// (CR 603.7d, 603.7e), that triggers as the next end of combat step
+    /// begins (CR 511.2). It triggers once (CR 603.7b) and uses the stack.
+    ///
+    /// `about` names the object the delayed trigger remembers, read as this
+    /// resolves, and "that creature" in `effects` is it,
+    /// [`TargetSpec::EventObject`], as the object it was then: one that has
+    /// left its zone since is not affected (CR 603.7c). It is named rather
+    /// than derived because one ability can have a target, an event object
+    /// and a source, and the sentence says which one it means: Cockatrice's
+    /// "whenever this creature blocks or becomes blocked by a non-Wall
+    /// creature, destroy that creature at end of combat" is about the
+    /// trigger's event object, the other creature.
+    AtEndOfCombat {
+        /// What the delayed trigger remembers.
+        about: TargetSpec,
+        /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
     /// "Its owner puts it on their choice of the top or bottom of their
     /// library" (Subtlety). The target leaves the stack or the battlefield
     /// for its owner's library, and the **owner** picks the end, whoever
@@ -1302,6 +1433,15 @@ pub enum Effect {
     /// usual. A token is exiled instead as well, and does not die.
     ExileIfDiesThisTurn {
         /// Which creature.
+        target: TargetSpec,
+    },
+    /// "It can't be regenerated this turn" (Disintegrate): a regeneration
+    /// shield is not applied to the objects the spec names for the rest of
+    /// the turn (CR 701.19c) — a shield may still be created, it just
+    /// saves nothing. For that object only, as `ExileIfDiesThisTurn`: one
+    /// that left the battlefield and came back is a new object (CR 400.7).
+    CantBeRegeneratedThisTurn {
+        /// Which permanent.
         target: TargetSpec,
     },
     /// Discover N (CR 701.57a): "Exile cards from the top of your library
@@ -1411,6 +1551,13 @@ pub enum Effect {
     RevealHandDiscard {
         /// Which cards the controller may choose from the revealed hand.
         filter: &'static Filter,
+    },
+    /// Each player in `who` discards their whole hand (Wheel of Fortune:
+    /// "each player discards their hand"). Nobody chooses: every card goes,
+    /// and each is a discard of its own (CR 701.9a), as the journal says.
+    DiscardHand {
+        /// Whose hands.
+        who: PlayerRel,
     },
     /// Discard random cards, using the game's seeded RNG (Mind Twist).
     DiscardRandom {
@@ -1552,6 +1699,25 @@ pub enum Effect {
     /// Shuffle your graveyard into your library (Spirit Water Revival's
     /// waterbend outcome).
     ShuffleGraveyardIntoLibrary,
+    /// Each player in `who` shuffles their hand, their graveyard, or both
+    /// into their library (Timetwister: "each player shuffles their hand
+    /// and graveyard into their library"). The cards move together, then
+    /// each of those players shuffles; a commander among them may go to
+    /// the command zone instead (CR 903.9b).
+    ShuffleIntoLibrary {
+        /// Whose cards, and whose library.
+        who: PlayerRel,
+        /// The hand goes in.
+        hand: bool,
+        /// The graveyard goes in.
+        graveyard: bool,
+    },
+    /// Each player in `who` shuffles their library ("you may have that
+    /// player shuffle", Natural Selection, inside a `MayDo`).
+    ShuffleLibrary {
+        /// Whose library.
+        who: PlayerRel,
+    },
     /// "You may …": the controller is asked, and `effects` run only on a
     /// yes — a choice an effect offers, announced while the effect is
     /// applied (CR 608.2d).
@@ -1691,6 +1857,19 @@ pub enum Effect {
         /// Effects when it is.
         then: &'static [Effect],
     },
+    /// "… that creature if it [filter]": the effects run only when the
+    /// event object, as it is when this runs, matches `filter`. Written for
+    /// a delayed trigger's "that creature" ([`TargetSpec::EventObject`],
+    /// [`Self::AtNextEndStep`]): Berserk's "destroy that creature if it
+    /// attacked this turn", Nettling Imp's "destroy it … if it didn't attack
+    /// this turn". An event object that has left its zone is none, so the
+    /// effects do not run (CR 603.7c), whatever `filter` says.
+    IfEventObjectMatches {
+        /// What the event object has to be.
+        filter: &'static crate::Filter,
+        /// Effects when it is.
+        then: &'static [Effect],
+    },
     /// Branch when at least N creatures died this turn (Emeritus of
     /// Woe's re-prepare condition).
     IfCreaturesDiedAtLeast {
@@ -1710,6 +1889,21 @@ pub enum Effect {
     IfResolvedTimesThisTurn {
         /// The count at which the branch runs.
         times: u32,
+        /// Effects when it does.
+        then: &'static [Effect],
+    },
+    /// Branch: "if this ability has been activated `n` or more times this
+    /// turn" (Dragon Whelp). A count of **activations**, not resolutions:
+    /// an ability is activated once it is put on the stack and its costs
+    /// are paid (CR 602.2), so four stacked activations have all been
+    /// activated before the first of them resolves, and that one already
+    /// sees four. The engine counts an ability's activations only when its
+    /// effects carry this branch, in the per-turn tally of that ability of
+    /// that object; a source that left and came back is a new object whose
+    /// count starts again (CR 400.7).
+    IfActivatedThisTurnAtLeast {
+        /// The count from which the branch runs, this activation included.
+        n: u8,
         /// Effects when it does.
         then: &'static [Effect],
     },
@@ -1838,6 +2032,24 @@ pub enum Effect {
         /// Who.
         target: PlayerRel,
     },
+    /// "Its controller adds an additional {R}" (Gauntlet of Might, Wild
+    /// Growth): `amount` mana of `color` in the pool of each player `who`
+    /// names, which need not be the ability's controller. A trigger on a
+    /// permanent tapped for mana names the permanent's controller as
+    /// `PlayerRel::ControllerOfEvent`: the tapped permanent is the event's
+    /// object, and only its controller can have activated its mana ability
+    /// (CR 602.2).
+    ///
+    /// Mana like [`Self::AddMana`]'s in every other way: a triggered ability
+    /// with no target that makes it is a mana ability (CR 605.1b).
+    AddManaFor {
+        /// Whose pool.
+        who: PlayerRel,
+        /// Which type.
+        color: ManaColor,
+        /// How much.
+        amount: u16,
+    },
     /// Add mana to your pool.
     ///
     /// Prefer the constructors — [`Effect::mana`], [`Effect::mana_choice`],
@@ -1864,6 +2076,24 @@ pub enum Effect {
         kind: CounterKind,
         /// How many.
         amount: Amount,
+    },
+    /// Take `n` counters of `kind` off the source (Living Artifact: "you
+    /// may remove a vitality counter from this Aura. If you do, you gain 1
+    /// life").
+    ///
+    /// The instruction [`crate::CostPart::RemoveCounterSelf`] is as a cost,
+    /// for the sentence that pays it as the ability resolves: "you may
+    /// [do something]. If you do, [effect]" makes the action a cost paid on
+    /// resolution (CR 118.12), so it is written as the head of an
+    /// [`Self::MayDo`] list, with what "if you do" gives after it. A player
+    /// can't choose an impossible option (CR 608.2d), so the question is
+    /// asked only while the source is on the battlefield with `n` of them;
+    /// a yes always removes them.
+    RemoveCounterSelf {
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many.
+        n: u16,
     },
     /// Put counters on every object matching a filter (Kazandu
     /// Blademaster's rally).
@@ -1967,6 +2197,14 @@ pub enum Effect {
     Regenerate {
         /// Which permanent gets the shield.
         target: TargetSpec,
+    },
+    /// "Regenerate enchanted creature" (Regeneration): a regeneration shield
+    /// (CR 701.19a) on every permanent `filter` matches as this resolves,
+    /// targeting nothing — the Aura's own ability names its host through
+    /// `Filter::AttachedToBySource`.
+    RegenerateAll {
+        /// What.
+        filter: &'static Filter,
     },
     /// Exile all cards from a player's graveyard (Bojuka Bog).
     ExileGraveyard {
@@ -2164,6 +2402,16 @@ pub enum Effect {
         /// How many.
         count: u8,
     },
+    /// Look at the top N cards of a player's library and put them back in
+    /// any order (Natural Selection: "target player's library"). The
+    /// ability's controller looks and orders; the first player `who`
+    /// names is the library.
+    ReorderTopLibraryOf {
+        /// Whose library.
+        who: PlayerRel,
+        /// How many.
+        count: u8,
+    },
     /// Shockland entry: you may pay N life; if you don't, the source
     /// enters tapped (yes/no choice).
     PayLifeOrEnterTapped {
@@ -2218,6 +2466,52 @@ pub enum Effect {
         cost: &'static CostPart,
         /// What happens when they don't pay.
         effect: &'static Effect,
+    },
+    /// "You may pay {1}. If you do, you gain 1 life." (Crystal Rod and its
+    /// four siblings, Soul Net, Mana Vault's upkeep untap.)
+    ///
+    /// The mirror of [`Effect::PlayerMayPayOr`], and a variant of its own
+    /// rather than a flag on it, because the two run their effect on
+    /// opposite answers and a flag read the wrong way round is a card that
+    /// hands out its reward for nothing. The question and the payment are
+    /// the same ones: a yes-or-no put as the ability resolves (CR 608.2d),
+    /// paid in mana that the player may make right then (CR 605.3a).
+    PlayerMayPayThen {
+        /// Who decides and pays.
+        player: PlayerRel,
+        /// Generic mana to pay, evaluated when the ability resolves.
+        mana: Amount,
+        /// What happens when they pay.
+        effects: &'static [Effect],
+    },
+    /// "Sacrifice this unless you pay {U}" (Phantasmal Forces), "this deals
+    /// 8 damage to you unless you pay {G}{G}{G}{G}" (Force of Nature): the
+    /// tax of [`Effect::PlayerMayPayOr`] with a price that has colour in it.
+    ///
+    /// A variant of its own and not a second field on that one, because
+    /// the two prices are known at different times. That one's is an
+    /// [`Amount`] of generic mana, evaluated as the ability resolves (Esper
+    /// Sentinel's is its own power); this one's is printed, colour and all,
+    /// and a `ManaCost` holds it exactly. "Unless" is the same question
+    /// the other way round (CR 118.12a), asked and paid as the tax is.
+    PlayerMayPayManaOr {
+        /// Who decides.
+        player: PlayerRel,
+        /// The printed price.
+        cost: ManaCost,
+        /// What happens when they don't pay.
+        effect: &'static Effect,
+    },
+    /// "You may pay {W}{W}. If you do, you gain 1 life" (Farmstead): the
+    /// price of [`Effect::PlayerMayPayThen`] with colour in it, for the
+    /// reason [`Effect::PlayerMayPayManaOr`] is not a field on the tax.
+    PlayerMayPayManaThen {
+        /// Who decides and pays.
+        player: PlayerRel,
+        /// The printed price.
+        cost: ManaCost,
+        /// What happens when they pay.
+        effects: &'static [Effect],
     },
     /// Create a continuous effect (Giant Growth style): applies `modifier`
     /// on `layer` to `filter` for `duration`. `filter = This` binds to the
@@ -2290,6 +2584,17 @@ pub enum Effect {
     },
     /// Sacrifice the source permanent (evoke).
     SacrificeSelf,
+    /// "Sacrifice that creature": the ability's controller sacrifices the
+    /// object the spec names, and only a permanent they control
+    /// (CR 701.21a) that is still on the battlefield and phased in. Dragon
+    /// Whelp's delayed "sacrifice this creature" names the Whelp as
+    /// [`TargetSpec::EventObject`], so a Whelp that left and came back is
+    /// a new object and is not sacrificed (CR 603.7c, 400.7), which
+    /// [`Effect::SacrificeSelf`] would not know.
+    SacrificeObject {
+        /// Which permanent.
+        target: TargetSpec,
+    },
     /// Register a delayed "pay or lose" trigger at your next upkeep
     /// (Pact of Negation).
     PayCostOrLoseLater {
@@ -2456,6 +2761,32 @@ pub enum Effect {
     /// word), so hexproof and protection do not stop it, and a permanent
     /// already tapped stays as it is.
     TapAll {
+        /// What.
+        filter: &'static Filter,
+    },
+    /// "Tap all lands target player controls" (Mana Short): [`Self::TapAll`]
+    /// over the permanents a player in `who` controls as this resolves. The
+    /// player may be the target; the permanents are not (CR 115.1a), so
+    /// hexproof and protection on them do not stop it.
+    TapAllOf {
+        /// Whose permanents.
+        who: PlayerRel,
+        /// Which of them.
+        filter: &'static Filter,
+    },
+    /// "That player loses all unspent mana" (Mana Short): each player in
+    /// `who` loses what is in their mana pool (CR 106.4, and CR 106.13 for
+    /// the same words on Drain Power), all of it — mana an effect lets stay
+    /// as steps end included, because it is this effect that empties the
+    /// pool, not the end of a step (CR 500.5).
+    LoseUnspentMana {
+        /// Whose pool.
+        who: PlayerRel,
+    },
+    /// "Untap enchanted creature" (Instill Energy): every permanent `filter`
+    /// matches as this resolves becomes untapped, [`Self::TapAll`]'s mirror,
+    /// targeting nothing.
+    UntapAll {
         /// What.
         filter: &'static Filter,
     },
@@ -2971,13 +3302,29 @@ impl Effect {
                 when: _,
                 effects,
                 target: _,
-            } => (effects, NONE),
+            }
+            // What the payment buys: the list runs on a yes.
+            | Effect::PlayerMayPayThen {
+                player: _,
+                mana: _,
+                effects,
+            }
+            | Effect::PlayerMayPayManaThen {
+                player: _,
+                cost: _,
+                effects,
+            }
+            // What the delayed trigger will do.
+            | Effect::AtNextEndStep { effects }
+            | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::ChooseYoursThen { filter: _, then }
             | Effect::IfTargetMatches { filter: _, then }
+            | Effect::IfEventObjectMatches { filter: _, then }
             | Effect::IfNoCountersOnSelf { kind: _, then }
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfResolvedTimesThisTurn { times: _, then }
+            | Effect::IfActivatedThisTurnAtLeast { n: _, then }
             | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
             Effect::IfKicked { then, otherwise }
             | Effect::IfCondition {
@@ -2996,6 +3343,11 @@ impl Effect {
             Effect::PlayerMayPayOr {
                 player: _,
                 mana: _,
+                effect,
+            }
+            | Effect::PlayerMayPayManaOr {
+                player: _,
+                cost: _,
                 effect,
             }
             | Effect::PlayerMayPayLifeOr { effect, .. }
@@ -3033,6 +3385,10 @@ impl Effect {
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageEach { .. }
+            | Effect::PreventNextDamage { .. }
+            | Effect::PreventAllCombatDamageThisTurn
+            | Effect::PreventNextFromChosenSource { .. }
+            | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
             | Effect::PutTargetOnBottomOfLibrary
@@ -3041,13 +3397,19 @@ impl Effect {
             | Effect::TakeExtraTurn
             | Effect::ExileSource
             | Effect::TapTarget
+            | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
+            | Effect::TapAllOf { .. }
+            | Effect::LoseUnspentMana { .. }
+            | Effect::UntapAll { .. }
+            | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::ExileAndReturnAtEndStep
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
+            | Effect::CantBeRegeneratedThisTurn { .. }
             | Effect::Discover { .. }
             | Effect::RevealTopOnePerType { .. }
             | Effect::DealDamageDivided { .. }
@@ -3064,6 +3426,7 @@ impl Effect {
             | Effect::DestroyChosenForPlayers { .. }
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
+            | Effect::DiscardHand { .. }
             | Effect::RevealHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
@@ -3078,6 +3441,8 @@ impl Effect {
             | Effect::UntapChosen { .. }
             | Effect::DrainAllCountersIntoSelf
             | Effect::ShuffleGraveyardIntoLibrary
+            | Effect::ShuffleIntoLibrary { .. }
+            | Effect::ShuffleLibrary { .. }
             | Effect::BecomePrepared
             | Effect::GainLifeDoubleX
             | Effect::SearchLibrary { .. }
@@ -3088,8 +3453,10 @@ impl Effect {
             | Effect::SetPTFilter { .. }
             | Effect::Mill { .. }
             | Effect::AddMana { .. }
+            | Effect::AddManaFor { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
+            | Effect::RemoveCounterSelf { .. }
             | Effect::AddCounterFilter { .. }
             | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
@@ -3119,6 +3486,7 @@ impl Effect {
             | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }
+            | Effect::ReorderTopLibraryOf { .. }
             | Effect::PayLifeOrEnterTapped { .. }
             | Effect::CreateContinuousEffect { .. }
             | Effect::ChangeController { .. }
@@ -3130,6 +3498,7 @@ impl Effect {
             | Effect::ReturnLinkedToBattlefield
             | Effect::CreateTokenFromLinked { .. }
             | Effect::SacrificeSelf
+            | Effect::SacrificeObject { .. }
             | Effect::PayCostOrLoseLater { .. }
             | Effect::CreateEmblem { .. }
             | Effect::BecomeMonarch(_)
@@ -3184,6 +3553,54 @@ mod verb_tests {
         assert!(counter_seen);
     }
 
+    /// Crystal Rod's life gain sits behind the payment, and a pool walk has
+    /// to find it there.
+    #[test]
+    fn a_price_paid_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::PlayerMayPayThen {
+            player: PlayerRel::You,
+            mana: Amount::Fixed(1),
+            effects: &[Effect::GainLife {
+                amount: Amount::Fixed(1),
+            }],
+        }];
+        let mut seen = 0;
+        let mut gain_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            gain_seen |= matches!(effect, Effect::GainLife { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(gain_seen);
+    }
+
+    /// Phantasmal Forces' sacrifice and Farmstead's life gain sit behind a
+    /// coloured price, one on each answer, and a pool walk has to find both.
+    #[test]
+    fn a_coloured_price_body_is_visited() {
+        static EFFECTS: &[Effect] = &[
+            Effect::PlayerMayPayManaOr {
+                player: PlayerRel::You,
+                cost: baylee_core::mana!("{U}"),
+                effect: &Effect::SacrificeSelf,
+            },
+            Effect::PlayerMayPayManaThen {
+                player: PlayerRel::You,
+                cost: baylee_core::mana!("{W}{W}"),
+                effects: &[Effect::GainLife {
+                    amount: Amount::Fixed(1),
+                }],
+            },
+        ];
+        let mut seen = 0;
+        let (mut sacrifice_seen, mut gain_seen) = (false, false);
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            sacrifice_seen |= matches!(effect, Effect::SacrificeSelf);
+            gain_seen |= matches!(effect, Effect::GainLife { .. });
+        });
+        assert_eq!(seen, 4);
+        assert!(sacrifice_seen && gain_seen);
+    }
+
     /// Nissa, Resurgent Animist's reveal sits inside
     /// `IfResolvedTimesThisTurn`, and a pool walk has to find it there.
     #[test]
@@ -3217,6 +3634,62 @@ mod verb_tests {
         });
         assert_eq!(seen, 3);
         assert!(draw_seen);
+    }
+
+    /// "Destroy that creature at the beginning of the next end step" (Stone
+    /// Giant) carries the delayed trigger's effects, and the walk goes into
+    /// them.
+    #[test]
+    fn at_next_end_step_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtNextEndStep {
+            effects: &[Effect::destroy(TargetSpec::EventObject)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// "Destroy that creature at end of combat" (Cockatrice) carries the
+    /// delayed trigger's effects, and the walk goes into them.
+    #[test]
+    fn at_end_of_combat_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtEndOfCombat {
+            about: TargetSpec::EventObject,
+            effects: &[Effect::destroy(TargetSpec::EventObject)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
+    }
+
+    /// Dragon Whelp's "if this ability has been activated four or more
+    /// times this turn" carries the delayed sacrifice, and the walk reaches
+    /// it through both carriers.
+    #[test]
+    fn activated_at_least_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::IfActivatedThisTurnAtLeast {
+            n: 4,
+            then: &[Effect::AtNextEndStep {
+                effects: &[Effect::SacrificeObject {
+                    target: TargetSpec::EventObject,
+                }],
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::SacrificeObject { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(body_seen);
     }
 
     /// "You may …. Do this only once each turn." carries its body the way
@@ -3259,6 +3732,23 @@ mod verb_tests {
 
     /// "… if it's [filter]" carries its effects the way the other one-branch
     /// conditionals do, and the walk goes into them.
+    #[test]
+    fn if_event_object_matches_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtNextEndStep {
+            effects: &[Effect::IfEventObjectMatches {
+                filter: &crate::Filter::AttackedThisTurn,
+                then: &[Effect::destroy(TargetSpec::EventObject)],
+            }],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 3);
+        assert!(body_seen);
+    }
+
     #[test]
     fn if_target_matches_body_is_visited() {
         static EFFECTS: &[Effect] = &[Effect::IfTargetMatches {

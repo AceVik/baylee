@@ -37,6 +37,30 @@ pub struct BlockOption {
     pub attackers: Vec<ObjectId>,
 }
 
+/// A creature that may block more than one attacker, and how many: CR
+/// 509.1a gives each blocker one, and an effect raises that ("can block an
+/// additional creature each combat", "can block any number of creatures").
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BlockCapacity {
+    /// The creature.
+    pub blocker: ObjectId,
+    /// How many attackers it may block, never fewer than two; `None` for
+    /// any number.
+    pub most: Option<u8>,
+}
+
+/// A creature that may attack only some of what the attack question
+/// offers, and what those are: a restriction about the pair (CR 508.1c,
+/// "can't attack unless defending player controls an Island").
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AttackLimit {
+    /// The creature.
+    pub creature: ObjectId,
+    /// What it may attack, a part of the question's `defenders` and never
+    /// empty: a creature that may attack nothing is not offered.
+    pub defenders: Vec<baylee_core::ids::Defender>,
+}
+
 /// How many creatures may block one attacker, where that is not "any
 /// number, one or more" (CR 509.1b, the restrictions half).
 ///
@@ -57,6 +81,21 @@ pub struct AttackerBound {
     pub min_blockers: u32,
     /// If blocked, by at most this many; `u32::MAX` for no bound.
     pub max_blockers: u32,
+}
+
+/// How many block requirements ask one creature to block one attacker
+/// (CR 509.1c): each lure on the attacker ("all creatures able to block it
+/// do so") and each "blocks each attacking creature if able" on the blocker.
+/// A declaration obeys the sum over its pairs, and the engine refuses one
+/// that obeys fewer than [`Pending::ChooseBlockers::obeying`] does.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub struct BlockDemand {
+    /// The creature asked to block.
+    pub blocker: ObjectId,
+    /// The attacker it is asked to block.
+    pub attacker: ObjectId,
+    /// How many requirements ask it, never 0.
+    pub count: u32,
 }
 
 /// What each option of a [`Pending::ChooseCards`] weighs in a
@@ -160,7 +199,8 @@ pub enum AnswerFault {
     NotOffered,
     /// One thing named twice in a list the question reads as a set: two
     /// targets for one instance of "target" (CR 115.3), a card delved or
-    /// crewed twice, a creature declared as an attacker or a blocker twice.
+    /// crewed twice, a creature declared as an attacker twice, a blocker
+    /// paired with one attacker twice.
     Repeated,
     /// Fewer things named than the question's `min` (or its exact count).
     TooFew,
@@ -172,12 +212,21 @@ pub enum AnswerFault {
     TotalTooLow,
     /// The chosen cards add up to more than [`CardTotal::at_most`].
     TotalTooHigh,
+    /// A blocker paired with more attackers than it may block: one, or
+    /// what its [`BlockCapacity`] says (CR 509.1a).
+    OverCapacity,
     /// An attacker blocked by fewer creatures than its
     /// [`AttackerBound::min_blockers`], and by more than none.
     TooFewBlockers,
     /// An attacker blocked by more creatures than its
     /// [`AttackerBound::max_blockers`].
     TooManyBlockers,
+    /// A declaration of attackers without a creature the question names in
+    /// `required` (CR 508.1d).
+    MustAttack,
+    /// A declaration of blockers obeying fewer requirements than the
+    /// question's `obeying` does, counted by its `demands` (CR 509.1c).
+    MustBlock,
     /// A mulligan the question says cannot be taken
     /// ([`Pending::Mulligan::can_take`]).
     NoFurtherMulligan,
@@ -199,8 +248,11 @@ impl AnswerFault {
             Self::OutOfRange => "number outside the offered range",
             Self::TotalTooLow => "the chosen total is too low",
             Self::TotalTooHigh => "the chosen total is too high",
+            Self::OverCapacity => "creature cannot block that many attackers",
             Self::TooFewBlockers => "too few blockers for that attacker",
             Self::TooManyBlockers => "too many blockers for that attacker",
+            Self::MustAttack => "a creature that attacks each combat if able must attack",
+            Self::MustBlock => "a creature that must block if able does not",
             Self::NoFurtherMulligan => {
                 "a hand that would open with zero cards takes no further mulligan"
             }
@@ -265,6 +317,17 @@ pub enum Pending {
         /// client cannot derive "which permanents are planeswalkers I may
         /// attack" from the view without re-implementing CR 506.2.
         defenders: Vec<baylee_core::ids::Defender>,
+        /// The offered creatures that attack if able (CR 508.1d). Every one
+        /// of them is in a legal declaration: the engine knows no
+        /// restriction that makes obeying one requirement cost another (no
+        /// "only one creature can attack", no attack costs), so the most
+        /// requirements that can be obeyed is all of them.
+        #[serde(default)]
+        required: Vec<ObjectId>,
+        /// The offered creatures that may attack only some of `defenders`.
+        /// A creature not named here may attack any of them.
+        #[serde(default)]
+        limits: Vec<AttackLimit>,
     },
     /// Declare blockers (combat).
     ChooseBlockers {
@@ -276,6 +339,25 @@ pub enum Pending {
         /// question — flying, menace, protection, "can't be blocked by" —
         /// so the offer is a pairing, not two flat lists.
         blockers: Vec<BlockOption>,
+        /// The offered creatures that may block more than one attacker. A
+        /// creature not named here blocks one at most (CR 509.1a).
+        #[serde(default)]
+        capacity: Vec<BlockCapacity>,
+        /// One legal declaration that obeys as many block requirements as
+        /// the engine requires ("all creatures able to block enchanted
+        /// creature do so", "it blocks each attacking creature if able";
+        /// CR 509.1c), as `(blocker, attacker)` pairs out of `blockers`.
+        /// Empty when no requirement is in force. Not a list of blocks that
+        /// must be made: any declaration obeying as many requirements is as
+        /// legal, and one obeying fewer is refused. It is the answer a seat
+        /// that does not choose gets.
+        #[serde(default)]
+        obeying: Vec<(ObjectId, ObjectId)>,
+        /// The pairs out of `blockers` a requirement asks for, with how many
+        /// ask, which is how `obeying` and an answer are both counted.
+        /// Empty when no requirement is in force.
+        #[serde(default)]
+        demands: Vec<BlockDemand>,
         /// The attackers whose blockers are counted, and the count each
         /// allows (menace, CR 702.111b). A restriction on the whole
         /// declaration rather than on a pair (CR 509.1b), which is why it is
@@ -611,6 +693,23 @@ pub enum ChoicePrompt {
     /// listing everything the player controls would ask them to re-confirm
     /// the whole board every turn.
     LeaveTapped,
+    /// "Which of these untap?" — the same determination (CR 502.3) under a
+    /// limit on how many may untap (`Modifier::UntapAtMost`: Smoke, Winter
+    /// Orb). The menu holds what may still untap and the answer is what
+    /// untaps, so it is the opposite of [`Self::LeaveTapped`]: naming more
+    /// is the better answer. Only the limit keeps a permanent tapped, so the
+    /// question is asked again until no limit has room for anything on it.
+    Untap,
+    /// "Which attackers are in a band with this one?" (CR 508.1e,
+    /// 702.22c), asked of each attacking creature with banding once the
+    /// attack is declared and before anything triggers on it. The menu
+    /// holds the other attackers aimed at the same player or planeswalker
+    /// that are in no band yet (CR 702.22d); at most one of the answer may
+    /// lack banding, and naming nothing leaves `with` out of any band.
+    Band {
+        /// The attacker with banding the band forms around.
+        with: ObjectId,
+    },
     /// Revealed cards of one card type, one of which may be put into the
     /// hand (Atraxa, Grand Unifier: "for each card type, you may put a card
     /// of that type … into your hand"). Asked once per type, and the type
@@ -716,6 +815,24 @@ pub enum NumberPrompt {
         /// The damage not yet given to a target.
         left: u32,
     },
+    /// One creature's share of another creature's combat damage divided
+    /// among two or more: an attacker's by its controller (CR 510.1c), a
+    /// blocker's by its own (510.1d), or either by the player banding
+    /// names (702.22j–k). How much of what is left goes to `recipient`,
+    /// asked creature by creature in declaration order. The last takes the
+    /// rest and is not asked, and a share may be 0.
+    CombatDamage {
+        /// The creature whose damage is divided.
+        source: ObjectId,
+        /// The creature this share goes to.
+        recipient: ObjectId,
+        /// Its place among the recipients, from 0.
+        index: u8,
+        /// How many creatures share the damage.
+        of: u8,
+        /// The damage not yet given to a creature.
+        left: u32,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
@@ -752,6 +869,13 @@ pub enum YesNoPrompt {
     PayTax {
         /// Generic mana to pay.
         mana: u16,
+    },
+    /// "Pay {U}?" for a tax or price with colour in it
+    /// (`Effect::PlayerMayPayManaOr`, `Effect::PlayerMayPayManaThen`):
+    /// Phantasmal Forces' upkeep, Force of Nature's.
+    PayMana {
+        /// The printed price.
+        cost: baylee_core::mana::ManaCost,
     },
     /// Make mana for a pact's debt. Declining loses the game.
     PayPact {
@@ -875,6 +999,7 @@ impl YesNoPrompt {
             Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
             | Self::PayTax { .. }
+            | Self::PayMana { .. }
             | Self::PayLife { .. }
             | Self::Miracle { .. }
             | Self::CastWithoutPaying { .. }
@@ -992,9 +1117,12 @@ impl Pending {
     /// its own fields, and a client, the house AI and a trained agent can
     /// hold an answer to them before sending it. The checks are the
     /// question's arithmetic: which answer kind it takes, membership in what
-    /// it offers, counts, no repeats in a list read as a set, and the
-    /// bounds it states ([`CardTotal`], [`AttackerBound`], a mulligan's
-    /// `can_take`).
+    /// it offers, counts, no repeats in a list read as a set, the bounds it
+    /// states ([`CardTotal`], [`AttackerBound`], a mulligan's `can_take`),
+    /// and the rules a combat declaration is held to: an attack's
+    /// `required` creatures and its `limits` (CR 508.1c–d), and a block
+    /// obeying as many requirements as its `obeying` does, counted by its
+    /// `demands` (CR 509.1c).
     ///
     /// Two questions name their options outside their own fields, and this
     /// checks what is left of them: a bottomed or discarded card is one from
@@ -1025,18 +1153,27 @@ impl Pending {
                 Self::ChooseAttackers {
                     attackers,
                     defenders,
+                    required,
+                    limits,
                     ..
                 },
                 A::DeclareAttackers {
                     attackers: declared,
                 },
-            ) => attack_fault(attackers, defenders, declared),
+            ) => attack_fault(attackers, defenders, declared)
+                .or_else(|| attack_rules_fault(required, limits, declared)),
             (
                 Self::ChooseBlockers {
-                    blockers, bounds, ..
+                    blockers,
+                    capacity,
+                    bounds,
+                    obeying,
+                    demands,
+                    ..
                 },
                 A::DeclareBlockers { blockers: declared },
-            ) => block_fault(blockers, bounds, declared),
+            ) => block_fault(blockers, capacity, bounds, declared)
+                .or_else(|| obeying_fault(obeying, demands, declared)),
             (Self::LegendChoice { options, .. }, A::ChooseObjects { objects }) => {
                 counted(objects.len(), 1, 1).or_else(|| not_offered(options, objects))
             }
@@ -1207,9 +1344,60 @@ fn attack_fault(
     })
 }
 
-/// A declaration of blockers against the pairings and the counts offered.
+/// A declaration of attackers against the rules the question states about
+/// it: each creature named in `limits` attacks one of its defenders
+/// (CR 508.1c), and every creature in `required` attacks (CR 508.1d).
+fn attack_rules_fault(
+    required: &[ObjectId],
+    limits: &[AttackLimit],
+    declared: &[(ObjectId, baylee_core::ids::Defender)],
+) -> Option<AnswerFault> {
+    let limited = declared.iter().any(|(creature, defender)| {
+        limits
+            .iter()
+            .any(|l| l.creature == *creature && !l.defenders.contains(defender))
+    });
+    if limited {
+        return Some(AnswerFault::NotOffered);
+    }
+    let named: std::collections::BTreeSet<ObjectId> = declared.iter().map(|(c, _)| *c).collect();
+    required
+        .iter()
+        .any(|creature| !named.contains(creature))
+        .then_some(AnswerFault::MustAttack)
+}
+
+/// A declaration of blockers held to as many requirements as `obeying`
+/// obeys (CR 509.1c), each pair counted by what `demands` says asks for it.
+/// Pairs named twice were refused before this counts them.
+fn obeying_fault(
+    obeying: &[(ObjectId, ObjectId)],
+    demands: &[BlockDemand],
+    declared: &[(ObjectId, ObjectId)],
+) -> Option<AnswerFault> {
+    if demands.is_empty() {
+        return None;
+    }
+    let score = |pairs: &[(ObjectId, ObjectId)]| -> u64 {
+        pairs
+            .iter()
+            .map(|(b, a)| {
+                demands
+                    .iter()
+                    .find(|d| d.blocker == *b && d.attacker == *a)
+                    .map_or(0, |d| u64::from(d.count))
+            })
+            .sum()
+    };
+    (score(declared) < score(obeying)).then_some(AnswerFault::MustBlock)
+}
+
+/// A declaration of blockers against the pairings and the counts offered:
+/// each pair named once, and each blocker on no more attackers than its
+/// [`BlockCapacity`] allows (one where none is stated, CR 509.1a).
 fn block_fault(
     options: &[BlockOption],
+    capacity: &[BlockCapacity],
     bounds: &[AttackerBound],
     declared: &[(ObjectId, ObjectId)],
 ) -> Option<AnswerFault> {
@@ -1217,11 +1405,23 @@ fn block_fault(
         .iter()
         .map(|o| (o.blocker, o.attackers.as_slice()))
         .collect();
+    let most = |blocker: ObjectId| {
+        capacity
+            .iter()
+            .find(|c| c.blocker == blocker)
+            .map_or(Some(1), |c| c.most.map(u32::from))
+    };
     let mut seen = std::collections::BTreeSet::new();
+    let mut blocks: std::collections::BTreeMap<ObjectId, u32> = std::collections::BTreeMap::new();
     let mut counts: std::collections::BTreeMap<ObjectId, u32> = std::collections::BTreeMap::new();
     for (blocker, attacker) in declared {
-        if !seen.insert(*blocker) {
+        if !seen.insert((*blocker, *attacker)) {
             return Some(AnswerFault::Repeated);
+        }
+        let named = blocks.entry(*blocker).or_default();
+        *named += 1;
+        if most(*blocker).is_some_and(|most| *named > most) {
+            return Some(AnswerFault::OverCapacity);
         }
         if !offered
             .get(blocker)
@@ -1259,22 +1459,41 @@ fn block_fault(
 /// to be classified here before it compiles, and a wildcard would file it
 /// under "the house decides" without anyone having decided that.
 ///
-/// The answer is what the question offers, not what the rules will accept:
-/// a creature that attacks each combat if able (CR 508.1d) or a lure that
-/// must be blocked (CR 509.1c) would make the empty declaration illegal,
-/// and the clock would then fall back to the house. The engine implements
-/// no such requirement yet, so the empty declaration is always taken
-/// (`docs/pending-constraints.md` §"Requirements").
+/// Attacking with nothing is attacking with only what must attack: a
+/// creature that attacks each combat if able (CR 508.1d) makes the empty
+/// declaration illegal, so the least the rules accept is those creatures,
+/// each at the first thing it may attack.
+///
+/// Blocking with nothing is likewise blocking with only what the
+/// requirements ask (CR 509.1c): a lure makes the empty declaration of
+/// blockers illegal, and the question's `obeying` declaration is one the
+/// rules accept.
 #[must_use]
 pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
     match pending {
         Pending::Priority { .. } => Some(PlayerAction::PassPriority),
         Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
-        Pending::ChooseAttackers { .. } => Some(PlayerAction::DeclareAttackers {
-            attackers: Vec::new(),
+        Pending::ChooseAttackers {
+            required,
+            limits,
+            defenders,
+            ..
+        } => Some(PlayerAction::DeclareAttackers {
+            attackers: required
+                .iter()
+                .filter_map(|creature| {
+                    let allowed = limits
+                        .iter()
+                        .find(|l| l.creature == *creature)
+                        .map_or(defenders.as_slice(), |l| l.defenders.as_slice());
+                    allowed.first().map(|d| (*creature, *d))
+                })
+                .collect(),
         }),
-        Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
-            blockers: Vec::new(),
+        // The declaration that obeys the requirements, which is no blocks
+        // at all when there are none (CR 509.1c).
+        Pending::ChooseBlockers { obeying, .. } => Some(PlayerAction::DeclareBlockers {
+            blockers: obeying.clone(),
         }),
         Pending::YesNo { prompt, .. } => prompt
             .declining_does_nothing()
@@ -1848,6 +2067,8 @@ mod choice_tests {
                     player: p,
                     attackers: vec![object()],
                     defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
+                    required: Vec::new(),
+                    limits: Vec::new(),
                 },
                 Some(PlayerAction::DeclareAttackers {
                     attackers: Vec::new(),
@@ -1855,12 +2076,15 @@ mod choice_tests {
             ),
             (
                 Pending::ChooseBlockers {
+                    demands: Vec::new(),
                     player: p,
                     attacker: PlayerId::new(1),
                     blockers: vec![BlockOption {
                         blocker: object(),
                         attackers: vec![ObjectId::new(2, 0)],
                     }],
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                     bounds: Vec::new(),
                 },
                 Some(PlayerAction::DeclareBlockers {
@@ -1873,6 +2097,12 @@ mod choice_tests {
             ),
             (yes_no(YesNoPrompt::Kicker), no.clone()),
             (yes_no(YesNoPrompt::PayTax { mana: 1 }), no.clone()),
+            (
+                yes_no(YesNoPrompt::PayMana {
+                    cost: baylee_core::mana!("{U}"),
+                }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
             (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
             (
@@ -2037,7 +2267,7 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 18 + 15;
+    const KINDS: usize = 18 + 16;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -2078,9 +2308,10 @@ mod choice_tests {
                     YesNoPrompt::Discover { .. } => 12,
                     YesNoPrompt::CastWithoutPaying { .. } => 13,
                     YesNoPrompt::CastPaying { .. } => 14,
+                    YesNoPrompt::PayMana { .. } => 15,
                 }
             }
-            Pending::ChoosePile { .. } => 17 + 15,
+            Pending::ChoosePile { .. } => 17 + 16,
         }
     }
 
@@ -2289,6 +2520,7 @@ mod choice_tests {
                 YesNoPrompt::PayLifeOrEnterTapped { .. }
                 | YesNoPrompt::Kicker
                 | YesNoPrompt::PayTax { .. }
+                | YesNoPrompt::PayMana { .. }
                 | YesNoPrompt::PayLife { .. }
                 | YesNoPrompt::PayPact { .. }
                 | YesNoPrompt::Miracle { .. }
@@ -2307,6 +2539,9 @@ mod choice_tests {
             YesNoPrompt::Kicker,
             YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
             YesNoPrompt::PayTax { mana: 2 },
+            YesNoPrompt::PayMana {
+                cost: baylee_core::mana!("{G}{G}"),
+            },
             YesNoPrompt::PayLife { amount: 7 },
             YesNoPrompt::Miracle { card: object() },
             YesNoPrompt::CastWithoutPaying { card: object() },
@@ -2483,6 +2718,7 @@ mod fit_to_options_tests {
     fn a_blockers_answer_is_held_to_its_pairings_and_bounds() {
         let (runner, other) = (card(1), card(2));
         let question = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: me(),
             attacker: PlayerId::new(1),
             blockers: vec![
@@ -2500,6 +2736,8 @@ mod fit_to_options_tests {
                 min_blockers: 2,
                 max_blockers: u32::MAX,
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         let declare = |pairs: &[(u32, ObjectId)]| PlayerAction::DeclareBlockers {
             blockers: pairs.iter().map(|(b, a)| (card(*b), *a)).collect(),
@@ -2520,8 +2758,97 @@ mod fit_to_options_tests {
         );
         assert_eq!(
             question.answer_fault(&declare(&[(10, runner), (10, other)])),
-            Some(AnswerFault::Repeated),
+            Some(AnswerFault::OverCapacity),
             "one creature blocks one attacker"
         );
+        assert_eq!(
+            question.answer_fault(&declare(&[(10, runner), (10, runner)])),
+            Some(AnswerFault::Repeated),
+            "one pair named twice"
+        );
+    }
+
+    /// An attack is held to what its question says of it: a creature in
+    /// `required` attacks (CR 508.1d), and one in `limits` attacks only
+    /// what its limit lists (CR 508.1c). The engine refused both and this
+    /// passed both, so a client lit Confirm for a declaration the engine
+    /// then refused.
+    #[test]
+    fn an_attack_is_held_to_its_requirements_and_limits() {
+        use baylee_core::ids::Defender;
+        let (jugg, elf) = (card(1), card(2));
+        let them = Defender::Player(PlayerId::new(1));
+        let walker = Defender::Planeswalker(card(9));
+        let question = Pending::ChooseAttackers {
+            player: me(),
+            attackers: vec![jugg, elf],
+            defenders: vec![them, walker],
+            required: vec![jugg],
+            limits: vec![AttackLimit {
+                creature: elf,
+                defenders: vec![them],
+            }],
+        };
+        let declare = |pairs: &[(ObjectId, Defender)]| PlayerAction::DeclareAttackers {
+            attackers: pairs.to_vec(),
+        };
+        assert_eq!(
+            question.answer_fault(&declare(&[])),
+            Some(AnswerFault::MustAttack),
+            "the required attacker is missing"
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(elf, them)])),
+            Some(AnswerFault::MustAttack)
+        );
+        assert_eq!(question.answer_fault(&declare(&[(jugg, walker)])), None);
+        assert_eq!(
+            question.answer_fault(&declare(&[(jugg, them), (elf, walker)])),
+            Some(AnswerFault::NotOffered),
+            "the Elf may attack only the player"
+        );
+        assert_eq!(
+            question.answer_fault(&declare(&[(jugg, them), (elf, them)])),
+            None
+        );
+    }
+
+    /// A block is held to as many requirements as `obeying` obeys
+    /// (CR 509.1c), each pair weighed by `demands`: with two lured
+    /// attackers and one blocker, blocking either obeys one, as `obeying`
+    /// does, and blocking the third, or nothing, obeys none.
+    #[test]
+    fn a_block_is_held_to_as_many_requirements_as_obeying() {
+        let (lured, also, plain, blocker) = (card(1), card(2), card(3), card(10));
+        let question = Pending::ChooseBlockers {
+            player: me(),
+            attacker: PlayerId::new(1),
+            blockers: vec![BlockOption {
+                blocker,
+                attackers: vec![lured, also, plain],
+            }],
+            capacity: Vec::new(),
+            obeying: vec![(blocker, lured)],
+            demands: [lured, also]
+                .into_iter()
+                .map(|attacker| BlockDemand {
+                    blocker,
+                    attacker,
+                    count: 1,
+                })
+                .collect(),
+            bounds: Vec::new(),
+        };
+        let declare = |pairs: &[(ObjectId, ObjectId)]| PlayerAction::DeclareBlockers {
+            blockers: pairs.to_vec(),
+        };
+        for (pairs, fault) in [
+            (vec![], Some(AnswerFault::MustBlock)),
+            (vec![(blocker, plain)], Some(AnswerFault::MustBlock)),
+            (vec![(blocker, also)], None),
+            (vec![(blocker, lured)], None),
+        ] {
+            assert_eq!(question.answer_fault(&declare(&pairs)), fault, "{pairs:?}");
+        }
     }
 }

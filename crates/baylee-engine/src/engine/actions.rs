@@ -347,6 +347,12 @@ impl<L: CardLookup> Engine<L> {
                         self.ask_division(player, on_stack, targets, shares, total);
                         return Ok(());
                     }
+                    // One creature's share of a combat damage division that
+                    // banding handed to this player (CR 702.22j–k).
+                    Some(PlanKind::CombatDamage { owed, shares }) => {
+                        self.answer_share(owed, shares, n);
+                        return Ok(());
+                    }
                     _ => {}
                 }
                 // And the wizard asks two numbers, told apart by where it
@@ -359,6 +365,13 @@ impl<L: CardLookup> Engine<L> {
                 } else {
                     wizard.x = n;
                     wizard.stage = cast_wizard::WizardStage::Kicker;
+                    // X is announced before targets are chosen (CR 601.2b,
+                    // 601.2c), and a target filter that reads it
+                    // (`Filter::CmcExactlyX`) reads it off the card: so the
+                    // card carries it from here, not only once it is cast.
+                    if let Some(obj) = self.state.object_mut(wizard.card) {
+                        obj.x_value = n;
+                    }
                 }
                 self.cast_wizard = Some(wizard);
                 self.continue_cast_wizard();
@@ -679,7 +692,7 @@ impl<L: CardLookup> Engine<L> {
                     // determination is not targeting at all (CR 115.1), and
                     // the step it belongs to grants nobody priority to cast
                     // anything that could be.
-                    PlanKind::UntapChoice => {
+                    PlanKind::UntapChoice | PlanKind::UntapLimit { .. } => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
@@ -878,6 +891,16 @@ impl<L: CardLookup> Engine<L> {
                     }
                     PlanKind::DivideDamage { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
+                    }
+                    // Banding's questions are turn-based actions' own, asked
+                    // where nobody holds priority, and neither is targeting
+                    // (CR 115.1): refused with the plan put back, as the
+                    // untap determination's are.
+                    PlanKind::Band { .. } | PlanKind::CombatDamage { .. } => {
+                        self.pending_plan = Some(plan);
+                        return Err(EngineError::IllegalAction(
+                            "a band or a damage division is not a target choice",
+                        ));
                     }
                 }
                 Ok(())
@@ -1145,15 +1168,15 @@ impl<L: CardLookup> Engine<L> {
                     // otherwise be handed a question whose only answer is
                     // the one they just gave.
                     let asked = self.resolution.as_ref().and_then(|r| match r.awaiting {
-                        Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                            Some((player, mana))
+                        Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
+                            Some((player, cost))
                         }
                         _ => None,
                     });
-                    if let Some((payer, mana)) = asked
+                    if let Some((payer, cost)) = asked
                         && answer
                         && payer == player
-                        && !self.pool_pays_tax(player, mana)
+                        && !self.pool_pays_tax(player, &cost)
                     {
                         // Narrowed before any window exists, so the
                         // resolution is never lifted out of its slot for a
@@ -1387,13 +1410,25 @@ impl<L: CardLookup> Engine<L> {
                         return Ok(());
                     }
                     // The untap step's determination (CR 502.3). The answer
-                    // names what stays tapped, and the step carries on from
-                    // "then they untap them all simultaneously" — never
-                    // from the top, where phasing and the day/night check
-                    // have already happened.
+                    // names what stays tapped, and the step carries on with
+                    // any untap limit and then "then they untap them all
+                    // simultaneously" — never from the top, where phasing
+                    // and the day/night check have already happened.
                     Some(PlanKind::UntapChoice) => {
-                        self.finish_untap_step(&objects);
+                        self.untap_under_limits(objects, Vec::new());
                         return Ok(());
+                    }
+                    // What untaps under a limit (CR 502.3): counted against
+                    // every limit, and asked again while any has room.
+                    Some(PlanKind::UntapLimit { kept, mut chosen }) => {
+                        chosen.extend(objects);
+                        self.untap_under_limits(kept, chosen);
+                        return Ok(());
+                    }
+                    // The attackers in a band with an attacker with banding
+                    // (CR 508.1e, 702.22c).
+                    Some(PlanKind::Band { leader }) => {
+                        return self.answer_band(player, leader, objects);
                     }
                     // A reveal land's entry clause. CR 701.20a shows the
                     // card to every player and CR 701.20b leaves it in hand,
@@ -1507,7 +1542,7 @@ impl<L: CardLookup> Engine<L> {
             (
                 Pending::ChooseBlockers { player: p, .. },
                 PlayerAction::DeclareBlockers { blockers },
-            ) if *p == player => self.declare_blockers(player, blockers),
+            ) if *p == player => self.declare_blockers(player, &blockers),
             (Pending::DiscardChoice { player: p, .. }, PlayerAction::ChooseObjects { objects })
                 if *p == player =>
             {
@@ -1569,14 +1604,14 @@ impl<L: CardLookup> Engine<L> {
     /// catch.
     fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
         match res.awaiting {
-            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, mana, .. }) => {
-                self.pool_pays_tax(player, mana)
+            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
+                self.pool_pays_tax(player, &cost)
             }
             _ => false,
         }
     }
 
-    /// Whether `player`'s pool pays a tax of `mana` the way
+    /// Whether `player`'s pool pays a tax of `cost` the way
     /// `resume_tax_choice` will pay it.
     ///
     /// Asked of the payment and not of the pool's total, because the total
@@ -1585,12 +1620,13 @@ impl<L: CardLookup> Engine<L> {
     /// passed the total, was told it had paid, and tripped the assertion in
     /// `resume_tax_choice` (the refusal sweep, 2026-09-29) — and a seat
     /// holding it was never offered the window to make the mana it lacked.
-    fn pool_pays_tax(&self, player: PlayerId, mana: u16) -> bool {
+    ///
+    /// And of the payment rather than of the pool's size for a second
+    /// reason since the price may have colour in it: two floating red do
+    /// not pay Phantasmal Forces' `{U}`.
+    fn pool_pays_tax(&self, player: PlayerId, cost: &baylee_core::mana::ManaCost) -> bool {
         let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
-        mana_pay::pay(
-            &mut pool,
-            &baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-        )
+        mana_pay::pay(&mut pool, cost)
     }
 
     /// Ends a payment window and settles the payment it was opened for.
@@ -1715,6 +1751,7 @@ impl<L: CardLookup> Engine<L> {
         // tokens, and a `contains` per attacker made it quadratic (33,600
         // attackers cost 190 ms in self-play, r001 game 431).
         let mut seen = std::collections::BTreeSet::new();
+        let rules = combat::AttackRules::new(&self.state);
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -1722,9 +1759,29 @@ impl<L: CardLookup> Engine<L> {
             if !legal.contains(defending) {
                 return Err(EngineError::IllegalAction("invalid defender"));
             }
+            // CR 508.1c, the restrictions about the pair.
+            if !rules.allows(*creature, *defending) {
+                return Err(EngineError::IllegalAction(
+                    "that creature can't attack that player or planeswalker",
+                ));
+            }
             if !seen.insert(*creature) {
                 return Err(EngineError::IllegalAction("duplicate attacker"));
             }
+        }
+        // CR 508.1d: every creature that attacks if able, and can, does.
+        // No restriction the engine knows makes one requirement cost
+        // another, so the most that can be obeyed is all of them.
+        let shirking = self
+            .state
+            .battlefield_seen()
+            .filter(|id| rules.must_attack(*id) && !seen.contains(id))
+            .any(|id| {
+                combat::can_attack(&self.state, player, id)
+                    && legal.iter().any(|d| rules.allows(id, *d))
+            });
+        if shirking {
+            return Err(crate::choice::AnswerFault::MustAttack.into());
         }
         for &(creature, defending) in &attackers {
             let vigilance = self.state.object(creature).is_some_and(|o| {
@@ -1743,6 +1800,11 @@ impl<L: CardLookup> Engine<L> {
                 object: creature,
                 defending,
             });
+            // "If it attacked this turn" (CR 508.1): this declaration is the
+            // one way a creature attacks, so it is the one writer.
+            if let Some(version) = self.state.object(creature).map(|o| o.version) {
+                self.state.per_turn.attacked.push((creature, version));
+            }
         }
         self.state
             .combat
@@ -1753,6 +1815,7 @@ impl<L: CardLookup> Engine<L> {
                         creature,
                         defending,
                         blocked: false,
+                        band: None,
                     }),
             );
         // `Filter::Attacking` is read by the layer system (Orcish Oriflamme's
@@ -1763,25 +1826,40 @@ impl<L: CardLookup> Engine<L> {
         self.combat_declared = CombatDeclared::Attackers;
         self.passes = 0;
         self.priority_holder = None;
+        // The bands, which the declaration announces (CR 508.1e): asked
+        // here, before the machine runs, so they stand before anything
+        // triggers on the attack.
+        self.ask_band(player, None);
         Ok(())
     }
 
     pub(crate) fn declare_blockers(
         &mut self,
         defending: PlayerId,
-        blockers: Vec<(ObjectId, ObjectId)>,
+        blockers: &[(ObjectId, ObjectId)],
     ) -> Result<(), EngineError> {
-        // A set for the reason `declare_attackers` keeps one.
+        // Sets for the reason `declare_attackers` keeps one.
+        let rules = combat::BlockRules::new(&self.state);
         let mut seen = std::collections::BTreeSet::new();
-        for (blocker, attacker) in &blockers {
+        let mut blocks = std::collections::BTreeMap::<ObjectId, usize>::new();
+        for (blocker, attacker) in blockers {
             if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
             }
             if !combat::can_block(&self.state, defending, *blocker, *attacker) {
                 return Err(EngineError::IllegalAction("creature cannot block"));
             }
-            if !seen.insert(*blocker) {
-                return Err(EngineError::IllegalAction("duplicate blocker"));
+            if !seen.insert((*blocker, *attacker)) {
+                return Err(EngineError::IllegalAction("duplicate block"));
+            }
+            // CR 509.1a: one attacker for each blocker, unless an effect
+            // lets it block more.
+            let count = blocks.entry(*blocker).or_default();
+            *count += 1;
+            if rules.capacity(*blocker).is_some_and(|most| *count > most) {
+                return Err(EngineError::IllegalAction(
+                    "creature cannot block that many attackers",
+                ));
             }
         }
         // The counts the declaration is held to as a whole (CR 509.1b),
@@ -1808,16 +1886,44 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
-        for (blocker, attacker) in blockers {
+        // CR 509.1c: as many requirements obeyed as the most a declaration
+        // could obey without breaking a restriction. `BlockRules` says how
+        // the most is found, and where it is only a good declaration's.
+        if rules.has_requirements() {
+            let most = rules.obeyed(&rules.obeying(&combat::block_options(&self.state, defending)));
+            if rules.obeyed(blockers) < most {
+                return Err(crate::choice::AnswerFault::MustBlock.into());
+            }
+        }
+        for &(blocker, attacker) in blockers {
             self.state.combat.declare_block(blocker, attacker);
             self.state.journal.record(GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
             });
         }
-        self.combat_declared = CombatDeclared::Blockers;
+        self.spread_blocks_through_bands(blockers);
+        // `Filter::Blocking` and `Filter::Unblocked` just changed for the
+        // reason `declare_attackers` gives for `Filter::Attacking`.
+        self.state.board_state_changed();
         self.passes = 0;
         self.priority_holder = None;
+        // CR 802.4: the next defending player in APNAP order declares all
+        // their blocks. Asked here and not by the machine, so no ability
+        // that triggered on a block reaches the stack before the last
+        // defending player has declared (CR 509.2a: they are put onto the
+        // stack "before the active player gets priority").
+        if let Some(next) = self.next_defending_player(Some(defending)) {
+            self.combat_declared = CombatDeclared::BlockersBy(defending);
+            // "A player knows the choices made by the previous players"
+            // (CR 101.4b): what the next one may block with, and how many,
+            // is read from the board with these blocks on it.
+            self.sync_static_effects();
+            self.state.refresh_characteristics();
+            self.ask_blockers(next);
+            return Ok(());
+        }
+        self.combat_declared = CombatDeclared::Blockers;
         Ok(())
     }
 

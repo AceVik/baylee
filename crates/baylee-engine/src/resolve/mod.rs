@@ -387,14 +387,20 @@ pub enum AwaitingOp {
         /// The position in [`CARD_TYPES`] to ask from next.
         next: usize,
     },
-    /// A player decides whether to pay for a tax effect.
+    /// A player decides whether to pay mana: a tax
+    /// (`Effect::PlayerMayPayOr`, `Effect::PlayerMayPayManaOr`, whose effect
+    /// runs on a refusal) or a price (`Effect::PlayerMayPayThen`,
+    /// `Effect::PlayerMayPayManaThen`, whose effects run on a payment).
     PlayerMayPay {
         /// The player deciding.
         player: PlayerId,
-        /// Generic mana to pay.
-        mana: u16,
-        /// The effect to run when they don't pay.
-        effect: &'static Effect,
+        /// The mana to pay: generic for the first two, as printed for the
+        /// other two.
+        cost: baylee_core::mana::ManaCost,
+        /// The effects one of the two answers runs.
+        effects: &'static [Effect],
+        /// Whether paying is the answer that runs them.
+        on_payment: bool,
     },
     /// Optional life payment, distinct from mana payment windows.
     PlayerMayPayLife {
@@ -415,8 +421,12 @@ pub enum AwaitingOp {
         /// The effect to run when they don't pay.
         effect: &'static Effect,
     },
-    /// Top-of-library reorder (Sensei's Divining Top).
-    ReorderTopLibrary,
+    /// Top-of-library reorder (Sensei's Divining Top), of `player`'s
+    /// library (Natural Selection looks at another player's).
+    ReorderTopLibrary {
+        /// Whose library.
+        player: PlayerId,
+    },
     /// A relative player bottoms a card from their hand (Vendilion Clique).
     BottomFromHand {
         /// Whose hand.
@@ -519,6 +529,24 @@ pub enum AwaitingOp {
     ChooseYoursThen {
         /// What happens to it.
         then: &'static [Effect],
+    },
+    /// After `PreventNextFromChosenSource`: the shield waits for the
+    /// chosen source.
+    ShieldFromChosenSource {
+        /// What the source had to be, and must still be.
+        sources: &'static baylee_cards_dsl::Filter,
+        /// Only its combat damage.
+        combat_only: bool,
+        /// How much of the instance is still dealt.
+        all_but: u8,
+        /// The controller gains what it prevents.
+        gain_life: bool,
+    },
+    /// After `RedirectNextFromChosenSource`: the shield on the creature
+    /// waits for the chosen source.
+    RedirectFromChosenSource {
+        /// The creature, as the object it was when the ability resolved.
+        protects: crate::prevention::Shielded,
     },
     /// After `Populate`: copy the chosen creature token.
     Populate,
@@ -918,6 +946,20 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => eval::tapped_power(state, res.on_stack),
+        // A target is a new object in a graveyard since the resolution began
+        // (its snapshot, CR 400.7): what this resolution put there.
+        Amount::TargetsPutIntoGraveyard => {
+            let Some(then) = res.target_lki.as_ref() else {
+                return 0;
+            };
+            let moved = res.targets.iter().filter(|&&t| {
+                let was = then.iter().find(|l| l.id == t).map(|l| l.version);
+                state.object(t).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Graveyard && was.is_some_and(|v| v != o.version)
+                })
+            });
+            u32::try_from(moved.count()).unwrap_or(u32::MAX)
+        }
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
@@ -1037,6 +1079,12 @@ pub(super) fn players_of(
                 })
             })
             .filter(|seat| !state.has_left(*seat))
+            .into_iter()
+            .collect(),
+        // "Enchanted land's controller" (CR 303.4e): whoever controls what
+        // the source is attached to now. An Aura that has left, or that
+        // enchants nothing, names nobody.
+        PlayerRel::ControllerOfAttached => eval::controller_of_attached(state, res.source)
             .into_iter()
             .collect(),
         other => eval::players(other, state, you)
@@ -1408,7 +1456,7 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
             res.pc += 1;
             return run(state, res);
         }
-        return run_fallback(state, res, effect);
+        return run_fallback(state, res, std::slice::from_ref(effect));
     }
     if let Some(AwaitingOp::TopOrBottom { card, owner }) = res.awaiting {
         res.awaiting = None;
@@ -1526,10 +1574,12 @@ pub fn resume_arranged(
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     let library = ZoneLocation::Library(res.controller);
     match (awaiting, piles) {
-        (AwaitingOp::ReorderTopLibrary, [top]) => {
+        (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
             // The first card listed is the new top card, so the list goes on
             // from its bottom end: each card put on top covers the one
-            // listed after it.
+            // listed after it. The library is the one looked at, which for
+            // Natural Selection is not the controller's.
+            let library = ZoneLocation::Library(player);
             for &card in top.iter().rev() {
                 let _ = state.move_object(card, library, ZonePosition::Top, Cause::Effect);
             }
@@ -1579,8 +1629,8 @@ pub fn resume_arranged(
     run(state, res)
 }
 
-/// Resumes a tax choice (Rhystic Study & co.): `paid` means the player
-/// chose to pay the mana.
+/// Resumes a tax choice (Rhystic Study & co.) or a price (Crystal Rod):
+/// `paid` means the player chose to pay the mana.
 ///
 /// # Panics
 /// When the suspended operation is not a tax choice.
@@ -1588,8 +1638,9 @@ pub fn resume_arranged(
 pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool) -> Flow {
     let AwaitingOp::PlayerMayPay {
         player,
-        mana,
-        effect,
+        cost,
+        effects,
+        on_payment,
     } = res.awaiting.take().expect("resume without awaiting op")
     else {
         panic!("resume_tax_choice on non-tax choice");
@@ -1597,17 +1648,16 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     // `pay` mutates the pool — never hide the call behind `debug_assert!`,
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
-    let actually_paid = paid
-        && mana_pay::pay(
-            &mut state.players[player.get() as usize].mana_pool,
-            &baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
-        );
+    let actually_paid =
+        paid && mana_pay::pay(&mut state.players[player.get() as usize].mana_pool, &cost);
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
-    if actually_paid {
+    // A tax runs its effect on a refusal and a price on a payment; the
+    // other answer is the ability doing nothing more.
+    if actually_paid != on_payment {
         res.pc += 1;
         return run(state, res);
     }
-    run_fallback(state, res, effect)
+    run_fallback(state, res, effects)
 }
 
 /// Runs the branch an "unless" effect takes when the player does not pay.
@@ -1616,8 +1666,8 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
 /// fallback that suspended on a choice has to splice its own remaining
 /// program into the resolution that called it, and a second copy of that
 /// splice would be a second place for the program counter to be wrong.
-fn run_fallback(state: &mut GameState, res: &mut Resolution, effect: &'static Effect) -> Flow {
-    if let Some(pending) = run_nested(state, res, std::slice::from_ref(effect)) {
+fn run_fallback(state: &mut GameState, res: &mut Resolution, effects: &'static [Effect]) -> Flow {
+    if let Some(pending) = run_nested(state, res, effects) {
         return Flow::Wait(pending);
     }
     res.pc += 1;
@@ -2536,7 +2586,47 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 tokens::populate(state, res.controller, id);
             }
         }
-        AwaitingOp::ReorderTopLibrary
+        AwaitingOp::ShieldFromChosenSource {
+            sources,
+            combat_only,
+            all_but,
+            gain_life,
+        } => {
+            let you = res.controller;
+            if let Some(source) = chosen.first().and_then(|&id| {
+                crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
+            }) {
+                state.shields.push(crate::prevention::Shield {
+                    protects: crate::prevention::Shielded::Player(you),
+                    kind: crate::prevention::ShieldKind::NextFrom {
+                        source,
+                        all_but: u32::from(all_but),
+                        gain_life,
+                        combat_only,
+                    },
+                    controller: you,
+                });
+            }
+        }
+        AwaitingOp::RedirectFromChosenSource { protects } => {
+            let you = res.controller;
+            if let Some(source) = chosen.first().and_then(|&id| {
+                crate::prevention::ChosenSource::new(
+                    state,
+                    id,
+                    &baylee_cards_dsl::Filter::Any,
+                    you,
+                    res.source,
+                )
+            }) {
+                state.shields.push(crate::prevention::Shield {
+                    protects,
+                    kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
+                    controller: you,
+                });
+            }
+        }
+        AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
         | AwaitingOp::Surveil => {
@@ -2576,7 +2666,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 .first()
                 .is_some_and(|&chosen| cost_wizard::pay(state, player, cost, chosen).is_ok());
             if !paid {
-                return run_fallback(state, res, effect);
+                return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
     }
@@ -2802,9 +2892,13 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayThen { .. }
+        | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
+        | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
@@ -3055,8 +3149,74 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // no access to the engine's priority machinery.
             res.awaiting = Some(AwaitingOp::PlayerMayPay {
                 player,
-                mana,
-                effect,
+                cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
+                effects: std::slice::from_ref(effect),
+                on_payment: false,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayTax { mana },
+                source: resolving_ability(state, res),
+            })
+        }
+        // The tax above with a printed, coloured price: the same question,
+        // put for the same reason (CR 605.3a) whether or not the mana is
+        // floating, and the same answer checked against the pool in
+        // `Engine::apply`. Only the prompt differs, because "Pay {2}?" is a
+        // number and "Pay {U}?" is not.
+        Effect::PlayerMayPayManaOr {
+            player,
+            cost,
+            effect,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                effects: std::slice::from_ref(effect),
+                on_payment: false,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayMana { cost },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::PlayerMayPayManaThen {
+            player,
+            cost,
+            effects,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                effects,
+                on_payment: true,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayMana { cost },
+                source: resolving_ability(state, res),
+            })
+        }
+        // The same question and the same payment as the tax above, with the
+        // effects on the other answer: "you may pay {1}. If you do, you gain
+        // 1 life." A player who cannot pay is still asked, for the tax's
+        // reason (CR 605.3a lets them make the mana now), and one who says
+        // yes and then cannot pay has not paid.
+        Effect::PlayerMayPayThen {
+            player,
+            mana,
+            effects,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let mana = u16::try_from(amount2(&mana, state, you, res)).unwrap_or(u16::MAX);
+            res.awaiting = Some(AwaitingOp::PlayerMayPay {
+                player,
+                cost: baylee_core::mana::ManaCost::from_symbol_generic(u32::from(mana)),
+                effects,
+                on_payment: true,
             });
             Some(Pending::YesNo {
                 player,
@@ -3117,10 +3277,17 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 total: None,
             })
         }
-        Effect::ReorderTopLibrary { count } => {
+        Effect::ReorderTopLibrary { .. } | Effect::ReorderTopLibraryOf { .. } => {
+            let (library, count) = match op {
+                Effect::ReorderTopLibraryOf { who, count } => {
+                    (players_of(who, state, you, res).first().copied()?, count)
+                }
+                Effect::ReorderTopLibrary { count } => (you, count),
+                _ => unreachable!("the arm's two variants"),
+            };
             let options: Vec<ObjectId> = state
                 .zones
-                .list(ZoneLocation::Library(you))
+                .list(ZoneLocation::Library(library))
                 .iter()
                 .rev()
                 .take(count as usize)
@@ -3133,7 +3300,7 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             if options.is_empty() {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::ReorderTopLibrary);
+            res.awaiting = Some(AwaitingOp::ReorderTopLibrary { player: library });
             let n = u32::try_from(options.len()).unwrap_or(u32::MAX);
             Some(Pending::Arrange {
                 player: you,
@@ -3328,7 +3495,17 @@ pub fn resolving_ability(
 /// its own effect checks, and any other "may" is asked as before.
 fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) -> bool {
     match effects {
-        [Effect::SacrificeSelf] => zones::can_sacrifice_self(state, res),
+        // The head of the list, not the whole of it: "you may sacrifice
+        // this. If you do, …" is the cost and then what it buys (CR 118.12),
+        // and a yes that cannot pay must not buy the rest. Safe Haven
+        // destroyed in response to its upkeep trigger returned everything
+        // exiled with it while the list was matched whole.
+        [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
+        [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && !o.status.contains(crate::object::Status::PHASED_OUT)
+                && o.counters.get(*kind) >= *n
+        }),
         [
             Effect::GraveyardToBattlefield {
                 target: TargetSpec::EventObject,
@@ -3421,7 +3598,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageDivided { .. }
-        | Effect::DealDamageEach { .. } => life::exec(state, res, op),
+        | Effect::DealDamageEach { .. }
+        | Effect::PreventNextDamage { .. }
+        | Effect::PreventAllCombatDamageThisTurn
+        | Effect::PreventNextFromChosenSource { .. }
+        | Effect::RedirectNextFromChosenSource { .. } => life::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
@@ -3442,6 +3623,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
         | Effect::SacrificeSelf
+        | Effect::SacrificeObject { .. }
         | Effect::PutTargetOnBottomOfLibrary
         | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
         | Effect::ExileSource
@@ -3450,9 +3632,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::Mill { .. }
         | Effect::Destroy { .. }
         | Effect::Regenerate { .. }
+        | Effect::RegenerateAll { .. }
         | Effect::DestroyChosenForPlayers { .. }
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardRandom { .. }
+        | Effect::DiscardHand { .. }
+        | Effect::ShuffleIntoLibrary { .. }
+        | Effect::ShuffleLibrary { .. }
         | Effect::RevealHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
@@ -3469,8 +3655,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::DelayedManaAtNextFirstMain { .. } => mana::exec(state, res, op),
+        Effect::DelayedManaAtNextFirstMain { .. } | Effect::AddManaFor { .. } => {
+            mana::exec(state, res, op)
+        }
         Effect::AddCounter { .. }
+        | Effect::RemoveCounterSelf { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
@@ -3613,6 +3802,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        // CR 603.7c: an event object that has left its zone is none here,
+        // and nothing about it holds.
+        Effect::IfEventObjectMatches { filter, then } => {
+            let holds = res
+                .event_object
+                .and_then(|t| state.object(t))
+                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            if holds {
+                return run_nested(state, res, then);
+            }
+            None
+        }
         Effect::IfCreaturesDiedAtLeast { n, then } => {
             if state.per_turn.creatures_died >= n {
                 return run_nested(state, res, then);
@@ -3630,6 +3831,21 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     state.per_turn.resolutions(loc.source, version, loc.index)
                 });
             if resolved == times {
+                return run_nested(state, res, then);
+            }
+            None
+        }
+        Effect::IfActivatedThisTurnAtLeast { n, then } => {
+            // Counted as the ability was activated (CR 602.2, the
+            // activation in `engine/abilities.rs`), this one included, in
+            // the turn's tally of that ability of that object — which a
+            // source that has left the battlefield no longer has.
+            let activated = state
+                .object(res.on_stack)
+                .and_then(|o| o.ability)
+                .and_then(|loc| state.ability_fires.get(&(loc.source, loc.index)).copied())
+                .unwrap_or(0);
+            if activated >= u32::from(n) {
                 return run_nested(state, res, then);
             }
             None
@@ -3688,6 +3904,73 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     let named = (id, obj.version);
                     if !state.per_turn.exile_if_dies.contains(&named) {
                         state.per_turn.exile_if_dies.push(named);
+                    }
+                }
+            }
+            None
+        }
+        // The delayed trigger is about the first target as it is now. An
+        // ability that never said "target" is about its source as it is
+        // now ("sacrifice this creature", Dragon Whelp); one that targeted
+        // and has no object target left is about nothing.
+        Effect::AtNextEndStep { effects } => {
+            let about = if res.targeted {
+                res.targets.first().copied()
+            } else {
+                Some(res.source)
+            };
+            let action = match about.and_then(|t| state.object(t).map(|o| (t, o.version))) {
+                Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
+                    source: res.source,
+                    effects,
+                    object,
+                    version,
+                },
+                None => crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    effects,
+                },
+            };
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextEndStep,
+                action,
+            });
+            None
+        }
+        // The delayed trigger is about the object `about` names as this
+        // resolves, as the object it is now (CR 603.7c); naming nothing, it
+        // is about nothing.
+        Effect::AtEndOfCombat { about, effects } => {
+            let action = match zones::spec_object(res, about)
+                .and_then(|t| state.object(t).map(|o| (t, o.version)))
+            {
+                Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
+                    source: res.source,
+                    effects,
+                    object,
+                    version,
+                },
+                None => crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    effects,
+                },
+            };
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::EndOfCombat,
+                action,
+            });
+            None
+        }
+        Effect::CantBeRegeneratedThisTurn { target } => {
+            for id in zones::spec_objects(res, target) {
+                if let Some(obj) = state.object(id)
+                    && obj.zone == crate::zone::Zone::Battlefield
+                {
+                    let named = (id, obj.version);
+                    if !state.per_turn.cant_regenerate.contains(&named) {
+                        state.per_turn.cant_regenerate.push(named);
                     }
                 }
             }
@@ -4388,6 +4671,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::ToggleTapTarget => {
+            for &target in &res.targets.clone() {
+                let tapped = state
+                    .object(target)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED));
+                state.set_tapped(target, !tapped);
+            }
+            None
+        }
         // Cryptic Command's third mode. Nothing is targeted, and a
         // phased-out permanent is treated as though it doesn't exist (CR
         // 702.26b), which `battlefield_seen` is.
@@ -4432,6 +4724,49 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .collect();
             for id in all {
                 state.set_tapped(id, true);
+            }
+            None
+        }
+        // Mana Short's "tap all lands target player controls": the seats
+        // are the resolution's (a targeted player is `Chosen`), and the
+        // permanents are whatever they control as this resolves.
+        Effect::TapAllOf { who, filter } => {
+            let seats = players_of(who, state, you, res);
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        seats.contains(&o.controller)
+                            && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .collect();
+            for id in all {
+                state.set_tapped(id, true);
+            }
+            None
+        }
+        // CR 106.4: losing mana is the pool emptying. All of it, because the
+        // effect empties it and not a step ending (`ManaFlags::NO_EMPTY`
+        // answers only CR 500.5).
+        Effect::LoseUnspentMana { who } => {
+            for seat in players_of(who, state, you, res) {
+                state.players[seat.get() as usize].mana_pool = baylee_core::mana::ManaPool::new();
+            }
+            None
+        }
+        Effect::UntapAll { filter } => {
+            let you = res.controller;
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in all {
+                untap(state, id);
             }
             None
         }
@@ -4555,9 +4890,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::SearchLibraryUpTo { .. }
         | Effect::SearchOpponentSplits { .. }
         | Effect::PlayerMayPayOr { .. }
+        | Effect::PlayerMayPayThen { .. }
+        | Effect::PlayerMayPayManaOr { .. }
+        | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::ReorderTopLibrary { .. }
+        | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }
         | Effect::MayDo { .. }
         | Effect::MayDoOnceEachTurn { .. }
@@ -4668,6 +5007,609 @@ fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
                 .journal
                 .record(GameEvent::ControllerChanged { object, old, new });
         }
+    }
+}
+
+/// "Untap enchanted creature", "regenerate enchanted creature": what an
+/// Aura's own ability does to its host, which it names without targeting.
+#[cfg(test)]
+mod host_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::Filter;
+    use baylee_core::ids::SeatSet;
+
+    static UNTAP: &[Effect] = &[Effect::UntapAll {
+        filter: &Filter::AttachedToBySource,
+    }];
+    static REGENERATE: &[Effect] = &[Effect::RegenerateAll {
+        filter: &Filter::AttachedToBySource,
+    }];
+
+    /// An Aura on one tapped creature, another tapped creature beside it,
+    /// and `effects` resolving from the Aura.
+    fn resolved(effects: &'static [Effect]) -> (GameState, ObjectId, ObjectId) {
+        let me = PlayerId::new(0);
+        let mut state = GameState::from_preset(&preset(17, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(me, ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        };
+        let host = bare(&mut state, "Host");
+        let other = bare(&mut state, "Other");
+        let aura = bare(&mut state, "Aura");
+        state.object_mut(aura).expect("here").attached_to = Some(host);
+        state.set_tapped(host, true);
+        state.set_tapped(other, true);
+        let mut res = Resolution {
+            source: aura,
+            on_stack: aura,
+            controller: me,
+            effects: effects.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        (state, host, other)
+    }
+
+    fn tapped(state: &GameState, id: ObjectId) -> bool {
+        state
+            .object(id)
+            .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED))
+    }
+
+    #[test]
+    fn an_auras_ability_reaches_its_host_and_nothing_else() {
+        let (state, host, other) = resolved(UNTAP);
+        assert!(!tapped(&state, host), "the enchanted creature untaps");
+        assert!(tapped(&state, other), "and only it");
+
+        let (state, host, other) = resolved(REGENERATE);
+        let shields = |id| state.object(id).map(|o| o.regeneration_shields);
+        assert_eq!(shields(host), Some(1));
+        assert_eq!(shields(other), Some(0));
+    }
+}
+
+/// Twiddle's "tap or untap": a tapped target untaps and an untapped one taps.
+#[cfg(test)]
+mod toggle_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    #[test]
+    fn a_toggled_target_becomes_what_it_was_not() {
+        let me = PlayerId::new(0);
+        let mut state = GameState::from_preset(&preset(17, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(me, ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        };
+        let (up, down, spell) = (
+            bare(&mut state, "Up"),
+            bare(&mut state, "Down"),
+            bare(&mut state, "Twiddle"),
+        );
+        state.set_tapped(down, true);
+        let tapped = |state: &GameState, id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED))
+        };
+        for (target, was) in [(up, false), (down, true)] {
+            let mut res = Resolution {
+                source: spell,
+                on_stack: spell,
+                controller: me,
+                effects: vec![Effect::ToggleTapTarget],
+                pc: 0,
+                targets: SmallVec::from_slice(&[target]),
+                second_targets: SmallVec::new(),
+                x: None,
+                chosen_player: None,
+                target_players: SeatSet::new(),
+                event_object: None,
+                awaiting: None,
+                targeted: true,
+                mana_ability: false,
+                countered_source: None,
+                target_lki: None,
+                retarget_left: None,
+            };
+            assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+            assert_eq!(tapped(&state, target), !was);
+        }
+    }
+}
+
+/// Mana Short: "tap all lands target player controls and that player loses
+/// all unspent mana". The player is the resolution's chosen one, and
+/// nothing of anybody else's is touched.
+#[cfg(test)]
+mod mana_short_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::{Filter, PlayerRel};
+    use baylee_core::ids::SeatSet;
+    use baylee_core::mana::ManaColor;
+
+    static SHORT: &[Effect] = &[
+        Effect::TapAllOf {
+            who: PlayerRel::Chosen,
+            filter: &Filter::Any,
+        },
+        Effect::LoseUnspentMana {
+            who: PlayerRel::Chosen,
+        },
+    ];
+
+    #[test]
+    fn the_chosen_player_is_tapped_out_and_loses_their_mana_and_nobody_else() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut state = GameState::from_preset(&preset(17, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, owner, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(
+                owner,
+                ObjectKind::Permanent,
+                name,
+                ZoneLocation::Battlefield,
+            )
+        };
+        let mine = bare(&mut state, me, "Mine");
+        let theirs = bare(&mut state, them, "Theirs");
+        let spell = bare(&mut state, me, "Mana Short");
+        state.players[0].mana_pool.add(ManaColor::Blue, 1);
+        state.players[1].mana_pool.add(ManaColor::Green, 2);
+        let mut res = Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: me,
+            effects: SHORT.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: Some(them),
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        let tapped = |id| {
+            state
+                .object(id)
+                .is_some_and(|o| o.status.contains(crate::object::Status::TAPPED))
+        };
+        assert!(tapped(theirs), "the chosen player's permanent is tapped");
+        assert!(!tapped(mine), "and the caster's is not");
+        assert!(state.players[1].mana_pool.is_empty(), "their mana is lost");
+        assert_eq!(
+            state.players[0].mana_pool.available(ManaColor::Blue),
+            1,
+            "and the caster's stays"
+        );
+    }
+}
+
+/// Disintegrate's "it can't be regenerated this turn" (CR 701.19c): the
+/// resolution records the target as it is now, and a later destruction —
+/// lethal damage, which no card calls unregeneratable — goes through the
+/// shield it already had.
+#[cfg(test)]
+mod no_regeneration_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    static NO_REGEN: &[Effect] = &[Effect::CantBeRegeneratedThisTurn {
+        target: TargetSpec::AnyTarget,
+    }];
+
+    #[test]
+    fn the_target_keeps_its_shield_and_is_destroyed_through_it() {
+        let me = PlayerId::new(0);
+        let mut state = GameState::from_preset(&preset(19, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let bare = |state: &mut GameState, label: &str| {
+            let name = state.names.intern(label);
+            state.create_bare(me, ObjectKind::Permanent, name, ZoneLocation::Battlefield)
+        };
+        let troll = bare(&mut state, "Troll");
+        let spell = bare(&mut state, "Disintegrate");
+        state
+            .object_mut(troll)
+            .expect("seated")
+            .regeneration_shields = 1;
+        let mut res = Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: me,
+            effects: NO_REGEN.to_vec(),
+            pc: 0,
+            targets: SmallVec::from_slice(&[troll]),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        let version = state.object(troll).expect("still there").version;
+        assert_eq!(state.per_turn.cant_regenerate, vec![(troll, version)]);
+        crate::sba::destroy(&mut state, troll);
+        assert_ne!(
+            state.object(troll).map(|o| o.zone),
+            Some(crate::zone::Zone::Battlefield),
+            "the shield stands and is not applied"
+        );
+    }
+}
+
+/// Wheel of Fortune, Timetwister and Natural Selection: whole hands and
+/// graveyards moved for each player named, and another player's library
+/// looked at and ordered by the ability's controller.
+#[cfg(test)]
+mod whole_zone_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_core::ids::SeatSet;
+
+    static WHEEL: &[Effect] = &[Effect::DiscardHand {
+        who: PlayerRel::EachPlayer,
+    }];
+    static TWISTER: &[Effect] = &[Effect::ShuffleIntoLibrary {
+        who: PlayerRel::EachPlayer,
+        hand: true,
+        graveyard: true,
+    }];
+    static SELECTION: &[Effect] = &[Effect::ReorderTopLibraryOf {
+        who: PlayerRel::Chosen,
+        count: 3,
+    }];
+
+    fn resolution(spell: ObjectId, effects: &[Effect], them: PlayerId) -> Resolution {
+        Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: PlayerId::new(0),
+            effects: effects.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: Some(them),
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: true,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        }
+    }
+
+    /// Two cards in each player's hand and one in each graveyard.
+    fn table() -> (GameState, ObjectId) {
+        let mut state = GameState::from_preset(&preset(23, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        for seat in 0..2 {
+            let p = PlayerId::new(seat);
+            for zone in [
+                ZoneLocation::Hand(p),
+                ZoneLocation::Hand(p),
+                ZoneLocation::Graveyard(p),
+            ] {
+                let name = state.names.intern("Card");
+                state.create_bare(p, ObjectKind::Card, name, zone);
+            }
+        }
+        let name = state.names.intern("Spell");
+        let spell = state.create_bare(
+            PlayerId::new(0),
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        (state, spell)
+    }
+
+    fn count(state: &GameState, zone: ZoneLocation) -> usize {
+        state.zones.list(zone).len()
+    }
+
+    #[test]
+    fn each_player_discards_every_card_in_their_hand() {
+        let (mut state, spell) = table();
+        let mut res = resolution(spell, WHEEL, PlayerId::new(1));
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        for seat in 0..2 {
+            let p = PlayerId::new(seat);
+            assert_eq!(
+                count(&state, ZoneLocation::Hand(p)),
+                0,
+                "seat {seat}'s hand"
+            );
+            assert_eq!(
+                count(&state, ZoneLocation::Graveyard(p)),
+                3,
+                "seat {seat}'s graveyard"
+            );
+        }
+        let discards = state
+            .journal
+            .entries()
+            .iter()
+            .filter(|e| matches!(e.event, GameEvent::Discarded { .. }))
+            .count();
+        assert_eq!(discards, 4, "each card is a discard of its own");
+    }
+
+    #[test]
+    fn each_player_shuffles_hand_and_graveyard_into_their_own_library() {
+        let (mut state, spell) = table();
+        let before: Vec<usize> = (0..2)
+            .map(|s| count(&state, ZoneLocation::Library(PlayerId::new(s))))
+            .collect();
+        let mut res = resolution(spell, TWISTER, PlayerId::new(1));
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        for seat in 0..2u8 {
+            let p = PlayerId::new(seat);
+            assert_eq!(count(&state, ZoneLocation::Hand(p)), 0);
+            assert_eq!(count(&state, ZoneLocation::Graveyard(p)), 0);
+            assert_eq!(
+                count(&state, ZoneLocation::Library(p)),
+                before[usize::from(seat)] + 3,
+                "seat {seat}'s three cards went into their own library"
+            );
+        }
+    }
+
+    #[test]
+    fn the_controller_orders_the_top_of_the_chosen_players_library() {
+        let (mut state, spell) = table();
+        let them = PlayerId::new(1);
+        for _ in 0..4 {
+            let name = state.names.intern("Library card");
+            state.create_bare(them, ObjectKind::Card, name, ZoneLocation::Library(them));
+        }
+        let top3: Vec<ObjectId> = state
+            .zones
+            .list(ZoneLocation::Library(them))
+            .iter()
+            .rev()
+            .take(3)
+            .copied()
+            .collect();
+        let mut res = resolution(spell, SELECTION, them);
+        let Flow::Wait(Pending::Arrange { player, cards, .. }) = run(&mut state, &mut res) else {
+            panic!("the controller is asked to order the cards");
+        };
+        assert_eq!(player, PlayerId::new(0), "the controller orders");
+        assert_eq!(
+            cards, top3,
+            "the chosen player's top three, not the controller's"
+        );
+        let reversed: Vec<ObjectId> = top3.iter().rev().copied().collect();
+        assert!(matches!(
+            resume_arranged(&mut state, &mut res, std::slice::from_ref(&reversed)),
+            Flow::Complete
+        ));
+        let now: Vec<ObjectId> = state
+            .zones
+            .list(ZoneLocation::Library(them))
+            .iter()
+            .rev()
+            .take(3)
+            .copied()
+            .collect();
+        assert_eq!(
+            now, reversed,
+            "put back in the order given, in their library"
+        );
+    }
+}
+
+/// "You may pay {1}. If you do, you gain 1 life" and its mirror, "… unless
+/// you pay {1}": one question, one payment, and the effects on opposite
+/// answers.
+#[cfg(test)]
+mod price_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use baylee_cards_dsl::Amount;
+    use baylee_core::ids::SeatSet;
+    use baylee_core::mana::ManaColor;
+
+    static GAIN: Effect = Effect::GainLife {
+        amount: Amount::Fixed(1),
+    };
+    static PRICE: &[Effect] = &[Effect::PlayerMayPayThen {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        effects: std::slice::from_ref(&GAIN),
+    }];
+    static TAX: &[Effect] = &[Effect::PlayerMayPayOr {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        effect: &GAIN,
+    }];
+    static BLUE_PRICE: &[Effect] = &[Effect::PlayerMayPayManaThen {
+        player: PlayerRel::You,
+        cost: baylee_core::mana!("{U}"),
+        effects: std::slice::from_ref(&GAIN),
+    }];
+    static BLUE_TAX: &[Effect] = &[Effect::PlayerMayPayManaOr {
+        player: PlayerRel::You,
+        cost: baylee_core::mana!("{U}"),
+        effect: &GAIN,
+    }];
+
+    fn me() -> PlayerId {
+        PlayerId::new(0)
+    }
+
+    /// A game with one mana floating in `me`'s pool and a resolution of
+    /// `effects` from a bare permanent of theirs.
+    fn asked(effects: &'static [Effect]) -> (GameState, Resolution) {
+        let (mut state, mut res) = resolving(effects, ManaColor::Colorless);
+        let Flow::Wait(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayTax { mana },
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a payment is a question put as the ability resolves (CR 608.2d)");
+        };
+        assert_eq!((player, mana), (me(), 1));
+        (state, res)
+    }
+
+    /// The same, with the mana floating in `floating` and the question
+    /// asked for a printed price with colour in it.
+    fn asked_for_blue(effects: &'static [Effect], floating: ManaColor) -> (GameState, Resolution) {
+        let (mut state, mut res) = resolving(effects, floating);
+        let Flow::Wait(Pending::YesNo {
+            player,
+            prompt: YesNoPrompt::PayMana { cost },
+            ..
+        }) = run(&mut state, &mut res)
+        else {
+            panic!("a coloured price is the same question, put with its colour");
+        };
+        assert_eq!((player, cost), (me(), baylee_core::mana!("{U}")));
+        (state, res)
+    }
+
+    fn resolving(effects: &'static [Effect], floating: ManaColor) -> (GameState, Resolution) {
+        let mut state = GameState::from_preset(&preset(13, &[]), &SyntheticLookup::new(vec![]))
+            .expect("a two-seat game");
+        let name = state.names.intern("Crystal Rod");
+        let source =
+            state.create_bare(me(), ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+        state.players[0].mana_pool.add(floating, 1);
+        let res = Resolution {
+            source,
+            on_stack: source,
+            controller: me(),
+            effects: effects.to_vec(),
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: None,
+            chosen_player: None,
+            target_players: SeatSet::new(),
+            event_object: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            retarget_left: None,
+        };
+        (state, res)
+    }
+
+    fn life(state: &GameState) -> i32 {
+        state.players[0].life
+    }
+
+    #[test]
+    fn a_price_paid_buys_the_clause_and_a_price_declined_buys_nothing() {
+        let (mut state, mut res) = asked(PRICE);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(
+            life(&state),
+            before + 1,
+            "paid: \"if you do, you gain 1 life\""
+        );
+        assert_eq!(
+            state.players[0].mana_pool.total(),
+            0,
+            "and the {{1}} left the pool"
+        );
+
+        let (mut state, mut res) = asked(PRICE);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before, "declined: nothing bought");
+        assert_eq!(state.players[0].mana_pool.total(), 1, "and nothing paid");
+    }
+
+    /// The tax is the same question with the effect on the other answer,
+    /// and sharing its resumption must not have turned it round.
+    #[test]
+    fn a_tax_still_runs_its_effect_on_a_refusal() {
+        let (mut state, mut res) = asked(TAX);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before, "paid: the tax's effect is avoided");
+
+        let (mut state, mut res) = asked(TAX);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before + 1, "refused: the effect runs");
+    }
+
+    /// A price with colour in it is charged as printed (CR 118.12a): the
+    /// blue that pays it leaves the pool, on either answer's side of the
+    /// pair. Which pools *can* pay is the engine's to check before it
+    /// answers yes (`pool_pays_tax`); `keyword_tests` plays that half.
+    #[test]
+    fn a_coloured_price_is_asked_and_paid_as_printed() {
+        let (mut state, mut res) = asked_for_blue(BLUE_PRICE, ManaColor::Blue);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before + 1, "paid: the clause is bought");
+        assert_eq!(
+            state.players[0].mana_pool.total(),
+            0,
+            "and the {{U}} is gone"
+        );
+
+        let (mut state, mut res) = asked_for_blue(BLUE_TAX, ManaColor::Blue);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, true);
+        assert_eq!(life(&state), before, "paid: the tax's effect is avoided");
+
+        let (mut state, mut res) = asked_for_blue(BLUE_TAX, ManaColor::Red);
+        let before = life(&state);
+        let _ = resume_tax_choice(&mut state, &mut res, false);
+        assert_eq!(life(&state), before + 1, "refused: the effect runs");
+        assert_eq!(
+            state.players[0].mana_pool.available(ManaColor::Red),
+            1,
+            "and nothing was taken"
+        );
     }
 }
 

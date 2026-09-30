@@ -167,6 +167,15 @@ impl Params {
         self.entries.iter().any(|(k, _)| k == key)
     }
 
+    /// A parameter's value, without claiming it: for a rule that has to
+    /// know one key before it can read another.
+    fn peek(&self, key: &str) -> Option<&str> {
+        self.entries
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
     /// Claims a label that only restates the filter standing beside it.
     ///
     /// **Not a [`PROSE_KEYS`] entry, and the difference is the guard.** A key
@@ -210,6 +219,51 @@ struct Chain {
     target: Option<String>,
 }
 
+/// "… unless <a player> pays <a price>" (CR 118.12a), read off one line.
+struct Unless {
+    /// Who is asked, as a `PlayerRel`.
+    payer: &'static str,
+    price: Price,
+    /// `UnlessSwitched$ True`: the line's effect is what paying *buys*
+    /// ("you may pay {1}. If you do, …"), not what refusing costs.
+    switched: bool,
+}
+
+/// A price a player may pay as an ability resolves, in the shape the effect
+/// that charges it carries.
+enum Price {
+    /// Generic mana, as an `Amount` expression: `PlayerMayPayOr`/`Then`.
+    Generic(String),
+    /// A printed cost with colour in it, spelled `{G}{G}`:
+    /// `PlayerMayPayManaOr`/`Then`.
+    Printed(String),
+    /// One cost part the player pays by naming an object:
+    /// `PlayerMayPayCostOr`.
+    Part(String),
+}
+
+/// Which side of a block a `T:Mode$ AttackerBlockedByCreature` line puts
+/// its source on.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum BlockRole {
+    /// `ValidBlocker$ Card.Self`: "whenever this creature blocks …".
+    Blocks,
+    /// `ValidCard$ Card.Self`: "whenever this creature becomes blocked by …".
+    Blocked,
+}
+
+/// One half of a "blocks or becomes blocked by" trigger, read and waiting
+/// for its mirror ([`Tx::block_trigger`]).
+struct BlockHalf {
+    role: BlockRole,
+    /// The valid-string of the other creature.
+    other: String,
+    /// Whether this half carried `Secondary$ True`.
+    secondary: bool,
+    /// The ability this half wrote.
+    ability: String,
+}
+
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     cats: &'a SubtypeCatalogs,
@@ -227,6 +281,26 @@ struct Tx<'a> {
     /// number and `Amount::X` would silently evaluate to nought. Set per
     /// line rather than per script, because one card writes both.
     has_x: bool,
+    /// Whether the rules line being read is a spell (`A:SP$`) rather than an
+    /// activated ability or a trigger. A spell has no "itself" to act on
+    /// once it resolves, so a clause that defaults to the source means
+    /// nothing on one.
+    on_a_spell: bool,
+    /// The mode of the `T:` line being read (`Phase`, `ChangesZone`, …), and
+    /// `None` on every other kind of line: what "that player" means is the
+    /// trigger's to say.
+    trigger_mode: Option<String>,
+    /// Which side of a block the `T:` line being read puts its source on,
+    /// and the half it read ([`Tx::block_trigger`]); `None` on every other
+    /// line.
+    block_line: Option<(BlockRole, String, bool)>,
+    /// The first half of a "blocks or becomes blocked by" trigger, while its
+    /// mirror has not been read. A script that ends with one here printed a
+    /// sentence this reader does not say, and is refused.
+    block_half: Option<BlockHalf>,
+    /// Whether the chain being read is a delayed trigger's `Execute$`, where
+    /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
+    in_delayed: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -256,6 +330,19 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<St
     // number, so `Amount::X` would evaluate to `x.unwrap_or(0)` — a card
     // that compiles, claims `Implemented` and makes nothing at all, which
     // is exactly the outcome the honest-stub rule exists to prevent.
+    // "For each creature that died this turn" (Scavenging Ghoul), counted as
+    // the effect applies. Asked before the `X` rule, because `X` is the
+    // letter the reference writes it under.
+    if svars.get(raw).map(|def| def.trim())
+        == Some("Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature")
+    {
+        return Some("Amount::CreaturesDiedThisTurn".to_string());
+    }
+    // "The damage dealt to you this turn" (Simulacrum, Discordant Spirit),
+    // under the same letter and asked before it for the same reason.
+    if svars.get(raw).map(|def| def.trim()) == Some("PlayerCountPropertyYou$DamageThisTurn") {
+        return Some("Amount::DamageDealtToYouThisTurn".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());
@@ -345,11 +432,118 @@ fn pump_amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Opti
     })
 }
 
+/// `withFlying` as `Filter::HasKeyword(KeywordSet::FLYING)`, `withoutFlying`
+/// as its negation. The reference runs the keyword into the word, spaces
+/// removed (`withFirst Strike` is never written; `withFirstStrike` is), so
+/// the name is matched against each bit's printed spelling with its spaces
+/// taken out.
+fn keyword_atom(atom: &str) -> Option<String> {
+    let (negated, name) = match atom.strip_prefix("without") {
+        Some(rest) => (true, rest),
+        None => (false, atom.strip_prefix("with")?),
+    };
+    let printed = [
+        "Flying",
+        "First Strike",
+        "Double Strike",
+        "Deathtouch",
+        "Haste",
+        "Hexproof",
+        "Indestructible",
+        "Lifelink",
+        "Menace",
+        "Reach",
+        "Trample",
+        "Vigilance",
+        "Defender",
+    ]
+    .into_iter()
+    .find(|p| p.replace(' ', "") == name)?;
+    let has = format!("Filter::HasKeyword({})", keyword_const(printed)?);
+    Some(if negated {
+        format!("Filter::Not(&{has})")
+    } else {
+        has
+    })
+}
+
+/// "Creatures named Plague Rats": the name in a `named…` atom. A name is a
+/// characteristic (CR 201.2), compared as the object carries it now. Only a
+/// plain name: the reference also writes counts and limits after one
+/// (`namedHedron Alignment/LimitMax`).
+fn named_atom(atom: &str) -> Option<&str> {
+    atom.strip_prefix("named").filter(|name| {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_alphanumeric() || " '-".contains(c))
+    })
+}
+
+/// A colour word in a valid-string, and whether it is negated: `Black` is
+/// `(false, "Black")` and `nonBlack` is `(true, "Black")`, the second half
+/// being the `Color` variant's name.
+fn color_atom(atom: &str) -> Option<(bool, &'static str)> {
+    let (negated, word) = atom
+        .strip_prefix("non")
+        .map_or((false, atom), |rest| (true, rest));
+    let color = match word {
+        "White" => "White",
+        "Blue" => "Blue",
+        "Black" => "Black",
+        "Red" => "Red",
+        "Green" => "Green",
+        _ => return None,
+    };
+    Some((negated, color))
+}
+
+/// A power or toughness compared with a fixed number (`powerLE2`,
+/// `toughnessGE4`), as the `Filter` that asks it. The strict comparisons
+/// become the inclusive ones a step over, because the filters compare
+/// inclusively and a power is a whole number.
+fn stat_atom(atom: &str) -> Option<String> {
+    let lower = atom.to_ascii_lowercase();
+    let (stat, rest) = if let Some(rest) = lower.strip_prefix("power") {
+        ("Power", rest)
+    } else {
+        ("Toughness", lower.strip_prefix("toughness")?)
+    };
+    let (cmp, number) = rest.split_at_checked(2)?;
+    let n: i16 = number.parse().ok()?;
+    let (bound, n) = match cmp {
+        "le" => ("AtMost", n),
+        "lt" => ("AtMost", n.checked_sub(1)?),
+        "ge" => ("AtLeast", n),
+        "gt" => ("AtLeast", n.checked_add(1)?),
+        _ => return None,
+    };
+    Some(format!("Filter::{stat}{bound}({n})"))
+}
+
 fn plain_number(raw: &str, svars: &BTreeMap<String, String>) -> Option<i64> {
     let raw = raw.trim().trim_start_matches('+');
     raw.parse::<i64>()
         .ok()
         .or_else(|| svars.get(raw)?.trim().parse::<i64>().ok())
+}
+
+/// A `PresentCompare$` as the bound a count condition says: `GE2` is at least
+/// two, `EQ0` none ("if no creatures are on the battlefield"), `LT3` at most
+/// two. An exact count above zero is two bounds at once, which one
+/// `Condition` cannot say.
+fn count_bound(compare: &str) -> Option<Bound> {
+    let (cmp, number) = compare.split_at_checked(2)?;
+    let n: u16 = number.parse().ok()?;
+    let fits = |n: u16| u8::try_from(n).is_ok().then_some(n);
+    Some(match cmp {
+        "GE" => Bound::AtLeast(fits(n)?),
+        "GT" => Bound::AtLeast(fits(n.checked_add(1)?)?),
+        "LE" => Bound::AtMost(fits(n)?),
+        "LT" => Bound::AtMost(fits(n.checked_sub(1)?)?),
+        "EQ" if n == 0 => Bound::AtMost(0),
+        _ => return None,
+    })
 }
 
 /// Which side of a count an enters-tapped clause is on, once the reference's
@@ -396,6 +590,158 @@ impl Tx<'_> {
         None
     }
 
+    /// "The next time a red source of your choice would deal damage to you
+    /// this turn, prevent that damage" (the Circles of Protection; CR 609.7a,
+    /// 615.8), and Reverse Damage's "you gain life equal to the damage
+    /// prevented this way" after it (CR 615.5).
+    ///
+    /// The reference says it in three lines: `ChooseSource` picks, an
+    /// `Effect` it puts in the command zone carries a replacement waiting for
+    /// the chosen source, and the replacement exiles that effect once it has
+    /// prevented. Every line must be this sentence key for key or the card
+    /// is refused — a pact's delayed trigger, a chosen colour, a replacement
+    /// that does not recheck what was chosen are other sentences.
+    fn prevent_from_chosen_source(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("`ChooseSource` with no `Choices$`".to_string());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ChooseSource.{key}`"));
+        }
+        // What may be chosen, and the same words as the replacement must
+        // recheck them when the damage comes (CR 609.7b). "A source of your
+        // choice" is any card or emblem; the engine does not offer an emblem
+        // (`prevention::source_options`), and no emblem in the pool deals
+        // damage.
+        let (filter, recheck) = if choices == "Card,Emblem" {
+            (
+                "Filter::Any".to_string(),
+                "Card.ChosenCardStrict,Emblem.ChosenCard".to_string(),
+            )
+        } else if choices.contains(',') {
+            return self.deny(format!("chosen source `{choices}`"));
+        } else {
+            let atoms = choices.strip_prefix("Card.").unwrap_or(&choices);
+            // "A red source" is a red object: the reference's `RedSource`.
+            let read = match atoms.strip_suffix("Source") {
+                Some(color) if color_atom(color).is_some() => format!("Card.{color}"),
+                Some(_) => return self.deny(format!("chosen source `{choices}`")),
+                None => choices.clone(),
+            };
+            let filter = self.filter_expr(&read)?;
+            (filter, format!("Card.ChosenCardStrict+{atoms}"))
+        };
+        let Some(effect_name) = sub else {
+            return self.deny("`ChooseSource` with nothing chosen for".to_string());
+        };
+        let Some(body) = self.svars.get(effect_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {effect_name}` names no SVar"));
+        };
+        let Some((api, mut effect)) = Params::parse(&body) else {
+            return self.deny(format!("`SubAbility$ {effect_name}` is no ability"));
+        };
+        if api != "Effect" {
+            return self.deny("`ChooseSource` followed by something other than its shield".into());
+        }
+        effect.drop_prose();
+        let condition_holds = effect.take("ConditionDefined").as_deref() == Some("ChosenCard")
+            && matches!(
+                effect.take("ConditionPresent").as_deref(),
+                Some("Card" | "Card,Emblem")
+            )
+            && matches!(
+                effect.take("ConditionCompare").as_deref(),
+                None | Some("GE1")
+            );
+        if !condition_holds {
+            return self.deny("a chosen-source shield on another condition".to_string());
+        }
+        let cleanup = effect.take("SubAbility");
+        let Some(replacement) = effect.take("ReplacementEffects") else {
+            return self.deny("a chosen-source `Effect` with no replacement".to_string());
+        };
+        if let Some(key) = effect.first_key() {
+            return self.deny(format!("unclaimed parameter `Effect.{key}`"));
+        }
+        if let Some(name) = cleanup {
+            let clears = self
+                .svars
+                .get(&name)
+                .and_then(|body| Params::parse(body))
+                .is_some_and(|(api, mut c)| {
+                    api == "Cleanup"
+                        && c.take("ClearChosenCard").as_deref() == Some("True")
+                        && c.exhausted()
+                });
+            if !clears {
+                return self.deny(format!("`{name}` after a chosen-source shield"));
+            }
+        }
+        let gain_life = self.chosen_source_replacement(&replacement, recheck)?;
+        let sources = self.body.filter_static("SOURCE", &filter);
+        Some(vec![format!(
+            "Effect::PreventNextFromChosenSource {{ sources: &{sources}, combat_only: false, \
+             all_but: 0, gain_life: {gain_life} }}"
+        )])
+    }
+
+    /// The replacement a chosen-source shield waits with: damage from the
+    /// chosen source (`recheck`, its properties spelled as the choice spelled
+    /// them) to you, prevented, and then either nothing more or "you gain
+    /// life equal to the damage prevented this way". The answer is whether
+    /// it gains the life.
+    fn chosen_source_replacement(&self, replacement: &str, recheck: String) -> Option<bool> {
+        let Some((event, mut shield)) = self.svars.get(replacement).and_then(|b| Params::parse(b))
+        else {
+            return self.deny(format!("replacement `{replacement}` names no SVar"));
+        };
+        shield.drop_prose();
+        let waits = event == "DamageDone"
+            && shield.take("ValidSource") == Some(recheck)
+            && shield.take("ValidTarget").as_deref() == Some("You")
+            && shield.take("PreventionEffect").as_deref() == Some("True");
+        let Some(then) = shield.take("ReplaceWith").filter(|_| waits) else {
+            return self.deny("a chosen-source replacement that is not a shield on you".into());
+        };
+        if let Some(key) = shield.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        match self.svars.get(&then).and_then(|b| Params::parse(b)) {
+            Some((api, mut gain)) if api == "GainLife" => {
+                let reads = gain.take("Defined").as_deref() == Some("You")
+                    && gain.take("LifeAmount").is_some_and(|x| {
+                        self.svars.get(&x).map(String::as_str) == Some("ReplaceCount$DamageAmount")
+                    });
+                let exile = gain.take("SubAbility");
+                if !reads || !gain.exhausted() || !exile.is_some_and(|e| self.exiles_itself(&e)) {
+                    return self.deny("a chosen-source shield's life gain".to_string());
+                }
+                Some(true)
+            }
+            _ if self.exiles_itself(&then) => Some(false),
+            _ => self.deny(format!("`ReplaceWith$ {then}` on a chosen-source shield")),
+        }
+    }
+
+    /// Whether `name` is the line a used-up command-zone effect exiles
+    /// itself with, and nothing more.
+    fn exiles_itself(&self, name: &str) -> bool {
+        self.svars
+            .get(name)
+            .and_then(|body| Params::parse(body))
+            .is_some_and(|(api, mut z)| {
+                api == "ChangeZone"
+                    && z.take("Defined").as_deref() == Some("Self")
+                    && z.take("Origin").as_deref() == Some("Command")
+                    && z.take("Destination").as_deref() == Some("Exile")
+                    && z.exhausted()
+            })
+    }
+
     /// A valid-string (`Creature.YouCtrl+nonToken`) as a `Filter`.
     fn filter_expr(&self, valid: &str) -> Option<String> {
         let mut alternatives = Vec::new();
@@ -430,13 +776,18 @@ impl Tx<'_> {
                     // when the answer is nothing (CR 704.5m against
                     // 704.5n–p), which is the state-based actions' business
                     // and not this clause's.
-                    "EnchantedBy" | "EquippedBy" => "Filter::AttachedToBySource".to_string(),
+                    "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
+                        "Filter::AttachedToBySource".to_string()
+                    }
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
+                    "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
                     "Other" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "blocking" => "Filter::Blocking".to_string(),
+                    "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
                     "untapped" => "Filter::Untapped".to_string(),
                     "token" => "Filter::IsToken".to_string(),
@@ -460,7 +811,27 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
                     }
                     "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
+                    // The two card types a noun cannot say "not" to on its
+                    // own ("nonartifact, nonblack creature").
+                    "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
+                    "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
+                    "Colorless" => "Filter::IsColorless".to_string(),
                     "" => continue,
+                    // A colour word (CR 105.2): "black creatures", "target
+                    // green spell", "nonblack creature". A colour is not a
+                    // subtype, so it is asked before the subtype arm below,
+                    // which would otherwise refuse `Black` as an unknown type.
+                    other if color_atom(other).is_some() => {
+                        let (negated, color) = color_atom(other).unwrap_or_default();
+                        let has =
+                            format!("Filter::HasColor(ColorSet::from_slice(&[Color::{color}]))");
+                        if negated {
+                            format!("Filter::Not(&{has})")
+                        } else {
+                            has
+                        }
+                    }
+                    other if self.worded_atom(other).is_some() => self.worded_atom(other)?,
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -627,12 +998,74 @@ impl Tx<'_> {
         })
     }
 
+    /// "Target spell or permanent": `TargetSpec::StackOrBattlefield` over the
+    /// valid-string's filter.
+    fn spell_or_permanent_target(&mut self, valid: &str) -> Option<String> {
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
+    }
+
+    /// "Target creature card in your graveyard": a `CardInGraveyard` spec,
+    /// whose player is whose graveyard. In a graveyard the reference's
+    /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
+    /// its owner is whose graveyard it is in); no such qualifier is any
+    /// graveyard. The rest of the valid-string is the card's filter.
+    fn graveyard_target(&mut self, valid: &str) -> Option<String> {
+        let (base, rest) = valid.split_once('.').unwrap_or((valid, ""));
+        let mut whose = "PlayerRel::EachPlayer";
+        let mut kept = Vec::new();
+        for atom in rest.split('+').filter(|a| !a.is_empty()) {
+            match atom {
+                "YouCtrl" | "YouOwn" => whose = "PlayerRel::You",
+                "OppCtrl" | "OppOwn" => whose = "PlayerRel::Opponent",
+                other => kept.push(other),
+            }
+        }
+        let filter = if kept.is_empty() {
+            self.filter_expr(base)?
+        } else {
+            self.filter_expr(&format!("{base}.{}", kept.join("+")))?
+        };
+        let filter = self.body.filter_static("TARGET", &filter);
+        Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
+    }
+
     /// `Defined$ You` and friends as a `PlayerRel`.
-    fn player_rel(defined: Option<&str>) -> Option<&'static str> {
+    ///
+    /// Two of them mean "that player" of the trigger being read, and what
+    /// that is depends on the trigger: the player whose step began for a
+    /// `Phase` trigger, the controller of the card that moved for a
+    /// `ChangesZone` one. Anywhere else the same words name something this
+    /// reader cannot see, and refuse.
+    fn player_rel(&self, defined: Option<&str>) -> Option<&'static str> {
+        let trigger = self.trigger_mode.as_deref();
         Some(match defined.unwrap_or("You") {
             "You" => "PlayerRel::You",
             "Opponent" | "Player.Opponent" => "PlayerRel::Opponent",
             "Player" => "PlayerRel::EachPlayer",
+            // "Enchanted land's controller" (CR 303.4e).
+            "EnchantedController" | "Player.EnchantedController" => {
+                "PlayerRel::ControllerOfAttached"
+            }
+            "TriggeredPlayer" if trigger == Some("Phase") => "PlayerRel::ActivePlayer",
+            // Last known (CR 603.10a): a land put into a graveyard is
+            // controlled by nobody by the time the ability resolves.
+            "TriggeredCardController" if trigger == Some("ChangesZone") => {
+                "PlayerRel::ControllerOfEvent"
+            }
+            // The permanent tapped for mana is the event's object, and its
+            // controller is the only player who can have tapped it for mana
+            // (CR 602.2): "its controller" and "that player" are one seat.
+            "TriggeredCardController" | "TriggeredActivator" if trigger == Some("TapsForMana") => {
+                "PlayerRel::ControllerOfEvent"
+            }
+            // The permanent that became tapped is the event's object.
+            "TriggeredCardController" if trigger == Some("Taps") => "PlayerRel::ControllerOfEvent",
+            // The player a damage trigger's damage was dealt to: the
+            // `DamageDone` rule reads only triggers whose target is a
+            // player, so `TriggeredTarget` is one.
+            "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
             _ => return None,
         })
     }
@@ -652,11 +1085,35 @@ impl Tx<'_> {
     /// `LoseLife` followed by a bare `GainLife` and a bare `Draw`, and read
     /// against the chain it generated as a sorcery whose target gained the
     /// life and drew the card while its caster got neither.
-    fn player_rel_of(defined: Option<&str>, targets_a_player: bool) -> Option<&'static str> {
+    fn player_rel_of(&self, defined: Option<&str>, targets_a_player: bool) -> Option<&'static str> {
         if defined.is_none() && targets_a_player {
             return Some("PlayerRel::Chosen");
         }
-        Self::player_rel(defined)
+        self.player_rel(defined)
+    }
+
+    /// [`Self::player_rel_of`], and the two `Defined$` words that name the
+    /// chain's target: `Targeted` is the player it targeted (`Chosen`),
+    /// `TargetedController` the controller of the object or spell it
+    /// targeted (`ControllerOfTarget`, last known, CR 608.2h). Each is read
+    /// only against a chain whose target is that kind of thing; a word that
+    /// names a target the chain does not have is refused.
+    fn player_of_line(
+        &self,
+        defined: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<&'static str> {
+        let player_target = target == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        let object_target = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+        });
+        match defined {
+            Some("Targeted" | "TargetedPlayer") if player_target => Some("PlayerRel::Chosen"),
+            Some("TargetedController") if object_target => Some("PlayerRel::ControllerOfTarget"),
+            Some("Targeted" | "TargetedPlayer" | "TargetedController") => None,
+            other => self.player_rel_of(other, targets_a_player),
+        }
     }
 
     /// One effect and everything its `SubAbility$` chain adds.
@@ -668,7 +1125,26 @@ impl Tx<'_> {
         let valid = p.take("ValidTgts");
         let targets_here = valid.is_some();
         if let Some(valid) = valid {
-            let Some(spec) = self.target_spec(&valid, &api) else {
+            // A card in a graveyard is a different kind of target from a
+            // permanent (CR 115.1 names both, and they are chosen from
+            // different zones), so the zone the line moves *from* decides
+            // the spec before the valid-string is read.
+            let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
+                self.graveyard_target(&valid)
+            } else {
+                // "Target spell or permanent" (the Laces): the stack is a
+                // zone a target may be chosen in only where the line says
+                // so. The battlefield alone is what every target already
+                // is.
+                match p.take("TgtZone").as_deref() {
+                    None | Some("Battlefield") => self.target_spec(&valid, &api),
+                    Some("Stack,Battlefield" | "Battlefield,Stack") => {
+                        self.spell_or_permanent_target(&valid)
+                    }
+                    Some(zone) => return self.deny(format!("a target in `TgtZone$ {zone}`")),
+                }
+            };
+            let Some(spec) = spec else {
                 return self.deny(format!("target `{valid}`"));
             };
             if chain.target.get_or_insert(spec.clone()) != &spec {
@@ -676,6 +1152,14 @@ impl Tx<'_> {
             }
         }
         let sub = p.take("SubAbility");
+        // The chosen-source shield is three lines in the reference and one
+        // sentence on the card: its `SubAbility$` is part of the sentence,
+        // not the next one, so this rule reads the rest of the chain itself.
+        if api == "ChooseSource" {
+            let effects = self.prevent_from_chosen_source(p, sub.as_deref())?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
         // The requirement and the effect name the target differently when it
         // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
         // spell's chosen player, and the effect then reads it back as
@@ -693,8 +1177,26 @@ impl Tx<'_> {
         // only where this line declared the player target itself.
         let targets_a_player =
             targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        // "Sacrifice it unless you pay {U}", "counter target spell unless
+        // its controller pays {2}": the price is the line's and not its
+        // effect's, so it is read here for every API and wraps whatever the
+        // line turns out to say.
+        let unless = match p.take("UnlessCost") {
+            Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref())?),
+            None => None,
+        };
+        // "If that creature would die this turn, exile it instead": a rider
+        // on whatever the line does to its target, read for every API.
+        let dying = match p.take("ReplaceDyingDefined") {
+            Some(defined) => Some(self.exile_if_dies(&defined, target.as_deref())?),
+            None => None,
+        };
+        let at_end = match p.take("AtEOT") {
+            Some(what) => Some(self.at_next_end_step(&api, &what, target.as_deref())?),
+            None => None,
+        };
 
-        let Some(effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
+        let Some(mut effects) = self.effect_of(&api, &mut p, target.as_deref(), targets_a_player)
         else {
             // An API with no rule at all is a different report than a rule
             // that met a value it cannot say — the first is a missing
@@ -712,6 +1214,12 @@ impl Tx<'_> {
             }
             return None;
         }
+        effects.extend(dying);
+        effects.extend(at_end);
+        let effects = match unless {
+            Some(unless) => vec![self.unless_wrap(unless, &effects)?],
+            None => effects,
+        };
         chain.effects.extend(effects);
         match sub {
             Some(name) => {
@@ -722,6 +1230,187 @@ impl Tx<'_> {
             }
             None => Some(()),
         }
+    }
+
+    /// `ReplaceDyingDefined$` — "if that creature would die this turn,
+    /// exile it instead" (Magma Spray), a replacement on the line's own
+    /// target for the rest of the turn.
+    ///
+    /// `Targeted` is the target whatever it is (Scorching Dragonfire's
+    /// "that creature or planeswalker"); `ThisTargetedCard.Creature` is
+    /// Disintegrate's "if it's a creature", asked of an any-target as the
+    /// spell resolves. `Remembered` is "a creature dealt damage this way",
+    /// which asks whether damage was dealt, and is refused, as is a
+    /// condition on the rider (`ReplaceDyingCondition$`, left unclaimed) and
+    /// a line whose target is a player.
+    fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
+        let Some(target) = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        }) else {
+            return self.deny(format!(
+                "`ReplaceDyingDefined$ {defined}` with no object target"
+            ));
+        };
+        let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
+        match defined {
+            "Targeted" => Some(exile),
+            "ThisTargetedCard.Creature" => Some(format!(
+                "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
+            )),
+            other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
+        }
+    }
+
+    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
+    /// the beginning of the next end step" (Stone Giant): a delayed trigger
+    /// about the target, `Effect::AtNextEndStep`.
+    ///
+    /// Only `Destroy` on a targeted `Pump`. A token's or a copy's "sacrifice
+    /// it" is about the object the line made, not a target, and "exile it",
+    /// "return it to your hand" and the upkeep spellings are other
+    /// sentences; each is refused by name.
+    fn at_next_end_step(&mut self, api: &str, what: &str, target: Option<&str>) -> Option<String> {
+        let aimed = target.is_some_and(|t| {
+            !matches!(
+                t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        });
+        if api != "Pump" || !aimed || what != "Destroy" {
+            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
+        }
+        Some(
+            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+                .to_string(),
+        )
+    }
+
+    /// The "unless" of a line: `UnlessCost$` with the keys that qualify it.
+    ///
+    /// **The payer.** `UnlessPayer$ You` is the source's controller. Absent,
+    /// the reference asks the controller of the line's target (its default
+    /// is `TargetedController`), which is Mana Leak's "unless its controller
+    /// pays" — so an absent payer is read only on a line that targets a
+    /// spell or a permanent, and refused on one that targets nothing, where
+    /// that default names nobody. Every other payer is refused by name:
+    /// `Player` is every player at once, a price no one question can put.
+    ///
+    /// **The subs.** Without `UnlessResolveSubs$` the rest of the chain runs
+    /// either way, which is what wrapping this line alone gives. With it the
+    /// rest runs on one answer only (Power Sink's "if that player doesn't,
+    /// they tap all lands…"), a shape this does not read yet.
+    fn unless(&mut self, cost: &str, p: &mut Params, target: Option<&str>) -> Option<Unless> {
+        if let Some(subs) = p.take("UnlessResolveSubs") {
+            return self.deny(format!("`UnlessResolveSubs$ {subs}`"));
+        }
+        let switched = match p.take("UnlessSwitched").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`UnlessSwitched$ {other}`")),
+        };
+        let payer = p.take("UnlessPayer");
+        let targets_a_controlled_object = target.is_some_and(|t| {
+            t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
+        });
+        let payer = match payer.as_deref() {
+            Some("You") => "PlayerRel::You",
+            // Paralyze's "that player may pay {4}": the enchanted
+            // creature's controller (CR 303.4e names the Aura's host).
+            Some("EnchantedController") => "PlayerRel::ControllerOfAttached",
+            None | Some("TargetedController") if targets_a_controlled_object => {
+                "PlayerRel::ControllerOfTarget"
+            }
+            other => {
+                return self.deny(format!(
+                    "an unless-cost paid by `{}`",
+                    other.unwrap_or("TargetedController")
+                ));
+            }
+        };
+        let price = self.unless_price(cost.trim())?;
+        Some(Unless {
+            payer,
+            price,
+            switched,
+        })
+    }
+
+    /// An `UnlessCost$` value as a [`Price`].
+    ///
+    /// Read by [`Tx::cost_pieces`], the reader an activation cost goes
+    /// through, and then held to what the "unless" effects can carry. Plain
+    /// generic mana stays an [`Amount`] (`PlayerMayPayOr`); anything with a
+    /// colour in it is printed exactly (`PlayerMayPayManaOr`), where it used
+    /// to be refused — a `{U}` charged as `{1}` is a card anyone could keep
+    /// with a Mountain. One part the player pays by naming an object is
+    /// `PlayerMayPayCostOr`. A part that needs no answer (`PayLife<2>`) is
+    /// refused even though `CostPart` can hold it: that effect asks by
+    /// putting up the list of what may pay, and an empty list is how a
+    /// player declines — so a price nobody names an object for would
+    /// decline itself every time.
+    fn unless_price(&mut self, raw: &str) -> Option<Price> {
+        // "Unless its controller pays {X}" (Power Sink): the X announced
+        // for the source, and only where the card says that is what X is.
+        if raw == "X" {
+            let Some(x) = amount(raw, self.svars, self.has_x) else {
+                return self.deny("an unless-cost of `X`".to_string());
+            };
+            return Some(Price::Generic(x));
+        }
+        let (mana, parts) = self.cost_pieces(raw)?;
+        match (mana.as_str(), parts.as_slice()) {
+            (m, []) if !m.is_empty() => Some(match generic_mana(m) {
+                Some(n) => Price::Generic(format!("Amount::Fixed({n})")),
+                None => Price::Printed(m.to_string()),
+            }),
+            ("", [one]) if asks_for_an_object(one) => Some(Price::Part(one.clone())),
+            _ => self.deny(format!("an unless-cost of `{raw}`")),
+        }
+    }
+
+    /// The line's effects behind its price. A tax runs them on a refusal and
+    /// takes them as one effect (a `Sequence` when there are several); a
+    /// switched price runs them on a payment and takes the list.
+    fn unless_wrap(&mut self, unless: Unless, effects: &[String]) -> Option<String> {
+        let Unless {
+            payer,
+            price,
+            switched,
+        } = unless;
+        let one = match effects {
+            [] => return self.deny("an unless-cost on a line with no effect".to_string()),
+            [one] => one.clone(),
+            many => format!("Effect::Sequence(&[{}])", many.join(", ")),
+        };
+        let list = effects.join(", ");
+        Some(match (price, switched) {
+            (Price::Generic(mana), false) => format!(
+                "Effect::PlayerMayPayOr {{ player: {payer}, mana: {mana}, effect: &{one} }}"
+            ),
+            (Price::Generic(mana), true) => format!(
+                "Effect::PlayerMayPayThen {{ player: {payer}, mana: {mana}, effects: &[{list}] }}"
+            ),
+            (Price::Printed(cost), false) => format!(
+                "Effect::PlayerMayPayManaOr {{ player: {payer}, cost: mana!(\"{cost}\"), \
+                 effect: &{one} }}"
+            ),
+            (Price::Printed(cost), true) => format!(
+                "Effect::PlayerMayPayManaThen {{ player: {payer}, cost: mana!(\"{cost}\"), \
+                 effects: &[{list}] }}"
+            ),
+            (Price::Part(part), false) => format!(
+                "Effect::PlayerMayPayCostOr {{ player: {payer}, cost: &CostPart::{part}, \
+                 effect: &{one} }}"
+            ),
+            // "You may <sacrifice a creature>. If you do, …" is a price no
+            // effect here takes on the paying answer.
+            (Price::Part(part), true) => {
+                return self.deny(format!("a switched unless-cost of `{part}`"));
+            }
+        })
     }
 
     /// One effect API as the `Effect` expressions it stands for.
@@ -746,39 +1435,95 @@ impl Tx<'_> {
         let aimed = target.unwrap_or("TargetSpec::AnyPlayer");
         Some(match api {
             "DealDamage" => {
-                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                let n = self.amount_or_count(&p.take("NumDmg")?)?;
+                // "Deals 4 damage to any target and 2 damage to you"
+                // (Psionic Blast): the reference gathers both into one
+                // simultaneous event and deals it at `DamageResolve`. The
+                // engine journals one `DamageDealt` per recipient either
+                // way, as it does for `DealDamageEach`, and nothing checks
+                // state-based actions between two effects of one
+                // resolution, so the two in sequence are the same event.
+                if p.take("DamageMap").is_some_and(|v| v != "True") {
+                    return None;
+                }
                 let to = match p.take("Defined").as_deref() {
                     None => aimed.to_string(),
-                    Some("You") => "TargetSpec::Player(PlayerRel::You)".to_string(),
-                    Some("Opponent") => "TargetSpec::Player(PlayerRel::Opponent)".to_string(),
-                    Some(_) => return None,
+                    // "Deals 1 damage to that player" and every other
+                    // player the line names without targeting one.
+                    Some(who) => format!("TargetSpec::Player({})", self.player_rel(Some(who))?),
                 };
                 vec![format!(
                     "Effect::DealDamage {{ amount: {n}, target: {to} }}"
                 )]
             }
+            // A number, or the X the player announced (Stream of Life's
+            // "target player gains X life"): [`amount`] asks both of its
+            // questions of an `X`, so a count spelled with the same letter
+            // is still refused.
             "GainLife" => {
-                let n = plain_number(&p.take("LifeAmount")?, self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
-                    "PlayerRel::You" => vec![format!("Effect::gain_life({n})")],
-                    who => vec![format!(
-                        "Effect::GainLifeFor {{ amount: Amount::Fixed({n}), who: {who} }}"
-                    )],
+                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
+                match (
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
+                    n.strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')')),
+                ) {
+                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::gain_life({fixed})")],
+                    ("PlayerRel::You", None) => vec![format!("Effect::GainLife {{ amount: {n} }}")],
+                    (who, _) => vec![format!("Effect::GainLifeFor {{ amount: {n}, who: {who} }}")],
                 }
             }
             "LoseLife" => {
-                let n = amount(&p.take("LifeAmount")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let n = self.amount_or_count(&p.take("LifeAmount")?)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
+            // The same two readings as `GainLife`: Braingeyser's "target
+            // player draws X cards".
             "Draw" => {
-                let n = plain_number(p.take("NumCards").as_deref().unwrap_or("1"), self.svars)?;
-                match Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)? {
-                    "PlayerRel::You" => vec![format!("Effect::draw({n})")],
-                    who => vec![format!(
-                        "Effect::DrawCardsFor {{ amount: Amount::Fixed({n}), who: {who} }}"
+                let n = amount(
+                    p.take("NumCards").as_deref().unwrap_or("1"),
+                    self.svars,
+                    self.has_x,
+                )?;
+                match (
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
+                    n.strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')')),
+                ) {
+                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::draw({fixed})")],
+                    ("PlayerRel::You", None) => {
+                        vec![format!("Effect::DrawCards {{ amount: {n} }}")]
+                    }
+                    (who, _) => vec![format!(
+                        "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
                     )],
                 }
+            }
+            // "Target player discards a card": the discarding player
+            // chooses, which is what discarding means unless the effect
+            // says otherwise (CR 701.9b).
+            // "Each player discards their hand" (Wheel of Fortune): every
+            // card, nobody choosing.
+            "Discard" if p.peek("Mode") == Some("Hand") => {
+                p.take("Mode");
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!("Effect::DiscardHand {{ who: {who} }}")]
+            }
+            "Discard" if p.peek("Mode") == Some("TgtChoose") => {
+                p.take("Mode");
+                let n = p
+                    .take("NumCards")
+                    .as_deref()
+                    .unwrap_or("1")
+                    .parse::<u8>()
+                    .ok()?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!(
+                    "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
+                )]
             }
             "Discard" => {
                 // Refuse other modes instead of turning a chosen discard
@@ -791,14 +1536,16 @@ impl Tx<'_> {
                     self.svars,
                     self.has_x,
                 )?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
                     "Effect::DiscardRandom {{ who: {who}, count: {n} }}"
                 )]
             }
             "Mill" => {
                 let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
-                let who = Self::player_rel_of(p.take("Defined").as_deref(), targets_a_player)?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
             }
             "PutCounter" => {
@@ -860,6 +1607,7 @@ impl Tx<'_> {
                 }
             }
             "Mana" => self.mana_effect(p)?,
+            "DelayedTrigger" => vec![self.delayed_trigger(p, target)?],
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
                 // It was vacuous while this engine had no regeneration at
@@ -878,7 +1626,94 @@ impl Tx<'_> {
                 } else {
                     "destroy"
                 };
-                vec![format!("Effect::{verb}({aimed})")]
+                // "Destroy that creature" in a delayed trigger's body: the
+                // object it remembers ([`Tx::delayed_trigger`]). Anywhere
+                // else the key is left for the unclaimed check to refuse.
+                let remembered = self.in_delayed
+                    && target.is_none()
+                    && matches!(
+                        p.peek("Defined"),
+                        Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
+                    );
+                if remembered {
+                    p.take("Defined");
+                    vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
+                } else {
+                    vec![format!("Effect::{verb}({aimed})")]
+                }
+            }
+            // "Destroy all lands", "destroy all creatures. They can't be
+            // regenerated": every permanent the valid-string names, none of
+            // them a target (so an ability that also targets is refused
+            // rather than read as a sweep of its target). `NoRegen$` is the
+            // same two doors as the single destroy above (CR 701.19c).
+            "DestroyAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let filter = self.filter_expr(&p.take("ValidCards")?)?;
+                let verb = match p.take("NoRegen").as_deref() {
+                    None => "destroy_all",
+                    Some("True") => "destroy_all_no_regen",
+                    Some(_) => return None,
+                };
+                vec![format!("Effect::{verb}(&{filter})")]
+            }
+            // "X damage to each creature without flying and each player"
+            // (Earthquake): `DealDamageEach` for the permanents and a
+            // `DealDamage` for the players, which is the one spelling
+            // `DealDamageEach` names for the second half. Nothing is
+            // targeted, so an ability that also targets is refused.
+            // Where the reference deals the damage `DamageMap$` gathered:
+            // the `DealDamage` lines before it already did.
+            "DamageResolve" => Vec::new(),
+            // "Prevent the next N damage that would be dealt to any target
+            // this turn" (Samite Healer; CR 615.7): a shield on what the
+            // line targets, or on the player `Defined$` names. With
+            // neither, nothing is shielded, and that is not a card.
+            "PreventDamage" => {
+                let n = amount(&p.take("Amount")?, self.svars, self.has_x)?;
+                let to = match (p.take("Defined").as_deref(), target) {
+                    (Some(who), None) => {
+                        format!("TargetSpec::Player({})", self.player_rel(Some(who))?)
+                    }
+                    (None, Some(aimed)) => aimed.to_string(),
+                    _ => return None,
+                };
+                vec![format!(
+                    "Effect::PreventNextDamage {{ target: {to}, amount: {n} }}"
+                )]
+            }
+            // "Prevent all combat damage that would be dealt this turn."
+            // The bare line only: the reference narrows it with keys this
+            // rule does not claim, and those refuse.
+            "Fog" => vec!["Effect::PreventAllCombatDamageThisTurn".to_string()],
+            "DamageAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                // The printed words for the two keys below ("each creature
+                // and each player"), which say nothing those keys do not.
+                p.take("ValidDescription");
+                let mut out = Vec::new();
+                if let Some(valid) = p.take("ValidCards") {
+                    let filter = self.filter_expr(&valid)?;
+                    let filter = self.body.filter_static("EACH", &filter);
+                    out.push(format!(
+                        "Effect::DealDamageEach {{ amount: {n}, filter: &{filter} }}"
+                    ));
+                }
+                if let Some(players) = p.take("ValidPlayers") {
+                    let who = self.player_rel(Some(&players))?;
+                    out.push(format!(
+                        "Effect::DealDamage {{ amount: {n}, target: TargetSpec::Player({who}) }}"
+                    ));
+                }
+                if out.is_empty() {
+                    return None;
+                }
+                out
             }
             "Regenerate" => {
                 // Bare `AB$ Regenerate` is "regenerate CARDNAME" — 181 of
@@ -889,8 +1724,17 @@ impl Tx<'_> {
                 // enchanted creature, a remembered object; 33 lines) and is
                 // refused rather than guessed at, which leaves the 62 that
                 // carry a `ValidTgts$` as the targeted half.
-                if p.take("Defined").is_some() {
-                    return None;
+                match p.take("Defined").as_deref() {
+                    None => {}
+                    // "Regenerate enchanted creature" (Regeneration): the
+                    // Aura's host, which the filter binds to the source.
+                    Some("Enchanted" | "Equipped") if target.is_none() => {
+                        return Some(vec![
+                            "Effect::RegenerateAll { filter: &Filter::AttachedToBySource }"
+                                .to_string(),
+                        ]);
+                    }
+                    Some(_) => return None,
                 }
                 match target {
                     Some(t) => vec![format!("Effect::regenerate({t})")],
@@ -901,9 +1745,72 @@ impl Tx<'_> {
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
             "Pump" => self.pump_effect(p, aimed)?,
+            "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target)?,
+            "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
+            // "Look at the top three cards of target player's library and
+            // put them back in any order. You may have that player shuffle"
+            // (Natural Selection). The ability's controller looks and
+            // decides; a count the player announced is refused.
+            "RearrangeTopOfLibrary" => {
+                let count: u8 = p.take("NumCards")?.parse().ok()?;
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let mut effects = vec![if who == "PlayerRel::You" {
+                    format!("Effect::ReorderTopLibrary {{ count: {count} }}")
+                } else {
+                    format!("Effect::ReorderTopLibraryOf {{ who: {who}, count: {count} }}")
+                }];
+                match p.take("MayShuffle").as_deref() {
+                    None => {}
+                    Some("True") => effects.push(format!(
+                        "Effect::MayDo {{ effects: &[Effect::ShuffleLibrary {{ who: {who} }}] }}"
+                    )),
+                    Some(_) => return None,
+                }
+                effects
+            }
             "Sacrifice" => self.sacrifice_effect(p)?,
-            "Tap" => vec!["Effect::TapTarget".to_string()],
+            // "Tap enchanted creature" (Paralyze): the host, and not a
+            // target.
+            // "Tap all lands target player controls" (Mana Short): the
+            // permanents of the players `Defined$` names, or of the line's
+            // own player target. Without either it is every matching
+            // permanent, `TapAll`, and the line must target nothing, for
+            // a target it never uses is not a card.
+            "TapAll" => {
+                let filter = self.filter_expr(&p.take("ValidCards")?)?;
+                let defined = p.take("Defined");
+                if defined.is_none() && !targets_a_player {
+                    if target.is_some() {
+                        return None;
+                    }
+                    return Some(vec![format!("Effect::TapAll {{ filter: &{filter} }}")]);
+                }
+                let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
+                vec![format!(
+                    "Effect::TapAllOf {{ who: {who}, filter: &{filter} }}"
+                )]
+            }
+            // "That player loses all unspent mana" (CR 106.4).
+            "DrainMana" => {
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                vec![format!("Effect::LoseUnspentMana {{ who: {who} }}")]
+            }
+            // "You may tap or untap target artifact, creature, or land"
+            // (Twiddle): one of the two choices always does nothing, so
+            // the choice is a yes or a no (`Effect::ToggleTapTarget`).
+            "TapOrUntap" if target.is_some() && p.take("Defined").is_none() => {
+                vec!["Effect::MayDo { effects: &[Effect::ToggleTapTarget] }".to_string()]
+            }
+            "Tap" => match p.take("Defined").as_deref() {
+                None => vec!["Effect::TapTarget".to_string()],
+                Some("Enchanted" | "Equipped") if target.is_none() => {
+                    vec!["Effect::TapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                }
+                Some(_) => return None,
+            },
             // `AB$ Untap` with no `ValidTgts$` is the source, not a target
             // — Basalt Monolith's "{3}: Untap this artifact". Read as
             // `UntapTarget` it would walk an empty `res.targets` and untap
@@ -911,10 +1818,26 @@ impl Tx<'_> {
             // `Implemented` and does nothing. Nothing in the pool was
             // written that way (asserted in `untap_tests`); it was one
             // reference script away from being.
-            "Untap" => match target {
-                Some(_) => vec!["Effect::UntapTarget".to_string()],
-                None => vec!["Effect::UntapSelf".to_string()],
+            "Untap" => match (p.take("Defined").as_deref(), target) {
+                (None, Some(_)) => vec!["Effect::UntapTarget".to_string()],
+                (None, None) => vec!["Effect::UntapSelf".to_string()],
+                // "Untap enchanted creature" (Instill Energy).
+                (Some("Enchanted" | "Equipped"), None) => {
+                    vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]
+                }
+                _ => return None,
             },
+            // "Take an extra turn after this one" (Time Walk; CR 500.7).
+            // One turn, and yours: another count or another player is a
+            // different sentence.
+            "AddTurn" => {
+                if p.take("NumTurns").as_deref() != Some("1")
+                    || !matches!(p.take("Defined").as_deref(), None | Some("You"))
+                {
+                    return None;
+                }
+                vec!["Effect::TakeExtraTurn".to_string()]
+            }
             "Counter" => {
                 if p.take("TargetType").as_deref() != Some("Spell") {
                     return None;
@@ -925,29 +1848,18 @@ impl Tx<'_> {
         })
     }
 
-    /// `DB$ Sacrifice`: "sacrifice it", with or without a way out.
+    /// `DB$ Sacrifice`: "sacrifice it".
     ///
-    /// Three sentences in one API, and only two of them are this rule.
     /// **Bare** is "sacrifice this" — 111 of the corpus's 895 sacrifice
     /// lines, and [`Effect::SacrificeSelf`] says it exactly. With an
     /// `UnlessCost$` it is the Karoo sentence, "sacrifice it unless you
-    /// <pay>", which is 131 more and the largest single shape the API
-    /// writes. What it is **not** is `Defined$`/`SacValid$`: those name
-    /// somebody else's permanent ("each player sacrifices a creature"), a
-    /// player choice this DSL has no effect for, and reading them as the
-    /// source would be a card that sacrifices the wrong permanent under a
+    /// <pay>", 131 more — read by [`Tx::unless`] for every API, since the
+    /// price belongs to the line and not to the sacrifice. What it is
+    /// **not** is `Defined$`/`SacValid$`: those name somebody else's
+    /// permanent ("each player sacrifices a creature"), a player choice this
+    /// DSL has no effect for, and reading them as the source would be a
+    /// card that sacrifices the wrong permanent under a
     /// `Coverage::Implemented`.
-    ///
-    /// The price is read by [`Tx::cost_pieces`], the same reader an
-    /// activation cost goes through, and then held to what the two "unless"
-    /// effects can carry: `PlayerMayPayOr` charges *generic* mana in an
-    /// [`Amount`], so a colour is refused rather than silently spent as
-    /// colourless, and `PlayerMayPayCostOr` charges exactly one part the
-    /// player answers by naming an object. A part that needs no answer
-    /// (`PayLife<2>`) is refused here even though `CostPart` can hold it:
-    /// the engine asks that question by putting up the list of what may pay,
-    /// and an empty list is how a player declines — so a price nobody names
-    /// an object for would decline itself every time.
     fn sacrifice_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
         for key in [
             "Defined",
@@ -960,44 +1872,7 @@ impl Tx<'_> {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
-        let Some(cost) = p.take("UnlessCost") else {
-            return Some(vec!["Effect::SacrificeSelf".to_string()]);
-        };
-        // 130 of the 131 say `You` and the one that does not says `Player`,
-        // which is every player at once — a price this effect cannot put to
-        // a table.
-        match p.take("UnlessPayer").as_deref() {
-            Some("You") => {}
-            other => {
-                return self.deny(format!(
-                    "a sacrifice charging `{}`",
-                    other.unwrap_or("nobody")
-                ));
-            }
-        }
-        let (mana, parts) = self.cost_pieces(&cost)?;
-        match (mana.as_str(), parts.as_slice()) {
-            (m, []) if !m.is_empty() => {
-                // Generic only. `{U}` and `{W}{W}` are 40 of these lines and
-                // are refused by name: the effect's price is an `Amount` of
-                // generic mana with no colour to put a symbol in.
-                let Some(n) = m.strip_prefix('{').and_then(|m| m.strip_suffix('}')) else {
-                    return self.deny(format!("a sacrifice charging `{m}`"));
-                };
-                let Ok(n) = n.parse::<u16>() else {
-                    return self.deny(format!("a sacrifice charging `{m}`"));
-                };
-                Some(vec![format!(
-                    "Effect::PlayerMayPayOr {{ player: PlayerRel::You, \
-                     mana: Amount::Fixed({n}), effect: &Effect::SacrificeSelf }}"
-                )])
-            }
-            ("", [one]) if asks_for_an_object(one) => Some(vec![format!(
-                "Effect::PlayerMayPayCostOr {{ player: PlayerRel::You, \
-                 cost: &CostPart::{one}, effect: &Effect::SacrificeSelf }}"
-            )]),
-            _ => self.deny(format!("a sacrifice charging `{cost}`")),
-        }
+        Some(vec!["Effect::SacrificeSelf".to_string()])
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -1024,7 +1899,7 @@ impl Tx<'_> {
         // where this line targets a player, and as you where it does not.
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
-            None => Self::player_rel_of(None, targets_a_player)?,
+            None => self.player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
         if owner != "PlayerRel::You" {
@@ -1121,8 +1996,8 @@ impl Tx<'_> {
             (Some(_), Some(_)) => {
                 return self.deny("`Investigate` naming its player twice".to_string());
             }
-            (Some(d), None) | (None, Some(d)) => Self::player_rel(Some(&d)),
-            (None, None) => Self::player_rel_of(None, targets_a_player),
+            (Some(d), None) | (None, Some(d)) => self.player_rel(Some(&d)),
+            (None, None) => self.player_rel_of(None, targets_a_player),
         };
         if who != Some("PlayerRel::You") {
             return self.deny("somebody other than you investigating".to_string());
@@ -1140,31 +2015,62 @@ impl Tx<'_> {
     /// *added* rather than set — an animated Colonnade that stopped being a
     /// land would stop making mana.
     ///
-    /// Only `Defined$ Self` is read, and only when the chain targets
-    /// nothing: `Filter::This` binds to the first target when there is one
-    /// and to the source when there is not, so a chain with both would
-    /// animate the wrong permanent.
+    /// Two objects are read, each the one `Filter::This` binds to: the
+    /// source (`Defined$ Self`) on a chain that targets nothing, and the
+    /// target on a line that names no `Defined$` — the Laces' "target spell
+    /// or permanent becomes red". `Filter::This` binds to the first target
+    /// when there is one and to the source when there is not, so a chain
+    /// with both would animate the wrong permanent, and is refused.
+    ///
+    /// `Duration$ Permanent` is "for the rest of the game"
+    /// (`Duration::Indefinitely`), `UntilEndOfCombat` is until end of combat;
+    /// without one it is until end of turn.
+    ///
+    /// `RemoveCreatureTypes$ True` is CR 205.1b's "becomes a [creature type]
+    /// artifact creature": the first creature type named replaces the ones it
+    /// had (`Modifier::ReplaceCreatureTypes`) and every other type is kept.
+    ///
+    /// `RemoveLandTypes$ True` is "target land becomes a Forest" (Gaea's
+    /// Liege): CR 305.7's setting of a land's subtype, `Modifier::SetLandType`,
+    /// for the one basic land type named; a second land type, or none, is
+    /// refused. `Duration$ UntilHostLeavesPlay` is "until [this] leaves the
+    /// battlefield", `Duration::WhileSourceOnBattlefield`.
     fn animate_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
-        if p.take("Defined").as_deref() != Some("Self") || target.is_some() {
-            self.note("`Animate` of something other than the source".to_string());
-            return None;
+        match (p.take("Defined").as_deref(), target) {
+            (Some("Self"), None) | (None, Some(_)) => {}
+            _ => {
+                self.note("`Animate` of something other than the source".to_string());
+                return None;
+            }
         }
+        let duration = match p.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilHostLeavesPlay") => "Duration::WhileSourceOnBattlefield",
+            Some(other) => {
+                self.note(format!("`Animate` lasting `{other}`"));
+                return None;
+            }
+        };
+        let replace_creature_types = match p.take("RemoveCreatureTypes").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`RemoveCreatureTypes$ {other}`")),
+        };
+        let set_land_type = match p.take("RemoveLandTypes").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`RemoveLandTypes$ {other}`")),
+        };
         let mut out = Vec::new();
-        // Layer 4: the types it becomes. A word is either a card type or a
-        // subtype, and the corpus writes both in one list.
-        for word in p.take("Types")?.split(',') {
-            let word = word.trim();
-            let modifier = if let Some(types) = card_type_const(word) {
-                format!("Modifier::AddType({types})")
-            } else {
-                let Some(path) = self.cats.const_path(word) else {
-                    self.note(format!("`Animate` into `{word}`"));
-                    return None;
-                };
-                format!("Modifier::AddSubtype({path})")
-            };
-            out.push(Self::animate_expr(&modifier));
-        }
+        let types = p.take("Types").unwrap_or_default();
+        self.animate_types(
+            &types,
+            (replace_creature_types, set_land_type),
+            duration,
+            &mut out,
+        )?;
         // Layer 5: colour. Without `OverwriteColors$ True` the card keeps
         // the colours it had, which is `AddColor` (CR 105.3).
         if let Some(raw) = p.take("Colors") {
@@ -1175,10 +2081,13 @@ impl Tx<'_> {
                 return None;
             };
             let which = if overwrite { "SetColor" } else { "AddColor" };
-            out.push(Self::animate_expr(&format!(
-                "Modifier::{which}(ColorSet::from_slice(&[{}]))",
-                colors.join(", ")
-            )));
+            out.push(Self::animate_expr(
+                &format!(
+                    "Modifier::{which}(ColorSet::from_slice(&[{}]))",
+                    colors.join(", ")
+                ),
+                duration,
+            ));
         }
         // Layer 6: keywords it gains.
         if let Some(raw) = p.take("Keywords") {
@@ -1189,9 +2098,10 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr(&format!(
-                "Modifier::AddKeyword({joined})"
-            )));
+            out.push(Self::animate_expr(
+                &format!("Modifier::AddKeyword({joined})"),
+                duration,
+            ));
         }
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
         // `SetPT` sets both, and half a set would invent the other.
@@ -1199,9 +2109,10 @@ impl Tx<'_> {
             (Some(power), Some(toughness)) => {
                 let power: i16 = power.parse().ok()?;
                 let toughness: i16 = toughness.parse().ok()?;
-                out.push(Self::animate_expr(&format!(
-                    "Modifier::SetPT({power}, {toughness})"
-                )));
+                out.push(Self::animate_expr(
+                    &format!("Modifier::SetPT({power}, {toughness})"),
+                    duration,
+                ));
             }
             (None, None) => {}
             _ => {
@@ -1216,13 +2127,72 @@ impl Tx<'_> {
         Some(out)
     }
 
+    /// Layer 4 of an [`Self::animate_effect`]: the types it becomes. A word
+    /// is either a card type or a subtype, and the corpus writes both in one
+    /// list. `remove` is (`RemoveCreatureTypes$ True`, `RemoveLandTypes$
+    /// True`), each of which needs the one word it replaces with.
+    fn animate_types(
+        &mut self,
+        types: &str,
+        remove: (bool, bool),
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let (replace_creature_types, set_land_type) = remove;
+        let mut set = false;
+        let mut replaced = false;
+        for word in types.split(',').filter(|w| !w.trim().is_empty()) {
+            let word = word.trim();
+            let modifier = if let Some(types) = card_type_const(word) {
+                format!("Modifier::AddType({types})")
+            } else if set_land_type && let Some(path) = self.basic_land_type(word) {
+                if set {
+                    return self.deny("`RemoveLandTypes$` naming two land types".to_string());
+                }
+                set = true;
+                format!("Modifier::SetLandType({path})")
+            } else {
+                if set_land_type
+                    && self
+                        .cats
+                        .const_path_of(baylee_core::types::SubtypeKind::Land, word)
+                        .is_some()
+                {
+                    return self.deny(format!("`RemoveLandTypes$` into `{word}`"));
+                }
+                let Some(path) = self.cats.const_path(word) else {
+                    self.note(format!("`Animate` into `{word}`"));
+                    return None;
+                };
+                let creature_type = self
+                    .cats
+                    .const_path_of(baylee_core::types::SubtypeKind::Creature, word)
+                    .is_some();
+                if replace_creature_types && creature_type && !replaced {
+                    replaced = true;
+                    format!("Modifier::ReplaceCreatureTypes({path})")
+                } else {
+                    format!("Modifier::AddSubtype({path})")
+                }
+            };
+            out.push(Self::animate_expr(&modifier, duration));
+        }
+        if replace_creature_types && !replaced {
+            return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
+        }
+        if set_land_type && !set {
+            return self.deny("`RemoveLandTypes$` naming no basic land type".to_string());
+        }
+        Some(())
+    }
+
     /// One layer of an [`Self::animate_effect`], as the `Effect` expression.
     ///
     /// No layer is passed in because none is written out: `Effect::continuous`
     /// derives it from the modifier the way CR 613.1 does, so the emitter
     /// cannot name a layer that disagrees with what it is applying.
-    fn animate_expr(modifier: &str) -> String {
-        format!("Effect::continuous(&Filter::This, {modifier}, Duration::UntilEndOfTurn)")
+    fn animate_expr(modifier: &str, duration: &str) -> String {
+        format!("Effect::continuous(&Filter::This, {modifier}, {duration})")
     }
 
     /// One side of a pump, refused by what its value resolves *through*.
@@ -1292,12 +2262,40 @@ impl Tx<'_> {
         // Purely an AI targeting hint (don't curse your own team); it moves
         // no rule, so reading it changes nothing.
         p.take("IsCurse");
-        Some(match p.take("Defined").as_deref() {
-            Some("Self") => vec![format!(
-                "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+        // A pump that names nobody and targets nothing is the source's own:
+        // the reference defaults an absent `Defined$` to the card itself,
+        // and 175 of its `AB$ Pump` lines are written that way — Shivan
+        // Dragon's "{R}: This creature gets +1/+0". A pump that moves
+        // nothing at all is a placeholder some other line does the work
+        // for (`SP$ Pump | StackDescription$ None`), and pumping the source
+        // by nought would claim a card that does nothing. A spell has no
+        // self to pump once it resolves, so its bare pump stays refused.
+        let empty = power == "Amount::Fixed(0)"
+            && toughness == "Amount::Fixed(0)"
+            && keywords == "KeywordSet::EMPTY";
+        let defined = match p.take("Defined") {
+            None if target == "TargetSpec::AnyPlayer" && !self.on_a_spell && !empty => {
+                Some("Self".to_string())
+            }
+            other => other,
+        };
+        // "Enchanted creature gets +1/+0 until end of turn" on an Aura's own
+        // activated ability (Firebreathing): the object the source is
+        // attached to, which `Filter::AttachedToBySource` binds to the
+        // resolving ability's source.
+        let whom = match defined.as_deref() {
+            Some("Self") => Some("Filter::This"),
+            Some("Enchanted" | "Equipped") => Some("Filter::AttachedToBySource"),
+            _ => None,
+        };
+        if let Some(whom) = whom {
+            return Some(vec![format!(
+                "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
                  power: {power}, toughness: {toughness}, keywords: {keywords}, \
                  duration: Duration::UntilEndOfTurn }}"
-            )],
+            )]);
+        }
+        Some(match defined.as_deref() {
             None | Some("Targeted") => {
                 // Without a target this would pump nothing at all.
                 if target == "TargetSpec::AnyPlayer" {
@@ -1309,6 +2307,168 @@ impl Tx<'_> {
                 )]
             }
             Some(_) => return None,
+        })
+    }
+
+    /// An `Effect` line: a static ability that lasts the turn, read by the
+    /// one sentence its static says. Every other static stays refused.
+    fn static_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let statics = p.peek("StaticAbilities")?.trim().to_string();
+        let body = self.svars.get(&statics)?.clone();
+        let (mode, _) = Params::parse(&body)?;
+        match mode.as_str() {
+            "CantBlockBy" => self.unblockable_effect(p, target),
+            "CantRegenerate" => self.cant_regenerate_effect(p, target),
+            _ => None,
+        }
+    }
+
+    /// "It can't be regenerated this turn" (Disintegrate, Carbonize): an
+    /// `Effect` whose one static says no regeneration applies to what it
+    /// remembers, which is the line's target, and which ends when that
+    /// leaves the battlefield — `Effect::CantBeRegeneratedThisTurn`, kept
+    /// for that object only (CR 400.7, 701.19c).
+    ///
+    /// "If it's a creature" (`ConditionDefined$ ParentTarget |
+    /// ConditionPresent$ Creature`) is asked of the target as the line
+    /// resolves. "A creature dealt damage this way" (`Remembered.Creature`
+    /// after `RememberDamaged$`) asks whether damage was dealt, and is
+    /// refused.
+    fn cant_regenerate_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantRegenerate"
+            || st.take("ValidCard").as_deref() != Some("Card.IsRemembered")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+            return None;
+        }
+        p.take("IsCurse");
+        let target = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        })?;
+        if !matches!(
+            p.take("RememberObjects").as_deref(),
+            Some("Targeted" | "ParentTarget")
+        ) {
+            return None;
+        }
+        let effect = format!("Effect::CantBeRegeneratedThisTurn {{ target: {target} }}");
+        let creature = match (p.peek("ConditionDefined"), p.peek("ConditionPresent")) {
+            (None, None) => false,
+            (Some("ParentTarget" | "Targeted"), Some("Creature")) => {
+                p.take("ConditionDefined");
+                p.take("ConditionPresent");
+                true
+            }
+            _ => return None,
+        };
+        Some(vec![if creature {
+            format!("Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{effect}] }}")
+        } else {
+            effect
+        }])
+    }
+
+    /// `ChangeZoneAll` into a library with a shuffle, from hands and
+    /// graveyards: Timetwister's "each player shuffles their hand and
+    /// graveyard into their library", and "target player shuffles their
+    /// graveyard into their library".
+    ///
+    /// Whose cards: `ChangeType$ Card` with no player named is every
+    /// player's, each into their own library; `Card.YouOwn` is yours; a
+    /// `Defined$` or a player target names them. Every other change —
+    /// battlefield, exile, a library position, a random pick, a type other
+    /// than any card — is refused.
+    fn shuffle_into_library(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if p.take("Destination").as_deref() != Some("Library")
+            || p.take("Shuffle").as_deref() != Some("True")
+        {
+            return None;
+        }
+        let origin = p.take("Origin")?;
+        let (hand, graveyard) = match origin.as_str() {
+            "Hand" => (true, false),
+            "Graveyard" => (false, true),
+            "Hand,Graveyard" | "Graveyard,Hand" => (true, true),
+            _ => return None,
+        };
+        // The reference's "from every zone listed" rather than one of them:
+        // what two origins mean on a card.
+        if hand && graveyard {
+            p.take("UseAllOriginZones");
+        }
+        let defined = p.take("Defined");
+        let who = match p.take("ChangeType").as_deref() {
+            Some("Card.YouOwn") if defined.is_none() && target.is_none() => {
+                "PlayerRel::You".to_string()
+            }
+            Some("Card") | None if defined.is_some() || targets_a_player => self
+                .player_of_line(defined.as_deref(), target, targets_a_player)?
+                .to_string(),
+            Some("Card") if target.is_none() => "PlayerRel::EachPlayer".to_string(),
+            _ => return None,
+        };
+        Some(vec![format!(
+            "Effect::ShuffleIntoLibrary {{ who: {who}, hand: {hand}, graveyard: {graveyard} }}"
+        )])
+    }
+
+    /// "Target creature can't be blocked this turn" (Dwarven Warriors,
+    /// Rogue's Passage, Infiltrate): an `Effect` whose one static says
+    /// nothing may block what it remembers, and which ends when that leaves
+    /// the battlefield. The engine's word for it is the keyword, granted for
+    /// the rest of the turn — to the targets, or to the source itself.
+    /// Every other `Effect` is its own sentence and stays refused.
+    fn unblockable_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "CantBlockBy"
+            || st.take("ValidAttacker").as_deref() != Some("Card.IsRemembered")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+            return None;
+        }
+        p.take("IsCurse");
+        let keywords = "KeywordSet::UNBLOCKABLE";
+        Some(match p.take("RememberObjects").as_deref() {
+            Some("Targeted") if target.is_some_and(|t| t != "TargetSpec::AnyPlayer") => {
+                vec![format!(
+                    "Effect::PumpTarget {{ power: Amount::Fixed(0), toughness: \
+                     Amount::Fixed(0), keywords: {keywords}, duration: \
+                     Duration::UntilEndOfTurn }}"
+                )]
+            }
+            Some("Self") if !self.on_a_spell => vec![format!(
+                "Effect::PumpFilter {{ filter: &Filter::This, controlled_by: None, \
+                 power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                 keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+            )],
+            _ => return None,
         })
     }
 
@@ -1361,6 +2521,25 @@ impl Tx<'_> {
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
             ("Battlefield", "Exile", true) => vec!["Effect::ExileSource".to_string()],
+            // "Return target card from your graveyard to your hand"
+            // (Regrowth): the target is a `CardInGraveyard`, which the chain
+            // read off `Origin$` before it read the valid-string.
+            ("Graveyard", "Hand", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
+            }
+            // "Return target creature card from your graveyard to the
+            // battlefield" (Resurrection): it enters under the control of
+            // the player whose effect put it there (CR 110.2a), which is
+            // `owner_control: false`. A line that says otherwise carries a
+            // key (`GainControl$`, `WithCountersType$`) this does not claim.
+            ("Graveyard", "Battlefield", false)
+                if target.starts_with("TargetSpec::CardInGraveyard") =>
+            {
+                vec![format!(
+                    "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
+                     counters: None }}"
+                )]
+            }
             _ => {
                 self.note(format!("`ChangeZone` {origin} to {destination}"));
                 return None;
@@ -1537,6 +2716,13 @@ impl Tx<'_> {
 
     /// `Produced$ Combo W U | Amount$ 2` and friends.
     fn mana_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        // "Its controller adds an additional {R}" (Gauntlet of Might): mana
+        // in another player's pool, which is fixed mana or nothing.
+        let defined = p.take("Defined");
+        if let Some(who) = defined.as_deref().filter(|d| *d != "You") {
+            let who = self.player_rel(Some(who))?;
+            return self.mana_for(p, who);
+        }
         let produced = p.take("Produced")?;
         let restrict = match p.take("RestrictValid") {
             None => None,
@@ -1629,6 +2815,37 @@ impl Tx<'_> {
         Some(vec![format!(
             "{only}.restricted(&{name}, SpendRider::None)"
         )])
+    }
+
+    /// [`Self::mana_effect`] for a pool other than the controller's:
+    /// `Effect::AddManaFor`, one per colour, of a fixed amount and with no
+    /// restriction. Anything else is refused by name.
+    fn mana_for(&mut self, p: &mut Params, who: &str) -> Option<Vec<String>> {
+        let produced = p.take("Produced")?;
+        if p.peek("RestrictValid").is_some() {
+            return self.deny("restricted mana for another player".to_string());
+        }
+        let raw = p.take("Amount").unwrap_or_else(|| "1".to_string());
+        let Some(amount) = plain_number(&raw, self.svars).and_then(|n| u16::try_from(n).ok())
+        else {
+            return self.deny(format!("mana for another player of `Amount$ {raw}`"));
+        };
+        let mut out = Vec::new();
+        for symbol in produced.split_whitespace() {
+            let color = match symbol {
+                "W" => "ManaColor::White",
+                "U" => "ManaColor::Blue",
+                "B" => "ManaColor::Black",
+                "R" => "ManaColor::Red",
+                "G" => "ManaColor::Green",
+                "C" => "ManaColor::Colorless",
+                other => return self.deny(format!("mana for another player of `{other}`")),
+            };
+            out.push(format!(
+                "Effect::AddManaFor {{ who: {who}, color: {color}, amount: {amount} }}"
+            ));
+        }
+        Some(out)
     }
 
     /// `Produced$ Combo …` — a choice among the colours listed, and how many.
@@ -1750,6 +2967,81 @@ impl Tx<'_> {
         ))
     }
 
+    /// The atoms that are one word of printed text each, and the filter each
+    /// is:
+    ///
+    /// - a name ("creatures named Plague Rats", [`named_atom`]);
+    /// - a number the printed words compare against ("power 2 or less",
+    ///   [`stat_atom`]), or "less than this creature's power" where `X` is
+    ///   the source's power ([`Self::source_power_atom`]);
+    /// - a mana value against a number or the announced X
+    ///   ([`Self::cmc_atom`]);
+    /// - "each creature with flying", "each creature without flying"
+    ///   (Hurricane, Earthquake): a keyword the engine has a bit for
+    ///   ([`keyword_atom`]). A keyword it has none for is a rule, not a flag,
+    ///   and stays refused.
+    fn worded_atom(&self, atom: &str) -> Option<String> {
+        if let Some(name) = named_atom(atom) {
+            return Some(format!("Filter::Named({name:?})"));
+        }
+        stat_atom(atom)
+            .or_else(|| self.source_power_atom(atom))
+            .or_else(|| self.cmc_atom(atom))
+            .or_else(|| keyword_atom(atom))
+    }
+
+    /// `powerLTX` and `toughnessLTX` where `X` is `Count$CardPower`, the
+    /// source's own power: "with power less than this creature's power",
+    /// Stone Giant's "with toughness less than Stone Giant's power". Any
+    /// other comparison or `X` is refused.
+    fn source_power_atom(&self, atom: &str) -> Option<String> {
+        if self.svars.get("X").map(|x| x.trim()) != Some("Count$CardPower") {
+            return None;
+        }
+        match atom {
+            "powerLTX" => Some("Filter::PowerLessThanSourcePower".to_string()),
+            "toughnessLTX" => Some("Filter::ToughnessLessThanSourcePower".to_string()),
+            _ => None,
+        }
+    }
+
+    /// `cmcLE2`, `cmcGE4`, `cmcEQX`: a mana value against a fixed number,
+    /// or against the X announced for this spell or ability — only where
+    /// `X` is that announcement ([`amount`] gives the reason), since the
+    /// filter reads it off the source and a trigger announced none.
+    fn cmc_atom(&self, atom: &str) -> Option<String> {
+        let (cmp, number) = atom.strip_prefix("cmc")?.split_at_checked(2)?;
+        if number == "X" {
+            let announced =
+                self.has_x && self.svars.get("X").map(String::as_str) == Some("Count$xPaid");
+            return match cmp {
+                "LE" if announced => Some("Filter::CmcAtMostX".to_string()),
+                "EQ" if announced => Some("Filter::CmcExactlyX".to_string()),
+                _ => None,
+            };
+        }
+        let n: u32 = number.parse().ok()?;
+        Some(match cmp {
+            "LE" => format!("Filter::CmcAtMost({n})"),
+            "LT" => format!("Filter::CmcAtMost({})", n.checked_sub(1)?),
+            "GE" => format!("Filter::CmcAtLeast({n})"),
+            "GT" => format!("Filter::CmcAtLeast({})", n.checked_add(1)?),
+            "EQ" => format!("Filter::And(&[Filter::CmcAtMost({n}), Filter::CmcAtLeast({n})])"),
+            _ => return None,
+        })
+    }
+
+    /// [`amount`], or else a count of permanents ([`Self::count_expr`]):
+    /// Karma's "damage equal to the number of Swamps they control". A count
+    /// is read as the ability resolves, like every other `Amount`.
+    fn amount_or_count(&mut self, raw: &str) -> Option<String> {
+        if let Some(n) = amount(raw, self.svars, self.has_x) {
+            return Some(n);
+        }
+        let def = self.svars.get(raw.trim())?.clone();
+        self.count_expr(&def)
+    }
+
     /// `RestrictValid$ Spell.Creature` — what produced mana may be spent on.
     ///
     /// Every alternative has to be a *spell*: `Activated.Hero` restricts an
@@ -1816,6 +3108,32 @@ impl Tx<'_> {
                     return self.deny(format!("counter `{kind}`"));
                 };
                 parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
+            } else if let Some((n, kind)) = token
+                .strip_prefix("SubCounter<")
+                .and_then(|t| t.strip_suffix('>'))
+                .and_then(|t| t.split_once('/'))
+            {
+                // "Remove a corpse counter from this creature" as a cost:
+                // a fixed number of one kind, from the source. Refused by
+                // name: a count that is not a number (`X` is announced, and
+                // "any number" is chosen), a loyalty cost (a loyalty
+                // ability's, CR 606.4, which only a main phase with an empty
+                // stack may activate, once a turn, CR 606.3), and the longer
+                // forms that name where the counters come from ("from a
+                // creature you control").
+                let Ok(n) = n.parse::<u16>() else {
+                    return self.deny(format!("counter count `{n}`"));
+                };
+                if kind.contains('/') {
+                    return self.deny(format!("a counter cost from `{kind}`"));
+                }
+                if kind == "LOYALTY" {
+                    return self.deny("a loyalty cost".to_string());
+                }
+                let Some(kind) = counter_kind(kind) else {
+                    return self.deny(format!("counter `{kind}`"));
+                };
+                parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.push(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
@@ -1982,6 +3300,105 @@ impl Tx<'_> {
         Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
+    /// `T:Mode$ DamageDone` — "whenever this creature deals [combat] damage
+    /// to [a player | an opponent]" — and `DamageDoneOnce`, "whenever this
+    /// creature is dealt damage".
+    ///
+    /// `DamageDone` needs a source and a player target: `Player` in combat
+    /// is `DealsCombatDamageToPlayer`, `Opponent` is
+    /// `DealsCombatDamageToOpponent` in combat and `DealsDamageToOpponent`
+    /// out of it (Hypnotic Specter). Damage to a player out of combat, to a
+    /// creature, or to anything else is refused by name.
+    ///
+    /// `DamageDoneOnce` is the reference's "once however many sources",
+    /// which is what the rules make of simultaneous damage (CR 510.2,
+    /// 603.2c) and what `Trigger::DealtDamage` does; it is read for a
+    /// permanent dealt damage by anything, and refused for a player or with
+    /// a source or combat named.
+    fn damage_trigger(&mut self, p: &mut Params, once: bool) -> Option<String> {
+        let target = p.take("ValidTarget");
+        let source = p.take("ValidSource");
+        let combat = match p.take("CombatDamage").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`CombatDamage$ {other}`")),
+        };
+        let filter_of = |this: &mut Self, valid: &str| -> Option<String> {
+            if valid == "Card.Self" {
+                return Some("&Filter::This".to_string());
+            }
+            let expr = this.filter_expr(valid)?;
+            Some(format!("&{}", this.body.filter_static("TRIGGER", &expr)))
+        };
+        if once {
+            let Some(target) = target else {
+                return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
+            };
+            if source.is_some() || combat {
+                return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
+            }
+            if target
+                .split(['.', ','])
+                .any(|w| matches!(w, "You" | "Player" | "Opponent"))
+            {
+                return self.deny(format!("damage dealt to `{target}` at once"));
+            }
+            let filter = filter_of(self, &target)?;
+            return Some(format!("Trigger::DealtDamage({filter})"));
+        }
+        let Some(source) = source else {
+            return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
+        };
+        let filter = filter_of(self, &source)?;
+        match (target.as_deref(), combat) {
+            (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
+            (Some("Opponent" | "Player.Opponent"), true) => {
+                Some(format!("Trigger::DealsCombatDamageToOpponent({filter})"))
+            }
+            (Some("Opponent" | "Player.Opponent"), false) => {
+                Some(format!("Trigger::DealsDamageToOpponent({filter})"))
+            }
+            (other, _) => self.deny(format!(
+                "damage dealt to `{}`{}",
+                other.unwrap_or("anything"),
+                if combat { " in combat" } else { "" }
+            )),
+        }
+    }
+
+    /// `T:Mode$ TapsForMana` — "whenever a Mountain is tapped for mana"
+    /// (Gauntlet of Might), "whenever a player taps a land for mana"
+    /// (Manabarbs): CR 106.12a. No `Activator$` is anybody, as the two
+    /// sentences say. `Static$ True` is the reference's mark on the ones that
+    /// resolve at once, which the engine derives from the ability's shape
+    /// instead (CR 605.1b) and so needs no word for.
+    fn taps_for_mana_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `TapsForMana` trigger with no `ValidCard$`".to_string());
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        let by = match p.take("Activator").as_deref() {
+            None => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent") => "PlayerRel::EachOpponent",
+            Some(other) => {
+                return self.deny(format!("a permanent tapped for mana by `{other}`"));
+            }
+        };
+        match p.take("Static").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Static$ {other}`")),
+        }
+        Some(format!(
+            "Trigger::TappedForMana {{ by: {by}, filter: {filter} }}"
+        ))
+    }
+
     /// `T:Mode$ …` as a `Trigger` expression.
     fn trigger_expr(&mut self, p: &mut Params, mode: &str) -> Option<String> {
         // Where the ability triggers **from**. This used to be taken and
@@ -2004,6 +3421,7 @@ impl Tx<'_> {
             Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
         }
         match mode {
+            "AttackerBlockedByCreature" => self.block_trigger(p),
             "ChangesZone" => {
                 let origin = p.take("Origin");
                 let dest = p.take("Destination");
@@ -2043,8 +3461,18 @@ impl Tx<'_> {
                     "End of Turn" => "StepKind::End",
                     other => return self.deny(format!("trigger at step `{other}`")),
                 };
+                // No player named is every player's step: "at the beginning
+                // of each upkeep" (Verdant Force), "at the beginning of the
+                // end step" (Pestilence). The reference writes `ValidPlayer$
+                // You` for "your", and reading its absence as "your" too made
+                // Verdant Force a card that made a Saproling on one upkeep in
+                // two.
                 let valid = p.take("ValidPlayer");
-                let Some(whose) = Self::player_rel(valid.as_deref()) else {
+                let whose = match valid.as_deref() {
+                    None => Some("PlayerRel::EachPlayer"),
+                    Some(who) => self.player_rel(Some(who)),
+                };
+                let Some(whose) = whose else {
                     return self.deny(format!(
                         "trigger for player `{}`",
                         valid.unwrap_or_default()
@@ -2067,13 +3495,21 @@ impl Tx<'_> {
                 Some(format!("Trigger::Attacks({filter})"))
             }
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
+            "TapsForMana" => self.taps_for_mana_trigger(p),
+            "DamageDone" => self.damage_trigger(p, false),
+            "DamageDoneOnce" => self.damage_trigger(p, true),
+            // "Whenever [a permanent] becomes tapped": the source (City of
+            // Brass), or any permanent the filter matches (Lifetap).
             "Taps" => {
-                let valid = p.take("ValidCard").unwrap_or_default();
+                let Some(valid) = p.take("ValidCard") else {
+                    return self.deny("a `Taps` trigger with no `ValidCard$`".to_string());
+                };
                 if valid == "Card.Self" {
-                    Some("Trigger::BecomesTapped(&Filter::This)".to_string())
-                } else {
-                    self.deny(format!("a `Taps` trigger on `{valid}` rather than itself"))
+                    return Some("Trigger::BecomesTapped(&Filter::This)".to_string());
                 }
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                Some(format!("Trigger::BecomesTapped(&{filter})"))
             }
             other => self.deny(format!("trigger mode `{other}`")),
         }
@@ -2104,6 +3540,11 @@ impl Tx<'_> {
     fn etb_replacement(&mut self, rest: &str) -> Option<()> {
         let mut fields = rest.split(':');
         let kind = fields.next()?.trim();
+        if kind == "Copy" {
+            let svar = fields.next().map(str::trim).unwrap_or_default().to_string();
+            let optional = fields.next().map(str::trim) == Some("Optional");
+            return self.copy_on_enter(&svar, optional);
+        }
         if kind != "Other" {
             return self.deny(format!("`ETBReplacement:{kind}`"));
         }
@@ -2116,6 +3557,9 @@ impl Tx<'_> {
         let Some((api, mut p)) = Params::parse(body) else {
             return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
         };
+        if api == "ChooseType" {
+            return self.choose_type_on_enter(p);
+        }
         if api != "ChooseColor" {
             return self.deny(format!("as-enters effect `{api}`"));
         }
@@ -2146,6 +3590,96 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// `DB$ ChooseType | Type$ Basic Land` behind an `ETBReplacement:Other`:
+    /// "as this enters, choose a basic land type" (Phantasmal Terrain),
+    /// `EnterModifier::ChooseBasicLandType`. The choice is its controller's,
+    /// so a `Defined$` other than `You` is refused, and so is every other
+    /// `Type$`: a creature type is a different question with other readers.
+    fn choose_type_on_enter(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("Defined").as_deref() {
+            None | Some("You") => {}
+            Some(other) => return self.deny(format!("a type chosen by `{other}`")),
+        }
+        match p.take("Type").as_deref() {
+            Some("Basic Land") => {}
+            other => {
+                return self.deny(format!(
+                    "as-enters choice of a `{}` type",
+                    other.unwrap_or("nameless")
+                ));
+            }
+        }
+        if !p.exhausted() {
+            let key = p.first_key().unwrap_or_default();
+            return self.deny(format!("unclaimed parameter `ChooseType.{key}`"));
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::ChooseBasicLandType".to_string());
+        Some(())
+    }
+
+    /// `K:ETBReplacement:Copy:<svar>:Optional` — "you may have this enter
+    /// as a copy of any creature on the battlefield" (Clone), as
+    /// `AbilityDef::CopyOnEnter`.
+    ///
+    /// The choice is made before the permanent enters (CR 614.12a), so
+    /// the reference's `Other` on the choices names nothing the choice
+    /// could include, and is dropped. `AddTypes$` is the one exception the
+    /// copy may carry here ("except it's an enchantment", Copy Artifact).
+    /// A clone that *must* copy, one that sets its colour or grants itself
+    /// a trigger (Vesuvan Doppelganger), is another sentence and refused:
+    /// `CopyOnEnter` asks with an empty answer allowed, which is the "may".
+    fn copy_on_enter(&mut self, svar: &str, optional: bool) -> Option<()> {
+        if !optional {
+            return self.deny("a clone that must copy".to_string());
+        }
+        let Some(body) = self.svars.get(svar).cloned() else {
+            return self.deny(format!("an `ETBReplacement` naming the missing `{svar}`"));
+        };
+        let Some((api, mut p)) = Params::parse(&body) else {
+            return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
+        };
+        if api != "Clone" {
+            return self.deny(format!("as-enters copy `{api}`"));
+        }
+        p.drop_prose();
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("a clone with no `Choices$`".to_string());
+        };
+        let (base, atoms) = choices.split_once('.').unwrap_or((&choices, ""));
+        let kept: Vec<&str> = atoms
+            .split('+')
+            .filter(|atom| !atom.is_empty() && *atom != "Other")
+            .collect();
+        let valid = if kept.is_empty() {
+            base.to_string()
+        } else {
+            format!("{base}.{}", kept.join("+"))
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("CHOICE", &expr);
+        let mut mods = Vec::new();
+        if let Some(types) = p.take("AddTypes") {
+            for word in types.split(',').map(str::trim) {
+                let Some(types) = card_type_const(word) else {
+                    return self.deny(format!("a clone that adds `{word}`"));
+                };
+                mods.push(format!("CopyMod::AddType({types})"));
+            }
+        }
+        if !p.exhausted() {
+            let key = p.first_key().unwrap_or_default();
+            return self.deny(format!("unclaimed parameter `Clone.{key}`"));
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::CopyOnEnter {{ target: TargetSpec::Object(&{filter}), mods: &[{}] }}",
+            mods.join(", ")
+        ));
+        Some(())
+    }
+
     fn keyword(&mut self, line: &str) -> Option<()> {
         if let Some(modifier) = keyword_static(line) {
             self.body
@@ -2173,9 +3707,62 @@ impl Tx<'_> {
             self.body.keywords.push(bit.to_string());
             return Some(());
         }
+        if let Some(from) = self.protection_filter(line) {
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                &format!("Modifier::ProtectionFrom(&{from})"),
+            ));
+            return Some(());
+        }
         let head = line.split(':').next().unwrap_or(line);
         let head = head.split(' ').next().unwrap_or(head);
         self.deny(format!("keyword `{head}`"))
+    }
+
+    /// What a protection keyword protects from, as the `Filter` asked of a
+    /// source (CR 702.16a: "protection from [quality]").
+    ///
+    /// Two spellings. `Protection from black` names a colour, the commonest
+    /// shape by far (153 of the corpus's keyword lines). The other is
+    /// `Protection:<valid>[:<prose>[:<exception>]]`, where the valid-string
+    /// is the quality ("Artifact", "Creature") and is read by
+    /// [`Self::filter_expr`] like any other. The one exception understood is
+    /// the host card itself, which is how the Alpha Wards print "This effect
+    /// doesn't remove this Aura": protection from white, except from the
+    /// white Aura that grants it, so the Aura stays attached (CR 702.16c
+    /// would otherwise put it into the graveyard). `Filter::This` names that
+    /// Aura, the static's source. Any other exception is refused.
+    fn protection_filter(&self, word: &str) -> Option<String> {
+        if let Some(color) = word.trim().strip_prefix("Protection from ") {
+            let color = match color {
+                "white" => "White",
+                "blue" => "Blue",
+                "black" => "Black",
+                "red" => "Red",
+                "green" => "Green",
+                _ => return None,
+            };
+            return Some(format!(
+                "Filter::HasColor(ColorSet::from_slice(&[Color::{color}]))"
+            ));
+        }
+        let rest = word.trim().strip_prefix("Protection:")?;
+        let mut fields = rest.split(':');
+        let quality = self.filter_expr(fields.next()?)?;
+        let _prose = fields.next();
+        let filter = match fields.next() {
+            None => quality,
+            Some("Card.CardUID_HostCardUID") => {
+                format!("Filter::And(&[{quality}, Filter::Not(&Filter::This)])")
+            }
+            Some(other) => {
+                return self.deny(format!("a protection that excepts `{other}`"));
+            }
+        };
+        if fields.next().is_some() {
+            return self.deny("a protection keyword with a fifth field".to_string());
+        }
+        Some(filter)
     }
 
     /// `K:Equip:<cost>` as the activated ability the keyword is.
@@ -2274,6 +3861,9 @@ impl Tx<'_> {
 
     fn rule(&mut self, kind: char, spec: &str) -> Option<()> {
         self.has_x = kind == 'A';
+        self.on_a_spell = kind == 'A' && spec.trim_start().starts_with("SP$");
+        self.trigger_mode = None;
+        self.block_line = None;
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
@@ -2296,6 +3886,9 @@ impl Tx<'_> {
         };
         if event == "Untap" {
             return self.does_not_untap(&mut p);
+        }
+        if event == "BeginPhase" {
+            return self.skip_untap_steps(&mut p);
         }
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
@@ -2537,6 +4130,44 @@ impl Tx<'_> {
         None
     }
 
+    /// `R:Event$ BeginPhase | Phase$ Untap | Skip$ True` — "players skip
+    /// their untap steps" (Stasis) — as `Modifier::SkipUntapStep` for every
+    /// player.
+    ///
+    /// A static ability and not a replacement here, for the reason
+    /// [`Tx::does_not_untap`] gives: the skip is read by the untap step
+    /// itself (CR 614.10), with nothing to put in the step's place. Only the
+    /// untap step, only from the battlefield, and only with no player named:
+    /// the corpus writes this line three times, and the third is a plane's,
+    /// from the command zone, which refuses.
+    fn skip_untap_steps(&mut self, p: &mut Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("ActiveZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zone) => {
+                return self.deny(format!("a skipped step from `ActiveZones$ {zone}`"));
+            }
+        }
+        match (p.take("Phase").as_deref(), p.take("Skip").as_deref()) {
+            (Some("Untap"), Some("True")) => {}
+            (phase, skip) => {
+                return self.deny(format!(
+                    "`BeginPhase` of `{}` with `Skip$ {}`",
+                    phase.unwrap_or("any step"),
+                    skip.unwrap_or("nothing")
+                ));
+            }
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `BeginPhase.{key}`"));
+        }
+        self.body.abilities.push(
+            "static_ability!(Filter::Any, Modifier::SkipUntapStep { who: PlayerRel::EachPlayer })"
+                .to_string(),
+        );
+        Some(())
+    }
+
     /// `R:Event$ Untap | … | Layer$ CantHappen` as
     /// `Modifier::DoesNotUntap`.
     ///
@@ -2623,6 +4254,22 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if mode == "CantBlockBy" {
+            return self.cant_block_by(p);
+        }
+        if mode == "MustAttack" {
+            return self.must_attack(p);
+        }
+        if mode == "CantAttack" {
+            return self.cant_attack_unless(p);
+        }
+        if let Some(modifier) = match mode.as_str() {
+            "CanAttackDefender" => Some("AttacksDespiteDefender"),
+            "CanAttackIfHaste" => Some("AttacksAsThoughHaste"),
+            _ => None,
+        } {
+            return self.attack_as_though(modifier, p);
+        }
         if mode != "Continuous" {
             self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
@@ -2647,15 +4294,54 @@ impl Tx<'_> {
             self.note(format!("static ability reaching `AffectedZone$ {zone}`"));
             return None;
         }
+        // "This creature's power and toughness are each equal to the number
+        // of Swamps you control" (Nightmare): a characteristic-defining
+        // ability (CR 604.3), about the card itself and so with no
+        // `Affected$`.
+        if p.peek("Affected").is_none()
+            && p.take("CharacteristicDefining").as_deref() == Some("True")
+        {
+            return self.characteristic_pt(p);
+        }
         let Some(affected) = p.take("Affected") else {
             return self.deny("a continuous static with no `Affected$`".to_string());
         };
+        if p.peek("AddKeyword")
+            .is_some_and(|k| k.starts_with("UntapAdjust:"))
+        {
+            return self.untap_limit(&affected, p);
+        }
         let filter = self.filter_expr(&affected)?;
+        // "Gets +1/+1 as long as you control a Swamp" (Sedge Troll): the
+        // clause the `A:` line reads as a restriction is, on a static, the
+        // condition under which the ability exists at all, and the engine
+        // registers and removes it as the condition changes.
+        let condition = self.condition(&mut p)?;
         let mut out = Vec::new();
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
+        self.grant_modifiers(&mut p, &filter, &mut out)?;
+        self.block_modifiers(&mut p, &filter, &mut out)?;
+        // "You control enchanted creature" (Control Magic): layer 2
+        // (CR 613.1b), and the static's controller is who gains control —
+        // `You` is the only player the modifier can name.
+        match p.take("GainControl").as_deref() {
+            None => {}
+            Some("You") => out.push(Self::static_expr(&filter, "Modifier::GainControl")),
+            Some(other) => {
+                self.note(format!("control of a static given to `{other}`"));
+                return None;
+            }
+        }
+        if !condition.is_empty() {
+            for ability in &mut out {
+                if let Some(open) = ability.strip_suffix(')') {
+                    *ability = format!("{open}{condition})");
+                }
+            }
+        }
         // The honest-stub rule: one key nothing claimed and the card stays
         // a stub, however much of the line was understood.
         if !p.exhausted() || out.is_empty() {
@@ -2667,6 +4353,186 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    /// "Players can't untap more than one creature during their untap
+    /// steps" (Smoke), and Winter Orb's "…one land…" while it is untapped:
+    /// `Affected$ <player> | AddKeyword$ UntapAdjust:<valid>:<n>` as
+    /// `Modifier::UntapAtMost`. The keyword is all the line may grant, the
+    /// player one this reader can name, and the only other clause read is
+    /// the `IsPresent$` condition every continuous static may carry.
+    fn untap_limit(&mut self, affected: &str, mut p: Params) -> Option<()> {
+        let who = match affected {
+            "Player" => "PlayerRel::EachPlayer",
+            "You" => "PlayerRel::You",
+            "Opponent" | "Player.Opponent" => "PlayerRel::EachOpponent",
+            other => return self.deny(format!("an untap limit on `Affected$ {other}`")),
+        };
+        let keyword = p.take("AddKeyword")?;
+        let mut parts = keyword.split(':');
+        let (Some("UntapAdjust"), Some(valid), Some(count), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return self.deny(format!("keyword `{keyword}` beside an untap limit"));
+        };
+        let Ok(count) = count.trim().parse::<u8>() else {
+            return self.deny(format!("an untap limit of `{count}`"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("UNTAPPING", &expr);
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::Any, Modifier::UntapAtMost {{ who: {who}, of: &{name}, \
+             count: {count} }}{condition})"
+        ));
+        Some(())
+    }
+
+    /// A characteristic-defining power and toughness (CR 604.3): both equal
+    /// to one count of permanents, the ones you control
+    /// (`PtCount::YouControl`) or all of them (`PtCount::OnBattlefield`).
+    /// Layer 7a on the battlefield, and the card's own number everywhere
+    /// else (CR 604.3), both of which `Modifier::CharacteristicPT` is. A
+    /// count of somebody else's permanents, a toughness apart from the power
+    /// or a clause beside it (Gaea's Liege's "as long as it isn't
+    /// attacking") is another sentence, and refused.
+    fn characteristic_pt(&mut self, mut p: Params) -> Option<()> {
+        let (Some(power), Some(toughness)) = (p.take("SetPower"), p.take("SetToughness")) else {
+            return self.deny("a characteristic-defining ability with no P/T".to_string());
+        };
+        if power != toughness {
+            return self.deny(format!(
+                "a defined toughness `{toughness}` apart from power"
+            ));
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        let Some(count) = self.svars.get(&power).cloned() else {
+            return self.deny(format!("`{power}` names no SVar"));
+        };
+        let Some(valid) = count.strip_prefix("Count$Valid ") else {
+            return self.deny(format!("count `{count}`"));
+        };
+        let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+        if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
+            return self.deny(format!("count `{count}`"));
+        }
+        let filter = self.filter_expr(valid)?;
+        let name = self.body.filter_static("COUNTED", &filter);
+        let count = if yours { "YouControl" } else { "OnBattlefield" };
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+             count: PtCount::{count}(&{name}), toughness_plus: 0 }})"
+        ));
+        Some(())
+    }
+
+    /// "Enchanted Wall can attack as though it didn't have defender"
+    /// (Animate Wall) and "enchanted creature can attack as though it had
+    /// haste" (Instill Energy): a permission on the creatures `ValidCard$`
+    /// names, as `Modifier::AttacksDespiteDefender` or
+    /// `Modifier::AttacksAsThoughHaste`. Only `ValidCard$` and the
+    /// `IsPresent$` condition are read; a line that names what may be
+    /// attacked (`ValidTarget$`) is another sentence and refuses.
+    fn attack_as_though(&mut self, modifier: &str, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny(format!("`{modifier}` naming no creature"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `{modifier}.{key}`"));
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::{modifier}{condition})"
+        ));
+        Some(())
+    }
+
+    /// "Can't be blocked by Walls" (Juggernaut), "can't be blocked except
+    /// by Walls" (Invisibility), "can't block creatures with power 2 or
+    /// greater" (Ironclaw Orcs): one restriction on a pairing (CR 509.1b),
+    /// which `Modifier::CantBeBlockedBy` states from the attacker's side.
+    ///
+    /// `combat::can_block` reads the blocker's filter against the static's
+    /// own source, so `Self` on that side is the card that states it, and
+    /// a blocker-side restriction is the same modifier on every attacker
+    /// the other filter names.
+    fn cant_block_by(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let (Some(attacker), Some(blocker)) = (p.take("ValidAttacker"), p.take("ValidBlocker"))
+        else {
+            return self.deny("`CantBlockBy` naming no attacker or no blocker".to_string());
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
+            return None;
+        }
+        let attackers = self.filter_expr(&attacker)?;
+        let blockers = self.filter_expr(&blocker)?;
+        let name = self.body.filter_static("BLOCKER", &blockers);
+        self.body.abilities.push(format!(
+            "static_ability!({attackers}, Modifier::CantBeBlockedBy(&{name}){condition})"
+        ));
+        Some(())
+    }
+
+    /// "Attacks each combat if able" (CR 508.1d): `S:Mode$ MustAttack`, a
+    /// static naming the creatures it binds. `MustAttack$` names *what*
+    /// they attack if able, a requirement about the pair the engine does
+    /// not know, and stays unclaimed.
+    fn must_attack(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCreature") else {
+            return self.deny("`MustAttack` naming no creature".to_string());
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `MustAttack.{key}`"));
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::AttacksEachCombat{condition})"
+        ));
+        Some(())
+    }
+
+    /// "Can't attack unless defending player controls an Island" (CR
+    /// 508.1c): `S:Mode$ CantAttack | UnlessDefender$ controls<filter>`.
+    /// A plain "can't attack" and every other `UnlessDefender$` question
+    /// (fewer creatures, poisoned, the monarch) stay unclaimed, and so does
+    /// a negated one (`!controls…`): "unless defending player controls no
+    /// untapped lands" is a different sentence.
+    fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("`CantAttack` naming no creature".to_string());
+        };
+        let Some(unless) = p.take("UnlessDefender") else {
+            return self.deny("`CantAttack` with no `UnlessDefender$`".to_string());
+        };
+        let Some(wanted) = unless.strip_prefix("controls") else {
+            return self.deny(format!("`UnlessDefender$ {unless}`"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+            return None;
+        }
+        let attackers = self.filter_expr(&valid)?;
+        let wanted = self.filter_expr(wanted)?;
+        let name = self.body.filter_static("DEFENDER_CONTROLS", &wanted);
+        self.body.abilities.push(format!(
+            "static_ability!({attackers}, Modifier::CantAttackUnlessDefenderControls(&{name}){condition})"
+        ));
         Some(())
     }
 
@@ -2724,19 +4590,62 @@ impl Tx<'_> {
             // rule reads.
             let mut bits = Vec::new();
             for word in raw.split(" & ") {
+                // Protection is granted as the static ability it is (CR
+                // 702.16a), never as a bit; removing it is a different
+                // sentence and is refused.
+                if modifier == "AddKeyword"
+                    && let Some(from) = self.protection_filter(word)
+                {
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::ProtectionFrom(&{from})"),
+                    ));
+                    continue;
+                }
                 let Some(bit) = keyword_const(word) else {
                     self.note(format!("static ability granting keyword `{word}`"));
                     return None;
                 };
                 bits.push(bit.to_string());
             }
-            let set = bits.split_first().map(|(head, tail)| {
+            let Some(set) = bits.split_first().map(|(head, tail)| {
                 tail.iter()
                     .fold(head.clone(), |acc, b| format!("{acc}.union({b})"))
-            })?;
+            }) else {
+                continue;
+            };
             out.push(Self::static_expr(
                 filter,
                 &format!("Modifier::{modifier}({set})"),
+            ));
+        }
+        Some(())
+    }
+
+    /// "Can block an additional creature each combat" (Two-Headed Giant of
+    /// Foriys, `CanBlockAmount$ 1`) and "all creatures able to block
+    /// enchanted creature do so" (Lure, a hidden keyword): rules of the
+    /// declaration of blockers (CR 509.1a, 509.1c), as
+    /// `Modifier::CanBlockAdditional` and `Modifier::MustBeBlockedByAllAble`.
+    /// An amount that is not a number, and every other hidden keyword, stay
+    /// unclaimed.
+    fn block_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        const LURED: &str = "All creatures able to block CARDNAME do so.";
+        if let Some(amount) = p.peek("CanBlockAmount") {
+            let Ok(more) = amount.trim().parse::<u8>() else {
+                return self.deny(format!("`CanBlockAmount$ {amount}`"));
+            };
+            p.take("CanBlockAmount");
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::CanBlockAdditional({more})"),
+            ));
+        }
+        if p.peek("AddHiddenKeyword").map(str::trim) == Some(LURED) {
+            p.take("AddHiddenKeyword");
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::MustBeBlockedByAllAble",
             ));
         }
         Some(())
@@ -2748,7 +4657,34 @@ impl Tx<'_> {
     /// keeps them apart — a `TypeSet` is a bitmask the rules read, a
     /// subtype is an interned id — so `AddType$ Artifact Goblin` becomes
     /// two modifiers on the same layer.
+    ///
+    /// `RemoveLandTypes$ True` beside an `AddType$` of one basic land type
+    /// is "enchanted land is a Swamp" (Evil Presence, Conversion): CR 305.7's
+    /// setting of a land's subtype, `Modifier::SetLandType`, which also takes
+    /// the abilities the land's rules text gives it. `AddType$ ChosenType` is
+    /// "enchanted land is the chosen type" (Phantasmal Terrain),
+    /// `Modifier::SetLandTypeToChosen`, read only on a card that asks for a
+    /// basic land type as it enters. Any other `AddType$` beside it — two
+    /// types, a nonbasic one, a type chosen some other way — is refused.
     fn type_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        match p.take("RemoveLandTypes").as_deref() {
+            None => {}
+            Some("True") => {
+                let raw = p.take("AddType")?;
+                let modifier = if raw.trim() == "ChosenType" {
+                    self.body
+                        .enter_modifiers
+                        .iter()
+                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                        .then(|| "Modifier::SetLandTypeToChosen".to_string())?
+                } else {
+                    let path = self.basic_land_type(raw.trim())?;
+                    format!("Modifier::SetLandType({path})")
+                };
+                out.push(Self::static_expr(filter, &modifier));
+            }
+            Some(_) => return None,
+        }
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             let mut types = Vec::new();
@@ -2783,7 +4719,74 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// The constant of one basic land type (CR 205.3i names the five), or
+    /// `None` for any other word.
+    fn basic_land_type(&self, word: &str) -> Option<String> {
+        if !matches!(word, "Plains" | "Island" | "Swamp" | "Mountain" | "Forest") {
+            return None;
+        }
+        self.cats
+            .const_path_of(baylee_core::types::SubtypeKind::Land, word)
+    }
+
     /// `AddColor`/`SetColor` (layer 5) as static abilities.
+    /// `AddAbility$ <SVar>[ & <SVar>]`: "Other Zombies have '{B}:
+    /// Regenerate this permanent.'" (Zombie Master). Each named `SVar` is an
+    /// `AB$` line, read as an activated ability of the object that gains it:
+    /// `Modifier::GrantActivated` activates from that object, so "this
+    /// permanent" in it is the one that has it.
+    ///
+    /// Without a target, because the modifier carries none — a granted
+    /// ability that targets would lose its target here and act on nothing
+    /// — and without anything else an activated line may say beside its
+    /// cost and effect: the chain refuses a key it does not claim.
+    fn grant_modifiers(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        let Some(raw) = p.take("AddAbility") else {
+            return Some(());
+        };
+        for name in raw.split(" & ").map(str::trim) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("`AddAbility$ {name}` naming no `SVar`"));
+            };
+            if !line.trim_start().starts_with("AB$") {
+                return self.deny("a granted ability that is not an activated one".to_string());
+            }
+            let Some((_, mut probe)) = Params::parse(&line) else {
+                return self.deny("a granted ability with no `$` in it".to_string());
+            };
+            let Some(cost) = probe.take("Cost") else {
+                return self.deny("a granted ability with no `Cost$`".to_string());
+            };
+            let cost = self.cost_expr(&cost)?;
+            let stripped: Vec<&str> = line
+                .split(" | ")
+                .filter(|part| !part.starts_with("Cost$"))
+                .collect();
+            let mut chain = Chain::default();
+            self.chain(&stripped.join(" | "), &mut chain)?;
+            if chain.target.is_some() {
+                return self.deny("a granted ability with a target".to_string());
+            }
+            if chain.effects.is_empty() {
+                return self.deny("a granted ability that reads as no effect at all".to_string());
+            }
+            let mana = chain.effects.iter().any(|e| e.contains("Effect::mana"));
+            out.push(Self::static_expr(
+                filter,
+                &format!(
+                    "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
+                    chain.effects.join(", ")
+                ),
+            ));
+        }
+        Some(())
+    }
+
     fn color_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
         for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
             let Some(raw) = p.take(key) else { continue };
@@ -2823,8 +4826,45 @@ impl Tx<'_> {
         format!("static_ability!({filter}, {modifier})")
     }
 
+    /// When an ability may be activated, beyond its `IsPresent$` clause: a
+    /// restriction on activating (CR 602.5) that the `condition` field says,
+    /// and so only where no other clause already fills it. Hands back the
+    /// keys it claimed.
+    ///
+    /// - `PlayerTurn$ True`: "activate only during your turn" (Disrupting
+    ///   Scepter).
+    /// - `ActivationPhases$ BeginCombat->EndCombat`: "activate only during
+    ///   combat" (Jade Statue). The other spellings — an upkeep, a single
+    ///   combat step, "before blockers are declared" — are other sentences.
+    fn activation_restriction(
+        &mut self,
+        probe: &mut Params,
+        is_activated: bool,
+        condition: &mut String,
+    ) -> Option<Vec<&'static str>> {
+        let mut claimed = Vec::new();
+        if let Some(your_turn) = probe.take("PlayerTurn") {
+            if your_turn != "True" || !is_activated || !condition.is_empty() {
+                return self.deny(format!("`PlayerTurn$ {your_turn}` beside another clause"));
+            }
+            *condition = ", condition = Some(Condition::YourTurn)".to_string();
+            claimed.push("PlayerTurn$");
+        }
+        if let Some(phases) = probe.take("ActivationPhases") {
+            if phases != "BeginCombat->EndCombat" || !is_activated || !condition.is_empty() {
+                return self.deny(format!("`ActivationPhases$ {phases}`"));
+            }
+            *condition = ", condition = Some(Condition::DuringCombat)".to_string();
+            claimed.push("ActivationPhases$");
+        }
+        Some(claimed)
+    }
+
     fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
+        if !is_activated && Params::parse(spec).is_some_and(|(api, _)| api == "Charm") {
+            return self.charm(spec);
+        }
         let Some((_, mut probe)) = Params::parse(spec) else {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
@@ -2839,26 +4879,31 @@ impl Tx<'_> {
         // spells a resolution-time condition `ConditionPresent$`, a
         // different key on a different line (1521 of them, all on `SVar:`),
         // and this reader claims neither it nor its family.
-        let condition = self.condition(&mut probe)?;
+        let mut condition = self.condition(&mut probe)?;
+        // The `IsPresent$` family is claimed only where that clause was read,
+        // not where a restriction below filled `condition` instead.
+        let present_read = !condition.is_empty();
+        let restrictions = self.activation_restriction(&mut probe, is_activated, &mut condition)?;
         let mut chain = Chain::default();
         // The cost belongs to the ability, not to the effect chain, so it is
         // removed from the spec before the chain reads it. The clause's keys
         // go with it, but **only** once the clause was read: a line carrying
         // `PresentZone$` and no `IsPresent$` at all keeps it, and refuses one
         // level down as the unclaimed parameter it is.
-        let claimed: &[&str] = if condition.is_empty() {
-            &[]
-        } else {
+        let claimed: &[&str] = if present_read {
             &[
                 "IsPresent$",
                 "PresentZone$",
                 "PresentCompare$",
                 "PresentDefined$",
             ]
+        } else {
+            &[]
         };
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
+            .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
         self.chain(&stripped.join(" | "), &mut chain)?;
@@ -2993,6 +5038,58 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// "Choose one —" (CR 700.2): `SP$ Charm | Choices$ A,B` is a modal
+    /// spell whose modes are the named `SVar`s, each read as the chain it
+    /// is and each targeting for itself, since a target a mode names is
+    /// chosen only when that mode is (CR 700.2c).
+    ///
+    /// Only a spell, and only "choose one" or "choose two": a modal
+    /// activated ability is a different `AbilityDef`, and the other counts
+    /// the reference spells (`MinCharmNum$`, a count the board works out)
+    /// are rules this reader has not met yet.
+    fn charm(&mut self, spec: &str) -> Option<()> {
+        let Some((_, mut p)) = Params::parse(spec) else {
+            return self.deny("an `A:` line with no `$` in it".to_string());
+        };
+        p.drop_prose();
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("a charm with no `Choices$`".to_string());
+        };
+        let choose = match p.take("CharmNum").as_deref() {
+            None | Some("1") => "ModeCount::ONE",
+            Some("2") => "ModeCount::TWO",
+            Some(n) => return self.deny(format!("a charm choosing `{n}`")),
+        };
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `Charm.{key}`"));
+            return None;
+        }
+        let mut modes = Vec::new();
+        for name in choices.split(',').map(str::trim) {
+            let Some(line) = self.svars.get(name).cloned() else {
+                return self.deny(format!("charm choice `{name}` with no `SVar`"));
+            };
+            let mut chain = Chain::default();
+            self.chain(&line, &mut chain)?;
+            if chain.effects.is_empty() {
+                return self.deny("a charm mode that reads as no effect at all".to_string());
+            }
+            let targets = chain
+                .target
+                .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+                .unwrap_or_default();
+            modes.push(format!("mode!(&[{}]{targets})", chain.effects.join(", ")));
+        }
+        if modes.len() < 2 {
+            return self.deny("a charm with fewer than two modes".to_string());
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::ModalSpell {{ choose: {choose}, modes: &[{}] }}",
+            modes.join(", ")
+        ));
+        Some(())
+    }
+
     /// The reference's `IsPresent$` family as an intervening-`if` clause
     /// (CR 603.4).
     ///
@@ -3038,6 +5135,15 @@ impl Tx<'_> {
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
+        let clause = self.present_clause(p, &valid)?;
+        Some(format!(", condition = Some({clause})"))
+    }
+
+    /// The rest of the `IsPresent$` family, `valid` being that key's value,
+    /// as a `Condition` expression, or `None` when it was refused. What
+    /// [`Self::condition`] splices in as an intervening "if", and what a
+    /// state trigger (`Mode$ Always`, CR 603.8) triggers on.
+    fn present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
         if p.take("NoResolvingCheck").is_some() {
             return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
         }
@@ -3068,17 +5174,19 @@ impl Tx<'_> {
             }
             None
         } else {
-            let Some(n) = compare
-                .strip_prefix("GE")
-                .and_then(|n| n.parse::<u8>().ok())
-            else {
+            let Some(bound) = count_bound(&compare) else {
                 return self.deny(format!("`PresentCompare$ {compare}`"));
             };
-            if !valid
+            // Whose permanents: yours (`YouCtrl` in every alternative), or
+            // everybody's when no alternative names a controller or an
+            // owner at all ("if no creatures are on the battlefield").
+            let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
+            let yours = valid
                 .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"))
-            {
-                return self.deny(format!("`IsPresent$ {valid}`, a count with no player"));
+                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+            let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+            if !yours && !nobodys {
+                return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
             }
             // And a count says nothing about the card that states it.
             // `eval::condition_holds` walks a battlefield handing each
@@ -3087,17 +5195,23 @@ impl Tx<'_> {
             // would count nothing at all — 28 corpus lines write one, and
             // a trigger that can never fire is exactly the wrong card the
             // honest-stub rule exists to refuse.
+            // The attachment atoms are relative too: `AttachedToBySource`
+            // asks what *this* card is attached to.
             if valid.split(',').any(|alt| {
-                alt.split(['.', '+'])
-                    .any(|a| matches!(a.trim(), "Self" | "Other"))
+                alt.split(['.', '+']).any(|a| {
+                    matches!(
+                        a.trim(),
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                    )
+                })
             }) {
                 return self.deny(format!(
                     "`IsPresent$ {valid}`, a count relative to this card"
                 ));
             }
-            Some(n)
+            Some((yours, bound))
         };
-        let expr = self.filter_expr(&valid)?;
+        let expr = self.filter_expr(valid)?;
         let clause = match count {
             None => {
                 let zoned = on_the_battlefield(&expr);
@@ -3105,14 +5219,45 @@ impl Tx<'_> {
                 format!("Condition::SourceMatches(&{name})")
             }
             // `ControlCount` counts one player's battlefield and nothing
-            // else, so the zone and the player are both already in the
-            // sentence it is.
-            Some(n) => {
+            // else, and `BattlefieldCount` all of it, so the zone and the
+            // player are both already in the sentence each is.
+            Some((yours, bound)) => {
                 let name = self.body.filter_static("CHECK", &expr);
-                format!("Condition::ControlCount(&{name}, {n})")
+                let (variant, n) = match (yours, bound) {
+                    (true, Bound::AtLeast(n)) => ("ControlCount", n),
+                    (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
+                    (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
+                    (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
+                };
+                format!("Condition::{variant}(&{name}, {n})")
             }
         };
-        Some(format!(", condition = Some({clause})"))
+        Some(clause)
+    }
+
+    /// `T:Mode$ Always`: a state trigger (CR 603.8), which triggers
+    /// whenever the game state matches its condition rather than on an
+    /// event. The `IsPresent$` clause is that condition, so it is the
+    /// trigger's own (`Trigger::State`) and not an intervening "if": the
+    /// ability is not asked again as it resolves (CR 603.4 is the other
+    /// sentence), and "When you control no Islands, sacrifice this" still
+    /// sacrifices after an Island arrives in response.
+    ///
+    /// The engine collects them off the battlefield only, so any other
+    /// `TriggerZones$` is refused; so is every key the clause reader does
+    /// not claim (`ResolvingCheck$`, a life total, a computed `SVar`), by
+    /// the caller's exhaustion check.
+    fn state_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("TriggerZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
+        }
+        let Some(valid) = p.take("IsPresent") else {
+            return self.deny("an `Always` trigger with no `IsPresent$`".to_string());
+        };
+        let clause = self.present_clause(p, &valid)?;
+        let name = self.body.condition_static("STATE", &clause);
+        Some(format!("Trigger::State(&{name})"))
     }
 
     fn triggered(&mut self, spec: &str) -> Option<()> {
@@ -3120,8 +5265,13 @@ impl Tx<'_> {
             return self.deny("a `T:` line with no `$` in it".to_string());
         };
         p.drop_prose();
-        let trigger = self.trigger_expr(&mut p, &mode)?;
-        let condition = self.condition(&mut p)?;
+        self.trigger_mode = Some(mode.clone());
+        let (trigger, condition) = if mode == "Always" {
+            (self.state_trigger(&mut p)?, String::new())
+        } else {
+            let trigger = self.trigger_expr(&mut p, &mode)?;
+            (trigger, self.condition(&mut p)?)
+        };
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };
@@ -3151,6 +5301,17 @@ impl Tx<'_> {
         let Some(body) = self.svars.get(&execute).cloned() else {
             return self.deny(format!("`Execute$ {execute}` names no SVar"));
         };
+        // "You may pay {1}. If you do, you gain 1 life" (Crystal Rod): the
+        // reference writes the payment as a `Cost$` on the executed line and
+        // the "may" as `OptionalDecider$ You`. The two are one decision —
+        // the player who will not pay has declined — so the price replaces
+        // the `MayDo` rather than sitting inside it, which would ask twice.
+        // Generic mana only: a coloured price or a non-mana cost is another
+        // payment the effect cannot take, and stays unclaimed.
+        let (body, price) = match Self::optional_price(&body, may) {
+            Some((stripped, price)) => (stripped, Some(price)),
+            None => (body, None),
+        };
         let mut chain = Chain::default();
         self.chain(&body, &mut chain)?;
         if chain.effects.is_empty() {
@@ -3171,15 +5332,221 @@ impl Tx<'_> {
         // may gain life equal to the number of Allies you control" is one
         // decision, not one per operation it expands into.
         let effects = chain.effects.join(", ");
-        let effects = if may {
-            format!("Effect::MayDo {{ effects: &[{effects}] }}")
-        } else {
-            effects
+        let effects = match price {
+            Some(Price::Generic(mana)) => format!(
+                "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
+                 mana: {mana}, effects: &[{effects}] }}"
+            ),
+            // Farmstead's "you may pay {W}{W}. If you do, you gain 1 life".
+            Some(Price::Printed(cost)) => format!(
+                "Effect::PlayerMayPayManaThen {{ player: PlayerRel::You, \
+                 cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
+            ),
+            Some(Price::Part(_)) => unreachable!("`optional_price` reads mana only"),
+            None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
+            None => effects,
         };
-        self.body.abilities.push(format!(
-            "triggered!({trigger}, &[{effects}]{targets}{condition})"
-        ));
+        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{condition})");
+        if let Some((role, other, secondary)) = self.block_line.take() {
+            return self.pair_block_half(role, other, secondary, ability);
+        }
+        self.body.abilities.push(ability);
         Some(())
+    }
+
+    /// `T:Mode$ AttackerBlockedByCreature` — "whenever this creature blocks
+    /// or becomes blocked by a non-Wall creature" (Cockatrice), as
+    /// `Trigger::BlocksOrBecomesBlockedBy`.
+    ///
+    /// The reference writes the one printed ability as **two** lines, one
+    /// for each side of the block: `ValidCard$ <other> | ValidBlocker$
+    /// Card.Self` for "blocks" and `ValidCard$ Card.Self | ValidBlocker$
+    /// <other>` for "becomes blocked by", the second marked `Secondary$
+    /// True`. Each line is read here; [`Tx::pair_block_half`] keeps the
+    /// first, drops its mirror, and a script that ends with a half unpaired
+    /// is refused, because either half alone is another sentence ("whenever
+    /// this creature blocks a creature", CR 509.3b, or "becomes blocked by
+    /// a creature", 509.3d) that the trigger here would over-read.
+    ///
+    /// A source on neither side is an Aura's or an Equipment's "enchanted
+    /// creature blocks", and an other side relative to another permanent
+    /// (`AttachedBy`, `EnchantedBy`) is a sentence about it; both refuse.
+    fn block_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let card = p.take("ValidCard");
+        let blocker = p.take("ValidBlocker");
+        let secondary = match p.take("Secondary").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        };
+        let (role, other) = match (card, blocker) {
+            (Some(card), Some(blocker)) if blocker == "Card.Self" && card != "Card.Self" => {
+                (BlockRole::Blocks, card)
+            }
+            (Some(card), Some(blocker)) if card == "Card.Self" && blocker != "Card.Self" => {
+                (BlockRole::Blocked, blocker)
+            }
+            (card, blocker) => {
+                return self.deny(format!(
+                    "a block between `{}` and `{}`",
+                    card.unwrap_or_default(),
+                    blocker.unwrap_or_default()
+                ));
+            }
+        };
+        if other.split([',', '.', '+']).any(|atom| {
+            matches!(
+                atom.trim(),
+                "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+            )
+        }) {
+            return self.deny(format!("a block with `{other}`, relative to another card"));
+        }
+        let expr = self.filter_expr(&other)?;
+        let filter = self.body.filter_static("TRIGGER", &expr);
+        self.block_line = Some((role, other, secondary));
+        Some(format!("Trigger::BlocksOrBecomesBlockedBy(&{filter})"))
+    }
+
+    /// The pairing half of [`Tx::block_trigger`]: the first half read is
+    /// written and kept; the second must be its mirror — the other side of
+    /// the block, the same other creature, `Secondary$` on exactly one of
+    /// the two, and the same ability once read — and writes nothing, since
+    /// the card prints one ability.
+    fn pair_block_half(
+        &mut self,
+        role: BlockRole,
+        other: String,
+        secondary: bool,
+        ability: String,
+    ) -> Option<()> {
+        match self.block_half.take() {
+            None => {
+                self.body.abilities.push(ability.clone());
+                self.block_half = Some(BlockHalf {
+                    role,
+                    other,
+                    secondary,
+                    ability,
+                });
+                Some(())
+            }
+            Some(first)
+                if first.role != role
+                    && first.other == other
+                    && first.secondary != secondary
+                    && first.ability == ability =>
+            {
+                Some(())
+            }
+            Some(_) => {
+                self.deny("two block triggers that are not the halves of one sentence".to_string())
+            }
+        }
+    }
+
+    /// Refuses a script that ended with one half of a "blocks or becomes
+    /// blocked by" trigger read and its mirror never met.
+    fn block_halves_paired(&self) -> Option<()> {
+        match &self.block_half {
+            None => Some(()),
+            Some(half) => self.deny(format!(
+                "a `{}` trigger without its mirror",
+                match half.role {
+                    BlockRole::Blocks => "blocks",
+                    BlockRole::Blocked => "becomes blocked by",
+                }
+            )),
+        }
+    }
+
+    /// `DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat` — "destroy that
+    /// creature at end of combat" (Cockatrice): a delayed trigger that
+    /// triggers as the end of combat step begins (CR 511.2),
+    /// `Effect::AtEndOfCombat`.
+    ///
+    /// Only under a block trigger ([`Tx::block_trigger`]) and only
+    /// remembering the **other** creature of the block — the attacker on the
+    /// "blocks" half, the blocker on the "becomes blocked by" one — which is
+    /// the trigger's event object. Its `Execute$` is read as a chain of its
+    /// own in which `Defined$ DelayTriggerRememberedLKI` is that object, and
+    /// which may target nothing. Every other phase, player, remembered
+    /// object or delayed mode is refused by name.
+    fn delayed_trigger(&mut self, p: &mut Params, target: Option<&str>) -> Option<String> {
+        let mode = p.take("Mode").unwrap_or_default();
+        let phase = p.take("Phase").unwrap_or_default();
+        if mode != "Phase" || phase != "EndCombat" {
+            return self.deny(format!("a delayed trigger at `{mode} {phase}`"));
+        }
+        match p.take("ValidPlayer").as_deref() {
+            None | Some("Player") => {}
+            Some(other) => {
+                return self.deny(format!("a delayed trigger in `{other}`'s turn"));
+            }
+        }
+        let remembered = p.take("RememberObjects").unwrap_or_default();
+        let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
+            Some(BlockRole::Blocks) => "TriggeredAttacker",
+            Some(BlockRole::Blocked) => "TriggeredBlocker",
+            None => {
+                return self.deny(format!(
+                    "a delayed trigger remembering `{remembered}` outside a block trigger"
+                ));
+            }
+        };
+        if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
+            return self.deny(format!("a delayed trigger remembering `{remembered}`"));
+        }
+        if target.is_some() {
+            return self.deny("a delayed trigger on a line that targets".to_string());
+        }
+        let Some(execute) = p.take("Execute") else {
+            return self.deny("a delayed trigger with no `Execute$`".to_string());
+        };
+        let Some(body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no SVar"));
+        };
+        let mut inner = Chain::default();
+        let outer = std::mem::replace(&mut self.in_delayed, true);
+        let read = self.chain(&body, &mut inner);
+        self.in_delayed = outer;
+        read?;
+        if inner.target.is_some() {
+            return self.deny("a delayed trigger that targets".to_string());
+        }
+        if inner.effects.is_empty() {
+            return self.deny("a delayed trigger that reads as no effect".to_string());
+        }
+        Some(format!(
+            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{}] }}",
+            inner.effects.join(", ")
+        ))
+    }
+
+    /// The executed line of a "you may pay {N}. If you do, …" trigger with
+    /// its price taken off, and the price: `AB$ GainLife | Cost$ 1 | …`
+    /// under `OptionalDecider$ You`. `None` for anything else — no "may",
+    /// no `Cost$`, or a cost that is not mana alone — which leaves the line
+    /// as it was for the chain to read or refuse.
+    fn optional_price(body: &str, may: bool) -> Option<(String, Price)> {
+        if !may || !body.trim_start().starts_with("AB$") {
+            return None;
+        }
+        let parts: Vec<&str> = body.split(" | ").collect();
+        let cost = parts
+            .iter()
+            .find_map(|part| part.strip_prefix("Cost$"))?
+            .trim();
+        let price = match cost.parse::<u32>() {
+            Ok(0) => return None,
+            Ok(n) => Price::Generic(format!("Amount::Fixed({n})")),
+            Err(_) => Price::Printed(printed_mana(cost)?),
+        };
+        let rest: Vec<&str> = parts
+            .into_iter()
+            .filter(|part| !part.starts_with("Cost$"))
+            .collect();
+        Some((rest.join(" | "), price))
     }
 }
 
@@ -3428,8 +5795,15 @@ fn keyword_const(line: &str) -> Option<&'static str> {
         "Flash" => "KeywordSet::FLASH",
         "Shroud" => "KeywordSet::SHROUD",
         "Shadow" => "KeywordSet::SHADOW",
+        "Fear" => "KeywordSet::FEAR",
+        "Landwalk:Plains" => "KeywordSet::PLAINSWALK",
+        "Landwalk:Island" => "KeywordSet::ISLANDWALK",
+        "Landwalk:Swamp" => "KeywordSet::SWAMPWALK",
+        "Landwalk:Mountain" => "KeywordSet::MOUNTAINWALK",
+        "Landwalk:Forest" => "KeywordSet::FORESTWALK",
         "Prowess" => "KeywordSet::PROWESS",
         "Changeling" => "KeywordSet::CHANGELING",
+        "Banding" => "KeywordSet::BANDING",
         _ => return None,
     })
 }
@@ -3514,6 +5888,11 @@ pub fn transcode(
         cats,
         tokens,
         has_x: false,
+        on_a_spell: false,
+        trigger_mode: None,
+        block_line: None,
+        block_half: None,
+        in_delayed: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -3523,6 +5902,7 @@ pub fn transcode(
     for (kind, spec) in &script.rules {
         tx.rule(*kind, spec)?;
     }
+    tx.block_halves_paired()?;
     if tx.body.is_empty() {
         return None;
     }
@@ -3530,6 +5910,20 @@ pub fn transcode(
         .notes
         .push("transcoded from the card's rules".into());
     Some(tx.body)
+}
+
+/// Whether the script says nothing beyond what Scryfall supplies anyway: no
+/// keyword, no ability and no line kind the parser does not model.
+///
+/// [`transcode`] refuses such a script, because an empty body is also what
+/// a card it could not read at all would look like. A vanilla creature is
+/// the other reading, and only the printing can tell the two apart, so
+/// `stubgen` finishes the card when its printed text is empty as well; the
+/// reports that walk scripts without a printing (`reach-list`,
+/// `transcode-report`) count it as read on this alone, and `codegen` decides.
+#[must_use]
+pub fn is_vanilla(script: &CardScript) -> bool {
+    script.keywords.is_empty() && script.rules.is_empty() && script.unknown_lines.is_empty()
 }
 
 /// Reads a script and, when it is refused over a parameter, names it.
@@ -3554,6 +5948,11 @@ pub fn refusal_reason(
         cats,
         tokens,
         has_x: false,
+        on_a_spell: false,
+        trigger_mode: None,
+        block_line: None,
+        block_half: None,
+        in_delayed: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -3566,6 +5965,9 @@ pub fn refusal_reason(
         if tx.rule(*kind, spec).is_none() {
             return tx.unclaimed.into_inner();
         }
+    }
+    if tx.block_halves_paired().is_none() {
+        return tx.unclaimed.into_inner();
     }
     // [`transcode`]'s last refusal, mirrored. A script that is read in full
     // and yields nothing is a card whose rules text this transcoder has no
@@ -3605,14 +6007,28 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Surveil",
     "Mana",
     "Destroy",
+    "DestroyAll",
+    "DelayedTrigger",
+    "DamageAll",
+    "DamageResolve",
+    "PreventDamage",
+    "AddTurn",
+    "Effect",
+    "ChooseSource",
+    "Fog",
     "Regenerate",
     "Tap",
+    "TapOrUntap",
+    "TapAll",
+    "DrainMana",
     "Untap",
     "Counter",
     "PutCounter",
     "Sacrifice",
     "Pump",
     "ChangeZone",
+    "ChangeZoneAll",
+    "RearrangeTopOfLibrary",
     "Token",
     "Investigate",
 ];
@@ -3652,6 +6068,28 @@ fn asks_for_an_object(part: &str) -> bool {
     .any(|kind| part.starts_with(kind))
 }
 
+/// `{N}` alone as its number: a price that is generic mana and nothing else.
+fn generic_mana(mana: &str) -> Option<u16> {
+    mana.strip_prefix('{')?.strip_suffix('}')?.parse().ok()
+}
+
+/// A cost of mana symbols only (`W W`, `1 U`) in its printed spelling
+/// (`{W}{W}`, `{1}{U}`); `None` when any part is something other than mana.
+fn printed_mana(cost: &str) -> Option<String> {
+    let mut out = String::new();
+    for part in cost_parts(cost) {
+        let mana = part.chars().all(|c| c.is_ascii_digit())
+            || matches!(part.as_str(), "W" | "U" | "B" | "R" | "G" | "C");
+        if !mana || part.is_empty() {
+            return None;
+        }
+        out.push('{');
+        out.push_str(&part);
+        out.push('}');
+    }
+    (!out.is_empty()).then_some(out)
+}
+
 /// Whether [`transcode`] has a rule for this effect API.
 #[must_use]
 pub fn is_supported_api(api: &str) -> bool {
@@ -3684,7 +6122,10 @@ pub fn apis_used(spec: &str, svars: &BTreeMap<String, String>) -> Vec<String> {
                 queue.push(body.clone());
             }
         }
-        if !matches!(api.as_str(), "ChangesZone" | "Phase" | "Attacks" | "Taps") {
+        if !matches!(
+            api.as_str(),
+            "ChangesZone" | "Phase" | "Attacks" | "Taps" | "AttackerBlockedByCreature"
+        ) {
             out.push(api);
         }
     }
@@ -3843,7 +6284,13 @@ mod tests {
     }
 
     fn read(text: &str) -> CardBody {
-        transcode(&parse(text), &cats(), None).expect("should be read in full")
+        let parsed = parse(text);
+        transcode(&parsed, &cats(), None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full, refused: {:?}",
+                refusal_reason(&parsed, &cats(), None)
+            )
+        })
     }
 
     fn refused(text: &str) -> bool {
@@ -3907,7 +6354,7 @@ mod tests {
     }
 
     #[test]
-    fn random_discard_reads_x_and_refuses_a_chosen_discard() {
+    fn random_discard_reads_x_and_refuses_a_discard_it_cannot_name() {
         let generated = read(
             "Name:Test
 ManaCost:X B
@@ -3924,11 +6371,9 @@ SVar:X:Count$xPaid",
                     && a.contains("PlayerRel::Chosen")),
             "{generated:?}"
         );
-        for extra in [
-            "",
-            " | Mode$ TgtChoose",
-            " | Mode$ Random | RevealNumber$ 2",
-        ] {
+        // `Mode$ TgtChoose` is read since the discarding player's own choice
+        // has a rule (`a_chosen_discard_on_your_turn_only`).
+        for extra in ["", " | Mode$ Random | RevealNumber$ 2"] {
             assert!(refused(&format!(
                 "Name:Test\nManaCost:B\nTypes:Sorcery\nA:SP$ Discard | ValidTgts$ Player | NumCards$ 1{extra}"
             )));
@@ -3969,10 +6414,39 @@ SVar:X:Count$xPaid",
             ["mana_ability!(&[Effect::mana_chosen_or(&[ManaColor::White])])"]
         );
 
-        // A clone choosing what to enter as is a different mechanism.
+        // A clone that must copy is not the "may" `CopyOnEnter` asks.
         assert!(refused(
             "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\nK:ETBReplacement:Copy:CC\n\
              SVar:CC:DB$ Clone | Defined$ You"
+        ));
+        // Clone and Copy Artifact: the choice is made before it enters, so
+        // `Other` names nothing, and the except-clause is a copy mod.
+        let clone = read(
+            "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Creature.Other | SpellDescription$ x",
+        );
+        assert_eq!(
+            clone.abilities,
+            [
+                "AbilityDef::CopyOnEnter { target: TargetSpec::Object(&Filter::CREATURE), mods: &[] }"
+            ]
+        );
+        let artifact = read(
+            "Name:X\nTypes:Artifact\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Artifact.Other | AddTypes$ Enchantment",
+        );
+        assert!(
+            artifact.abilities[0].contains("mods: &[CopyMod::AddType(TypeSet::ENCHANTMENT)]"),
+            "{:?}",
+            artifact.abilities
+        );
+        // Vesuvan Doppelganger's colour and granted trigger are refused.
+        assert!(refused(
+            "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Creature.Other | SetColor$ Blue"
         ));
         // "As this enters, choose a color" is its controller's choice, and a
         // card handing it to somebody else is a different sentence.
@@ -4053,6 +6527,11 @@ SVar:X:Count$xPaid",
             cats: &cats,
             tokens: None,
             has_x: false,
+            on_a_spell: false,
+            trigger_mode: None,
+            block_line: None,
+            block_half: None,
+            in_delayed: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -4196,6 +6675,160 @@ SVar:X:Count$xPaid",
         let body = read("Name:Shadow Test\nTypes:Creature Rogue\nPT:1/1\nK:Shadow\nOracle:Shadow");
         assert_eq!(body.keywords, ["KeywordSet::SHADOW"]);
         assert!(body.abilities.is_empty());
+    }
+
+    /// Banding is a keyword the engine reads (CR 702.22), on a body and
+    /// granted by a pump (Helm of Chatzuk); "bands with other" names a
+    /// quality and stays refused.
+    #[test]
+    fn banding_is_read_and_bands_with_other_is_not() {
+        let body = read("Name:X\nTypes:Creature Human\nPT:1/1\nK:Banding\nOracle:Banding");
+        assert_eq!(body.keywords, ["KeywordSet::BANDING"]);
+        let body = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ Pump | Cost$ 1 T | ValidTgts$ Creature | KW$ Banding | SpellDescription$ …",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a.contains("keywords: KeywordSet::BANDING")),
+            "{:?}",
+            body.abilities
+        );
+        let script = parse("Name:X\nTypes:Creature Human\nPT:1/1\nK:Bands with Other:Legendary");
+        assert!(transcode(&script, &cats(), None).is_none());
+    }
+
+    /// "Attacks each combat if able" (CR 508.1d) and "can't attack unless
+    /// defending player controls an Island" (CR 508.1c) are statics the
+    /// engine reads; a requirement naming what to attack, and an `unless`
+    /// that is not "controls", stay refused.
+    #[test]
+    fn attack_requirements_and_island_restrictions_are_read() {
+        let body = read(
+            "Name:X\nManaCost:4\nTypes:Artifact Creature Juggernaut\nPT:5/3\n\
+             S:Mode$ MustAttack | ValidCreature$ Card.Self | Description$ CARDNAME attacks each combat if able.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::This, Modifier::AttacksEachCombat)"]
+        );
+        let body = read(
+            "Name:X\nManaCost:5 U\nTypes:Creature Serpent\nPT:5/5\n\
+             S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ controlsIsland | \
+             Description$ CARDNAME can't attack unless defending player controls an Island.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.starts_with(
+                "static_ability!(Filter::This, Modifier::CantAttackUnlessDefenderControls(&"
+            ),
+            "{text}"
+        );
+        assert!(
+            format!("{text}\n{}", body.statics).contains("ISLAND"),
+            "the Island is what it asks for: {text}\n{}",
+            body.statics
+        );
+        for refused_line in [
+            "S:Mode$ MustAttack | ValidCreature$ Card.Self | MustAttack$ CardOwner",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ isMonarch",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ !controlsLand.untapped",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Serpent\nPT:5/5\n{refused_line}\n"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// "Can block an additional creature each combat" (CR 509.1a) and
+    /// Lure's "all creatures able to block enchanted creature do so"
+    /// (CR 509.1c) are statics the engine reads; an amount that is not a
+    /// number, and any other hidden keyword, stay refused.
+    #[test]
+    fn block_limits_and_lures_are_read() {
+        let body = read(
+            "Name:X\nManaCost:4 R\nTypes:Creature Giant\nPT:4/4\nK:Trample\n\
+             S:Mode$ Continuous | Affected$ Card.Self | CanBlockAmount$ 1 | \
+             Description$ CARDNAME can block an additional creature each combat.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::This, Modifier::CanBlockAdditional(1))"]
+        );
+        let body = read(
+            "Name:X\nManaCost:1 G G\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | \
+             AddHiddenKeyword$ All creatures able to block CARDNAME do so. | \
+             Description$ All creatures able to block enchanted creature do so.\n",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a.ends_with(", Modifier::MustBeBlockedByAllAble)")
+                    && a.contains("Filter::AttachedToBySource")),
+            "{:?}",
+            body.abilities
+        );
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Card.Self | CanBlockAmount$ X",
+            "S:Mode$ Continuous | Affected$ Card.Self | AddHiddenKeyword$ CARDNAME can block only creatures with flying.",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Giant\nPT:4/4\n{refused_line}\nSVar:X:Count$Valid Creature\n"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// "When you control no Islands, sacrifice this" is a state trigger
+    /// (CR 603.8): the clause is the trigger's own condition, named above the
+    /// literal, and never an intervening "if". A clause the reader cannot
+    /// read, a zone it does not collect from, and a check at resolution stay
+    /// refused.
+    #[test]
+    fn a_state_trigger_is_read_as_its_own_condition() {
+        let body = read(
+            "Name:X\nManaCost:5 U\nTypes:Creature Serpent\nPT:5/5\n\
+             T:Mode$ Always | TriggerZones$ Battlefield | IsPresent$ Island.YouCtrl | \
+             PresentCompare$ EQ0 | Execute$ TrigSac | TriggerDescription$ When you control no Islands, sacrifice CARDNAME.\n\
+             SVar:TrigSac:DB$ Sacrifice\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.starts_with("triggered!(Trigger::State(&STATE") && text.contains("SacrificeSelf"),
+            "{text}"
+        );
+        assert!(
+            !text.contains("condition ="),
+            "not an intervening if: {text}"
+        );
+        assert!(
+            body.statics
+                .contains(": Condition = Condition::ControlCountAtMost(&")
+                && body.statics.contains(", 0);"),
+            "no Islands under your control: {}",
+            body.statics
+        );
+        for refused_line in [
+            "T:Mode$ Always | TriggerZones$ Battlefield | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Graveyard | IsPresent$ Island.YouCtrl | PresentCompare$ EQ0 | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Battlefield | IsPresent$ Island.YouCtrl | PresentCompare$ EQ0 | ResolvingCheck$ IsPresent | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Battlefield | LifeTotal$ You | LifeAmount$ LE0 | Execute$ TrigSac",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Serpent\nPT:5/5\n{refused_line}\nSVar:TrigSac:DB$ Sacrifice\n"
+                )),
+                "{refused_line}"
+            );
+        }
     }
 
     #[test]
@@ -4379,6 +7012,222 @@ SVar:X:Count$xPaid",
                 "{lines}"
             );
         }
+    }
+
+    /// Crystal Rod: "Whenever a player casts a blue spell, you may pay {1}.
+    /// If you do, you gain 1 life." The price is the "may", so it replaces
+    /// the `MayDo` rather than sitting inside it. A coloured price is
+    /// Farmstead's `{W}{W}`, printed exactly (`PlayerMayPayManaThen`); a
+    /// price that is not mana is a payment neither takes, and stays refused.
+    #[test]
+    fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
+        let body = read(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 1",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::PlayerMayPayThen { player: PlayerRel::You, mana: Amount::Fixed(1), \
+                 effects: &[Effect::gain_life(1)] }"
+            ),
+            "{text}"
+        );
+        assert!(!text.contains("MayDo"), "one question, not two: {text}");
+
+        let script = parse(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ W W | Defined$ You | LifeAmount$ 1",
+        );
+        let text = transcode(&script, &cats(), None)
+            .expect("a coloured price is read")
+            .abilities
+            .join("\n");
+        assert!(
+            text.contains(
+                "Effect::PlayerMayPayManaThen { player: PlayerRel::You, cost: mana!(\"{W}{W}\"), \
+                 effects: &[Effect::gain_life(1)] }"
+            ),
+            "{text}"
+        );
+
+        let script = parse(
+            "Name:X\nManaCost:1\nTypes:Artifact\n\
+             T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+             | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+             SVar:TrigGainLife:AB$ GainLife | Cost$ PayLife<1> | Defined$ You | LifeAmount$ 1",
+        );
+        assert_eq!(
+            refusal_reason(&script, &cats(), None).as_deref(),
+            Some("unclaimed parameter `GainLife.Cost`")
+        );
+    }
+
+    /// "That player" is the trigger's to say: whose step began for a
+    /// `Phase` trigger (Copper Tablet), the moved card's controller for a
+    /// `ChangesZone` one (Dingus Egg), and the enchanted permanent's
+    /// controller where the upkeep is theirs (Cursed Land). The same words
+    /// on an activated ability name nothing this reader can see.
+    #[test]
+    fn that_player_is_the_one_the_trigger_names() {
+        let tablet = read(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield \
+             | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 1",
+        );
+        assert_eq!(
+            tablet.abilities,
+            [
+                "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }, \
+                 &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::Player(PlayerRel::ActivePlayer) }])"
+            ]
+        );
+
+        let egg = read(
+            "Name:X\nManaCost:4\nTypes:Artifact\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Land \
+             | TriggerZones$ Battlefield | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 2",
+        );
+        let text = egg.abilities.join("\n");
+        assert!(
+            text.contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{text}"
+        );
+
+        let cursed = read(
+            "Name:X\nManaCost:2 B B\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.EnchantedController \
+             | TriggerZones$ Battlefield | Execute$ TrigDamage | TriggerDescription$ x.\n\
+             SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ 1",
+        );
+        let text = cursed.abilities.join("\n");
+        assert!(
+            text.contains("whose: PlayerRel::ControllerOfAttached"),
+            "{text}"
+        );
+
+        assert!(refused(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             A:AB$ DealDamage | Cost$ T | Defined$ TriggeredPlayer | NumDmg$ 1"
+        ));
+    }
+
+    /// A card in a graveyard is its own kind of target: Regrowth and
+    /// Resurrection move from `Origin$ Graveyard`, and read as a permanent
+    /// on the battlefield they offered nothing to target. `YouCtrl` there is
+    /// "your graveyard".
+    #[test]
+    fn a_graveyard_card_is_targeted_in_its_graveyard() {
+        let regrowth = read(
+            "Name:X\nManaCost:1 G\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Card.YouCtrl",
+        );
+        let text = regrowth.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::GraveyardToHand { target: TargetSpec::CardInGraveyard(&Filter::Any, \
+                 PlayerRel::You) }"
+            ),
+            "{text}"
+        );
+
+        let resurrection = read(
+            "Name:X\nManaCost:2 W W\nTypes:Sorcery\n\
+             A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield \
+             | ValidTgts$ Creature.YouCtrl",
+        );
+        let text = resurrection.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::GraveyardToBattlefield { target: TargetSpec::CardInGraveyard(\
+                 &Filter::CREATURE, PlayerRel::You), owner_control: false, counters: None }"
+            ),
+            "{text}"
+        );
+    }
+
+    /// Braingeyser and Stream of Life: the X the caster announced, drawn or
+    /// gained by the player the spell targets. An `X` that counts
+    /// something is a different number and stays refused.
+    #[test]
+    fn an_announced_x_is_drawn_and_gained() {
+        let geyser = read(
+            "Name:X\nManaCost:X U U\nTypes:Sorcery\n\
+             A:SP$ Draw | NumCards$ X | ValidTgts$ Player\nSVar:X:Count$xPaid",
+        );
+        assert_eq!(
+            geyser.abilities,
+            [
+                "spell!(&[Effect::DrawCardsFor { amount: Amount::X, who: PlayerRel::Chosen }], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+        let stream = read(
+            "Name:X\nManaCost:X G G\nTypes:Sorcery\n\
+             A:SP$ GainLife | ValidTgts$ Player | LifeAmount$ X\nSVar:X:Count$xPaid",
+        );
+        assert_eq!(
+            stream.abilities,
+            [
+                "spell!(&[Effect::GainLifeFor { amount: Amount::X, who: PlayerRel::Chosen }], \
+                 targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))"
+            ]
+        );
+        // A count is a count and not the announced X: read as one.
+        let counted = read(
+            "Name:X\nManaCost:2 G\nTypes:Sorcery\n\
+             A:SP$ GainLife | LifeAmount$ X\nSVar:X:Count$Valid Creature.YouCtrl",
+        );
+        assert!(
+            counted.abilities[0].contains("Effect::GainLife { amount: Amount::CountOf"),
+            "{:?}",
+            counted.abilities
+        );
+        // And the announced X on a trigger is still refused.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | \
+             Execute$ G\nSVar:G:DB$ GainLife | LifeAmount$ X\nSVar:X:Count$xPaid"
+        ));
+    }
+
+    /// Earthquake: "X damage to each creature without flying and each
+    /// player" — the permanents through `DealDamageEach`, the players
+    /// through `DealDamage`, and "without flying" as a keyword the engine
+    /// has a bit for.
+    #[test]
+    fn damage_to_each_is_the_permanents_and_the_players() {
+        let quake = read(
+            "Name:X\nManaCost:X R\nTypes:Sorcery\n\
+             A:SP$ DamageAll | ValidCards$ Creature.withoutFlying | ValidPlayers$ Player \
+             | NumDmg$ X\nSVar:X:Count$xPaid",
+        );
+        let text = quake.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::DealDamageEach { amount: Amount::X, filter: &EACH1 }, \
+                 Effect::DealDamage { amount: Amount::X, target: TargetSpec::Player(\
+                 PlayerRel::EachPlayer) }"
+            ),
+            "{text}"
+        );
+        assert!(
+            quake
+                .statics
+                .contains("Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))"),
+            "{}",
+            quake.statics
+        );
+        assert!(refused(
+            "Name:X\nManaCost:R\nTypes:Sorcery\n\
+             A:SP$ DamageAll | ValidCards$ Creature.withBushido | NumDmg$ 1"
+        ));
     }
 
     #[test]
@@ -4648,6 +7497,34 @@ SVar:X:Count$xPaid",
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
             Some("`Animate` of something other than the source")
+        );
+
+        // The Laces: the target is what `Filter::This` binds to, the stack
+        // is a zone it may be in, and "becomes" lasts the game.
+        let lace = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Animate | Colors$ Red | OverwriteColors$ True | ValidTgts$ Card \
+             | TgtZone$ Stack,Battlefield | Duration$ Permanent",
+        );
+        let a = lace.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::continuous(&Filter::This, Modifier::SetColor(ColorSet::from_slice(\
+                 &[Color::Red])), Duration::Indefinitely)"
+            ),
+            "{a}"
+        );
+        assert!(
+            a.contains("TargetSpec::StackOrBattlefield(&Filter::Any)"),
+            "{a}"
+        );
+        let exiled = parse(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Animate | Colors$ Red | ValidTgts$ Card | TgtZone$ Exile",
+        );
+        assert_eq!(
+            refusal_reason(&exiled, &cats(), None).as_deref(),
+            Some("a target in `TgtZone$ Exile`")
         );
     }
 
@@ -5057,6 +7934,1204 @@ SVar:X:Count$xPaid",
         assert!(text.contains("filter: &Filter::This"), "{text}");
     }
 
+    /// A static's `IsPresent$` is the condition it exists under, and
+    /// `GainControl$ You` is layer 2 to the static's controller.
+    #[test]
+    fn a_static_holds_while_its_clause_does_and_can_give_control() {
+        // Sedge Troll, with a land the test catalog knows.
+        let body = read(
+            "Name:X\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/2\n\
+             S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | AddToughness$ 1 | \
+             IsPresent$ Mountain.YouCtrl | Description$ gets +1/+1.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("condition = Some(Condition::ControlCount(&CHECK"),
+            "{text}"
+        );
+        assert!(text.trim_end().ends_with("))"), "{text}");
+
+        // Control Magic: layer 2, to the static's controller.
+        let body = read(
+            "Name:X\nManaCost:2 U U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ You | \
+             Description$ You control enchanted creature.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("static_ability!(Filter::AttachedToBySource, Modifier::GainControl)"),
+            "{text}"
+        );
+
+        // Control given to anyone else is not a sentence it can write.
+        let script = parse(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | GainControl$ Opponent\n",
+        );
+        assert!(transcode(&script, &cats(), None).is_none());
+    }
+
+    /// Disrupting Scepter: the target player chooses the card, and the
+    /// ability is activated only during its controller's turn.
+    #[test]
+    fn a_chosen_discard_on_your_turn_only() {
+        let body = read(
+            "Name:X\nManaCost:3\nTypes:Artifact\n\
+             A:AB$ Discard | Cost$ 3 T | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose | \
+             PlayerTurn$ True | SpellDescription$ Target player discards a card.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 1 }"),
+            "{text}"
+        );
+        assert!(
+            text.contains("condition = Some(Condition::YourTurn)"),
+            "{text}"
+        );
+    }
+
+    /// Psionic Blast: `DamageMap$` gathers, `DamageResolve` deals.
+    #[test]
+    fn gathered_damage_is_dealt_in_one_resolution() {
+        let body = read(
+            "Name:X\nManaCost:2 U\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 4 | DamageMap$ True | \
+             SubAbility$ DBDealDamage | SpellDescription$ 4 to any target and 2 to you.\n\
+             SVar:DBDealDamage:DB$ DealDamage | Defined$ You | NumDmg$ 2 | \
+             SubAbility$ DBDamageResolve\n\
+             SVar:DBDamageResolve:DB$ DamageResolve\n",
+        );
+        let text = body.abilities.join("\n");
+        assert_eq!(text.matches("Effect::DealDamage").count(), 2, "{text}");
+        assert!(
+            text.contains("TargetSpec::Player(PlayerRel::You)"),
+            "{text}"
+        );
+    }
+
+    /// Zombie Master: a granted activated ability, "this permanent" being
+    /// the one that has it; a granted ability that targets is refused.
+    #[test]
+    fn a_granted_ability_is_the_holders_own() {
+        let body = read(
+            "Name:X\nManaCost:1 B B\nTypes:Creature Goblin\nPT:2/3\n\
+             S:Mode$ Continuous | Affected$ Card.Goblin+Other | AddAbility$ Regenerate | \
+             Description$ Other Goblins have regenerate.\n\
+             SVar:Regenerate:AB$ Regenerate | Cost$ B | SpellDescription$ Regenerate this permanent.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("Modifier::GrantActivated {"), "{text}");
+        assert!(text.contains("cost: cost!(\"{B}\")"), "{text}");
+        assert!(text.contains("TargetSpec::ThisObject"), "{text}");
+        assert!(text.contains("mana_ability: false"), "{text}");
+
+        assert!(refused(
+            "Name:X\nTypes:Creature Goblin\nPT:2/3\n\
+             S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
+             SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
+        ));
+    }
+
+    /// Lifetap and Psychic Venom: a `Taps` trigger on another permanent, and
+    /// "that land's controller" read off it.
+    #[test]
+    fn a_tapped_trigger_reads_any_permanent_and_its_controller() {
+        let venom = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             T:Mode$ Taps | ValidCard$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredCardController | NumDmg$ 2",
+        );
+        let a = venom.abilities.join("");
+        assert!(
+            a.contains("Trigger::BecomesTapped(&Filter::AttachedToBySource)"),
+            "{a}"
+        );
+        assert!(
+            a.contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{a}"
+        );
+        let lifetap = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Taps | ValidCard$ Forest.OppCtrl | TriggerZones$ Battlefield | Execute$ G\n\
+             SVar:G:DB$ GainLife | LifeAmount$ 1",
+        );
+        assert!(
+            lifetap
+                .abilities
+                .join("")
+                .contains("Trigger::BecomesTapped(&TRIGGER"),
+            "{:?}",
+            lifetap.abilities
+        );
+    }
+
+    /// Disintegrate and Magma Spray: "if it's a creature, it can't be
+    /// regenerated this turn, and if it would die this turn, exile it
+    /// instead", on an any-target and on a creature target. "A creature
+    /// dealt damage this way" (`Remembered`), a condition on the rider and
+    /// a player target are refused.
+    #[test]
+    fn exile_if_it_dies_and_no_regeneration_read_the_lines_target() {
+        let disintegrate = read(
+            "Name:X\nTypes:Sorcery\nManaCost:X R\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ X | SubAbility$ E | \
+             ReplaceDyingDefined$ ThisTargetedCard.Creature\n\
+             SVar:E:DB$ Effect | RememberObjects$ ParentTarget | ForgetOnMoved$ Battlefield | \
+             StaticAbilities$ NoRegen | IsCurse$ True | ConditionDefined$ ParentTarget | \
+             ConditionPresent$ Creature | AILogic$ CantRegenerate\n\
+             SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered | \
+             Description$ It can't be regenerated.\n\
+             SVar:X:Count$xPaid",
+        );
+        let a = disintegrate.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::IfTargetMatches { filter: &Filter::CREATURE, then: \
+                 &[Effect::ExileIfDiesThisTurn { target: TargetSpec::AnyTarget }] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::IfTargetMatches { filter: &Filter::CREATURE, then: \
+                 &[Effect::CantBeRegeneratedThisTurn { target: TargetSpec::AnyTarget }] }"
+            ),
+            "{a}"
+        );
+        let spray = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | ReplaceDyingDefined$ Targeted",
+        );
+        let a = spray.abilities.join("");
+        assert!(
+            a.contains("Effect::ExileIfDiesThisTurn { target: TargetSpec::Object("),
+            "{a}"
+        );
+        assert!(!a.contains("IfTargetMatches"), "{a}");
+        for refused_line in [
+            "A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | ReplaceDyingDefined$ Remembered.Creature",
+            "A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 3 | ReplaceDyingDefined$ Targeted",
+            "A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2 | \
+             ReplaceDyingDefined$ ThisTargetedCard.Creature | ReplaceDyingCondition$ Kicked",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Instant\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+        // "A creature dealt damage this way can't be regenerated"
+        // (Incinerate) asks whether damage was dealt.
+        assert!(refused(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SubAbility$ E | RememberDamaged$ True\n\
+             SVar:E:DB$ Effect | RememberObjects$ Remembered.Creature | ForgetOnMoved$ Battlefield | \
+             StaticAbilities$ NoRegen | IsCurse$ True\n\
+             SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered"
+        ));
+    }
+
+    /// Wheel of Fortune, Timetwister and Natural Selection: whose hand,
+    /// whose graveyard, whose library. A library position, a random pick
+    /// and a count the player announced are refused.
+    #[test]
+    fn whole_hands_graveyards_and_another_players_library_read_whose() {
+        let wheel = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ Discard | Mode$ Hand | Defined$ Player | SubAbility$ D\n\
+             SVar:D:DB$ Draw | Defined$ Player | NumCards$ 7",
+        );
+        let a = wheel.abilities.join("");
+        assert!(
+            a.contains("Effect::DiscardHand { who: PlayerRel::EachPlayer }"),
+            "{a}"
+        );
+        let twister = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZoneAll | ChangeType$ Card | Origin$ Hand,Graveyard | \
+             Destination$ Library | Shuffle$ True | UseAllOriginZones$ True",
+        );
+        let a = twister.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::ShuffleIntoLibrary { who: PlayerRel::EachPlayer, hand: true, \
+                 graveyard: true }"
+            ),
+            "{a}"
+        );
+        let feldon = read(
+            "Name:X\nTypes:Sorcery\n\
+             A:SP$ ChangeZoneAll | ValidTgts$ Player | ChangeType$ Card | Origin$ Graveyard | \
+             Destination$ Library | Shuffle$ True",
+        );
+        let a = feldon.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::ShuffleIntoLibrary { who: PlayerRel::Chosen, hand: false, \
+                 graveyard: true }"
+            ),
+            "{a}"
+        );
+        let selection = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ RearrangeTopOfLibrary | ValidTgts$ Player | NumCards$ 3 | MayShuffle$ True",
+        );
+        let a = selection.abilities.join("");
+        assert!(
+            a.contains("Effect::ReorderTopLibraryOf { who: PlayerRel::Chosen, count: 3 }"),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::MayDo { effects: &[Effect::ShuffleLibrary { who: PlayerRel::Chosen }] }"
+            ),
+            "{a}"
+        );
+        let mine = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ RearrangeTopOfLibrary | Cost$ 1 | Defined$ You | NumCards$ 3",
+        );
+        assert!(
+            mine.abilities
+                .join("")
+                .contains("Effect::ReorderTopLibrary { count: 3 }"),
+            "{:?}",
+            mine.abilities
+        );
+        for refused_line in [
+            "A:SP$ ChangeZoneAll | ChangeType$ Card | Origin$ Hand,Graveyard | \
+             Destination$ Library | Shuffle$ True | Random$ True",
+            "A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | \
+             Destination$ Library | LibraryPosition$ -1",
+            "A:SP$ RearrangeTopOfLibrary | Defined$ You | NumCards$ X",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Sorcery\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// Stone Giant: "toughness less than this creature's power" only where
+    /// `X` is the source's power, and "destroy that creature at the
+    /// beginning of the next end step" only on a targeted pump.
+    #[test]
+    fn a_comparison_with_the_sources_power_and_a_destroy_at_the_next_end_step() {
+        let giant = read(
+            "Name:X\nTypes:Creature\nPT:3/4\n\
+             A:AB$ Pump | Cost$ T | ValidTgts$ Creature.YouCtrl+toughnessLTX | KW$ Flying | \
+             AtEOT$ Destroy\n\
+             SVar:X:Count$CardPower",
+        );
+        let a = giant.abilities.join("");
+        assert!(
+            a.contains(
+                "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            giant
+                .statics
+                .contains("Filter::ToughnessLessThanSourcePower"),
+            "{}",
+            giant.statics
+        );
+        for refused_card in [
+            // `X` is not the source's power.
+            "A:AB$ Pump | Cost$ T | ValidTgts$ Creature.toughnessLTX | KW$ Flying\n\
+             SVar:X:Count$Valid Island.YouCtrl",
+            // Another delayed sentence, and a delayed one about no target.
+            "A:AB$ Pump | Cost$ T | ValidTgts$ Creature | KW$ Haste | AtEOT$ Sacrifice",
+            "A:AB$ Pump | Cost$ R | Defined$ Self | NumAtt$ +1 | AtEOT$ Destroy",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Creature\nPT:3/4\n{refused_card}")),
+                "{refused_card}"
+            );
+        }
+    }
+
+    /// Stasis: "Players skip their untap steps" is every player's untap step,
+    /// from the battlefield; a plane's skip from the command zone, another
+    /// step, and a skip for one player refuse.
+    #[test]
+    fn a_skipped_untap_step_is_every_players() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Untap | Skip$ True | \
+             Description$ Players skip their untap steps.",
+        );
+        assert_eq!(
+            body.abilities,
+            vec![
+                "static_ability!(Filter::Any, Modifier::SkipUntapStep { who: PlayerRel::EachPlayer })"
+            ]
+        );
+        for refused_line in [
+            "R:Event$ BeginPhase | ActiveZones$ Command | Phase$ Untap | Skip$ True",
+            "R:Event$ BeginPhase | Phase$ Draw | Skip$ True",
+            "R:Event$ BeginPhase | Phase$ Untap | Skip$ True | ValidPlayer$ You",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Enchantment\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// "Can attack as though it didn't have defender" and "…as though it
+    /// had haste", on the creatures the line names; naming what may be
+    /// attacked instead is another sentence and refuses.
+    #[test]
+    fn an_attack_as_though_is_a_permission_on_the_named_creatures() {
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ CanAttackIfHaste | ValidCard$ Creature.EnchantedBy | Description$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::And(&[Filter::CREATURE, \
+                    Filter::AttachedToBySource]), Modifier::AttacksAsThoughHaste)"),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Creature\nPT:0/4\nK:Defender\n\
+             S:Mode$ CanAttackDefender | ValidCard$ Card.Self | Description$ …",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a == "static_ability!(Filter::This, Modifier::AttacksDespiteDefender)"),
+            "{:?}",
+            body.abilities
+        );
+        assert!(refused(
+            "Name:X\nTypes:Creature\nPT:1/1\n\
+             S:Mode$ CanAttackIfHaste | ValidTarget$ Opponent | Description$ …"
+        ));
+    }
+
+    /// "Enchanted land is a Swamp" and "target land becomes a Forest": CR
+    /// 305.7's setting of a land's subtype, from a static ability and from
+    /// an `Animate`, and nothing but one basic land type is read that way.
+    #[test]
+    fn a_land_set_to_a_basic_land_type_is_read_as_one() {
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Mountain | \
+             RemoveLandTypes$ True | Description$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::AttachedToBySource, \
+                    Modifier::SetLandType(subtypes::land::MOUNTAIN))"),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Creature\nPT:1/1\n\
+             A:AB$ Animate | Cost$ T | ValidTgts$ Land | Types$ Forest | \
+             RemoveLandTypes$ True | Duration$ UntilHostLeavesPlay | SpellDescription$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a.contains(
+                "Effect::continuous(&Filter::This, Modifier::SetLandType(subtypes::land::FOREST), \
+                 Duration::WhileSourceOnBattlefield)"
+            )),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+             K:ETBReplacement:Other:DBChooseBasic\n\
+             SVar:DBChooseBasic:DB$ ChooseType | Type$ Basic Land | SpellDescription$ …\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ ChosenType | \
+             RemoveLandTypes$ True | Description$ …",
+        );
+        assert_eq!(body.enter_modifiers, ["EnterModifier::ChooseBasicLandType"]);
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::AttachedToBySource, Modifier::SetLandTypeToChosen)"),
+            "{:?}",
+            body.abilities
+        );
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\n\
+             K:ETBReplacement:Other:DBChoose\n\
+             SVar:DBChoose:DB$ ChooseType | Type$ Creature | SpellDescription$ …"
+        ));
+        // A chosen type nothing asked for as the card entered.
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ ChosenType | \
+             RemoveLandTypes$ True | Description$ …",
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Desert | \
+             RemoveLandTypes$ True | Description$ …",
+            "S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ Island Swamp | \
+             RemoveLandTypes$ True | Description$ …",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n{refused_line}"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// Smoke's and Winter Orb's "players can't untap more than one …
+    /// during their untap steps": a limit on the players the line affects,
+    /// with the Orb's "as long as this is untapped" as the static's
+    /// condition. Another keyword beside it, another player, or a key the
+    /// reader does not claim refuses.
+    #[test]
+    fn an_untap_limit_is_read_for_the_players_it_names() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Creature:1 | \
+             Description$ Players can't untap more than one creature during their untap steps.",
+        );
+        assert_eq!(
+            body.abilities,
+            vec![
+                "static_ability!(Filter::Any, Modifier::UntapAtMost { who: PlayerRel::EachPlayer, \
+                 of: &Filter::CREATURE, count: 1 })"
+            ]
+        );
+        let body = read(
+            "Name:X\nTypes:Artifact\n\
+             S:Mode$ Continuous | Affected$ Player.Opponent | AddKeyword$ UntapAdjust:Land:2 | \
+             IsPresent$ Card.Self+untapped | Description$ …",
+        );
+        assert_eq!(body.abilities.len(), 1);
+        assert!(
+            body.abilities[0].contains("who: PlayerRel::EachOpponent")
+                && body.abilities[0].contains("count: 2")
+                && body.abilities[0].contains("condition = Some(Condition::SourceMatches(&CHECK"),
+            "{}",
+            body.abilities[0]
+        );
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Creature | AddKeyword$ UntapAdjust:Land:1",
+            "S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Land:one",
+            "S:Mode$ Continuous | Affected$ Player | AddKeyword$ UntapAdjust:Land:1 | \
+             AddHiddenKeyword$ Shroud",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Enchantment\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// Cockatrice: "whenever this creature blocks or becomes blocked by a
+    /// non-Wall creature, destroy that creature at end of combat", written
+    /// by the reference as two lines, each executing a delayed trigger that
+    /// remembers the other creature of its side of the block.
+    const BLOCK_PAIR: &str = "Name:X\nTypes:Creature\nPT:2/4\n\
+        T:Mode$ AttackerBlockedByCreature | ValidCard$ Creature.nonGoblin | \
+        ValidBlocker$ Card.Self | Execute$ DelBlocked | TriggerDescription$ …\n\
+        T:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | \
+        ValidBlocker$ Creature.nonGoblin | Execute$ DelBlocker | Secondary$ True | \
+        TriggerDescription$ …\n\
+        SVar:DelBlocked:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | \
+        ValidPlayer$ Player | Execute$ TrigDestroy | \
+        RememberObjects$ TriggeredAttackerLKICopy | TriggerDescription$ …\n\
+        SVar:DelBlocker:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | \
+        ValidPlayer$ Player | Execute$ TrigDestroy | \
+        RememberObjects$ TriggeredBlockerLKICopy | TriggerDescription$ …\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ DelayTriggerRememberedLKI";
+
+    /// The pair is one ability — the card prints one — about the other
+    /// creature, destroyed by a delayed trigger at end of combat.
+    #[test]
+    fn a_blocks_or_becomes_blocked_pair_is_one_ability_at_end_of_combat() {
+        let body = read(BLOCK_PAIR);
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+        let a = &body.abilities[0];
+        assert!(a.contains("Trigger::BlocksOrBecomesBlockedBy(&"), "{a}");
+        assert!(
+            a.contains(
+                "Effect::AtEndOfCombat { about: TargetSpec::EventObject, \
+                 effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+            ),
+            "{a}"
+        );
+        assert!(
+            body.statics.contains("creature::GOBLIN"),
+            "{}",
+            body.statics
+        );
+    }
+
+    /// Either half alone is another sentence, and so is a pair whose halves
+    /// disagree; the remembered object outside a delayed body, a delayed
+    /// trigger remembering its own source's side, and another phase are
+    /// each refused.
+    #[test]
+    fn a_block_trigger_is_read_only_as_the_whole_pair() {
+        let lines: Vec<&str> = BLOCK_PAIR.lines().collect();
+        let without = |skip: usize| {
+            lines
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != skip)
+                .map(|(_, l)| *l)
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        // The "blocks" half alone, and the "becomes blocked by" half alone.
+        for skip in [3, 4] {
+            let text = without(skip);
+            assert!(refused(&text), "{text}");
+            let reason = refusal_reason(&parse(&text), &cats(), None);
+            assert!(
+                reason
+                    .as_deref()
+                    .is_some_and(|r| r.contains("without its mirror")),
+                "{reason:?}"
+            );
+        }
+        for (from, to) in [
+            // The halves are about different creatures.
+            ("ValidBlocker$ Creature.nonGoblin", "ValidBlocker$ Creature"),
+            // Both halves marked, or neither.
+            (
+                "Execute$ DelBlocked |",
+                "Execute$ DelBlocked | Secondary$ True |",
+            ),
+            ("Secondary$ True | ", ""),
+            // A delayed trigger about the source's own side of the block.
+            (
+                "RememberObjects$ TriggeredAttackerLKICopy",
+                "RememberObjects$ TriggeredBlockerLKICopy",
+            ),
+            // Another phase.
+            (
+                "Phase$ EndCombat | ValidPlayer$ Player | Execute$ TrigDestroy | \
+              RememberObjects$ TriggeredBlockerLKICopy",
+                "Phase$ End of Turn | ValidPlayer$ Player | Execute$ TrigDestroy | \
+              RememberObjects$ TriggeredBlockerLKICopy",
+            ),
+        ] {
+            assert_eq!(BLOCK_PAIR.matches(from).count(), 1, "{from}");
+            let text = BLOCK_PAIR.replace(from, to);
+            assert!(refused(&text), "{from} → {to}");
+        }
+        // "Destroy that creature" remembered by nothing.
+        assert!(refused(
+            "Name:X\nTypes:Creature\nPT:2/4\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             ValidCard$ Card.Self | Execute$ TrigDestroy\n\
+             SVar:TrigDestroy:DB$ Destroy | Defined$ DelayTriggerRememberedLKI"
+        ));
+    }
+
+    /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of
+    /// combat, "that player" the one dealt damage, and "is dealt damage"
+    /// once however many sources. A player dealt damage "once", a creature
+    /// target, and damage to a player out of combat are refused.
+    #[test]
+    fn damage_triggers_read_whose_damage_and_to_whom() {
+        let specter = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Opponent | Execute$ D | \
+             TriggerZones$ Battlefield\n\
+             SVar:D:DB$ Discard | Defined$ TriggeredTarget | NumCards$ 1 | Mode$ Random",
+        );
+        let a = specter.abilities.join("");
+        assert!(
+            a.contains("Trigger::DealsDamageToOpponent(&Filter::This)"),
+            "{a}"
+        );
+        assert!(a.contains("who: PlayerRel::DamagedPlayer"), "{a}");
+        let combat = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True \
+             | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1",
+        );
+        assert!(
+            combat
+                .abilities
+                .join("")
+                .contains("Trigger::DealsCombatDamageToPlayer(&Filter::This)"),
+            "{:?}",
+            combat.abilities
+        );
+        let fungusaur = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDoneOnce | ValidTarget$ Card.Self | Execute$ C\n\
+             SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+        );
+        assert!(
+            fungusaur
+                .abilities
+                .join("")
+                .contains("Trigger::DealtDamage(&Filter::This)"),
+            "{:?}",
+            fungusaur.abilities
+        );
+        for refused_line in [
+            "T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C",
+            "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | Execute$ C",
+            "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature\nPT:2/2\n{refused_line}\n\
+                     SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// Gauntlet of Might, Manabarbs, Badgermole Cub: who tapped it is
+    /// `Activator$` (nobody named is anybody), "its controller" and "that
+    /// player" are the tapped permanent's controller, and mana for them is
+    /// `AddManaFor`.
+    #[test]
+    fn a_permanent_tapped_for_mana_names_who_tapped_it_and_whose_mana_it_is() {
+        let gauntlet = read(
+            "Name:X\nTypes:Artifact\n\
+             T:Mode$ TapsForMana | ValidCard$ Mountain | Execute$ TrigMana | TriggerZones$ \
+             Battlefield | Static$ True | TriggerDescription$ x\n\
+             SVar:TrigMana:DB$ Mana | Produced$ R | Amount$ 1 | Defined$ TriggeredCardController",
+        );
+        let a = gauntlet.abilities.join("");
+        assert!(a.contains("by: PlayerRel::EachPlayer"), "{a}");
+        assert!(
+            a.contains(
+                "Effect::AddManaFor { who: PlayerRel::ControllerOfEvent, color: ManaColor::Red, \
+                 amount: 1 }"
+            ),
+            "{a}"
+        );
+        let barbs = read(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ TapsForMana | ValidCard$ Land | TriggerZones$ Battlefield | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredActivator | NumDmg$ 1",
+        );
+        assert!(
+            barbs
+                .abilities
+                .join("")
+                .contains("TargetSpec::Player(PlayerRel::ControllerOfEvent)"),
+            "{:?}",
+            barbs.abilities
+        );
+        let cub = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TapsForMana | ValidCard$ Creature | Activator$ You | Execute$ M | \
+             TriggerZones$ Battlefield | Static$ True\n\
+             SVar:M:DB$ Mana | Produced$ G",
+        );
+        assert!(
+            cub.abilities.join("").contains("by: PlayerRel::You"),
+            "{:?}",
+            cub.abilities
+        );
+        // "That player" of any other trigger is not the tapper.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ Attacks | ValidCard$ Creature | Execute$ D\n\
+             SVar:D:DB$ DealDamage | Defined$ TriggeredActivator | NumDmg$ 1"
+        ));
+    }
+
+    /// Mana Short: the line's player target is whose lands tap, and the
+    /// sub-line's `Defined$ Targeted` is the same player. A `Targeted` on a
+    /// chain that targets no player names nobody and is refused; a `TapAll`
+    /// that names nobody is every matching permanent.
+    #[test]
+    fn tapping_all_of_a_players_lands_and_their_mana_reads_the_chains_player() {
+        let short = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ TapAll | ValidTgts$ Player | ValidCards$ Land | SubAbility$ DrainMana\n\
+             SVar:DrainMana:DB$ DrainMana | Defined$ Targeted",
+        );
+        let a = short.abilities.join("");
+        assert!(
+            a.contains("Effect::TapAllOf { who: PlayerRel::Chosen, filter: &Filter::LAND }"),
+            "{a}"
+        );
+        assert!(
+            a.contains("Effect::LoseUnspentMana { who: PlayerRel::Chosen }"),
+            "{a}"
+        );
+        assert!(a.contains("TargetSpec::AnyPlayer"), "{a}");
+        // `Targeted` where the chain targets no player.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ DrainMana | Defined$ Targeted"
+        ));
+        // `TargetedController` of a spell target is its controller.
+        let spell = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | SubAbility$ Drain\n\
+             SVar:Drain:DB$ DrainMana | Defined$ TargetedController",
+        );
+        assert!(
+            spell
+                .abilities
+                .join("")
+                .contains("Effect::LoseUnspentMana { who: PlayerRel::ControllerOfTarget }"),
+            "{:?}",
+            spell.abilities
+        );
+        // Twiddle: "tap or untap" is a yes or a no around the toggle.
+        let twiddle = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ TapOrUntap | ValidTgts$ Artifact,Creature,Land",
+        );
+        assert!(
+            twiddle
+                .abilities
+                .join("")
+                .contains("Effect::MayDo { effects: &[Effect::ToggleTapTarget] }"),
+            "{:?}",
+            twiddle.abilities
+        );
+        let all = read("Name:X\nTypes:Sorcery\nA:SP$ TapAll | ValidCards$ Creature");
+        assert!(
+            all.abilities
+                .join("")
+                .contains("Effect::TapAll { filter: &Filter::CREATURE }"),
+            "{:?}",
+            all.abilities
+        );
+    }
+
+    /// Pestilence, Karma, Spell Blast, Dwarven Warriors: counts of
+    /// everybody's permanents, the active player's permanents, a mana value
+    /// of exactly X, and a creature nobody can block this turn.
+    #[test]
+    fn an_unless_cost_wraps_the_line_whatever_it_says() {
+        // Phantasmal Forces: a colour, printed exactly.
+        let forces = read(
+            "Name:X\nTypes:Creature\nPT:5/1\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ U | TriggerDescription$ x.\n\
+             SVar:U:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ U",
+        );
+        assert!(
+            forces.abilities[0].contains(
+                "Effect::PlayerMayPayManaOr { player: PlayerRel::You, \
+                 cost: mana!(\"{U}\"), effect: &Effect::SacrificeSelf }"
+            ),
+            "{:?}",
+            forces.abilities
+        );
+        // Force of Nature: the price is the line's, whatever the line does.
+        let nature = read(
+            "Name:X\nTypes:Creature\nPT:8/8\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ D | TriggerDescription$ x.\n\
+             SVar:D:DB$ DealDamage | Defined$ You | NumDmg$ 8 | UnlessCost$ G G G G \
+             | UnlessPayer$ You",
+        );
+        assert!(
+            nature.abilities[0]
+                .contains("cost: mana!(\"{G}{G}{G}{G}\"), effect: &Effect::DealDamage"),
+            "{:?}",
+            nature.abilities
+        );
+        // Generic mana stays the `Amount` tax, and Mana Leak's absent payer
+        // is its target's controller.
+        let leak = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ 3",
+        );
+        assert!(
+            leak.abilities[0].contains(
+                "Effect::PlayerMayPayOr { player: PlayerRel::ControllerOfTarget, \
+                 mana: Amount::Fixed(3), effect: &Effect::CounterTargetSpell }"
+            ),
+            "{:?}",
+            leak.abilities
+        );
+        // Switched: paying buys the effect.
+        let bought = read(
+            "Name:X\nTypes:Artifact\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+             | Execute$ G | TriggerDescription$ x.\n\
+             SVar:G:DB$ GainLife | LifeAmount$ 1 | UnlessCost$ W | UnlessPayer$ You \
+             | UnlessSwitched$ True",
+        );
+        assert!(
+            bought.abilities[0].contains("Effect::PlayerMayPayManaThen"),
+            "{:?}",
+            bought.abilities
+        );
+        // Refused by name: a payer this cannot ask, subs on one answer, and
+        // an absent payer on a line with no target to take one from.
+        for (line, reason) in [
+            (
+                "DB$ Sacrifice | UnlessPayer$ Player | UnlessCost$ 2",
+                "an unless-cost paid by `Player`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessCost$ 2",
+                "an unless-cost paid by `TargetedController`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ 2 | UnlessResolveSubs$ WhenNotPaid",
+                "`UnlessResolveSubs$ WhenNotPaid`",
+            ),
+            (
+                "DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ PayLife<2>",
+                "an unless-cost of `PayLife<2>`",
+            ),
+        ] {
+            let script = parse(&format!(
+                "Name:X\nTypes:Creature\nPT:1/1\n\
+                 T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+                 | Execute$ S | TriggerDescription$ x.\nSVar:S:{line}"
+            ));
+            assert_eq!(
+                refusal_reason(&script, &cats(), None).as_deref(),
+                Some(reason),
+                "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn counts_bounds_and_an_unblockable_target() {
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | \
+             IsPresent$ Creature | PresentCompare$ EQ0 | Execute$ S\nSVar:S:DB$ Sacrifice\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("Condition::BattlefieldCountAtMost(&Filter::CREATURE, 0)"),
+            "{text}"
+        );
+        // "At the beginning of the end step": everybody's, not yours.
+        assert!(text.contains("whose: PlayerRel::EachPlayer"), "{text}");
+        // And Pestilence's ability, whose printed recipients are a key the
+        // rule reading the recipients claims.
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             A:AB$ DamageAll | Cost$ B | NumDmg$ 1 | ValidCards$ Creature | \
+             ValidPlayers$ Player | ValidDescription$ each creature and each player.\n",
+        );
+        assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+        // Somebody's permanents, but not yours: still refused.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | \
+             IsPresent$ Creature.OppCtrl | Execute$ S\nSVar:S:DB$ Sacrifice\n"
+        ));
+        // An exact count above zero is two bounds.
+        assert!(refused(
+            "Name:X\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | \
+             IsPresent$ Creature | PresentCompare$ EQ2 | Execute$ S\nSVar:S:DB$ Sacrifice\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:B B\nTypes:Enchantment\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | \
+             Execute$ D\nSVar:D:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+             SVar:X:Count$Valid Creature.ActivePlayerCtrl\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("Filter::ControlledByActivePlayer"), "{text}");
+        assert!(text.contains("amount: Amount::CountOf"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.cmcEQX\nSVar:X:Count$xPaid\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("Filter::CmcExactlyX"), "{text}");
+        // X that counts something else is not the announcement.
+        assert!(refused(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card.cmcEQX\n\
+             SVar:X:Count$Valid Creature.YouCtrl\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:2 R\nTypes:Creature\n\
+             A:AB$ Effect | Cost$ T | ValidTgts$ Creature.powerLE2 | RememberObjects$ Targeted | \
+             ExileOnMoved$ Battlefield | StaticAbilities$ U\n\
+             SVar:U:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered | Description$ No.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("keywords: KeywordSet::UNBLOCKABLE"), "{text}");
+        assert!(text.contains("Effect::PumpTarget"), "{text}");
+        // A blocker named is "can't be blocked by …", another sentence.
+        assert!(refused(
+            "Name:X\nTypes:Creature\n\
+             A:AB$ Effect | Cost$ T | ValidTgts$ Creature | RememberObjects$ Targeted | \
+             ExileOnMoved$ Battlefield | StaticAbilities$ U\n\
+             SVar:U:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered | ValidBlocker$ Wall\n"
+        ));
+    }
+
+    /// Keldon Warlord, Plague Rats, Time Walk, Regeneration: the sentences
+    /// the DSL already had words for.
+    #[test]
+    fn characteristic_counts_extra_turns_and_the_enchanted_host() {
+        let body = read(
+            "Name:X\nManaCost:2 R R\nTypes:Creature Goblin\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X | \
+             Description$ Its power.\n\
+             SVar:X:Count$Valid Creature.nonWizard+YouCtrl\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("count: PtCount::YouControl(&COUNTED1)"),
+            "{text}"
+        );
+        assert!(text.contains("Filter::ControlledByYou"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:2 B\nTypes:Creature Rat\nPT:*/*\n\
+             S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+             SVar:X:Count$Valid Creature.namedPlague Rats\n",
+        );
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(text.contains("PtCount::OnBattlefield(&COUNTED1)"), "{text}");
+        assert!(text.contains("Filter::Named(\"Plague Rats\")"), "{text}");
+
+        // Somebody else's permanents, and a clause beside the count.
+        assert!(refused(
+            "Name:X\nTypes:Creature\nS:Mode$ Continuous | CharacteristicDefining$ True | \
+             SetPower$ X | SetToughness$ X\nSVar:X:Count$Valid Forest.DefenderCtrl\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Creature\nS:Mode$ Continuous | CharacteristicDefining$ True | \
+             IsPresent$ Card.Self+attacking | SetPower$ X | SetToughness$ X\n\
+             SVar:X:Count$Valid Forest.YouCtrl\n"
+        ));
+
+        let body = read("Name:X\nManaCost:U\nTypes:Sorcery\nA:SP$ AddTurn | NumTurns$ 1\n");
+        assert_eq!(body.abilities.len(), 1);
+        assert!(body.abilities[0].contains("Effect::TakeExtraTurn"));
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\nA:SP$ AddTurn | NumTurns$ 2\n"
+        ));
+
+        let body = read(
+            "Name:X\nManaCost:1 G\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             A:AB$ Regenerate | Cost$ G | Defined$ Enchanted | SpellDescription$ Regenerate.\n",
+        );
+        assert!(
+            body.abilities
+                .join("")
+                .contains("Effect::RegenerateAll { filter: &Filter::AttachedToBySource }"),
+            "{:?}",
+            body.abilities
+        );
+    }
+
+    /// The Circles of Protection and Reverse Damage: a source chosen as the
+    /// line resolves, and a shield on you that waits for it.
+    #[test]
+    fn a_chosen_source_shield_is_one_sentence_over_three_lines() {
+        const COP: &str = "Name:X\nManaCost:1 W\nTypes:Enchantment\n\
+             A:AB$ ChooseSource | Cost$ 1 | Choices$ Card.RedSource | AILogic$ NeedsPrevention | \
+             SubAbility$ DBEffect | SpellDescription$ The next time.\n\
+             SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | SubAbility$ DBCleanup | \
+             ConditionDefined$ ChosenCard | ConditionPresent$ Card | ConditionCompare$ GE1\n\
+             SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict+RedSource | \
+             ValidTarget$ You | ReplaceWith$ ExileEffect | PreventionEffect$ True | \
+             Description$ Prevent it.\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+             SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True\n";
+        let body = read(COP);
+        let text = format!("{}\n{}", body.abilities.join("\n"), body.statics);
+        assert!(
+            text.contains("Effect::PreventNextFromChosenSource { sources: &SOURCE1, combat_only: false, all_but: 0, gain_life: false }"),
+            "{text}"
+        );
+        assert!(text.contains("Color::Red"), "{text}");
+
+        let body = read(
+            "Name:X\nManaCost:1 W W\nTypes:Instant\n\
+             A:SP$ ChooseSource | Choices$ Card,Emblem | SubAbility$ DBEffect\n\
+             SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | ConditionDefined$ ChosenCard | \
+             ConditionPresent$ Card,Emblem\n\
+             SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | \
+             ValidTarget$ You | ReplaceWith$ GainLifeInstead | PreventionEffect$ True\n\
+             SVar:GainLifeInstead:DB$ GainLife | Defined$ You | LifeAmount$ X | SubAbility$ ExileEffect\n\
+             SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+             SVar:X:ReplaceCount$DamageAmount\n",
+        );
+        assert!(
+            body.abilities
+                .join("\n")
+                .contains("sources: &Filter::Any, combat_only: false, all_but: 0, gain_life: true"),
+            "{:?}",
+            body.abilities
+        );
+
+        // A replacement that does not recheck what was chosen, a delayed
+        // trigger in place of the cleanup, and a chosen colour.
+        assert!(refused(&COP.replace(
+            "Card.ChosenCardStrict+RedSource",
+            "Card.ChosenCardStrict"
+        )));
+        assert!(refused(&COP.replace(
+            "SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+            "SVar:DBCleanup:DB$ DelayedTrigger | Mode$ Phase"
+        )));
+        assert!(refused(
+            &COP.replace("Card.RedSource", "Card.ChosenColorSource")
+        ));
+    }
+
+    /// Samite Healer, Conservator, Fog: the shields a line names.
+    #[test]
+    fn prevention_is_a_shield_on_what_the_line_names() {
+        let body = read(
+            "Name:X\nManaCost:1 W\nTypes:Creature Goblin\nPT:1/1\n\
+             A:AB$ PreventDamage | Cost$ T | ValidTgts$ Any | Amount$ 1 | \
+             SpellDescription$ Prevent the next 1 damage.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains(
+                "Effect::PreventNextDamage { target: TargetSpec::AnyTarget, amount: Amount::Fixed(1) }"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("target = Some(TargetSpec::AnyTarget)"),
+            "{text}"
+        );
+
+        let body = read(
+            "Name:X\nManaCost:2\nTypes:Artifact\n\
+             A:AB$ PreventDamage | Cost$ 3 T | Defined$ You | Amount$ 2 | \
+             SpellDescription$ Prevent the next 2 damage that would be dealt to you.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("target: TargetSpec::Player(PlayerRel::You), amount: Amount::Fixed(2)"),
+            "{text}"
+        );
+
+        let body = read("Name:X\nManaCost:G\nTypes:Instant\nA:SP$ Fog | SpellDescription$ Fog.\n");
+        assert!(
+            body.abilities
+                .join("\n")
+                .contains("Effect::PreventAllCombatDamageThisTurn"),
+            "{:?}",
+            body.abilities
+        );
+
+        // A shield on nothing, and a Fog narrowed by a key it does not claim.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ PreventDamage | Amount$ 2\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Fog | ValidSource$ Creature.nonBlack\n"
+        ));
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ PreventDamage | ValidTgts$ Any | Amount$ 3 | \
+             DividedAsYouChoose$ 3\n"
+        ));
+    }
+
+    /// A charm is a modal spell, each mode targeting for itself.
+    #[test]
+    fn a_charm_is_a_modal_spell_whose_modes_target_for_themselves() {
+        let body = read(
+            "Name:X\nManaCost:U\nTypes:Instant\n\
+             A:SP$ Charm | Choices$ DBCounter,DBDestroy\n\
+             SVar:DBCounter:DB$ Counter | TargetType$ Spell | ValidTgts$ Card.Red | \
+             SpellDescription$ Counter target red spell.\n\
+             SVar:DBDestroy:DB$ Destroy | ValidTgts$ Permanent.Red | \
+             SpellDescription$ Destroy target red permanent.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("AbilityDef::ModalSpell"), "{text}");
+        assert!(text.contains("choose: ModeCount::ONE"), "{text}");
+        assert_eq!(text.matches("mode!(").count(), 2, "{text}");
+        assert!(text.contains("TargetSpec::Spell("), "{text}");
+        assert!(text.contains("TargetSpec::Object("), "{text}");
+
+        // A mode the reader cannot say takes the whole card with it.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ DBGain,DBBalance\n\
+             SVar:DBGain:DB$ GainLife | ValidTgts$ Player | LifeAmount$ 3\n\
+             SVar:DBBalance:DB$ Balance | Valid$ Land\n"
+        ));
+        // A count it has not met.
+        assert!(refused(
+            "Name:X\nTypes:Instant\nA:SP$ Charm | Choices$ A,B | MinCharmNum$ 0\n\
+             SVar:A:DB$ Draw | NumCards$ 1\nSVar:B:DB$ Draw | NumCards$ 2\n"
+        ));
+    }
+
+    /// `CantBlockBy` from either side of the pairing.
+    #[test]
+    fn a_pairing_nobody_may_block_is_the_attackers_restriction() {
+        // Invisibility: every creature but a Wall is refused.
+        let body = read(
+            "Name:X\nManaCost:U U\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.EnchantedBy | \
+             ValidBlocker$ Creature.nonGoblin | Description$ can't be blocked except by Goblins.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("Modifier::CantBeBlockedBy(&BLOCKER"),
+            "{text}"
+        );
+        assert!(text.contains("Filter::AttachedToBySource"), "{text}");
+        let statics = &body.statics;
+        assert!(statics.contains("Not("), "{statics}");
+
+        // Ironclaw Orcs: the source is the blocker, every big creature the
+        // attacker.
+        let body = read(
+            "Name:X\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.powerGE2 | \
+             ValidBlocker$ Creature.Self | Description$ can't block big ones.\n",
+        );
+        let statics = &body.statics;
+        assert!(statics.contains("Filter::This"), "{statics}");
+
+        assert!(refused(
+            "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Creature.Self\n"
+        ));
+    }
+
+    /// No `Defined$` and no target is the source too: Shivan Dragon's
+    /// "{R}: This creature gets +1/+0 until end of turn." A pump that
+    /// moves nothing stays refused, because pumping the source by nought
+    /// would be a card that claims to work and does nothing.
+    #[test]
+    fn a_pump_naming_nobody_is_the_sources_own() {
+        let body = read(
+            "Name:X\nManaCost:4 R R\nTypes:Creature Dragon\nPT:5/5\nK:Flying\n\
+             A:AB$ Pump | Cost$ R | NumAtt$ +1 | SpellDescription$ gets +1/+0.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(text.contains("filter: &Filter::This"), "{text}");
+        assert!(text.contains("power: Amount::Fixed(1)"), "{text}");
+
+        let script = parse("Name:X\nTypes:Instant\nA:SP$ Pump | StackDescription$ None");
+        assert!(transcode(&script, &cats(), None).is_none());
+
+        // An Aura's "enchanted creature gets +1/+0" is the host, not the
+        // Aura: Firebreathing.
+        let body = read(
+            "Name:X\nManaCost:R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             A:AB$ Pump | Cost$ R | Defined$ Enchanted | NumAtt$ +1\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.contains("filter: &Filter::AttachedToBySource"),
+            "{text}"
+        );
+    }
+
     /// The storage lands' own clause: `PresentDefined$ Self | IsPresent$
     /// Card.tapped` as an intervening `if` about this card.
     ///
@@ -5202,9 +9277,8 @@ SVar:X:Count$xPaid",
     /// `Condition::ControlCount` is only the right reading while the
     /// valid-string says *whose* — the reference writes the controller into
     /// the filter, and a filter that does not name one is asking whether
-    /// such a permanent exists at all, which is a wider question than the
-    /// DSL has a sentence for. So the second half of this test is the same
-    /// clause with `YouCtrl` taken off, refused by name.
+    /// such a permanent exists at all: `Condition::BattlefieldCount`. A
+    /// filter naming somebody else's is a third question, refused by name.
     #[test]
     fn a_clause_that_counts_needs_the_filter_to_say_whose() {
         let script = "Name:X\nManaCost:G\nTypes:Creature Elf\nPT:1/1\n\
@@ -5221,11 +9295,17 @@ SVar:X:Count$xPaid",
             )]
         );
 
-        let anyone = parse(&script.replace("Creature.YouCtrl", "Creature"));
-        assert!(transcode(&anyone, &cats(), None).is_none());
+        let anyone = read(&script.replace("Creature.YouCtrl", "Creature"));
+        assert!(
+            anyone.abilities[0].contains("Condition::BattlefieldCount(&Filter::CREATURE, 2)"),
+            "{:?}",
+            anyone.abilities
+        );
+        let theirs = parse(&script.replace("Creature.YouCtrl", "Creature.OppCtrl"));
+        assert!(transcode(&theirs, &cats(), None).is_none());
         assert_eq!(
-            refusal_reason(&anyone, &cats(), None).as_deref(),
-            Some("`IsPresent$ Creature`, a count with no player")
+            refusal_reason(&theirs, &cats(), None).as_deref(),
+            Some("`IsPresent$ Creature.OppCtrl`, a count of somebody else's")
         );
 
         // The same trap one atom further in, and the one that would have
@@ -5261,7 +9341,7 @@ SVar:X:Count$xPaid",
             ("IsPresent2$ Card.Self | ", "a second `IsPresent2$` clause"),
             ("PresentPlayer$ You | ", "`PresentPlayer$ You`"),
             ("PresentZone$ Graveyard | ", "`PresentZone$ Graveyard`"),
-            ("PresentCompare$ EQ0 | ", "`PresentCompare$ EQ0`"),
+            ("PresentCompare$ EQ2 | ", "`PresentCompare$ EQ2`"),
             (
                 "PresentDefined$ Remembered | ",
                 "`PresentDefined$ Remembered`",
@@ -5759,6 +9839,11 @@ SVar:X:Count$xPaid",
             cats: &cats,
             tokens: None,
             has_x: false,
+            on_a_spell: false,
+            trigger_mode: None,
+            block_line: None,
+            block_half: None,
+            in_delayed: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         };
@@ -5951,6 +10036,120 @@ SVar:X:Count$xPaid",
         );
     }
 
+    /// A colour word is a colour (CR 105.2), not an unknown subtype: Bad
+    /// Moon, Crusade, Terror and Northern Paladin were all refused over it.
+    #[test]
+    fn a_colour_word_in_a_valid_string_is_the_colour() {
+        let body = read(
+            "Name:X\nTypes:Enchantment\n\
+             S:Mode$ Continuous | Affected$ Creature.Black | AddPower$ 1 | AddToughness$ 1 | \
+             Description$ Black creatures get +1/+1.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::And(&[Filter::CREATURE, \
+              Filter::HasColor(ColorSet::from_slice(&[Color::Black]))]), Modifier::ModifyPT(1, 1))"]
+        );
+        let terror = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ Destroy | ValidTgts$ Creature.nonArtifact+nonBlack | NoRegen$ True\n",
+        );
+        let text = format!("{}{}", terror.statics, terror.abilities.join("\n"));
+        assert!(
+            text.contains("Filter::LacksType(TypeSet::ARTIFACT)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::Black])))"),
+            "{text}"
+        );
+        // A fixed number compared with a power is read; one compared with
+        // another object's power is not.
+        assert_eq!(
+            stat_atom("powerLE2").as_deref(),
+            Some("Filter::PowerAtMost(2)")
+        );
+        assert_eq!(
+            stat_atom("PowerGE3").as_deref(),
+            Some("Filter::PowerAtLeast(3)")
+        );
+        assert_eq!(
+            stat_atom("toughnessLT3").as_deref(),
+            Some("Filter::ToughnessAtMost(2)")
+        );
+        assert_eq!(stat_atom("toughnessLTX"), None);
+        assert_eq!(color_atom("nonWhite"), Some((true, "White")));
+        assert_eq!(color_atom("Goblin"), None);
+    }
+
+    /// "Destroy all lands" and "destroy all creatures. They can't be
+    /// regenerated" (Armageddon, Wrath of God): a sweep, not a target.
+    #[test]
+    fn destroy_all_sweeps_what_its_valid_string_names() {
+        let body = read("Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Land\n");
+        assert_eq!(
+            body.abilities,
+            ["spell!(&[Effect::destroy_all(&Filter::LAND)])"]
+        );
+        let wrath = read(
+            "Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Creature | NoRegen$ True\n",
+        );
+        assert_eq!(
+            wrath.abilities,
+            ["spell!(&[Effect::destroy_all_no_regen(&Filter::CREATURE)])"]
+        );
+        // "Destroy all Forests" is the land type, and the Disk's three
+        // types are an `or`.
+        let disk = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ DestroyAll | Cost$ 1 T | ValidCards$ Artifact,Creature,Enchantment\n",
+        );
+        assert!(
+            disk.abilities[0].contains("Effect::destroy_all("),
+            "{:?}",
+            disk.abilities
+        );
+        assert!(
+            read("Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Forest\n").abilities[0]
+                .contains("Filter::HasSubtype(")
+        );
+        assert!(refused(
+            "Name:X\nTypes:Sorcery\nA:SP$ DestroyAll | ValidCards$ Land | NoRegen$ Maybe\n"
+        ));
+    }
+
+    /// Protection (CR 702.16a) is a static ability with a quality, printed
+    /// or granted: the Knights print it, the Wards grant it with the one
+    /// exception that keeps the Ward itself attached.
+    #[test]
+    fn protection_from_a_quality_is_a_static_ability() {
+        let knight = read("Name:X\nTypes:Creature\nK:First Strike\nK:Protection from black\n");
+        assert_eq!(knight.keywords, ["KeywordSet::FIRST_STRIKE"]);
+        assert_eq!(
+            knight.abilities,
+            ["static_ability!(Filter::This, Modifier::ProtectionFrom(\
+              &Filter::HasColor(ColorSet::from_slice(&[Color::Black]))))"]
+        );
+        let ward = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | \
+             AddKeyword$ Protection:Card.White:white:Card.CardUID_HostCardUID | \
+             Description$ Enchanted creature has protection from white.\n",
+        );
+        let a = ward.abilities.join("\n");
+        assert!(
+            a.contains(
+                "Modifier::ProtectionFrom(&Filter::And(&[Filter::HasColor(\
+                 ColorSet::from_slice(&[Color::White])), Filter::Not(&Filter::This)]))"
+            ),
+            "{a}"
+        );
+        assert!(a.contains("Filter::AttachedToBySource"), "{a}");
+        assert!(refused(
+            "Name:X\nTypes:Creature\nK:Protection:Card.White:white:Card.Other\n"
+        ));
+    }
+
     #[test]
     fn one_line_that_moves_two_layers_becomes_two_abilities() {
         // CR 613.1 applies layer 6 before layer 7c, so "get +1/+1 and have
@@ -5987,15 +10186,15 @@ SVar:X:Count$xPaid",
             "Name:X\nTypes:Creature\n\
              S:Mode$ Continuous | Affected$ Creature.YouCtrl | SetPower$ 4\n"
         ));
-        // A condition is a rule of its own; unread, it must refuse.
+        // A condition is a rule of its own; one it cannot read refuses.
         assert!(refused(
             "Name:X\nTypes:Creature\n\
              S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | \
-             IsPresent$ Island.YouCtrl\n"
+             IsPresent$ Island.YouCtrl | PresentCompare$ EQ2\n"
         ));
         // A mode that is not Continuous is not this rule.
         assert!(refused(
-            "Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self\n"
+            "Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self\n"
         ));
     }
 
@@ -6075,10 +10274,10 @@ SVar:X:Count$xPaid",
         // The report is only a worklist if it names the thing to build; a
         // second table of each rule's keys would rot, so the transcoder
         // reports what it actually failed to claim.
-        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2");
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | Bogus$ 2");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("unclaimed parameter `Draw.UnlessCost`")
+            Some("unclaimed parameter `Draw.Bogus`")
         );
 
         let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1");
@@ -6090,10 +10289,10 @@ SVar:X:Count$xPaid",
         // named the first API *it* did not recognise — for a land whose
         // only unread line was `DB$ Discard`, that was the `R:Event$ Moved`
         // the transcoder had read perfectly well.
-        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Animate | Defined$ Self");
+        let script = parse("Name:X\nTypes:Sorcery\nA:SP$ Bogus | Defined$ Self");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("effect `Animate`")
+            Some("effect `Bogus`")
         );
 
         // A rule that exists but met a value it cannot say says so.
@@ -6107,11 +10306,10 @@ SVar:X:Count$xPaid",
 
         // A static ability names the mode it cannot read, so the worklist
         // ranks `ReduceCost` and `Continuous` as the different work they are.
-        let script =
-            parse("Name:X\nTypes:Creature\nS:Mode$ CantBlockBy | ValidAttacker$ Card.Self");
+        let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("static ability `S: Mode$ CantBlockBy`")
+            Some("static ability `S: Mode$ CantBlock`")
         );
     }
 
@@ -6685,10 +10883,16 @@ SVar:X:Count$xPaid",
             body.enter_modifiers,
             ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::X }"]
         );
-        assert!(refused(
-            "Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\n\
-             SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
-        ));
+        // "For each creature that died this turn" is a count the DSL says.
+        assert_eq!(
+            read(
+                "Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\n\
+                 SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
+            )
+            .enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+              amount: Amount::CreaturesDiedThisTurn }"]
+        );
         assert!(
             refused(
                 "Name:X\nTypes:Creature\n\
@@ -6699,6 +10903,109 @@ SVar:X:Count$xPaid",
             "the description is not a condition, and reading past it would \
              have taken the X beside it for the spell's"
         );
+    }
+
+    /// Simulacrum: "you gain life equal to the damage dealt to you this
+    /// turn", the reference's `X` defined as that count; the same `X` for
+    /// the announced number is still the spell's.
+    #[test]
+    fn the_damage_dealt_to_you_this_turn_is_a_count() {
+        let simulacrum = read(
+            "Name:X\nTypes:Instant\n\
+             A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+             SVar:X:PlayerCountPropertyYou$DamageThisTurn",
+        );
+        let a = simulacrum.abilities.join("\n");
+        assert!(
+            a.contains("Effect::GainLife { amount: Amount::DamageDealtToYouThisTurn }"),
+            "{a}"
+        );
+        assert!(
+            refused(
+                "Name:X\nTypes:Instant\n\
+                 A:SP$ GainLife | Defined$ You | LifeAmount$ X\n\
+                 SVar:X:PlayerCountPropertyYou$DamageToOppsThisTurn"
+            ),
+            "the damage dealt to opponents is another count"
+        );
+    }
+
+    /// Scavenging Ghoul: "put a corpse counter on this creature for each
+    /// creature that died this turn" and "remove a corpse counter from this
+    /// creature: regenerate this creature". A counter cost is a fixed number
+    /// from the source; `X`, loyalty and the longer forms are refused.
+    #[test]
+    fn a_counter_removed_as_a_cost_and_a_count_of_the_turns_deaths() {
+        let ghoul = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | \
+             Execute$ TrigPutCounter\n\
+             A:AB$ Regenerate | Cost$ SubCounter<1/CORPSE>\n\
+             SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ CORPSE | \
+             CounterNum$ X\n\
+             SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature",
+        );
+        let a = ghoul.abilities.join("\n");
+        assert!(
+            a.contains("RemoveCounterSelf { kind: counters::CORPSE, n: 1 }"),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::AddCounter { kind: counters::CORPSE, \
+                 amount: Amount::CreaturesDiedThisTurn }"
+            ),
+            "{a}"
+        );
+        for cost in [
+            "SubCounter<X/CHARGE>",
+            "SubCounter<1/LOYALTY>",
+            "SubCounter<1/P1P1/Creature.YouCtrl/a creature you control>",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ {cost} | NumCards$ 1"
+                )),
+                "{cost}"
+            );
+        }
+    }
+
+    /// Jade Statue: "{2}: this becomes a 3/6 Golem artifact creature until
+    /// end of combat. Activate only during combat."
+    #[test]
+    fn a_creature_type_that_replaces_until_end_of_combat_only_during_combat() {
+        let statue = read(
+            "Name:X\nTypes:Artifact\n\
+             A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature,Artifact,Goblin | RemoveCreatureTypes$ True | \
+             Duration$ UntilEndOfCombat | ActivationPhases$ BeginCombat->EndCombat",
+        );
+        let a = statue.abilities.join("\n");
+        for part in [
+            "Modifier::ReplaceCreatureTypes(subtypes::creature::GOBLIN), Duration::UntilEndOfCombat",
+            "Modifier::AddType(TypeSet::CREATURE), Duration::UntilEndOfCombat",
+            "Modifier::SetPT(3, 6), Duration::UntilEndOfCombat",
+            "condition = Some(Condition::DuringCombat)",
+        ] {
+            assert!(a.contains(part), "{part} in {a}");
+        }
+        for refused_line in [
+            // "Activate only during your upkeep" is another sentence.
+            "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature | ActivationPhases$ Upkeep",
+            // Replacing creature types with none named is losing them all.
+            "A:AB$ Animate | Cost$ 2 | Defined$ Self | Power$ 3 | Toughness$ 6 | \
+             Types$ Creature | RemoveCreatureTypes$ True",
+            // A restriction fills the condition, and the `IsPresent$` family
+            // beside it is still unread.
+            "A:AB$ Draw | Cost$ T | NumCards$ 1 | PlayerTurn$ True | PresentZone$ Graveyard",
+        ] {
+            assert!(
+                refused(&format!("Name:X\nTypes:Artifact\n{refused_line}")),
+                "{refused_line}"
+            );
+        }
     }
 
     /// Equip prints a cost and the rules supply the rest (CR 702.6a), so

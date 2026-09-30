@@ -1361,14 +1361,16 @@ fn sylvan_scrying_finds_a_land_in_the_library_and_puts_it_into_hand() {
 }
 
 /// Wheel of Fortune: "Each player discards their hand, then draws seven cards."
-/// Under `Coverage::Partial`, whole-hand discarding is unsupported, so each player draws seven cards.
-/// Three Mountains pay {2}{R} to cast the sorcery; both players draw seven cards from their libraries.
+/// Three Mountains pay {2}{R} to cast the sorcery; the card left in each
+/// hand is discarded, and both players draw seven cards from their
+/// libraries — so seven is what each hand holds, and not eight.
 #[test]
-fn wheel_of_fortune_each_player_draws_seven_cards() {
+fn wheel_of_fortune_each_player_discards_their_hand_and_draws_seven_cards() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(39, forest())
         .battlefield(0, &[mountain(), mountain(), mountain()])
-        .hand(0, &[wheel_of_fortune()])
+        .hand(0, &[wheel_of_fortune(), lightning_bolt()])
+        .hand(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -1379,22 +1381,33 @@ fn wheel_of_fortune_each_player_draws_seven_cards() {
         .apply(p0, PlayerAction::CastSpell { card: wheel })
         .expect("three Mountains pay {2}{R}");
 
-    let p0_hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    let p1_hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        1,
+        "the Bolt is still in hand as the Wheel goes on the stack"
+    );
     let p0_lib_before = library_size(&engine, p0);
     let p1_lib_before = library_size(&engine, p1);
 
     pass_until(&mut engine, stack_is_empty);
 
+    assert!(
+        in_graveyard(&engine, p0, lightning_bolt()).is_some(),
+        "p0 discarded the Bolt"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "p1 discarded the Elves"
+    );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        p0_hand_before + 7,
-        "p0 drew seven cards"
+        7,
+        "p0 holds the seven cards drawn and nothing else"
     );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
-        p1_hand_before + 7,
-        "p1 drew seven cards"
+        7,
+        "p1 holds the seven cards drawn and nothing else"
     );
     assert_eq!(
         library_size(&engine, p0),
@@ -12411,5 +12424,860 @@ fn a_suspended_card_that_resolved_and_was_exiled_again_is_not_cast_again() {
     assert_eq!(
         engine.state().object(tutor).map(|o| o.zone),
         Some(Zone::Exile)
+    );
+}
+
+/// Volcanic Eruption — "Destroy X target Mountains. Volcanic Eruption deals
+/// damage to each creature and each player equal to the number of Mountains
+/// put into a graveyard this way." Two targets, one of them with a
+/// regeneration shield: one Mountain goes, so the damage is 1 — the Elves
+/// die, the Bears live, and each player loses 1. A count of the targets
+/// would have dealt 2.
+#[test]
+fn volcanic_eruption_deals_the_number_of_mountains_that_reached_a_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let eruption = card_index("4c15889e-3172-413b-b805-a2b7ad05f636");
+    let bears = card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0");
+    let mut engine = Duel::new(112, island())
+        .battlefield(
+            0,
+            &[island(), island(), island(), island(), island(), bears],
+        )
+        .hand(0, &[eruption])
+        .battlefield(1, &[mountain(), mountain(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mountains = all_on_battlefield(&engine, p1, mountain());
+    let (shielded, doomed) = (mountains[0], mountains[1]);
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(shielded)
+        .expect("seated")
+        .regeneration_shields = 1;
+    let bear = on_battlefield(&engine, p0, bears).expect("the Bears are out");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the Elves are out");
+    let life = |e: &Engine<RegistryLookup>| [e.state().players[0].life, e.state().players[1].life];
+    let before = life(&engine);
+
+    cast_from_hand(&mut engine, p0, eruption);
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![shielded, doomed],
+            },
+        )
+        .expect("X = 2 names both Mountains");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(doomed).map(|o| o.zone),
+        Some(Zone::Graveyard)
+    );
+    assert_eq!(
+        engine.state().object(shielded).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the shield saved it"
+    );
+    assert_eq!(
+        life(&engine),
+        [before[0] - 1, before[1] - 1],
+        "1 to each player"
+    );
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "1 damage kills the Elves"
+    );
+    assert_eq!(
+        engine.state().object(bear).map(|o| (o.zone, o.damage)),
+        Some((Zone::Battlefield, 1)),
+        "and marks 1 on the Bears"
+    );
+}
+
+/// Channel and Drain Power are `Coverage::Partial` with none of their text
+/// written: each is cast, resolves doing nothing, and goes to the graveyard.
+#[test]
+fn partial_sorceries_with_no_text_written_resolve_doing_nothing() {
+    for (name, card, land) in [
+        (
+            "Channel",
+            card_index("d1b815d1-2848-40d4-a555-66822d1becbc"),
+            forest(),
+        ),
+        (
+            "Drain Power",
+            card_index("0669172d-396b-4f5a-9703-129c5c849b55"),
+            island(),
+        ),
+    ] {
+        still_partial(card);
+        assert_eq!(
+            cast_saying_nothing(card, land, 2),
+            Zone::Graveyard,
+            "{name}"
+        );
+    }
+}
+
+/// Fireball, its one-target half: "Fireball deals X damage … among any
+/// number of targets" with one target is X damage to it. X = 3 at p1.
+#[test]
+fn fireball_deals_x_damage_to_one_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let fireball = card_index("aa7714b0-2bfb-458a-8ebf-37ec2c53383e");
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[fireball])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let life = engine.state().players[1].life;
+    cast_from_hand(&mut engine, p0, fireball);
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("p1 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, life - 3);
+}
+
+// ---------------------------------------------------------------------------
+// Alpha cards, played by their Oracle text.
+// ---------------------------------------------------------------------------
+
+/// A seat's current life total, read the way most of this batch reads it.
+fn life_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+    engine.state().players[seat.get() as usize].life
+}
+
+fn armageddon() -> CardIndex {
+    card_index("c9ed8b01-959a-47d6-891e-0abbdccf6e4f")
+}
+
+/// Armageddon: "Destroy all lands." Every land on both sides goes; a
+/// creature beside them does not.
+#[test]
+fn armageddon_destroys_every_land_on_both_sides() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), quiet_creature()],
+        )
+        .hand(0, &[armageddon()])
+        .battlefield(1, &[forest(), island(), mountain(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, armageddon());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(all_on_battlefield(&engine, p0, plains()).is_empty());
+    assert!(all_on_battlefield(&engine, p1, forest()).is_empty());
+    assert!(all_on_battlefield(&engine, p1, island()).is_empty());
+    assert!(all_on_battlefield(&engine, p1, mountain()).is_empty());
+    assert!(all_on_battlefield(&engine, p1, swamp()).is_empty());
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "\"all lands\" — not creatures"
+    );
+}
+
+fn resurrection() -> CardIndex {
+    card_index("837417d8-8260-486d-a3ed-3b5711eaf34a")
+}
+
+/// Resurrection: "Return target creature card from your graveyard to the
+/// battlefield."
+#[test]
+fn resurrection_returns_a_creature_from_the_graveyard_to_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), forest(), forest()])
+        .hand(0, &[resurrection(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    hand_to_graveyard(&mut engine, p0, quiet_creature());
+    let elf_in_gy = in_graveyard(&engine, p0, quiet_creature()).expect("in the graveyard");
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, resurrection());
+    let menu = aim_at(&mut engine, p0, elf_in_gy);
+    assert!(
+        menu.contains(&elf_in_gy),
+        "the creature card in the graveyard is a legal target: {menu:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "\"to the battlefield\""
+    );
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_none());
+}
+
+fn raise_dead() -> CardIndex {
+    card_index("cbc9c731-181a-4f00-a7b0-eb7e56eac2ea")
+}
+
+/// Raise Dead: "Return target creature card from your graveyard to your
+/// hand." Hand, not the battlefield — the whole difference from
+/// Resurrection.
+#[test]
+fn raise_dead_returns_a_creature_card_from_the_graveyard_to_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp()])
+        .hand(0, &[raise_dead(), quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    hand_to_graveyard(&mut engine, p0, quiet_creature());
+    let elf_in_gy = in_graveyard(&engine, p0, quiet_creature()).expect("in the graveyard");
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, raise_dead());
+    aim_at(&mut engine, p0, elf_in_gy);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_hand(&engine, p0, quiet_creature()).is_some(),
+        "\"to your hand\""
+    );
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_none());
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "hand, not the battlefield"
+    );
+}
+
+fn regrowth() -> CardIndex {
+    card_index("e6e4a8bd-5c40-4654-8de1-0da9afed90fd")
+}
+
+/// Regrowth: "Return target card from your graveyard to your hand." Read
+/// off an instant, not a creature — "any card" is the whole point beside
+/// Raise Dead.
+#[test]
+fn regrowth_returns_any_card_from_the_graveyard_not_only_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[regrowth(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    hand_to_graveyard(&mut engine, p0, lightning_bolt());
+    let bolt_in_gy = in_graveyard(&engine, p0, lightning_bolt()).expect("in the graveyard");
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, regrowth());
+    aim_at(&mut engine, p0, bolt_in_gy);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_hand(&engine, p0, lightning_bolt()).is_some(),
+        "\"any card\" — an instant, not only a creature"
+    );
+}
+
+fn wrath_of_god() -> CardIndex {
+    card_index("34515b16-c9a4-4f98-8c77-416a7a523407")
+}
+
+/// Wrath of God: "Destroy all creatures. They can't be regenerated." A
+/// shield on one of them does not save it; the lands beneath both stand.
+#[test]
+fn wrath_of_god_destroys_all_creatures_through_a_regeneration_shield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), quiet_creature()],
+        )
+        .hand(0, &[wrath_of_god()])
+        .battlefield(1, &[oboro_envoy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(elf)
+        .expect("seated")
+        .regeneration_shields = 1;
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, wrath_of_god());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "\"can't be regenerated\" — the shield did not save it"
+    );
+    assert!(in_graveyard(&engine, p0, quiet_creature()).is_some());
+    assert!(on_battlefield(&engine, p1, oboro_envoy()).is_none());
+    assert!(in_graveyard(&engine, p1, oboro_envoy()).is_some());
+    assert_eq!(
+        all_on_battlefield(&engine, p0, plains()).len(),
+        4,
+        "\"all creatures\" — not lands"
+    );
+}
+
+fn braingeyser() -> CardIndex {
+    card_index("9908e597-9470-4c13-8387-39431b380138")
+}
+
+/// Braingeyser: "Target player draws X cards."
+#[test]
+fn braingeyser_draws_x_cards_for_its_target_player() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), island(), island()])
+        .hand(0, &[braingeyser()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    cast_from_hand(&mut engine, p0, braingeyser());
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    engine.apply(p0, PlayerAction::ChoosePlayer(p0)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        before - 1 + 3,
+        "\"draws X cards\" — minus the card itself, cast away"
+    );
+}
+
+fn time_walk() -> CardIndex {
+    card_index("d0209d3f-3f7e-4fd5-bce5-10bce6f29c86")
+}
+
+/// Time Walk: "Take an extra turn after this one."
+#[test]
+fn time_walk_takes_an_extra_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[time_walk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let turn = engine.state().turn.number;
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, time_walk());
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == turn + 1 && matches!(e.state().turn.phase, Phase::FirstMain)
+    });
+    assert_eq!(
+        engine.state().turn.active,
+        p0,
+        "\"take an extra turn\" — its own caster's"
+    );
+}
+
+fn timetwister() -> CardIndex {
+    card_index("c823e687-6311-4c99-974b-fd77d204141a")
+}
+
+/// Timetwister: "Each player shuffles their hand and graveyard into their
+/// library, then draws seven cards."
+#[test]
+fn timetwister_shuffles_hand_and_graveyard_and_draws_seven_for_each_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[timetwister(), lightning_bolt()])
+        .hand(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    hand_to_graveyard(&mut engine, p0, lightning_bolt());
+    hand_to_graveyard(&mut engine, p1, quiet_creature());
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, timetwister());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        7,
+        "\"draws seven cards\""
+    );
+    assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p1)).len(), 7);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        1,
+        "only Timetwister itself remains — its own graveyard and hand were shuffled away first"
+    );
+    assert!(in_graveyard(&engine, p0, timetwister()).is_some());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty(),
+        "p1's graveyard was shuffled in too"
+    );
+}
+
+fn disintegrate() -> CardIndex {
+    card_index("92d6af2f-728e-4e41-87cb-5c90878a2f2f")
+}
+
+/// Disintegrate: "deals X damage to any target. If it's a creature, it
+/// can't be regenerated this turn, and if it would die this turn, exile it
+/// instead." A shielded creature dies anyway, and lands in exile, not the
+/// graveyard.
+#[test]
+fn disintegrate_exiles_a_shielded_creature_instead_of_letting_it_die() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), quiet_creature()])
+        .hand(0, &[disintegrate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .object_mut(elf)
+        .expect("seated")
+        .regeneration_shields = 1;
+
+    cast_from_hand(&mut engine, p0, disintegrate());
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "2 damage kills a 1-toughness Elf"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_none(),
+        "\"exile it instead\" — not the graveyard"
+    );
+    let exiled = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Exile(p0))
+        .iter()
+        .any(|&id| {
+            engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == quiet_creature()))
+        });
+    assert!(exiled, "the Elf is in exile");
+}
+
+fn earthquake() -> CardIndex {
+    card_index("9a40614b-50a3-422c-849e-53c8b7d3d204")
+}
+
+/// Earthquake: "deals X damage to each creature without flying and each
+/// player." A nonflying 1/1 dies; a flying 1/3 beside it is untouched.
+#[test]
+fn earthquake_burns_each_player_and_each_nonflying_creature_but_spares_flyers() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain(), mountain(), mountain(), quiet_creature()])
+        .hand(0, &[earthquake()])
+        .battlefield(1, &[oboro_envoy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before0 = life_of(&engine, p0);
+    let before1 = life_of(&engine, p1);
+    cast_from_hand(&mut engine, p0, earthquake());
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(life_of(&engine, p0), before0 - 2, "\"each player\"");
+    assert_eq!(life_of(&engine, p1), before1 - 2);
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_none(),
+        "1 toughness, no flying: dies to 2"
+    );
+    assert!(
+        on_battlefield(&engine, p1, oboro_envoy()).is_some(),
+        "flying: untouched"
+    );
+}
+
+fn flashfires() -> CardIndex {
+    card_index("c281f436-8c77-48f7-b31c-d40cd7f9ed6a")
+}
+
+/// Flashfires: "Destroy all Plains."
+#[test]
+fn flashfires_destroys_only_plains() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                plains(),
+                plains(),
+                forest(),
+                island(),
+                swamp(),
+            ],
+        )
+        .hand(0, &[flashfires()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mountains = all_on_battlefield(&engine, p0, mountain());
+    tap_mana_where(&mut engine, p0, |id| mountains.contains(&id));
+    cast_with_floating(&mut engine, p0, flashfires());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(all_on_battlefield(&engine, p0, plains()).is_empty());
+    assert!(
+        !all_on_battlefield(&engine, p0, forest()).is_empty(),
+        "not other basics"
+    );
+    assert!(!all_on_battlefield(&engine, p0, island()).is_empty());
+    assert!(!all_on_battlefield(&engine, p0, swamp()).is_empty());
+}
+
+fn hurricane() -> CardIndex {
+    card_index("9c021685-4017-49c7-9f58-2ae0243361a0")
+}
+
+/// Hurricane: "deals X damage to each creature with flying and each
+/// player." A flying 1/3 dies to X = 3; a nonflying 1/1 beside it is
+/// untouched.
+#[test]
+fn hurricane_burns_each_player_and_each_flying_creature_but_spares_grounded_ones() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), forest(), forest(), quiet_creature()],
+        )
+        .hand(0, &[hurricane()])
+        .battlefield(1, &[oboro_envoy()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before0 = life_of(&engine, p0);
+    let before1 = life_of(&engine, p1);
+    cast_from_hand(&mut engine, p0, hurricane());
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(life_of(&engine, p0), before0 - 3, "\"each player\"");
+    assert_eq!(life_of(&engine, p1), before1 - 3);
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "no flying: untouched"
+    );
+    assert!(
+        on_battlefield(&engine, p1, oboro_envoy()).is_none(),
+        "flying, 3 toughness: dies to 3"
+    );
+}
+
+fn tranquility() -> CardIndex {
+    card_index("f671e3c3-cd59-4d06-a1af-5d04892cf74d")
+}
+
+/// Tranquility: "Destroy all enchantments."
+#[test]
+fn tranquility_destroys_all_enchantments_and_nothing_else() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                sterling_grove(),
+                quiet_creature(),
+            ],
+        )
+        .hand(0, &[tranquility()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, tranquility());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, sterling_grove()).is_none());
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "\"all enchantments\" — not creatures"
+    );
+}
+
+fn tsunami() -> CardIndex {
+    card_index("ef2b1565-7b02-4cab-9031-beb1701ee929")
+}
+
+/// Tsunami: "Destroy all Islands."
+#[test]
+fn tsunami_destroys_only_islands() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                plains(),
+                mountain(),
+                swamp(),
+            ],
+        )
+        .hand(0, &[tsunami()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let forests = all_on_battlefield(&engine, p0, forest());
+    tap_mana_where(&mut engine, p0, |id| forests.contains(&id));
+    cast_with_floating(&mut engine, p0, tsunami());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(all_on_battlefield(&engine, p0, island()).is_empty());
+    assert!(
+        !all_on_battlefield(&engine, p0, plains()).is_empty(),
+        "not other basics"
+    );
+    assert!(!all_on_battlefield(&engine, p0, mountain()).is_empty());
+    assert!(!all_on_battlefield(&engine, p0, swamp()).is_empty());
+}
+
+fn stream_of_life() -> CardIndex {
+    card_index("9eb2912d-2130-49f2-9529-b58fa5a97a15")
+}
+
+/// Stream of Life: "Target player gains X life."
+#[test]
+fn stream_of_life_gains_x_life_for_its_target_player() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[stream_of_life()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = life_of(&engine, p0);
+    cast_from_hand(&mut engine, p0, stream_of_life());
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    engine.apply(p0, PlayerAction::ChoosePlayer(p0)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p0), before + 2, "\"gains X life\"");
+}
+
+fn drain_life() -> CardIndex {
+    card_index("e75ba79f-4cc2-4ede-8641-559ab94e7e36")
+}
+
+/// Drain Life — {X}{1}{B} — Sorcery: "Drain Life deals X damage to any
+/// target." Cast twice with two different X: two damage marks a vanilla
+/// 2/3 without killing it, and five reaches the opponent's life total by
+/// exactly five. "Any target" (CR 115.4) is the one menu a creature and
+/// both players share. The life-gain half of the card, and the
+/// black-mana-only rule on X, are not implemented and are not asked here.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn drain_life_deals_the_x_its_controller_names_to_a_creature_and_then_to_a_player() {
+    // A vanilla 2/3 body with no ward or other rider, so two marked
+    // damage neither kills it nor is lost in the noise of a smaller one,
+    // and no unrelated payment is dragged into a test about Drain Life.
+    // oracle_id = "8f1dae40-b307-446e-bbd2-86aa35813871"
+    fn hurloon_minotaur() -> CardIndex {
+        card_index("8f1dae40-b307-446e-bbd2-86aa35813871")
+    }
+
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(); 12])
+        .battlefield(1, &[hurloon_minotaur()])
+        .hand(0, &[drain_life(), drain_life()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("the 2/3 is out");
+    assert_eq!(
+        pt(&engine, minotaur),
+        (2, 3),
+        "printed 2/3, and three survives two"
+    );
+
+    tap_all_mana(&mut engine, p0);
+
+    // First cast: X = 2, at the creature.
+    cast_with_floating(&mut engine, p0, drain_life());
+    let mut asked_x = false;
+    let mut menu: Vec<ObjectId> = Vec::new();
+    let mut menu_players: Vec<PlayerId> = Vec::new();
+    for _ in 0..8 {
+        if asked_x && !menu.is_empty() {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
+                assert!(min <= 2 && 2 <= max, "X = 2 must be payable: {min}..={max}");
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(2))
+                    .expect("the answer came out of the question");
+                asked_x = true;
+            }
+            Pending::ChooseTargets {
+                player,
+                options,
+                player_options,
+                ..
+            } => {
+                menu = options;
+                menu_players = player_options;
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![minotaur],
+                        },
+                    )
+                    .expect("the 2/3 is a legal target");
+            }
+            other => panic!("unexpected while casting Drain Life: {other:?}"),
+        }
+    }
+    assert!(
+        asked_x,
+        "X is a question the engine asks, not a number the card fixes"
+    );
+    assert!(
+        menu.contains(&minotaur),
+        "\"any target\" reaches a creature: {menu:?}"
+    );
+    assert!(
+        menu_players.contains(&p0) && menu_players.contains(&p1),
+        "any target (CR 115.4) puts both players on the same menu: {menu_players:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(minotaur).unwrap().damage,
+        2,
+        "exactly the X it was cast for"
+    );
+    assert_eq!(
+        pt(&engine, minotaur),
+        (2, 3),
+        "marked damage does not change printed power or toughness"
+    );
+    assert!(
+        on_battlefield(&engine, p1, hurloon_minotaur()).is_some(),
+        "two marked on a 2/3, one short of lethal, is not lethal"
+    );
+
+    // Second cast: X = 5, at p1 directly.
+    let life_before = life_of(&engine, p1);
+    cast_with_floating(&mut engine, p0, drain_life());
+    let mut asked_x2 = false;
+    let mut targeted = false;
+    for _ in 0..8 {
+        if asked_x2 && targeted {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
+                assert!(min <= 5 && 5 <= max, "X = 5 must be payable: {min}..={max}");
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(5))
+                    .expect("the answer came out of the question");
+                asked_x2 = true;
+            }
+            Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } => {
+                assert!(
+                    player_options.contains(&p1),
+                    "\"any target\" reaches the player: {player_options:?}"
+                );
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![p1],
+                        },
+                    )
+                    .expect("p1 is a legal target");
+                targeted = true;
+            }
+            other => panic!("unexpected while casting the second Drain Life: {other:?}"),
+        }
+    }
+    assert!(
+        asked_x2 && targeted,
+        "both questions were asked and answered"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        life_of(&engine, p1),
+        life_before - 5,
+        "exactly the second X, off the player directly"
+    );
+    assert_eq!(
+        engine.state().object(minotaur).unwrap().damage,
+        2,
+        "the second cast's damage went to the player, not back onto the creature"
     );
 }

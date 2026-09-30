@@ -74,7 +74,7 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
 /// asking for it reads as "nobody chose anything" there. Every variant is
 /// listed now, so the next implicit spec is a compile error instead of a
 /// card that quietly does nothing.
-fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
+pub(super) fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
     match target {
         TargetSpec::ThisObject => Some(res.source),
         TargetSpec::EventObject => res.event_object,
@@ -632,6 +632,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        // "Sacrifice that creature": by the ability's controller, and only a
+        // permanent of theirs that is still the object the spec names
+        // (CR 701.21a; an event object that has left is none, CR 603.7c).
+        Effect::SacrificeObject { target } => {
+            let id = spec_object(res, target)?;
+            let owner = state.object(id).and_then(|o| {
+                (o.zone == crate::zone::Zone::Battlefield
+                    && o.controller == res.controller
+                    && !o.status.contains(crate::object::Status::PHASED_OUT))
+                .then_some(o.owner)
+            })?;
+            if let Some(obj) = state.object_mut(id) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = state.move_object(
+                id,
+                ZoneLocation::Graveyard(owner),
+                ZonePosition::Top,
+                Cause::Effect,
+            );
+            None
+        }
         Effect::PutTargetOnBottomOfLibrary => {
             let moves: Vec<(ObjectId, ZoneLocation)> = res
                 .targets
@@ -777,6 +799,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 && let Some(obj) = state.object_mut(target_id)
             {
                 obj.regeneration_shields = obj.regeneration_shields.saturating_add(1);
+            }
+            None
+        }
+        Effect::RegenerateAll { filter } => {
+            let shielded: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| crate::eval::matches(filter, state, o, you, res.source))
+                })
+                .collect();
+            for id in shielded {
+                if let Some(obj) = state.object_mut(id) {
+                    obj.regeneration_shields = obj.regeneration_shields.saturating_add(1);
+                }
             }
             None
         }
@@ -940,6 +978,65 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
                 total: None,
             })
+        }
+        Effect::DiscardHand { who } => {
+            for player in players_of(who, state, you, res) {
+                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                for card in hand {
+                    state.journal.record(GameEvent::Discarded {
+                        object: card,
+                        player,
+                    });
+                    let _ = state.move_object(
+                        card,
+                        ZoneLocation::Graveyard(player),
+                        ZonePosition::Top,
+                        Cause::Effect,
+                    );
+                }
+            }
+            None
+        }
+        Effect::ShuffleIntoLibrary {
+            who,
+            hand,
+            graveyard,
+        } => {
+            let players = players_of(who, state, you, res);
+            let mut moves: Vec<(ObjectId, ZoneLocation)> = Vec::new();
+            for &player in &players {
+                let zones = [
+                    (hand, ZoneLocation::Hand(player)),
+                    (graveyard, ZoneLocation::Graveyard(player)),
+                ];
+                for (_, zone) in zones.into_iter().filter(|(on, _)| *on) {
+                    moves.extend(
+                        state
+                            .zones
+                            .list(zone)
+                            .iter()
+                            .map(|&card| (card, ZoneLocation::Library(player))),
+                    );
+                }
+            }
+            // CR 903.9b, before anything moves: the last answer re-enters
+            // this arm.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+            }
+            for player in players {
+                state.shuffle_library(player);
+            }
+            None
+        }
+        Effect::ShuffleLibrary { who } => {
+            for player in players_of(who, state, you, res) {
+                state.shuffle_library(player);
+            }
+            None
         }
         Effect::DiscardRandom { who, count } => {
             let count = amount2(&count, state, you, res) as usize;

@@ -285,6 +285,15 @@ pub struct Characteristics {
     /// by an entry and says nothing about what the permanent does with it,
     /// so Reflecting Pool asks this before counting that colour as mana.
     pub produced_chosen: bool,
+    /// Whether an effect set this land's subtype to a basic land type, so it
+    /// lost every ability its rules text gives it (CR 305.7): Evil Presence
+    /// makes a land a Swamp and nothing else. Never a printed value.
+    ///
+    /// Not [`Self::abilities_lost`]: a land set to a basic land type gains
+    /// that type's mana ability (CR 305.6) and keeps every ability granted to
+    /// it by another effect (CR 305.7), whatever the timestamps; only what
+    /// its own text prints is gone. [`GameObject::abilities`] reads it.
+    pub rules_text_lost: bool,
     /// The timestamp of the latest effect under which this object lost all
     /// its abilities (CR 613.1f), if one did; never a printed value.
     ///
@@ -494,6 +503,7 @@ impl Characteristics {
             produced_colors: produced,
             produced_chosen,
             produced_colorless,
+            rules_text_lost: false,
             abilities_lost: None,
             // A back face nobody may cast out of hand is a nonmodal one
             // (`xtask validate` holds the flag against Scryfall's layout):
@@ -1375,7 +1385,10 @@ impl GameObject {
         // "Loses all abilities" (CR 613.1f): nothing to activate, nothing to
         // trigger, nothing to register. What already left the object — an
         // ability on the stack (CR 113.7a) — reads `printed_abilities`.
-        if self.characteristics().abilities_lost.is_some() {
+        let c = self.characteristics();
+        // A land set to a basic land type (CR 305.7) loses what its own text
+        // gives it too; what it makes is its new type's, through CR 305.6.
+        if c.abilities_lost.is_some() || c.rules_text_lost {
             return &[];
         }
         self.printed_abilities(lookup)

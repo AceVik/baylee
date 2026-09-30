@@ -2,21 +2,36 @@
 //!
 //! Implemented: attacker/blocker declaration with the keyword restrictions
 //! (flying/reach, menace, unblockable, can't block, protection), first/double strike as
-//! a per-creature property, deathtouch, trample, lifelink, and damage
-//! assignment in declaration order.
+//! a per-creature property, deathtouch, trample, lifelink, and banding
+//! (CR 702.22): bands declared with the attack, a block on one member
+//! blocking the whole band, and the damage divisions banding hands to the
+//! other player. Every division of combat damage among two or more
+//! creatures is asked of the player who makes it (`divisions_owed`): the
+//! attacker's controller (CR 510.1c), a blocker's (510.1d), or the one
+//! banding names (702.22j–k).
+//!
+//! What effects add to the declarations: [`AttackRules`] (CR 508.1c–d) and
+//! [`BlockRules`] (how many attackers a creature may block, CR 509.1a, and
+//! the block requirements, CR 509.1c), over the offer [`block_options`]
+//! makes.
 //!
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
 //! and its loyalty comes off (CR 306.8). Battles are the remaining case.
 //!
-//! Not yet: the attacking player's *choice* of damage assignment order
-//! among multiple blockers (CR 510.1c) — the declaration order stands in
-//! for it.
+//! Not yet: an attacker with trample blocked by creatures without banding
+//! is not asked how to assign its damage (CR 702.19b). The engine assigns
+//! lethal damage to each blocker in declaration order and the rest to what
+//! it attacks, which is one of the assignments its controller could have
+//! chosen.
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
+use crate::prevention::{Redirected, redirect};
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
-use baylee_core::ids::{Defender, ObjectId, PlayerId};
+use baylee_core::color::Color;
+use baylee_core::generated::subtypes::land;
+use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 
 /// One declared attacker.
@@ -35,6 +50,39 @@ pub struct AttackerInfo {
     /// the blocker list for both is what let an attacker whose only blocker
     /// was blinked deal its damage to the player.
     pub blocked: bool,
+    /// The band it attacks in (CR 702.22c), by a number shared with its
+    /// band mates; `None` for a creature in no band.
+    ///
+    /// Written once, as the attack is declared, and never read back off
+    /// the creature's keywords: a band lasts for the rest of combat even if
+    /// something takes banding away (CR 702.22e). A creature removed from
+    /// combat leaves its band with its entry (CR 702.22f).
+    pub band: Option<u8>,
+}
+
+/// How one creature's combat damage is divided among the creatures it
+/// deals it to, as a player chose (CR 510.1c–d, 702.22j–k): each recipient
+/// with its share, in the order they were asked.
+#[derive(Clone, Hash, Debug)]
+pub struct Division {
+    /// The creature dealing the damage.
+    pub source: ObjectId,
+    /// Each recipient and the damage assigned to it.
+    pub shares: Vec<(ObjectId, i16)>,
+}
+
+/// A division of combat damage a player still owes before the damage step
+/// can deal it: who chooses, and among what.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OwedDivision {
+    /// The creature whose damage is divided.
+    pub source: ObjectId,
+    /// The player who divides it.
+    pub chooser: PlayerId,
+    /// What it is divided among, in declaration order.
+    pub recipients: Vec<ObjectId>,
+    /// How much there is to divide: the creature's power (CR 510.1a).
+    pub amount: i16,
 }
 
 /// One declared blocker.
@@ -63,19 +111,24 @@ pub struct BlockerInfo {
 pub struct CombatState {
     /// Declared attackers, in declaration order.
     attackers: Vec<AttackerInfo>,
-    /// The same creatures as `attackers`, sorted, for [`Self::is_attacking`].
-    attacking: Vec<ObjectId>,
+    /// The same creatures as `attackers`, sorted, each with what it
+    /// attacks, for [`Self::is_attacking`] and [`Self::defender_of`].
+    attacking: Vec<(ObjectId, Defender)>,
     /// Declared blockers.
     pub blockers: Vec<BlockerInfo>,
+    /// The divisions players have chosen for the damage step about to be
+    /// dealt, emptied once it is (`deal_combat_damage`).
+    divisions: Vec<Division>,
 }
 
-/// The two declared lists and nothing else: `attacking` is derived from
-/// `attackers`, so the hash is the one the derived impl gave before the
-/// index existed (`GameState::snapshot_hash` hashes this).
+/// The declared lists and the chosen divisions: `attacking` is derived
+/// from `attackers` and is left out (`GameState::snapshot_hash` hashes
+/// this). A division is hashed because it decides where damage lands.
 impl std::hash::Hash for CombatState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.attackers.hash(state);
         self.blockers.hash(state);
+        self.divisions.hash(state);
     }
 }
 
@@ -95,7 +148,19 @@ impl CombatState {
     /// Whether `id` is an attacking creature (CR 506.3), in `O(log n)`.
     #[must_use]
     pub fn is_attacking(&self, id: ObjectId) -> bool {
-        self.attacking.binary_search(&id).is_ok()
+        self.attacking
+            .binary_search_by_key(&id, |(c, _)| *c)
+            .is_ok()
+    }
+
+    /// What `id` attacks, if it is attacking, in `O(log n)`: the
+    /// declare-blockers offer asks it of every pairing (CR 802.4a).
+    #[must_use]
+    pub fn defender_of(&self, id: ObjectId) -> Option<Defender> {
+        self.attacking
+            .binary_search_by_key(&id, |(c, _)| *c)
+            .ok()
+            .map(|at| self.attacking[at].1)
     }
 
     /// Declares attackers after the ones already declared, in the order
@@ -116,9 +181,93 @@ impl CombatState {
     fn reindex(&mut self) {
         self.attacking.clear();
         self.attacking
-            .extend(self.attackers.iter().map(|a| a.creature));
-        self.attacking.sort_unstable();
-        self.attacking.dedup();
+            .extend(self.attackers.iter().map(|a| (a.creature, a.defending)));
+        self.attacking.sort_unstable_by_key(|(c, _)| *c);
+        self.attacking.dedup_by_key(|(c, _)| *c);
+    }
+
+    /// Puts `members` in one band (CR 702.22c), under a number no band has
+    /// yet.
+    pub fn form_band(&mut self, members: &[ObjectId]) {
+        let band = self
+            .attackers
+            .iter()
+            .filter_map(|a| a.band)
+            .max()
+            .map_or(0, |n| n.saturating_add(1));
+        for info in &mut self.attackers {
+            if members.contains(&info.creature) {
+                info.band = Some(band);
+            }
+        }
+    }
+
+    /// The band an attacker is in, if any.
+    #[must_use]
+    pub fn band_of(&self, attacker: ObjectId) -> Option<u8> {
+        self.attackers
+            .iter()
+            .find(|a| a.creature == attacker)
+            .and_then(|a| a.band)
+    }
+
+    /// The other creatures in an attacker's band, in declaration order.
+    #[must_use]
+    pub fn band_mates(&self, attacker: ObjectId) -> Vec<ObjectId> {
+        let Some(band) = self.band_of(attacker) else {
+            return Vec::new();
+        };
+        self.attackers
+            .iter()
+            .filter(|a| a.band == Some(band) && a.creature != attacker)
+            .map(|a| a.creature)
+            .collect()
+    }
+
+    /// Every attacking band, each its members in declaration order, the
+    /// bands in the order their first members were declared.
+    #[must_use]
+    pub fn bands(&self) -> Vec<Vec<ObjectId>> {
+        let mut out: Vec<(u8, Vec<ObjectId>)> = Vec::new();
+        for info in &self.attackers {
+            let Some(band) = info.band else {
+                continue;
+            };
+            match out.iter_mut().find(|(n, _)| *n == band) {
+                Some((_, members)) => members.push(info.creature),
+                None => out.push((band, vec![info.creature])),
+            }
+        }
+        out.into_iter().map(|(_, members)| members).collect()
+    }
+
+    /// The attackers a blocker blocks, in the order the blocks were made.
+    #[must_use]
+    pub fn blocked_by(&self, blocker: ObjectId) -> Vec<ObjectId> {
+        self.blockers
+            .iter()
+            .filter(|b| b.blocker == blocker)
+            .map(|b| b.attacker)
+            .collect()
+    }
+
+    /// Whether `blocker` is blocking `attacker`.
+    #[must_use]
+    pub fn is_blocking(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        self.blockers
+            .iter()
+            .any(|b| b.blocker == blocker && b.attacker == attacker)
+    }
+
+    /// The division chosen for a creature's damage in this damage step.
+    #[must_use]
+    pub fn division(&self, source: ObjectId) -> Option<&Division> {
+        self.divisions.iter().find(|d| d.source == source)
+    }
+
+    /// Records a chosen division for the damage step about to be dealt.
+    pub fn record_division(&mut self, division: Division) {
+        self.divisions.push(division);
     }
 
     /// Blockers assigned to an attacker, in declaration order.
@@ -174,7 +323,7 @@ impl CombatState {
     /// other attacker — that is a fact about the attacker, not about the
     /// blocker that has left.
     pub fn remove_from_combat(&mut self, id: ObjectId) {
-        if let Ok(at) = self.attacking.binary_search(&id) {
+        if let Ok(at) = self.attacking.binary_search_by_key(&id, |(c, _)| *c) {
             self.attacking.remove(at);
             self.attackers.retain(|a| a.creature != id);
         }
@@ -190,17 +339,31 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
     let Some(obj) = state.object(creature) else {
         return false;
     };
+    // "Can attack as though …" (CR 609.4): a permission read only where
+    // its own rule would stop the attack, so a creature with neither
+    // defender nor summoning sickness never walks the effect table.
+    let as_though = |modifier: baylee_cards_dsl::Modifier| {
+        state
+            .effects
+            .iter()
+            .any(|fx| fx.modifier == modifier && crate::effects::applies_to(state, fx, obj))
+    };
     obj.zone == crate::zone::Zone::Battlefield
         && obj.controller == player
         && obj.characteristics().types.contains(TypeSet::CREATURE)
-        // Defender (CR 702.3b): can't attack, however untapped it is.
-        && !obj.characteristics().keywords.contains(K::DEFENDER)
+        // Defender (CR 702.3b): can't attack, however untapped it is —
+        // unless it can attack as though it didn't have defender.
+        && (!obj.characteristics().keywords.contains(K::DEFENDER)
+            || as_though(baylee_cards_dsl::Modifier::AttacksDespiteDefender))
         // "Can't attack" (Wayward Swordtooth, while it lacks the city's
         // blessing): the same rule as defender, from a static.
         && !obj.characteristics().keywords.contains(K::CANT_ATTACK)
         && !obj.status.contains(Status::TAPPED)
         && !obj.status.contains(Status::PHASED_OUT)
-        && !summoning_sick(state, obj)
+        // Summoning sickness (CR 302.6), unless it can attack as though it
+        // had haste (CR 702.10b).
+        && (!summoning_sick(state, obj)
+            || as_though(baylee_cards_dsl::Modifier::AttacksAsThoughHaste))
 }
 
 /// Everything `player` may declare an attack against right now: each
@@ -255,6 +418,117 @@ pub fn defending_player(state: &GameState, defender: Defender) -> Option<PlayerI
     }
 }
 
+/// The defending player whose creatures may block a creature attacking
+/// `defender` (CR 802.4a: "those creatures can block only creatures
+/// attacking that player, a planeswalker that player controls").
+///
+/// Unlike [`defending_player`], a planeswalker that has left the battlefield
+/// still names somebody: its attacker "may be blocked" (CR 506.4c), and the
+/// defending player an attacker refers to is then "the controller of the
+/// planeswalker that creature was attacking before it was removed from
+/// combat" (CR 802.2a), which is the walker's last known controller.
+#[must_use]
+pub fn blocking_player(state: &GameState, defender: Defender) -> Option<PlayerId> {
+    match defender {
+        Defender::Player(p) => Some(p),
+        Defender::Planeswalker(id) => state.last_known_controller(id),
+    }
+}
+
+/// The rules about the declaration of attackers that effects add to what
+/// [`can_attack`] asks of a creature alone: the restrictions about the pair,
+/// a creature and what it attacks (CR 508.1c, "can't attack unless defending
+/// player controls an Island"), and the requirements (CR 508.1d, "attacks
+/// each combat if able").
+///
+/// Collected once per declaration: the effects are walked here and not per
+/// creature, because a declaration may name tens of thousands of tokens and
+/// almost never meets one of these.
+pub struct AttackRules<'a> {
+    state: &'a GameState,
+    unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
+    requirements: Vec<&'a crate::effects::ContinuousEffect>,
+}
+
+impl<'a> AttackRules<'a> {
+    /// The rules in force now.
+    #[must_use]
+    pub fn new(state: &'a GameState) -> Self {
+        use baylee_cards_dsl::Modifier;
+        let mut unless_defender_controls = Vec::new();
+        let mut requirements = Vec::new();
+        for fx in state.effects.iter() {
+            match fx.modifier {
+                Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::AttacksEachCombat => requirements.push(fx),
+                _ => {}
+            }
+        }
+        Self {
+            state,
+            unless_defender_controls,
+            requirements,
+        }
+    }
+
+    /// Whether `creature` attacks each combat if able (CR 508.1d).
+    #[must_use]
+    pub fn must_attack(&self, creature: ObjectId) -> bool {
+        if self.requirements.is_empty() {
+            return false;
+        }
+        self.state.object(creature).is_some_and(|obj| {
+            self.requirements
+                .iter()
+                .any(|fx| crate::effects::applies_to(self.state, fx, obj))
+        })
+    }
+
+    /// Whether `creature` may attack `defender`, past the restrictions on
+    /// the pair. Asked of a creature [`can_attack`] already allows.
+    #[must_use]
+    pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
+        if self.unless_defender_controls.is_empty() {
+            return true;
+        }
+        let state = self.state;
+        let Some(obj) = state.object(creature) else {
+            return false;
+        };
+        let Some(defending) = defending_player(state, defender) else {
+            return false;
+        };
+        self.unless_defender_controls.iter().all(|fx| {
+            let baylee_cards_dsl::Modifier::CantAttackUnlessDefenderControls(filter) = fx.modifier
+            else {
+                return true;
+            };
+            !crate::effects::applies_to(state, fx, obj)
+                || state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|p| {
+                        p.controller == defending
+                            && crate::eval::matches(
+                                filter,
+                                state,
+                                p,
+                                fx.controller,
+                                fx.source.unwrap_or(creature),
+                            )
+                    })
+                })
+        })
+    }
+
+    /// Of `defenders`, those `creature` may attack.
+    #[must_use]
+    pub fn defenders_for(&self, creature: ObjectId, defenders: &[Defender]) -> Vec<Defender> {
+        defenders
+            .iter()
+            .copied()
+            .filter(|d| self.allows(creature, *d))
+            .collect()
+    }
+}
 /// Summoning sickness (CR 302.6): a creature must be controlled
 /// continuously since the beginning of its controller's most recent turn
 /// (haste excepted).
@@ -326,7 +600,33 @@ pub fn ready_blockers(state: &GameState, defending: PlayerId) -> Vec<ObjectId> {
         .collect()
 }
 
-/// Whether `blocker` may block `attacker` (keyword restrictions included).
+/// Each basic landwalk and the land type it names (CR 702.14c, 305.6).
+const LANDWALKS: [(K, SubtypeId); 5] = [
+    (K::PLAINSWALK, land::PLAINS),
+    (K::ISLANDWALK, land::ISLAND),
+    (K::SWAMPWALK, land::SWAMP),
+    (K::MOUNTAINWALK, land::MOUNTAIN),
+    (K::FORESTWALK, land::FOREST),
+];
+
+/// Whether `player` controls a land with land type `subtype`, as the
+/// battlefield is now: projected types, phased-out permanents not there
+/// at all (CR 702.26b).
+#[must_use]
+pub fn controls_land_of_type(state: &GameState, player: PlayerId, subtype: SubtypeId) -> bool {
+    state.battlefield_seen().any(|id| {
+        state.object(id).is_some_and(|land| {
+            let chars = land.characteristics();
+            land.controller == player
+                && chars.types.contains(TypeSet::LAND)
+                && chars.subtypes.contains(subtype)
+        })
+    })
+}
+
+/// Whether `defending` may block `attacker` with `blocker` (keyword
+/// restrictions included): only a creature attacking that player or one of
+/// their planeswalkers (CR 509.1a, 802.4a).
 #[must_use]
 pub fn can_block(
     state: &GameState,
@@ -337,6 +637,17 @@ pub fn can_block(
     let (Some(b), Some(a)) = (state.object(blocker), state.object(attacker)) else {
         return false;
     };
+    // CR 509.1a, and at a table of several defending players 802.4a: a
+    // defending player blocks only "creatures attacking that player, a
+    // planeswalker that player controls". A creature not declared as an
+    // attacker is asked only about its keywords (the pair's own half).
+    if state
+        .combat
+        .defender_of(attacker)
+        .is_some_and(|d| blocking_player(state, d) != Some(defending))
+    {
+        return false;
+    }
     if !ready_to_block(b, defending)
         || a.zone != crate::zone::Zone::Battlefield
         || a.status.contains(Status::PHASED_OUT)
@@ -353,6 +664,23 @@ pub fn can_block(
     }
     // Flying can only be blocked by flying/reach (CR 702.9).
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
+        return false;
+    }
+    // Fear (CR 702.36b): only artifact creatures and/or black creatures.
+    if kw(a, K::FEAR) {
+        let blocker = b.characteristics();
+        if !blocker.types.contains(TypeSet::ARTIFACT) && !blocker.colors.contains(Color::Black) {
+            return false;
+        }
+    }
+    // Landwalk (CR 702.14c): unblockable while the *defending* player
+    // controls a land of that type — that player's lands and nobody
+    // else's, read as they are now (a land an effect made an Island is
+    // one).
+    if LANDWALKS
+        .iter()
+        .any(|(walk, land)| kw(a, *walk) && controls_land_of_type(state, defending, *land))
+    {
         return false;
     }
     // Menace is deliberately *not* asked here. CR 702.111b restricts the
@@ -461,6 +789,240 @@ pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choic
         })
 }
 
+/// The declare-blockers offer for `defending` (CR 509.1a): each creature
+/// that may block, and the attackers it may block.
+///
+/// CR 702.111b restricts the declaration and not the pair, so [`can_block`]
+/// cannot answer it — but an attacker this defender could never field two
+/// legal blockers against is one no legal declaration blocks, and offering
+/// that pairing would name a block `declare_blockers` has to refuse (#156).
+/// Asked once per attacker rather than once per pair, because the answer is
+/// the same for every blocker.
+///
+/// Both walks go over the defender's ready creatures, not the battlefield:
+/// the pairs they skip are ones [`can_block`] refuses on the blocker's half
+/// alone, and walking the battlefield per attacker made this step cost
+/// permanents × attackers ([`ready_blockers`]).
+///
+/// The one universe the block requirements are measured in: a pair outside
+/// it breaks a restriction, and "the maximum possible number of
+/// requirements that could be obeyed without disobeying any restrictions"
+/// (CR 509.1c) is a maximum over declarations made of these pairs.
+#[must_use]
+pub fn block_options(state: &GameState, defending: PlayerId) -> Vec<crate::choice::BlockOption> {
+    let candidates = ready_blockers(state, defending);
+    let blockable: Vec<ObjectId> = state
+        .combat
+        .attackers()
+        .iter()
+        .map(|a| a.creature)
+        .filter(|a| menace_satisfiable(state, defending, *a, &candidates))
+        .collect();
+    candidates
+        .iter()
+        .copied()
+        .filter_map(|blocker| {
+            let attackers: Vec<ObjectId> = blockable
+                .iter()
+                .copied()
+                .filter(|a| can_block(state, defending, blocker, *a))
+                .collect();
+            (!attackers.is_empty()).then_some(crate::choice::BlockOption { blocker, attackers })
+        })
+        .collect()
+}
+
+/// The rules about the declaration of blockers that effects add to what
+/// [`can_block`] asks of one pair: how many attackers a creature may block
+/// (CR 509.1a gives it one; "can block an additional creature each
+/// combat" raises that), and the requirements (CR 509.1c: "all creatures
+/// able to block enchanted creature do so", "it blocks each attacking
+/// creature if able").
+///
+/// Collected once per declaration, for the reason [`AttackRules`] gives.
+///
+/// # Counting requirements
+///
+/// A requirement here is always about one pair, a blocker and an attacker:
+/// a lure asks each creature able to block its creature to block it, and
+/// "blocks each attacking creature" asks its creature to block each
+/// attacker. [`BlockRules::demands`] is how many requirements ask for one
+/// pair — two lures on one attacker ask twice, and blocking it obeys both —
+/// and the requirements a declaration obeys are the sum over its pairs.
+///
+/// # The maximum
+///
+/// CR 509.1c refuses a declaration obeying fewer requirements than the
+/// most any declaration could obey without breaking a restriction. The
+/// restrictions the engine knows are the pairs [`block_options`] offers,
+/// each blocker's limit, and menace's two blockers or none (CR 702.111b).
+/// Without menace the blockers do not touch one another, and each obeys
+/// most by blocking the attackers most requirements ask of it, up to its
+/// limit: [`BlockRules::obeying`] does exactly that, so its count is the
+/// maximum. A menace attacker a requirement names ties blockers together —
+/// blocking it needs a second blocker, whose own requirements may then go
+/// unobeyed — and there the declaration `obeying` builds is one good
+/// declaration and not necessarily the best: its count can fall short of
+/// the maximum, and a declaration between the two is accepted. It never
+/// refuses a legal declaration, since `obeying`'s own is always one.
+pub struct BlockRules<'a> {
+    state: &'a GameState,
+    additional: Vec<&'a crate::effects::ContinuousEffect>,
+    any_number: Vec<&'a crate::effects::ContinuousEffect>,
+    lures: Vec<&'a crate::effects::ContinuousEffect>,
+    each: Vec<&'a crate::effects::ContinuousEffect>,
+}
+
+impl<'a> BlockRules<'a> {
+    /// The rules in force now.
+    #[must_use]
+    pub fn new(state: &'a GameState) -> Self {
+        use baylee_cards_dsl::Modifier;
+        let mut rules = Self {
+            state,
+            additional: Vec::new(),
+            any_number: Vec::new(),
+            lures: Vec::new(),
+            each: Vec::new(),
+        };
+        for fx in state.effects.iter() {
+            match fx.modifier {
+                Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
+                Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
+                Modifier::MustBeBlockedByAllAble => rules.lures.push(fx),
+                Modifier::BlocksEachAttackerIfAble => rules.each.push(fx),
+                _ => {}
+            }
+        }
+        rules
+    }
+
+    /// Whether any block requirement is in force. Without one, every
+    /// declaration obeys the most that can be obeyed, which is none.
+    #[must_use]
+    pub fn has_requirements(&self) -> bool {
+        !self.lures.is_empty() || !self.each.is_empty()
+    }
+
+    /// How many attackers `blocker` may block (CR 509.1a): one, one more
+    /// for each "additional creature", and `None` for any number.
+    #[must_use]
+    pub fn capacity(&self, blocker: ObjectId) -> Option<usize> {
+        let state = self.state;
+        let Some(obj) = state.object(blocker) else {
+            return Some(1);
+        };
+        if self
+            .any_number
+            .iter()
+            .any(|fx| crate::effects::applies_to(state, fx, obj))
+        {
+            return None;
+        }
+        let more: usize = self
+            .additional
+            .iter()
+            .filter(|fx| crate::effects::applies_to(state, fx, obj))
+            .map(|fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::CanBlockAdditional(n) => usize::from(n),
+                _ => 0,
+            })
+            .sum();
+        Some(1 + more)
+    }
+
+    /// How many requirements ask `blocker` to block `attacker`: each lure
+    /// on the attacker and each "blocks each attacking creature" on the
+    /// blocker. Asked only of a pair [`block_options`] offers, which is
+    /// what "able to block" means.
+    #[must_use]
+    pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
+        let state = self.state;
+        let on = |effects: &[&crate::effects::ContinuousEffect], id: ObjectId| {
+            state.object(id).map_or(0, |obj| {
+                effects
+                    .iter()
+                    .filter(|fx| crate::effects::applies_to(state, fx, obj))
+                    .count()
+            })
+        };
+        on(&self.lures, attacker) + on(&self.each, blocker)
+    }
+
+    /// How many requirements `declared` obeys. Each pair counts once, so a
+    /// declaration naming a pair twice is refused before it is counted.
+    #[must_use]
+    pub fn obeyed(&self, declared: &[(ObjectId, ObjectId)]) -> usize {
+        if !self.has_requirements() {
+            return 0;
+        }
+        declared.iter().map(|(b, a)| self.demands(*b, *a)).sum()
+    }
+
+    /// One legal declaration out of `options` that obeys as many
+    /// requirements as the engine holds a declaration to (the header's
+    /// "The maximum"): empty when none is in force.
+    ///
+    /// Each blocker takes the attackers most requirements ask of it, up to
+    /// its limit — attackers without menace first, since blocking one
+    /// needs nobody else, and within each kind the most asked first. A
+    /// menace attacker left with one blocker then gets a second from any
+    /// creature that may block it and has room, or loses the one it has
+    /// (CR 702.111b: two or none). Every pair is one `options` offers, and
+    /// no blocker exceeds its limit, so `declare_blockers` accepts it.
+    #[must_use]
+    pub fn obeying(&self, options: &[crate::choice::BlockOption]) -> Vec<(ObjectId, ObjectId)> {
+        if !self.has_requirements() {
+            return Vec::new();
+        }
+        let menace = |attacker: ObjectId| has_keyword(self.state, attacker, K::MENACE);
+        let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
+        let mut chosen: Vec<(ObjectId, ObjectId)> = Vec::new();
+        for option in options {
+            let mut asked: Vec<(bool, std::cmp::Reverse<usize>, ObjectId)> = option
+                .attackers
+                .iter()
+                .filter_map(|attacker| {
+                    let demands = self.demands(option.blocker, *attacker);
+                    (demands > 0).then_some((
+                        menace(*attacker),
+                        std::cmp::Reverse(demands),
+                        *attacker,
+                    ))
+                })
+                .collect();
+            asked.sort_by_key(|(menace, demands, _)| (*menace, *demands));
+            chosen.extend(
+                asked
+                    .into_iter()
+                    .take(room(option.blocker))
+                    .map(|(_, _, attacker)| (option.blocker, attacker)),
+            );
+        }
+        let menacing: Vec<ObjectId> = chosen
+            .iter()
+            .map(|(_, attacker)| *attacker)
+            .filter(|attacker| menace(*attacker))
+            .collect();
+        for attacker in menacing {
+            let mut on_it = chosen.iter().filter(|(_, a)| *a == attacker);
+            let (Some(&(lone, _)), None) = (on_it.next(), on_it.next()) else {
+                continue;
+            };
+            let helper = options.iter().find(|o| {
+                o.blocker != lone
+                    && o.attackers.contains(&attacker)
+                    && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
+            });
+            match helper {
+                Some(helper) => chosen.push((helper.blocker, attacker)),
+                None => chosen.retain(|pair| *pair != (lone, attacker)),
+            }
+        }
+        chosen
+    }
+}
+
 /// Whether a creature deals its combat damage in the given step
 /// (CR 510.4): first strikers in the first step, everyone else in the
 /// regular one, double strikers in both.
@@ -504,6 +1066,155 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
         .max(0)
 }
 
+/// Whether a creature has banding as damage is assigned, which is when
+/// CR 702.22j–k ask: a band formed while it had banding is still a band
+/// without it (CR 702.22e), but who divides the damage is read now.
+fn has_banding(state: &GameState, id: ObjectId) -> bool {
+    has_keyword(state, id, K::BANDING)
+}
+
+/// The creatures blocking `attacker` that are still there, in declaration
+/// order.
+fn live_blockers(state: &GameState, attacker: ObjectId) -> Vec<ObjectId> {
+    state
+        .combat
+        .blockers_of(attacker)
+        .into_iter()
+        .filter(|b| state.object(*b).is_some())
+        .collect()
+}
+
+/// The attackers `blocker` blocks that are still there, in the order the
+/// blocks were made.
+fn live_blocked(state: &GameState, blocker: ObjectId) -> Vec<ObjectId> {
+    state
+        .combat
+        .blocked_by(blocker)
+        .into_iter()
+        .filter(|a| state.object(*a).is_some())
+        .collect()
+}
+
+/// Every blocking creature once, in the order each first blocked.
+///
+/// A creature blocking a band blocks each of its members (CR 702.22h), so
+/// the declaration holds one pair per member, and it still deals its combat
+/// damage once (CR 510.1d): the damage step walks blockers, not pairs.
+fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = Vec::new();
+    for info in &state.combat.blockers {
+        if !out.contains(&info.blocker) {
+            out.push(info.blocker);
+        }
+    }
+    out
+}
+
+/// The divisions of combat damage players still owe before this strike
+/// step's damage can be dealt, attackers first and then blockers, which is
+/// the order CR 510.1 has them announced in.
+///
+/// - an attacker blocked by two or more creatures has its damage divided
+///   among them by its controller (CR 510.1c), or by the defending player
+///   if one of them has banding (CR 702.22j);
+/// - a blocker blocking two or more creatures, which only a band makes it
+///   do, has its damage divided by the active player if one of them has
+///   banding (CR 702.22k), and by its own controller if none has any more
+///   (CR 510.1d).
+///
+/// An attacker with trample blocked by creatures without banding is not
+/// asked: the engine assigns lethal damage to each blocker in declaration
+/// order and the rest to what it attacks, which is one of the assignments
+/// CR 702.19b lets its controller make (the simplification this module's
+/// header names).
+#[must_use]
+pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
+    let mut owed = Vec::new();
+    for info in state.combat.attackers() {
+        if !info.blocked || !strikes_now(state, info.creature, first_strike_step) {
+            continue;
+        }
+        let amount = power_of(state, info.creature);
+        let blockers = live_blockers(state, info.creature);
+        if amount <= 0 || blockers.len() < 2 || state.combat.division(info.creature).is_some() {
+            continue;
+        }
+        // Every blocker is the defending player's: only they declare blocks.
+        let banding = blockers
+            .iter()
+            .find(|b| has_banding(state, **b))
+            .and_then(|b| state.object(*b))
+            .map(|o| o.controller);
+        let chooser = match banding {
+            Some(defending) => Some(defending),
+            None if has_keyword(state, info.creature, K::TRAMPLE) => None,
+            None => state.object(info.creature).map(|o| o.controller),
+        };
+        if let Some(chooser) = chooser {
+            owed.push(OwedDivision {
+                source: info.creature,
+                chooser,
+                recipients: blockers,
+                amount,
+            });
+        }
+    }
+    for blocker in blocking_creatures(state) {
+        if !strikes_now(state, blocker, first_strike_step) {
+            continue;
+        }
+        let amount = power_of(state, blocker);
+        let blocked = live_blocked(state, blocker);
+        if amount <= 0 || blocked.len() < 2 || state.combat.division(blocker).is_some() {
+            continue;
+        }
+        let chooser = if blocked.iter().any(|a| has_banding(state, *a)) {
+            state.turn.active
+        } else {
+            let Some(controller) = state.object(blocker).map(|o| o.controller) else {
+                continue;
+            };
+            controller
+        };
+        owed.push(OwedDivision {
+            source: blocker,
+            chooser,
+            recipients: blocked,
+            amount,
+        });
+    }
+    owed
+}
+
+/// How `source`'s `power` goes to `recipients`: all of it to the one there
+/// is, or the division a player chose (CR 510.1c–d, 702.22j–k).
+///
+/// Two or more recipients and no division is a caller that dealt damage
+/// without asking (`divisions_owed`), which the engine never does; the
+/// whole of it then goes to the first, which is one of the divisions the
+/// player could have chosen.
+fn shares(
+    state: &GameState,
+    source: ObjectId,
+    recipients: &[ObjectId],
+    power: i16,
+) -> Vec<(ObjectId, i16)> {
+    match recipients {
+        [] => Vec::new(),
+        [only] => vec![(*only, power)],
+        [first, ..] => state.combat.division(source).map_or_else(
+            || vec![(*first, power)],
+            |d| {
+                d.shares
+                    .iter()
+                    .copied()
+                    .filter(|(r, _)| recipients.contains(r))
+                    .collect()
+            },
+        ),
+    }
+}
+
 /// Deals combat damage for one strike step.
 ///
 /// `first_strike_step`: only first/double strikers deal damage; the regular
@@ -516,6 +1227,9 @@ fn power_of(state: &GameState, id: ObjectId) -> i16 {
 /// strike exists to decide — and skipped blockers the attacker had run out
 /// of damage to assign to, though CR 510.1d has every blocking creature
 /// deal its damage regardless.
+///
+/// The divisions players chose for this step (`divisions_owed`) are spent
+/// here and emptied, so a double striker's second step asks again.
 pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
     let attackers = state.combat.attackers().to_vec();
     for info in &attackers {
@@ -524,22 +1238,35 @@ pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
         }
         assign_attacker_damage(state, info.creature, info.defending, info.blocked);
     }
-    let blockers = state.combat.blockers.clone();
-    for info in &blockers {
-        if !strikes_now(state, info.blocker, first_strike_step) {
+    for blocker in blocking_creatures(state) {
+        if !strikes_now(state, blocker, first_strike_step) {
             continue;
         }
-        let power = power_of(state, info.blocker);
+        let power = power_of(state, blocker);
         if power <= 0 {
             continue;
         }
-        let dealt = deal_damage_to_object(state, info.blocker, info.attacker, power, true);
-        if has_keyword(state, info.blocker, K::LIFELINK)
-            && let Some(controller) = state.object(info.blocker).map(|o| o.controller)
+        let blocked = live_blocked(state, blocker);
+        let mut dealt = 0i16;
+        for (attacker, amount) in shares(state, blocker, &blocked, power) {
+            if amount > 0 {
+                dealt += deal_damage_to_object(
+                    state,
+                    blocker,
+                    attacker,
+                    amount,
+                    true,
+                    &mut Redirected::default(),
+                );
+            }
+        }
+        if has_keyword(state, blocker, K::LIFELINK)
+            && let Some(controller) = state.object(blocker).map(|o| o.controller)
         {
             gain_life(state, controller, dealt);
         }
     }
+    state.combat.divisions.clear();
 }
 
 /// One attacker's damage assignment (CR 510.1a–c).
@@ -565,32 +1292,51 @@ fn assign_attacker_damage(
     // its entry, so an empty list here means either "never blocked" or
     // "blocked by creatures that are gone", and only `blocked` tells them
     // apart.
-    let live: Vec<ObjectId> = state
-        .combat
-        .blockers_of(attacker)
-        .into_iter()
-        .filter(|b| state.object(*b).is_some())
-        .collect();
-    if blocked {
+    let live = live_blockers(state, attacker);
+    if blocked && (!trample || live.iter().any(|b| has_banding(state, *b))) {
+        // CR 510.1c: all of it to the one blocker there is, or divided
+        // among two or more as its controller chose. CR 702.22j: blocked by
+        // a creature with banding, it is the defending player who divides
+        // it, among the creatures blocking it and among nothing else —
+        // trample assigns nothing past them, because the player dividing it
+        // is not its controller.
+        if power > 0 {
+            for (blocker, amount) in shares(state, attacker, &live, power) {
+                if amount > 0 {
+                    lifelinked += deal_damage_to_object(
+                        state,
+                        attacker,
+                        blocker,
+                        amount,
+                        true,
+                        &mut Redirected::default(),
+                    );
+                }
+            }
+        }
+    } else if blocked {
+        // Trample (CR 702.19b): lethal damage to each blocker in
+        // declaration order, and what is left past them.
         let mut remaining = power;
         for blocker in &live {
             if remaining <= 0 {
                 break;
             }
-            // Only trample lets an attacker hold damage back; without it
-            // the whole assignment goes to the blocker in front of it.
-            let assigned = if trample {
-                remaining.min(lethal_damage(state, attacker, *blocker))
-            } else {
-                remaining
-            };
+            let assigned = remaining.min(lethal_damage(state, attacker, *blocker));
             // Assignment and dealing are separate steps (CR 510.1c/510.2):
             // prevented damage is still assigned, so it still uses up the
             // attacker's power — but it was never dealt, so it links no life.
-            lifelinked += deal_damage_to_object(state, attacker, *blocker, assigned, true);
+            lifelinked += deal_damage_to_object(
+                state,
+                attacker,
+                *blocker,
+                assigned,
+                true,
+                &mut Redirected::default(),
+            );
             remaining -= assigned;
         }
-        if trample && remaining > 0 {
+        if remaining > 0 {
             // CR 702.19b: what tramples through goes to "the player or
             // planeswalker it's attacking", not to the player regardless.
             lifelinked += deal_damage_to_defender(state, attacker, defending, remaining);
@@ -602,7 +1348,6 @@ fn assign_attacker_damage(
         gain_life(state, controller, lifelinked);
     }
 }
-
 /// Combat damage aimed at whatever the attacker declared against, and how
 /// much of it was actually dealt (prevention and a departed planeswalker
 /// both make that zero, and neither links any life).
@@ -613,25 +1358,63 @@ fn deal_damage_to_defender(
     amount: i16,
 ) -> i16 {
     match defender {
-        Defender::Player(player) => deal_damage_to_player(state, source, player, amount, true),
+        Defender::Player(player) => deal_damage_to_player(
+            state,
+            source,
+            player,
+            amount,
+            true,
+            &mut Redirected::default(),
+        ),
         // CR 506.4c: the attack stands even after the planeswalker has
         // gone, but there is nothing left for the damage to land on.
         Defender::Planeswalker(walker) => {
             if defending_player(state, defender).is_none() {
                 return 0;
             }
-            deal_damage_to_object(state, source, walker, amount, true)
+            deal_damage_to_object(
+                state,
+                source,
+                walker,
+                amount,
+                true,
+                &mut Redirected::default(),
+            )
         }
     }
 }
 
-/// Deals damage to a player and returns how much landed.
+/// Damage a redirection moved (CR 614.9): the same damage from the same
+/// source, now dealt through the door for its new recipient, where that
+/// recipient's own protection and shields meet it. `done` goes with it, so
+/// no redirection moves it twice (CR 614.5).
+fn deal_redirected(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    amount: i16,
+    is_combat: bool,
+    done: &mut Redirected,
+) -> i16 {
+    match recipient {
+        DamageTarget::Player(player) => {
+            deal_damage_to_player(state, source, player, amount, is_combat, done)
+        }
+        DamageTarget::Object(id) => {
+            deal_damage_to_object(state, source, id, amount, is_combat, done)
+        }
+    }
+}
+
+/// Deals damage to a player and returns how much landed, there or wherever
+/// a redirection moved it.
 fn deal_damage_to_player(
     state: &mut GameState,
     source: ObjectId,
     player: PlayerId,
     amount: i16,
     is_combat: bool,
+    done: &mut Redirected,
 ) -> i16 {
     if amount <= 0 {
         return 0;
@@ -639,13 +1422,29 @@ fn deal_damage_to_player(
     if prevent_from(state, source) && !unpreventable(state, source, is_combat) {
         return 0;
     }
-    state.change_life(player, -i32::from(amount), crate::event::Cause::Spell);
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Player(player),
-        amount: amount as u16,
+    let amount = shielded(
+        state,
+        source,
+        DamageTarget::Player(player),
+        amount,
         is_combat,
-    });
+    );
+    if amount <= 0 {
+        return 0;
+    }
+    // After the shields, before the life: damage a Veteran Bodyguard takes
+    // instead is never dealt to the player, so it is neither lost, counted
+    // nor a commander's (CR 614.9).
+    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
+        return deal_redirected(state, source, to, amount, is_combat, done);
+    }
+    state.damage_player(
+        source,
+        player,
+        amount as u16,
+        is_combat,
+        crate::event::Cause::Spell,
+    );
     // Commander damage (CR 903.10a). Combat damage only — a commander's
     // *ability* pinging for twenty-one is not this rule — and it counts by
     // the commander, not by whoever is swinging it: a commander stolen with
@@ -668,13 +1467,15 @@ fn deal_damage_to_player(
     amount
 }
 
-/// Deals damage to a permanent and returns how much landed.
+/// Deals damage to a permanent and returns how much landed, there or
+/// wherever a redirection moved it.
 fn deal_damage_to_object(
     state: &mut GameState,
     source: ObjectId,
     target: ObjectId,
     amount: i16,
     is_combat: bool,
+    done: &mut Redirected,
 ) -> i16 {
     if amount <= 0 {
         return 0;
@@ -684,6 +1485,23 @@ fn deal_damage_to_object(
         || crate::eval::protected_from(state, target, source))
         && !unpreventable(state, source, is_combat)
     {
+        return 0;
+    }
+    let amount = shielded(
+        state,
+        source,
+        DamageTarget::Object(target),
+        amount,
+        is_combat,
+    );
+    if amount <= 0 {
+        return 0;
+    }
+    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
+        return deal_redirected(state, source, to, amount, is_combat, done);
+    }
+    let amount = absorbed(state, source, target, amount, is_combat);
+    if amount <= 0 {
         return 0;
     }
     // Damage to a planeswalker removes loyalty instead of marking damage
@@ -722,6 +1540,39 @@ fn deal_damage_to_object(
     amount
 }
 
+/// What is left of `amount` damage to the permanent `target` once its
+/// counters have prevented what they prevent
+/// ([`crate::prevention::absorb`]), in the writers' signed width.
+pub(crate) fn absorbed(
+    state: &mut GameState,
+    source: ObjectId,
+    target: ObjectId,
+    amount: i16,
+    is_combat: bool,
+) -> i16 {
+    let Ok(wanted) = u32::try_from(amount) else {
+        return amount;
+    };
+    let left = crate::prevention::absorb(state, source, target, wanted, is_combat);
+    i16::try_from(left).unwrap_or(i16::MAX)
+}
+
+/// What is left of `amount` once the prevention shields have had it
+/// ([`crate::prevention::apply`]), in the signed width the writers count in.
+pub(crate) fn shielded(
+    state: &mut GameState,
+    source: ObjectId,
+    recipient: DamageTarget,
+    amount: i16,
+    is_combat: bool,
+) -> i16 {
+    let Ok(wanted) = u32::try_from(amount) else {
+        return amount;
+    };
+    let left = crate::prevention::apply(state, source, recipient, wanted, is_combat);
+    i16::try_from(left).unwrap_or(i16::MAX)
+}
+
 /// True if the source object may not deal damage (`PreventDamageFromIt`).
 ///
 /// `EffectFilter::names` and not an id compare written out here: a shield
@@ -742,7 +1593,7 @@ fn prevent_from(state: &GameState, source: ObjectId) -> bool {
 /// (`CombatDamageCantBePrevented`, CR 615.12): combat damage from an object
 /// an effect says so of. Every prevention effect then does nothing to it,
 /// protection's (CR 702.16e) as much as a shield's.
-fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
+pub(crate) fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool) -> bool {
     is_combat
         && state.object(source).is_some_and(|obj| {
             state.effects.iter().any(|fx| {
@@ -793,6 +1644,11 @@ mod tests {
     }
 
     fn empty_state() -> GameState {
+        seated(2)
+    }
+
+    /// An empty board with `seats` players at it.
+    fn seated(seats: usize) -> GameState {
         let seat = || SeatSpec {
             controller: SeatController::Open,
             capabilities: baylee_core::preset::SeatCapabilities::default(),
@@ -812,11 +1668,11 @@ mod tests {
                 house_rules: HouseRules::default(),
                 modifiers: vec![],
                 prints: vec![],
-                seats: vec![seat(), seat()],
+                seats: (0..seats).map(|_| seat()).collect(),
             },
             &NoCards,
         )
-        .expect("an empty two-seat board")
+        .expect("an empty board")
     }
 
     fn creature(
@@ -846,6 +1702,7 @@ mod tests {
             creature,
             defending: Defender::Player(defending),
             blocked: false,
+            band: None,
         }]);
     }
 
@@ -855,6 +1712,7 @@ mod tests {
             creature,
             defending: Defender::Planeswalker(walker),
             blocked: false,
+            band: None,
         }]);
     }
 
@@ -1177,6 +2035,59 @@ mod tests {
         );
     }
 
+    /// "Blocking creature" and "unblocked creature" (CR 509.1g, 509.1h): an
+    /// attacker is neither blocked nor unblocked before blockers are
+    /// declared, and one that was blocked stays blocked with its blocker
+    /// gone, while the creature that came back is blocking nothing.
+    #[test]
+    fn blocking_and_unblocked_read_the_declarations() {
+        use baylee_cards_dsl::Filter;
+        let is = |state: &GameState, filter: &Filter, id: ObjectId| {
+            crate::eval::matches(filter, state, state.object(id).expect("here"), P1, id)
+        };
+        let mut state = empty_state();
+        let blocked = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let free = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let wall = creature(&mut state, P1, 0, 4, KeywordSet::EMPTY);
+        attack(&mut state, blocked, P1);
+        attack(&mut state, free, P1);
+        state.turn.step = crate::turn::Step::DeclareAttackers;
+        assert!(
+            !is(&state, &Filter::Unblocked, free),
+            "not before blockers are declared"
+        );
+
+        state.turn.step = crate::turn::Step::DeclareBlockers;
+        block(&mut state, wall, blocked);
+        assert!(is(&state, &Filter::Unblocked, free));
+        assert!(!is(&state, &Filter::Unblocked, blocked));
+        assert!(
+            !is(&state, &Filter::Unblocked, wall),
+            "a blocker attacks nothing"
+        );
+        assert!(is(&state, &Filter::Blocking, wall));
+        assert!(!is(&state, &Filter::Blocking, free));
+
+        for to in [ZoneLocation::Exile(P1), ZoneLocation::Battlefield] {
+            state
+                .move_object(
+                    wall,
+                    to,
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("blinked");
+        }
+        assert!(
+            !is(&state, &Filter::Blocking, wall),
+            "the creature that came back blocks nothing"
+        );
+        assert!(
+            !is(&state, &Filter::Unblocked, blocked),
+            "and what it blocked stays blocked"
+        );
+    }
+
     /// …unless it tramples, which is the exception the owner asked for by
     /// name: CR 702.19b assigns everything past the (absent) blockers to
     /// what the creature was attacking.
@@ -1209,6 +2120,75 @@ mod tests {
         assert_eq!(
             state.players[1].life, 13,
             "all seven trample through, nothing having to be assigned first"
+        );
+    }
+
+    /// Who divides a creature's damage when it blocks a band: the active
+    /// player while a creature it blocks has banding (CR 702.22k), and the
+    /// blocker's own controller once none has (CR 510.1d) — the band itself
+    /// outlives the keyword (CR 702.22e), so the question is asked of the
+    /// creatures as they are now.
+    #[test]
+    fn a_blocker_on_a_band_that_lost_banding_is_divided_by_its_controller() {
+        let mut state = empty_state();
+        let first = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let second = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
+        attack(&mut state, first, P1);
+        attack(&mut state, second, P1);
+        state.combat.form_band(&[first, second]);
+        block(&mut state, blocker, first);
+        block(&mut state, blocker, second);
+
+        let owed = divisions_owed(&state, false);
+        assert_eq!(
+            owed,
+            vec![OwedDivision {
+                source: blocker,
+                chooser: P1,
+                recipients: vec![first, second],
+                amount: 3,
+            }],
+            "no creature it blocks has banding: its controller divides"
+        );
+
+        state.object_mut(first).expect("there").base_mut().keywords = KeywordSet::BANDING;
+        state.refresh_characteristics();
+        let owed = divisions_owed(&state, false);
+        assert_eq!(owed.len(), 1);
+        assert_eq!(
+            owed[0].chooser, state.turn.active,
+            "banding hands it to the active player"
+        );
+        assert_ne!(
+            state.turn.active, P1,
+            "and that is not the blocker's controller"
+        );
+    }
+
+    /// A creature blocking two deals its combat damage once, as divided
+    /// (CR 510.1d): 1 and 2 of its 3, not 3 to each.
+    #[test]
+    fn a_blocker_on_two_creatures_deals_its_power_once() {
+        let mut state = empty_state();
+        let first = creature(&mut state, P0, 0, 4, KeywordSet::EMPTY);
+        let second = creature(&mut state, P0, 0, 4, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 3, 3, KeywordSet::EMPTY);
+        attack(&mut state, first, P1);
+        attack(&mut state, second, P1);
+        state.combat.form_band(&[first, second]);
+        block(&mut state, blocker, first);
+        block(&mut state, blocker, second);
+        state.combat.record_division(Division {
+            source: blocker,
+            shares: vec![(first, 1), (second, 2)],
+        });
+
+        deal_combat_damage(&mut state, false);
+        assert_eq!((damage(&state, first), damage(&state, second)), (1, 2));
+        assert!(
+            state.combat.division(blocker).is_none(),
+            "a division is spent by the step it was chosen for"
         );
     }
 
@@ -1399,6 +2379,83 @@ mod tests {
         assert!(can_attack(&state, P0, bear), "the control could not attack");
     }
 
+    /// An "as though" permission on one creature, as an Aura's static line
+    /// lands on the effect table.
+    fn permit(state: &mut GameState, creature: ObjectId, modifier: baylee_cards_dsl::Modifier) {
+        let timestamp = state.next_timestamp();
+        let filter = crate::effects::EffectFilter::object(state, creature);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Text,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier,
+        });
+    }
+
+    /// "Can attack as though it didn't have defender" (Animate Wall): the
+    /// wall attacks. An "as though" applies only to what it states (CR
+    /// 609.4), so a "can't attack" beside the defender still holds.
+    #[test]
+    fn a_wall_that_attacks_as_though_it_had_no_defender_attacks() {
+        let mut state = empty_state();
+        let wall = creature(&mut state, P0, 0, 4, KeywordSet::DEFENDER);
+        let barred = creature(
+            &mut state,
+            P0,
+            0,
+            4,
+            KeywordSet::DEFENDER.union(KeywordSet::CANT_ATTACK),
+        );
+        for player in &mut state.players {
+            player.turn_start_timestamp = u64::MAX;
+        }
+        permit(
+            &mut state,
+            wall,
+            baylee_cards_dsl::Modifier::AttacksDespiteDefender,
+        );
+        permit(
+            &mut state,
+            barred,
+            baylee_cards_dsl::Modifier::AttacksDespiteDefender,
+        );
+        assert!(can_attack(&state, P0, wall), "the wall may attack");
+        assert!(
+            !can_attack(&state, P0, barred),
+            "a \"can't attack\" is not defender, and still holds"
+        );
+    }
+
+    /// "Can attack as though it had haste" (Instill Energy): the creature
+    /// attacks the turn it arrived, and is still summoning-sick for its {T}
+    /// abilities (CR 702.10c is not what the effect states).
+    #[test]
+    fn a_creature_that_attacks_as_though_it_had_haste_is_still_sick_for_its_tap() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let other = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        permit(
+            &mut state,
+            bear,
+            baylee_cards_dsl::Modifier::AttacksAsThoughHaste,
+        );
+        assert!(
+            can_attack(&state, P0, bear),
+            "it attacks as though it had haste"
+        );
+        assert!(
+            !can_attack(&state, P0, other),
+            "the creature beside it is still asleep"
+        );
+        let obj = state.object(bear).expect("on the battlefield");
+        assert!(summoning_sick(&state, obj), "and its tap still waits");
+    }
+
     /// CR 302.6 is a rule about creatures, in both of its sentences. The
     /// answer for anything else is no, and it is no *here* rather than at
     /// each call site — a caller that forgot the type test used to get
@@ -1556,6 +2613,139 @@ mod tests {
             .insert(Status::PHASED_OUT);
         assert!(!can_attack(&state, p0, attacker));
         assert!(!can_block(&state, p1, blocker, attacker));
+    }
+
+    /// A land of `controller`'s with the one land type `subtype`.
+    fn land_of_type(state: &mut GameState, controller: PlayerId, subtype: SubtypeId) -> ObjectId {
+        let name = state.names.intern("Test Land");
+        let id = state.create_bare(
+            controller,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let b = state.object_mut(id).expect("just created").base_mut();
+        b.types = TypeSet::LAND;
+        b.subtypes = baylee_core::types::SubtypeSet::from_slice(&[subtype]);
+        id
+    }
+
+    /// Fog (a `ShieldKind::AllCombat` shield) prevents the combat damage
+    /// both writers here deal, to a player and to a creature; the old
+    /// writers dealt all of it.
+    #[test]
+    fn combat_damage_meets_the_prevention_shields() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 3, 3, KeywordSet::EMPTY);
+        let blocked = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.combat.declare_attackers([
+            AttackerInfo {
+                creature: attacker,
+                defending: Defender::Player(P1),
+                blocked: false,
+                band: None,
+            },
+            AttackerInfo {
+                creature: blocked,
+                defending: Defender::Player(P1),
+                blocked: false,
+                band: None,
+            },
+        ]);
+        state.combat.declare_block(blocker, blocked);
+        state.shields.push(crate::prevention::Shield {
+            protects: crate::prevention::Shielded::Everything,
+            kind: crate::prevention::ShieldKind::AllCombat,
+            controller: P1,
+        });
+        deal_combat_damage(&mut state, false);
+        assert_eq!(state.players[1].life, 20, "nothing got through");
+        assert_eq!(state.object(blocker).unwrap().damage, 0);
+        assert_eq!(state.object(blocked).unwrap().damage, 0);
+        assert_eq!(state.shields.len(), 1, "Fog is never used up");
+    }
+
+    /// Fear (CR 702.36b): an artifact creature or a black one may block,
+    /// and nothing else — a green creature may not, a black artifact may.
+    #[test]
+    fn fear_is_blocked_only_by_artifact_or_black_creatures() {
+        let mut state = empty_state();
+        let attacker = creature(&mut state, P0, 2, 2, KeywordSet::FEAR);
+        let plain = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        let artifact = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(artifact).unwrap().base_mut().types =
+            TypeSet::CREATURE.union(TypeSet::ARTIFACT);
+        let black = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(black).unwrap().base_mut().colors =
+            baylee_core::color::ColorSet::of(Color::Black);
+        let green = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        state.object_mut(green).unwrap().base_mut().colors =
+            baylee_core::color::ColorSet::of(Color::Green);
+
+        assert!(
+            !can_block(&state, P1, plain, attacker),
+            "colourless, not an artifact"
+        );
+        assert!(!can_block(&state, P1, green, attacker));
+        assert!(can_block(&state, P1, artifact, attacker));
+        assert!(can_block(&state, P1, black, attacker));
+
+        // And a creature without fear is blocked as ever.
+        let ordinary = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        assert!(can_block(&state, P1, green, ordinary));
+    }
+
+    /// Landwalk (CR 702.14c) asks the *defending* player's lands: an Island
+    /// a third player controls does not make an islandwalker unblockable,
+    /// the defender's own Island does, and so does a land an effect made an
+    /// Island (the projected type, not the printed one).
+    #[test]
+    fn landwalk_reads_the_defending_players_lands_as_they_are() {
+        const P2: PlayerId = PlayerId::new(2);
+        let mut state = seated(3);
+        let walker = creature(&mut state, P0, 2, 2, KeywordSet::ISLANDWALK);
+        let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+        attack(&mut state, walker, P1);
+
+        land_of_type(&mut state, P2, land::ISLAND);
+        land_of_type(&mut state, P1, land::SWAMP);
+        assert!(
+            can_block(&state, P1, blocker, walker),
+            "a third player's Island and the defender's Swamp change nothing"
+        );
+
+        let forest = land_of_type(&mut state, P1, land::FOREST);
+        let filter = crate::effects::EffectFilter::object(&state, forest);
+        let modifier = baylee_cards_dsl::Modifier::AddSubtype(land::ISLAND);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(forest),
+            controller: P1,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: baylee_cards_dsl::Duration::Indefinitely,
+            filter,
+            modifier,
+        });
+        state.refresh_characteristics();
+        assert!(
+            !can_block(&state, P1, blocker, walker),
+            "a Forest an effect made an Island is an Island"
+        );
+
+        // Each walk names its own type: a swampwalker is blocked here.
+        let other = creature(&mut state, P0, 2, 2, KeywordSet::MOUNTAINWALK);
+        assert!(can_block(&state, P1, blocker, other));
+        for (walk, subtype) in LANDWALKS {
+            let mut state = empty_state();
+            let walker = creature(&mut state, P0, 2, 2, walk);
+            let blocker = creature(&mut state, P1, 2, 2, KeywordSet::EMPTY);
+            assert!(can_block(&state, P1, blocker, walker));
+            land_of_type(&mut state, P1, subtype);
+            assert!(!can_block(&state, P1, blocker, walker));
+        }
     }
 
     #[test]

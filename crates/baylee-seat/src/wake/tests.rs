@@ -261,6 +261,8 @@ fn a_declaration_is_made_only_when_there_is_nothing_to_declare() {
         player: ME,
         attackers,
         defenders: vec![Defender::Player(THEM)],
+        required: Vec::new(),
+        limits: Vec::new(),
     };
     assert_eq!(
         filter.judge(&view, &attack(Vec::new()), &[]),
@@ -276,10 +278,13 @@ fn a_declaration_is_made_only_when_there_is_nothing_to_declare() {
         Verdict::Wake(Why::Declaration)
     );
     let block = |blockers| Pending::ChooseBlockers {
+        demands: Vec::new(),
         player: ME,
         attacker: THEM,
         blockers,
         bounds: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
     };
     assert_eq!(
         filter.judge(&view, &block(Vec::new()), &[]),

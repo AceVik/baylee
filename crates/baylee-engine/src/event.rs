@@ -283,6 +283,14 @@ pub enum GameEvent {
         /// What it was declared against.
         defending: baylee_core::ids::Defender,
     },
+    /// An attacking creature was put in a band with one that has banding
+    /// (CR 508.1e, 702.22c), one entry per member besides the one asked.
+    Banded {
+        /// The creature that joined.
+        object: ObjectId,
+        /// The creature with banding whose band it joined.
+        with: ObjectId,
+    },
     /// A creature was declared as blocker.
     BecameBlocker {
         /// The blocking creature.

@@ -1745,10 +1745,40 @@ messages! {
         en: "permanents to leave tapped",
         de: "bleibende Karten, die getappt bleiben",
     },
+    /// permanent to untap
+    NounPermanentToUntap {
+        en: "permanent to untap",
+        de: "bleibende Karte, die enttappt wird",
+    },
+    /// permanents to untap
+    NounPermanentsToUntap {
+        en: "permanents to untap",
+        de: "bleibende Karten, die enttappt werden",
+    },
     /// card to reveal
     NounCardToReveal { en: "card to reveal", de: "Karte, die aufgedeckt wird" },
     /// cards to reveal
     NounCardsToReveal { en: "cards to reveal", de: "Karten, die aufgedeckt werden" },
+    /// attacker to join the band (banding, CR 702.22c)
+    NounAttackerToBand {
+        en: "attacker to join the band",
+        de: "Angreifer, der sich der Gruppe anschließt",
+    },
+    /// attackers to join the band
+    NounAttackersToBand {
+        en: "attackers to join the band",
+        de: "Angreifer, die sich der Gruppe anschließen",
+    },
+    /// attacker to band with {0} (banding, CR 702.22c): the leader named
+    NounAttackerToBandWith {
+        en: "attacker to band with {0}",
+        de: "Angreifer, der mit {0} eine Gruppe bildet",
+    },
+    /// attackers to band with {0}
+    NounAttackersToBandWith {
+        en: "attackers to band with {0}",
+        de: "Angreifer, die mit {0} eine Gruppe bilden",
+    },
     /// Convoke or waterbend: tap permanents to help pay.
     ///
     /// Neutral, because the question does not say which keyword asked it:
@@ -1769,6 +1799,8 @@ messages! {
     ChooseBetween { en: "Choose {0}–{1} {2}", de: "Wähle {0}–{1} {2}" },
     /// Choose a creature type
     ChooseCreatureType { en: "Choose a creature type", de: "Wähle einen Kreaturtyp" },
+    /// Choose a basic land type (Phantasmal Terrain)
+    ChooseBasicLandType { en: "Choose a basic land type", de: "Wähle einen Standardlandtyp" },
     /// Choose a card name (Pithing Needle)
     ChooseCardName { en: "Choose a card name", de: "Wähle einen Kartennamen" },
     /// Choose a colour
@@ -1779,6 +1811,18 @@ messages! {
     DamageShare {
         en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
         de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
+    /// One creature's share of combat damage this player divides
+    /// (CR 510.1c–d, 702.22j–k), when the creatures cannot be named.
+    CombatDamageShare {
+        en: "Combat damage to creature {0} of {1}, {2} left to divide ({3}–{4})",
+        de: "Kampfschaden an Kreatur {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
+    /// The same share, naming the creature dealing the damage and the one
+    /// the share goes to.
+    CombatDamageShareNamed {
+        en: "Combat damage from {0} to {1} ({2} of {3}), {4} left to divide ({5}–{6})",
+        de: "Kampfschaden von {0} an {1} ({2} von {3}), noch {4} zu verteilen ({5}–{6})",
     },
     /// Replicate {0}: pay it how many times? ({1}–{2})
     ReplicateHowOften {
@@ -1858,6 +1902,8 @@ messages! {
     PayLife { en: "Pay {0} life?", de: "{0} Lebenspunkte bezahlen?" },
     /// Pay {{0}}?
     PayTax { en: "Pay {{0}}?", de: "{{0}} zahlen?" },
+    /// Pay a price with colour in it; the cost renders its own braces.
+    PayMana { en: "Pay {0}?", de: "{0} zahlen?" },
     /// The player may activate mana abilities before paying a pact.
     PayPact {
         en: "Pact: pay {0}. Make mana now? If you decline or finish without enough mana, you lose the game.",
@@ -3083,6 +3129,11 @@ messages! {
     LogAttacked { en: "{1} attacked {0}", de: "{1} hat {0} angegriffen" },
     /// A creature blocks. `{1}` is the blocker, `{2}` the attacker.
     LogBlocked { en: "{1} blocked {2}", de: "{1} hat {2} geblockt" },
+    /// An attacker joined a band (banding). `{1}` joined the band of `{2}`.
+    LogBanded {
+        en: "{1} attacks in a band with {2}",
+        de: "{1} greift in einer Gruppe mit {2} an",
+    },
     /// The reading seat gained control of a permanent. `{1}` is it.
     LogControlYou { en: "{7} gained control of {1}", de: "{7} hast die Kontrolle über {1} übernommen" },
     /// Another seat gained control of a permanent.
@@ -3839,7 +3890,13 @@ mod tests {
                 Phrase::NounPermanentToLeaveTapped,
                 Phrase::NounPermanentsToLeaveTapped,
             ),
+            (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
+            (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
+            (
+                Phrase::NounAttackerToBandWith,
+                Phrase::NounAttackersToBandWith,
+            ),
             (Phrase::NounCardToHand, Phrase::NounCardsToHand),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
             (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),

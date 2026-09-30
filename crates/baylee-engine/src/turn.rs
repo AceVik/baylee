@@ -3,6 +3,7 @@
 //! Only the data model lives here for now; the turn engine (turn-based
 //! actions, priority passes, duration cleanup) arrives in M1.S2.
 
+use baylee_cards_dsl::StepKind;
 use baylee_core::ids::PlayerId;
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +72,43 @@ impl Step {
             Step::End | Step::Cleanup => Phase::Ending,
         }
     }
+
+    /// The step a card names with this one, if a card can name it: both
+    /// combat damage steps are "the combat damage step" (CR 510.4 gives a
+    /// combat with first strike a second one), and the untap step, the main
+    /// phases, end of combat and cleanup are none a card names.
+    ///
+    /// Exhaustive on purpose: `Trigger::StepBegin` and
+    /// `Condition::DuringStep` both ask it, and a positive list would say
+    /// nothing about a step it forgot.
+    #[must_use]
+    pub const fn kind(self) -> Option<StepKind> {
+        match self {
+            Step::Upkeep => Some(StepKind::Upkeep),
+            Step::Draw => Some(StepKind::Draw),
+            Step::CombatBegin => Some(StepKind::CombatBegin),
+            Step::DeclareAttackers => Some(StepKind::DeclareAttackers),
+            Step::DeclareBlockers => Some(StepKind::DeclareBlockers),
+            Step::CombatDamageFirst | Step::CombatDamage => Some(StepKind::CombatDamage),
+            Step::End => Some(StepKind::End),
+            Step::Untap | Step::Main | Step::CombatEnd | Step::Cleanup => None,
+        }
+    }
+}
+
+/// Where `kind` stands in a turn, on the scale [`TurnInfo::position`]
+/// measures: "the combat damage step" is reached at the first of them.
+#[must_use]
+pub const fn position_of(kind: StepKind) -> u8 {
+    match kind {
+        StepKind::Upkeep => 1,
+        StepKind::Draw => 2,
+        StepKind::CombatBegin => 4,
+        StepKind::DeclareAttackers => 5,
+        StepKind::DeclareBlockers => 6,
+        StepKind::CombatDamage => 7,
+        StepKind::End => 11,
+    }
 }
 
 /// Where the game currently is.
@@ -87,6 +125,31 @@ pub struct TurnInfo {
 }
 
 impl TurnInfo {
+    /// Where the turn stands, in turn order (CR 500.1): the steps of the
+    /// beginning phase, the first main phase, the combat steps, the second
+    /// main phase, then the ending phase's. What `Condition::BeforeStep`
+    /// compares with [`position_of`].
+    #[must_use]
+    pub const fn position(&self) -> u8 {
+        match self.step {
+            Step::Untap => 0,
+            Step::Upkeep => 1,
+            Step::Draw => 2,
+            Step::Main => match self.phase {
+                Phase::SecondMain | Phase::Ending => 10,
+                Phase::Beginning | Phase::FirstMain | Phase::Combat => 3,
+            },
+            Step::CombatBegin => 4,
+            Step::DeclareAttackers => 5,
+            Step::DeclareBlockers => 6,
+            Step::CombatDamageFirst => 7,
+            Step::CombatDamage => 8,
+            Step::CombatEnd => 9,
+            Step::End => 11,
+            Step::Cleanup => 12,
+        }
+    }
+
     /// The start of the game: turn 1, active player's beginning phase.
     #[must_use]
     pub const fn new(active: PlayerId) -> Self {
@@ -190,5 +253,55 @@ mod tests {
             start.phase,
             "and the two agree from the first frame"
         );
+    }
+
+    /// The two scales `Condition::BeforeStep` compares are kept by hand
+    /// side by side: where a card's step first comes in a turn has to be
+    /// where `position_of` says it is. Walked in turn order (CR 500.1) over
+    /// every step, so a step added to one table and not the other fails
+    /// here and not in a timing window nobody tested.
+    #[test]
+    fn each_step_a_card_names_is_first_reached_where_position_of_says() {
+        let turn = [
+            (Step::Untap, Phase::Beginning),
+            (Step::Upkeep, Phase::Beginning),
+            (Step::Draw, Phase::Beginning),
+            (Step::Main, Phase::FirstMain),
+            (Step::CombatBegin, Phase::Combat),
+            (Step::DeclareAttackers, Phase::Combat),
+            (Step::DeclareBlockers, Phase::Combat),
+            (Step::CombatDamageFirst, Phase::Combat),
+            (Step::CombatDamage, Phase::Combat),
+            (Step::CombatEnd, Phase::Combat),
+            (Step::Main, Phase::SecondMain),
+            (Step::End, Phase::Ending),
+            (Step::Cleanup, Phase::Ending),
+        ];
+        let at = |(step, phase): (Step, Phase)| TurnInfo {
+            number: 1,
+            active: PlayerId::new(0),
+            phase,
+            step,
+        };
+        let positions: Vec<u8> = turn.iter().map(|s| at(*s).position()).collect();
+        assert!(
+            positions.windows(2).all(|w| w[0] < w[1]),
+            "turn order is strictly increasing: {positions:?}"
+        );
+        for kind in [
+            StepKind::Upkeep,
+            StepKind::Draw,
+            StepKind::CombatBegin,
+            StepKind::DeclareAttackers,
+            StepKind::DeclareBlockers,
+            StepKind::CombatDamage,
+            StepKind::End,
+        ] {
+            let first = turn
+                .iter()
+                .find(|(step, _)| step.kind() == Some(kind))
+                .expect("a step of every kind a card names");
+            assert_eq!(at(*first).position(), position_of(kind), "{kind:?}");
+        }
     }
 }

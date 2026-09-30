@@ -202,8 +202,18 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .filter(|(seat, _)| *seat != mine)
                     .flat_map(|(_, pile)| pile)
                     .collect(),
+                PlayerRel::ActivePlayer => view
+                    .graveyards
+                    .get(usize::from(view.active.get()))
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+                // Whose the enchanted permanent is, the view could say only
+                // for a spell already attached to something, and a spell
+                // choosing targets is not.
                 PlayerRel::ControllerOfTarget
                 | PlayerRel::ControllerOfEvent
+                | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer => {
                     return None;
                 }
@@ -322,6 +332,15 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // approximation for it either, because a `Not` around this arm turns
         // an over-count into an under-count and the proof being built is a
         // negative. With exactly two seats there is no third answer.
+        Filter::ControlledByActivePlayer => object.controller == view.active,
+        // The active player's opponents during combat (CR 506.2), refused
+        // above a duel for the reason `ControlledByOpponent` gives.
+        Filter::ControlledByDefendingPlayer => {
+            if view.seats.len() != 2 {
+                return None;
+            }
+            view.phase == baylee_view::Phase::Combat && object.controller != view.active
+        }
         Filter::ControlledByOpponent => {
             if view.seats.len() != 2 {
                 return None;
@@ -336,6 +355,24 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .attackers
             .iter()
             .any(|attacker| attacker.creature == object.id),
+        Filter::Blocking => view
+            .combat
+            .blockers
+            .iter()
+            .any(|blocker| blocker.blocker == object.id),
+        Filter::Unblocked => {
+            matches!(
+                view.step,
+                baylee_view::Step::DeclareBlockers
+                    | baylee_view::Step::CombatDamageFirst
+                    | baylee_view::Step::CombatDamage
+                    | baylee_view::Step::CombatEnd
+            ) && view
+                .combat
+                .attackers
+                .iter()
+                .any(|attacker| attacker.creature == object.id && !attacker.blocked)
+        }
         // The view names what every public object is attached to.
         Filter::IsAttached => object.attached_to.is_some(),
         Filter::CmcAtMost(n) => object.mana_value <= *n,
@@ -361,13 +398,22 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
+        | Filter::CmcExactlyX
         // Bounded by what the source's payment spent, which no view carries
         // either.
         | Filter::CmcAtMostColorsSpent
+        // Against the source's power, and the source here is a card that
+        // has not been cast.
+        | Filter::PowerLessThanSourcePower
+        | Filter::ToughnessLessThanSourcePower
         // When a permanent arrived is history, and a view carries no
         // journal — the same refusal as the rest of this list.
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn
+        // Which creatures attacked, and since when a controller has held a
+        // permanent, are history of the same kind.
+        | Filter::AttackedThisTurn
+        | Filter::ControlledSinceTurnBegan
         // The engine's counter kind against the view's wire kind, and the
         // translation is gamehost's; `baylee-ai` refuses it for that reason.
         | Filter::HasCounter(_)

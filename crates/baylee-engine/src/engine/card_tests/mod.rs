@@ -946,6 +946,38 @@ fn baleful_strix() -> CardIndex {
     card_index("37688720-03de-4eca-a82d-a0afe8d58adc")
 }
 
+fn veteran_bodyguard() -> CardIndex {
+    card_index("d29078c0-1fb8-437a-81d1-bb319f646941")
+}
+
+fn earth_elemental() -> CardIndex {
+    card_index("3c97c311-7ad5-47ec-b421-f6c3bfbda9fb")
+}
+
+fn gray_ogre() -> CardIndex {
+    card_index("83c8a3a6-2e1a-4e26-8847-6d066f42d906")
+}
+
+/// Every `DamageDealt` event recorded in the journal from index `from` on:
+/// source, target, amount, whether it was combat damage.
+fn damage_events(
+    engine: &Engine<RegistryLookup>,
+    from: usize,
+) -> Vec<(ObjectId, crate::event::DamageTarget, u16, bool)> {
+    engine.journal().entries()[from..]
+        .iter()
+        .filter_map(|e| match e.event {
+            crate::event::GameEvent::DamageDealt {
+                source: Some(source),
+                target,
+                amount,
+                is_combat,
+            } => Some((source, target, amount, is_combat)),
+            _ => None,
+        })
+        .collect()
+}
+
 fn tishanas_tidebinder() -> CardIndex {
     card_index("2993dc7d-723d-4a9b-94bd-4bb02a9f7243")
 }
@@ -5548,4 +5580,80 @@ fn choose_cast_kind(engine: &Engine<RegistryLookup>, kind: CastModeKind) -> usiz
         .iter()
         .position(|o| o.kind == kind)
         .unwrap_or_else(|| panic!("{kind:?} is not offered: {options:?}"))
+}
+
+/// Asserts `card` is still `Coverage::Partial`: a list of cards that say
+/// nothing ([`cast_saying_nothing`]) goes red when one of them is finished,
+/// instead of keeping it on a claim that is no longer true.
+#[track_caller]
+fn still_partial(card: CardIndex) {
+    let def = baylee_cards::by_index(card).expect("a card of the pool");
+    assert!(
+        matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
+        "{} is finished: take it off the list of cards that say nothing",
+        def.faces[0].name
+    );
+}
+
+/// A card cast by p0 off `lands` of `land`: it resolves, and nothing but
+/// the card itself has moved — no life total changed, and the only
+/// permanent that came is the card, which offers no ability. Answers the
+/// zone it ended in.
+///
+/// Passing here is weak evidence that the text is unwritten: a static
+/// continuous effect leaves no trace on this board, a mana-costed
+/// activation is never offered when every land was tapped for the cast,
+/// and a targeted activated ability with no legal target on this board is
+/// never offered at all — so a card whose text is fully implemented can
+/// pass here too, for any of those reasons. Callers of a `Coverage::Partial`
+/// card assert that coverage too, so a card that becomes `Implemented`
+/// fails here instead of quietly staying on the list.
+#[track_caller]
+fn cast_saying_nothing(card: CardIndex, land: CardIndex, lands: usize) -> Zone {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, land)
+        .battlefield(0, &vec![land; lands])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let life = |e: &Engine<RegistryLookup>| [e.state().players[0].life, e.state().players[1].life];
+    let before = life(&engine);
+    let permanents = |e: &Engine<RegistryLookup>, seat| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Battlefield)
+            .iter()
+            .filter(|&&id| e.state().object(id).is_some_and(|o| o.controller == seat))
+            .count()
+    };
+    let theirs = permanents(&engine, p1);
+    let ours = permanents(&engine, p0);
+    let spell = in_hand(&engine, p0, card).expect("the card is in hand");
+    cast_from_hand(&mut engine, p0, card);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life(&engine), before, "no life moved");
+    assert_eq!(
+        permanents(&engine, p1),
+        theirs,
+        "nothing of theirs came or went"
+    );
+    let zone = engine
+        .state()
+        .object(spell)
+        .map(|o| o.zone)
+        .expect("the card is still an object");
+    let arrived = usize::from(zone == Zone::Battlefield);
+    assert_eq!(
+        permanents(&engine, p0),
+        ours + arrived,
+        "nothing else of ours"
+    );
+    if let Pending::Priority { legal, .. } = engine.pending() {
+        assert!(
+            legal.abilities.iter().all(|&(source, _)| source != spell),
+            "it offers no ability"
+        );
+    }
+    zone
 }

@@ -124,7 +124,9 @@ use serde::{Deserialize, Serialize};
 /// 43 writes every mana cost in a view ([`PublicObject::flashback`],
 /// [`PlayerView::owed`]) as its notation, `"{2}{U}{U}"`, and no longer as
 /// the sixteen-slot list a replicated cost overflowed.
-pub const VIEW_VERSION: u32 = 43;
+/// 44 adds the attacking bands (CR 702.22c): [`CombatView::bands`], and
+/// the log line an attacker joining a band writes, [`LogEvent::Banded`].
+pub const VIEW_VERSION: u32 = 44;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1377,6 +1379,11 @@ pub struct CombatView {
     pub attackers: Vec<AttackerView>,
     /// Declared blockers.
     pub blockers: Vec<BlockerView>,
+    /// The attacking bands (CR 702.22c), each its members in declaration
+    /// order. Public: the attacking player announces them (CR 508.1e), and
+    /// blocking one member blocks the band (CR 702.22h).
+    #[serde(default)]
+    pub bands: Vec<Vec<ObjectId>>,
 }
 
 impl CombatView {
@@ -1542,12 +1549,11 @@ pub struct PlayerView {
     /// tap lands in every other quiet window too. The information was
     /// missing, not merely hard to reach.
     ///
-    /// **A cost and not a number**, although the engine charges generic mana
-    /// and nothing else today (`Effect::PlayerMayPayOr` carries an `Amount`
-    /// because Esper Sentinel's tax is its own power, which is a statement
-    /// about *when* the number is known and not about what it may contain).
-    /// By the time a window is open the amount has been evaluated, so the
-    /// view is under no such constraint, and both readers on the other side
+    /// **A cost and not a number**: `Effect::PlayerMayPayOr` charges generic
+    /// mana (an `Amount`, because Esper Sentinel's tax is its own power), but
+    /// `Effect::PlayerMayPayManaOr` charges a printed price with colour in
+    /// it (Phantasmal Forces' `{U}`). By the time a window is open either
+    /// has been evaluated, and both readers on the other side
     /// already take a `ManaCost`: `manapip::cost` draws one and
     /// `manaplan::plan` solves one. A `u16` would be converted at both call
     /// sites on the way in.
@@ -2182,6 +2188,14 @@ pub enum LogEvent {
         /// What it attacks.
         defending: Defender,
     },
+    /// An attacking creature joined the band of one with banding
+    /// (CR 702.22c).
+    Banded {
+        /// The creature that joined.
+        attacker: LogObject,
+        /// The creature with banding whose band it joined.
+        with: LogObject,
+    },
     /// A creature blocked.
     Blocked {
         /// The blocker.
@@ -2297,6 +2311,10 @@ impl LogEvent {
                 out.push(blocker);
                 out.push(attacker);
             }
+            Self::Banded { attacker, with } => {
+                out.push(attacker);
+                out.push(with);
+            }
         }
         out.into_iter()
     }
@@ -2341,6 +2359,10 @@ impl LogEvent {
             Self::Blocked { blocker, attacker } => {
                 out.push(blocker);
                 out.push(attacker);
+            }
+            Self::Banded { attacker, with } => {
+                out.push(attacker);
+                out.push(with);
             }
         }
         out.into_iter()
@@ -3339,7 +3361,7 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (43, 0x0a8b_74cb_94a0_bb5d);
+        const RECORDED: (u32, u64) = (44, 0xd9d7_7e4a_2c16_ee7d);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

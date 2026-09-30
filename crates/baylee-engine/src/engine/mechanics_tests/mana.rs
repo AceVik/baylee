@@ -144,6 +144,7 @@ static GROWTH_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: GAIN_ONE,
     targets: None,
     second_targets: None,
+    condition: None,
 }];
 
 fn grove_cards() -> Vec<&'static CardDef> {

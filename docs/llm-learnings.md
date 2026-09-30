@@ -2003,3 +2003,261 @@ land type"; both are convention tests that fire on a first try.
   permanent first. The harness can register a layer-2 `GainControl` over
   any permanent, a Saga included (`dev_state_mut`, then
   `effects.register`).
+
+## 30.09.2026 — Limited Edition Alpha, reader first
+
+- **An absent `ValidPlayer$` on a `Phase` trigger is every player's step.**
+  The reference writes `ValidPlayer$ You` for "your upkeep" and nothing for
+  "each upkeep"; reading the absence as "your" generated Verdant Force as a
+  card that made a Saproling on one upkeep in two, under `Implemented`.
+  Pestilence's "the end step" is the same reading.
+- **X is announced before targets are chosen (CR 601.2b, 601.2c).** A
+  target filter that reads X (`CmcExactlyX`, `CmcAtMostX`) read the card's
+  X as it lay in hand, 0, both in the offer and at the target menu: Spell
+  Blast was never offered against a spell of mana value 2. The card carries
+  the announced X from the X answer on; the offer asks "a target for some
+  X".
+- **A count with no controller named is the whole battlefield, not a
+  refusal.** `IsPresent$ Creature` with no `YouCtrl` was refused as "a
+  count with no player"; it is `Condition::BattlefieldCount`. A filter that
+  names somebody else's (`OppCtrl`) is the third question, refused by name.
+  `PresentCompare$ EQ0` is "none", `BattlefieldCountAtMost(…, 0)`.
+- **The price of "unless" belongs to the line, not to its effect.**
+  `UnlessCost$` was read inside the `Sacrifice` rule only, so Force of
+  Nature's "8 damage to you unless you pay {G}{G}{G}{G}" had no reader. It
+  is lifted in `chain()` for every API and wraps whatever the line says. A
+  colour in the price is printed exactly (`PlayerMayPayManaOr`): charged as
+  generic, a Mountain would keep Phantasmal Forces.
+- **Spell additional costs are refused by the reader.** "As an additional
+  cost to cast this spell, sacrifice a creature" (Sacrifice) is a hand-owned
+  card with `mandatory_additional_costs`; a reader rule for `Sacrificed$`
+  was written and removed again, because it read the effect and not the
+  cost.
+- **A permanent spell keeps what was done to it on the stack (CR 400.7a).**
+  Purelace cast at a creature spell made a white spell and a creature of its
+  old colour: the effect named the spell's version, and the permanent is a
+  new one. `GameState::move_object` re-points `Resolution` effects on the
+  stack-to-battlefield move and no other.
+- **A clone's choice is made before it enters (CR 614.12a).** The reference
+  writes `Choices$ Creature.Other`; nothing that has not entered can be
+  among the choices, so `Other` names nothing and is dropped rather than
+  read as `Filter::Another`. `AddTypes$` is the one except-clause read.
+- **`Defined$ Targeted` is read against the chain's own target.** A player
+  target makes it `Chosen`, an object or spell target makes
+  `TargetedController` its controller (`ControllerOfTarget`); a word that
+  names a target the chain lacks is refused, never guessed as "you".
+- **"Tap or untap" is a yes or a no.** One of the two always does nothing
+  (CR 701.26a, 701.26b), so choosing it is declining:
+  `MayDo { ToggleTapTarget }`, asked on resolution. A pair of modes would
+  have asked on casting, which is Derevi's written deviation.
+- **A trigger's "its controller adds" is not the trigger's controller.**
+  `AddMana` fills the ability controller's pool; Gauntlet of Might's {R}
+  for an opponent's Mountain is the opponent's (`AddManaFor`,
+  `ControllerOfEvent`). Two silent gaps sat under it: `TappedForMana`
+  answered only "you", and the mana event named no event object, so
+  "that player" of Manabarbs was nobody and the damage reached no one.
+- **"It can't be regenerated this turn" outlives the spell.** Destroy's
+  "it can't be regenerated" is a flag on that one destruction; Disintegrate's
+  is a record for the turn (`CantBeRegeneratedThisTurn`), because the
+  destruction it stops is lethal damage checked after the spell is gone,
+  and the shield it ignores may have been made before it (CR 701.19c).
+- **A card test that passes on an empty hand says nothing about a
+  discard.** Wheel of Fortune's test drew seven into hands the testkit had
+  left empty, so the missing "discards their hand" was invisible to it; the
+  test now puts a card in each hand and asks where it went.
+
+- **"Destroy" is only ever of a permanent.** `sba::destroy` moved whatever
+  id it was handed into a graveyard, so a delayed "destroy that creature"
+  whose creature had gone back to its hand would have discarded the card.
+  Every targeted destroy was safe only because CR 608.2b had dropped the
+  target first; an effect about an object it does not target has no such
+  check, and the door now asks for the battlefield itself (CR 701.8a).
+- **"Was it a creature" is asked before the move.** The turn's death tally
+  read the card's types after it had reached the graveyard, where the
+  projection is gone: an animated land died uncounted. Anything that asks
+  what a permanent *was* as it left reads it before `move_object` clears
+  the cache, or reads the last-known record.
+- **A variable that two clauses fill cannot say which one did.** The
+  activation reader claimed the `IsPresent$` family whenever `condition` was
+  non-empty, and "your turn" filled it too, so a stray `PresentZone$` beside
+  `PlayerTurn$` was dropped unread. Record what was read at the moment it is
+  read (`present_read`), not afterwards from a shared result.
+- **"Has been activated" is not "has resolved".** Dragon Whelp counts
+  activations, and an ability is activated once it is on the stack and
+  paid for (CR 602.2): four stacked activations have all been activated
+  before the first resolves. A count taken at resolution would read one
+  there and let the Whelp pump four times for free. The count is taken
+  where "activate only once each turn" takes it, opt-in per ability, so
+  unlimited activations stay out of the loop signature.
+- **"This creature" in a delayed trigger is an object, not an id.** A
+  sacrifice of the source by id sacrifices a Whelp that was bounced and
+  recast; the delayed trigger is about the Whelp as it was (CR 603.7c), so
+  it names the event object and checks its version when it comes due.
+- **A fix for one reader of a spec is not a fix for every reader.** #147
+  taught `zones::spec_object` that `ThisObject` is the source, but the
+  damage side kept its own reader (`life::recipients`), which still read
+  `targets` and shielded nobody for Rock Hydra's "prevent the next 1
+  damage that would be dealt to this creature". Grep for every `match` on
+  the enum, not for the function the last fix touched.
+- **One event can name two objects, and the trigger picks which one it
+  means.** A blocker's declaration names the blocker and the creature it
+  blocks, and the event's own object is the blocker. Cockatrice's "destroy
+  that creature" means the *other* one on both sides of the block, so
+  reading the event alone destroyed the Cockatrice whenever it blocked.
+  `trigger::event_object_for` asks the trigger first.
+- **Two lines in the reference can be one printed ability.** The corpus
+  writes "blocks or becomes blocked by" as a `T:` line per side, the
+  second marked `Secondary$ True`. Read each as its own ability and the
+  card triggers twice per block, or once for a sentence it does not print.
+  Pair the halves, write one ability, and refuse a script that ends with a
+  half unpaired, in `refusal_reason` as well as in `transcode`.
+- **A skipped step is not a step that ran with nothing to do.** Stasis
+  skips the untap step (CR 614.10). Running the step and keeping every
+  permanent tapped would look the same on the board, but it would spend
+  every "until your next untap step" effect, which CR 614.10a says waits
+  for the first untap step that is not skipped. The skip leaves the step
+  before its turn-based actions, not through the step's own ending.
+- **"Can't untap more than one" limits a choice; it does not make one
+  optional.** Winter Orb leaves the default of CR 502.3 in place, that
+  everything untaps, and only stops the untap once the limit is full. So
+  the player names which land untaps and must name one while any can. Two
+  limits add up (the Winter Moon ruling): a basic land counts against "one
+  basic land" and "two lands" both, so the menu shrinks after each answer,
+  and a question's `max` is the smallest room among the limits that cannot
+  take the whole menu.
+- **"As though it had haste" is not haste.** Haste answers two sentences of
+  CR 302.6, attacking and tapping. Instill Energy's "can attack as though it
+  had haste" answers only the first (CR 609.4), so granting the keyword
+  would also have let the creature use its {T} abilities the turn it
+  arrived. Read an "as though" where its one rule is checked, not as a
+  keyword.
+- **"Is a Swamp" is not "loses all abilities".** Evil Presence's land loses
+  what its own text gives it (CR 305.7), and keeps what other effects grant
+  it and gains the Swamp's mana ability; `LoseAllAbilities` would have taken
+  the grants too and, with its layer-6 timestamp rule, let an older grant
+  fall. Read a rule's own list of what goes before borrowing a flag that
+  takes away more.
+- **A Partial keeps whole sentences.** The last 31 Alpha stubs went Partial
+  keeping only sentences the DSL says completely: Pirate Ship's ping,
+  Demonic Hordes' land destruction, Berserk's pump. Demonic Hordes' upkeep
+  ("unless you pay {B}{B}{B}, tap this creature and sacrifice a land of an
+  opponent's choice") is left out whole rather than kept as the tap alone:
+  half a sentence reads as the card and plays as another one. The reason
+  names what is missing and what the card still does.
+- **A placed permanent still enters with its counters.** The printed-sweep
+  bench seeds permanents, and `settle` runs their enter modifiers, so
+  Clockwork Beast's seven +1/+0 counters are on it and it projects a 7/4
+  against a printed 0/4. That is layer 7c (CR 613.4c), not a defect, and the
+  sweep now shields power and toughness for a face that enters with P/T
+  counters, as it does for a static that moves them.
+- **A band is announced, not inferred.** Banding (CR 702.22) is a bit on
+  the creature, but the band is a declaration (508.1e): a player may attack
+  with two creatures with banding and put them in no band. So the engine
+  asks, each attacker with banding in turn, and keeps the answer in combat
+  state, where losing the keyword later does not undo it (702.22e). A
+  keyword read at damage time would have banded creatures nobody banded.
+- **A dead creature reads 0 damage.** A test asserting "the attacker took
+  no damage" passed on the code that dealt it lethal damage, because the
+  creature had died and its object read 0. Assert it is still on the
+  battlefield first; an injection that should fail is how this showed.
+- **A blocker on two creatures deals its power once.** The blocker pass
+  dealt damage per block pair, which was harmless while a creature could
+  block only one; a block spread through a band (702.22h) made a 3/3 deal
+  six. Damage is per creature, divided across what it blocks (510.1d).
+- **"When you control no Islands" is a trigger, not an "if".** The reader
+  already turned `IsPresent$` into an intervening "if" (CR 603.4), and
+  reusing that output for `Mode$ Always` would have made Sea Serpent ask
+  its clause again on resolution: an Island played in response would save
+  it. A state trigger (603.8) checks only when it triggers, so the clause is
+  the trigger's own (`Trigger::State`), and a test moves an Island back in
+  while the ability waits to show it.
+- **A dev move runs no rules.** A test that took an Island away with
+  `dev_state_mut` between two passes saw its state trigger stacked and
+  resolved at once: the round of passes was already complete when the
+  engine first looked, which no game action can arrange. Change the board
+  while the player who acts next holds priority, so their pass is the first
+  moment the engine reads it.
+- **A Partial's tests stand on what it left out.** Pirate Ship's ping
+  tests put the ship on a board with no Island, which was harmless while
+  the sacrifice was missing; once the card was whole, the ship was
+  sacrificed before the first priority and both tests failed at "seated".
+  The reader also moved the ping from ability 0 to ability 2, in the order
+  of the script's lines. A card handed back to the reader has its tests
+  reread.
+- **"Before the combat damage step" is a place in the turn, not a step.**
+  Comparing the current step with a named one answers nothing in a combat
+  with no damage step (CR 506.7e: no attackers, so the window ends with the
+  declare attackers step) and nothing in the second main phase, which is a
+  `Step::Main` like the first. `TurnInfo::position` puts every step on one
+  scale; a test walks a whole turn and asserts both sides of each window.
+- **A synthetic `{0}` spell is `ManaCost::parse("{0}")`.** `ManaCost::ZERO`
+  is *no* mana cost, and a card without one cannot be cast (CR 118.6): the
+  offer answered `NotEnoughMana`, which read like a broken window.
+- **A requirement's maximum is measured in the offer.** CR 509.1c asks for
+  "the maximum possible number of requirements that could be obeyed
+  without disobeying any restrictions", and the restrictions the engine
+  knows are the pairs the block question offers, each blocker's limit and
+  menace's two-or-none. Measuring the maximum anywhere else — over the
+  battlefield, or pair by pair — refuses a declaration the player cannot
+  improve on. The question carries one declaration that reaches it
+  (`obeying`), and the test that matters hands that declaration back and
+  expects it taken.
+- **"Duplicate blocker" was a limit, not a typo check.** Refusing a
+  blocker named twice was CR 509.1a's one-attacker-each, written as a set.
+  A creature that may block two attackers needs the set to hold pairs and
+  the limit to be counted apart, or the refusal names the wrong reason.
+- **"That many" after combat is the step's total.** A trigger that fires
+  once for a step's combat damage (CR 510.2, 603.2c) and read the amount off
+  the entry it fired on counted the first attacker only. A trigger about
+  the player dealt damage sums the batch; a trigger about a source keeps
+  that source's share. Test with two unblocked attackers of different power.
+- **A "may" guard that matches a list whole misses the list with a tail.**
+  `may_clause_possible` asked about `[SacrificeSelf]` alone, so "you may
+  sacrifice this. If you do, …" with a consequence after it was always
+  asked, and a yes paid nothing and bought the rest (Safe Haven). Match the
+  head: the action is the cost (CR 118.12).
+- **Taking an object away with a dev move clears its counters.** A test
+  that wants a departed card *with* counters (what an effect resolving after
+  it left can leave behind) sets them after the move, or the zone check
+  under test is never reached.
+- **Redirection is a replacement, not prevention.** It moves the damage to
+  another door, where that recipient's protection and shields still meet
+  it, and it ignores "can't be prevented". Ask it after the first
+  recipient's shields and before the life: redirecting after
+  `damage_player` would count and trigger on damage the player was never
+  dealt.
+- **"Once to an event" needs a memory that travels with the damage.** A
+  static that redirects is asked again at the door the damage is moved to;
+  without a record of what already applied (CR 614.5), a Bodyguard and a
+  Jade Monolith hand the damage back and forth until the shield runs out.
+- **"As long as this is untapped" can live in the affected filter.** A
+  static condition is registered and dropped between passes, so a check
+  inside one resolution sees the old answer. A filter such as
+  `And(This, Untapped)` is read when the damage is dealt.
+- **Unpreventable damage still meets a prevention effect.** CR 615.12
+  applies it and lets its other parts happen: Rock Hydra's counters come
+  off and the damage is dealt anyway. A guard that skips the effect for
+  unpreventable damage keeps counters the rules take.
+- **A new ability on an old card goes after the ones it had.** A seat's
+  standing answers are keyed by ability index, so Rock Hydra's `{R}` shield
+  kept index 0 and the static and the upkeep ability were appended.
+- **"As long as" makes a printed `*/*` a 7b effect.** CR 604.3a's fifth
+  criterion: a P/T sentence that holds only while a condition does is not
+  characteristic-defining, even on the card. Gaea's Liege was written as a
+  `CharacteristicPT`, which read its Forests in hand too; it is two
+  conditional `SetPTToCount` statics now, 0/0 off the battlefield.
+- **A count that reads combat needs a door, not only a condition.** The
+  projection is re-read when the effect table moves; declaring attackers
+  moves none. A conditional static is swapped between passes and moves it,
+  but a count of the defending player's permanents without a condition
+  would stay stale, so `board_state_changed` asks the modifiers as well as
+  the filters.
+- **An attacker keeps attacking a planeswalker that left** (CR 506.4c), so
+  "defending player" still names that planeswalker's controller. A count
+  that read `None` there made an attacking Gaea's Liege a 0/0.
+- **An activation offer reads the floating pool, not the lands.**
+  `Engine::can_pay_mana` asks the player's mana pool (plus the restricted
+  mana the ability may spend), never the untapped sources. A test that
+  reads "not offered" with the mana still in the lands proves only that
+  the pool was empty; float the cost first, then read the offer, as Rock
+  Hydra's upkeep-only test does in three steps.

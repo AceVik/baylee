@@ -70,6 +70,20 @@ pub enum Filter {
     ControlledByYou,
     /// Controlled by an opponent of `you`.
     ControlledByOpponent,
+    /// Controlled by the active player, whose turn it is (CR 102.1): Karma's
+    /// "the number of Swamps **they** control", at the beginning of each
+    /// player's upkeep. Nobody's choice and nobody's relation to `you`, so
+    /// a filter of its own rather than a `PlayerRel` threaded through the
+    /// matcher.
+    ControlledByActivePlayer,
+    /// Controlled by a defending player (Blaze of Glory: "target creature
+    /// defending player controls"). There are defending players only during
+    /// the combat phase, and they are the active player's opponents: the
+    /// nonactive player of a two-player game (CR 506.2), and every opponent
+    /// where all of them are attacked at once (CR 802.2), of whom the
+    /// spell's controller picks one by picking the creature (CR 802.2a).
+    /// Outside combat nothing matches.
+    ControlledByDefendingPlayer,
     /// Owned by `you`.
     OwnedByYou,
     /// Currently tapped.
@@ -78,6 +92,13 @@ pub enum Filter {
     Untapped,
     /// Currently attacking (in combat).
     Attacking,
+    /// A blocking creature (CR 509.1g): declared as a blocker this combat
+    /// and not removed from it since.
+    Blocking,
+    /// An unblocked creature (CR 509.1h): attacking, with blockers declared
+    /// and none declared for it. Before blockers are declared an attacking
+    /// creature is neither blocked nor unblocked, and this is false.
+    Unblocked,
     /// Entered the battlefield during the current turn (Oran-Rief, the
     /// Vastwood; Ruins of Oran-Rief; Novijen, Heart of Progress).
     ///
@@ -98,6 +119,20 @@ pub enum Filter {
     /// History like [`Self::EnteredThisTurn`], kept in the same per-turn
     /// record and refused by a view for the same reason.
     PutIntoGraveyardThisTurn,
+    /// Was declared as an attacker this turn (CR 508.1): Berserk's
+    /// "destroy that creature if it attacked this turn". A creature put
+    /// onto the battlefield attacking never attacked (CR 508.4), and one
+    /// that left the battlefield since is a new object that did not
+    /// (CR 400.7). History like [`Self::EnteredThisTurn`], kept in the same
+    /// per-turn record and refused by a view for the same reason.
+    AttackedThisTurn,
+    /// Its controller has controlled it continuously since their most
+    /// recent turn began: the half of summoning sickness (CR 302.6) that is
+    /// about control, with no exception for haste and asked of any
+    /// permanent. Nettling Imp's "non-Wall creature the active player has
+    /// controlled continuously since the beginning of the turn" is this
+    /// beside [`Self::ControlledByActivePlayer`].
+    ControlledSinceTurnBegan,
     /// Has at least one counter of this kind on it (The Reaper, King No
     /// More: "a creature an opponent controls with a -1/-1 counter on it").
     ///
@@ -145,6 +180,11 @@ pub enum Filter {
     /// [`crate::Amount::X`] does in the same position: a triggered ability
     /// has no announcement to read.
     CmcAtMostX,
+    /// Mana value exactly the X announced for the source (Spell Blast's
+    /// "counter target spell with mana value X"), read where
+    /// [`Self::CmcAtMostX`] reads it. X is announced before targets are
+    /// chosen (CR 601.2b, 601.2c), so the bound is there when the target is.
+    CmcExactlyX,
     /// Mana value at most the number of colors of mana spent to cast the
     /// source (the number converge counts, an ability word — CR 207.2c —
     /// with no rules of its own: Prismatic Ending). Read off
@@ -177,6 +217,14 @@ pub enum Filter {
     /// Power at most N (Access Tunnel, Escape Tunnel — "target creature with
     /// power 3 or less can't be blocked this turn").
     PowerAtMost(i16),
+    /// Power less than the source's power ("target creature with power less
+    /// than this creature's power"). Both are projected; a source with no
+    /// power, or gone, bounds nothing in.
+    PowerLessThanSourcePower,
+    /// Toughness less than the source's power (Stone Giant: "target creature
+    /// you control with toughness less than Stone Giant's power"), read as
+    /// [`Self::PowerLessThanSourcePower`] is.
+    ToughnessLessThanSourcePower,
     /// Is in the given zone (cross-zone effects like Maskwood Nexus).
     InZone(ZoneRef),
 }

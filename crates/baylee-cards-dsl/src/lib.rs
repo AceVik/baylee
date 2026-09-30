@@ -528,6 +528,10 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// "As this enters, choose a basic land type" (Phantasmal Terrain): one
+    /// of the five CR 205.3i names, kept where [`Self::ChooseSubtype`] keeps
+    /// its answer, and read back by [`crate::Modifier::SetLandTypeToChosen`].
+    ChooseBasicLandType,
     /// "As this enters, choose a card name" (Pithing Needle).
     ///
     /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the
@@ -655,6 +659,20 @@ keywords! {
     // reason. A static that grants it while a condition holds is
     // "can't attack unless …" (Wayward Swordtooth).
     CANT_ATTACK = 38, "Can't attack.";
+    // Landwalk (CR 702.14) is a family and not one keyword, and the header's
+    // rule is why five of its members are bits anyway: "islandwalk" names a
+    // basic land type, the five basic types are a closed set (CR 205.3i),
+    // and a word naming a fixed land type carries no data a bit cannot. The
+    // rest of the family ("nonbasic landwalk", "legendary landwalk") names
+    // a type *filter* and is not among them.
+    PLAINSWALK = 39, "Plainswalk (CR 702.14c).";
+    ISLANDWALK = 40, "Islandwalk (CR 702.14c).";
+    SWAMPWALK = 41, "Swampwalk (CR 702.14c).";
+    MOUNTAINWALK = 42, "Mountainwalk (CR 702.14c).";
+    FORESTWALK = 43, "Forestwalk (CR 702.14c).";
+    // Banding and not "bands with other": the second names a quality and
+    // is a family, which a bit cannot carry.
+    BANDING = 44, "Banding (CR 702.22).";
 }
 
 impl KeywordSet {

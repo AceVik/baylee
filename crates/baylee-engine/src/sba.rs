@@ -558,6 +558,15 @@ pub fn destroy_no_regen(state: &mut GameState, id: baylee_core::ids::ObjectId) {
 /// mark would be judged lethal again by the very next state-based check,
 /// which would spend the next shield and then kill it.
 fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regeneratable: bool) {
+    // Only a permanent is destroyed (CR 701.8a: "move it from the
+    // battlefield"). A delayed "destroy that creature" whose creature went
+    // back to its owner's hand names a card that stays there.
+    if !state
+        .object(id)
+        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    {
+        return;
+    }
     if state.object(id).is_some_and(|o| {
         o.characteristics()
             .keywords
@@ -565,6 +574,12 @@ fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regenerat
     }) {
         return;
     }
+    // "It can't be regenerated this turn" (Disintegrate): the shield
+    // stands and is not applied (CR 701.19c), for this object only.
+    let regeneratable = regeneratable
+        && state
+            .object(id)
+            .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
     if regeneratable
         && let Some(obj) = state.object_mut(id)
         && obj.regeneration_shields > 0

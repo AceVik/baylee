@@ -1,5 +1,10 @@
 # The two card lanes, and why neither writes its own tests
 
+> **Retired for cards (owner, 29.09.2026):** the cheap lanes made too many
+> errors. Cards are written by Opus, their tests by another model, and Fable
+> reviews (`CLAUDE.md` §Cards). What follows is kept as the record of how the
+> lanes worked; the cross rule below still holds for every model.
+
 A *lane* is one cheap model doing one job. Two models, two jobs, four
 scripts:
 

@@ -1047,3 +1047,108 @@ fn a_spells_only_restriction_pays_no_activation() {
         legal.abilities
     );
 }
+
+fn gauntlet_of_might() -> CardIndex {
+    card_index("d38ad188-515e-4865-a0ed-5d0fd4c7b453")
+}
+fn manabarbs() -> CardIndex {
+    card_index("0f1afedd-c60f-454f-b84a-c8117aec0128")
+}
+
+/// The board for the two tests below: `card` on p0's side, a Mountain on
+/// p1's, and p1 holding priority in p0's main phase.
+fn opponent_at_a_mountain(card: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(11, forest())
+        .battlefield(0, &[card])
+        .battlefield(1, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    let their_mountain =
+        super::testkit::on_battlefield(&engine, p1, mountain()).expect("p1's Mountain");
+    (engine, their_mountain)
+}
+
+/// "Whenever a Mountain is tapped for mana, its controller adds an
+/// additional {R}" (Gauntlet of Might), and the Mountain is the opponent's.
+///
+/// Two rules, one assert each. `Trigger::TappedForMana` answered only the
+/// trigger's controller tapping ("whenever **you** tap"), so an opponent's
+/// Mountain made one {R}. And a triggered mana ability adds to its own
+/// controller's pool unless the effect names another: "its controller" is
+/// the Mountain's (`AddManaFor`, `ControllerOfEvent`), so the {R} is the
+/// opponent's and not the Gauntlet's owner's.
+#[test]
+fn an_opponents_mountain_under_your_gauntlet_adds_red_to_their_pool() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, their_mountain) = opponent_at_a_mountain(gauntlet_of_might());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: their_mountain,
+            },
+        )
+        .expect("p1 taps their Mountain");
+    let red = |seat: usize| {
+        engine.state().players[seat]
+            .mana_pool
+            .available(ManaColor::Red)
+    };
+    assert_eq!(
+        red(1),
+        2,
+        "a Mountain tapped by anybody triggers the Gauntlet"
+    );
+    assert_eq!(
+        red(0),
+        0,
+        "and its controller's pool, not the Gauntlet's, gets the {{R}}"
+    );
+    assert!(
+        super::testkit::stack_is_empty(&engine),
+        "a mana ability (CR 605.1b) that resolved at once"
+    );
+}
+
+/// "Whenever a player taps a land for mana, Manabarbs deals 1 damage to that
+/// player." No mana, so an ordinary trigger on the stack; "that player" is
+/// read off the tapped land, which the mana event had not named as its
+/// object, and so the damage reached nobody.
+#[test]
+fn manabarbs_hurts_the_opponent_who_tapped_a_land() {
+    let p1 = PlayerId::new(1);
+    let (mut engine, their_mountain) = opponent_at_a_mountain(manabarbs());
+    let (theirs, mine) = (
+        engine.state().players[1].life,
+        engine.state().players[0].life,
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: their_mountain,
+            },
+        )
+        .expect("p1 taps their Mountain");
+    assert!(
+        !super::testkit::stack_is_empty(&engine),
+        "Manabarbs makes no mana, so its trigger uses the stack"
+    );
+    pass_until(&mut engine, super::testkit::stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        theirs - 1,
+        "that player took 1"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        mine,
+        "and not Manabarbs' controller"
+    );
+}

@@ -2621,3 +2621,221 @@ The Reaper, King No More
 Three Steps Ahead
 Treachery
 Trumpeting Carnosaur
+
+# Limited Edition Alpha (LEA), the first set of the owner's set-by-set plan
+# (29.09.2026; docs/mechanics-roadmap.md §E8). Batch 1: the seven cards
+# reach-list named, and the fifteen that print no rules text at all, which
+# stubgen now reads as finished when the reference script agrees.
+Death Ward
+Drudge Skeletons
+Living Wall
+Uthden Troll
+Wall of Bone
+Wall of Brambles
+Will-o'-the-Wisp
+Craw Wurm
+Earth Elemental
+Fire Elemental
+Gray Ogre
+Grizzly Bears
+Hill Giant
+Hurloon Minotaur
+Ironroot Treefolk
+Merfolk of the Pearl Trident
+Mons's Goblin Raiders
+Obsianus Golem
+Pearled Unicorn
+Savannah Lions
+Scathe Zombies
+Water Elemental
+
+# LEA, the rest: every other Alpha card but the four in data/unplayable.tsv,
+# added as stubs so each can be finished by a reader rule or by hand, one
+# refusal cause at a time (transcode-report --stubs).
+Animate Artifact
+Animate Dead
+Animate Wall
+Ankh of Mishra
+Armageddon
+Aspect of Wolf
+Bad Moon
+Balance
+Benalish Hero
+Berserk
+Black Knight
+Black Vise
+Black Ward
+Blaze of Glory
+Blessing
+Blue Elemental Blast
+Blue Ward
+Bog Wraith
+Braingeyser
+Burrowing
+Camouflage
+Channel
+Chaoslace
+Circle of Protection: Blue
+Circle of Protection: Green
+Circle of Protection: Red
+Circle of Protection: White
+Clockwork Beast
+Clone
+Cockatrice
+Consecrate Land
+Conservator
+Control Magic
+Conversion
+Copper Tablet
+Copy Artifact
+Creature Bond
+Crusade
+Crystal Rod
+Cursed Land
+Cyclopean Tomb
+Deathgrip
+Deathlace
+Demonic Hordes
+Dingus Egg
+Disintegrate
+Disrupting Scepter
+Dragon Whelp
+Drain Life
+Drain Power
+Dwarven Warriors
+Earthbind
+Earthquake
+Evil Presence
+False Orders
+Farmstead
+Fear
+Feedback
+Fireball
+Firebreathing
+Flashfires
+Fog
+Force of Nature
+Forcefield
+Fork
+Fungusaur
+Gaea's Liege
+Gauntlet of Might
+Glasses of Urza
+Gloom
+Goblin King
+Green Ward
+Guardian Angel
+Healing Salve
+Helm of Chatzuk
+Holy Armor
+Howling Mine
+Hurricane
+Hypnotic Specter
+Illusionary Mask
+Instill Energy
+Invisibility
+Iron Star
+Ironclaw Orcs
+Island Sanctuary
+Ivory Cup
+Jade Monolith
+Jade Statue
+Juggernaut
+Karma
+Keldon Warlord
+Kudzu
+Library of Leng
+Lich
+Lifeforce
+Lifelace
+Lifetap
+Living Artifact
+Lord of Atlantis
+Lord of the Pit
+Lure
+Magical Hack
+Mana Flare
+Mana Short
+Manabarbs
+Meekstone
+Mesa Pegasus
+Natural Selection
+Nether Shadow
+Nettling Imp
+Nevinyrral's Disk
+Nightmare
+Northern Paladin
+Orcish Artillery
+Paralyze
+Personal Incarnation
+Pestilence
+Phantasmal Forces
+Phantasmal Terrain
+Pirate Ship
+Plague Rats
+Power Leak
+Power Sink
+Power Surge
+Psionic Blast
+Psychic Venom
+Purelace
+Raging River
+Raise Dead
+Red Elemental Blast
+Red Ward
+Regeneration
+Regrowth
+Resurrection
+Reverse Damage
+Righteousness
+Rock Hydra
+Sacrifice
+Samite Healer
+Scavenging Ghoul
+Sea Serpent
+Sedge Troll
+Sengir Vampire
+Shanodin Dryads
+Shivan Dragon
+Simulacrum
+Siren's Call
+Sleight of Mind
+Smoke
+Soul Net
+Spell Blast
+Stasis
+Steal Artifact
+Stone Giant
+Stream of Life
+Sunglasses of Urza
+Terror
+Thicket Basilisk
+Thoughtlace
+Throne of Bone
+Timber Wolves
+Time Vault
+Time Walk
+Timetwister
+Tranquility
+Tsunami
+Twiddle
+Two-Headed Giant of Foriys
+Vesuvan Doppelganger
+Veteran Bodyguard
+Volcanic Eruption
+Wall of Fire
+Wall of Water
+Wanderlust
+Warp Artifact
+White Knight
+White Ward
+Wild Growth
+Winter Orb
+Wooden Sphere
+Word of Command
+Wrath of God
+Zombie Master
+
+# Limited Edition Beta and Unlimited: Beta added two cards to Alpha,
+# Volcanic Island (above, with the other lands) and the fifth Circle.
+Circle of Protection: Black

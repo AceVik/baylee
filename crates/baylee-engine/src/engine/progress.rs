@@ -16,6 +16,18 @@ use baylee_cards_dsl::{Effect, Filter, PlayerRel, SpellMode, TargetReq, TargetSp
 use baylee_core::ids::{AbilityRef, SeatSet};
 use baylee_core::preset::LoopPolicy;
 
+/// One `Modifier::UntapAtMost` binding the active player's untap step.
+struct UntapLimit {
+    /// What it counts.
+    of: &'static Filter,
+    /// The effect's controller, the filter's "you".
+    you: PlayerId,
+    /// The effect's source, the filter's "this".
+    this: Option<ObjectId>,
+    /// How many of them may untap.
+    count: u8,
+}
+
 /// What CR 608.2b's re-check found about the object on top of the stack.
 ///
 /// Three answers and not two, because "no legal target left" and "this was
@@ -533,87 +545,166 @@ impl<L: CardLookup> Engine<L> {
                         .expect("declaring no attackers is always legal");
                     return false;
                 }
-                let attackers: Vec<ObjectId> = self
-                    .state
-                    .battlefield_seen()
-                    .filter(|id| combat::can_attack(&self.state, attacker, *id))
-                    .collect();
-                self.pending = Pending::ChooseAttackers {
-                    player: attacker,
-                    attackers,
-                    defenders: combat::defender_options(&self.state, attacker),
-                };
+                self.pending = self.attack_question(attacker);
                 self.awaiting_answer = true;
                 true
             }
             Step::DeclareBlockers if self.combat_declared != CombatDeclared::Blockers => {
-                let active = self.state.turn.active;
-                // Whoever is actually being attacked declares the blocks —
-                // which, once planeswalkers can be attacked, is the walker's
-                // controller and not merely the next seat along. With no
-                // attackers there is nobody to ask, so the seat order stands.
-                let defending = self
-                    .state
-                    .combat
-                    .attackers()
-                    .first()
-                    .and_then(|a| combat::defending_player(&self.state, a.defending))
-                    .unwrap_or_else(|| self.next_alive_after(active));
-                let attacking: Vec<ObjectId> = self
-                    .state
-                    .combat
-                    .attackers()
-                    .iter()
-                    .map(|a| a.creature)
-                    .collect();
-                // CR 702.111b restricts the declaration and not the pair, so
-                // `can_block` cannot answer it — but an attacker this
-                // defender could never field two legal blockers against is
-                // one no legal declaration blocks, and offering that pairing
-                // would name a block `declare_blockers` has to refuse (#156).
-                // Asked once per attacker rather than once per pair, because
-                // the answer is the same for every blocker.
-                //
-                // Both walks go over the defender's ready creatures, not the
-                // battlefield: the pairs they skip are ones `can_block`
-                // refuses on the blocker's half alone, and walking the
-                // battlefield per attacker made this step cost permanents ×
-                // attackers (`combat::ready_blockers`).
-                let candidates = combat::ready_blockers(&self.state, defending);
-                let blockable: Vec<ObjectId> = attacking
-                    .iter()
-                    .copied()
-                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a, &candidates))
-                    .collect();
-                let blockers: Vec<crate::choice::BlockOption> = candidates
-                    .iter()
-                    .copied()
-                    .filter_map(|blocker| {
-                        let attackers: Vec<ObjectId> = blockable
-                            .iter()
-                            .copied()
-                            .filter(|a| combat::can_block(&self.state, defending, blocker, *a))
-                            .collect();
-                        (!attackers.is_empty())
-                            .then_some(crate::choice::BlockOption { blocker, attackers })
-                    })
-                    .collect();
-                // The counts the declaration as a whole is held to
-                // (CR 509.1b), for the attackers somebody may block.
-                let bounds = blockable
-                    .iter()
-                    .filter_map(|&a| combat::block_bound(&self.state, a))
-                    .collect();
-                self.pending = Pending::ChooseBlockers {
-                    player: defending,
-                    attacker: active,
-                    blockers,
-                    bounds,
+                let after = match self.combat_declared {
+                    CombatDeclared::BlockersBy(seat) => Some(seat),
+                    _ => None,
                 };
-                self.awaiting_answer = true;
+                let defending = match (self.next_defending_player(after), after) {
+                    (Some(seat), _) => seat,
+                    // With no attackers there is nobody to ask, so the seat
+                    // order stands and the declaration is an empty one.
+                    (None, None) => self.next_alive_after(self.state.turn.active),
+                    // `declare_blockers` asks the next one itself, so this
+                    // is a table whose last defending player left between.
+                    (None, Some(_)) => {
+                        self.combat_declared = CombatDeclared::Blockers;
+                        return false;
+                    }
+                };
+                self.ask_blockers(defending);
                 true
             }
             _ => self.priority_round(),
+        }
+    }
+
+    /// The next defending player to declare blockers after `after` (from
+    /// the first when `None`), or `None` when every one has.
+    ///
+    /// "If more than one player is being attacked, controls a planeswalker
+    /// that's being attacked, or protects a battle that's being attacked,
+    /// each defending player in APNAP order declares blockers as the
+    /// declare blockers step begins. … The first defending player declares
+    /// all their blocks, then the second defending player, and so on"
+    /// (CR 802.4); APNAP order is the active player, then "the remaining
+    /// nonactive players in turn order" (CR 101.4). A player nothing
+    /// attacks has no creature it could block with (802.4a) and is not
+    /// asked.
+    ///
+    /// Where `after` sits is read off the seats, not off the players still
+    /// in the game: a defending player who declared and then left the game
+    /// (CR 800.4a) still stands between those who declared before them and
+    /// those who have yet to, and is not a sign that everyone has.
+    pub(crate) fn next_defending_player(&self, after: Option<PlayerId>) -> Option<PlayerId> {
+        let n = u8::try_from(self.state.players.len()).unwrap_or(u8::MAX);
+        let active = self.state.turn.active.get();
+        let attacked = |seat: PlayerId| {
+            self.state
+                .combat
+                .attackers()
+                .iter()
+                .any(|a| combat::blocking_player(&self.state, a.defending) == Some(seat))
+        };
+        let from = after.map_or(1, |seat| (seat.get() + n - active) % n + 1);
+        (from..n)
+            .map(|offset| PlayerId::new((active + offset) % n))
+            .filter(|seat| !self.state.players[usize::from(seat.get())].has_lost())
+            .find(|seat| attacked(*seat))
+    }
+
+    /// Asks `defending` for its blocks (CR 509.1): each creature it may
+    /// block with and what it may block, how many attackers each may block
+    /// (509.1a), one declaration obeying the requirements (509.1c) and the
+    /// counts the declaration as a whole is held to (509.1b).
+    pub(crate) fn ask_blockers(&mut self, defending: PlayerId) {
+        let active = self.state.turn.active;
+        let blockers = combat::block_options(&self.state, defending);
+        let rules = combat::BlockRules::new(&self.state);
+        let capacity = blockers
+            .iter()
+            .filter_map(|o| {
+                let most = rules.capacity(o.blocker);
+                (most != Some(1)).then(|| crate::choice::BlockCapacity {
+                    blocker: o.blocker,
+                    most: most.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+                })
+            })
+            .collect();
+        let obeying = rules.obeying(&blockers);
+        // What `obeying` and an answer are counted by (CR 509.1c), so a
+        // client can hold its declaration to it before sending it.
+        let demands = if rules.has_requirements() {
+            blockers
+                .iter()
+                .flat_map(|o| o.attackers.iter().map(move |a| (o.blocker, *a)))
+                .filter_map(|(blocker, attacker)| {
+                    let count = rules.demands(blocker, attacker);
+                    (count > 0).then(|| crate::choice::BlockDemand {
+                        blocker,
+                        attacker,
+                        count: u32::try_from(count).unwrap_or(u32::MAX),
+                    })
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        // The counts the declaration as a whole is held to (CR 509.1b),
+        // for the attackers somebody may block.
+        let bounds = self
+            .state
+            .combat
+            .attackers()
+            .iter()
+            .map(|a| a.creature)
+            .filter(|a| blockers.iter().any(|o| o.attackers.contains(a)))
+            .filter_map(|a| combat::block_bound(&self.state, a))
+            .collect();
+        self.pending = Pending::ChooseBlockers {
+            player: defending,
+            attacker: active,
+            blockers,
+            capacity,
+            obeying,
+            demands,
+            bounds,
+        };
+        self.awaiting_answer = true;
+    }
+
+    /// The declare-attackers question for `attacker` (CR 508.1): what may
+    /// attack and what it may attack, what must attack (CR 508.1d), and
+    /// which creatures the restrictions on the pair hold to part of the
+    /// defenders (CR 508.1c).
+    fn attack_question(&self, attacker: PlayerId) -> Pending {
+        let defenders = combat::defender_options(&self.state, attacker);
+        let rules = combat::AttackRules::new(&self.state);
+        let mut attackers = Vec::new();
+        let mut required = Vec::new();
+        let mut limits = Vec::new();
+        for id in self.state.battlefield_seen() {
+            if !combat::can_attack(&self.state, attacker, id) {
+                continue;
+            }
+            // A creature every restriction on the pair shuts out
+            // attacks nothing, and a requirement asks nothing of
+            // it (CR 508.1d counts only what can be obeyed).
+            let allowed = rules.defenders_for(id, &defenders);
+            if allowed.is_empty() {
+                continue;
+            }
+            if allowed.len() < defenders.len() {
+                limits.push(crate::choice::AttackLimit {
+                    creature: id,
+                    defenders: allowed,
+                });
+            }
+            if rules.must_attack(id) {
+                required.push(id);
+            }
+            attackers.push(id);
+        }
+        Pending::ChooseAttackers {
+            player: attacker,
+            attackers,
+            defenders,
+            required,
+            limits,
         }
     }
 
@@ -713,6 +804,12 @@ impl<L: CardLookup> Engine<L> {
                     self.delayed_queue
                         .push_back((self.state.turn.active, action));
                     return false;
+                }
+                // A division of combat damage banding hands to a player is
+                // asked before the damage step deals it (CR 702.22j–k);
+                // its last answer ends this step (`answer_share`).
+                if self.ask_combat_division() {
+                    return true;
                 }
                 self.advance_step();
             } else {
@@ -1060,6 +1157,7 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                     EnterModifier::ChooseSubtype
+                    | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseColorExcept(_)
@@ -1126,11 +1224,21 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
-            EnterModifier::ChooseSubtype => {
+            EnterModifier::ChooseSubtype | EnterModifier::ChooseBasicLandType => {
+                use baylee_core::generated::subtypes::land::{
+                    FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP,
+                };
+                // A basic land type is one of the five (CR 205.3i), in the
+                // order the rule names them, and nothing else.
+                let options = if matches!(modifier, EnterModifier::ChooseBasicLandType) {
+                    vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST]
+                } else {
+                    (0..=349).map(baylee_core::ids::SubtypeId::new).collect()
+                };
                 self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
                 self.pending = Pending::ChooseSubtype {
                     player: controller,
-                    options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                    options,
                 };
                 self.awaiting_answer = true;
                 true
@@ -1980,12 +2088,14 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             let lost = obj.characteristics().abilities_lost.is_some();
+            let text_lost = obj.characteristics().rules_text_lost;
             for ability in obj.printed_abilities(&self.lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
                 let registered = self.state.effects.has_source_ability(id, sa.modifier);
-                let gone_with_the_ability = lost && !outlives_its_ability(sa.layer);
+                let gone_with_the_ability = (lost && !outlives_its_ability(sa.layer))
+                    || (text_lost && !outlives_its_rules_text(sa.layer));
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {
                         !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
@@ -2039,6 +2149,7 @@ impl<L: CardLookup> Engine<L> {
                     o.zone != Zone::Battlefield
                         || o.status.contains(crate::object::Status::PHASED_OUT)
                         || o.characteristics().abilities_lost.is_some()
+                        || o.characteristics().rules_text_lost
                 })
             })
             .collect();
@@ -2426,6 +2537,27 @@ impl<L: CardLookup> Engine<L> {
             })
             .collect();
         self.trigger_queue.extend(found);
+        // State triggers (CR 603.8) read the state, not the journal, so they
+        // are looked for on every pass, and an ability that is still waiting
+        // here or is on the stack does not trigger again until it has left
+        // it. The stack names an ability by its source and index, which is
+        // what the queue keys on too.
+        let stack = self.state.zones.list(crate::zone::ZoneLocation::Stack);
+        let queued = &self.trigger_queue;
+        let state = &self.state;
+        let in_flight = |source: ObjectId, index: u32| {
+            queued
+                .iter()
+                .any(|t| t.source == source && t.ability_index == index)
+                || stack.iter().any(|id| {
+                    state
+                        .object(*id)
+                        .and_then(|o| o.ability)
+                        .is_some_and(|loc| loc.source == source && loc.index == index)
+                })
+        };
+        let standing = trigger::state_triggers(&self.state, &self.lookup, in_flight);
+        self.trigger_queue.extend(standing);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
         self.trigger_queue
@@ -4335,12 +4467,22 @@ impl<L: CardLookup> Engine<L> {
     /// (Venser +2's returned permanents) — fires for ANY controller, not
     /// just the active player.
     pub(crate) fn queue_end_step_delayed(&mut self) {
+        self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
+    }
+
+    /// Queues the delayed triggers that wait for "end of combat": they
+    /// trigger as the end of combat step begins (CR 511.2), for any
+    /// controller.
+    pub(crate) fn queue_end_of_combat_delayed(&mut self) {
+        self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
+    }
+
+    /// Takes every delayed trigger waiting for `when` off the list and
+    /// queues it, whoever controls it.
+    fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {
-            if matches!(
-                self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextEndStep
-            ) {
+            if self.state.delayed[i].when == when {
                 let trigger = self.state.delayed.remove(i);
                 self.delayed_queue
                     .push_back((trigger.controller, trigger.action));
@@ -4610,7 +4752,23 @@ impl<L: CardLookup> Engine<L> {
             // journal (`trigger::watch_triggers`) and never reaches this
             // queue; no step-timed one exists yet.
             crate::state::DelayedAction::Trigger { source, effects } => {
-                self.queue_delayed_trigger(controller, source, effects);
+                self.queue_delayed_trigger(controller, source, effects, None);
+                false
+            }
+            // "That creature" while it is still that object (CR 603.7c):
+            // one that has left the battlefield, even to come back, is a
+            // new object and the trigger is about nothing (CR 400.7).
+            crate::state::DelayedAction::TriggerAbout {
+                source,
+                effects,
+                object,
+                version,
+            } => {
+                let still = self
+                    .state
+                    .object(object)
+                    .is_some_and(|o| o.version == version);
+                self.queue_delayed_trigger(controller, source, effects, still.then_some(object));
                 false
             }
         }
@@ -4623,6 +4781,7 @@ impl<L: CardLookup> Engine<L> {
         controller: PlayerId,
         source: ObjectId,
         effects: &'static [baylee_cards_dsl::Effect],
+        event_object: Option<ObjectId>,
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
@@ -4633,7 +4792,7 @@ impl<L: CardLookup> Engine<L> {
                 abilities: None,
                 controller,
                 timestamp: self.state.object(source).map_or(0, |o| o.timestamp),
-                event_object: None,
+                event_object,
                 implicit_target: None,
                 synthetic_effects: Some(effects),
                 once_per_turn: false,
@@ -4899,6 +5058,12 @@ impl<L: CardLookup> Engine<L> {
         if next_step == Step::Cleanup {
             self.cleanup = Cleanup::Due;
         }
+        // "At end of combat" triggers as the end of combat step begins
+        // (CR 511.2), and two arms above enter it: after combat damage, and
+        // straight from the declare attackers step when nothing attacked.
+        if next_step == Step::CombatEnd {
+            self.queue_end_of_combat_delayed();
+        }
         self.state.journal.record(GameEvent::StepChanged {
             phase: next_phase,
             step: next_step,
@@ -5027,6 +5192,15 @@ impl<L: CardLookup> Engine<L> {
     /// action may not take the answer its own rule asks a player for.
     pub(crate) fn untap_step(&mut self) -> bool {
         let active = self.state.turn.active;
+        // "Players skip their untap steps" (Stasis) replaces the step with
+        // nothing (CR 614.1b, 614.10): no phasing, no day/night check, no
+        // untap, and an effect waiting for the player's *next* untap step
+        // keeps waiting for one that is not skipped (CR 614.10a) — which is
+        // why this goes straight on and not through `finish_untap_step`.
+        if self.state.skips_untap_step(active) {
+            self.advance_step();
+            return false;
+        }
         // "All phased-out permanents that the active player controlled when
         // they phased out phase in" (CR 502.1): a phased-out permanent is
         // not projected, so its controller is still that one. One that
@@ -5056,8 +5230,7 @@ impl<L: CardLookup> Engine<L> {
         // untap them all simultaneously."
         let optional = self.untap_optional();
         if optional.is_empty() {
-            self.finish_untap_step(&[]);
-            return false;
+            return self.untap_under_limits(Vec::new(), Vec::new());
         }
         // The answer names the permanents that stay tapped, so an empty one
         // is "untap everything" — the determination every board without
@@ -5071,6 +5244,139 @@ impl<L: CardLookup> Engine<L> {
             min: 0,
             max,
             prompt: crate::choice::ChoicePrompt::LeaveTapped,
+            total: None,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    /// The limits on the active player's untap step
+    /// (`Modifier::UntapAtMost`), each with the "you" and "this" its filter
+    /// is read against.
+    fn untap_limits(&self) -> Vec<UntapLimit> {
+        let active = self.state.turn.active;
+        self.state
+            .effects
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::UntapAtMost { who, of, count } = fx.modifier else {
+                    return None;
+                };
+                crate::eval::players(who, &self.state, fx.controller)
+                    .is_some_and(|p| p.contains(&active))
+                    .then_some(UntapLimit {
+                        of,
+                        you: fx.controller,
+                        this: fx.source,
+                        count,
+                    })
+            })
+            .collect()
+    }
+
+    /// Whether `limit` counts the permanent `id`.
+    fn counts(&self, limit: &UntapLimit, id: ObjectId) -> bool {
+        self.state.object(id).is_some_and(|obj| {
+            crate::eval::matches(
+                limit.of,
+                &self.state,
+                obj,
+                limit.you,
+                limit.this.unwrap_or(id),
+            )
+        })
+    }
+
+    /// CR 502.3's determination under untap limits (Smoke, Winter Orb):
+    /// of the permanents that would untap, the ones a limit counts untap as
+    /// the active player names them, and the rest of them stay tapped once
+    /// no limit has room left for any of them.
+    ///
+    /// "Can't untap more than one" keeps a permanent tapped only when the
+    /// limit is full: the default is still that everything untaps (CR
+    /// 502.3), so the player chooses *which*, not *whether*. The question
+    /// is asked again after every answer, and each answer counts against
+    /// every limit the permanents in it match — an animated land under
+    /// Smoke and Winter Orb is the one creature and the one land (the Smoke
+    /// ruling), and Static Orb beside Winter Moon lets two permanents untap,
+    /// at most one of them a nonbasic land (the Winter Moon ruling).
+    ///
+    /// `max` is the most a single answer can name without breaking a limit
+    /// whatever it names: the smallest room among the limits that cannot
+    /// take everything still on the menu. Anything from one to that is
+    /// legal, so the menu never offers an answer the apply would refuse.
+    /// When every limit can take everything on the menu, nothing is asked.
+    ///
+    /// `kept` is what the player already chose to leave tapped
+    /// (`ChoicePrompt::LeaveTapped`), asked first so that a permanent the
+    /// player keeps by choice does not take a limit's room. Returns `true`
+    /// when a question was asked.
+    pub(crate) fn untap_under_limits(
+        &mut self,
+        kept: Vec<ObjectId>,
+        chosen: Vec<ObjectId>,
+    ) -> bool {
+        let active = self.state.turn.active;
+        let limits = self.untap_limits();
+        let counted = |id: ObjectId| limits.iter().any(|l| self.counts(l, id));
+        // What would untap if no limit applied. A phased-out permanent is
+        // treated as though it does not exist (CR 702.26b): no limit counts
+        // it and no menu offers it.
+        let would: Vec<ObjectId> =
+            self.state
+                .battlefield_seen()
+                .filter(|id| {
+                    self.state.object(*id).is_some_and(|o| {
+                        o.controller == active && o.status.contains(Status::TAPPED)
+                    }) && !kept.contains(id)
+                        && !self.keeps_tapped(*id)
+                })
+                .collect();
+        let room: Vec<usize> = limits
+            .iter()
+            .map(|l| {
+                let used = chosen.iter().filter(|c| self.counts(l, **c)).count();
+                usize::from(l.count).saturating_sub(used)
+            })
+            .collect();
+        // Counted, not yet named, and every limit counting it has room.
+        let open: Vec<ObjectId> = would
+            .iter()
+            .copied()
+            .filter(|id| {
+                !chosen.contains(id)
+                    && counted(*id)
+                    && limits
+                        .iter()
+                        .zip(&room)
+                        .all(|(l, r)| *r > 0 || !self.counts(l, *id))
+            })
+            .collect();
+        let most = limits
+            .iter()
+            .zip(&room)
+            .filter(|(l, r)| open.iter().filter(|id| self.counts(l, **id)).count() > **r)
+            .map(|(_, r)| *r)
+            .min();
+        let Some(most) = most else {
+            // Everything still open fits: it untaps with what was named, and
+            // what the limits shut out stays tapped.
+            let mut stays = kept;
+            stays.extend(
+                would
+                    .iter()
+                    .filter(|id| counted(**id) && !chosen.contains(id) && !open.contains(id)),
+            );
+            self.finish_untap_step(&stays);
+            return false;
+        };
+        self.pending_plan = Some(PlanKind::UntapLimit { kept, chosen });
+        self.pending = Pending::ChooseCards {
+            player: active,
+            options: open,
+            min: 1,
+            max: u8::try_from(most).unwrap_or(u8::MAX),
+            prompt: crate::choice::ChoicePrompt::Untap,
             total: None,
         };
         self.awaiting_answer = true;
@@ -5188,6 +5494,8 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
+        // Every prevention shield says "this turn" (`crate::prevention`).
+        self.state.shields.clear();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();
         }
@@ -5377,6 +5685,19 @@ fn outlives_its_ability(layer: baylee_cards_dsl::Layer) -> bool {
         layer,
         Layer::Copy | Layer::Control | Layer::Type | Layer::Color
     )
+}
+
+/// Whether a land's own static ability keeps its effect in `layer` once an
+/// effect has set the land's subtype to a basic land type (CR 305.7).
+///
+/// That effect applies in layer 4, so only the land's effects in the layers
+/// before it were applied first (CR 613.6). One in layer 4 itself goes: the
+/// land-type effect decides whether it exists, so it depends on that effect
+/// and waits for it (CR 613.8a) — Urborg, Tomb of Yawgmoth set to a Swamp
+/// makes no other land a Swamp.
+fn outlives_its_rules_text(layer: baylee_cards_dsl::Layer) -> bool {
+    use baylee_cards_dsl::Layer;
+    matches!(layer, Layer::Copy | Layer::Control)
 }
 
 /// What a synthetic trigger's targets were chosen against, for the

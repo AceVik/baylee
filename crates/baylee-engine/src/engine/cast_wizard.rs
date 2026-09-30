@@ -989,9 +989,10 @@ impl<L: CardLookup> Engine<L> {
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
         let front = obj.characteristics();
-        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords);
+        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords)
+            && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
-            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, def, i),
+            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, card, def, i),
             _ => front_now,
         });
         for (i, option) in options.iter_mut().enumerate() {
@@ -1113,7 +1114,14 @@ impl<L: CardLookup> Engine<L> {
     /// Returns the game to the moment before a cast was proposed (CR 601.2,
     /// CR 732.1), once the cast has turned out to be illegal part-way.
     pub(crate) fn reverse_cast(&mut self, caster: Option<PlayerId>) {
-        self.cast_wizard = None;
+        // The X the card was given as it was announced goes with the rest
+        // of the cast: a card that never left its zone announced nothing.
+        if let Some(card) = self.cast_wizard.take().map(|w| w.card)
+            && let Some(obj) = self.state.object_mut(card)
+            && obj.zone != crate::zone::Zone::Stack
+        {
+            obj.x_value = 0;
+        }
         self.awaiting_answer = false;
         // CR 601.2h reverses the *whole* casting, so the game returns to
         // the moment before it began — and that includes whose priority

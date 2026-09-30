@@ -787,6 +787,7 @@ fn battery(table: &mut Table) -> (u64, Option<String>) {
                 player,
                 attackers,
                 defenders,
+                ..
             } if player == P1 => {
                 let at = defenders
                     .iter()

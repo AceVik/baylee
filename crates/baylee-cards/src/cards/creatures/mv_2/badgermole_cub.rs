@@ -32,7 +32,10 @@ card!(
         // No target and it adds mana: a mana ability (CR 605.1b), which
         // resolves as it triggers (CR 605.4a).
         triggered!(
-            Trigger::TappedForMana(&Filter::CREATURE),
+            Trigger::TappedForMana {
+                by: PlayerRel::You,
+                filter: &Filter::CREATURE
+            },
             &[Effect::mana(ManaColor::Green, 1)]
         ),
     ],

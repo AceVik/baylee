@@ -120,6 +120,7 @@ static PUMP_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: PUMP_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    condition: None,
 }];
 
 /// Act of Treason without the haste: a layer-2 control change that ends
@@ -135,6 +136,7 @@ static STEAL_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: STEAL_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    condition: None,
 }];
 
 /// Might of Old Krosa's shape: one effect that both pumps and grants a
@@ -150,6 +152,7 @@ static KROSA_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: KROSA_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::Object(&CREATURE_F))),
     second_targets: None,
+    condition: None,
 }];
 
 /// Lightning Bolt: "any target" (CR 115.4), which is a set spanning
@@ -163,6 +166,7 @@ static BOLT_ABILITIES: &[AbilityDef] = &[AbilityDef::Spell {
     effects: BOLT_EFFECTS,
     targets: Some(TargetReq::one(TargetSpec::AnyTarget)),
     second_targets: None,
+    condition: None,
 }];
 
 /// Cycling behind a precondition: no card in the pool prints one, and the

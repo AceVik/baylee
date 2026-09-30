@@ -531,9 +531,43 @@ pub(crate) fn requirement_is_reachable(
     // Derived rather than listed, for the same reason: a new `TargetSpec` is
     // counted by whichever of the two readers knows about it, and a spec
     // neither knows is unreachable, which is the honest answer.
-    let objects = crate::eval::target_options(&req.spec, state, player, card).len();
+    let objects = match x_bounded(req.spec) {
+        // "Target spell with mana value X" before any X is announced: a
+        // target for some X (`eval::matches_for_some_x`). Enumerated through
+        // the same reader with the filter widened, so what makes a spell or
+        // permanent targetable at all is still asked the one way.
+        Some((widened, filter)) => crate::eval::target_options(&widened, state, player, card)
+            .into_iter()
+            .filter(|id| {
+                state.object(*id).is_some_and(|o| {
+                    crate::eval::matches_for_some_x(filter, state, o, player, card)
+                })
+            })
+            .count(),
+        None => crate::eval::target_options(&req.spec, state, player, card).len(),
+    };
     let players = crate::eval::target_player_options(state, &req.spec, player).len();
     objects + players >= req.min as usize
+}
+
+/// A requirement whose filter reads the announced X, as the same spec over
+/// every object and the filter it widened away. `None` for every other
+/// requirement, and for the kinds no X-reading filter is printed on.
+fn x_bounded(
+    spec: baylee_cards_dsl::TargetSpec,
+) -> Option<(
+    baylee_cards_dsl::TargetSpec,
+    &'static baylee_cards_dsl::Filter,
+)> {
+    use baylee_cards_dsl::{Filter, TargetSpec};
+    static ANY: Filter = Filter::Any;
+    let (widened, filter) = match spec {
+        TargetSpec::Spell(f) => (TargetSpec::Spell(&ANY), f),
+        TargetSpec::Object(f) => (TargetSpec::Object(&ANY), f),
+        TargetSpec::StackOrBattlefield(f) => (TargetSpec::StackOrBattlefield(&ANY), f),
+        _ => return None,
+    };
+    crate::eval::reads_announced_x(filter).then_some((widened, filter))
 }
 
 /// Whether `pool` covers `cost`, honouring a mana-conversion effect.
@@ -942,12 +976,36 @@ pub(crate) fn timing_allows(
 pub(crate) fn face_timing_allows(
     state: &GameState,
     player: PlayerId,
+    card: ObjectId,
     def: &baylee_cards_dsl::CardDef,
     face: usize,
 ) -> bool {
     def.faces
         .get(face)
         .is_some_and(|f| timing_allows(state, player, f.types, def.keywords_for_face(face)))
+        && spell_condition_allows(state, player, card, def, face)
+}
+
+/// "Cast this spell only [when]" (CR 506.7; Berserk's "only before the
+/// combat damage step"): whether the condition the face's spell prints, if
+/// it prints one, holds now for `player` casting `card`. A restriction of
+/// the card's own, asked beside the timing its type gives it (CR 601.3):
+/// an instant restricted to combat is still cast whenever an instant could
+/// be, inside that window.
+pub(crate) fn spell_condition_allows(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+) -> bool {
+    def.abilities_for_face(face).iter().all(|a| match a {
+        baylee_cards_dsl::AbilityDef::Spell {
+            condition: Some(condition),
+            ..
+        } => crate::eval::condition_holds(state, player, card, *condition),
+        _ => true,
+    })
 }
 
 /// Whether a continuous effect forbids `player` casting `obj` at all
@@ -1162,11 +1220,12 @@ pub(crate) fn can_cast_form(
     // an enchantment, and it is cast in answer to an ability on the stack
     // or not at all. A prototype or a disguise is the front, cast another
     // way.
-    let front_now = timing_allows(state, player, c.types, c.keywords);
     let printed = obj.card.and_then(|c| lookup.card(c.index));
+    let front_now = timing_allows(state, player, c.types, c.keywords)
+        && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let a_back_face_now = printed.is_some_and(|def| {
         castable_back_faces(def, on_adventure)
-            .any(|(i, _)| face_timing_allows(state, player, def, i))
+            .any(|(i, _)| face_timing_allows(state, player, card, def, i))
     });
     if !front_now && (form.is_some() || !a_back_face_now) {
         return Err(CastError::BadTiming);
@@ -1227,7 +1286,7 @@ pub(crate) fn can_cast_form(
     let a_back_face_castable = || {
         printed.is_some_and(|def| {
             castable_back_faces(def, on_adventure).any(|(i, f)| {
-                face_timing_allows(state, player, def, i)
+                face_timing_allows(state, player, card, def, i)
                     && probe(&f.mana_cost.with_x(0))
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })

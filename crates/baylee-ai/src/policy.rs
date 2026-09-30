@@ -124,6 +124,32 @@ impl HeuristicAgent {
         u32::try_from(need).unwrap_or(0).clamp(min, max)
     }
 
+    /// One creature's share of a combat damage division this seat makes:
+    /// [`Self::damage_share`], except that from a source with deathtouch
+    /// one is lethal ("any nonzero amount of combat damage assigned to a
+    /// creature by a source with deathtouch is considered to be lethal
+    /// damage", CR 702.2c), which leaves the most for the creatures still
+    /// to come.
+    pub(crate) fn combat_share(
+        &self,
+        view: &PlayerView,
+        source: ObjectId,
+        recipient: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        let touch = view
+            .object(source)
+            .is_some_and(|o| o.keywords & KeywordSet::DEATHTOUCH.bits() != 0);
+        let hostile = view
+            .object(recipient)
+            .is_some_and(|o| self.hostile(o.controller, view.seat));
+        if touch && hostile {
+            return 1u32.clamp(min, max);
+        }
+        self.damage_share(view, recipient, min, max)
+    }
+
     pub(crate) fn number(
         &self,
         view: &PlayerView,
@@ -1393,29 +1419,49 @@ fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> 
 /// later.
 pub(crate) fn pays_tax(
     view: &PlayerView,
-    mana: u16,
+    price: baylee_core::mana::ManaCost,
     context: &baylee_engine::engine::DecisionContext<'_>,
 ) -> bool {
-    let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
-        Effect::PlayerMayPayOr { effect, .. } => matches!(
+    // A price rather than a tax — Crystal Rod's "you may pay {1}. If you
+    // do, you gain 1 life" — asks the same question the other way round:
+    // what paying buys is on a card this seat chose to play, so it is
+    // bought whenever the mana is there.
+    if context.effects.iter().any(|effect| {
+        matches!(
             effect,
-            Effect::CounterTargetSpell
-                | Effect::CounterTargetSpellToExile
-                | Effect::CounterTargetAbility
-                | Effect::CounterTargetSpellOrAbility
-                // Cumulative upkeep (CR 702.24a): unpaid, the permanent that
-                // asks is sacrificed, which is a card of the seat's own.
-                | Effect::SacrificeSelf
-        ),
+            Effect::PlayerMayPayThen { .. } | Effect::PlayerMayPayManaThen { .. }
+        )
+    }) {
+        return can_pay(view, &price);
+    }
+    let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {
+        Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
+            matches!(
+                effect,
+                Effect::CounterTargetSpell
+                    | Effect::CounterTargetSpellToExile
+                    | Effect::CounterTargetAbility
+                    | Effect::CounterTargetSpellOrAbility
+                    // Cumulative upkeep (CR 702.24a) and an upkeep like
+                    // Phantasmal Forces': unpaid, the permanent that asks is
+                    // sacrificed, which is a card of the seat's own.
+                    | Effect::SacrificeSelf
+                    // Force of Nature's "8 damage to you": a fifth of the
+                    // seat's life, which the mana is not worth keeping for.
+                    | Effect::DealDamage {
+                        target: baylee_cards_dsl::TargetSpec::Player(
+                            baylee_cards_dsl::PlayerRel::You
+                        ),
+                        ..
+                    }
+            )
+        }
         _ => false,
     });
     if !refusal_costs_a_card {
         return false;
     }
-    can_pay(
-        view,
-        &baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
-    )
+    can_pay(view, &price)
 }
 
 /// Whether the seat could produce `cost` right now, floating mana plus what

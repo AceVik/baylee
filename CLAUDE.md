@@ -176,7 +176,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - The engine must not link `baylee-cards-index` (own crate, not a core feature). The pool's name table is in `baylee-cards`. `docs/card-identity.md` is normative.
 - `validate` holds the `//!` header against the `CardDef`, and oracle text, `pool::type_line(face)`, printed costs (`Implemented` only) against Scryfall; header types use printed spelling (faces joined `" // "`). Never hand-type header oracle text; run `refresh-oracle`.
 - DSL can't say it: `Coverage::Partial("reason")` + `// NOT SUPPORTED:`; prefer extending the DSL. `docs/card-dsl.md` is the contract. Update `docs/llm-learnings.md` after every batch.
-- Batches go to cheap-model lanes in `scripts/llm/` (`README.md` normative): one script per (model, job) over shared `lane.py`, four prompt contracts in `prompts/`. A card's author model never writes its test. Plan DeepSeek in cards, Gemini in minutes. No lane runs cargo; no codegen during a batch.
+- Cards are written by Opus, their tests by another model, and Fable reviews (owner, 29.09: the cheap lanes made too many errors); `scripts/llm/` is retired for cards. A card's author model never writes its test. Sets go in release order by first printing, each by `docs/mechanics-roadmap.md` §E8; unplayable cards (ante, dexterity, subgame) are listed in `data/unplayable.tsv`, never built.
 
 #### Layout
 

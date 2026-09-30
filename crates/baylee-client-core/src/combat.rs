@@ -388,6 +388,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );
@@ -513,12 +515,15 @@ mod tests {
             .build();
         let mut i = Interaction::new(
             Pending::ChooseBlockers {
+                demands: Vec::new(),
                 player: seat(0),
                 attacker: seat(1),
                 blockers: vec![BlockOption {
                     blocker: obj(9),
                     attackers: vec![obj(1)],
                 }],
+                capacity: Vec::new(),
+                obeying: Vec::new(),
                 bounds: Vec::new(),
             },
             seat(0),
@@ -564,6 +569,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );
@@ -647,12 +654,15 @@ mod tests {
 
         let mut i = Interaction::new(
             Pending::ChooseBlockers {
+                demands: Vec::new(),
                 player: seat(0),
                 attacker: seat(1),
                 blockers: vec![BlockOption {
                     blocker: obj(10),
                     attackers: vec![obj(1), obj(3)],
                 }],
+                capacity: Vec::new(),
+                obeying: Vec::new(),
                 bounds: Vec::new(),
             },
             seat(0),
@@ -740,6 +750,8 @@ mod tests {
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
+                required: Vec::new(),
+                limits: Vec::new(),
             },
             seat(0),
         );

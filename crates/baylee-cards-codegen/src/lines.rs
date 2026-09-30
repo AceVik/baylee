@@ -500,11 +500,13 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
     printed.dedup();
     let mut made: Vec<String> = Vec::new();
     for effect in effects {
-        let Effect::AddMana { source, .. } = effect else {
-            continue;
+        let source = match effect {
+            Effect::AddMana { source, .. } => *source,
+            Effect::AddManaFor { color, .. } => ManaSource::Fixed(*color),
+            _ => continue,
         };
         match source {
-            ManaSource::Fixed(color) => made.push(symbol(*color).to_string()),
+            ManaSource::Fixed(color) => made.push(symbol(color).to_string()),
             ManaSource::Choice(colors) => {
                 made.extend(colors.iter().map(|c| symbol(*c).to_string()));
             }
@@ -586,10 +588,15 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::UnlockThisDoor(_) => &["unlock this door"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
-        T::DealsCombatDamageToPlayer(_) | T::DealsCombatDamageToOpponent(_) => &["damage"],
+        T::DealsCombatDamageToPlayer(_)
+        | T::DealsCombatDamageToOpponent(_)
+        | T::DealsDamageToOpponent(_)
+        | T::DealtDamage(_) => &["damage"],
+        // Living Artifact and Lich, "Whenever you're dealt damage".
+        T::PlayerDealtDamage(_) => &["dealt damage"],
         T::BecomesTapped(_) => &["tap"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
-        T::TappedForMana(_) => &["for mana"],
+        T::TappedForMana { .. } => &["for mana"],
         // Druid Class, "When this Class becomes level 3".
         T::CountersReach { .. } => &["becomes level"],
         T::Draws(_) | T::DrawsExceptFirst(_) => &["draw"],
@@ -597,6 +604,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::PlaysLand(_) => &["play a land"],
         T::Attacks(_) => &["attack"],
         T::AttacksAlone(_) => &["exalted", "attacks alone"],
+        // Cockatrice, "Whenever this creature blocks or becomes blocked by
+        // a non-Wall creature". Its filter is the *other* creature, so it
+        // stays out of `whose_trigger_fits`, where a filter is the subject.
+        T::BlocksOrBecomesBlockedBy(_) => &["block"],
         // The step, not the word "beginning" — every one of these sentences
         // opens with it, so on its own it says nothing and a card printing
         // two of them was a coin toss. Mana Vault prints an upkeep sentence
@@ -612,8 +623,18 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             StepKind::Upkeep => &["upkeep"],
             StepKind::Draw => &["draw step"],
             StepKind::CombatBegin => &["beginning of combat"],
+            StepKind::DeclareAttackers => &["declare attackers step"],
+            StepKind::DeclareBlockers => &["declare blockers step"],
+            StepKind::CombatDamage => &["combat damage step"],
             StepKind::End => &["end step"],
         },
+        // A state trigger (CR 603.8) prints the state it waits for: Sea
+        // Serpent's "When you control no Islands".
+        T::State(_) => &[
+            "when you control no",
+            "when there are no",
+            "when you have no",
+        ],
     }
 }
 
@@ -672,6 +693,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DrawsExceptFirst(rel)
         | Trigger::PlaysLand(rel)
         | Trigger::FirstNoncreatureSpellCast(rel)
+        | Trigger::PlayerDealtDamage(rel)
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
@@ -683,10 +705,12 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::Attacks(filter)
         | Trigger::AttacksAlone(filter)
         | Trigger::BecomesTapped(filter)
-        | Trigger::TappedForMana(filter)
+        | Trigger::TappedForMana { filter, .. }
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
+        | Trigger::DealsDamageToOpponent(filter)
+        | Trigger::DealtDamage(filter)
         | Trigger::SpellCast(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()
@@ -1344,7 +1368,10 @@ mod tests {
             LineShape::Triggered,
         );
         let cub = baylee_cards_dsl::AbilityDef::Triggered {
-            trigger: baylee_cards_dsl::Trigger::TappedForMana(&baylee_cards_dsl::Filter::CREATURE),
+            trigger: baylee_cards_dsl::Trigger::TappedForMana {
+                by: baylee_cards_dsl::PlayerRel::You,
+                filter: &baylee_cards_dsl::Filter::CREATURE,
+            },
             effects: &GREEN,
             targets: None,
             second_targets: None,

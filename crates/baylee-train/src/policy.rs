@@ -884,6 +884,7 @@ mod tests {
     fn menace_pending(least: u32, most: u32) -> Pending {
         let o = |n| ObjectId::new(n, 0);
         Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: PlayerId::new(1),
             attacker: PlayerId::new(0),
             blockers: vec![
@@ -901,6 +902,8 @@ mod tests {
                 min_blockers: least,
                 max_blockers: most,
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         }
     }
 

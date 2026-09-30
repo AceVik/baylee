@@ -204,6 +204,7 @@ impl ViewBuilder {
         self.view.combat = CombatView {
             attackers,
             blockers,
+            bands: Vec::new(),
         };
         self
     }

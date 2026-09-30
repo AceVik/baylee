@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
+use baylee_core::color::{Color, ColorSet};
 
 /// Counterspell: the classic — p0's creature spell never arrives.
 #[test]
@@ -100,6 +101,116 @@ fn a_spell_with_no_legal_target_is_not_offered() {
     assert!(
         legal.castable.is_empty(),
         "counterspell was offered with nothing on the stack to counter"
+    );
+}
+
+/// Spell Blast — {X}{U}: "Counter target spell with mana value X." X is
+/// announced before targets are chosen (CR 601.2b, 601.2c), so the target
+/// menu is the spells whose mana value is the X just announced — and before
+/// any X, a spell of any mana value is something to cast it at. Both halves
+/// used to read the card's X as it lay in hand, 0: Spell Blast was never
+/// offered against Ondu Cleric (mana value 2) and could only ever be pointed
+/// at a spell costing nothing.
+#[test]
+fn spell_blast_is_offered_for_any_spell_and_targets_the_ones_its_x_names() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let spell_blast = card_index("04477339-7ed5-4770-9e5c-6e481ffcc858");
+    let mut engine = Duel::new(12, forest())
+        .battlefield(0, &[forest(), plains()])
+        .hand(0, &[ondu_cleric()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[spell_blast])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    let cleric = engine.state().zones.list(ZoneLocation::Hand(p0))[0];
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: cleric })
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p1);
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    let blast = engine.state().zones.list(ZoneLocation::Hand(p1))[0];
+    assert!(
+        legal.castable.contains(&blast),
+        "Spell Blast was not offered against a spell of mana value 2"
+    );
+
+    // X = 1 names no spell on the stack: the cast finds no target and is
+    // reversed, leaving the card in hand and priority where it was.
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: blast })
+        .unwrap();
+    engine.apply(p1, PlayerAction::ChooseNumber(1)).unwrap();
+    assert!(
+        !matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "X = 1 offered a target: {:?}",
+        engine.pending()
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(p1))
+            .contains(&blast)
+    );
+
+    // X = 2 names the cleric, and only it.
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: blast })
+        .unwrap();
+    engine.apply(p1, PlayerAction::ChooseNumber(2)).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the target menu, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![cleric]);
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .contains(&cleric)
+    });
+    assert!(on_battlefield(&engine, p0, ondu_cleric()).is_none());
+}
+
+/// Sacrifice — {B}: "As an additional cost to cast this spell, sacrifice a
+/// creature. Add an amount of {B} equal to the sacrificed creature's mana
+/// value." The amount is what the cost recorded as it was paid: Ondu Cleric
+/// ({1}{W}) is two black mana, and the {B} that paid for the spell is gone.
+#[test]
+fn sacrifice_adds_black_mana_equal_to_the_sacrificed_creatures_mana_value() {
+    let p0 = PlayerId::new(0);
+    let sacrifice = card_index("068b3692-411b-44d4-a7e9-005262760cfc");
+    let mut engine = Duel::new(12, forest())
+        .battlefield(0, &[swamp(), ondu_cleric()])
+        .hand(0, &[sacrifice])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("the cleric is out");
+    cast_from_hand(&mut engine, p0, sacrifice);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the sacrifice is asked at cast, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![cleric]);
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: options })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, ondu_cleric()).is_none());
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Black),
+        2
     );
 }
 
@@ -21569,4 +21680,3864 @@ fn cryptic_command_counters_a_spell_and_bounces_a_permanent() {
     assert_eq!(engine.state().players[0].mana_pool.total(), 0, "countered");
     assert!(in_hand(&engine, p1, llanowar_elves()).is_some(), "bounced");
     assert_eq!(library_size(&engine, p0), library, "no card drawn");
+}
+
+/// Word of Command, Magical Hack, Sleight of Mind, Camouflage and False
+/// Orders are `Coverage::Partial` with none of their text written: each is
+/// cast, resolves doing nothing, and goes to the graveyard.
+#[test]
+fn partial_instants_with_no_text_written_resolve_doing_nothing() {
+    for (name, card, land, lands) in [
+        (
+            "Word of Command",
+            card_index("e8ad3a77-b293-4d69-b080-27ca9f95d443"),
+            swamp(),
+            2,
+        ),
+        (
+            "Magical Hack",
+            card_index("cba229fa-9035-405b-b091-3798898a37ee"),
+            island(),
+            1,
+        ),
+        (
+            "Sleight of Mind",
+            card_index("99dba614-40d3-41c1-a3b2-edc8777b010f"),
+            island(),
+            1,
+        ),
+        (
+            "Camouflage",
+            card_index("9cf44db4-627a-4197-9588-6da72e41f03d"),
+            forest(),
+            1,
+        ),
+        (
+            "False Orders",
+            card_index("38c5c952-8153-4d98-89b5-a75260383345"),
+            mountain(),
+            1,
+        ),
+    ] {
+        still_partial(card);
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Graveyard,
+            "{name}"
+        );
+    }
+}
+
+/// Guardian Angel — "Prevent the next X damage that would be dealt to any
+/// target this turn." (Its "pay {1} any time" half is not written.) X = 2
+/// on p0 itself, then a Lightning Bolt at p0: 2 of the 3 are prevented.
+#[test]
+fn guardian_angel_prevents_the_next_x_damage_to_its_target() {
+    let p0 = PlayerId::new(0);
+    let angel = card_index("1a91ca69-e890-41dc-866b-3aabf10c9a9c");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), plains(), mountain()])
+        .hand(0, &[angel, lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let red = on_battlefield(&engine, p0, mountain()).expect("the Mountain is out");
+    tap_mana_except(&mut engine, p0, red);
+    cast_with_floating(&mut engine, p0, angel);
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    let life = engine.state().players[0].life;
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("the Bolt at p0");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        life - 1,
+        "3 dealt, 2 prevented"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Alpha cards, played by their Oracle text.
+// ---------------------------------------------------------------------------
+
+/// A seat's current life total, read the way most of this batch reads it.
+fn life_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
+    engine.state().players[seat.get() as usize].life
+}
+
+/// Passes priority, declaring nothing, until `seat` is the one asked — the
+/// shape of every response window in this batch where the other seat has
+/// nothing left to add and only needs to get out of the way.
+#[track_caller]
+fn pass_until_priority(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    loop {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } if player == seat => return,
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("expected a priority round on the way to {seat:?}, got {other:?}"),
+        }
+    }
+}
+
+/// A vanilla {6} 4/6 artifact creature — Obsianus Golem, no printed
+/// keywords or abilities. Used here only as an ordinary body to attack or
+/// block with; its own Oracle text is checked in `artifacts.rs`.
+fn obsianus_golem() -> CardIndex {
+    card_index("ac41171e-c454-49e9-9004-c082ae099630")
+}
+
+fn death_ward() -> CardIndex {
+    card_index("0544b707-ec67-43e3-a25d-fd7005ab673d")
+}
+
+/// Death Ward: "Regenerate target creature." Cast ahead of an ordinary
+/// destroy (not the "can't be regenerated" kind), the shield saves its
+/// target, tapped, in its owner's control.
+#[test]
+fn death_ward_regenerates_its_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), plains()])
+        .hand(0, &[death_ward()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is seated");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, death_ward());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("its own Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    kill(&mut engine, elf);
+    assert_eq!(
+        engine.state().object(elf).map(|o| o.zone),
+        Some(Zone::Battlefield),
+        "the shield saved it"
+    );
+    assert!(is_tapped(&engine, elf), "regeneration taps the permanent");
+}
+
+fn healing_salve() -> CardIndex {
+    card_index("8da8644c-75a1-4fe9-8e94-900d948d631c")
+}
+
+/// Healing Salve, mode one: "Target player gains 3 life."
+#[test]
+fn healing_salve_mode_0_gains_3_life_for_a_target_player() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains()])
+        .hand(0, &[healing_salve()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before = life_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(0)))
+        .expect("mode 0 is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p0))
+        .expect("p0 is a legal target player");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p0), before + 3, "\"gains 3 life\"");
+}
+
+/// Healing Salve, mode two: "Prevent the next 3 damage that would be dealt
+/// to any target this turn." Read off a Lightning Bolt aimed at the same
+/// player the shield stands on.
+#[test]
+fn healing_salve_mode_1_prevents_the_next_3_damage_to_its_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), mountain()])
+        .hand(0, &[healing_salve(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let white = on_battlefield(&engine, p0, plains()).expect("the Plains is out");
+    tap_mana_where(&mut engine, p0, |id| id == white);
+    cast_with_floating(&mut engine, p0, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+
+    let before = life_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(life_of(&engine, p0), before, "3 dealt, 3 prevented");
+}
+
+fn reverse_damage() -> CardIndex {
+    card_index("eaaf7c30-f463-4115-a40e-7dc717063413")
+}
+
+/// Reverse Damage: "The next time a source of your choice would deal damage
+/// to you this turn, prevent that damage. If damage is prevented this way,
+/// you gain that much life instead." Untargeted — the source is chosen as
+/// this resolves. Cast in response to p1's Bolt, naming the Bolt itself,
+/// still on the stack underneath it, as that source.
+#[test]
+fn reverse_damage_prevents_damage_from_the_chosen_source_and_gains_that_life() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), forest()])
+        .hand(0, &[reverse_damage()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("the Bolt at p0");
+    let bolt = on_stack(&engine, lightning_bolt()).expect("the Bolt is on the stack");
+
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, reverse_damage());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected the chosen-source question, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert!(
+        options.contains(&bolt),
+        "the Bolt, still on the stack, is a legal source to name: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bolt],
+            },
+        )
+        .expect("naming the Bolt");
+
+    let before = life_of(&engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before + 3,
+        "the Bolt's 3 damage prevented, and that much life gained instead"
+    );
+}
+
+fn righteousness() -> CardIndex {
+    card_index("3f6b2f76-0364-415e-a6a2-e9e5bf31b745")
+}
+
+/// Righteousness: "Target creature blocking one or more creatures gets
+/// +7/+7 until end of turn." A 1/1 blocking a 4/6 becomes an 8/8: it takes
+/// the hit and lives, and deals enough back to kill the attacker — neither
+/// of which a 1/1 does on its own.
+#[test]
+#[allow(clippy::too_many_lines)] // one printed card, played through real combat
+fn righteousness_pumps_the_blocking_creature_seven_seven() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), plains()])
+        .hand(0, &[righteousness()])
+        .battlefield(1, &[obsianus_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let golem = on_battlefield(&engine, p1, obsianus_golem()).expect("the Golem is seated");
+    let blocker = on_battlefield(&engine, p0, quiet_creature()).expect("the Elf is seated");
+    assert_eq!(pt(&engine, blocker), (1, 1), "before the pump");
+    let blocks = attack_and_collect_blocks(&mut engine, golem, p0);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == blocker && b.attackers.contains(&golem)),
+        "a 1/1 may block a 4/6: {blocks:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, golem)],
+            },
+        )
+        .expect("the Elf blocks the Golem");
+
+    pass_until_priority(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, righteousness());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&blocker),
+        "the blocking creature is a legal target: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![blocker],
+                players: vec![],
+            },
+        )
+        .expect("the blocker is legal");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, blocker), (8, 8), "\"+7/+7\"");
+
+    let before = life_of(&engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain) && e.state().turn.active == p1
+    });
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "the 8/8 survives 4 damage"
+    );
+    assert!(
+        in_graveyard(&engine, p1, obsianus_golem()).is_some(),
+        "and deals 8 back to a 6-toughness attacker"
+    );
+    assert_eq!(life_of(&engine, p0), before, "blocked, and no trample");
+}
+
+fn blue_elemental_blast() -> CardIndex {
+    card_index("65e1558c-6b09-4ddc-b520-f19f4fb972af")
+}
+
+/// Blue Elemental Blast, mode one: "Counter target spell if it's red." Read
+/// off a Lightning Bolt, cast in response to it before it can deal damage.
+#[test]
+fn blue_elemental_blast_mode_0_counters_a_red_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[blue_elemental_blast()])
+        .battlefield(1, &[mountain(), flame_spirit()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A red permanent stands beside the red spell so both modes have a
+    // legal target and the modal choice is really asked — with only one
+    // candidate on the whole board, the engine collapses the choice.
+    assert!(
+        on_battlefield(&engine, p1, flame_spirit()).is_some(),
+        "seated"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("the Bolt at p0");
+    let bolt = on_stack(&engine, lightning_bolt()).expect("on the stack");
+
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, blue_elemental_blast());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(0)))
+        .expect("mode 0 offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    let Pending::ChooseTargets {
+        options: targets, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a spell target, got {:?}", engine.pending())
+    };
+    assert!(
+        targets.contains(&bolt),
+        "a red spell is a legal target: {targets:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bolt],
+            },
+        )
+        .expect("the Bolt is red");
+
+    let before = life_of(&engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p0),
+        before,
+        "countered before it could deal damage"
+    );
+    assert!(
+        in_graveyard(&engine, p1, lightning_bolt()).is_some(),
+        "a countered spell still moves to its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, flame_spirit()).is_some(),
+        "mode 0 was chosen — the other mode's candidate is untouched"
+    );
+}
+
+/// Blue Elemental Blast, mode two: "Destroy target permanent if it's red."
+#[test]
+fn blue_elemental_blast_mode_1_destroys_a_red_permanent() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[blue_elemental_blast()])
+        .battlefield(1, &[mountain(), flame_spirit()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A red spell on the stack beside the red permanent, so both modes have
+    // a legal target and the modal choice is really asked. Aimed at its own
+    // caster, out of the way of this test.
+    let spirit = on_battlefield(&engine, p1, flame_spirit()).expect("seated");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, lightning_bolt());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("p1 may aim the Bolt at itself");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, blue_elemental_blast());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    let Pending::ChooseTargets {
+        options: targets, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected an object target, got {:?}", engine.pending())
+    };
+    assert!(
+        targets.contains(&spirit),
+        "a red permanent is a legal target: {targets:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![spirit],
+            },
+        )
+        .expect("Flame Spirit is red");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, flame_spirit()).is_none());
+    assert!(in_graveyard(&engine, p1, flame_spirit()).is_some());
+}
+
+fn mana_short() -> CardIndex {
+    card_index("48207d1c-448a-4e1b-974a-642dfea75933")
+}
+
+/// Mana Short: "Tap all lands target player controls. That player loses all
+/// unspent mana." Self-targeted: some of p0's lands pay for the spell
+/// itself, two more are tapped afterward for mana that is never spent, and
+/// one more is left standing untouched — proving the tap reaches every
+/// land, not only the ones a cost already used.
+#[test]
+fn mana_short_taps_all_lands_and_empties_the_pool() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[island(), island(), forest(), swamp(), swamp(), mountain()],
+        )
+        .hand(0, &[mana_short()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let payers: Vec<ObjectId> = all_on_battlefield(&engine, p0, island())
+        .into_iter()
+        .chain(all_on_battlefield(&engine, p0, forest()))
+        .collect();
+    tap_mana_where(&mut engine, p0, |id| payers.contains(&id));
+    cast_with_floating(&mut engine, p0, mana_short());
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p0))
+        .expect("p0 targets itself");
+
+    let swamps = all_on_battlefield(&engine, p0, swamp());
+    tap_mana_where(&mut engine, p0, |id| swamps.contains(&id));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        2,
+        "two black floating, unspent"
+    );
+    let a_mountain = on_battlefield(&engine, p0, mountain()).expect("seated");
+    assert!(!is_tapped(&engine, a_mountain), "untouched so far");
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(PlayerId::new(1), PlayerAction::PassPriority)
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "\"loses all unspent mana\""
+    );
+    assert!(
+        is_tapped(&engine, a_mountain),
+        "\"tap all lands target player controls\" — even one never used for mana"
+    );
+}
+
+fn psionic_blast() -> CardIndex {
+    card_index("7f221ad6-7ec4-483d-a6b5-1456c95c1cad")
+}
+
+/// Psionic Blast: "deals 4 damage to any target" and, on its own second
+/// line, "deals 2 damage to you" — its own caster, unconditionally,
+/// regardless of who or what the first line hits.
+#[test]
+fn psionic_blast_deals_4_to_any_target_and_2_to_its_caster() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), forest()])
+        .hand(0, &[psionic_blast()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let before0 = life_of(&engine, p0);
+    let before1 = life_of(&engine, p1);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, psionic_blast());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("p1 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        life_of(&engine, p1),
+        before1 - 4,
+        "\"deals 4 damage to any target\""
+    );
+    assert_eq!(
+        life_of(&engine, p0),
+        before0 - 2,
+        "\"deals 2 damage to you\" — its own caster"
+    );
+}
+
+fn thoughtlace() -> CardIndex {
+    card_index("6452b6a6-6235-46a3-a712-a26592450438")
+}
+
+/// Thoughtlace: "Target spell or permanent becomes blue." Read off a
+/// permanent, empirically: the color changes on the object targeted, not on
+/// Thoughtlace's own (already-left-play) source.
+#[test]
+fn thoughtlace_turns_its_target_blue() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), island()])
+        .hand(0, &[thoughtlace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        ColorSet::of(Color::Green),
+        "green as printed, before"
+    );
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, thoughtlace());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("its own Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        ColorSet::of(Color::Blue),
+        "\"becomes blue\" — the target, not the spell's own source"
+    );
+}
+
+fn twiddle() -> CardIndex {
+    card_index("773ad2ef-5acc-49ea-8d85-056330e87039")
+}
+
+/// Twiddle: "You may tap or untap target artifact, creature, or land."
+/// Targets an untapped land and accepts the "may": it comes back tapped.
+#[test]
+fn twiddle_toggles_the_tapped_state_of_its_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[twiddle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let islands = all_on_battlefield(&engine, p0, island());
+    let (payer, target) = (islands[0], islands[1]);
+    assert!(!is_tapped(&engine, target), "untapped before");
+    tap_mana_where(&mut engine, p0, |id| id == payer);
+    cast_with_floating(&mut engine, p0, twiddle());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .expect("an untapped land is a legal target");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        is_tapped(&engine, target),
+        "\"tap or untap\" — tapped, since it started untapped"
+    );
+}
+
+/// Twiddle declined: "you may" answered no leaves the target exactly as it
+/// was.
+#[test]
+fn twiddle_declined_leaves_its_target_unchanged() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[twiddle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let islands = all_on_battlefield(&engine, p0, island());
+    let (payer, target) = (islands[0], islands[1]);
+    tap_mana_where(&mut engine, p0, |id| id == payer);
+    cast_with_floating(&mut engine, p0, twiddle());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .expect("an untapped land is a legal target");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        !is_tapped(&engine, target),
+        "declined \"you may\" — nothing happens"
+    );
+}
+
+fn deathlace() -> CardIndex {
+    card_index("fb80aaba-352a-4b58-8db2-1e02d542819c")
+}
+
+/// Deathlace: "Target spell or permanent becomes black."
+#[test]
+fn deathlace_turns_its_target_black() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), swamp()])
+        .hand(0, &[deathlace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, deathlace());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("its own Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        ColorSet::of(Color::Black),
+        "\"becomes black\""
+    );
+}
+
+fn terror() -> CardIndex {
+    card_index("b81f041d-98db-4408-9472-c483e4a502bc")
+}
+
+/// Terror: "Destroy target creature that isn't artifact or black. That
+/// creature can't be regenerated." A shield bought and spent on Thrun does
+/// not save it; a black Troll and an artifact Golem beside it are never
+/// legal targets at all.
+#[test]
+fn terror_destroys_through_a_regeneration_shield_and_excludes_black_and_artifact() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                thrun_the_last_troll(),
+                lotleth_troll(),
+                obsianus_golem(),
+                forest(),
+                forest(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .hand(0, &[terror()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let thrun = on_battlefield(&engine, p0, thrun_the_last_troll()).expect("seated");
+    let black_troll = on_battlefield(&engine, p0, lotleth_troll()).expect("seated");
+    let golem = on_battlefield(&engine, p0, obsianus_golem()).expect("seated");
+
+    let forests = all_on_battlefield(&engine, p0, forest());
+    tap_mana_where(&mut engine, p0, |id| forests.contains(&id));
+    raise_a_shield(&mut engine, p0, thrun, 0);
+
+    let swamps = all_on_battlefield(&engine, p0, swamp());
+    tap_mana_where(&mut engine, p0, |id| swamps.contains(&id));
+    cast_with_floating(&mut engine, p0, terror());
+    let menu = aim_at(&mut engine, p0, thrun);
+    assert!(
+        menu.contains(&thrun),
+        "a nonartifact, nonblack creature: legal"
+    );
+    assert!(
+        !menu.contains(&black_troll),
+        "black — \"isn't … black\" excludes it: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&golem),
+        "an artifact creature — \"isn't artifact\" excludes it: {menu:?}"
+    );
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        on_battlefield(&engine, p0, thrun_the_last_troll()).is_none(),
+        "the shield did not save it"
+    );
+    assert!(in_graveyard(&engine, p0, thrun_the_last_troll()).is_some());
+}
+
+fn chaoslace() -> CardIndex {
+    card_index("08842aa3-f923-46e9-a106-f542331e9cc1")
+}
+
+/// Chaoslace: "Target spell or permanent becomes red."
+#[test]
+fn chaoslace_turns_its_target_red() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), mountain()])
+        .hand(0, &[chaoslace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, chaoslace());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("its own Elf is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        ColorSet::of(Color::Red),
+        "\"becomes red\""
+    );
+}
+
+fn red_elemental_blast() -> CardIndex {
+    card_index("bb329a5c-b9f9-4973-a53f-090024146325")
+}
+
+/// Red Elemental Blast, mode one: "Counter target spell if it's blue." Read
+/// off an Unsummon, cast in response before it can bounce anything.
+#[test]
+fn red_elemental_blast_mode_0_counters_a_blue_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), mountain()])
+        .hand(0, &[red_elemental_blast()])
+        .battlefield(1, &[island(), oboro_envoy()])
+        .hand(1, &[unsummon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A blue permanent stands beside the blue spell so both modes have a
+    // legal target and the modal choice is really asked.
+    assert!(
+        on_battlefield(&engine, p1, oboro_envoy()).is_some(),
+        "seated"
+    );
+    let elf = on_battlefield(&engine, p0, quiet_creature()).expect("seated");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, unsummon());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elf is a legal target");
+    let bounce = on_stack(&engine, unsummon()).expect("on the stack");
+
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, red_elemental_blast());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(0)))
+        .expect("mode 0 offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    let Pending::ChooseTargets {
+        options: targets, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a spell target, got {:?}", engine.pending())
+    };
+    assert!(
+        targets.contains(&bounce),
+        "a blue spell is a legal target: {targets:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bounce],
+            },
+        )
+        .expect("Unsummon is blue");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, quiet_creature()).is_some(),
+        "countered before it could bounce the Elf"
+    );
+    assert!(
+        in_graveyard(&engine, p1, unsummon()).is_some(),
+        "a countered spell still moves to its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p1, oboro_envoy()).is_some(),
+        "mode 0 was chosen — the other mode's candidate is untouched"
+    );
+}
+
+/// Red Elemental Blast, mode two: "Destroy target permanent if it's blue."
+#[test]
+fn red_elemental_blast_mode_1_destroys_a_blue_permanent() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[mountain()])
+        .hand(0, &[red_elemental_blast()])
+        .battlefield(1, &[island(), oboro_envoy(), quiet_creature()])
+        .hand(1, &[unsummon()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // A blue spell on the stack beside the blue permanent, so both modes
+    // have a legal target and the modal choice is really asked. Aimed at
+    // p1's own Elf, out of the way of this test.
+    let envoy = on_battlefield(&engine, p1, oboro_envoy()).expect("seated");
+    let elf = on_battlefield(&engine, p1, quiet_creature()).expect("seated");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, unsummon());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("p1 may bounce its own Elf");
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, red_elemental_blast());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    let Pending::ChooseTargets {
+        options: targets, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected an object target, got {:?}", engine.pending())
+    };
+    assert!(
+        targets.contains(&envoy),
+        "a blue permanent is a legal target: {targets:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![envoy],
+            },
+        )
+        .expect("Oboro Envoy is blue");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, oboro_envoy()).is_none());
+    assert!(in_graveyard(&engine, p1, oboro_envoy()).is_some());
+}
+
+fn fog() -> CardIndex {
+    card_index("27e9db49-7af7-4bef-ad4c-bf5dfb92030d")
+}
+
+/// Fog: "Prevent all combat damage that would be dealt this turn." An
+/// unblocked 4-power attacker leaves its target untouched.
+#[test]
+fn fog_prevents_all_combat_damage_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[fog()])
+        .battlefield(1, &[obsianus_golem()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let golem = on_battlefield(&engine, p1, obsianus_golem()).expect("seated");
+    attack_and_collect_blocks(&mut engine, golem, p0);
+    engine
+        .apply(p0, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("p0 has nothing to block with");
+
+    pass_until_priority(&mut engine, p0);
+    let before = life_of(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, fog());
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain) && e.state().turn.active == p1
+    });
+    assert_eq!(
+        life_of(&engine, p0),
+        before,
+        "an unblocked 4-power attacker leaves p0 untouched"
+    );
+}
+
+fn lifelace() -> CardIndex {
+    card_index("eec1de80-4b3d-481d-a235-c299e0381830")
+}
+
+/// Lifelace: "Target spell or permanent becomes green."
+#[test]
+fn lifelace_turns_its_target_green() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[oboro_envoy(), forest()])
+        .hand(0, &[lifelace()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let envoy = on_battlefield(&engine, p0, oboro_envoy()).expect("seated");
+    assert_eq!(
+        engine
+            .state()
+            .object(envoy)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(Color::Blue),
+        "blue as printed, before"
+    );
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lifelace());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![envoy],
+                players: vec![],
+            },
+        )
+        .expect("its own Envoy is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(envoy)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::of(Color::Green),
+        "\"becomes green\""
+    );
+}
+
+fn natural_selection() -> CardIndex {
+    card_index("57f90b30-bcb0-447e-8788-5c5ded187207")
+}
+
+/// Natural Selection: "Look at the top three cards of target player's
+/// library, then put them back in any order. You may have that player
+/// shuffle their library instead." Declining the shuffle leaves the chosen
+/// order standing — the mandatory first sentence, proven on its own.
+#[test]
+fn natural_selection_reorders_the_top_three_and_may_decline_the_shuffle() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[natural_selection()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, natural_selection());
+    engine
+        .apply(p0, PlayerAction::ChoosePlayer(p0))
+        .expect("p0 targets itself");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        prompt,
+    } = engine.pending().clone()
+    else {
+        panic!("expected an arrangement, got {:?}", engine.pending());
+    };
+    assert_eq!(player, p0);
+    assert_eq!(prompt, ArrangePrompt::Order, "\"in any order\"");
+    assert_eq!(
+        piles,
+        vec![ArrangePile::all_of(ArrangePlace::LibraryTop, 3)]
+    );
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let top_three: Vec<ObjectId> = library.iter().rev().take(3).copied().collect();
+    assert_eq!(cards, top_three);
+
+    let mut reversed = cards.clone();
+    reversed.reverse();
+    engine
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![reversed.clone()],
+            },
+        )
+        .unwrap();
+
+    let Pending::YesNo {
+        prompt: YesNoPrompt::MayDo,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected \"you may have that player shuffle instead\", got {:?}",
+            engine.pending()
+        )
+    };
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let after = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    let new_top: Vec<ObjectId> = after.iter().rev().take(3).copied().collect();
+    assert_eq!(
+        new_top, reversed,
+        "declined the shuffle: the chosen order stands"
+    );
+}
+
+fn power_sink() -> CardIndex {
+    card_index("39412e6d-2837-4729-abf9-e64a5ba87e40")
+}
+
+/// Casts Power Sink for `x` at `target` (an object on the stack), answering
+/// the announce-time questions (CR 601.2b, 601.2c) in whichever order the
+/// engine asks them, and returns the target menu it published.
+#[track_caller]
+fn cast_power_sink_at(
+    engine: &mut Engine<RegistryLookup>,
+    caster: PlayerId,
+    x: u32,
+    target: ObjectId,
+) -> Vec<ObjectId> {
+    let sink = in_hand(engine, caster, power_sink()).expect("Power Sink in hand");
+    engine
+        .apply(caster, PlayerAction::CastSpell { card: sink })
+        .expect("Power Sink is castable");
+    let mut asked_x = false;
+    let mut targeted = false;
+    let mut menu = Vec::new();
+    for _ in 0..8 {
+        if asked_x && targeted {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseNumber {
+                player, min, max, ..
+            } => {
+                assert!(
+                    min <= x && x <= max,
+                    "X = {x} must be one of the values on offer: {min}..={max}"
+                );
+                engine
+                    .apply(player, PlayerAction::ChooseNumber(x))
+                    .expect("the answer came out of the question");
+                asked_x = true;
+            }
+            Pending::ChooseTargets {
+                player, options, ..
+            } => {
+                menu = options;
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![target],
+                        },
+                    )
+                    .expect("the named spell was on the menu");
+                targeted = true;
+            }
+            other => panic!("unexpected while casting Power Sink: {other:?}"),
+        }
+    }
+    assert!(
+        asked_x && targeted,
+        "both questions were asked and answered"
+    );
+    menu
+}
+
+/// Power Sink: "Counter target spell unless its controller pays {X}." X is
+/// the X Power Sink itself was cast with — two, not the one a card that
+/// ignored its own announced X and printed a fixed tax would still show —
+/// and the player asked to pay is the *targeted* spell's controller — p0,
+/// who cast the Elves — and not Power Sink's own caster p1. p0 declines, so
+/// the Elves are countered.
+#[test]
+fn power_sink_counters_the_targeted_spell_when_its_controller_declines_to_pay_x() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[island(), island(), island()])
+        .hand(1, &[power_sink()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("Elves in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elves })
+        .unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p1);
+    let menu = cast_power_sink_at(&mut engine, p1, 2, elves);
+    assert!(
+        menu.contains(&elves),
+        "\"counter target spell\" — any spell is a legal target: {menu:?}"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the tax question")
+    };
+    assert_eq!(mana, 2, "X = 2, the X Power Sink was cast with");
+    assert_eq!(
+        player, p0,
+        "\"its controller\" — the targeted spell's controller, not Power Sink's own caster"
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "countered: the Elf never arrives"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "a countered spell is put into its owner's graveyard (CR 701.6a)"
+    );
+    assert!(
+        in_graveyard(&engine, p1, power_sink()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}
+
+/// The other half: p0 pays the {X} out of mana already floating from
+/// casting their own spell, and the Elf resolves — paying is what Power
+/// Sink's own text says keeps the countered spell alive.
+#[test]
+fn power_sink_lets_the_spell_resolve_when_its_controller_pays_x() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[power_sink()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_all_mana(&mut engine, p0);
+    let elves = in_hand(&engine, p0, llanowar_elves()).expect("Elves in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: elves })
+        .unwrap();
+    // Two Forests paid for a one-mana Elf: one green mana is still floating
+    // when Power Sink's tax question comes, which is the whole point of
+    // this board over the counterpart test's single Forest.
+    let floating_before = engine.state().players[0].mana_pool.total();
+    assert_eq!(
+        floating_before, 1,
+        "one Forest spent on the Elf, one left floating"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    tap_all_mana(&mut engine, p1);
+    cast_power_sink_at(&mut engine, p1, 1, elves);
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayTax { mana },
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the tax question")
+    };
+    assert_eq!(mana, 1);
+    assert_eq!(
+        player, p0,
+        "the payer is the targeted spell's controller, not Power Sink's caster"
+    );
+
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "paid: the spell is not countered and resolves"
+    );
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_none(),
+        "a resolved permanent spell is not in its owner's graveyard"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        floating_before - 1,
+        "exactly the X was spent paying the tax"
+    );
+    assert!(
+        in_graveyard(&engine, p1, power_sink()).is_some(),
+        "a resolved instant goes to its owner's graveyard"
+    );
+}
+
+fn fork() -> CardIndex {
+    card_index("50c53ae0-51ba-4046-ac74-87c65e688032")
+}
+
+/// Fork: "Copy target instant or sorcery spell, except that the copy is
+/// red. You may choose new targets for the copy." Only instant and sorcery
+/// spells are legal targets — a creature spell on the stack underneath the
+/// Giant Growth this test points Fork at is never offered. "May" (CR
+/// 707.10c: "The player may leave any number of the targets unchanged")
+/// means the original target is still on the retarget menu even though
+/// Fork's own caster goes on to choose a different creature (CR 707.10c),
+/// and both effects land independently: the original's own target gets
+/// its own +3/+3 and the copy's new target gets its own, which is only
+/// true if the retargeting actually moved the copy's aim rather than
+/// leaving it on the original's creature.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[quiet_creature(), swamp(), forest()])
+        .hand(0, &[festering_goblin(), giant_growth()])
+        .battlefield(1, &[quiet_creature(), mountain(), mountain()])
+        .hand(1, &[fork()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let qc_a = on_battlefield(&engine, p0, quiet_creature()).expect("p0's creature is seated");
+    let qc_b = on_battlefield(&engine, p1, quiet_creature()).expect("p1's creature is seated");
+    let (base_a, base_b) = (pt(&engine, qc_a), pt(&engine, qc_b));
+
+    tap_all_mana(&mut engine, p0);
+    // A creature spell first, so something that is neither instant nor
+    // sorcery sits on the stack beneath the one Fork actually points at.
+    cast_with_floating(&mut engine, p0, festering_goblin());
+    let goblin_spell = top_of_stack(&engine);
+
+    // Still p0's own priority: Giant Growth targets their own creature and
+    // stacks above the Goblin.
+    cast_with_floating(&mut engine, p0, giant_growth());
+    let gg_options = aim_at(&mut engine, p0, qc_a);
+    assert!(
+        gg_options.contains(&qc_a) && gg_options.contains(&qc_b),
+        "\"target creature\" is not \"target creature you control\": {gg_options:?}"
+    );
+    let growth_spell = top_of_stack(&engine);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, fork());
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("Fork asks for a target spell, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "Fork's own caster names its target");
+    assert!(
+        options.contains(&growth_spell),
+        "an instant on the stack is a legal target: {options:?}"
+    );
+    assert!(
+        !options.contains(&goblin_spell),
+        "a creature spell is neither instant nor sorcery: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![growth_spell],
+            },
+        )
+        .expect("the instant was on the menu");
+
+    // Both players still have to pass priority for Fork to resolve.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+
+    // Fork resolves; the copy is already on the stack, above the
+    // original, asking its controller to retarget it (CR 707.10c).
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the copy asks to be retargeted, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1, "the copy's controller picks its new target");
+    assert_eq!((min, max), (1, 1), "one target, asked once");
+    let copy = top_of_stack(&engine);
+    assert_ne!(
+        copy, growth_spell,
+        "the copy is a new object, not the original"
+    );
+    let copy_colors = engine
+        .state()
+        .object(copy)
+        .expect("the copy is on the stack")
+        .characteristics()
+        .colors;
+    assert_eq!(
+        copy_colors,
+        ColorSet::of(Color::Red),
+        "\"except that the copy is red\" — not Giant Growth's own green"
+    );
+    assert!(
+        options.contains(&qc_b),
+        "the other creature is a legal new target: {options:?}"
+    );
+    assert!(
+        options.contains(&qc_a),
+        "CR 707.10c: \"the player may leave any number of the targets \
+         unchanged\" — the original target is still on the menu: {options:?}"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![qc_b],
+                players: vec![],
+            },
+        )
+        .expect("the retarget names a legal creature");
+
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        pt(&engine, qc_b),
+        (base_b.0 + 3, base_b.1 + 3),
+        "the copy's new target got its own +3/+3"
+    );
+    assert_eq!(
+        pt(&engine, qc_a),
+        (base_a.0 + 3, base_a.1 + 3),
+        "the original spell still resolved on the target it was cast at, \
+         not doubled up by the retargeted copy"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "the creature spell beneath both was never Fork's target"
+    );
+}
+
+fn berserk() -> CardIndex {
+    card_index("8b67d192-9a05-4a47-82ae-5fc4b7834d88")
+}
+
+/// Berserk: "Target creature gains trample and gets +X/+0 until end of
+/// turn, where X is its power." X is read as Berserk *resolves*, not as it
+/// is cast: Berserk is cast at the Elf while it is still a 1/1, then Giant
+/// Growth is cast on top of it and resolves first (last in, first out), so
+/// by the time Berserk itself resolves the Elf is at 4 power. A cast-time X
+/// would still be 1 and leave the Elf at 5/4; reading X at resolution
+/// leaves it at 8/4 instead. A second Giant Growth cast afterwards adds its
+/// own +3/+3 without inflating Berserk's now-fixed bonus further, and the
+/// "+0" half never touches toughness. The bystander Goblin beside it is
+/// never targeted and never moves. By the next turn every "until end of
+/// turn" grant this test made — trample included — is gone.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_pumps_by_the_targets_power_at_resolution_and_only_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                llanowar_elves(),
+                festering_goblin(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
+        .hand(0, &[giant_growth(), giant_growth(), berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("the Goblin is seated");
+    assert_eq!(pt(&engine, elf), (1, 1), "printed 1/1");
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "nothing has been granted anything yet"
+    );
+
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, berserk());
+    let options = aim_at(&mut engine, p0, elf);
+    assert!(
+        options.contains(&goblin),
+        "\"target creature\" is not restricted to a boosted one: {options:?}"
+    );
+
+    // Still p0's own priority: Giant Growth stacks above Berserk and
+    // resolves first, so the Elf is at 4 power — not its printed 1 — when
+    // Berserk's own resolution reads X.
+    cast_with_floating(&mut engine, p0, giant_growth());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elf),
+        (8, 4),
+        "Giant Growth resolves first, to 4 power; Berserk then reads \
+         X = 4 at its own resolution and adds +4/+0 — a cast-time X would \
+         have frozen at 1 and left the Elf at 5/4, not 8/4 — and toughness \
+         is untouched by \"+X/+0\""
+    );
+    assert_eq!(pt(&engine, goblin), (1, 1), "never targeted, never moved");
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "\"gains trample\""
+    );
+    assert!(
+        !keywords(&engine, goblin).contains(KeywordSet::TRAMPLE),
+        "the Goblin beside it was never Berserk's target"
+    );
+
+    cast_with_floating(&mut engine, p0, giant_growth());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, elf),
+        (11, 7),
+        "the second Giant Growth adds its own +3/+3; Berserk's own +4/+0 \
+         does not grow along with the Elf's power after the fact"
+    );
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "still this same turn"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(
+        pt(&engine, elf),
+        (1, 1),
+        "every \"until end of turn\" bonus is gone, Berserk's included"
+    );
+    assert!(
+        !keywords(&engine, elf).contains(KeywordSet::TRAMPLE),
+        "the trample granted \"until end of turn\" does not outlast it"
+    );
+}
+
+fn siren_s_call() -> CardIndex {
+    card_index("269fc857-a052-4f0a-9759-467ccf42bebb")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+/// Taps whichever untapped basic land `seat` still has, floating one mana
+/// of its color. `legal.castable` reads the pool that is already floating
+/// (CR 106.4 empties it at the end of every step), never a land that merely
+/// *could* be tapped, so a "not castable" reading is only about timing when
+/// this was called first — otherwise it is indistinguishable from "no mana".
+///
+/// Filtered for an actual land rather than taking `mana_abilities.first()`
+/// blind: that list also carries a granted mana ability with no printed
+/// source (`docs/protocol.md` §"Granted mana"), which is not a land this
+/// helper could have meant to tap.
+#[track_caller]
+fn float_one_mana(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let source = *priority_offer(engine)
+        .mana_abilities
+        .iter()
+        .find(|&&id| {
+            engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.characteristics().types.contains(TypeSet::LAND))
+        })
+        .expect("an untapped basic land is still available");
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("the land taps for mana");
+}
+
+/// Berserk: "Cast this spell only before the combat damage step" (CR 506.7).
+/// Offered in the upkeep, the first main phase, the beginning of combat,
+/// the declare attackers step (both before and after the attacker is
+/// declared — that step is not skipped, CR 508.8, since one is) and through
+/// the declare blockers step, and refused everywhere the combat damage step
+/// has already begun or passed: that step itself, end of combat, the second
+/// main phase, the end step. A Forest is tapped fresh at every checkpoint,
+/// open or shut, so a "not castable" reading is never merely "no floating
+/// mana".
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_is_castable_before_combat_damage_and_refused_from_it_on() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut lands = vec![forest(); 9];
+    lands.push(llanowar_elves());
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &lands)
+        .hand(0, &[berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p0, berserk()).expect("Berserk is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the upkeep step is well before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the first main phase is before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "beginning of combat, still before attackers are even declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, attackers, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(attackers.contains(&elf));
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("the Elf came out of the list that offered it");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the declare attackers step, with an attacker now named, is still \
+         before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareBlockers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        castable(&engine),
+        "the declare blockers step is still before the combat damage step"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatDamage
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(
+        !castable(&engine),
+        "the combat damage step has begun — \"only before\" it is over, \
+         and the mana just floated proves this is not about affording it"
+    );
+    let refused = in_hand(&engine, p0, berserk()).expect("Berserk is still in hand");
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: refused })
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatEnd
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "end of combat, later still");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "the second main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_mana(&mut engine, p0);
+    assert!(!castable(&engine), "the end step");
+}
+
+/// Berserk carries no clause about whose turn it is, so p1 casts it freely
+/// during p0's turn. And when nothing is declared this combat, the declare
+/// blockers and combat damage steps are skipped outright (CR 508.8), so the
+/// stated point — the combat damage step — never exists this combat; CR
+/// 506.7e then closes the window at the end of the declare attackers step
+/// instead. A Forest is tapped fresh at every checkpoint, open or shut, so
+/// a "not castable" reading is never merely "no floating mana".
+#[test]
+fn berserk_is_castable_on_an_opponents_turn_and_closes_at_the_declare_attackers_step_when_nothing_attacked()
+ {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            1,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                grizzly_bears(),
+            ],
+        )
+        .hand(1, &[berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // A legal target throughout: without one Berserk is withheld for that
+    // reason alone (CR 601.2c), which would say nothing about the window
+    // this test is about.
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p1, berserk()).expect("Berserk is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    // Turn 1 is p0's; p0 has nothing to attack with, so the declare
+    // attackers turn-based action declares nobody on its own.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "an opponent's turn is no obstacle: Berserk names none"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(castable(&engine), "p0's main phase, still before combat");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(castable(&engine), "beginning of combat");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "the declare attackers step, before it ends, is open even though \
+         nothing was named this combat (CR 506.7a: the rule reads the step, \
+         not the declaration)"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatEnd
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "declare blockers and combat damage were both skipped (CR 508.8), \
+         so the stated point never existed this combat; CR 506.7e closes \
+         the window at the declare attackers step's end instead, and the \
+         mana just floated proves this is not about affording it"
+    );
+}
+
+/// Berserk's delayed destruction: "At the beginning of the next end step,
+/// destroy that creature if it attacked this turn." Two Berserks are cast
+/// in the same main phase, one on a creature that then attacks unblocked
+/// and survives combat, one on a creature that stays home. Both gain the
+/// same trample and +X/+0; combat over, neither has been claimed yet — the
+/// trigger fires at the *beginning* of the end step, not during combat —
+/// and the attacker is untapped again before that step begins, so what
+/// destroys it afterward can only be that it attacked this turn, not that
+/// it is still tapped from doing so.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn berserk_destroys_the_creature_it_pumped_only_if_it_attacked_this_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), llanowar_elves(), festering_goblin()],
+        )
+        .hand(0, &[berserk(), berserk()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let goblin = on_battlefield(&engine, p0, festering_goblin()).expect("the Goblin is seated");
+
+    // Not `tap_all_mana`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for its own Berserk, leaving it unable to attack for a
+    // reason that has nothing to do with what this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, berserk());
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_with_floating(&mut engine, p0, berserk());
+    aim_at(&mut engine, p0, goblin);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        keywords(&engine, elf).contains(KeywordSet::TRAMPLE)
+            && keywords(&engine, goblin).contains(KeywordSet::TRAMPLE),
+        "both creatures were pumped by their own Berserk the same way"
+    );
+
+    let blocks = attack_and_collect_blocks(&mut engine, elf, p1);
+    assert!(
+        blocks.is_empty(),
+        "p1 has nothing on the battlefield to block with"
+    );
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .expect("p1 declares no blocks");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "combat is over and the end step has not begun yet: the delayed \
+         destruction has not fired"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "same reading for the creature the trigger will end up sparing"
+    );
+
+    // Untapped here, before the end step begins: what the delayed trigger
+    // reads is whether the Elf attacked this turn (`Filter::AttackedThisTurn`),
+    // a fact recorded at the declaration and never erased by an untap, not
+    // whether it is still tapped from having done so.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elf, false);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "the Elf attacked this turn, so its own Berserk's delayed \
+         destruction claims it as the end step begins, untapped or not"
+    );
+    assert!(
+        on_battlefield(&engine, p0, festering_goblin()).is_some(),
+        "the Goblin never attacked, so the same delayed destruction from \
+         its own Berserk spares it"
+    );
+}
+
+/// Siren's Call: "Cast this spell only during an opponent's turn, before
+/// attackers are declared." Offered to p1 through p0's beginning of
+/// combat, refused from the declare attackers step on, and never offered
+/// at all on p1's own turn, however early. An Island is tapped fresh at
+/// every checkpoint, open or shut, so a "not castable" reading is never
+/// merely "no floating mana".
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_is_castable_before_p0_declares_attackers_and_never_on_p1_s_own_turn() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            1,
+            &[
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let castable = |e: &Engine<RegistryLookup>| {
+        let spell = in_hand(e, p1, siren_s_call()).expect("Siren's Call is still in hand");
+        priority_offer(e).castable.contains(&spell)
+    };
+
+    // Turn 1 is p0's — an opponent's turn for p1 — and open until attackers
+    // are declared.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "p0's upkeep, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "p0's main phase, before attackers are declared"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        castable(&engine),
+        "beginning of combat, still before attackers"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "the declare attackers step has begun — CR 506.7a reads that as \
+         the window closing regardless of whether p0 (with nothing to \
+         attack with here) actually declared anyone — and the mana just \
+         floated proves this is not about affording it"
+    );
+    let refused = in_hand(&engine, p1, siren_s_call()).expect("Siren's Call is still in hand");
+    assert!(
+        engine
+            .apply(p1, PlayerAction::CastSpell { card: refused })
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "well past the declare attackers step");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "the end step, later still");
+
+    // Turn 2 is p1's own — never a legal window regardless of step.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "p1's own upkeep");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(!castable(&engine), "p1's own main phase");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_mana(&mut engine, p1);
+    assert!(
+        !castable(&engine),
+        "p1's own beginning of combat: still before attackers, but not an opponent's turn"
+    );
+}
+
+/// Siren's Call: "Creatures the active player controls attack this turn
+/// if able" forces a declaration that cannot leave out an able creature.
+/// "Destroy all non-Wall creatures that player controls that didn't
+/// attack this turn. Ignore this effect for each creature the player
+/// didn't control continuously since the beginning of the turn": an
+/// ordinary creature unable to obey the forced attack is claimed, but a
+/// Wall and a creature cast this same turn are spared even though neither
+/// attacked either; the creature that did attack is spared for that; and
+/// p1's own board is never touched.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_forces_the_attack_and_destroys_only_who_it_names() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                llanowar_elves(),
+                wild_elephant(),
+                wall_of_swords(),
+            ],
+        )
+        .hand(0, &[grizzly_bears()])
+        .battlefield(1, &[island(), island(), island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is seated");
+    let elephant = on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let wall = on_battlefield(&engine, p0, wall_of_swords()).expect("the Wall is seated");
+
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(elephant, true);
+    engine.refresh_offer();
+
+    // Not `cast_from_hand`: the Elf prints its own "{T}: Add {G}" and would
+    // otherwise pay for the Bear, tapping itself out of the very
+    // declaration this test is about.
+    tap_mana_except(&mut engine, p0, elf);
+    cast_with_floating(&mut engine, p0, grizzly_bears());
+    pass_until(&mut engine, stack_is_empty);
+    let fresh_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("the fresh Bear resolved");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player,
+        attackers,
+        required,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert!(attackers.contains(&elf));
+    assert_eq!(
+        required,
+        vec![elf],
+        "only the Elf is able to attack: the Elephant is tapped, the Wall \
+         has defender, and the Bear cast this turn is summoning sick"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "\"attack this turn if able\": leaving out the one creature that \
+         could obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with the required Elf obeys the requirement");
+
+    // `pass_until` declares empty blockers on the way for us (p1's own Bear
+    // could block but the point here is combat's aftermath, not blocking).
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "combat is over and the end step has not begun yet: the delayed \
+         destruction has not fired"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "same reading for the creature the trigger will end up sparing"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "it attacked this turn — the effect's own exception"
+    );
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_none(),
+        "tapped and unable to obey the forced attack, a non-Wall the \
+         active player held since the turn began: destroyed"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, wall_of_swords()),
+        Some(wall),
+        "a Wall is never touched, attacked or not"
+    );
+    assert_eq!(
+        on_battlefield(&engine, p0, grizzly_bears()),
+        Some(fresh_bear),
+        "cast this turn: not controlled since the turn began, so the \
+         delayed effect ignores it even though it too did not attack"
+    );
+    assert!(
+        on_battlefield(&engine, p1, grizzly_bears()).is_some(),
+        "p1's own creature was never the active player's to touch"
+    );
+}
+
+fn control_magic() -> CardIndex {
+    card_index("cd0d7141-46d2-4aa3-bc77-6b3b4513803e")
+}
+
+/// "Ignore this effect for each creature the player didn't control
+/// continuously since the beginning of the turn" scopes only the destroy
+/// sentence — the force-attack sentence before it carries no such clause
+/// of its own. Proven on turn 3, not turn 1, so what is read is the
+/// ordinary per-turn mechanism and not turn 1's own "no seat has had a
+/// turn yet" dispensation (`Engine::new`): p0 steals a Bear from p1 with
+/// Control Magic in the very main phase Siren's Call is about to reach —
+/// too fresh, this turn, to be reached by the destroy sentence, and
+/// (for an ordinary reason: summoning sickness) not by the force-attack
+/// sentence either — beside two creatures already on the battlefield since
+/// long before turn 3 began, one left free to attack and survive, one
+/// tapped just before the declare-attackers turn-based action and
+/// destroyed for not attacking despite its age.
+#[allow(clippy::too_many_lines)] // One printed card, played end to end.
+#[test]
+fn siren_s_call_ignores_a_creature_taken_this_turn_but_reaches_one_held_since_an_earlier_turn() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                wild_elephant(),
+                rib_cage_spider(),
+            ],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let old_attacker =
+        on_battlefield(&engine, p0, wild_elephant()).expect("the Elephant is seated");
+    let old_stay_home =
+        on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's Bear is seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic's static ability moved the Bear to p0's side"
+    );
+
+    // Tapped now, in the same priority window, before the declare-attackers
+    // turn-based action computes who is required — not after.
+    engine
+        .dev_state_mut(p0)
+        .expect("a test seat has dev commands")
+        .set_tapped(old_stay_home, true);
+    engine.refresh_offer();
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers {
+        player, required, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0);
+    assert!(
+        required.contains(&old_attacker),
+        "held since long before turn 3 began, able, and the active \
+         player's: \"attacks this turn if able\" reaches it"
+    );
+    assert!(
+        !required.contains(&old_stay_home),
+        "tapped moments ago: not able, so \"if able\" cannot reach it \
+         either, regardless of age"
+    );
+    assert!(
+        !required.contains(&their_bear),
+        "taken this very turn: summoning sick for its new controller \
+         (CR 302.6), so \"if able\" cannot reach it — an ordinary \
+         summoning-sickness exclusion, since the force-attack sentence \
+         itself carries no \"since the turn began\" clause of its own; \
+         only the destroy sentence below does"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "leaving out the one able, required creature obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(old_attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "combat is over and the end step has not begun yet: not yet claimed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_some(),
+        "same reading for the creature the trigger will end up destroying"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::End
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        on_battlefield(&engine, p0, wild_elephant()).is_some(),
+        "it attacked this turn — the effect's own exception"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_none(),
+        "held since long before turn 3 began, non-Wall, and didn't attack: \
+         destroyed exactly as it would have been on turn 1"
+    );
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "taken this turn: not controlled continuously since the turn \
+         began, so the destroy sentence's own exception spares it even \
+         though it too never attacked"
+    );
+}
+
+/// Siren's Call's force-attack sentence reaches a creature the active
+/// player took this turn, as soon as it is able to attack. The Gatherer
+/// ruling (2004-10-04): "It will require creatures with Haste to attack
+/// since they are able, but it won't destroy them if they don't for some
+/// reason." Only the destroy sentence carries "Ignore this effect for each
+/// creature the player didn't control continuously since the beginning of
+/// the turn", so the requirement's filter stays without
+/// `ControlledSinceTurnBegan`: p0 steals p1's Bear with Control Magic,
+/// equips it with Lightning Greaves (haste), and must attack with it.
+#[test]
+fn siren_s_call_requires_a_creature_taken_this_turn_that_has_haste_to_attack() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[forest(), forest(), island(), island(), lightning_greaves()],
+        )
+        .hand(0, &[control_magic()])
+        .battlefield(1, &[island(), grizzly_bears()])
+        .hand(1, &[siren_s_call()])
+        .start();
+    keep_mulligans(&mut engine);
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("p1's Bear is seated");
+    let greaves = on_battlefield(&engine, p0, lightning_greaves()).expect("the Greaves are seated");
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_from_hand(&mut engine, p0, control_magic());
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "Control Magic moved the Bear to p0's side this turn"
+    );
+    // Ability 1 is Equip {0}.
+    activate(&mut engine, p0, lightning_greaves(), 1);
+    aim_at(&mut engine, p0, their_bear);
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(greaves)
+            .is_some_and(|o| o.attached_to == Some(their_bear))
+    });
+    assert!(
+        keywords(&engine, their_bear).contains(KeywordSet::HASTE),
+        "equipped, so able to attack this turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    cast_from_hand(&mut engine, p1, siren_s_call());
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { required, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(
+        required.contains(&their_bear),
+        "the active player's and able: \"attack this turn if able\" reaches it"
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "a declaration without the hasty Bear obeys nothing"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(their_bear, Defender::Player(p1))],
+            },
+        )
+        .expect("attacking with it obeys the requirement");
+}
+
+// ---------------------------------------------------------- Blaze of Glory
+
+fn blaze_of_glory() -> CardIndex {
+    card_index("b330ac89-790e-4cc9-96a5-532c48252088")
+}
+
+fn scathe_zombies() -> CardIndex {
+    card_index("e0fefaf0-da20-4d58-8db7-019dba16c780")
+}
+
+fn fire_sprites() -> CardIndex {
+    card_index("fc5e42b5-4da2-4777-828b-138c0a5d234f")
+}
+
+fn pearled_unicorn() -> CardIndex {
+    card_index("c071be90-0531-40cc-af46-0cbe80c4ddd4")
+}
+
+fn hurloon_minotaur() -> CardIndex {
+    card_index("8f1dae40-b307-446e-bbd2-86aa35813871")
+}
+
+/// What `actions.rs`' block-requirement check refuses a declaration with.
+const MUST_BLOCK: &str = "a creature that must block if able does not";
+
+/// Asserts `result` is the engine's own refusal `why`, naming the message
+/// rather than merely that something failed.
+#[track_caller]
+fn refused(result: Result<(), EngineError>, why: &str) {
+    match result {
+        Err(EngineError::IllegalAction(message)) => assert_eq!(message, why),
+        other => panic!("expected the refusal {why:?}, got {other:?}"),
+    }
+}
+
+/// Taps one of `seat`'s untapped Plains for `{W}`, and asserts that exactly
+/// one white mana is now floating — so a "not castable" refusal checked
+/// right after this can never be read as "not enough mana" instead.
+#[track_caller]
+fn float_one_white(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let source = all_on_battlefield(engine, seat, plains())
+        .into_iter()
+        .find(|id| !is_tapped(engine, *id))
+        .expect("an untapped Plains remains");
+    engine
+        .apply(seat, PlayerAction::ActivateManaAbility { source })
+        .expect("a Plains taps for white");
+    assert_eq!(
+        engine.state().players[seat.get() as usize]
+            .mana_pool
+            .available(ManaColor::White),
+        1,
+        "exactly the one white this float put there"
+    );
+}
+
+/// "Cast this spell only before blockers are declared" (CR 506.7b, a
+/// spell's own printed timing restriction): refused in the first main
+/// phase with mana already floating, accepted (and resolved) at the
+/// beginning of combat, still on offer once attackers are declared and no
+/// blocks have been made yet, and refused again — mana floating once
+/// more — once the declare blockers step is reached. The last of those
+/// is the one that isolates the printed restriction itself; see its own
+/// comment below.
+#[allow(clippy::too_many_lines)] // four checkpoints walked across one turn
+#[test]
+fn blaze_of_glory_is_castable_only_before_blockers_are_declared() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), fire_sprites()])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[blaze_of_glory(), blaze_of_glory()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let sprite = on_battlefield(&engine, p0, fire_sprites()).expect("seated");
+    let bear = on_battlefield(&engine, p1, grizzly_bears()).expect("seated");
+
+    // In the first main phase, mana is already floating, so the refusal
+    // below is not "not enough mana" — but two gates coincide here, not
+    // one: outside combat there is also no legal target for "target
+    // creature defending player controls" (`Filter::ControlledByDefendingPlayer`
+    // is false outside the combat phase), so this checkpoint alone would
+    // refuse the cast even without the card's own timing condition. The
+    // declare-blockers-step refusal further down, where a legal target is
+    // standing and mana is floating, is what isolates the printed
+    // restriction itself.
+    float_one_white(&mut engine, p0);
+    let first = in_hand(&engine, p0, blaze_of_glory()).expect("the first copy is in hand");
+    refused(
+        engine.apply(p0, PlayerAction::CastSpell { card: first }),
+        "not among the options",
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatBegin
+    });
+    float_one_white(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: first })
+        .expect("castable at the beginning of combat");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature defending player controls\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&bear) && !options.contains(&sprite),
+        "p1's creature is offered and p0's own creature is not: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bear],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, blaze_of_glory()).is_some(),
+        "the first copy resolved"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(sprite, Defender::Player(p1))],
+            },
+        )
+        .expect("the Sprites attack");
+    float_one_white(&mut engine, p0);
+    let second = in_hand(&engine, p0, blaze_of_glory()).expect("the second copy is still in hand");
+    assert!(
+        priority_offer(&engine).castable.contains(&second),
+        "still castable once attackers are declared and no blocks are made yet"
+    );
+
+    // The Bear cannot block a flier, so `pass_until`'s own default answer
+    // of no blocks at all is legal here, and crosses this question safely.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::DeclareBlockers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    float_one_white(&mut engine, p0);
+    refused(
+        engine.apply(p0, PlayerAction::CastSpell { card: second }),
+        "not among the options",
+    );
+}
+
+/// With no attackers declared this combat, the declare blockers step is
+/// skipped (CR 508.8, nothing to declare blocks against), so the spell's
+/// "only before blockers are declared" window instead runs only through
+/// the declare attackers step (CR 506.7e) — and it belongs to whoever
+/// holds priority there, not only the active player: the defending player
+/// casts it here too, aimed at their own creature, and not at the active
+/// player's. Once that step itself ends, the window is gone: with mana
+/// still floating, the defending player is refused a second copy at
+/// `CombatEnd`.
+#[allow(clippy::too_many_lines)] // one cast inside the window, one refusal once it has closed
+#[test]
+fn blaze_of_glory_is_castable_by_the_defending_player_with_no_attackers_declared() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[grizzly_bears()])
+        .battlefield(1, &[plains(), plains(), grizzly_bears()])
+        .hand(1, &[blaze_of_glory(), blaze_of_glory()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    // `pass_until`'s own default answers `ChooseAttackers` with nobody,
+    // which is a real choice here: the Bear on p0's board could attack.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::DeclareAttackers
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    let p0_bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).expect("seated");
+    float_one_white(&mut engine, p1);
+    let first = in_hand(&engine, p1, blaze_of_glory()).expect("the first copy is in p1's hand");
+    engine
+        .apply(p1, PlayerAction::CastSpell { card: first })
+        .expect("the defending player casts it in the declare attackers step");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature defending player controls\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(
+        options.contains(&their_bear),
+        "p1 is the defending player here, and may target their own creature"
+    );
+    assert!(
+        !options.contains(&p0_bear),
+        "p0 is the active player here, not the defending one, and is never offered"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_bear],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, blaze_of_glory()).is_some(),
+        "it resolved: the cast was accepted"
+    );
+
+    // With no attackers, the declare blockers and combat damage steps are
+    // skipped (CR 508.8), and this spell's own window closes with the
+    // declare attackers step rather than running past it (CR 506.7e): by
+    // CombatEnd — mana floating, the Bear still standing as a legal
+    // target — the second copy is refused all the same.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    float_one_white(&mut engine, p1);
+    let second = in_hand(&engine, p1, blaze_of_glory()).expect("the second copy is still in hand");
+    refused(
+        engine.apply(p1, PlayerAction::CastSpell { card: second }),
+        "not among the options",
+    );
+}
+
+/// "Target creature defending player controls can block any number of
+/// creatures this turn. It blocks each attacking creature this turn if
+/// able.": the question names the Unicorn in `capacity` with `most: None`
+/// and it blocks all three of p0's ground attackers at once — a
+/// declaration blocking fewer is refused — while the flier it cannot block
+/// is left out and the Minotaur, though never required, may still add
+/// itself to a block the Unicorn alone already satisfies.
+#[allow(clippy::too_many_lines)] // one cast, one target check, one capacity, two refusals, one accept
+#[test]
+fn blaze_of_glorys_target_must_block_every_attacker_it_can() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                grizzly_bears(),
+                gray_ogre(),
+                scathe_zombies(),
+                fire_sprites(),
+            ],
+        )
+        .battlefield(1, &[pearled_unicorn(), hurloon_minotaur()])
+        .hand(0, &[blaze_of_glory()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatBegin
+    });
+
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let zombies = on_battlefield(&engine, p0, scathe_zombies()).expect("seated");
+    let flier = on_battlefield(&engine, p0, fire_sprites()).expect("seated");
+    let unicorn = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+    let minotaur = on_battlefield(&engine, p1, hurloon_minotaur()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, blaze_of_glory());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature defending player controls\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    let mut options_sorted = options.clone();
+    options_sorted.sort_unstable();
+    let mut p1_creatures = vec![unicorn, minotaur];
+    p1_creatures.sort_unstable();
+    assert_eq!(
+        options_sorted, p1_creatures,
+        "p1's two creatures are offered and none of p0's four attackers are: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![unicorn],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (bear, Defender::Player(p1)),
+                    (ogre, Defender::Player(p1)),
+                    (zombies, Defender::Player(p1)),
+                    (flier, Defender::Player(p1)),
+                ],
+            },
+        )
+        .expect("all four attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        capacity, obeying, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on exactly this")
+    };
+    assert_eq!(
+        capacity,
+        vec![crate::choice::BlockCapacity {
+            blocker: unicorn,
+            most: None
+        }],
+        "only the targeted Unicorn may block more than one, and any number: {capacity:?}"
+    );
+    let mut obeying_sorted = obeying.clone();
+    obeying_sorted.sort_unstable();
+    let mut expected = vec![(unicorn, bear), (unicorn, ogre), (unicorn, zombies)];
+    expected.sort_unstable();
+    assert_eq!(
+        obeying_sorted, expected,
+        "the Unicorn must block every ground attacker; the flier is left out \
+         and the Minotaur is named nowhere"
+    );
+
+    refused(
+        engine.apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(unicorn, bear), (unicorn, ogre)],
+            },
+        ),
+        MUST_BLOCK,
+    );
+    refused(
+        engine.apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(unicorn, flier)],
+            },
+        ),
+        "not among the options",
+    );
+
+    // The question's own declaration (the Unicorn alone) is legal — but so
+    // is one that adds the Minotaur into it: the real counter-check that
+    // the Minotaur is merely *allowed*, never required, is that this
+    // still-legal declaration actually lands, not that a declaration which
+    // never named it left it alone.
+    let mut with_minotaur = obeying;
+    with_minotaur.push((minotaur, bear));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: with_minotaur,
+            },
+        )
+        .expect("the Minotaur may add itself to a block the Unicorn alone already satisfies");
+    assert_eq!(
+        engine.state().combat.blocked_by(minotaur),
+        vec![bear],
+        "the Minotaur's own free choice landed on the Bear"
+    );
+    let mut blockers_of_bear = engine.state().combat.blockers_of(bear);
+    blockers_of_bear.sort_unstable();
+    let mut expected_bear_blockers = vec![unicorn, minotaur];
+    expected_bear_blockers.sort_unstable();
+    assert_eq!(
+        blockers_of_bear, expected_bear_blockers,
+        "the Bear ends up double-blocked: the Unicorn under Blaze of Glory's \
+         requirement, the Minotaur by its own choice alongside it"
+    );
+    assert_eq!(
+        engine.state().combat.blockers_of(ogre),
+        vec![unicorn],
+        "the Ogre is blocked by the Unicorn alone"
+    );
+    assert_eq!(
+        engine.state().combat.blockers_of(zombies),
+        vec![unicorn],
+        "the Zombies is blocked by the Unicorn alone"
+    );
+    assert!(
+        !engine.state().combat.is_blocked(flier),
+        "the flier, which the Unicorn cannot block and nothing else was aimed \
+         at, went through unblocked"
+    );
+}
+
+fn wall_of_stone() -> CardIndex {
+    card_index("cd4cadb4-3156-49bd-b36e-12ba5c85938b")
+}
+
+/// Blaze of Glory's grant is "this turn": cast on the Wall of Stone (0/8,
+/// so its own math never asks a division question either way — 0 power
+/// gives nothing to divide, and it survives whatever the two attackers
+/// deal), the Wall must block every attacker it can in the combat where
+/// it resolves. By p0's next combat on the same board, with the same two
+/// attackers and no fresh Blaze, the grant is gone: blocking both is
+/// refused, blocking one is legal again, and the question requires
+/// nothing of it at all.
+#[allow(clippy::too_many_lines)] // one combat under the grant, one after it has lapsed
+#[test]
+fn blaze_of_glory_lasts_one_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(), grizzly_bears(), gray_ogre()])
+        .battlefield(1, &[wall_of_stone()])
+        .hand(0, &[blaze_of_glory()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatBegin
+    });
+
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
+    let ogre = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    let wall = on_battlefield(&engine, p1, wall_of_stone()).expect("seated");
+
+    cast_from_hand(&mut engine, p0, blaze_of_glory());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!(
+            "\"target creature defending player controls\" asks for one, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(
+        options,
+        vec![wall],
+        "the Wall is p1's only creature, and their only legal target"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![wall],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bear, Defender::Player(p1)), (ogre, Defender::Player(p1))],
+            },
+        )
+        .expect("both attack");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        capacity, obeying, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on exactly this")
+    };
+    assert_eq!(
+        capacity,
+        vec![crate::choice::BlockCapacity {
+            blocker: wall,
+            most: None
+        }],
+        "the Wall alone may block more than one, and any number: {capacity:?}"
+    );
+    let mut obeying_sorted = obeying.clone();
+    obeying_sorted.sort_unstable();
+    let mut expected = vec![(wall, bear), (wall, ogre)];
+    expected.sort_unstable();
+    assert_eq!(
+        obeying_sorted, expected,
+        "in the combat where Blaze resolved, the Wall must block every \
+         attacker it can"
+    );
+    refused(
+        engine.apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(wall, bear)],
+            },
+        ),
+        MUST_BLOCK,
+    );
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: obeying })
+        .expect("blocking both, the question's own declaration, is legal");
+
+    // Past this combat, the rest of this turn, p1's whole turn, and into
+    // p0's next: Blaze of Glory's "this turn" is long over, and the Wall
+    // — 0 power, 8 toughness, having taken 4 unprevented damage and
+    // shrugged it off — is still standing to show it.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bear, Defender::Player(p1)), (ogre, Defender::Player(p1))],
+            },
+        )
+        .expect("the same two attack again, a turn cycle later");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers {
+        capacity, obeying, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on exactly this")
+    };
+    assert!(
+        capacity.is_empty(),
+        "with the grant long since lapsed, the Wall is named nowhere in \
+         `capacity`: back to an ordinary single block: {capacity:?}"
+    );
+    assert!(
+        obeying.is_empty(),
+        "and the question requires nothing of it: {obeying:?}"
+    );
+    match engine.apply(
+        p1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(wall, bear), (wall, ogre)],
+        },
+    ) {
+        Err(EngineError::IllegalAction(message)) => {
+            assert_eq!(message, "creature cannot block that many attackers");
+        }
+        other => panic!("expected the capacity refusal, got {other:?}"),
+    }
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(wall, bear)],
+            },
+        )
+        .expect("blocking one, ordinary again, is legal");
+}
+
+// -------------------------------------------------------------- Simulacrum
+
+fn simulacrum() -> CardIndex {
+    card_index("20d69989-7250-40c7-a064-8ed78ccbe556")
+}
+
+/// Simulacrum's damage half — "deals damage to target creature you control"
+/// — is a legal-target question of its own, answerable before any damage has
+/// ever been dealt: the menu it offers is a fact about who controls what, not
+/// about the amount involved.
+#[test]
+fn simulacrum_only_offers_a_creature_you_control_as_its_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), llanowar_elves()])
+        .hand(0, &[simulacrum()])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves are seated");
+    let theirs = on_battlefield(&engine, p1, grizzly_bears()).expect("their Bear is seated");
+
+    cast_from_hand(&mut engine, p0, simulacrum());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Simulacrum asks for a target, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![mine],
+        "only a creature I control is a legal target, never one I don't ({theirs:?})"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![mine],
+                players: vec![],
+            },
+        )
+        .expect("my own creature was offered");
+    pass_until(&mut engine, stack_is_empty);
+}
+
+/// "Target creature you control" with no creature on the caster's side of
+/// the table: there is nothing the second half of the spell could ever
+/// point at, so Simulacrum has no legal target at all and is refused
+/// (CR 601.2 — unable to name a required target, the casting is illegal).
+#[test]
+fn simulacrum_needs_a_creature_you_control_to_be_cast() {
+    let p0 = PlayerId::new(0);
+    let simulacrum_card = simulacrum();
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp()])
+        .hand(0, &[simulacrum_card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        tap_all_mana(&mut engine, p0),
+        2,
+        "both Swamps stand ready: the withholding below is the missing \
+         target, not an empty pool"
+    );
+
+    let card = in_hand(&engine, p0, simulacrum_card).expect("Simulacrum is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&card),
+        "with no creature to point its damage at, Simulacrum has no legal \
+         target and is not offered"
+    );
+    assert!(
+        matches!(
+            engine.apply(p0, PlayerAction::CastSpell { card }),
+            Err(EngineError::IllegalAction("not among the options"))
+        ),
+        "and naming it anyway is refused, not quietly allowed"
+    );
+}
+
+/// "You gain life equal to the damage dealt to you this turn": the Bear (2)
+/// and the Elephant (3) go through unblocked for 5, a Lightning Bolt later
+/// the same turn adds 3 for 8 total, and a life payment and a life gain
+/// injected between
+/// the damage and the casting — neither of them damage — must not move the
+/// number Simulacrum reads. Only the *increment* Simulacrum's own resolution
+/// makes is asserted, which is exactly what the noise is there to insulate:
+/// a version that read raw life lost this turn instead of the damage tally
+/// would answer differently once life had been nudged by hand.
+#[test]
+fn simulacrum_gains_life_equal_to_all_the_damage_dealt_this_turn_no_matter_what_else_moved_the_life_total()
+ {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), tyrranax_rex()])
+        .hand(0, &[simulacrum()])
+        .battlefield(1, &[grizzly_bears(), wild_elephant(), mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // p1's turn 2: the Bear (2) and the Elephant (3), unblocked, hit p0 for 5.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    let bear = on_battlefield(&engine, p1, grizzly_bears()).expect("the Bear is seated");
+    let elephant = on_battlefield(&engine, p1, wild_elephant()).expect("the Elephant is seated");
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (bear, Defender::Player(p0)),
+                    (elephant, Defender::Player(p0)),
+                ],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        5,
+        "the Bear's 2 and the Elephant's 3, unblocked"
+    );
+
+    // Still p1's turn, in the combat damage step: a Lightning Bolt at p0 for
+    // 3 more, off the Mountain kept back from the attack.
+    aimed(&mut engine, p1, lightning_bolt(), &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        8,
+        "5 from combat plus the Bolt's 3"
+    );
+
+    // Noise that is not damage, injected by hand: a life payment and a life
+    // gain, neither of which may touch the tally Simulacrum reads.
+    let state = engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up");
+    state.change_life(p0, -2, crate::event::Cause::DevCommand);
+    state.change_life(p0, 5, crate::event::Cause::DevCommand);
+    engine.refresh_offer();
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        8,
+        "life lost or gained by hand does not touch the damage tally"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let target = on_battlefield(&engine, p0, tyrranax_rex()).expect("Tyrranax Rex is seated");
+    let life_before_the_spell = engine.state().players[0].life;
+    cast_from_hand(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell + 8,
+        "exactly the 5 combat and 3 burn damage dealt this turn, unmoved by \
+         the life paid and the life gained that came between"
+    );
+    // Tyrranax Rex's own toughness is 8 (see the survives/destroyed test
+    // below): the 8 Simulacrum just marked it with is exactly lethal, so it
+    // dies here too — incidental to this test, which is about the life
+    // total, not the target, but a claim worth checking rather than only
+    // stating.
+    assert!(
+        in_graveyard(&engine, p0, tyrranax_rex()).is_some(),
+        "8 marked on an 8-toughness creature is lethal (CR 704.5g)"
+    );
+}
+
+/// The turn's tally starts over every turn (`per_turn.damage_dealt_to`): a
+/// hit taken last turn buys nothing this turn, so Simulacrum cast in a
+/// later, otherwise quiet turn gains no life and marks its target with no
+/// damage either.
+#[test]
+fn simulacrum_does_not_count_damage_from_an_earlier_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), tyrranax_rex()])
+        .hand(0, &[simulacrum()])
+        .battlefield(1, &[wild_elephant()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    // p1's turn 2: the Elephant hits p0 for 3, unblocked.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    let elephant = on_battlefield(&engine, p1, wild_elephant()).expect("the Elephant is seated");
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elephant, Defender::Player(p0))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        3,
+        "the Elephant's 3, unblocked"
+    );
+    let life_after_the_hit = engine.state().players[0].life;
+
+    // Turn 3 opens on p0's own main phase, untouched by anything this turn.
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(engine.state().turn.number, 3, "a later turn than the hit");
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        0,
+        "a new turn's tally starts from nothing"
+    );
+
+    let target = on_battlefield(&engine, p0, tyrranax_rex()).expect("Tyrranax Rex is seated");
+    cast_from_hand(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_after_the_hit,
+        "no damage this turn: nothing gained, even though the Elephant hit \
+         for 3 the turn before"
+    );
+    assert_eq!(
+        engine.state().object(target).map(|o| o.damage),
+        Some(0),
+        "and none was dealt to the named creature either"
+    );
+}
+
+/// "Simulacrum deals damage to target creature you control equal to the
+/// damage dealt to you this turn": marked with exactly the 3 a single Bolt
+/// puts on the books this turn, whichever of the caster's creatures is
+/// named — enough to destroy a 1-toughness one (CR 704.5g) and not enough to
+/// trouble an 8-toughness one, which is what tells "marked with that much"
+/// apart from "however much it takes to kill it". The Rex iteration also
+/// seats a bystander (Llanowar Elves) beside it: a reading of "each creature
+/// you control" instead of "target creature you control" would mark that
+/// one too, and Simulacrum itself is asserted as the damage's own source in
+/// the journal.
+#[test]
+fn simulacrum_marks_its_target_with_the_same_damage_and_kills_it_only_if_thats_lethal() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (target_card, survives) in [(llanowar_elves(), false), (tyrranax_rex(), true)] {
+        let mut board0 = vec![swamp(), swamp(), target_card];
+        if survives {
+            board0.push(llanowar_elves());
+        }
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &board0)
+            .hand(0, &[simulacrum()])
+            .battlefield(1, &[mountain()])
+            .hand(1, &[lightning_bolt()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+
+        engine.apply(p0, PlayerAction::PassPriority).unwrap();
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("expected p1 priority, got {:?}", engine.pending())
+        };
+        assert_eq!(player, p1);
+        aimed(&mut engine, p1, lightning_bolt(), &[], &[p0]);
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().per_turn.damage_dealt_to[0],
+            3,
+            "the Bolt's 3, and nothing else has happened yet this turn"
+        );
+
+        pass_until(
+            &mut engine,
+            |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+        );
+        let target =
+            on_battlefield(&engine, p0, target_card).expect("the target creature is seated");
+        let spell = aimed(&mut engine, p0, simulacrum(), &[target], &[]);
+        pass_until(&mut engine, stack_is_empty);
+
+        assert!(
+            engine.state().journal.entries().iter().any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::DamageDealt {
+                    source: Some(source),
+                    target: crate::event::DamageTarget::Object(hit),
+                    amount: 3,
+                    is_combat: false,
+                } if source == spell && hit == target
+            )),
+            "Simulacrum itself, not the Bolt, is this damage's source"
+        );
+
+        if survives {
+            assert_eq!(
+                engine.state().object(target).map(|o| o.damage),
+                Some(3),
+                "survives=true: marked with exactly the 3 dealt this turn"
+            );
+            assert!(
+                on_battlefield(&engine, p0, target_card).is_some(),
+                "3 is under an 8-toughness creature's toughness: it stands"
+            );
+            let bystander = on_battlefield(&engine, p0, llanowar_elves())
+                .expect("the bystander Elves is seated too");
+            assert_eq!(
+                engine.state().object(bystander).map(|o| o.damage),
+                Some(0),
+                "\"target creature you control\", singular: the bystander \
+                 took none of it"
+            );
+        } else {
+            assert!(
+                in_graveyard(&engine, p0, target_card).is_some(),
+                "survives=false: 3 is at least a 1-toughness creature's \
+                 toughness, so it is destroyed (CR 704.5g)"
+            );
+        }
+    }
+}
+
+/// If Simulacrum's only target is gone by the time it would resolve, the
+/// whole spell is removed from the stack instead — not even the untargeted
+/// "you gain life" half happens (CR 608.2b), even though the turn's damage
+/// tally is real and nonzero the whole time.
+#[test]
+fn simulacrum_does_nothing_if_its_only_target_is_gone_before_it_resolves() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), llanowar_elves()])
+        .hand(0, &[simulacrum()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    aimed(&mut engine, p1, lightning_bolt(), &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        3,
+        "the Bolt's 3, on the books before Simulacrum is even cast"
+    );
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
+    let life_before_the_spell = engine.state().players[0].life;
+    let spell = aimed(&mut engine, p0, simulacrum(), &[elf], &[]);
+
+    // The Elves leave in response, before Simulacrum resolves: its only
+    // target is now illegal.
+    engine
+        .dev_state_mut(p0)
+        .expect("the harness may set boards up")
+        .move_object(
+            elf,
+            ZoneLocation::Exile(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::DevCommand,
+        )
+        .expect("the harness moves a card");
+    engine.refresh_offer();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, simulacrum()).is_some(),
+        "608.2b's own remedy for an all-illegal target: removed from the \
+         stack and put in its owner's graveyard, same as a spell that \
+         resolved normally — the graveyard alone does not say which \
+         happened"
+    );
+    assert!(
+        engine.state().journal.entries().iter().any(
+            |e| matches!(e.event, GameEvent::StackObjectDidNotResolve { object } if object == spell)
+        ),
+        "the graveyard alone cannot tell CR 608.2b from a normal \
+         resolution; the journal can"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell,
+        "no legal target left to point the damage at means nothing \
+         resolved at all, and the untargeted life gain never happened \
+         either"
+    );
+}
+
+/// Damage dealt to one of the caster's own creatures is not damage dealt to
+/// *its controller*: a Bolt aimed at a Rootbreaker Wurm instead of at p0
+/// leaves the turn's tally at 0, and Simulacrum, named at that same Wurm
+/// afterward, gains nothing for it. (Not Tyrranax Rex here: its ward would
+/// tax the very Bolt this test needs to land.)
+#[test]
+fn simulacrum_gains_nothing_when_a_bolt_hits_its_own_creature_instead_of_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), rootbreaker_wurm()])
+        .hand(0, &[simulacrum()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    let target = on_battlefield(&engine, p0, rootbreaker_wurm()).expect("the Wurm is seated");
+    aimed(&mut engine, p1, lightning_bolt(), &[target], &[]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(target).map(|o| o.damage),
+        Some(3),
+        "the Bolt still marked the creature"
+    );
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        0,
+        "damage dealt to a creature is not damage dealt to its controller"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let life_before_the_spell = engine.state().players[0].life;
+    cast_from_hand(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell,
+        "the tally p0 was never dealt damage this turn stays 0: gains nothing"
+    );
+}
+
+/// Only the opponent was dealt damage this turn: Simulacrum, cast by p0,
+/// reads only p0's own tally — a stray 0, never the 3 sitting on p1's side
+/// of the ledger.
+#[test]
+fn simulacrum_gains_nothing_when_only_the_opponent_was_dealt_damage_this_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), mountain(), tyrranax_rex()])
+        .hand(0, &[simulacrum(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("p1 is any target");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[1],
+        3,
+        "p1 took the Bolt"
+    );
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        0,
+        "p0's own tally is untouched by damage dealt to the opponent"
+    );
+
+    let target = on_battlefield(&engine, p0, tyrranax_rex()).expect("Tyrranax Rex is seated");
+    let life_before_the_spell = engine.state().players[0].life;
+    cast_with_floating(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell,
+        "0, even though the opponent took 3 this same turn"
+    );
+}
+
+/// Healing Salve's "prevent the next 3 damage" (mode two) shields p0 before
+/// a Lightning Bolt lands: prevented damage is not dealt, so the turn's
+/// tally never moves, and Simulacrum, cast afterward, gains 0.
+#[test]
+fn simulacrum_gains_nothing_when_the_only_damage_this_turn_was_prevented() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), plains(), tyrranax_rex()])
+        .hand(0, &[healing_salve(), simulacrum()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("p0 is any target");
+    pass_until(&mut engine, stack_is_empty);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    aimed(&mut engine, p1, lightning_bolt(), &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        0,
+        "the shield absorbed all 3: nothing was dealt"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let target = on_battlefield(&engine, p0, tyrranax_rex()).expect("Tyrranax Rex is seated");
+    let life_before_the_spell = engine.state().players[0].life;
+    cast_from_hand(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell,
+        "0: the only damage this turn never happened"
+    );
+}
+
+/// Healing Salve's shield can sit on Simulacrum's *other* target instead of
+/// on p0: the 3 damage this turn is genuine (an unshielded Bolt at p0
+/// himself), so the life gain is unaffected, but the 3 Simulacrum would
+/// mark its shielded creature with is prevented before any of it lands.
+#[test]
+fn simulacrum_s_damage_to_its_target_can_be_prevented_without_touching_the_life_gained() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), plains(), tyrranax_rex()])
+        .hand(0, &[healing_salve(), simulacrum()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let Pending::Priority { player, .. } = engine.pending().clone() else {
+        panic!("expected p1 priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p1);
+    aimed(&mut engine, p1, lightning_bolt(), &[], &[p0]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().per_turn.damage_dealt_to[0],
+        3,
+        "the Bolt's 3, unshielded"
+    );
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let target = on_battlefield(&engine, p0, tyrranax_rex()).expect("Tyrranax Rex is seated");
+
+    cast_from_hand(&mut engine, p0, healing_salve());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected a mode choice, got {:?}", engine.pending())
+    };
+    let slot = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(1)))
+        .expect("mode 1 is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .expect("a creature is any target too");
+    pass_until(&mut engine, stack_is_empty);
+
+    let life_before_the_spell = engine.state().players[0].life;
+    cast_from_hand(&mut engine, p0, simulacrum());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().players[0].life,
+        life_before_the_spell + 3,
+        "the life gain reads the turn's tally, which the shield on the \
+         creature never touched"
+    );
+    assert_eq!(
+        engine.state().object(target).map(|o| o.damage),
+        Some(0),
+        "the shield on the creature absorbed all 3 before any could be marked"
+    );
+}
+
+fn white_knight() -> CardIndex {
+    card_index("ddb021df-ae4a-4ac1-8353-d0b375761714")
+}
+
+/// Simulacrum is black: White Knight's protection from black (CR 702.16b)
+/// keeps it off the target menu even though its own controller is the one
+/// casting the spell — Llanowar Elves, with no such protection, is the only
+/// creature offered.
+#[test]
+fn simulacrum_never_offers_a_creature_protected_from_black() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), white_knight(), llanowar_elves()])
+        .hand(0, &[simulacrum()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
+    on_battlefield(&engine, p0, white_knight()).expect("White Knight is seated");
+
+    cast_from_hand(&mut engine, p0, simulacrum());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Simulacrum asks for a target, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        vec![elf],
+        "protection from black excludes White Knight even from its own \
+         controller's black spell (CR 702.16b)"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elf],
+                players: vec![],
+            },
+        )
+        .expect("the Elves, unprotected, is a legal target");
+    pass_until(&mut engine, stack_is_empty);
 }

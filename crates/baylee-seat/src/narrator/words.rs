@@ -39,7 +39,7 @@ pub const fn step_name(phase: Phase, step: Step) -> &'static str {
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
 /// to the pool: a keyword a card carries and this table lacks fails there
 /// rather than going silent on a board.
-pub const KEYWORDS: [(KeywordSet, &str); 39] = [
+pub const KEYWORDS: [(KeywordSet, &str); 45] = [
     (KeywordSet::FLYING, "flying"),
     (KeywordSet::FIRST_STRIKE, "first strike"),
     (KeywordSet::DOUBLE_STRIKE, "double strike"),
@@ -79,6 +79,12 @@ pub const KEYWORDS: [(KeywordSet, &str); 39] = [
     (KeywordSet::SPLIT_SECOND, "split second"),
     (KeywordSet::ASCEND, "ascend"),
     (KeywordSet::CANT_ATTACK, "can't attack"),
+    (KeywordSet::PLAINSWALK, "plainswalk"),
+    (KeywordSet::ISLANDWALK, "islandwalk"),
+    (KeywordSet::SWAMPWALK, "swampwalk"),
+    (KeywordSet::MOUNTAINWALK, "mountainwalk"),
+    (KeywordSet::FORESTWALK, "forestwalk"),
+    (KeywordSet::BANDING, "banding"),
 ];
 
 /// The keywords in `bits` (a view's projected keywords), in table order.
@@ -183,6 +189,10 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::CostExile => "Choose the cards to exile to pay the cost".into(),
         ChoicePrompt::LeaveTapped => "Choose the permanents that stay tapped".into(),
+        ChoicePrompt::Untap => "Choose the permanents that untap".into(),
+        ChoicePrompt::Band { .. } => {
+            "Choose the attackers to join the band (choose none and it attacks alone)".into()
+        }
         ChoicePrompt::OneOfType { card_type } => {
             format!("Choose one {}", types(card_type, SupertypeSet::EMPTY))
         }

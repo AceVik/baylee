@@ -776,11 +776,14 @@ answer are built, so the frames that carry the answer also say who gave it.
 question has one (`baylee_engine::choice::timeout_answer`): pass priority,
 attack with nothing, block with nothing, keep the hand, and "no" to a yes/no
 whose decline leaves things alone (`YesNoPrompt::declining_does_nothing`).
-The house answers the rest: a discard, targets, a search, an ordering, and
-the two commander questions, where declining would cost the commander. The
-house also answers if the engine refuses the do-nothing answer
-(`Session::answer_by_clock` → `by_clock`), which a creature that must
-attack (CR 508.1d) or be blocked (CR 509.1c) could one day cause. A stand-in
+Attacking with nothing is attacking with the question's `required`
+creatures (CR 508.1d), and blocking with nothing is the question's
+`obeying` blocks (CR 509.1c), so the engine accepts both. The house answers
+the rest: a discard, targets, a search, an ordering, and the two commander
+questions, where declining would cost the commander. The house also answers
+if the engine refuses the do-nothing answer (`Session::answer_by_clock` →
+`by_clock`), which a requirement a question does not state could one day
+cause. A stand-in
 is still the house in full. Until #258 the clock was the house in full too,
 and it cast a timed-out seat's spells for it. A client needs no field to
 know the clock's answer: it calls `timeout_answer` on the `Pending` it was
@@ -1241,6 +1244,25 @@ flier on the table. `CombatCandidates` — the client's own guess at both —
 is gone. No proto change: the taxonomy travels as JSON. What the pairings
 cannot say, how many creatures may block one attacker (menace), is
 `ChooseBlockers.bounds` (§"What a question holds an answer to").
+
+`Pending::ChooseBlockers` also carries, both `#[serde(default)]`:
+
+- `capacity`: each offered creature that may block more than one attacker
+  (CR 509.1a), as `BlockCapacity { blocker, most }`, `most: None` for any
+  number. A blocker not named blocks one.
+- `obeying`: one legal declaration, as `(blocker, attacker)` pairs out of
+  the offer, that obeys as many block requirements as the engine holds a
+  declaration to (CR 509.1c: a lure, "blocks each attacking creature if
+  able"); empty when none is in force. It is not a list of blocks that must
+  be made: another declaration obeying as many is as legal, and one obeying
+  fewer is refused (`"a creature that must block if able does not"`). The
+  clock sends it (`timeout_answer`), client-core preselects it, and a seat's
+  automation never declines blocks while it is not empty.
+- `demands`: each offered pair a requirement asks for, as `BlockDemand {
+  blocker, attacker, count }`, `count` the requirements asking for it; empty
+  when none is in force. A declaration obeys the sum over its pairs, and
+  `answer_fault` refuses one whose sum is below `obeying`'s
+  (`AnswerFault::MustBlock`).
 
 ## The gateway runs no rules
 
@@ -2736,6 +2758,12 @@ engine used to hold without saying are fields:
 - `Mulligan.can_take: bool`. `false` once a further mulligan would leave an
   opening hand of zero cards (CR 103.5); `MulliganTake` is then refused
   with `NoFurtherMulligan`.
+- The combat requirements (CR 508.1c–d, 509.1c), from fields the
+  questions already carried: a declaration of attackers without a creature
+  in `ChooseAttackers.required` faults `MustAttack`, one sending a creature
+  in `limits` elsewhere `NotOffered`; a declaration of blockers obeying
+  fewer requirements than `ChooseBlockers.obeying`, counted by `demands`,
+  faults `MustBlock`.
 
 Each field decodes as `None`, empty and `true` when missing, which is every
 question sent before it, and a reader that does not know a field skips it,

@@ -873,6 +873,33 @@ pub(crate) fn own_hand(state: &GameState, seat: PlayerId) -> Vec<HandObject> {
         .collect()
 }
 
+/// The combat in progress, public to every seat: who attacks whom, who
+/// blocks what, and which attackers are banded (CR 702.22c).
+fn combat_view(state: &GameState) -> CombatView {
+    CombatView {
+        attackers: state
+            .combat
+            .attackers()
+            .iter()
+            .map(|a| AttackerView {
+                creature: a.creature,
+                defending: a.defending,
+                blocked: a.blocked,
+            })
+            .collect(),
+        blockers: state
+            .combat
+            .blockers
+            .iter()
+            .map(|b| BlockerView {
+                blocker: b.blocker,
+                attacker: b.attacker,
+            })
+            .collect(),
+        bands: state.combat.bands(),
+    }
+}
+
 /// Builds the hidden-information-filtered view of `state` for `seat`.
 ///
 /// `ctx` carries the facts that are on the `Engine` rather than in the
@@ -959,27 +986,7 @@ pub fn player_view(
         graveyards: per_seat_zone(state, ZoneLocation::Graveyard, seat),
         exile: per_seat_zone(state, ZoneLocation::Exile, seat),
         command: per_seat_zone(state, ZoneLocation::Command, seat),
-        combat: CombatView {
-            attackers: state
-                .combat
-                .attackers()
-                .iter()
-                .map(|a| AttackerView {
-                    creature: a.creature,
-                    defending: a.defending,
-                    blocked: a.blocked,
-                })
-                .collect(),
-            blockers: state
-                .combat
-                .blockers
-                .iter()
-                .map(|b| BlockerView {
-                    blocker: b.blocker,
-                    attacker: b.attacker,
-                })
-                .collect(),
-        },
+        combat: combat_view(state),
         looking_at: looking_at(state, seat, pending),
         library_tops: state
             .players
@@ -1902,6 +1909,7 @@ mod tests {
         ids.extend(view.library_tops.iter().map(|o| o.id));
         ids.extend(view.combat.attackers.iter().map(|a| a.creature));
         ids.extend(view.combat.blockers.iter().map(|b| b.blocker));
+        ids.extend(view.combat.bands.iter().flatten());
         ids
     }
 

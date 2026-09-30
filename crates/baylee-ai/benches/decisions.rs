@@ -18,6 +18,8 @@ fn combat(c: &mut Criterion) {
         player: view.seat,
         attackers: squad.clone(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     };
     for (name, profile) in AIProfile::NAMED {
         let agent = HeuristicAgent::new(profile);
@@ -39,6 +41,8 @@ fn combat(c: &mut Criterion) {
         player: crowded.seat,
         attackers: squad.clone(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     };
     for (name, profile) in [("sharp", AIProfile::SHARP), ("expert", AIProfile::EXPERT)] {
         let agent = HeuristicAgent::new(profile);
@@ -88,6 +92,8 @@ fn token_army(c: &mut Criterion) {
             Defender::Player(PlayerId::new(1)),
             Defender::Planeswalker(ObjectId::new(20, 0)),
         ],
+        required: Vec::new(),
+        limits: Vec::new(),
     };
     // Four attack into the army.
     let into = ViewBuilder::new(2)
@@ -98,6 +104,8 @@ fn token_army(c: &mut Criterion) {
         player: into.seat,
         attackers: (10..14).map(|i| ObjectId::new(i, 0)).collect(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
+        required: Vec::new(),
+        limits: Vec::new(),
     };
     // The army blocks four, and four block the army.
     let blocking = |attackers: Vec<ObjectId>, blockers: Vec<ObjectId>, board| {
@@ -118,6 +126,7 @@ fn token_army(c: &mut Criterion) {
         view.active = PlayerId::new(1);
         view.step = baylee_view::Step::DeclareBlockers;
         let pending = Pending::ChooseBlockers {
+            demands: Vec::new(),
             player: view.seat,
             attacker: PlayerId::new(1),
             blockers: blockers
@@ -127,6 +136,8 @@ fn token_army(c: &mut Criterion) {
                     attackers: attackers.clone(),
                 })
                 .collect(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
             bounds: Vec::new(),
         };
         (view, pending)

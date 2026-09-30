@@ -28,6 +28,7 @@ pub fn matches(
 /// characteristics as modified by every *earlier* layer — a value that
 /// exists only mid-projection and is not yet in the object's cache.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one arm per `Filter` variant, and no wildcard
 pub fn matches_projected(
     filter: &Filter,
     state: &GameState,
@@ -60,12 +61,32 @@ pub fn matches_projected(
         }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
+        Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
+        Filter::ControlledByDefendingPlayer => {
+            state.turn.phase == crate::turn::Phase::Combat
+                && state.is_opponent(obj.controller, state.turn.active)
+        }
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
         // filter is walked over the battlefield (`CombatState`'s doc).
         Filter::Attacking => state.combat.is_attacking(obj.id),
+        Filter::Blocking => state.combat.blockers.iter().any(|b| b.blocker == obj.id),
+        // Blocked or unblocked is settled as blockers are declared (CR
+        // 509.1h), which is the declare-blockers step's first act; from
+        // there to the end of combat an attacker is one or the other.
+        Filter::Unblocked => {
+            state.combat.is_attacking(obj.id)
+                && !state.combat.is_blocked(obj.id)
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
         // The turn's record of arrivals. It is written where a `ZoneChanged`
         // into the battlefield is journaled, and it holds the id
         // `move_object` returns, so the handle a permanent has now is the one
@@ -80,6 +101,14 @@ pub fn matches_projected(
         // `arrival_tests::a_permanent_entered_this_turn_only_on_the_turn_it_was_played`
         // asserts both halves of what makes it unnecessary.
         Filter::EnteredThisTurn => state.per_turn.entered_battlefield.contains(&obj.id),
+        Filter::AttackedThisTurn => state.per_turn.attacked.contains(&(obj.id, obj.version)),
+        Filter::ControlledSinceTurnBegan => {
+            obj.zone == crate::zone::Zone::Battlefield
+                && state
+                    .players
+                    .get(obj.controller.get() as usize)
+                    .is_some_and(|p| obj.controlled_since <= p.turn_start_timestamp)
+        }
         Filter::PutIntoGraveyardThisTurn => state.per_turn.entered_graveyard.contains(&obj.id),
         // The object's own counters. A leaves-the-battlefield trigger asks
         // the object as it last existed there, and `trigger::departed_matches`
@@ -129,10 +158,8 @@ pub fn matches_projected(
         // layer up. A source that is gone, or that announced nothing, bounds
         // at 0 rather than at everything: an unreadable bound that found the
         // whole library would be a tutor with no price.
-        Filter::CmcAtMostX => {
-            let x = state.object(this).map_or(0, |o| o.x_value);
-            chars.mana_value() <= x
-        }
+        Filter::CmcAtMostX => chars.mana_value() <= announced_x(state, this),
+        Filter::CmcExactlyX => chars.mana_value() == announced_x(state, this),
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
         Filter::CmcAtMostColorsSpent => {
@@ -151,6 +178,8 @@ pub fn matches_projected(
         // way and for the same reason.
         Filter::PowerAtLeast(n) => chars.power.is_some_and(|p| p >= *n),
         Filter::PowerAtMost(n) => chars.power.is_some_and(|p| p <= *n),
+        Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
+        Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => {
             use baylee_cards_dsl::ZoneRef;
             match z {
@@ -170,6 +199,17 @@ pub fn matches_projected(
             }
         }
     }
+}
+
+/// Who controls the permanent `source` is attached to: "enchanted land's
+/// controller", which need not be the Aura's own (CR 303.4e). `None` when the
+/// source is gone or attached to nothing, or its host has left the game's
+/// players.
+#[must_use]
+pub fn controller_of_attached(state: &GameState, source: ObjectId) -> Option<PlayerId> {
+    let host = state.object(source)?.attached_to?;
+    let seat = state.object(host)?.controller;
+    (!state.has_left(seat)).then_some(seat)
 }
 
 /// Resolves a relative player reference to concrete players — or `None` for
@@ -199,10 +239,17 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
             .filter(|p| !p.has_lost())
             .map(|p| p.id)
             .collect(),
+        PlayerRel::ActivePlayer => state
+            .players
+            .iter()
+            .filter(|p| p.id == state.turn.active && !p.has_lost())
+            .map(|p| p.id)
+            .collect(),
         PlayerRel::ControllerOfTarget
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Chosen
-        | PlayerRel::DamagedPlayer => {
+        | PlayerRel::DamagedPlayer
+        | PlayerRel::ControllerOfAttached => {
             return None;
         }
     })
@@ -349,7 +396,10 @@ pub fn amount(
             .object(this)
             .map_or(0, |o| u32::from(o.counters.get(*kind))),
         // Resolved in resolve.rs, which has the stack object these read.
-        Amount::TargetPower | Amount::TargetCmc | Amount::EventAmount => 0,
+        Amount::TargetPower
+        | Amount::TargetCmc
+        | Amount::EventAmount
+        | Amount::TargetsPutIntoGraveyard => 0,
         // The object the payment wrote it on. A resolution asks
         // `resolve::amount2`, which reads the stack object: an activated
         // ability's source is the permanent and its payment is on the
@@ -365,6 +415,13 @@ pub fn amount(
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => tapped_power(state, this),
+        Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
+        Amount::DamageDealtToYouThisTurn => state
+            .per_turn
+            .damage_dealt_to
+            .get(you.get() as usize)
+            .copied()
+            .unwrap_or(0),
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.battlefield_view(),
@@ -472,6 +529,14 @@ pub fn condition_holds(
                 .count();
             count <= max as usize
         }
+        // The two walks above over the whole battlefield: nobody's side of
+        // the table in particular.
+        Condition::BattlefieldCount(filter, min) => {
+            battlefield_count(state, you, filter) >= min as usize
+        }
+        Condition::BattlefieldCountAtMost(filter, max) => {
+            battlefield_count(state, you, filter) <= max as usize
+        }
         Condition::ControlDistinctNames(filter, min) => {
             // A phased-out land is treated as though it does not exist
             // (CR 702.26b), so its name is not one of yours.
@@ -573,7 +638,61 @@ pub fn condition_holds(
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
+        Condition::DuringCombat => state.turn.phase == crate::turn::Phase::Combat,
+        Condition::All(all) => all.iter().all(|c| condition_holds(state, you, source, *c)),
+        Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
+        Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
+        // CR 506.7: "before" a point of the turn is before that point's
+        // place in it, whether or not the step itself happens (506.7e).
+        Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
+        Condition::CanSacrifice(filter) => {
+            !controlled_matching(state, you, filter, you, source).is_empty()
+        }
     }
+}
+
+/// The permanents `player` controls that `filter` matches: what a player
+/// asked to sacrifice, destroy or return "a [filter]" may pick
+/// (`Effect::SacrificeFilter` and its siblings), and what
+/// [`Condition::CanSacrifice`] asks about.
+///
+/// `you` and `source` are the effect's own controller and source, which is
+/// what a filter reads "you" and "this" as — not the player being asked. A
+/// phased-out permanent is treated as though it does not exist (CR
+/// 702.26b), so it is not one of them.
+#[must_use]
+pub fn controlled_matching(
+    state: &GameState,
+    player: PlayerId,
+    filter: &Filter,
+    you: PlayerId,
+    source: ObjectId,
+) -> Vec<ObjectId> {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| o.controller == player && matches(filter, state, o, you, source))
+        })
+        .collect()
+}
+
+/// The permanents on the battlefield `filter` matches, whoever controls them,
+/// each asked with its own id as the filter's object — the reading
+/// [`Condition::ControlCount`] gives one side of the table.
+///
+/// A phased-out permanent is treated as though it does not exist (CR
+/// 702.26b), so it is not on the battlefield this counts.
+fn battlefield_count(state: &GameState, you: PlayerId, filter: &Filter) -> usize {
+    state
+        .battlefield_seen()
+        .filter(|id| {
+            state
+                .object(*id)
+                .is_some_and(|o| matches(filter, state, o, you, *id))
+        })
+        .count()
 }
 
 /// The intervening-`if` clause of a triggered ability (CR 603.4), asked of
@@ -779,6 +898,63 @@ fn opponents_objects(
             .is_some_and(|o| state.is_opponent(o.controller, you))
     });
     all
+}
+
+/// The X announced for `this`, where `cast_wizard` and an activation write
+/// it; 0 for a source that is gone or announced none.
+fn announced_x(state: &GameState, this: ObjectId) -> u32 {
+    state.object(this).map_or(0, |o| o.x_value)
+}
+
+/// Whether `stat` is less than the source's projected power. A source with
+/// no power, or none at all, bounds nothing in, and neither does an object
+/// with no such number.
+fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> bool {
+    let bound = state.object(this).and_then(|o| o.characteristics().power);
+    stat.zip(bound).is_some_and(|(stat, bound)| stat < bound)
+}
+
+/// Whether `filter` reads the X announced for its source
+/// ([`Filter::CmcAtMostX`], [`Filter::CmcExactlyX`]).
+#[must_use]
+pub fn reads_announced_x(filter: &Filter) -> bool {
+    match filter {
+        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(reads_announced_x),
+        Filter::Not(f) => reads_announced_x(f),
+        _ => false,
+    }
+}
+
+/// Whether some announced X would let `obj` match `filter`: the question an
+/// offer asks of a spell like Spell Blast before its X exists. X is announced
+/// (CR 601.2b) before targets are chosen (CR 601.2c), and the offer comes
+/// before both, so "is there a target" can only mean "is there one for some
+/// X".
+///
+/// The X atoms answer yes and every other atom is [`matches`]. A negated X
+/// atom answers yes as well without being asked, which offers a spell whose
+/// cast may then find nothing — the direction a wizard can reverse (CR
+/// 601.2), where hiding a castable spell is not. No card negates one.
+#[must_use]
+pub fn matches_for_some_x(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    this: ObjectId,
+) -> bool {
+    match filter {
+        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::And(parts) => parts
+            .iter()
+            .all(|f| matches_for_some_x(f, state, obj, you, this)),
+        Filter::Or(parts) => parts
+            .iter()
+            .any(|f| matches_for_some_x(f, state, obj, you, this)),
+        Filter::Not(f) if reads_announced_x(f) => true,
+        other => matches(other, state, obj, you, this),
+    }
 }
 
 /// Legal target options for a [`TargetSpec`] (empty = cannot be chosen).
@@ -1019,6 +1195,33 @@ mod tests {
         b.toughness = Some(1);
         b.keywords = keywords;
         id
+    }
+
+    /// "That player" of a step trigger is whoever's turn it is (CR 102.1),
+    /// read from the state alone; the enchanted permanent's controller needs
+    /// the source and is the resolution's to answer.
+    #[test]
+    fn the_active_player_is_whoever_s_turn_it_is() {
+        let mut state = empty_state();
+        state.turn.active = P1;
+        assert_eq!(players(PlayerRel::ActivePlayer, &state, P0), Some(vec![P1]));
+        state.turn.active = P0;
+        assert_eq!(players(PlayerRel::ActivePlayer, &state, P1), Some(vec![P0]));
+        assert_eq!(players(PlayerRel::ControllerOfAttached, &state, P0), None);
+
+        let host = land(&mut state, P1, &[]);
+        let aura = creature(&mut state, P0, KeywordSet::EMPTY);
+        assert_eq!(
+            controller_of_attached(&state, aura),
+            None,
+            "attached to nothing"
+        );
+        state.object_mut(aura).expect("just made").attached_to = Some(host);
+        assert_eq!(
+            controller_of_attached(&state, aura),
+            Some(P1),
+            "the host's controller, not the Aura's (CR 303.4e)"
+        );
     }
 
     /// A land on `controller`'s battlefield carrying `subtypes`.
@@ -1521,6 +1724,192 @@ mod tests {
             !ask(&state, &Filter::PowerAtMost(3), c),
             "and the creature has grown out of the other card's restriction"
         );
+    }
+
+    /// "Activate only during combat" holds in each step of the combat phase
+    /// (CR 506.1), whoever's turn it is, and in no other phase.
+    #[test]
+    fn during_combat_is_the_combat_phase_of_any_turn() {
+        use crate::turn::{Phase, Step};
+        let mut state = empty_state();
+        let this = creature(&mut state, P0, KeywordSet::EMPTY);
+        let during = |state: &GameState| condition_holds(state, P0, this, Condition::DuringCombat);
+        for (phase, step, holds) in [
+            (Phase::FirstMain, Step::Main, false),
+            (Phase::Combat, Step::CombatBegin, true),
+            (Phase::Combat, Step::DeclareBlockers, true),
+            (Phase::Combat, Step::CombatEnd, true),
+            (Phase::SecondMain, Step::Main, false),
+            (Phase::Ending, Step::End, false),
+        ] {
+            state.turn.phase = phase;
+            state.turn.step = step;
+            assert_eq!(during(&state), holds, "{step:?}");
+        }
+        state.turn.phase = Phase::Combat;
+        state.turn.step = Step::DeclareAttackers;
+        state.turn.active = P1;
+        assert!(during(&state), "the opponent's combat too");
+    }
+
+    /// "For each creature that died this turn" reads the turn's tally, which
+    /// the move to a graveyard writes and the turn's end clears.
+    #[test]
+    fn the_turns_deaths_are_the_tally_the_moves_wrote() {
+        let mut state = empty_state();
+        let this = creature(&mut state, P0, KeywordSet::EMPTY);
+        let died = Amount::CreaturesDiedThisTurn;
+        assert_eq!(amount(&died, &state, P0, this, None), 0);
+        for _ in 0..2 {
+            let dying = creature(&mut state, P1, KeywordSet::EMPTY);
+            state
+                .move_object(
+                    dying,
+                    ZoneLocation::Graveyard(P1),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("it moves");
+        }
+        assert_eq!(amount(&died, &state, P0, this, None), 2, "either player's");
+    }
+
+    /// "Toughness less than Stone Giant's power": compared with the
+    /// source's projected power, strictly, and a source with no power
+    /// bounds nothing in.
+    #[test]
+    fn a_comparison_with_the_sources_power_is_strict_and_reads_the_source() {
+        let mut state = empty_state();
+        let giant = creature(&mut state, P0, KeywordSet::EMPTY);
+        let small = creature(&mut state, P0, KeywordSet::EMPTY);
+        let land = land(&mut state, P0, &[]);
+        {
+            let b = state.object_mut(giant).expect("seated").base_mut();
+            b.power = Some(3);
+            b.toughness = Some(4);
+        }
+        {
+            let b = state.object_mut(small).expect("seated").base_mut();
+            b.power = Some(3);
+            b.toughness = Some(2);
+        }
+        state.invalidate_projections();
+        let ask = |state: &GameState, f: &Filter, id: ObjectId, source: ObjectId| {
+            matches(f, state, state.object(id).expect("still here"), P0, source)
+        };
+        assert!(ask(
+            &state,
+            &Filter::ToughnessLessThanSourcePower,
+            small,
+            giant
+        ));
+        assert!(
+            !ask(&state, &Filter::PowerLessThanSourcePower, small, giant),
+            "3 is not less than 3"
+        );
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, giant, giant),
+            "the giant's own 4 is not less than its 3"
+        );
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, small, land),
+            "a source with no power bounds nothing in"
+        );
+        state.object_mut(giant).expect("seated").base_mut().power = Some(2);
+        state.invalidate_projections();
+        assert!(
+            !ask(&state, &Filter::ToughnessLessThanSourcePower, small, giant),
+            "the source's power as it is now"
+        );
+    }
+
+    /// "If no creatures are on the battlefield" (Pestilence) counts both
+    /// sides of the table, where "you control" counts one.
+    #[test]
+    fn a_battlefield_count_is_everybodys() {
+        let mut state = empty_state();
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+
+        let none = Condition::BattlefieldCountAtMost(&ANY_CREATURE, 0);
+        let some = Condition::BattlefieldCount(&ANY_CREATURE, 1);
+        assert!(!condition_holds(&state, P0, theirs, none), "theirs counts");
+        assert!(condition_holds(&state, P0, theirs, some));
+        assert!(
+            condition_holds(
+                &state,
+                P0,
+                theirs,
+                Condition::ControlCountAtMost(&ANY_CREATURE, 0)
+            ),
+            "the control: P0 controls none of it"
+        );
+        let bare = empty_state();
+        assert!(condition_holds(&bare, P0, theirs, none));
+        assert!(!condition_holds(&bare, P0, theirs, some));
+    }
+
+    /// Blaze of Glory's "creature defending player controls": during the
+    /// combat phase, a creature an opponent of the active player controls
+    /// (CR 506.2, 802.2), whoever `you` is; outside it, nobody's. A
+    /// teammate of the active player defends nothing.
+    #[test]
+    fn a_defending_players_creatures_are_the_active_players_opponents_in_combat() {
+        static DEFENDING: Filter = Filter::ControlledByDefendingPlayer;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+        let asks = |state: &GameState, id| {
+            state
+                .object(id)
+                .is_some_and(|o| matches(&DEFENDING, state, o, P1, id))
+        };
+        state.turn.active = P0;
+        state.turn.phase = crate::turn::Phase::FirstMain;
+        assert!(!asks(&state, theirs), "no defending player outside combat");
+        state.turn.phase = crate::turn::Phase::Combat;
+        assert!(asks(&state, theirs), "whoever `you` is");
+        assert!(!asks(&state, mine), "the attacking player defends nothing");
+        state.turn.active = P1;
+        assert!(asks(&state, mine) && !asks(&state, theirs));
+        for player in &mut state.players {
+            player.team = Some(1);
+        }
+        assert!(!asks(&state, mine), "a teammate is not attacked");
+    }
+
+    /// Karma's "Swamps they control" is the active player's, and Spell
+    /// Blast's "mana value X" is the X its own source announced.
+    #[test]
+    fn the_active_players_permanents_and_a_mana_value_of_exactly_x() {
+        static ACTIVES: Filter = Filter::ControlledByActivePlayer;
+        static EXACTLY_X: Filter = Filter::CmcExactlyX;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+        state.turn.active = P1;
+        let asks = |state: &GameState, id, filter: &Filter| {
+            state
+                .object(id)
+                .is_some_and(|o| matches(filter, state, o, P0, id))
+        };
+        assert!(asks(&state, theirs, &ACTIVES), "whoever `you` is");
+        assert!(!asks(&state, mine, &ACTIVES));
+        state.turn.active = P0;
+        assert!(asks(&state, mine, &ACTIVES));
+
+        let spell = creature(&mut state, P0, KeywordSet::EMPTY);
+        let value = state
+            .object(mine)
+            .map_or(0, |o| o.characteristics().mana_value());
+        let check = |state: &GameState| {
+            state
+                .object(mine)
+                .is_some_and(|o| matches(&EXACTLY_X, state, o, P0, spell))
+        };
+        state.object_mut(spell).expect("here").x_value = value;
+        assert!(check(&state));
+        state.object_mut(spell).expect("here").x_value = value + 1;
+        assert!(!check(&state), "at most X would have said yes");
     }
 
     /// "You control no artifacts" is not the negation of a minimum with the

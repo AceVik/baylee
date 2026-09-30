@@ -51,7 +51,10 @@ pub enum ActivationZone {
     Graveyard,
 }
 
-/// Steps/phases triggers can listen to.
+/// Steps a trigger can listen to, and a step a timing restriction names.
+///
+/// Listed in turn order, which is the order [`Condition::BeforeStep`]
+/// compares in.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum StepKind {
     /// Upkeep step.
@@ -60,6 +63,15 @@ pub enum StepKind {
     Draw,
     /// Beginning of combat.
     CombatBegin,
+    /// Declare attackers step (CR 508): attackers are declared as it
+    /// begins.
+    DeclareAttackers,
+    /// Declare blockers step (CR 509): blockers are declared as it begins.
+    DeclareBlockers,
+    /// A combat damage step (CR 510), the first-strike one included: a
+    /// combat with first strike has two, and "the combat damage step" is
+    /// reached at the first of them.
+    CombatDamage,
     /// End step.
     End,
 }
@@ -110,6 +122,15 @@ pub enum Condition {
     /// that never sacrifices itself and so is strictly stronger than the one
     /// printed.
     ControlCountAtMost(&'static Filter, u8),
+    /// At least N permanents on the battlefield match the filter, whoever
+    /// controls them — "if there are three or more creatures on the
+    /// battlefield". [`Self::ControlCount`] counts one player's side of the
+    /// table and this one all of it.
+    BattlefieldCount(&'static Filter, u8),
+    /// At most N permanents on the battlefield match the filter, whoever
+    /// controls them — Pestilence's "if no creatures are on the
+    /// battlefield" is at most none.
+    BattlefieldCountAtMost(&'static Filter, u8),
     /// You control permanents matching the filter with at least N
     /// **different names** among them — Field of the Dead's "if you
     /// control seven or more lands with different names".
@@ -219,6 +240,20 @@ pub enum Condition {
     /// so a land that left the battlefield between the trigger and its
     /// resolution leaves "this land is tapped" with nothing to be true of.
     SourceMatches(&'static Filter),
+    /// "If you can't" of "sacrifice a [filter]": you control a permanent
+    /// the filter matches, asked with the ability's source as the filter's
+    /// `This` — the permanents `Effect::SacrificeFilter` would offer you.
+    /// Lord of the Pit's "sacrifice a creature other than this creature. If
+    /// you can't, …" is `IfCondition { condition: CanSacrifice(&f), then:
+    /// &[SacrificeFilter { who: You, filter: &f }], otherwise: … }`.
+    ///
+    /// Not `ControlCount(&f, 1)`: that one asks each permanent with itself
+    /// as `This`, so `Filter::Another` never matches there.
+    CanSacrifice(&'static Filter),
+    /// "Activate only during combat" (Jade Statue): the combat phase of any
+    /// player's turn, from the beginning of combat step to the end of combat
+    /// step (CR 506.1).
+    DuringCombat,
     /// At least one of these holds ("activate only if this land entered
     /// this turn **or** if you control a basic land" — the Gathering Place
     /// cycle).
@@ -229,13 +264,31 @@ pub enum Condition {
     /// "or you control a basic land" would have to be added to every
     /// `Condition` the cycle could ever pair it with.
     ///
-    /// There is no `All`. A conjunction is printed, but inside an effect:
-    /// the Urza lands' "if you control an Urza's Mine and an Urza's
-    /// Power-Plant, add {C}{C}{C} instead" is two nested
-    /// `Effect::IfCondition`s. It is added the day one stands where a single
-    /// condition is all there is room for (an activation restriction, an
-    /// intervening `if`), and not before.
+    /// A conjunction printed inside an effect is nested
+    /// `Effect::IfCondition`s (the Urza lands' "if you control an Urza's
+    /// Mine and an Urza's Power-Plant"); [`Condition::All`] is for one that
+    /// stands where a single condition is all there is room for.
     Any(&'static [Condition]),
+    /// Every one of these holds. "Activate only during your upkeep" is
+    /// `All(&[YourTurn, DuringStep(StepKind::Upkeep)])`: a restriction on
+    /// activating (CR 602.5) is one condition, and the sentence is two.
+    All(&'static [Condition]),
+    /// It is an opponent's turn: the active player is an opponent of
+    /// "you". Not `Not(&YourTurn)`, which a teammate's turn also satisfies.
+    OpponentsTurn,
+    /// The current step is this one ("activate only during the declare
+    /// blockers step"). A turn's two main phases have no step and are never
+    /// it.
+    DuringStep(StepKind),
+    /// This turn has not yet reached this step (CR 506.7): "cast this spell
+    /// only before blockers are declared" is `BeforeStep(DeclareBlockers)`,
+    /// since blockers are declared as that step begins (CR 506.7b), and
+    /// "before the combat damage step" is `BeforeStep(CombatDamage)`. Past
+    /// the step's place in the turn it is false, whether or not the step
+    /// happened: with no attackers there is no combat damage step (CR
+    /// 508.8), and the end of combat step is after it all the same (CR
+    /// 506.7e).
+    BeforeStep(StepKind),
     /// "If X is N or more" — the X announced for the spell that is the
     /// source (Finale of Devastation). Read off the source's announced X,
     /// as `Filter::CmcAtMostX` reads it; a source that is gone or announced
@@ -313,7 +366,36 @@ pub enum Trigger {
     /// and the amount ride on the trigger, for "that player" and "that
     /// much".
     DealsCombatDamageToOpponent(&'static Filter),
-    /// The source becomes tapped (City of Brass).
+    /// A source matching the filter deals damage, combat or not, to an
+    /// **opponent** of the ability's controller (Hypnotic Specter: "whenever
+    /// this creature deals damage to an opponent, that player discards a
+    /// card at random"). Once per damage event (CR 603.2c). The player dealt
+    /// to and the amount ride on the trigger, as on
+    /// [`Self::DealsCombatDamageToOpponent`].
+    DealsDamageToOpponent(&'static Filter),
+    /// A permanent matching the filter is dealt damage (Fungusaur:
+    /// "whenever this creature is dealt damage, put a +1/+1 counter on
+    /// it"). All combat damage is dealt at once (CR 510.2), so a creature
+    /// blocked by three is dealt damage in one event and this triggers once
+    /// for it (CR 603.2c); every other damage event triggers it once.
+    /// Damage that was prevented was not dealt, and triggers nothing
+    /// (CR 603.2g).
+    DealtDamage(&'static Filter),
+    /// A player the relation names is dealt damage (Living Artifact and
+    /// Lich: "whenever you're dealt damage"). The player's sibling of
+    /// [`Self::DealtDamage`], one event the same way: all combat damage in
+    /// a step is dealt at once (CR 510.2), so two attackers unblocked are
+    /// one event and trigger it once (CR 603.2c), and "that many" is the
+    /// step's total to that player, not the first creature's share. Every
+    /// other damage event triggers it once, for its own amount. Damage that
+    /// was prevented was not dealt (CR 603.2g). The relation is asked of the
+    /// state alone, as [`Self::TappedForMana`]'s is.
+    PlayerDealtDamage(crate::effect::PlayerRel),
+    /// A permanent matching the filter becomes tapped, for any reason:
+    /// City of Brass's own (`Filter::This`), Lifetap's "a Forest an
+    /// opponent controls", Psychic Venom's enchanted land. The permanent is
+    /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
+    /// land's controller".
     BecomesTapped(&'static Filter),
     /// The count of a kind of counter on the source rises from below `n`
     /// to `n` or more — the window CR 714.2b writes out for a chapter
@@ -351,11 +433,24 @@ pub enum Trigger {
     /// {T} in the cost (CR 106.12), and that ability resolves and produces
     /// mana (CR 106.12a). Once per activation, however many colours it made.
     ///
+    /// `by` is who tapped it: `You` for "whenever you tap", `EachPlayer` for
+    /// "whenever a player taps a land" (Manabarbs) and for "whenever a
+    /// Mountain is tapped for mana" (Gauntlet of Might), which names nobody,
+    /// `EachOpponent` for "an opponent". The permanent is the event's
+    /// object, so `PlayerRel::ControllerOfEvent` is "that player" and "its
+    /// controller": only its controller can activate its abilities
+    /// (CR 602.2).
+    ///
     /// Without a target and with effects that add mana, the ability is
     /// itself a mana ability (CR 605.1b) and resolves at once, off the
     /// stack (CR 605.4a): "add an additional {G}" is in the pool before the
     /// player acts again.
-    TappedForMana(&'static Filter),
+    TappedForMana {
+        /// Who tapped it.
+        by: crate::effect::PlayerRel,
+        /// What was tapped.
+        filter: &'static Filter,
+    },
     /// A player draws a card except the first one they draw in each of
     /// their draw steps (Orcish Bowmasters). A card drawn in their upkeep
     /// or on another player's turn is in none of their draw steps.
@@ -363,6 +458,15 @@ pub enum Trigger {
     DrawsExceptFirst(crate::effect::PlayerRel),
     /// An object matching the filter attacks (Sun Titan).
     Attacks(&'static Filter),
+    /// This creature blocks a creature matching the filter (CR 509.3b) or
+    /// becomes blocked by one (CR 509.3d): once for each such pair, each
+    /// time a blocker is declared, so a creature blocked by two of them
+    /// triggers twice. The filter describes the *other* creature, as it is
+    /// when it blocks or is blocked (CR 509.3f), and that creature is the
+    /// trigger's event object, [`TargetSpec::EventObject`](crate::TargetSpec)
+    /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
+    /// non-Wall creature, destroy that creature at end of combat".
+    BlocksOrBecomesBlockedBy(&'static Filter),
     /// A matching creature is the sole declared attacker (exalted).
     /// This is checked when attacking, not again when the trigger resolves.
     AttacksAlone(&'static Filter),
@@ -387,6 +491,13 @@ pub enum Trigger {
         /// Whose turn.
         whose: crate::effect::PlayerRel,
     },
+    /// A state trigger (CR 603.8): "When you control no Islands, sacrifice
+    /// this creature." It triggers whenever the condition holds, asked with
+    /// the source as `this` and its controller as "you", and not again
+    /// while the ability is waiting to go on the stack or is on it; once it
+    /// has left the stack, a source still on the battlefield with the
+    /// condition still true triggers again. No event matches it.
+    State(&'static Condition),
 }
 
 impl Trigger {
@@ -424,6 +535,11 @@ pub enum AbilityDef {
         /// illegal target *and the position it held*. An effect reaches this
         /// list only by naming [`crate::effect::TargetSlot::Second`].
         second_targets: Option<crate::effect::TargetReq>,
+        /// "Cast this spell only [when]" (CR 506.7, 601.3): asked before the
+        /// spell may be cast, as an activated ability's condition is asked
+        /// before it may be activated. `None` for the spell every other
+        /// card is.
+        condition: Option<Condition>,
     },
     /// Activated ability (`cost: effect`).
     Activated {
@@ -698,13 +814,14 @@ impl AbilityDef {
         matches!(
             self,
             Self::Triggered {
-                trigger: Trigger::TappedForMana(_),
+                trigger: Trigger::TappedForMana { .. },
                 targets: None,
                 effects,
                 ..
-            } if effects
-                .iter()
-                .any(|effect| matches!(effect, crate::effect::Effect::AddMana { .. }))
+            } if effects.iter().any(|effect| matches!(
+                effect,
+                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. }
+            ))
         )
     }
 }
@@ -998,6 +1115,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                condition: None,
             },
             AbilityDef::Triggered {
                 trigger: Trigger::ETB,

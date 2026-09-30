@@ -192,6 +192,10 @@ pub enum DelayedWhen {
     NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
+    /// At end of combat: as the next end of combat step begins, whoever's
+    /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
+    /// combat").
+    EndOfCombat,
     /// At the controller's next cleanup.
     NextCleanup,
     /// As the resolution that made it finishes — before anything else
@@ -320,6 +324,19 @@ pub enum DelayedAction {
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
     },
+    /// [`Self::Trigger`] about one object (`Effect::AtNextEndStep`): its
+    /// event object is `object` while that is still the object it was at
+    /// `version`, and nothing once it has left its zone (CR 603.7c, 400.7).
+    TriggerAbout {
+        /// The source of the ability that created it.
+        source: ObjectId,
+        /// What it does.
+        effects: &'static [baylee_cards_dsl::Effect],
+        /// The object "that creature" names.
+        object: ObjectId,
+        /// Its identity when this was created.
+        version: u32,
+    },
 }
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
@@ -344,6 +361,10 @@ pub struct PerTurn {
     /// Whether each player lost life this turn (Luminarch Ascension).
     /// Written by [`GameState::change_life`] and nothing else.
     pub life_lost: Vec<bool>,
+    /// The damage dealt to each player this turn, per seat ("the damage
+    /// dealt to you this turn", Simulacrum). Written by
+    /// [`GameState::damage_player`] and nothing else.
+    pub damage_dealt_to: Vec<u32>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
@@ -378,6 +399,15 @@ pub struct PerTurn {
     /// its version (`Effect::ExileIfDiesThisTurn`, CR 400.7): read by
     /// `replacement::graveyard_destination`.
     pub exile_if_dies: Vec<(ObjectId, u32)>,
+    /// The permanents no regeneration shield is applied to this turn, each
+    /// with its version (`Effect::CantBeRegeneratedThisTurn`, CR 701.19c):
+    /// read by `sba::destroy`.
+    pub cant_regenerate: Vec<(ObjectId, u32)>,
+    /// The creatures declared as attackers this turn, each with its
+    /// version (`Filter::AttackedThisTurn`, CR 508.1): written by
+    /// `Engine::declare_attackers` and nothing else, so a creature put onto
+    /// the battlefield attacking is not in it (CR 508.4).
+    pub attacked: Vec<(ObjectId, u32)>,
 }
 
 /// One card played or cast from a graveyard under a
@@ -451,6 +481,7 @@ impl PerTurn {
             spells_cast: vec![0; players],
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
+            damage_dealt_to: vec![0; players],
             creatures_died: 0,
             draws: vec![0; players],
             drew_in_draw_step: false,
@@ -461,6 +492,8 @@ impl PerTurn {
             graveyard_plays: Vec::new(),
             entered_graveyard: Vec::new(),
             exile_if_dies: Vec::new(),
+            cant_regenerate: Vec::new(),
+            attacked: Vec::new(),
         }
     }
 
@@ -511,6 +544,7 @@ impl PerTurn {
         self.spells_cast.iter_mut().for_each(|v| *v = 0);
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
+        self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
         self.creatures_died = 0;
         self.entered_battlefield.clear();
         self.drawn.clear();
@@ -519,6 +553,8 @@ impl PerTurn {
         self.graveyard_plays.clear();
         self.entered_graveyard.clear();
         self.exile_if_dies.clear();
+        self.cant_regenerate.clear();
+        self.attacked.clear();
     }
 }
 
@@ -918,13 +954,15 @@ pub struct GameState {
     /// How often an ability of an object has been used this turn, cleared as
     /// a turn begins.
     ///
-    /// Four clauses share it because each is one ability's count of one
+    /// Five clauses share it because each is one ability's count of one
     /// thing it does in a turn: "this ability triggers only once each turn"
     /// (Jin-Gitaxias), "activate only once each turn" (Wall of Roots), "do
-    /// this only once each turn" (The Reaper, King No More: set by the yes)
-    /// and "if this is the first time this ability has resolved this turn"
-    /// (Omnath, Locus of Creation: its resolutions). No ability says two of
-    /// them. The key is the object and the ability index, so a permanent
+    /// this only once each turn" (The Reaper, King No More: set by the yes),
+    /// "if this is the first time this ability has resolved this turn"
+    /// (Omnath, Locus of Creation: its resolutions) and "if this ability has
+    /// been activated four or more times this turn" (Dragon Whelp: its
+    /// activations, as "activate only once each turn" counts them). No
+    /// ability says two of them. The key is the object and the ability index, so a permanent
     /// that leaves the battlefield and comes back starts over — CR 400.7
     /// rather than a convenience.
     ///
@@ -947,6 +985,10 @@ pub struct GameState {
     pub effects: crate::effects::EffectTable,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
     pub replacement_rules: Vec<ReplacementEntry>,
+    /// Prevention shields resolved spells and abilities left behind
+    /// (CR 615), in the order they were made; every one ends at the turn's
+    /// cleanup (CR 514.2). See [`crate::prevention`].
+    pub shields: Vec<crate::prevention::Shield>,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
     /// Scratch list reused by [`GameState::refresh_characteristics`].
@@ -1046,6 +1088,7 @@ impl GameState {
             timestamp,
             effects,
             replacement_rules,
+            shields,
             characteristics_generation,
             projection_ids,
             projected_cross_zone,
@@ -1118,6 +1161,7 @@ impl GameState {
             ("state.timestamp", format!("{timestamp:?}")),
             ("state.effects", format!("{effects:?}")),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
+            ("state.shields", format!("{shields:?}")),
             (
                 "state.characteristics_generation",
                 format!("{characteristics_generation:?}"),
@@ -1253,6 +1297,19 @@ impl GameState {
         })
     }
 
+    /// Whether an effect has `player` skip their untap steps
+    /// (`Modifier::SkipUntapStep`, Stasis). Each effect's `who` is read from
+    /// its own controller, as [`Self::cant_lose_life`] reads its own.
+    #[must_use]
+    pub fn skips_untap_step(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::SkipUntapStep { who } = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+        })
+    }
+
     /// Builds a game from a preset: seats, decks, shuffles, opening hands,
     /// starting battlefield, emblems.
     ///
@@ -1337,6 +1394,7 @@ impl GameState {
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
+            shields: Vec::new(),
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
@@ -1511,6 +1569,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
         });
@@ -1554,6 +1613,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
         });
@@ -1903,6 +1963,43 @@ impl GameState {
         });
     }
 
+    /// Damage dealt to a player, after prevention: the life it costs
+    /// (CR 120.3a), the turn's tally and the [`GameEvent::DamageDealt`]
+    /// record. **The** door for damage to a player, as
+    /// [`Self::change_life`] is for life: combat damage
+    /// (`combat::deal_damage_to_player`) and an effect's
+    /// (`resolve::life::deal_to_player`) both come through here, so "the
+    /// damage dealt to you this turn" (Simulacrum) reads one tally that
+    /// neither of them can forget to write.
+    ///
+    /// The tally counts damage dealt, not life lost, so it is not kept in
+    /// `change_life`: a payment loses life and is no damage, and a player
+    /// whose life can't change is still dealt the damage (`change_life`
+    /// refuses the loss, this records the damage). Nothing is dealt below
+    /// one point; the caller has already prevented what it prevents.
+    pub fn damage_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: u16,
+        is_combat: bool,
+        cause: Cause,
+    ) {
+        if amount == 0 {
+            return;
+        }
+        self.change_life(player, -i32::from(amount), cause);
+        if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
+            *tally = tally.saturating_add(u32::from(amount));
+        }
+        self.journal.record(GameEvent::DamageDealt {
+            source: Some(source),
+            target: crate::event::DamageTarget::Player(player),
+            amount,
+            is_combat,
+        });
+    }
+
     /// Taps or untaps a permanent — **the** door, and the reason it is one.
     ///
     /// A tap is an input to the layer projection wherever an effect's filter
@@ -1952,11 +2049,10 @@ impl GameState {
     /// board where no effect reads tap or attack status — nearly every board
     /// — this is one walk of a short table and nothing else.
     pub fn board_state_changed(&mut self) {
-        if self
-            .effects
-            .iter()
-            .any(|fx| matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f)))
-        {
+        if self.effects.iter().any(|fx| {
+            matches!(fx.filter, crate::effects::EffectFilter::Dsl(f) if filter_reads_board_state(f))
+                || modifier_reads_combat(fx.modifier)
+        }) {
             self.invalidate_projections();
         }
     }
@@ -2663,6 +2759,18 @@ impl GameState {
         let to = self.take_commander_redirect(id, to);
         let (to, exile_counter) = crate::replacement::graveyard_destination(self, id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
+        // A creature dies when it is put into a graveyard from the
+        // battlefield (CR 700.4), and whether it was a creature is what it
+        // was there: a land an effect animated dies as a creature, and the
+        // card in the graveyard is a land. Asked before the move clears its
+        // projection.
+        let dies_as_a_creature = from_zone == Zone::Battlefield
+            && to.zone() == Zone::Graveyard
+            && self.object(id).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            });
         // Record each exposed card before it leaves, including each draw of
         // a multi-card draw. Only the top was public, never the whole library.
         if from_zone == Zone::Library
@@ -2684,6 +2792,7 @@ impl GameState {
         // counting across a blink — Omnath returned by Ephemerate took its
         // second landfall for the second time this turn, not the first.
         self.ability_fires.retain(|(object, _), _| *object != id);
+        let spell_version = self.object(id).map(|o| o.version);
         {
             let obj = self.object_mut(id).expect("checked above");
             obj.zone = to.zone();
@@ -2808,6 +2917,16 @@ impl GameState {
                 obj.own_abilities_until_eot = false;
             }
         }
+        // CR 400.7a, the exception to the new object above: what a spell or
+        // ability did to a permanent spell, it goes on doing to the
+        // permanent (`EffectTable::follow_into_permanent`).
+        if from_zone == Zone::Stack
+            && to.zone() == Zone::Battlefield
+            && let (Some(spell), Some(permanent)) =
+                (spell_version, self.object(id).map(|o| o.version))
+        {
+            self.effects.follow_into_permanent(id, spell, permanent);
+        }
         let projectable = self
             .object(id)
             .is_none_or(|o| o.kind != ObjectKind::AbilityOnStack);
@@ -2833,17 +2952,10 @@ impl GameState {
         if from_zone == crate::zone::Zone::Battlefield {
             self.combat.remove_from_combat(id);
         }
-        // Creature deaths this turn (Emeritus of Woe's re-prepare).
-        if from_zone == crate::zone::Zone::Battlefield && to.zone() == crate::zone::Zone::Graveyard
-        {
-            let is_creature = self.object(id).is_some_and(|o| {
-                o.characteristics()
-                    .types
-                    .contains(baylee_core::types::TypeSet::CREATURE)
-            });
-            if is_creature {
-                self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
-            }
+        // Creature deaths this turn (Emeritus of Woe's re-prepare, Scavenging
+        // Ghoul's corpse counters).
+        if dies_as_a_creature {
+            self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
         }
         // The projected set just changed, and the generation compare that
         // guards a refresh counts *effects* — so nothing would have
@@ -3184,6 +3296,7 @@ impl GameState {
             timestamp,
             effects,
             replacement_rules,
+            shields,
             characteristics_generation,
             // Scratch, always left empty.
             projection_ids: _,
@@ -3200,6 +3313,7 @@ impl GameState {
         h.u64(*characteristics_generation);
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
+        shields.hash(&mut h);
         turn.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
@@ -3443,6 +3557,9 @@ impl GameState {
             h.u32(index);
             h.u32(n);
         }
+        // Prevention shields are what damage will do next, so two states
+        // that differ only in what is shielded are two states.
+        hash_shields(&mut h, self, &position);
         h.finish()
     }
 
@@ -3498,6 +3615,89 @@ fn library_place(pos: ZonePosition, len: usize) -> LibraryPlace {
                 n => LibraryPlace::FromTop(u32::try_from(n).unwrap_or(u32::MAX)),
             }
         }
+    }
+}
+
+/// The shields as [`GameState::loop_signature`] hashes them: every object
+/// they name by its canonical `position`, like every other reference there,
+/// and by how far it has moved on since the shield named it
+/// ([`moves_since`]): a shield on a permanent protects only the object it
+/// was made on (CR 400.7), and a chosen source is the source only as that
+/// object or, chosen as a spell, the permanent it became (CR 609.7a). The
+/// version itself is identity, which the signature is blind to; how far the
+/// object has moved on from it is what the shield reads.
+fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -> u32) {
+    h.usize(state.shields.len());
+    for shield in &state.shields {
+        match shield.protects {
+            crate::prevention::Shielded::Player(p) => {
+                h.u8(0);
+                h.u8(p.get());
+            }
+            crate::prevention::Shielded::Object(id, version) => {
+                h.u8(1);
+                h.u32(position(id));
+                h.u8(moves_since(state.object(id), version));
+            }
+            crate::prevention::Shielded::Everything => h.u8(2),
+        }
+        match shield.kind {
+            crate::prevention::ShieldKind::Next(n) => {
+                h.u8(0);
+                h.u32(n);
+            }
+            crate::prevention::ShieldKind::AllCombat => h.u8(1),
+            crate::prevention::ShieldKind::NextFrom {
+                source,
+                all_but,
+                gain_life,
+                combat_only,
+            } => {
+                h.u8(2);
+                hash_chosen_source(h, state, &source, position);
+                h.u32(all_but);
+                h.boolean(gain_life);
+                h.boolean(combat_only);
+            }
+            crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
+                h.u8(3);
+                hash_chosen_source(h, state, &source, position);
+                h.u8(to.get());
+            }
+        }
+        h.u8(shield.controller.get());
+    }
+}
+
+/// A chosen source as [`hash_shields`] hashes it: everything
+/// `ChosenSource::deals` reads when the damage comes.
+fn hash_chosen_source(
+    h: &mut Hasher,
+    state: &GameState,
+    source: &crate::prevention::ChosenSource,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    h.u32(position(source.id));
+    h.u8(moves_since(
+        state.object_or_departed(source.id),
+        source.version,
+    ));
+    h.boolean(source.was_spell);
+    filter_hash(h, source.filter);
+    h.u8(source.you.get());
+    h.u32(position(source.this));
+}
+
+/// How far `obj` has moved on from `version`, in the steps a shield tells
+/// apart: 0 is the same object, 1 the next one (the permanent a chosen spell
+/// became), 2 any later one, and 3 none at all. Capped, so an object that
+/// keeps moving settles, and a loop that blinks it is still a repeat.
+fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {
+    match obj.map(|o| o.version.wrapping_sub(version)) {
+        Some(0) => 0,
+        Some(1) => 1,
+        Some(_) => 2,
+        None => 3,
     }
 }
 
@@ -3858,6 +4058,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colors,
         produced_colorless,
         produced_chosen,
+        rules_text_lost,
         abilities_lost,
         front_mana_value,
     } = characteristics;
@@ -3875,6 +4076,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colors.hash(h);
     produced_colorless.hash(h);
     produced_chosen.hash(h);
+    rules_text_lost.hash(h);
     abilities_lost.hash(h);
     front_mana_value.hash(h);
 }
@@ -4069,11 +4271,31 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
 pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> bool {
     use baylee_cards_dsl::Filter;
     match filter {
-        Filter::Tapped | Filter::Untapped | Filter::Attacking => true,
+        Filter::Tapped
+        | Filter::Untapped
+        | Filter::Attacking
+        | Filter::Blocking
+        | Filter::Unblocked => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) => filter_reads_board_state(f),
         _ => false,
     }
+}
+
+/// Whether a modifier's number reads combat: a count of what the defending
+/// player controls (`PtCount::DefendingPlayerControls`, CR 508.5), which
+/// changes as an attack is declared and as combat ends while no effect
+/// begins or ends — the input [`filter_reads_board_state`] announces for a
+/// filter, here in the modifier.
+fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> bool {
+    use baylee_cards_dsl::{Modifier, PtCount};
+    let (Modifier::CharacteristicPT { count, .. }
+    | Modifier::SetPTToCount(count)
+    | Modifier::ModifyPTHalfCount(count)) = modifier
+    else {
+        return false;
+    };
+    matches!(count, PtCount::DefendingPlayerControls(_))
 }
 
 /// Whether a DSL filter mentions non-battlefield zones (then its effect
@@ -4157,6 +4379,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::Tapped => h.u8(17),
         F::Untapped => h.u8(18),
         F::Attacking => h.u8(19),
+        F::Blocking => h.u8(47),
+        F::Unblocked => h.u8(39),
+        F::ControlledByActivePlayer => h.u8(40),
+        F::ControlledByDefendingPlayer => h.u8(46),
+        F::CmcExactlyX => h.u8(41),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
         F::IsAttached => h.u8(38),
@@ -4192,6 +4419,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // them one.
         F::EnteredThisTurn => h.u8(30),
         F::PutIntoGraveyardThisTurn => h.u8(35),
+        F::AttackedThisTurn => h.u8(44),
+        F::ControlledSinceTurnBegan => h.u8(45),
         F::HasCounter(kind) => {
             h.u8(36);
             hash_counter(h, *kind);
@@ -4202,6 +4431,8 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         // only in *where* the number comes from are different filters.
         F::CmcAtMostX => h.u8(28),
         F::CmcAtMostColorsSpent => h.u8(37),
+        F::PowerLessThanSourcePower => h.u8(42),
+        F::ToughnessLessThanSourcePower => h.u8(43),
         F::CmcAtMost(n) | F::CmcAtLeast(n) => {
             h.u8(if matches!(f, F::CmcAtMost(_)) { 22 } else { 23 });
             h.u32(*n);
@@ -4968,6 +5199,59 @@ mod tests {
         );
     }
 
+    /// What a shield names is part of the loop signature. A shield on a
+    /// permanent is on that object (CR 400.7), so the same shield after its
+    /// creature left and came back protects nothing, and a chosen source's
+    /// shield waits only for a source that still is what it had to be to be
+    /// chosen (CR 609.7b). Left out, two boards that differ in what damage
+    /// will do next hash alike and a loop detector could call them one.
+    #[test]
+    fn what_a_shield_names_is_part_of_the_loop_signature() {
+        use crate::prevention::{ChosenSource, Shield, ShieldKind, Shielded};
+        let (mut state, id) = hash_fixture();
+        let version = state.object(id).expect("just made it").version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(id, version),
+            kind: ShieldKind::Next(3),
+            controller: PlayerId::new(0),
+        });
+        let on_it = state.loop_signature();
+        // The permanent became a new object: the shield is still there, and
+        // on nothing.
+        state.object_mut(id).expect("still there").version += 1;
+        assert_ne!(
+            on_it,
+            state.loop_signature(),
+            "a shield on the object that was here is not a shield on the one that is"
+        );
+
+        let chosen = |filter: &'static baylee_cards_dsl::Filter| Shield {
+            protects: Shielded::Player(PlayerId::new(0)),
+            kind: ShieldKind::NextFrom {
+                source: ChosenSource {
+                    id,
+                    version: version + 1,
+                    was_spell: false,
+                    filter,
+                    you: PlayerId::new(0),
+                    this: id,
+                },
+                all_but: 0,
+                gain_life: false,
+                combat_only: false,
+            },
+            controller: PlayerId::new(0),
+        };
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::Any)];
+        let any_source = state.loop_signature();
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::CREATURE)];
+        assert_ne!(
+            any_source,
+            state.loop_signature(),
+            "a shield waiting for any source is not one waiting for a creature"
+        );
+    }
+
     /// A two-seat game with one bare permanent on the battlefield: the
     /// object the snapshot-hash tests below change one thing about.
     fn hash_fixture() -> (GameState, ObjectId) {
@@ -5016,6 +5300,9 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.damage_dealt_to", |s, _| {
+                s.per_turn.damage_dealt_to[0] = 3;
+            }),
             ("per_turn.no_more_spells", |s, _| {
                 s.per_turn.no_more_spells[0] = true;
             }),
@@ -5024,6 +5311,12 @@ mod tests {
             }),
             ("per_turn.exile_if_dies", |s, id| {
                 s.per_turn.exile_if_dies.push((id, 0));
+            }),
+            ("per_turn.cant_regenerate", |s, id| {
+                s.per_turn.cant_regenerate.push((id, 0));
+            }),
+            ("per_turn.attacked", |s, id| {
+                s.per_turn.attacked.push((id, 0));
             }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
@@ -5233,6 +5526,9 @@ mod tests {
             }),
             ("produced_chosen", |s, id| {
                 fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+            ("rules_text_lost", |s, id| {
+                fixture_object(s, id).base_mut().rules_text_lost = true;
             }),
             ("abilities_lost", |s, id| {
                 fixture_object(s, id).base_mut().abilities_lost = std::num::NonZeroU32::new(7);
