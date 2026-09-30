@@ -96507,3 +96507,1703 @@ fn vesuvan_doppelganger_enters_as_a_blue_copy() {
         "blue, not the Elves' green"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Alpha-era cards (set LEA and its reprints): played by their printed Oracle
+// text, one function per card handle, tests grouped by colour in the order
+// they were assigned.
+// ---------------------------------------------------------------------------
+
+fn northern_paladin() -> CardIndex {
+    card_index("f5975294-508a-453e-893a-2fbea2487d17")
+}
+
+fn pearled_unicorn() -> CardIndex {
+    card_index("c071be90-0531-40cc-af46-0cbe80c4ddd4")
+}
+
+fn samite_healer() -> CardIndex {
+    card_index("95a0ca48-d924-47f4-86ed-42c673ee778c")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+fn white_knight() -> CardIndex {
+    card_index("ddb021df-ae4a-4ac1-8353-d0b375761714")
+}
+
+fn clone() -> CardIndex {
+    card_index("42226b87-0746-4ebf-9fd0-108d508462af")
+}
+
+fn lord_of_atlantis() -> CardIndex {
+    card_index("cc7f290f-ca00-4285-9bdb-4b4402444f30")
+}
+
+fn merfolk_of_the_pearl_trident() -> CardIndex {
+    card_index("218d9277-c179-4de3-9c7f-79b5a6d4fa38")
+}
+
+fn wall_of_water() -> CardIndex {
+    card_index("608cc65c-f99a-4ca3-be24-190d2556b411")
+}
+
+fn water_elemental() -> CardIndex {
+    card_index("c470fbe1-0538-46ec-8741-3143f5e78af8")
+}
+
+fn black_knight() -> CardIndex {
+    card_index("9456c5b6-946d-403a-8ed0-dff9f921d98c")
+}
+
+fn bog_wraith() -> CardIndex {
+    card_index("508248d1-09a4-4e41-a4c9-286618e5061e")
+}
+
+fn drudge_skeletons() -> CardIndex {
+    card_index("c180ed02-07f4-4538-9bea-8c249234a8e2")
+}
+
+fn hypnotic_specter() -> CardIndex {
+    card_index("759af941-f6a3-4726-91f2-9b1e4e55ea71")
+}
+
+fn nightmare() -> CardIndex {
+    card_index("375932e6-1b3e-48dc-8154-9b664c3add34")
+}
+
+fn plague_rats() -> CardIndex {
+    card_index("16cf1cf9-6900-406c-a5b4-0e5750f530e0")
+}
+
+fn scathe_zombies() -> CardIndex {
+    card_index("e0fefaf0-da20-4d58-8db7-019dba16c780")
+}
+
+fn scavenging_ghoul() -> CardIndex {
+    card_index("68c0c04e-b0d5-4721-83bf-bf18e8b7e680")
+}
+
+fn wall_of_bone() -> CardIndex {
+    card_index("8ffe4986-9e09-4421-ad26-296a4c0df9e4")
+}
+
+fn will_o_the_wisp() -> CardIndex {
+    card_index("8b60fcfe-fb90-4a00-a708-25b59bfc9b5a")
+}
+
+fn zombie_master() -> CardIndex {
+    card_index("5446c92f-ff22-4e9b-a2f6-e64c8560c1e0")
+}
+
+fn dwarven_warriors() -> CardIndex {
+    card_index("cfc553cd-3b4c-47a9-bffb-e5790befb32c")
+}
+
+fn earth_elemental() -> CardIndex {
+    card_index("3c97c311-7ad5-47ec-b421-f6c3bfbda9fb")
+}
+
+fn fire_elemental() -> CardIndex {
+    card_index("3912d21e-1ebc-4a81-9dc9-f404248d564a")
+}
+
+fn goblin_king() -> CardIndex {
+    card_index("d236b3fc-0d3f-4d99-875d-e32a33fe5767")
+}
+
+fn gray_ogre() -> CardIndex {
+    card_index("83c8a3a6-2e1a-4e26-8847-6d066f42d906")
+}
+
+fn hurloon_minotaur() -> CardIndex {
+    card_index("8f1dae40-b307-446e-bbd2-86aa35813871")
+}
+
+fn ironclaw_orcs() -> CardIndex {
+    card_index("c645a616-0d7d-416c-b5f3-057b3a1666a0")
+}
+
+fn keldon_warlord() -> CardIndex {
+    card_index("acc869f8-dcbe-4d57-baa0-3eef4aceb251")
+}
+
+fn mons_s_goblin_raiders() -> CardIndex {
+    card_index("a37159df-f6d7-4db6-85de-0ea77f425993")
+}
+
+fn sedge_troll() -> CardIndex {
+    card_index("a6a43190-cca2-4f07-afe9-8af681d777da")
+}
+
+fn shivan_dragon() -> CardIndex {
+    card_index("711eea87-0fa3-46e0-a42b-fa5a86455f04")
+}
+
+fn uthden_troll() -> CardIndex {
+    card_index("d6329dcc-b450-482a-8ee3-45449f7a4b3d")
+}
+
+fn wall_of_fire() -> CardIndex {
+    card_index("f38c8b47-e8e0-4d2f-b1da-d8d986805a48")
+}
+
+fn cockatrice() -> CardIndex {
+    card_index("af354337-424c-4c7e-8ca5-6149261368d2")
+}
+
+fn craw_wurm() -> CardIndex {
+    card_index("6a462a69-3e42-41de-a3aa-a488d9f38d69")
+}
+
+fn force_of_nature() -> CardIndex {
+    card_index("e3c4c27d-f263-4c69-a4fe-2928136ff68b")
+}
+
+fn fungusaur() -> CardIndex {
+    card_index("3e771f5b-2de3-4a1b-8281-ab1f7491e5a1")
+}
+
+fn ironroot_treefolk() -> CardIndex {
+    card_index("b7c0bb85-fb87-4c73-bc1b-7b4dc763c7e8")
+}
+
+fn shanodin_dryads() -> CardIndex {
+    card_index("998484cc-fefc-4da5-9987-5d6e89599c34")
+}
+
+fn thicket_basilisk() -> CardIndex {
+    card_index("c4822813-cd81-465d-9fe8-3a4c2dcd31ef")
+}
+
+fn wall_of_brambles() -> CardIndex {
+    card_index("f8d82a00-c10e-4b9e-9642-d05706900a97")
+}
+
+/// Twelve vanilla reprints whose whole printed text is a body: cast each and
+/// check the P/T, the creature type and the creature subtype the card
+/// prints, with nothing else on the battlefield afterward.
+#[test]
+#[allow(clippy::too_many_lines)] // one loop table, twelve vanilla bodies checked the same way
+fn alpha_vanilla_creatures_are_their_printed_bodies() {
+    let p0 = PlayerId::new(0);
+    for (name, card, land, lands, body, subtype) in [
+        (
+            "Pearled Unicorn",
+            pearled_unicorn(),
+            plains(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::UNICORN,
+        ),
+        (
+            "Savannah Lions",
+            savannah_lions(),
+            plains(),
+            1,
+            (2, 1),
+            baylee_core::generated::subtypes::creature::CAT,
+        ),
+        (
+            "Merfolk of the Pearl Trident",
+            merfolk_of_the_pearl_trident(),
+            island(),
+            1,
+            (1, 1),
+            baylee_core::generated::subtypes::creature::MERFOLK,
+        ),
+        (
+            "Water Elemental",
+            water_elemental(),
+            island(),
+            5,
+            (5, 4),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Scathe Zombies",
+            scathe_zombies(),
+            swamp(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::ZOMBIE,
+        ),
+        (
+            "Earth Elemental",
+            earth_elemental(),
+            mountain(),
+            5,
+            (4, 5),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Fire Elemental",
+            fire_elemental(),
+            mountain(),
+            5,
+            (5, 4),
+            baylee_core::generated::subtypes::creature::ELEMENTAL,
+        ),
+        (
+            "Gray Ogre",
+            gray_ogre(),
+            mountain(),
+            3,
+            (2, 2),
+            baylee_core::generated::subtypes::creature::OGRE,
+        ),
+        (
+            "Hurloon Minotaur",
+            hurloon_minotaur(),
+            mountain(),
+            3,
+            (2, 3),
+            baylee_core::generated::subtypes::creature::MINOTAUR,
+        ),
+        (
+            "Mons's Goblin Raiders",
+            mons_s_goblin_raiders(),
+            mountain(),
+            1,
+            (1, 1),
+            baylee_core::generated::subtypes::creature::GOBLIN,
+        ),
+        (
+            "Craw Wurm",
+            craw_wurm(),
+            forest(),
+            6,
+            (6, 4),
+            baylee_core::generated::subtypes::creature::WURM,
+        ),
+        (
+            "Ironroot Treefolk",
+            ironroot_treefolk(),
+            forest(),
+            5,
+            (3, 5),
+            baylee_core::generated::subtypes::creature::TREEFOLK,
+        ),
+    ] {
+        assert_eq!(
+            cast_saying_nothing(card, land, lands),
+            Zone::Battlefield,
+            "{name}"
+        );
+        let mut engine = Duel::new(SEED, land).battlefield(0, &[card]).start();
+        keep_mulligans(&mut engine);
+        let id = on_battlefield(&engine, p0, card).expect("seated");
+        assert_eq!(pt(&engine, id), body, "{name}");
+        assert!(
+            types(&engine, id).contains(TypeSet::CREATURE),
+            "{name} is a creature"
+        );
+        assert!(
+            engine
+                .state()
+                .object(id)
+                .expect("seated")
+                .characteristics()
+                .subtypes
+                .contains(subtype),
+            "{name} carries its printed creature subtype"
+        );
+    }
+}
+
+/// Northern Paladin — `{W}{W}`, `{T}`: Destroy target black permanent. The
+/// menu offers a black permanent and refuses a white one, and the paladin
+/// itself taps to pay.
+#[test]
+fn northern_paladin_destroys_a_black_permanent_and_no_other() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                northern_paladin(),
+                plains(),
+                plains(),
+                plains(),
+                scathe_zombies(),
+                pearled_unicorn(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let paladin = on_battlefield(&engine, p0, northern_paladin()).expect("seated");
+    let black = on_battlefield(&engine, p0, scathe_zombies()).expect("a black permanent");
+    let white = on_battlefield(&engine, p0, pearled_unicorn()).expect("a white one, for contrast");
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, northern_paladin(), 0);
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected a target for the destroy, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1), "one target");
+    assert!(options.contains(&black), "\"target black permanent\"");
+    assert!(
+        !options.contains(&white),
+        "a white permanent is not a legal target: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![black],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, scathe_zombies()).is_some(),
+        "destroyed"
+    );
+    assert!(
+        on_battlefield(&engine, p0, pearled_unicorn()).is_some(),
+        "left alone"
+    );
+    assert!(is_tapped(&engine, paladin), "it paid its own tap");
+}
+
+/// Samite Healer — `{T}`: Prevent the next 1 damage that would be dealt to
+/// any target this turn. Shielding an opponent and then bolting them for 3
+/// leaves only 2 through.
+#[test]
+fn samite_healer_prevents_the_first_point_of_damage_to_any_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[samite_healer(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    activate(&mut engine, p0, samite_healer(), 0);
+    let Pending::ChooseTargets {
+        player,
+        player_options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected a target for the shield, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!((min, max), (1, 1));
+    assert!(
+        player_options.contains(&p0) && player_options.contains(&p1),
+        "\"any target\" reaches either player: {player_options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected Lightning Bolt's target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert!(player_options.contains(&p1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "3 damage, 1 of it prevented by the shield"
+    );
+}
+
+/// White Knight — First strike; Protection from black. A black instant
+/// cannot even name it as a target while a legal white one sits beside it.
+#[test]
+fn white_knight_has_first_strike_and_protection_from_black() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[white_knight(), pearled_unicorn()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    let knight = on_battlefield(&engine, p0, white_knight()).expect("seated");
+    let unicorn =
+        on_battlefield(&engine, p0, pearled_unicorn()).expect("a legal, unprotected target");
+    assert!(
+        keywords(&engine, knight).contains(KeywordSet::FIRST_STRIKE),
+        "first strike is the card's other printed line"
+    );
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, hero_s_downfall());
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected Hero's Downfall's target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(
+        options.contains(&unicorn),
+        "the unprotected creature is offered"
+    );
+    assert!(
+        !options.contains(&knight),
+        "protection from black: a black spell cannot target it: {options:?}"
+    );
+}
+
+/// Clone — "You may have this creature enter as a copy of any creature on
+/// the battlefield." Answered yes, it becomes the Water Elemental's body;
+/// answered no, it is a 0/0 Shapeshifter and dies to state-based actions on
+/// the spot (CR 704.5f applies to whatever a 0/0 creature turns out to be).
+#[test]
+fn clone_may_enter_as_a_copy_of_a_creature_on_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[water_elemental()])
+        .hand(0, &[clone()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elemental = on_battlefield(&engine, p1, water_elemental()).expect("their Elemental");
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 1), "\"you may\": zero is a legal answer");
+    assert!(
+        options.contains(&elemental),
+        "any creature on the battlefield"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elemental],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    let copy = on_battlefield(&engine, p0, clone()).expect("it entered");
+    assert_eq!(pt(&engine, copy), (5, 4), "the Elemental's printed body");
+    assert!(
+        engine
+            .state()
+            .object(copy)
+            .expect("seated")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::ELEMENTAL),
+        "copied the Elemental's subtype, not its own Shapeshifter"
+    );
+}
+
+/// Clone declining the copy: a 0/0 Shapeshifter with lethal toughness of
+/// zero, so it never stands on the battlefield at all.
+#[test]
+fn clone_declining_the_copy_is_a_zero_zero_that_dies_at_once() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[water_elemental()])
+        .hand(0, &[clone()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, clone());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the copy question, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (0, 1));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, clone()).is_none(),
+        "a 0/0 does not survive state-based actions"
+    );
+    assert!(
+        in_graveyard(&engine, p0, clone()).is_some(),
+        "it dies to its own zero toughness the instant it arrives"
+    );
+}
+
+/// Lord of Atlantis — "Other Merfolk get +1/+1 and have islandwalk." The
+/// lord does not pump itself, a non-Merfolk beside it is untouched, and the
+/// other Merfolk gets both the bonus and the keyword.
+#[test]
+fn lord_of_atlantis_pumps_other_merfolk_and_grants_islandwalk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                lord_of_atlantis(),
+                merfolk_of_the_pearl_trident(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let lord = on_battlefield(&engine, p0, lord_of_atlantis()).expect("seated");
+    let merfolk =
+        on_battlefield(&engine, p0, merfolk_of_the_pearl_trident()).expect("another Merfolk");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("not a Merfolk");
+
+    assert_eq!(pt(&engine, lord), (2, 2), "it does not pump itself");
+    assert!(!keywords(&engine, lord).contains(KeywordSet::ISLANDWALK));
+    assert_eq!(
+        pt(&engine, merfolk),
+        (2, 2),
+        "1/1 printed, +1/+1 from the lord"
+    );
+    assert!(keywords(&engine, merfolk).contains(KeywordSet::ISLANDWALK));
+    assert_eq!(pt(&engine, elf), (1, 1), "not a Merfolk: untouched");
+    assert!(!keywords(&engine, elf).contains(KeywordSet::ISLANDWALK));
+}
+
+/// Merfolk of the Pearl Trident — vanilla `{U}` 1/1 Merfolk.
+#[test]
+fn merfolk_of_the_pearl_trident_is_a_one_one_merfolk_for_u() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(merfolk_of_the_pearl_trident(), island(), 1),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[merfolk_of_the_pearl_trident()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, merfolk_of_the_pearl_trident()).expect("seated");
+    assert_eq!(pt(&engine, id), (1, 1));
+    assert!(
+        engine
+            .state()
+            .object(id)
+            .expect("seated")
+            .characteristics()
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::MERFOLK)
+    );
+}
+
+/// Wall of Water — Defender; `{U}`: This creature gets +1/+0 until end of
+/// turn. Defender keeps it off the attackers list, the pump is real and
+/// wears off at cleanup.
+#[test]
+fn wall_of_water_pumps_for_u_until_end_of_turn_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[wall_of_water(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_water()).expect("seated");
+    assert_eq!(pt(&engine, wall), (0, 5));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_water(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, wall), (1, 5), "+1/+0 until end of turn");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert_eq!(pt(&engine, wall), (0, 5), "the pump ended at cleanup");
+}
+
+/// Water Elemental — vanilla `{3}{U}{U}` 5/4 Elemental.
+#[test]
+fn water_elemental_is_a_five_four_elemental_for_3uu() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(water_elemental(), island(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[water_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, water_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (5, 4));
+}
+
+/// Black Knight — First strike; Protection from white. A white instant
+/// cannot even name it as a target.
+#[test]
+fn black_knight_has_first_strike_and_protection_from_white() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[black_knight(), pearled_unicorn()])
+        .battlefield(1, &[plains()])
+        .hand(1, &[swords_to_plowshares()])
+        .start();
+    keep_mulligans(&mut engine);
+    let knight = on_battlefield(&engine, p0, black_knight()).expect("seated");
+    let unicorn =
+        on_battlefield(&engine, p0, pearled_unicorn()).expect("a legal, unprotected target");
+    assert!(keywords(&engine, knight).contains(KeywordSet::FIRST_STRIKE));
+
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, swords_to_plowshares());
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected Swords to Plowshares' target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(options.contains(&unicorn));
+    assert!(
+        !options.contains(&knight),
+        "protection from white: a white spell cannot target it: {options:?}"
+    );
+}
+
+/// Bog Wraith — vanilla 3/3 body plus Swampwalk: unblockable while the
+/// defending player controls a Swamp, and an ordinary attacker without one.
+#[test]
+fn bog_wraith_is_unblockable_while_the_defender_controls_a_swamp() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[bog_wraith()])
+        .battlefield(1, &[llanowar_elves(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let wraith = on_battlefield(&engine, p0, bog_wraith()).expect("seated");
+    assert_eq!(pt(&engine, wraith), (3, 3));
+    assert!(keywords(&engine, wraith).contains(KeywordSet::SWAMPWALK));
+
+    let blocks = attack_and_collect_blocks(&mut engine, wraith, p1);
+    assert!(
+        blocks.is_empty(),
+        "the defender controls a Swamp, so nothing may block it: {blocks:?}"
+    );
+}
+
+/// Bog Wraith without a Swamp on the other side of the table: an ordinary
+/// blockable attacker, the control for the test above.
+#[test]
+fn bog_wraith_is_blockable_without_a_swamp_to_walk_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[bog_wraith()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let wraith = on_battlefield(&engine, p0, bog_wraith()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, wraith, p1);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&wraith)),
+        "no Swamp: an ordinary block is legal: {blocks:?}"
+    );
+}
+
+/// Drudge Skeletons — vanilla 1/1 plus `{B}`: Regenerate this creature.
+#[test]
+fn drudge_skeletons_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[drudge_skeletons(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let skeleton = on_battlefield(&engine, p0, drudge_skeletons()).expect("seated");
+    assert_eq!(pt(&engine, skeleton), (1, 1));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, drudge_skeletons(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(skeleton)
+            .unwrap()
+            .regeneration_shields,
+        1,
+        "the floating {{B}} bought a shield"
+    );
+}
+
+/// Hypnotic Specter — Flying; "Whenever this creature deals damage to an
+/// opponent, that player discards a card at random." An unblocked attack
+/// costs the life and the random card.
+#[test]
+fn hypnotic_specter_makes_a_damaged_opponent_discard_at_random() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[hypnotic_specter()])
+        .hand(1, &[swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let specter = on_battlefield(&engine, p0, hypnotic_specter()).expect("seated");
+    assert!(keywords(&engine, specter).contains(KeywordSet::FLYING));
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    assert_eq!(hand_before, 1, "one card seeded, to be discarded");
+
+    let blocks = attack_and_collect_blocks(&mut engine, specter, p1);
+    assert!(blocks.is_empty(), "no flying or reach blocker to stop it");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(engine.state().players[1].life, 18, "2 combat damage");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        hand_before - 1,
+        "the damaged opponent discarded one card at random"
+    );
+}
+
+/// Nightmare — Flying; "Nightmare's power and toughness are each equal to
+/// the number of Swamps you control." Only its controller's Swamps count.
+#[test]
+fn nightmares_power_and_toughness_equal_the_swamps_its_controller_has() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[nightmare(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    let horse = on_battlefield(&engine, p0, nightmare()).expect("seated");
+    assert!(keywords(&engine, horse).contains(KeywordSet::FLYING));
+    assert_eq!(
+        pt(&engine, horse),
+        (3, 3),
+        "three Swamps of its own; the opponent's Swamp does not count"
+    );
+}
+
+/// Plague Rats — "Plague Rats's power and toughness are each equal to the
+/// number of creatures named Plague Rats on the battlefield," counted
+/// across both sides of the table.
+#[test]
+fn plague_ratss_power_and_toughness_count_every_plague_rats_on_the_battlefield() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[plague_rats()])
+        .battlefield(1, &[plague_rats()])
+        .start();
+    keep_mulligans(&mut engine);
+    let mine = on_battlefield(&engine, p0, plague_rats()).expect("seated");
+    let theirs = on_battlefield(&engine, p1, plague_rats()).expect("seated");
+    assert_eq!(
+        pt(&engine, mine),
+        (2, 2),
+        "two on the battlefield, whoever controls them"
+    );
+    assert_eq!(pt(&engine, theirs), (2, 2));
+}
+
+/// Scathe Zombies — vanilla `{2}{B}` 2/2 Zombie.
+#[test]
+fn scathe_zombies_is_a_two_two_zombie_for_2b() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(scathe_zombies(), swamp(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[scathe_zombies()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, scathe_zombies()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 2));
+}
+
+/// Scavenging Ghoul — "At the beginning of each end step, put a corpse
+/// counter on this creature for each creature that died this turn." /
+/// "Remove a corpse counter from this creature: Regenerate this creature."
+#[test]
+fn scavenging_ghoul_gathers_a_corpse_counter_and_spends_it_to_regenerate() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(
+            0,
+            &[
+                scavenging_ghoul(),
+                pearled_unicorn(),
+                swamp(),
+                swamp(),
+                swamp(),
+            ],
+        )
+        .hand(0, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ghoul = on_battlefield(&engine, p0, scavenging_ghoul()).expect("seated");
+    let unicorn = on_battlefield(&engine, p0, pearled_unicorn()).expect("seated");
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        0
+    );
+
+    cast_from_hand(&mut engine, p0, hero_s_downfall());
+    let _ = aim_at(&mut engine, p0, unicorn);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, pearled_unicorn()).is_some(),
+        "destroyed: it died this turn"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().turn.active == p0
+            && e.state().turn.number >= 3
+    });
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        1,
+        "one creature died during the turn, one corpse counter at end step"
+    );
+
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        legal.abilities.contains(&(ghoul, 1)),
+        "the removal ability is offered while a counter sits on it: {:?}",
+        legal.abilities
+    );
+    activate(&mut engine, p0, scavenging_ghoul(), 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(ghoul).unwrap().regeneration_shields,
+        1,
+        "the removed counter paid for a regeneration shield"
+    );
+    assert_eq!(
+        counters_on(&engine, ghoul, baylee_cards_dsl::counters::CORPSE),
+        0,
+        "and the counter it spent is gone"
+    );
+}
+
+/// Wall of Bone — Defender; `{B}`: Regenerate this creature.
+#[test]
+fn wall_of_bone_regenerates_for_b_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[wall_of_bone(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_bone()).expect("seated");
+    assert_eq!(pt(&engine, wall), (1, 4));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_bone(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wall).unwrap().regeneration_shields, 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
+
+/// Will-o'-the-Wisp — Flying; `{B}`: Regenerate this creature.
+#[test]
+fn will_o_the_wisp_flies_and_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[will_o_the_wisp(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wisp = on_battlefield(&engine, p0, will_o_the_wisp()).expect("seated");
+    assert_eq!(pt(&engine, wisp), (0, 1));
+    assert!(keywords(&engine, wisp).contains(KeywordSet::FLYING));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, will_o_the_wisp(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wisp).unwrap().regeneration_shields, 1);
+}
+
+/// Zombie Master — "Other Zombie creatures have swampwalk." / "Other
+/// Zombies have '{B}: Regenerate this permanent.'" Neither line reaches the
+/// master itself.
+#[test]
+fn zombie_master_grants_other_zombies_swampwalk_and_a_regenerate_ability() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[zombie_master(), scathe_zombies(), swamp()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let master = on_battlefield(&engine, p0, zombie_master()).expect("seated");
+    let zombie = on_battlefield(&engine, p0, scathe_zombies()).expect("another Zombie");
+
+    assert!(
+        !keywords(&engine, master).contains(KeywordSet::SWAMPWALK),
+        "\"other\" Zombies, not itself"
+    );
+    assert!(keywords(&engine, zombie).contains(KeywordSet::SWAMPWALK));
+
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|&(id, _)| id == master),
+        "the master itself is granted nothing: {:?}",
+        legal.abilities
+    );
+    assert!(
+        legal
+            .abilities
+            .contains(&(zombie, crate::choice::GRANTED_ABILITY)),
+        "the granted regeneration is offered on the other Zombie: {:?}",
+        legal.abilities
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: zombie,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .expect("the floating {B} pays for the grant");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(zombie).unwrap().regeneration_shields,
+        1,
+        "the granted ability regenerates the Zombie it was granted to"
+    );
+}
+
+/// Dwarven Warriors — `{T}`: Target creature with power 2 or less can't be
+/// blocked this turn. A power-5 creature is not on the menu, and the
+/// keyword wears off at the next cleanup.
+#[test]
+fn dwarven_warriors_makes_a_weak_creature_unblockable_this_turn_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[dwarven_warriors(), pearled_unicorn(), water_elemental()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let warriors = on_battlefield(&engine, p0, dwarven_warriors()).expect("seated");
+    let weak = on_battlefield(&engine, p0, pearled_unicorn()).expect("power 2");
+    let strong = on_battlefield(&engine, p0, water_elemental()).expect("power 5");
+
+    activate(&mut engine, p0, dwarven_warriors(), 0);
+    let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected a target, got {:?}", engine.pending())
+    };
+    assert_eq!((min, max), (1, 1));
+    assert!(options.contains(&weak), "power 2 or less is offered");
+    assert!(
+        !options.contains(&strong),
+        "power 5 is not \"power 2 or less\": {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![weak],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, weak).contains(KeywordSet::UNBLOCKABLE));
+    assert!(is_tapped(&engine, warriors));
+
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert!(
+        !keywords(&engine, weak).contains(KeywordSet::UNBLOCKABLE),
+        "\"this turn\" ended at cleanup"
+    );
+}
+
+/// Earth Elemental — vanilla `{3}{R}{R}` 4/5 Elemental.
+#[test]
+fn earth_elemental_is_a_four_five_elemental_for_3rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(earth_elemental(), mountain(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[earth_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, earth_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (4, 5));
+}
+
+/// Fire Elemental — vanilla `{3}{R}{R}` 5/4 Elemental.
+#[test]
+fn fire_elemental_is_a_five_four_elemental_for_3rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(fire_elemental(), mountain(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[fire_elemental()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, fire_elemental()).expect("seated");
+    assert_eq!(pt(&engine, id), (5, 4));
+}
+
+/// Goblin King — "Other Goblins get +1/+1 and have mountainwalk." The king
+/// leaves itself and a non-Goblin beside it untouched.
+#[test]
+fn goblin_king_pumps_other_goblins_and_grants_mountainwalk() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[goblin_king(), mons_s_goblin_raiders(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let king = on_battlefield(&engine, p0, goblin_king()).expect("seated");
+    let goblin = on_battlefield(&engine, p0, mons_s_goblin_raiders()).expect("another Goblin");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("not a Goblin");
+
+    assert_eq!(pt(&engine, king), (2, 2), "it does not pump itself");
+    assert!(!keywords(&engine, king).contains(KeywordSet::MOUNTAINWALK));
+    assert_eq!(
+        pt(&engine, goblin),
+        (2, 2),
+        "1/1 printed, +1/+1 from the king"
+    );
+    assert!(keywords(&engine, goblin).contains(KeywordSet::MOUNTAINWALK));
+    assert_eq!(pt(&engine, elf), (1, 1), "not a Goblin: untouched");
+    assert!(!keywords(&engine, elf).contains(KeywordSet::MOUNTAINWALK));
+}
+
+/// Gray Ogre — vanilla `{2}{R}` 2/2 Ogre.
+#[test]
+fn gray_ogre_is_a_two_two_ogre_for_2r() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(gray_ogre(), mountain(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, gray_ogre()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 2));
+}
+
+/// Hurloon Minotaur — vanilla `{1}{R}{R}` 2/3 Minotaur.
+#[test]
+fn hurloon_minotaur_is_a_two_three_minotaur_for_1rr() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(hurloon_minotaur(), mountain(), 3),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[hurloon_minotaur()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
+    assert_eq!(pt(&engine, id), (2, 3));
+}
+
+/// Ironclaw Orcs — "This creature can't block creatures with power 2 or
+/// greater." A power-2 attacker slips past it; a power-1 attacker does not.
+#[test]
+fn ironclaw_orcs_cannot_block_a_creature_with_power_two_or_more() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[pearled_unicorn(), llanowar_elves()])
+        .battlefield(1, &[ironclaw_orcs()])
+        .start();
+    keep_mulligans(&mut engine);
+    let strong = on_battlefield(&engine, p0, pearled_unicorn()).expect("power 2");
+    let weak = on_battlefield(&engine, p0, llanowar_elves()).expect("power 1");
+    let orcs = on_battlefield(&engine, p1, ironclaw_orcs()).expect("seated");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { player, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(strong, Defender::Player(p1)), (weak, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        panic!("expected the block offer, got {:?}", engine.pending())
+    };
+    let pairing = blockers
+        .iter()
+        .find(|b| b.blocker == orcs)
+        .unwrap_or_else(|| panic!("the Orcs could still block the weak attacker: {blockers:?}"));
+    assert!(
+        !pairing.attackers.contains(&strong),
+        "power 2 or greater: not blockable by the Orcs: {pairing:?}"
+    );
+    assert!(
+        pairing.attackers.contains(&weak),
+        "power 1: the Orcs may still block it: {pairing:?}"
+    );
+}
+
+/// Keldon Warlord — "Keldon Warlord's power and toughness are each equal
+/// to the number of non-Wall creatures you control." A Wall and an
+/// opponent's creature both fail to count.
+#[test]
+fn keldon_warlords_power_and_toughness_count_its_controllers_non_wall_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[keldon_warlord(), pearled_unicorn(), wall_of_fire()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let warlord = on_battlefield(&engine, p0, keldon_warlord()).expect("seated");
+    assert!(
+        on_battlefield(&engine, p1, llanowar_elves()).is_some(),
+        "seated"
+    );
+    assert_eq!(
+        pt(&engine, warlord),
+        (2, 2),
+        "itself and the Unicorn; the Wall and the opponent's Elf do not count"
+    );
+}
+
+/// Mons's Goblin Raiders — vanilla `{R}` 1/1 Goblin.
+#[test]
+fn mons_s_goblin_raiders_is_a_one_one_goblin_for_r() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(mons_s_goblin_raiders(), mountain(), 1),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mons_s_goblin_raiders()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, mons_s_goblin_raiders()).expect("seated");
+    assert_eq!(pt(&engine, id), (1, 1));
+}
+
+/// Sedge Troll — "This creature gets +1/+1 as long as you control a
+/// Swamp." / "{B}: Regenerate this creature." Two boards, with and without
+/// the Swamp, and the regeneration itself.
+#[test]
+fn sedge_troll_is_pumped_only_with_a_swamp_and_regenerates_for_b() {
+    let p0 = PlayerId::new(0);
+
+    let mut without_swamp = Duel::new(SEED, mountain())
+        .battlefield(0, &[sedge_troll(), mountain()])
+        .start();
+    keep_mulligans(&mut without_swamp);
+    let troll = on_battlefield(&without_swamp, p0, sedge_troll()).expect("seated");
+    assert_eq!(
+        pt(&without_swamp, troll),
+        (2, 2),
+        "no Swamp: the printed body"
+    );
+
+    let mut with_swamp = Duel::new(SEED, mountain())
+        .battlefield(0, &[sedge_troll(), mountain(), swamp()])
+        .start();
+    keep_mulligans(&mut with_swamp);
+    reach_main_phase(&mut with_swamp, p0);
+    let troll = on_battlefield(&with_swamp, p0, sedge_troll()).expect("seated");
+    assert_eq!(pt(&with_swamp, troll), (3, 3), "a Swamp under its control");
+
+    tap_all_mana(&mut with_swamp, p0);
+    activate(&mut with_swamp, p0, sedge_troll(), 1);
+    pass_until(&mut with_swamp, stack_is_empty);
+    assert_eq!(
+        with_swamp
+            .state()
+            .object(troll)
+            .unwrap()
+            .regeneration_shields,
+        1,
+        "the {{B}} the Swamp made pays the regeneration"
+    );
+}
+
+/// Shivan Dragon — Flying; `{R}`: This creature gets +1/+0 until end of
+/// turn.
+#[test]
+fn shivan_dragon_flies_and_pumps_for_r_until_end_of_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[shivan_dragon(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let dragon = on_battlefield(&engine, p0, shivan_dragon()).expect("seated");
+    assert_eq!(pt(&engine, dragon), (5, 5));
+    assert!(keywords(&engine, dragon).contains(KeywordSet::FLYING));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, shivan_dragon(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, dragon), (6, 5), "+1/+0 until end of turn");
+    pass_until(&mut engine, |e| e.state().turn.number >= 2);
+    assert_eq!(pt(&engine, dragon), (5, 5), "the pump ended at cleanup");
+}
+
+/// Uthden Troll — vanilla 2/2 plus `{R}`: Regenerate this creature.
+#[test]
+fn uthden_troll_regenerates_for_r() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[uthden_troll(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let troll = on_battlefield(&engine, p0, uthden_troll()).expect("seated");
+    assert_eq!(pt(&engine, troll), (2, 2));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, uthden_troll(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(troll).unwrap().regeneration_shields,
+        1
+    );
+}
+
+/// Wall of Fire — Defender; `{R}`: This creature gets +1/+0 until end of
+/// turn.
+#[test]
+fn wall_of_fire_pumps_for_r_until_end_of_turn_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[wall_of_fire(), mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_fire()).expect("seated");
+    assert_eq!(pt(&engine, wall), (0, 5));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_fire(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, wall), (1, 5), "+1/+0 until end of turn");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
+
+/// Cockatrice — Flying; "Whenever this creature blocks or becomes blocked
+/// by a non-Wall creature, destroy that creature at end of combat." Here,
+/// blocking a non-Wall attacker.
+#[test]
+fn cockatrice_destroys_a_non_wall_creature_it_blocks_at_end_of_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cockatrice()])
+        .battlefield(1, &[pearled_unicorn()])
+        .start();
+    keep_mulligans(&mut engine);
+    let bird = on_battlefield(&engine, p0, cockatrice()).expect("seated");
+    assert!(keywords(&engine, bird).contains(KeywordSet::FLYING));
+    reach_their_main_phase(&mut engine, p1);
+    let attacker = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, attacker, p0);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == bird)
+        .unwrap_or_else(|| panic!("the Cockatrice may block a ground creature: {blocks:?}"));
+    assert!(pairing.attackers.contains(&attacker));
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(bird, attacker)],
+            },
+        )
+        .expect("the pairing came out of the list that offered it");
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
+        "destroyed at end of combat for having been blocked by the Cockatrice"
+    );
+    assert!(
+        on_battlefield(&engine, p0, cockatrice()).is_some(),
+        "the Cockatrice itself is untouched"
+    );
+}
+
+/// Craw Wurm — vanilla `{4}{G}{G}` 6/4 Wurm.
+#[test]
+fn craw_wurm_is_a_six_four_wurm_for_4gg() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(craw_wurm(), forest(), 6),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[craw_wurm()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+    assert_eq!(pt(&engine, id), (6, 4));
+}
+
+/// Force of Nature — Trample; "At the beginning of your upkeep, this
+/// creature deals 8 damage to you unless you pay `{G}{G}{G}{G}`." Declined,
+/// its controller takes the 8.
+#[test]
+fn force_of_nature_deals_8_to_its_controller_unless_gggg_is_paid() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[force_of_nature()])
+        .start();
+    keep_mulligans(&mut engine);
+    let treant = on_battlefield(&engine, p0, force_of_nature()).expect("seated");
+    assert_eq!(pt(&engine, treant), (8, 8));
+    assert!(keywords(&engine, treant).contains(KeywordSet::TRAMPLE));
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 12, "8 damage, left unpaid");
+    assert!(on_battlefield(&engine, p0, force_of_nature()).is_some());
+}
+
+/// Force of Nature, the other branch: paying the `{G}{G}{G}{G}` spares its
+/// controller the damage.
+#[test]
+fn force_of_nature_paying_gggg_spares_its_controller_the_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[force_of_nature(), forest(), forest(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "paid the {{G}}{{G}}{{G}}{{G}}"
+    );
+}
+
+/// Fungusaur — "Whenever this creature is dealt damage, put a +1/+1
+/// counter on it." One point of (non-lethal) combat damage grows it.
+#[test]
+fn fungusaur_gains_a_counter_whenever_it_is_dealt_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[fungusaur()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dino = on_battlefield(&engine, p0, fungusaur()).expect("seated");
+    assert_eq!(pt(&engine, dino), (2, 2));
+
+    reach_their_main_phase(&mut engine, p1);
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, elf, p0);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == dino)
+        .unwrap_or_else(|| panic!("Fungusaur may block the Elf: {blocks:?}"));
+    assert!(pairing.attackers.contains(&elf));
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(dino, elf)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert_eq!(
+        engine.state().object(dino).map(|o| (o.zone, o.damage)),
+        Some((Zone::Battlefield, 1)),
+        "the Elf's 1 damage was not lethal to a 3-toughness Fungusaur"
+    );
+    assert_eq!(counters_on(&engine, dino, CounterKind::P1P1), 1);
+    assert_eq!(
+        pt(&engine, dino),
+        (3, 3),
+        "the printed 2/2 plus the counter"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "2 power killed the 1-toughness Elf"
+    );
+}
+
+/// Ironroot Treefolk — vanilla `{4}{G}` 3/5 Treefolk.
+#[test]
+fn ironroot_treefolk_is_a_three_five_treefolk_for_4g() {
+    let p0 = PlayerId::new(0);
+    assert_eq!(
+        cast_saying_nothing(ironroot_treefolk(), forest(), 5),
+        Zone::Battlefield
+    );
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ironroot_treefolk()])
+        .start();
+    keep_mulligans(&mut engine);
+    let id = on_battlefield(&engine, p0, ironroot_treefolk()).expect("seated");
+    assert_eq!(pt(&engine, id), (3, 5));
+}
+
+/// Shanodin Dryads — vanilla 1/1 body plus Forestwalk: unblockable while
+/// the defending player controls a Forest.
+#[test]
+fn shanodin_dryads_is_unblockable_while_the_defender_controls_a_forest() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[shanodin_dryads()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dryads = on_battlefield(&engine, p0, shanodin_dryads()).expect("seated");
+    assert_eq!(pt(&engine, dryads), (1, 1));
+    assert!(keywords(&engine, dryads).contains(KeywordSet::FORESTWALK));
+
+    let blocks = attack_and_collect_blocks(&mut engine, dryads, p1);
+    assert!(
+        blocks.is_empty(),
+        "the defender controls a Forest, so nothing may block it: {blocks:?}"
+    );
+}
+
+/// Shanodin Dryads without a Forest on the other side: an ordinary
+/// blockable attacker, the control for the test above.
+#[test]
+fn shanodin_dryads_is_blockable_without_a_forest_to_walk_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[shanodin_dryads()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let dryads = on_battlefield(&engine, p0, shanodin_dryads()).expect("seated");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("seated");
+    let blocks = attack_and_collect_blocks(&mut engine, dryads, p1);
+    assert!(
+        blocks
+            .iter()
+            .any(|b| b.blocker == elf && b.attackers.contains(&dryads)),
+        "no Forest: an ordinary block is legal: {blocks:?}"
+    );
+}
+
+/// Thicket Basilisk — "Whenever this creature blocks or becomes blocked by
+/// a non-Wall creature, destroy that creature at end of combat." Here, the
+/// "becomes blocked" direction, and its one printed exception: a Wall.
+#[test]
+fn thicket_basilisk_destroys_a_non_wall_creature_that_blocks_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thicket_basilisk()])
+        .battlefield(1, &[pearled_unicorn()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
+    let blocker = on_battlefield(&engine, p1, pearled_unicorn()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, basilisk, p1);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == blocker)
+        .unwrap_or_else(|| panic!("the Unicorn may block the Basilisk: {blocks:?}"));
+    assert!(pairing.attackers.contains(&basilisk));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, basilisk)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        in_graveyard(&engine, p1, pearled_unicorn()).is_some(),
+        "destroyed at end of combat for blocking the Basilisk"
+    );
+    assert!(on_battlefield(&engine, p0, thicket_basilisk()).is_some());
+}
+
+/// Thicket Basilisk's one exception: a Wall that blocks it is not
+/// destroyed.
+#[test]
+fn thicket_basilisk_does_not_destroy_a_wall_that_blocks_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[thicket_basilisk()])
+        .battlefield(1, &[wall_of_brambles()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let basilisk = on_battlefield(&engine, p0, thicket_basilisk()).expect("seated");
+    let wall = on_battlefield(&engine, p1, wall_of_brambles()).expect("seated");
+
+    let blocks = attack_and_collect_blocks(&mut engine, basilisk, p1);
+    let pairing = blocks
+        .iter()
+        .find(|b| b.blocker == wall)
+        .unwrap_or_else(|| panic!("the Wall may still block: {blocks:?}"));
+    assert!(pairing.attackers.contains(&basilisk));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(wall, basilisk)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+    });
+    assert!(
+        on_battlefield(&engine, p1, wall_of_brambles()).is_some(),
+        "a Wall is the one exception the trigger names"
+    );
+}
+
+/// Wall of Brambles — Defender; `{G}`: Regenerate this creature.
+#[test]
+fn wall_of_brambles_regenerates_for_g_and_cannot_attack() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[wall_of_brambles(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let wall = on_battlefield(&engine, p0, wall_of_brambles()).expect("seated");
+    assert_eq!(pt(&engine, wall), (2, 3));
+    assert!(keywords(&engine, wall).contains(KeywordSet::DEFENDER));
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, wall_of_brambles(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(wall).unwrap().regeneration_shields, 1);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert!(!attackers.contains(&wall), "Defender: it cannot attack");
+}
