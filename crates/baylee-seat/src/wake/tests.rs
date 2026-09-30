@@ -167,6 +167,34 @@ fn x_is_counted_at_its_least() {
     assert_eq!(judge(&view, legal), passes(Standing::NothingToDo));
 }
 
+/// Mana Drain's "target spell" has nothing to target on an empty stack
+/// (CR 601.2c, 601.2e): no tap makes it castable, so two open Islands are
+/// no reach. Found by the gateway e2e, where the menu offered it and the
+/// cast was refused after the Islands were tapped.
+#[test]
+fn a_counterspell_with_nothing_to_counter_is_out_of_reach() {
+    let (mut view, legal) = table(&["Island", "Island"], &["Mana Drain"]);
+    their(&mut view, Phase::Ending, Step::End);
+    assert!(reachable(&view, &legal).is_empty());
+    assert_eq!(judge(&view, legal.clone()), passes(Standing::NothingToDo));
+    // A spell of theirs on the stack is something to counter.
+    view.stack.push(token(90, 1, "TEST spell", 0, 0));
+    let reach = reachable(&view, &legal);
+    assert_eq!(reach.len(), 1, "{reach:?}");
+    assert_eq!(reach[0].plan.steps.len(), 2);
+}
+
+/// A card whose cost is already in the pool and that the engine does not
+/// list is kept from being cast by something other than mana, which no
+/// plan of taps gives it.
+#[test]
+fn a_card_the_pool_pays_and_the_engine_does_not_list_is_out_of_reach() {
+    let (mut view, legal) = table(&["Forest"], &["Llanowar Elves"]);
+    assert_eq!(reachable(&view, &legal).len(), 1, "one Forest to tap");
+    view.seats[0].mana_pool.green = 1;
+    assert!(reachable(&view, &legal).is_empty());
+}
+
 #[test]
 fn an_instant_over_open_mana_is_woken_at_their_end_step_and_not_at_their_upkeep() {
     let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);

@@ -364,11 +364,15 @@ pub enum ReachFrom {
 
 /// Every card the seat could cast by tapping what it has untapped: a card
 /// in hand the engine does not list yet (its mana is still in the lands)
-/// whose timing allows it now and whose printed cost the seat's sources
-/// pay, and a commander in the command zone with its tax.
+/// whose timing allows it now, whose printed cost the seat's sources pay
+/// and which is not a counterspell with nothing on the stack
+/// ([`targets_the_stack`]), and a commander in the command zone with its
+/// tax.
 ///
 /// Cards the engine already lists as castable (the mana is floating) are
-/// not here: they need no taps.
+/// not here: they need no taps. Nor is a card whose cost the pool already
+/// holds that the engine does not list: something other than mana stops
+/// it.
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let sources = baylee_ai::mana_sources(view, legal);
@@ -380,9 +384,13 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     };
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
+    // A plan with nothing to tap is no reach: the mana is in the pool
+    // already, so what keeps the engine from listing the card is not mana
+    // (a target, an additional cost, a raised cost), and no tap gives it.
     let payable = |cost: ManaCost| {
         cost.symbols().next()?;
         baylee_client_core::manaplan::plan(&cost.with_x(0), &pool, &sources)
+            .filter(|plan| !plan.steps.is_empty())
     };
     let mut reach: Vec<Reach> = view
         .hand
@@ -390,6 +398,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
         .filter(|card| !card.types.contains(TypeSet::LAND))
         .filter(|card| baylee_client_core::timing::allows(view, card.types, flash(card.card)))
+        .filter(|card| !view.stack.is_empty() || !targets_the_stack(card.card))
         .filter_map(|card| {
             Some(Reach {
                 object: card.id,
@@ -428,7 +437,9 @@ fn commanders(
         .filter_map(|c| {
             let card = c.card?;
             let types = view.object(c.object).map_or(TypeSet::CREATURE, |o| o.types);
-            if !baylee_client_core::timing::allows(view, types, flash(card)) {
+            if !baylee_client_core::timing::allows(view, types, flash(card))
+                || view.stack.is_empty() && targets_the_stack(card)
+            {
                 return None;
             }
             let cost = printed_cost(card)?.with_more_generic(c.casts.saturating_mul(2));
@@ -451,6 +462,31 @@ pub fn printed_cost(card: baylee_view::CardIdentity) -> Option<ManaCost> {
         .get(usize::from(card.face))
         .or(def.faces.first())?;
     Some(face.mana_cost)
+}
+
+/// Whether a card's spell must target a spell or an ability on the stack
+/// (a counterspell's "target spell"). With the stack empty it has no legal
+/// target, so it cannot be cast (CR 601.2c, 601.2e), whatever is tapped.
+#[must_use]
+pub fn targets_the_stack(card: baylee_view::CardIdentity) -> bool {
+    use baylee_cards_dsl::{AbilityDef, TargetSpec};
+    baylee_cards::by_index(card.index).is_some_and(|def| {
+        def.abilities_for_face(usize::from(card.face))
+            .iter()
+            .any(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::Spell { targets: Some(req), .. }
+                        if req.min > 0
+                            && matches!(
+                                req.spec,
+                                TargetSpec::Spell(_)
+                                    | TargetSpec::AbilityOnStack(_)
+                                    | TargetSpec::SpellOrAbility(_)
+                            )
+                )
+            })
+    })
 }
 
 /// Whether a card face has flash.
