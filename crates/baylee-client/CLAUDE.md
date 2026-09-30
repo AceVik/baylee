@@ -135,5 +135,6 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `prose::bracketed` greys closed brackets only.
 - Handlers ask actions: `Keymap` (`baylee-client-core/src/prefs.rs`) resolves only in `keys.rs` (raw `KeyCode` bypasses text-field guards); deserialising drops only unknown actions.
 - Keymap, standing orders, automation: `GET/PUT /settings`, edited in `settingsui.rs`. `ClientSettings.lang` feeds catalog `lang=` and `Lang::of`.
+- The LLM seat's panel (`seatpanel.rs`, desktop only, below the settings columns) only draws `client-core::llmseat::panel`; `llm-seat.json` is the machine's, in neither store, written only via `llmseat::desk` → `store::save`. No box for a key; a key variable is asked for presence, never its value (`docs/llm-seat.md` §"The settings panel").
 - UI strings are `Phrase` arms (`i18n.rs`): missing German fails to compile; tests check coverage and `{0}`/`{1}`.
 - Lobby via `Lobby::note`, shell via `tell`/`unseat_because`; gateway errors stay untranslated. Refusals: `Refusal::Said(Phrase)` (ours) or `Verbatim(String)` (theirs; legitimate, not a count to drive to zero), never bare `String`. Identifiers (`"sharp"`) keep wire spelling (§"The interface's own words").

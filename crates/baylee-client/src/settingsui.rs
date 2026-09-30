@@ -4,7 +4,9 @@
 //! is where the account is. Everything on this screen belongs to the account
 //! and travels with it (`docs/protocol.md` §"Client preferences"), and a
 //! player who has not signed in still gets to change all of it, they just
-//! keep it on this machine.
+//! keep it on this machine. The language-model seat's panel below it all
+//! (`crate::seatpanel`, desktop only) is the exception: it is the machine's
+//! and never travels, because the bridge it sets up runs there.
 //!
 //! Its own module rather than another few hundred lines of `lobby.rs`, which
 //! is already the largest file in the crate. It borrows that module's
@@ -37,6 +39,7 @@ pub(crate) fn screen(
     fonts: &UiFonts,
     metrics: Metrics,
     scroll: f32,
+    seat: &crate::seatpanel::SeatDesk,
 ) {
     let header = row(commands, metrics, true);
     let title = heading(commands, fonts, metrics, Phrase::SettingsTitle.text(lang));
@@ -136,6 +139,9 @@ pub(crate) fn screen(
     let keys = keymap_panel(commands, &prefs.keymap, capturing, lang, fonts, metrics);
     let rules = automation_panel(commands, prefs, lang, fonts, metrics);
     commands.entity(columns).add_children(&[keys, rules]);
+    // Below the two columns and the whole width: a seat bridge is for the
+    // few who run one, and its panel is the widest thing on the screen.
+    crate::seatpanel::draw(commands, root, seat, lang, fonts, metrics);
 }
 
 /// The keymap, grouped the way [`Action::group`] groups it.

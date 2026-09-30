@@ -526,6 +526,20 @@ fn tab_walks_the_shown_profile_then_the_caps() {
     );
     panel.blur();
     assert!(!panel.typing());
+
+    // An Anthropic profile draws no address box, so the caret never goes
+    // into one; an OpenAI-compatible one does.
+    panel.act(Act::Focus(Spot::Profile(1, Slot::KeyEnv)));
+    panel.tab(false);
+    assert_eq!(panel.focus(), Some(Spot::Cap(CapField::DayUsd)));
+    assert!(!panel.shows(Spot::Profile(1, Slot::BaseUrl)));
+    panel.act(Act::Focus(Spot::Profile(2, Slot::KeyEnv)));
+    panel.tab(false);
+    assert_eq!(panel.focus(), Some(Spot::Profile(2, Slot::BaseUrl)));
+    // Switched to Anthropic, its address stays in view while it holds one.
+    panel.act(Act::Provider(2, Provider::Anthropic));
+    panel.blur();
+    assert!(panel.shows(Spot::Profile(2, Slot::BaseUrl)));
 }
 
 #[test]

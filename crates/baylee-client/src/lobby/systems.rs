@@ -488,8 +488,8 @@ pub(super) fn keyboard(
         return;
     }
     if state.settings.is_open() {
-        // Nothing else on the settings screen is typed into.
-        keys.clear();
+        // The seat panel's boxes are the only ones on the settings screen.
+        crate::seatpanel::keys(&mut keys, &codes, &mut state, clipboard.as_deref_mut());
         return;
     }
     if state.lobby.library().page.is_some() {
@@ -1008,6 +1008,11 @@ pub(super) fn clicks(
         if state.settings.is_open() && !matches!(*press, Press::Rebind(_)) {
             state.settings = SettingsPane::Open;
         }
+        // And anything but the seat panel's own controls takes the caret out
+        // of its box.
+        if !matches!(*press, Press::Seat(_)) && state.seat.typing() {
+            state.seat.blur();
+        }
         match *press {
             Press::Hub(hub) => {
                 state.hub = hub;
@@ -1084,6 +1089,7 @@ pub(super) fn clicks(
             }
             Press::OpenSettings => state.settings = SettingsPane::Open,
             Press::CloseSettings => state.settings = SettingsPane::Closed,
+            Press::Seat(act) => state.seat.act(act),
             Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
             Press::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
             Press::ConfirmAccountDeletion => {
@@ -1941,6 +1947,8 @@ fn ended_as(
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Press {
     Hub(Hub),
+    /// A control of the language-model seat's panel on the settings screen.
+    Seat(baylee_client_core::llmseat::panel::Act),
     AddGateway,
     SelectGateway(usize),
     /// Asks, in the confirm dialog, whether a saved gateway leaves the list.

@@ -87,8 +87,9 @@ of that period, or its spend would count nowhere.
 
 No key is ever in the file. A profile names the variable its key is read
 from, and the bridge reads it from the environment. A field named like a
-key (`api_key`, `key`, `token`, `secret`, `password`, `authorization`, …)
-or a value shaped like one (`sk-…`) refuses the file with a sentence saying
+key (`api_key`, `key`, `token`, `secret`, `password`, `authorization`, …),
+a profile's name included, or a name or value shaped like one (`sk-…`)
+refuses the file with a sentence saying
 where keys go, and so does a command line that carries the key of any
 variable the bridge would read. A profile's key goes only to the address
 written beside it: a profile's `base_url` beats `ANTHROPIC_BASE_URL` and
@@ -153,6 +154,49 @@ language model is in the book, and a house or scripted game never is.
   profile and model, what was reserved and what was spent, and when it
   settled; never anything of the game itself. A book that cannot be read
   refuses every game until it is moved aside: it is never started afresh.
+
+## The settings panel
+
+The client's settings screen carries a panel for this file, below its two
+columns, on a desktop: a browser and a phone run no bridge, and say so in
+one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
+`llmseat::desk::Desk` reads and writes the files, and
+`crates/baylee-client/src/seatpanel.rs` only draws.
+
+- **Profiles.** Listed as chips; *Add a profile* makes one on the build's
+  Anthropic default (named `sonnet`, else `sonnet-2`, …), *Duplicate*
+  copies one below itself under a free name, *Remove* takes it away, and
+  *Default* makes it the default or, pressed again, none. The default
+  follows its profile through renames and removals of others; removing it
+  leaves no default (the house plays) rather than choosing one for the
+  player.
+- **Boxes.** One per field of the table above and one per cap. An empty
+  box leaves the field out and says what the bridge plays instead. Beside
+  the model are this build's priced models, with their dollars per
+  million in and out, and under the prices what this build knows of the
+  model's. The key's box is the *name* of its variable, and beside it
+  whether that variable is set in the client's own environment: only
+  whether; its value is never read into the panel, and the bridge reads
+  its own.
+- **Faults.** Every refusal of the file stands beside the box it is about,
+  in the player's language: `SeatSettings::faults` is the list that
+  `parse` and `check` say the first of, so the panel and the bridge refuse
+  by one predicate. The panel adds its own (a number that is not one, half
+  a price, two profiles with one name). Save is dead while any stands, so
+  a key typed or pasted into any box is refused there and never written.
+  There is no box for a key. A dollar cap beside a model with no price is
+  a warning rather than a fault: the file is sound, and the bridge refuses
+  only that model's games.
+- **On disk.** Save writes through `store::save`. While the screen is up
+  the panel looks at the file and the book once a second (their length and
+  time; a quiet look reads neither). A file changed on disk is read again;
+  edits in the panel are kept, with a line saying the file changed, and
+  *Discard changes* shows it. A file that cannot be used is named with its
+  refusal and left alone for the player to mend. No file is an empty panel
+  that says so.
+- **Spent.** Today and this month, from the book at the client's clock and
+  local offset, with the zone said (`Counted in local time, UTC+02:00.`),
+  against the caps as the boxes now say them.
 
 ## A dev table
 

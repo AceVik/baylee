@@ -669,6 +669,23 @@ impl SeatPanel {
         self.buffer(spot).is_some()
     }
 
+    /// Whether the box at `spot` is drawn. Every box is, but an address
+    /// on an Anthropic profile: an address is an OpenAI-compatible
+    /// endpoint's. One the file gives an Anthropic profile stays in view,
+    /// and so does the box with the caret, so nothing is kept or typed
+    /// unseen.
+    #[must_use]
+    pub fn shows(&self, spot: Spot) -> bool {
+        match spot {
+            Spot::Profile(at, Slot::BaseUrl) => {
+                self.provider(at) == Some(Provider::OpenAi)
+                    || self.focus == Some(spot)
+                    || self.buffer(spot).is_some_and(|b| !b.text().is_empty())
+            }
+            _ => self.holds(spot),
+        }
+    }
+
     /// The box with the caret.
     #[must_use]
     pub fn focus(&self) -> Option<Spot> {
@@ -706,6 +723,7 @@ impl SeatPanel {
             .map(|at| Slot::TYPED.iter().map(|s| Spot::Profile(at, *s)).collect())
             .unwrap_or_default();
         ring.extend(CapField::ALL.iter().map(|cap| Spot::Cap(*cap)));
+        ring.retain(|spot| self.shows(*spot));
         let next = match self
             .focus
             .and_then(|spot| ring.iter().position(|s| *s == spot))
