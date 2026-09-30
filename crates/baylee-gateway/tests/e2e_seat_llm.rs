@@ -28,12 +28,15 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
+use baylee_client_core::llmseat::ledger::Book;
+use baylee_client_core::llmseat::{Caps, FIRST_CALL_BYTES};
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{ApiMind, Provider, Settings, Spec, credentials};
 use baylee_seat::lobby::{GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::Outcome;
+use baylee_seat::spend;
 use baylee_seat::transcript::{Event, Note};
 use baylee_seat::{
     BridgeConfig, Disclosure, HouseMind, Mind, Request, SeatCore, Thinking, Transcript,
@@ -86,6 +89,9 @@ struct Books {
     /// The head of the last question the stand-in answered, as the
     /// narrator wrote it.
     last_question: String,
+    /// The size of the first request, which a game's budget must hold
+    /// before it sits down (`FIRST_CALL_BYTES`).
+    first_bytes: Option<usize>,
 }
 
 type Shared = Arc<Mutex<Books>>;
@@ -246,6 +252,7 @@ async fn elsewhere(State(books): State<Shared>, uri: Uri) -> StatusCode {
 async fn messages(State(books): State<Shared>, headers: HeaderMap, body: Bytes) -> Response {
     let mut books = lock(&books);
     books.calls += 1;
+    books.first_bytes.get_or_insert(body.len());
     let call = books.calls;
     let raw = String::from_utf8_lossy(&body);
     let request: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
@@ -601,6 +608,18 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
         gateway.port
     ));
     settings.transcripts = Some(transcripts.clone());
+    // As under a settings file: the game reserves in a spend book of its
+    // own, here in the temporary directory, and plays under a hard limit.
+    let spend_book = Book::new(transcripts.join("llm-spend.json"));
+    let mut booked = spend::reserve(
+        &spend_book,
+        &Caps::default(),
+        &mut settings,
+        Some("e2e"),
+        spend::now(),
+    )
+    .expect("a reservation");
+    assert!(settings.hard_limit);
     let env = |name: &str| match name {
         "ANTHROPIC_API_KEY" => Some(KEY.to_string()),
         "ANTHROPIC_BASE_URL" => Some(base.clone()),
@@ -611,6 +630,7 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
         credentials(Provider::Anthropic, &env).expect("a key"),
     );
     let tally = api.tally();
+    booked.watch(tally.clone());
     let llm: Arc<dyn Mind> = Arc::new(api);
     let house: Arc<dyn Mind> = Arc::new(SeededHouse(HouseMind::default()));
     let llm_name = seat_name(llm.disclosure(), &spec.tag()).unwrap();
@@ -769,6 +789,20 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
         "the spoiled answer and the second: {tally:?}"
     );
     assert!(tally.usd.is_some_and(|usd| usd > 0.0), "{tally:?}");
+    // The first request fit what a game's budget is held to before it
+    // sits down, and the book settled at what the game spent.
+    let first = books.first_bytes.expect("a first request");
+    println!("first request: {first} bytes of {FIRST_CALL_BYTES}");
+    assert!(first as u64 <= FIRST_CALL_BYTES, "{first} bytes");
+    booked.settle(spend::now()).expect("settled");
+    let entry = spend_book.read().expect("the book").games.remove(0);
+    assert!(entry.settled.is_some(), "{entry:?}");
+    let (spent, billed) = (entry.spent_usd.unwrap(), tally.usd.unwrap());
+    assert!(
+        spent >= billed && spent - billed < 1e-5,
+        "{entry:?} {tally:?}"
+    );
+    assert!(spent <= entry.reserved_usd.unwrap(), "{entry:?}");
     // The id on no list went back as an error, and the game went on.
     assert!(
         books.spoiled.is_some() && books.sent_back,
