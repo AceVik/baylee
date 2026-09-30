@@ -2927,6 +2927,11 @@ impl Tx<'_> {
     fn etb_replacement(&mut self, rest: &str) -> Option<()> {
         let mut fields = rest.split(':');
         let kind = fields.next()?.trim();
+        if kind == "Copy" {
+            let svar = fields.next().map(str::trim).unwrap_or_default().to_string();
+            let optional = fields.next().map(str::trim) == Some("Optional");
+            return self.copy_on_enter(&svar, optional);
+        }
         if kind != "Other" {
             return self.deny(format!("`ETBReplacement:{kind}`"));
         }
@@ -2966,6 +2971,66 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `ChooseColor.{key}`"));
         }
         self.body.enter_modifiers.push(modifier);
+        Some(())
+    }
+
+    /// `K:ETBReplacement:Copy:<svar>:Optional` — "you may have this enter
+    /// as a copy of any creature on the battlefield" (Clone), as
+    /// `AbilityDef::CopyOnEnter`.
+    ///
+    /// The choice is made before the permanent enters (CR 614.12a), so
+    /// the reference's `Other` on the choices names nothing the choice
+    /// could include, and is dropped. `AddTypes$` is the one exception the
+    /// copy may carry here ("except it's an enchantment", Copy Artifact).
+    /// A clone that *must* copy, one that sets its colour or grants itself
+    /// a trigger (Vesuvan Doppelganger), is another sentence and refused:
+    /// `CopyOnEnter` asks with an empty answer allowed, which is the "may".
+    fn copy_on_enter(&mut self, svar: &str, optional: bool) -> Option<()> {
+        if !optional {
+            return self.deny("a clone that must copy".to_string());
+        }
+        let Some(body) = self.svars.get(svar).cloned() else {
+            return self.deny(format!("an `ETBReplacement` naming the missing `{svar}`"));
+        };
+        let Some((api, mut p)) = Params::parse(&body) else {
+            return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
+        };
+        if api != "Clone" {
+            return self.deny(format!("as-enters copy `{api}`"));
+        }
+        p.drop_prose();
+        let Some(choices) = p.take("Choices") else {
+            return self.deny("a clone with no `Choices$`".to_string());
+        };
+        let (base, atoms) = choices.split_once('.').unwrap_or((&choices, ""));
+        let kept: Vec<&str> = atoms
+            .split('+')
+            .filter(|atom| !atom.is_empty() && *atom != "Other")
+            .collect();
+        let valid = if kept.is_empty() {
+            base.to_string()
+        } else {
+            format!("{base}.{}", kept.join("+"))
+        };
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("CHOICE", &expr);
+        let mut mods = Vec::new();
+        if let Some(types) = p.take("AddTypes") {
+            for word in types.split(',').map(str::trim) {
+                let Some(types) = card_type_const(word) else {
+                    return self.deny(format!("a clone that adds `{word}`"));
+                };
+                mods.push(format!("CopyMod::AddType({types})"));
+            }
+        }
+        if !p.exhausted() {
+            let key = p.first_key().unwrap_or_default();
+            return self.deny(format!("unclaimed parameter `Clone.{key}`"));
+        }
+        self.body.abilities.push(format!(
+            "AbilityDef::CopyOnEnter {{ target: TargetSpec::Object(&{filter}), mods: &[{}] }}",
+            mods.join(", ")
+        ));
         Some(())
     }
 
@@ -5211,10 +5276,39 @@ SVar:X:Count$xPaid",
             ["mana_ability!(&[Effect::mana_chosen_or(&[ManaColor::White])])"]
         );
 
-        // A clone choosing what to enter as is a different mechanism.
+        // A clone that must copy is not the "may" `CopyOnEnter` asks.
         assert!(refused(
             "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\nK:ETBReplacement:Copy:CC\n\
              SVar:CC:DB$ Clone | Defined$ You"
+        ));
+        // Clone and Copy Artifact: the choice is made before it enters, so
+        // `Other` names nothing, and the except-clause is a copy mod.
+        let clone = read(
+            "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Creature.Other | SpellDescription$ x",
+        );
+        assert_eq!(
+            clone.abilities,
+            [
+                "AbilityDef::CopyOnEnter { target: TargetSpec::Object(&Filter::CREATURE), mods: &[] }"
+            ]
+        );
+        let artifact = read(
+            "Name:X\nTypes:Artifact\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Artifact.Other | AddTypes$ Enchantment",
+        );
+        assert!(
+            artifact.abilities[0].contains("mods: &[CopyMod::AddType(TypeSet::ENCHANTMENT)]"),
+            "{:?}",
+            artifact.abilities
+        );
+        // Vesuvan Doppelganger's colour and granted trigger are refused.
+        assert!(refused(
+            "Name:X\nTypes:Creature Shapeshifter\nPT:0/0\n\
+             K:ETBReplacement:Copy:CC:Optional\n\
+             SVar:CC:DB$ Clone | Choices$ Creature.Other | SetColor$ Blue"
         ));
         // "As this enters, choose a color" is its controller's choice, and a
         // card handing it to somebody else is a different sentence.
