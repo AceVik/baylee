@@ -510,6 +510,72 @@ async fn no_key_reaches_an_error_or_a_transcript() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A redirect is followed nowhere. ureq drops only `Authorization` and
+/// `Cookie` when it follows one, so an `x-api-key` would have gone to the
+/// address it named: a call and a probe that meet one fail, by the status
+/// alone, and nothing reaches the other listener.
+#[tokio::test]
+async fn a_redirect_is_not_followed_and_the_key_goes_nowhere_else() {
+    let moved = json!({"type": "error", "error": {"type": "moved", "message": "see LOCATION"}});
+    // A POST follows 301–303 as a GET; a GET (the probe) follows all five.
+    for status in [301, 302, 303, 307, 308] {
+        for provider in [Provider::Anthropic, Provider::OpenAi] {
+            let redirect = crate::testnet::redirect(status, &moved).await;
+            let mind = mind(&redirect.base, provider, |_| {});
+            let error = mind.decide(a_priority()).await.expect_err("a redirect");
+            let said = error.to_string();
+            assert!(said.contains(&status.to_string()), "{said}");
+            assert!(said.contains("redirect"), "{said}");
+            assert!(!said.contains("0123456789"), "the key: {said}");
+            assert!(
+                !said.contains(&redirect.target_port),
+                "the location: {said}"
+            );
+            assert!(!said.contains("see "), "the body: {said}");
+            assert!(!mind.probe().await, "a redirected probe is no answer");
+            // The key did go out, to the address it was given: the test
+            // would see it had it gone further.
+            let asked = redirect.asked();
+            assert_eq!(asked.len(), 2, "the call and the probe");
+            let name = match provider {
+                Provider::Anthropic => "x-api-key",
+                Provider::OpenAi => "authorization",
+            };
+            assert!(asked.iter().all(|headers| headers.contains_key(name)));
+            assert_eq!(redirect.followed(), 0, "{status} {provider:?} was followed");
+            assert_eq!(lock(&mind.tally()).failed, 1);
+        }
+    }
+}
+
+/// Every agent the mind builds follows no redirect, and talks to another
+/// machine only over TLS.
+#[test]
+fn the_agent_follows_no_redirect_and_leaves_this_machine_only_over_tls() {
+    let at = |base: &'static str| {
+        let credentials = credentials(Provider::Anthropic, &move |name: &str| match name {
+            "ANTHROPIC_API_KEY" => Some(KEY.to_string()),
+            "ANTHROPIC_BASE_URL" => Some(base.to_string()),
+            _ => None,
+        })
+        .expect("credentials");
+        let settings = Settings::new(&Spec {
+            provider: Provider::Anthropic,
+            model: "claude-sonnet-5".into(),
+        });
+        ApiMind::new(settings, credentials)
+    };
+    let remote = at("https://api.example.com");
+    assert_eq!(remote.agent.config().max_redirects(), 0);
+    assert!(remote.agent.config().https_only());
+    let local = at("http://127.0.0.1:8080");
+    assert_eq!(local.agent.config().max_redirects(), 0);
+    assert!(
+        !local.agent.config().https_only(),
+        "this machine, over http"
+    );
+}
+
 /// Past the game's budget, every question is the house's, without a call.
 #[tokio::test]
 async fn past_the_budget_the_house_finishes() {

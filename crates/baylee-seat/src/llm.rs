@@ -497,8 +497,15 @@ impl ApiMind {
     /// name.
     #[must_use]
     pub fn new(settings: Settings, credentials: Credentials) -> Self {
+        // No redirect is followed: ureq drops only `Authorization` and
+        // `Cookie` when it follows one, so Anthropic's `x-api-key` would go
+        // wherever a `Location` pointed, plain http included. A 3xx is an
+        // error ([`call`]). And nothing leaves this machine but over TLS, as
+        // [`credentials`] requires of the address.
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
+            .max_redirects(0)
+            .https_only(!loopback(&credentials.base))
             .timeout_global(Some(Duration::from_secs(600)))
             .build()
             .new_agent();
@@ -886,6 +893,11 @@ fn call(
             other => format!("the call failed: {other}"),
         })?;
     let status = answer.status().as_u16();
+    if answer.status().is_redirection() {
+        // Named by its status alone: where it pointed, and the body a proxy
+        // may have written about it, are not read.
+        return Err(redirected(status).into());
+    }
     let body: Value = answer
         .body_mut()
         .with_config()
@@ -907,6 +919,11 @@ fn call(
         Provider::Anthropic => anthropic::parse(&body),
         Provider::OpenAi => openai::parse(&body, mode),
     }?)
+}
+
+/// Why a redirect failed the call, by its status alone.
+fn redirected(status: u16) -> String {
+    format!("{status}: the endpoint answered with a redirect, and the seat follows none")
 }
 
 /// An answer read against its question.

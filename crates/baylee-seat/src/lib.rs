@@ -38,6 +38,8 @@ pub mod referee;
 pub mod scripted;
 pub mod seat;
 pub mod show;
+#[cfg(test)]
+mod testnet;
 pub mod transcript;
 pub mod wake;
 

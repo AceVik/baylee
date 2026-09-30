@@ -164,8 +164,12 @@ impl Lobby {
     /// The gateway at `base` (`http://host:port`, no trailing slash needed).
     #[must_use]
     pub fn new(base: &str) -> Self {
+        // No redirect is followed ([`Lobby::raw`] fails a 3xx): what the
+        // gateway is asked is asked of the gateway named, and of no address
+        // a `Location` names.
         let agent = ureq::Agent::config_builder()
             .http_status_as_error(false)
+            .max_redirects(0)
             .timeout_global(Some(Duration::from_secs(30)))
             .build()
             .new_agent();
@@ -431,6 +435,10 @@ impl Lobby {
                 None => agent.run(request.body(())?)?,
             };
             let status = answer.status().as_u16();
+            // By its status alone, neither where it pointed nor its body.
+            if answer.status().is_redirection() {
+                bail!("the gateway answered {status}, a redirect, and the seat follows none");
+            }
             let body = answer.body_mut().read_to_vec()?;
             Ok((status, body))
         })
@@ -532,6 +540,50 @@ mod tests {
                     "«{name}» read as {other:?}"
                 );
             }
+        }
+    }
+
+    /// A gateway that answers with a redirect is followed nowhere: every
+    /// call fails by the status alone, and the session goes to no other
+    /// address.
+    #[tokio::test]
+    async fn a_redirect_is_not_followed() {
+        let secret = "TEST-session-0123456789abcdef";
+        let session = Session {
+            token: secret.to_string(),
+        };
+        let moved = serde_json::json!({"error": "see LOCATION"});
+        let deck = Deck::acceptance("Victory").unwrap();
+        for status in [301, 302, 303, 307, 308] {
+            let redirect = crate::testnet::redirect(status, &moved).await;
+            let lobby = Lobby::new(&redirect.base);
+            assert_eq!(lobby.agent.config().max_redirects(), 0);
+            let posted = lobby.upload(&session, &deck).await.expect_err("a POST");
+            let got = lobby.room(&session, "g1").await.expect_err("a GET");
+            for error in [posted, got] {
+                let said = format!("{error:#}");
+                assert!(said.contains(&status.to_string()), "{said}");
+                assert!(said.contains("redirect"), "{said}");
+                assert!(!said.contains(secret), "the session: {said}");
+                assert!(
+                    !said.contains(&redirect.target_port),
+                    "the location: {said}"
+                );
+                assert!(!said.contains("see "), "the body: {said}");
+            }
+            let chair = Chair {
+                game_id: "g1".into(),
+                seat: 0,
+                seat_token: secret.into(),
+            };
+            let ticket = lobby.seat_ticket(&chair).await;
+            assert!(
+                matches!(&ticket, baylee_client_core::wsticket::TicketAnswer::Failed(why)
+                    if why.contains(&status.to_string()) && !why.contains(secret)),
+                "{ticket:?}"
+            );
+            assert_eq!(redirect.asked().len(), 3, "each call reached the gateway");
+            assert_eq!(redirect.followed(), 0, "{status} was followed");
         }
     }
 
