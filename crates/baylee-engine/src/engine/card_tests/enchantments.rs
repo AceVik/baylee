@@ -19067,7 +19067,7 @@ fn red_ward() -> CardIndex {
 
 /// Black Ward: "Enchanted creature has protection from black. This effect
 /// doesn't remove this Aura." A black removal spell cannot target the
-/// warded creature (CR 702.16b); an untouched second creature proves the
+/// enchanted creature (CR 702.16b); an untouched second creature proves the
 /// spell had a legal target at all, so the exclusion is the Ward and not an
 /// empty menu.
 #[test]
