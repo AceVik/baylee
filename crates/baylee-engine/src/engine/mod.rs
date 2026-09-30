@@ -365,6 +365,12 @@ pub struct Engine<L: CardLookup> {
     capabilities: Vec<baylee_core::preset::SeatCapabilities>,
     /// Journal seq up to which as-it-enters modifiers were applied.
     entry_scan_seq: u64,
+    /// The as-it-enters questions still owed to permanents that entered
+    /// together, in the order they are asked: by seat in APNAP order, then
+    /// in the order the permanents entered (CR 101.4). Step 0b applies every
+    /// co-arrival's other replacements first and asks these one at a time
+    /// ([`Self::apply_enter_modifiers`]).
+    entry_questions: VecDeque<(ObjectId, PlayerId, progress::EntryAsk)>,
     /// Delayed actions come due, each with the player who controls it
     /// (CR 603.7d), which [`Self::process_delayed`] reads as it performs it.
     delayed_queue: VecDeque<(PlayerId, crate::state::DelayedAction)>,
@@ -732,6 +738,7 @@ impl<L: CardLookup> Engine<L> {
             activation_phyrexian: Vec::new(),
             activating_abilities: None,
             entry_scan_seq: 0,
+            entry_questions: VecDeque::new(),
             delayed_queue: VecDeque::new(),
             upkeep_payments: VecDeque::new(),
             synthetic_fx: rustc_hash::FxHashMap::default(),
@@ -1070,6 +1077,7 @@ impl<L: CardLookup> Engine<L> {
             activating_abilities,
             capabilities,
             entry_scan_seq,
+            entry_questions,
             delayed_queue,
             upkeep_payments,
             synthetic_fx,
@@ -1133,6 +1141,7 @@ impl<L: CardLookup> Engine<L> {
             ("activating_abilities", format!("{activating_abilities:?}")),
             ("capabilities", format!("{capabilities:?}")),
             ("entry_scan_seq", format!("{entry_scan_seq:?}")),
+            ("entry_questions", format!("{entry_questions:?}")),
             ("delayed_queue", format!("{delayed_queue:?}")),
             ("upkeep_payments", format!("{upkeep_payments:?}")),
             ("synthetic_fx", format!("{fx:?}")),

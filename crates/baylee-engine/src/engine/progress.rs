@@ -41,6 +41,18 @@ enum TargetLegality {
     AllIllegal,
 }
 
+/// What a permanent that has just entered still has to ask as it enters,
+/// queued in [`Engine::entry_questions`] until every co-arrival's other
+/// replacements are on the board.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum EntryAsk {
+    /// Which permanent it enters as a copy of (a clone put onto the
+    /// battlefield by another card's effect; `check_copy_on_enter`).
+    Copy,
+    /// The first of its own modifiers that asks.
+    Modifier(&'static baylee_cards_dsl::EnterModifier),
+}
+
 impl<L: CardLookup> Engine<L> {
     /// A seat's automation settings.
     #[must_use]
@@ -722,6 +734,20 @@ impl<L: CardLookup> Engine<L> {
 
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
+    ///
+    /// Permanents that enter together are one event, and each one's own
+    /// replacements modify how it enters (CR 614.12). So every arrival's
+    /// replacements that need nobody's answer are applied first: entering
+    /// tapped, counters, starting loyalty, a Saga's lore counter, daybound's
+    /// back face, a Room's door. The ones that ask are then asked one at a
+    /// time, from [`Engine::entry_questions`], by seat in APNAP order and in
+    /// the order the permanents entered (CR 101.4). A question used to return
+    /// from the middle of the scan with the cursor already past every
+    /// arrival, so every co-arrival after the one that asked got none of its
+    /// replacements: a Urza's Saga fetched beside Steam Vents had no lore
+    /// counter, and a planeswalker entering behind a shockland had no
+    /// loyalty and died.
+    ///
     /// Returns whether a modifier wrote to the board, which the caller reads
     /// twice over: the legal lists are recomputed from it, and the machine
     /// goes round one more pass. The second is the load-bearing one — this
@@ -731,6 +757,13 @@ impl<L: CardLookup> Engine<L> {
     #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
         use baylee_cards_dsl::EnterModifier;
+        let mut changed = false;
+        // A question an earlier scan owes comes first. Nothing enters while
+        // one is out, so the queue holds the rest of that batch's questions,
+        // and the arrivals below wait for it to empty.
+        if self.ask_owed_entry_question(&mut changed) {
+            return true;
+        }
         // `from` travels with the arrival because one modifier reads it:
         // the X a `{X}{X}` body enters with belongs to the spell that
         // became this permanent (CR 107.3m), so it exists on the way in
@@ -754,7 +787,7 @@ impl<L: CardLookup> Engine<L> {
             .filter_map(|(id, from)| self.state.object(id).map(|o| (id, o.controller, from)))
             .collect();
         self.entry_scan_seq = self.state.journal.last_seq();
-        let mut changed = false;
+        let mut asks: Vec<(ObjectId, PlayerId, EntryAsk)> = Vec::new();
         for (id, controller, from_zone) in events {
             // CR 107.3m in one place, before anything reads it. The rule
             // gives an entering permanent's own abilities the X announced
@@ -900,8 +933,16 @@ impl<L: CardLookup> Engine<L> {
             // already in hand: a permanent spell resolves off the **stack**,
             // a token is created `from: OutsideGame`, and everything else
             // comes out of a graveyard, a library, exile or a hand.
-            if from_zone != Zone::Stack && self.check_copy_on_enter(id) {
-                return true;
+            //
+            // Asked after the scan like every other question, and it still
+            // stands in for this permanent's own modifiers, as it always has.
+            if from_zone != Zone::Stack
+                && self
+                    .copy_on_enter_question(id)
+                    .is_some_and(|(options, _)| options.iter().any(|&o| o != id))
+            {
+                asks.push((id, controller, EntryAsk::Copy));
+                continue;
             }
             let Some((card, face_index)) = self
                 .state
@@ -921,15 +962,12 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             };
             // A modifier that *asks* is applied last, whatever order the
-            // card prints it in. Publishing a `Pending` returns from this
-            // scan, and `entry_scan_seq` has already moved past this
-            // arrival — so anything left in the loop behind the question
-            // would never be applied at all. Uncharted Haven is
-            // `ChooseColor` then `Tapped` and was entering untapped; the
-            // same hole had been under `ChooseSubtype` and
-            // `TappedOrPayLife` since they were written, invisible only
-            // because no card in the pool prints another modifier after
-            // one of them.
+            // card prints it in: it is queued, and asked once every
+            // arrival's other modifiers are on the board. Uncharted Haven is
+            // `ChooseColor` then `Tapped` and once entered untapped, when a
+            // question returned from the middle of this loop; the same hole
+            // had been under `ChooseSubtype` and `TappedOrPayLife` since
+            // they were written.
             //
             // The *first* question wins, and a card with two would lose the
             // second. No printed card asks twice as it enters, and the day
@@ -1031,115 +1069,171 @@ impl<L: CardLookup> Engine<L> {
                     }
                 }
             }
-            match asked {
-                None => {}
-                Some(EnterModifier::ChooseSubtype) => {
-                    self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
-                    self.pending = Pending::ChooseSubtype {
-                        player: controller,
-                        options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
-                    };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(EnterModifier::ChooseCardName) => {
-                    self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
-                    self.pending = Pending::ChooseCardName { player: controller };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_))) => {
-                    // Colorless is not a colour (CR 105.1), so it is not
-                    // among the options even though `ManaColor` carries it:
-                    // "choose a color" is one of the five.
-                    let except = match m {
-                        EnterModifier::ChooseColorExcept(c) => Some(*c),
-                        _ => None,
-                    };
-                    let options: Vec<_> = baylee_cards_dsl::ALL_MANA_COLORS
-                        .iter()
-                        .copied()
-                        .filter(|c| Some(*c) != except)
-                        .collect();
-                    self.pending_plan = Some(PlanKind::ChooseColor { object: id });
-                    self.pending = Pending::ChooseColor {
-                        player: controller,
-                        options,
-                    };
-                    self.awaiting_answer = true;
-                    return true; // one choice at a time
-                }
-                Some(EnterModifier::TappedOrPayLife(amount)) => {
-                    let amount = *amount;
-                    if self.state.can_pay_life(controller, i32::from(amount)) {
-                        let source = self
-                            .state
-                            .object(id)
-                            .and_then(|o| o.card)
-                            .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS));
-                        self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
-                        self.pending = Pending::YesNo {
-                            player: controller,
-                            prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
-                            source,
-                        };
-                        self.awaiting_answer = true;
-                        return true; // one choice at a time
-                    }
-                    // Unpayable → tapped without a choice, and the scan goes
-                    // on: nothing was asked, so nothing was interrupted.
-                    self.state.set_tapped(id, true);
-                    changed = true;
-                }
-                Some(EnterModifier::TappedUnlessReveal(filter)) => {
-                    // The one clause in this family read against a hidden
-                    // zone. Every `TappedUnless…` sibling asks
-                    // `controls_at_least`, which walks the battlefield; a
-                    // Faerie held in hand is on nobody's battlefield and the
-                    // question would always answer no.
-                    let filter: &Filter = filter;
-                    let options: Vec<ObjectId> = self
-                        .state
-                        .zones
-                        .list(ZoneLocation::Hand(controller))
-                        .iter()
-                        .filter(|card| {
-                            self.state.object(**card).is_some_and(|o| {
-                                eval::matches(filter, &self.state, o, controller, id)
-                            })
-                        })
-                        .copied()
-                        .collect();
-                    if options.is_empty() {
-                        // Nothing to show → tapped, and no question asked.
-                        // The same branch an unpayable `TappedOrPayLife`
-                        // takes, and for the same reason: a prompt whose
-                        // only legal answer is "no" is not a choice, and
-                        // offering it would hand the opponent the
-                        // information that the hand is empty of Faeries.
-                        self.state.set_tapped(id, true);
-                        changed = true;
-                    } else {
-                        self.pending_plan = Some(PlanKind::EntryReveal { object: id });
-                        self.pending = Pending::ChooseCards {
-                            player: controller,
-                            options,
-                            // Naming nothing is how the offer is declined —
-                            // the card prints "you may", and a `min` of one
-                            // would make the reveal compulsory.
-                            min: 0,
-                            max: 1,
-                            prompt: ChoicePrompt::RevealOrEnterTapped,
-                            total: None,
-                        };
-                        self.awaiting_answer = true;
-                        return true; // one choice at a time
-                    }
-                }
-                Some(_) => unreachable!("only the asking modifiers are recorded"),
+            if let Some(modifier) = asked {
+                asks.push((id, controller, EntryAsk::Modifier(modifier)));
             }
         }
+        // CR 101.4: players choosing at the same time choose in APNAP
+        // order. One player's questions keep the order the permanents
+        // entered in (the sort is stable); CR 101.4c would let that player
+        // choose the order, which is not offered.
+        let active = self.state.turn.active.get();
+        let seats = self.state.players.len() as u8;
+        asks.sort_by_key(|(_, controller, _)| (controller.get() + seats - active) % seats);
+        self.entry_questions.extend(asks);
+        if self.ask_owed_entry_question(&mut changed) {
+            return true;
+        }
         changed
+    }
+
+    /// Asks the next as-it-enters question [`Engine::entry_questions`]
+    /// holds, and says whether one is out. One whose permanent has left the
+    /// battlefield in the meantime is dropped. One that has no question to
+    /// ask any more is settled without one: a shockland its controller can
+    /// no longer pay for, or a reveal with nothing to reveal, enters tapped,
+    /// and `changed` says the board was written.
+    fn ask_owed_entry_question(&mut self, changed: &mut bool) -> bool {
+        while let Some((id, controller, ask)) = self.entry_questions.pop_front() {
+            if self
+                .state
+                .object(id)
+                .is_none_or(|o| o.zone != Zone::Battlefield)
+            {
+                continue;
+            }
+            let asked = match ask {
+                EntryAsk::Copy => self.check_copy_on_enter(id),
+                EntryAsk::Modifier(modifier) => {
+                    self.ask_entry_modifier(id, controller, modifier, changed)
+                }
+            };
+            if asked {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Asks one permanent's as-it-enters question, or settles it without
+    /// one when there is nothing to choose; says whether a question is out.
+    fn ask_entry_modifier(
+        &mut self,
+        id: ObjectId,
+        controller: PlayerId,
+        modifier: &'static baylee_cards_dsl::EnterModifier,
+        changed: &mut bool,
+    ) -> bool {
+        use baylee_cards_dsl::EnterModifier;
+        match modifier {
+            EnterModifier::ChooseSubtype => {
+                self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
+                self.pending = Pending::ChooseSubtype {
+                    player: controller,
+                    options: (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::ChooseCardName => {
+                self.pending_plan = Some(PlanKind::ChooseCardName { object: id });
+                self.pending = Pending::ChooseCardName { player: controller };
+                self.awaiting_answer = true;
+                true
+            }
+            m @ (EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_)) => {
+                // Colorless is not a colour (CR 105.1), so it is not
+                // among the options even though `ManaColor` carries it:
+                // "choose a color" is one of the five.
+                let except = match m {
+                    EnterModifier::ChooseColorExcept(c) => Some(*c),
+                    _ => None,
+                };
+                let options: Vec<_> = baylee_cards_dsl::ALL_MANA_COLORS
+                    .iter()
+                    .copied()
+                    .filter(|c| Some(*c) != except)
+                    .collect();
+                self.pending_plan = Some(PlanKind::ChooseColor { object: id });
+                self.pending = Pending::ChooseColor {
+                    player: controller,
+                    options,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            EnterModifier::TappedOrPayLife(amount) => {
+                let amount = *amount;
+                // Asked when its turn comes, so a second shockland in the
+                // same batch is asked against the life the first one left
+                // (CR 614.12b).
+                if self.state.can_pay_life(controller, i32::from(amount)) {
+                    let source = self
+                        .state
+                        .object(id)
+                        .and_then(|o| o.card)
+                        .map(|c| AbilityRef::new(c.index, AbilityRef::ENTERS));
+                    self.pending_plan = Some(PlanKind::EntryTap { object: id, amount });
+                    self.pending = Pending::YesNo {
+                        player: controller,
+                        prompt: YesNoPrompt::PayLifeOrEnterTapped { amount },
+                        source,
+                    };
+                    self.awaiting_answer = true;
+                    return true;
+                }
+                // Unpayable → tapped without a choice: nothing was asked.
+                self.state.set_tapped(id, true);
+                *changed = true;
+                false
+            }
+            EnterModifier::TappedUnlessReveal(filter) => {
+                // The one clause in this family read against a hidden
+                // zone. Every `TappedUnless…` sibling asks
+                // `controls_at_least`, which walks the battlefield; a
+                // Faerie held in hand is on nobody's battlefield and the
+                // question would always answer no.
+                let filter: &Filter = filter;
+                let options: Vec<ObjectId> = self
+                    .state
+                    .zones
+                    .list(ZoneLocation::Hand(controller))
+                    .iter()
+                    .filter(|card| {
+                        self.state
+                            .object(**card)
+                            .is_some_and(|o| eval::matches(filter, &self.state, o, controller, id))
+                    })
+                    .copied()
+                    .collect();
+                if options.is_empty() {
+                    // Nothing to show → tapped, and no question asked.
+                    // The same branch an unpayable `TappedOrPayLife`
+                    // takes, and for the same reason: a prompt whose
+                    // only legal answer is "no" is not a choice, and
+                    // offering it would hand the opponent the
+                    // information that the hand is empty of Faeries.
+                    self.state.set_tapped(id, true);
+                    *changed = true;
+                    return false;
+                }
+                self.pending_plan = Some(PlanKind::EntryReveal { object: id });
+                self.pending = Pending::ChooseCards {
+                    player: controller,
+                    options,
+                    // Naming nothing is how the offer is declined —
+                    // the card prints "you may", and a `min` of one
+                    // would make the reveal compulsory.
+                    min: 0,
+                    max: 1,
+                    prompt: ChoicePrompt::RevealOrEnterTapped,
+                    total: None,
+                };
+                self.awaiting_answer = true;
+                true
+            }
+            _ => unreachable!("only the asking modifiers are queued"),
+        }
     }
 
     /// Whether `controller` controls `at_least` permanents matching `filter`,

@@ -260,8 +260,10 @@ fn a_permanent_that_transforms_is_not_summoning_sick_again() {
 /// projection stale for every seat's view. It is now asked from a synced,
 /// refreshed board, as `Engine::new` and `settle_mulligans` ask theirs.
 ///
-/// The werewolf is first here, so its turning over happens before the
-/// question in the same scan (see [`enter_at_night`]).
+/// The werewolf is first here, so it is turned over before the question in
+/// the same scan (see [`enter_at_night`]);
+/// [`a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it`] is
+/// the other order.
 #[test]
 fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
     let mut engine = bench(
@@ -359,4 +361,57 @@ fn a_werewolf_that_enters_at_night_has_not_transformed() {
         (Some(5), Some(5)),
         "and the back face's applies"
     );
+}
+
+/// The same two creatures the other way round, the chooser first. The scan
+/// used to stop at the chooser's question with its cursor already past both
+/// arrivals, so the werewolf behind it got none of its replacements: while
+/// the question was out it was the front face, a 2/2 with flying, and
+/// daybound's continuous check turned it over only after the answer, as a
+/// transform. Permanents entering together are one event and each one's own
+/// replacements modify how it enters (CR 614.12), so every arrival's
+/// replacements that ask nobody are applied before the first question.
+#[test]
+fn a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it() {
+    let mut engine = bench(
+        7305,
+        night_cards(),
+        [
+            Seat::default().holding(&[WEREWOLF, CHOOSER]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut engine, me());
+    let werewolf = the(&engine, ZoneLocation::Hand(me()), WEREWOLF);
+    let chooser = the(&engine, ZoneLocation::Hand(me()), CHOOSER);
+    enter_at_night(&mut engine, &[chooser, werewolf]);
+
+    assert!(
+        matches!(engine.pending(), Pending::ChooseColor { player, .. } if *player == me()),
+        "the chooser asks for its colour as it enters: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(werewolf)
+            .expect("on the battlefield")
+            .face_index,
+        1,
+        "the werewolf behind it entered with its back face up all the same"
+    );
+    assert_eq!(pt(&engine, werewolf), (Some(5), Some(5)));
+    assert_eq!(
+        engine
+            .journal()
+            .entries()
+            .iter()
+            .filter(
+                |e| matches!(e.event, GameEvent::Transformed { object, .. } if object == werewolf)
+            )
+            .count(),
+        0,
+        "entering back face up, not turned over after the answer"
+    );
+    assert!(engine.projection_is_fresh());
 }

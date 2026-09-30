@@ -108,10 +108,11 @@ leave with their permanents (CR 800.4a) before anybody is asked again
 Inside the machine, one step publishes a question after it has moved the
 board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
 choices (a colour, a creature type, a shockland's life, a clone's choice).
-In the same scan it may already have put a daybound permanent entering at
-night back face up (CR 702.145b), and `GameState::turn_over` drops the
-statics of the face going down and leaves the new face's to the next scan. It may
-also have given a Room its door, or put counters on an earlier arrival. So
+Before its first question it has applied every arrival's replacements that
+ask nobody (below), so it may already have put a daybound permanent entering
+at night back face up (CR 702.145b), and `GameState::turn_over` drops the
+statics of the face going down and leaves the new face's to the next scan.
+It may also have given a Room its door, or put counters on an arrival. So
 when 0b leaves a question out, the machine does what `Engine::new` does, a
 sync and a refresh, before it returns. Every other flip leads back to 0a
 before a question: a resolution's transform (`apply_pending_face_changes`, at
@@ -119,6 +120,30 @@ the end of `finish_resolution`) is followed by the machine or by
 `run_until_choice`, a delayed transform (3b) and daybound's own fixpoint
 (2c) both `continue`
 (`mechanics_tests::transforms::a_question_asked_as_permanents_enter_sees_the_face_that_entered`).
+
+**Permanents that enter together get all their replacements before anyone
+is asked.** They are one event, and each one's own replacements modify how
+it enters (CR 614.12, 614.12a). So 0b walks every arrival since
+`entry_scan_seq` first and applies what needs no answer: entering tapped,
+counters, a planeswalker's loyalty (CR 306.5b), a Saga's lore counter
+(CR 714.3a), daybound's back face, a Room's door. What asks (an
+`EnterModifier` that chooses, or a clone's copy choice, `EntryAsk`) is
+queued in `Engine::entry_questions` and asked one at a time: the active
+player's first, then in turn order (CR 101.4), and one player's in the order
+the permanents entered. CR 101.4c would let that player choose the order;
+that is not offered. Each question is asked when its turn comes, so a
+shockland is asked against the life the ones before it left, and one its
+controller can no longer pay for enters tapped without a question
+(CR 614.12b). The scan used to publish the first question from the middle of
+its loop with the cursor already past every arrival, so every arrival behind
+it got nothing: a Urza's Saga fetched beside Steam Vents had no lore counter,
+and a planeswalker behind a shockland entered with no loyalty and died
+(CR 704.5i). Tests: in `enter_tests`,
+`a_saga_fetched_beside_a_shockland_enters_with_its_lore_counter`,
+`a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty`,
+`a_second_shockland_is_asked_against_the_life_the_first_one_left` and
+`shocklands_of_two_players_entering_together_are_asked_in_apnap_order`;
+`mechanics_tests::transforms::a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it`.
 
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
@@ -276,7 +301,10 @@ creature while attached (CR 702.151b), which the card states as a static
 conditioned on `Filter::IsAttached`. An Aura creature with no host stays on
 the battlefield as the stand-in for an unattached bestowed Aura (CR 702.103f);
 there is no bestow yet, and any other Aura creature belongs in the graveyard
-(CR 303.4d).
+(CR 303.4d). A Fortification's host is not read at all: the second sentence
+of 704.5p spares it and the host check asks only Auras and Equipment, so one
+attached to a nonland (CR 301.6) stays attached, where 704.5n would unattach
+it. No pool card is a Fortification.
 
 ### A delayed trigger that watches an object (CR 603.7)
 Earthbend (CR 701.66a) leaves "when that land dies or is put into exile,
