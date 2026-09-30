@@ -1049,11 +1049,17 @@ impl Interaction {
                 pairs: Vec::new(),
                 focus: 0,
             },
-            Pending::ChooseBlockers { blockers, .. } => Mode::Blockers {
+            // The blocks a requirement asks for (CR 509.1c) start chosen:
+            // the engine refuses a declaration obeying fewer of them, and a
+            // blocker asked to block two attackers can be given them here
+            // and nowhere else.
+            Pending::ChooseBlockers {
+                blockers, obeying, ..
+            } => Mode::Blockers {
                 candidates: blockers.iter().map(|b| b.blocker).collect(),
                 attackers: ordered_attackers(blockers),
                 options: blockers.clone(),
-                pairs: Vec::new(),
+                pairs: obeying.clone(),
                 focus: 0,
             },
             Pending::LegendChoice { options, .. } => Mode::Objects {

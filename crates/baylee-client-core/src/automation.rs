@@ -725,8 +725,13 @@ pub fn auto_answer(
         {
             AutoAnswer::DeclareNoAttackers
         }
-        Pending::ChooseBlockers { blockers, .. }
-            if skipped || (rules.skip_empty_blocks && blockers.is_empty()) =>
+        // Likewise for blocks: with a creature that must block if able
+        // (CR 509.1c), blocking with nothing is refused, so the seat is
+        // asked.
+        Pending::ChooseBlockers {
+            blockers, obeying, ..
+        } if obeying.is_empty()
+            && (skipped || (rules.skip_empty_blocks && blockers.is_empty())) =>
         {
             AutoAnswer::DeclareNoBlockers
         }
@@ -900,6 +905,8 @@ mod tests {
                         player: PlayerId::new(0),
                         blockers: vec![],
                         attacker: PlayerId::new(1),
+                        capacity: Vec::new(),
+                        obeying: Vec::new(),
                     },
                     at(true, false, Phase::Combat, Step::DeclareBlockers),
                     &orders,
@@ -1067,6 +1074,8 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1264,6 +1273,8 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 at(true, false, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1283,6 +1294,8 @@ mod tests {
                     player: PlayerId::new(0),
                     blockers: vec![],
                     attacker: PlayerId::new(1),
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareBlockers),
                 &orders,
@@ -1291,6 +1304,38 @@ mod tests {
                     skip_empty_blocks: false,
                     ..AutoRules::default()
                 },
+                None,
+            ),
+            AutoAnswer::None
+        );
+    }
+
+    /// A creature that must block if able (CR 509.1c) makes the empty
+    /// declaration one the engine refuses, so the red row that declines
+    /// blocks asks instead.
+    #[test]
+    fn a_red_blockers_row_asks_when_a_creature_must_block() {
+        let mut orders = PhaseOrders::default();
+        orders.toggle(RailSide::Theirs, RailRow::Blockers);
+        let (blocker, lure) = (
+            baylee_core::ids::ObjectId::new(7, 0),
+            baylee_core::ids::ObjectId::new(8, 0),
+        );
+        assert_eq!(
+            auto_answer(
+                &Pending::ChooseBlockers {
+                    player: PlayerId::new(0),
+                    blockers: vec![baylee_engine::choice::BlockOption {
+                        blocker,
+                        attackers: vec![lure],
+                    }],
+                    attacker: PlayerId::new(1),
+                    capacity: Vec::new(),
+                    obeying: vec![(blocker, lure)],
+                },
+                at(true, false, Phase::Combat, Step::DeclareBlockers),
+                &orders,
+                &AutoRules::default(),
                 None,
             ),
             AutoAnswer::None
@@ -1624,6 +1669,8 @@ mod tests {
                 attackers: vec![baylee_core::ids::ObjectId::new(2, 0)],
             }],
             attacker: PlayerId::new(1),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         assert_eq!(
             auto_answer(

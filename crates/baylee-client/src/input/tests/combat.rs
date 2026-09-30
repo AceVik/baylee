@@ -40,6 +40,8 @@ fn blockers(candidates: Vec<BlockOption>) -> Pending {
         player: PlayerId::new(0),
         attacker: PlayerId::new(1),
         blockers: candidates,
+        capacity: Vec::new(),
+        obeying: Vec::new(),
     }
 }
 

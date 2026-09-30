@@ -62,6 +62,10 @@ pub fn matches_projected(
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
+        Filter::ControlledByDefendingPlayer => {
+            state.turn.phase == crate::turn::Phase::Combat
+                && state.is_opponent(obj.controller, state.turn.active)
+        }
         Filter::OwnedByYou => obj.owner == you,
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
@@ -1841,6 +1845,35 @@ mod tests {
         let bare = empty_state();
         assert!(condition_holds(&bare, P0, theirs, none));
         assert!(!condition_holds(&bare, P0, theirs, some));
+    }
+
+    /// Blaze of Glory's "creature defending player controls": during the
+    /// combat phase, a creature an opponent of the active player controls
+    /// (CR 506.2, 802.2), whoever `you` is; outside it, nobody's. A
+    /// teammate of the active player defends nothing.
+    #[test]
+    fn a_defending_players_creatures_are_the_active_players_opponents_in_combat() {
+        static DEFENDING: Filter = Filter::ControlledByDefendingPlayer;
+        let mut state = empty_state();
+        let mine = creature(&mut state, P0, KeywordSet::EMPTY);
+        let theirs = creature(&mut state, P1, KeywordSet::EMPTY);
+        let asks = |state: &GameState, id| {
+            state
+                .object(id)
+                .is_some_and(|o| matches(&DEFENDING, state, o, P1, id))
+        };
+        state.turn.active = P0;
+        state.turn.phase = crate::turn::Phase::FirstMain;
+        assert!(!asks(&state, theirs), "no defending player outside combat");
+        state.turn.phase = crate::turn::Phase::Combat;
+        assert!(asks(&state, theirs), "whoever `you` is");
+        assert!(!asks(&state, mine), "the attacking player defends nothing");
+        state.turn.active = P1;
+        assert!(asks(&state, mine) && !asks(&state, theirs));
+        for player in &mut state.players {
+            player.team = Some(1);
+        }
+        assert!(!asks(&state, mine), "a teammate is not attacked");
     }
 
     /// Karma's "Swamps they control" is the active player's, and Spell

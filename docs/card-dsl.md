@@ -2285,6 +2285,21 @@ Filters, conditions, modifiers and durations:
   bit, so a creature that loses its abilities keeps what another permanent
   gave it. The engine refuses a declaration that leaves out a creature that
   must attack and could.
+- **Blocks** (CR 509.1a, 509.1c) are four rules modifiers.
+  `Modifier::CanBlockAdditional(n)` is "can block `n` additional creatures
+  each combat" (Two-Headed Giant of Foriys, `n = 1`; two such effects add
+  up), `Modifier::CanBlockAnyNumber` is "can block any number of
+  creatures". `Modifier::MustBeBlockedByAllAble` is Lure's "all creatures
+  able to block enchanted creature do so", on the attacker:
+  `static_ability!(Filter::And(&[Filter::CREATURE,
+  Filter::AttachedToBySource]), Modifier::MustBeBlockedByAllAble)`.
+  `Modifier::BlocksEachAttackerIfAble` is "blocks each attacking creature if
+  able", on the blocker. Blaze of Glory grants the last two to its target
+  until end of turn, as two `Effect::continuous(&Filter::This, …)`.
+- **`Filter::ControlledByDefendingPlayer`** is "[a creature] defending player
+  controls": during combat, an opponent of the active player's (CR 506.2,
+  802.2); outside combat nothing matches. The client's target preview reads
+  it in a duel only, as it does `ControlledByOpponent`.
 - **`Modifier::CantAttackUnlessDefenderControls(&filter)`** is "can't attack
   unless defending player controls [filter]" (CR 508.1c): Sea Serpent's and
   Pirate Ship's Island. The filter is asked of the permanents of the player
@@ -2309,7 +2324,10 @@ Filters, conditions, modifiers and durations:
   Nettling Imp); "only during your upkeep" is `Condition::All(&[
   Condition::YourTurn, Condition::DuringStep(StepKind::Upkeep)])`. `StepKind`
   names the steps a card can name: `Upkeep`, `Draw`, `CombatBegin`,
-  `DeclareAttackers`, `DeclareBlockers`, `CombatDamage`, `End`.
+  `DeclareAttackers`, `DeclareBlockers`, `CombatDamage`, `End`. "Only during
+  combat before blockers are declared" is `Condition::All(&[
+  Condition::DuringCombat, Condition::BeforeStep(StepKind::DeclareBlockers)])`
+  (Blaze of Glory).
 - **`Filter::AttackedThisTurn`** is "attacked this turn": declared as an
   attacker this turn, as the object it is now (one put onto the battlefield
   attacking never attacked, CR 508.4). **`Filter::ControlledSinceTurnBegan`**

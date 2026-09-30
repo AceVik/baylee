@@ -535,49 +535,25 @@ impl<L: CardLookup> Engine<L> {
                     .first()
                     .and_then(|a| combat::defending_player(&self.state, a.defending))
                     .unwrap_or_else(|| self.next_alive_after(active));
-                let attacking: Vec<ObjectId> = self
-                    .state
-                    .combat
-                    .attackers()
+                let blockers = combat::block_options(&self.state, defending);
+                let rules = combat::BlockRules::new(&self.state);
+                let capacity = blockers
                     .iter()
-                    .map(|a| a.creature)
-                    .collect();
-                // CR 702.111b restricts the declaration and not the pair, so
-                // `can_block` cannot answer it — but an attacker this
-                // defender could never field two legal blockers against is
-                // one no legal declaration blocks, and offering that pairing
-                // would name a block `declare_blockers` has to refuse (#156).
-                // Asked once per attacker rather than once per pair, because
-                // the answer is the same for every blocker.
-                //
-                // Both walks go over the defender's ready creatures, not the
-                // battlefield: the pairs they skip are ones `can_block`
-                // refuses on the blocker's half alone, and walking the
-                // battlefield per attacker made this step cost permanents ×
-                // attackers (`combat::ready_blockers`).
-                let candidates = combat::ready_blockers(&self.state, defending);
-                let blockable: Vec<ObjectId> = attacking
-                    .iter()
-                    .copied()
-                    .filter(|a| combat::menace_satisfiable(&self.state, defending, *a, &candidates))
-                    .collect();
-                let blockers: Vec<crate::choice::BlockOption> = candidates
-                    .iter()
-                    .copied()
-                    .filter_map(|blocker| {
-                        let attackers: Vec<ObjectId> = blockable
-                            .iter()
-                            .copied()
-                            .filter(|a| combat::can_block(&self.state, defending, blocker, *a))
-                            .collect();
-                        (!attackers.is_empty())
-                            .then_some(crate::choice::BlockOption { blocker, attackers })
+                    .filter_map(|o| {
+                        let most = rules.capacity(o.blocker);
+                        (most != Some(1)).then(|| crate::choice::BlockCapacity {
+                            blocker: o.blocker,
+                            most: most.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+                        })
                     })
                     .collect();
+                let obeying = rules.obeying(&blockers);
                 self.pending = Pending::ChooseBlockers {
                     player: defending,
                     attacker: active,
                     blockers,
+                    capacity,
+                    obeying,
                 };
                 self.awaiting_answer = true;
                 true

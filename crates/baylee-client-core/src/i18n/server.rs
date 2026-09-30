@@ -122,10 +122,22 @@ const MESSAGES: &[(&str, &str)] = &[
     ),
     ("creature cannot block", "Diese Kreatur kann nicht blocken."),
     (
+        "creature cannot block that many attackers",
+        "Diese Kreatur kann nicht so viele Angreifer blocken.",
+    ),
+    (
+        "a creature that must block if able does not",
+        "Eine Kreatur, die blocken muss, falls möglich, blockt nicht.",
+    ),
+    (
+        "a creature that attacks each combat if able must attack",
+        "Eine Kreatur, die jeden Kampf angreift, falls möglich, muss angreifen.",
+    ),
+    (
         "duplicate attacker",
         "Ein Angreifer wurde doppelt ausgewählt.",
     ),
-    ("duplicate blocker", "Ein Blocker wurde doppelt ausgewählt."),
+    ("duplicate block", "Ein Block wurde doppelt ausgewählt."),
     (
         "invalid card selection",
         "Diese Kartenauswahl ist nicht erlaubt.",

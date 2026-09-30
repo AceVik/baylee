@@ -521,6 +521,8 @@ mod tests {
                     blocker: obj(9),
                     attackers: vec![obj(1)],
                 }],
+                capacity: Vec::new(),
+                obeying: Vec::new(),
             },
             seat(0),
         );
@@ -656,6 +658,8 @@ mod tests {
                     blocker: obj(10),
                     attackers: vec![obj(1), obj(3)],
                 }],
+                capacity: Vec::new(),
+                obeying: Vec::new(),
             },
             seat(0),
         );

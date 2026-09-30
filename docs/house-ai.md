@@ -390,6 +390,21 @@ its comment says why — `choose_blocks` computes an answer to that shape
 whether or not anything presents it, and a pass tested only on offers the
 engine has already filtered is a pass nothing tests.
 
+**What the rules make a creature do comes first, and the seat's choice
+fills the rest.** Two sentences take a declaration out of the seat's hands:
+a creature that attacks each combat if able (CR 508.1d) and a creature
+that must block if able (CR 509.1c: a lure, "blocks each attacking
+creature"). The question names both — `required` on an attack, `obeying` on
+a block — and `combat::obey_attack_rules` and `combat::obey_block_rules`
+fit the seat's answer to them after the choice is made. A block keeps the
+seat's pairs for every blocker `obeying` does not use and takes `obeying`'s
+for the ones it does; a menace attacker the seat meant to block with two,
+one of which the requirement took, is then not blocked at all, since the
+engine refuses the whole declaration for one lone menace block. The choice
+itself does not yet weigh the requirement: a lured attacker is blocked by
+everything able because the rules say so, not because the seat judged the
+exchange.
+
 **A modal card in hand is what either of its faces can be.** A
 `CardIdentity` in hand names the face that is *up*, which for a modal
 double-faced card is the spell: Shatterskull Smashing is a sorcery with a

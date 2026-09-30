@@ -1894,8 +1894,10 @@ impl<L: CardLookup> Engine<L> {
         defending: PlayerId,
         blockers: &[(ObjectId, ObjectId)],
     ) -> Result<(), EngineError> {
-        // A set for the reason `declare_attackers` keeps one.
+        // Sets for the reason `declare_attackers` keeps one.
+        let rules = combat::BlockRules::new(&self.state);
         let mut seen = std::collections::BTreeSet::new();
+        let mut blocks = std::collections::BTreeMap::<ObjectId, usize>::new();
         for (blocker, attacker) in blockers {
             if !self.state.combat.is_attacking(*attacker) {
                 return Err(EngineError::IllegalAction("no such attacker"));
@@ -1903,8 +1905,17 @@ impl<L: CardLookup> Engine<L> {
             if !combat::can_block(&self.state, defending, *blocker, *attacker) {
                 return Err(EngineError::IllegalAction("creature cannot block"));
             }
-            if !seen.insert(*blocker) {
-                return Err(EngineError::IllegalAction("duplicate blocker"));
+            if !seen.insert((*blocker, *attacker)) {
+                return Err(EngineError::IllegalAction("duplicate block"));
+            }
+            // CR 509.1a: one attacker for each blocker, unless an effect
+            // lets it block more.
+            let count = blocks.entry(*blocker).or_default();
+            *count += 1;
+            if rules.capacity(*blocker).is_some_and(|most| *count > most) {
+                return Err(EngineError::IllegalAction(
+                    "creature cannot block that many attackers",
+                ));
             }
         }
         // Menace: needs two blockers per attacker (CR 702.111b), checked
@@ -1933,6 +1944,17 @@ impl<L: CardLookup> Engine<L> {
                 if count == 1 {
                     return Err(EngineError::IllegalAction("menace requires two blockers"));
                 }
+            }
+        }
+        // CR 509.1c: as many requirements obeyed as the most a declaration
+        // could obey without breaking a restriction. `BlockRules` says how
+        // the most is found, and where it is only a good declaration's.
+        if rules.has_requirements() {
+            let most = rules.obeyed(&rules.obeying(&combat::block_options(&self.state, defending)));
+            if rules.obeyed(blockers) < most {
+                return Err(EngineError::IllegalAction(
+                    "a creature that must block if able does not",
+                ));
             }
         }
         for &(blocker, attacker) in blockers {

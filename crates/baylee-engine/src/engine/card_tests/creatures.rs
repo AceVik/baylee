@@ -54551,6 +54551,7 @@ fn pegasus_charger_flies_over_the_ground_and_strikes_first() {
         player,
         attacker,
         blockers,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -62069,6 +62070,7 @@ fn anaba_bodyguard_kills_its_blocker_before_the_blocker_can_strike_back() {
         player,
         attacker,
         blockers,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the predicate just matched")

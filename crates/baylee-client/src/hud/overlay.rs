@@ -2003,6 +2003,8 @@ mod tests {
                         blocker: creature,
                         attackers: vec![attacker],
                     }],
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 }
             } else {
                 Pending::ChooseAttackers {

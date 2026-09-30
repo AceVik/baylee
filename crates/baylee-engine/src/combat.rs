@@ -7,6 +7,11 @@
 //! blocking the whole band, and the damage divisions banding hands to the
 //! other player, which that player is asked for (`divisions_owed`).
 //!
+//! What effects add to the declarations: [`AttackRules`] (CR 508.1c–d) and
+//! [`BlockRules`] (how many attackers a creature may block, CR 509.1a, and
+//! the block requirements, CR 509.1c), over the offer [`block_options`]
+//! makes.
+//!
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
 //! and its loyalty comes off (CR 306.8). Battles are the remaining case.
 //!
@@ -710,6 +715,240 @@ pub fn menace_satisfiable(
         .take(2)
         .count()
         == 2
+}
+
+/// The declare-blockers offer for `defending` (CR 509.1a): each creature
+/// that may block, and the attackers it may block.
+///
+/// CR 702.111b restricts the declaration and not the pair, so [`can_block`]
+/// cannot answer it — but an attacker this defender could never field two
+/// legal blockers against is one no legal declaration blocks, and offering
+/// that pairing would name a block `declare_blockers` has to refuse (#156).
+/// Asked once per attacker rather than once per pair, because the answer is
+/// the same for every blocker.
+///
+/// Both walks go over the defender's ready creatures, not the battlefield:
+/// the pairs they skip are ones [`can_block`] refuses on the blocker's half
+/// alone, and walking the battlefield per attacker made this step cost
+/// permanents × attackers ([`ready_blockers`]).
+///
+/// The one universe the block requirements are measured in: a pair outside
+/// it breaks a restriction, and "the maximum possible number of
+/// requirements that could be obeyed without disobeying any restrictions"
+/// (CR 509.1c) is a maximum over declarations made of these pairs.
+#[must_use]
+pub fn block_options(state: &GameState, defending: PlayerId) -> Vec<crate::choice::BlockOption> {
+    let candidates = ready_blockers(state, defending);
+    let blockable: Vec<ObjectId> = state
+        .combat
+        .attackers()
+        .iter()
+        .map(|a| a.creature)
+        .filter(|a| menace_satisfiable(state, defending, *a, &candidates))
+        .collect();
+    candidates
+        .iter()
+        .copied()
+        .filter_map(|blocker| {
+            let attackers: Vec<ObjectId> = blockable
+                .iter()
+                .copied()
+                .filter(|a| can_block(state, defending, blocker, *a))
+                .collect();
+            (!attackers.is_empty()).then_some(crate::choice::BlockOption { blocker, attackers })
+        })
+        .collect()
+}
+
+/// The rules about the declaration of blockers that effects add to what
+/// [`can_block`] asks of one pair: how many attackers a creature may block
+/// (CR 509.1a gives it one; "can block an additional creature each
+/// combat" raises that), and the requirements (CR 509.1c: "all creatures
+/// able to block enchanted creature do so", "it blocks each attacking
+/// creature if able").
+///
+/// Collected once per declaration, for the reason [`AttackRules`] gives.
+///
+/// # Counting requirements
+///
+/// A requirement here is always about one pair, a blocker and an attacker:
+/// a lure asks each creature able to block its creature to block it, and
+/// "blocks each attacking creature" asks its creature to block each
+/// attacker. [`BlockRules::demands`] is how many requirements ask for one
+/// pair — two lures on one attacker ask twice, and blocking it obeys both —
+/// and the requirements a declaration obeys are the sum over its pairs.
+///
+/// # The maximum
+///
+/// CR 509.1c refuses a declaration obeying fewer requirements than the
+/// most any declaration could obey without breaking a restriction. The
+/// restrictions the engine knows are the pairs [`block_options`] offers,
+/// each blocker's limit, and menace's two blockers or none (CR 702.111b).
+/// Without menace the blockers do not touch one another, and each obeys
+/// most by blocking the attackers most requirements ask of it, up to its
+/// limit: [`BlockRules::obeying`] does exactly that, so its count is the
+/// maximum. A menace attacker a requirement names ties blockers together —
+/// blocking it needs a second blocker, whose own requirements may then go
+/// unobeyed — and there the declaration `obeying` builds is one good
+/// declaration and not necessarily the best: its count can fall short of
+/// the maximum, and a declaration between the two is accepted. It never
+/// refuses a legal declaration, since `obeying`'s own is always one.
+pub struct BlockRules<'a> {
+    state: &'a GameState,
+    additional: Vec<&'a crate::effects::ContinuousEffect>,
+    any_number: Vec<&'a crate::effects::ContinuousEffect>,
+    lures: Vec<&'a crate::effects::ContinuousEffect>,
+    each: Vec<&'a crate::effects::ContinuousEffect>,
+}
+
+impl<'a> BlockRules<'a> {
+    /// The rules in force now.
+    #[must_use]
+    pub fn new(state: &'a GameState) -> Self {
+        use baylee_cards_dsl::Modifier;
+        let mut rules = Self {
+            state,
+            additional: Vec::new(),
+            any_number: Vec::new(),
+            lures: Vec::new(),
+            each: Vec::new(),
+        };
+        for fx in state.effects.iter() {
+            match fx.modifier {
+                Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
+                Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
+                Modifier::MustBeBlockedByAllAble => rules.lures.push(fx),
+                Modifier::BlocksEachAttackerIfAble => rules.each.push(fx),
+                _ => {}
+            }
+        }
+        rules
+    }
+
+    /// Whether any block requirement is in force. Without one, every
+    /// declaration obeys the most that can be obeyed, which is none.
+    #[must_use]
+    pub fn has_requirements(&self) -> bool {
+        !self.lures.is_empty() || !self.each.is_empty()
+    }
+
+    /// How many attackers `blocker` may block (CR 509.1a): one, one more
+    /// for each "additional creature", and `None` for any number.
+    #[must_use]
+    pub fn capacity(&self, blocker: ObjectId) -> Option<usize> {
+        let state = self.state;
+        let Some(obj) = state.object(blocker) else {
+            return Some(1);
+        };
+        if self
+            .any_number
+            .iter()
+            .any(|fx| crate::effects::applies_to(state, fx, obj))
+        {
+            return None;
+        }
+        let more: usize = self
+            .additional
+            .iter()
+            .filter(|fx| crate::effects::applies_to(state, fx, obj))
+            .map(|fx| match fx.modifier {
+                baylee_cards_dsl::Modifier::CanBlockAdditional(n) => usize::from(n),
+                _ => 0,
+            })
+            .sum();
+        Some(1 + more)
+    }
+
+    /// How many requirements ask `blocker` to block `attacker`: each lure
+    /// on the attacker and each "blocks each attacking creature" on the
+    /// blocker. Asked only of a pair [`block_options`] offers, which is
+    /// what "able to block" means.
+    #[must_use]
+    pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
+        let state = self.state;
+        let on = |effects: &[&crate::effects::ContinuousEffect], id: ObjectId| {
+            state.object(id).map_or(0, |obj| {
+                effects
+                    .iter()
+                    .filter(|fx| crate::effects::applies_to(state, fx, obj))
+                    .count()
+            })
+        };
+        on(&self.lures, attacker) + on(&self.each, blocker)
+    }
+
+    /// How many requirements `declared` obeys. Each pair counts once, so a
+    /// declaration naming a pair twice is refused before it is counted.
+    #[must_use]
+    pub fn obeyed(&self, declared: &[(ObjectId, ObjectId)]) -> usize {
+        if !self.has_requirements() {
+            return 0;
+        }
+        declared.iter().map(|(b, a)| self.demands(*b, *a)).sum()
+    }
+
+    /// One legal declaration out of `options` that obeys as many
+    /// requirements as the engine holds a declaration to (the header's
+    /// "The maximum"): empty when none is in force.
+    ///
+    /// Each blocker takes the attackers most requirements ask of it, up to
+    /// its limit — attackers without menace first, since blocking one
+    /// needs nobody else, and within each kind the most asked first. A
+    /// menace attacker left with one blocker then gets a second from any
+    /// creature that may block it and has room, or loses the one it has
+    /// (CR 702.111b: two or none). Every pair is one `options` offers, and
+    /// no blocker exceeds its limit, so `declare_blockers` accepts it.
+    #[must_use]
+    pub fn obeying(&self, options: &[crate::choice::BlockOption]) -> Vec<(ObjectId, ObjectId)> {
+        if !self.has_requirements() {
+            return Vec::new();
+        }
+        let menace = |attacker: ObjectId| has_keyword(self.state, attacker, K::MENACE);
+        let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
+        let mut chosen: Vec<(ObjectId, ObjectId)> = Vec::new();
+        for option in options {
+            let mut asked: Vec<(bool, std::cmp::Reverse<usize>, ObjectId)> = option
+                .attackers
+                .iter()
+                .filter_map(|attacker| {
+                    let demands = self.demands(option.blocker, *attacker);
+                    (demands > 0).then_some((
+                        menace(*attacker),
+                        std::cmp::Reverse(demands),
+                        *attacker,
+                    ))
+                })
+                .collect();
+            asked.sort_by_key(|(menace, demands, _)| (*menace, *demands));
+            chosen.extend(
+                asked
+                    .into_iter()
+                    .take(room(option.blocker))
+                    .map(|(_, _, attacker)| (option.blocker, attacker)),
+            );
+        }
+        let menacing: Vec<ObjectId> = chosen
+            .iter()
+            .map(|(_, attacker)| *attacker)
+            .filter(|attacker| menace(*attacker))
+            .collect();
+        for attacker in menacing {
+            let mut on_it = chosen.iter().filter(|(_, a)| *a == attacker);
+            let (Some(&(lone, _)), None) = (on_it.next(), on_it.next()) else {
+                continue;
+            };
+            let helper = options.iter().find(|o| {
+                o.blocker != lone
+                    && o.attackers.contains(&attacker)
+                    && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
+            });
+            match helper {
+                Some(helper) => chosen.push((helper.blocker, attacker)),
+                None => chosen.retain(|pair| *pair != (lone, attacker)),
+            }
+        }
+        chosen
+    }
 }
 
 /// Whether a creature deals its combat damage in the given step

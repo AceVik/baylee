@@ -308,12 +308,22 @@ impl HeuristicAgent {
                     attackers: combat::obey_attack_rules(chosen, &required, &limits, &defenders),
                 }
             }
-            Pending::ChooseBlockers { blockers, .. } => PlayerAction::DeclareBlockers {
-                blockers: search::blockers(
-                    view,
-                    &blockers,
-                    view.seat(player).map_or(0, |s| s.life),
-                    self.profile,
+            Pending::ChooseBlockers {
+                blockers, obeying, ..
+            } => PlayerAction::DeclareBlockers {
+                blockers: combat::obey_block_rules(
+                    search::blockers(
+                        view,
+                        &blockers,
+                        view.seat(player).map_or(0, |s| s.life),
+                        self.profile,
+                    ),
+                    &obeying,
+                    |attacker| {
+                        view.object(attacker).is_some_and(|o| {
+                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                        })
+                    },
                 ),
             },
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {
@@ -1936,6 +1946,8 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
         assert_eq!(
@@ -2201,6 +2213,8 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2237,6 +2251,8 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
             assert_eq!(
@@ -2373,6 +2389,8 @@ mod tests {
                     .map(|a| obj(a.0))
                     .collect(),
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         (v, pending)
     }
@@ -2507,6 +2525,8 @@ mod tests {
                 blocker: obj(3),
                 attackers: vec![obj(1), obj(2)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         for (name, profile) in PROFILES {
             assert_eq!(
@@ -3369,6 +3389,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         (v, pending)
     }
@@ -3406,6 +3428,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 })
                 .collect(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         (v, pending)
     }
@@ -4086,6 +4110,8 @@ mod tests {
                     attackers: vec![obj(1)],
                 },
             ],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -4640,6 +4666,8 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
 
         assert_eq!(
@@ -4674,6 +4702,8 @@ mod tests {
                 blocker: obj(2),
                 attackers: vec![obj(1)],
             }],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         };
 
         assert_eq!(

@@ -882,6 +882,42 @@ pub(crate) fn obey_attack_rules(
     chosen
 }
 
+/// The blocks `chosen` made legal where the question states requirements
+/// (CR 509.1c): every blocker the question's `obeying` declaration uses
+/// blocks as it says there, and the seat's own choice stands for every
+/// other blocker.
+///
+/// `obeying` is one declaration the engine accepts, and adding blocks by
+/// other creatures obeys no fewer requirements, so the merge is accepted
+/// as long as menace still has its two blockers or none (CR 702.111b): a
+/// menace attacker the seat's own pairs left with one — its partner was
+/// taken for a requirement — is not blocked at all. `obeying`'s own
+/// menace blocks come in twos and are all kept, so the pair dropped is
+/// always the seat's. `menace` says whether an attacker has menace.
+pub(crate) fn obey_block_rules(
+    chosen: Vec<(ObjectId, ObjectId)>,
+    obeying: &[(ObjectId, ObjectId)],
+    menace: impl Fn(ObjectId) -> bool,
+) -> Vec<(ObjectId, ObjectId)> {
+    if obeying.is_empty() {
+        return chosen;
+    }
+    let mut blocks: Vec<(ObjectId, ObjectId)> = obeying.to_vec();
+    blocks.extend(
+        chosen
+            .into_iter()
+            .filter(|(blocker, _)| !obeying.iter().any(|(b, _)| b == blocker)),
+    );
+    let alone: Vec<ObjectId> = deduped(blocks.iter().map(|(_, attacker)| *attacker))
+        .into_iter()
+        .filter(|attacker| {
+            menace(*attacker) && blocks.iter().filter(|(_, a)| a == attacker).count() == 1
+        })
+        .collect();
+    blocks.retain(|(_, attacker)| !alone.contains(attacker));
+    blocks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -957,6 +993,34 @@ mod tests {
         assert_eq!(
             spillover(f(5, 5, KeywordSet::EMPTY), f(1, 1, KeywordSet::EMPTY)),
             0
+        );
+    }
+
+    /// The question's `obeying` blocks stand for the blockers they use
+    /// (CR 509.1c), the seat's own choice for every other, and a menace
+    /// attacker the seat left with one blocker — its partner was taken for
+    /// a requirement — is not blocked at all (CR 702.111b).
+    #[test]
+    fn the_blocks_a_requirement_asks_for_replace_the_seats_own() {
+        let id = |n| ObjectId::new(n, 0);
+        let (dutiful, other, third) = (id(10), id(11), id(12));
+        let (lure, menace, bear) = (id(1), id(2), id(3));
+        let chosen = vec![(dutiful, bear), (other, menace), (third, menace)];
+        assert_eq!(
+            obey_block_rules(chosen.clone(), &[], |_| false),
+            chosen,
+            "no requirement leaves the choice alone"
+        );
+        let obeying = [(dutiful, lure), (third, lure)];
+        assert_eq!(
+            obey_block_rules(chosen, &obeying, |a| a == menace),
+            vec![(dutiful, lure), (third, lure)],
+            "the menace attacker left with one blocker goes unblocked"
+        );
+        let chosen = vec![(other, bear)];
+        assert_eq!(
+            obey_block_rules(chosen, &obeying, |a| a == menace),
+            vec![(dutiful, lure), (third, lure), (other, bear)]
         );
     }
 }

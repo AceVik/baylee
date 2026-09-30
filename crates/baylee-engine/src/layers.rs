@@ -497,6 +497,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         Filter::ControlledByYou
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
+        | Filter::ControlledByDefendingPlayer
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f))
@@ -839,6 +840,10 @@ fn apply(
         | Modifier::CantBeBlockedBy(_)
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::AttacksEachCombat
+        | Modifier::CanBlockAdditional(_)
+        | Modifier::CanBlockAnyNumber
+        | Modifier::MustBeBlockedByAllAble
+        | Modifier::BlocksEachAttackerIfAble
         | Modifier::OpponentsCantSearch
         | Modifier::NoMaxHandSize
         | Modifier::ProtectionFrom(_)

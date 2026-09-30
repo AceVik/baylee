@@ -31,6 +31,18 @@ pub struct BlockOption {
     pub attackers: Vec<ObjectId>,
 }
 
+/// A creature that may block more than one attacker, and how many: CR
+/// 509.1a gives each blocker one, and an effect raises that ("can block an
+/// additional creature each combat", "can block any number of creatures").
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BlockCapacity {
+    /// The creature.
+    pub blocker: ObjectId,
+    /// How many attackers it may block, never fewer than two; `None` for
+    /// any number.
+    pub most: Option<u8>,
+}
+
 /// A creature that may attack only some of what the attack question
 /// offers, and what those are: a restriction about the pair (CR 508.1c,
 /// "can't attack unless defending player controls an Island").
@@ -108,6 +120,20 @@ pub enum Pending {
         /// question — flying, menace, protection, "can't be blocked by" —
         /// so the offer is a pairing, not two flat lists.
         blockers: Vec<BlockOption>,
+        /// The offered creatures that may block more than one attacker. A
+        /// creature not named here blocks one at most (CR 509.1a).
+        #[serde(default)]
+        capacity: Vec<BlockCapacity>,
+        /// One legal declaration that obeys as many block requirements as
+        /// the engine requires ("all creatures able to block enchanted
+        /// creature do so", "it blocks each attacking creature if able";
+        /// CR 509.1c), as `(blocker, attacker)` pairs out of `blockers`.
+        /// Empty when no requirement is in force. Not a list of blocks that
+        /// must be made: any declaration obeying as many requirements is as
+        /// legal, and one obeying fewer is refused. It is the answer a seat
+        /// that does not choose gets.
+        #[serde(default)]
+        obeying: Vec<(ObjectId, ObjectId)>,
     },
     /// Discard down to maximum hand size (cleanup).
     DiscardChoice {
@@ -852,9 +878,10 @@ impl Pending {
 /// declaration illegal, so the least the rules accept is those creatures,
 /// each at the first thing it may attack.
 ///
-/// The answer is what the question offers, not what the rules will accept:
-/// a lure that must be blocked (CR 509.1c) can make the empty declaration
-/// of blockers illegal, and the clock then falls back to the house.
+/// Blocking with nothing is likewise blocking with only what the
+/// requirements ask (CR 509.1c): a lure makes the empty declaration of
+/// blockers illegal, and the question's `obeying` declaration is one the
+/// rules accept.
 #[must_use]
 pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
     match pending {
@@ -877,8 +904,10 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
                 })
                 .collect(),
         }),
-        Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
-            blockers: Vec::new(),
+        // The declaration that obeys the requirements, which is no blocks
+        // at all when there are none (CR 509.1c).
+        Pending::ChooseBlockers { obeying, .. } => Some(PlayerAction::DeclareBlockers {
+            blockers: obeying.clone(),
         }),
         Pending::YesNo { prompt, .. } => prompt
             .declining_does_nothing()
@@ -1466,6 +1495,8 @@ mod choice_tests {
                         blocker: object(),
                         attackers: vec![ObjectId::new(2, 0)],
                     }],
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 Some(PlayerAction::DeclareBlockers {
                     blockers: Vec::new(),

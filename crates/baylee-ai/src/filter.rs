@@ -167,6 +167,9 @@ impl HeuristicAgent {
             Filter::ControlledByYou => Some(object.controller == view.seat),
             Filter::ControlledByOpponent => Some(self.hostile(object.controller, view.seat)),
             Filter::ControlledByActivePlayer => Some(object.controller == view.active),
+            Filter::ControlledByDefendingPlayer => Some(
+                view.phase == baylee_view::Phase::Combat && self.hostile(object.controller, view.active),
+            ),
             Filter::OwnedByYou => Some(object.owner == view.seat),
             Filter::Tapped => Some(object.status.contains(ObjectStatus::TAPPED)),
             Filter::Untapped => Some(!object.status.contains(ObjectStatus::TAPPED)),

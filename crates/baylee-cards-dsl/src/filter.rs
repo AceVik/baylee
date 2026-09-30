@@ -76,6 +76,14 @@ pub enum Filter {
     /// a filter of its own rather than a `PlayerRel` threaded through the
     /// matcher.
     ControlledByActivePlayer,
+    /// Controlled by a defending player (Blaze of Glory: "target creature
+    /// defending player controls"). There are defending players only during
+    /// the combat phase, and they are the active player's opponents: the
+    /// nonactive player of a two-player game (CR 506.2), and every opponent
+    /// where all of them are attacked at once (CR 802.2), of whom the
+    /// spell's controller picks one by picking the creature (CR 802.2a).
+    /// Outside combat nothing matches.
+    ControlledByDefendingPlayer,
     /// Owned by `you`.
     OwnedByYou,
     /// Currently tapped.

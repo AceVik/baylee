@@ -51,6 +51,8 @@ fn blockers_must_block_an_actual_attacker() {
             blocker: obj(10),
             attackers: vec![obj(1)],
         }],
+        capacity: Vec::new(),
+        obeying: Vec::new(),
     });
     assert!(!i.declare_blocker(obj(10), obj(99)));
     assert!(i.declare_blocker(obj(10), obj(1)));
@@ -59,6 +61,30 @@ fn blockers_must_block_an_actual_attacker() {
         Some(PlayerAction::DeclareBlockers {
             blockers: vec![(obj(10), obj(1))]
         })
+    );
+}
+
+/// The blocks a requirement asks for (CR 509.1c) start chosen, one blocker
+/// on two attackers included, and confirming sends them as they are.
+#[test]
+fn the_blocks_a_requirement_asks_for_start_chosen() {
+    let obeying = vec![(obj(10), obj(1)), (obj(10), obj(2))];
+    let i = interaction(Pending::ChooseBlockers {
+        player: me(),
+        attacker: PlayerId::new(1),
+        blockers: vec![BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1), obj(2)],
+        }],
+        capacity: vec![baylee_engine::choice::BlockCapacity {
+            blocker: obj(10),
+            most: None,
+        }],
+        obeying: obeying.clone(),
+    });
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::DeclareBlockers { blockers: obeying })
     );
 }
 

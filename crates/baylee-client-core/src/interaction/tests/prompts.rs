@@ -500,6 +500,8 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
             player: me(),
             attacker: PlayerId::new(1),
             blockers: vec![],
+            capacity: Vec::new(),
+            obeying: Vec::new(),
         },
         Pending::DiscardChoice {
             player: me(),

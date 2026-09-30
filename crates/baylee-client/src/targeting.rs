@@ -333,6 +333,14 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // an over-count into an under-count and the proof being built is a
         // negative. With exactly two seats there is no third answer.
         Filter::ControlledByActivePlayer => object.controller == view.active,
+        // The active player's opponents during combat (CR 506.2), refused
+        // above a duel for the reason `ControlledByOpponent` gives.
+        Filter::ControlledByDefendingPlayer => {
+            if view.seats.len() != 2 {
+                return None;
+            }
+            view.phase == baylee_view::Phase::Combat && object.controller != view.active
+        }
         Filter::ControlledByOpponent => {
             if view.seats.len() != 2 {
                 return None;

@@ -1613,12 +1613,14 @@ impl Session {
 /// nothing ([`baylee_engine::choice::timeout_answer`]), and asks the house
 /// only where there is none or the engine refused it.
 ///
-/// The refusal is not reachable with today's pool: nothing makes an empty
-/// declaration of attackers or blockers illegal. It will be once a creature
-/// that attacks each combat if able (CR 508.1d) or a lure (CR 509.1c) is
-/// read, and a clock that stopped at the refusal would ask the same seat
-/// the same question forever. So the order lives here, apart from the
-/// session, where a refusing engine can be written as a closure.
+/// The refusal is not reachable with today's pool: the answers that do
+/// nothing carry what the question says must be done — the creatures that
+/// attack if able (CR 508.1d), the question's `obeying` blocks (CR 509.1c)
+/// — and the engine accepts them. A requirement a question does not state
+/// would make one refusable again, and a clock that stopped at the refusal
+/// would ask the same seat the same question forever. So the order lives
+/// here, apart from the session, where a refusing engine can be written as
+/// a closure.
 fn by_clock<S, T>(
     session: &mut S,
     pending: &Pending,
@@ -4052,6 +4054,8 @@ pub(crate) mod tests {
                     player: me,
                     attacker: PlayerId::new(1),
                     blockers: Vec::new(),
+                    capacity: Vec::new(),
+                    obeying: Vec::new(),
                 },
                 ClockAnswer::NoBlockers,
             ),

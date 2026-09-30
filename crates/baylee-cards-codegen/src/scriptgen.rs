@@ -4318,6 +4318,7 @@ impl Tx<'_> {
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
         self.grant_modifiers(&mut p, &filter, &mut out)?;
+        self.block_modifiers(&mut p, &filter, &mut out)?;
         // "You control enchanted creature" (Control Magic): layer 2
         // (CR 613.1b), and the static's controller is who gains control —
         // `You` is the only player the modifier can name.
@@ -4611,6 +4612,35 @@ impl Tx<'_> {
             out.push(Self::static_expr(
                 filter,
                 &format!("Modifier::{modifier}({set})"),
+            ));
+        }
+        Some(())
+    }
+
+    /// "Can block an additional creature each combat" (Two-Headed Giant of
+    /// Foriys, `CanBlockAmount$ 1`) and "all creatures able to block
+    /// enchanted creature do so" (Lure, a hidden keyword): rules of the
+    /// declaration of blockers (CR 509.1a, 509.1c), as
+    /// `Modifier::CanBlockAdditional` and `Modifier::MustBeBlockedByAllAble`.
+    /// An amount that is not a number, and every other hidden keyword, stay
+    /// unclaimed.
+    fn block_modifiers(&self, p: &mut Params, filter: &str, out: &mut Vec<String>) -> Option<()> {
+        const LURED: &str = "All creatures able to block CARDNAME do so.";
+        if let Some(amount) = p.peek("CanBlockAmount") {
+            let Ok(more) = amount.trim().parse::<u8>() else {
+                return self.deny(format!("`CanBlockAmount$ {amount}`"));
+            };
+            p.take("CanBlockAmount");
+            out.push(Self::static_expr(
+                filter,
+                &format!("Modifier::CanBlockAdditional({more})"),
+            ));
+        }
+        if p.peek("AddHiddenKeyword").map(str::trim) == Some(LURED) {
+            p.take("AddHiddenKeyword");
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::MustBeBlockedByAllAble",
             ));
         }
         Some(())
@@ -6704,6 +6734,48 @@ SVar:X:Count$xPaid",
             assert!(
                 refused(&format!(
                     "Name:X\nTypes:Creature Serpent\nPT:5/5\n{refused_line}\n"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// "Can block an additional creature each combat" (CR 509.1a) and
+    /// Lure's "all creatures able to block enchanted creature do so"
+    /// (CR 509.1c) are statics the engine reads; an amount that is not a
+    /// number, and any other hidden keyword, stay refused.
+    #[test]
+    fn block_limits_and_lures_are_read() {
+        let body = read(
+            "Name:X\nManaCost:4 R\nTypes:Creature Giant\nPT:4/4\nK:Trample\n\
+             S:Mode$ Continuous | Affected$ Card.Self | CanBlockAmount$ 1 | \
+             Description$ CARDNAME can block an additional creature each combat.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::This, Modifier::CanBlockAdditional(1))"]
+        );
+        let body = read(
+            "Name:X\nManaCost:1 G G\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ Continuous | Affected$ Creature.EnchantedBy | \
+             AddHiddenKeyword$ All creatures able to block CARDNAME do so. | \
+             Description$ All creatures able to block enchanted creature do so.\n",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a.ends_with(", Modifier::MustBeBlockedByAllAble)")
+                    && a.contains("Filter::AttachedToBySource")),
+            "{:?}",
+            body.abilities
+        );
+        for refused_line in [
+            "S:Mode$ Continuous | Affected$ Card.Self | CanBlockAmount$ X",
+            "S:Mode$ Continuous | Affected$ Card.Self | AddHiddenKeyword$ CARDNAME can block only creatures with flying.",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Giant\nPT:4/4\n{refused_line}\nSVar:X:Count$Valid Creature\n"
                 )),
                 "{refused_line}"
             );

@@ -261,6 +261,30 @@ pub enum Modifier {
     /// that permanent's ability, and the creature losing its own abilities
     /// does not end it.
     AttacksEachCombat,
+    /// The affected creature can block this many additional creatures each
+    /// combat (Two-Headed Giant of Foriys: one). CR 509.1a gives each
+    /// blocker one attacker; this raises that, and two such effects add up
+    /// ("an additional creature" is one more each time). A creature with
+    /// [`Modifier::CanBlockAnyNumber`] as well has no limit.
+    CanBlockAdditional(u8),
+    /// The affected creature can block any number of creatures (Blaze of
+    /// Glory, Palace Guard): no limit on how many attackers the declaration
+    /// names for it (CR 509.1a).
+    CanBlockAnyNumber,
+    /// Every creature able to block the affected creature does so (Lure:
+    /// "All creatures able to block enchanted creature do so"). A
+    /// requirement on the declaration of blockers (CR 509.1c), one for each
+    /// creature that could block the affected one, read on the attacker:
+    /// a creature that may not block it — tapped, or a ground creature
+    /// facing a flier — is under no requirement.
+    MustBeBlockedByAllAble,
+    /// The affected creature blocks each attacking creature if able (Blaze
+    /// of Glory: "It blocks each attacking creature this turn if able"). A
+    /// requirement on the declaration of blockers (CR 509.1c), one for each
+    /// attacker, read on the blocker: how many of them it may block is its
+    /// own limit's business, and obeying as many as that allows is what the
+    /// rule asks.
+    BlocksEachAttackerIfAble,
     /// The effect's opponents can't search libraries (Ashiok, Dream
     /// Render).
     OpponentsCantSearch,
@@ -650,6 +674,10 @@ impl Modifier {
             | Self::CantBeBlockedBy(_)
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::AttacksEachCombat
+            | Self::CanBlockAdditional(_)
+            | Self::CanBlockAnyNumber
+            | Self::MustBeBlockedByAllAble
+            | Self::BlocksEachAttackerIfAble
             | Self::OpponentsCantSearch
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
@@ -990,6 +1018,10 @@ mod tests {
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantAttackUnlessDefenderControls(&Filter::LAND),
             Modifier::AttacksEachCombat,
+            Modifier::CanBlockAdditional(1),
+            Modifier::CanBlockAnyNumber,
+            Modifier::MustBeBlockedByAllAble,
+            Modifier::BlocksEachAttackerIfAble,
             Modifier::OpponentsCantSearch,
             Modifier::NoMaxHandSize,
             Modifier::PlayerHexproof,

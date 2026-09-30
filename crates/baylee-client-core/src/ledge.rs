@@ -346,6 +346,8 @@ mod tests {
                     blocker: creature,
                     attackers: vec![ObjectId::new(2, 0)],
                 }],
+                capacity: Vec::new(),
+                obeying: Vec::new(),
             },
             yes_no(YesNoPrompt::Kicker),
             yes_no(YesNoPrompt::MayDo),

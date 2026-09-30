@@ -1457,6 +1457,8 @@ mod banding_tests;
 #[cfg(test)]
 mod base_sharing_tests;
 #[cfg(test)]
+mod block_requirement_tests;
+#[cfg(test)]
 mod capability_tests;
 #[cfg(test)]
 mod card_rider_tests;

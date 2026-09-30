@@ -201,6 +201,52 @@ required creatures and nothing else, each at the first defender it may
 attack; the house AI keeps its own choice and adds what the rules make it
 (`combat::obey_attack_rules`).
 
+### What must block, and how many (CR 509.1a, 509.1c)
+Four rules modifiers change a declaration of blockers, statics or
+until-end-of-turn effects on `Layer::Text` like the attack ones:
+
+- **How many attackers a creature may block.** CR 509.1a gives each
+  blocker one. `Modifier::CanBlockAdditional(n)` adds `n` (two such effects
+  add up) and `Modifier::CanBlockAnyNumber` lifts the limit.
+- **Requirements, each about one pair.** `Modifier::MustBeBlockedByAllAble`
+  on an attacker (Lure) asks each creature able to block it to do so;
+  `Modifier::BlocksEachAttackerIfAble` on a blocker (Blaze of Glory) asks it
+  to block each attacker. `BlockRules::demands(blocker, attacker)` counts the
+  requirements asking for one pair, so two lures on one attacker ask twice,
+  and a declaration obeys the sum over its pairs.
+
+`combat::block_options` is the offer (the `BlockOption`s), and it is also
+the universe the maximum is taken in: a pair outside it breaks a restriction
+(evasion, protection, a menace attacker no two creatures could block).
+`combat::BlockRules` collects the four once per declaration. The question
+names, in `capacity`, each offered creature that may block more than one
+attacker, and in `obeying` one legal declaration that obeys as many
+requirements as the engine holds a declaration to. `declare_blockers`
+refuses a pair named twice, a blocker over its limit, and a declaration that
+obeys fewer requirements than `obeying` does.
+
+`BlockRules::obeying` gives each blocker the attackers most requirements ask
+of it, up to its limit, attackers without menace first; a menace attacker
+left with one blocker then gets a second from any creature with room that
+may block it, or loses the one it has (CR 702.111b). Without a menace
+attacker that a requirement names, the blockers do not touch one another
+and this is the maximum CR 509.1c asks for. With one, a blocker's help costs
+it its own requirements, and the constructed declaration can fall short of
+the best one: **an engine simplification**, lenient only — a declaration
+obeying at least as many as `obeying` is accepted, so no legal declaration
+is ever refused and the engine never asks for more than it can name. The
+clock answers with `obeying` (`choice::timeout_answer`); the house AI keeps
+its own blocks for every blocker `obeying` does not use and drops a menace
+block left alone (`combat::obey_block_rules`); client-core preselects
+`obeying` and never declines blocks by itself while it is not empty.
+
+Counting is over the declared pairs, not the pairs banding adds afterwards
+(CR 702.22h makes the band blocked as the block is made, after 509.1c has
+checked the declaration). Block triggers are per pair already (CR 509.3b,
+509.3d), so a creature blocking two attackers triggers twice; a blocker's
+damage divided among the attackers it blocks is asked of its controller
+(CR 510.1d, `divisions_owed`).
+
 ### Windows in the turn (CR 506.7)
 "Cast this spell only before the combat damage step", "activate only during
 an opponent's turn, before attackers are declared", "activate only during

@@ -2176,3 +2176,16 @@ land type"; both are convention tests that fire on a first try.
 - **A synthetic `{0}` spell is `ManaCost::parse("{0}")`.** `ManaCost::ZERO`
   is *no* mana cost, and a card without one cannot be cast (CR 118.6): the
   offer answered `NotEnoughMana`, which read like a broken window.
+- **A requirement's maximum is measured in the offer.** CR 509.1c asks for
+  "the maximum possible number of requirements that could be obeyed
+  without disobeying any restrictions", and the restrictions the engine
+  knows are the pairs the block question offers, each blocker's limit and
+  menace's two-or-none. Measuring the maximum anywhere else — over the
+  battlefield, or pair by pair — refuses a declaration the player cannot
+  improve on. The question carries one declaration that reaches it
+  (`obeying`), and the test that matters hands that declaration back and
+  expects it taken.
+- **"Duplicate blocker" was a limit, not a typo check.** Refusing a
+  blocker named twice was CR 509.1a's one-attacker-each, written as a set.
+  A creature that may block two attackers needs the set to hold pairs and
+  the limit to be counted apart, or the refusal names the wrong reason.
