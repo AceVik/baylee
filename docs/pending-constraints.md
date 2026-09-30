@@ -84,14 +84,19 @@ defence in depth and are unreachable past it.
 
 A requirement ("attacks each combat if able", "must be blocked if able")
 makes a declaration illegal when it obeys fewer requirements than the most
-that could be obeyed without breaking a restriction. **The engine implements
-no requirement today** (the DSL has restrictions only: `CANT_ATTACK`,
-`CANT_BLOCK`, `UNBLOCKABLE`, `CantBeBlockedBy`), so no such refusal exists
-and none is stated. The empty declaration, which `timeout_answer` gives, is
-therefore always accepted.
+that could be obeyed without breaking a restriction. Since the Alpha cards
+the engine implements them, and states them only in part. The attack
+question names the creatures that attack if able (`required`) and the
+defenders a restriction on the pair leaves a creature (`limits`); the block
+question names each blocker's capacity (`capacity`, which `answer_fault`
+holds) and one declaration that obeys as many requirements as the engine
+requires (`obeying`, which `timeout_answer` gives). `declare_attackers` and
+`declare_blockers` refuse a declaration that leaves out a required
+attacker, sends a creature past its limits or obeys fewer block
+requirements than `obeying` does; `answer_fault` does not yet state those
+three, so they are refusals the question names but does not check.
 
-When one is implemented it is stated the same way, and stays checkable
-from the question alone: the question lists the requirements
+To make them checkable from the question alone: the question lists the requirements
 (`requirements: Vec<Requirement { creature, attacker_or_defender }>`) and
 the maximum the engine computed (`most_obeyed: u32`, the search being the
 engine's), and `answer_fault` counts the requirements a declaration obeys
