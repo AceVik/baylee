@@ -49,7 +49,9 @@
 /// Raised 22 → 24 for `PlayerMayPayManaOr` and `PlayerMayPayManaThen`
 /// (Phantasmal Forces, Farmstead: a price with colour in it);
 /// `verb_tests::a_coloured_price_body_is_visited`.
-const NESTING_FIELDS: usize = 24;
+/// Raised 24 → 25 for `AtNextEndStep` (Stone Giant's delayed "destroy that
+/// creature"); `verb_tests::at_next_end_step_body_is_visited`.
+const NESTING_FIELDS: usize = 25;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -75,8 +77,9 @@ const NESTING_FIELDS: usize = 24;
 ///
 /// `PlayerMayPayThen` moved both on 2026-09-29: one new carrier, one branch.
 /// `PlayerMayPayManaOr` and `PlayerMayPayManaThen` moved both on 2026-09-30:
-/// two new carriers, one branch each.
-const CARRYING_VARIANTS: usize = 21;
+/// two new carriers, one branch each. `AtNextEndStep` moved both on
+/// 2026-09-30: one new carrier, one branch.
+const CARRYING_VARIANTS: usize = 22;
 
 /// The floor under the reader itself.
 ///

@@ -2055,3 +2055,8 @@ land type"; both are convention tests that fire on a first try.
   Every targeted destroy was safe only because CR 608.2b had dropped the
   target first; an effect about an object it does not target has no such
   check, and the door now asks for the battlefield itself (CR 701.8a).
+- **"Was it a creature" is asked before the move.** The turn's death tally
+  read the card's types after it had reached the graveyard, where the
+  projection is gone: an animated land died uncounted. Anything that asks
+  what a permanent *was* as it left reads it before `move_object` clears
+  the cache, or reads the last-known record.

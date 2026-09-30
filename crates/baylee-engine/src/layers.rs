@@ -1061,6 +1061,36 @@ mod tests {
         (c.power, c.toughness)
     }
 
+    /// "A creature died" asks what the permanent was on the battlefield
+    /// (CR 700.4): a land an effect made a creature dies as a creature,
+    /// though the card in the graveyard is only a land.
+    #[test]
+    fn a_land_that_was_a_creature_as_it_died_is_a_creature_that_died() {
+        let mut state = fresh();
+        let land = permanent(&mut state, "Animated", TypeSet::LAND, None);
+        register(&mut state, 1, Modifier::AddType(TypeSet::CREATURE));
+        state.refresh_characteristics();
+        assert!(
+            state
+                .object(land)
+                .expect("in play")
+                .characteristics()
+                .types
+                .contains(TypeSet::CREATURE),
+            "the effect made it a creature"
+        );
+        let before = state.per_turn.creatures_died;
+        state
+            .move_object(
+                land,
+                crate::zone::ZoneLocation::Graveyard(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("it moves");
+        assert_eq!(state.per_turn.creatures_died, before + 1);
+    }
+
     /// CR 613.4: within layer 7 the sublayers run in order, and the order is
     /// the answer — 7b sets, 7c modifies (effects and counters both), 7d
     /// switches. The timestamps here **contradict** it: the anthem is older

@@ -428,6 +428,12 @@ express at all yet.
   mana cost, when there is one), and the spell is exiled afterwards.
   `validate` holds it against the printing. What the cast paid is
   `Amount::ManaSpentToCast` (Memory Deluge).
+- `Amount::CreaturesDiedThisTurn` — "for each creature that died this turn"
+  (Scavenging Ghoul): every player's creatures put into a graveyard from the
+  battlefield this turn (CR 700.4), each counted if it was a creature as it
+  left, read as the effect applies (CR 608.2h). The reader writes it for
+  `Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature` wherever it
+  reads an amount, an `etbCounter` included.
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` — a cost, read left to right the
   way the card prints it: the mana string first (omitted when there is none),
   then the parts. A part is named without its `CostPart::` prefix, which on a
@@ -447,7 +453,10 @@ express at all yet.
   of **your own** graveyard, the zone saying whose, so the filter says only
   what kind of card; Mines of Moria's "three cards" is the part written three
   times, one question each, the way Time Sieve writes five sacrifices),
-  `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge),
+  `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge,
+  Scavenging Ghoul's `counters::CORPSE`; the reader writes it for
+  `SubCounter<n/KIND>` with a fixed `n`, never for a loyalty cost or one
+  that names where the counters come from),
   `RemoveCounterSelfX { kind }` (the storage lands: a number the player
   chooses as the ability is activated, bounded by the counters on the source
   and allowed to be zero, which the effects read back as `Amount::X`),

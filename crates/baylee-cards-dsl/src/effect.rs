@@ -288,6 +288,12 @@ pub enum Amount {
     /// does not stop it. Read off the stack object, where `pay_cost` wrote
     /// which creature it tapped; nothing tapped reads 0.
     TappedPower,
+    /// "For each creature that died this turn" (Scavenging Ghoul): the
+    /// creatures put into a graveyard from the battlefield this turn
+    /// (CR 700.4), every player's, tokens included. A permanent counts as
+    /// a creature if it was one as it left, not if the card in the graveyard
+    /// is one. It is counted once, as the effect applies (CR 608.2h).
+    CreaturesDiedThisTurn,
     /// Number of objects matching a filter in a zone.
     CountOf {
         /// What to count.
@@ -3494,6 +3500,23 @@ mod verb_tests {
         });
         assert_eq!(seen, 3);
         assert!(draw_seen);
+    }
+
+    /// "Destroy that creature at the beginning of the next end step" (Stone
+    /// Giant) carries the delayed trigger's effects, and the walk goes into
+    /// them.
+    #[test]
+    fn at_next_end_step_body_is_visited() {
+        static EFFECTS: &[Effect] = &[Effect::AtNextEndStep {
+            effects: &[Effect::destroy(TargetSpec::EventObject)],
+        }];
+        let mut seen = 0;
+        let mut body_seen = false;
+        Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+            body_seen |= matches!(effect, Effect::Destroy { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(body_seen);
     }
 
     /// "You may …. Do this only once each turn." carries its body the way

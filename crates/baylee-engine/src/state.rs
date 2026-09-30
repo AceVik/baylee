@@ -2623,6 +2623,18 @@ impl GameState {
         let to = self.take_commander_redirect(id, to);
         let (to, exile_counter) = crate::replacement::graveyard_destination(self, id, to);
         let from_loc = ZoneLocation::of(from_zone, from_player);
+        // A creature dies when it is put into a graveyard from the
+        // battlefield (CR 700.4), and whether it was a creature is what it
+        // was there: a land an effect animated dies as a creature, and the
+        // card in the graveyard is a land. Asked before the move clears its
+        // projection.
+        let dies_as_a_creature = from_zone == Zone::Battlefield
+            && to.zone() == Zone::Graveyard
+            && self.object(id).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            });
         // Record each exposed card before it leaves, including each draw of
         // a multi-card draw. Only the top was public, never the whole library.
         if from_zone == Zone::Library
@@ -2805,17 +2817,10 @@ impl GameState {
         if from_zone == crate::zone::Zone::Battlefield {
             self.combat.remove_from_combat(id);
         }
-        // Creature deaths this turn (Emeritus of Woe's re-prepare).
-        if from_zone == crate::zone::Zone::Battlefield && to.zone() == crate::zone::Zone::Graveyard
-        {
-            let is_creature = self.object(id).is_some_and(|o| {
-                o.characteristics()
-                    .types
-                    .contains(baylee_core::types::TypeSet::CREATURE)
-            });
-            if is_creature {
-                self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
-            }
+        // Creature deaths this turn (Emeritus of Woe's re-prepare, Scavenging
+        // Ghoul's corpse counters).
+        if dies_as_a_creature {
+            self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
         }
         // The projected set just changed, and the generation compare that
         // guards a refresh counts *effects* — so nothing would have

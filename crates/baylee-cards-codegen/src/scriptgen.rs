@@ -297,6 +297,14 @@ fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -> Option<St
     // number, so `Amount::X` would evaluate to `x.unwrap_or(0)` — a card
     // that compiles, claims `Implemented` and makes nothing at all, which
     // is exactly the outcome the honest-stub rule exists to prevent.
+    // "For each creature that died this turn" (Scavenging Ghoul), counted as
+    // the effect applies. Asked before the `X` rule, because `X` is the
+    // letter the reference writes it under.
+    if svars.get(raw).map(|def| def.trim())
+        == Some("Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature")
+    {
+        return Some("Amount::CreaturesDiedThisTurn".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());
@@ -2974,6 +2982,32 @@ impl Tx<'_> {
                     return self.deny(format!("counter `{kind}`"));
                 };
                 parts.push(format!("PutCounterSelf {{ kind: {kind}, n: {n} }}"));
+            } else if let Some((n, kind)) = token
+                .strip_prefix("SubCounter<")
+                .and_then(|t| t.strip_suffix('>'))
+                .and_then(|t| t.split_once('/'))
+            {
+                // "Remove a corpse counter from this creature" as a cost:
+                // a fixed number of one kind, from the source. Refused by
+                // name: a count that is not a number (`X` is announced, and
+                // "any number" is chosen), a loyalty cost (a loyalty
+                // ability's, CR 606.4, which only a main phase with an empty
+                // stack may activate, once a turn, CR 606.3), and the longer
+                // forms that name where the counters come from ("from a
+                // creature you control").
+                let Ok(n) = n.parse::<u16>() else {
+                    return self.deny(format!("counter count `{n}`"));
+                };
+                if kind.contains('/') {
+                    return self.deny(format!("a counter cost from `{kind}`"));
+                }
+                if kind == "LOYALTY" {
+                    return self.deny("a loyalty cost".to_string());
+                }
+                let Some(kind) = counter_kind(kind) else {
+                    return self.deny(format!("counter `{kind}`"));
+                };
+                parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some((kind, body)) = object_cost(token) {
                 parts.push(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
@@ -9766,10 +9800,16 @@ SVar:X:Count$xPaid",
             body.enter_modifiers,
             ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::X }"]
         );
-        assert!(refused(
-            "Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\n\
-             SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
-        ));
+        // "For each creature that died this turn" is a count the DSL says.
+        assert_eq!(
+            read(
+                "Name:X\nTypes:Creature\nK:etbCounter:P1P1:X\n\
+                 SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
+            )
+            .enter_modifiers,
+            ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+              amount: Amount::CreaturesDiedThisTurn }"]
+        );
         assert!(
             refused(
                 "Name:X\nTypes:Creature\n\
@@ -9780,6 +9820,47 @@ SVar:X:Count$xPaid",
             "the description is not a condition, and reading past it would \
              have taken the X beside it for the spell's"
         );
+    }
+
+    /// Scavenging Ghoul: "put a corpse counter on this creature for each
+    /// creature that died this turn" and "remove a corpse counter from this
+    /// creature: regenerate this creature". A counter cost is a fixed number
+    /// from the source; `X`, loyalty and the longer forms are refused.
+    #[test]
+    fn a_counter_removed_as_a_cost_and_a_count_of_the_turns_deaths() {
+        let ghoul = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | \
+             Execute$ TrigPutCounter\n\
+             A:AB$ Regenerate | Cost$ SubCounter<1/CORPSE>\n\
+             SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ CORPSE | \
+             CounterNum$ X\n\
+             SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature",
+        );
+        let a = ghoul.abilities.join("\n");
+        assert!(
+            a.contains("RemoveCounterSelf { kind: counters::CORPSE, n: 1 }"),
+            "{a}"
+        );
+        assert!(
+            a.contains(
+                "Effect::AddCounter { kind: counters::CORPSE, \
+                 amount: Amount::CreaturesDiedThisTurn }"
+            ),
+            "{a}"
+        );
+        for cost in [
+            "SubCounter<X/CHARGE>",
+            "SubCounter<1/LOYALTY>",
+            "SubCounter<1/P1P1/Creature.YouCtrl/a creature you control>",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Artifact\nA:AB$ Draw | Cost$ {cost} | NumCards$ 1"
+                )),
+                "{cost}"
+            );
+        }
     }
 
     /// Equip prints a cost and the rules supply the rest (CR 702.6a), so

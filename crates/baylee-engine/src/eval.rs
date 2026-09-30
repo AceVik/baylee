@@ -399,6 +399,7 @@ pub fn amount(
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => tapped_power(state, this),
+        Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
         Amount::CountOf { filter, zone } => {
             let objects: Vec<ObjectId> = match zone {
                 ZoneSel::Battlefield => state.zones.list(ZoneLocation::Battlefield).clone(),
@@ -1670,6 +1671,28 @@ mod tests {
             !ask(&state, &Filter::PowerAtMost(3), c),
             "and the creature has grown out of the other card's restriction"
         );
+    }
+
+    /// "For each creature that died this turn" reads the turn's tally, which
+    /// the move to a graveyard writes and the turn's end clears.
+    #[test]
+    fn the_turns_deaths_are_the_tally_the_moves_wrote() {
+        let mut state = empty_state();
+        let this = creature(&mut state, P0, KeywordSet::EMPTY);
+        let died = Amount::CreaturesDiedThisTurn;
+        assert_eq!(amount(&died, &state, P0, this, None), 0);
+        for _ in 0..2 {
+            let dying = creature(&mut state, P1, KeywordSet::EMPTY);
+            state
+                .move_object(
+                    dying,
+                    ZoneLocation::Graveyard(P1),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .expect("it moves");
+        }
+        assert_eq!(amount(&died, &state, P0, this, None), 2, "either player's");
     }
 
     /// "Toughness less than Stone Giant's power": compared with the
