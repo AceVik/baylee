@@ -822,8 +822,11 @@ pub fn verdict(name: &str, working: &Working) -> Result<CardIndex, Why> {
         })
 }
 
-/// How many failing cards the table names per deck.
+/// How many failing cards a line names per deck.
 const FIRST: usize = 3;
+
+/// How many of the nearest unplayable decks `decks-status` prints.
+const NEAREST: usize = 10;
 
 /// One line of the status table.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -947,20 +950,22 @@ pub fn statuses(dir: &Path, working: &Working) -> anyhow::Result<Vec<Status>> {
 }
 
 /// The status table: a header and one line per deck, tab-separated.
+///
+/// Every column but `playable` comes from the deck's own file, and
+/// `playable` moves only when a deck's offer does. That is deliberate: which
+/// cards a deck still lacks moves with nearly every card commit (142 of the
+/// 328 commits on main from 27.09. to 30.09.2026 touched a card or a card
+/// test), and a committed table that CI holds to the pool would then
+/// ask every one of those commits, and every branch merging past them, for
+/// a regenerated file. What is missing is printed by `decks-status` and
+/// `deck-check` instead, where it is read.
 #[must_use]
 pub fn render_status(rows: &[Status]) -> String {
-    let mut out =
-        String::from("deck\tset\ttype\treleased\tname\tcards\tplayable\tfailing\tfirst_failing\n");
+    let mut out = String::from("deck\tset\ttype\treleased\tname\tcards\tplayable\n");
     for row in rows {
-        let first: Vec<String> = row
-            .failing
-            .iter()
-            .take(FIRST)
-            .map(|(name, why)| format!("{name} ({})", why.word()))
-            .collect();
         let _ = writeln!(
             out,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             row.key,
             row.set,
             row.kind,
@@ -968,11 +973,25 @@ pub fn render_status(rows: &[Status]) -> String {
             row.name,
             row.cards,
             if row.playable { "yes" } else { "no" },
-            row.failing.len(),
-            first.join("; ")
         );
     }
     out
+}
+
+/// A deck's missing cards as a line: how many, then the first few with why.
+fn missing(row: &Status) -> String {
+    let first: Vec<String> = row
+        .failing
+        .iter()
+        .take(FIRST)
+        .map(|(name, why)| format!("{name} ({})", why.word()))
+        .collect();
+    let more = row.failing.len().saturating_sub(FIRST);
+    if more == 0 {
+        first.join("; ")
+    } else {
+        format!("{}; and {more} more", first.join("; "))
+    }
 }
 
 /// The gateway's list: every playable deck, embedded by path.
@@ -1117,6 +1136,19 @@ pub fn status(root: &Path, check_only: bool) -> anyhow::Result<()> {
     }
     for row in &playable {
         println!("  PLAYABLE {} — {}", row.key, row.name);
+    }
+    // Why the rest are not, counted once per card and deck, and the decks
+    // that are nearest: what the next cards to write would unlock.
+    let mut reasons: BTreeMap<&str, usize> = BTreeMap::new();
+    for (_, why) in rows.iter().flat_map(|r| &r.failing) {
+        *reasons.entry(why.word()).or_default() += 1;
+    }
+    let reasons: Vec<String> = reasons.iter().map(|(w, n)| format!("{n} {w}")).collect();
+    println!("  missing cards, per deck: {}", reasons.join(", "));
+    let mut nearest: Vec<&Status> = rows.iter().filter(|r| !r.playable).collect();
+    nearest.sort_by_key(|r| (r.failing.len(), r.key.clone()));
+    for row in nearest.iter().take(NEAREST) {
+        println!("  NEAR {} — {}: {}", row.key, row.name, missing(row));
     }
     Ok(())
 }
@@ -1324,28 +1356,53 @@ mod tests {
         fs::create_dir_all(decks.join("TST")).expect("a temp dir");
         let (status, embed) = (dir.join("STATUS.tsv"), dir.join("generated.rs"));
         let file = decks.join("TST/probe.txt");
-        let deck = |extra: &str| {
+        let deck = |rows: &str| {
             format!(
-                "# baylee deck export v1\n# name: Probe\n# set: TST\n# type: Theme Deck\n# released: 1996-05-01\n20 Forest\n{extra}"
+                "# baylee deck export v1\n# name: Probe\n# set: TST\n# type: Theme Deck\n# released: 1996-05-01\n{rows}"
             )
         };
-        fs::write(&file, deck("")).expect("write");
-        for (path, text) in outputs(&decks, &status, &embed, &working).expect("reads") {
-            fs::write(path, text).expect("write");
-        }
+        let write_both = || {
+            for (path, text) in outputs(&decks, &status, &embed, &working).expect("reads") {
+                fs::write(path, text).expect("write");
+            }
+        };
+        fs::write(&file, deck("20 Forest\n")).expect("write");
+        write_both();
         check(&decks, &status, &embed, &working).expect("current right after writing");
+        assert!(
+            fs::read_to_string(&status)
+                .expect("the table")
+                .contains("\t20\tyes\n"),
+            "twenty Forests are playable, or the flip below proves nothing"
+        );
 
-        fs::write(&file, deck(&format!("1 {stub}\n"))).expect("write");
+        // The same twenty cards, one of them a stub: only `playable` moves.
+        fs::write(&file, deck(&format!("19 Forest\n1 {stub}\n"))).expect("write");
         let drift = check(&decks, &status, &embed, &working)
-            .expect_err("the deck changed and the table did not")
+            .expect_err("the deck stopped being playable and the table did not say so")
             .to_string();
         assert!(drift.contains("STATUS.tsv"), "{drift}");
         assert!(drift.contains("TST/probe"), "{drift}");
+        assert!(drift.contains("\t20\tno"), "the line that moved: {drift}");
         assert!(drift.contains(REGENERATE), "{drift}");
         assert!(
             drift.contains("generated.rs"),
             "and the embedded list: {drift}"
         );
+
+        // The embedded list alone, edited by hand, is caught as well.
+        write_both();
+        check(&decks, &status, &embed, &working).expect("current again");
+        let edited = fs::read_to_string(&embed).expect("the list").replace(
+            "];",
+            "    Precon { key: \"TST/sneaked-in\", text: \"\" },\n];",
+        );
+        fs::write(&embed, edited).expect("write");
+        let drift = check(&decks, &status, &embed, &working)
+            .expect_err("a hand-edited list")
+            .to_string();
+        assert!(drift.contains("generated.rs"), "{drift}");
+        assert!(!drift.contains("STATUS.tsv"), "{drift}");
         let _ = fs::remove_dir_all(&dir);
     }
 

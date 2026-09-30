@@ -53,7 +53,7 @@ cross-read
 cr-check
 pool-dump --out <path>            # refactor diffs
 decks-import [--archive <path>] [--refresh]   # MTGJSON precons → data/decks/precon (docs/precons.md)
-decks-status [--check]            # STATUS.tsv + the gateway's playable list; rerun after a card or card test lands
+decks-status [--check]            # STATUS.tsv + the gateway's playable list; rerun when a precon unlocks or is withdrawn (the xtask test says so)
 dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted|anthropic[:<model>]|openai:<model>]
 ```
 

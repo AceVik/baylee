@@ -148,26 +148,34 @@ A deck is **playable** when every card in it passes `precons::verdict`, and
 
 `decks-status` writes `data/decks/precon/STATUS.tsv`, one line per deck in
 key order: `deck` (the key, `<set>/<slug>`), `set`, `type`, `released`,
-`name`, `cards` (commanders and sideboard included), `playable` (`yes`/`no`),
-`failing` (distinct cards that fail) and `first_failing` (the first three,
-each with its reason). It also writes the gateway's embedded list of the
-playable decks. Both are a function of the lists, the pool and the engine's
-tests, and `the_precon_status_is_the_pools` (an xtask test, so `gate.sh` and
-CI's test job run it) fails when either differs from what they say today,
-naming the file, the first line that differs and the command to run. A
-commit that adds a card, a card test or a precon therefore regenerates both:
+`name`, `cards` (commanders and sideboard included) and `playable`
+(`yes`/`no`). It also writes the gateway's embedded list of the playable
+decks. Both are a function of the lists, the pool and the engine's tests,
+and `the_precon_status_is_the_pools` (an xtask test, so `gate.sh` and CI's
+test job run it) fails when either differs from what they say today, naming
+the file, the first line that differs and the command to run:
 
 ```bash
 cargo run -p xtask -- decks-status
 ```
 
-As each set is finished, its precons unlock in that commit.
+Only `playable` depends on the pool, so the check asks for that run only
+when a deck's offer changes: when the last missing card of a deck lands (it
+unlocks in that commit) or a card in an offered deck stops passing (it is
+withdrawn in that commit). **Which** cards a deck lacks is deliberately not
+in the table: that moves with nearly every card commit (142 of the 328
+commits on main from 27.09. to 30.09.2026 touched a card or a card test),
+and a checked table holding it would ask each of those commits, and every
+branch merging past them, to regenerate it. `decks-status` prints it
+instead — the reasons counted over all decks and the nearest decks with
+their missing cards — and `deck-check <file>` prints one deck's.
 
 **On 30.09.2026: 0 of 1203 decks are playable.** The pool has 2749 cards,
-2336 of them implemented and 2335 of those tested; the nearest decks miss
-four cards (`10E/white-deck-b`, `8ED/speed-scorch`), and nearly every
-failing card is simply not in the pool yet (3569 of the first-three
-entries say `pool`, 39 `stub`, 1 `ledger`).
+2336 of them implemented and 2335 of those tested. The nearest decks miss
+four cards each (`10E/white-deck-b`, `8ED/speed-scorch`). Counted once per
+card and deck, 28 248 missing cards are simply not in the pool yet, 639 are
+stubs, 2 are untested, 18 are not in the ledger and 1 commander may not
+lead.
 
 ## House decks
 
