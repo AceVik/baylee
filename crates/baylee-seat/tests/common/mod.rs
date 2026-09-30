@@ -18,8 +18,9 @@ use baylee_engine::win::GameResult;
 use baylee_gamehost::session::Session;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_seat::deck::Deck;
+use baylee_seat::lobby::seat_name;
 use baylee_seat::transcript::Note;
-use baylee_seat::{BridgeConfig, Disclosure, Mind, Request, SeatCore, Stats, Step};
+use baylee_seat::{BridgeConfig, Mind, Request, SeatCore, Stats, Step};
 use futures_util::future::join_all;
 use prost::Message as _;
 use std::collections::VecDeque;
@@ -99,13 +100,19 @@ impl Table {
             seat.controller = SeatController::Open;
         }
         let mut session = Session::new(&preset).expect("a playable table");
-        session.describe(
-            format!("selfplay-{seed}"),
-            vec!["LLM-A".into(), "LLM-B".into()],
-        );
+        // Each chair called what its mind says it is, as the bridge signs in.
+        let names = ["A", "B"]
+            .iter()
+            .zip(&minds)
+            .map(|(name, mind)| {
+                seat_name(mind.disclosure(), name).expect("a name the gateway takes")
+            })
+            .collect();
+        session.describe(format!("selfplay-{seed}"), names);
         let cores = decks
             .iter()
-            .map(|deck| SeatCore::new(config.clone(), deck.list.clone(), Disclosure::Llm))
+            .zip(&minds)
+            .map(|(deck, mind)| SeatCore::new(config.clone(), deck.list.clone(), mind.disclosure()))
             .collect();
         let mut inbox = VecDeque::new();
         for seat in 0..2 {

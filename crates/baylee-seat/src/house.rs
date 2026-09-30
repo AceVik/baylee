@@ -13,7 +13,7 @@
 //! clock remainder, no policy history, no teammate's hand. The request's
 //! [`Request::log`](crate::Request::log) is not read at all.
 
-use crate::mind::{Answer, GameContext, Mind, Request, Thinking};
+use crate::mind::{Answer, Disclosure, GameContext, Mind, Request, Thinking};
 use baylee_ai::{AIProfile, HeuristicAgent, policy_seed};
 use baylee_core::ids::SeatSet;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -79,6 +79,10 @@ impl Mind for HouseMind {
             .await;
             answered.map_err(|e| crate::MindError::Unavailable(format!("the house failed: {e}")))
         })
+    }
+
+    fn disclosure(&self) -> Disclosure {
+        Disclosure::House
     }
 }
 

@@ -498,8 +498,16 @@ mod tests {
 
     #[test]
     fn a_seat_name_is_the_prefix_and_a_name_the_gateway_takes() {
-        assert_eq!(seat_name(Disclosure::Llm, "house").unwrap(), "LLM-house");
+        assert_eq!(seat_name(Disclosure::Llm, "claude").unwrap(), "LLM-claude");
         assert_eq!(seat_name(Disclosure::Net, "n1").unwrap(), "NET-n1");
+        assert_eq!(
+            seat_name(Disclosure::House, "house").unwrap(),
+            "HOUSE-house"
+        );
+        assert_eq!(
+            seat_name(Disclosure::Scripted, "scripted").unwrap(),
+            "TEST-scripted"
+        );
         assert!(
             seat_name(Disclosure::Llm, "").is_err(),
             "a prefix is not a name"
@@ -513,9 +521,18 @@ mod tests {
             seat_name(Disclosure::Llm, "x-").is_err(),
             "a dash at the end"
         );
-        // What the name is checked against at the table, too.
-        let name = seat_name(Disclosure::Llm, "house").unwrap();
-        assert!(Disclosure::Llm.names(&name));
+        // What the name is checked against at the table, too: each kind's
+        // name is that kind's and no other's.
+        for kind in Disclosure::ALL {
+            let name = seat_name(kind, "x1").unwrap();
+            for other in Disclosure::ALL {
+                assert_eq!(
+                    other.names(&name),
+                    other == kind,
+                    "«{name}» read as {other:?}"
+                );
+            }
+        }
     }
 
     #[test]

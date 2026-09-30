@@ -13,7 +13,7 @@
 //! unreachable ([`ScriptedMind::failing`]), which is how the bridge's budget
 //! and fallback are tested without a model.
 
-use crate::mind::{Answer, GameContext, Mind, MindError, Request, Thinking};
+use crate::mind::{Answer, Disclosure, GameContext, Mind, MindError, Request, Thinking};
 use baylee_engine::choice::{Pending, PlayerAction, default_arrangement, timeout_answer};
 use baylee_view::PlayerView;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -145,6 +145,10 @@ impl Mind for ScriptedMind {
                 .ok_or_else(|| MindError::Unavailable("scripted to fail".into()))
         })
     }
+
+    fn disclosure(&self) -> Disclosure {
+        Disclosure::Scripted
+    }
 }
 
 /// The least answer a question allows: the answer that does nothing where
@@ -249,5 +253,69 @@ pub const fn kind(pending: &Pending) -> &'static str {
         Pending::Arrange { .. } => "Arrange",
         Pending::ChoosePile { .. } => "ChoosePile",
         Pending::GameOver(_) => "GameOver",
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_core::preset::FormatId;
+    use baylee_engine::choice::{ArrangePile, ArrangePlace, ArrangePrompt};
+
+    const ME: PlayerId = PlayerId::new(0);
+
+    /// Questions that offer nothing to choose from, or piles that cannot
+    /// hold the cards: the engine asks none of them today, and each has no
+    /// least answer. The seat leaves on them (`SeatCore`'s `unanswerable`)
+    /// instead of waiting in silence.
+    pub(crate) fn nothing_to_choose_from() -> Vec<Pending> {
+        vec![
+            Pending::ChooseSubtype {
+                player: ME,
+                options: Vec::new(),
+            },
+            Pending::ChooseColor {
+                player: ME,
+                options: Vec::new(),
+            },
+            Pending::ChoosePlayer {
+                player: ME,
+                options: Vec::new(),
+            },
+            Pending::Arrange {
+                player: ME,
+                cards: vec![ObjectId::new(1, 0), ObjectId::new(2, 0)],
+                piles: vec![ArrangePile::up_to(ArrangePlace::LibraryTop, 1)],
+                prompt: ArrangePrompt::Scry,
+            },
+        ]
+    }
+
+    #[test]
+    fn a_question_with_nothing_to_choose_from_has_no_least_answer() {
+        let context = GameContext {
+            game_id: "test-game".into(),
+            seat: ME,
+            seats: 2,
+            teams: vec![None, None],
+            format: FormatId::Freeform,
+            deck: crate::DeckList::default(),
+            decision_secs: None,
+        };
+        let view = ViewBuilder::new(2).build();
+        assert!(view.hand.is_empty());
+        // A card name needs a card: none in an empty deck or an empty hand.
+        let mut nothing = nothing_to_choose_from();
+        nothing.push(Pending::ChooseCardName { player: ME });
+        for pending in &nothing {
+            assert_eq!(
+                least_answer(&context, &view, pending),
+                None,
+                "{}",
+                kind(pending)
+            );
+        }
     }
 }

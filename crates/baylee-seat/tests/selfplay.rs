@@ -9,7 +9,7 @@ use baylee_seat::scripted::least_answer;
 use baylee_seat::seat::By;
 use baylee_seat::transcript::{Event, Note};
 use baylee_seat::{
-    Answer, BatchMind, Batched, Deliberation, HouseMind, Mind, Request, ScriptedMind,
+    Answer, BatchMind, Batched, Deliberation, Disclosure, HouseMind, Mind, Request, ScriptedMind,
 };
 use common::{Table, config, median_p90};
 use std::collections::BTreeMap;
@@ -193,6 +193,10 @@ async fn one_mind_answers_two_seats_in_one_call() {
                 .map(|r| Ok(Answer::new(house.answer(&r.context, &r.view, &r.pending))))
                 .collect();
             Box::pin(std::future::ready(answers))
+        }
+
+        fn disclosure(&self) -> Disclosure {
+            Disclosure::House
         }
     }
     let calls = Arc::new(Mutex::new(Vec::new()));

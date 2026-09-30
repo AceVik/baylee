@@ -17,8 +17,10 @@
 //! that, or when the mind fails, declines or runs out of budget, the house
 //! answers ([`HouseMind`], on the view the house may see), and when even the
 //! house's answer does not pass, the least answer the question allows
-//! ([`least_answer`]). When nothing passes, nothing is sent: the table's clock
-//! answers, as it would for a person who walked away.
+//! ([`least_answer`]). When nothing passes (a question that offers nothing
+//! to choose from has no least answer), the seat leaves the table and says
+//! which question it could not answer, rather than wait for a clock that an
+//! untimed table does not have.
 //!
 //! # Telling questions apart
 //!
@@ -187,7 +189,7 @@ pub struct Stats {
     pub answered: AnsweredCounts,
     /// Why the house answered instead of the mind.
     pub fallbacks: FallbackCounts,
-    /// Questions nothing could answer, left to the table's clock.
+    /// Questions nothing could answer; the seat left at the first.
     pub unanswerable: u32,
     /// Mind answers that came after their question was gone.
     pub late: u32,
@@ -321,7 +323,7 @@ enum State {
     Thinking,
     /// An answer went to the table.
     Sent { action: PlayerAction, by: By },
-    /// Nothing passed; the table's clock answers.
+    /// Nothing passed; the seat left.
     Unanswerable,
 }
 
@@ -551,6 +553,12 @@ impl SeatCore {
         self.context.as_ref()
     }
 
+    /// What the chair must be called: the kind of mind the seat plays for.
+    #[must_use]
+    pub const fn disclosure(&self) -> Disclosure {
+        self.disclosure
+    }
+
     /// The seat's memory of the table.
     #[must_use]
     pub const fn memory(&self) -> &TableMemory {
@@ -705,6 +713,14 @@ impl SeatCore {
             resumed: false,
             state: State::Thinking,
         });
+        if self
+            .current
+            .as_ref()
+            .is_some_and(|current| referee::offers_nothing(&current.pending))
+        {
+            steps.extend(self.unanswerable());
+            return steps;
+        }
         steps.extend(match verdict {
             Verdict::Standing { action, why } => self.standing(action, why),
             Verdict::Wake(why) => self.wake_mind(why),
@@ -952,13 +968,25 @@ impl SeatCore {
         self.unanswerable()
     }
 
+    /// Nothing the seat could send passes: not the mind's answer, not the
+    /// house's, not the least one (a question that offers nothing to choose
+    /// from has none). Waiting for the table's clock would hang an untimed
+    /// table in silence, so the seat leaves, saying which question it could
+    /// not answer: the table sees an absent player, and whoever runs the
+    /// bridge sees why.
     fn unanswerable(&mut self) -> Vec<Step> {
         self.stats.unanswerable += 1;
+        let asked = self
+            .current
+            .as_ref()
+            .map_or("unknown", |current| crate::scripted::kind(&current.pending));
         if let Some(current) = self.current.as_mut() {
             current.state = State::Unanswerable;
         }
         self.note(self.questions, Event::Unanswerable);
-        Vec::new()
+        self.leave(format!(
+            "nothing this seat could send answers the {asked} question it was asked"
+        ))
     }
 
     /// Sends an answer the referee has passed.

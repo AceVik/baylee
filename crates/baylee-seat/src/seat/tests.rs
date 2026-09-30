@@ -451,6 +451,72 @@ fn the_end_of_the_game_stops_the_thinking_and_says_who_won() {
     assert!(core.hear(&asked(4, &colour())).is_empty());
 }
 
+/// A question that offers nothing to choose from has no answer at all. It is
+/// not handed to the mind or the house, nor left to a clock an untimed table
+/// does not have: the seat leaves at once, naming the question, and hears
+/// nothing more.
+#[test]
+fn a_question_that_offers_nothing_is_left_at_once_saying_which() {
+    for pending in crate::scripted::tests::nothing_to_choose_from() {
+        let kind = crate::scripted::kind(&pending);
+        assert!(referee::offers_nothing(&pending), "{kind}");
+        let mut core = seated(BridgeConfig::default());
+        core.hear(&view(2));
+        let steps = core.hear(&asked(2, &pending));
+        let Some(Step::Leave(reason)) = steps.last() else {
+            panic!("{kind}: the seat stayed: {steps:?}");
+        };
+        assert!(reason.contains(kind), "{kind}: {reason}");
+        assert!(
+            request(&steps).is_none() && answer(&steps).is_none(),
+            "{kind}: {steps:?}"
+        );
+        assert_eq!(core.stats().unanswerable, 1, "{kind}");
+        let notes = core.take_notes();
+        assert!(
+            notes.iter().any(|n| matches!(n.event, Event::Unanswerable)),
+            "{kind}: {notes:?}"
+        );
+        assert!(
+            matches!(notes.last().map(|n| &n.event), Some(Event::Left { .. })),
+            "{kind}: {notes:?}"
+        );
+        assert!(core.hear(&asked(3, &colour())).is_empty(), "{kind}");
+    }
+    // An ordinary question offers something.
+    assert!(!referee::offers_nothing(&colour()));
+}
+
+/// When the table refuses the mind's answer twice, the house's and then the
+/// least answer, nothing is left to send: the seat leaves, saying so.
+#[test]
+fn a_seat_whose_every_answer_is_refused_leaves_saying_which() {
+    let mut core = seated(BridgeConfig::default());
+    let question = ask_mind(&mut core, 2, &colour());
+    core.answered(question, Ok(Answer::new(GREEN)));
+    let mut authors = Vec::new();
+    for _ in 0..4 {
+        core.hear(&refused("no"));
+        core.hear(&view(2));
+        let steps = core.hear(&asked(2, &colour()));
+        if request(&steps).is_some() {
+            authors.push(By::Mind);
+            core.answered(question, Ok(Answer::new(GREEN)));
+        } else if let Some((_, by, _)) = answer(&steps) {
+            authors.push(by);
+        } else {
+            let Some(Step::Leave(reason)) = steps.last() else {
+                panic!("neither an answer nor a leave: {steps:?}");
+            };
+            assert!(reason.contains("ChooseColor"), "{reason}");
+            break;
+        }
+    }
+    assert_eq!(authors, [By::Mind, By::House, By::Least]);
+    assert_eq!(core.stats().unanswerable, 1);
+    assert!(core.hear(&asked(3, &colour())).is_empty());
+}
+
 #[test]
 fn a_room_that_closed_stops_the_thinking_and_says_no_result() {
     let mut core = seated(BridgeConfig::default());

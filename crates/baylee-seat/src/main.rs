@@ -4,7 +4,8 @@
 //! baylee-seat join <room> --mind house|scripted [--deck <file> | --acceptance <name>]
 //! ```
 //!
-//! Signs in as a guest under the mind's name (`LLM-…`), stores the deck,
+//! Signs in as a guest under the name its mind discloses (`HOUSE-house`,
+//! `TEST-scripted`; a language model's is `LLM-…`), stores the deck,
 //! takes a free chair in the room, says ready, waits for the host to start,
 //! and plays the game to its end. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
@@ -20,7 +21,7 @@ use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
-use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
+use baylee_seat::{BridgeConfig, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -62,7 +63,8 @@ struct Join {
     /// given: Allytifact).
     #[arg(long)]
     acceptance: Option<String>,
-    /// The name after the `LLM-` prefix [default: the mind's kind].
+    /// The name after the mind's prefix (`HOUSE-`, `TEST-`) [default: the
+    /// mind's kind].
     #[arg(long)]
     name: Option<String>,
     /// The house's level: the house mind's own, and the fallback's.
@@ -97,6 +99,14 @@ enum MindKind {
 }
 
 impl MindKind {
+    /// The mind this choice plays with.
+    fn mind(self, profile: AIProfile) -> Arc<dyn Mind> {
+        match self {
+            Self::House => Arc::new(HouseMind::new(profile)),
+            Self::Scripted => Arc::new(ScriptedMind::idle()),
+        }
+    }
+
     const fn label(self) -> &'static str {
         match self {
             Self::House => "house",
@@ -134,22 +144,28 @@ struct Seated {
     mind: Arc<dyn Mind>,
 }
 
+/// The name a chair played by `mind` signs in under: the prefix of what
+/// the mind says it is, then `--name` or the mind's kind.
+fn display_name(name: Option<&str>, kind: MindKind, mind: &dyn Mind) -> anyhow::Result<String> {
+    seat_name(mind.disclosure(), name.unwrap_or(kind.label()))
+}
+
+/// The seat that plays for `mind`, held at the table to the name
+/// [`display_name`] gave the chair: both are what the mind says it is.
+fn seat_core(config: BridgeConfig, deck: &Deck, mind: &dyn Mind) -> SeatCore {
+    SeatCore::new(config, deck.list.clone(), mind.disclosure())
+}
+
 /// Signs in, checks the room, takes a chair, says ready and waits for the
 /// host to start.
 async fn sit_down(join: &Join) -> anyhow::Result<Seated> {
-    let display_name = seat_name(
-        Disclosure::Llm,
-        join.name.as_deref().unwrap_or(join.mind.label()),
-    )?;
+    let profile = AIProfile::named(&join.level)
+        .with_context(|| format!("no house level called «{}»", join.level))?;
+    let mind = join.mind.mind(profile);
+    let display_name = display_name(join.name.as_deref(), join.mind, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {
         (Some(path), _) => Deck::from_file(path)?,
         (None, name) => Deck::acceptance(name.as_deref().unwrap_or("Allytifact"))?,
-    };
-    let profile = AIProfile::named(&join.level)
-        .with_context(|| format!("no house level called «{}»", join.level))?;
-    let mind: Arc<dyn Mind> = match join.mind {
-        MindKind::House => Arc::new(HouseMind::new(profile)),
-        MindKind::Scripted => Arc::new(ScriptedMind::idle()),
     };
     let password = join
         .password
@@ -228,7 +244,7 @@ async fn play_out(join: &Join, seated: Seated) -> anyhow::Result<bridge::Played>
         house: seated.profile,
         ..BridgeConfig::default()
     };
-    let core = SeatCore::new(config, seated.deck.list.clone(), Disclosure::Llm);
+    let core = seat_core(config, &seated.deck, &*seated.mind);
     let mut transcript = match &join.transcripts {
         Some(dir) => {
             let path = dir.join(format!(
@@ -277,4 +293,34 @@ fn report(played: &bridge::Played) {
         stats.model_ms,
         played.dials,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_seat::Disclosure;
+
+    /// A chair's name tells the truth about its mind (the owner's rule):
+    /// the house signs in as the house and a script as a test, never as a
+    /// language model, and the seat holds the table to that same name.
+    #[test]
+    fn every_mind_sits_under_the_name_of_what_it_is() {
+        let deck = Deck::acceptance("Victory").unwrap();
+        for &kind in MindKind::value_variants() {
+            let mind = kind.mind(AIProfile::default());
+            let (named, prefix) = match kind {
+                MindKind::House => ("HOUSE-house", "HOUSE-"),
+                MindKind::Scripted => ("TEST-scripted", "TEST-"),
+            };
+            assert_eq!(display_name(None, kind, &*mind).unwrap(), named);
+            let chosen = display_name(Some("x1"), kind, &*mind).unwrap();
+            assert_eq!(chosen, format!("{prefix}x1"), "--name keeps the prefix");
+            let core = seat_core(BridgeConfig::default(), &deck, &*mind);
+            assert_eq!(core.disclosure(), mind.disclosure());
+            for name in [named, chosen.as_str()] {
+                assert!(core.disclosure().names(name), "the seat refuses «{name}»");
+                assert!(!Disclosure::Llm.names(name), "«{name}» claims a model");
+            }
+        }
+    }
 }

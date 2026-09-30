@@ -88,7 +88,8 @@ pub enum Event {
     },
     /// The mind's budget ran out.
     Expired,
-    /// Nothing the bridge could send was taken; the table's clock answers.
+    /// Nothing the bridge could send was taken; the seat leaves (the next
+    /// note says so).
     Unanswerable,
     /// An answer came for a question that is gone.
     Late,

@@ -75,12 +75,12 @@ pub trait Mind: Send + Sync {
     /// comes after that is not sent anywhere.
     fn decide(&self, request: Request) -> Thinking<'_>;
 
-    /// What a chair this mind plays must be called, so the table can see
-    /// it is not a person. The bridge refuses to sit down under any other
-    /// name.
-    fn disclosure(&self) -> Disclosure {
-        Disclosure::Llm
-    }
+    /// What this mind is, which is what a chair it plays is called: the
+    /// table sees from the name that no person sits there, and which kind
+    /// of mind does. The bridge signs in under this prefix and refuses to
+    /// play a chair called anything else. No default: a mind that did not
+    /// say would be taken for whatever the default claimed.
+    fn disclosure(&self) -> Disclosure;
 
     /// Whether the mind can answer again, asked after it was taken off the
     /// table for failing ([`crate::BridgeConfig::down_after`]). A mind that is
@@ -231,28 +231,36 @@ impl std::fmt::Display for MindError {
 
 impl std::error::Error for MindError {}
 
-/// What a chair played by a mind must be called.
+/// What kind of mind plays a chair, said in the chair's name.
 ///
-/// Until the roster can say that a chair is not a person, the name has to:
-/// the owner's rule is that the bridge refuses to sit down without an
-/// `LLM-` display name, or `NET-` for a trained net.
+/// Until the roster can say that a chair is not a person, the name has to,
+/// and it has to tell the truth (the owner's rule): an opponent reading
+/// `LLM-` believes a language model is across the table, so the house or a
+/// test script never sits under it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Disclosure {
-    /// A language model, or a stand-in for one (the house and the test
-    /// scripts sit in an LLM chair while the bridge is tried without a
-    /// model): `LLM-`.
+    /// A language model: `LLM-`.
     Llm,
     /// A trained net: `NET-`.
     Net,
+    /// The house heuristic, the same player an AI chair seats: `HOUSE-`.
+    House,
+    /// A test script ([`crate::ScriptedMind`]): `TEST-`.
+    Scripted,
 }
 
 impl Disclosure {
+    /// Every kind, for the tests that hold each to its prefix.
+    pub const ALL: [Self; 4] = [Self::Llm, Self::Net, Self::House, Self::Scripted];
+
     /// The prefix a display name must start with.
     #[must_use]
     pub const fn prefix(self) -> &'static str {
         match self {
             Self::Llm => "LLM-",
             Self::Net => "NET-",
+            Self::House => "HOUSE-",
+            Self::Scripted => "TEST-",
         }
     }
 
@@ -317,9 +325,7 @@ pub trait BatchMind: Send + Sync + 'static {
     fn decide_batch(&self, requests: Vec<Request>) -> Deliberation<'_>;
 
     /// As [`Mind::disclosure`].
-    fn disclosure(&self) -> Disclosure {
-        Disclosure::Llm
-    }
+    fn disclosure(&self) -> Disclosure;
 }
 
 /// One queued request and where its answer goes.

@@ -483,7 +483,8 @@ enum Cmd {
         play: bool,
         /// Seat a bridge in chair 1 instead of the AI: `baylee-seat join`
         /// against the same gateway, playing this mind (`house` or
-        /// `scripted`) under its `LLM-` name, with the other acceptance deck.
+        /// `scripted`) under the name its mind discloses (`HOUSE-house`,
+        /// `TEST-scripted`), with the other acceptance deck.
         #[arg(long, value_name = "MIND")]
         bridge: Option<String>,
     },

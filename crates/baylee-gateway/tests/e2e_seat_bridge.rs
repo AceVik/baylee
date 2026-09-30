@@ -1,7 +1,7 @@
 //! End-to-end: two seat bridges play a whole game through a real gateway.
 //!
 //! A bridge is an ordinary socket player (`baylee-seat`): it signs in as a
-//! guest under its mind's name, stores a deck, takes a chair, says ready,
+//! guest under the name its mind discloses (`TEST-`, `HOUSE-`), stores a deck, takes a chair, says ready,
 //! buys a ticket with its seat token and opens the seat socket like any
 //! client. Here one bridge plays a script that answers every question with
 //! the least answer it allows, and the other plays the house heuristic on
@@ -15,9 +15,9 @@ mod common;
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
-use baylee_seat::lobby::{GuestSignIn, Lobby, Session};
+use baylee_seat::lobby::{GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::Outcome;
-use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
+use baylee_seat::{BridgeConfig, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use common::{attach_agent, spawn_gateway};
 use std::sync::Arc;
 use std::time::Duration;
@@ -43,8 +43,17 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
     let _agent = attach_agent(&gateway).await;
     let lobby = Lobby::new(&format!("http://127.0.0.1:{}", gateway.port));
 
-    let scripted_session = guest(&lobby, "LLM-scripted").await;
-    let house_session = guest(&lobby, "LLM-house").await;
+    // Each chair is called what its mind is, as `baylee-seat join` calls it.
+    let scripted: Arc<dyn Mind> = Arc::new(ScriptedMind::idle());
+    let house: Arc<dyn Mind> = Arc::new(HouseMind::default());
+    let scripted_name = seat_name(scripted.disclosure(), "scripted").unwrap();
+    let house_name = seat_name(house.disclosure(), "house").unwrap();
+    assert_eq!(
+        (scripted_name.as_str(), house_name.as_str()),
+        ("TEST-scripted", "HOUSE-house")
+    );
+    let scripted_session = guest(&lobby, &scripted_name).await;
+    let house_session = guest(&lobby, &house_name).await;
     let scripted_deck = Deck::acceptance("Allytifact").unwrap();
     let house_deck = Deck::acceptance("Victory").unwrap();
     let scripted_deck_id = lobby
@@ -83,10 +92,13 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
         min_think: Duration::ZERO,
         ..PlayOptions::default()
     };
-    let scripted: Arc<dyn Mind> = Arc::new(ScriptedMind::idle());
-    let house: Arc<dyn Mind> = Arc::new(HouseMind::default());
-    let core =
-        |deck: &Deck| SeatCore::new(BridgeConfig::default(), deck.list.clone(), Disclosure::Llm);
+    let core = |deck: &Deck, mind: &Arc<dyn Mind>| {
+        SeatCore::new(
+            BridgeConfig::default(),
+            deck.list.clone(),
+            mind.disclosure(),
+        )
+    };
     let mut scripted_link = SeatLink::new(lobby.clone(), scripted_chair, Some(scripted_session));
     let mut house_link = SeatLink::new(lobby.clone(), house_chair, Some(house_session));
     let mut scripted_transcript = Transcript::memory();
@@ -95,14 +107,14 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
         tokio::join!(
             bridge::play(
                 &mut scripted_link,
-                core(&scripted_deck),
+                core(&scripted_deck, &scripted),
                 scripted,
                 &mut scripted_transcript,
                 &options,
             ),
             bridge::play(
                 &mut house_link,
-                core(&house_deck),
+                core(&house_deck, &house),
                 house,
                 &mut house_transcript,
                 &options,

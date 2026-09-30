@@ -82,6 +82,44 @@ pub fn check(pending: &Pending, answer: &PlayerAction) -> Result<(), Foul> {
     }
 }
 
+/// Whether `pending` offers nothing to choose from, so that no answer at
+/// all could pass: a "choose one of these" with none, a number whose least
+/// is above its most, an arrangement whose piles cannot hold its cards.
+///
+/// The engine asks none of these today. A seat asked one leaves the table
+/// at once, saying so, rather than hand it to a mind or to the house (whose
+/// choosers index the first option) or wait for a clock an untimed table
+/// does not have. Every variant is named, so a new one is decided here.
+#[must_use]
+pub fn offers_nothing(pending: &Pending) -> bool {
+    match pending {
+        Pending::LegendChoice { options, .. } => options.is_empty(),
+        Pending::ChooseSubtype { options, .. } => options.is_empty(),
+        Pending::ChooseColor { options, .. } => options.is_empty(),
+        Pending::ChoosePlayer { options, .. } => options.is_empty(),
+        Pending::ChooseCastMode { options, .. } => options.is_empty(),
+        Pending::ChoosePile { piles, .. } => piles.is_empty(),
+        Pending::ChooseNumber { min, max, .. } => min > max,
+        Pending::Arrange { cards, piles, .. } => {
+            baylee_engine::choice::default_arrangement(cards, piles).is_none()
+        }
+        // Always an answer: keep, pass, attack or block with nothing, no,
+        // any card name the pool prints; or a count or a subset the engine
+        // bounds by what it offers.
+        Pending::Mulligan { .. }
+        | Pending::MulliganBottom { .. }
+        | Pending::Priority { .. }
+        | Pending::ChooseAttackers { .. }
+        | Pending::ChooseBlockers { .. }
+        | Pending::DiscardChoice { .. }
+        | Pending::ChooseCards { .. }
+        | Pending::ChooseTargets { .. }
+        | Pending::ChooseCardName { .. }
+        | Pending::YesNo { .. }
+        | Pending::GameOver(_) => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

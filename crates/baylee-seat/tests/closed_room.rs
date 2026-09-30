@@ -24,7 +24,7 @@ use baylee_seat::bridge::{self, PlayOptions, Played};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{Chair, Lobby, Session};
-use baylee_seat::{BridgeConfig, Disclosure, ScriptedMind, SeatCore, Transcript};
+use baylee_seat::{BridgeConfig, Mind, ScriptedMind, SeatCore, Transcript};
 use prost::Message as _;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -137,8 +137,8 @@ async fn sit_at(stage: &Stage) -> (Played, Transcript) {
     };
     let mut link = SeatLink::new(lobby, chair, Some(Session::from_token("a-session".into())));
     let deck = Deck::acceptance("Victory").unwrap();
-    let core = SeatCore::new(BridgeConfig::default(), deck.list, Disclosure::Llm);
     let mind = Arc::new(ScriptedMind::idle());
+    let core = SeatCore::new(BridgeConfig::default(), deck.list, mind.disclosure());
     let options = PlayOptions {
         min_think: Duration::ZERO,
         room_check: Duration::from_millis(50),
