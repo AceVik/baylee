@@ -14,16 +14,17 @@
 //! "{0}: transform this", and the back face sets its own base power and
 //! toughness to 5/5 as a static ability.
 //!
-//! The last test here asks what a player is shown while a question is out
-//! that was asked in the same pass a permanent entered transformed: a
-//! daybound werewolf of the same make, whose back face's 5/5 is a static
-//! ability, entering at night beside a creature that asks for a colour as
-//! it enters.
+//! The werewolf tests below use a daybound card of the same make, whose
+//! back face's 5/5 is a static ability, entering at night (CR 702.145b):
+//! alone, to show that entering with the back face up is not a transform
+//! (CR 712.14a), and beside a creature that asks for a colour as it enters,
+//! to show what a player is shown while that question is out.
 
 use super::*;
+use crate::event::GameEvent;
 use crate::turn::DayNight;
 use crate::zone::ZonePosition;
-use baylee_cards_dsl::{Duration, EnterModifier, Filter, Modifier};
+use baylee_cards_dsl::{Duration, EnterModifier, Filter, Modifier, Trigger};
 
 const FLIPPER: u32 = 7300;
 const WEREWOLF: u32 = 7302;
@@ -49,12 +50,27 @@ static BACK: &[AbilityDef] = &[
     free(BECOME_TWO, None),
 ];
 
-/// The werewolf's back face: "This creature has base power and toughness
-/// 5/5", over a printed 3/3.
-static WEREWOLF_BACK: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
+/// The werewolf's front face: "This creature has flying", which it must
+/// not keep once its back face is up (CR 604.2).
+static WEREWOLF_FRONT: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
     Filter::This,
-    Modifier::SetPT(5, 5)
+    Modifier::AddKeyword(KeywordSet::FLYING)
 )];
+static GAIN_ONE: &[Effect] = &[Effect::gain_life(1)];
+/// The werewolf's back face: "This creature has base power and toughness
+/// 5/5", over a printed 3/3, and "When this creature transforms into
+/// Werewolf, you gain 1 life" (CR 701.27e).
+static WEREWOLF_BACK: &[AbilityDef] = &[
+    baylee_cards_dsl::static_ability!(Filter::This, Modifier::SetPT(5, 5)),
+    AbilityDef::Triggered {
+        trigger: Trigger::TransformsIntoThis,
+        effects: GAIN_ONE,
+        targets: None,
+        second_targets: None,
+        once_per_turn: false,
+        condition: None,
+    },
+];
 
 /// A transforming double-faced card. Its back face is reached only by
 /// turning over, so each caller marks it not castable from a hand.
@@ -91,6 +107,7 @@ fn cards() -> Vec<&'static CardDef> {
 fn night_cards() -> Vec<&'static CardDef> {
     let front = FaceDef {
         keywords: KeywordSet::DAYBOUND,
+        abilities: WEREWOLF_FRONT,
         ..creature_face("Pup", "{0}", 2, 2)
     };
     let back = FaceDef {
@@ -107,6 +124,30 @@ fn night_cards() -> Vec<&'static CardDef> {
         double_faced(WEREWOLF, front, back),
         card(CHOOSER, chooser, KeywordSet::EMPTY, &[]),
     ]
+}
+
+/// Sets the board directly, and it is the board that is set: it is night,
+/// and `cards` enter the battlefield from a hand together, in this order,
+/// as one mass return would journal them. Passing priority is only the
+/// nudge that runs the machine over the arrivals.
+fn enter_at_night(engine: &mut Bench, cards: &[ObjectId]) {
+    let state = engine
+        .dev_state_mut(me())
+        .expect("the harness may set boards up");
+    state.day_night = Some(DayNight::Night);
+    for &card in cards {
+        state
+            .move_object(
+                card,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .expect("the harness moves a card");
+    }
+    engine
+        .apply(me(), PlayerAction::PassPriority)
+        .expect("a seat may always pass");
 }
 
 /// The permanent's projected power and toughness.
@@ -211,18 +252,16 @@ fn a_permanent_that_transforms_is_not_summoning_sick_again() {
 /// A question asked in step 0b of the machine, as a permanent enters, is
 /// published from a board whose projection that step has moved: a daybound
 /// permanent that enters at night enters transformed (CR 702.145b), and
-/// the transform takes away the front face's statics and leaves the back
-/// face's to the next scan (`GameState::transform`). A second arrival in
+/// turning it over takes away the front face's statics and leaves the back
+/// face's to the next scan (`GameState::turn_over`). A second arrival in
 /// the same batch that asks as it enters stopped the pass there, before
 /// the next scan, so the question went out with the werewolf showing its
 /// printed 3/3 and not the 5/5 its static ability says, and with the
 /// projection stale for every seat's view. It is now asked from a synced,
 /// refreshed board, as `Engine::new` and `settle_mulligans` ask theirs.
 ///
-/// The board is set directly, and it is the board that is set: it is night,
-/// and the two creatures enter together, in the order a mass return would
-/// journal them (the werewolf first, since the step asks one question and
-/// stops). Passing priority is only the nudge that runs the machine.
+/// The werewolf is first here, so its turning over happens before the
+/// question in the same scan (see [`enter_at_night`]).
 #[test]
 fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
     let mut engine = bench(
@@ -236,23 +275,7 @@ fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
     to_main(&mut engine, me());
     let werewolf = the(&engine, ZoneLocation::Hand(me()), WEREWOLF);
     let chooser = the(&engine, ZoneLocation::Hand(me()), CHOOSER);
-    let state = engine
-        .dev_state_mut(me())
-        .expect("the harness may set boards up");
-    state.day_night = Some(DayNight::Night);
-    for card in [werewolf, chooser] {
-        state
-            .move_object(
-                card,
-                ZoneLocation::Battlefield,
-                ZonePosition::Top,
-                crate::event::Cause::Effect,
-            )
-            .expect("the harness moves a card");
-    }
-    engine
-        .apply(me(), PlayerAction::PassPriority)
-        .expect("a seat may always pass");
+    enter_at_night(&mut engine, &[werewolf, chooser]);
 
     assert!(
         matches!(engine.pending(), Pending::ChooseColor { player, .. } if *player == me()),
@@ -276,5 +299,64 @@ fn a_question_asked_as_permanents_enter_sees_the_face_that_entered() {
     assert!(
         engine.projection_is_fresh(),
         "and the board the question is asked from is settled"
+    );
+}
+
+/// CR 712.14a: a daybound card entering at night enters with its back face
+/// up (CR 702.145b). Nothing was turned over, because CR 701.27a transforms
+/// a permanent and the card was not one yet. So it has not transformed: its
+/// "transforms into" trigger (CR 701.27e) does not fire, the journal says
+/// nothing turned over (the log reads its "transformed" line off that
+/// entry), and its timestamp is the one it took as it entered (CR 613.7d),
+/// which the moment its controller took it shares.
+///
+/// It still loses the front face's static ability. The engine registers an
+/// arrival's statics before it turns the card over, and flying from the
+/// face that is down would otherwise stay on the face that is up.
+#[test]
+fn a_werewolf_that_enters_at_night_has_not_transformed() {
+    let mut engine = bench(
+        7304,
+        night_cards(),
+        [Seat::default().holding(&[WEREWOLF]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let werewolf = the(&engine, ZoneLocation::Hand(me()), WEREWOLF);
+    enter_at_night(&mut engine, &[werewolf]);
+
+    let object = engine.state().object(werewolf).expect("on the battlefield");
+    assert_eq!(object.face_index, 1, "it entered with its back face up");
+    let journal = engine.journal().entries();
+    assert_eq!(
+        journal
+            .iter()
+            .filter(
+                |e| matches!(e.event, GameEvent::Transformed { object, .. } if object == werewolf)
+            )
+            .count(),
+        0,
+        "nothing turned over, so nothing was journaled as a transform"
+    );
+    assert_eq!(
+        journal
+            .iter()
+            .filter(|e| matches!(e.event, GameEvent::AbilityTriggered { source, .. } if source == werewolf))
+            .count(),
+        0,
+        "its \"transforms into\" trigger did not fire"
+    );
+    assert_eq!(
+        object.timestamp, object.controlled_since,
+        "its timestamp is the one it entered with, not a second one for a transform"
+    );
+    let chars = object.characteristics();
+    assert!(
+        !chars.keywords.contains(KeywordSet::FLYING),
+        "the front face's static is gone with the front face"
+    );
+    assert_eq!(
+        pt(&engine, werewolf),
+        (Some(5), Some(5)),
+        "and the back face's applies"
     );
 }

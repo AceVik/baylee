@@ -285,9 +285,9 @@ impl<L: CardLookup> Engine<L> {
                 // The question is published from here, and the step that
                 // asks it may already have moved the board behind 0a: a
                 // daybound permanent entering at night entered transformed
-                // (CR 702.145b), and `GameState::transform` took away the
-                // statics of the face that turned away and left the new
-                // face's to the next scan; a Room took its door, and an
+                // (CR 702.145b), and `GameState::turn_over` took away the
+                // statics of the face going down and left the new face's
+                // to the next scan; a Room took its door, and an
                 // earlier arrival its counters. So the board is settled
                 // first, as `Engine::new` and `settle_mulligans` settle the
                 // one the opening hands are kept beside. Nothing else the
@@ -788,6 +788,12 @@ impl<L: CardLookup> Engine<L> {
             // the back face is what entered — the front face's own
             // enter-the-battlefield triggers were never on the board, and
             // `collect_triggers` runs after this in the same pass.
+            //
+            // It enters with its back face up (CR 712.14a); nothing turns
+            // over, so it is `turn_over` and not `transform`: no
+            // `Transformed` entry for a "transforms into" trigger or the
+            // log to read, and no new timestamp over the one it entered
+            // with (CR 613.7d). `transform` gave it both.
             if self.state.day_night == Some(DayNight::Night)
                 && self
                     .state
@@ -803,7 +809,7 @@ impl<L: CardLookup> Engine<L> {
                     .keywords_for_face(0)
                     .contains(baylee_cards_dsl::KeywordSet::DAYBOUND)
             {
-                self.state.transform(id, def, 1);
+                self.state.turn_over(id, def, 1);
                 changed = true;
             }
             // A Room is given the unlocked designation of the half it was

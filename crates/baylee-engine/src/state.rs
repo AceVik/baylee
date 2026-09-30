@@ -1680,19 +1680,14 @@ impl GameState {
     /// what the new face prints, as [`Self::set_doors`] has it for a Room.
     /// Without this, Dowsing Dagger's "equipped creature gets +2/+1" went
     /// on applying from Lost Vale.
+    ///
+    /// The other face coming up without the game action is
+    /// [`Self::turn_over`], which this is built on.
     pub fn transform(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
         let face = face.min(def.faces.len() - 1);
-        if self
-            .object(id)
-            .is_none_or(|o| o.face_index as usize == face)
-        {
+        if !self.turn_over(id, def, face) {
             return false;
         }
-        self.effects.remove_where(|fx| {
-            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
-        });
-        self.replacement_rules.retain(|r| r.source != id);
-        self.switch_face(id, def, face);
         // CR 613.7g: a new timestamp, which the new face's static abilities
         // take as the next scan registers them (CR 613.7a), so they apply
         // after every effect created while the other face was up. Who
@@ -1706,6 +1701,38 @@ impl GameState {
             object: id,
             face: face as u8,
         });
+        true
+    }
+
+    /// Puts face `face` of a permanent up in place of the one it shows, and
+    /// ends what the face turning away did: the continuous effects of its
+    /// static abilities and its replacement effects, which the next scan
+    /// (`Engine::sync_static_effects`) registers for the new face (CR 604.2).
+    /// Returns whether the face changed.
+    ///
+    /// This is not the game action of transforming, and it records nothing
+    /// and stamps nothing. Two things need it bare: [`Self::transform`],
+    /// which adds the stamp and the journal entry, and a permanent that
+    /// enters with its back face up (CR 712.14a, daybound at night,
+    /// CR 702.145b). Such a permanent was never turned over (CR 701.27a
+    /// transforms a *permanent*), so it has not transformed: a "transforms
+    /// into" trigger (CR 701.27e) must not see it, the log must not say it
+    /// did, and its timestamp is the one it took as it entered (CR 613.7d).
+    /// It still has the front face's statics to lose, because the engine
+    /// registers them for every arrival before the scan that turns it over.
+    pub fn turn_over(&mut self, id: ObjectId, def: &CardDef, face: usize) -> bool {
+        let face = face.min(def.faces.len() - 1);
+        if self
+            .object(id)
+            .is_none_or(|o| o.face_index as usize == face)
+        {
+            return false;
+        }
+        self.effects.remove_where(|fx| {
+            fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
+        });
+        self.replacement_rules.retain(|r| r.source != id);
+        self.switch_face(id, def, face);
         true
     }
 

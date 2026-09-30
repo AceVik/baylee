@@ -41,6 +41,15 @@ enters a zone (613.7d) and again each time the permanent transforms
 it when `sync_static_effects` registers them (613.7a), and `transform` drops
 the old face's effects first, so the new face's statics are registered with
 the new stamp and apply after anything created while the other face was up.
+A daybound card entering at night enters with its back face up
+(CR 702.145b, 712.14a), and that is not a transform: nothing was turned
+over (701.27a transforms a permanent). So the entry scan calls
+`GameState::turn_over`, the half of `transform` that drops the statics of
+the face going down and switches faces. It adds no stamp, since the arrival
+already took one (613.7d), and journals no `Transformed`, which a "transforms
+into" trigger (701.27e) and the log's "transformed" line read
+(`a_werewolf_that_enters_at_night_has_not_transformed`, and in gamehost
+`a_werewolf_entering_at_night_is_not_logged_as_transformed`).
 `GameObject::controlled_since` is the moment its controller took it: taken
 on arrival and again at every change of control
 (`restart_summoning_sickness`). Summoning sickness (`combat::summoning_sick`,
@@ -99,9 +108,9 @@ leave with their permanents (CR 800.4a) before anybody is asked again
 Inside the machine, one step publishes a question after it has moved the
 board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
 choices (a colour, a creature type, a shockland's life, a clone's choice).
-In the same scan it may already have turned a daybound permanent entering at
-night over (CR 702.145b), and `GameState::transform` drops the statics of
-the face that turned away and leaves the new face's to the next scan. It may
+In the same scan it may already have put a daybound permanent entering at
+night back face up (CR 702.145b), and `GameState::turn_over` drops the
+statics of the face going down and leaves the new face's to the next scan. It may
 also have given a Room its door, or put counters on an earlier arrival. So
 when 0b leaves a question out, the machine does what `Engine::new` does, a
 sync and a refresh, before it returns. Every other flip leads back to 0a
