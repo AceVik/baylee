@@ -22,9 +22,10 @@
 //! opening-hand window, the one place both seats are asked at once and
 //! their answers race to the engine, shuffles each seat on its own stream
 //! (`GameRng::for_seat`), so either order deals the same hands. On
-//! 30.09.2026 a run on macOS, one in a Linux container and the tails of
-//! three CI jobs that had run out of time all played the same questions,
-//! answers and turns up to where each stopped.
+//! 30.09.2026 two runs on macOS and two in a Linux container noted the same
+//! questions, answers, `seq` and turns from first to last, and the last
+//! notes of three CI jobs that had run out of time were notes of that game,
+//! at the same question numbers, `seq` and turns.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
