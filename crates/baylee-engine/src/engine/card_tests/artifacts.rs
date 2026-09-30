@@ -18865,20 +18865,24 @@ fn helm_of_chatzuk() -> CardIndex {
 /// Helm of Chatzuk — "{1}, {T}: Target creature gains banding until end of
 /// turn." One land on the board pays the generic cost, and the ability is
 /// offered at all only because it is affordable; the target is chosen
-/// before either half of the cost is paid (CR 601.2c before 601.2h), and
-/// only once both are paid does the ability resolve and the target's
-/// projected keywords carry banding.
+/// before either half of the cost is paid (CR 602.2b carries the casting
+/// steps of 601.2b–i over to activating an ability, target announcement
+/// 601.2c before total-cost payment 601.2h), and only once both are paid
+/// does the ability resolve and the target's projected keywords carry
+/// banding.
 #[test]
 fn helm_of_chatzuk_costs_one_and_taps_itself_to_grant_banding() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[helm_of_chatzuk(), forest(), hill_giant()])
+        .battlefield(1, &[hill_giant()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let helm = on_battlefield(&engine, p0, helm_of_chatzuk()).expect("seated");
     let giant = on_battlefield(&engine, p0, hill_giant()).expect("seated");
+    let their_giant = on_battlefield(&engine, p1, hill_giant()).expect("seated");
     assert!(
         !keywords(&engine, giant).contains(KeywordSet::BANDING),
         "the Giant prints no banding of its own"
@@ -18910,11 +18914,15 @@ fn helm_of_chatzuk_costs_one_and_taps_itself_to_grant_banding() {
     assert_eq!((min, max), (1, 1), "one target");
     assert!(
         options.contains(&giant),
-        "\"target creature\": any creature"
+        "\"target creature\": no restriction to a creature you control"
+    );
+    assert!(
+        options.contains(&their_giant),
+        "\"target creature\": an opponent's creature is on offer too"
     );
     assert!(
         !is_tapped(&engine, helm),
-        "CR 601.2c before 601.2h: the target is named before the {{T}} is paid"
+        "CR 602.2b/601.2c before 601.2h: the target is named before the {{T}} is paid"
     );
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
@@ -19046,6 +19054,12 @@ fn helm_of_chatzuks_grant_is_gone_by_the_targets_controllers_next_turn() {
     );
 
     reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !keywords(&engine, giant).contains(KeywordSet::BANDING),
+        "\"until end of turn\": gone already by the opponent's own turn, not \
+         held over to \"your next turn\""
+    );
+
     reach_their_main_phase(&mut engine, p0);
     assert!(
         !keywords(&engine, giant).contains(KeywordSet::BANDING),

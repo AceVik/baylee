@@ -98978,12 +98978,17 @@ fn next_combat_question(engine: &mut Engine<RegistryLookup>) -> Pending {
 /// declaration (CR 508.1e, 702.22c), and once formed, a block declared on
 /// only the ally blocks the Hero too — "Bands are blocked as a group"
 /// (CR 702.22h). Unbanded, the same declared block never touches the Hero.
+///
+/// A third attacker (no banding of its own) rides along so the "up to one"
+/// cap (CR 702.22c) is a live board fact: naming both non-banding attackers
+/// as the band is refused and the question stands, while naming just one
+/// of them is accepted.
 #[test]
 fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for banded in [false, true] {
         let mut engine = Duel::new(SEED, forest())
-            .battlefield(0, &[benalish_hero(), savannah_lions()])
+            .battlefield(0, &[benalish_hero(), savannah_lions(), hurloon_minotaur()])
             .battlefield(1, &[gray_ogre()])
             .start();
         keep_mulligans(&mut engine);
@@ -98991,9 +98996,10 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
 
         let hero = on_battlefield(&engine, p0, benalish_hero()).expect("seated");
         let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+        let minotaur = on_battlefield(&engine, p0, hurloon_minotaur()).expect("seated");
         let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
 
-        declare_band_attack(&mut engine, p0, p1, &[hero, lions]);
+        declare_band_attack(&mut engine, p0, p1, &[hero, lions, minotaur]);
         let Pending::ChooseCards {
             player,
             options,
@@ -99007,7 +99013,34 @@ fn benalish_hero_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
         assert_eq!(player, p0, "the attacking player announces the band");
         assert_eq!(prompt, ChoicePrompt::Band { with: hero });
         assert_eq!(min, 0, "attacking without a band is a legal answer");
-        assert_eq!(options, vec![lions], "the only other attacker on offer");
+        assert_eq!(
+            options,
+            vec![lions, minotaur],
+            "both other attackers are on offer, neither of them banding"
+        );
+
+        let refused = engine.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lions, minotaur],
+            },
+        );
+        assert!(
+            refused.is_err(),
+            "CR 702.22c: \"up to one\" attacking creature without banding, \
+             and this board offers two"
+        );
+        let Pending::ChooseCards { prompt, .. } = engine.pending().clone() else {
+            panic!(
+                "a refused answer leaves the band question standing, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(
+            prompt,
+            ChoicePrompt::Band { with: hero },
+            "the same question — same leader — is still open after the refusal"
+        );
 
         let band = if banded { vec![lions] } else { vec![] };
         answer_band_and_reach_blockers(&mut engine, p0, band);
@@ -99191,8 +99224,13 @@ fn timber_wolves_bands_with_an_ally_and_a_block_on_one_member_blocks_the_band() 
 /// the *defending* player — not by the attacker's own controller, who
 /// ordinarily divides a multiply-blocked attacker's damage (CR 510.1c) and
 /// would have no reason to spare a creature on the other side of the
-/// table. Without a banding blocker in the mix, the same double block asks
-/// nobody at all.
+/// table. Without a banding blocker anywhere in it, the defending player
+/// is never handed that division at all — CR 702.22j names banding as the
+/// only reason it would be. The engine's own fallback for this unbanded
+/// double block — automatic assignment, all to the first-declared blocker
+/// — is a simplification of the attacking player's own division under
+/// CR 510.1c, which the engine does not yet ask for; it is not the rule,
+/// and this counter-check does not assert it.
 #[test]
 #[allow(clippy::too_many_lines)] // the banding case and its vanilla counter-check, in full
 fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() {
@@ -99274,27 +99312,88 @@ fn timber_wolves_blocking_divides_the_attackers_damage_for_its_own_controller() 
 
         let question = next_combat_question(&mut engine);
         assert!(
-            !matches!(question, Pending::ChooseNumber { .. }),
-            "no banding anywhere in this block: nobody is asked, got {question:?}"
-        );
-        assert!(
-            on_battlefield(&engine, p1, pearled_unicorn()).is_none(),
-            "the whole of it went to the blocker declared first"
-        );
-        assert_eq!(
-            engine.state().object(ogre).map(|o| o.damage),
-            Some(0),
-            "and none to the second"
+            !matches!(question, Pending::ChooseNumber { player, .. } if player == p1),
+            "no banding anywhere in this block: CR 702.22j never hands the \
+             defending player that division here, got {question:?}"
         );
     }
 }
 
+/// Trample into a banding blocker. Two-Headed Giant of Foriys — trample —
+/// attacks, blocked together by Timber Wolves and Gray Ogre. Timber
+/// Wolves' own reminder text is the rule in play here: "you divide that
+/// creature's combat damage ... among any of the creatures it's being
+/// blocked by" (CR 702.22j) — among the blockers, and nowhere else. Timber
+/// Wolves' 1 toughness plus Gray Ogre's 2 add up to one less than the
+/// Giant's 4 power, so a division free to reach the player would leave a
+/// point unaccounted for; here none of it reaches p1's life at all.
+#[test]
+fn trample_into_a_banding_blocker_divides_among_the_blockers_and_none_tramples_over() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[two_headed_giant_of_foriys()])
+        .battlefield(1, &[timber_wolves(), gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let giant = on_battlefield(&engine, p0, two_headed_giant_of_foriys()).expect("seated");
+    let wolves = on_battlefield(&engine, p1, timber_wolves()).expect("seated");
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    assert!(keywords(&engine, giant).contains(KeywordSet::TRAMPLE));
+    assert_eq!(
+        pt(&engine, giant),
+        (4, 4),
+        "four power: more than the two blockers' combined toughness"
+    );
+
+    declare_band_attack(&mut engine, p0, p1, &[giant]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    declare_band_blocks(&mut engine, p1, &[(wolves, giant), (ogre, giant)]);
+
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
+        panic!("expected the division, got {:?}", engine.pending())
+    };
+    assert_eq!(
+        player, p1,
+        "CR 702.22j: the defending player divides, not the Giant's own controller"
+    );
+    assert_eq!((min, max), (0, 4), "the Giant's whole power, any of it");
+    assert_eq!(
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: giant,
+            recipient: wolves,
+            index: 0,
+            of: 2,
+            left: 4,
+        },
+        "the first-declared blocker asked first"
+    );
+    engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "nothing tramples past a banding division: it only ever reaches the \
+         blockers, and their combined toughness is one short of the Giant's power"
+    );
+}
+
 /// Mesa Pegasus — banded with a grounded ally, a grounded blocker (no
-/// flying or reach) ends up blocking the Pegasus too, exactly CR 702.22h's
-/// own example: a flier in a band with a creature it never could have
-/// blocked alone. Unbanded, the same declared block never touches the
-/// flier, which the offer itself never lets a grounded creature block on
-/// its own.
+/// flying or reach) ends up blocking the Pegasus too — exactly the case
+/// "bands are blocked as a group" covers (CR 702.22h): a flier in a band
+/// with a creature it never could have blocked alone. Unbanded, the same
+/// declared block never touches the flier, which the offer itself never
+/// lets a grounded creature block on its own.
 #[test]
 #[allow(clippy::too_many_lines)] // the offer check plus the banded/unbanded contrast, in full
 fn mesa_pegasus_bands_with_a_grounded_ally_so_a_grounded_blocker_ends_up_blocking_the_flier() {
@@ -99383,59 +99482,68 @@ fn mesa_pegasus_flying_keeps_a_grounded_creature_from_blocking_it_alone() {
     );
 }
 
-/// Mesa Pegasus — the same CR 702.22k division as Benalish Hero, played
-/// through the flier: banded with a grounded ally, the ogre that blocks
-/// only the ally ends up dividing its damage between both, and it is the
-/// *active* player who chooses — not the ogre's own controller. The active
-/// player puts it all on the flier and none on the ally: the opposite of
-/// the engine's own fallback with no division recorded (everything on the
-/// first-declared recipient, the ally), so what dies is proof the answer
-/// given is the one that landed.
+/// Mesa Pegasus — the CR 702.22j clause, played from the flier's side:
+/// blocking alongside another creature (no band needed for this half) hands
+/// the attacker's damage division to Mesa Pegasus' own controller — the
+/// *defending* player — not the attacker's own controller, who ordinarily
+/// divides a multiply-blocked attacker's damage (CR 510.1c) and would have
+/// no reason to spare the second blocker.
 #[test]
-fn mesa_pegasus_bands_damage_division_is_chosen_by_the_active_player() {
+fn mesa_pegasus_blocking_divides_the_attackers_damage_for_its_own_controller() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[mesa_pegasus(), savannah_lions()])
-        .battlefield(1, &[gray_ogre()])
+        .battlefield(0, &[craw_wurm()])
+        .battlefield(1, &[mesa_pegasus(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let pegasus = on_battlefield(&engine, p0, mesa_pegasus()).expect("seated");
-    let lions = on_battlefield(&engine, p0, savannah_lions()).expect("seated");
+    let wurm = on_battlefield(&engine, p0, craw_wurm()).expect("seated");
+    let pegasus = on_battlefield(&engine, p1, mesa_pegasus()).expect("seated");
+    assert_eq!(pt(&engine, wurm), (6, 4), "six power to divide");
+
+    declare_band_attack(&mut engine, p0, p1, &[wurm]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
     let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("seated");
+    declare_band_blocks(&mut engine, p1, &[(pegasus, wurm), (ogre, wurm)]);
 
-    declare_band_attack(&mut engine, p0, p1, &[pegasus, lions]);
-    answer_band_and_reach_blockers(&mut engine, p0, vec![lions]);
-    declare_band_blocks(&mut engine, p1, &[(ogre, lions)]);
-
-    let Pending::ChooseNumber { player, reason, .. } = next_combat_question(&mut engine) else {
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason,
+    } = next_combat_question(&mut engine)
+    else {
         panic!("expected the division, got {:?}", engine.pending())
     };
     assert_eq!(
-        player, p0,
-        "CR 702.22k: the active player divides, not the ogre's own controller"
+        player, p1,
+        "CR 702.22j: the defending player divides, not the Wurm's own controller"
     );
-    assert!(matches!(
-        reason,
-        crate::choice::NumberPrompt::CombatDamage { source, recipient, .. }
-            if source == ogre && recipient == lions
-    ));
-    engine.apply(p0, PlayerAction::ChooseNumber(0)).unwrap();
-
-    assert!(
-        on_battlefield(&engine, p0, savannah_lions()).is_some(),
-        "the active player put none of it on the ally, sparing it"
-    );
+    assert_eq!((min, max), (0, 6), "the Wurm's whole power, any of it");
     assert_eq!(
-        engine.state().object(lions).map(|o| o.damage),
+        reason,
+        crate::choice::NumberPrompt::CombatDamage {
+            source: wurm,
+            recipient: pegasus,
+            index: 0,
+            of: 2,
+            left: 6,
+        },
+        "the first-declared blocker asked first"
+    );
+    engine.apply(p1, PlayerAction::ChooseNumber(0)).unwrap();
+
+    assert_eq!(
+        engine.state().object(pegasus).map(|o| o.damage),
         Some(0),
-        "not even a fraction reached the ally"
+        "the defending player spared its own banding creature"
     );
     assert!(
-        on_battlefield(&engine, p0, mesa_pegasus()).is_none(),
-        "and put both points on the flier instead — the reverse of the \
-         engine's own fallback, which would have spared the flier and \
-         killed the ally"
+        on_battlefield(&engine, p1, gray_ogre()).is_none(),
+        "and put the whole six on the ogre instead — which the Wurm's own \
+         controller had no reason to do"
     );
 }
