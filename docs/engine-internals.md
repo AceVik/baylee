@@ -336,7 +336,14 @@ may block it, or loses the one it has (CR 702.111b). Without a menace
 attacker that a requirement names, the blockers do not touch one another
 and this is the maximum CR 509.1c asks for. With one, a blocker's help costs
 it its own requirements, and the constructed declaration can fall short of
-the best one: **an engine simplification**, lenient only — a declaration
+the best one. Two attackers each enchanted with Lure, one on the ground with
+menace and one with flying; two blockers with reach and one without, each
+able to block one attacker. `obeying` sends both reach creatures to the
+flier (attackers without menace first), leaves the third alone on the
+menace attacker, finds it no helper with room and drops it: two obeyed.
+One reach creature and the one without reach on the menace attacker, the
+other reach creature on the flier, obey three. **An engine
+simplification**, lenient only — a declaration
 obeying at least as many as `obeying` is accepted, so no legal declaration
 is ever refused and the engine never asks for more than it can name. The
 clock answers with `obeying` (`choice::timeout_answer`); the house AI keeps
@@ -506,6 +513,34 @@ permanent. `GameState::move_object` re-points those effects, the
 the stack to the battlefield (`EffectTable::follow_into_permanent`), and no
 other move. A Lace cast at a creature spell makes a creature of the new
 colour.
+
+### The source on the stack has no version (CR 400.7)
+"An object that moves from one zone to another becomes a new object with no
+memory of, or relation to, its previous existence" (CR 400.7). An ability
+on the stack names its source by id alone (`Resolution.source`), and an id
+survives a move: the card that left and came back is at the same id, one
+version on. Two scenarios in the pool show it, both through Kenrith, the
+Returned King ("{4}{B}: Put target creature card from a graveyard onto the
+battlefield under its owner's control"), and both are **known defects**:
+
+- **Scavenging Ghoul.** Its end-step trigger ("put a corpse counter on this
+  creature for each creature that died this turn") is on the stack; the
+  Ghoul dies in response and Kenrith returns it. `this_object(res)` answers
+  `res.source`, compares no version, and the counters land on the new Ghoul,
+  an object the ability has no relation to (`resolve::counters`,
+  `Effect::AddCounter`).
+- **Circle of Protection: Blue.** A Prodigal Sorcerer's ping is on the stack
+  and the Circle's controller has chosen the Sorcerer ("the next time a
+  blue source of your choice would deal damage to you this turn"). The
+  Sorcerer dies and Kenrith returns it before the ping resolves. The
+  damage comes from the id, now on the battlefield two versions on (v+2),
+  and `ChosenSource::deals` accepts there only the same version or the one
+  a chosen spell became: the shield misses damage from the very source
+  chosen. Left in the graveyard, the Sorcerer would have been read as it
+  last was and the damage prevented (CR 609.7a).
+
+The fix is a version on the stack object and on `Resolution.source`,
+compared where the source is read; it is engine-core work and not yet done.
 
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
@@ -812,8 +847,10 @@ waits for damage. The shields live in `GameState::shields` in the order they
 were made, and `prevention::apply` is the one function that spends them:
 every writer of damage asks it how much of what it is about to deal still
 gets through, after the standing prevention it already asked (a permanent's
-protection, Maze of Ith's `PreventDamageToIt`, which are never used up) and
-before anything is lost, marked or journalled. Four writers ask today — two
+protection, which every writer asks, and Maze of Ith's `PreventDamageToIt`
+and `PreventDamageFromIt`, which only combat's two ask: both cards that
+carry them, Maze of Ith and Kor Haven, prevent combat damage only; none of
+these is ever used up) and before anything is lost, marked or journalled. Four writers ask today — two
 in `combat`, two in `resolve::life` — and damage prevented in full is never
 dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
 
@@ -853,7 +890,10 @@ Protection, a Circle before Forcefield), and two "next N" shields spend the
 same total either way. Two pairs are trades, and there the engine decides
 what the player would be asked — **an engine simplification**: Reverse
 Damage goes before Fog (the life now, rather than Reverse Damage kept for
-that source's later damage), and a chosen-source shield before "the next N"
+that source's later damage: a creature chosen for Reverse Damage attacks
+into a Fog, its combat damage spends Reverse Damage and gains its life,
+and that creature's later damage that turn is dealt in full), and a
+chosen-source shield before "the next N"
 (the N kept for any source, rather than the chosen-source shield kept for
 its one). A new kind of shield is placed in that order with its reason; a
 pair for which the fixed order would often be the wrong answer needs the
@@ -884,7 +924,15 @@ damage.
   then, or as it last was once it has left the battlefield (CR 609.7c): the
   ability of a red creature killed in response is still a red source's.
   Combat status is not remembered, so an unblocked creature that has left
-  is no longer one. The affected permanent is read then too
+  is no longer one. That is **a guess** where the rules do not settle it:
+  CR 609.7c applies such an effect "to any sources that aren't on the
+  battlefield that have that property", and CR 506.4 says only that a
+  creature removed from combat "stops being an attacking, blocking,
+  blocked, and/or unblocked creature". An unblocked Mogg Fanatic sacrificed
+  ("Sacrifice this creature: It deals 1 damage to any target") at the
+  Bodyguard's controller deals that 1 to the player; read by its last
+  known information, as it was just before it left, it would be an
+  unblocked creature's damage and go to the Bodyguard. The affected permanent is read then too
   (`effects::applies_to`), so Veteran Bodyguard's "as long as this creature
   is untapped" is in its affected filter, `And(This, Untapped)`, and a
   Bodyguard tapped earlier in the same resolution is already out of the way.

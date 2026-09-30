@@ -1006,6 +1006,49 @@ mod tests {
         assert_eq!(state.journal.len(), entries + 1);
     }
 
+    /// Maze of Ith's two modifiers prevent combat damage only ("Prevent
+    /// all combat damage that would be dealt to and dealt by that
+    /// creature"), as Kor Haven's, the other card that carries one, does.
+    /// Combat's doors ask them; an effect's damage is dealt.
+    #[test]
+    fn maze_of_ith_s_modifiers_leave_an_effect_s_damage_alone() {
+        let mut state = state();
+        let source = permanent(&mut state, "Bolt");
+        let bear = permanent(&mut state, "Bear");
+        for (on, modifier) in [
+            (bear, Modifier::PreventDamageToIt),
+            (source, Modifier::PreventDamageFromIt),
+        ] {
+            let version = state.object(on).expect("just made it").version;
+            state.effects.register(ContinuousEffect {
+                // `register` assigns the real one.
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(on),
+                controller: me(),
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp: 1,
+                duration: Duration::UntilEndOfTurn,
+                filter: EffectFilter::ObjectIs(on, version),
+                modifier,
+            });
+        }
+
+        deal_to_object_with_loyalty(&mut state, bear, 3, source);
+        assert_eq!(
+            state.object(bear).expect("still there").damage,
+            3,
+            "neither modifier stops an effect's damage to the creature"
+        );
+        let before = life(&state, me());
+        deal_to_player(&mut state, source, me(), 2);
+        assert_eq!(
+            life(&state, me()),
+            before - 2,
+            "nor the creature's damage to a player"
+        );
+    }
+
     /// A permanent of `types` on `seat`'s side, and nothing else about it.
     fn typed(state: &mut GameState, seat: PlayerId, name: &str, types: TypeSet) -> ObjectId {
         let name = state.names.intern(name);
