@@ -2147,3 +2147,23 @@ land type"; both are convention tests that fire on a first try.
   dealt damage per block pair, which was harmless while a creature could
   block only one; a block spread through a band (702.22h) made a 3/3 deal
   six. Damage is per creature, divided across what it blocks (510.1d).
+- **"When you control no Islands" is a trigger, not an "if".** The reader
+  already turned `IsPresent$` into an intervening "if" (CR 603.4), and
+  reusing that output for `Mode$ Always` would have made Sea Serpent ask
+  its clause again on resolution: an Island played in response would save
+  it. A state trigger (603.8) checks only when it triggers, so the clause is
+  the trigger's own (`Trigger::State`), and a test moves an Island back in
+  while the ability waits to show it.
+- **A dev move runs no rules.** A test that took an Island away with
+  `dev_state_mut` between two passes saw its state trigger stacked and
+  resolved at once: the round of passes was already complete when the
+  engine first looked, which no game action can arrange. Change the board
+  while the player who acts next holds priority, so their pass is the first
+  moment the engine reads it.
+- **A Partial's tests stand on what it left out.** Pirate Ship's ping
+  tests put the ship on a board with no Island, which was harmless while
+  the sacrifice was missing; once the card was whole, the ship was
+  sacrificed before the first priority and both tests failed at "seated".
+  The reader also moved the ping from ability 0 to ability 2, in the order
+  of the script's lines. A card handed back to the reader has its tests
+  reread.

@@ -246,6 +246,60 @@ static REPLICATE_COPIES: [baylee_cards_dsl::Effect;
     crate::engine::cast_wizard::X_CEILING as usize] =
     [baylee_cards_dsl::Effect::CopyThisSpell; crate::engine::cast_wizard::X_CEILING as usize];
 
+/// The state triggers that trigger now (CR 603.8): every
+/// [`Trigger::State`] on the battlefield whose condition holds, asked with
+/// its source as `this` and the source's controller as "you".
+///
+/// `in_flight` answers whether the ability of `(source, index)` is already
+/// waiting to go on the stack or is on it; one that is does not trigger
+/// again until it has left the stack, and then only if its source is still
+/// on the battlefield and the condition still holds, which asking again is.
+#[must_use]
+pub fn state_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    in_flight: impl Fn(ObjectId, u32) -> bool,
+) -> Vec<PendingTrigger> {
+    let mut triggers = Vec::new();
+    for permanent in state.battlefield_seen() {
+        let Some(obj) = state.object(permanent) else {
+            continue;
+        };
+        let list = obj.ability_list(lookup);
+        for (index, ability) in list.abilities.iter().enumerate() {
+            let Some(firing) = triggered_parts(ability) else {
+                continue;
+            };
+            let Trigger::State(condition) = firing.trigger else {
+                continue;
+            };
+            let index = index as u32;
+            if in_flight(permanent, index)
+                || !eval::condition_holds(state, obj.controller, permanent, **condition)
+                || !eval::intervening_if(state, firing.condition, obj.controller, permanent)
+            {
+                continue;
+            }
+            triggers.push(PendingTrigger {
+                event_mana_value: None,
+                event_damage: None,
+                source: permanent,
+                ability_index: index,
+                abilities: Some(list),
+                controller: obj.controller,
+                timestamp: obj.timestamp,
+                event_object: None,
+                implicit_target: None,
+                synthetic_effects: None,
+                once_per_turn: firing.once_per_turn,
+                synthetic_target: None,
+                chosen_mode: None,
+            });
+        }
+    }
+    triggers
+}
+
 /// Replicate's triggered ability (CR 702.56a): "when you cast this spell, if
 /// a replicate cost was paid for it, copy it for each time its replicate cost
 /// was paid".

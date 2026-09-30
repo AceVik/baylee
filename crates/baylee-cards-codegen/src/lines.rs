@@ -623,6 +623,13 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             StepKind::CombatBegin => &["beginning of combat"],
             StepKind::End => &["end step"],
         },
+        // A state trigger (CR 603.8) prints the state it waits for: Sea
+        // Serpent's "When you control no Islands".
+        T::State(_) => &[
+            "when you control no",
+            "when there are no",
+            "when you have no",
+        ],
     }
 }
 

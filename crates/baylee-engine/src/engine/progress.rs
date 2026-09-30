@@ -2356,6 +2356,27 @@ impl<L: CardLookup> Engine<L> {
             })
             .collect();
         self.trigger_queue.extend(found);
+        // State triggers (CR 603.8) read the state, not the journal, so they
+        // are looked for on every pass, and an ability that is still waiting
+        // here or is on the stack does not trigger again until it has left
+        // it. The stack names an ability by its source and index, which is
+        // what the queue keys on too.
+        let stack = self.state.zones.list(crate::zone::ZoneLocation::Stack);
+        let queued = &self.trigger_queue;
+        let state = &self.state;
+        let in_flight = |source: ObjectId, index: u32| {
+            queued
+                .iter()
+                .any(|t| t.source == source && t.ability_index == index)
+                || stack.iter().any(|id| {
+                    state
+                        .object(*id)
+                        .and_then(|o| o.ability)
+                        .is_some_and(|loc| loc.source == source && loc.index == index)
+                })
+        };
+        let standing = trigger::state_triggers(&self.state, &self.lookup, in_flight);
+        self.trigger_queue.extend(standing);
         let active = self.state.turn.active.get();
         let seats = self.state.players.len() as u8;
         self.trigger_queue

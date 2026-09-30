@@ -85,6 +85,19 @@ impl CardBody {
         name
     }
 
+    /// Declares a `static <NAME>: Condition = <expr>;` and returns its name.
+    ///
+    /// A state trigger holds its condition by `&'static` reference
+    /// (`Trigger::State`), and the condition itself borrows a filter static,
+    /// which a promoted temporary may not do: a name above the literal is
+    /// the one spelling that always compiles.
+    pub fn condition_static(&mut self, prefix: &str, expr: &str) -> String {
+        let n = self.statics.matches("static ").count() + 1;
+        let name = format!("{prefix}{n}");
+        let _ = write!(self.statics, "static {name}: Condition = {expr};\n\n");
+        name
+    }
+
     /// The name this card already gave `expr`, if it gave it one.
     ///
     /// Matched on the **whole** declaration rather than by searching for the

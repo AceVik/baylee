@@ -173,6 +173,34 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+### What must attack, and what may attack whom (CR 508.1c–d)
+Two sentences change a declaration of attackers, and both are statics the
+layers carry as rules modifiers (`Layer::Text`, beside the other
+modifiers that change what a creature may do):
+
+- **A requirement**, `Modifier::AttacksEachCombat` ("attacks each combat if
+  able"). A grant is an until-end-of-turn effect with the same modifier, so
+  losing the creature's own abilities does not lose one another permanent
+  gave it.
+- **A restriction on the pair**, `Modifier::CantAttackUnlessDefenderControls`
+  ("can't attack unless defending player controls an Island"): the filter
+  is asked of the permanents of the player the creature would attack, and
+  of a planeswalker's controller when it attacks one.
+
+`combat::AttackRules` collects both once per declaration. The offer drops
+a creature that no defender allows, names in `limits` a creature some
+defenders do not allow (with the ones it may attack), and lists in
+`required` the creatures that must attack. `declare_attackers` refuses a
+pair a restriction forbids, and refuses a declaration that leaves out a
+creature that must attack and could: untapped, able to attack under CR
+508.1a, and allowed at least one defender. That is the whole of CR
+508.1d's maximum here, because this engine has no attack costs and no
+restriction on how many creatures attack, so obeying one requirement never
+costs another. The clock's answer (`choice::timeout_answer`) declares the
+required creatures and nothing else, each at the first defender it may
+attack; the house AI keeps its own choice and adds what the rules make it
+(`combat::obey_attack_rules`).
+
 ### Bands, and who divides combat damage (CR 702.22)
 Banding is a bit (`KeywordSet::BANDING`) and three questions
 (`engine/banding.rs`); "bands with other" (702.22b) is a family a bit cannot
@@ -406,6 +434,26 @@ A spell leaves by `Engine::leave_stack_without_resolving` and not by
 card *as it resolves*, and one that never resolved has done neither.
 Flashback is the rider that does apply, because CR 702.34a exiles the card
 "any time it would leave the stack".
+
+### State triggers (CR 603.8)
+"When you control no Islands, sacrifice this creature" triggers on a state
+and not on an event: `Trigger::State(&Condition)`. No journal entry matches
+it (`trigger::hits` answers 0), and `trigger::state_triggers` walks the
+battlefield on every pass of `queue_new_triggers`, asking the condition
+with the permanent's controller as "you". An ability that is still waiting
+in the trigger queue, or is on the stack (an `AbilityOnStack` whose
+`AbilityLoc` names the same source and index), does not trigger again;
+once it has left the stack it triggers at once if the state still matches.
+The condition is the trigger's and not an intervening "if": the ability
+resolves even when the state has ended by then.
+
+Two limits. The in-flight check keys on the source's id, which this engine
+keeps across a zone change, so a permanent that left and came back while
+its ability is on the stack waits for that ability to leave before its own
+can trigger (CR 603.8 would let the new object trigger at once; the same
+missing version as an event object on the stack). And a copy of the
+ability carries the same `AbilityLoc`, so it too holds the next trigger
+back until it has left the stack.
 
 ### The one check in the fixpoint that is not a state-based action
 Daybound and nightbound (CR 702.145c–g) are checked as their own step of

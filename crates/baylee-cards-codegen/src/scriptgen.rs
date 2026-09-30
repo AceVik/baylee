@@ -4252,6 +4252,12 @@ impl Tx<'_> {
         if mode == "CantBlockBy" {
             return self.cant_block_by(p);
         }
+        if mode == "MustAttack" {
+            return self.must_attack(p);
+        }
+        if mode == "CantAttack" {
+            return self.cant_attack_unless(p);
+        }
         if let Some(modifier) = match mode.as_str() {
             "CanAttackDefender" => Some("AttacksDespiteDefender"),
             "CanAttackIfHaste" => Some("AttacksAsThoughHaste"),
@@ -4468,6 +4474,58 @@ impl Tx<'_> {
         let name = self.body.filter_static("BLOCKER", &blockers);
         self.body.abilities.push(format!(
             "static_ability!({attackers}, Modifier::CantBeBlockedBy(&{name}){condition})"
+        ));
+        Some(())
+    }
+
+    /// "Attacks each combat if able" (CR 508.1d): `S:Mode$ MustAttack`, a
+    /// static naming the creatures it binds. `MustAttack$` names *what*
+    /// they attack if able, a requirement about the pair the engine does
+    /// not know, and stays unclaimed.
+    fn must_attack(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCreature") else {
+            return self.deny("`MustAttack` naming no creature".to_string());
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `MustAttack.{key}`"));
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::AttacksEachCombat{condition})"
+        ));
+        Some(())
+    }
+
+    /// "Can't attack unless defending player controls an Island" (CR
+    /// 508.1c): `S:Mode$ CantAttack | UnlessDefender$ controls<filter>`.
+    /// A plain "can't attack" and every other `UnlessDefender$` question
+    /// (fewer creatures, poisoned, the monarch) stay unclaimed, and so does
+    /// a negated one (`!controls…`): "unless defending player controls no
+    /// untapped lands" is a different sentence.
+    fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("`CantAttack` naming no creature".to_string());
+        };
+        let Some(unless) = p.take("UnlessDefender") else {
+            return self.deny("`CantAttack` with no `UnlessDefender$`".to_string());
+        };
+        let Some(wanted) = unless.strip_prefix("controls") else {
+            return self.deny(format!("`UnlessDefender$ {unless}`"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+            return None;
+        }
+        let attackers = self.filter_expr(&valid)?;
+        let wanted = self.filter_expr(wanted)?;
+        let name = self.body.filter_static("DEFENDER_CONTROLS", &wanted);
+        self.body.abilities.push(format!(
+            "static_ability!({attackers}, Modifier::CantAttackUnlessDefenderControls(&{name}){condition})"
         ));
         Some(())
     }
@@ -5042,6 +5100,15 @@ impl Tx<'_> {
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
+        let clause = self.present_clause(p, &valid)?;
+        Some(format!(", condition = Some({clause})"))
+    }
+
+    /// The rest of the `IsPresent$` family, `valid` being that key's value,
+    /// as a `Condition` expression, or `None` when it was refused. What
+    /// [`Self::condition`] splices in as an intervening "if", and what a
+    /// state trigger (`Mode$ Always`, CR 603.8) triggers on.
+    fn present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
         if p.take("NoResolvingCheck").is_some() {
             return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
         }
@@ -5109,7 +5176,7 @@ impl Tx<'_> {
             }
             Some((yours, bound))
         };
-        let expr = self.filter_expr(&valid)?;
+        let expr = self.filter_expr(valid)?;
         let clause = match count {
             None => {
                 let zoned = on_the_battlefield(&expr);
@@ -5130,7 +5197,32 @@ impl Tx<'_> {
                 format!("Condition::{variant}(&{name}, {n})")
             }
         };
-        Some(format!(", condition = Some({clause})"))
+        Some(clause)
+    }
+
+    /// `T:Mode$ Always`: a state trigger (CR 603.8), which triggers
+    /// whenever the game state matches its condition rather than on an
+    /// event. The `IsPresent$` clause is that condition, so it is the
+    /// trigger's own (`Trigger::State`) and not an intervening "if": the
+    /// ability is not asked again as it resolves (CR 603.4 is the other
+    /// sentence), and "When you control no Islands, sacrifice this" still
+    /// sacrifices after an Island arrives in response.
+    ///
+    /// The engine collects them off the battlefield only, so any other
+    /// `TriggerZones$` is refused; so is every key the clause reader does
+    /// not claim (`ResolvingCheck$`, a life total, a computed `SVar`), by
+    /// the caller's exhaustion check.
+    fn state_trigger(&mut self, p: &mut Params) -> Option<String> {
+        match p.take("TriggerZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(zones) => return self.deny(format!("`TriggerZones$ {zones}`")),
+        }
+        let Some(valid) = p.take("IsPresent") else {
+            return self.deny("an `Always` trigger with no `IsPresent$`".to_string());
+        };
+        let clause = self.present_clause(p, &valid)?;
+        let name = self.body.condition_static("STATE", &clause);
+        Some(format!("Trigger::State(&{name})"))
     }
 
     fn triggered(&mut self, spec: &str) -> Option<()> {
@@ -5139,8 +5231,12 @@ impl Tx<'_> {
         };
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
-        let trigger = self.trigger_expr(&mut p, &mode)?;
-        let condition = self.condition(&mut p)?;
+        let (trigger, condition) = if mode == "Always" {
+            (self.state_trigger(&mut p)?, String::new())
+        } else {
+            let trigger = self.trigger_expr(&mut p, &mode)?;
+            (trigger, self.condition(&mut p)?)
+        };
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };
@@ -6566,6 +6662,96 @@ SVar:X:Count$xPaid",
         );
         let script = parse("Name:X\nTypes:Creature Human\nPT:1/1\nK:Bands with Other:Legendary");
         assert!(transcode(&script, &cats(), None).is_none());
+    }
+
+    /// "Attacks each combat if able" (CR 508.1d) and "can't attack unless
+    /// defending player controls an Island" (CR 508.1c) are statics the
+    /// engine reads; a requirement naming what to attack, and an `unless`
+    /// that is not "controls", stay refused.
+    #[test]
+    fn attack_requirements_and_island_restrictions_are_read() {
+        let body = read(
+            "Name:X\nManaCost:4\nTypes:Artifact Creature Juggernaut\nPT:5/3\n\
+             S:Mode$ MustAttack | ValidCreature$ Card.Self | Description$ CARDNAME attacks each combat if able.\n",
+        );
+        assert_eq!(
+            body.abilities,
+            ["static_ability!(Filter::This, Modifier::AttacksEachCombat)"]
+        );
+        let body = read(
+            "Name:X\nManaCost:5 U\nTypes:Creature Serpent\nPT:5/5\n\
+             S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ controlsIsland | \
+             Description$ CARDNAME can't attack unless defending player controls an Island.\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.starts_with(
+                "static_ability!(Filter::This, Modifier::CantAttackUnlessDefenderControls(&"
+            ),
+            "{text}"
+        );
+        assert!(
+            format!("{text}\n{}", body.statics).contains("ISLAND"),
+            "the Island is what it asks for: {text}\n{}",
+            body.statics
+        );
+        for refused_line in [
+            "S:Mode$ MustAttack | ValidCreature$ Card.Self | MustAttack$ CardOwner",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ isMonarch",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ !controlsLand.untapped",
+            "S:Mode$ CantAttack | ValidCard$ Card.Self",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Serpent\nPT:5/5\n{refused_line}\n"
+                )),
+                "{refused_line}"
+            );
+        }
+    }
+
+    /// "When you control no Islands, sacrifice this" is a state trigger
+    /// (CR 603.8): the clause is the trigger's own condition, named above the
+    /// literal, and never an intervening "if". A clause the reader cannot
+    /// read, a zone it does not collect from, and a check at resolution stay
+    /// refused.
+    #[test]
+    fn a_state_trigger_is_read_as_its_own_condition() {
+        let body = read(
+            "Name:X\nManaCost:5 U\nTypes:Creature Serpent\nPT:5/5\n\
+             T:Mode$ Always | TriggerZones$ Battlefield | IsPresent$ Island.YouCtrl | \
+             PresentCompare$ EQ0 | Execute$ TrigSac | TriggerDescription$ When you control no Islands, sacrifice CARDNAME.\n\
+             SVar:TrigSac:DB$ Sacrifice\n",
+        );
+        let text = body.abilities.join("\n");
+        assert!(
+            text.starts_with("triggered!(Trigger::State(&STATE") && text.contains("SacrificeSelf"),
+            "{text}"
+        );
+        assert!(
+            !text.contains("condition ="),
+            "not an intervening if: {text}"
+        );
+        assert!(
+            body.statics
+                .contains(": Condition = Condition::ControlCountAtMost(&")
+                && body.statics.contains(", 0);"),
+            "no Islands under your control: {}",
+            body.statics
+        );
+        for refused_line in [
+            "T:Mode$ Always | TriggerZones$ Battlefield | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Graveyard | IsPresent$ Island.YouCtrl | PresentCompare$ EQ0 | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Battlefield | IsPresent$ Island.YouCtrl | PresentCompare$ EQ0 | ResolvingCheck$ IsPresent | Execute$ TrigSac",
+            "T:Mode$ Always | TriggerZones$ Battlefield | LifeTotal$ You | LifeAmount$ LE0 | Execute$ TrigSac",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature Serpent\nPT:5/5\n{refused_line}\nSVar:TrigSac:DB$ Sacrifice\n"
+                )),
+                "{refused_line}"
+            );
+        }
     }
 
     #[test]
@@ -9931,7 +10117,7 @@ SVar:X:Count$xPaid",
         ));
         // A mode that is not Continuous is not this rule.
         assert!(refused(
-            "Name:X\nTypes:Creature\nS:Mode$ MustAttack | ValidCreature$ Card.Self\n"
+            "Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self\n"
         ));
     }
 
@@ -10043,10 +10229,10 @@ SVar:X:Count$xPaid",
 
         // A static ability names the mode it cannot read, so the worklist
         // ranks `ReduceCost` and `Continuous` as the different work they are.
-        let script = parse("Name:X\nTypes:Creature\nS:Mode$ MustAttack | ValidCreature$ Card.Self");
+        let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self");
         assert_eq!(
             refusal_reason(&script, &cats(), None).as_deref(),
-            Some("static ability `S: Mode$ MustAttack`")
+            Some("static ability `S: Mode$ CantBlock`")
         );
     }
 

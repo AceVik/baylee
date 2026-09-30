@@ -451,6 +451,13 @@ pub enum Trigger {
         /// Whose turn.
         whose: crate::effect::PlayerRel,
     },
+    /// A state trigger (CR 603.8): "When you control no Islands, sacrifice
+    /// this creature." It triggers whenever the condition holds, asked with
+    /// the source as `this` and its controller as "you", and not again
+    /// while the ability is waiting to go on the stack or is on it; once it
+    /// has left the stack, a source still on the battlefield with the
+    /// condition still true triggers again. No event matches it.
+    State(&'static Condition),
 }
 
 impl Trigger {

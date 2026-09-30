@@ -998,7 +998,8 @@ land under a Doubling Season enters with four charge counters.
 `SpellCast(filter)`, `Draws(rel)`, `DrawsExceptFirst(rel)`,
 `FirstNoncreatureSpellCast(rel)`, `Attacks(filter)`, `BecomesTarget`,
 `EntersBattlefieldEvoked`, `StepBegin { step, whose }`,
-`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana { by, filter }`.
+`CountersReach { kind, n }`, `PlaysLand(rel)`, `TappedForMana { by, filter }`,
+`State(&condition)` (a state trigger, CR 603.8; see the Alpha pieces).
 
 `TappedForMana { by, filter }` is "whenever [a player] taps [a permanent]
 for mana": a player `by` names activated a mana ability of a permanent
@@ -2277,6 +2278,27 @@ Filters, conditions, modifiers and durations:
   `count` cards of the first player `who` names and orders them (Natural
   Selection). Seeing them is the question's entitlement, as for a scry of
   another library.
+- **`Modifier::AttacksEachCombat`** is "attacks each combat if able" (CR
+  508.1d): `static_ability!(Filter::This, Modifier::AttacksEachCombat)` on
+  Juggernaut, and the same modifier in an until-end-of-turn
+  `CreateContinuousEffect` for a grant. It is a modifier and not a keyword
+  bit, so a creature that loses its abilities keeps what another permanent
+  gave it. The engine refuses a declaration that leaves out a creature that
+  must attack and could.
+- **`Modifier::CantAttackUnlessDefenderControls(&filter)`** is "can't attack
+  unless defending player controls [filter]" (CR 508.1c): Sea Serpent's and
+  Pirate Ship's Island. The filter is asked of the permanents of the player
+  the creature would attack, so an Island of your own does nothing.
+- **`Trigger::State(&condition)`** is a state trigger (CR 603.8): "When you
+  control no Islands, sacrifice this creature" is
+  `triggered!(Trigger::State(&NO_ISLANDS), &[Effect::SacrificeSelf])` with
+  `static NO_ISLANDS: Condition = Condition::ControlCountAtMost(&ISLAND, 0);`
+  above the literal (a named static, because the condition borrows a filter
+  static and a promoted temporary may not). The condition is the trigger's,
+  never `condition = Some(…)`: that is an intervening "if" (CR 603.4), asked
+  again as the ability resolves, and a state trigger is not. It triggers
+  whenever the condition holds for its controller and the ability is neither
+  waiting to go on the stack nor on it.
 
 ## Worked examples
 
