@@ -26,7 +26,9 @@ picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
    (451 GB) holds the only other copy. Delete it only after the Linux
    session has confirmed the data: runs, models and arenas, and the
    paired arenas reproduce.
-6. **Tell d7** when it runs, with the numbers.
+6. **The performance baseline.** Re-run the commands in
+   `tools/trainer/perf-windows.md` and report the difference to baylee-d7.
+7. **Tell d7** when it runs, with the numbers.
 
 ## Who and how
 
