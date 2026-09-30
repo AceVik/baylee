@@ -1951,6 +1951,13 @@ Triggers, reflexive events and amounts:
 - **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
   carries the player and the amount on the trigger. **`Amount::EventAmount`**
   is "that much".
+- **`Trigger::DealsDamageToOpponent(filter)`** is the same with any damage,
+  combat or not (Hypnotic Specter: "whenever this creature deals damage to
+  an opponent, that player discards a card at random", `PlayerRel::DamagedPlayer`).
+- **`Trigger::DealtDamage(filter)`** is "whenever [a permanent] is dealt
+  damage" (Fungusaur). All combat damage in a step is dealt at once
+  (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);
+  every other damage event triggers it once, and prevented damage never.
 - **`ReflexiveEvent::ExiledThis`** is "You may exile it. When you do, …"
   (The Balrog of Moria). The action is `Effect::ExileSource`.
 

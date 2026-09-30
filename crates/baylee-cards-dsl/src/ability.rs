@@ -322,6 +322,21 @@ pub enum Trigger {
     /// and the amount ride on the trigger, for "that player" and "that
     /// much".
     DealsCombatDamageToOpponent(&'static Filter),
+    /// A source matching the filter deals damage, combat or not, to an
+    /// **opponent** of the ability's controller (Hypnotic Specter: "whenever
+    /// this creature deals damage to an opponent, that player discards a
+    /// card at random"). Once per damage event (CR 603.2c). The player dealt
+    /// to and the amount ride on the trigger, as on
+    /// [`Self::DealsCombatDamageToOpponent`].
+    DealsDamageToOpponent(&'static Filter),
+    /// A permanent matching the filter is dealt damage (Fungusaur:
+    /// "whenever this creature is dealt damage, put a +1/+1 counter on
+    /// it"). All combat damage is dealt at once (CR 510.2), so a creature
+    /// blocked by three is dealt damage in one event and this triggers once
+    /// for it (CR 603.2c); every other damage event triggers it once.
+    /// Damage that was prevented was not dealt, and triggers nothing
+    /// (CR 603.2g).
+    DealtDamage(&'static Filter),
     /// The source becomes tapped (City of Brass).
     BecomesTapped(&'static Filter),
     /// The count of a kind of counter on the source rises from below `n`

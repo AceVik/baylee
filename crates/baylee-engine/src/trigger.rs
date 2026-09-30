@@ -406,6 +406,36 @@ fn first_mana_of_a_tap(
         .unwrap_or(false)
 }
 
+/// Whether a combat `DamageDealt` is the first of its combat damage step to
+/// reach `object`. All combat damage in a step is dealt at once (CR 510.2),
+/// so however many creatures dealt it, `object` was dealt damage in one
+/// event, and "whenever this creature is dealt damage" triggers once
+/// (CR 603.2c). One step's damage is one batch: nothing is scanned between
+/// its events, and first strike's damage is another step.
+fn first_combat_damage_to(
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    object: ObjectId,
+) -> bool {
+    let Some(at) = batch
+        .iter()
+        .position(|entry| std::ptr::eq(&raw const entry.event, event))
+    else {
+        return false;
+    };
+    !batch[..at].iter().any(|entry| {
+        matches!(
+            entry.event,
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                is_combat: true,
+                ..
+            } if dealt == object && amount > 0
+        )
+    })
+}
+
 /// The monarch is read once for the whole batch. A batch is what happened
 /// between two scans, and nothing that makes a player the monarch shares
 /// one with a step beginning or with combat damage: a resolution is scanned
@@ -1363,6 +1393,36 @@ fn matches(
                     .object(*damage_source)
                     .is_some_and(|o| eval::matches(filter, state, o, you, source))
         }
+        (
+            Trigger::DealsDamageToOpponent(filter),
+            GameEvent::DamageDealt {
+                source: Some(damage_source),
+                target: crate::event::DamageTarget::Player(player),
+                amount,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && state.is_opponent(*player, you)
+                && state
+                    .object(*damage_source)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
+        (
+            Trigger::DealtDamage(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                is_combat,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && (!*is_combat || first_combat_damage_to(event, batch, *dealt))
+                && state
+                    .object(*dealt)
+                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+        }
         // CR 714.2b's window, "was less than N and became at least N",
         // asked of the source's own counters.
         (
@@ -1667,6 +1727,86 @@ mod tests {
             0,
             "an Aura attached to nothing has no enchanted land's controller"
         );
+    }
+
+    /// Hypnotic Specter's "deals damage to an opponent" is any damage, where
+    /// the combat trigger sees combat damage only. Fungusaur's "is dealt
+    /// damage" is one event for all the combat damage of a step (CR 510.2,
+    /// 603.2c), one for each other damage event, and none for damage
+    /// prevented to nothing (CR 603.2g).
+    #[test]
+    fn damage_to_an_opponent_and_damage_dealt_to_this_count_their_events() {
+        use crate::event::{DamageTarget, JournalEntry};
+        let mut state = state();
+        let specter = permanent(&mut state, me(), "Hypnotic Specter");
+        let fungusaur = permanent(&mut state, me(), "Fungusaur");
+        let (one, two) = (
+            permanent(&mut state, them(), "Blocker"),
+            permanent(&mut state, them(), "Blocker"),
+        );
+        let dealt = |source, target, amount, is_combat| GameEvent::DamageDealt {
+            source: Some(source),
+            target,
+            amount,
+            is_combat,
+        };
+
+        let specter_trigger = Trigger::DealsDamageToOpponent(&Filter::This);
+        let to_them = dealt(specter, DamageTarget::Player(them()), 1, false);
+        assert_eq!(
+            hits(&specter_trigger, &to_them, &[], &state, specter, me()),
+            1,
+            "damage out of combat"
+        );
+        assert_eq!(
+            hits(
+                &Trigger::DealsCombatDamageToOpponent(&Filter::This),
+                &to_them,
+                &[],
+                &state,
+                specter,
+                me()
+            ),
+            0,
+            "which the combat trigger does not see"
+        );
+        let to_me = dealt(specter, DamageTarget::Player(me()), 1, false);
+        assert_eq!(
+            hits(&specter_trigger, &to_me, &[], &state, specter, me()),
+            0
+        );
+
+        let fungus = Trigger::DealtDamage(&Filter::This);
+        let entry = |seq, event| JournalEntry { seq, event };
+        let blocked = vec![
+            entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, true)),
+            entry(2, dealt(two, DamageTarget::Object(fungusaur), 1, true)),
+        ];
+        let fired = |batch: &[JournalEntry], at: usize| {
+            hits(&fungus, &batch[at].event, batch, &state, fungusaur, me())
+        };
+        assert_eq!(fired(&blocked, 0), 1, "blocked by two, dealt damage once");
+        assert_eq!(
+            fired(&blocked, 1),
+            0,
+            "the second blocker's is the same event"
+        );
+        let burned = vec![
+            entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, false)),
+            entry(2, dealt(two, DamageTarget::Object(fungusaur), 1, false)),
+        ];
+        assert_eq!(
+            fired(&burned, 0) + fired(&burned, 1),
+            2,
+            "two spells, two events"
+        );
+        let prevented = vec![entry(
+            1,
+            dealt(one, DamageTarget::Object(fungusaur), 0, false),
+        )];
+        assert_eq!(fired(&prevented, 0), 0, "prevented damage was not dealt");
+        let elsewhere = vec![entry(1, dealt(one, DamageTarget::Object(two), 1, false))];
+        assert_eq!(fired(&elsewhere, 0), 0, "another creature's damage");
     }
 
     /// "Except the first one they draw in each of their draw steps" skips

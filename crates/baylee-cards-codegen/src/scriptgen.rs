@@ -1014,6 +1014,10 @@ impl Tx<'_> {
             "TriggeredCardController" | "TriggeredActivator" if trigger == Some("TapsForMana") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            // The player a damage trigger's damage was dealt to: the
+            // `DamageDone` rule reads only triggers whose target is a
+            // player, so `TriggeredTarget` is one.
+            "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
             _ => return None,
         })
     }
@@ -2898,6 +2902,72 @@ impl Tx<'_> {
         Some(format!("Trigger::SpellCast(&{filter})"))
     }
 
+    /// `T:Mode$ DamageDone` — "whenever this creature deals [combat] damage
+    /// to [a player | an opponent]" — and `DamageDoneOnce`, "whenever this
+    /// creature is dealt damage".
+    ///
+    /// `DamageDone` needs a source and a player target: `Player` in combat
+    /// is `DealsCombatDamageToPlayer`, `Opponent` is
+    /// `DealsCombatDamageToOpponent` in combat and `DealsDamageToOpponent`
+    /// out of it (Hypnotic Specter). Damage to a player out of combat, to a
+    /// creature, or to anything else is refused by name.
+    ///
+    /// `DamageDoneOnce` is the reference's "once however many sources",
+    /// which is what the rules make of simultaneous damage (CR 510.2,
+    /// 603.2c) and what `Trigger::DealtDamage` does; it is read for a
+    /// permanent dealt damage by anything, and refused for a player or with
+    /// a source or combat named.
+    fn damage_trigger(&mut self, p: &mut Params, once: bool) -> Option<String> {
+        let target = p.take("ValidTarget");
+        let source = p.take("ValidSource");
+        let combat = match p.take("CombatDamage").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`CombatDamage$ {other}`")),
+        };
+        let filter_of = |this: &mut Self, valid: &str| -> Option<String> {
+            if valid == "Card.Self" {
+                return Some("&Filter::This".to_string());
+            }
+            let expr = this.filter_expr(valid)?;
+            Some(format!("&{}", this.body.filter_static("TRIGGER", &expr)))
+        };
+        if once {
+            let Some(target) = target else {
+                return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
+            };
+            if source.is_some() || combat {
+                return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
+            }
+            if target
+                .split(['.', ','])
+                .any(|w| matches!(w, "You" | "Player" | "Opponent"))
+            {
+                return self.deny(format!("damage dealt to `{target}` at once"));
+            }
+            let filter = filter_of(self, &target)?;
+            return Some(format!("Trigger::DealtDamage({filter})"));
+        }
+        let Some(source) = source else {
+            return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
+        };
+        let filter = filter_of(self, &source)?;
+        match (target.as_deref(), combat) {
+            (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
+            (Some("Opponent" | "Player.Opponent"), true) => {
+                Some(format!("Trigger::DealsCombatDamageToOpponent({filter})"))
+            }
+            (Some("Opponent" | "Player.Opponent"), false) => {
+                Some(format!("Trigger::DealsDamageToOpponent({filter})"))
+            }
+            (other, _) => self.deny(format!(
+                "damage dealt to `{}`{}",
+                other.unwrap_or("anything"),
+                if combat { " in combat" } else { "" }
+            )),
+        }
+    }
+
     /// `T:Mode$ TapsForMana` — "whenever a Mountain is tapped for mana"
     /// (Gauntlet of Might), "whenever a player taps a land for mana"
     /// (Manabarbs): CR 106.12a. No `Activator$` is anybody, as the two
@@ -3027,6 +3097,8 @@ impl Tx<'_> {
             }
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "TapsForMana" => self.taps_for_mana_trigger(p),
+            "DamageDone" => self.damage_trigger(p, false),
+            "DamageDoneOnce" => self.damage_trigger(p, true),
             "Taps" => {
                 let valid = p.take("ValidCard").unwrap_or_default();
                 if valid == "Card.Self" {
@@ -6876,6 +6948,66 @@ SVar:X:Count$xPaid",
              S:Mode$ Continuous | Affected$ Creature.Goblin | AddAbility$ Ping\n\
              SVar:Ping:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1\n"
         ));
+    }
+
+    /// Hypnotic Specter and Fungusaur: damage to an opponent in or out of
+    /// combat, "that player" the one dealt damage, and "is dealt damage"
+    /// once however many sources. A player dealt damage "once", a creature
+    /// target, and damage to a player out of combat are refused.
+    #[test]
+    fn damage_triggers_read_whose_damage_and_to_whom() {
+        let specter = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Opponent | Execute$ D | \
+             TriggerZones$ Battlefield\n\
+             SVar:D:DB$ Discard | Defined$ TriggeredTarget | NumCards$ 1 | Mode$ Random",
+        );
+        let a = specter.abilities.join("");
+        assert!(
+            a.contains("Trigger::DealsDamageToOpponent(&Filter::This)"),
+            "{a}"
+        );
+        assert!(a.contains("who: PlayerRel::DamagedPlayer"), "{a}");
+        let combat = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True \
+             | Execute$ D\n\
+             SVar:D:DB$ Draw | NumCards$ 1",
+        );
+        assert!(
+            combat
+                .abilities
+                .join("")
+                .contains("Trigger::DealsCombatDamageToPlayer(&Filter::This)"),
+            "{:?}",
+            combat.abilities
+        );
+        let fungusaur = read(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ DamageDoneOnce | ValidTarget$ Card.Self | Execute$ C\n\
+             SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+        );
+        assert!(
+            fungusaur
+                .abilities
+                .join("")
+                .contains("Trigger::DealtDamage(&Filter::This)"),
+            "{:?}",
+            fungusaur.abilities
+        );
+        for refused_line in [
+            "T:Mode$ DamageDoneOnce | ValidTarget$ You | Execute$ C",
+            "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | Execute$ C",
+            "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ C",
+        ] {
+            assert!(
+                refused(&format!(
+                    "Name:X\nTypes:Creature\nPT:2/2\n{refused_line}\n\
+                     SVar:C:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1"
+                )),
+                "{refused_line}"
+            );
+        }
     }
 
     /// Gauntlet of Might, Manabarbs, Badgermole Cub: who tapped it is

@@ -588,7 +588,10 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::UnlockThisDoor(_) => &["unlock this door"],
         T::Ward => &["ward"],
         T::ExiledFromBattlefield(_) => &["exiled"],
-        T::DealsCombatDamageToPlayer(_) | T::DealsCombatDamageToOpponent(_) => &["damage"],
+        T::DealsCombatDamageToPlayer(_)
+        | T::DealsCombatDamageToOpponent(_)
+        | T::DealsDamageToOpponent(_)
+        | T::DealtDamage(_) => &["damage"],
         T::BecomesTapped(_) => &["tap"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
@@ -689,6 +692,8 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::ExiledFromBattlefield(filter)
         | Trigger::DealsCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
+        | Trigger::DealsDamageToOpponent(filter)
+        | Trigger::DealtDamage(filter)
         | Trigger::SpellCast(filter) => {
             if matches!(filter, baylee_cards_dsl::Filter::This) {
                 !about_someone_else()
