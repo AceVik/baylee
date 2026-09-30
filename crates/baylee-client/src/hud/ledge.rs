@@ -825,7 +825,7 @@ pub fn sync_ledge(
     let over = duel.ending().is_some();
     let waiting = !duel.is_my_turn_to_act();
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-    let prompt = duel.headline(lang);
+    let prompt = duel.headline(lang, &texts);
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {

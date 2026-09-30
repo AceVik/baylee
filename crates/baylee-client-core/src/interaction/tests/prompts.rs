@@ -881,3 +881,63 @@ fn cast_paying_question_says_the_mana_is_made_first() {
         assert!(text.contains(first), "{text}");
     }
 }
+
+/// The band and combat damage questions name their creatures where the
+/// renderer can: a double block by two Bears is two shares (CR 510.1c), and
+/// "creature 1 of 2" does not say which Bear is first.
+#[test]
+fn division_and_band_questions_name_their_creatures() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(2), obj(3)],
+        min: 0,
+        max: 2,
+        prompt: baylee_engine::choice::ChoicePrompt::Band { with: obj(1) },
+        total: None,
+    });
+    let names = |id: ObjectId| {
+        [(obj(1), "Craw Wurm"), (obj(2), "Grizzly Bears")]
+            .into_iter()
+            .find(|(o, _)| *o == id)
+            .map(|(_, n)| n.to_string())
+    };
+    let line = i
+        .prompt()
+        .headline_naming(Lang::En, Turn::Mine, None, false, &names);
+    assert_eq!(line, "Choose up to 2 attackers to band with Craw Wurm");
+    let line = i
+        .prompt()
+        .headline_naming(Lang::De, Turn::Mine, None, false, &names);
+    assert_eq!(
+        line,
+        "Wähle bis zu 2 Angreifer, die mit Craw Wurm eine Gruppe bilden"
+    );
+    let i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 6,
+        reason: baylee_engine::choice::NumberPrompt::CombatDamage {
+            source: obj(1),
+            recipient: obj(2),
+            index: 0,
+            of: 2,
+            left: 6,
+        },
+    });
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &names),
+        "Combat damage from Craw Wurm to Grizzly Bears (1 of 2), 6 left to divide (0–6)"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::De, Turn::Mine, None, false, &names),
+        "Kampfschaden von Craw Wurm an Grizzly Bears (1 von 2), noch 6 zu verteilen (0–6)"
+    );
+    // A creature the renderer cannot name keeps the count.
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &|_| None),
+        "Combat damage to creature 1 of 2, 6 left to divide (0–6)"
+    );
+}

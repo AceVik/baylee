@@ -584,12 +584,12 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::DivideDamage { target, .. } => {
                     self.damage_share(view, target, min, max)
                 }
-                // A creature's combat damage that banding hands this seat to
-                // divide (CR 702.22j–k): the same judgement, of the creature
-                // the share goes to.
-                baylee_engine::choice::NumberPrompt::CombatDamage { recipient, .. } => {
-                    self.damage_share(view, recipient, min, max)
-                }
+                // A creature's combat damage divided among two or more
+                // (CR 510.1c–d, 702.22j–k): what finishes each creature in
+                // turn, and the last takes the rest.
+                baylee_engine::choice::NumberPrompt::CombatDamage {
+                    source, recipient, ..
+                } => self.combat_share(view, source, recipient, min, max),
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))
@@ -1246,6 +1246,48 @@ mod tests {
                         index: 0,
                         of: 2,
                         left: 4,
+                    },
+                },
+            );
+            assert_eq!(action, PlayerAction::ChooseNumber(expected), "{why}");
+        }
+    }
+
+    /// An attacker's combat damage divided among its blockers (CR 510.1c):
+    /// what finishes each blocker in turn, the engine giving the last the
+    /// rest; from a deathtouch source one is lethal (CR 702.2c).
+    #[test]
+    fn a_combat_share_finishes_each_blocker_in_turn() {
+        use baylee_engine::choice::NumberPrompt;
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let mut toucher = permanent(obj(8), me, 5);
+        toucher.keywords |= baylee_cards_dsl::KeywordSet::DEATHTOUCH.bits();
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), them, 2),
+                permanent(obj(2), them, 3),
+                permanent(obj(9), me, 5),
+                toucher,
+            ],
+        );
+        for (source, expected, why) in [
+            (obj(9), 2, "a 2/2 takes two, and three are left for the 3/3"),
+            (obj(8), 1, "deathtouch: one is lethal"),
+        ] {
+            let action = HeuristicAgent::new(AIProfile::EXPERT).act(
+                &v,
+                &Pending::ChooseNumber {
+                    player: v.seat,
+                    min: 0,
+                    max: 5,
+                    reason: NumberPrompt::CombatDamage {
+                        source,
+                        recipient: obj(1),
+                        index: 0,
+                        of: 2,
+                        left: 5,
                     },
                 },
             );

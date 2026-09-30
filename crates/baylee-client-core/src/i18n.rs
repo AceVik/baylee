@@ -1769,6 +1769,16 @@ messages! {
         en: "attackers to join the band",
         de: "Angreifer, die sich der Gruppe anschließen",
     },
+    /// attacker to band with {0} (banding, CR 702.22c): the leader named
+    NounAttackerToBandWith {
+        en: "attacker to band with {0}",
+        de: "Angreifer, der mit {0} eine Gruppe bildet",
+    },
+    /// attackers to band with {0}
+    NounAttackersToBandWith {
+        en: "attackers to band with {0}",
+        de: "Angreifer, die mit {0} eine Gruppe bilden",
+    },
     /// Convoke or waterbend: tap permanents to help pay.
     ///
     /// Neutral, because the question does not say which keyword asked it:
@@ -1802,11 +1812,17 @@ messages! {
         en: "Damage to target {0} of {1}, {2} left to divide ({3}–{4})",
         de: "Schaden an Ziel {0} von {1}, noch {2} zu verteilen ({3}–{4})",
     },
-    /// One creature's share of combat damage banding lets this player
-    /// divide (CR 702.22j–k).
+    /// One creature's share of combat damage this player divides
+    /// (CR 510.1c–d, 702.22j–k), when the creatures cannot be named.
     CombatDamageShare {
         en: "Combat damage to creature {0} of {1}, {2} left to divide ({3}–{4})",
         de: "Kampfschaden an Kreatur {0} von {1}, noch {2} zu verteilen ({3}–{4})",
+    },
+    /// The same share, naming the creature dealing the damage and the one
+    /// the share goes to.
+    CombatDamageShareNamed {
+        en: "Combat damage from {0} to {1} ({2} of {3}), {4} left to divide ({5}–{6})",
+        de: "Kampfschaden von {0} an {1} ({2} von {3}), noch {4} zu verteilen ({5}–{6})",
     },
     /// Replicate {0}: pay it how many times? ({1}–{2})
     ReplicateHowOften {
@@ -3877,6 +3893,10 @@ mod tests {
             (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
             (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
             (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
+            (
+                Phrase::NounAttackerToBandWith,
+                Phrase::NounAttackersToBandWith,
+            ),
             (Phrase::NounCardToHand, Phrase::NounCardsToHand),
             (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
             (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),

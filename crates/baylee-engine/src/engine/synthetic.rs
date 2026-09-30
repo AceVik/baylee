@@ -336,6 +336,19 @@ pub fn walk_past<L: CardLookup>(engine: &mut Engine<L>, pending: &Pending) -> bo
                 .unwrap();
             true
         }
+        // A creature's combat damage divided among two or more (CR 510.1c–d):
+        // each share the most it may be, so the first takes all of it.
+        Pending::ChooseNumber {
+            player,
+            max,
+            reason: crate::choice::NumberPrompt::CombatDamage { .. },
+            ..
+        } => {
+            engine
+                .apply(*player, PlayerAction::ChooseNumber(*max))
+                .unwrap();
+            true
+        }
         _ => false,
     }
 }

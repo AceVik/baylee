@@ -5,7 +5,10 @@
 //! a per-creature property, deathtouch, trample, lifelink, and banding
 //! (CR 702.22): bands declared with the attack, a block on one member
 //! blocking the whole band, and the damage divisions banding hands to the
-//! other player, which that player is asked for (`divisions_owed`).
+//! other player. Every division of combat damage among two or more
+//! creatures is asked of the player who makes it (`divisions_owed`): the
+//! attacker's controller (CR 510.1c), a blocker's (510.1d), or the one
+//! banding names (702.22j–k).
 //!
 //! What effects add to the declarations: [`AttackRules`] (CR 508.1c–d) and
 //! [`BlockRules`] (how many attackers a creature may block, CR 509.1a, and
@@ -15,11 +18,11 @@
 //! Attacks are aimed at a [`Defender`], so a planeswalker can be attacked
 //! and its loyalty comes off (CR 306.8). Battles are the remaining case.
 //!
-//! Not yet: an attacker blocked by two or more creatures without banding
-//! divides its damage as its controller chooses (CR 510.1c), and nobody is
-//! asked: the engine puts the damage on the blockers in declaration order,
-//! each taking all that is left (or, with trample, lethal damage), which is
-//! one of the divisions that player could have chosen.
+//! Not yet: an attacker with trample blocked by creatures without banding
+//! is not asked how to assign its damage (CR 702.19b). The engine assigns
+//! lethal damage to each blocker in declaration order and the rest to what
+//! it attacks, which is one of the assignments its controller could have
+//! chosen.
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::{GameObject, Status};
@@ -1111,19 +1114,19 @@ fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
 /// step's damage can be dealt, attackers first and then blockers, which is
 /// the order CR 510.1 has them announced in.
 ///
-/// Only the divisions banding hands to a player are asked:
-///
-/// - an attacker blocked by two or more creatures, one of which has
-///   banding, has its damage divided by the defending player among those
-///   blockers (CR 702.22j);
+/// - an attacker blocked by two or more creatures has its damage divided
+///   among them by its controller (CR 510.1c), or by the defending player
+///   if one of them has banding (CR 702.22j);
 /// - a blocker blocking two or more creatures, which only a band makes it
 ///   do, has its damage divided by the active player if one of them has
 ///   banding (CR 702.22k), and by its own controller if none has any more
 ///   (CR 510.1d).
 ///
-/// An attacker blocked by two or more creatures without banding divides
-/// its damage as the engine chooses for its controller, which is the
-/// standing simplification of CR 510.1c this module's header names.
+/// An attacker with trample blocked by creatures without banding is not
+/// asked: the engine assigns lethal damage to each blocker in declaration
+/// order and the rest to what it attacks, which is one of the assignments
+/// CR 702.19b lets its controller make (the simplification this module's
+/// header names).
 #[must_use]
 pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
@@ -1137,11 +1140,16 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
             continue;
         }
         // Every blocker is the defending player's: only they declare blocks.
-        let chooser = blockers
+        let banding = blockers
             .iter()
             .find(|b| has_banding(state, **b))
             .and_then(|b| state.object(*b))
             .map(|o| o.controller);
+        let chooser = match banding {
+            Some(defending) => Some(defending),
+            None if has_keyword(state, info.creature, K::TRAMPLE) => None,
+            None => state.object(info.creature).map(|o| o.controller),
+        };
         if let Some(chooser) = chooser {
             owed.push(OwedDivision {
                 source: info.creature,
@@ -1285,11 +1293,13 @@ fn assign_attacker_damage(
     // "blocked by creatures that are gone", and only `blocked` tells them
     // apart.
     let live = live_blockers(state, attacker);
-    if blocked && live.iter().any(|b| has_banding(state, *b)) {
-        // CR 702.22j: blocked by a creature with banding, the attacker's
-        // damage is divided by the defending player among the creatures
-        // blocking it, and among nothing else — trample assigns nothing
-        // past them, because the player dividing it is not its controller.
+    if blocked && (!trample || live.iter().any(|b| has_banding(state, *b))) {
+        // CR 510.1c: all of it to the one blocker there is, or divided
+        // among two or more as its controller chose. CR 702.22j: blocked by
+        // a creature with banding, it is the defending player who divides
+        // it, among the creatures blocking it and among nothing else —
+        // trample assigns nothing past them, because the player dividing it
+        // is not its controller.
         if power > 0 {
             for (blocker, amount) in shares(state, attacker, &live, power) {
                 if amount > 0 {
@@ -1305,18 +1315,14 @@ fn assign_attacker_damage(
             }
         }
     } else if blocked {
+        // Trample (CR 702.19b): lethal damage to each blocker in
+        // declaration order, and what is left past them.
         let mut remaining = power;
         for blocker in &live {
             if remaining <= 0 {
                 break;
             }
-            // Only trample lets an attacker hold damage back; without it
-            // the whole assignment goes to the blocker in front of it.
-            let assigned = if trample {
-                remaining.min(lethal_damage(state, attacker, *blocker))
-            } else {
-                remaining
-            };
+            let assigned = remaining.min(lethal_damage(state, attacker, *blocker));
             // Assignment and dealing are separate steps (CR 510.1c/510.2):
             // prevented damage is still assigned, so it still uses up the
             // attacker's power — but it was never dealt, so it links no life.
@@ -1330,7 +1336,7 @@ fn assign_attacker_damage(
             );
             remaining -= assigned;
         }
-        if trample && remaining > 0 {
+        if remaining > 0 {
             // CR 702.19b: what tramples through goes to "the player or
             // planeswalker it's attacking", not to the player regardless.
             lifelinked += deal_damage_to_defender(state, attacker, defending, remaining);

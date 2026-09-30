@@ -303,6 +303,28 @@ impl Prompt {
         statics: Option<&GameStatic>,
         owing: bool,
     ) -> String {
+        self.headline_naming(lang, turn, statics, owing, &|_| None)
+    }
+
+    /// [`Self::headline`], naming the creatures a question is about where
+    /// the line has room for them: the two a share of combat damage passes
+    /// between, and the attacker a band forms around. Without their names
+    /// both are counts ("creature 1 of 2", "the band"), which is no
+    /// question at a table with two Bears on it.
+    ///
+    /// `name` is the renderer's: what an object on the table is called in
+    /// the reader's language, `None` for one it cannot name, which keeps
+    /// the count.
+    #[must_use]
+    pub fn headline_naming(
+        &self,
+        lang: Lang,
+        turn: Turn,
+        statics: Option<&GameStatic>,
+        owing: bool,
+        name: &dyn Fn(ObjectId) -> Option<String>,
+    ) -> String {
+        let name = |id: ObjectId| name(id).filter(|n| !n.trim().is_empty());
         match self {
             Self::Waiting { on: Some(p) } => {
                 let name = seat_name(lang, statics, *p);
@@ -321,7 +343,7 @@ impl Prompt {
                 1 => Self::Waiting {
                     on: others.iter().next(),
                 }
-                .headline(lang, turn, statics, owing),
+                .headline_naming(lang, turn, statics, owing, &name),
                 n => Phrase::WaitingForPlayers.fill(lang, &[&n.to_string()]),
             },
             Self::Mulligan { taken, free } => {
@@ -394,10 +416,7 @@ impl Prompt {
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
             // put-back and a wish all read "Wähle 1 Karte", and two of those
             // four decide the turn.
-            Self::ChooseCards { reason, min, max } => {
-                let (one, many) = choice_noun(*reason);
-                choose_line(lang, one, many, *min, *max)
-            }
+            Self::ChooseCards { reason, min, max } => cards_line(lang, *reason, *min, *max, &name),
             Self::ChooseTargets {
                 reason: TargetPrompt::Convoke,
                 ..
@@ -418,7 +437,9 @@ impl Prompt {
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardName => Phrase::ChooseCardName.text(lang).to_string(),
             Self::ChooseColor { .. } => Phrase::ChooseColour.text(lang).to_string(),
-            Self::ChooseNumber { min, max, reason } => number_line(lang, *min, *max, *reason),
+            Self::ChooseNumber { min, max, reason } => {
+                number_line(lang, *min, *max, *reason, &name)
+            }
             Self::ChoosePlayer { .. } => Phrase::ChoosePlayer.text(lang).to_string(),
             Self::CastMode { .. } => Phrase::ChooseHowToCast.text(lang).to_string(),
             Self::ChoosePile { .. } => Phrase::ChoosePileForHand.text(lang).to_string(),
@@ -726,11 +747,68 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     }
 }
 
+/// The line a choice of cards gets, said by the noun that is counted.
+///
+/// The band is the leader's, and a table of banding creatures is a table of
+/// them: that line says which one it forms around, where it can be named.
+fn cards_line(
+    lang: Lang,
+    reason: ChoicePrompt,
+    min: u8,
+    max: u8,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    if let ChoicePrompt::Band { with } = reason
+        && let Some(leader) = name(with)
+    {
+        let noun = Phrase::counted(
+            usize::from(max),
+            Phrase::NounAttackerToBandWith,
+            Phrase::NounAttackersToBandWith,
+        )
+        .fill(lang, &[&leader]);
+        return choose_line_of(lang, &noun, min, max);
+    }
+    let (one, many) = choice_noun(reason);
+    choose_line(lang, one, many, min, max)
+}
+
 /// The line a number question gets: the range to choose from, or, for one
 /// target's share of a division, that target by its place in the order the
 /// player chose them (the order the stack shows) and what is still to give.
-fn number_line(lang: Lang, min: u32, max: u32, reason: NumberPrompt) -> String {
+fn number_line(
+    lang: Lang,
+    min: u32,
+    max: u32,
+    reason: NumberPrompt,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
     let (min, max) = (min.to_string(), max.to_string());
+    // Which creature's damage, and which creature this share is for: the
+    // attacker's controller divides it among its blockers (CR 510.1c), and
+    // "creature 1 of 2" names neither.
+    if let NumberPrompt::CombatDamage {
+        source,
+        recipient,
+        index,
+        of,
+        left,
+    } = reason
+        && let (Some(source), Some(recipient)) = (name(source), name(recipient))
+    {
+        return Phrase::CombatDamageShareNamed.fill(
+            lang,
+            &[
+                &source,
+                &recipient,
+                &(u32::from(index) + 1).to_string(),
+                &of.to_string(),
+                &left.to_string(),
+                &min,
+                &max,
+            ],
+        );
+    }
     match reason {
         NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
         NumberPrompt::Replicate { cost } => {
@@ -792,7 +870,16 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
 /// 2 cards", "1 card", "1–3 cards". A range whose top is more than one is
 /// plural however low it starts.
 fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u8, max: u8) -> String {
-    let noun = Phrase::counted(usize::from(max), one, many).text(lang);
+    choose_line_of(
+        lang,
+        Phrase::counted(usize::from(max), one, many).text(lang),
+        min,
+        max,
+    )
+}
+
+/// [`choose_line`] with the counted noun already written.
+fn choose_line_of(lang: Lang, noun: &str, min: u8, max: u8) -> String {
     match (min, max) {
         (0, m) => Phrase::ChooseUpTo.fill(lang, &[&m.to_string(), noun]),
         (a, b) if a == b => Phrase::ChooseExactly.fill(lang, &[&a.to_string(), noun]),

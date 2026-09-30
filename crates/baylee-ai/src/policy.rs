@@ -124,6 +124,32 @@ impl HeuristicAgent {
         u32::try_from(need).unwrap_or(0).clamp(min, max)
     }
 
+    /// One creature's share of a combat damage division this seat makes:
+    /// [`Self::damage_share`], except that from a source with deathtouch
+    /// one is lethal ("any nonzero amount of combat damage assigned to a
+    /// creature by a source with deathtouch is considered to be lethal
+    /// damage", CR 702.2c), which leaves the most for the creatures still
+    /// to come.
+    pub(crate) fn combat_share(
+        &self,
+        view: &PlayerView,
+        source: ObjectId,
+        recipient: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        let touch = view
+            .object(source)
+            .is_some_and(|o| o.keywords & KeywordSet::DEATHTOUCH.bits() != 0);
+        let hostile = view
+            .object(recipient)
+            .is_some_and(|o| self.hostile(o.controller, view.seat));
+        if touch && hostile {
+            return 1u32.clamp(min, max);
+        }
+        self.damage_share(view, recipient, min, max)
+    }
+
     pub(crate) fn number(
         &self,
         view: &PlayerView,

@@ -410,10 +410,14 @@ fn an_attacker_blocked_by_a_creature_with_banding_is_divided_by_the_defending_pl
     assert!(!on_battlefield(&engine, bear), "the bear took all 3");
 }
 
-/// The same block without banding asks nobody, as before: the engine
-/// divides for the attacker, and the first blocker takes the damage.
+/// The same block without banding is divided too, by the attacker's
+/// controller rather than the defending player.
 #[test]
-fn an_attacker_blocked_by_two_without_banding_asks_nobody() {
+fn an_attacker_blocked_by_two_is_divided_by_its_controller() {
+    // CR 510.1c: "If two or more creatures are blocking it, it assigns its
+    // combat damage to those creatures divided as its controller chooses
+    // among them." Without banding the engine once put all of it on the
+    // first-declared blocker and asked nobody.
     let mut engine = combat(&[BRUTE], &[BEAR, BEAR]);
     let brute = one(&engine, BRUTE, ME);
     let bears: Vec<ObjectId> = permanents(&engine, BEAR);
@@ -421,10 +425,30 @@ fn an_attacker_blocked_by_two_without_banding_asks_nobody() {
     to_blockers(&mut engine);
     block(&mut engine, &[(bears[0], brute), (bears[1], brute)]);
     let question = next_question(&mut engine);
-    assert!(
-        !matches!(question, Pending::ChooseNumber { .. }),
-        "no division is asked: {question:?}"
+    let Pending::ChooseNumber {
+        player,
+        min,
+        max,
+        reason:
+            crate::choice::NumberPrompt::CombatDamage {
+                source,
+                recipient,
+                index,
+                of,
+                ..
+            },
+    } = question
+    else {
+        panic!("the attacker's controller divides: {question:?}")
+    };
+    assert_eq!(
+        (player, source, recipient, index, of, min, max),
+        (ME, brute, bears[0], 0, 2, 0, 3)
     );
-    assert!(!on_battlefield(&engine, bears[0]));
-    assert!(on_battlefield(&engine, bears[1]));
+    // One to the first, and the last takes the rest.
+    engine.apply(ME, PlayerAction::ChooseNumber(1)).unwrap();
+    next_question(&mut engine);
+    assert!(on_battlefield(&engine, bears[0]));
+    assert_eq!(damage(&engine, bears[0]), 1);
+    assert!(!on_battlefield(&engine, bears[1]), "two to the second");
 }

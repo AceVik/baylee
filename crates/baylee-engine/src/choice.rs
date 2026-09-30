@@ -787,11 +787,12 @@ pub enum NumberPrompt {
         /// The damage not yet given to a target.
         left: u32,
     },
-    /// One creature's share of another creature's combat damage, where
-    /// banding hands the division to a player (CR 702.22j–k, 510.1d): how
-    /// much of what is left goes to `recipient`, asked creature by creature
-    /// in declaration order. The last takes the rest and is not asked, and
-    /// a share may be 0.
+    /// One creature's share of another creature's combat damage divided
+    /// among two or more: an attacker's by its controller (CR 510.1c), a
+    /// blocker's by its own (510.1d), or either by the player banding
+    /// names (702.22j–k). How much of what is left goes to `recipient`,
+    /// asked creature by creature in declaration order. The last takes the
+    /// rest and is not asked, and a share may be 0.
     CombatDamage {
         /// The creature whose damage is divided.
         source: ObjectId,

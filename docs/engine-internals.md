@@ -426,20 +426,28 @@ carry, so the reader refuses it and those cards stay unread.
   damage (510.1, 510.2), so no answer meets a board it was not given. The
   last share calls `advance_step` directly: the priority round was complete
   when the first share was asked. `combat::divisions_owed` says who divides:
-  an attacker blocked by two or more with one of them banding is divided by
-  the defending player (702.22j), among the blockers only, so trample puts
-  nothing past them; a blocker on two or more creatures is divided by the
-  active player if one of them has banding (702.22k), and otherwise by its
-  own controller (510.1d). A blocker deals its power once, split across what
-  it blocks, never once per pair. The recorded `Division`s are hashed and
-  cleared once the damage is dealt.
+  an attacker blocked by two or more is divided by its controller, "divided
+  as its controller chooses among them" (510.1c), unless one of them has
+  banding: then by the defending player (702.22j), among the blockers only,
+  so trample puts nothing past them; a blocker on two or more creatures is
+  divided by the active player if one of them has banding (702.22k), and
+  otherwise by its own controller (510.1d). A blocker deals its power once,
+  split across what it blocks, never once per pair. The recorded
+  `Division`s are hashed and cleared once the damage is dealt. The house AI
+  gives each creature what finishes it, in turn, and the last the rest
+  (`NumberPrompt::CombatDamage`); client-core names both creatures in the
+  question.
 
-What is still decided for the player: an attacker blocked by two or more
-creatures of which none has banding divides its damage automatically in
-blocking order, where CR 510.1c lets its controller choose
-(`banding_tests::an_attacker_blocked_by_two_without_banding_asks_nobody`
-pins that). No effect in the pool makes a creature become blocked, so
-702.22i has no door yet.
+What is still decided for the player: an attacker with trample blocked by
+two or more creatures without banding is not asked. The engine assigns
+lethal damage to each blocker in declaration order and the rest to what it
+attacks, one of the assignments CR 702.19b lets its controller make ("once
+all those blocking creatures are assigned lethal damage, any excess damage
+is assigned as its controller chooses"); a share question whose last
+recipient takes the rest cannot say that bound
+(`banding_tests::an_attacker_blocked_by_two_is_divided_by_its_controller`
+pins the question without trample). No effect in the pool makes a creature
+become blocked, so 702.22i has no door yet.
 
 ## Teams: an opponent is a side
 A seat carries a `team` from the preset. `GameState::side_of` answers which

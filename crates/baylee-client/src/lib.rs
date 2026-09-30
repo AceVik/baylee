@@ -790,8 +790,15 @@ impl Duel {
     /// One method because two systems ask it: the ledge, which draws it, and
     /// the overlay, which rebuilds on it. Two copies of the chain would be
     /// two places for a third source to be added to one of.
+    ///
+    /// `texts` names the creatures a question is about in the player's
+    /// language ([`crate::face::name_of`]); client-core decides which.
     #[must_use]
-    pub fn headline(&self, lang: baylee_client_core::i18n::Lang) -> Option<String> {
+    pub fn headline(
+        &self,
+        lang: baylee_client_core::i18n::Lang,
+        texts: &crate::cardtext::CardTexts,
+    ) -> Option<String> {
         if self.ending().is_some() {
             return None;
         }
@@ -819,11 +826,16 @@ impl Duel {
             .map_or(baylee_client_core::Turn::Mine, |v| {
                 baylee_client_core::Turn::of(v.active, v.seat)
             });
-        Some(prompt.headline(
+        let name = |id: baylee_core::ids::ObjectId| {
+            let view = self.view.as_ref()?;
+            Some(crate::face::name_of(view.object(id)?, view, texts))
+        };
+        Some(prompt.headline_naming(
             lang,
             turn,
             self.statics.as_ref(),
             self.view.as_ref().is_some_and(|v| v.owed.is_some()),
+            &name,
         ))
     }
 
