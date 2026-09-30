@@ -18,6 +18,7 @@ count and turn band), in the same measures as v2's reports.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import time
 from pathlib import Path
@@ -87,6 +88,14 @@ def losses(net, ds, b, entities):
     return policy, val, value, hits, ok
 
 
+def autocast(device: torch.device):
+    """bf16 on CUDA, as every run so far. Elsewhere fp32: an M1's GPU has no
+    bf16, and fp16 training would need a gradient scaler."""
+    if device.type == "cuda":
+        return torch.autocast("cuda", dtype=torch.bfloat16)
+    return contextlib.nullcontext()
+
+
 @torch.no_grad()
 def evaluate(net, ds, idx, entities, value_weight, batch=512):
     """Held-out loss, policy hits and the side's win chance per sample."""
@@ -96,8 +105,9 @@ def evaluate(net, ds, idx, entities, value_weight, batch=512):
     side = np.zeros(len(idx), dtype=np.float64)
     total, n = 0.0, 0
     at = 0
-    with torch.autocast("cuda", dtype=torch.bfloat16):
-        for b in D3.Loader(ds, idx, batch, entities, shuffle=False):
+    dev = next(net.parameters()).device
+    with autocast(dev):
+        for b in D3.Loader(ds, idx, batch, entities, shuffle=False, device=dev):
             pol, val, value, h, ok = losses(net, ds, b, entities)
             k = len(b.idx)
             hits[at : at + k], usable[at : at + k] = h, ok.cpu().numpy()
@@ -152,6 +162,7 @@ def main() -> None:
     ap.add_argument("--eval-slice", type=int, default=30_000)
     ap.add_argument("--eval-max", type=int, default=300_000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--device", default="cuda", help="cuda, mps (a Mac's GPU) or cpu")
     ap.add_argument("--init", help="start from this net.pt's weights (same shape)")
     ap.add_argument("--resume", action="store_true", help="continue the run in --out from its last.pt")
     ap.add_argument("--ckpt-minutes", type=float, default=30.0, help="how often last.pt is written")
@@ -159,6 +170,7 @@ def main() -> None:
 
     torch.manual_seed(args.seed)
     torch.backends.cuda.matmul.allow_tf32 = True
+    dev = torch.device(args.device)
     out = Path(args.out).expanduser()
     out.mkdir(parents=True, exist_ok=args.resume)
     t0 = time.time()
@@ -179,14 +191,14 @@ def main() -> None:
     log(f"{int(seen.sum()):,} card ids seen in training")
 
     net = M.build(ds.meta, ds.card_ids, ds.card_feats, d=args.d, layers=args.layers, heads=args.heads,
-                  ff=args.ff, dropout=args.dropout, id_dropout=args.id_dropout).cuda()
+                  ff=args.ff, dropout=args.dropout, id_dropout=args.id_dropout).to(dev)
     params = sum(p.numel() for p in net.parameters())
     log(f"{params / 1e6:.2f}M parameters")
     if args.init:
         net.load_state_dict(torch.load(Path(args.init).expanduser(), weights_only=False)["state"])
         log(f"weights from {args.init}")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.wd, fused=True)
-    loader = D3.Loader(ds, train_idx, args.batch, args.entities, shuffle=True, seed=args.seed)
+    loader = D3.Loader(ds, train_idx, args.batch, args.entities, shuffle=True, seed=args.seed, device=dev)
     total = max(int(len(loader) * args.epochs), 1)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=total, pct_start=0.03)
     watch = np.sort(np.random.default_rng(2).choice(held_idx, size=min(args.eval_slice, len(held_idx)), replace=False))
@@ -212,7 +224,7 @@ def main() -> None:
     t_start, t_ckpt, step0 = time.time(), time.time(), step
     while step < total:
         for b in loader:
-            with torch.autocast("cuda", dtype=torch.bfloat16):
+            with autocast(dev):
                 pol, val, _, _, _ = losses(net, ds, b, args.entities)
                 loss = pol + args.value_weight * val
             opt.zero_grad(set_to_none=True)

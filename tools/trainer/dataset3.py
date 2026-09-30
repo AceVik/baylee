@@ -212,15 +212,19 @@ def gather(ds: Dataset, idx: np.ndarray, entities: int, deck: int) -> dict[str, 
 
 
 def to_device(raw: dict[str, np.ndarray], idx: np.ndarray, device: str) -> Batch:
-    t = {k: torch.from_numpy(v).pin_memory().to(device, non_blocking=True) for k, v in raw.items()}
+    # Pinned host memory only helps a copy to CUDA (MPS and CPU have none).
+    pin = torch.device(device).type == "cuda"
+    t = {k: (torch.from_numpy(v).pin_memory() if pin else torch.from_numpy(v)).to(device, non_blocking=pin)
+         for k, v in raw.items()}
     return Batch(idx=idx, **t)
 
 
 class Loader:
     """Batches of `idx` in a shuffled order, gathered on a background thread."""
 
-    def __init__(self, ds, idx, batch, entities, deck=128, shuffle=True, seed=0, prefetch=4, start=0):
+    def __init__(self, ds, idx, batch, entities, deck=128, shuffle=True, seed=0, prefetch=4, start=0, device="cuda"):
         self.ds, self.idx, self.batch, self.entities, self.deck = ds, idx, batch, entities, deck
+        self.device = device
         self.shuffle, self.rng, self.prefetch = shuffle, np.random.default_rng(seed), prefetch
         # Batches to skip before the first one yielded (a resumed run's
         # step): whole epochs are skipped by drawing their permutations.
@@ -247,7 +251,7 @@ class Loader:
         threading.Thread(target=work, daemon=True).start()
         while (item := q.get()) is not None:
             raw, c = item
-            yield to_device(raw, c, "cuda")
+            yield to_device(raw, c, self.device)
 
 
 # --- feature expansion (on the device) ------------------------------------------------
