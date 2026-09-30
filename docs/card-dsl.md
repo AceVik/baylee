@@ -1607,6 +1607,7 @@ Modal/sequence: `Sequence(&[..])`.
 `CantLoseLife`, `PreventDamageToIt`, `PreventDamageFromIt`,
 `OpponentsCantSearch`, `NoMaxHandSize`, `GainControl`, `DoesNotUntap`,
 `MayChooseNotToUntap`, `SkipUntapStep { who }`, `UntapAtMost { who, of, count }`,
+`AttacksDespiteDefender`, `AttacksAsThoughHaste`,
 `PlayLandsFromGraveyard`, `ExtraLandDrops`,
 `DrawLimitPerTurn`, `CastPermanentSpellsFromGraveyard`,
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
@@ -1729,6 +1730,16 @@ The "may choose not to untap" question (`LeaveTapped`) is asked first, so a
 permanent kept tapped by choice takes no room. Nothing is asked when every
 limit can take everything still tapped. The reader writes it from
 `Affected$ <player> | AddKeyword$ UntapAdjust:<valid>:<n>`.
+
+`AttacksDespiteDefender` and `AttacksAsThoughHaste` are "can attack as
+though it didn't have defender" (Animate Wall) and "…as though it had
+haste" (Instill Energy), on the creatures the static's filter names. An "as
+though" effect applies only to what it states (CR 609.4), so
+`combat::can_attack` reads them only where defender (CR 702.3b) or summoning
+sickness (CR 302.6) would stop the attack: a "can't attack" from anything
+else still holds, and the creature's {T} abilities still wait (CR 702.10c is
+not part of it). The reader writes them from `S:Mode$ CanAttackDefender` and
+`S:Mode$ CanAttackIfHaste` with `ValidCard$`.
 
 `GainControl` is layer 2 and must be paired with `Layer::Control` — any
 other layer applies it out of order with respect to the effects that read

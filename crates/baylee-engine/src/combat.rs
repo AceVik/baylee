@@ -192,17 +192,31 @@ pub fn can_attack(state: &GameState, player: PlayerId, creature: ObjectId) -> bo
     let Some(obj) = state.object(creature) else {
         return false;
     };
+    // "Can attack as though …" (CR 609.4): a permission read only where
+    // its own rule would stop the attack, so a creature with neither
+    // defender nor summoning sickness never walks the effect table.
+    let as_though = |modifier: baylee_cards_dsl::Modifier| {
+        state
+            .effects
+            .iter()
+            .any(|fx| fx.modifier == modifier && crate::effects::applies_to(state, fx, obj))
+    };
     obj.zone == crate::zone::Zone::Battlefield
         && obj.controller == player
         && obj.characteristics().types.contains(TypeSet::CREATURE)
-        // Defender (CR 702.3b): can't attack, however untapped it is.
-        && !obj.characteristics().keywords.contains(K::DEFENDER)
+        // Defender (CR 702.3b): can't attack, however untapped it is —
+        // unless it can attack as though it didn't have defender.
+        && (!obj.characteristics().keywords.contains(K::DEFENDER)
+            || as_though(baylee_cards_dsl::Modifier::AttacksDespiteDefender))
         // "Can't attack" (Wayward Swordtooth, while it lacks the city's
         // blessing): the same rule as defender, from a static.
         && !obj.characteristics().keywords.contains(K::CANT_ATTACK)
         && !obj.status.contains(Status::TAPPED)
         && !obj.status.contains(Status::PHASED_OUT)
-        && !summoning_sick(state, obj)
+        // Summoning sickness (CR 302.6), unless it can attack as though it
+        // had haste (CR 702.10b).
+        && (!summoning_sick(state, obj)
+            || as_though(baylee_cards_dsl::Modifier::AttacksAsThoughHaste))
 }
 
 /// Everything `player` may declare an attack against right now: each
@@ -1509,6 +1523,83 @@ mod tests {
         }
         assert!(!can_attack(&state, P0, wall), "a wall attacked");
         assert!(can_attack(&state, P0, bear), "the control could not attack");
+    }
+
+    /// An "as though" permission on one creature, as an Aura's static line
+    /// lands on the effect table.
+    fn permit(state: &mut GameState, creature: ObjectId, modifier: baylee_cards_dsl::Modifier) {
+        let timestamp = state.next_timestamp();
+        let filter = crate::effects::EffectFilter::object(state, creature);
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: P0,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: baylee_cards_dsl::Layer::Text,
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier,
+        });
+    }
+
+    /// "Can attack as though it didn't have defender" (Animate Wall): the
+    /// wall attacks. An "as though" applies only to what it states (CR
+    /// 609.4), so a "can't attack" beside the defender still holds.
+    #[test]
+    fn a_wall_that_attacks_as_though_it_had_no_defender_attacks() {
+        let mut state = empty_state();
+        let wall = creature(&mut state, P0, 0, 4, KeywordSet::DEFENDER);
+        let barred = creature(
+            &mut state,
+            P0,
+            0,
+            4,
+            KeywordSet::DEFENDER.union(KeywordSet::CANT_ATTACK),
+        );
+        for player in &mut state.players {
+            player.turn_start_timestamp = u64::MAX;
+        }
+        permit(
+            &mut state,
+            wall,
+            baylee_cards_dsl::Modifier::AttacksDespiteDefender,
+        );
+        permit(
+            &mut state,
+            barred,
+            baylee_cards_dsl::Modifier::AttacksDespiteDefender,
+        );
+        assert!(can_attack(&state, P0, wall), "the wall may attack");
+        assert!(
+            !can_attack(&state, P0, barred),
+            "a \"can't attack\" is not defender, and still holds"
+        );
+    }
+
+    /// "Can attack as though it had haste" (Instill Energy): the creature
+    /// attacks the turn it arrived, and is still summoning-sick for its {T}
+    /// abilities (CR 702.10c is not what the effect states).
+    #[test]
+    fn a_creature_that_attacks_as_though_it_had_haste_is_still_sick_for_its_tap() {
+        let mut state = empty_state();
+        let bear = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        let other = creature(&mut state, P0, 2, 2, KeywordSet::EMPTY);
+        permit(
+            &mut state,
+            bear,
+            baylee_cards_dsl::Modifier::AttacksAsThoughHaste,
+        );
+        assert!(
+            can_attack(&state, P0, bear),
+            "it attacks as though it had haste"
+        );
+        assert!(
+            !can_attack(&state, P0, other),
+            "the creature beside it is still asleep"
+        );
+        let obj = state.object(bear).expect("on the battlefield");
+        assert!(summoning_sick(&state, obj), "and its tap still waits");
     }
 
     /// CR 302.6 is a rule about creatures, in both of its sentences. The

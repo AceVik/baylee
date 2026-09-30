@@ -4170,6 +4170,13 @@ impl Tx<'_> {
         if mode == "CantBlockBy" {
             return self.cant_block_by(p);
         }
+        if let Some(modifier) = match mode.as_str() {
+            "CanAttackDefender" => Some("AttacksDespiteDefender"),
+            "CanAttackIfHaste" => Some("AttacksAsThoughHaste"),
+            _ => None,
+        } {
+            return self.attack_as_though(modifier, p);
+        }
         if mode != "Continuous" {
             self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
@@ -4327,6 +4334,29 @@ impl Tx<'_> {
         self.body.abilities.push(format!(
             "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
              count: PtCount::{count}(&{name}), toughness_plus: 0 }})"
+        ));
+        Some(())
+    }
+
+    /// "Enchanted Wall can attack as though it didn't have defender"
+    /// (Animate Wall) and "enchanted creature can attack as though it had
+    /// haste" (Instill Energy): a permission on the creatures `ValidCard$`
+    /// names, as `Modifier::AttacksDespiteDefender` or
+    /// `Modifier::AttacksAsThoughHaste`. Only `ValidCard$` and the
+    /// `IsPresent$` condition are read; a line that names what may be
+    /// attacked (`ValidTarget$`) is another sentence and refuses.
+    fn attack_as_though(&mut self, modifier: &str, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny(format!("`{modifier}` naming no creature"));
+        };
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `{modifier}.{key}`"));
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::{modifier}{condition})"
         ));
         Some(())
     }
@@ -7843,6 +7873,39 @@ SVar:X:Count$xPaid",
                 "{refused_line}"
             );
         }
+    }
+
+    /// "Can attack as though it didn't have defender" and "…as though it
+    /// had haste", on the creatures the line names; naming what may be
+    /// attacked instead is another sentence and refuses.
+    #[test]
+    fn an_attack_as_though_is_a_permission_on_the_named_creatures() {
+        let body = read(
+            "Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+             S:Mode$ CanAttackIfHaste | ValidCard$ Creature.EnchantedBy | Description$ …",
+        );
+        assert!(
+            body.abilities.iter().any(|a| a
+                == "static_ability!(Filter::And(&[Filter::CREATURE, \
+                    Filter::AttachedToBySource]), Modifier::AttacksAsThoughHaste)"),
+            "{:?}",
+            body.abilities
+        );
+        let body = read(
+            "Name:X\nTypes:Creature\nPT:0/4\nK:Defender\n\
+             S:Mode$ CanAttackDefender | ValidCard$ Card.Self | Description$ …",
+        );
+        assert!(
+            body.abilities
+                .iter()
+                .any(|a| a == "static_ability!(Filter::This, Modifier::AttacksDespiteDefender)"),
+            "{:?}",
+            body.abilities
+        );
+        assert!(refused(
+            "Name:X\nTypes:Creature\nPT:1/1\n\
+             S:Mode$ CanAttackIfHaste | ValidTarget$ Opponent | Description$ …"
+        ));
     }
 
     /// Smoke's and Winter Orb's "players can't untap more than one …

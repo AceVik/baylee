@@ -247,6 +247,16 @@ pub enum Modifier {
         /// Who skips, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
+    /// Can attack as though it didn't have defender (Animate Wall). An "as
+    /// though" effect applies only to what it states (CR 609.4): defender
+    /// stops nothing else it would (CR 702.3b says only that it can't
+    /// attack), and a "can't attack" from anything else still holds.
+    AttacksDespiteDefender,
+    /// Can attack as though it had haste (Instill Energy): the half of the
+    /// summoning-sickness rule about attacking (CR 302.6, 702.10b), and not
+    /// its {T} abilities (CR 702.10c), which an "as though" effect leaves
+    /// alone (CR 609.4).
+    AttacksAsThoughHaste,
     /// These players can't untap more than `count` permanents matching `of`
     /// during their untap steps (Smoke: one creature; Winter Orb: one land;
     /// Static Orb: two permanents). A limit on CR 502.3's determination: the
@@ -612,6 +622,8 @@ impl Modifier {
             | Self::NoMaxHandSize
             | Self::SkipUntapStep { .. }
             | Self::UntapAtMost { .. }
+            | Self::AttacksDespiteDefender
+            | Self::AttacksAsThoughHaste
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor

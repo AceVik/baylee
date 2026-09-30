@@ -2108,3 +2108,9 @@ land type"; both are convention tests that fire on a first try.
   basic land" and "two lands" both, so the menu shrinks after each answer,
   and a question's `max` is the smallest room among the limits that cannot
   take the whole menu.
+- **"As though it had haste" is not haste.** Haste answers two sentences of
+  CR 302.6, attacking and tapping. Instill Energy's "can attack as though it
+  had haste" answers only the first (CR 609.4), so granting the keyword
+  would also have let the creature use its {T} abilities the turn it
+  arrived. Read an "as though" where its one rule is checked, not as a
+  keyword.
