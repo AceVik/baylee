@@ -103030,11 +103030,7 @@ fn solemn_simulacrum() -> CardIndex {
     card_index("00c0543c-2a1f-4425-8283-4062d74a1637")
 }
 
-fn cards_of_in(
-    engine: &Engine<RegistryLookup>,
-    location: ZoneLocation,
-    card: CardIndex,
-) -> usize {
+fn cards_of_in(engine: &Engine<RegistryLookup>, location: ZoneLocation, card: CardIndex) -> usize {
     engine
         .state()
         .zones
@@ -103083,8 +103079,15 @@ fn solemn_simulacrum_fetches_a_tapped_basic_and_draws_when_it_dies() {
     pass_until(&mut engine, stack_is_empty);
     let fetched = all_on_battlefield(&engine, p0, forest());
     assert_eq!(fetched.len(), 1, "a basic land arrived");
-    assert!(is_tapped(&engine, fetched[0]), "\"put that card onto the battlefield tapped\"");
-    assert_eq!(library_size(&engine, p0), lib_before - 1, "taken from the library");
+    assert!(
+        is_tapped(&engine, fetched[0]),
+        "\"put that card onto the battlefield tapped\""
+    );
+    assert_eq!(
+        library_size(&engine, p0),
+        lib_before - 1,
+        "taken from the library"
+    );
 
     // Now the Bolt, aimed at the Simulacrum: "when this creature dies".
     let golem = on_battlefield(&engine, p0, solemn_simulacrum()).expect("the Golem");
@@ -103101,7 +103104,10 @@ fn solemn_simulacrum_fetches_a_tapped_basic_and_draws_when_it_dies() {
         )
         .expect("the Bolt aims at the Golem");
     pass_until(&mut engine, stack_is_empty);
-    assert!(in_graveyard(&engine, p0, solemn_simulacrum()).is_some(), "it died");
+    assert!(
+        in_graveyard(&engine, p0, solemn_simulacrum()).is_some(),
+        "it died"
+    );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before - 1 + 1,
@@ -103152,7 +103158,12 @@ fn solitude_evoked_by_pitching_a_white_card_exiles_its_target_and_is_sacrificed(
                     .find(|o| engine_object_is(&engine, *o, savannah_lions()))
                     .expect("the white card is the only one offered");
                 engine
-                    .apply(p0, PlayerAction::ChooseObjects { objects: vec![lions] })
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![lions],
+                        },
+                    )
                     .unwrap();
             }
             _ => break,
@@ -103162,12 +103173,25 @@ fn solitude_evoked_by_pitching_a_white_card_exiles_its_target_and_is_sacrificed(
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![bears] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bears],
+            },
+        )
         .expect("the Bears are the only other creature");
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(cards_of_in(&engine, ZoneLocation::Exile(p1), grizzly_bears()), 1, "exiled");
-    assert_eq!(engine.state().players[1].life, 22, "their controller gains life equal to its power");
+    assert_eq!(
+        cards_of_in(&engine, ZoneLocation::Exile(p1), grizzly_bears()),
+        1,
+        "exiled"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        22,
+        "their controller gains life equal to its power"
+    );
     assert_eq!(
         cards_of_in(&engine, ZoneLocation::Exile(p0), savannah_lions()),
         1,
@@ -103212,4 +103236,328 @@ fn aang_and_katara_attacking_makes_a_token_per_tapped_artifact_or_creature() {
         3,
         "Sol Ring, the Elf and Aang himself are tapped"
     );
+}
+
+fn kazandu_blademaster() -> CardIndex {
+    card_index("133f5d30-d883-493e-93a1-cf9583db460b")
+}
+
+fn general_tazri() -> CardIndex {
+    card_index("b0f19cba-1339-4518-8320-d7b1dcaf2eb0")
+}
+
+fn charming_prince() -> CardIndex {
+    card_index("c48d844c-3976-4fa5-8e0d-3f0e535e7619")
+}
+
+fn loran_of_the_third_path() -> CardIndex {
+    card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
+}
+
+fn surgical_metamorph() -> CardIndex {
+    card_index("4f328996-f9dd-4c7a-9548-bc4b9d0d943f")
+}
+
+/// Kazandu Blademaster: "Whenever this creature or another Ally you control
+/// enters, you may put a +1/+1 counter on this creature." The first Blademaster
+/// grows as itself enters and again when the second Ally arrives; the second
+/// grows only as itself.
+#[test]
+fn kazandu_blademaster_grows_when_it_or_another_ally_enters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4601, plains())
+        .battlefield(0, &[plains(), plains(), plains(), plains()])
+        .hand(0, &[kazandu_blademaster(), kazandu_blademaster()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    tap_mana_where(&mut engine, p0, |_| true);
+    cast_with_floating(&mut engine, p0, kazandu_blademaster());
+    pass_until(&mut engine, stack_is_empty);
+    let first = on_battlefield(&engine, p0, kazandu_blademaster()).expect("the first");
+    assert_eq!(
+        counters_on(&engine, first, CounterKind::P1P1),
+        1,
+        "it entered, and it is an Ally itself"
+    );
+    assert_eq!(pt(&engine, first), (2, 2));
+
+    cast_with_floating(&mut engine, p0, kazandu_blademaster());
+    pass_until(&mut engine, stack_is_empty);
+    let all = all_on_battlefield(&engine, p0, kazandu_blademaster());
+    assert_eq!(all.len(), 2);
+    let second = *all.iter().find(|o| **o != first).expect("the second");
+    assert_eq!(
+        counters_on(&engine, first, CounterKind::P1P1),
+        2,
+        "another Ally entered"
+    );
+    assert_eq!(
+        counters_on(&engine, second, CounterKind::P1P1),
+        1,
+        "the second one only counts its own entry"
+    );
+}
+
+/// Deathrite Shaman: "{B}, {T}: Exile target instant or sorcery card from a
+/// graveyard. Each opponent loses 2 life."
+#[test]
+fn deathrite_shaman_exiles_an_instant_from_a_graveyard_and_drains_two() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4602, lightning_bolt())
+        .battlefield(0, &[deathrite_shaman(), swamp()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    seed_graveyard(&mut engine, p0, 1);
+    reach_main_phase(&mut engine, p0);
+    let bolt = in_graveyard(&engine, p0, lightning_bolt()).expect("a Bolt in the graveyard");
+    tap_all_mana_but(&mut engine, p0, Some(deathrite_shaman()));
+    activate(&mut engine, p0, deathrite_shaman(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("a target question, got {:?}", engine.pending())
+    };
+    assert_eq!(options, vec![bolt], "the only instant or sorcery card");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bolt],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p0, lightning_bolt()).is_none(),
+        "exiled"
+    );
+    assert_eq!(engine.state().players[1].life, 18, "each opponent loses 2");
+    assert_eq!(engine.state().players[0].life, 20, "and I do not");
+    let _ = p1;
+}
+
+/// General Tazri: "When General Tazri enters, you may search your library
+/// for an Ally creature card, reveal it, put it into your hand, then
+/// shuffle."
+#[test]
+fn general_tazri_searches_for_an_ally_when_it_enters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4603, kazandu_blademaster())
+        .battlefield(0, &[plains(), plains(), plains(), plains(), plains()])
+        .hand(0, &[general_tazri()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lib_before = library_size(&engine, p0);
+    cast_from_hand(&mut engine, p0, general_tazri());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the search asks")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p0, kazandu_blademaster()).is_some(),
+        "the Ally is in hand"
+    );
+    assert_eq!(library_size(&engine, p0), lib_before - 1);
+}
+
+/// Answers Charming Prince's "choose one" with the mode whose index is
+/// `mode` among the printed three, looked up by position.
+#[track_caller]
+fn prince_enters_choosing(engine: &mut Engine<RegistryLookup>, mode: usize) {
+    let p0 = PlayerId::new(0);
+    cast_from_hand(engine, p0, charming_prince());
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        unreachable!("the trigger asks for its mode")
+    };
+    let pos = options
+        .iter()
+        .position(|o| matches!(o.kind, CastModeKind::Mode(m) if m == mode))
+        .expect("the mode is offered");
+    engine.apply(p0, PlayerAction::ChooseMode(pos)).unwrap();
+}
+
+/// Charming Prince, "You gain 3 life."
+#[test]
+fn charming_prince_can_gain_three_life() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4604, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[charming_prince()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let life = engine.state().players[0].life;
+    prince_enters_choosing(&mut engine, 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, life + 3);
+}
+
+/// Charming Prince, "Exile another target creature you own. Return it to the
+/// battlefield under your control at the beginning of the next end step."
+#[test]
+fn charming_prince_can_blink_another_creature_until_the_end_step() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4605, plains())
+        .battlefield(0, &[plains(), plains(), llanowar_elves()])
+        .hand(0, &[charming_prince()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    prince_enters_choosing(&mut engine, 2);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the Elves are the only other creature");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_none(),
+        "exiled for now"
+    );
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, llanowar_elves()).is_some()
+    });
+    assert!(
+        matches!(engine.state().turn.step, Step::End),
+        "back at the end step"
+    );
+}
+
+/// Charming Prince, "Scry 2."
+#[test]
+fn charming_prince_can_scry_two() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4606, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[charming_prince()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    prince_enters_choosing(&mut engine, 0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+    let Pending::Arrange { cards, .. } = engine.pending().clone() else {
+        unreachable!("the scry arranges")
+    };
+    assert_eq!(cards.len(), 2, "two cards looked at");
+    engine.apply(p0, look_answer(&cards, &[])).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+}
+
+/// Loran of the Third Path: "When Loran enters, destroy up to one target
+/// artifact or enchantment."
+#[test]
+fn loran_destroys_an_artifact_when_it_enters() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4607, plains())
+        .battlefield(0, &[plains(), plains(), plains()])
+        .battlefield(1, &[sol_ring()])
+        .hand(0, &[loran_of_the_third_path()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let ring = on_battlefield(&engine, p1, sol_ring()).expect("their Sol Ring");
+    cast_from_hand(&mut engine, p0, loran_of_the_third_path());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![ring],
+            },
+        )
+        .expect("Sol Ring is on offer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p1, sol_ring()).is_none(),
+        "destroyed"
+    );
+    assert!(in_graveyard(&engine, p1, sol_ring()).is_some());
+}
+
+/// Kobold Overlord: "First strike. Other Kobold creatures you control have
+/// first strike."
+#[test]
+fn kobold_overlord_gives_first_strike_to_other_kobolds_only() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4608, plains())
+        .battlefield(
+            0,
+            &[kobold_overlord(), kobold_taskmaster(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let kobold = on_battlefield(&engine, p0, kobold_taskmaster()).expect("the Taskmaster");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    assert!(keywords(&engine, kobold).contains(KeywordSet::FIRST_STRIKE));
+    assert!(!keywords(&engine, elves).contains(KeywordSet::FIRST_STRIKE));
+}
+
+/// Surgical Metamorph: "You may have Surgical Metamorph enter as a copy of
+/// any permanent on the battlefield, except it's an artifact in addition to
+/// its other types."
+#[test]
+fn surgical_metamorph_enters_as_a_copy_that_is_also_an_artifact() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4609, island())
+        .battlefield(0, &[island(), island(), island(), island()])
+        .battlefield(1, &[grizzly_bears()])
+        .hand(0, &[surgical_metamorph()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("their Bears");
+    cast_from_hand(&mut engine, p0, surgical_metamorph());
+    for _ in 0..6 {
+        match engine.pending().clone() {
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
+            Pending::ChooseTargets { player, .. } | Pending::ChooseCards { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![bears],
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                if stack_is_empty(&engine) {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+    let copy = on_battlefield(&engine, p0, surgical_metamorph()).expect("my Metamorph entered");
+    assert_eq!(pt(&engine, copy), (2, 2), "a copy of the Bears");
+    let kinds = types(&engine, copy);
+    assert!(kinds.contains(TypeSet::CREATURE) && kinds.contains(TypeSet::ARTIFACT));
 }
