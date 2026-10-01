@@ -1077,6 +1077,13 @@ fn life(
     if density.is_split() {
         node.justify_content = JustifyContent::FlexStart;
     }
+    let preferred = if density.is_split() {
+        if height > 40.0 { 28.0 } else { 24.0 }
+    } else {
+        16.0
+    };
+    let icon_size = fits(18.0, height);
+    let number_size = life_number_size(seat.life, fits(preferred, height), width, icon_size);
     commands
         .spawn((
             SeatInk {
@@ -1087,35 +1094,32 @@ fn life(
             },
             node,
             BackgroundColor(Color::NONE),
-            children![(
-                Text::new(baylee_client_core::tableicons::LIFE.to_string()),
-                table_icon_tf(
-                    fonts,
-                    baylee_client_core::tableicons::LIFE,
-                    fits(18.0, height)
+            children![
+                (
+                    Text::new(baylee_client_core::tableicons::LIFE.to_string()),
+                    table_icon_tf(fonts, baylee_client_core::tableicons::LIFE, icon_size),
+                    TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+                    TextColor(heart),
+                    Pickable::IGNORE,
                 ),
-                bevy::text::LineHeight::Px(height),
-                TextColor(heart),
-                Pickable::IGNORE,
-                children![(
-                    TextSpan::new(format!(" {}", seat.life)),
-                    tf_bold(
-                        fonts,
-                        fits(
-                            if density.is_split() {
-                                if height > 40.0 { 28.0 } else { 24.0 }
-                            } else {
-                                16.0
-                            },
-                            height
-                        ),
-                    ),
+                (
+                    Text::new(seat.life.to_string()),
+                    tf_bold(fonts, number_size),
+                    TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                     TextColor(numeral),
                     Pickable::IGNORE,
-                )],
-            )],
+                ),
+            ],
         ))
         .id()
+}
+
+/// Keep the complete signed total beside its heart, even after a life combo.
+/// The bundled bold face's digits and minus fit within 0.6 em (font-tested).
+fn life_number_size(life: i32, preferred: f32, width: f32, icon_size: f32) -> f32 {
+    let glyphs = life.to_string().len() as f32;
+    let available = (width - icon_size - 3.0).max(1.0);
+    preferred.min(available / (glyphs * 0.6 * UI_SCALE))
 }
 
 /// One of the four counts: a glyph and a numeral in a fixed-width cell.
@@ -1605,6 +1609,33 @@ mod tests {
     use super::*;
     use baylee_client_core::test_support::ViewBuilder;
     use baylee_view::SeatIdentity;
+
+    #[test]
+    fn large_life_totals_fit_beside_the_heart_without_losing_digits() {
+        let font = swash::FontRef::from_index(
+            include_bytes!("../../assets/fonts/AlegreyaSans-Bold.ttf"),
+            0,
+        )
+        .unwrap();
+        let metrics = font.glyph_metrics(&[]).scale(1.0);
+        for ch in "0123456789-".chars() {
+            assert!(metrics.advance_width(font.charmap().map(ch)) <= 0.6);
+        }
+        for width in [54.0, 72.0, 108.0] {
+            for value in [i32::MIN, -25476, -1, 0, 40, 999, 25476, i32::MAX] {
+                let size = life_number_size(value, 24.0, width, 18.0);
+                let ink: f32 = value
+                    .to_string()
+                    .chars()
+                    .map(|ch| metrics.advance_width(font.charmap().map(ch)))
+                    .sum::<f32>()
+                    * size
+                    * UI_SCALE;
+                assert!(ink + 18.0 + 3.0 <= width, "{value} overflows {width}");
+            }
+        }
+        assert_eq!(life_number_size(25476, 24.0, 108.0, 18.0), 24.0);
+    }
 
     /// What one name cell is asked about, handed to the system that draws it.
     ///

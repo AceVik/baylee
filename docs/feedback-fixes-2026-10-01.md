@@ -39,7 +39,19 @@ The stack now has a visible draggable scrollbar, a taller viewport, and a window
 
 DIe Menge an Kreaturen sowie die Lebenspunkte, das sieht nicht mehr sauber aus.
 
-Status: open.
+Status: open; life-number wrapping corrected, creature-density work remains.
+
+The attached report shows life 25476 wrapping below the heart. The fixed
+72-pixel life cell was too narrow. The attached row now reserves 108 pixels,
+with tighter inter-cell gaps; heart and total are independent, non-wrapping
+texts. Five-digit totals retain the ordinary type size; exceptionally large
+signed totals fit within the cell without dropping digits. Tests measure the
+bundled font advances for positive/negative values through both i32 extremes.
+All 11 seat-bar tests, dev-control/all-targets clippy and the native build pass.
+Native smoke check confirms heart, life, hand and active-turn label remain
+aligned at ordinary totals (/private/tmp/baylee-life-fit-live.png). Large
+values were verified by font-metric tests, not a native high-life game.
+The report remains open: this does not resolve the crowded creature lane.
 
 ## 01a0f907-59fa-7186-852d-a58d7e6ce51e
 
@@ -268,3 +280,7 @@ rerunning with local port access passes all 1150 tests. Native test client
 stopped after verification. No push or deployment.
 
 The combat report was closed via the feedback API, which returned `resolved`.
+
+The same continuation also fixes life-number wrapping (report 01a0f907-cd55),
+with font-metric regression coverage and a native ordinary-total smoke check.
+That report stays open for creature-density work. No test client is left running.

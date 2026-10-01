@@ -455,3 +455,6 @@ status area, outside card images; the same quoted rules and font licence apply.
 The remaining-combat-damage button likewise uses original localized interface
 text and existing fonts. It is drawn in the prompt bar outside all card images;
 the reviewed policy, full-image path and bundled font licence remain applicable.
+
+Life-total fitting changes only original status text, using the existing font
+files and preserving complete card images and all notices.

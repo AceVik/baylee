@@ -294,14 +294,14 @@ fn spawn_identity(
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(12),
+                column_gap: px(8),
                 height: px(32),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let vitality = life(commands, seat, fonts, 72.0, 32.0, Density::Split);
+    let vitality = life(commands, seat, fonts, 108.0, 32.0, Density::Split);
     let hand = baylee_client_core::tableicons::ZONES[0];
     let hand_count = commands
         .spawn((
