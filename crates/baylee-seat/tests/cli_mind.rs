@@ -954,7 +954,6 @@ async fn a_key_from_a_variable_takes_the_mind_off_the_table() {
 /// A start that names no source for its key cannot show it is not a
 /// variable's, and the mind does not play through it.
 #[tokio::test]
-#[ignore = "defect: an init event without apiKeySource passes the lockdown (claude.rs `_ => None`)"]
 async fn a_start_without_a_key_source_takes_the_mind_off_the_table() {
     let base = a_priority().await;
     let turn = base.view.turn;

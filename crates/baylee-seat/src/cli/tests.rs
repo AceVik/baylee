@@ -174,9 +174,7 @@ fn a_process_with_a_tool_beyond_the_answer_is_refused() {
     for login in ["none", "/login managed key", "apiKeyHelper"] {
         assert_eq!(with("apiKeySource", json!(login)), None, "{login}");
     }
-    let mut unsourced = all.clone();
-    unsourced.as_object_mut().unwrap().remove("apiKeySource");
-    assert_eq!(fault(unsourced), None, "a start that names no key's source");
+    assert!(without("apiKeySource").contains("did not say where its key comes from"));
 }
 
 /// The arguments lock the process down, and carry our instructions, our
@@ -661,7 +659,6 @@ fn a_key_from_any_variable_is_refused_and_a_login_is_not() {
 /// A start that does not say where its key comes from cannot show it is
 /// not a variable's: fail closed, as for every other list it must name.
 #[test]
-#[ignore = "defect: an init event without apiKeySource passes the lockdown (claude.rs `_ => None`)"]
 fn a_start_that_names_no_key_source_is_refused() {
     let base = json!({"tools": ["StructuredOutput"], "mcp_servers": [], "slash_commands": []});
     let absent = Claude.lockdown_fault(&init(&base));
