@@ -54,7 +54,9 @@ batched() {
     fi
 }
 # The newest dataset left, for nets from before the loop ran on the GPU.
-last_ds=$(ls -d "$DATA"/datasets/d3-"$TAG"-l* 2>/dev/null | sort | tail -1 || true)
+# (Directories only: each dataset has a .log file beside it.)
+last_ds=$(ls -d "$DATA"/datasets/d3-"$TAG"-l*/ 2>/dev/null | sort | tail -1 || true)
+last_ds=${last_ds%/}
 prev=$BASE
 older=""
 formers=()
