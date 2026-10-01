@@ -179,3 +179,115 @@ fn the_sit_down_line_names_the_clock_the_game_counts_in() {
     drop(local);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A reservation settles once: a later call, and the drop after it, change
+/// nothing, even when the tally has moved on.
+#[test]
+fn a_reservation_settles_once_and_only_once() {
+    let dir = scratch("once");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let mut booked = reserve(&book, &Caps::default(), &mut sonnet(), None, NOW).unwrap();
+    let tally = Arc::new(Mutex::new(Tally {
+        usd: Some(0.5),
+        ..Tally::default()
+    }));
+    booked.watch(Arc::clone(&tally));
+    booked.settle(NOW).unwrap();
+    let first = read(&book).games[0].clone();
+    assert!((first.spent_usd.unwrap() - 0.5).abs() < 1e-9, "{first:?}");
+    tally.lock().unwrap().usd = Some(4.0);
+    booked.settle(NOW).unwrap();
+    drop(booked);
+    let after = read(&book).games[0].clone();
+    assert_eq!(after.spent_usd, first.spent_usd, "settled once");
+    assert_eq!(after.settled, first.settled);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A CLI plays on a subscription: no price, so tokens are reserved, the
+/// grant is a hard limit in tokens, and the book never learns a dollar.
+#[test]
+fn a_cli_reserves_tokens_and_the_book_never_sees_a_dollar() {
+    let dir = scratch("cli");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let mut settings = Settings::new(&Spec::parse("cli:claude:opus").unwrap().unwrap());
+    let asked = settings.spend_tokens;
+    let caps = Caps {
+        day_tokens: Some(asked / 2),
+        ..Caps::default()
+    };
+    let mut booked = reserve(&book, &caps, &mut settings, Some("cc"), NOW).unwrap();
+    assert_eq!(booked.grant().budget, Budget::Tokens(asked / 2));
+    assert_eq!(settings.spend_tokens, asked / 2, "the day's cap bounds it");
+    assert!(settings.hard_limit);
+    assert!(settings.spend_usd.is_none());
+    let said = booked.sat_down();
+    assert!(
+        said.starts_with(&format!("reserved {} tokens", asked / 2)),
+        "{said}"
+    );
+    booked.watch(Arc::new(Mutex::new(Tally {
+        usage: Usage {
+            input: 700,
+            output: 300,
+            cache_read: 9_000,
+            ..Usage::default()
+        },
+        ..Tally::default()
+    })));
+    drop(booked);
+    let entry = &read(&book).games[0];
+    assert_eq!(entry.spent_usd, None);
+    assert_eq!(entry.spent_tokens, Some(10_000), "cache reads count");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A cap with less left than one call is a refusal that reserves nothing,
+/// and a book that cannot be read is a refusal, not a free game.
+#[test]
+fn a_cap_too_small_for_one_call_or_an_unreadable_book_refuses() {
+    let dir = scratch("refuse");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let caps = Caps {
+        day_usd: Some(0.0001),
+        ..Caps::default()
+    };
+    let mut settings = sonnet();
+    let why = reserve(&book, &caps, &mut settings, Some("sonnet"), NOW).unwrap_err();
+    assert!(!why.is_empty());
+    assert!(!settings.hard_limit, "nothing was granted");
+    assert!(read(&book).games.is_empty(), "nothing reserved");
+
+    let broken = Book::new(dir.join("broken.json"));
+    std::fs::write(broken.path(), "{ not json").unwrap();
+    let why = reserve(&broken, &Caps::default(), &mut sonnet(), None, NOW).unwrap_err();
+    assert!(!why.is_empty());
+    assert_eq!(
+        std::fs::read_to_string(broken.path()).unwrap(),
+        "{ not json",
+        "an unreadable book is left as it is"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A book that cannot be written settles with an error, and the
+/// reservation stays counted in full.
+#[cfg(unix)]
+#[test]
+fn a_settle_that_cannot_write_says_so_and_the_reservation_stays() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = scratch("readonly");
+    let book = Book::new(dir.join("llm-spend.json"));
+    let mut booked = reserve(&book, &Caps::default(), &mut sonnet(), None, NOW).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+    // Running as root writes anyway; the claim is only for those who cannot.
+    if std::fs::write(dir.join("probe"), "x").is_err() {
+        let failed = booked.settle(NOW);
+        assert!(failed.is_err(), "{failed:?}");
+        assert_eq!(read(&book).games[0].settled, None, "counted in full");
+    }
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let _ = std::fs::remove_file(dir.join("probe"));
+    std::mem::forget(booked);
+    let _ = std::fs::remove_dir_all(&dir);
+}

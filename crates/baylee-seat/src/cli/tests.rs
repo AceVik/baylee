@@ -867,7 +867,10 @@ fn a_key_is_a_marker_at_a_words_start_with_enough_key_characters() {
     assert!(!key_shaped(&format!("task-{}", run(20))));
     assert!(!key_shaped(&format!("my_ghp_{}", run(20))));
     assert!(key_shaped(&format!("/x/sk-{}", run(16))));
-    assert!(key_shaped(&format!("é sk-{}", run(16))), "after a non-ASCII");
+    assert!(
+        key_shaped(&format!("é sk-{}", run(16))),
+        "after a non-ASCII"
+    );
     // One embedded marker does not hide a second, anchored one.
     assert!(key_shaped(&format!("desk-{} sk-{}", run(20), run(16))));
     assert!(!key_shaped(""));
@@ -944,7 +947,10 @@ fn a_session_directory_is_private_and_removed_with_it() {
         assert_eq!(mode, 0o700, "{part:?}");
     }
     assert_eq!(std::fs::read_dir(dir.work()).unwrap().count(), 0);
-    let (a, b) = (SessionDir::new("x", 0).unwrap(), SessionDir::new("x", 0).unwrap());
+    let (a, b) = (
+        SessionDir::new("x", 0).unwrap(),
+        SessionDir::new("x", 0).unwrap(),
+    );
     assert_ne!(a.root, b.root, "unique");
     drop(dir);
     assert!(!root.exists());
