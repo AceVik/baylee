@@ -2160,7 +2160,7 @@ fn dragonback_assault_shoots_each_creature_and_makes_a_dragon_for_a_land_of_your
     );
     assert!(
         in_graveyard(&engine, p0, katara_the_fearless()).is_some(),
-        "3 damage on a printed 3/3 is lethal (CR 704.5f), and it is my own \
+        "3 damage on a printed 3/3 is lethal (CR 704.5g), and it is my own \
          creature: \"each creature\" reaches this side of the table too"
     );
     assert!(
@@ -4626,7 +4626,7 @@ fn path_of_mettle_spares_the_creature_that_has_one_of_its_four_keywords() {
     assert_eq!(
         all_on_battlefield(&engine, p0, llanowar_elves()),
         vec![armed],
-        "1 damage on a printed 1/1 is lethal (CR 704.5f), so the only Elf of \
+        "1 damage on a printed 1/1 is lethal (CR 704.5g), so the only Elf of \
          mine still standing is the one the trigger's filter excluded"
     );
     assert!(
@@ -5806,7 +5806,7 @@ fn crackling_club_pumps_the_creature_it_enchants_then_trades_itself_for_one_dama
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a 1/1 is CR 704.5f, and the Elf across the table is gone"
+        "one damage to a 1/1 is CR 704.5g, and the Elf across the table is gone"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),
@@ -12636,7 +12636,7 @@ fn goblin_bombardment_sacrifices_a_creature_to_deal_one_damage_to_any_target() {
     );
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         all_on_battlefield(&engine, p0, llanowar_elves()),
@@ -17869,7 +17869,7 @@ fn pegasus_refuge_discards_a_card_for_a_flying_pegasus() {
 /// price is anything a board can read off the card. Two Forests fill a pool
 /// the `{1}` empties, the two life leave the controller, and the damage lands
 /// on the Llanowar Elves opposite: one point on a printed 1/1 is lethal
-/// (CR 704.5f), so the creature dying is what says the damage resolved at the
+/// (CR 704.5g), so the creature dying is what says the damage resolved at the
 /// target that was named and not at the seat behind it.
 #[test]
 #[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
@@ -18002,7 +18002,7 @@ fn reckless_assault_pays_a_mana_and_two_life_to_deal_one_damage_to_any_target() 
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage on a printed 1/1 is lethal (CR 704.5f)"
+        "one damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,

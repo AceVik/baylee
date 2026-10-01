@@ -7550,7 +7550,7 @@ fn pyrite_spellbomb_eats_itself_for_two_damage_to_the_target_it_names() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -14220,7 +14220,7 @@ fn tower_of_fortunes_taps_and_eight_mana_for_four_cards() {
 /// `Filter::CREATURE` names no side of the battlefield. Each price lands
 /// where a zone can show it — the {4} out of a pool only the eight tapped
 /// Forests filled, the {T} on the artifact itself — and four damage on a
-/// printed 1/1 is lethal (CR 704.5f), so the aimed Elf dies while the Cannon
+/// printed 1/1 is lethal (CR 704.5g), so the aimed Elf dies while the Cannon
 /// it was aimed with stays standing.
 #[test]
 #[allow(clippy::too_many_lines)]
@@ -14407,7 +14407,7 @@ fn fodder_cannon_sacrifices_a_creature_for_four_damage_to_any_target() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "four damage on a printed 1/1 is lethal (CR 704.5f)"
+        "four damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -14635,7 +14635,7 @@ fn skull_catapult_eats_a_creature_of_its_own_side_for_two_damage_at_any_target()
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,

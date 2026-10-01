@@ -8249,7 +8249,7 @@ fn heat_ray_deals_the_x_its_controller_names_to_the_creature_it_names() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, fleshgorger()).is_some(),
-        "five damage to a 7/5 is lethal (CR 704.5f) — a fixed three would have \
+        "five damage to a 7/5 is lethal (CR 704.5g) — a fixed three would have \
          left it standing, which is what makes this an X and not a number"
     );
     assert!(
@@ -8787,7 +8787,7 @@ fn lightning_bolt_deals_three_to_a_creature_or_a_player() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "three damage to a 1/1 is lethal (CR 704.5f)"
+        "three damage to a 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -9662,7 +9662,7 @@ fn shock_deals_two_to_a_player_and_to_a_printed_one_two() {
 
     assert!(
         in_graveyard(&engine, p1, a_one_two_bird()).is_some(),
-        "two damage to a printed 1/2 is lethal (CR 704.5f)"
+        "two damage to a printed 1/2 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -10023,7 +10023,7 @@ fn spark_spray_cycles_itself_for_a_card_and_burns_a_creature_for_one() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "1 damage to a printed 1/1 is lethal (CR 704.5f)"
+        "1 damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_some(),
@@ -12606,7 +12606,7 @@ fn magma_jet_kills_a_one_one_across_the_table_and_then_scries_two() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -14013,7 +14013,7 @@ fn lightning_blast_deals_four_to_a_player_and_to_a_creature_off_the_mana_it_char
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "four damage to a printed 1/1 is lethal (CR 704.5f)"
+        "four damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         mine(&engine, p0, lightning_blast(), Zone::Graveyard).len(),

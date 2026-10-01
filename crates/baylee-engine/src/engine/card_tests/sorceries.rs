@@ -3927,7 +3927,7 @@ fn blaze_deals_its_announced_x_to_the_target_it_names_and_to_no_other() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "X of 1 on a printed 1/1 is lethal (CR 704.5f)"
+        "X of 1 on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -5094,7 +5094,7 @@ fn fire_ambush() -> CardIndex {
 /// the two halves of that word apart: a creature under each seat shows up in
 /// the object list and both players in the player list, and the damage is then
 /// aimed at the opponent's creature rather than at the seat whose board it
-/// stands on. Three damage to a printed 1/1 is lethal (CR 704.5f) while the
+/// stands on. Three damage to a printed 1/1 is lethal (CR 704.5g) while the
 /// opponent's life total stays where it was — which is what says the number
 /// landed on the creature and not on the player — and p0's own Elf, untouched,
 /// is the control that the spell hit what it was aimed at and nothing else.
@@ -5185,7 +5185,7 @@ fn fire_ambush_deals_three_damage_to_the_creature_it_targets_and_not_to_its_cont
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "three damage to a printed 1/1 is lethal (CR 704.5f)"
+        "three damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -6102,7 +6102,7 @@ fn scorching_spear_deals_one_damage_to_a_creature_or_a_player_and_to_nothing_els
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),
@@ -6790,7 +6790,7 @@ fn vicious_hunger_kills_a_printed_one_one_and_gains_exactly_two_life() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage on a printed 1/1 is lethal (CR 704.5f)"
+        "two damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         on_battlefield(&engine, p1, llanowar_elves()),
@@ -6962,7 +6962,7 @@ fn volcanic_hammer_deals_three_to_a_player_and_then_to_the_creature_it_names() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "three damage to a printed 1/1 is lethal (CR 704.5f)"
+        "three damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -7924,7 +7924,7 @@ fn tidings_spends_five_mana_to_draw_four_cards() {
 /// so the menu the spell publishes is read before it is answered: one Elf under
 /// the caster and one across the table are both object options, and both seats
 /// are player options in that same choice. The damage then lands where it was
-/// aimed — two on a printed 1/1 is lethal (CR 704.5f), so the Elf across the
+/// aimed — two on a printed 1/1 is lethal (CR 704.5g), so the Elf across the
 /// table dies while the one beside the caster stays a 1/1 — and the opponent's
 /// life total is the control that says the spell hit the creature and not the
 /// player whose board it stood on. The {3}{G} is a real payment: the four
@@ -8022,7 +8022,7 @@ fn unyaro_bee_sting_deals_two_damage_to_the_any_target_it_names() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage kills a printed 1/1 (CR 704.5f)"
+        "two damage kills a printed 1/1 (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -8351,7 +8351,7 @@ fn vampiric_feast_damages_any_target_it_names_and_gains_its_caster_four_life() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "four damage to a printed 1/1 is lethal (CR 704.5f)"
+        "four damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[0].life,
