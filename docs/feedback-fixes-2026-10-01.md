@@ -17,7 +17,7 @@ Status: open.
 
 Es sollte die Möglichkeit geben "Mit allen angreifen" zu machen, die wie in forge funktioniert. Demnach auch einen Button "Alle zurückziehen" wie in forge.
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit 3f0ab837; not deployed).
 
 Bulk attack and withdraw controls now remain available on every creature page. The actual choice-handler tests cover 50 creatures across all pages, multiple defenders and reversible drafts. Native dev-control verification selected all eight legal attackers and withdrew all eight while ChooseAttackers remained pending; no declaration was sent.
 
@@ -31,7 +31,7 @@ Status: open.
 
 Stack sollte einen Scrollbalken haben und kann länger sein.
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit 3f0ab837; not deployed).
 
 The stack now has a visible draggable scrollbar, a taller viewport, and a window-height cap that keeps it above the hand controls. Native verification used eight/nine Ondu Cleric triggers: wheel scrolling moved both entries and thumb; the final panel ended above the hand HUD. All 26 stack tests pass.
 
@@ -45,7 +45,7 @@ Status: open.
 
 Y und Z sind vertauscht. Ich drücke Y passiert Nichts, bei Z gehts. Und ich muss gerade 100+ Mal Z drücken, hier wäre es gut, wenn man neben dem Ja Button noch ein "Ja für alle" oder sowas hat.
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit 3f0ab837; not deployed).
 
 Yes/no letter shortcuts and their rebinding use the active keyboard layout; movement retains physical positions. QWERTZ Y/Z, QWERTY, rebinding and physical-only harness input are covered. A one-shot Yes to all button captures consecutive identical abilities already on the stack, cancels at unrelated choices and never approves later triggers or payments. The 101-trigger regression passes. Native verification resolved nine Ondu Cleric triggers from different permanents with one click, emptied the stack and correctly changed life from 40 to 130.
 
@@ -67,7 +67,7 @@ No rules defect in the reported position: the attached view has nine charge coun
 
 Inspirit, Flagship Vessel - es werden keine CHarge Counter angezeigt.
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit 3f0ab837; not deployed).
 
 Charge counters have a persistent localized label outside the printing. Positioning prefers a free space beside the permanent and avoids covering neighbouring cards. Native verification activated Inspirit station by tapping Great Divide Guide: two charge counters appeared beside Inspirit. Six chosen-type/counter tests and client clippy pass.
 
@@ -113,7 +113,7 @@ Fixed: clear the alternative-cast flag on leaving the spell/permanent lifetime. 
 
 Traumbild ist als falsches Token rein gekommen. Es hat 1/1 mein Token (von dem es als einziges als Kopie reinkommen konnte) hat 2/2
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit 3f0ab837; not deployed).
 
 Copied token art now matches name, base power/toughness, colours and card types, and requires a unique registry match. Ordinary pumps do not substitute current P/T for base P/T; ambiguous/name-only matches no longer choose the first token. Native verification cast Phantasmal Image and copied a Maskwood Nexus token: both displayed the blue 2/2 Shapeshifter art, with matching projected base values, colour and types. Regression also distinguishes the 1/1 token and rejects colour/type mismatches.
 
@@ -213,3 +213,30 @@ rules coverage.
 ## UI validation milestone
 
 The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI). Subsequent stack-height changes pass all 26 stack tests; counter positioning passes all 6 chosen-type tests. Clippy with dev-control and all client targets passes. Native screenshots and state snapshots remain in /private/tmp/baylee-*-live*.png/json; these are local QA evidence, not distributable assets.
+
+## Next continuation: remaining investigations
+
+15 of the original 25 open reports are resolved. Ten remain open; finish them
+before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
+3f0ab837 (token/UI). No push or deployment has happened. The native test clients
+started for this pass were stopped; no live test process needs preserving.
+
+- Miracle: `engine/cast_wizard.rs::start_miracle_cast` currently reaches payment
+  using only floating mana. AI intentionally declines without floating mana;
+  see `third_iteration_miracle_needs_floating_mana_not_untapped_lands`. Fix the
+  engine payment opportunity before changing that AI policy.
+- Maximum hand size: cleanup in `engine/progress.rs` reads `NoMaxHandSize`
+  effects by controller; `baylee-view::SeatView` does not expose that public
+  state. Spirit Water Revival's continuing effect needs a visible seat badge,
+  including in other players' views.
+- Food/activation: ability stack art depends on the still-present source;
+  sacrificed Food has disappeared. Token abilities also lack the card text
+  reference used by the stack sentence. Preserve truthful ability presentation
+  across the sacrifice. Automatic mana for activated abilities/equip is still
+  separate unfinished work: `legal.abilities` means payable from floating mana.
+- Pixel report: report build c3d5aa55 predates 2aae4a59's shared integer noise
+  hash fix. Native Metal rendering and shader tests pass, but the reported
+  Windows/Vulkan setup has not been reproduced; leave this distinction clear.
+- Other remaining work: target pagination/hover/player filters, counts/life
+  readability, larger centered cards/text, auto remaining combat damage,
+  login-field transition and more distinct original battle/victory music.
