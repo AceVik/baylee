@@ -53,7 +53,7 @@ Yes/no letter shortcuts and their rebinding use the active keyboard layout; move
 
 Spirit Water Revival gibt mir eine Art Emblem für unbegrenzte Kartenzahl auf der Hand. Das sollte irgendwie/wo sichtbar sein für alle.
 
-Status: verified; ready to resolve in the feedback service (not deployed).
+Status: resolved in the feedback service (commit ba2069c6; not deployed).
 
 The public SeatView now carries no_max_hand_size, using the same engine query as cleanup. Every seat shows a localized No maximum hand size badge and the hand count with /∞. The field defaults to false for older JSON payloads. A real kicked Spirit Water Revival regression verifies that the effect is visible to both seats after the spell is exiled; Reliquary Tower regression verifies that a source-bound limit disappears when the source leaves. Native German-client QA with both seats confirmed the badges and counts. Validation: 195 host tests (2 ignored), 34 view tests, the actual Revival integration test and retained-UI invalidation test pass; client/host/view clippy with dev-control and all targets passes.
 
@@ -218,7 +218,7 @@ The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI)
 
 ## Next continuation: remaining investigations
 
-15 of the original 25 open reports are resolved. Ten remain open; finish them
+16 of the original 25 open reports are resolved. Nine remain open; finish them
 before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
 3f0ab837 (token/UI). No push or deployment has happened. The native test clients
 started for this pass were stopped; no live test process needs preserving.
@@ -227,10 +227,8 @@ started for this pass were stopped; no live test process needs preserving.
   using only floating mana. AI intentionally declines without floating mana;
   see `third_iteration_miracle_needs_floating_mana_not_untapped_lands`. Fix the
   engine payment opportunity before changing that AI policy.
-- Maximum hand size: cleanup in `engine/progress.rs` reads `NoMaxHandSize`
-  effects by controller; `baylee-view::SeatView` does not expose that public
-  state. Spirit Water Revival's continuing effect needs a visible seat badge,
-  including in other players' views.
+- Maximum hand size: completed in ba2069c6 and closed in the first hourly
+  continuation; do not repeat this work.
 - Food/activation: ability stack art depends on the still-present source;
   sacrificed Food has disappeared. Token abilities also lack the card text
   reference used by the stack sentence. Preserve truthful ability presentation
@@ -245,4 +243,7 @@ started for this pass were stopped; no live test process needs preserving.
 
 ## First hourly continuation
 
-The hand-limit report is verified in source and in the native client. QA image: /private/tmp/baylee-hand-limit-live.png (not committed). The existing public effect is displayed; no new emblem object or rules exception is invented. The test client was stopped after verification. No push or deployment.
+The hand-limit report is resolved in the feedback service, verified in source
+and in the native client (ba2069c6). QA image: /private/tmp/baylee-hand-limit-live.png (not committed). The existing public effect is displayed; no new emblem object or rules exception is invented. The test client was stopped after verification. No push or deployment.
+
+Next useful UI task: auto-distribute remaining combat damage. The engine already asks NumberPrompt::CombatDamage per recipient and assigns the last recipient the remainder (`engine/banding.rs`). The AI already computes a lethal share (`ai/policy.rs::combat_share`); the human prompt still only offers manual number confirmation. Any client-side auto action must stay limited to the explicitly approved division and stop at unrelated decisions.
