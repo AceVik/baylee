@@ -26,6 +26,10 @@ ARENA=${ARENA:-500}   # duplicate deals: 2 net games and 1 house baseline each
 TAG=${TAG:-rl}
 TEMP=${TEMP:-1.0}
 PRUNE=${PRUNE:-1}
+# A second arena per iteration on a deck set the league never plays
+# (data/decks/<EVAL>, Astra's archetypes): net − house per matchup is the
+# yardstick that generalises. Empty: none.
+EVAL=${EVAL:-eval}
 DATA=${DATA:-$HOME/baylee-data}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 YARDSTICK=${YARDSTICK:-$DATA/models/policy-v1/policy.onnx}
@@ -107,7 +111,19 @@ for it in $(seq -f %02g 1 "$ITERS"); do
         ./target/selfplay/arena "${NETFLAGS[@]}" --model "$model/net.onnx" --against expert --deals "$ARENA" --out "$arena" \
             > "$arena.log" 2>&1
     fi
+    if [ -n "$EVAL" ] && [ ! -f "$arena-$EVAL/arena.json" ]; then
+        rm -rf "$arena-$EVAL"
+        ./target/selfplay/arena "${NETFLAGS[@]}" --model "$model/net.onnx" --against expert --decks "$EVAL" \
+            --deals "$ARENA" --out "$arena-$EVAL" > "$arena-$EVAL.log" 2>&1
+    fi
     echo "[rl_loop] iteration $it done: $(python3 -c "import json;j=json.load(open('$arena/arena.json'));a=j['results']['expert'];d=j['duplicate'];print('vs expert', round(a['win_rate'],3), a['ci95'], '· net - house', round(d['delta'],3), [round(x,3) for x in d['ci95']])")"
+    if [ -n "$EVAL" ] && [ -f "$arena-$EVAL/arena.json" ]; then
+        echo "[rl_loop]   $EVAL: $(python3 -c "
+import json
+d=json.load(open('$arena-$EVAL/arena.json'))['duplicate']
+m=sorted(d['by_matchup'].items(), key=lambda kv: kv[1]['delta'])
+print('net - house', round(d['delta'],3), [round(x,3) for x in d['ci95']], 'over', len(m), 'matchups; worst', [(k.split(' (')[0], round(v['delta'],2)) for k,v in m[:3]], 'best', [(k.split(' (')[0], round(v['delta'],2)) for k,v in m[-3:]])")"
+    fi
     echo "[rl_loop]   league: $(python3 -c "import json;print([(v['opponent'][-40:], round(v['learner_score'],3)) for v in json.load(open('$run/summary.json'))['vs']])")"
     # The two latest former learners stay in the league: every worker holds
     # every net it may meet, and each costs it a few hundred megabytes.
