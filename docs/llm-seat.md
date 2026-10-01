@@ -86,7 +86,7 @@ the profile: a file is played as written or not at all.
 | `think_secs` | The longest one answer may take (default 60). |
 | `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`). Not for `cli`. |
 | `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
-| `command` | `cli` only: the tool's program, a whole path (`/opt/homebrew/bin/claude`); default: the tool's name on the bridge's `PATH`. |
+| `command` | `cli` only: the tool's program, a whole path; default: the tool's name on the bridge's `PATH`. Name a version's own file to play that version (`/Users/<you>/.local/share/claude/versions/<version>`, [below](#a-cli-as-the-model)). |
 
 A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
@@ -154,16 +154,31 @@ owner to check before playing.
   bridge's `PATH` (absolute entries only). It is run directly with an
   argument array and never through a shell, so a shell function or alias
   of the same name (one that adds a token to every call, say) never runs.
+  Claude Code's own installer keeps `~/.local/bin/claude` a link to
+  `~/.local/share/claude/versions/<version>` and moves it to each version
+  it updates itself to, so a profile without `command` plays whichever
+  version that is when the game starts. Pin one: name the version's own
+  file in `command`, as a whole path
+  (`/Users/<you>/.local/share/claude/versions/2.1.284`), and change it by
+  hand after an update. The bridge gives the process
+  `DISABLE_AUTOUPDATER=1`, so a game never updates the tool itself.
 - **Locked down.** The working directory is a fresh, empty directory under
   the OS's temp directory, readable by this user alone and removed with
   the process, so no project's `CLAUDE.md` or settings are found. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
-  `NO_COLOR=1` and the tool's own login variable (`CLAUDE_CONFIG_DIR` where
-  set); on Windows also `SYSTEMROOT`, `APPDATA`, `LOCALAPPDATA`,
-  `USERPROFILE`, `TEMP`, `TMP`. No `*_API_KEY`, `*_TOKEN`, `BAYLEE_*`,
+  `NO_COLOR=1`, the tool's own login variable (`CLAUDE_CONFIG_DIR` where
+  set) and its fixed ones (`DISABLE_AUTOUPDATER=1`); on Windows also
+  `SYSTEMROOT`, `APPDATA`, `LOCALAPPDATA`, `USERPROFILE`, `TEMP`, `TMP`. No `*_API_KEY`, `*_TOKEN`, `BAYLEE_*`,
   `GITHUB_*`, `AWS_*`, `ANTHROPIC_*`, `SSH_AUTH_SOCK` or `DATABASE_URL` ever
   reaches it, and a passed value that looks like a key refuses the game.
+  `HOME` is the user's own, because Claude Code reads its login from
+  `~/.claude` (or `CLAUDE_CONFIG_DIR`); so with any tool that reads files
+  the model could read `~/.ssh` or `~/.aws` too. `--tools ""` is that
+  barrier, and the tool list in the process's `init` line is the only
+  proof at run time that it held (below). A private `HOME` beside
+  `CLAUDE_CONFIG_DIR` would narrow it and is not done: whether the login
+  is still found that way is unverified.
   Claude Code runs as `claude -p --input-format stream-json --output-format
   stream-json --verbose --restricted --safe-mode --tools "" --strict-mcp-config
   --disable-slash-commands --setting-sources "" --permission-prompts none

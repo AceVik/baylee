@@ -30,6 +30,10 @@ pub(crate) trait Dialect: Send + Sync {
     /// whatever a dialect says here.
     fn passed_env(&self) -> &'static [&'static str];
 
+    /// Variables the tool is given with fixed values, whatever the parent
+    /// has: one that keeps a game's process from updating the tool, say.
+    fn fixed_env(&self) -> &'static [(&'static str, &'static str)];
+
     /// The line that sends `text` as the conversation's next message.
     fn stdin_line(&self, text: &str) -> String;
 

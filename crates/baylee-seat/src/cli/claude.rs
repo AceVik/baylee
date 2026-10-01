@@ -83,6 +83,12 @@ impl Dialect for Claude {
         &["CLAUDE_CONFIG_DIR"]
     }
 
+    fn fixed_env(&self) -> &'static [(&'static str, &'static str)] {
+        // The program is a version's own file, and stays that version: a
+        // game's process never updates it underneath the next one.
+        &[("DISABLE_AUTOUPDATER", "1")]
+    }
+
     fn stdin_line(&self, text: &str) -> String {
         json!({"type": "user", "message": {"role": "user", "content": text}}).to_string()
     }

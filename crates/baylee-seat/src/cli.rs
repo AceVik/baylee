@@ -26,7 +26,8 @@
 //! runs); in a fresh, empty directory under the OS's temp directory that
 //! only this user can read, removed with it; with the environment cleared
 //! and only [`COMMON`], `TMPDIR` (the session's own), a fixed locale and
-//! terminal, and the variables the tool's login lives in. No key, no
+//! terminal, the variables the tool's login lives in, and the tool's own
+//! fixed ones (Claude Code's `DISABLE_AUTOUPDATER=1`). No key, no
 //! `BAYLEE_*`, no forge's or cloud's credentials and no SSH agent ever
 //! reach it ([`forbidden`]), and a passed value that looks like a key
 //! refuses the start. The tool's own flags take its tools, MCP servers,
@@ -259,13 +260,14 @@ impl Launch {
             &["TMPDIR"][..]
         };
         env.extend(temp.iter().map(|name| ((*name).to_string(), tmp.into())));
-        for (name, value) in [
+        let fixed = [
             ("LANG", "C.UTF-8"),
             ("LC_ALL", "C.UTF-8"),
             ("TERM", "dumb"),
             ("NO_COLOR", "1"),
-        ] {
-            env.push((name.into(), value.into()));
+        ];
+        for (name, value) in fixed.iter().chain(self.dialect.fixed_env()) {
+            env.push(((*name).into(), (*value).into()));
         }
         let tool = self.dialect.tool().name();
         for (name, value) in &env {

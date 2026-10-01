@@ -264,6 +264,7 @@ fn the_environment_passes_by_name_and_never_a_key() {
     for name in COMMON
         .iter()
         .chain(Claude.passed_env())
+        .chain(Claude.fixed_env().iter().map(|(name, _)| name))
         .chain(["TMPDIR", "LANG", "LC_ALL", "TERM", "NO_COLOR"].iter())
     {
         assert!(!forbidden(name), "{name}");

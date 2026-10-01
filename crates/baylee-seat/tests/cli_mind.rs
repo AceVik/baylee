@@ -404,6 +404,7 @@ fn only_the_allowlist(start: &Value, rig: &Rig) {
         "LC_ALL",
         "TERM",
         "NO_COLOR",
+        "DISABLE_AUTOUPDATER",
     ]);
     if cfg!(windows) {
         allowed.extend(["TEMP", "TMP"]);
@@ -426,6 +427,7 @@ fn only_the_allowlist(start: &Value, rig: &Rig) {
             &json!("1")
         )
     );
+    assert_eq!(env["DISABLE_AUTOUPDATER"], "1", "the version stays");
     let dumped = start["env"].to_string();
     for secret in [
         "sk-ant",
