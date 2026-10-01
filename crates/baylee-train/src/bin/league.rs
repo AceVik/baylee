@@ -65,10 +65,19 @@ struct Args {
     /// House decks (`data/decks/<key>.txt`).
     #[arg(long, value_delimiter = ',', default_value = "allytifact,victory")]
     decks: Vec<String>,
-    /// Decks to generate from the working pool besides the house decks
-    /// (constructed, 60 cards).
+    /// Decks to generate from the working pool besides the house decks,
+    /// spread over `--shapes` and the four archetypes. A game pairs two decks
+    /// of one shape: a Commander deck meets only Commander decks.
     #[arg(long, default_value_t = 0)]
     generated: usize,
+    /// Shapes of the generated decks.
+    #[arg(long, value_delimiter = ',', default_value = "constructed,commander")]
+    shapes: Vec<String>,
+    /// One working card in this many is held out of every generated deck,
+    /// as selfplay holds it out (`deckgen::held_out`): the held-out test
+    /// stays clean of league games.
+    #[arg(long, default_value_t = 20)]
+    held_out_every: u64,
     /// Seed of the deck generator.
     #[arg(long, default_value_t = 1)]
     deck_seed: u64,
@@ -280,15 +289,12 @@ fn play_one(
     nets: &mut BTreeMap<usize, Player>,
     selfish: &mut Player,
     slot: &mut Option<Session>,
+    pairs: &[[usize; 2]],
 ) -> anyhow::Result<Played> {
     let seed = args.first_seed + i;
     let mut rng = Rng::new(mix(seed ^ name_hash(run)));
     let opponent = rng.below(league.len());
-    let a = rng.below(decks.len());
-    let mut b = rng.below(decks.len());
-    while b == a && decks.len() > 1 {
-        b = rng.below(decks.len());
-    }
+    let [a, b] = pairs[rng.below(pairs.len())];
     let learner_seat = (i % 2) as u8;
     let other = 1 - learner_seat;
     let mut profiles = [AIProfile::named("expert").unwrap_or_default(); 2];
@@ -460,14 +466,29 @@ fn main() -> anyhow::Result<()> {
         decks.push(HouseDeck::named(key)?.working_only(&working)?.0);
     }
     if args.generated > 0 {
-        let pool = deckgen::Pool::new(&working, &std::collections::BTreeSet::new());
+        let shapes: Vec<Shape> = args
+            .shapes
+            .iter()
+            .map(|s| match s.as_str() {
+                "constructed" => Ok(Shape::Constructed),
+                "highlander" => Ok(Shape::Highlander),
+                "commander" => Ok(Shape::Commander),
+                other => Err(anyhow::anyhow!("unknown shape {other}")),
+            })
+            .collect::<anyhow::Result<_>>()?;
+        if shapes.is_empty() {
+            bail!("--shapes names none");
+        }
+        let held = deckgen::held_out(&working, args.held_out_every);
+        let pool = deckgen::Pool::new(&working, &held);
         let mut attempt = 0_u64;
         let mut made = 0;
         while made < args.generated && attempt < args.generated as u64 * 4 {
-            let archetype = Archetype::ALL[made % Archetype::ALL.len()];
+            let shape = shapes[made % shapes.len()];
+            let archetype = Archetype::ALL[(made / shapes.len()) % Archetype::ALL.len()];
             let seed = args.deck_seed.wrapping_mul(1_000_003).wrapping_add(attempt);
             attempt += 1;
-            let Ok(g) = deckgen::generate(&pool, Shape::Constructed, archetype, seed) else {
+            let Ok(g) = deckgen::generate(&pool, shape, archetype, seed) else {
                 continue;
             };
             decks.push(HouseDeck {
@@ -477,8 +498,14 @@ fn main() -> anyhow::Result<()> {
             made += 1;
         }
     }
-    if decks.len() < 2 {
-        bail!("a league needs two decks or more");
+    // Every ordered pair of two different decks of one shape.
+    let commander = |d: &HouseDeck| !d.deck.commanders.is_empty();
+    let pairs: Vec<[usize; 2]> = (0..decks.len())
+        .flat_map(|a| (0..decks.len()).map(move |b| [a, b]))
+        .filter(|[a, b]| a != b && commander(&decks[*a]) == commander(&decks[*b]))
+        .collect();
+    if pairs.is_empty() {
+        bail!("a league needs two decks of one shape or more");
     }
     let learner_meta: Value =
         serde_json::from_slice(&fs::read(args.learner.with_extension("onnx.json"))?)
@@ -548,7 +575,8 @@ fn main() -> anyhow::Result<()> {
     let started = Instant::now();
     std::thread::scope(|scope| {
         for worker in 0..threads {
-            let (args, decks, league, run, servers) = (&args, &decks, &league, &run, &servers);
+            let (args, decks, league, run, servers, pairs) =
+                (&args, &decks, &league, &run, &servers, &pairs);
             let (next, done, index, tally, failure) = (&next, &done, &index, &tally, &failure);
             scope.spawn(move || {
                 let work = || -> anyhow::Result<()> {
@@ -595,6 +623,7 @@ fn main() -> anyhow::Result<()> {
                                     &mut nets,
                                     &mut selfish,
                                     &mut slot,
+                                    pairs,
                                 )
                             }),
                         ) {

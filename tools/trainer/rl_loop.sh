@@ -30,6 +30,10 @@ PRUNE=${PRUNE:-1}
 # (data/decks/<EVAL>, Astra's archetypes): net − house per matchup is the
 # yardstick that generalises. Empty: none.
 EVAL=${EVAL:-eval}
+# Decks the league generates from the working pool beside the house decks
+# (league --generated, both shapes, deckgen's held-out cards left out), so
+# PPO does not specialise on two decks. 0: the house decks only.
+GEN=${GEN:-0}
 DATA=${DATA:-$HOME/baylee-data}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 YARDSTICK=${YARDSTICK:-$DATA/models/policy-v1/policy.onnx}
@@ -82,7 +86,7 @@ for it in $(seq -f %02g 1 "$ITERS"); do
             batched "$prev" "$last_ds"
             for f in "${formers[@]: -2}"; do batched "$(dirname "${f#net:}")" "$last_ds"; done
         fi
-        ./target/selfplay/league "${NETFLAGS[@]}" --learner "$prev/net.onnx" --temperature "$TEMP" \
+        ./target/selfplay/league "${NETFLAGS[@]}" --generated "$GEN" --learner "$prev/net.onnx" --temperature "$TEMP" \
             --league "house:expert,house:sharp,house:steady,net:$YARDSTICK,self$older" \
             --games "$GAMES" --out "$run" > "$run.log" 2>&1
     fi
