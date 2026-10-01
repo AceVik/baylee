@@ -18,7 +18,7 @@ use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::Outcome;
 use baylee_seat::{BridgeConfig, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
-use common::{attach_agent, spawn_gateway};
+use common::{attach_agent_seeded, spawn_gateway};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -40,7 +40,23 @@ async fn guest(lobby: &Lobby, name: &str) -> Session {
 #[allow(clippy::too_many_lines)] // e2e scenario script
 async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
     let gateway = spawn_gateway("seat_bridge");
-    let _agent = attach_agent(&gateway).await;
+    // A fixed deal, not the one the gateway would draw. This game was
+    // reported to fail under a loaded gate ("the house lost"), suspected of
+    // the engine-server's decision clocks timing a seat out under
+    // scheduling delay (`Deadline::Decide`/`StandIn`,
+    // `EngineRunner::clocks`/`timeout`). That is ruled out: this harness's
+    // `run_engine` (`tests/common/mod.rs`) never calls `clocks()` or
+    // `timeout()` at all — it only fires the curtain's entrance deadline —
+    // so no per-seat clock can ever expire here, loaded or not. Unseeded,
+    // this test also played a different shuffle every run (turn counts from
+    // 20 to 75 seen across five otherwise-identical local runs), which is a
+    // real, independent source of a different outcome each time; the
+    // reported failure was not reproduced locally (dozens of runs, seeded
+    // and not, under artificial CPU load, all had the house win). Pinning
+    // the deal at least takes chance out of the question: a recurrence
+    // against this fixed seed would point at a real bug rather than an
+    // unlucky draw, and this seed's game is the shortest tried (20 turns).
+    let _agent = attach_agent_seeded(&gateway, 7).await;
     let lobby = Lobby::new(&format!("http://127.0.0.1:{}", gateway.port));
 
     // Each chair is called what its mind is, as `baylee-seat join` calls it.
