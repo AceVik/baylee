@@ -2858,6 +2858,9 @@ impl GameState {
             if to.zone() != Zone::Stack
                 && !(from_zone == Zone::Stack && to.zone() == Zone::Battlefield)
             {
+                // Evoke belongs to this casting too. Reanimating a card
+                // that was evoked earlier must not sacrifice it again.
+                obj.alt_cast = false;
                 obj.riders.retain(|r| {
                     !matches!(
                         r,

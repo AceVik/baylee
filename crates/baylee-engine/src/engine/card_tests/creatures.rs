@@ -103130,8 +103130,10 @@ fn engine_object_is(engine: &Engine<RegistryLookup>, id: ObjectId, card: CardInd
 #[test]
 fn solitude_evoked_by_pitching_a_white_card_exiles_its_target_and_is_sacrificed() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let reanimate = card_index("a044474a-cd72-4e9d-bd8d-a08f2de9cdc0");
     let mut engine = Duel::new(4502, island())
-        .hand(0, &[solitude(), savannah_lions()])
+        .hand(0, &[solitude(), savannah_lions(), reanimate])
+        .battlefield(0, &[swamp()])
         .battlefield(1, &[grizzly_bears()])
         .life(1, 20)
         .start();
@@ -103202,6 +103204,31 @@ fn solitude_evoked_by_pitching_a_white_card_exiles_its_target_and_is_sacrificed(
         "evoked: sacrificed as it entered"
     );
     assert!(in_graveyard(&engine, p0, solitude()).is_some());
+    assert_reanimated_solitude_stays(&mut engine, p0, reanimate);
+}
+
+// The reanimated permanent must not inherit the earlier spell's evoke cost.
+fn assert_reanimated_solitude_stays(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    reanimate: CardIndex,
+) {
+    reach_main_phase(engine, seat);
+    let target = in_graveyard(engine, seat, solitude()).unwrap();
+    cast_from_hand(engine, seat, reanimate);
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+    assert!(
+        on_battlefield(engine, seat, solitude()).is_some(),
+        "a reanimated Solitude was not evoked and stays on the battlefield"
+    );
 }
 
 /// Aang and Katara: "Whenever Aang and Katara enter or attack, create X 1/1
