@@ -273,12 +273,12 @@ fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Setti
     if let Some(answer) = flags.answer {
         settings.answer = answer;
     }
-    if settings.answer == AnswerMode::Json && spec.provider != crate::llm::Provider::OpenAi {
-        return Err(
-            "--answer json is for an OpenAI-compatible endpoint; Anthropic's models \
-                    answer with tools"
-                .into(),
-        );
+    if settings.answer.is_json() && spec.provider != crate::llm::Provider::OpenAi {
+        return Err(format!(
+            "--answer {} is for an OpenAI-compatible endpoint; Anthropic's models answer with \
+             tools",
+            settings.answer.name().replace('_', "-")
+        ));
     }
     if let Some(max_tokens) = flags.max_tokens {
         if max_tokens == 0 {

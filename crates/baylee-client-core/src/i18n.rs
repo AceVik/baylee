@@ -3429,6 +3429,8 @@ messages! {
     SeatAnswerTools { en: "Tools", de: "Werkzeugen" },
     /// Answering with one JSON object.
     SeatAnswerJson { en: "JSON", de: "JSON" },
+    /// Answering with one JSON object held to a schema.
+    SeatAnswerJsonSchema { en: "JSON schema", de: "JSON-Schema" },
     /// The most one reply may take.
     SeatMaxTokens { en: "Max output tokens", de: "Höchstens Ausgabe-Tokens" },
     /// Input price over the build's.

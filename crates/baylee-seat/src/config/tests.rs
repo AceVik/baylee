@@ -311,6 +311,13 @@ fn a_flag_that_is_not_a_value_is_refused() {
         ),
         (
             Overrides {
+                answer: Some(AnswerMode::JsonSchema),
+                ..Overrides::default()
+            },
+            "--answer json-schema is for an OpenAI-compatible endpoint",
+        ),
+        (
+            Overrides {
                 max_tokens: Some(0),
                 ..Overrides::default()
             },

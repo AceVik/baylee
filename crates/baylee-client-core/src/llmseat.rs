@@ -128,8 +128,31 @@ impl Provider {
 pub enum AnswerMode {
     /// By calling the `decide` or `concede` tool.
     Tools,
-    /// With one JSON object, for an endpoint without tools.
+    /// With one JSON object, for an endpoint without tools: the request
+    /// asks for an object (`response_format` `json_object`).
     Json,
+    /// With one JSON object held to the answer's schema
+    /// (`response_format` `json_schema`), for an endpoint that refuses a
+    /// bare `json_object`, as LM Studio does.
+    JsonSchema,
+}
+
+impl AnswerMode {
+    /// Whether the model answers in JSON rather than by calling a tool.
+    #[must_use]
+    pub const fn is_json(self) -> bool {
+        matches!(self, Self::Json | Self::JsonSchema)
+    }
+
+    /// The name the file spells it with.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Tools => "tools",
+            Self::Json => "json",
+            Self::JsonSchema => "json_schema",
+        }
+    }
 }
 
 /// A model's price per million tokens, in US dollars.
@@ -263,8 +286,8 @@ pub struct Profile {
     /// [default: [`Provider::default_effort`]].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
-    /// How it answers [default: tools]; JSON only on an OpenAI-compatible
-    /// endpoint.
+    /// How it answers [default: tools]; JSON (`json`, `json_schema`) only
+    /// on an OpenAI-compatible endpoint.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<AnswerMode>,
     /// The most tokens one reply may take, thinking included [default:
@@ -366,14 +389,8 @@ impl Profile {
                 "an effort is a word such as low, medium or high".into(),
             );
         }
-        if self.answer == Some(AnswerMode::Json) && self.provider != Provider::OpenAi {
-            say(
-                Field::Answer,
-                Why::JsonNeedsOpenAi,
-                "answer json is for an OpenAI-compatible endpoint; Anthropic's models answer \
-                 with tools"
-                    .into(),
-            );
+        if let Some(sentence) = self.answer_fault() {
+            say(Field::Answer, Why::JsonNeedsOpenAi, sentence);
         }
         if self.max_tokens == Some(0) {
             say(
@@ -444,6 +461,21 @@ impl Profile {
             say(Field::BaseUrl, Why::NotSecure, sentence);
         }
         out
+    }
+}
+
+impl Profile {
+    /// Why it cannot answer the way it says, or `None`: JSON (`json`,
+    /// `json_schema`) is an OpenAI-compatible endpoint's.
+    fn answer_fault(&self) -> Option<String> {
+        let answer = self.answer.filter(|a| a.is_json())?;
+        (self.provider != Provider::OpenAi).then(|| {
+            format!(
+                "answer {} is for an OpenAI-compatible endpoint; Anthropic's models answer with \
+                 tools",
+                answer.name()
+            )
+        })
     }
 }
 
@@ -620,7 +652,7 @@ pub enum Why {
     NotAModelId,
     /// An effort that is not one word.
     NotAWord,
-    /// JSON answers asked of Anthropic's models.
+    /// JSON answers (`json`, `json_schema`) asked of Anthropic's models.
     JsonNeedsOpenAi,
     /// A most of zero: `max_tokens` or `think_secs`.
     Zero,

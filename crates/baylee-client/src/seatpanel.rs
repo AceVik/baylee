@@ -740,6 +740,11 @@ impl Drawn<'_, '_, '_> {
                     Press::Seat(Act::Answer(at, Some(AnswerMode::Json))),
                     answer == Some(AnswerMode::Json),
                 ),
+                (
+                    Phrase::SeatAnswerJsonSchema.text(lang),
+                    Press::Seat(Act::Answer(at, Some(AnswerMode::JsonSchema))),
+                    answer == Some(AnswerMode::JsonSchema),
+                ),
             ],
         );
         self.faults_at(model, spot(Slot::Answer));

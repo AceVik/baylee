@@ -97,7 +97,9 @@ struct Join {
     #[arg(long)]
     effort: Option<String>,
     /// How an OpenAI-compatible model answers: by calling a tool, or with a
-    /// JSON object, for a server without tools [default: tools].
+    /// JSON object, for a server without tools; `json-schema` asks for the
+    /// object by its schema, for a server that refuses a bare `json`
+    /// [default: tools].
     #[arg(long, value_enum)]
     answer: Option<Answering>,
     /// The most tokens one reply may take, thinking included [default:
@@ -182,6 +184,8 @@ enum Answering {
     Tools,
     /// With one JSON object.
     Json,
+    /// With one JSON object, held to the answer's schema.
+    JsonSchema,
 }
 
 /// A mind to play with, and what it spends, when it spends anything.
@@ -208,6 +212,7 @@ impl Join {
             answer: self.answer.map(|answer| match answer {
                 Answering::Tools => AnswerMode::Tools,
                 Answering::Json => AnswerMode::Json,
+                Answering::JsonSchema => AnswerMode::JsonSchema,
             }),
             max_tokens: self.max_tokens,
             price: self

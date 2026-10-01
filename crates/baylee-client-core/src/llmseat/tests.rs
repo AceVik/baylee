@@ -44,6 +44,13 @@ fn a_file_reads_and_writes_back_the_same() {
     let deepseek = settings.profile("deepseek").expect("a profile");
     assert_eq!(deepseek.provider, Provider::OpenAi);
     assert_eq!(deepseek.answer, Some(AnswerMode::Json));
+    // The schema's mode, as the file spells it.
+    let lm = SeatSettings::parse(
+        r#"{"profiles": {"lm": {"provider": "openai", "model": "m-1", "answer": "json_schema"}}}"#,
+    )
+    .expect("json_schema");
+    assert_eq!(lm.profiles["lm"].answer, Some(AnswerMode::JsonSchema));
+    assert!(lm.to_json().contains(r#""answer": "json_schema""#));
     assert_eq!(deepseek.key_env(), "DEEPSEEK_API_KEY");
     let again = SeatSettings::parse(&settings.to_json()).expect("its own text");
     assert_eq!(again, settings);
@@ -160,6 +167,10 @@ fn a_profile_that_cannot_play_is_refused_by_name() {
         (
             anthropic_json.to_string(),
             "answer json is for an OpenAI-compatible endpoint",
+        ),
+        (
+            anthropic_json.replace(r#""json""#, r#""json_schema""#),
+            "answer json_schema is for an OpenAI-compatible endpoint",
         ),
         (one(r#""max_tokens": 0"#), "max_tokens"),
         (one(r#""think_secs": 0"#), "think_secs"),

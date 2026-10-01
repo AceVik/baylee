@@ -191,19 +191,6 @@ fn every_refusal_shows_beside_its_field() {
         assert!(!en.is_empty() && en != de, "{spot:?}: «{en}» «{de}»");
     }
 
-    // The choices' own refusals.
-    let mut panel = panel();
-    panel.act(Act::Answer(0, Some(AnswerMode::Json)));
-    assert_eq!(
-        fault_at(&panel, Spot::Profile(0, Slot::Answer)),
-        Some(Problem::Refused(Why::JsonNeedsOpenAi))
-    );
-    panel.act(Act::Provider(0, Provider::OpenAi));
-    assert_eq!(
-        panel.faults(),
-        [],
-        "json is an OpenAI-compatible endpoint's"
-    );
     // A key in the model's box is one fault, beside it: the model it
     // blanks has no price, and that is not said a second time.
     let mut panel = self::panel();
@@ -234,6 +221,31 @@ fn every_refusal_shows_beside_its_field() {
         }),
         "a decimal comma reads"
     );
+}
+
+/// The answer's choice is refused beside it where the provider cannot
+/// answer that way: JSON, plain or by its schema, is an OpenAI-compatible
+/// endpoint's.
+#[test]
+fn a_json_answer_is_an_openai_compatible_endpoint_s() {
+    for json in [AnswerMode::Json, AnswerMode::JsonSchema] {
+        let mut panel = panel();
+        panel.act(Act::Answer(0, Some(json)));
+        assert_eq!(
+            fault_at(&panel, Spot::Profile(0, Slot::Answer)),
+            Some(Problem::Refused(Why::JsonNeedsOpenAi)),
+            "{json:?}"
+        );
+        panel.act(Act::Provider(0, Provider::OpenAi));
+        assert_eq!(
+            panel.faults(),
+            [],
+            "{json:?} is an OpenAI-compatible endpoint's"
+        );
+        let saved = panel.to_save().expect("an edit with nothing wrong");
+        let name = panel.name(0).expect("a profile").to_string();
+        assert_eq!(saved.profiles[&name].answer, Some(json));
+    }
 }
 
 /// Each way the file can be refused is placed on a field, and said in

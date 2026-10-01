@@ -69,7 +69,7 @@ the profile: a file is played as written or not at all.
 | `provider` | `anthropic` or `openai` (any OpenAI-compatible endpoint). Required. |
 | `model` | The provider's model id. Required. |
 | `effort` | A word such as `low`, `medium`, `high`. |
-| `answer` | `tools` or `json` (`json` for OpenAI-compatible endpoints only). |
+| `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints only). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
 | `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). |
 | `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |

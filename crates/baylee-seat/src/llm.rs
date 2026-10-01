@@ -5,7 +5,8 @@
 //! the call back against the question's own options ([`Menu::resolve`]).
 //! Two providers: the Anthropic Messages API and any OpenAI-compatible chat
 //! endpoint (`DeepSeek`, `OpenAI`, a local server), the latter also without
-//! tools, answering one JSON object ([`AnswerMode::Json`]).
+//! tools, answering one JSON object ([`AnswerMode::Json`]), or one held to
+//! the answer's schema ([`AnswerMode::JsonSchema`]).
 //!
 //! # One conversation per turn
 //!
@@ -1072,6 +1073,12 @@ fn call(
             Provider::OpenAi => openai::error_message(&body),
         }
         .unwrap_or_else(|| "no reason given".into());
+        let why = match openai::response_format_hint(&why, mode) {
+            Some(hint) if provider == Provider::OpenAi && status == 400 => {
+                format!("{why} ({hint})")
+            }
+            _ => why,
+        };
         return Err(Failed {
             turned_down: matches!(status, 400 | 413),
             ..Failed::unbilled(format!("{status}: {why}"))
@@ -1113,7 +1120,9 @@ fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read, String> {
         return Err(match (mode, &reply.stop) {
             (_, Stop::MaxTokens) => "the reply ran out of tokens before it answered".into(),
             (AnswerMode::Tools, _) => "answer with one call of the decide tool".into(),
-            (AnswerMode::Json, _) => "answer with one JSON object and nothing else".into(),
+            (AnswerMode::Json | AnswerMode::JsonSchema, _) => {
+                "answer with one JSON object and nothing else".into()
+            }
         });
     };
     let decision = if call.name == "concede" {
