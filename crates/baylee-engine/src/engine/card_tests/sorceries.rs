@@ -13347,3 +13347,79 @@ fn alpha_eval_mind_twist_discards_randomly_up_to_x() {
         assert!(in_graveyard(&engine, p0, twist).is_some());
     }
 }
+
+// ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
+
+/// Spirit Water Revival, waterbend declined: "Draw two cards." and "Exile
+/// Spirit Water Revival." Nothing else tested the spell once it resolves.
+#[test]
+fn spirit_water_revival_draws_two_and_exiles_itself_when_the_waterbend_is_declined() {
+    let seat = PlayerId::new(0);
+    let mut engine = revival_table(&[island(), island(), island()]);
+    let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(seat)).len();
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: revival })
+        .unwrap();
+    engine.apply(seat, PlayerAction::YesNo(false)).unwrap();
+    let lib = library_size(&engine, seat);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(seat)).len(),
+        hand_before - 1 + 2,
+        "the spell left the hand and two cards came in"
+    );
+    assert_eq!(library_size(&engine, seat), lib - 2);
+    assert_eq!(exiled(&engine, seat, spirit_water_revival()), 1);
+    assert!(in_graveyard(&engine, seat, spirit_water_revival()).is_none());
+}
+
+/// Spirit Water Revival, waterbend paid: "instead shuffle your graveyard
+/// into your library, draw seven cards". The graveyard is seeded with three
+/// cards; afterwards it is empty bar nothing (the spell is exiled), the
+/// library gained three and lost seven, and the hand holds seven.
+#[test]
+fn spirit_water_revival_paid_shuffles_the_graveyard_in_and_draws_seven() {
+    let seat = PlayerId::new(0);
+    let mut board = vec![island(), island(), island()];
+    board.extend(std::iter::repeat_n(ondu_cleric(), 6));
+    let mut engine = revival_table(&board);
+    seed_graveyard(&mut engine, seat, 3);
+    let revival = in_hand(&engine, seat, spirit_water_revival()).expect("in hand");
+    engine
+        .apply(seat, PlayerAction::CastSpell { card: revival })
+        .unwrap();
+    engine.apply(seat, PlayerAction::YesNo(true)).unwrap();
+    let (options, max) = tap_to_pay_question(&engine).expect("the waterbend asks for taps");
+    assert_eq!(max, 6);
+    engine
+        .apply(
+            seat,
+            PlayerAction::ChooseTargets {
+                objects: options.into_iter().take(6).collect(),
+                players: vec![],
+            },
+        )
+        .unwrap();
+    let lib = library_size(&engine, seat);
+    let gy = engine.state().zones.list(ZoneLocation::Graveyard(seat)).len();
+    assert_eq!(gy, 3, "the seeded graveyard");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(seat)).len(),
+        7,
+        "seven cards drawn into an empty hand"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(seat))
+            .is_empty(),
+        "the graveyard was shuffled away and the spell exiled"
+    );
+    assert_eq!(library_size(&engine, seat), lib + 3 - 7);
+    assert_eq!(exiled(&engine, seat, spirit_water_revival()), 1);
+}
