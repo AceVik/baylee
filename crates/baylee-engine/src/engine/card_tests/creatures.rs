@@ -103025,3 +103025,191 @@ fn sheoldred_flips_to_a_saga_whose_chapters_two_and_three_discard_mill_and_reani
     );
     assert_eq!(pt(&engine, front), (4, 5));
 }
+
+fn solemn_simulacrum() -> CardIndex {
+    card_index("00c0543c-2a1f-4425-8283-4062d74a1637")
+}
+
+fn cards_of_in(
+    engine: &Engine<RegistryLookup>,
+    location: ZoneLocation,
+    card: CardIndex,
+) -> usize {
+    engine
+        .state()
+        .zones
+        .list(location)
+        .iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(**id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+        })
+        .count()
+}
+
+/// Solemn Simulacrum: "When this creature enters, you may search your
+/// library for a basic land card, put that card onto the battlefield tapped,
+/// then shuffle. When this creature dies, you may draw a card."
+#[test]
+fn solemn_simulacrum_fetches_a_tapped_basic_and_draws_when_it_dies() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4501, forest())
+        .battlefield(0, &[island(), island(), island(), island(), mountain()])
+        .hand(0, &[solemn_simulacrum(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lib_before = library_size(&engine, p0);
+
+    // Four Islands pay {4}; the Mountain is held back for the Bolt.
+    tap_all_mana_but(&mut engine, p0, Some(mountain()));
+    cast_with_floating(&mut engine, p0, solemn_simulacrum());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the search asks for its land")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("the land came from the search");
+    pass_until(&mut engine, stack_is_empty);
+    let fetched = all_on_battlefield(&engine, p0, forest());
+    assert_eq!(fetched.len(), 1, "a basic land arrived");
+    assert!(is_tapped(&engine, fetched[0]), "\"put that card onto the battlefield tapped\"");
+    assert_eq!(library_size(&engine, p0), lib_before - 1, "taken from the library");
+
+    // Now the Bolt, aimed at the Simulacrum: "when this creature dies".
+    let golem = on_battlefield(&engine, p0, solemn_simulacrum()).expect("the Golem");
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    let lib_before = library_size(&engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![golem],
+            },
+        )
+        .expect("the Bolt aims at the Golem");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, solemn_simulacrum()).is_some(), "it died");
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1 + 1,
+        "the Bolt left the hand and the death drew one card"
+    );
+    assert_eq!(library_size(&engine, p0), lib_before - 1);
+}
+
+fn engine_object_is(engine: &Engine<RegistryLookup>, id: ObjectId, card: CardIndex) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.card.is_some_and(|c| c.index == card))
+}
+
+/// Solitude: "Evoke—Exile a white card from your hand." and "When this
+/// creature enters, exile up to one other target creature. That creature's
+/// controller gains life equal to its power." An evoked Solitude is
+/// sacrificed once it has entered; its trigger still exiles.
+#[test]
+fn solitude_evoked_by_pitching_a_white_card_exiles_its_target_and_is_sacrificed() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4502, island())
+        .hand(0, &[solitude(), savannah_lions()])
+        .battlefield(1, &[grizzly_bears()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("their Bears");
+    let incarnation = in_hand(&engine, p0, solitude()).expect("Solitude is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: incarnation })
+        .expect("Solitude is castable with no mana, by pitching");
+    for _ in 0..6 {
+        match engine.pending().clone() {
+            Pending::ChooseCastMode { options, .. } => {
+                let alt = options
+                    .iter()
+                    .position(|o| matches!(o.kind, CastModeKind::Alternative(_)))
+                    .expect("the evoke cost is offered");
+                engine.apply(p0, PlayerAction::ChooseMode(alt)).unwrap();
+            }
+            Pending::ChooseCards { options, .. } => {
+                let lions = options
+                    .iter()
+                    .copied()
+                    .find(|o| engine_object_is(&engine, *o, savannah_lions()))
+                    .expect("the white card is the only one offered");
+                engine
+                    .apply(p0, PlayerAction::ChooseObjects { objects: vec![lions] })
+                    .unwrap();
+            }
+            _ => break,
+        }
+    }
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![bears] })
+        .expect("the Bears are the only other creature");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(cards_of_in(&engine, ZoneLocation::Exile(p1), grizzly_bears()), 1, "exiled");
+    assert_eq!(engine.state().players[1].life, 22, "their controller gains life equal to its power");
+    assert_eq!(
+        cards_of_in(&engine, ZoneLocation::Exile(p0), savannah_lions()),
+        1,
+        "the white card was the price"
+    );
+    assert!(
+        on_battlefield(&engine, p0, solitude()).is_none(),
+        "evoked: sacrificed as it entered"
+    );
+    assert!(in_graveyard(&engine, p0, solitude()).is_some());
+}
+
+/// Aang and Katara: "Whenever Aang and Katara enter or attack, create X 1/1
+/// white Ally creature tokens, where X is the number of tapped artifacts
+/// and/or creatures you control." Attacking taps Aang himself, so with Sol
+/// Ring and an Elf tapped for mana X is three.
+#[test]
+fn aang_and_katara_attacking_makes_a_token_per_tapped_artifact_or_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4503, island())
+        .battlefield(0, &[aang_and_katara(), sol_ring(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let aang = on_battlefield(&engine, p0, aang_and_katara()).expect("Aang and Katara");
+    tap_all_mana(&mut engine, p0);
+    assert!(tokens_of(&engine, p0).is_empty());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(aang, Defender::Player(p1))],
+            },
+        )
+        .expect("Aang attacks");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        3,
+        "Sol Ring, the Elf and Aang himself are tapped"
+    );
+}
