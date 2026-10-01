@@ -78421,3 +78421,193 @@ fn fountainport_sacrifices_a_token_to_draw_a_card() {
     );
     assert_eq!(tokens_of(&engine, p0), vec![tokens[1]], "one token is left");
 }
+
+// ---- Abilities no test had fired, second sweep (L4, 2026-10-01) ----
+
+/// Pays the animation (ability 1) of a seeded manland out of the lands
+/// beside it, then passes to the declare-attackers question and declares
+/// the land plus `with` as attackers at seat 1. Returns the land's object;
+/// the engine stands where the attack triggers go on the stack.
+#[track_caller]
+fn animate_and_attack(
+    engine: &mut Engine<RegistryLookup>,
+    land_card: CardIndex,
+    with: &[ObjectId],
+) -> ObjectId {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    reach_main_phase(engine, p0);
+    let land = on_battlefield(engine, p0, land_card).expect("the manland is out");
+    tap_all_mana_but(engine, p0, Some(land_card));
+    activate(engine, p0, land_card, 1);
+    pass_until(engine, stack_is_empty);
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on the attack declaration")
+    };
+    assert!(attackers.contains(&land), "the animated land may attack");
+    let mut declared = vec![(land, Defender::Player(p1))];
+    declared.extend(with.iter().map(|o| (*o, Defender::Player(p1))));
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: declared,
+            },
+        )
+        .expect("the attackers came from the offer");
+    land
+}
+
+/// Answers the attack trigger's target question with `object`.
+#[track_caller]
+fn aim_trigger_at(engine: &mut Engine<RegistryLookup>, object: ObjectId) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stops on the target question")
+    };
+    assert!(
+        options.contains(&object),
+        "the target is on offer: {options:?}"
+    );
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ChooseObjects {
+                objects: vec![object],
+            },
+        )
+        .expect("the target came from the offer");
+}
+
+/// Restless Cottage: "Whenever this land attacks, create a Food token and
+/// exile up to one target card from a graveyard."
+#[test]
+fn restless_cottage_attack_makes_a_food_and_exiles_a_card_from_a_graveyard() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4101, forest())
+        .battlefield(
+            0,
+            &[restless_cottage(), swamp(), swamp(), forest(), forest()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    seed_graveyard(&mut engine, p1, 1);
+    let victim = engine.state().zones.list(ZoneLocation::Graveyard(p1))[0];
+    animate_and_attack(&mut engine, restless_cottage(), &[]);
+    aim_trigger_at(&mut engine, victim);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(tokens_of(&engine, p0).len(), 1, "one Food token");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p1))
+            .is_empty(),
+        "the targeted card left the graveyard"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(p1))
+            .contains(&victim)
+    );
+}
+
+/// Restless Vinestalk: "Whenever this land attacks, up to one other target
+/// creature has base power and toughness 3/3 until end of turn."
+#[test]
+fn restless_vinestalk_attack_sets_another_creatures_base_power_and_toughness() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(4102, forest())
+        .battlefield(
+            0,
+            &[
+                restless_vinestalk(),
+                forest(),
+                forest(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    animate_and_attack(&mut engine, restless_vinestalk(), &[]);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    assert_eq!(pt(&engine, elves), (1, 1));
+    aim_trigger_at(&mut engine, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elves), (3, 3), "base 3/3 until end of turn");
+}
+
+/// Restless Prairie: "Whenever this land attacks, other creatures you
+/// control get +1/+1 until end of turn."
+#[test]
+fn restless_prairie_attack_pumps_the_other_creatures_you_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4103, forest())
+        .battlefield(
+            0,
+            &[
+                restless_prairie(),
+                forest(),
+                forest(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    let mine = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    let land = animate_and_attack(&mut engine, restless_prairie(), &[]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, mine), (2, 2), "my other creature gets +1/+1");
+    assert_eq!(pt(&engine, theirs), (1, 1), "theirs does not");
+    assert_eq!(
+        pt(&engine, land),
+        (3, 3),
+        "\"other\": the land is not pumped"
+    );
+}
+
+/// Restless Ridgeline: "Whenever this land attacks, another target attacking
+/// creature gets +2/+0 until end of turn. Untap that creature."
+#[test]
+fn restless_ridgeline_attack_pumps_and_untaps_another_attacker() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4104, forest())
+        .battlefield(
+            0,
+            &[
+                restless_ridgeline(),
+                mountain(),
+                mountain(),
+                forest(),
+                forest(),
+                restless_bears(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    let elves = on_battlefield(&engine, p0, restless_bears()).expect("my Bears");
+    animate_and_attack(&mut engine, restless_ridgeline(), &[elves]);
+    assert!(is_tapped(&engine, elves), "attacking tapped the Elves");
+    aim_trigger_at(&mut engine, elves);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, elves), (4, 2), "+2/+0");
+    assert!(!is_tapped(&engine, elves), "untapped by the trigger");
+}
+
+fn restless_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
