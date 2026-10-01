@@ -78176,3 +78176,217 @@ fn mishra_s_foundry_pumps_an_attacking_assembly_worker_only() {
     unf_aim_and_pay(&mut engine, p0, Some(fc), None);
     assert_eq!(pt(&engine, fc), (4, 4));
 }
+
+/// Mudflat Village: "{1}{B}, {T}, Sacrifice this land: Return target Bat,
+/// Lizard, Rat, or Squirrel card from your graveyard to your hand." Sewer
+/// Rats (a Rat) is on offer; Llanowar Elves in the same graveyard is not.
+#[test]
+fn mudflat_village_returns_a_rat_and_not_an_elf_from_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let village = card_index("aeeab1df-0b8b-4bc4-a5f9-aac413449bec");
+    let rats = card_index("bf526a0d-65cc-445f-b2b8-19a2cfdd836b");
+    let mut engine = Duel::new(2301, forest())
+        .battlefield(0, &[village, swamp(), forest(), rats, llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let v = on_battlefield(&engine, p0, village).expect("village");
+    let r = on_battlefield(&engine, p0, rats).expect("rats");
+    let e = on_battlefield(&engine, p0, llanowar_elves()).expect("elves");
+    bury(&mut engine, &[r, e]);
+    tap_mana_where(&mut engine, p0, |id| id != v && id != r && id != e);
+
+    activate(&mut engine, p0, village, 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&r), "a Rat card is a target");
+    assert!(!options.contains(&e), "an Elf card is not");
+    unf_aim_and_pay(&mut engine, p0, Some(r), None);
+
+    assert!(in_hand(&engine, p0, rats).is_some(), "the Rats came back");
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    assert!(in_graveyard(&engine, p0, village).is_some(), "sacrificed");
+}
+
+/// Seaside Haven: "{W}{U}, {T}, Sacrifice a Bird: Draw a card." The Elves
+/// are not a Bird, so only the Raptor is on offer for the sacrifice.
+#[test]
+fn seaside_haven_sacrifices_a_bird_to_draw() {
+    let p0 = PlayerId::new(0);
+    let haven = card_index("4adc39dd-8de1-4298-947c-ff666ec3adeb");
+    let mut engine = Duel::new(2302, forest())
+        .battlefield(
+            0,
+            &[haven, plains(), island(), umara_raptor(), llanowar_elves()],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let h = on_battlefield(&engine, p0, haven).expect("haven");
+    let bird = on_battlefield(&engine, p0, umara_raptor()).expect("bird");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf");
+    tap_mana_where(&mut engine, p0, |id| id != h && id != bird && id != elf);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, haven, 1);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected the sacrifice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&bird));
+    assert!(!options.contains(&elf), "an Elf is no Bird");
+    unf_aim_and_pay(&mut engine, p0, None, Some(bird));
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand + 1
+    );
+    assert!(in_graveyard(&engine, p0, umara_raptor()).is_some());
+}
+
+/// Haven of the Spirit Dragon: "{2}, {T}, Sacrifice this land: Return target
+/// Dragon creature card or Ugin planeswalker card from your graveyard to your
+/// hand." Shivan Dragon is on offer, Llanowar Elves is not.
+#[test]
+fn haven_of_the_spirit_dragon_returns_a_dragon_card_to_hand() {
+    let p0 = PlayerId::new(0);
+    let haven = card_index("acc9c16a-5e72-43bd-87e1-56a16aa892f5");
+    let dragon = card_index("711eea87-0fa3-46e0-a42b-fa5a86455f04");
+    let mut engine = Duel::new(2303, forest())
+        .battlefield(0, &[haven, forest(), forest(), dragon, llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let h = on_battlefield(&engine, p0, haven).expect("haven");
+    let d = on_battlefield(&engine, p0, dragon).expect("dragon");
+    let e = on_battlefield(&engine, p0, llanowar_elves()).expect("elf");
+    bury(&mut engine, &[d, e]);
+    tap_mana_where(&mut engine, p0, |id| id != h && id != d && id != e);
+
+    activate(&mut engine, p0, haven, 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&d) && !options.contains(&e));
+    unf_aim_and_pay(&mut engine, p0, Some(d), None);
+
+    assert!(in_hand(&engine, p0, dragon).is_some());
+    assert!(in_graveyard(&engine, p0, haven).is_some(), "sacrificed");
+}
+
+/// Ally Encampment: "{1}, {T}, Sacrifice this land: Return target Ally you
+/// control to its owner's hand." Ondu Cleric is an Ally; the Elves are not.
+#[test]
+fn ally_encampment_returns_an_ally_to_hand() {
+    let p0 = PlayerId::new(0);
+    let camp = card_index("9d293b69-12b7-4b50-a0a7-c4f493dee30b");
+    let mut engine = Duel::new(2304, forest())
+        .battlefield(0, &[camp, forest(), ondu_cleric(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let c = on_battlefield(&engine, p0, camp).expect("camp");
+    let cleric = on_battlefield(&engine, p0, ondu_cleric()).expect("cleric");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf");
+    tap_mana_where(&mut engine, p0, |id| id != c && id != cleric && id != elf);
+
+    activate(&mut engine, p0, camp, 2);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&cleric) && !options.contains(&elf));
+    unf_aim_and_pay(&mut engine, p0, Some(cleric), None);
+
+    assert!(in_hand(&engine, p0, ondu_cleric()).is_some());
+    assert!(on_battlefield(&engine, p0, ondu_cleric()).is_none());
+    assert!(in_graveyard(&engine, p0, camp).is_some(), "sacrificed");
+}
+
+/// Rivendell: "{1}{U}, {T}: Scry 2. Activate only if you control a legendary
+/// creature." Without one it is not offered; with Jin it asks for two cards.
+#[test]
+fn rivendell_scries_two_only_while_a_legendary_creature_is_controlled() {
+    let p0 = PlayerId::new(0);
+    let offered = |board: &[CardIndex]| -> (Engine<RegistryLookup>, ObjectId, bool) {
+        let mut engine = Duel::new(2305, island()).battlefield(0, board).start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let r = on_battlefield(&engine, p0, rivendell()).expect("rivendell");
+        tap_mana_where(&mut engine, p0, |id| id != r);
+        let yes = priority_offer(&engine).abilities.contains(&(r, 1));
+        (engine, r, yes)
+    };
+    let (_, _, without) = offered(&[rivendell(), island(), island(), quiet_creature()]);
+    assert!(!without, "no legendary creature, no scry");
+    let (mut engine, r, with) = offered(&[rivendell(), island(), island(), jin_gitaxias()]);
+    assert!(with, "a legendary creature enables it");
+
+    activate(&mut engine, p0, rivendell(), 1);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Arrange { .. })
+    });
+    let Pending::Arrange {
+        player,
+        cards,
+        piles,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("pass_until stopped on the arrangement")
+    };
+    assert_eq!(player, p0);
+    assert_eq!(cards.len(), 2, "scry 2 looks at two cards");
+    assert_eq!(piles, scry_piles(2));
+}
+
+/// Heap Gate: "{1}, {T}, Tap an untapped Gate you control: Create a Treasure
+/// token." The second Gate is the tap cost, so it ends tapped.
+#[test]
+fn heap_gate_taps_another_gate_to_make_a_treasure() {
+    let p0 = PlayerId::new(0);
+    let gate = card_index("35922a30-6b84-44dd-a2f0-306554a1ae90");
+    let mut engine = Duel::new(2306, forest())
+        .battlefield(0, &[gate, gate, forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let gates: Vec<ObjectId> = lands_of(&engine, p0)
+        .into_iter()
+        .filter(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == gate))
+        })
+        .collect();
+    let (a, b) = (gates[0], gates[1]);
+    tap_mana_where(&mut engine, p0, |id| id != a && id != b);
+
+    let offer = priority_offer(&engine);
+    let (source, ability_index) = offer
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, i)| *id == a && *i == 2)
+        .expect("the Treasure ability is offered");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
+        assert!(options.contains(&b), "the other Gate is the one to tap");
+        assert!(!options.contains(&a), "not the Gate that is activating");
+        engine
+            .apply(p0, PlayerAction::ChooseObjects { objects: vec![b] })
+            .unwrap();
+    }
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(tokens_of(&engine, p0).len(), 1, "a Treasure token");
+    assert!(is_tapped(&engine, a) && is_tapped(&engine, b));
+}
