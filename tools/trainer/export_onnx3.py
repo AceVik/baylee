@@ -114,6 +114,8 @@ def main() -> None:
             want = wrapped(*[torch.from_numpy(feeds[k]) for k in INPUTS])
             for g, w in zip(got, want):
                 w = w.numpy()
+                if np.isnan(g).any() or np.isnan(w).any():
+                    raise SystemExit("the net outputs NaN: refusing to export it")
                 finite = np.isfinite(w)
                 assert (np.isfinite(g) == finite).all(), "padding differs"
                 if finite.any():
@@ -186,6 +188,11 @@ def export_batched(B: int, out: Path, wrapped, ds, idx, buckets) -> None:
                 want = wrapped(*[torch.from_numpy(feeds[k]) for k in INPUTS])
                 for g, w in zip(got, want):
                     w = w.numpy()
+                    # Masked entries are -inf; NaN is never an output. The
+                    # check below compares finite entries only, so a net whose
+                    # weights went NaN passed it as "max |diff| 0".
+                    if np.isnan(g).any() or np.isnan(w).any():
+                        raise SystemExit("the net outputs NaN: refusing to export it")
                     finite = np.isfinite(w)
                     assert (np.isfinite(g) == finite).all(), "padding differs"
                     if finite.any():

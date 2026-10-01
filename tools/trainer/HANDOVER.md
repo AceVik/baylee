@@ -11,14 +11,25 @@ picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
 **The RL loop is stopped on purpose (tmux `rl` is gone). Do not restart it
 before the value NaN below is understood.**
 
-- **Value NaN since rl-32.** `train_rl.py`'s value Brier is finite through
-  rl-31 (0.196) and `nan` for rl-32 to rl-39. rl-39's value head is NaN on
-  every decision of any dataset (d3-mac-d001 too), while its policy still
-  played well on the house decks. rl-31 was the first iteration trained after
-  the loop moved to the GPU (GPU=1, 06:54) and is still clean. The cause is
-  not found: the data is finite, and so is the card table. **Restart from
-  rl-31** once fixed. rl-32 to rl-39 are suspect, and rl-40 is NaN everywhere
-  (moved to `*.nan-gen`).
+- **Value NaN since rl-32: cause found and fixed.** Off-policy actions in
+  PPO.
+  - When the house answers for the learner, its action is recorded as the
+    learner's: a pre-checked or refused attack declaration, the loop guard.
+    Under the behaviour net those actions have log-probs of −20 to −66.
+  - In a clean 300-game rl-23 league that was 0.19 % of the samples, 191 of
+    219 of them attack declarations. `exp(new − old)` exploded on them.
+  - The policy loss went from 0.03 (rl-23) to 3.5 (rl-24), then 2.8e7
+    (rl-31), then NaN from rl-32 on, which also ruined the value head.
+  - The GPU is not involved.
+  - train_rl.py now drops samples whose behaviour p < 1e-4
+    (`--min-behavior-p`), dual-clips negative advantages (`--dual-clip 3`),
+    caps the ratio's log, and skips a batch with a non-finite loss; the run
+    stops past 1 % (`--max-skipped`). export_onnx3.py refuses a net that
+    outputs NaN: its parity check had passed NaN nets as "max |diff| 0".
+  - On the same clean data the old code's policy loss is 0.31 → 0.10, the
+    fix's −0.004 → 0.0003 (0.2 % dropped as off-policy).
+  - **Restart from rl-23**, the last iteration with a healthy loss. rl-24
+    to rl-39 trained with the broken loss. rl-40 is NaN (`*.nan-gen`).
 - **Overfitting.** On Astra's eval decks (data/decks/eval, 15 archetypes,
   138 matchups; `arena --decks eval`) net − house went from −0.202 (v3-a-dyn)
   to −0.401 (rl-37), while on the two house decks it rose from −0.169 to

@@ -143,12 +143,23 @@ def step(net, ref, ds, b, entities, is_learner, adv, args):
             mu_lp = torch.log_softmax(ref_padded[ok_t] / args.behavior_temp, dim=1)
             c = chosen[ok_t].unsqueeze(1)
             old = ref_lp.gather(1, c).squeeze(1)
-            iw = torch.clamp(torch.exp(old - mu_lp.gather(1, c).squeeze(1)), max=args.iw_max)
+            mu = mu_lp.gather(1, c).squeeze(1)
+            iw = torch.clamp(torch.exp(old - mu), max=args.iw_max)
+            # An action the behaviour policy all but never takes was not the
+            # net's: the house answered for the learner there (a refused or
+            # pre-checked declaration, the loop guard). Its old log-prob of
+            # −20 to −66 made exp(new − old) explode, from rl-24 on, into
+            # NaN at rl-32. Such samples carry no policy gradient.
+            on_policy = mu > float(np.log(args.min_behavior_p))
+            stats["off_policy"] = float((~on_policy).float().mean())
+            iw = iw * on_policy
         lp = torch.log_softmax(padded[ok_t], dim=1)
         new = lp.gather(1, chosen[ok_t].unsqueeze(1)).squeeze(1)
-        ratio = torch.exp(new - old)
+        ratio = torch.exp((new - old).clamp(max=20.0))
         adv_ok = a[ok_t]
         surr = torch.minimum(ratio * adv_ok, torch.clamp(ratio, 1 - args.clip, 1 + args.clip) * adv_ok)
+        # Dual clip: a negative advantage times a huge ratio is bounded.
+        surr = torch.where(adv_ok < 0, torch.maximum(surr, args.dual_clip * adv_ok), surr)
         p = lp.exp()
         # Masked options are -inf: zero them before the product, or the
         # gradient of 0 * -inf is NaN even where the value is dropped.
@@ -178,6 +189,13 @@ def main() -> None:
     ap.add_argument("--clip", type=float, default=0.2, help="ppo: the ratio's clip around 1")
     ap.add_argument("--behavior-temp", type=float, default=0.7, help="ppo: the temperature the learner sampled at")
     ap.add_argument("--iw-max", type=float, default=5.0, help="ppo: cap on the behaviour correction pi/mu")
+    ap.add_argument("--min-behavior-p", type=float, default=1e-4,
+                    help="ppo: a learner sample whose action the behaviour policy gave less than this is "
+                         "not the net's choice (the house answered for it) and is left out of the policy step")
+    ap.add_argument("--dual-clip", type=float, default=3.0,
+                    help="ppo: for a negative advantage the surrogate is bounded at this many times it")
+    ap.add_argument("--max-skipped", type=float, default=0.01,
+                    help="share of batches with a non-finite loss (skipped) past which the run stops")
     ap.add_argument("--entropy", type=float, default=0.01, help="ppo: entropy bonus")
     ap.add_argument("--beta", type=float, default=1.0, help="AWR temperature, in standard deviations of the advantage")
     ap.add_argument("--lam", type=float, default=0.9, help="GAE lambda over the learner's decisions")
@@ -235,12 +253,21 @@ def main() -> None:
     adv = advantages(net, ds, is_learner, args.entities, args.lam)
     t0, t_ckpt, run_p, run_v = time.time(), time.time(), None, None
     run_s: dict[str, float] = {}
+    skipped = 0
     while n < total:
         for b in loader:
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 pol, val, stats = step(net, ref, ds, b, args.entities, is_learner, adv, args)
                 loss = pol + args.value_weight * val
             opt.zero_grad(set_to_none=True)
+            # A non-finite loss never reaches the weights: one such step
+            # turned every later learner's value head into NaN.
+            if not torch.isfinite(loss):
+                skipped += 1
+                n += 1
+                if skipped > max(10, args.max_skipped * total):
+                    raise SystemExit(f"{skipped} batches with a non-finite loss in {n:,} steps; stopping")
+                continue
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
@@ -251,7 +278,7 @@ def main() -> None:
             for k_, v_ in stats.items():
                 run_s[k_] = v_ if k_ not in run_s else 0.98 * run_s[k_] + 0.02 * v_
             if n % 500 == 0 or n == total:
-                extra = " · ".join(f"{k_} {v_:.3f}" for k_, v_ in run_s.items())
+                extra = " · ".join(f"{k_} {v_:.3f}" for k_, v_ in run_s.items()) + f" · skipped {skipped}"
                 log(f"step {n:,}/{total:,} · policy {run_p:.4f} · value {run_v:.4f} · {extra} · "
                     f"{(time.time() - t0) / 60:.0f} min")
             if time.time() - t_ckpt > args.ckpt_minutes * 60:
