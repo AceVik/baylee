@@ -2633,7 +2633,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }
-            manasources::hand_cost(card).is_some_and(&affordable)
+            manasources::hand_cost(card).is_some_and(affordable)
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         // And there has to be something to point it at (CR 601.2c). Last in
@@ -2688,7 +2688,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .filter(|c| {
                     commander_cost(c)
                         .map(|cost| cost.with_more_generic(2 * c.casts))
-                        .is_some_and(&affordable)
+                        .is_some_and(affordable)
                 })
                 .map(|c| c.object),
         )
