@@ -23349,3 +23349,46 @@ fn alpha_eval_manabarbs_counts_land_taps_for_either_player() {
     }
     assert_eq!(engine.state().players[0].life, 19);
 }
+
+// ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
+
+/// Luminarch Ascension: "{1}{W}: Create a 4/4 white Angel creature token
+/// with flying. Activate only if this enchantment has four or more quest
+/// counters on it." Three counters: not offered. Four: an Angel arrives.
+#[test]
+fn luminarch_ascension_makes_an_angel_only_from_four_quest_counters() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2501, forest())
+        .battlefield(0, &[luminarch_ascension(), plains(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let asc = on_battlefield(&engine, p0, luminarch_ascension()).expect("ascension");
+    tap_mana_where(&mut engine, p0, |id| id != asc);
+    let set = |engine: &mut Engine<RegistryLookup>, n: u16| {
+        engine
+            .dev_state_mut(p0)
+            .expect("the harness may set boards up")
+            .object_mut(asc)
+            .expect("on the table")
+            .counters
+            .set(baylee_cards_dsl::counters::QUEST, n);
+        engine.refresh_offer();
+    };
+
+    set(&mut engine, 3);
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(asc, 1)),
+        "three quest counters are not enough"
+    );
+    set(&mut engine, 4);
+    assert!(priority_offer(&engine).abilities.contains(&(asc, 1)));
+
+    activate(&mut engine, p0, luminarch_ascension(), 1);
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one Angel");
+    assert_eq!(pt(&engine, tokens[0]), (4, 4));
+    assert!(keywords(&engine, tokens[0]).contains(KeywordSet::FLYING));
+}

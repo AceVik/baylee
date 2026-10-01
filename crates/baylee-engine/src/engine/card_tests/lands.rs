@@ -78390,3 +78390,34 @@ fn heap_gate_taps_another_gate_to_make_a_treasure() {
     assert_eq!(tokens_of(&engine, p0).len(), 1, "a Treasure token");
     assert!(is_tapped(&engine, a) && is_tapped(&engine, b));
 }
+
+/// Fountainport: "{2}, {T}, Sacrifice a token: Draw a card." Elspeth, Storm
+/// Slayer's +1 makes the tokens (two, by her own doubling); one is sacrificed
+/// to the land and a card is drawn, the other stays.
+#[test]
+fn fountainport_sacrifices_a_token_to_draw_a_card() {
+    let p0 = PlayerId::new(0);
+    let elspeth = card_index("f78af825-023a-42e9-8374-5c52303a1417");
+    let port = card_index("94e8b0a9-44a1-4dce-8d44-78681ae638a1");
+    let mut engine = Duel::new(2307, forest())
+        .battlefield(0, &[elspeth, port, forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    activate(&mut engine, p0, elspeth, 1);
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 2, "+1 makes a Soldier, doubled");
+    let p = on_battlefield(&engine, p0, port).expect("fountainport");
+    tap_mana_where(&mut engine, p0, |id| id != p);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    activate(&mut engine, p0, port, 1);
+    unf_aim_and_pay(&mut engine, p0, None, Some(tokens[0]));
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand + 1
+    );
+    assert_eq!(tokens_of(&engine, p0), vec![tokens[1]], "one token is left");
+}

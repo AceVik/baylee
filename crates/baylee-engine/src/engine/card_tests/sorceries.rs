@@ -13403,7 +13403,11 @@ fn spirit_water_revival_paid_shuffles_the_graveyard_in_and_draws_seven() {
         )
         .unwrap();
     let lib = library_size(&engine, seat);
-    let gy = engine.state().zones.list(ZoneLocation::Graveyard(seat)).len();
+    let gy = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(seat))
+        .len();
     assert_eq!(gy, 3, "the seeded graveyard");
     pass_until(&mut engine, stack_is_empty);
 

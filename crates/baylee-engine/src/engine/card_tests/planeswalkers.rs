@@ -1733,3 +1733,139 @@ fn a_spark_double_copy_of_karn_animates_a_land_liquimetal_coating_made_an_artifa
         "a 0/0 Island was put into its owner's graveyard"
     );
 }
+
+// ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
+
+fn unf_set_loyalty(engine: &mut Engine<RegistryLookup>, seat: PlayerId, id: ObjectId, n: u16) {
+    engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up")
+        .object_mut(id)
+        .expect("on the table")
+        .counters
+        .set(CounterKind::Loyalty, n);
+    engine.refresh_offer();
+}
+
+/// Jace, the Mind Sculptor −12: "Exile all cards from target player's
+/// library, then that player shuffles their hand into their library."
+#[test]
+fn jace_minus_twelve_exiles_a_library_and_shuffles_the_hand_into_it() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2401, forest())
+        .battlefield(0, &[jace_the_mind_sculptor()])
+        .hand(1, &[llanowar_elves(), ondu_cleric(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let jace = on_battlefield(&engine, p0, jace_the_mind_sculptor()).expect("jace");
+    unf_set_loyalty(&mut engine, p0, jace, 12);
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    assert!(hand > 0, "the opponent holds cards");
+    let lib = library_size(&engine, p1);
+    assert!(lib > hand);
+    let own_lib = library_size(&engine, p0);
+
+    activate(&mut engine, p0, jace_the_mind_sculptor(), 3);
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        0,
+        "the hand went into the library"
+    );
+    assert_eq!(
+        library_size(&engine, p1),
+        hand,
+        "the old library is gone and only the hand is left in it"
+    );
+    assert_eq!(library_size(&engine, p0), own_lib, "own library untouched");
+}
+
+/// Venser, the Sojourner −8: "You get an emblem with \"Whenever you cast a
+/// spell, exile target permanent.\"" The emblem outlives Venser (loyalty 0),
+/// and the next spell cast exiles the opponent's Elephant.
+#[test]
+fn venser_minus_eight_emblem_exiles_a_permanent_on_each_cast() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2402, forest())
+        .battlefield(0, &[venser_the_sojourner(), forest()])
+        .hand(0, &[llanowar_elves()])
+        .battlefield(1, &[wild_elephant()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let venser = on_battlefield(&engine, p0, venser_the_sojourner()).expect("venser");
+    let elephant = on_battlefield(&engine, p1, wild_elephant()).expect("elephant");
+    unf_set_loyalty(&mut engine, p0, venser, 8);
+
+    activate(&mut engine, p0, venser_the_sojourner(), 2);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p1, wild_elephant()).is_some(),
+        "the emblem alone exiles nothing"
+    );
+
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&elephant));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elephant],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p1, wild_elephant()).is_none());
+    assert!(
+        in_graveyard(&engine, p1, wild_elephant()).is_none(),
+        "exiled, not destroyed"
+    );
+}
+
+/// Elspeth, Storm Slayer −3: "Destroy target creature an opponent controls
+/// with mana value 3 or greater." The Elephant (mana value 4) is a target,
+/// the Elves (mana value 1) are not.
+#[test]
+fn elspeth_storm_slayer_minus_three_destroys_only_a_big_opposing_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let elspeth = card_index("f78af825-023a-42e9-8374-5c52303a1417");
+    let mut engine = Duel::new(2403, forest())
+        .battlefield(0, &[elspeth])
+        .battlefield(1, &[wild_elephant(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let walker = on_battlefield(&engine, p0, elspeth).expect("elspeth");
+    let elephant = on_battlefield(&engine, p1, wild_elephant()).expect("elephant");
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("elf");
+    let loyalty = counters_on(&engine, walker, CounterKind::Loyalty);
+
+    activate(&mut engine, p0, elspeth, 3);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&elephant));
+    assert!(!options.contains(&elf), "mana value 1 is below 3");
+    assert_eq!(
+        counters_on(&engine, walker, CounterKind::Loyalty),
+        loyalty - 3
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elephant],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(in_graveyard(&engine, p1, wild_elephant()).is_some());
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
+}
