@@ -78318,7 +78318,7 @@ fn rivendell_scries_two_only_while_a_legendary_creature_is_controlled() {
     };
     let (_, _, without) = offered(&[rivendell(), island(), island(), quiet_creature()]);
     assert!(!without, "no legendary creature, no scry");
-    let (mut engine, r, with) = offered(&[rivendell(), island(), island(), jin_gitaxias()]);
+    let (mut engine, _, with) = offered(&[rivendell(), island(), island(), jin_gitaxias()]);
     assert!(with, "a legendary creature enables it");
 
     activate(&mut engine, p0, rivendell(), 1);
