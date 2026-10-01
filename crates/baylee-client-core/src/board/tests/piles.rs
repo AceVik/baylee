@@ -55,3 +55,26 @@ fn courser_library_top_is_one_face_with_the_real_count_and_no_browsable_contents
     assert_eq!(pile.count, 51);
     assert!(pile.top.is_none() && pile.art.is_none());
 }
+
+#[test]
+fn a_target_inside_a_merged_pile_highlights_its_drawn_representative() {
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            1,
+            vec![token(10, 1, "Bear", 2, 2), token(11, 1, "Bear", 2, 2)],
+        )
+        .build();
+    let board = BoardModel::from_view(&view, Openings::none(), &[], Registry::none());
+    assert_eq!(
+        board.drawn_object(ObjectId::new(11, 0)),
+        ObjectId::new(10, 0)
+    );
+    assert_eq!(
+        board.drawn_object(ObjectId::new(10, 0)),
+        ObjectId::new(10, 0)
+    );
+    assert_eq!(
+        board.drawn_object(ObjectId::new(99, 0)),
+        ObjectId::new(99, 0)
+    );
+}

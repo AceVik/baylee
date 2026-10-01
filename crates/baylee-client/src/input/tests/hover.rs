@@ -228,3 +228,29 @@ fn a_permanent_that_only_moves_keeps_its_hover() {
         "a repacked lane is not a card leaving the pointer"
     );
 }
+
+#[test]
+fn a_target_choice_previews_its_card_and_pagination_clears_the_hover() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.add_message::<bevy::picking::events::Pointer<bevy::picking::events::Over>>()
+        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Out>>()
+        .add_message::<bevy::window::CursorMoved>()
+        .insert_resource(crate::Duel::default())
+        .add_systems(Update, pointer_hover);
+    let row = app
+        .world_mut()
+        .spawn(crate::hud::ChoicePreview { object: obj(7) })
+        .id();
+    // The same object stays on the board when the choice page goes away.
+    app.world_mut().spawn(crate::table::CardVisual {
+        object: obj(7),
+        count: 1,
+    });
+    hover(&mut app, row);
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, Some(obj(7)));
+    assert!(app.world().resource::<crate::Duel>().hovered_at.is_some());
+    app.world_mut().entity_mut(row).despawn();
+    app.update();
+    assert_eq!(app.world().resource::<crate::Duel>().hovered, None);
+}

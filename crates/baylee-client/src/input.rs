@@ -2537,14 +2537,22 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
             baylee_engine::choice::Pending::ChooseTargets { .. }
         )
     {
+        if let Some(filter) = baylee_client_core::targeting::filter_at(index) {
+            duel.target_filter = filter;
+            duel.target_page = 0;
+            return;
+        }
         let options = baylee_client_core::targeting::options(i.pending());
+        let visible = duel.view.as_ref().map_or(options.len(), |v| {
+            baylee_client_core::targeting::filtered(i.pending(), v, duel.target_filter).len()
+        });
         if index == baylee_client_core::targeting::PREVIOUS {
             duel.target_page = duel.target_page.saturating_sub(1);
             return;
         }
         if index == baylee_client_core::targeting::NEXT {
             duel.target_page = (duel.target_page + 1)
-                .min(options.len().saturating_sub(1) / baylee_client_core::targeting::PAGE_SIZE);
+                .min(visible.saturating_sub(1) / baylee_client_core::targeting::PAGE_SIZE);
             return;
         }
         match options.get(index) {
@@ -3375,6 +3383,7 @@ pub fn pointer_hover(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     tray_cards: Query<&TrayCard>,
+    choice_previews: Query<&crate::hud::ChoicePreview>,
     piles: Query<&crate::table::PileVisual>,
     parents: Query<&ChildOf>,
     places: Query<&GlobalTransform>,
@@ -3424,6 +3433,7 @@ pub fn pointer_hover(
             // firing an `Out`. Held against the tray's own rows for exactly
             // the reason the two above are held against theirs.
             HoverSource::Tray => tray_cards.iter().any(|t| t.object == object),
+            HoverSource::Choice => choice_previews.iter().any(|t| t.object == object),
             // Somebody else's write — the keyboard cursor, most often, and
             // the union is that cursor's own invariant rather than a
             // weakening of the two above. The two kinds of hover are valid
@@ -3511,6 +3521,10 @@ pub fn pointer_hover(
                 duel.hovered = Some(t.object);
                 duel.hovered_at = Some(HoverSpot::Point(at));
                 *source = HoverSource::Tray;
+            } else if let Some(t) = find_in_lineage(over.entity, &choice_previews, &parents) {
+                duel.hovered = Some(t.object);
+                duel.hovered_at = Some(HoverSpot::Point(at));
+                *source = HoverSource::Choice;
             } else if let Some(pile) = find_in_lineage(over.entity, &piles, &parents) {
                 // A *place* rather than a card, which in practice means a
                 // library. It writes neither `hovered` nor `hovered_at`:
@@ -3525,6 +3539,8 @@ pub fn pointer_hover(
                 || find_in_lineage(out.entity, &hand_cards, &parents)
                     .is_some_and(|h| duel.hovered == Some(h.object))
                 || find_in_lineage(out.entity, &tray_cards, &parents)
+                    .is_some_and(|t| duel.hovered == Some(t.object))
+                || find_in_lineage(out.entity, &choice_previews, &parents)
                     .is_some_and(|t| duel.hovered == Some(t.object));
             if is_current {
                 duel.hovered = None;
@@ -3574,6 +3590,8 @@ pub enum HoverSource {
     Table,
     /// A row in the zone browser.
     Tray,
+    /// A card named by a target or attacker choice row.
+    Choice,
     /// The keyboard cursor, or nothing at all.
     #[default]
     Elsewhere,

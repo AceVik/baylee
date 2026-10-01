@@ -422,6 +422,8 @@ pub struct Duel {
     pub(crate) combat_auto: Option<baylee_client_core::combat_auto::CombatAuto>,
     /// Page of the current legal target list.
     pub target_page: usize,
+    /// Show legal targets controlled by this seat; `None` shows every seat.
+    pub target_filter: Option<PlayerId>,
     /// Stable random surface for this local duel lifetime.
     pub table_pattern: feltmat::TablePattern,
     /// Local, explicit ordering of the visible hand.
@@ -1013,6 +1015,7 @@ impl Duel {
 
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.target_page = 0;
+        self.target_filter = None;
         let seat = self.seat().unwrap_or(PlayerId::new(0));
         if !matches!(
             pending,

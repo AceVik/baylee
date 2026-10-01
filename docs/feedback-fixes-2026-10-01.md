@@ -25,7 +25,26 @@ Bulk attack and withdraw controls now remain available on every creature page. T
 
 Die nZielpaginierung sollte schöner sein mit Preview und On board Highlighting beim Hover über dem Ziel Button. Und Filtern nach Spieler.
 
-Status: open.
+Status: source/native verified; ready to close (not deployed).
+
+Target choices now have a separate controller-filter row (all players / each
+seat with legal choices), bounded pages retaining original option indices,
+and selection summaries that survive filtering. Hovering a target or attacker
+button previews that precise card and highlights its battlefield representative,
+including non-representative members of merged piles. Page changes clear the
+old hover; navigation, filters and hovering never submit a selection.
+
+Validation: all 1173 client-core and 1153 client tests pass (2 client tests
+ignored); dev-control/all-targets clippy and native build pass. Native German
+Giant Growth test: 14 creature targets, filter to 10 opponents, second page
+shows choices 9–10, hover previews object 133 and enlarges its visible group
+(object 125) from 36.2×39.3 to 38.4×41.7 logical pixels. Selecting it, then
+filtering to own four creatures preserves the selection and clears the hover.
+Angreiferknopf preview also verified with empty assignments and no error.
+Local evidence: /private/tmp/baylee-target-preview-live.png,
+/private/tmp/baylee-target-hover-after.json,
+/private/tmp/baylee-target-filter-selection.json,
+/private/tmp/baylee-attacker-preview-live.png. No attachments committed.
 
 ## 01a0f90c-6eac-7447-a8a4-e166e44bfdc0
 
@@ -284,3 +303,15 @@ The combat report was closed via the feedback API, which returned `resolved`.
 The same continuation also fixes life-number wrapping (report 01a0f907-cd55),
 with font-metric regression coverage and a native ordinary-total smoke check.
 That report stays open for creature-density work. No test client is left running.
+
+## Third hourly continuation
+
+Target filtering and target/attacker previews are verified above. The native
+test client was stopped. No push or deployment.
+
+Crowded-board investigation: report 01a0f907-cd55 has 179 permanents, including
+130 Allies split by actual counters, haste and summoning sickness. Eight Allies
+are separately targeted by stack items. These differences must remain visible;
+merging all same-name creatures would hide relevant state. Existing row
+scrolling already follows a hovered group member. The creature-density portion
+and the larger-card/text report still need a measured layout change.

@@ -62,6 +62,45 @@ pub const PREVIOUS: usize = usize::MAX;
 /// Next page control.
 pub const NEXT: usize = usize::MAX - 1;
 
+/// Filter controls occupy a separate namespace from legal option indices.
+#[must_use]
+pub fn filter_index(player: Option<PlayerId>) -> usize {
+    player.map_or(usize::MAX - 2, |p| usize::MAX - 3 - usize::from(p.get()))
+}
+
+/// Decode an all-seats or single-seat filter control.
+#[must_use]
+pub fn filter_at(index: usize) -> Option<Option<PlayerId>> {
+    if index == filter_index(None) {
+        Some(None)
+    } else {
+        (usize::MAX - 3)
+            .checked_sub(index)
+            .and_then(|p| u8::try_from(p).ok())
+            .map(|p| Some(PlayerId::new(p)))
+    }
+}
+
+/// Visible choices retain their original indices; filtering never changes
+/// the engine selection or hides the selection summary.
+#[must_use]
+pub fn filtered(
+    pending: &Pending,
+    view: &PlayerView,
+    player: Option<PlayerId>,
+) -> Vec<(usize, Target)> {
+    options(pending)
+        .into_iter()
+        .enumerate()
+        .filter(|(_, t)| {
+            player.is_none_or(|p| match t {
+                Target::Player(target) => *target == p,
+                Target::Object(id) => view.object(*id).is_some_and(|o| o.controller == p),
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,6 +125,28 @@ mod tests {
         assert_eq!(choices[0], Target::Player(PlayerId::new(0)));
         assert_eq!(choices[5], Target::Player(PlayerId::new(5)));
         assert_eq!(choices[6], Target::Object(ObjectId::new(10, 0)));
+    }
+
+    #[test]
+    fn seat_filter_preserves_original_indices_and_control_namespace() {
+        let view = ViewBuilder::new(6)
+            .with_battlefield(3, vec![token(10, 3, "Bear", 2, 2)])
+            .build();
+        assert_eq!(
+            filtered(&pending(), &view, Some(PlayerId::new(3))),
+            vec![
+                (3, Target::Player(PlayerId::new(3))),
+                (6, Target::Object(ObjectId::new(10, 0))),
+            ]
+        );
+        assert_eq!(filtered(&pending(), &view, None).len(), 7);
+        for player in (0..=u8::MAX).map(PlayerId::new) {
+            assert_eq!(filter_at(filter_index(Some(player))), Some(Some(player)));
+        }
+        assert_eq!(filter_at(filter_index(None)), Some(None));
+        for index in [0, 6, PAGE_SIZE, PREVIOUS, NEXT] {
+            assert_eq!(filter_at(index), None);
+        }
     }
 
     #[test]

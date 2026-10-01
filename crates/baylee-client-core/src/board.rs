@@ -1205,6 +1205,19 @@ impl BoardModel {
             .find(|group| group.representative == representative)
     }
 
+    /// The card drawn for an object named by a target list, including a
+    /// non-representative member of a pile of identical permanents.
+    #[must_use]
+    pub fn drawn_object(&self, object: ObjectId) -> ObjectId {
+        self.pods
+            .iter()
+            .flat_map(|pod| &pod.lanes)
+            .flat_map(|lane| &lane.groups)
+            .flat_map(CardGroup::with_attached)
+            .find(|group| group.members.contains(&object))
+            .map_or(object, |group| group.representative)
+    }
+
     /// Which pile a hover has spread open, if any.
     ///
     /// Asked of the **fan** rather than of the pile's top card, and once the

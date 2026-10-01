@@ -601,6 +601,33 @@ pub(crate) fn target_explanation(
     lines
 }
 
+/// Resolve only card-bearing choices; navigation and filters have no preview.
+pub(crate) fn preview_object(
+    duel: &crate::Duel,
+    index: usize,
+) -> Option<baylee_core::ids::ObjectId> {
+    use baylee_client_core::{
+        interaction::AttackOption,
+        targeting::{self, Target},
+    };
+    if duel.cast_menu.is_some() {
+        return None;
+    }
+    let interaction = duel.interaction.as_ref()?;
+    match targeting::options(interaction.pending()).get(index) {
+        Some(Target::Object(id)) => return Some(*id),
+        Some(Target::Player(_)) => return None,
+        None => {}
+    }
+    match interaction.attack_options().get(index) {
+        Some(
+            AttackOption::Toggle(id)
+            | AttackOption::Aim(baylee_core::ids::Defender::Planeswalker(id)),
+        ) => Some(*id),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

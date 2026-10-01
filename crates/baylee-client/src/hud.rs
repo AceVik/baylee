@@ -618,6 +618,13 @@ pub struct ChoiceButton {
     pub index: usize,
 }
 
+/// A legal card offered by a choice row, for preview and battlefield focus.
+#[derive(Component)]
+pub struct ChoicePreview {
+    /// The public object named by this row.
+    pub object: ObjectId,
+}
+
 /// What a prompt button answers.
 ///
 /// Defined in `client-core` and named here, because

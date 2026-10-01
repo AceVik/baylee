@@ -2046,7 +2046,9 @@ messages! {
     TargetingBatchHint { en: "{0} identical triggers waiting. Confirm once, or use this selection for all {0}.", de: "{0} gleiche Auslöser warten. Einzeln bestätigen oder diese Auswahl für alle {0} übernehmen." },
     /// Target selection explanation or explicit shortcut.
     TargetingSelected { en: "Selected: {0}", de: "Ausgewählt: {0}" },
-    /// Target selection explanation or explicit shortcut.
+    /// Clear the target list's controller filter.
+    TargetingAllSeats { en: "All players", de: "Alle Spieler" },
+    /// Current page and total legal choices in the filtered list.
     TargetingPage { en: "Choices {0}–{1} of {2}. You can also select on the table.", de: "Ziele {0}–{1} von {2}. Auswahl auch direkt am Tisch möglich." },
     /// Cast with its optional additional kicker cost paid.
     CastKicked { en: "With kicker", de: "Mit Bonuskosten" },

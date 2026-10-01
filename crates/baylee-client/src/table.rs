@@ -4956,7 +4956,11 @@ pub fn sync_scene(
 
     // The keyboard/mouse cursor. What is *chosen* rides on the placement,
     // because that is where a group's members are.
-    let hovered = duel.hovered;
+    let hovered = duel.hovered.map(|id| {
+        duel.board
+            .as_ref()
+            .map_or(id, |board| board.drawn_object(id))
+    });
 
     // The snapshot the faces below were built from: rules text is projected,
     // so a face is only stale when the game state that produced it moved on.

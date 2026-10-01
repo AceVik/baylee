@@ -161,6 +161,8 @@ pub struct DrawerRevision {
     /// Every row of the indexed chooser, exactly as [`crate::choices`] wrote
     /// them.
     rows: Vec<crate::choices::ChoiceOption>,
+    seat_filters: Vec<crate::choices::ChoiceOption>,
+    previews: Vec<(usize, ObjectId)>,
     /// Which row has already been taken.
     picked: Option<usize>,
     /// The slide that puts the panel over the question, in logical pixels of
@@ -323,8 +325,26 @@ pub fn sync_drawer(
         commands.entity(panel).add_child(field);
     }
 
+    if !revision.seat_filters.is_empty() {
+        let filters = chooser(
+            &mut commands,
+            &fonts,
+            &revision.seat_filters,
+            Some(baylee_client_core::targeting::filter_index(
+                duel.target_filter,
+            )),
+            &[],
+        );
+        commands.entity(panel).add_child(filters);
+    }
     if !revision.rows.is_empty() {
-        let rows = chooser(&mut commands, &fonts, &revision.rows, revision.picked);
+        let rows = chooser(
+            &mut commands,
+            &fonts,
+            &revision.rows,
+            revision.picked,
+            &revision.previews,
+        );
         commands.entity(panel).add_child(rows);
     }
 }
@@ -564,11 +584,22 @@ fn reading(
     // went with its rows to the sheet.
     let picked = duel.interaction.as_ref().and_then(crate::choices::picked);
 
+    let previews = rows
+        .iter()
+        .filter_map(|row| crate::choices::preview_object(duel, row.index).map(|id| (row.index, id)))
+        .collect();
+    let seat_filters = if waiting || elsewhere {
+        Vec::new()
+    } else {
+        target_filters(duel, lang)
+    };
     DrawerRevision {
         lines,
         number,
         filter,
         rows,
+        seat_filters,
+        previews,
         picked,
         shift,
     }
@@ -729,6 +760,7 @@ fn chooser(
     fonts: &UiFonts,
     rows: &[crate::choices::ChoiceOption],
     picked: Option<usize>,
+    previews: &[(usize, ObjectId)],
 ) -> Entity {
     let row = commands
         .spawn((
@@ -791,6 +823,11 @@ fn chooser(
                 Feel::new(fill),
             ))
             .id();
+        if let Some((_, object)) = previews.iter().find(|(index, _)| *index == option.index) {
+            commands
+                .entity(button)
+                .insert(ChoicePreview { object: *object });
+        }
         if let Some(pip) = option.pip {
             let mark = crate::manaui::spawn_pip(commands, fonts, pip, PIP_PT);
             commands.entity(button).add_child(mark);
@@ -845,6 +882,33 @@ fn target_seat_name(
         .and_then(|s| s.seats.iter().find(|s| s.player == seat))
         .map_or(SeatRole::Present, SeatRole::of);
     crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), seat, role)
+}
+
+/// Seat filters change only the visible list, preserving all chosen targets.
+fn target_filters(duel: &Duel, lang: Lang) -> Vec<crate::choices::ChoiceOption> {
+    use baylee_client_core::targeting;
+    let Some((i, view)) = duel.interaction.as_ref().zip(duel.view.as_ref()) else {
+        return Vec::new();
+    };
+    if !matches!(i.pending(), Pending::ChooseTargets { .. }) {
+        return Vec::new();
+    }
+    let row = |player, label| crate::choices::ChoiceOption {
+        index: targeting::filter_index(player),
+        label,
+        pip: None,
+        cost: None,
+    };
+    let mut rows = vec![row(None, Phrase::TargetingAllSeats.text(lang).to_string())];
+    for seat in &view.seats {
+        if !targeting::filtered(i.pending(), view, Some(seat.player)).is_empty() {
+            rows.push(row(
+                Some(seat.player),
+                target_seat_name(duel, lang, view, seat.player),
+            ));
+        }
+    }
+    rows
 }
 
 /// Source, exact sentence, selected identities and every legal option.
@@ -933,25 +997,25 @@ fn target_reading(
             say(Phrase::TargetingBatchHint.fill(lang, &[&context.batch_count.to_string()]));
         }
     }
+    let visible = targeting::filtered(i.pending(), view, duel.target_filter);
     let start = duel
         .target_page
-        .min(options.len().saturating_sub(1) / targeting::PAGE_SIZE)
+        .min(visible.len().saturating_sub(1) / targeting::PAGE_SIZE)
         * targeting::PAGE_SIZE;
-    let end = (start + targeting::PAGE_SIZE).min(options.len());
-    if options.len() > targeting::PAGE_SIZE {
+    let end = (start + targeting::PAGE_SIZE).min(visible.len());
+    if visible.len() > targeting::PAGE_SIZE {
         say(Phrase::TargetingPage.fill(
             lang,
             &[
                 &(start + 1).to_string(),
                 &end.to_string(),
-                &options.len().to_string(),
+                &visible.len().to_string(),
             ],
         ));
     }
-    *rows = options
+    *rows = visible
         .iter()
         .copied()
-        .enumerate()
         .skip(start)
         .take(targeting::PAGE_SIZE)
         .map(|(index, t)| crate::choices::ChoiceOption {
@@ -969,7 +1033,7 @@ fn target_reading(
             cost: None,
         });
     }
-    if end < options.len() {
+    if end < visible.len() {
         rows.push(crate::choices::ChoiceOption {
             index: targeting::NEXT,
             label: "→".into(),
@@ -1047,5 +1111,46 @@ mod targeting_tests {
         assert!(
             matches!(duel.interaction.as_ref().unwrap().confirm(), Some(PlayerAction::ChooseObjects { objects }) if objects == vec![ObjectId::new(16, 0)])
         );
+    }
+
+    #[test]
+    fn filtering_keeps_choices_and_original_indices_across_pages() {
+        let mut duel = choices();
+        crate::input::pick_choice(&mut duel, targeting::NEXT);
+        crate::input::pick_choice(&mut duel, targeting::filter_index(Some(PlayerId::new(1))));
+        assert_eq!(duel.target_page, 0);
+        let (_, rows) = read(&duel);
+        assert_eq!(rows[0].index, 2);
+        assert_eq!(
+            crate::choices::preview_object(&duel, rows[0].index),
+            Some(ObjectId::new(10, 0))
+        );
+        crate::input::pick_choice(&mut duel, targeting::NEXT);
+        assert_eq!(read(&duel).1[0].index, 10);
+        crate::input::pick_choice(&mut duel, 10);
+        crate::input::pick_choice(&mut duel, targeting::filter_index(Some(PlayerId::new(2))));
+        assert_eq!(
+            read(&duel).1.iter().map(|r| r.index).collect::<Vec<_>>(),
+            vec![1]
+        );
+        assert!(
+            read(&duel)
+                .0
+                .iter()
+                .any(|l| l.text.contains("Selected:") && l.text.contains("Bear"))
+        );
+        assert!(
+            duel.interaction
+                .as_ref()
+                .unwrap()
+                .is_selected(ObjectId::new(18, 0))
+        );
+        assert!(duel.outbox.is_empty());
+        for index in [1, targeting::NEXT, targeting::filter_index(None)] {
+            assert_eq!(crate::choices::preview_object(&duel, index), None);
+        }
+        crate::input::pick_choice(&mut duel, targeting::filter_index(None));
+        assert_eq!(read(&duel).1[0].index, 0);
+        assert_eq!(target_filters(&duel, Lang::En).len(), 4);
     }
 }

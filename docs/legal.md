@@ -458,3 +458,8 @@ the reviewed policy, full-image path and bundled font licence remain applicable.
 
 Life-total fitting changes only original status text, using the existing font
 files and preserving complete card images and all notices.
+
+Target filters are original localized controls. Choice-button previews reuse
+the existing full-card image renderer and licensed image delivery, keeping
+artist/copyright lines intact; the battlefield cue uses the existing hover
+transform. No new external asset, font or policy exception is introduced.
