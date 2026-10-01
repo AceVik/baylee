@@ -151,6 +151,12 @@ struct Args {
     #[cfg(feature = "llm")]
     #[arg(long, default_value_t = 16_000)]
     llm_max_tokens: u32,
+    /// The most calls the whole arena makes to the model; past it the house
+    /// answers (`over_cap` in arena.json). The arena's own limit, whatever
+    /// the server in front of a paid API does. 0 is no limit.
+    #[cfg(feature = "llm")]
+    #[arg(long, default_value_t = 2_000)]
+    llm_max_calls: u64,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -359,15 +365,16 @@ fn main() -> anyhow::Result<()> {
         .llm
         .as_ref()
         .map(|spec| {
-            baylee_train::llmchair::LlmChair::new(
+            baylee_train::llmchair::LlmChair::new(&baylee_train::llmchair::ChairOptions {
                 spec,
-                &args.llm_base,
-                &args.llm_kinds,
-                args.llm_effort.as_deref(),
-                args.llm_transcripts.as_deref(),
-                Duration::from_secs(args.llm_wait_secs),
-                args.llm_max_tokens,
-            )
+                base: &args.llm_base,
+                kinds: &args.llm_kinds,
+                effort: args.llm_effort.as_deref(),
+                transcripts: args.llm_transcripts.as_deref(),
+                wait: Duration::from_secs(args.llm_wait_secs),
+                max_tokens: args.llm_max_tokens,
+                max_calls: args.llm_max_calls,
+            })
         })
         .transpose()?
         .map(Arc::new);

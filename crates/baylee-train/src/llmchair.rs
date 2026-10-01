@@ -35,6 +35,28 @@ use baylee_view::{LogTail, PlayerView};
 use crate::features::{PENDING_KINDS, question};
 use crate::policy::{self, Picked};
 
+/// How a [`LlmChair`] is set up: `arena --llm*`.
+#[derive(Clone, Copy, Debug)]
+pub struct ChairOptions<'a> {
+    /// The model as the seat names one (`openai:<model>`).
+    pub spec: &'a str,
+    /// The server's address: one on this machine may go without a key; one
+    /// elsewhere takes the provider's key variable and TLS.
+    pub base: &'a str,
+    /// The question kinds it answers (empty: every kind).
+    pub kinds: &'a [String],
+    /// The API's reasoning effort; the provider's default without it.
+    pub effort: Option<&'a str>,
+    /// A directory for the model's transcripts.
+    pub transcripts: Option<&'a std::path::Path>,
+    /// How long it waits for one answer.
+    pub wait: Duration,
+    /// The most tokens one reply may take, reasoning included.
+    pub max_tokens: u32,
+    /// The most calls the whole arena may make; 0 is no limit.
+    pub max_calls: u64,
+}
+
 /// A model in a chair, shared by every game of an arena.
 pub struct LlmChair {
     mind: ApiMind,
@@ -45,30 +67,32 @@ pub struct LlmChair {
     spec: String,
     /// How long it waits for one answer.
     wait: Duration,
+    /// The most calls the whole arena may make; 0 is no limit.
+    max_calls: u64,
     calls: AtomicU64,
+    over_cap: AtomicU64,
     refused: AtomicU64,
     failed: AtomicU64,
     millis: AtomicU64,
 }
 
 impl LlmChair {
-    /// `spec` as the seat names a model (`openai:<model>`), `base` the
-    /// server's address (one on this machine may go without a key; one
-    /// elsewhere takes the provider's key variable and TLS), and the
-    /// question kinds it answers (empty: every kind).
+    /// The chair [`ChairOptions`] describe.
     ///
     /// # Errors
     /// For a spec or address the seat refuses, an unknown kind, or a runtime
     /// that cannot start.
-    pub fn new(
-        spec: &str,
-        base: &str,
-        kinds: &[String],
-        effort: Option<&str>,
-        transcripts: Option<&std::path::Path>,
-        wait: Duration,
-        max_tokens: u32,
-    ) -> anyhow::Result<Self> {
+    pub fn new(o: &ChairOptions<'_>) -> anyhow::Result<Self> {
+        let ChairOptions {
+            spec,
+            base,
+            kinds,
+            effort,
+            transcripts,
+            wait,
+            max_tokens,
+            max_calls,
+        } = *o;
         let parsed = Spec::parse(spec)
             .context("--llm names openai:<model> or anthropic[:<model>]")?
             .map_err(|e| anyhow!(e))?;
@@ -93,7 +117,8 @@ impl LlmChair {
         // One mind serves every game of the arena, so the seat's budget per
         // game would count them all as one game: 5M tokens ran out after
         // ~400 calls and the house answered every block after it. The
-        // arena's limit is the server's (a forwarder's call cap).
+        // arena's limit is its own call cap (`max_calls`), whatever the
+        // server in front of a paid API does.
         settings.spend_tokens = u64::MAX;
         settings.spend_usd = None;
         Ok(Self {
@@ -104,7 +129,9 @@ impl LlmChair {
             kinds: (!kinds.is_empty()).then(|| kinds.iter().cloned().collect()),
             spec: spec.to_owned(),
             wait,
+            max_calls,
             calls: AtomicU64::new(0),
+            over_cap: AtomicU64::new(0),
             refused: AtomicU64::new(0),
             failed: AtomicU64::new(0),
             millis: AtomicU64::new(0),
@@ -146,7 +173,13 @@ impl LlmChair {
                 retry: retry.take(),
                 continuing: false,
             };
-            self.calls.fetch_add(1, Ordering::Relaxed);
+            // A call is counted before it is sent, so games in flight
+            // together never pass the cap; past it the house answers.
+            if self.calls.fetch_add(1, Ordering::Relaxed) >= self.max_calls && self.max_calls > 0 {
+                self.calls.fetch_sub(1, Ordering::Relaxed);
+                self.over_cap.fetch_add(1, Ordering::Relaxed);
+                return None;
+            }
             let started = Instant::now();
             let got = self.runtime.block_on(self.mind.decide(request));
             self.millis.fetch_add(
@@ -221,6 +254,8 @@ impl LlmChair {
             "calls": calls,
             "refused_by_check": self.refused.load(Ordering::Relaxed),
             "to_the_house": self.failed.load(Ordering::Relaxed),
+            "over_cap": self.over_cap.load(Ordering::Relaxed),
+            "max_calls": self.max_calls,
             "seconds_per_call": self.millis.load(Ordering::Relaxed) as f64 / 1000.0 / calls.max(1) as f64,
         })
     }
