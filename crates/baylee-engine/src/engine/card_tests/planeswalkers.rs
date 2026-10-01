@@ -278,6 +278,123 @@ fn a_blinked_permanent_comes_back_untapped() {
     );
 }
 
+/// Every permanent on the battlefield: its controller, its owner, and
+/// whether it is a land.
+fn sides(engine: &Engine<RegistryLookup>) -> Vec<(ObjectId, PlayerId, PlayerId, bool)> {
+    engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .map(|&id| {
+            let o = engine.state().object(id).expect("on the battlefield");
+            let land = o.characteristics().types.contains(TypeSet::LAND);
+            (id, o.controller, o.owner, land)
+        })
+        .collect()
+}
+
+/// Aminatou, the Fateshifter −6 at two seats: "Choose left or right. Each
+/// player gains control of all nonland permanents other than Aminatou
+/// controlled by the next player in the chosen direction." Both directions
+/// name the one opponent, so nothing is asked, and every nonland permanent
+/// changes sides but her. The lands stay, and nobody owns anything new.
+///
+/// The control is a layer-2 effect (CR 613.1b), not a new default
+/// controller, so each permanent's `base_controller` is still its owner.
+#[test]
+fn aminatou_minus_six_swaps_every_nonland_permanent_but_her_at_two_seats() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(43, forest())
+        .battlefield(0, &[aminatou(), sol_ring(), ondu_cleric(), plains()])
+        .battlefield(1, &[llanowar_elves(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p0);
+    let walker = on_battlefield(&engine, p0, aminatou()).expect("Aminatou is out");
+    let before = sides(&engine);
+    assert_eq!(before.len(), 6);
+
+    activate_aminatou_minus_six(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e) || !matches!(e.pending(), Pending::Priority { .. })
+    });
+    assert!(
+        stack_is_empty(&engine),
+        "two seats ask no direction: {:?}",
+        engine.pending()
+    );
+    for (id, controller, owner, land) in before {
+        let o = engine.state().object(id).expect("still on the battlefield");
+        let expected = match (id == walker || land, controller == p0) {
+            (true, _) => controller,
+            (false, true) => p1,
+            (false, false) => p0,
+        };
+        assert_eq!(o.controller, expected, "{:?}", o.card);
+        assert_eq!(o.owner, owner, "control changes, ownership does not");
+        assert_eq!(o.base_controller, owner, "a layer-2 effect, not a default");
+    }
+}
+
+/// The same −6 at three seats, where left and right are two players. The
+/// engine asks the direction as the neighbour whose permanents the
+/// activating player receives, offering exactly the two, and every player
+/// then takes the nonland permanents of their own neighbour on that side:
+/// everything but Aminatou and the lands moves one seat round the table.
+#[test]
+fn aminatou_minus_six_turns_the_table_in_the_chosen_direction_at_three_seats() {
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    for from in [p1, p2] {
+        let mut engine = Duel::table(43, forest(), 3)
+            .battlefield(0, &[aminatou(), sol_ring(), plains()])
+            .battlefield(1, &[llanowar_elves(), forest()])
+            .battlefield(2, &[ondu_cleric(), island()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_their_main_phase(&mut engine, p0);
+        let walker = on_battlefield(&engine, p0, aminatou()).expect("Aminatou is out");
+        let before = sides(&engine);
+
+        activate_aminatou_minus_six(&mut engine, p0);
+        pass_until(&mut engine, |e| {
+            !matches!(e.pending(), Pending::Priority { .. })
+        });
+        let Pending::ChoosePlayer { player, options } = engine.pending().clone() else {
+            panic!("three seats ask a direction: {:?}", engine.pending())
+        };
+        assert_eq!(player, p0, "the activating player chooses");
+        assert_eq!(options, vec![p1, p2], "the two neighbours, and only they");
+        engine
+            .apply(p0, PlayerAction::ChoosePlayer(from))
+            .expect("a neighbour was offered");
+        pass_until(&mut engine, stack_is_empty);
+
+        // Seat 0 receives from `from`, so each seat receives from the seat
+        // that far round from it, and seat `s`'s permanents go that far back.
+        let step = from.get();
+        for (id, controller, owner, land) in before {
+            let o = engine.state().object(id).expect("still on the battlefield");
+            let expected = if id == walker || land {
+                controller
+            } else {
+                PlayerId::new((controller.get() + 3 - step) % 3)
+            };
+            assert_eq!(
+                o.controller, expected,
+                "receiving from {from:?}: {:?}",
+                o.card
+            );
+            assert_eq!(o.owner, owner, "control changes, ownership does not");
+        }
+        assert_eq!(
+            on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+            from == p1,
+            "seat 0 has seat 1's Elves exactly when it chose to receive from seat 1"
+        );
+    }
+}
+
 /// Jace, the Mind Sculptor's +2: "Look at the top card of **target
 /// player's** library. **You** may put that card on the bottom of **that
 /// player's** library."

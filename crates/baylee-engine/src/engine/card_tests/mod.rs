@@ -1094,6 +1094,27 @@ fn aminatou() -> CardIndex {
     card_index("3a30089d-cd2d-49be-9b06-7a2454117692")
 }
 
+/// Activates Aminatou's −6 for `seat`, who holds priority in their main
+/// phase with her on the battlefield: "Choose left or right. Each player
+/// gains control of all nonland permanents other than Aminatou controlled by
+/// the next player in the chosen direction."
+///
+/// She enters with her printed three loyalty (CR 306.5b), so the harness
+/// puts seven on her first, and she survives the −6 with one.
+#[track_caller]
+fn activate_aminatou_minus_six(engine: &mut Engine<RegistryLookup>, seat: PlayerId) {
+    let walker = on_battlefield(engine, seat, aminatou()).expect("Aminatou is out");
+    engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up")
+        .object_mut(walker)
+        .expect("Aminatou")
+        .counters
+        .set(CounterKind::Loyalty, 7);
+    engine.refresh_offer();
+    activate(engine, seat, aminatou(), 2);
+}
+
 /// The tokens `seat` controls, in arrival order.
 fn tokens_of(engine: &Engine<RegistryLookup>, seat: PlayerId) -> Vec<ObjectId> {
     engine

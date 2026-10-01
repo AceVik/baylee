@@ -4,8 +4,9 @@
 //! Oracle: −6: Choose left or right. Each player gains control of all nonland permanents other than Aminatou controlled by the next player in the chosen direction.
 //! Oracle: Aminatou, the Fateshifter can be your commander.
 //! Set: 2X2 #169 — Double Masters 2022 | Scryfall ID: bc010302-e715-4946-89eb-a214e0b836ba | Oracle ID: 3a30089d-cd2d-49be-9b06-7a2454117692
-// PARTIAL — +1 and −1 implemented; −6 needs directional multiplayer control
-// rotation (M2+; heads-up it is a straight swap, still unimplemented).
+// IMPLEMENTED — +1, −1 and −6. The −6 is a straight swap at two seats; at
+// three or more the direction is asked as the neighbour the activating
+// player receives from (`Pending::ChoosePlayer`).
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes::planeswalker;
