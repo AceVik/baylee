@@ -120,13 +120,17 @@ impl NetPlayer {
         profile: i64,
     ) -> anyhow::Result<Self> {
         let builder = Session::builder().map_err(ort_error)?;
+        // On the GPU only when asked (`BAYLEE_EP=cuda`): every game thread
+        // holds its own v2 player, and 96 of them on CUDA held 10 GB of the
+        // card for one small net. The GPU's work goes through the batch
+        // servers (`crate::batchnet`).
         #[cfg(feature = "onnx-cuda")]
-        let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cpu") {
-            builder
-        } else {
+        let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cuda") {
             builder
                 .with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()])
                 .map_err(ort_error)?
+        } else {
+            builder
         };
         let builder = builder
             .with_optimization_level(GraphOptimizationLevel::Level3)

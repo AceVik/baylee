@@ -32,7 +32,9 @@ play = [
 # only the trainer's machine needs it.
 onnx = ["play", "dep:ort"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
-# libraries on LD_LIBRARY_PATH). `BAYLEE_EP=cpu` keeps a build of it on the CPU.
+# libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
+# and `BAYLEE_EP=cpu` keeps them on the CPU. A v2 player goes to the GPU only
+# with `BAYLEE_EP=cuda`.
 onnx-cuda = ["onnx", "ort/cuda"]
 
 [dependencies]
