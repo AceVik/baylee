@@ -53,7 +53,9 @@ Yes/no letter shortcuts and their rebinding use the active keyboard layout; move
 
 Spirit Water Revival gibt mir eine Art Emblem für unbegrenzte Kartenzahl auf der Hand. Das sollte irgendwie/wo sichtbar sein für alle.
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+The public SeatView now carries no_max_hand_size, using the same engine query as cleanup. Every seat shows a localized No maximum hand size badge and the hand count with /∞. The field defaults to false for older JSON payloads. A real kicked Spirit Water Revival regression verifies that the effect is visible to both seats after the spell is exiled; Reliquary Tower regression verifies that a source-bound limit disappears when the source leaves. Native German-client QA with both seats confirmed the badges and counts. Validation: 195 host tests (2 ignored), 34 view tests, the actual Revival integration test and retained-UI invalidation test pass; client/host/view clippy with dev-control and all targets passes.
 
 ## 01a0f88f-0fe8-748d-a68d-0473d94d62bd
 
@@ -240,3 +242,7 @@ started for this pass were stopped; no live test process needs preserving.
 - Other remaining work: target pagination/hover/player filters, counts/life
   readability, larger centered cards/text, auto remaining combat damage,
   login-field transition and more distinct original battle/victory music.
+
+## First hourly continuation
+
+The hand-limit report is verified in source and in the native client. QA image: /private/tmp/baylee-hand-limit-live.png (not committed). The existing public effect is displayed; no new emblem object or rules exception is invented. The test client was stopped after verification. No push or deployment.

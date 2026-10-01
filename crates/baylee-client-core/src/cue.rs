@@ -722,6 +722,7 @@ mod tests {
                 poison: 0,
                 energy: 0,
                 hand_count: 7,
+                no_max_hand_size: false,
                 library_count: 53,
                 graveyard_count: 0,
                 loss: None,

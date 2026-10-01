@@ -1120,6 +1120,8 @@ messages! {
     ActAnswerYes { en: "Yes", de: "Ja" },
     /// Finite batch of already stacked identical may decisions.
     AnswerYesBatch { en: "Yes to all {0} identical abilities", de: "Ja für alle {0} gleichen Fähigkeiten" },
+    /// Public continuing effect on a player's hand limit.
+    NoMaxHandSize { en: "No maximum hand size", de: "Kein Handkartenlimit" },
     /// No
     ActAnswerNo { en: "No", de: "Nein" },
     /// Number up

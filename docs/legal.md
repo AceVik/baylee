@@ -447,3 +447,7 @@ notice remains. Checked [Scryfall's image terms](https://scryfall.com/docs/api):
 “Do not cover, crop, or clip off the copyright or artist name on card images.”
 The full-image rendering path remains, and the counter label is outside the
 print. No new asset or policy exception is introduced.
+
+The follow-up public hand-limit badge uses only original localized interface
+text and the existing font's infinity character. It sits in the player's
+status area, outside card images; the same quoted rules and font licence apply.

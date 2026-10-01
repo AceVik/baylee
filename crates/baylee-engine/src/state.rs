@@ -1218,6 +1218,15 @@ impl GameState {
 }
 
 impl GameState {
+    /// Whether an active effect removes this player's maximum hand size.
+    #[must_use]
+    pub fn no_max_hand_size(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
+                && fx.controller == player
+        })
+    }
+
     /// The side a seat plays for (CR 102.3).
     #[must_use]
     pub fn side_of(&self, player: PlayerId) -> Side {

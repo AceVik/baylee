@@ -213,6 +213,7 @@ impl Tier {
 
 /// What one button says. Compared whole, as every revision here is.
 #[derive(Clone, PartialEq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // independent public facts, not states of one machine
 pub(in crate::hud) struct SeatFacts {
     /// Whose button it is.
     pub(in crate::hud) player: PlayerId,
@@ -224,6 +225,7 @@ pub(in crate::hud) struct SeatFacts {
     team: Option<u8>,
     life: i32,
     hand: u32,
+    no_max_hand_size: bool,
     library: u32,
     poison: u16,
     /// The most damage one commander has dealt this seat.
@@ -382,6 +384,7 @@ fn facts(
         team,
         life: seat.life,
         hand: seat.hand_count,
+        no_max_hand_size: seat.no_max_hand_size,
         library: seat.library_count,
         poison: seat.poison,
         commander: seat
@@ -706,7 +709,11 @@ fn write(
             commands,
             &fonts.text,
             fonts,
-            &facts.hand.to_string(),
+            &if facts.no_max_hand_size {
+                format!("{}/∞", facts.hand)
+            } else {
+                facts.hand.to_string()
+            },
             NUMBER_PT,
             ink,
             GROUP_GAP,
@@ -998,6 +1005,16 @@ fn mix(a: Color, b: Color, t: f32) -> Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hand_limit_changes_invalidate_the_strip_without_a_count_change() {
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let before = facts(&view, None, &view.seats[1], SeatRole::House, None, Lang::De);
+        view.seats[1].no_max_hand_size = true;
+        let after = facts(&view, None, &view.seats[1], SeatRole::House, None, Lang::De);
+        assert_eq!(before.hand, after.hand);
+        assert_ne!(before, after);
+    }
 
     /// Fable's four measurements, as the tier each gets: a laptop takes four
     /// seats whole and eight at the middle tier, a phone held sideways two

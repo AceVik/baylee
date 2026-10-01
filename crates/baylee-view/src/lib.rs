@@ -126,6 +126,8 @@ use serde::{Deserialize, Serialize};
 /// the sixteen-slot list a replicated cost overflowed.
 /// 44 adds the attacking bands (CR 702.22c): [`CombatView::bands`], and
 /// the log line an attacker joining a band writes, [`LogEvent::Banded`].
+/// Compatible addition: `SeatView::no_max_hand_size` defaults to false when
+/// absent; older readers ignore the additional JSON field.
 pub const VIEW_VERSION: u32 = 44;
 
 // ---------------------------------------------------------------- turn shape
@@ -1216,6 +1218,10 @@ pub struct SeatView {
     /// Cards in hand. Contents are only in [`PlayerView::hand`], and only for
     /// the viewing seat.
     pub hand_count: u32,
+    /// An active public effect removes this seat's maximum hand size.
+    /// False for older hosts that do not publish this optional field.
+    #[serde(default)]
+    pub no_max_hand_size: bool,
     /// Cards left in the library.
     pub library_count: u32,
     /// Cards in the graveyard, so a client can show the count without
@@ -2435,6 +2441,7 @@ mod tests {
                     poison: 0,
                     energy: 0,
                     hand_count: 7,
+                    no_max_hand_size: false,
                     library_count: 93,
                     graveyard_count: 0,
                     loss: None,
@@ -2730,10 +2737,19 @@ mod tests {
     #[test]
     fn view_serialises_and_deserialises_unchanged() {
         let mut v = view(2);
+        v.seats[0].no_max_hand_size = true;
         v.battlefield = vec![obj(1, 0), obj(2, 1)];
         let json = serde_json::to_vec(&v).expect("serialises");
         let back: PlayerView = serde_json::from_slice(&json).expect("deserialises");
         assert_eq!(v, back);
+    }
+
+    #[test]
+    fn older_seat_payloads_default_to_a_normal_hand_limit() {
+        let mut json = serde_json::to_value(&view(2).seats[0]).unwrap();
+        json.as_object_mut().unwrap().remove("no_max_hand_size");
+        let seat: SeatView = serde_json::from_value(json).unwrap();
+        assert!(!seat.no_max_hand_size);
     }
 
     #[test]
@@ -3361,7 +3377,7 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (44, 0xd9d7_7e4a_2c16_ee7d);
+        const RECORDED: (u32, u64) = (44, 0xfbc2_c1ba_6876_300c);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

@@ -99,6 +99,7 @@ impl ViewBuilder {
                         poison: 0,
                         energy: 0,
                         hand_count: 7,
+                        no_max_hand_size: false,
                         library_count: 80,
                         graveyard_count: 2,
                         loss: None,

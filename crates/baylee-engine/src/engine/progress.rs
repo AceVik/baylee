@@ -5457,10 +5457,7 @@ impl<L: CardLookup> Engine<L> {
     pub(crate) fn cleanup_step(&mut self) -> bool {
         let active = self.state.turn.active;
         // Reliquary Tower & co.: no maximum hand size for this player.
-        let no_max = self.state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::NoMaxHandSize)
-                && fx.controller == active
-        });
+        let no_max = self.state.no_max_hand_size(active);
         let max_hand = if no_max {
             i32::MAX
         } else {

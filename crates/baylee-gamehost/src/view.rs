@@ -955,6 +955,7 @@ pub fn player_view(
                 poison: p.poison,
                 energy: p.energy,
                 hand_count: state.zones.list(ZoneLocation::Hand(p.id)).len() as u32,
+                no_max_hand_size: state.no_max_hand_size(p.id),
                 library_count: state.zones.list(ZoneLocation::Library(p.id)).len() as u32,
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
                 loss: p.loss.map(loss_cause),
@@ -1264,6 +1265,44 @@ mod tests {
             targeting_context(&engine, PlayerId::new(1)).is_none(),
             "no private casting choice crosses seats"
         );
+    }
+
+    #[test]
+    fn maximum_hand_size_status_is_public_and_expires_with_its_source() {
+        use baylee_engine::{event::Cause, zone::ZonePosition};
+        let mut preset = mixed_print_preset();
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: baylee_cards::decks::by_name("Reliquary Tower").unwrap(),
+            print: PrintRef::new(0),
+        }];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let initial = settle(&mut engine, None);
+        let tower = initial.battlefield[0].id;
+        let me = PlayerId::new(0);
+        for seat in 0..2 {
+            let view = seen_by(&engine, PlayerId::new(seat));
+            assert!(view.seats[0].no_max_hand_size);
+            assert!(!view.seats[1].no_max_hand_size);
+        }
+        engine
+            .dev_state_mut(me)
+            .unwrap()
+            .move_object(
+                tower,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        // A dev move bypasses the normal action boundary. Let the engine
+        // synchronize continuous effects before publishing another view.
+        engine
+            .apply(me, baylee_engine::choice::PlayerAction::PassPriority)
+            .unwrap();
+        for seat in 0..2 {
+            let view = seen_by(&engine, PlayerId::new(seat));
+            assert!(view.seats.iter().all(|s| !s.no_max_hand_size));
+        }
     }
 
     #[test]

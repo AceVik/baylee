@@ -863,6 +863,41 @@ fn a_kicker_and_a_waterbend_are_paid_when_the_mana_is_there() {
         7,
         "three Islands and six creatures pay the waterbend, so it draws seven"
     );
+    assert!(view.seats[0].no_max_hand_size);
+}
+
+#[test]
+fn spirit_water_revivals_permanent_hand_limit_status_reaches_every_seat() {
+    let mut board = vec!["Island"; 3];
+    board.extend(["Ondu Cleric"; 6]);
+    let mut engine =
+        Engine::new(&position(&["Spirit Water Revival"], &board), RegistryLookup).unwrap();
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    for seq in 0..100 {
+        let pending = engine.pending();
+        let seat = pending_player(pending).unwrap();
+        let view = asked_view(engine.state(), seat, seq, pending);
+        if view.seats[0].no_max_hand_size {
+            assert!(
+                view.exile[0]
+                    .iter()
+                    .any(|o| o.name == "Spirit Water Revival")
+            );
+            for viewer in 0..2 {
+                let shown = asked_view(engine.state(), PlayerId::new(viewer), seq, pending);
+                assert!(shown.seats[0].no_max_hand_size);
+                assert!(!shown.seats[1].no_max_hand_size);
+            }
+            return;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } if seat == PlayerId::new(1) => PlayerAction::PassPriority,
+            _ => agent.act_with_context(&view, pending, &engine.decision_context()),
+        };
+        engine.apply(seat, action).unwrap();
+    }
+    panic!("Spirit Water Revival never granted its continuing effect");
 }
 
 /// #224 through the real engine: Chord of Calling for X = 1 off four floating

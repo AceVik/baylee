@@ -321,7 +321,11 @@ fn spawn_identity(
                     Pickable::IGNORE
                 ),
                 (
-                    Text::new(seat.hand_count.to_string()),
+                    Text::new(if seat.no_max_hand_size {
+                        format!("{}/∞", seat.hand_count)
+                    } else {
+                        seat.hand_count.to_string()
+                    }),
                     tf_bold(fonts, 18.0),
                     TextColor(ink_of(seat)),
                     Pickable::IGNORE
@@ -338,6 +342,7 @@ fn spawn_identity(
         commands.entity(status).add_child(turn);
     }
     commands.entity(identity).add_children(&[label, status]);
+    spawn_hand_limit(commands, identity, seat, lang, fonts);
 
     for (mark, amount) in [
         (baylee_client_core::tableicons::POISON, seat.poison),
@@ -372,6 +377,32 @@ fn spawn_turn_badge(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Ent
             Pickable::IGNORE,
         ))
         .id()
+}
+
+fn spawn_hand_limit(
+    commands: &mut Commands,
+    identity: Entity,
+    seat: &SeatView,
+    lang: Lang,
+    fonts: &UiFonts,
+) {
+    if seat.no_max_hand_size {
+        let limit = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: percent(100),
+                    left: px(0),
+                    ..default()
+                },
+                Text::new(Phrase::NoMaxHandSize.text(lang)),
+                tf(fonts, 16.0),
+                TextColor(palette::CANDLE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(identity).add_child(limit);
+    }
 }
 
 fn spawn_counts(
