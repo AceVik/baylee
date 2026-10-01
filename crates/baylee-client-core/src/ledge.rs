@@ -186,6 +186,8 @@ fn centre_between(window_w: f32, cols: Columns, mid: f32) -> f32 {
 pub enum PromptAction {
     /// Yes.
     Yes,
+    /// Yes for this finite series of identical stacked abilities.
+    YesBatch,
     /// No.
     No,
     /// Keep the hand.
@@ -225,8 +227,9 @@ impl PromptAction {
     /// values anything builds are `+1` and `-1` — a stepper moves by one.
     /// Listing them is what lets [`shortcut_for`] be tested over the whole
     /// enum rather than over the variants somebody remembered.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Yes,
+        Self::YesBatch,
         Self::No,
         Self::Keep,
         Self::Mulligan,
@@ -266,7 +269,7 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::SkipTurn => Action::NextTurn,
         PromptAction::Step(1) => Action::NumberUp,
         PromptAction::Step(-1) => Action::NumberDown,
-        PromptAction::Step(_) => return None,
+        PromptAction::YesBatch | PromptAction::Step(_) => return None,
     })
 }
 
@@ -568,6 +571,9 @@ mod tests {
     #[test]
     fn every_answer_a_button_carries_has_a_key_except_the_stepper_by_two() {
         for action in PromptAction::ALL {
+            if action == PromptAction::YesBatch {
+                continue;
+            }
             assert!(
                 shortcut_for(action).is_some(),
                 "{action:?} has no key, and every answer on the ledge needs one"

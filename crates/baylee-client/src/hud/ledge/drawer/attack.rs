@@ -39,16 +39,23 @@ pub(super) fn reading(
         size: HINT_PT,
         ink: palette::DOCK_INK,
     });
+    // Defender and bulk controls stay on every page; only creatures page.
+    let controls = options
+        .iter()
+        .take_while(|o| !matches!(o, AttackOption::Toggle(_)))
+        .count();
+    let creatures = options.len() - controls;
     let start = duel
         .target_page
-        .min(options.len().saturating_sub(1) / targeting::PAGE_SIZE)
+        .min(creatures.saturating_sub(1) / targeting::PAGE_SIZE)
         * targeting::PAGE_SIZE;
-    let end = (start + targeting::PAGE_SIZE).min(options.len());
+    let end = (start + targeting::PAGE_SIZE).min(creatures);
     *rows = options
         .iter()
         .enumerate()
-        .skip(start)
-        .take(targeting::PAGE_SIZE)
+        .filter(|(index, _)| {
+            *index < controls || (controls + start..controls + end).contains(index)
+        })
         .map(|(index, option)| {
             let label = match *option {
                 AttackOption::Aim(d) => {
@@ -83,7 +90,7 @@ pub(super) fn reading(
         .collect();
     for (show, index, label) in [
         (start > 0, targeting::PREVIOUS, "←"),
-        (end < options.len(), targeting::NEXT, "→"),
+        (end < creatures, targeting::NEXT, "→"),
     ] {
         if show {
             rows.push(crate::choices::ChoiceOption {
@@ -184,14 +191,25 @@ mod tests {
         let mut seen = Vec::new();
         loop {
             let page = rows(&duel, Lang::En);
-            assert!(page.len() <= targeting::PAGE_SIZE + 2);
-            seen.extend(page.iter().filter(|r| r.index < 54).map(|r| r.index));
+            assert!(page.len() <= targeting::PAGE_SIZE + 6);
+            assert_eq!(
+                page.iter().take(4).map(|r| r.index).collect::<Vec<_>>(),
+                vec![0, 1, 2, 3]
+            );
+            seen.extend(
+                page.iter()
+                    .filter(|r| (4..54).contains(&r.index))
+                    .map(|r| r.index),
+            );
             if !page.iter().any(|r| r.index == targeting::NEXT) {
                 break;
             }
             crate::input::pick_choice(&mut duel, targeting::NEXT);
         }
-        assert_eq!(seen, (0..54).collect::<Vec<_>>());
+        assert_eq!(seen, (4..54).collect::<Vec<_>>());
+        crate::input::pick_choice(&mut duel, 2);
+        assert_eq!(duel.interaction.as_ref().unwrap().declared(), 50);
+        crate::input::pick_choice(&mut duel, 3);
         crate::input::pick_choice(&mut duel, 999);
         assert_eq!(duel.interaction.as_ref().unwrap().declared(), 0);
         assert!(duel.outbox.is_empty());

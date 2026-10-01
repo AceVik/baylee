@@ -324,6 +324,7 @@ fn a_permanent_copying_a_token_wears_the_token() {
         Registry {
             named: &named,
             token_name: &token_name,
+            token_face: &|o| (o.name == "Soldier").then_some(SOLDIER),
             utility_land: &|_| false,
         },
     );
@@ -377,6 +378,7 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
         Registry {
             named: &named,
             token_name: &token_name,
+            token_face: &|o| (o.name == "Shapeshifter").then_some(ONE_ONE),
             utility_land: &|_| false,
         },
     );
@@ -397,10 +399,9 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
     );
     assert_eq!(group(3).original, None, "a chit has nothing underneath it");
 
-    // And the tie the other way round, which is the documented one: a
-    // *card* copying either Shapeshifter is drawn as the first of them,
-    // because a projected name is all there is to go on and two tokens
-    // with one name are one name.
+    // A card copy uses the supplied body matcher; it has no token id of
+    // its own. The registry adapter's real characteristic matching is
+    // exercised in the client's cardart tests.
     assert_eq!(group(4).provenance, Provenance::Copy);
     assert_eq!(group(4).art, Some(ImageKey::token(ONE_ONE, ArtSize::Small)));
 }

@@ -20,29 +20,36 @@ pub fn of(id: u16) -> Option<&'static str> {
         .filter(|s| !s.is_empty())
 }
 
-/// The registry token printed under a name, if one is.
-///
-/// The lookup a *copy of a token* needs. A permanent copying a Soldier keeps
-/// its own cardboard and projects the name "Soldier", and asking
-/// [`crate::cardart::wearing`] about that name gets `None` — no card is
-/// printed with it — which is the same answer a permanent copying nothing
-/// gives. So a Clone on a Soldier was drawn as a Clone, wearing no mark, with
-/// "Soldier" written underneath it.
-///
-/// **First of a name wins**, and unlike [`crate::cardart::wearing`]'s
-/// front-first rule that tie is being played today: `ALL` holds two tokens
-/// named "Shapeshifter", the 1/1 changeling and the 2/2 blue one, and a copy
-/// of either is drawn as the 1/1. There is nothing in a projected name to
-/// tell them apart — two tokens with one name are one name — and the card a
-/// player is looking at is drawn correctly in every other respect. What must
-/// *not* happen is the reverse, and does not: a Shapeshifter token on the
-/// table is drawn from its own id, never from its name.
+/// Legacy name lookup for registry discovery. It is not sufficient to
+/// identify a copied token: use [`matching_body`] for rendering copies.
 #[must_use]
 pub fn wearing(name: &str) -> Option<u16> {
     baylee_cards::tokens::ALL
         .iter()
         .position(|t| t.name == name)
         .and_then(|i| u16::try_from(i).ok())
+}
+
+/// Match a copied token's name, base body, colours and card types. Counters
+/// and continuous pumps must not select another token picture.
+#[must_use]
+pub fn matching_body(object: &baylee_view::PublicObject) -> Option<u16> {
+    let mut matches = baylee_cards::tokens::ALL
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| {
+            token.name == object.name
+                && token.power == object.base_power
+                && token.toughness == object.base_toughness
+                && token.colors == object.colors
+                && token.types == object.types
+        });
+    let (index, _) = matches.next()?;
+    matches
+        .next()
+        .is_none()
+        .then(|| u16::try_from(index).ok())
+        .flatten()
 }
 
 /// The name a token id is printed with.

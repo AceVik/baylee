@@ -103,6 +103,7 @@ pub mod touch;
 pub(crate) mod transport;
 pub mod update;
 pub mod vista;
+mod yes_batch;
 
 use baylee_client_core::automation::{self, AutoPilot, Situation};
 use baylee_client_core::board::BoardModel;
@@ -416,6 +417,8 @@ pub enum HoverSpot {
 // comparisons.
 #[allow(clippy::struct_excessive_bools)]
 pub struct Duel {
+    /// Finite identical may decisions explicitly approved together.
+    pub(crate) yes_batch: yes_batch::YesBatch,
     /// Page of the current legal target list.
     pub target_page: usize,
     /// Stable random surface for this local duel lifetime.
@@ -1934,6 +1937,21 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         }
     }
     if duel.stack_stop_requested {
+        duel.yes_batch = yes_batch::YesBatch::default();
+        return;
+    }
+    let Duel {
+        yes_batch,
+        view,
+        interaction,
+        ..
+    } = &mut *duel;
+    if let Some(answer) = view
+        .as_ref()
+        .zip(interaction.as_ref())
+        .and_then(|(v, i)| yes_batch.answer(v, i.pending()))
+    {
+        duel.submit(answer);
         return;
     }
     // A plan in flight owns the priority it is spending; passing under it

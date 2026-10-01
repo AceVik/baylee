@@ -1265,10 +1265,23 @@ fn answers_for(
             }
             row
         }
-        Some(Pending::YesNo { .. }) => vec![
-            say(PromptAction::Yes, Phrase::ActAnswerYes),
-            say(PromptAction::No, Phrase::ActAnswerNo),
-        ],
+        Some(pending @ Pending::YesNo { .. }) => {
+            let mut row = vec![
+                say(PromptAction::Yes, Phrase::ActAnswerYes),
+                say(PromptAction::No, Phrase::ActAnswerNo),
+            ];
+            let count = duel
+                .view
+                .as_ref()
+                .map_or(0, |v| crate::yes_batch::candidates(v, pending).len());
+            if count > 1 {
+                row.push((
+                    Says::Answer(PromptAction::YesBatch),
+                    Phrase::AnswerYesBatch.fill(lang, &[&count.to_string()]),
+                ));
+            }
+            row
+        }
         // Priority is not confirmed, it is *passed*, and the two words are
         // not interchangeable on a button: "OK" acknowledges something that
         // has already happened. "Skip turn" beside it is the same decision at

@@ -830,6 +830,7 @@ fn abilities_of(duel: &Duel, object: ObjectId) -> Option<Vec<crate::abilities::A
 #[allow(clippy::too_many_arguments)] // the eighth is the report form's claim on the keys
 pub fn keyboard(
     keys: Res<ButtonInput<KeyCode>>,
+    logical: Option<Res<ButtonInput<Key>>>,
     mut typed: MessageReader<KeyboardInput>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
@@ -843,7 +844,7 @@ pub fn keyboard(
         typed.clear();
         return;
     }
-    let fired = Fired::of(&keys, prefs.keymap());
+    let fired = Fired::of_layout(&keys, logical.as_deref(), prefs.keymap());
     // The keystroke that opened the panel is not a keystroke for the box.
     // `G` opens the sheet on a frame where nothing here reads the message
     // queue, so the character is still standing in it when the box takes the
@@ -2007,6 +2008,7 @@ fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut crate::prefs::
                 .as_ref()
                 .and_then(|i| i.answer_yes_no(answer))
         {
+            duel.yes_batch = crate::yes_batch::YesBatch::default();
             duel.submit(sent);
             return;
         }
@@ -2604,8 +2606,11 @@ fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
     match index {
         PREVIOUS => duel.target_page = duel.target_page.saturating_sub(1),
         NEXT => {
-            duel.target_page =
-                (duel.target_page + 1).min(options.len().saturating_sub(1) / PAGE_SIZE);
+            let creatures = options
+                .iter()
+                .filter(|o| matches!(o, baylee_client_core::interaction::AttackOption::Toggle(_)))
+                .count();
+            duel.target_page = (duel.target_page + 1).min(creatures.saturating_sub(1) / PAGE_SIZE);
         }
         _ => {
             if let Some(option) = options.get(index) {
@@ -3228,10 +3233,23 @@ pub fn pointer(
                     .interaction
                     .as_ref()
                     .and_then(|i| i.answer_yes_no(true)),
-                PromptAction::No => duel
-                    .interaction
-                    .as_ref()
-                    .and_then(|i| i.answer_yes_no(false)),
+                PromptAction::YesBatch => {
+                    if let Some(batch) = duel
+                        .view
+                        .as_ref()
+                        .zip(duel.interaction.as_ref())
+                        .and_then(|(v, i)| crate::yes_batch::YesBatch::begin(v, i.pending()))
+                    {
+                        duel.yes_batch = batch;
+                    }
+                    None
+                }
+                PromptAction::No => {
+                    duel.yes_batch = crate::yes_batch::YesBatch::default();
+                    duel.interaction
+                        .as_ref()
+                        .and_then(|i| i.answer_yes_no(false))
+                }
                 PromptAction::Keep => duel
                     .interaction
                     .as_ref()

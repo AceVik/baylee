@@ -63,7 +63,18 @@ impl Default for StackFold {
 #[derive(Component)]
 pub struct StackBody;
 #[derive(Component)]
+pub struct StackViewport;
+#[derive(Component)]
+pub struct StackPanel;
+#[derive(Component)]
 pub struct StackToggle;
+
+type StackViewportQuery<'w, 's> = Query<
+    'w,
+    's,
+    (&'static mut Node, &'static mut Visibility),
+    (With<StackViewport>, Without<StackPanel>),
+>;
 
 /// Animate clipping instead of scaling text, so the stack remains readable.
 pub fn fold_the_stack(
@@ -71,7 +82,8 @@ pub fn fold_the_stack(
     prefs: Res<crate::prefs::Prefs>,
     mut fold: ResMut<StackFold>,
     windows: Query<&Window>,
-    mut bodies: Query<(&mut Node, &mut Visibility), With<StackBody>>,
+    mut bodies: StackViewportQuery,
+    mut panels: Query<&mut Node, (With<StackPanel>, Without<StackViewport>)>,
     mut toggles: Query<&mut Text, With<StackToggle>>,
 ) {
     let target = if fold.collapsed { 0.0 } else { 1.0 };
@@ -83,9 +95,15 @@ pub fn fold_the_stack(
     if (fold.open - target).abs() < 0.001 {
         fold.open = target;
     }
-    let cap = windows
-        .single()
-        .map_or(460.0, |w| (w.height() * 0.62 - 58.0).max(80.0));
+    let panel_cap = windows.single().map_or(618.0, |w| {
+        (w.height() - hand::HAND_ZONE_H - TOP_CLEAR - 36.0)
+            .min(w.height() * 0.76)
+            .max(80.0)
+    });
+    for mut node in &mut panels {
+        node.max_height = px(panel_cap);
+    }
+    let cap = (panel_cap - 58.0).max(0.0);
     for (mut node, mut visibility) in &mut bodies {
         node.max_height = px(cap * fold.open);
         *visibility = if fold.open == 0.0 {
@@ -721,6 +739,7 @@ pub(super) fn spawn_stack_panel(
     let key = StackKey::Panel;
     let panel = commands
         .spawn((
+            StackPanel,
             Node {
                 position_type: PositionType::Absolute,
                 right: px(EDGE),
@@ -729,7 +748,7 @@ pub(super) fn spawn_stack_panel(
                 // are on the shelf (AX §4.3).
                 top: px(TOP_CLEAR),
                 width: px(STACK_PANEL_W),
-                max_height: percent(62),
+                max_height: percent(76),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
                 padding: UiRect::all(px(10)),
@@ -872,12 +891,41 @@ pub(super) fn spawn_stack_panel(
                 flex_direction: FlexDirection::Column,
                 overflow: Overflow::scroll_y(),
                 min_height: px(0),
+                min_width: px(0),
+                flex_grow: 1.0,
                 ..default()
             },
             scroll,
         ))
         .id();
-    commands.entity(panel).add_child(body);
+    let track = super::ledge::log::scrollbar(
+        commands,
+        body,
+        (
+            palette::DOCK_EDGE.with_alpha(0.35),
+            palette::CANDLE.with_alpha(0.8),
+        ),
+        |node, paint| {
+            if let super::ledge::log::Paint::Fill(color) = paint {
+                node.insert(BackgroundColor(color));
+            }
+        },
+    );
+    let viewport = commands
+        .spawn((
+            StackViewport,
+            Node {
+                min_height: px(0),
+                flex_direction: FlexDirection::Row,
+                column_gap: px(4),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[body, track])
+        .id();
+    commands.entity(panel).add_child(viewport);
 
     if start > 0 {
         let gap = spacer(commands, rows_height(0, start));
@@ -3002,7 +3050,7 @@ mod folding_tests {
             .init_resource::<crate::prefs::Prefs>()
             .init_resource::<StackFold>()
             .add_systems(Update, fold_the_stack);
-        let body = app.world_mut().spawn((StackBody, Node::default())).id();
+        let body = app.world_mut().spawn((StackViewport, Node::default())).id();
         app.world_mut().resource_mut::<StackFold>().collapsed = true;
         let frame = |app: &mut App| {
             app.world_mut()
@@ -3014,7 +3062,7 @@ mod folding_tests {
         let progress = app.world().resource::<StackFold>().open;
         assert!(progress > 0.0 && progress < 1.0);
         app.world_mut().entity_mut(body).despawn();
-        let rebuilt = app.world_mut().spawn((StackBody, Node::default())).id();
+        let rebuilt = app.world_mut().spawn((StackViewport, Node::default())).id();
         frame(&mut app);
         assert!(app.world().resource::<StackFold>().open < progress);
         for _ in 0..40 {

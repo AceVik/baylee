@@ -11,6 +11,21 @@ use bevy::prelude::*;
 pub(crate) struct ChosenTypeLabel(ObjectId);
 
 fn words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
+    let mut parts: Vec<String> = choice_words(object, lang).into_iter().collect();
+    for counter in &object.counters {
+        if counter.kind == baylee_view::CounterKind::Charge && counter.count > 0 {
+            let noun = Phrase::counted(
+                usize::from(counter.count),
+                Phrase::LogCounterCharge,
+                Phrase::LogCountersCharge,
+            );
+            parts.push(format!("{} {}", counter.count, noun.text(lang)));
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join(" · "))
+}
+
+fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
     if let Some(doors) = object.unlocked_doors {
         // The locked halves by name, in the pool's English as a named card
         // is; nothing once every door is open.
@@ -39,7 +54,7 @@ fn words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
 }
 
 /// Follow the actual card pose without taking its pointer events. Only cards
-/// carrying a choice get a label.
+/// carrying a choice or charge counters get a label.
 pub(crate) fn sync(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -74,19 +89,23 @@ pub(crate) fn sync(
             commands.entity(entity).despawn();
         }
     }
+    let boxes: Vec<_> = lens
+        .into_iter()
+        .flat_map(|lens| {
+            cards.iter().filter_map(move |(card, pose)| {
+                card_rect(&lens, pose).map(|rect| (card.object, rect))
+            })
+        })
+        .collect();
     for (id, label) in wanted {
-        let at = lens.and_then(|lens| {
-            cards
-                .iter()
-                .find(|(card, _)| card.object == id)
-                .and_then(|(_, pose)| {
-                    lens.project_world(pose.transform_point(Vec3::new(
-                        0.0,
-                        -baylee_client_core::layout::CARD_HEIGHT * 0.38,
-                        0.0,
-                    )))
-                })
-        });
+        let at = boxes
+            .iter()
+            .find(|(object, _)| *object == id)
+            .map(|(_, rect)| {
+                // Conservative first-frame width; every letter is at most one em.
+                let width = label.chars().count() as f32 * 13.0 + 10.0;
+                label_anchor(*rect, Vec2::new(width, 22.0), &boxes)
+            });
         let visible = if at.is_some() {
             Visibility::Inherited
         } else {
@@ -122,13 +141,57 @@ pub(crate) fn sync(
                 tf(&fonts, 13.0),
                 TextColor(palette::CANDLE),
                 BackgroundColor(palette::DIALOG),
-                UiTransform::from_translation(Val2::percent(-50.0, -50.0)),
                 Pickable::IGNORE,
                 GlobalZIndex(-1),
                 visible,
             ));
         }
     }
+}
+
+fn card_rect(lens: &table::Lens, pose: &Transform) -> Option<Rect> {
+    let w = baylee_client_core::layout::CARD_WIDTH * 0.5;
+    let h = baylee_client_core::layout::CARD_HEIGHT * 0.5;
+    let mut rect = Rect {
+        min: Vec2::splat(f32::INFINITY),
+        max: Vec2::splat(f32::NEG_INFINITY),
+    };
+    for (x, y) in [(-w, -h), (w, -h), (-w, h), (w, h)] {
+        let p = lens.project_world(pose.transform_point(Vec3::new(x, y, 0.0)))?;
+        rect.min = rect.min.min(p);
+        rect.max = rect.max.max(p);
+    }
+    Some(rect)
+}
+
+fn label_anchor(card: Rect, size: Vec2, cards: &[(ObjectId, Rect)]) -> Vec2 {
+    // Prefer the same row, so a label cannot appear to belong to a land
+    // below the permanent whose counters it describes.
+    for x in [card.max.x + 4.0, card.min.x - size.x - 4.0] {
+        let at = Vec2::new(x, card.center().y - size.y * 0.5);
+        let label = Rect::from_corners(at, at + size);
+        if x >= 0.0 && cards.iter().all(|(_, r)| !overlaps(label, *r)) {
+            return at;
+        }
+    }
+    let mut at = Vec2::new(card.center().x - size.x * 0.5, card.max.y + 3.0);
+    // Move down only when the label would cover another printing. Each
+    // collision passes at least one card bottom, so this is bounded.
+    for _ in 0..cards.len() {
+        let label = Rect::from_corners(at, at + size);
+        let bottom = cards
+            .iter()
+            .filter(|(_, r)| overlaps(label, *r))
+            .map(|(_, r)| r.max.y)
+            .max_by(f32::total_cmp);
+        let Some(bottom) = bottom else { break };
+        at.y = bottom + 3.0;
+    }
+    at
+}
+
+fn overlaps(a: Rect, b: Rect) -> bool {
+    a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y
 }
 
 fn place(node: &mut Node, at: Vec2) {
@@ -144,6 +207,40 @@ fn place(node: &mut Node, at: Vec2) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn counter_label_stays_clear_of_the_next_rows_print() {
+        let card = Rect::from_corners(Vec2::new(100.0, 100.0), Vec2::new(140.0, 160.0));
+        let below = Rect::from_corners(Vec2::new(70.0, 170.0), Vec2::new(110.0, 230.0));
+        let at = label_anchor(
+            card,
+            Vec2::new(130.0, 22.0),
+            &[(ObjectId::new(2, 0), below)],
+        );
+        assert_eq!(at, Vec2::new(144.0, 119.0));
+        assert_eq!(
+            label_anchor(card, Vec2::new(10.0, 22.0), &[]),
+            Vec2::new(144.0, 119.0)
+        );
+    }
+
+    #[test]
+    fn charge_counters_are_visible_and_localized_without_a_chosen_type() {
+        let mut object = crate::registry_printed(1, 0, "Inspirit, Flagship Vessel");
+        object.counters.push(baylee_view::CounterEntry {
+            kind: baylee_view::CounterKind::Charge,
+            count: 4,
+        });
+        assert_eq!(words(&object, Lang::De).as_deref(), Some("4 Ladungsmarken"));
+        assert_eq!(
+            words(&object, Lang::En).as_deref(),
+            Some("4 charge counters")
+        );
+        object.counters[0].count = 1;
+        assert_eq!(words(&object, Lang::De).as_deref(), Some("1 Ladungsmarke"));
+        object.counters.clear();
+        assert_eq!(words(&object, Lang::De), None);
+    }
 
     #[test]
     fn chosen_type_label_is_localized_and_does_not_invent_a_choice() {

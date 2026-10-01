@@ -6,9 +6,8 @@
 //! names are Bevy's [`KeyCode`]s, which keeps the keymap itself renderer-free
 //! and testable.
 //!
-//! Names are *physical*, not typed characters: a player who binds the key
-//! right of `A` finds it right of `A` on a German keyboard too, rather than
-//! wherever that layout happens to put an `S`.
+//! Movement uses physical positions. Yes/no shortcuts use the active layout,
+//! so the displayed Y also means Y on QWERTZ.
 
 use baylee_client_core::prefs::{Action, Chord, Keymap};
 use bevy::prelude::*;
@@ -186,6 +185,42 @@ impl<'a> Binds<'a> {
 pub struct Fired([bool; Action::ALL.len()]);
 
 impl Fired {
+    /// Resolve letter shortcuts by the character on the active keyboard
+    /// layout. Non-letter keys and synthetic physical-only input retain the
+    /// ordinary binding path.
+    #[must_use]
+    pub fn of_layout(
+        keys: &ButtonInput<KeyCode>,
+        logical: Option<&ButtonInput<bevy::input::keyboard::Key>>,
+        map: &Keymap,
+    ) -> Self {
+        use bevy::input::keyboard::Key;
+        let Some(logical) = logical.filter(|input| input.get_just_pressed().next().is_some())
+        else {
+            return Self::of(keys, map);
+        };
+        let held = modifiers(keys);
+        let mut flags = [false; Action::ALL.len()];
+        for (slot, action) in Action::ALL.into_iter().enumerate() {
+            flags[slot] = map.chords(action).iter().any(|chord| {
+                if !modifiers_match(chord, held) {
+                    return false;
+                }
+                if matches!(action, Action::AnswerYes | Action::AnswerNo)
+                    && let Some(letter) = chord.key.strip_prefix("Key").filter(|s| s.len() == 1)
+                {
+                    logical.get_just_pressed().any(|key| {
+                        matches!(key,
+                        Key::Character(text) if text.eq_ignore_ascii_case(letter))
+                    })
+                } else {
+                    key_code(&chord.key).is_some_and(|code| keys.just_pressed(code))
+                }
+            });
+        }
+        Self(flags)
+    }
+
     /// Resolves every action against this frame's key state.
     #[must_use]
     pub fn of(keys: &ButtonInput<KeyCode>, map: &Keymap) -> Self {
@@ -248,9 +283,64 @@ pub fn captured(keys: &ButtonInput<KeyCode>) -> Option<Chord> {
     })
 }
 
+/// Capture yes/no letters with the same layout semantics as their handler.
+#[must_use]
+pub fn captured_for(
+    action: Action,
+    keys: &ButtonInput<KeyCode>,
+    logical: Option<&ButtonInput<bevy::input::keyboard::Key>>,
+) -> Option<Chord> {
+    let mut chord = captured(keys)?;
+    if matches!(action, Action::AnswerYes | Action::AnswerNo)
+        && let Some(letter) = logical.and_then(|keys| {
+            keys.get_just_pressed().find_map(|key| {
+                if let bevy::input::keyboard::Key::Character(text) = key
+                    && text.len() == 1
+                    && text.as_bytes()[0].is_ascii_alphabetic()
+                {
+                    Some(text.to_ascii_uppercase())
+                } else {
+                    None
+                }
+            })
+        })
+    {
+        chord.key = format!("Key{letter}");
+    }
+    Some(chord)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn yes_uses_the_german_y_key_and_physical_only_input_still_works() {
+        use bevy::input::keyboard::Key;
+        let map = Keymap::standard();
+        for (physical, character, expected) in [
+            (KeyCode::KeyZ, "y", true),
+            (KeyCode::KeyY, "z", false),
+            (KeyCode::KeyY, "y", true),
+        ] {
+            let mut logical = ButtonInput::default();
+            logical.press(Key::Character(character.into()));
+            assert_eq!(
+                Fired::of_layout(&input(&[physical]), Some(&logical), &map).has(Action::AnswerYes),
+                expected
+            );
+        }
+        assert!(Fired::of_layout(&input(&[KeyCode::KeyY]), None, &map).has(Action::AnswerYes));
+        assert!(!Fired::of_layout(&input(&[KeyCode::KeyZ]), None, &map).has(Action::AnswerYes));
+        let mut logical = ButtonInput::default();
+        logical.press(Key::Character("z".into()));
+        let keys = input(&[KeyCode::KeyY]);
+        let chord = captured_for(Action::AnswerYes, &keys, Some(&logical)).unwrap();
+        assert_eq!(chord.key, "KeyZ");
+        let mut rebound = map;
+        rebound.bind(Action::AnswerYes, vec![chord]);
+        assert!(Fired::of_layout(&keys, Some(&logical), &rebound).has(Action::AnswerYes));
+    }
 
     fn input(down: &[KeyCode]) -> ButtonInput<KeyCode> {
         let mut keys = ButtonInput::default();

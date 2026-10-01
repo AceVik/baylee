@@ -17,7 +17,9 @@ Status: open.
 
 Es sollte die Möglichkeit geben "Mit allen angreifen" zu machen, die wie in forge funktioniert. Demnach auch einen Button "Alle zurückziehen" wie in forge.
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+Bulk attack and withdraw controls now remain available on every creature page. The actual choice-handler tests cover 50 creatures across all pages, multiple defenders and reversible drafts. Native dev-control verification selected all eight legal attackers and withdrew all eight while ChooseAttackers remained pending; no declaration was sent.
 
 ## 01a0f90f-49a4-755b-b48a-2df982c95361
 
@@ -29,7 +31,9 @@ Status: open.
 
 Stack sollte einen Scrollbalken haben und kann länger sein.
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+The stack now has a visible draggable scrollbar, a taller viewport, and a window-height cap that keeps it above the hand controls. Native verification used eight/nine Ondu Cleric triggers: wheel scrolling moved both entries and thumb; the final panel ended above the hand HUD. All 26 stack tests pass.
 
 ## 01a0f907-cd55-77f0-8204-64aaf8e8ade6
 
@@ -41,7 +45,9 @@ Status: open.
 
 Y und Z sind vertauscht. Ich drücke Y passiert Nichts, bei Z gehts. Und ich muss gerade 100+ Mal Z drücken, hier wäre es gut, wenn man neben dem Ja Button noch ein "Ja für alle" oder sowas hat.
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+Yes/no letter shortcuts and their rebinding use the active keyboard layout; movement retains physical positions. QWERTZ Y/Z, QWERTY, rebinding and physical-only harness input are covered. A one-shot Yes to all button captures consecutive identical abilities already on the stack, cancels at unrelated choices and never approves later triggers or payments. The 101-trigger regression passes. Native verification resolved nine Ondu Cleric triggers from different permanents with one click, emptied the stack and correctly changed life from 40 to 130.
 
 ## 01a0f892-21f7-708e-a008-eff9363f20f8
 
@@ -61,13 +67,15 @@ No rules defect in the reported position: the attached view has nine charge coun
 
 Inspirit, Flagship Vessel - es werden keine CHarge Counter angezeigt.
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+Charge counters have a persistent localized label outside the printing. Positioning prefers a free space beside the permanent and avoids covering neighbouring cards. Native verification activated Inspirit station by tapping Great Divide Guide: two charge counters appeared beside Inspirit. Six chosen-type/counter tests and client clippy pass.
 
 ## 01a0f889-1b73-7260-a154-b6b6d5397768
 
 KI handelt masuchistisch.
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (commit b4355e7f; not deployed).
 
 Check the actual eligible targets before spending a removal spell. The reported enemy board was hexproof (Padeem + Mycosynth Lattice), leaving only the AI’s Birds of Paradise targetable. Regression covers this position and same-name collateral damage; target selection also values the whole Pulse exchange. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
@@ -75,7 +83,7 @@ Check the actual eligible targets before spending a removal spell. The reported 
 
 Auto Manaauswähler wählt favorisiert Kreaturen als Mana, er sollte viel viel klüger werden. Ich denke er macht es einfach nach der Rheinfolge wie sie gespielt wurden rückwerts. Besser ist es, wenn er es intelligent macht, sich die Hand das Feld etc. anschaut und guckt das er zuerst Mana verbrät, das tatsächlich Länder & Mana Artefakte sind. Dabei auch schaut, welches Mana könnte noch gebraucht werden für das was auf der Hand liegt etc. DIr fällt sicherlich was Kluges ein.
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (commit b4355e7f; not deployed).
 
 Shared mana planner preserves creatures before interchangeable lands/rocks and weights remaining colour supply against coloured costs in hand. Floating mana and avoiding sacrifice/life costs retain precedence; regression checks source ordering, colour needs, unavoidable creature taps and floating mana. Both human auto-mana and AI use this policy. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
@@ -83,7 +91,7 @@ Shared mana planner preserves creatures before interchangeable lands/rocks and w
 
 DIe KI ist wieder masuchistisch.
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (commit b4355e7f; not deployed).
 
 Reject Toxic Deluge before spending the card when no X gives a positive exchange after friendly losses and life cost. The report was a zero-life, zero-effect cast over only the AI’s own creatures. Regression covers declining a losing exchange, accepting a useful one, and choosing the smallest effective X. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
@@ -105,7 +113,9 @@ Fixed: clear the alternative-cast flag on leaving the spell/permanent lifetime. 
 
 Traumbild ist als falsches Token rein gekommen. Es hat 1/1 mein Token (von dem es als einziges als Kopie reinkommen konnte) hat 2/2
 
-Status: open.
+Status: verified; ready to resolve in the feedback service (not deployed).
+
+Copied token art now matches name, base power/toughness, colours and card types, and requires a unique registry match. Ordinary pumps do not substitute current P/T for base P/T; ambiguous/name-only matches no longer choose the first token. Native verification cast Phantasmal Image and copied a Maskwood Nexus token: both displayed the blue 2/2 Shapeshifter art, with matching projected base values, colour and types. Regression also distinguishes the 1/1 token and rejects colour/type mismatches.
 
 ## 01a0f85f-1611-7548-888c-3d5f8ec58883
 
@@ -117,7 +127,7 @@ Status: open.
 
 KI spielt removal auf ihre eigene Karte?
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (commit b4355e7f; not deployed).
 
 Vanishing Verse evaluates its monochromatic target requirement before casting. A colourless opposing Maskwood Nexus no longer makes the AI exile its own Charming Prince. Regression verifies decline with only a friendly matching target and acceptance once an enemy matches. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
@@ -192,3 +202,14 @@ Do not interpret the older roadmap’s retired model lanes as current tooling.
 Local report attachments and the authenticated SSH helper are under
 /private/tmp/baylee-feedback-*. They contain private report data and must not
 be committed. Source fixes have not been deployed.
+
+Set follow-up evidence: `docs/llm-learnings.md` sections “Limited Edition
+Alpha, reader first” and “Alpha test backfill” record remaining Partials.
+The current files for Balance, Gloom, Mana Flare and Black Vise still have
+`Coverage::Partial` and explicit unsupported sentences. Alpha must be finished
+before advancing; the existing cast/destination smoke tests are not full
+rules coverage.
+
+## UI validation milestone
+
+The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI). Subsequent stack-height changes pass all 26 stack tests; counter positioning passes all 6 chosen-type tests. Clippy with dev-control and all client targets passes. Native screenshots and state snapshots remain in /private/tmp/baylee-*-live*.png/json; these are local QA evidence, not distributable assets.

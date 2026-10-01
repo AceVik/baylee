@@ -142,6 +142,7 @@ pub fn registry() -> Registry<'static> {
     Registry {
         named: &NAMED,
         token_name: &TOKEN_NAME,
+        token_face: &crate::tokenart::matching_body,
         utility_land: &UTILITY_LAND,
     }
 }
@@ -274,5 +275,41 @@ mod tests {
         let card = baylee_cards::by_index(index).expect("the index is the registry's own");
         assert_eq!(card.faces[0].name, "Llanowar Elves");
         assert_eq!(of(index), Some(card.scryfall_id));
+    }
+
+    #[test]
+    fn a_copy_of_the_two_two_shapeshifter_wears_its_body_even_when_pumped() {
+        use baylee_client_core::{board, images::ArtSize, test_support::printed};
+        let mut copy = printed(1, 0, "Shapeshifter", 3);
+        copy.base_power = Some(2);
+        copy.base_toughness = Some(2);
+        copy.colors = baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]);
+        copy.types = baylee_core::types::TypeSet::CREATURE;
+        copy.power = Some(5);
+        copy.toughness = Some(5);
+        let id =
+            baylee_cards::tokens::token_id(&baylee_cards::tokens::SHAPESHIFTER_2_2_BLUE_CHANGELING);
+        assert_eq!(board::worn(&copy, registry()), Some(Wears::Token(id)));
+        assert_eq!(
+            board::art_of(&copy, ArtSize::Small, registry()),
+            Some(Wears::Token(id).art(ArtSize::Small))
+        );
+        copy.colors = baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Red]);
+        assert_eq!(
+            board::worn(&copy, registry()),
+            None,
+            "wrong colour must not pick a token"
+        );
+        copy.colors = baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Blue]);
+        copy.types = baylee_core::types::TypeSet::ARTIFACT;
+        assert_eq!(
+            board::worn(&copy, registry()),
+            None,
+            "wrong type must not pick a token"
+        );
+        copy.types = baylee_core::types::TypeSet::CREATURE;
+        copy.base_power = Some(1);
+        copy.base_toughness = Some(1);
+        assert_ne!(board::worn(&copy, registry()), Some(Wears::Token(id)));
     }
 }

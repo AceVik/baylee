@@ -430,3 +430,20 @@ Scryfall requires: “Your software must create additional value for end-users.�
 These curated archetypes supply repeatable evaluation matchups, rather than
 republishing a card database. No image is added or altered and no new
 third-party asset licence or policy exception is introduced.
+
+## Feedback interface corrections (2026-10-01)
+
+The copied-token lookup reuses existing registered token printings, matching
+name, base power/toughness, colour and card types. It adds no bundled art.
+Charge-counter labels sit outside the card image; stack scrollbars, attack
+controls and the finite yes-series button are original interface elements.
+The existing font files and their bundled SIL Open Font License notices are
+unchanged. The OFL permits embedding and redistribution provided each copy
+contains the copyright notice and licence (condition 2).
+
+Checked the [Wizards policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy):
+“Don’t mess with the legal notices in our stuff.” The existing unofficial
+notice remains. Checked [Scryfall's image terms](https://scryfall.com/docs/api):
+“Do not cover, crop, or clip off the copyright or artist name on card images.”
+The full-image rendering path remains, and the counter label is outside the
+print. No new asset or policy exception is introduced.

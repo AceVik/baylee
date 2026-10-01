@@ -426,6 +426,7 @@ pub(super) fn softkeys(
 pub(super) fn keyboard(
     mut keys: MessageReader<KeyboardInput>,
     codes: Res<ButtonInput<KeyCode>>,
+    logical: Option<Res<ButtonInput<Key>>>,
     mut state: ResMut<LobbyState>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut scrolled: ResMut<Scrolled>,
@@ -463,7 +464,7 @@ pub(super) fn keyboard(
             // Unbinding is a real answer: a pointer still reaches everything.
             prefs.edit().keymap.bind(action, vec![]);
             state.settings = SettingsPane::Open;
-        } else if let Some(chord) = crate::keys::captured(&codes) {
+        } else if let Some(chord) = crate::keys::captured_for(action, &codes, logical.as_deref()) {
             prefs.edit().keymap.bind(action, vec![chord]);
             state.settings = SettingsPane::Open;
         }

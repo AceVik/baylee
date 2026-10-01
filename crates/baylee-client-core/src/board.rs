@@ -1340,6 +1340,8 @@ pub struct Registry<'a> {
     pub named: &'a dyn Fn(&str) -> Option<Wears>,
     /// The name a registry token is printed with.
     pub token_name: &'a dyn Fn(u16) -> Option<&'static str>,
+    /// Disambiguate token copies using their copiable body, not only a name.
+    pub token_face: &'a dyn Fn(&PublicObject) -> Option<u16>,
     /// Whether a land with these rules is one its player uses for more than
     /// mana: the land row's right-hand section ([`Section`]).
     pub utility_land: &'a dyn Fn(RulesFace) -> bool,
@@ -1375,6 +1377,7 @@ impl Registry<'_> {
         Registry {
             named: &NAMED,
             token_name: &TOKEN_NAME,
+            token_face: &|_| None,
             utility_land: &UTILITY_LAND,
         }
     }
@@ -1389,6 +1392,7 @@ impl Registry<'_> {
         Registry {
             named,
             token_name: &TOKEN_NAME,
+            token_face: &|_| None,
             utility_land: &UTILITY_LAND,
         }
     }
@@ -1415,7 +1419,9 @@ impl Registry<'_> {
 /// and is the only thing it was ever going to be drawn from.
 #[must_use]
 pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
-    let projected = (reg.named)(&obj.name);
+    let projected = (reg.token_face)(obj)
+        .map(Wears::Token)
+        .or_else(|| (reg.named)(&obj.name).filter(|face| matches!(face, Wears::Card(..))));
     match obj.token {
         Some(mine) if (reg.token_name)(mine) == Some(obj.name.as_str()) => None,
         Some(_) => projected,

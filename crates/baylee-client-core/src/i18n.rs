@@ -1118,6 +1118,8 @@ messages! {
     ActMulliganTake { en: "Mulligan", de: "Mulligan" },
     /// Yes
     ActAnswerYes { en: "Yes", de: "Ja" },
+    /// Finite batch of already stacked identical may decisions.
+    AnswerYesBatch { en: "Yes to all {0} identical abilities", de: "Ja für alle {0} gleichen Fähigkeiten" },
     /// No
     ActAnswerNo { en: "No", de: "Nein" },
     /// Number up
@@ -1584,7 +1586,7 @@ messages! {
     /// Current attack aim and the number already assigned there.
     AttackAim { en: "Aim: {0} · {1} assigned", de: "Angriffsziel: {0} · {1} zugewiesen" },
     /// Adds undeclared creatures only; other assignments are preserved.
-    AttackRemaining { en: "Send remaining creatures to {0}", de: "Übrige Kreaturen gegen {0}" },
+    AttackRemaining { en: "Attack with all remaining → {0}", de: "Mit allen übrigen angreifen → {0}" },
     /// Clears the draft without submitting it.
     AttackWithdrawAll { en: "Withdraw all attackers", de: "Alle Angreifer zurückziehen" },
     /// A single unassigned creature.
