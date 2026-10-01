@@ -77929,3 +77929,250 @@ fn sejiri_steppe_protects_a_creature_from_the_color_its_controller_names() {
         "until end of turn"
     );
 }
+
+// ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
+
+fn unf_tap(engine: &mut Engine<RegistryLookup>, seat: PlayerId, id: ObjectId) {
+    engine
+        .dev_state_mut(seat)
+        .expect("the harness may set boards up")
+        .object_mut(id)
+        .expect("on the table")
+        .status
+        .insert(Status::TAPPED);
+    engine.refresh_offer();
+}
+
+/// Aims the ability at `target` when asked, then pays any sacrifice with
+/// `sacrifice`, and lets the stack empty.
+#[track_caller]
+fn unf_aim_and_pay(
+    engine: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    target: Option<ObjectId>,
+    sacrifice: Option<ObjectId>,
+) {
+    for _ in 0..6 {
+        match engine.pending().clone() {
+            Pending::ChooseTargets { options, .. } => {
+                let t = target.expect("a target was asked for");
+                assert!(options.contains(&t), "the target is on offer");
+                engine
+                    .apply(seat, PlayerAction::ChooseObjects { objects: vec![t] })
+                    .unwrap();
+            }
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::CostSacrifice,
+                options,
+                ..
+            } => {
+                let s = sacrifice.expect("a sacrifice was asked for");
+                assert!(options.contains(&s), "the sacrifice is on offer");
+                engine
+                    .apply(seat, PlayerAction::ChooseObjects { objects: vec![s] })
+                    .unwrap();
+            }
+            _ => break,
+        }
+    }
+    pass_until(engine, stack_is_empty);
+}
+
+/// Griffin Canyon: "{T}: Untap target Griffin. If it's a creature, it gets
+/// +1/+1 until end of turn." The Griffin is tapped first, so the untap is a
+/// change; the Canyon itself taps for its cost.
+#[test]
+fn griffin_canyon_untaps_a_tapped_griffin_and_pumps_it() {
+    let p0 = PlayerId::new(0);
+    let canyon = card_index("ba642c8b-9ade-4501-8393-672fd53d4955");
+    let griffin = card_index("c643cfe1-5844-4eb1-b1f5-028382411773");
+    let mut engine = Duel::new(2101, forest())
+        .battlefield(0, &[canyon, griffin])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let g = on_battlefield(&engine, p0, griffin).expect("griffin");
+    let c = on_battlefield(&engine, p0, canyon).expect("canyon");
+    unf_tap(&mut engine, p0, g);
+    assert!(is_tapped(&engine, g));
+    assert_eq!(pt(&engine, g), (2, 2));
+
+    activate(&mut engine, p0, canyon, 1);
+    unf_aim_and_pay(&mut engine, p0, Some(g), None);
+
+    assert!(!is_tapped(&engine, g), "the Griffin untapped");
+    assert_eq!(pt(&engine, g), (3, 3), "and got +1/+1");
+    assert!(is_tapped(&engine, c), "the cost tapped the Canyon");
+}
+
+/// Dust Bowl: "{3}, {T}, Sacrifice a land: Destroy target nonbasic land."
+/// The target is the opponent's Dust Bowl (nonbasic); the sacrifice is a
+/// Forest, and a basic land is not on offer as a target.
+#[test]
+fn dust_bowl_sacrifices_a_land_to_destroy_a_nonbasic_land() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let bowl = card_index("d3df7128-31dd-4d71-90be-87e2e9ff51b4");
+    let mut engine = Duel::new(2102, forest())
+        .battlefield(0, &[bowl, forest(), forest(), forest(), forest()])
+        .battlefield(1, &[bowl, island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, bowl).expect("my bowl");
+    let theirs = on_battlefield(&engine, p1, bowl).expect("their bowl");
+    let their_island = on_battlefield(&engine, p1, island()).expect("their island");
+    let sac = on_battlefield(&engine, p0, forest()).expect("forest");
+    tap_mana_where(&mut engine, p0, |id| id != mine && id != sac);
+
+    activate(&mut engine, p0, bowl, 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&theirs), "a nonbasic land is a target");
+    assert!(!options.contains(&their_island), "a basic land is not");
+    unf_aim_and_pay(&mut engine, p0, Some(theirs), Some(sac));
+
+    assert!(on_battlefield(&engine, p1, bowl).is_none(), "destroyed");
+    assert!(on_battlefield(&engine, p1, island()).is_some());
+    assert!(in_graveyard(&engine, p0, forest()).is_some(), "the cost");
+}
+
+/// Keldon Necropolis: "{4}{R}, {T}, Sacrifice a creature: Keldon Necropolis
+/// deals 2 damage to any target." A Mountain pays the {R}.
+#[test]
+fn keldon_necropolis_sacrifices_a_creature_to_deal_two_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let necropolis = card_index("ea4d6fcd-21e0-4e9f-b406-a89042998d98");
+    let mut engine = Duel::new(2103, forest())
+        .battlefield(
+            0,
+            &[
+                necropolis,
+                mountain(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let n = on_battlefield(&engine, p0, necropolis).expect("necropolis");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("elf");
+    tap_mana_where(&mut engine, p0, |id| id != n && id != elf);
+    let before = engine.state().players[1].life;
+
+    activate(&mut engine, p0, necropolis, 1);
+    let Pending::ChooseTargets { player_options, .. } = engine.pending().clone() else {
+        panic!("expected a target choice, got {:?}", engine.pending())
+    };
+    assert!(player_options.contains(&p1), "any target includes players");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    unf_aim_and_pay(&mut engine, p0, None, Some(elf));
+
+    assert_eq!(engine.state().players[1].life, before - 2);
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    assert!(is_tapped(&engine, n));
+}
+
+/// Blinkmoth Nexus: "{1}: This land becomes a 1/1 Blinkmoth artifact
+/// creature with flying until end of turn." then "{1}, {T}: Target Blinkmoth
+/// creature gets +1/+1 until end of turn." The animated land is its own
+/// Blinkmoth target; as a plain land the pump has no target at all.
+#[test]
+fn blinkmoth_nexus_pumps_itself_once_it_is_a_blinkmoth_creature() {
+    let p0 = PlayerId::new(0);
+    let nexus = card_index("40d45c02-6416-4e19-8fe3-0ddadf5ba627");
+    let mut engine = Duel::new(2104, forest())
+        .battlefield(0, &[nexus, forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let n = on_battlefield(&engine, p0, nexus).expect("nexus");
+    let forests: Vec<_> = lands_of(&engine, p0)
+        .into_iter()
+        .filter(|id| *id != n)
+        .collect();
+
+    let offer = priority_offer(&engine);
+    assert!(
+        !offer.abilities.contains(&(n, 2)),
+        "no Blinkmoth creature, no pump"
+    );
+
+    tap_mana_where(&mut engine, p0, |id| id == forests[0]);
+    activate(&mut engine, p0, nexus, 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, n), (1, 1));
+
+    tap_mana_where(&mut engine, p0, |id| id == forests[1]);
+    activate(&mut engine, p0, nexus, 2);
+    unf_aim_and_pay(&mut engine, p0, Some(n), None);
+    assert_eq!(pt(&engine, n), (2, 2));
+    assert!(is_tapped(&engine, n));
+}
+
+/// Mishra's Foundry: "{1}, {T}: Target attacking Assembly-Worker gets +2/+2
+/// until end of turn." Mishra's Factory is the Assembly-Worker; it is not a
+/// target until it attacks.
+#[test]
+fn mishra_s_foundry_pumps_an_attacking_assembly_worker_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let foundry = card_index("b43e9772-6ad4-49c7-9557-b18ee1e4587d");
+    let factory = card_index("5963e0ef-e0bc-4611-ad4f-813a4c0eacfb");
+    let mut engine = Duel::new(2105, forest())
+        .battlefield(0, &[foundry, factory, forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let fy = on_battlefield(&engine, p0, foundry).expect("foundry");
+    let fc = on_battlefield(&engine, p0, factory).expect("factory");
+    let forests: Vec<_> = lands_of(&engine, p0)
+        .into_iter()
+        .filter(|id| *id != fy && *id != fc)
+        .collect();
+
+    tap_mana_where(&mut engine, p0, |id| id == forests[0]);
+    activate(&mut engine, p0, factory, 1);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, fc), (2, 2));
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(fy, 2)),
+        "a Factory that is not attacking is no target"
+    );
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers");
+    };
+    let defender = defenders.into_iter().next().expect("a defender");
+    let _ = p1;
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(fc, defender)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+            && e.state().turn.step == crate::turn::Step::DeclareAttackers
+    });
+    tap_mana_where(&mut engine, p0, |id| id == forests[1]);
+    activate(&mut engine, p0, foundry, 2);
+    unf_aim_and_pay(&mut engine, p0, Some(fc), None);
+    assert_eq!(pt(&engine, fc), (4, 4));
+}
