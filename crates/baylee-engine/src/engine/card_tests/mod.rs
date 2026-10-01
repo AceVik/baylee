@@ -5392,6 +5392,58 @@ fn venser_shaper_savant() -> CardIndex {
     card_index("0f41cefc-d6ff-4db7-ba35-502b7e081de1")
 }
 
+/// An opponent's triggered ability on the stack, and p0 holding priority
+/// over it with `lands` untapped and `hand` in hand.
+///
+/// p1 casts Orcish Bowmasters in their own main phase and aims its enters
+/// trigger at p0's face; the trigger stacks, p1 passes, and the window is
+/// p0's. Handed back with the trigger and the Bowmasters that put it there:
+/// the board a "target spell or permanent" is asked over while the stack
+/// holds an ability and no spell (CR 113.9: abilities on the stack aren't
+/// spells).
+fn an_opponents_trigger_on_the_stack(
+    lands: &[CardIndex],
+    hand: &[CardIndex],
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, lands)
+        .hand(0, hand)
+        .battlefield(1, &[swamp(), swamp()])
+        .hand(1, &[orcish_bowmasters()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    cast_from_hand(&mut engine, p1, orcish_bowmasters());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("a face is a legal target for `any target`");
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    let [trigger] = stack[..] else {
+        panic!("the Bowmasters' trigger and nothing else is on the stack: {stack:?}")
+    };
+    assert_eq!(
+        engine.state().object(trigger).map(|o| o.kind),
+        Some(crate::object::ObjectKind::AbilityOnStack),
+        "and it is an ability, not a spell"
+    );
+    let bowmasters = on_battlefield(&engine, p1, orcish_bowmasters()).expect("the Bowmasters");
+    (engine, trigger, bowmasters)
+}
+
 fn everybody_lives() -> CardIndex {
     card_index("39213de3-6a4a-4879-a7f9-70f45013765e")
 }

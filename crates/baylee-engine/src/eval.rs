@@ -1003,11 +1003,21 @@ pub fn target_options(
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
             graveyard_options_below(filter, *rel, *limit, state, you, this)
         }
+        // "Target spell or permanent" (Venser, Shaper Savant; the laces):
+        // the spells on the stack and the permanents on the battlefield, and
+        // nothing else the stack holds. An activated or triggered ability
+        // there is neither: abilities on the stack "aren't spells"
+        // (CR 113.9), and a permanent is a card or token on the battlefield
+        // (CR 110.1). Offering them put each Venser trigger on the menu of
+        // the next one stacked over it: in l29 game 1930 thirty token
+        // Vensers were asked over a menu that grew by one a question.
         TargetSpec::StackOrBattlefield(filter) => {
-            let mut out: Vec<ObjectId> = state
-                .zones
-                .list(ZoneLocation::Stack)
-                .iter()
+            let spells = state.zones.list(ZoneLocation::Stack).iter().filter(|id| {
+                state
+                    .object(**id)
+                    .is_some_and(|o| o.kind == crate::object::ObjectKind::Spell)
+            });
+            let mut out: Vec<ObjectId> = spells
                 .chain(state.battlefield_view().iter())
                 .filter(|id| {
                     state
@@ -2123,5 +2133,37 @@ mod tests {
             P0,
             source
         ));
+    }
+
+    /// "Target spell or permanent" is the spells on the stack and the
+    /// permanents on the battlefield. An ability on the stack is neither
+    /// (CR 113.9, CR 110.1), and offering one let every Venser trigger aim
+    /// at the triggers stacked under it until the menu outgrew a `u8` (l29
+    /// game 1930). The spell is asserted beside it, so a fix that dropped
+    /// the stack half altogether is red too.
+    #[test]
+    fn a_spell_or_permanent_is_never_an_ability_on_the_stack() {
+        static SPELL_OR_PERMANENT: TargetSpec = TargetSpec::StackOrBattlefield(&Filter::Any);
+        let mut state = empty_state();
+        let permanent = creature(&mut state, P1, KeywordSet::EMPTY);
+        let name = state.names.intern("Test Spell");
+        let spell = state.create_bare(P1, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let name = state.names.intern("Test Ability");
+        let ability = state.create_bare(P1, ObjectKind::AbilityOnStack, name, ZoneLocation::Stack);
+
+        let options = target_options(&SPELL_OR_PERMANENT, &state, P0, permanent);
+        assert!(
+            options.contains(&spell),
+            "a spell on the stack: {options:?}"
+        );
+        assert!(
+            options.contains(&permanent),
+            "a permanent on the battlefield: {options:?}"
+        );
+        assert!(
+            !options.contains(&ability),
+            "an ability on the stack is no spell: {options:?}"
+        );
+        assert_eq!(options.len(), 2, "and nothing else: {options:?}");
     }
 }

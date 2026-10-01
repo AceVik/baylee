@@ -1634,6 +1634,8 @@ mod thrun_tests;
 #[cfg(test)]
 mod token_tests;
 #[cfg(test)]
+mod trigger_target_tests;
+#[cfg(test)]
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;

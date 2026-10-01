@@ -2766,7 +2766,12 @@ impl<L: CardLookup> Engine<L> {
                         mode: t.chosen_mode,
                         per_opponent: None,
                     });
-                    let max = req.max.min(offered as u8);
+                    // Saturated, never truncated: a board of 256 legal
+                    // targets wrapped `offered as u8` to 0 and asked for
+                    // one target of at most none (l29 game 1930). `offered`
+                    // reaching `req.min` is checked above, so the count can
+                    // only cap the maximum, never undercut the minimum.
+                    let max = req.max.min(u8::try_from(offered).unwrap_or(u8::MAX));
                     self.pending = Pending::ChooseTargets {
                         player: t.controller,
                         options,

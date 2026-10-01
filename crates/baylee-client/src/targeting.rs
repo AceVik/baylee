@@ -168,8 +168,16 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
             filter,
         ),
         TargetSpec::SpellOrAbility(filter) => count(view, view.stack.iter(), filter),
+        // "Target spell or permanent": the spell half of the stack, as the
+        // engine offers it (abilities on the stack aren't spells, CR 113.9).
         TargetSpec::StackOrBattlefield(filter) => {
-            let stack = count(view, view.stack.iter(), filter)?;
+            let stack = count(
+                view,
+                view.stack
+                    .iter()
+                    .filter(|o| matches!(o.stack_item, Some(StackItem::Spell))),
+                filter,
+            )?;
             let field = count(view, view.battlefield.iter(), filter)?;
             Some(stack + field)
         }
@@ -537,6 +545,37 @@ mod tests {
             .with_graveyard(1, vec![printed(4, 1, "Grizzly Bears", 4)])
             .build();
         assert!(!provably_targetless(&view, in_hand("Reanimate")));
+    }
+
+    /// "Target spell or nonland permanent an opponent controls" over an
+    /// opponent's ability and an opponent's land: nothing to point at, as
+    /// the engine offers it. An ability on the stack is no spell (CR 113.9),
+    /// and counting the whole stack read it as one.
+    #[test]
+    fn an_ability_on_the_stack_is_no_spell_for_spell_or_permanent() {
+        let mut ability = printed(5, 1, "Orcish Bowmasters", 5);
+        ability.types = TypeSet::EMPTY;
+        ability.stack_item = Some(StackItem::Ability {
+            source: baylee_core::ids::ObjectId::new(4, 0),
+            ability: None,
+            rules: None,
+            text: None,
+        });
+        let mut land = printed(3, 1, "Island", 3);
+        land.types = TypeSet::LAND;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(1, vec![land])
+            .with_stack(vec![ability.clone()])
+            .build();
+        assert!(provably_targetless(&view, in_hand("Sink into Stupor")));
+
+        // The counter-proof: the same object as a spell is a target.
+        ability.stack_item = Some(StackItem::Spell);
+        let view = PlayerView {
+            stack: vec![ability],
+            ..view
+        };
+        assert!(!provably_targetless(&view, in_hand("Sink into Stupor")));
     }
 
     /// The first leaf of a filter tree that [`matches`] cannot read, if any.
