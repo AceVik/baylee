@@ -9,7 +9,10 @@ use axum::Router;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
+use baylee_engine::choice::{Pending, TargetPrompt};
 use baylee_view::LogTail;
+use baylee_view::{LogEvent, LogObject};
+use std::collections::VecDeque;
 
 /// A key shaped like a real one, so the scrubber's patterns are tested
 /// too. Not a key anywhere.
@@ -121,6 +124,7 @@ fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> Ap
     let model = match provider {
         Provider::Anthropic => "claude-sonnet-5",
         Provider::OpenAi => "TEST-model",
+        Provider::Cli => unreachable!("a CLI is no API"),
     };
     let mut settings = Settings::new(&Spec {
         provider,
@@ -498,7 +502,7 @@ fn a_profile_names_its_key_s_variable_and_its_address() {
         (name == "DEEPSEEK_API_KEY").then(|| KEY.to_string())
     })
     .unwrap();
-    assert_eq!(plain.base, Provider::OpenAi.default_base());
+    assert_eq!(Some(plain.base.as_str()), Provider::OpenAi.default_base());
     // The key in a variable the profile does not name is not its key.
     let refused = credentials_at(Provider::OpenAi, "OTHER_KEY", None, &env).unwrap_err();
     assert!(refused.contains("set OTHER_KEY"), "{refused}");
@@ -570,6 +574,7 @@ async fn a_redirect_is_not_followed_and_the_key_goes_nowhere_else() {
             let name = match provider {
                 Provider::Anthropic => "x-api-key",
                 Provider::OpenAi => "authorization",
+                Provider::Cli => unreachable!("a CLI is no API"),
             };
             assert!(asked.iter().all(|headers| headers.contains_key(name)));
             assert_eq!(redirect.followed(), 0, "{status} {provider:?} was followed");
@@ -1047,6 +1052,72 @@ fn a_spec_names_a_provider_and_a_model() {
             .expect("valid")
             .tag(),
         "Qwen3-5-32B"
+    );
+    // An agent CLI: the tool first, then its own model, if any.
+    let cli = |text: &str| Spec::parse(text).expect("cli");
+    let opus = cli("cli:claude:opus").expect("valid");
+    assert_eq!(
+        (opus.provider, opus.model.as_str()),
+        (Provider::Cli, "claude:opus")
+    );
+    assert_eq!(opus.tag(), "claude-opus");
+    assert_eq!(cli("cli:claude").expect("valid").tag(), "claude");
+    assert_eq!(cli("cli:claude:sonnet").expect("valid").tag(), "sonnet");
+    assert_eq!(
+        cli("cli:claude:claude-sonnet-5-5").expect("valid").tag(),
+        "sonnet-5-5"
+    );
+    assert!(cli("cli").expect_err("no tool").contains("cli:<tool>"));
+    let unknown = cli("cli:vim:opus").expect_err("no such tool");
+    assert!(unknown.contains("claude"), "{unknown}");
+    assert!(cli("cli:claude:bad model").is_err());
+}
+
+/// A CLI plays on a subscription: no price, its own token budget, a call
+/// cap, an answer held to the schema; a price or a dollar budget is
+/// refused, and it has no credentials.
+#[test]
+fn a_cli_has_no_price_and_counts_its_calls() {
+    let spec = Spec::parse("cli:claude:opus").unwrap().unwrap();
+    let mut settings = Settings::new(&spec);
+    assert_eq!(settings.answer, AnswerMode::JsonSchema);
+    assert_eq!(settings.price, None);
+    assert_eq!(settings.spend_usd, None);
+    assert_eq!(settings.spend_tokens, DEFAULT_CLI_SPEND_TOKENS);
+    assert_eq!(settings.spend_calls, Some(DEFAULT_CLI_CALLS));
+    assert_eq!(settings.effort, None, "the CLI's own");
+    settings.budget(None, None, Some(7_000_000)).unwrap();
+    assert_eq!(settings.spend_tokens, 7_000_000);
+    let priced = settings
+        .clone()
+        .budget(Some(Price::per_million(1.0, 2.0)), None, None)
+        .unwrap_err();
+    assert!(
+        priced.contains("subscription, which has no price"),
+        "{priced}"
+    );
+    assert!(settings.budget(None, Some(1.0), None).is_err());
+    let none = |_: &str| None;
+    let why = credentials(Provider::Cli, &none).unwrap_err();
+    assert!(why.contains("not an API"), "{why}");
+    let why = credentials_at(Provider::Cli, "X", None, &none).unwrap_err();
+    assert!(why.contains("not an API"), "{why}");
+
+    // The call cap holds a game, counting the calls still out.
+    let mut tally = Tally::default();
+    settings.spend_calls = Some(2);
+    let worst = settings.worst(1_000);
+    tally.hold(worst, &settings).unwrap();
+    tally.hold(worst, &settings).unwrap();
+    let full = tally.hold(worst, &settings).unwrap_err();
+    assert_eq!(full, "the game's budget of 2 calls is spent");
+    assert_eq!(tally.spent_under(&settings), Some(full));
+    tally.back(worst, Ok(Usage::default()), None);
+    tally.back_at_worst(worst);
+    assert_eq!((tally.calls, tally.out, tally.failed), (2, 0, 0));
+    assert_eq!(
+        tally.unsure, worst,
+        "a reply that did not say counts at its worst"
     );
 }
 

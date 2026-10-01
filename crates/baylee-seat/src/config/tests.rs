@@ -85,7 +85,7 @@ fn with_no_file_nothing_changes() {
     assert_eq!(plan.settings.spend_tokens, DEFAULT_SPEND_TOKENS);
     assert!(!plan.settings.hard_limit, "no reservation, no hard limit");
     assert_eq!(plan.think_secs, DEFAULT_THINK_SECS);
-    assert_eq!(plan.key_env, "ANTHROPIC_API_KEY");
+    assert_eq!(plan.key_env.as_deref(), Some("ANTHROPIC_API_KEY"));
     assert_eq!((plan.base_url, plan.profile, plan.note), (None, None, None));
 
     let why = refused(None, None, Some("sonnet"), &none);
@@ -115,7 +115,7 @@ fn the_default_profile_plays_when_nothing_is_named() {
     assert_eq!(settings.spend_usd, Some(2.5));
     assert_eq!(settings.spend_tokens, 3_000_000);
     assert_eq!(plan.think_secs, 45);
-    assert_eq!(plan.key_env, "TEST_ANTHROPIC_KEY");
+    assert_eq!(plan.key_env.as_deref(), Some("TEST_ANTHROPIC_KEY"));
     assert_eq!(plan.base_url.as_deref(), Some("https://llm.example.com"));
 
     // A file with no default plays the house when nothing is named.
@@ -150,7 +150,7 @@ fn a_named_profile_plays_and_an_unknown_one_is_refused() {
     assert_eq!(plan.settings.effort, None, "the provider's own");
     assert_eq!(plan.settings.max_tokens, 8_000, "the build's for openai");
     assert_eq!(plan.settings.spend_usd, Some(DEFAULT_SPEND_USD));
-    assert_eq!(plan.key_env, "DEEPSEEK_API_KEY");
+    assert_eq!(plan.key_env.as_deref(), Some("DEEPSEEK_API_KEY"));
     assert_eq!(plan.think_secs, DEFAULT_THINK_SECS);
 
     let why = refused(None, Some(&file), Some("opus"), &Overrides::default());
@@ -169,6 +169,7 @@ fn a_flag_overrides_the_profile() {
         price: Some(Price::per_million(1.0, 2.0)),
         spend_usd: Some(0.75),
         spend_tokens: Some(900_000),
+        spend_calls: Some(40),
         think_secs: Some(20),
     };
     let plan = planned(None, Some(&file), Some("sonnet"), &flags);
@@ -178,6 +179,7 @@ fn a_flag_overrides_the_profile() {
     assert_eq!(settings.price, Some(Price::per_million(1.0, 2.0)));
     assert_eq!(settings.spend_usd, Some(0.75));
     assert_eq!(settings.spend_tokens, 900_000);
+    assert_eq!(settings.spend_calls, Some(40));
     assert_eq!(plan.think_secs, 20);
     // --answer over a profile's json.
     let tools = Overrides {
@@ -212,7 +214,7 @@ fn a_model_named_over_a_profile_keeps_its_limits_and_not_its_price() {
         assert_eq!(plan.settings.price, price("claude-opus-5-5"), "the build's");
         assert_eq!(plan.settings.spend_usd, Some(2.5));
         assert_eq!(plan.settings.max_tokens, 12_000);
-        assert_eq!(plan.key_env, "TEST_ANTHROPIC_KEY");
+        assert_eq!(plan.key_env.as_deref(), Some("TEST_ANTHROPIC_KEY"));
         assert_eq!(plan.note, None);
     }
     // The same model keeps the profile's price.
@@ -246,7 +248,7 @@ fn a_model_of_another_provider_than_the_profile() {
     };
     let plan = planned(Some("openai:gpt-5"), Some(&file), None, &flags);
     assert_eq!(plan.profile, None);
-    assert_eq!(plan.key_env, "BAYLEE_LLM_API_KEY");
+    assert_eq!(plan.key_env.as_deref(), Some("BAYLEE_LLM_API_KEY"));
     assert_eq!(plan.base_url, None);
     assert_eq!(plan.settings.max_tokens, 8_000);
     let note = plan.note.expect("said");
@@ -335,6 +337,93 @@ fn a_flag_that_is_not_a_value_is_refused() {
         assert!(why.contains(said), "«{said}» in {why}");
     }
     assert_eq!(Provider::Anthropic.name(), "anthropic");
+}
+
+/// A cli profile plays its tool with no key: its token budget and call
+/// cap from the profile or the flags, its command, and no answer by tools.
+#[test]
+fn a_cli_profile_plays_with_no_key_and_counts_its_calls() {
+    let file = SeatSettings::parse(
+        r#"{"default": "cc", "profiles": {
+              "cc": {"provider": "cli", "model": "claude:opus", "effort": "low",
+                     "game_tokens": 9000000, "game_calls": 300,
+                     "command": "/opt/homebrew/bin/claude"},
+              "bare": {"provider": "cli", "model": "claude"}}}"#,
+    )
+    .expect("the test's file");
+    let none = Overrides::default();
+    let plan = planned(None, Some(&file), None, &none);
+    assert_eq!(plan.spec, spec("cli:claude:opus"));
+    assert_eq!(plan.key_env, None, "a CLI reads no key");
+    assert_eq!(plan.command.as_deref(), Some("/opt/homebrew/bin/claude"));
+    let settings = &plan.settings;
+    assert_eq!(settings.answer, AnswerMode::JsonSchema);
+    assert_eq!(settings.effort.as_deref(), Some("low"));
+    assert_eq!(
+        (settings.spend_tokens, settings.spend_calls, settings.price),
+        (9_000_000, Some(300), None)
+    );
+    let bare = planned(None, Some(&file), Some("bare"), &none);
+    assert_eq!(bare.command, None, "found on PATH");
+    assert_eq!(
+        (bare.settings.spend_tokens, bare.settings.spend_calls),
+        (
+            crate::llm::DEFAULT_CLI_SPEND_TOKENS,
+            Some(crate::llm::DEFAULT_CLI_CALLS)
+        )
+    );
+    let flags = Overrides {
+        spend_calls: Some(40),
+        answer: Some(AnswerMode::Json),
+        ..Overrides::default()
+    };
+    let flagged = planned(None, Some(&file), None, &flags);
+    assert_eq!(flagged.settings.spend_calls, Some(40));
+    assert_eq!(flagged.settings.answer, AnswerMode::Json);
+    for (flags, said) in [
+        (
+            Overrides {
+                answer: Some(AnswerMode::Tools),
+                ..Overrides::default()
+            },
+            "--answer tools is for an API",
+        ),
+        (
+            Overrides {
+                spend_calls: Some(0),
+                ..Overrides::default()
+            },
+            "--spend-calls",
+        ),
+        (
+            Overrides {
+                spend_usd: Some(1.0),
+                ..Overrides::default()
+            },
+            "subscription, which has no price",
+        ),
+        (
+            Overrides {
+                price: Some(Price::per_million(1.0, 2.0)),
+                ..Overrides::default()
+            },
+            "subscription, which has no price",
+        ),
+    ] {
+        let why = refused(None, Some(&file), None, &flags);
+        assert!(why.contains(said), "«{said}» in {why}");
+        assert!(!why.contains("game_tokens"), "no API's advice: {why}");
+    }
+    let why = refused(
+        Some("cli:claude"),
+        None,
+        None,
+        &Overrides {
+            answer: Some(AnswerMode::Tools),
+            ..Overrides::default()
+        },
+    );
+    assert!(why.contains("--answer tools"), "{why}");
 }
 
 /// The settings file is `--config`, else the environment's, else the

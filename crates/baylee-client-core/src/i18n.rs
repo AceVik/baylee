@@ -3410,6 +3410,13 @@ messages! {
     SeatProviderAnthropic { en: "Anthropic", de: "Anthropic" },
     /// Any OpenAI-compatible endpoint.
     SeatProviderOpenAi { en: "OpenAI-compatible", de: "OpenAI-kompatibel" },
+    /// An agent CLI on this machine, played on the player's subscription.
+    SeatProviderCli { en: "Agent CLI (subscription)", de: "Agent-CLI (Abo)" },
+    /// Under a CLI profile's model box.
+    SeatCliModel {
+        en: "A CLI's model is its tool, then the tool's own model if you name one: claude, or claude:opus.",
+        de: "Das Modell einer CLI ist ihr Werkzeug, dann, wenn du eins nennst, dessen eigenes Modell: claude oder claude:opus.",
+    },
     /// A profile's model.
     SeatModel { en: "Model", de: "Modell" },
     /// A priced model offered for the model box. `{0}` the model, `{1}` input and `{2}` output price.
@@ -3473,6 +3480,21 @@ messages! {
     SeatBaseByDefault { en: "{0}, else {1}", de: "{0}, sonst {1}" },
     /// An effort left to an OpenAI-compatible endpoint.
     SeatEffortEndpoint { en: "the endpoint's own", de: "wie der Endpunkt es vorgibt" },
+    /// An effort left to a CLI.
+    SeatEffortCli { en: "the CLI's own", de: "wie die CLI es vorgibt" },
+    /// The most calls a game may make.
+    SeatGameCalls { en: "Per game (calls)", de: "Pro Partie (Aufrufe)" },
+    /// No call limit for an API's games.
+    SeatNoCallLimit { en: "no limit", de: "keine Grenze" },
+    /// The program a CLI profile runs.
+    SeatCommand { en: "Program", de: "Programm" },
+    /// The program when left empty. `{0}` the tool's name.
+    SeatCommandByDefault { en: "{0}, found on PATH", de: "{0}, im PATH gesucht" },
+    /// A CLI's games have no price.
+    SeatCliNoPrice {
+        en: "A CLI plays on your subscription, which has no price: its games are limited in tokens and calls, and count under the token caps.",
+        de: "Eine CLI spielt mit deinem Abo, das keinen Preis hat: Ihre Partien sind in Tokens und Aufrufen begrenzt und zählen unter den Token-Obergrenzen.",
+    },
     /// The caps' heading.
     SeatCaps { en: "Caps across all games", de: "Obergrenzen über alle Partien" },
     /// Under it.
@@ -3566,6 +3588,41 @@ messages! {
         en: "A model id is up to 100 letters, digits and - _ . : / @.",
         de: "Eine Modell-ID hat bis zu 100 Buchstaben, Ziffern und - _ . : / @.",
     },
+    /// A CLI's model that names no tool this build plays.
+    SeatFaultTool {
+        en: "Name the tool first: claude, or claude:<model>.",
+        de: "Nenne zuerst das Werkzeug: claude oder claude:<Modell>.",
+    },
+    /// A CLI asked to answer with tools.
+    SeatFaultCliAnswer {
+        en: "A CLI has none of our tools: it answers with JSON or a JSON schema.",
+        de: "Eine CLI hat keins unserer Werkzeuge: Sie antwortet mit JSON oder einem JSON-Schema.",
+    },
+    /// A key or an address on a CLI profile.
+    SeatFaultCliKey {
+        en: "A CLI reads no key and has no address: it plays as you are signed in to it.",
+        de: "Eine CLI liest keinen Schlüssel und hat keine Adresse: Sie spielt so, wie du bei ihr angemeldet bist.",
+    },
+    /// A price on a CLI profile.
+    SeatFaultCliPrice {
+        en: "A subscription has no price: limit a CLI's games in tokens and calls.",
+        de: "Ein Abo hat keinen Preis: Begrenze die Partien einer CLI in Tokens und Aufrufen.",
+    },
+    /// A program on a profile that is not a CLI's.
+    SeatFaultCliOnly {
+        en: "Only a CLI profile runs a program.",
+        de: "Nur ein CLI-Profil führt ein Programm aus.",
+    },
+    /// A program named by a path that is not absolute.
+    SeatFaultCommand {
+        en: "The program's absolute path, such as /opt/homebrew/bin/claude.",
+        de: "Der absolute Pfad des Programms, etwa /opt/homebrew/bin/claude.",
+    },
+    /// No calls at all.
+    SeatFaultGameCalls {
+        en: "The most calls a game may make: at least 1.",
+        de: "Die meisten Aufrufe, die eine Partie machen darf: mindestens 1.",
+    },
     /// Not an effort.
     SeatFaultEffort {
         en: "An effort is one lowercase word, such as low, medium or high.",
@@ -3573,8 +3630,8 @@ messages! {
     },
     /// JSON asked of Anthropic.
     SeatFaultJson {
-        en: "JSON answers are for OpenAI-compatible endpoints; Anthropic's models answer with tools.",
-        de: "JSON-Antworten sind für OpenAI-kompatible Endpunkte; Anthropics Modelle antworten mit Werkzeugen.",
+        en: "JSON answers are for OpenAI-compatible endpoints and CLIs; Anthropic's models answer with tools.",
+        de: "JSON-Antworten sind für OpenAI-kompatible Endpunkte und CLIs; Anthropics Modelle antworten mit Werkzeugen.",
     },
     /// No reply at all.
     SeatFaultMaxTokens {

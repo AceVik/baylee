@@ -34,7 +34,7 @@ use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
-use baylee_seat::llm::{AnswerMode, ApiMind, Price, Secret, Spec, Tally, credentials_at, scrub};
+use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
 use baylee_seat::show::Show;
@@ -72,9 +72,11 @@ struct Join {
     #[arg(long)]
     gateway: Option<String>,
     /// What decides: `house`, `scripted`, `anthropic[:<model>]` (key in
-    /// `ANTHROPIC_API_KEY`) or `openai:<model>` (key and address in
-    /// `BAYLEE_LLM_API_KEY` and `BAYLEE_LLM_BASE_URL`) [default: the
-    /// settings file's default profile, else house].
+    /// `ANTHROPIC_API_KEY`), `openai:<model>` (key and address in
+    /// `BAYLEE_LLM_API_KEY` and `BAYLEE_LLM_BASE_URL`), or an agent CLI
+    /// signed in to a subscription, `cli:<tool>[:<model>]` (`cli:claude`,
+    /// `cli:claude:opus`; no key) [default: the settings file's default
+    /// profile, else house].
     #[arg(long, value_parser = MindKind::parse)]
     mind: Option<MindKind>,
     /// A profile of the settings file to play: its model, its limits and
@@ -98,8 +100,9 @@ struct Join {
     effort: Option<String>,
     /// How an OpenAI-compatible model answers: by calling a tool, or with a
     /// JSON object, for a server without tools; `json-schema` asks for the
-    /// object by its schema, for a server that refuses a bare `json`
-    /// [default: tools].
+    /// object by its schema, for a server that refuses a bare `json`. A CLI
+    /// answers `json-schema` or `json` [default: tools; json-schema for a
+    /// CLI].
     #[arg(long, value_enum)]
     answer: Option<Answering>,
     /// The most tokens one reply may take, thinking included [default:
@@ -113,10 +116,16 @@ struct Join {
     #[arg(long, value_parser = usd)]
     spend_usd: Option<f64>,
     /// The most tokens a language model may spend on one game, in and out
-    /// together [default: 5000000]; the only limit, and required, for a
-    /// model this build has no price for and none is given.
+    /// together [default: 5000000; 20000000 for a CLI, whose cache reads
+    /// count]; the only limit, and required, for a model this build has no
+    /// price for and none is given.
     #[arg(long)]
     spend_tokens: Option<u64>,
+    /// The most calls a language model may make in one game; past it the
+    /// house finishes the game [default: 500 for a CLI, no limit for an
+    /// API].
+    #[arg(long)]
+    spend_calls: Option<u64>,
     /// The model's input price in US dollars per million tokens, with
     /// --price-out: for a model this build has no price for, or over its
     /// own. Cache writes count at 1.25 times it and cache reads at all of
@@ -221,6 +230,7 @@ impl Join {
                 .map(|(input, output)| Price::per_million(input, output)),
             spend_usd: self.spend_usd,
             spend_tokens: self.spend_tokens,
+            spend_calls: self.spend_calls,
             think_secs: self.think_secs,
         }
     }
@@ -275,31 +285,34 @@ fn choose(
         // Nothing names a model: the house, as with no settings file.
         return Ok(quiet(Arc::new(HouseMind::new(level)), "house"));
     };
-    no_key_in(args, env, &[&plan.key_env])?;
-    let mut settings = plan.settings;
-    settings.transcripts.clone_from(&join.transcripts);
-    let credentials = credentials_at(
-        settings.provider,
-        &plan.key_env,
-        plan.base_url.as_deref(),
-        env,
-    )
-    .map_err(anyhow::Error::msg)?;
+    let mut plan = plan;
+    no_key_in(args, env, plan.key_env.as_deref().as_slice())?;
+    // What the mind is reached through is checked before the game reserves
+    // anything: a missing key or program refuses the game, not the book.
+    let access = llm::check(&plan, env).map_err(anyhow::Error::msg)?;
+    plan.settings.transcripts.clone_from(&join.transcripts);
     let caps = file.as_ref().map(|file| file.caps).unwrap_or_default();
     let mut booked = paths
         .book(file.is_some())
-        .map(|book| spend::reserve(&book, &caps, &mut settings, plan.profile.as_deref(), now))
+        .map(|book| {
+            spend::reserve(
+                &book,
+                &caps,
+                &mut plan.settings,
+                plan.profile.as_deref(),
+                now,
+            )
+        })
         .transpose()
         .map_err(anyhow::Error::msg)?;
-    let mind = ApiMind::new(settings, credentials);
-    let tally = mind.tally();
+    let built = access.build(&plan);
     if let Some(booked) = &mut booked {
-        booked.watch(Arc::clone(&tally));
+        booked.watch(Arc::clone(&built.tally));
     }
     Ok(Chosen {
-        mind: Arc::new(mind),
-        label: plan.spec.tag(),
-        tally: Some(tally),
+        mind: built.mind,
+        label: built.label,
+        tally: Some(built.tally),
         booked,
         think_secs: plan.think_secs,
         note: plan.note,
@@ -314,7 +327,8 @@ impl MindKind {
             other => match Spec::parse(other) {
                 Some(spec) => spec.map(Self::Llm),
                 None => Err(format!(
-                    "«{}» is not a mind: house, scripted, anthropic[:<model>] or openai:<model>",
+                    "«{}» is not a mind: house, scripted, anthropic[:<model>], openai:<model> or \
+                     cli:<tool>[:<model>]",
                     scrub(other, None)
                 )),
             },
@@ -1130,6 +1144,66 @@ mod tests {
         assert!(refused.contains("set TEST_OWN_KEY"), "{refused}");
         let own = |name: &str| (name == "TEST_OWN_KEY").then(|| "TEST-own-key-value".to_string());
         assert!(chosen(&keyed, &own).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// An agent CLI sits under its tool's and model's name and reads no
+    /// key; its program is checked before the game reserves anything, so a
+    /// CLI that is not there costs the book nothing. The program here is
+    /// the test itself: found, and never started.
+    #[test]
+    fn a_cli_sits_with_no_key_and_is_checked_before_it_reserves() {
+        let dir = scratch("cli");
+        let config = dir.join("llm-seat.json");
+        let program = std::env::current_exe().unwrap();
+        let file = serde_json::json!({
+            "default": "cc",
+            "caps": {"day_tokens": 50_000_000},
+            "profiles": {
+                "cc": {"provider": "cli", "model": "claude:opus", "game_calls": 200,
+                       "command": program},
+                "gone": {"provider": "cli", "model": "claude",
+                         "command": dir.join("nowhere").join("claude")}
+            }
+        });
+        std::fs::write(&config, file.to_string()).unwrap();
+        let empty = dir.join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        let env = |name: &str| (name == "PATH").then(|| empty.display().to_string());
+        let path = config.to_str().unwrap();
+        let cc = join_args(&["--config", path]).unwrap();
+        let chosen_cc = chosen(&cc, &env).unwrap();
+        assert_eq!(chosen_cc.label, "claude-opus");
+        let mind = &*chosen_cc.mind;
+        assert_eq!(
+            display_name(None, &chosen_cc.label, mind).unwrap(),
+            "LLM-claude-opus"
+        );
+        assert_eq!(mind.disclosure(), Disclosure::Llm);
+        assert_eq!(
+            chosen_cc.booked.as_ref().unwrap().grant().budget,
+            Budget::Tokens(20_000_000)
+        );
+        let tally = chosen_cc.tally.as_ref().unwrap();
+        assert_eq!(tally.lock().unwrap().calls_cap, Some(200));
+        drop(chosen_cc);
+        for (join, said) in [
+            (
+                join_args(&["--config", path, "--profile", "gone"]).unwrap(),
+                "is not a program this user may run",
+            ),
+            // With no profile to name it, the tool is looked for on PATH.
+            (join("cli:claude"), "claude is not on PATH"),
+        ] {
+            let refused = chosen(&join, &env).map(|_| ()).unwrap_err().to_string();
+            assert!(refused.contains(said), "{refused}");
+        }
+        let games = Book::beside(&config).read().unwrap().games.len();
+        assert_eq!(games, 1, "a CLI that is not there reserved nothing");
+        // The flag over the profile's cap.
+        let flagged = join_args(&["--config", path, "--spend-calls", "7"]).unwrap();
+        let tally = chosen(&flagged, &env).unwrap().tally.unwrap();
+        assert_eq!(tally.lock().unwrap().calls_cap, Some(7));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

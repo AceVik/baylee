@@ -10,7 +10,7 @@
 //! default. With no file at all the bridge plays as it always did: no
 //! profile, no caps, no spend book.
 
-use crate::llm::{AnswerMode, Price, Settings, Spec};
+use crate::llm::{AnswerMode, Price, Provider, Settings, Spec};
 use baylee_client_core::llmseat::ledger::Book;
 use baylee_client_core::llmseat::{Profile, SeatSettings, effort_is_a_word, store};
 use baylee_client_core::userdirs::Os;
@@ -111,6 +111,8 @@ pub struct Overrides {
     pub spend_usd: Option<f64>,
     /// `--spend-tokens`.
     pub spend_tokens: Option<u64>,
+    /// `--spend-calls`.
+    pub spend_calls: Option<u64>,
     /// `--think-secs`.
     pub think_secs: Option<u64>,
 }
@@ -124,10 +126,14 @@ pub struct Plan {
     pub settings: Settings,
     /// The longest one answer may take, in seconds.
     pub think_secs: u64,
-    /// The environment variable its key is read from.
-    pub key_env: String,
+    /// The environment variable its key is read from; `None` for a CLI,
+    /// which reads none.
+    pub key_env: Option<String>,
     /// Where the API is, when a profile names it.
     pub base_url: Option<String>,
+    /// A CLI's program, when a profile names it: an absolute path. `None`
+    /// finds the tool's name on `PATH`.
+    pub command: Option<String>,
     /// The profile it plays, if one.
     pub profile: Option<String>,
     /// Something the player should be told: a default profile that did
@@ -197,11 +203,11 @@ pub fn plan(
         return Err("--think-secs is the longest one answer may take: at least 1".into());
     }
     Ok(Some(Plan {
-        key_env: profile.map_or_else(
-            || spec.provider.default_key_env().to_string(),
-            |p| p.key_env().to_string(),
-        ),
+        key_env: profile
+            .map_or_else(|| spec.provider.default_key_env(), Profile::key_env)
+            .map(str::to_string),
         base_url: profile.and_then(|p| p.base_url.clone()),
+        command: profile.and_then(|p| p.command.clone()),
         profile: chosen.map(|c| c.name.to_string()),
         spec,
         settings,
@@ -273,12 +279,22 @@ fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Setti
     if let Some(answer) = flags.answer {
         settings.answer = answer;
     }
-    if settings.answer.is_json() && spec.provider != crate::llm::Provider::OpenAi {
-        return Err(format!(
-            "--answer {} is for an OpenAI-compatible endpoint; Anthropic's models answer with \
-             tools",
-            settings.answer.name().replace('_', "-")
-        ));
+    match (spec.provider, settings.answer) {
+        (Provider::Anthropic, AnswerMode::Json | AnswerMode::JsonSchema) => {
+            return Err(format!(
+                "--answer {} is for an OpenAI-compatible endpoint or a CLI; Anthropic's models \
+                 answer with tools",
+                settings.answer.name().replace('_', "-")
+            ));
+        }
+        (Provider::Cli, AnswerMode::Tools) => {
+            return Err(
+                "--answer tools is for an API: a CLI plays with no tools, and answers \
+                        json-schema or json"
+                    .into(),
+            );
+        }
+        _ => {}
     }
     if let Some(max_tokens) = flags.max_tokens {
         if max_tokens == 0 {
@@ -297,12 +313,18 @@ fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Setti
     settings
         .budget(flags.price.or(own_price), spend_usd, spend_tokens)
         .map_err(|why| match chosen {
-            Some(chosen) => format!(
+            Some(chosen) if spec.provider != Provider::Cli => format!(
                 "{why}; in the settings file, profile «{}» takes a price, or game_tokens",
                 chosen.name
             ),
-            None => why,
+            _ => why,
         })?;
+    if let Some(calls) = flags.spend_calls.or(profile.and_then(|p| p.game_calls)) {
+        if calls == 0 {
+            return Err("--spend-calls is the most calls a game may make: at least 1".into());
+        }
+        settings.spend_calls = Some(calls);
+    }
     Ok(settings)
 }
 

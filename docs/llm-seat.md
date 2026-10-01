@@ -2,7 +2,8 @@
 
 The seat bridge (`baylee-seat join`, `crates/baylee-seat`) sits at a table
 as an ordinary socket player and hands its questions to a mind: the house,
-a script, or a language model. This page is about the language model: the
+a script, or a language model, behind an API or behind an agent CLI that a
+subscription is signed in to. This page is about the language model: the
 settings file that says which model plays and what it may spend, and the
 spend book that holds a player's caps across games. The types are
 `baylee_client_core::llmseat` (pure, every target), the files are
@@ -42,6 +43,13 @@ An example file, with no key in it:
       "key_env": "DEEPSEEK_API_KEY",
       "answer": "json",
       "game_tokens": 3000000
+    },
+    "cc-opus": {
+      "provider": "cli",
+      "model": "claude:opus",
+      "effort": "low",
+      "game_calls": 400,
+      "think_secs": 90
     }
   }
 }
@@ -66,17 +74,19 @@ the profile: a file is played as written or not at all.
 | `caps.day_usd`, `caps.month_usd` | The most the games of models with a price may spend together per calendar day and per month, in US dollars. |
 | `caps.day_tokens`, `caps.month_tokens` | The same in tokens, for the games of models without a price. |
 | `profiles.<name>` | Up to 32 letters, digits, `-` and `_`, starting with a letter or digit. |
-| `provider` | `anthropic` or `openai` (any OpenAI-compatible endpoint). Required. |
-| `model` | The provider's model id. Required. |
-| `effort` | A word such as `low`, `medium`, `high`. |
-| `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints only). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
-| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). |
+| `provider` | `anthropic`, `openai` (any OpenAI-compatible endpoint) or `cli` (an agent CLI, [below](#a-cli-as-the-model)). Required. |
+| `model` | The provider's model id; for `cli` the tool, then its own model if any: `claude`, `claude:opus`. Required. |
+| `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
+| `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
+| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
 | `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |
-| `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000); the limit of a model without a price. |
+| `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000; 20,000,000 for `cli`); the limit of a model without a price. |
+| `game_calls` | The most calls one game may make; past it the house finishes the game (default 500 for `cli`, no limit for an API). |
 | `think_secs` | The longest one answer may take (default 60). |
-| `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`). |
-| `base_url` | Where the API is: `https://`, or `http://` on loopback only. |
+| `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`). Not for `cli`. |
+| `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
+| `command` | `cli` only: the tool's program, a whole path (`/opt/homebrew/bin/claude`); default: the tool's name on the bridge's `PATH`. |
 
 A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
@@ -103,17 +113,83 @@ A flag beats the profile, and the profile beats the build.
 - The profile is the one `--profile <name>` names, else the file's
   `default`. `--profile` with no file, or a name the file lacks, is
   refused, and so is `--profile` beside `--mind house` or `scripted`.
-- `--mind anthropic[:<model>]` or `openai:<model>` puts its model in the
-  profile's place and keeps the profile's other settings; a named profile
-  of the other provider is refused, the default one is left out with a
-  note, and the model plays with the build's defaults.
+- `--mind anthropic[:<model>]`, `openai:<model>` or `cli:<tool>[:<model>]`
+  puts its model in the profile's place and keeps the profile's other
+  settings; a named profile of another provider is refused, the default
+  one is left out with a note, and the model plays with the build's
+  defaults.
 - Nothing named and no default: the house plays.
 - `--effort`, `--answer`, `--max-tokens`, `--price-in`/`--price-out`,
-  `--spend-usd`, `--spend-tokens` and `--think-secs` beat the profile's
-  field of the same meaning.
+  `--spend-usd`, `--spend-tokens`, `--spend-calls` and `--think-secs` beat
+  the profile's field of the same meaning.
+- What the model is reached through is checked before the game reserves
+  anything in the spend book: a missing key, or a CLI whose program is not
+  there, refuses the game and costs the book nothing.
 - No file: everything is as it was before the file existed. No caps and
   no spend book; a game's budget is $5 (or `--spend-usd`), checked before
   each call.
+
+## A CLI as the model
+
+`provider: cli` plays through an agent CLI that its owner signed in to a
+subscription, instead of an API and a key (`baylee_seat::cli`). This build
+speaks Claude Code, `claude` (`claude:opus`, or `claude` for its own default
+model); others are each a dialect of their own (`cli::dialect::Dialect`).
+Whether a tool's terms allow automated play on a subscription is for its
+owner to check before playing.
+
+- **No key.** The tool plays on its own login (`claude` signed in once by
+  hand). A cli profile has no `key_env`, `base_url`, `price` or `game_usd`
+  (each refused), and answers `json_schema` or `json`, never `tools`.
+- **One process per turn.** A seat's first question of a game turn starts
+  the tool with the game's prefix, the seat's notes from earlier turns and
+  the decision; each later question of the turn is one more message to the
+  same process, which keeps the turn's conversation. The next turn closes
+  its stdin (two seconds, then it is killed) and starts another. A process
+  that hangs past the question's time is killed, one that dies is said
+  with its exit and its last line on stderr, and either way the next
+  question starts one again, saying the conversation was lost; one idle
+  three minutes is ended; at most two live per bridge.
+- **The program.** `command`, a whole path, else the tool's name on the
+  bridge's `PATH` (absolute entries only). It is run directly with an
+  argument array and never through a shell, so a shell function or alias
+  of the same name (one that adds a token to every call, say) never runs.
+- **Locked down.** The working directory is a fresh, empty directory under
+  the OS's temp directory, readable by this user alone and removed with
+  the process, so no project's `CLAUDE.md` or settings are found. The
+  environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
+  `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
+  `NO_COLOR=1` and the tool's own login variable (`CLAUDE_CONFIG_DIR` where
+  set); on Windows also `SYSTEMROOT`, `APPDATA`, `LOCALAPPDATA`,
+  `USERPROFILE`, `TEMP`, `TMP`. No `*_API_KEY`, `*_TOKEN`, `BAYLEE_*`,
+  `GITHUB_*`, `AWS_*`, `ANTHROPIC_*`, `SSH_AUTH_SOCK` or `DATABASE_URL` ever
+  reaches it, and a passed value that looks like a key refuses the game.
+  Claude Code runs as `claude -p --input-format stream-json --output-format
+  stream-json --verbose --restricted --safe-mode --tools "" --strict-mcp-config
+  --disable-slash-commands --setting-sources "" --permission-prompts none
+  --permission-mode manual --no-session-persistence --system-prompt <ours>
+  --json-schema <the answer's> [--model M] [--effort E]`: no tools, no MCP
+  server, no skill, no settings file or hook, no `CLAUDE.md` or plugin,
+  nothing that asks a permission, nothing kept on disk. A process that says
+  at its start that the model has a tool beyond the answer's own, or an MCP
+  server, takes the mind off the table for the rest of the game.
+- **Spend.** A subscription has no price: a game's limits are its tokens,
+  as the tool counts them, and its calls. Cache reads count, and the tool
+  reads the turn's whole conversation again at every decision, so a game
+  takes far more tokens than through an API: `game_tokens` is 20,000,000
+  by default. Under the caps a cli game reserves its `game_tokens` against
+  `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
+  game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
+  default, `--spend-calls`) is held like a budget, and the summary says
+  `212 of 500 calls`. A reply that does not say what it used counts at its
+  worst.
+- **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
+  the house answers, and the mind cools down for the time the tool names,
+  else a minute, doubling to fifteen. It plays again once that has passed
+  and `claude auth status` (which calls no model) says it is signed in.
+- **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
+  speaks Claude Code's stream-json and logs what it was started with
+  (`tests/cli_mind.rs`); no test starts a real CLI or reaches a model.
 
 ## The spend book
 
@@ -170,7 +246,10 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
   follows its profile through renames and removals of others; removing it
   leaves no default (the house plays) rather than choosing one for the
   player.
-- **Boxes.** One per field of the table above and one per cap. An empty
+- **Boxes.** One per field of the table above and one per cap; a field
+  its provider does not use (an address beside Anthropic or a CLI; a key,
+  a price or a dollar budget beside a CLI; a command beside an API) shows
+  only while it holds something or has the caret, to be emptied. An empty
   box leaves the field out and says what the bridge plays instead. Beside
   the model are this build's priced models, with their dollars per
   million in and out, and under the prices what this build knows of the

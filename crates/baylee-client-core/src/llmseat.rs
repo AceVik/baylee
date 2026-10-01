@@ -50,6 +50,16 @@ pub const DEFAULT_SPEND_TOKENS: u64 = 5_000_000;
 /// The longest one answer may take when nothing says otherwise, in seconds.
 pub const DEFAULT_THINK_SECS: u64 = 60;
 
+/// A CLI's game budget in tokens when none is given. Cache reads count as
+/// every other token does, and a CLI that keeps a turn's conversation sends
+/// all of it again with each decision, which it reports as read from the
+/// cache: a turn of ten decisions counts its first one ten times.
+pub const DEFAULT_CLI_SPEND_TOKENS: u64 = 20_000_000;
+
+/// The most calls a CLI's game makes when nothing says otherwise: past it
+/// the house finishes the game.
+pub const DEFAULT_CLI_CALLS: u64 = 500;
+
 /// Which API a model is behind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Provider {
@@ -60,6 +70,11 @@ pub enum Provider {
     /// this machine).
     #[serde(rename = "openai")]
     OpenAi,
+    /// An agent CLI on this machine that the player is signed in to (Claude
+    /// Code), run as a program for each turn ([`CliTool`]): a subscription,
+    /// with no key, no address and no price.
+    #[serde(rename = "cli")]
+    Cli,
 }
 
 impl Provider {
@@ -69,57 +84,130 @@ impl Provider {
         match self {
             Self::Anthropic => "anthropic",
             Self::OpenAi => "openai",
+            Self::Cli => "cli",
         }
     }
 
     /// The environment variable its key is read from unless a profile names
-    /// another.
+    /// another; `None` for a CLI, which reads no key.
     #[must_use]
-    pub const fn default_key_env(self) -> &'static str {
+    pub const fn default_key_env(self) -> Option<&'static str> {
         match self {
-            Self::Anthropic => "ANTHROPIC_API_KEY",
-            Self::OpenAi => "BAYLEE_LLM_API_KEY",
+            Self::Anthropic => Some("ANTHROPIC_API_KEY"),
+            Self::OpenAi => Some("BAYLEE_LLM_API_KEY"),
+            Self::Cli => None,
         }
     }
 
     /// The environment variable its address is read from unless a profile
-    /// names one.
+    /// names one; `None` for a CLI, which is a program, not an address.
     #[must_use]
-    pub const fn base_env(self) -> &'static str {
+    pub const fn base_env(self) -> Option<&'static str> {
         match self {
-            Self::Anthropic => "ANTHROPIC_BASE_URL",
-            Self::OpenAi => "BAYLEE_LLM_BASE_URL",
+            Self::Anthropic => Some("ANTHROPIC_BASE_URL"),
+            Self::OpenAi => Some("BAYLEE_LLM_BASE_URL"),
+            Self::Cli => None,
         }
     }
 
-    /// Its address when neither a profile nor the environment names one.
+    /// Its address when neither a profile nor the environment names one;
+    /// `None` for a CLI.
     #[must_use]
-    pub const fn default_base(self) -> &'static str {
+    pub const fn default_base(self) -> Option<&'static str> {
         match self {
-            Self::Anthropic => "https://api.anthropic.com",
-            Self::OpenAi => "https://api.openai.com/v1",
+            Self::Anthropic => Some("https://api.anthropic.com"),
+            Self::OpenAi => Some("https://api.openai.com/v1"),
+            Self::Cli => None,
         }
     }
 
     /// The most tokens one reply may take, thinking included, when nothing
-    /// says otherwise.
+    /// says otherwise. No CLI takes such a limit: for one, it is only the
+    /// allowance for a reply that a call is held to at its worst.
     #[must_use]
     pub const fn default_max_tokens(self) -> u32 {
         match self {
-            Self::Anthropic => 16_000,
+            Self::Anthropic | Self::Cli => 16_000,
             Self::OpenAi => 8_000,
         }
     }
 
     /// How hard its models think when nothing says otherwise: medium on
-    /// Anthropic, the endpoint's own default elsewhere.
+    /// Anthropic, the endpoint's or the CLI's own default elsewhere.
     #[must_use]
     pub const fn default_effort(self) -> Option<&'static str> {
         match self {
             Self::Anthropic => Some("medium"),
-            Self::OpenAi => None,
+            Self::OpenAi | Self::Cli => None,
         }
     }
+
+    /// How it answers when nothing says otherwise: by calling a tool, or for
+    /// a CLI, which has none, with one JSON object held to the answer's
+    /// schema.
+    #[must_use]
+    pub const fn default_answer(self) -> AnswerMode {
+        match self {
+            Self::Anthropic | Self::OpenAi => AnswerMode::Tools,
+            Self::Cli => AnswerMode::JsonSchema,
+        }
+    }
+}
+
+/// An agent CLI a `cli` profile plays through, named first in its model
+/// (`claude:opus`). Only the tools whose dialect this build speaks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CliTool {
+    /// Claude Code, `claude`.
+    Claude,
+}
+
+impl CliTool {
+    /// Every tool this build speaks.
+    pub const ALL: [Self; 1] = [Self::Claude];
+
+    /// Its name, which is also the program's name on `PATH`.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+        }
+    }
+
+    /// The tool called `name`.
+    #[must_use]
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|tool| tool.name() == name)
+    }
+}
+
+/// A CLI's model as a profile or `--mind cli:` names it: the tool, and the
+/// tool's own model id where one is named (`claude:opus`), else the tool's
+/// default (`claude`).
+///
+/// # Errors
+/// A sentence, for a tool this build does not speak or a model id with
+/// characters no provider uses.
+pub fn cli_model(model: &str) -> Result<(CliTool, Option<&str>), String> {
+    let (tool, own) = match model.split_once(':') {
+        Some((tool, own)) => (tool, Some(own)),
+        None => (model, None),
+    };
+    let tools: Vec<&str> = CliTool::ALL.iter().map(|t| t.name()).collect();
+    let Some(tool) = CliTool::named(tool) else {
+        return Err(format!(
+            "«{}» is not a CLI this build plays: name the tool first, {} (claude:opus names \
+             its model too)",
+            blank_key_shapes(model).chars().take(40).collect::<String>(),
+            tools.join(", ")
+        ));
+    };
+    if let Some(own) = own
+        && let Some(why) = model_fault(own)
+    {
+        return Err(why);
+    }
+    Ok((tool, own))
 }
 
 /// How the model answers.
@@ -286,8 +374,9 @@ pub struct Profile {
     /// [default: [`Provider::default_effort`]].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<String>,
-    /// How it answers [default: tools]; JSON (`json`, `json_schema`) only
-    /// on an OpenAI-compatible endpoint.
+    /// How it answers [default: [`Provider::default_answer`]]; JSON
+    /// (`json`, `json_schema`) only on an OpenAI-compatible endpoint or a
+    /// CLI, and a CLI only in JSON.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<AnswerMode>,
     /// The most tokens one reply may take, thinking included [default:
@@ -302,9 +391,14 @@ pub struct Profile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub game_usd: Option<f64>,
     /// The most tokens a game may spend, in and out together [default:
-    /// [`DEFAULT_SPEND_TOKENS`]]; the only limit of a model with no price.
+    /// [`DEFAULT_SPEND_TOKENS`], [`DEFAULT_CLI_SPEND_TOKENS`] for a CLI];
+    /// the only limit of a model with no price.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub game_tokens: Option<u64>,
+    /// The most calls a game may make [default: [`DEFAULT_CLI_CALLS`] for a
+    /// CLI, no limit for an API]; past it the house finishes the game.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game_calls: Option<u64>,
     /// The longest one answer may take, in seconds [default:
     /// [`DEFAULT_THINK_SECS`]].
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -320,6 +414,11 @@ pub struct Profile {
     /// machine.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
+    /// The program a CLI profile runs, as an absolute path [default: the
+    /// tool's name found on `PATH`]. It is run directly, never through a
+    /// shell, so a shell function or alias of the same name is not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
 }
 
 impl Profile {
@@ -335,27 +434,37 @@ impl Profile {
             price: None,
             game_usd: None,
             game_tokens: None,
+            game_calls: None,
             think_secs: None,
             key_env: None,
             base_url: None,
+            command: None,
         }
     }
 
     /// What the model costs: the profile's price, else this build's; `None`
-    /// when neither is known, and then no dollar can be counted for it.
+    /// when neither is known, and then no dollar can be counted for it. A
+    /// CLI plays on a subscription and has none.
     #[must_use]
     pub fn price(&self) -> Option<Price> {
+        if self.provider == Provider::Cli {
+            return None;
+        }
         self.price
             .map(|given| Price::per_million(given.input, given.output))
             .or_else(|| price(&self.model))
     }
 
-    /// The environment variable its key is read from.
+    /// The environment variable its key is read from; `None` for a CLI,
+    /// which reads no key.
     #[must_use]
-    pub fn key_env(&self) -> &str {
+    pub fn key_env(&self) -> Option<&str> {
+        if self.provider == Provider::Cli {
+            return None;
+        }
         self.key_env
             .as_deref()
-            .unwrap_or_else(|| self.provider.default_key_env())
+            .or_else(|| self.provider.default_key_env())
     }
 
     /// What is wrong with it, in one sentence, or `None`: the first of
@@ -377,7 +486,12 @@ impl Profile {
                 sentence,
             });
         };
-        if let Some(sentence) = model_fault(&self.model) {
+        let cli = self.provider == Provider::Cli;
+        if cli {
+            if let Err(sentence) = cli_model(&self.model) {
+                say(Field::Model, Why::NoSuchTool, sentence);
+            }
+        } else if let Some(sentence) = model_fault(&self.model) {
             say(Field::Model, Why::NotAModelId, sentence);
         }
         if let Some(effort) = &self.effort
@@ -389,8 +503,8 @@ impl Profile {
                 "an effort is a word such as low, medium or high".into(),
             );
         }
-        if let Some(sentence) = self.answer_fault() {
-            say(Field::Answer, Why::JsonNeedsOpenAi, sentence);
+        if let Some((why, sentence)) = self.answer_fault() {
+            say(Field::Answer, why, sentence);
         }
         if self.max_tokens == Some(0) {
             say(
@@ -399,6 +513,58 @@ impl Profile {
                 "max_tokens is the most one reply may take: at least 1".into(),
             );
         }
+        if cli {
+            self.cli_faults(&mut say);
+        } else {
+            self.money_faults(&mut say);
+        }
+        if self.game_calls == Some(0) {
+            say(
+                Field::GameCalls,
+                Why::Zero,
+                "game_calls is the most calls a game may make: at least 1".into(),
+            );
+        }
+        if self.think_secs == Some(0) {
+            say(
+                Field::ThinkSecs,
+                Why::Zero,
+                "think_secs is the longest one answer may take: at least 1".into(),
+            );
+        }
+        if let Some(name) = self.key_env.as_ref().filter(|_| !cli)
+            && !env_name_is_a_name(name)
+        {
+            say(
+                Field::KeyEnv,
+                Why::NotAVariable,
+                format!(
+                    "key_env names an environment variable, such as {}, and never holds the key",
+                    self.provider
+                        .default_key_env()
+                        .unwrap_or("ANTHROPIC_API_KEY")
+                ),
+            );
+        }
+        if let Some(sentence) = self
+            .base_url
+            .as_deref()
+            .filter(|_| !cli)
+            .and_then(|base| address_fault(base, "base_url"))
+        {
+            say(Field::BaseUrl, Why::NotSecure, sentence);
+        }
+        if let Some((why, sentence)) = self.command_fault() {
+            say(Field::Command, why, sentence);
+        }
+        out
+    }
+}
+
+impl Profile {
+    /// An API profile's price and dollar budget: amounts, and a dollar
+    /// budget only where the model has a price.
+    fn money_faults(&self, say: &mut impl FnMut(Field, Why, String)) {
         if let Some(given) = self.price {
             for (field, usd) in [
                 (Field::PriceInput, given.input),
@@ -434,49 +600,93 @@ impl Profile {
                 );
             }
         }
-        if self.think_secs == Some(0) {
-            say(
-                Field::ThinkSecs,
-                Why::Zero,
-                "think_secs is the longest one answer may take: at least 1".into(),
-            );
+    }
+
+    /// Why it cannot answer the way it says, or `None`: JSON (`json`,
+    /// `json_schema`) is an OpenAI-compatible endpoint's or a CLI's, and a
+    /// CLI answers only in JSON.
+    fn answer_fault(&self) -> Option<(Why, String)> {
+        let answer = self.answer?;
+        match (self.provider, answer.is_json()) {
+            (Provider::Anthropic, true) => Some((
+                Why::JsonNeedsOpenAi,
+                format!(
+                    "answer {} is for an OpenAI-compatible endpoint or a CLI; Anthropic's models \
+                     answer with tools",
+                    answer.name()
+                ),
+            )),
+            (Provider::Cli, false) => Some((
+                Why::NotForCli,
+                "a CLI has no tools of ours and answers in JSON: answer json_schema, or json"
+                    .into(),
+            )),
+            _ => None,
         }
-        if let Some(name) = &self.key_env
-            && !env_name_is_a_name(name)
-        {
+    }
+
+    /// What a CLI profile holds that a CLI does not take: a key, an
+    /// address, a price in dollars. A subscription has no price, and a CLI
+    /// reads no key: it plays as the player is signed in to it.
+    fn cli_faults(&self, say: &mut impl FnMut(Field, Why, String)) {
+        let price = "a CLI plays on a subscription, which has no price: its games are limited \
+                     in game_tokens and game_calls";
+        if self.price.is_some() {
+            say(Field::PriceInput, Why::NotForCli, price.into());
+        }
+        if self.game_usd.is_some() {
+            say(Field::GameUsd, Why::NotForCli, price.into());
+        }
+        if self.key_env.is_some() {
             say(
                 Field::KeyEnv,
-                Why::NotAVariable,
-                format!(
-                    "key_env names an environment variable, such as {}, and never holds the key",
-                    self.provider.default_key_env()
-                ),
+                Why::NotForCli,
+                "a CLI reads no key: it plays as the player is signed in to it, so a cli \
+                 profile has no key_env"
+                    .into(),
             );
         }
-        if let Some(sentence) = self
-            .base_url
-            .as_deref()
-            .and_then(|base| address_fault(base, "base_url"))
-        {
-            say(Field::BaseUrl, Why::NotSecure, sentence);
+        if self.base_url.is_some() {
+            say(
+                Field::BaseUrl,
+                Why::NotForCli,
+                "a CLI is a program on this machine, not an address: a cli profile has no \
+                 base_url"
+                    .into(),
+            );
         }
-        out
     }
-}
 
-impl Profile {
-    /// Why it cannot answer the way it says, or `None`: JSON (`json`,
-    /// `json_schema`) is an OpenAI-compatible endpoint's.
-    fn answer_fault(&self) -> Option<String> {
-        let answer = self.answer.filter(|a| a.is_json())?;
-        (self.provider != Provider::OpenAi).then(|| {
-            format!(
-                "answer {} is for an OpenAI-compatible endpoint; Anthropic's models answer with \
-                 tools",
-                answer.name()
+    /// Why its `command` cannot be run, or `None`: only a CLI profile runs
+    /// a program, named by its absolute path.
+    fn command_fault(&self) -> Option<(Why, String)> {
+        let command = self.command.as_deref()?;
+        if self.provider != Provider::Cli {
+            return Some((
+                Why::CliOnly,
+                "command is the program a cli profile runs; an API's profile runs none".into(),
+            ));
+        }
+        (!is_absolute_path(command)).then(|| {
+            (
+                Why::NotAbsolute,
+                "command is the program's absolute path, such as /opt/homebrew/bin/claude".into(),
             )
         })
     }
+}
+
+/// Whether `path` is absolute on any system a bridge runs on: `/…` on unix,
+/// `C:\…`, `C:/…` or `\\server\…` on Windows. Read as text, so the panel in
+/// a browser says what the bridge on the player's machine would.
+#[must_use]
+pub fn is_absolute_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    let drive = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'\\' | b'/');
+    path.starts_with('/') || path.starts_with("\\\\") || drive
 }
 
 /// A field of a profile, as the file spells it.
@@ -500,17 +710,21 @@ pub enum Field {
     GameUsd,
     /// `game_tokens`.
     GameTokens,
+    /// `game_calls`.
+    GameCalls,
     /// `think_secs`.
     ThinkSecs,
     /// `key_env`.
     KeyEnv,
     /// `base_url`.
     BaseUrl,
+    /// `command`.
+    Command,
 }
 
 impl Field {
     /// Every field, in the order a profile writes them.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 14] = [
         Self::Provider,
         Self::Model,
         Self::Effort,
@@ -520,9 +734,11 @@ impl Field {
         Self::PriceOutput,
         Self::GameUsd,
         Self::GameTokens,
+        Self::GameCalls,
         Self::ThinkSecs,
         Self::KeyEnv,
         Self::BaseUrl,
+        Self::Command,
     ];
 
     /// Its path in a profile, as the file spells it: a price's two amounts
@@ -539,9 +755,11 @@ impl Field {
             Self::PriceOutput => &["price", "output"],
             Self::GameUsd => &["game_usd"],
             Self::GameTokens => &["game_tokens"],
+            Self::GameCalls => &["game_calls"],
             Self::ThinkSecs => &["think_secs"],
             Self::KeyEnv => &["key_env"],
             Self::BaseUrl => &["base_url"],
+            Self::Command => &["command"],
         }
     }
 
@@ -650,11 +868,20 @@ pub enum Why {
     NotAName,
     /// A model id no provider writes.
     NotAModelId,
+    /// A CLI's model that names no tool this build plays.
+    NoSuchTool,
     /// An effort that is not one word.
     NotAWord,
     /// JSON answers (`json`, `json_schema`) asked of Anthropic's models.
     JsonNeedsOpenAi,
-    /// A most of zero: `max_tokens` or `think_secs`.
+    /// What a CLI does not take: a key, an address, a price, answers by
+    /// tool.
+    NotForCli,
+    /// A program to run named on a profile that is not a CLI's.
+    CliOnly,
+    /// A program named by a path that is not absolute.
+    NotAbsolute,
+    /// A most of zero: `max_tokens`, `game_calls` or `think_secs`.
     Zero,
     /// Dollars that are not an amount: below zero, or not finite.
     NotAnAmount,
@@ -897,7 +1124,7 @@ impl SeatSettings {
 /// What a sentence about keys in the file ends with.
 const KEYS_GO: &str = "a key never goes in the settings file: set it in the environment and name \
                        the variable with key_env (ANTHROPIC_API_KEY by default, \
-                       BAYLEE_LLM_API_KEY for openai)";
+                       BAYLEE_LLM_API_KEY for openai; a cli profile reads none)";
 
 /// Field names someone writes a key under. Exact names only, and names
 /// ending in `api_key`: the file's own fields (`game_tokens`, `max_tokens`,

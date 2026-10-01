@@ -40,6 +40,8 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ureq.workspace = true
+# A session directory's name, unguessable, for an agent CLI's process (`cli`).
+uuid.workspace = true
 # The player's clock for the spend book: the day a game counts in is the
 # player's own, where the platform says what its offset is (the client's
 # log reads it the same way).
@@ -64,3 +66,11 @@ axum.workspace = true
 [[bin]]
 name = "baylee-seat"
 path = "src/main.rs"
+
+# The stand-in for an agent CLI that the CLI mind's tests run
+# (`tests/cli_mind.rs`). Without the test harness, so it keeps its own `main`
+# where `--all-targets` builds examples as tests; run as a test it has none.
+# Shipped nowhere.
+[[example]]
+name = "fake-agent-cli"
+harness = false
