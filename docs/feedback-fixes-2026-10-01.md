@@ -25,7 +25,7 @@ Bulk attack and withdraw controls now remain available on every creature page. T
 
 Die nZielpaginierung sollte schöner sein mit Preview und On board Highlighting beim Hover über dem Ziel Button. Und Filtern nach Spieler.
 
-Status: source/native verified; ready to close (not deployed).
+Status: resolved in the feedback service (59b64229; source/native verified; not deployed).
 
 Target choices now have a separate controller-filter row (all players / each
 seat with legal choices), bounded pages retaining original option indices,
@@ -261,7 +261,7 @@ The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI)
 
 ## Next continuation: remaining investigations
 
-17 of the original 25 open reports are resolved. Eight remain open; finish them
+18 of the original 25 open reports are resolved. Seven remain open; finish them
 before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
 3f0ab837 (token/UI). No push or deployment has happened. The native test clients
 started for this pass were stopped; no live test process needs preserving.
@@ -280,8 +280,7 @@ started for this pass were stopped; no live test process needs preserving.
 - Pixel report: report build c3d5aa55 predates 2aae4a59's shared integer noise
   hash fix. Native Metal rendering and shader tests pass, but the reported
   Windows/Vulkan setup has not been reproduced; leave this distinction clear.
-- Other remaining work: target pagination/hover/player filters, counts/life
-  readability, larger centered cards/text,
+- Other remaining work: creature-density readability, larger centered cards/text,
   login-field transition and more distinct original battle/victory music.
 
 ## First hourly continuation
@@ -315,3 +314,5 @@ are separately targeted by stack items. These differences must remain visible;
 merging all same-name creatures would hide relevant state. Existing row
 scrolling already follows a hovered group member. The creature-density portion
 and the larger-card/text report still need a measured layout change.
+
+The feedback API confirmed the target-pagination report as `resolved`.
