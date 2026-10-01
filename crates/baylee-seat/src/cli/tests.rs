@@ -267,17 +267,19 @@ fn the_environment_passes_by_name_and_never_a_key() {
     {
         assert!(!forbidden(name), "{name}");
     }
-    assert!(key_shaped("x sk-ant-api03-AAAABBBBCCCCDDDD y"));
-    assert!(key_shaped("/Users/sk-ant-api03-0123456789abcdefghij"));
-    assert!(key_shaped("ghp_0123456789abcdefghijABCD"));
-    assert!(key_shaped("TOKEN=github_pat_0123456789abcdefghij_x"));
-    assert!(key_shaped("Bearer abc"));
-    assert!(!key_shaped("/Users/someone"));
-    assert!(!key_shaped("/usr/local/bin:/usr/bin:/bin"));
+    assert!(shaped_like_a_key("x sk-ant-api03-AAAABBBBCCCCDDDD y"));
+    assert!(shaped_like_a_key(
+        "/Users/sk-ant-api03-0123456789abcdefghij"
+    ));
+    assert!(shaped_like_a_key("ghp_0123456789abcdefghijABCD"));
+    assert!(shaped_like_a_key("TOKEN=github_pat_0123456789abcdefghij_x"));
+    assert!(shaped_like_a_key("Bearer abc"));
+    assert!(!shaped_like_a_key("/Users/someone"));
+    assert!(!shaped_like_a_key("/usr/local/bin:/usr/bin:/bin"));
     // A marker inside a word is no key: `desk-tools-collection` holds
     // `sk-` and sixteen key characters after it.
     let desk = "/opt/desk-tools-collection/bin:/usr/bin";
-    assert!(!key_shaped(desk));
+    assert!(!shaped_like_a_key(desk));
     let tool = std::env::current_exe().unwrap();
     let tool = tool.to_str().unwrap();
     let launch = Launch::new(&settings(), Some(tool), &|name: &str| {
@@ -841,46 +843,53 @@ fn forbidden_names_are_matched_by_prefix_suffix_and_word() {
 #[test]
 fn a_key_is_a_marker_at_a_words_start_with_enough_key_characters() {
     let run = |n: usize| "a".repeat(n);
-    assert!(key_shaped(&format!("sk-{}", run(16))));
-    assert!(!key_shaped(&format!("sk-{}", run(15))), "one short");
+    assert!(shaped_like_a_key(&format!("sk-{}", run(16))));
+    assert!(!shaped_like_a_key(&format!("sk-{}", run(15))), "one short");
     for prefix in ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"] {
-        assert!(key_shaped(&format!("{prefix}{}", run(20))), "{prefix}");
         assert!(
-            !key_shaped(&format!("{prefix}{}", run(19))),
+            shaped_like_a_key(&format!("{prefix}{}", run(20))),
+            "{prefix}"
+        );
+        assert!(
+            !shaped_like_a_key(&format!("{prefix}{}", run(19))),
             "{prefix} short"
         );
         assert!(
-            key_shaped(&format!("a={prefix}{}", run(20))),
+            shaped_like_a_key(&format!("a={prefix}{}", run(20))),
             "{prefix} after ="
         );
     }
-    assert!(key_shaped("Authorization: Bearer x"));
-    assert!(key_shaped("bearer x"));
-    assert!(!key_shaped("Bearer "), "nothing after the space");
-    assert!(!key_shaped("Bearer"), "no space");
-    assert!(key_shaped("x-api-key"), "the header's name alone");
-    assert!(key_shaped("curl -H x-api-key:abc"));
+    assert!(shaped_like_a_key("Authorization: Bearer x"));
+    assert!(shaped_like_a_key("bearer x"));
+    assert!(!shaped_like_a_key("Bearer "), "nothing after the space");
+    assert!(!shaped_like_a_key("Bearer"), "no space");
+    assert!(shaped_like_a_key("x-api-key"), "the header's name alone");
+    assert!(shaped_like_a_key("curl -H x-api-key:abc"));
     // Inside a word is no start; after a path or space is.
-    assert!(!key_shaped(&format!("task-{}", run(20))));
-    assert!(!key_shaped(&format!("my_ghp_{}", run(20))));
-    assert!(key_shaped(&format!("/x/sk-{}", run(16))));
+    assert!(!shaped_like_a_key(&format!("task-{}", run(20))));
+    assert!(!shaped_like_a_key(&format!("my_ghp_{}", run(20))));
+    assert!(shaped_like_a_key(&format!("/x/sk-{}", run(16))));
     assert!(
-        key_shaped(&format!("é sk-{}", run(16))),
+        shaped_like_a_key(&format!("é sk-{}", run(16))),
         "after a non-ASCII"
     );
     // One embedded marker does not hide a second, anchored one.
-    assert!(key_shaped(&format!("desk-{} sk-{}", run(20), run(16))));
-    assert!(!key_shaped(""));
-    assert!(!key_shaped("sk-"));
+    assert!(shaped_like_a_key(&format!(
+        "desk-{} sk-{}",
+        run(20),
+        run(16)
+    )));
+    assert!(!shaped_like_a_key(""));
+    assert!(!shaped_like_a_key("sk-"));
 }
 
-/// The seat's and the client's reading of what is key-shaped should agree:
-/// a value one calls a key and the other does not is either a leak (the
-/// seat lets through what the client redacts) or a refusal for nothing.
+/// The seat's and the client's reading of what is key-shaped agree: a
+/// value one calls a key and the other does not is either a leak (the
+/// seat lets through what the client refuses) or a refusal for nothing.
+/// One definition, client-core's, and the seat's start refuses a passed
+/// value exactly where it says key.
 #[test]
-#[ignore = "defect: cli::key_shaped (word-anchored, ghp_/github_pat_) and client-core shaped_like_a_key (unanchored, sk-/Bearer only) disagree"]
 fn the_seat_and_the_client_agree_on_what_a_key_looks_like() {
-    use baylee_client_core::llmseat::shaped_like_a_key;
     let run = "a".repeat(24);
     for (value, key) in [
         (format!("sk-ant-api03-{run}"), true),
@@ -892,8 +901,16 @@ fn the_seat_and_the_client_agree_on_what_a_key_looks_like() {
         ("/usr/local/bin:/usr/bin".to_string(), false),
         (String::new(), false),
     ] {
-        assert_eq!(key_shaped(&value), key, "seat: {value}");
         assert_eq!(shaped_like_a_key(&value), key, "client-core: {value}");
+        let env = |name: &str| match name {
+            "HOME" => Some(value.clone()),
+            "PATH" => Some("/nowhere".to_string()),
+            _ => None,
+        };
+        let refused = Launch::new(&settings(), Some("/bin/sh"), &env)
+            .err()
+            .is_some_and(|why| why.contains("HOME looks like a key"));
+        assert_eq!(refused, key, "seat: {value}");
     }
 }
 

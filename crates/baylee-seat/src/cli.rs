@@ -59,7 +59,7 @@ use crate::llm::seatstate::Seat;
 use crate::llm::{MARGIN, RETRY_FLOOR, Settings, Tally, Usage, Worst, lock, prompt, scrub};
 use crate::mind::{Answer, Disclosure, GameContext, Mind, MindError, Readiness, Request, Thinking};
 use crate::narrator::{self, Decision, Menu, Narrator};
-use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path};
+use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path, shaped_like_a_key};
 use baylee_engine::choice::PlayerAction;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, VecDeque};
@@ -125,37 +125,6 @@ pub fn forbidden(name: &str) -> bool {
         || upper.contains("SECRET")
         || upper.contains("PASSWORD")
         || matches!(upper.as_str(), "SSH_AUTH_SOCK" | "DATABASE_URL")
-}
-
-/// Whether `value` looks like a key: an API key's `sk-` or a GitHub
-/// token's prefix where a word starts, with as many key characters after
-/// it as a key has, or an authorization header's words. Anchored at a
-/// word's start, so a path such as `/opt/desk-tools-collection/bin` is no
-/// key, and `/Users/sk-ant-…` is one.
-fn key_shaped(value: &str) -> bool {
-    const MARKERS: [(&str, usize); 10] = [
-        ("sk-", 16),
-        ("ghp_", 20),
-        ("gho_", 20),
-        ("ghu_", 20),
-        ("ghs_", 20),
-        ("ghr_", 20),
-        ("github_pat_", 20),
-        ("Bearer ", 1),
-        ("bearer ", 1),
-        ("x-api-key", 0),
-    ];
-    let key_char = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
-    MARKERS.iter().any(|(marker, least)| {
-        value.match_indices(marker).any(|(at, _)| {
-            let starts_a_word = value[..at].chars().next_back().is_none_or(|c| !key_char(c));
-            let run = value[at + marker.len()..]
-                .chars()
-                .take_while(|c| key_char(*c))
-                .count();
-            starts_a_word && run >= *least
-        })
-    })
 }
 
 /// How long processes live and how many at once.
@@ -292,7 +261,7 @@ impl Launch {
                     "{name} is never given to a CLI, and {tool} does not start"
                 ));
             }
-            if key_shaped(&value.to_string_lossy()) {
+            if shaped_like_a_key(&value.to_string_lossy()) {
                 return Err(format!(
                     "{name} looks like a key, and a key is never given to a CLI: {tool} does not \
                      start"

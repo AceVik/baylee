@@ -377,6 +377,15 @@ fn key_shapes_are_blanked_and_words_are_not() {
     assert_eq!(blank_key_shapes("a task-list"), "a task-list");
     assert!(shaped_like_a_key("Bearer abc.def"));
     assert!(!shaped_like_a_key("claude-sonnet-5-5"));
+    // A key pasted after a model id, which ends in a digit, is a key; a
+    // marker glued to a lowercase word is that word's, and no key, so a
+    // path such as `desk-tools-collection` passes (and so, the cost of
+    // that, does a key glued to a lowercase word).
+    let key = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE";
+    assert!(shaped_like_a_key(&format!("claude-sonnet-5-5{key}")));
+    assert!(shaped_like_a_key(&format!("MODEL={key}")));
+    assert!(!shaped_like_a_key("/opt/desk-tools-collection/bin"));
+    assert!(!shaped_like_a_key(&format!("sonnet{key}")));
     assert!(is_loopback("http://localhost:8080/v1"));
     assert!(!is_loopback("https://api.example.com"));
     assert_eq!(address_fault("https://api.example.com/v1", "x"), None);
