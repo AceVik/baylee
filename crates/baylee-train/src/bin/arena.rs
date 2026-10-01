@@ -192,12 +192,29 @@ impl Role {
     }
 }
 
-/// Which deck of `decks` sits in seat 0 and seat 1 in `deal`, and the
-/// opponent's profile: every opponent meets both deck orders.
-fn deal_setup(deal: u64, opponents: usize) -> (usize, [usize; 2]) {
+/// Which decks sit in seat 0 and seat 1 in `deal`, and the opponent's
+/// profile: deals cycle through the opponents, then through `pairs`, so
+/// every opponent meets every pairing in both seat orders.
+fn deal_setup(deal: u64, opponents: usize, pairs: &[[usize; 2]]) -> (usize, [usize; 2]) {
     let opp = usize::try_from(deal).unwrap_or(0) % opponents;
-    let order = (deal / opponents as u64) % 2;
-    (opp, if order == 0 { [0, 1] } else { [1, 0] })
+    let at = usize::try_from(deal / opponents as u64).unwrap_or(0) % pairs.len().max(1);
+    (opp, pairs.get(at).copied().unwrap_or([0, 1]))
+}
+
+/// Every ordered pair of two different decks of one shape: a Commander deck
+/// meets only Commander decks. Two house decks make the two seat orders of
+/// one matchup, as the arena always played them.
+fn deck_pairs(decks: &[HouseDeck]) -> Vec<[usize; 2]> {
+    let commander = |d: &HouseDeck| !d.deck.commanders.is_empty();
+    let mut out = Vec::new();
+    for a in 0..decks.len() {
+        for b in 0..decks.len() {
+            if a != b && commander(&decks[a]) == commander(&decks[b]) {
+                out.push([a, b]);
+            }
+        }
+    }
+    out
 }
 
 /// A game's result from the watched seat's side.
@@ -246,8 +263,24 @@ fn main() -> anyhow::Result<()> {
     }
     fs::create_dir_all(&args.out)?;
     let working = Working::scan(&repo_root())?;
-    let mut decks: Vec<HouseDeck> = args
-        .decks
+    // A key naming a directory under data/decks (`eval`) is every deck in it.
+    let mut keys = Vec::new();
+    for key in &args.decks {
+        let dir = repo_root().join("data/decks").join(key);
+        if dir.is_dir() {
+            let mut stems: Vec<String> = fs::read_dir(&dir)?
+                .filter_map(Result::ok)
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|x| x == "txt"))
+                .filter_map(|p| p.file_stem().and_then(|s| s.to_str()).map(str::to_owned))
+                .collect();
+            stems.sort();
+            keys.extend(stems.into_iter().map(|stem| format!("{key}/{stem}")));
+        } else {
+            keys.push(key.clone());
+        }
+    }
+    let mut decks: Vec<HouseDeck> = keys
         .iter()
         .map(|k| HouseDeck::named(k))
         .collect::<anyhow::Result<_>>()?;
@@ -256,6 +289,11 @@ fn main() -> anyhow::Result<()> {
             *d = d.working_only(&working)?.0;
         }
     }
+    let pairs = deck_pairs(&decks);
+    if pairs.is_empty() {
+        bail!("the decks make no pair of one shape");
+    }
+    let pairs = Arc::new(pairs);
     let against: Vec<AIProfile> = args
         .against
         .iter()
@@ -334,7 +372,7 @@ fn main() -> anyhow::Result<()> {
     // game, so it is played once.
     let tasks: Vec<(u64, Role)> = (0..args.deals)
         .flat_map(|deal| {
-            let mirror = against[deal_setup(deal, against.len()).0] == as_house;
+            let mirror = against[deal_setup(deal, against.len(), &pairs).0] == as_house;
             [player(0), player(1), Role::House(0)]
                 .into_iter()
                 .chain((!mirror).then_some(Role::House(1)))
@@ -370,6 +408,7 @@ fn main() -> anyhow::Result<()> {
         let server = server.clone();
         #[cfg(feature = "llm")]
         let chair = chair.clone();
+        let pairs = pairs.clone();
         let (decks, against, next, tx, model, run) = (
             decks.clone(),
             against.clone(),
@@ -414,7 +453,7 @@ fn main() -> anyhow::Result<()> {
                 let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
                     || -> anyhow::Result<Played> {
                         let seed = first_seed + deal;
-                        let (opp, [a, b]) = deal_setup(deal, against.len());
+                        let (opp, [a, b]) = deal_setup(deal, against.len(), &pairs);
                         let net_seat = role.seat();
                         let mut profiles = [against[opp]; 2];
                         profiles[usize::from(net_seat)] = as_house;
@@ -577,7 +616,7 @@ fn main() -> anyhow::Result<()> {
                 ));
                 let result = played.unwrap_or_else(|panic| {
                     let seed = first_seed + deal;
-                    let (_, deck_order) = deal_setup(deal, against.len());
+                    let (_, deck_order) = deal_setup(deal, against.len(), &pairs);
                     let message = panic
                         .downcast_ref::<&str>()
                         .map(ToString::to_string)
@@ -590,7 +629,7 @@ fn main() -> anyhow::Result<()> {
                         i,
                         deal,
                         role,
-                        against: deal_setup(deal, against.len()).0,
+                        against: deal_setup(deal, against.len(), &pairs).0,
                         net_seat: role.seat(),
                         outcome: "panicked",
                         turn: 0,
@@ -661,7 +700,7 @@ fn main() -> anyhow::Result<()> {
             games_log,
             "{}",
             json!({"i": p.i, "deal": p.deal, "role": match p.role { Role::Net(_) => "net", Role::Llm(_) => "llm", Role::House(_) => "house" },
-                   "deck": decks[deal_setup(p.deal, args.against.len()).1[usize::from(p.net_seat)]].key,
+                   "deck": decks[deal_setup(p.deal, args.against.len(), &pairs).1[usize::from(p.net_seat)]].key,
                    "against": args.against[p.against], "net_seat": p.net_seat, "outcome": p.outcome,
                    "turn": p.turn, "net_answers": p.net_answers, "house_fallbacks": p.house_fallbacks, "stalls": p.stalls,
                    "refused": p.refused, "net_ms": p.net_ms})
@@ -698,7 +737,7 @@ fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
-    let duplicate = duplicate(&deals, &decks, &args.against);
+    let duplicate = duplicate(&deals, &decks, &args.against, &pairs);
     #[cfg(feature = "llm")]
     let llm = chair.as_ref().map(|c| c.report());
     #[cfg(not(feature = "llm"))]
@@ -736,6 +775,7 @@ fn duplicate(
     deals: &BTreeMap<u64, [[Option<&'static str>; 2]; 2]>,
     decks: &[HouseDeck],
     against: &[String],
+    pairs: &[[usize; 2]],
 ) -> serde_json::Value {
     #[derive(Default)]
     struct Duel {
@@ -770,7 +810,7 @@ fn duplicate(
             incomplete += 1;
             continue;
         };
-        let (opp, order) = deal_setup(deal, against.len());
+        let (opp, order) = deal_setup(deal, against.len(), pairs);
         for (s, &(n, h)) in scored.iter().enumerate() {
             let key = format!(
                 "{} vs {} ({})",
