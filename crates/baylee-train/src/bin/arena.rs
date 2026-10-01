@@ -131,6 +131,16 @@ struct Args {
     #[cfg(feature = "llm")]
     #[arg(long, value_delimiter = ',')]
     llm_kinds: Vec<String>,
+    /// How hard the model thinks (`low`, `medium`, `high`): sent as the
+    /// API's reasoning effort; the provider's default without it.
+    #[cfg(feature = "llm")]
+    #[arg(long)]
+    llm_effort: Option<String>,
+    /// A directory for the model's transcripts: every message and reply,
+    /// with the tokens each took.
+    #[cfg(feature = "llm")]
+    #[arg(long)]
+    llm_transcripts: Option<PathBuf>,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -300,7 +310,15 @@ fn main() -> anyhow::Result<()> {
     let chair = args
         .llm
         .as_ref()
-        .map(|spec| baylee_train::llmchair::LlmChair::new(spec, &args.llm_base, &args.llm_kinds))
+        .map(|spec| {
+            baylee_train::llmchair::LlmChair::new(
+                spec,
+                &args.llm_base,
+                &args.llm_kinds,
+                args.llm_effort.as_deref(),
+                args.llm_transcripts.as_deref(),
+            )
+        })
         .transpose()?
         .map(Arc::new);
     #[cfg(feature = "llm")]

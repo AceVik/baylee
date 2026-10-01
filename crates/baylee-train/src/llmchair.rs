@@ -61,7 +61,13 @@ impl LlmChair {
     /// # Errors
     /// For a spec or address the seat refuses, an unknown kind, or a runtime
     /// that cannot start.
-    pub fn new(spec: &str, base: &str, kinds: &[String]) -> anyhow::Result<Self> {
+    pub fn new(
+        spec: &str,
+        base: &str,
+        kinds: &[String],
+        effort: Option<&str>,
+        transcripts: Option<&std::path::Path>,
+    ) -> anyhow::Result<Self> {
         let parsed = Spec::parse(spec)
             .context("--llm names openai:<model> or anthropic[:<model>]")?
             .map_err(|e| anyhow!(e))?;
@@ -77,8 +83,13 @@ impl LlmChair {
                 anyhow::bail!("{kind} is no question kind; they are {PENDING_KINDS:?}");
             }
         }
+        let mut settings = Settings::new(&parsed);
+        if let Some(effort) = effort {
+            settings.effort = Some(effort.to_owned());
+        }
+        settings.transcripts = transcripts.map(std::path::Path::to_path_buf);
         Ok(Self {
-            mind: ApiMind::new(Settings::new(&parsed), credentials),
+            mind: ApiMind::new(settings, credentials),
             runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?,
