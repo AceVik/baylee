@@ -1,0 +1,17 @@
+[deck:Selesnya Go Wide]
+6 Plains (TRK) 317
+6 Forest (TRK) 325
+4 Savannah (VMA) 311
+4 Temple Garden (TRK) 301
+4 Windswept Heath (MH3) 235
+4 Llanowar Elves (FDN) 227
+4 Raise the Alarm (CMR) 41
+4 Selesnya Evangel (RVR) 220
+4 Voice of Resurgence (2XM) 227
+3 Nesting Dovehawk (MOC) 17
+3 Sacred Mesa (C14) 86
+3 Glorious Anthem (M21) 21
+2 Doubling Season (FDN) 216
+3 Aura Shards (CMD) 182
+4 Swords to Plowshares (MSC) 143
+2 Heroic Intervention (CMM) 295

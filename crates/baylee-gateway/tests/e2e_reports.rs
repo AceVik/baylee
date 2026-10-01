@@ -390,12 +390,17 @@ async fn the_budget_is_64_per_account_and_only_what_was_taken_counts() {
         assert_eq!(report(port, Some(&token), fine).0, 502);
     }
     mood.store(TAKES, Ordering::SeqCst);
-    gw.sql("ALTER TABLE game_record RENAME TO game_record_away");
+    // A column, not the table: the harness's search_path ends in `public`,
+    // so renaming the table away would let the lookup resolve a
+    // `public.game_record` the dev database happens to have, and the
+    // forced failure would depend on what public holds. The table still
+    // resolves here; the column `for_seated` selects does not.
+    gw.sql("ALTER TABLE game_record RENAME COLUMN complete TO complete_away");
     let about_a_game = r#"{"kind":"bug","text":"x","game_id":"g1","client":{}}"#;
     for _ in 0..70 {
         assert_eq!(report(port, Some(&token), about_a_game).0, 503);
     }
-    gw.sql("ALTER TABLE game_record_away RENAME TO game_record");
+    gw.sql("ALTER TABLE game_record RENAME COLUMN complete_away TO complete");
     assert!(inbox.lock().is_empty());
 
     for i in 0..64 {

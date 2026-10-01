@@ -27975,7 +27975,7 @@ fn stone_throwing_devils_kills_its_blocker_before_the_blocker_can_strike_back() 
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "the Elf took 1 first-strike damage and CR 704.5f put it in the graveyard"
+        "the Elf took 1 first-strike damage and CR 704.5g put it in the graveyard"
     );
     assert!(
         on_battlefield(&engine, p0, stone_throwing_devils()).is_some(),
@@ -36414,7 +36414,7 @@ fn pygmy_razorback_tramples_one_damage_over_the_blocker_into_the_defender() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "1 Schaden an einem 1/1 ist tödlich (CR 704.5f)"
+        "1 Schaden an einem 1/1 ist tödlich (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[0].life,
@@ -38970,7 +38970,7 @@ fn spiteful_bully() -> CardIndex {
 /// sides of the table — the Elf across it is a creature and must stay off the
 /// menu — and "creature you control" is not "another creature", so the Bully
 /// itself is on that menu too. The Elf under the same seat dying while the
-/// Bully stands is the repeat the card is played for (CR 704.5f).
+/// Bully stands is the repeat the card is played for (CR 704.5g).
 #[allow(clippy::too_many_lines)] // One printed card, played end to end: the length is the card's.
 #[test]
 fn spiteful_bully_shoots_a_creature_you_control_at_your_upkeep() {
@@ -39073,7 +39073,7 @@ fn spiteful_bully_shoots_a_creature_you_control_at_your_upkeep() {
 
     assert!(
         in_graveyard(&engine, p0, llanowar_elves()).is_some(),
-        "three damage to a printed 1/1 is lethal (CR 704.5f)"
+        "three damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_none(),
@@ -41245,7 +41245,7 @@ fn arms_dealer_eats_a_goblin_and_deals_four_damage_to_a_creature() {
     );
     assert!(
         on_battlefield(&engine, p1, festering_goblin()).is_none(),
-        "four damage on a printed 1/1 is lethal (CR 704.5f)"
+        "four damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         in_graveyard(&engine, p1, festering_goblin()).is_some(),
@@ -43467,7 +43467,7 @@ fn youthful_knight_costs_two_and_blocks_as_a_2_1_first_striker() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two first-strike damage on a printed 1/1 is lethal (CR 704.5f)"
+        "two first-strike damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     let survivor = on_battlefield(&engine, p0, youthful_knight()).expect("the Knight survived");
     assert_eq!(
@@ -44464,7 +44464,7 @@ fn barbarian_lunatic_sacrifices_itself_to_deal_two_damage_to_the_creature_it_nam
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, rootbreaker_wurm()).is_some(),
@@ -47994,7 +47994,7 @@ fn fire_imp_deals_two_damage_to_the_creature_it_names_and_no_other() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         all_on_battlefield(&engine, p1, llanowar_elves()).contains(&bystander),
@@ -49605,7 +49605,7 @@ fn goblin_medics_deals_its_damage_when_it_becomes_tapped() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -50432,7 +50432,7 @@ fn hornet_cobra_kills_its_blocker_before_the_blocker_can_strike_back() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two first-strike damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two first-strike damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, hornet_cobra()).is_some(),
@@ -54538,7 +54538,7 @@ fn orcish_mechanics_eats_an_artifact_of_yours_for_two_damage_to_any_target() {
     );
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         in_graveyard(&engine, p0, quiet_artifact()).is_some(),
@@ -55532,7 +55532,7 @@ fn prodigal_sorcerer_taps_to_deal_one_damage_to_any_target() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -56612,7 +56612,7 @@ fn rootwater_hunter_pings_a_creature_or_a_player_and_taps_for_it() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -57126,7 +57126,7 @@ fn sabretooth_tiger_kills_its_blocker_in_the_first_strike_step_and_survives() {
 
     assert!(
         in_graveyard(&engine, p1, quiet_creature()).is_some(),
-        "two first-strike damage on a 1/1 is lethal (CR 704.5f)"
+        "two first-strike damage on a 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, sabretooth_tiger()).is_some(),
@@ -60702,7 +60702,7 @@ fn vulshok_sorcerer_pings_on_the_turn_it_arrives_and_reaches_creatures_and_playe
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -62241,7 +62241,7 @@ fn anaba_bodyguard() -> CardIndex {
 /// 3/1 Vendilion Clique blocks the Bodyguard, and a 2/3 and a 3/1 that deal
 /// damage to each other *simultaneously* destroy one another. With first
 /// strike the Bodyguard's two damage land in the first combat damage step, so
-/// the Clique is already in the graveyard (CR 704.5f) when the regular step
+/// the Clique is already in the graveyard (CR 704.5g) when the regular step
 /// would have let it strike back — which is why the assertion is the
 /// Bodyguard's survival and not merely its printed stat line. The Clique also
 /// carries flying, which is a fact about *blocking* fliers and not about
@@ -62347,7 +62347,7 @@ fn anaba_bodyguard_kills_its_blocker_before_the_blocker_can_strike_back() {
 
     assert!(
         in_graveyard(&engine, p1, vendilion_clique()).is_some(),
-        "two damage is lethal to a 3/1 (CR 704.5f)"
+        "two damage is lethal to a 3/1 (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, anaba_bodyguard()).is_some(),
@@ -62462,7 +62462,7 @@ fn anaba_shaman_pays_red_and_its_tap_for_one_damage_to_any_target() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -64621,7 +64621,7 @@ fn corrupt_eunuchs_deals_two_damage_to_the_creature_it_targets() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -65295,7 +65295,7 @@ fn zuran_spellcaster_taps_to_deal_one_damage_to_any_target() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -66414,7 +66414,7 @@ fn iron_tusk_elephant_tramples_the_excess_damage_over_whatever_blocks_it() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "lethal damage to a 1/1 puts it in its owner's graveyard (CR 704.5f)"
+        "lethal damage to a 1/1 puts it in its owner's graveyard (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -67350,7 +67350,7 @@ fn ramirez_de_pietro_kills_a_deathtouch_blocker_in_the_first_strike_step() {
 
     assert!(
         in_graveyard(&engine, p1, baleful_strix()).is_some(),
-        "four first strike damage is lethal to a 1/1 (CR 704.5f)"
+        "four first strike damage is lethal to a 1/1 (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, ramirez_de_pietro()).is_some(),
@@ -67527,7 +67527,7 @@ fn seahunter_spends_three_and_its_tap_to_put_a_merfolk_onto_the_battlefield() {
 /// tap symbol. The board therefore carries no land at all, which is what makes
 /// "it is offered on an empty pool" an exact claim rather than a coincidence,
 /// and the target is read on the other side of the table: two damage kills a
-/// printed 1/1 (CR 704.5f) while the seat that owns it stays at twenty, which
+/// printed 1/1 (CR 704.5g) while the seat that owns it stays at twenty, which
 /// is what separates the object half of "any target" from the player half the
 /// same choice enumerates (CR 115.4). The sacrifice is the price, so it is read
 /// where a cost lands — its owner's graveyard, with the ability still on the
@@ -67609,7 +67609,7 @@ fn shock_troops_sacrifices_itself_for_two_damage_to_the_creature_it_names() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -69409,7 +69409,7 @@ fn giant_warthog_tramples_four_damage_over_a_one_one_blocker() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage is lethal to a printed 1/1 (CR 704.5f)"
+        "one damage is lethal to a printed 1/1 (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -71131,7 +71131,7 @@ fn flowstone_crusher_trades_one_toughness_for_one_power_per_red() {
 /// Nothing about that one sentence is answered by reading the card file, so the
 /// scenario plays it: what "target creature" reaches is a board reading, and an
 /// Elf across the table has to be on the menu beside my own while the Mountain
-/// under my feet is not. Two damage on a printed 1/1 is lethal (CR 704.5f),
+/// under my feet is not. Two damage on a printed 1/1 is lethal (CR 704.5g),
 /// which is why the trigger is aimed at the opponent's Elf rather than at a
 /// player, and the five tapped Mountains are exactly the `{4}{R}` — the Elves
 /// are kept out of the payment, so the empty pool afterwards is a statement
@@ -71242,7 +71242,7 @@ fn goblin_commando_deals_two_damage_to_the_creature_its_trigger_names() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -71345,7 +71345,7 @@ fn halberdier_kills_its_blocker_in_the_first_strike_step_and_survives() {
         on_battlefield(&engine, p0, halberdier()).is_some(),
         "the Elf never dealt its one point back: a 3/1 survives only if the \
          damage went in the first-strike step, and a simultaneous engine would \
-         have traded the two (CR 704.5f)"
+         have traded the two (CR 704.5g)"
     );
     assert_eq!(
         pt(&engine, halberd),
@@ -72402,7 +72402,7 @@ fn megatog_eats_an_artifact_of_its_own_side_for_three_and_trample() {
 /// different claims, so the test makes both: the Cavalry is cast for real off
 /// the four Plains and reads (3, 3) with trample through the layers, then it
 /// is sent at the opponent and blocked by a printed 1/1 — one of the three
-/// points is lethal for the blocker (CR 704.5f) and the other two spill past
+/// points is lethal for the blocker (CR 704.5g) and the other two spill past
 /// it onto the defending player (CR 702.19b), which is the whole of what the
 /// word buys. The turn in between is the summoning sickness the creature is
 /// born with (CR 302.6), and the 1/1 is small enough that "lethal" and "the
@@ -72471,7 +72471,7 @@ fn moorish_cavalry_arrives_as_a_trampling_three_three_and_spills_the_excess_over
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one point of the three is lethal for a printed 1/1 (CR 704.5f)"
+        "one point of the three is lethal for a printed 1/1 (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -77383,7 +77383,7 @@ fn nightscape_master_pays_two_mana_of_its_own_colors_and_its_tap_for_each_abilit
     pass_until(&mut engine, |e| at_rest(e, p0));
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage on a printed 1/1 is lethal (CR 704.5f)"
+        "two damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -78497,7 +78497,7 @@ fn war_mammoth_casts_for_four_and_tramples_two_over_a_one_one_blocker() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one of the three damage is lethal to a printed 1/1 (CR 704.5f)"
+        "one of the three damage is lethal to a printed 1/1 (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -78569,7 +78569,7 @@ fn yavimaya_wurm_tramples_five_past_the_creature_that_blocks_it() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage is lethal to a printed 1/1 (CR 704.5f)"
+        "one damage is lethal to a printed 1/1 (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -82973,7 +82973,7 @@ fn siege_gang_commander_makes_three_goblins_and_feeds_one_back_to_its_own_gun() 
     );
     assert!(
         in_graveyard(&engine, p1, quiet_creature()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -82993,7 +82993,7 @@ fn siege_gang_commander_makes_three_goblins_and_feeds_one_back_to_its_own_gun() 
 /// text is nothing but trample and shroud, so casting it puts no trigger of
 /// its own beside the Soul of Magma's — raises one target question per copy,
 /// and the two questions are aimed one at a printed 1/1 and one at a printed
-/// 2/2. The 1/1 dies (CR 704.5f) and the 2/2 is still standing afterwards,
+/// 2/2. The 1/1 dies (CR 704.5g) and the 2/2 is still standing afterwards,
 /// which is the only pair of readings that fixes the damage at exactly one —
 /// zero would leave the Elf alive and two would take the Knight with it. A
 /// Llanowar Elves cast last is the control for the filter: it is a creature
@@ -83029,7 +83029,7 @@ fn soul_of_magma_shoots_one_creature_for_each_copy_that_watches_a_spirit_spell()
     assert_eq!(
         pt(&engine, elf),
         (1, 1),
-        "a printed 1/1, which one damage puts into the graveyard (CR 704.5f)"
+        "a printed 1/1, which one damage puts into the graveyard (CR 704.5g)"
     );
     assert_eq!(
         pt(&engine, knight),
@@ -83099,7 +83099,7 @@ fn soul_of_magma_shoots_one_creature_for_each_copy_that_watches_a_spirit_spell()
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage on a printed 1/1 is lethal (CR 704.5f)"
+        "one damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, benalish_knight()).is_some(),
@@ -85724,7 +85724,7 @@ fn flametongue_kavu_shoots_the_one_creature_it_names_and_leaves_the_rest_standin
             .zones
             .list(ZoneLocation::Graveyard(p1))
             .contains(&victim),
-        "four damage to a printed 1/1 is lethal (CR 704.5f)"
+        "four damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine
@@ -86468,7 +86468,7 @@ fn jeska_warrior_adept_taps_for_one_damage_at_any_target() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage on a printed 1/1 is lethal (CR 704.5f)"
+        "one damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -86816,7 +86816,7 @@ fn lightning_hounds_kills_a_three_three_in_the_first_strike_damage_step() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "three first-strike damage is lethal to a 3/3 (CR 704.5f)"
+        "three first-strike damage is lethal to a 3/3 (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p0, lightning_hounds()).is_some(),
@@ -91259,6 +91259,158 @@ fn katara_doubles_the_prowess_sokka_prints_and_the_prowess_he_lends() {
         pt(&engine, katara),
         (5, 5),
         "and so did the prowess Sokka gives Katara"
+    );
+}
+
+/// The owner's table: the house took Sokka, Tenacious Tactician with
+/// Aminatou, the Fateshifter's −6, and the owner reported that Sokka still
+/// triggered on the owner's spells.
+///
+/// Both of Sokka's "whenever you cast a noncreature spell" abilities, prowess
+/// (CR 702.108a) and the Ally token, say "you", which on a permanent is its
+/// controller (CR 109.5), and a triggered ability is controlled by whoever
+/// controlled its source as it triggered (CR 603.3a). Once seat 1 controls
+/// Sokka, seat 1's noncreature spell triggers both, under seat 1's control,
+/// so the token is seat 1's. Seat 0's triggers neither: not an instant in the
+/// turn the −6 resolved, and not a spell on seat 0's own next turn.
+///
+/// Not reproduced, here or at 0.1.0-beta.3: the engine already does this,
+/// and this test keeps it doing so.
+#[test]
+fn sokka_taken_by_aminatou_triggers_for_his_new_controller_and_not_his_owner() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sokka_tenacious_tactician(), swamp()])
+        .battlefield(1, &[aminatou()])
+        .hand(0, &[dark_ritual(), mox_opal()])
+        .hand(1, &[mox_opal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let sokka = on_battlefield(&engine, p0, sokka_tenacious_tactician()).expect("Sokka is out");
+
+    activate_aminatou_minus_six(&mut engine, p1);
+    pass_until(&mut engine, stack_is_empty);
+    let obj = engine.state().object(sokka).expect("Sokka");
+    assert_eq!(
+        (obj.controller, obj.owner),
+        (p1, p0),
+        "seat 1 took Sokka, and seat 0 still owns him"
+    );
+
+    // Seat 0 casts an instant in the turn Sokka changed hands.
+    engine
+        .apply(p1, PlayerAction::PassPriority)
+        .expect("seat 1 passes");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "the Ritual alone: seat 0's spell triggers nothing of Sokka's"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, sokka), (3, 3), "no prowess for seat 0's spell");
+    assert!(
+        tokens_of(&engine, p0).is_empty() && tokens_of(&engine, p1).is_empty(),
+        "and no Ally"
+    );
+
+    // Seat 1, who controls him now, casts a noncreature spell.
+    cast_from_hand(&mut engine, p1, mox_opal());
+    let stack = engine.state().zones.list(ZoneLocation::Stack).clone();
+    assert_eq!(stack.len(), 3, "the Mox, prowess and the token ability");
+    assert!(
+        stack
+            .iter()
+            .all(|id| engine.state().object(*id).map(|o| o.controller) == Some(p1)),
+        "both triggers are seat 1's, who controlled Sokka as they triggered"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, sokka), (4, 4), "prowess, for seat 1's spell");
+    assert_eq!(tokens_of(&engine, p1).len(), 1, "and seat 1's Ally");
+    assert!(tokens_of(&engine, p0).is_empty());
+
+    // Seat 0's own turn: Sokka is still seat 1's, and still deaf to seat 0.
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().object(sokka).map(|o| o.controller),
+        Some(p1),
+        "the −6 lasts"
+    );
+    assert_eq!(
+        pt(&engine, sokka),
+        (3, 3),
+        "the pump ended with seat 1's turn"
+    );
+    cast_from_hand(&mut engine, p0, mox_opal());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "the Mox alone"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, sokka), (3, 3));
+    assert_eq!(tokens_of(&engine, p1).len(), 1);
+    assert!(tokens_of(&engine, p0).is_empty());
+}
+
+/// Sokka's other sentence under the same −6: "Other Allies you control have
+/// menace and prowess" is a static ability, whose "you" is whoever controls
+/// Sokka now (CR 109.5). The Ally that went to seat 1 beside him keeps
+/// prowess and grows on seat 1's spell; the Ally seat 0 got from seat 1 in
+/// exchange has none, and seat 0's spell grows nothing.
+#[test]
+fn the_prowess_sokka_lends_follows_him_to_his_new_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[sokka_tenacious_tactician(), ondu_cleric(), swamp()])
+        .battlefield(1, &[aminatou(), ondu_cleric()])
+        .hand(0, &[dark_ritual()])
+        .hand(1, &[mox_opal()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let sokka = on_battlefield(&engine, p0, sokka_tenacious_tactician()).expect("Sokka is out");
+    let went = on_battlefield(&engine, p0, ondu_cleric()).expect("seat 0's Cleric");
+    let came = on_battlefield(&engine, p1, ondu_cleric()).expect("seat 1's Cleric");
+    assert!(keywords(&engine, went).contains(KeywordSet::PROWESS));
+    assert!(!keywords(&engine, came).contains(KeywordSet::PROWESS));
+
+    activate_aminatou_minus_six(&mut engine, p1);
+    pass_until(&mut engine, stack_is_empty);
+    let controller = |id| engine.state().object(id).map(|o| o.controller);
+    assert_eq!(
+        (controller(sokka), controller(went), controller(came)),
+        (Some(p1), Some(p1), Some(p0))
+    );
+    assert!(
+        keywords(&engine, went).contains(KeywordSet::PROWESS),
+        "still another Ally Sokka's controller controls"
+    );
+    assert!(
+        !keywords(&engine, came).contains(KeywordSet::PROWESS),
+        "seat 0's new Ally is not one Sokka's controller controls"
+    );
+
+    engine
+        .apply(p1, PlayerAction::PassPriority)
+        .expect("seat 1 passes");
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        (pt(&engine, sokka), pt(&engine, went), pt(&engine, came)),
+        ((3, 3), (1, 1), (1, 1)),
+        "seat 0's spell grows nobody"
+    );
+
+    cast_from_hand(&mut engine, p1, mox_opal());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        (pt(&engine, sokka), pt(&engine, went), pt(&engine, came)),
+        ((4, 4), (2, 2), (1, 1)),
+        "seat 1's spell grows Sokka and the Ally beside him"
     );
 }
 
@@ -102343,4 +102495,83 @@ fn gaea_s_lieges_power_and_toughness_are_off_the_battlefield_only() {
         (0, 0),
         "its printed 0/0 stands off the battlefield despite three Forests"
     );
+}
+
+/// Phantasmal Forces: paying the upkeep keeps a flying 4/1; declining the
+/// next payment sacrifices it (CR 118.12a). Flying excludes a ground blocker
+/// but permits reach (CR 702.9b).
+#[test]
+fn alpha_eval_phantasmal_forces_flies_then_demands_each_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let forces = card_index("06a158c6-7e36-49f8-a8e0-a7b7df5fd7ed");
+    let spider = card_index("e740ce2f-2134-473c-afa1-1b6d2d1e38ef");
+    let mut engine = Duel::new(1005, forest())
+        .battlefield(0, &[forces, island()])
+        .battlefield(1, &[llanowar_elves(), spider])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    assert!(
+        matches!(engine.pending(), Pending::YesNo { player, prompt: YesNoPrompt::PayMana { cost }, .. }
+        if *player == p0 && *cost == baylee_core::mana!("{U}"))
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    reach_main_phase(&mut engine, p0);
+    let body = on_battlefield(&engine, p0, forces).unwrap();
+    assert_eq!(pt(&engine, body), (4, 1));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    let ground = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
+    let reach = on_battlefield(&engine, p1, spider).unwrap();
+    let blocks = attack_and_collect_blocks(&mut engine, body, p1);
+    assert!(!blocks.iter().any(|b| b.blocker == ground));
+    assert!(blocks.iter().any(|b| b.blocker == reach));
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    reach_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().players[1].life, 16, "four flying damage");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, forces).is_some());
+}
+
+/// Stone Giant targets only your creature with toughness strictly below its
+/// power, then destroys that creature at the next end step (CR 603.7).
+#[test]
+fn alpha_eval_stone_giant_throws_only_a_smaller_friendly_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let giant = card_index("0b8e3f9b-a4da-49a3-8545-ce7a265e5856");
+    let equal = card_index("342199e0-15b6-4824-83da-25caef2592b3");
+    let mut engine = Duel::new(1006, forest())
+        .battlefield(0, &[giant, llanowar_elves(), equal])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    activate(&mut engine, p0, giant, 0);
+    let options = aim_at(&mut engine, p0, elf);
+    assert_eq!(
+        options,
+        vec![elf],
+        "not their Elf, the Giant, or equal toughness"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, elf).contains(KeywordSet::FLYING));
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End
+    });
+    assert!(!stack_is_empty(&engine));
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, p0, giant).is_some());
 }

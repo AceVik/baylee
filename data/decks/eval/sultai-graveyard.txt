@@ -1,0 +1,19 @@
+[deck:Sultai Graveyard Value]
+4 Forest (TRK) 325
+2 Island (TRK) 319
+2 Swamp (TRK) 321
+4 Tropical Island (VMA) 321
+4 Bayou (VMA) 293
+4 Zagoth Triome (IKO) 259
+4 Misty Rainforest (MH2) 250
+4 Stitcher's Supplier (TDC) 196
+4 Lotleth Troll (2X2) 245
+4 Coiling Oracle (RVR) 172
+3 Eternal Witness (CMM) 286
+3 World Shaper (OTC) 214
+3 Muldrotha, the Gravetide (ECC) 128
+4 Mental Note (JUD) 46
+4 Assassin's Trophy (SOC) 294
+3 Night's Whisper (HOC) 189
+2 Fiend Artisan (IKO) 220
+2 Entreat the Dead (C18) 15

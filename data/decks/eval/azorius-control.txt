@@ -1,0 +1,20 @@
+[deck:Azorius Control]
+6 Island (TRK) 319
+4 Plains (TRK) 317
+4 Tundra (VMA) 322
+4 Hallowed Fountain (TRK) 286
+4 Flooded Strand (MH3) 220
+2 Glacial Fortress (FRC) 73
+2 Celestial Colonnade (UMA) 238
+4 Swords to Plowshares (MSC) 143
+4 Counterspell (DSC) 114
+3 Absorb (DMR) 186
+4 Opt (TDC) 158
+3 Memory Deluge (INR) 75
+3 Supreme Verdict (CLU) 211
+2 Wrath of God (CMM) 70
+2 Teferi, Time Raveler (RVR) 232
+2 Jace, the Mind Sculptor (2XM) 56
+2 Solitude (MH2) 32
+2 Sun Titan (SOC) 178
+3 Fact or Fiction (FRC) 41

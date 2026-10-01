@@ -8249,7 +8249,7 @@ fn heat_ray_deals_the_x_its_controller_names_to_the_creature_it_names() {
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, fleshgorger()).is_some(),
-        "five damage to a 7/5 is lethal (CR 704.5f) — a fixed three would have \
+        "five damage to a 7/5 is lethal (CR 704.5g) — a fixed three would have \
          left it standing, which is what makes this an X and not a number"
     );
     assert!(
@@ -8787,7 +8787,7 @@ fn lightning_bolt_deals_three_to_a_creature_or_a_player() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "three damage to a 1/1 is lethal (CR 704.5f)"
+        "three damage to a 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -9662,7 +9662,7 @@ fn shock_deals_two_to_a_player_and_to_a_printed_one_two() {
 
     assert!(
         in_graveyard(&engine, p1, a_one_two_bird()).is_some(),
-        "two damage to a printed 1/2 is lethal (CR 704.5f)"
+        "two damage to a printed 1/2 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -10023,7 +10023,7 @@ fn spark_spray_cycles_itself_for_a_card_and_burns_a_creature_for_one() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "1 damage to a printed 1/1 is lethal (CR 704.5f)"
+        "1 damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_some(),
@@ -12606,7 +12606,7 @@ fn magma_jet_kills_a_one_one_across_the_table_and_then_scries_two() {
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "two damage to a printed 1/1 is lethal (CR 704.5f)"
+        "two damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert!(
         on_battlefield(&engine, p1, llanowar_elves()).is_none(),
@@ -14013,7 +14013,7 @@ fn lightning_blast_deals_four_to_a_player_and_to_a_creature_off_the_mana_it_char
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "four damage to a printed 1/1 is lethal (CR 704.5f)"
+        "four damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         mine(&engine, p0, lightning_blast(), Zone::Graveyard).len(),
@@ -25580,4 +25580,57 @@ fn simulacrum_never_offers_a_creature_protected_from_black() {
         )
         .expect("the Elves, unprotected, is a legal target");
     pass_until(&mut engine, stack_is_empty);
+}
+
+/// Purelace changes a spell's color and keeps that change when it becomes
+/// a permanent (CR 400.7a), without changing its green mana ability.
+#[test]
+fn alpha_eval_purelace_whitens_a_spell_through_resolution() {
+    use baylee_core::color::{Color, ColorSet};
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let lace = card_index("3773001a-8868-49ec-a406-298cf72359c2");
+    let mut engine = Duel::new(1002, forest())
+        .battlefield(0, &[forest()])
+        .battlefield(1, &[plains()])
+        .hand(0, &[llanowar_elves()])
+        .hand(1, &[lace])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    let spell = on_stack(&engine, llanowar_elves()).unwrap();
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    cast_from_hand(&mut engine, p1, lace);
+    aim_at(&mut engine, p1, spell);
+    pass_until(&mut engine, |e| on_stack(e, lace).is_none());
+    let white = ColorSet::from_slice(&[Color::White]);
+    assert_eq!(
+        engine
+            .state()
+            .object(spell)
+            .unwrap()
+            .characteristics()
+            .colors,
+        white
+    );
+    pass_until(&mut engine, stack_is_empty);
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        white
+    );
+    // Wait through summoning sickness; the indefinite color change persists.
+    assert!(walk_to_own_main(&mut engine, p1));
+    assert!(walk_to_own_main(&mut engine, p0));
+    assert_eq!(
+        engine.state().object(elf).unwrap().characteristics().colors,
+        white
+    );
+    activate(&mut engine, p0, llanowar_elves(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
 }

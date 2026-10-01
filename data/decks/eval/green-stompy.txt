@@ -1,0 +1,14 @@
+[deck:Green Stompy]
+20 Forest (TRK) 325
+2 Treetop Village (DDU) 30
+4 Llanowar Elves (FDN) 227
+4 Elvish Mystic (HOC) 205
+4 Strangleroot Geist (DKA) 127
+4 Rancor (2X2) 156
+4 Giant Growth (MSH) 167
+4 Questing Beast (ELD) 171
+2 Thrun, the Last Troll (MBS) 92
+3 Garruk's Uprising (ECC) 109
+3 Heroic Intervention (CMM) 295
+4 Ravenous Baloth (JMP) 424
+2 Hexdrinker (MH1) 168

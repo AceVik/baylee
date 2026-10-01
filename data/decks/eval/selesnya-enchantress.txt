@@ -1,0 +1,17 @@
+[deck:Selesnya Enchantress Auras]
+8 Forest (TRK) 325
+4 Plains (TRK) 317
+4 Savannah (VMA) 311
+4 Temple Garden (TRK) 301
+4 Windswept Heath (MH3) 235
+4 Wild Growth (MKC) 195
+4 Argothian Enchantress (EMA) 158
+4 Enchantress's Presence (CMM) 893
+4 Rancor (2X2) 156
+3 Verduran Enchantress (CMM) 915
+3 Thrun, the Last Troll (MBS) 92
+3 Sterling Grove (MH2) 293
+3 Serra's Embrace (DVD) 21
+4 Swords to Plowshares (MSC) 143
+2 Seal of Cleansing (MKC) 80
+2 Blessing (M14) 8

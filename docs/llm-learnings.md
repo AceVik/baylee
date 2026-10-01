@@ -2261,3 +2261,18 @@ land type"; both are convention tests that fire on a first try.
   reads "not offered" with the mana still in the lands proves only that
   the pool was empty; float the cost first, then read the offer, as Rock
   Hydra's upkeep-only test does in three steps.
+
+## Alpha test backfill (Astra, 2026-10-01)
+
+- Read coverage before designing the scenario. Balance, Gloom, Mana Flare,
+  Power Surge, Black Vise, Cyclopean Tomb and Glasses of Urza currently have
+  no supported rules-text abilities. Their new tests check the printed mana
+  payment and the normal destination of the resolved spell only; passing
+  those tests does not promote them out of Partial or into evaluation decks.
+- Purelace, Phantasmal Forces, Mind Twist, Manabarbs, Stone Giant and Gauntlet
+  of Might passed their new behavioral scenarios. Check both players where
+  text says “a player” or “red creatures,” and include a negative control
+  such as a nonland mana source, a non-Mountain, or equal toughness.
+- `reach_main_phase` only walks priority windows. To cross a whole turn,
+  use `walk_to_own_main` or an explicit `pass_until` predicate; a harness
+  panic at the attackers question is not a card defect.

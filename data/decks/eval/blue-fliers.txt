@@ -1,0 +1,13 @@
+[deck:Blue Fliers Tempo]
+20 Island (TRK) 319
+2 Faerie Conclave (CMA) 248
+4 Flying Men (TSB) 20
+4 Serendib Efreet (JMP) 175
+3 Vendilion Clique (A25) 76
+3 Subtlety (MH2) 67
+4 Counterspell (DSC) 114
+4 Mana Leak (2X2) 58
+4 Unsummon (FRA) 46
+4 Opt (TDC) 158
+4 Serum Visions (OTC) 112
+4 Bonesplitter (CMR) 458

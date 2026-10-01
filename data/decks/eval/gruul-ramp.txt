@@ -1,0 +1,17 @@
+[deck:Gruul Ramp]
+8 Forest (TRK) 325
+4 Mountain (TRK) 323
+4 Taiga (VMA) 317
+4 Stomping Ground (TRK) 299
+4 Wooded Foothills (MH3) 236
+4 Llanowar Elves (FDN) 227
+4 Sakura-Tribe Elder (SOC) 285
+4 Nature's Lore (MSC) 177
+4 Kodama's Reach (ECC) 113
+4 Lightning Bolt (MSC) 806
+3 Thragtusk (NCC) 316
+3 Omnath, Locus of Rage (ECC) 129
+2 Tyrranax Rex (ONE) 189
+2 Garruk's Uprising (ECC) 109
+3 Shivan Dragon (FDN) 763
+3 Flametongue Kavu (DMR) 120

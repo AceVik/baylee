@@ -2160,7 +2160,7 @@ fn dragonback_assault_shoots_each_creature_and_makes_a_dragon_for_a_land_of_your
     );
     assert!(
         in_graveyard(&engine, p0, katara_the_fearless()).is_some(),
-        "3 damage on a printed 3/3 is lethal (CR 704.5f), and it is my own \
+        "3 damage on a printed 3/3 is lethal (CR 704.5g), and it is my own \
          creature: \"each creature\" reaches this side of the table too"
     );
     assert!(
@@ -4626,7 +4626,7 @@ fn path_of_mettle_spares_the_creature_that_has_one_of_its_four_keywords() {
     assert_eq!(
         all_on_battlefield(&engine, p0, llanowar_elves()),
         vec![armed],
-        "1 damage on a printed 1/1 is lethal (CR 704.5f), so the only Elf of \
+        "1 damage on a printed 1/1 is lethal (CR 704.5g), so the only Elf of \
          mine still standing is the one the trigger's filter excluded"
     );
     assert!(
@@ -5806,7 +5806,7 @@ fn crackling_club_pumps_the_creature_it_enchants_then_trades_itself_for_one_dama
     pass_until(&mut engine, stack_is_empty);
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a 1/1 is CR 704.5f, and the Elf across the table is gone"
+        "one damage to a 1/1 is CR 704.5g, and the Elf across the table is gone"
     );
     assert!(
         on_battlefield(&engine, p0, llanowar_elves()).is_some(),
@@ -12636,7 +12636,7 @@ fn goblin_bombardment_sacrifices_a_creature_to_deal_one_damage_to_any_target() {
     );
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage to a printed 1/1 is lethal (CR 704.5f)"
+        "one damage to a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         all_on_battlefield(&engine, p0, llanowar_elves()),
@@ -17869,7 +17869,7 @@ fn pegasus_refuge_discards_a_card_for_a_flying_pegasus() {
 /// price is anything a board can read off the card. Two Forests fill a pool
 /// the `{1}` empties, the two life leave the controller, and the damage lands
 /// on the Llanowar Elves opposite: one point on a printed 1/1 is lethal
-/// (CR 704.5f), so the creature dying is what says the damage resolved at the
+/// (CR 704.5g), so the creature dying is what says the damage resolved at the
 /// target that was named and not at the seat behind it.
 #[test]
 #[allow(clippy::too_many_lines)] // one printed card, played end to end: the length is the card's
@@ -18002,7 +18002,7 @@ fn reckless_assault_pays_a_mana_and_two_life_to_deal_one_damage_to_any_target() 
 
     assert!(
         in_graveyard(&engine, p1, llanowar_elves()).is_some(),
-        "one damage on a printed 1/1 is lethal (CR 704.5f)"
+        "one damage on a printed 1/1 is lethal (CR 704.5g)"
     );
     assert_eq!(
         engine.state().players[1].life,
@@ -23244,4 +23244,108 @@ fn circle_of_protection_black_prevents_a_chosen_black_attacker_and_only_once() {
         engine.state().shields.is_empty(),
         "\"the next time\": once it has prevented one event, the shield is gone"
     );
+}
+
+/// Gloom is Partial: both cost increases is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_gloom_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("4d022f53-b1fb-4071-afcc-0af3214fe604");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[swamp(); 3])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Mana Flare is Partial: the additional mana trigger is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_mana_flare_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("97159138-c34b-416e-b079-5c952383a243");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[mountain(); 3])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Power Surge is Partial: the turn-start land count and damage trigger is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_power_surge_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("156b2228-f7b2-4816-b894-c4953a32c05f");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[mountain(); 2])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Manabarbs damages whoever tapped the land, once per tap, after its
+/// ordinary trigger resolves. A nonland mana source does not trigger it.
+#[test]
+fn alpha_eval_manabarbs_counts_land_taps_for_either_player() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let barbs = card_index("0f1afedd-c60f-454f-b84a-c8117aec0128");
+    let mut engine = Duel::new(1004, forest())
+        .battlefield(0, &[barbs, mountain(), sol_ring()])
+        .battlefield(1, &[mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    activate(&mut engine, p0, sol_ring(), 0);
+    assert!(stack_is_empty(&engine), "a rock is not a land");
+    assert_eq!(engine.state().players[0].life, 20);
+    for seat in [p0, p1] {
+        pass_until(&mut engine, |e| at_rest(e, seat));
+        let land = on_battlefield(&engine, seat, mountain()).unwrap();
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source: land })
+            .unwrap();
+        assert!(!stack_is_empty(&engine), "damage waits on the stack");
+        assert_eq!(engine.state().players[usize::from(seat.get())].life, 20);
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(engine.state().players[usize::from(seat.get())].life, 19);
+    }
+    assert_eq!(engine.state().players[0].life, 19);
 }

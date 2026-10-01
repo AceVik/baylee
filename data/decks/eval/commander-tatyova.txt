@@ -1,0 +1,81 @@
+[deck:Tatyova Lands and Landfall]
+15 Forest (TRK) 325
+10 Island (TRK) 319
+1 Tropical Island (VMA) 321
+1 Breeding Pool (TRK) 279
+1 Misty Rainforest (MH2) 250
+1 Flooded Strand (MH3) 220
+1 Windswept Heath (MH3) 235
+1 Wooded Foothills (MH3) 236
+1 Polluted Delta (MH3) 224
+1 Simic Growth Chamber (DSC) 298
+1 Command Tower (MSC) 233
+1 Evolving Wilds (MSC) 240
+1 Terramorphic Expanse (MSC) 273
+1 Blighted Woodland (CLB) 881
+1 Field of the Dead (M20) 247
+1 Reliquary Tower (SOC) 398
+1 Tatyova, Benthic Druid (FDN) 247
+1 Aesi, Tyrant of Gyre Strait (DSC) 210
+1 Sol Ring (MSC) 211
+1 Llanowar Elves (FDN) 227
+1 Elvish Mystic (HOC) 205
+1 Fyndhorn Elves (CMR) 228
+1 Birds of Paradise (MSC) 170
+1 Sakura-Tribe Elder (SOC) 285
+1 Wood Elves (HOB) 142
+1 Coiling Oracle (RVR) 172
+1 Lotus Cobra (ZNR) 193
+1 Tireless Provisioner (MOC) 313
+1 Nissa, Resurgent Animist (MAT) 22
+1 Dryad of the Ilysian Grove (CMM) 891
+1 Courser of Kruphix (CMM) 888
+1 Ramunap Excavator (OTC) 202
+1 World Shaper (OTC) 214
+1 Eternal Witness (CMM) 286
+1 Wayward Swordtooth (LCC) 263
+1 Ashaya, Soul of the Wild (DSC) 170
+1 Lumra, Bellow of the Woods (BLB) 183
+1 Meloku the Clouded Mirror (CMR) 399
+1 Uro, Titan of Nature's Wrath (THB) 229
+1 Acidic Slime (CMM) 270
+1 Thragtusk (NCC) 316
+1 Tyrranax Rex (ONE) 189
+1 Kodama's Reach (ECC) 113
+1 Nature's Lore (MSC) 177
+1 Three Visits (MSC) 181
+1 Rampant Growth (TDC) 265
+1 Farseek (MSC) 173
+1 Exploration (DMR) 159
+1 Crop Rotation (DMR) 154
+1 Sylvan Scrying (BFZ) 192
+1 Realms Uncharted (ROE) 206
+1 Nylea's Intervention (THB) 188
+1 Regrowth (MH1) 175
+1 Crucible of Worlds (2X2) 303
+1 Conduit of Worlds (MSC) 171
+1 Trade Routes (9ED) 108
+1 Retreat to Kazandu (CMR) 435
+1 Garruk's Uprising (ECC) 109
+1 Heroic Intervention (CMM) 295
+1 Counterspell (DSC) 114
+1 Negate (TMT) 47
+1 Krosan Grip (C21) 198
+1 Curse of the Swine (SOC) 192
+1 Fact or Fiction (FRC) 41
+1 Mystic Remora (DMR) 59
+1 Swiftfoot Boots (MBC) 77
+1 Tranquil Thicket (DSC) 318
+1 Verdant Force (DOM) 187
+1 Centaur Glade (ONS) 251
+1 Druid Class (AFR) 180
+1 Cultivate (MSC) 172
+1 Mirri's Guile (TMP) 236
+1 Lifegift (BOK) 132
+1 Untamed Wilds (7ED) 279
+1 Reclamation Sage (FDN) 231
+1 Control Magic (CMA) 34
+1 Plated Slagwurm (GVL) 12
+
+[commander]
+Tatyova, Benthic Druid
