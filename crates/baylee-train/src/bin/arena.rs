@@ -113,6 +113,24 @@ struct Args {
     /// How long the batch server waits for a batch to fill, in microseconds.
     #[arg(long, default_value_t = 2000)]
     batch_wait_us: u64,
+    /// A language model plays the watched seat instead of the net, as the
+    /// seat bridge names one (`openai:<model>`): the house plays the seat
+    /// and the model answers the questions of `--llm-kinds`. Measured against
+    /// the house's baseline on the same deals, like the net.
+    #[cfg(feature = "llm")]
+    #[arg(long)]
+    llm: Option<String>,
+    /// Where the model is served (an OpenAI-compatible server on this
+    /// machine needs no key; LM Studio's default port).
+    #[cfg(feature = "llm")]
+    #[arg(long, default_value = "http://127.0.0.1:1234/v1")]
+    llm_base: String,
+    /// The question kinds the model answers (`features::PENDING_KINDS`
+    /// names, e.g. `choose_blockers`); none: every question with more than
+    /// one answer.
+    #[cfg(feature = "llm")]
+    #[arg(long, value_delimiter = ',')]
+    llm_kinds: Vec<String>,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -149,13 +167,17 @@ fn profile(name: &str) -> anyhow::Result<AIProfile> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Role {
     Net(u8),
+    /// The house with a language model answering the questions of chosen
+    /// kinds (`--llm`, `baylee_train::llmchair`).
+    #[cfg_attr(not(feature = "llm"), allow(dead_code))]
+    Llm(u8),
     House(u8),
 }
 
 impl Role {
     const fn seat(self) -> u8 {
         match self {
-            Self::Net(s) | Self::House(s) => s,
+            Self::Net(s) | Self::Llm(s) | Self::House(s) => s,
         }
     }
 }
@@ -274,13 +296,28 @@ fn main() -> anyhow::Result<()> {
     };
     let run = args.name.clone();
     let as_house = profile(&args.as_profile)?;
+    #[cfg(feature = "llm")]
+    let chair = args
+        .llm
+        .as_ref()
+        .map(|spec| baylee_train::llmchair::LlmChair::new(spec, &args.llm_base, &args.llm_kinds))
+        .transpose()?
+        .map(Arc::new);
+    #[cfg(feature = "llm")]
+    let player: fn(u8) -> Role = if chair.is_some() {
+        Role::Llm
+    } else {
+        Role::Net
+    };
+    #[cfg(not(feature = "llm"))]
+    let player: fn(u8) -> Role = Role::Net;
     // Each deal: the net from both seats, then the house's baseline from
     // both. Against its own profile the house's two baseline games are one
     // game, so it is played once.
     let tasks: Vec<(u64, Role)> = (0..args.deals)
         .flat_map(|deal| {
             let mirror = against[deal_setup(deal, against.len()).0] == as_house;
-            [Role::Net(0), Role::Net(1), Role::House(0)]
+            [player(0), player(1), Role::House(0)]
                 .into_iter()
                 .chain((!mirror).then_some(Role::House(1)))
                 .map(move |role| (deal, role))
@@ -313,6 +350,8 @@ fn main() -> anyhow::Result<()> {
     let (tx, rx) = mpsc::channel::<anyhow::Result<Played>>();
     for _ in 0..threads {
         let server = server.clone();
+        #[cfg(feature = "llm")]
+        let chair = chair.clone();
         let (decks, against, next, tx, model, run) = (
             decks.clone(),
             against.clone(),
@@ -380,6 +419,22 @@ fn main() -> anyhow::Result<()> {
                         if net_plays {
                             session.take_over(me);
                         }
+                        // The model's chair: the house plays the seat, and the
+                        // questions the model takes are taken over one by one.
+                        #[cfg(feature = "llm")]
+                        let chair_plays = chair.as_ref().filter(|_| matches!(role, Role::Llm(_)));
+                        #[cfg(feature = "llm")]
+                        let context = baylee_train::llmchair::LlmChair::context(
+                            format!("{run}-{deal:07}"),
+                            &preset.seats[usize::from(net_seat)],
+                            net_seat,
+                            preset.format,
+                        );
+                        // A question the model could not answer, left to the
+                        // house: by its decision number, so it is not asked
+                        // again.
+                        #[cfg(feature = "llm")]
+                        let mut declined: Option<u64> = None;
                         let started = Instant::now();
                         let (mut net_answers, mut fallbacks, mut refused, mut net_time) =
                             (0, 0, 0, Duration::ZERO);
@@ -399,6 +454,37 @@ fn main() -> anyhow::Result<()> {
                             }
                             if started.elapsed() > wall {
                                 break "time_cap";
+                            }
+                            #[cfg(feature = "llm")]
+                            if let Some(chair) = chair_plays {
+                                let seq = session.decision_seq();
+                                let asked = session
+                                    .view_for(me)
+                                    .filter(|(p, v)| declined != Some(seq) && chair.takes(p, v));
+                                if let Some((pending, view)) = asked {
+                                    session.take_over(me);
+                                    let answer = chair.answer(&context, seq, &view, &pending);
+                                    let taken = match answer {
+                                        Some(action) => {
+                                            let ok = session.act(me, action).is_ok();
+                                            if !ok {
+                                                chair.engine_refused();
+                                            }
+                                            ok
+                                        }
+                                        None => false,
+                                    };
+                                    session.release(me);
+                                    if taken {
+                                        net_answers += 1;
+                                    } else {
+                                        fallbacks += 1;
+                                        declined = Some(seq);
+                                    }
+                                } else {
+                                    session.pump_at_most(1);
+                                }
+                                continue;
                             }
                             session.pump_at_most(32);
                             if !net_plays {
@@ -529,7 +615,7 @@ fn main() -> anyhow::Result<()> {
         let p = result?;
         done += 1;
         let (who, net) = match p.role {
-            Role::Net(_) => (0, true),
+            Role::Net(_) | Role::Llm(_) => (0, true),
             Role::House(_) => (1, false),
         };
         deals.entry(p.deal).or_default()[who][usize::from(p.net_seat)] = Some(p.outcome);
@@ -556,7 +642,7 @@ fn main() -> anyhow::Result<()> {
         writeln!(
             games_log,
             "{}",
-            json!({"i": p.i, "deal": p.deal, "role": if net { "net" } else { "house" },
+            json!({"i": p.i, "deal": p.deal, "role": match p.role { Role::Net(_) => "net", Role::Llm(_) => "llm", Role::House(_) => "house" },
                    "deck": decks[deal_setup(p.deal, args.against.len()).1[usize::from(p.net_seat)]].key,
                    "against": args.against[p.against], "net_seat": p.net_seat, "outcome": p.outcome,
                    "turn": p.turn, "net_answers": p.net_answers, "house_fallbacks": p.house_fallbacks, "stalls": p.stalls,
@@ -595,9 +681,13 @@ fn main() -> anyhow::Result<()> {
         })
         .collect();
     let duplicate = duplicate(&deals, &decks, &args.against);
+    #[cfg(feature = "llm")]
+    let llm = chair.as_ref().map(|c| c.report());
+    #[cfg(not(feature = "llm"))]
+    let llm: Option<serde_json::Value> = None;
     let report = json!({
         "model": args.model, "as_profile": args.as_profile, "name": run, "deals": args.deals,
-        "games": done, "results": results, "duplicate": duplicate,
+        "games": done, "results": results, "duplicate": duplicate, "llm": llm,
         "caps": {"decisions": args.max_decisions, "secs": args.max_secs},
         "batch": server.as_ref().map(|s| {
             let (batches, decisions, size) = s.stats();

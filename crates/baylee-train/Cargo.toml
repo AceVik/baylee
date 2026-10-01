@@ -36,6 +36,10 @@ onnx = ["play", "dep:ort"]
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2 player goes to the GPU only
 # with `BAYLEE_EP=cuda`.
 onnx-cuda = ["onnx", "ort/cuda"]
+# A language model in an arena chair (`arena --llm`), through the seat
+# bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
+# the trainer's machine against a model server on loopback.
+llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
 
 [dependencies]
 anyhow.workspace = true
@@ -45,6 +49,8 @@ baylee-core.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
+baylee-seat = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }

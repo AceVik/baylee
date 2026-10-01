@@ -1133,6 +1133,7 @@ dependencies = [
  "baylee-core",
  "baylee-engine",
  "baylee-gamehost",
+ "baylee-seat",
  "baylee-view",
  "clap",
  "flate2",
@@ -1140,6 +1141,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tokio",
 ]
 
 [[package]]
