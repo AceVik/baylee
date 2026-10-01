@@ -102575,3 +102575,299 @@ fn alpha_eval_stone_giant_throws_only_a_smaller_friendly_creature() {
     assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
     assert!(on_battlefield(&engine, p0, giant).is_some());
 }
+
+// ---- Abilities no test had fired (L4 sweep, 2026-10-01) ----
+
+/// Declares `attackers` against the first defender the engine offers.
+#[track_caller]
+fn unf_attack(engine: &mut Engine<RegistryLookup>, seat: PlayerId, attackers: &[ObjectId]) {
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { defenders, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the attack question")
+    };
+    let defender = defenders.into_iter().next().expect("a defender");
+    engine
+        .apply(
+            seat,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers.iter().map(|a| (*a, defender)).collect(),
+            },
+        )
+        .unwrap();
+}
+
+/// Brine Shaman: "{1}{U}{U}, Sacrifice a creature: Counter target creature
+/// spell." The opponent's creature spell never arrives, and the sacrifice
+/// is a cost: the Elves are in the graveyard.
+#[test]
+fn brine_shaman_sacrifices_a_creature_to_counter_a_creature_spell() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(2201, forest())
+        .battlefield(0, &[forest(), plains()])
+        .hand(0, &[ondu_cleric()])
+        .battlefield(
+            1,
+            &[
+                brine_shaman(),
+                llanowar_elves(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, ondu_cleric());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("elf");
+    tap_mana_where(&mut engine, p1, |id| id != elf);
+    activate(&mut engine, p1, brine_shaman(), 1);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the spell target, got {:?}", engine.pending())
+    };
+    let spell = *options.first().expect("the creature spell is a target");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![spell],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards {
+        prompt: ChoicePrompt::CostSacrifice,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the sacrifice, got {:?}", engine.pending())
+    };
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, ondu_cleric()).is_none());
+    assert!(
+        in_graveyard(&engine, p0, ondu_cleric()).is_some(),
+        "countered"
+    );
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the cost"
+    );
+    assert!(on_battlefield(&engine, p1, brine_shaman()).is_some());
+}
+
+/// Jin-Gitaxias, Progress Tyrant: "Whenever an opponent casts an artifact,
+/// instant, or sorcery spell, counter that spell. This ability triggers only
+/// once each turn." The first Giant Growth is countered, the second, the
+/// same turn, is not.
+#[test]
+fn jin_gitaxias_counters_an_opponents_first_instant_each_turn_only() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let bears = card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0");
+    let mut engine = Duel::new(2202, forest())
+        .battlefield(0, &[jin_gitaxias()])
+        .battlefield(1, &[forest(), forest(), forest(), bears])
+        .hand(1, &[giant_growth(), giant_growth()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let b = on_battlefield(&engine, p1, bears).expect("bears");
+
+    cast_from_hand(&mut engine, p1, giant_growth());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected a target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&b));
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![b] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, b), (2, 2), "the first spell was countered");
+
+    cast_with_floating(&mut engine, p1, giant_growth());
+    engine
+        .apply(p1, PlayerAction::ChooseObjects { objects: vec![b] })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, b),
+        (5, 5),
+        "the second resolves: once each turn"
+    );
+    let _ = p0;
+}
+
+/// Sun Titan: "Whenever this creature enters or attacks, you may return
+/// target permanent card with mana value 3 or less from your graveyard."
+/// This is the attack half; the Titan was never cast, so only an attack
+/// can have returned the Elves.
+#[test]
+fn sun_titan_returns_a_small_permanent_when_it_attacks() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2203, forest())
+        .battlefield(0, &[sun_titan(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let titan = on_battlefield(&engine, p0, sun_titan()).expect("titan");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves");
+    bury(&mut engine, &[elves]);
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+
+    unf_attack(&mut engine, p0, &[titan]);
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// Primeval Titan: "Whenever this creature enters or attacks, you may search
+/// your library for up to two land cards, put them onto the battlefield
+/// tapped". The attack half, with the Titan seated and never cast.
+#[test]
+fn primeval_titan_fetches_two_tapped_lands_when_it_attacks() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2204, forest())
+        .battlefield(0, &[primeval_titan()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let titan = on_battlefield(&engine, p0, primeval_titan()).expect("titan");
+    let before = library_size(&engine, p0);
+
+    unf_attack(&mut engine, p0, &[titan]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, max, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the search")
+    };
+    assert_eq!(max, 2);
+    let found: Vec<ObjectId> = options.into_iter().take(2).collect();
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: found })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(library_size(&engine, p0), before - 2);
+    let lands = lands_of(&engine, p0);
+    assert_eq!(lands.len(), 2, "two lands arrived");
+    assert!(lands.iter().all(|l| is_tapped(&engine, *l)), "tapped");
+}
+
+/// Reveillark, evoked: "Evoke {5}{W} ... If you do, it's sacrificed when it
+/// enters." The sacrifice trigger is the ability under test, and the leave
+/// trigger it causes returns the Elves.
+#[test]
+fn reveillark_evoked_is_sacrificed_and_its_leave_trigger_returns_a_creature() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(2205, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[reveillark()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("elves");
+    bury(&mut engine, &[elves]);
+
+    tap_all_mana(&mut engine, p0);
+    let lark = in_hand(&engine, p0, reveillark()).expect("lark in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: lark })
+        .unwrap();
+    let slot = choose_cast_kind(&engine, CastModeKind::Alternative(0));
+    engine.apply(p0, PlayerAction::ChooseMode(slot)).unwrap();
+
+    let options = pass_until_targets(&mut engine, p0);
+    assert!(
+        options.contains(&elves),
+        "the leave trigger came from the sacrifice"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![elves],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, reveillark()).is_none(),
+        "sacrificed"
+    );
+    assert!(in_graveyard(&engine, p0, reveillark()).is_some());
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// Elesh Norn, Mother of Machines: "Permanents entering don't cause
+/// abilities of permanents your opponents control to trigger." The control
+/// runs the same cast of Ondu Cleric with no Elesh Norn and sees its trigger
+/// ask; with her it never does.
+#[test]
+fn elesh_norn_mother_of_machines_stops_an_opponents_enters_trigger() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let norn = card_index("5ade11c0-41dd-4b6a-9f5b-c5903a3a0d7f");
+    let trigger_asked = |with_norn: bool| -> bool {
+        let mut engine = Duel::new(2206, forest())
+            .battlefield(0, &[if with_norn { norn } else { quiet_creature() }])
+            .battlefield(1, &[plains(), plains()])
+            .hand(1, &[ondu_cleric()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_their_main_phase(&mut engine, p1);
+        cast_from_hand(&mut engine, p1, ondu_cleric());
+        for _ in 0..12 {
+            match engine.pending().clone() {
+                Pending::YesNo { .. } => return true,
+                Pending::Priority { player, .. } => {
+                    if on_battlefield(&engine, p1, ondu_cleric()).is_some()
+                        && stack_is_empty(&engine)
+                    {
+                        return false;
+                    }
+                    engine.apply(player, PlayerAction::PassPriority).unwrap();
+                }
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+        panic!("the cleric never settled")
+    };
+    let _ = p0;
+    assert!(
+        trigger_asked(false),
+        "control: the trigger asks without her"
+    );
+    assert!(
+        !trigger_asked(true),
+        "with her it is never put on the stack"
+    );
+}
