@@ -7,22 +7,31 @@
 //! a directory of its own: `fake-cli.json`,
 //!
 //! ```json
-//! {"init_tools": ["StructuredOutput"], "logged_in": true,
+//! {"init": {"tools": ["StructuredOutput", "Bash"]}, "init_delay_ms": 300,
+//!  "logged_in": true,
 //!  "steps": [{"kind": "answer", "answer": {"ask": "q1", "pick": ["p"]}}]}
 //! ```
 //!
-//! with one step per message, in order across every process it starts
-//! (the next step's index is kept in `fake-cli.cursor`): `answer` (the
-//! object, as `structured_output`; `usage` and `delay_ms` optional),
-//! `text` (a result with only its `text`), `rate_limit` (`lifts_in` seconds
-//! optional), `fail` (an error result), `hang` (no reply, ever) and `exit`
-//! (`code`, after a line on stderr). Past the last step it exits.
+//! `init` changes the `init` line it writes before its first reply, which
+//! is otherwise a locked-down process's (only `StructuredOutput`, no MCP
+//! server, no slash command, `apiKeySource` `none`): each field given
+//! replaces the default's, a `null` leaves it out, and `false` leaves out
+//! the whole line. `init_delay_ms` waits before writing it.
+//!
+//! One step per message, in order across every process it starts (the
+//! next step's index is kept in `fake-cli.cursor`): `answer` (the object,
+//! as `structured_output`; `usage` and `delay_ms` optional), `long` (a
+//! result line of more than a mebibyte, then the answer as `answer`
+//! writes it), `text` (a result with only its `text`), `rate_limit`
+//! (`lifts_in` seconds optional), `fail` (an error result), `hang` (no
+//! reply, ever) and `exit` (`code`, after a line on stderr). Past the last
+//! step it exits.
 //!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
 //! directory, how many entries that holds and, on Unix, its and its
 //! parent's modes), every line it read, and its stdin's end. `auth status
-//! --json` answers `{"loggedIn": …}` and reads nothing.
+//! --json` answers `{"loggedIn": logged_in}` and reads nothing.
 
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -70,20 +79,15 @@ fn main() {
         say(&json!({"loggedIn": logged_in, "authMethod": "fake"}));
         std::process::exit(i32::from(!logged_in));
     }
-    let tools = config
-        .get("init_tools")
-        .cloned()
-        .unwrap_or_else(|| json!(["StructuredOutput"]));
-    let mut started = false;
+    let mut init = init(&config, pid);
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
         dump(&log, &json!({"pid": pid, "stdin": line}));
-        if !started {
-            started = true;
-            say(&json!({
-                "type": "system", "subtype": "init", "session_id": format!("fake-{pid}"),
-                "tools": tools, "mcp_servers": config.get("init_mcp").cloned().unwrap_or_else(|| json!([])),
-            }));
+        if let Some(init) = init.take() {
+            if let Some(ms) = config.get("init_delay_ms").and_then(Value::as_u64) {
+                std::thread::sleep(Duration::from_millis(ms));
+            }
+            say(&init);
         }
         let Some(step) = next_step(&home, &config) else {
             eprintln!("fake: the script ended");
@@ -95,6 +99,30 @@ fn main() {
         play(&step);
     }
     dump(&log, &json!({"pid": pid, "eof": true}));
+}
+
+/// The `init` line, as the script changes it; `None` for none.
+fn init(config: &Value, pid: u32) -> Option<Value> {
+    let mut init = json!({
+        "type": "system", "subtype": "init", "session_id": format!("fake-{pid}"),
+        "tools": ["StructuredOutput"], "mcp_servers": [], "slash_commands": [],
+        "apiKeySource": "none",
+    });
+    match config.get("init") {
+        Some(Value::Bool(false)) => return None,
+        Some(Value::Object(fields)) => {
+            let line = init.as_object_mut().expect("an object");
+            for (key, value) in fields {
+                if value.is_null() {
+                    line.remove(key);
+                } else {
+                    line.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        _ => {}
+    }
+    Some(init)
 }
 
 /// Answers one message as `step` says.
@@ -115,6 +143,15 @@ fn play(step: &Value) {
                         "result": answer.to_string(), "structured_output": answer,
                         "usage": usage}),
             );
+        }
+        "long" => {
+            let padding = "x".repeat((1 << 20) + 16);
+            say(
+                &json!({"type": "result", "subtype": "success", "is_error": false,
+                        "result": padding, "structured_output": {"ask": "q0", "pick": ["none"]},
+                        "usage": usage}),
+            );
+            play(&json!({"kind": "answer", "answer": step.get("answer")}));
         }
         "text" => {
             let text = step.get("text").and_then(Value::as_str).unwrap_or_default();

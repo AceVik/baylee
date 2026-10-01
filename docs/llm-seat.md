@@ -170,9 +170,16 @@ owner to check before playing.
   --permission-mode manual --no-session-persistence --system-prompt <ours>
   --json-schema <the answer's> [--model M] [--effort E]`: no tools, no MCP
   server, no skill, no settings file or hook, no `CLAUDE.md` or plugin,
-  nothing that asks a permission, nothing kept on disk. A process that says
-  at its start that the model has a tool beyond the answer's own, or an MCP
-  server, takes the mind off the table for the rest of the game.
+  nothing that asks a permission, nothing kept on disk. What the process
+  says at its start (Claude Code's `init` line) is the proof the flags
+  held, and no reply is taken before it: it must name the model's tools
+  (none but `StructuredOutput`, the answer's own), its MCP servers and its
+  slash commands (none), and its key's source must not be a variable such
+  as `ANTHROPIC_API_KEY` (a subscription's is `none`). A process that does
+  not say so, replies before it does, or says anything else takes the mind
+  off the table for good: the process's own reader kills every process of
+  the mind at once, whether or not a question still waits. A line of
+  output over a mebibyte is never read.
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
   reads the turn's whole conversation again at every decision, so a game
@@ -186,7 +193,8 @@ owner to check before playing.
 - **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
   the house answers, and the mind cools down for the time the tool names,
   else a minute, doubling to fifteen. It plays again once that has passed
-  and `claude auth status` (which calls no model) says it is signed in.
+  and `claude auth status --json` (which calls no model) says
+  `"loggedIn": true`; output it cannot read counts as signed out.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
   speaks Claude Code's stream-json and logs what it was started with
   (`tests/cli_mind.rs`); no test starts a real CLI or reaches a model.

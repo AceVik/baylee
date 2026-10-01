@@ -19,24 +19,40 @@ fn settings() -> Settings {
     Settings::new(&Spec::parse("cli:claude:opus").unwrap().unwrap())
 }
 
+/// What a locked-down Claude Code says at its start.
+fn locked_down() -> Started {
+    Started {
+        tools: Some(vec!["StructuredOutput".into()]),
+        mcp_servers: Some(Vec::new()),
+        slash_commands: Some(Vec::new()),
+        key_source: Some("none".into()),
+    }
+}
+
+/// What the `init` line `fields` says, read.
+fn init(fields: &Value) -> Started {
+    let mut line = json!({"type": "system", "subtype": "init"});
+    line.as_object_mut()
+        .unwrap()
+        .extend(fields.as_object().unwrap().clone());
+    let Event::Started(started) = &read(&[&line.to_string()])[0] else {
+        panic!("{line}");
+    };
+    started.clone()
+}
+
 /// An answer comes from `structured_output`, else from the object in the
 /// text; its tokens are the tool's own count, cache reads included.
 #[test]
 fn a_result_is_the_structured_answer_or_the_object_in_its_text() {
     let events = read(&[
-        r#"{"type":"system","subtype":"init","tools":["StructuredOutput"],"mcp_servers":[]}"#,
+        r#"{"type":"system","subtype":"init","tools":["StructuredOutput"],"mcp_servers":[],"slash_commands":[],"apiKeySource":"none"}"#,
         r#"{"type":"assistant","message":{"content":[{"type":"text","text":"hm"}]}}"#,
         r#"{"type":"result","subtype":"success","is_error":false,"result":"done","structured_output":{"ask":"q3","pick":["p"]},"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":7,"cache_read_input_tokens":900}}"#,
         r#"{"type":"result","subtype":"success","is_error":false,"result":"Here: {\"ask\":\"q4\",\"pick\":[\"a1\"]}"}"#,
         "not json at all",
     ]);
-    assert_eq!(
-        events[0],
-        Event::Started(Started {
-            tools: vec!["StructuredOutput".into()],
-            mcp_servers: Vec::new(),
-        })
-    );
+    assert_eq!(events[0], Event::Started(locked_down()));
     assert_eq!(events[1], Event::Other);
     assert_eq!(
         events[2],
@@ -107,28 +123,60 @@ fn a_rate_limit_is_unbilled_and_says_when_it_lifts() {
 }
 
 /// The process may offer the model the answer's own tool and nothing else:
-/// a tool or an MCP server beyond it is refused, by name.
+/// a tool, an MCP server or a slash command beyond it is refused, by name,
+/// and so is a start that does not name its tools, servers or commands
+/// (only a list it named shows the flags held), or a key from a variable.
 #[test]
 fn a_process_with_a_tool_beyond_the_answer_is_refused() {
-    let only = Started {
-        tools: vec!["StructuredOutput".into()],
-        mcp_servers: Vec::new(),
-    };
-    assert_eq!(Claude.lockdown_fault(&only), None);
-    assert_eq!(Claude.lockdown_fault(&Started::default()), None);
+    assert_eq!(Claude.lockdown_fault(&locked_down()), None);
+    let unsaid = Claude.lockdown_fault(&Started::default()).unwrap();
+    assert!(unsaid.contains("did not say which tools"), "{unsaid}");
     let bash = Started {
-        tools: vec!["StructuredOutput".into(), "Bash".into(), "Read".into()],
-        mcp_servers: Vec::new(),
+        tools: Some(vec![
+            "StructuredOutput".into(),
+            "Bash".into(),
+            "Read".into(),
+        ]),
+        ..locked_down()
     };
     let why = Claude.lockdown_fault(&bash).unwrap();
     assert!(why.contains("(Bash, Read)"), "{why}");
-    let mcp = read(&[
-        r#"{"type":"system","subtype":"init","tools":[],"mcp_servers":[{"name":"github","status":"connected"}]}"#,
-    ]);
-    let Event::Started(started) = &mcp[0] else {
-        panic!("{mcp:?}");
+
+    let fault = |fields: Value| Claude.lockdown_fault(&init(&fields));
+    let all = json!({"tools": ["StructuredOutput"], "mcp_servers": [], "slash_commands": [],
+                     "apiKeySource": "none"});
+    assert_eq!(fault(all.clone()), None);
+    let without = |key: &str| {
+        let mut fields = all.clone();
+        fields.as_object_mut().unwrap().remove(key);
+        fault(fields).unwrap()
     };
-    assert!(Claude.lockdown_fault(started).unwrap().contains("github"));
+    assert!(without("tools").contains("did not say which tools"));
+    assert!(without("mcp_servers").contains("did not say which MCP servers"));
+    assert!(without("slash_commands").contains("did not say which slash commands"));
+    let with = |key: &str, value: Value| {
+        let mut fields = all.clone();
+        fields[key] = value;
+        fault(fields)
+    };
+    let mcp = with(
+        "mcp_servers",
+        json!([{"name": "github", "status": "connected"}]),
+    )
+    .unwrap();
+    assert!(mcp.contains("(github)"), "{mcp}");
+    let odd = with("tools", json!(["StructuredOutput", {"kind": "tool"}])).unwrap();
+    assert!(odd.contains("(unnamed)"), "{odd}");
+    let commands = with("slash_commands", json!(["compact", "review"])).unwrap();
+    assert!(commands.contains("(compact, review)"), "{commands}");
+    let keyed = with("apiKeySource", json!("ANTHROPIC_API_KEY")).unwrap();
+    assert!(keyed.contains("a key from ANTHROPIC_API_KEY"), "{keyed}");
+    for login in ["none", "/login managed key", "apiKeyHelper"] {
+        assert_eq!(with("apiKeySource", json!(login)), None, "{login}");
+    }
+    let mut unsourced = all.clone();
+    unsourced.as_object_mut().unwrap().remove("apiKeySource");
+    assert_eq!(fault(unsourced), None, "a start that names no key's source");
 }
 
 /// The arguments lock the process down, and carry our instructions, our
@@ -185,6 +233,9 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
     );
     assert!(Claude.probe_ok(br#"{"loggedIn": true}"#));
     assert!(!Claude.probe_ok(br#"{"loggedIn": false}"#));
+    // A status it cannot read is no login.
+    assert!(!Claude.probe_ok(b"Logged in as someone"));
+    assert!(!Claude.probe_ok(br#"{"authMethod": "claude.ai"}"#));
 }
 
 /// No key, token, bridge setting, cloud or forge credential, SSH agent or

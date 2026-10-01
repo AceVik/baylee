@@ -30,8 +30,12 @@
 //! `BAYLEE_*`, no forge's or cloud's credentials and no SSH agent ever
 //! reach it ([`forbidden`]), and a passed value that looks like a key
 //! refuses the start. The tool's own flags take its tools, MCP servers,
-//! skills, settings and hooks away ([`claude`]); a process that reports
-//! any tool beyond the answer's own takes the mind off the table for good.
+//! skills, settings and hooks away ([`claude`]). What the process says at
+//! its start is the proof they held, and it is read before any reply is
+//! taken: a process that does not say it, says it after a reply, or reports
+//! any tool beyond the answer's own takes the mind off the table for good,
+//! and every process of the mind is killed, whether or not a question
+//! still waits on one ([`Reader`]).
 //!
 //! # Spend
 //!
@@ -388,7 +392,8 @@ fn private_dir(path: &Path) -> std::io::Result<()> {
 enum Gone {
     /// Its output ended: it exited or was killed.
     Ended,
-    /// It reported a tool or a server it must not have.
+    /// It broke the lockdown: a tool or a server it must not have, or a
+    /// reply before it said what it offers.
     Refused(String),
 }
 
@@ -490,17 +495,21 @@ struct Cooldown {
 /// Each seat's state, by game and seat.
 type Seats = Mutex<BTreeMap<(String, u8), Arc<Mutex<CliSeat>>>>;
 
+/// Why the mind will not play again: a process broke the lockdown. Shared
+/// with every process's reader, which sets it.
+type LockedOut = Arc<Mutex<Option<String>>>;
+
 /// A language model behind an agent CLI.
 pub struct CliMind {
     settings: Settings,
     launch: Launch,
     limits: Limits,
     system: String,
-    seats: Seats,
+    /// Shared, weakly, with the readers: a lockout ends every process.
+    seats: Arc<Seats>,
     tally: Arc<Mutex<Tally>>,
     cooldown: Mutex<Cooldown>,
-    /// Why the mind will not play again: its process broke the lockdown.
-    locked_out: Mutex<Option<String>>,
+    locked_out: LockedOut,
 }
 
 impl CliMind {
@@ -516,14 +525,14 @@ impl CliMind {
             system: format!("{}{}{GAME_DATA}", prompt::SYSTEM, prompt::JSON_MODE),
             settings,
             launch,
-            seats: Mutex::new(BTreeMap::new()),
+            seats: Arc::new(Mutex::new(BTreeMap::new())),
             tally: Arc::new(Mutex::new(tally)),
             cooldown: Mutex::new(Cooldown {
                 until: None,
                 next: limits.cooldown,
             }),
             limits,
-            locked_out: Mutex::new(None),
+            locked_out: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -679,6 +688,10 @@ impl CliMind {
             wake.text
         };
         if fresh {
+            // A lockout found since the question began starts nothing.
+            if let Some(why) = lock(&self.locked_out).clone() {
+                return Err(Err(MindError::Unavailable(why)));
+            }
             if let Some(old) = state.session.take() {
                 old.end(self.limits.grace);
             }
@@ -734,6 +747,8 @@ impl CliMind {
                 queue: Arc::clone(&queue),
                 tally: Arc::clone(&self.tally),
                 seat,
+                seats: Arc::downgrade(&self.seats),
+                locked_out: Arc::clone(&self.locked_out),
             }
             .run(stdout),
         );
@@ -840,15 +855,17 @@ impl CliMind {
     }
 
     /// Ends a process that stopped answering, and says why: its exit and
-    /// its last words, or the lockdown it broke, which takes the mind off
-    /// the table for good.
+    /// its last words, or the lockdown a process broke, which takes the
+    /// mind off the table for good (its reader has done so already).
     async fn gone(&self, seat: &Mutex<CliSeat>, turn: u32, gone: Gone) -> MindError {
         let session = Self::lose(seat, turn);
-        if let Gone::Refused(why) = gone {
+        if let Gone::Refused(why) = &gone {
+            lock_out(&self.locked_out, Some(&self.seats), why);
+        }
+        if let Some(why) = lock(&self.locked_out).clone() {
             if let Some(session) = session {
                 session.end(Duration::ZERO);
             }
-            *lock(&self.locked_out) = Some(why.clone());
             return MindError::Unavailable(why);
         }
         let tool = self.tool();
@@ -1003,6 +1020,24 @@ impl CliMind {
     }
 }
 
+/// Takes the mind off the table for good, for `why` (the first reason
+/// stays): every process in `seats` is killed now, each seat's turn noted
+/// as lost.
+fn lock_out(locked_out: &Mutex<Option<String>>, seats: Option<&Seats>, why: &str) {
+    lock(locked_out).get_or_insert_with(|| why.to_string());
+    let Some(seats) = seats else {
+        return;
+    };
+    let seats: Vec<_> = lock(seats).values().cloned().collect();
+    for seat in seats {
+        let mut state = lock(&seat);
+        if let Some(session) = state.session.take() {
+            state.lost = Some(session.turn);
+            session.end(Duration::ZERO);
+        }
+    }
+}
+
 /// Reads an answer object against its question's menu.
 fn read(
     value: Option<&Value>,
@@ -1094,20 +1129,31 @@ async fn read_line(out: &mut BufReader<ChildStdout>, buf: &mut Vec<u8>) -> std::
 }
 
 /// What reads a process's output: each reply to its question, counted
-/// in the tally whether or not the question still waits.
+/// in the tally whether or not the question still waits; and the lockdown,
+/// held by the reader itself, so it holds when no question waits.
 struct Reader {
     dialect: Arc<dyn Dialect>,
     queue: Arc<Mutex<Queue>>,
     tally: Arc<Mutex<Tally>>,
     /// Weak: a seat owns its process, and the process its reader.
     seat: Weak<Mutex<CliSeat>>,
+    /// Every seat of the mind, weakly for the same reason: a lockout ends
+    /// all their processes.
+    seats: Weak<Seats>,
+    locked_out: LockedOut,
 }
 
 impl Reader {
+    /// Reads until the output ends or the process breaks the lockdown: a
+    /// start that names a tool it must not have (or does not name them),
+    /// or a reply before any start, which would be a reply nothing
+    /// vouched for. A break locks the mind out and kills its processes
+    /// before any question waiting hears it.
     async fn run(self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
         let mut trouble = None;
+        let mut started = false;
         let gone = loop {
             match read_line(&mut out, &mut buf).await {
                 Ok(Line::Read) => {}
@@ -1118,15 +1164,26 @@ impl Reader {
                 continue;
             };
             match self.dialect.read_event(line.trim_end(), &mut trouble) {
-                Event::Started(started) => {
-                    if let Some(why) = self.dialect.lockdown_fault(&started) {
+                Event::Started(said) => {
+                    if let Some(why) = self.dialect.lockdown_fault(&said) {
                         break Gone::Refused(why);
                     }
+                    started = true;
+                }
+                Event::Reply(_) if !started => {
+                    break Gone::Refused(format!(
+                        "the {} process replied before it said what it offers the model: the \
+                         seat does not play through it",
+                        self.dialect.tool().name()
+                    ));
                 }
                 Event::Reply(outcome) => self.reply(outcome),
                 Event::Other => {}
             }
         };
+        if let Gone::Refused(why) = &gone {
+            lock_out(&self.locked_out, self.seats.upgrade().as_deref(), why);
+        }
         // Every question still waiting hears it, and counts at its worst:
         // nobody knows what the tool spent on it.
         let waiting: Vec<Waiter> = {

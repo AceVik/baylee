@@ -39,8 +39,10 @@ pub(crate) trait Dialect: Send + Sync {
     fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event;
 
     /// What the model may use, as the process reported it at its start:
-    /// why the seat does not play through it, or `None` when it has
-    /// nothing beyond the answer itself.
+    /// why the seat does not play through it, or `None` when it named
+    /// everything the lockdown asks it to and has nothing beyond the
+    /// answer itself. A list it did not name is a fault: only a list it
+    /// named shows the lockdown held.
     fn lockdown_fault(&self, started: &Started) -> Option<String>;
 
     /// The arguments of the login check, which calls no model: whether the
@@ -52,13 +54,19 @@ pub(crate) trait Dialect: Send + Sync {
     fn probe_ok(&self, stdout: &[u8]) -> bool;
 }
 
-/// What the process said it started with.
+/// What the process said it started with: each list `None` where the
+/// line did not name it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Started {
     /// The tools the model is offered.
-    pub(crate) tools: Vec<String>,
+    pub(crate) tools: Option<Vec<String>>,
     /// The MCP servers it is connected to.
-    pub(crate) mcp_servers: Vec<String>,
+    pub(crate) mcp_servers: Option<Vec<String>>,
+    /// The slash commands and skills the conversation could run.
+    pub(crate) slash_commands: Option<Vec<String>>,
+    /// Where the credential it calls the model with comes from, as it
+    /// says.
+    pub(crate) key_source: Option<String>,
 }
 
 /// One line of output, read.

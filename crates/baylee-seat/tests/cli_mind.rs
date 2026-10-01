@@ -147,6 +147,11 @@ impl Rig {
         parent_env(&self.home, &self.path)
     }
 
+    /// Hands the fake another script; the steps it took stay taken.
+    fn script(&self, script: &Value) {
+        std::fs::write(self.home.join("fake-cli.json"), script.to_string()).unwrap();
+    }
+
     /// The mind, as the bridge builds it, with `limits`.
     fn mind(&self, limits: Limits) -> CliMind {
         let Access::Cli(launch) = llm::check(&self.plan, &self.env()).unwrap() else {
@@ -265,6 +270,16 @@ fn cli(extra: Value) -> Value {
 
 fn spent(tally: &Arc<Mutex<Tally>>) -> Tally {
     lock(tally).clone()
+}
+
+/// Whether the process `pid` still runs, by `kill -0`.
+#[cfg(unix)]
+fn alive(pid: u64) -> bool {
+    std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 /// The whole contract a CLI's process runs under, as the process itself
@@ -730,7 +745,7 @@ async fn a_process_with_a_tool_takes_the_mind_off_the_table() {
     let rig = Rig::new(
         "lockdown",
         cli(json!({})),
-        &json!({"init_tools": ["StructuredOutput", "Bash"], "steps": [pass(1, "")]}),
+        &json!({"init": {"tools": ["StructuredOutput", "Bash"]}, "steps": [pass(1, "")]}),
     );
     let mind = rig.mind(Limits::default());
     let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
@@ -742,6 +757,106 @@ async fn a_process_with_a_tool_takes_the_mind_off_the_table() {
     let again = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
     assert_eq!(again, refused);
     assert_eq!(rig.starts().len(), 1, "no second process");
+}
+
+/// The lockdown is held by the process's reader, not by the question: a
+/// process whose start shows a tool after the bridge stopped waiting still
+/// takes the mind off the table, and every process the mind has, another
+/// game's too, is killed at once.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_lockout_needs_no_question_waiting_and_ends_every_process() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let steps = json!([pass(1, ""), {"kind": "hang"}]);
+    let rig = Rig::new("lockout", cli(json!({})), &json!({"steps": steps}));
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    rig.script(&json!({
+        "init": {"tools": ["StructuredOutput", "Bash"]},
+        "init_delay_ms": 300,
+        "steps": steps,
+    }));
+    let mut other = ask(&base, 1, turn, 20);
+    other.context = Arc::new(GameContext {
+        game_id: "another-game".into(),
+        ..(*base.context).clone()
+    });
+    let dropped = tokio::time::timeout(Duration::from_millis(100), mind.decide(other)).await;
+    assert!(dropped.is_err(), "the bridge stopped waiting first");
+    assert!(rig.until(|rig| rig.starts().len() == 2).await);
+    let pids: Vec<u64> = rig
+        .starts()
+        .iter()
+        .map(|start| start["pid"].as_u64().unwrap())
+        .collect();
+    assert_eq!(pids.len(), 2, "one process for each game");
+    assert!(
+        rig.until(|_| pids.iter().all(|pid| !alive(*pid))).await,
+        "every process was killed"
+    );
+    assert!(!mind.ready().await, "off the table");
+    let refused = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
+    assert!(
+        matches!(&refused, MindError::Unavailable(why) if why.contains("(Bash)")),
+        "{refused:?}"
+    );
+    assert_eq!(rig.starts().len(), 2, "nothing started again");
+}
+
+/// A reply is taken only after the process said what it offers: one that
+/// replies with no `init` line before it, or whose `init` line names no
+/// tools, takes the mind off the table without its answer being read.
+#[tokio::test]
+async fn a_reply_before_the_start_or_a_start_without_tools_is_refused() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    for (name, init, says) in [
+        (
+            "noinit",
+            json!(false),
+            "replied before it said what it offers",
+        ),
+        (
+            "notools",
+            json!({"tools": null}),
+            "did not say which tools it offers",
+        ),
+    ] {
+        let rig = Rig::new(
+            name,
+            cli(json!({})),
+            &json!({"init": init, "steps": [pass(1, ""), pass(2, "")]}),
+        );
+        let mind = rig.mind(Limits::default());
+        let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+        assert!(
+            matches!(&refused, MindError::Unavailable(why) if why.contains(says)),
+            "{name}: {refused:?}"
+        );
+        assert!(!mind.ready().await, "{name}");
+        let again = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
+        assert_eq!(again, refused, "{name}");
+        assert_eq!(rig.starts().len(), 1, "{name}: no second process");
+    }
+}
+
+/// A line of output longer than a mebibyte is never read, not even as a
+/// reply: the reply after it answers the question.
+#[tokio::test]
+async fn a_line_over_a_mebibyte_is_never_read() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "long",
+        cli(json!({})),
+        &json!({"steps": [{"kind": "long", "answer": {"ask": "q1", "pick": ["p"]}}]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let answer = mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    assert_eq!(rig.messages().len(), 1, "nothing asked again");
+    assert_eq!(spent(&mind.tally()).calls, 1);
 }
 
 /// At most `max_sessions` processes live: a seat starting one ends the

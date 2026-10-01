@@ -13,6 +13,12 @@
 //! (`--system-prompt`) and our answer's schema (`--json-schema`). `--bare`
 //! would lock it down further and is not used: it never reads the login a
 //! subscription plays with.
+//!
+//! Its `init` line is the proof the flags held, checked before any reply
+//! is taken: it must name its tools (none but the answer's own), its MCP
+//! servers and its slash commands (none of either), and its key's source
+//! must not be a variable (`ANTHROPIC_API_KEY`); a subscription's is
+//! `none`.
 
 use super::dialect::{Dialect, Event, Outcome, Started};
 use crate::llm::{Settings, Usage, json_object, prompt};
@@ -100,26 +106,43 @@ impl Dialect for Claude {
     }
 
     fn lockdown_fault(&self, started: &Started) -> Option<String> {
-        let tools: Vec<&str> = started
-            .tools
+        let refused = |what: String| {
+            Some(format!(
+                "the claude process {what}: the seat does not play through it"
+            ))
+        };
+        let Some(tools) = &started.tools else {
+            return refused("did not say which tools it offers the model".into());
+        };
+        let tools: Vec<String> = tools
             .iter()
-            .map(String::as_str)
             .filter(|tool| *tool != ANSWER_TOOL)
+            .cloned()
             .collect();
         if !tools.is_empty() {
-            return Some(format!(
-                "the claude process offered the model tools it must not have ({}): the seat does \
-                 not play through it",
-                tools.join(", ")
+            return refused(format!(
+                "offered the model tools it must not have ({})",
+                listed(&tools)
             ));
         }
-        if !started.mcp_servers.is_empty() {
-            return Some(format!(
-                "the claude process connected MCP servers ({}): the seat does not play through it",
-                started.mcp_servers.join(", ")
-            ));
+        let Some(servers) = &started.mcp_servers else {
+            return refused("did not say which MCP servers it connected".into());
+        };
+        if !servers.is_empty() {
+            return refused(format!("connected MCP servers ({})", listed(servers)));
         }
-        None
+        let Some(commands) = &started.slash_commands else {
+            return refused("did not say which slash commands it offers".into());
+        };
+        if !commands.is_empty() {
+            return refused(format!("offered slash commands ({})", listed(commands)));
+        }
+        match started.key_source.as_deref() {
+            Some(source) if names_a_variable(source) => {
+                refused(format!("calls the model with a key from {source}"))
+            }
+            _ => None,
+        }
     }
 
     fn probe_args(&self) -> Option<Vec<OsString>> {
@@ -127,32 +150,60 @@ impl Dialect for Claude {
     }
 
     fn probe_ok(&self, stdout: &[u8]) -> bool {
-        // The status says whether it is signed in where it says so at all.
+        // Signed in only where the status says so: output it cannot read
+        // is no login.
         serde_json::from_slice::<Value>(stdout)
             .ok()
             .and_then(|status| status.get("loggedIn").and_then(Value::as_bool))
-            .unwrap_or(true)
+            .unwrap_or(false)
     }
 }
 
-/// What the `init` line names: the tools and the MCP servers.
+/// What the `init` line names: the tools, the MCP servers, the slash
+/// commands and the key's source. An entry that is neither a name nor
+/// has one is kept, as `(unnamed)`, so it is never dropped unseen.
 fn started(init: &Value) -> Started {
-    let names = |key: &str| -> Vec<String> {
-        init.get(key)
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|item| {
-                item.as_str()
-                    .or_else(|| item.get("name").and_then(Value::as_str))
-                    .map(str::to_string)
-            })
-            .collect()
+    let names = |key: &str| -> Option<Vec<String>> {
+        let items = init.get(key)?.as_array()?;
+        Some(
+            items
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .or_else(|| item.get("name").and_then(Value::as_str))
+                        .unwrap_or("(unnamed)")
+                        .to_string()
+                })
+                .collect(),
+        )
     };
     Started {
         tools: names("tools"),
         mcp_servers: names("mcp_servers"),
+        slash_commands: names("slash_commands"),
+        key_source: init
+            .get("apiKeySource")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
+}
+
+/// Up to eight names, for a sentence.
+fn listed(names: &[String]) -> String {
+    let mut shown = names.iter().take(8).cloned().collect::<Vec<_>>().join(", ");
+    if names.len() > 8 {
+        shown.push_str(", …");
+    }
+    shown
+}
+
+/// Whether a key's source is an environment variable's name
+/// (`ANTHROPIC_API_KEY`), not a login (`none`, `/login managed key`).
+fn names_a_variable(source: &str) -> bool {
+    source.contains('_')
+        && source
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
 /// A `result` line, read: an answer, a rate limit, or a failure. `trouble`
