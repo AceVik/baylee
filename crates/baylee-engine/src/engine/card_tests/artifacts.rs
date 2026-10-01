@@ -20126,3 +20126,139 @@ fn veteran_bodyguard_and_jade_monolith_together_the_bodyguard_does_not_take_back
         "one hop: from the Ogre straight to the player, never marked on the Bodyguard along the way"
     );
 }
+
+/// Black Vise is Partial: the entering choice and upkeep damage is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_black_vise_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("de7839fb-7040-48ab-a6d4-d1952972943d");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[forest(); 1])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Cyclopean Tomb is Partial: the activation and graveyard trigger is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_cyclopean_tomb_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("1edee40f-d153-4d67-aee7-ef08e11e4a79");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[forest(); 4])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Glasses Of Urza is Partial: the hand-looking activation is unsupported.
+/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
+/// 608.3a); no assertion treats the missing text as a working ability.
+#[test]
+fn alpha_eval_glasses_of_urza_supported_cast_and_resolution() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("af7fabf4-8d55-4b06-9c21-472f4a5775b4");
+    let mut engine = Duel::new(1001, forest())
+        .battlefield(0, &[forest(); 1])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    assert!(on_stack(&engine, card).is_some(), "the card was cast");
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the printed cost was paid"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, card).is_some());
+    assert!(in_hand(&engine, p0, card).is_none());
+}
+
+/// Gauntlet of Might boosts red creatures on both sides and adds red only
+/// for Mountains. Its triggered mana ability resolves at once (CR 605.1b).
+#[test]
+fn alpha_eval_gauntlet_of_might_boosts_both_sides_and_the_mountains_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let gauntlet = card_index("d38ad188-515e-4865-a0ed-5d0fd4c7b453");
+    let red_body = card_index("0b8e3f9b-a4da-49a3-8545-ce7a265e5856");
+    let mut engine = Duel::new(1007, forest())
+        .battlefield(
+            0,
+            &[gauntlet, red_body, llanowar_elves(), mountain(), forest()],
+        )
+        .battlefield(1, &[red_body, mountain()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    for seat in [p0, p1] {
+        assert_eq!(
+            pt(&engine, on_battlefield(&engine, seat, red_body).unwrap()),
+            (4, 5)
+        );
+    }
+    assert_eq!(
+        pt(
+            &engine,
+            on_battlefield(&engine, p0, llanowar_elves()).unwrap()
+        ),
+        (1, 1)
+    );
+    let green = on_battlefield(&engine, p0, forest()).unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: green })
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "a Forest gets no bonus"
+    );
+    for seat in [p0, p1] {
+        pass_until(&mut engine, |e| at_rest(e, seat));
+        let land = on_battlefield(&engine, seat, mountain()).unwrap();
+        engine
+            .apply(seat, PlayerAction::ActivateManaAbility { source: land })
+            .unwrap();
+        assert!(stack_is_empty(&engine));
+        assert_eq!(
+            engine.state().players[usize::from(seat.get())]
+                .mana_pool
+                .available(ManaColor::Red),
+            2
+        );
+    }
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Red),
+        2,
+        "their tap paid them, not us"
+    );
+}
