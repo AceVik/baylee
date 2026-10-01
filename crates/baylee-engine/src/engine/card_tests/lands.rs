@@ -78611,3 +78611,316 @@ fn restless_ridgeline_attack_pumps_and_untaps_another_attacker() {
 fn restless_bears() -> CardIndex {
     card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
 }
+
+fn darksteel_gargoyle() -> CardIndex {
+    card_index("73010421-374f-458e-aa88-248ef8ae4f8b")
+}
+
+fn lair_ornithopter() -> CardIndex {
+    card_index("a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba")
+}
+
+fn lair_tortoise() -> CardIndex {
+    card_index("2dd50d7f-941f-4deb-a15c-ee2357844c35")
+}
+
+/// Answers the question for an activated ability's target with `object`,
+/// and asserts that every id in `refused` was not on offer.
+#[track_caller]
+fn answer_target(engine: &mut Engine<RegistryLookup>, object: ObjectId, refused: &[ObjectId]) {
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("a target question, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&object), "on offer: {options:?}");
+    for r in refused {
+        assert!(!options.contains(r), "not a legal target: {options:?}");
+    }
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ChooseObjects {
+                objects: vec![object],
+            },
+        )
+        .expect("the target came from the offer");
+}
+
+/// Sanctum of Ugin: "Whenever you cast a colorless spell with mana value 7
+/// or greater, you may sacrifice this land. If you do, search your library
+/// for a colorless creature card, reveal it, put it into your hand, then
+/// shuffle."
+#[test]
+fn sanctum_of_ugin_sacrifices_for_a_colorless_creature_when_a_big_colorless_spell_is_cast() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4201, lair_ornithopter())
+        .battlefield(
+            0,
+            &[
+                sanctum_of_ugin(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &[darksteel_gargoyle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+
+    cast_from_hand(&mut engine, p0, darksteel_gargoyle());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::YesNo(true))
+        .expect("the may-sacrifice question");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!("the search asks for its card")
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("the card came from the search");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, sanctum_of_ugin()).is_none(),
+        "the Sanctum was sacrificed"
+    );
+    assert!(in_graveyard(&engine, p0, sanctum_of_ugin()).is_some());
+    assert!(
+        in_hand(&engine, p0, lair_ornithopter()).is_some(),
+        "the colorless creature is in hand"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1 + 1,
+        "the Gargoyle left the hand, the Thopter joined it"
+    );
+}
+
+/// The same trigger answered "no" keeps the land and finds nothing.
+#[test]
+fn sanctum_of_ugin_declined_keeps_the_land_and_searches_nothing() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4202, lair_ornithopter())
+        .battlefield(
+            0,
+            &[
+                sanctum_of_ugin(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .hand(0, &[darksteel_gargoyle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, darksteel_gargoyle());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine
+        .apply(p0, PlayerAction::YesNo(false))
+        .expect("declined");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, sanctum_of_ugin()).is_some());
+    assert!(in_hand(&engine, p0, lair_ornithopter()).is_none());
+}
+
+/// Gingerbread Cabin: "When this land enters untapped, create a Food
+/// token." Three other Forests: it enters untapped and makes the Food.
+#[test]
+fn gingerbread_cabin_makes_a_food_when_it_enters_untapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4203, forest())
+        .battlefield(0, &[forest(), forest(), forest()])
+        .hand(0, &[gingerbread_cabin()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cabin = play_land(&mut engine, p0, gingerbread_cabin());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(!entered_tapped(&engine, cabin));
+    assert_eq!(tokens_of(&engine, p0).len(), 1, "one Food token");
+}
+
+/// Idyllic Grange: "When this land enters untapped, put a +1/+1 counter on
+/// target creature you control."
+#[test]
+fn idyllic_grange_puts_a_counter_on_a_creature_when_it_enters_untapped() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4204, plains())
+        .battlefield(0, &[plains(), plains(), plains(), llanowar_elves()])
+        .hand(0, &[idyllic_grange()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("my Elves");
+    let grange = play_land(&mut engine, p0, idyllic_grange());
+    assert!(!entered_tapped(&engine, grange));
+    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        answer_target(&mut engine, elves, &[]);
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(counters_on(&engine, elves, CounterKind::P1P1), 1);
+    assert_eq!(pt(&engine, elves), (2, 2));
+}
+
+/// Rockface Village: "{R}, {T}: Target Lizard, Mouse, Otter, or Raccoon you
+/// control gets +1/+0 and gains haste until end of turn. Activate only as a
+/// sorcery."
+#[test]
+fn rockface_village_pumps_a_lizard_and_gives_it_haste() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4205, mountain())
+        .battlefield(
+            0,
+            &[
+                rockface_village(),
+                mountain(),
+                viashino_grappler(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lizard = on_battlefield(&engine, p0, viashino_grappler()).expect("the Lizard");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    let mountain_id = on_battlefield(&engine, p0, mountain()).expect("the Mountain");
+    tap_mana_where(&mut engine, p0, |id| id == mountain_id);
+    activate(&mut engine, p0, rockface_village(), 2);
+    answer_target(&mut engine, lizard, &[elves]);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, lizard), (4, 1), "3/1 and +1/+0");
+    assert!(keywords(&engine, lizard).contains(KeywordSet::HASTE));
+    assert_eq!(pt(&engine, elves), (1, 1));
+}
+
+/// Turtle Lair: "{3}, {T}: Target Ninja or Turtle can't be blocked this
+/// turn."
+#[test]
+fn turtle_lair_makes_a_turtle_unblockable() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4206, mountain())
+        .battlefield(
+            0,
+            &[
+                turtle_lair(),
+                mountain(),
+                mountain(),
+                mountain(),
+                lair_tortoise(),
+                llanowar_elves(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let turtle = on_battlefield(&engine, p0, lair_tortoise()).expect("the Turtle");
+    let elves = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves");
+    tap_all_mana_but(&mut engine, p0, Some(turtle_lair()));
+    assert!(!keywords(&engine, turtle).contains(KeywordSet::UNBLOCKABLE));
+    activate(&mut engine, p0, turtle_lair(), 2);
+    answer_target(&mut engine, turtle, &[elves]);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, turtle).contains(KeywordSet::UNBLOCKABLE));
+    assert!(!keywords(&engine, elves).contains(KeywordSet::UNBLOCKABLE));
+}
+
+/// Mirrorpool: "{2}{C}, {T}, Sacrifice this land: Copy target instant or
+/// sorcery spell you control." A Bolt aimed at the opponent is copied; both
+/// resolve.
+#[test]
+fn mirrorpool_copies_a_spell_you_control() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4207, mountain())
+        .battlefield(0, &[mirrorpool(), mountain(), mountain(), sol_ring()])
+        .hand(0, &[lightning_bolt()])
+        .life(1, 20)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana_but(&mut engine, p0, Some(mirrorpool()));
+    cast_with_floating(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .expect("the Bolt aims at the opponent");
+    let bolt = on_stack(&engine, lightning_bolt()).expect("the Bolt is on the stack");
+    activate(&mut engine, p0, mirrorpool(), 1);
+    answer_target(&mut engine, bolt, &[]);
+    for _ in 0..30 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                if stack_is_empty(&engine) {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected on the way to resolution: {other:?}"),
+        }
+    }
+    assert_eq!(
+        engine.state().players[1].life,
+        14,
+        "the Bolt and its copy each dealt 3"
+    );
+    assert!(
+        on_battlefield(&engine, p0, mirrorpool()).is_none(),
+        "sacrificed"
+    );
+}
+
+/// Mirrorpool: "{4}{C}, {T}, Sacrifice this land: Create a token that's a
+/// copy of target creature you control."
+#[test]
+fn mirrorpool_copies_a_creature_you_control_as_a_token() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4208, mountain())
+        .battlefield(
+            0,
+            &[
+                mirrorpool(),
+                mountain(),
+                mountain(),
+                mountain(),
+                sol_ring(),
+                viashino_grappler(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let lizard = on_battlefield(&engine, p0, viashino_grappler()).expect("the Lizard");
+    tap_all_mana_but(&mut engine, p0, Some(mirrorpool()));
+    activate(&mut engine, p0, mirrorpool(), 2);
+    answer_target(&mut engine, lizard, &[]);
+    pass_until(&mut engine, stack_is_empty);
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "one token");
+    assert_eq!(pt(&engine, tokens[0]), (3, 1), "a copy of the Lizard");
+    assert!(on_battlefield(&engine, p0, mirrorpool()).is_none());
+}
