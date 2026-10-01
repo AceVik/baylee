@@ -5,6 +5,60 @@ the project continues there, headless. This file is for the session that
 picks it up. Keep reading `docs/trained-ai.md` (the design) and the repo's
 `CLAUDE.md`/`AGENTS.md` (the rules) beside it. Nothing here is secret.
 
+
+## State on 2026-10-01 11:30 (Ubuntu session; read this first)
+
+**The RL loop is stopped on purpose (tmux `rl` is gone). Do not restart it
+before the value NaN below is understood.**
+
+- **Value NaN since rl-32.** `train_rl.py`'s value Brier is finite through
+  rl-31 (0.196) and `nan` for rl-32 to rl-39. rl-39's value head is NaN on
+  every decision of any dataset (d3-mac-d001 too), while its policy still
+  played well on the house decks. rl-31 was the first iteration trained after
+  the loop moved to the GPU (GPU=1, 06:54) and is still clean. The cause is
+  not found: the data is finite, and so is the card table. **Restart from
+  rl-31** once fixed. rl-32 to rl-39 are suspect, and rl-40 is NaN everywhere
+  (moved to `*.nan-gen`).
+- **Overfitting.** On Astra's eval decks (data/decks/eval, 15 archetypes,
+  138 matchups; `arena --decks eval`) net − house went from −0.202 (v3-a-dyn)
+  to −0.401 (rl-37), while on the two house decks it rose from −0.169 to
+  about −0.04. The league had only ever played allytifact against victory.
+- **Step 4 is built, not trained.** `league --generated N` (both shapes,
+  pairs within a shape, `--held-out-every 20`) and rl_loop `GEN=200`, with
+  an eval arena every iteration (`EVAL=eval`, the headline number).
+  - Its first league (rl-l40, learner rl-39) shows the net is near helpless
+    on unseen decks: against expert 0.014, sharp 0.031, steady 0.038.
+  - Restart plan agreed with d7: from rl-31 (or a broad imitation net)
+    with GEN=200, judged by the eval arena; restart again if eval does not
+    recover in ~5 iterations.
+- **GPU.** `GPU=1`: v3 nets run through `batchnet` (one server per net,
+  full-size export only, fixed batch 64, deterministic; v2 stays on the CPU
+  unless `BAYLEE_EP=cuda`).
+  - Iteration ~27 min instead of ~41–45: league 2.15 games/s, arena 1.8×.
+  - Restarts went through a gate → push → stop at the boundary → GPU base
+    arena → restart in tmux script.
+  - Watch the loop: it once died unnoticed for 1.5 h.
+- **Arena.** Duplicate deals (net and house baseline on the same deal),
+  `--name` seeds the house (default `arena`), decision caps (6,000), the
+  loop guard (`STALL_VISITS`), deck sets.
+- **LLM chair** (`arena --llm openai:<model> --llm-kinds …`, feature `llm`;
+  `--llm-max-calls` default 2,000):
+  - DeepSeek-flash through d7's forwarder on 127.0.0.1:1235: 15 s/call.
+  - Blocks only, 300 deals: llm − house −0.003 [−0.010, +0.003]. A null
+    result, and only 6 of 159 games changed. Half its calls went to the
+    house through a since-fixed per-game budget.
+  - Gemma-4 26B on the Mac: 186 s/call.
+  - Two runs were still going at the stop; their results land unread in
+    `~/baylee-data/arena/llm-gemma26-blocks150` and
+    `llm-deepseek-targets55`.
+- **Mac data.** mac-d001 is converted (`d3-mac-d001`, every 32nd decision,
+  and `d3-mac-d001-e8`, every 8th).
+  - s1-mps (6M) 0.886 agreement, s2 (8.7M) 0.892, seed spread 0.003: data
+    is the next limit, so the e8 runs come next on the Mac.
+  - Convert Mac runs on a worktree at their own commit.
+- **Shell.** Never `pgrep -f`/`pkill -f` a pattern that appears anywhere in
+  the calling command: it kills the shell (exit 144).
+
 ## First steps for the Linux session
 
 1. **Data.** Copy `C:\baylee-data` into `/home/ace/baylee-data`. The copy
