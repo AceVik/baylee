@@ -270,10 +270,22 @@ fn the_environment_passes_by_name_and_never_a_key() {
         assert!(!forbidden(name), "{name}");
     }
     assert!(key_shaped("x sk-ant-api03-AAAABBBBCCCCDDDD y"));
+    assert!(key_shaped("/Users/sk-ant-api03-0123456789abcdefghij"));
     assert!(key_shaped("ghp_0123456789abcdefghijABCD"));
+    assert!(key_shaped("TOKEN=github_pat_0123456789abcdefghij_x"));
     assert!(key_shaped("Bearer abc"));
     assert!(!key_shaped("/Users/someone"));
     assert!(!key_shaped("/usr/local/bin:/usr/bin:/bin"));
+    // A marker inside a word is no key: `desk-tools-collection` holds
+    // `sk-` and sixteen key characters after it.
+    let desk = "/opt/desk-tools-collection/bin:/usr/bin";
+    assert!(!key_shaped(desk));
+    let tool = std::env::current_exe().unwrap();
+    let tool = tool.to_str().unwrap();
+    let launch = Launch::new(&settings(), Some(tool), &|name: &str| {
+        (name == "PATH").then(|| desk.to_string())
+    });
+    assert!(launch.is_ok(), "{launch:?}");
 
     let home = "/Users/sk-ant-api03-0123456789abcdefghij";
     let env = |name: &str| match name {
@@ -288,7 +300,8 @@ fn the_environment_passes_by_name_and_never_a_key() {
 
 /// A program is a whole path, or the tool's name on the absolute entries
 /// of `PATH`; never a shell's function or alias, and never a relative
-/// entry that would depend on the working directory.
+/// entry that would depend on the working directory, even one that holds
+/// the tool.
 #[test]
 fn the_program_is_a_whole_path_or_found_on_path() {
     let none = |_: &str| None;
@@ -301,4 +314,84 @@ fn the_program_is_a_whole_path_or_found_on_path() {
     })
     .unwrap_err();
     assert!(not_found.contains("not on PATH"), "{not_found}");
+    #[cfg(unix)]
+    a_relative_entry_holding_the_tool_is_skipped();
+}
+
+/// A `claude` in a directory named on `PATH` both relatively (from the
+/// test's working directory, up to the root and down again) and whole:
+/// only the whole entry finds it.
+#[cfg(unix)]
+fn a_relative_entry_holding_the_tool_is_skipped() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir()
+        .canonicalize()
+        .unwrap()
+        .join(format!("baylee-cli-program-{}", std::process::id()));
+    let bin = root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let tool = bin.join("claude");
+    std::fs::write(&tool, "#!/bin/sh\n").unwrap();
+    std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let here = std::env::current_dir().unwrap();
+    let up = here
+        .components()
+        .filter(|part| matches!(part, std::path::Component::Normal(_)))
+        .count();
+    let relative = std::iter::repeat_n("..", up)
+        .collect::<PathBuf>()
+        .join(bin.strip_prefix("/").unwrap());
+    assert!(relative.is_relative());
+    assert!(runnable(&relative.join("claude")), "the entry holds it");
+    let find = |path: String| {
+        program(CliTool::Claude, None, &move |name: &str| {
+            (name == "PATH").then(|| path.clone())
+        })
+    };
+    let skipped = find(format!("{}:/nowhere", relative.display())).unwrap_err();
+    assert!(skipped.contains("not on PATH"), "{skipped}");
+    let found = find(format!("{}:{}", relative.display(), bin.display()));
+    assert_eq!(found, Ok(tool));
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// The time a rate limit names is believed only within reason: a past
+/// time, none at all, or more than fifteen minutes is as if it named none,
+/// and the mind cools for the doubling cooldown's step instead.
+#[test]
+fn a_limits_named_time_is_believed_up_to_fifteen_minutes() {
+    let half = Duration::from_secs(30);
+    assert_eq!(believed(Some(half)), Some(half));
+    assert_eq!(believed(Some(MAX_COOLDOWN)), Some(MAX_COOLDOWN));
+    assert_eq!(believed(Some(Duration::ZERO)), None);
+    assert_eq!(believed(Some(MAX_COOLDOWN + Duration::from_secs(1))), None);
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let past = format!("Claude AI usage limit reached|{}", now - 60);
+    let events = read(&[&json!({"type": "result", "is_error": true, "result": past}).to_string()]);
+    assert!(
+        matches!(
+            &events[0],
+            Event::Reply(Outcome::RateLimited { lifts_in: None, .. })
+        ),
+        "{:?}",
+        events[0]
+    );
+
+    let tool = std::env::current_exe().unwrap();
+    let launch = Launch::new(&settings(), Some(tool.to_str().unwrap()), &|_: &str| None).unwrap();
+    let limits = Limits {
+        cooldown: Duration::from_secs(60),
+        ..Limits::default()
+    };
+    let mind = CliMind::new(settings(), launch, limits);
+    mind.cool(Some(Duration::from_hours(24)));
+    let left = mind.cooling().unwrap();
+    assert!(left <= limits.cooldown, "a day is not believed: {left:?}");
+    mind.cool(Some(half));
+    let left = mind.cooling().unwrap();
+    assert!(left <= half && left > half / 2, "{left:?}");
 }

@@ -268,12 +268,13 @@ fn outcome(result: &Value, trouble: Option<&str>) -> Outcome {
 }
 
 /// When a limit lifts, where the reply says: a Unix time after the last
-/// `|`, as Claude Code's usage-limit text ends.
+/// `|`, as Claude Code's usage-limit text ends; `None` for a time past.
+/// How long is believed is the mind's to say.
 fn lifts_in(said: &str) -> Option<Duration> {
     let (_, at) = said.rsplit_once('|')?;
     let at = Duration::from_secs(at.trim().parse::<u64>().ok()?);
     let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?;
-    Some(at.saturating_sub(now))
+    at.checked_sub(now)
 }
 
 /// The tokens a `result` counted. Every read of the context counts,

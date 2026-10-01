@@ -206,8 +206,9 @@ owner to check before playing.
   `212 of 500 calls`. A reply that does not say what it used counts at its
   worst.
 - **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
-  the house answers, and the mind cools down for the time the tool names,
-  else a minute, doubling to fifteen. It plays again once that has passed
+  the house answers, and the mind cools down for the time the tool names
+  when that is some time and at most fifteen minutes, else a minute,
+  doubling to fifteen. It plays again once that has passed
   and `claude auth status --json` (which calls no model) says
   `"loggedIn": true`; output it cannot read counts as signed out.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
