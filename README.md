@@ -545,6 +545,14 @@ DeepSeek:
 - **DeepSeek:** `export DEEPSEEK_API_KEY=…` in the shell you start the table
   from. A model the bridge has no price for plays only under `game_tokens`
   (or a `price` in its profile).
+- **Claude Code on a subscription:** a profile such as
+  `"cc": {"provider": "cli", "model": "claude:opus", "command": "/Users/<you>/.local/share/claude/versions/<version>", "game_calls": 300}`
+  plays through the `claude` you signed in to by hand, on that login and with
+  no key (`key_env`, `base_url` and `price` are refused). Pin `command` to a
+  version's own file, since `~/.local/bin/claude` is a link the tool moves on
+  every update. A game counts tokens (20,000,000 by default) and calls
+  (`game_calls`, 500 by default); see
+  [docs/llm-seat.md](docs/llm-seat.md#a-cli-as-the-model).
 - **Caps:** the `caps` hold across games. Each game reserves its budget in
   `llm-spend.json` beside the settings file before it sits down, and settles
   after.
@@ -558,7 +566,8 @@ cargo run -p xtask -- dev-table --bridge profile:lmstudio --play
 
 - `--bridge house` seats the house AI through the same bridge, a quick check
   that the table works before a model is involved.
-- `--bridge profile:deepseek` plays the DeepSeek profile.
+- `--bridge profile:deepseek` plays the DeepSeek profile, `--bridge profile:cc`
+  Claude Code.
 - The bridge writes what it asked and what the model answered to
   `target/seat-transcripts/`. That is the first place to look when a model
   plays strangely.
