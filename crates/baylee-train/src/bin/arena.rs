@@ -141,6 +141,11 @@ struct Args {
     #[cfg(feature = "llm")]
     #[arg(long)]
     llm_transcripts: Option<PathBuf>,
+    /// How long the chair waits for one answer before the house answers.
+    /// A local model at four calls in flight takes about three minutes.
+    #[cfg(feature = "llm")]
+    #[arg(long, default_value_t = 300)]
+    llm_wait_secs: u64,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -355,6 +360,7 @@ fn main() -> anyhow::Result<()> {
                 &args.llm_kinds,
                 args.llm_effort.as_deref(),
                 args.llm_transcripts.as_deref(),
+                Duration::from_secs(args.llm_wait_secs),
             )
         })
         .transpose()?

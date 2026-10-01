@@ -35,9 +35,6 @@ use baylee_view::{LogTail, PlayerView};
 use crate::features::{PENDING_KINDS, question};
 use crate::policy::{self, Picked};
 
-/// How long the chair waits for one answer.
-const BUDGET: Duration = Duration::from_secs(300);
-
 /// A model in a chair, shared by every game of an arena.
 pub struct LlmChair {
     mind: ApiMind,
@@ -46,6 +43,8 @@ pub struct LlmChair {
     /// `None` is every kind.
     kinds: Option<BTreeSet<String>>,
     spec: String,
+    /// How long it waits for one answer.
+    wait: Duration,
     calls: AtomicU64,
     refused: AtomicU64,
     failed: AtomicU64,
@@ -67,6 +66,7 @@ impl LlmChair {
         kinds: &[String],
         effort: Option<&str>,
         transcripts: Option<&std::path::Path>,
+        wait: Duration,
     ) -> anyhow::Result<Self> {
         let parsed = Spec::parse(spec)
             .context("--llm names openai:<model> or anthropic[:<model>]")?
@@ -95,6 +95,7 @@ impl LlmChair {
                 .build()?,
             kinds: (!kinds.is_empty()).then(|| kinds.iter().cloned().collect()),
             spec: spec.to_owned(),
+            wait,
             calls: AtomicU64::new(0),
             refused: AtomicU64::new(0),
             failed: AtomicU64::new(0),
@@ -133,7 +134,7 @@ impl LlmChair {
                 view: view.clone(),
                 pending: pending.clone(),
                 log: LogTail::default(),
-                budget: BUDGET,
+                budget: self.wait,
                 retry: retry.take(),
                 continuing: false,
             };
