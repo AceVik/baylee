@@ -1465,6 +1465,59 @@ mod tests {
         assert_eq!(agent.fallbacks(), 5, "an answer inside its question is not");
     }
 
+    /// A number below its range is raised to the minimum, and a zero-width
+    /// range answers its one value.
+    #[test]
+    fn a_number_under_its_range_is_raised_to_the_minimum() {
+        let v = view(0, &[20, 20], vec![]);
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        for (min, max, said, expect) in [(2, 5, 0, 2), (3, 3, 9, 3), (0, 4, 4, 4)] {
+            let pending = Pending::ChooseNumber {
+                player: v.seat,
+                min,
+                max,
+                reason: baylee_engine::choice::NumberPrompt::X,
+            };
+            let answer = agent.held_to(&v, &pending, PlayerAction::ChooseNumber(said));
+            assert_eq!(answer, PlayerAction::ChooseNumber(expect), "{min}..{max}");
+        }
+    }
+
+    /// A wrong-kind answer to "choose a player" falls to an opponent, never
+    /// the answering seat itself.
+    #[test]
+    fn a_wrong_kind_answer_to_choose_player_falls_to_an_opponent() {
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let v = view(0, &[20, 20], vec![]);
+        let pending = Pending::ChoosePlayer {
+            player: me,
+            options: vec![me, them],
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        let answer = agent.held_to(&v, &pending, PlayerAction::YesNo(true));
+        assert_eq!(pending.answer_fault(&answer), None);
+        assert_eq!(answer, PlayerAction::ChoosePlayer(them));
+        assert_eq!(agent.fallbacks(), 1);
+    }
+
+    /// Every refit is counted, including one that lands on a no-op.
+    #[test]
+    fn each_refit_is_counted_once_and_an_answer_inside_its_question_is_not() {
+        let v = view(0, &[20, 20], vec![]);
+        let pending = Pending::ChooseNumber {
+            player: v.seat,
+            min: 1,
+            max: 2,
+            reason: baylee_engine::choice::NumberPrompt::X,
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        agent.held_to(&v, &pending, PlayerAction::ChooseNumber(1));
+        assert_eq!(agent.fallbacks(), 0);
+        agent.held_to(&v, &pending, PlayerAction::ChooseNumber(9));
+        agent.held_to(&v, &pending, PlayerAction::ChooseNumber(0));
+        assert_eq!(agent.fallbacks(), 2);
+    }
+
     #[test]
     fn third_iteration_counter_sign_decides_which_team_to_target() {
         use baylee_cards_dsl::{Amount, CounterKind as Counter, Effect};

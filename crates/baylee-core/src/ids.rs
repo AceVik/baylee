@@ -434,3 +434,61 @@ mod seat_set_tests {
         SeatSet::new().insert(PlayerId::new(16));
     }
 }
+
+#[cfg(test)]
+mod handle_tests {
+    use super::*;
+
+    #[test]
+    fn a_generation_wraps_without_touching_its_slot() {
+        let id = ObjectId::new(ObjectId::MAX_SLOT, 255);
+        assert_eq!(id.slot(), ObjectId::MAX_SLOT);
+        let next = id.bumped();
+        assert_eq!(next.generation(), 0);
+        assert_eq!(next.slot(), ObjectId::MAX_SLOT);
+        assert_ne!(id, next, "a bumped handle is another object");
+    }
+
+    #[test]
+    #[should_panic(expected = "slot out of range")]
+    fn a_slot_past_the_arena_is_loud() {
+        let _ = ObjectId::new(ObjectId::MAX_SLOT + 1, 0);
+    }
+
+    #[test]
+    fn a_handle_prints_its_slot_and_generation_in_both_spellings() {
+        let id = ObjectId::new(42, 7);
+        assert_eq!(id.to_string(), "42#7");
+        assert_eq!(format!("{id:?}"), "ObjectId(42#7)");
+    }
+
+    #[test]
+    fn an_object_id_travels_as_one_number() {
+        let id = ObjectId::new(5, 3);
+        let json = serde_json::to_string(&id).unwrap();
+        assert_eq!(json, ((3u32 << 24) | 5).to_string(), "transparent");
+        assert_eq!(serde_json::from_str::<ObjectId>(&json).unwrap(), id);
+    }
+
+    #[test]
+    fn an_ability_is_listed_only_below_the_reserved_range() {
+        let card = CardIndex::new(9);
+        assert!(AbilityRef::new(card, 0).is_listed_ability());
+        assert!(AbilityRef::new(card, AbilityRef::FIRST_RESERVED - 1).is_listed_ability());
+        for reserved in [
+            AbilityRef::SPELL,
+            AbilityRef::ENTERS,
+            AbilityRef::FIRST_RESERVED,
+            AbilityRef::COMMANDER_REPLACE,
+        ] {
+            assert!(!AbilityRef::new(card, reserved).is_listed_ability());
+        }
+        assert_eq!(AbilityRef::new(card, 2).to_string(), "card 9#2");
+    }
+
+    #[test]
+    fn the_unknown_print_is_the_last_reference_a_table_can_name() {
+        assert_eq!(PrintRef::UNKNOWN.get(), u16::MAX);
+        assert_ne!(PrintRef::UNKNOWN, PrintRef::new(0));
+    }
+}

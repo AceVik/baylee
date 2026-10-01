@@ -320,4 +320,81 @@ mod tests {
         assert_eq!(detect(""), None);
         assert_eq!(detect("  \n\n "), None);
     }
+
+    #[test]
+    fn a_key_is_found_in_any_case_and_a_stranger_is_none() {
+        assert_eq!(FormatId::of_key("JSON"), Some(FormatId::Json));
+        assert_eq!(FormatId::of_key("Moxfield"), Some(FormatId::Moxfield));
+        assert_eq!(FormatId::of_key("csv"), None);
+        assert_eq!(FormatId::of_key(""), None);
+    }
+
+    #[test]
+    fn only_json_and_yaml_say_everything_and_each_names_a_file_type() {
+        let lossless: Vec<FormatId> = FormatId::ALL.into_iter().filter(|f| f.lossless()).collect();
+        assert_eq!(lossless, vec![FormatId::Json, FormatId::Yaml]);
+        assert_eq!(FormatId::Json.extension(), "json");
+        assert_eq!(FormatId::Yaml.extension(), "yaml");
+        assert_eq!(FormatId::Baylee.extension(), "txt");
+        assert_eq!(FormatId::Moxfield.media_type(), "text/plain");
+        assert_eq!(FormatId::Json.media_type(), "application/json");
+        assert_eq!(FormatId::Yaml.media_type(), "application/yaml");
+    }
+
+    #[test]
+    fn a_parsers_error_is_cut_to_its_first_line() {
+        let said = ReadError::syntax(&"expected a value\n  1 | {\n    ^ here");
+        assert_eq!(said, ReadError::Syntax("expected a value".into()));
+        assert_eq!(ReadError::syntax(&""), ReadError::Syntax(String::new()));
+    }
+
+    #[test]
+    fn a_skipped_line_is_trimmed_and_cut_to_a_length_worth_showing() {
+        let skipped = Skipped::new(4, &format!("  {}  ", "x".repeat(200)));
+        assert_eq!(skipped.line, 4);
+        assert_eq!(skipped.text.chars().count(), Skipped::SHOWN);
+        assert!(!skipped.text.starts_with(' '));
+    }
+
+    #[test]
+    fn losses_are_counted_by_kind_in_kind_order() {
+        let mut tally = Tally::default();
+        tally.add(LossKind::Note);
+        tally.add(LossKind::Name);
+        tally.add(LossKind::Note);
+        assert_eq!(
+            tally.losses(),
+            vec![
+                Loss {
+                    kind: LossKind::Name,
+                    rows: 1
+                },
+                Loss {
+                    kind: LossKind::Note,
+                    rows: 2
+                },
+            ]
+        );
+        assert!(Tally::default().losses().is_empty());
+    }
+
+    #[test]
+    fn a_read_error_says_where_and_why() {
+        assert_eq!(
+            ReadError::Card {
+                at: 2,
+                why: CardError::Count
+            }
+            .to_string(),
+            "card 3: a card needs a copy count from 1 to 1000000"
+        );
+        assert_eq!(
+            ReadError::Unreadable(Skipped::new(7, "hello")).to_string(),
+            "line 7: not a deck row: hello"
+        );
+        assert_eq!(
+            ReadError::TooLarge { bytes: 9 }.to_string(),
+            "a deck file is at most 256 KiB; this is 9 bytes"
+        );
+    }
 }

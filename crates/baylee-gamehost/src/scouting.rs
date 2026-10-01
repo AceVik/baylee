@@ -316,4 +316,121 @@ mod tests {
         assert_eq!(hand.len(), 2);
         assert_eq!(hand.len(), state.zones.list(ZoneLocation::Hand(p0)).len());
     }
+
+    /// The lower levels never ask to read a hand, a library or an opponent,
+    /// and the report built for them says so: no hand, no library order, one
+    /// seat. This is the profile-to-report path the harness takes.
+    #[test]
+    fn a_profile_without_lookahead_is_never_handed_hidden_zones() {
+        use baylee_engine::engine::Engine;
+        let (decks, state) = fixture();
+        let seats = [SeatKind::Ai(agent()), SeatKind::Ai(agent())];
+        let engine = Engine::new(&preset(), RegistryLookup).expect("game starts");
+        let pending = engine.pending().clone();
+        let mut asked = 0;
+        for (key, profile) in AIProfile::NAMED {
+            let a = HeuristicAgent::new(profile);
+            let Some(ask) = a.scouting_request(&pending) else {
+                continue;
+            };
+            asked += 1;
+            let report = request(&seats, &decks, &state, PlayerId::new(0), ask).expect("AI seat");
+            if profile.lookahead == 0 {
+                assert_eq!(report.seats.len(), 1, "{key} reached an opponent");
+                assert!(report.seats[0].hand.is_none(), "{key} read a hand");
+            }
+            if profile.lookahead <= 1 {
+                for s in &report.seats {
+                    assert!(s.library.is_none(), "{key} read library order");
+                }
+            }
+            for s in &report.seats {
+                assert!(s.sideboard.is_none(), "{key} read a sideboard unasked");
+            }
+        }
+        assert!(asked > 0, "the opening question asked nobody anything");
+    }
+
+    /// `Top(0)` is an empty window and `Top(n)` past the end is the whole
+    /// library, never a panic or a wrap.
+    #[test]
+    fn a_library_window_is_clamped_to_what_is_there() {
+        let (decks, state) = fixture();
+        let seats = [SeatKind::Ai(agent()), SeatKind::Ai(agent())];
+        let p0 = PlayerId::new(0);
+        let len = state.zones.list(ZoneLocation::Library(p0)).len();
+        let window = |n: u16| {
+            request(
+                &seats,
+                &decks,
+                &state,
+                p0,
+                ScoutingRequest {
+                    library: LibraryAccess::Top(n),
+                    ..everything()
+                },
+            )
+            .expect("AI seat")
+            .seats[0]
+                .library
+                .clone()
+                .expect("asked for")
+        };
+        assert!(window(0).is_empty());
+        assert_eq!(window(u16::MAX).len(), len);
+    }
+
+    /// What is scouted is the card each object *is*, in the zones asked for:
+    /// an opponent's hand is that opponent's cards and not ours.
+    #[test]
+    fn each_scouted_seat_holds_its_own_cards() {
+        let (decks, state) = fixture();
+        let seats = [SeatKind::Ai(agent()), SeatKind::Ai(agent())];
+        let report =
+            request(&seats, &decks, &state, PlayerId::new(0), everything()).expect("AI seat");
+        for (seat, card) in [(0usize, island()), (1, forest())] {
+            let s = &report.seats[seat];
+            assert_eq!(s.player, PlayerId::new(u8::try_from(seat).unwrap()));
+            for list in [&s.hand, &s.library, &s.sideboard] {
+                assert!(
+                    list.as_ref().expect("asked for").iter().all(|c| *c == card),
+                    "seat {seat} was shown another seat's card"
+                );
+            }
+        }
+    }
+
+    /// Only the hand, library and outside-the-game zones are disclosed.
+    #[test]
+    fn a_report_counts_only_the_zones_it_discloses() {
+        let (decks, state) = fixture();
+        let seats = [SeatKind::Ai(agent()), SeatKind::Ai(agent())];
+        let p0 = PlayerId::new(0);
+        let report = request(&seats, &decks, &state, p0, everything()).expect("AI seat");
+        let s = &report.seats[0];
+        let disclosed = s.hand.as_ref().unwrap().len()
+            + s.library.as_ref().unwrap().len()
+            + s.sideboard.as_ref().unwrap().len();
+        let in_game = state.zones.list(ZoneLocation::Hand(p0)).len()
+            + state.zones.list(ZoneLocation::Library(p0)).len()
+            + state.zones.list(ZoneLocation::OutsideGame(p0)).len();
+        assert_eq!(disclosed, in_game);
+    }
+
+    /// `decks` keeps duplicate counts and seat order and takes commanders
+    /// separately from the main deck.
+    #[test]
+    fn deck_intel_follows_the_submitted_lists_in_seat_order() {
+        let mut p = preset();
+        p.seats[1].commanders = vec![DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        }];
+        let d = decks(&p);
+        assert_eq!(d.len(), 2);
+        assert_eq!(d[0].cards.len(), 60);
+        assert!(d[0].commanders.is_empty());
+        assert!(d[1].cards.iter().all(|c| *c == forest()));
+        assert_eq!(d[1].commanders, vec![island()]);
+    }
 }

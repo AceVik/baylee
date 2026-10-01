@@ -770,4 +770,217 @@ mod tests {
             Err(PresetError::TooManyCards { seat: 0, .. })
         ));
     }
+
+    fn entry(print: u16) -> DeckEntry {
+        DeckEntry {
+            card: CardIndex::new(0),
+            print: PrintRef::new(print),
+        }
+    }
+
+    fn counters(amount: u16, kind: &str) -> Vec<StartingCounter> {
+        vec![StartingCounter {
+            kind: kind.into(),
+            amount,
+        }]
+    }
+
+    #[test]
+    fn a_starting_counter_needs_a_seat_and_a_permanent_that_exist() {
+        let mut p = preset(2, 1, 0);
+        p.seats[0].starting_battlefield = vec![entry(0)];
+        let place = |seat, permanent, amount, kind: &str| StartingCounters {
+            seat,
+            permanent,
+            counters: counters(amount, kind),
+        };
+        p.house_rules.starting_counters = vec![place(0, 0, 3, "+1/+1")];
+        assert!(p.validate().is_ok());
+        for bad in [
+            place(5, 0, 1, "x"),
+            place(0, 1, 1, "x"),
+            place(0, 0, 0, "x"),
+            place(0, 0, 1000, "x"),
+            place(0, 0, 1, &"k".repeat(41)),
+        ] {
+            p.house_rules.starting_counters = vec![bad];
+            assert_eq!(p.validate(), Err(PresetError::StartingCounters));
+        }
+        p.house_rules.starting_counters = vec![place(0, 0, 1, "x"); 257];
+        assert_eq!(p.validate(), Err(PresetError::StartingCounters));
+    }
+
+    #[test]
+    fn at_most_seven_free_mulligans_and_the_older_flag_still_means_one() {
+        let mut p = preset(2, 1, 0);
+        p.house_rules.free_mulligans = Some(8);
+        assert_eq!(p.validate(), Err(PresetError::TooManyFreeMulligans));
+        p.house_rules.free_mulligans = Some(7);
+        assert!(p.validate().is_ok());
+        let mut rules = HouseRules::default();
+        assert_eq!(rules.free_mulligan_count(), 1);
+        rules.mulligan_free_first = false;
+        assert_eq!(rules.free_mulligan_count(), 0);
+        rules.free_mulligans = Some(3);
+        assert_eq!(
+            rules.free_mulligan_count(),
+            3,
+            "the count wins over the flag"
+        );
+    }
+
+    #[test]
+    fn a_seat_that_is_not_open_needs_a_deck_and_an_open_one_need_not() {
+        let mut p = preset(2, 1, 0);
+        p.seats[1].deck.clear();
+        assert_eq!(p.validate(), Err(PresetError::EmptyDeck(1)));
+        p.seats[1].controller = SeatController::Open;
+        assert!(p.validate().is_ok());
+    }
+
+    #[test]
+    fn every_list_that_reaches_a_view_is_range_checked() {
+        for list in [
+            CardList::StartingHand,
+            CardList::StartingBattlefield,
+            CardList::Commander,
+        ] {
+            let mut p = preset(2, 1, 0);
+            match list {
+                CardList::StartingHand => p.seats[1].starting_hand = Some(vec![entry(0), entry(4)]),
+                CardList::StartingBattlefield => p.seats[1].starting_battlefield = vec![entry(4)],
+                _ => p.seats[1].commanders = vec![entry(4)],
+            }
+            let at = usize::from(list == CardList::StartingHand);
+            assert_eq!(
+                p.validate(),
+                Err(PresetError::PrintOutOfRange {
+                    seat: 1,
+                    list,
+                    entry: at,
+                    print: 4
+                }),
+                "{list}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_print_table_beyond_what_a_ref_can_address_is_refused() {
+        let p = preset(2, MAX_PRINTS + 1, 0);
+        assert_eq!(
+            p.validate(),
+            Err(PresetError::PrintTableTooLarge(MAX_PRINTS + 1))
+        );
+    }
+
+    #[test]
+    fn a_list_names_itself_in_its_refusal() {
+        let said = PresetError::PrintOutOfRange {
+            seat: 2,
+            list: CardList::StartingBattlefield,
+            entry: 3,
+            print: 9,
+        }
+        .to_string();
+        assert_eq!(
+            said,
+            "seat 2 starting battlefield entry 3 references print 9, out of range"
+        );
+        assert_eq!(CardList::Commander.to_string(), "commanders");
+        assert_eq!(CardList::Sideboard.to_string(), "sideboard");
+    }
+
+    #[test]
+    fn a_room_setup_is_bounded_before_it_reaches_a_preset() {
+        let ok = RoomSetup::default();
+        assert!(ok.validate(4).is_ok());
+        let life = |n| RoomSetup {
+            starting_life: n,
+            ..RoomSetup::default()
+        };
+        assert!(life(0).validate(4).is_err());
+        assert!(life(1000).validate(4).is_err());
+        assert!(life(999).validate(4).is_ok());
+        let mull = RoomSetup {
+            free_mulligans: 8,
+            ..RoomSetup::default()
+        };
+        assert!(mull.validate(4).is_err());
+        assert!(ok.validate(1).is_err(), "a table seats at least two");
+        assert!(ok.validate(9).is_err(), "and at most eight");
+        let crowded = RoomSetup {
+            seats: vec![RoomSeatSetup::default(); 5],
+            ..RoomSetup::default()
+        };
+        assert!(crowded.validate(4).is_err(), "more setups than chairs");
+    }
+
+    #[test]
+    fn a_seats_starting_permanents_cannot_smuggle_a_second_spec() {
+        let with = |seat: RoomSeatSetup| RoomSetup {
+            seats: vec![seat],
+            ..RoomSetup::default()
+        };
+        let perm = |s: &str| RoomSeatSetup {
+            permanents: vec![s.to_string()],
+            ..RoomSeatSetup::default()
+        };
+        assert!(with(perm("Island")).validate(2).is_ok());
+        assert!(with(perm("Island;Plains")).validate(2).is_err());
+        assert!(with(perm("Island\nPlains")).validate(2).is_err());
+        assert!(with(perm(&"a".repeat(501))).validate(2).is_err());
+        let many = RoomSeatSetup {
+            permanents: vec!["Island".into(); 33],
+            ..RoomSeatSetup::default()
+        };
+        assert!(with(many).validate(2).is_err());
+        let life = RoomSeatSetup {
+            life: Some(0),
+            ..RoomSeatSetup::default()
+        };
+        assert!(with(life).validate(2).is_err());
+        let orphan = RoomSeatSetup {
+            counters: vec![counters(1, "x")],
+            ..RoomSeatSetup::default()
+        };
+        assert!(
+            with(orphan).validate(2).is_err(),
+            "counters on no permanent"
+        );
+        let zero = RoomSeatSetup {
+            permanents: vec!["Island".into()],
+            counters: vec![counters(0, "x")],
+            ..RoomSeatSetup::default()
+        };
+        assert!(with(zero).validate(2).is_err());
+    }
+
+    #[test]
+    fn the_named_profiles_are_found_by_key_and_think_harder_as_they_climb() {
+        for (key, profile) in AIProfile::NAMED {
+            assert_eq!(AIProfile::named(key), Some(profile));
+        }
+        assert_eq!(AIProfile::named("Sharp"), None, "keys are lower case");
+        assert_eq!(AIProfile::named(""), None);
+        assert_eq!(AIProfile::default(), AIProfile::STEADY);
+        let budgets: Vec<u32> = AIProfile::NAMED
+            .iter()
+            .map(|(_, p)| p.node_budget())
+            .collect();
+        assert!(budgets.windows(2).all(|w| w[0] <= w[1]), "{budgets:?}");
+        assert_eq!(AIProfile::NOVICE.node_budget(), 0);
+        assert_eq!(AIProfile::SHARP.node_budget(), 16_384);
+        assert_eq!(AIProfile::EXPERT.node_budget(), 262_144);
+    }
+
+    #[test]
+    fn a_stored_house_rule_without_the_newer_fields_still_reads() {
+        let mut json = serde_json::to_value(HouseRules::default()).unwrap();
+        let object = json.as_object_mut().unwrap();
+        object.remove("free_mulligans");
+        object.remove("starting_counters");
+        let back: HouseRules = serde_json::from_value(json).unwrap();
+        assert_eq!(back, HouseRules::default());
+    }
 }
