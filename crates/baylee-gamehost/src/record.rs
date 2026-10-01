@@ -593,4 +593,81 @@ mod tests {
         let record = String::from_utf8(played(3).take_record()).unwrap();
         assert!(!record.contains("Alice Example"));
     }
+
+    #[test]
+    fn a_header_whose_hash_is_not_the_table_it_describes_diverges_before_any_input() {
+        let mut written = lines(&played(3).take_record());
+        if let Line::Header { hash, .. } = &mut written[0] {
+            *hash = hex(1);
+        }
+        assert!(matches!(
+            replay(&encode(&written)),
+            Err(ReplayError::Diverged { n: None, .. })
+        ));
+    }
+
+    #[test]
+    fn a_header_whose_preset_builds_no_engine_is_unbuildable() {
+        let mut written = lines(&played(3).take_record());
+        if let Line::Header { preset, .. } = &mut written[0] {
+            preset.seats.truncate(1);
+        }
+        assert_eq!(replay(&encode(&written)).err(), Some(ReplayError::Unbuildable));
+    }
+
+    /// An input the engine would refuse is a refusal, never a quiet skip: a
+    /// record that says a seat answered a question it was not asked is not
+    /// this game.
+    #[test]
+    fn an_input_the_engine_refuses_is_named_by_its_number() {
+        let mut written = lines(&played(3).take_record());
+        let at = written
+            .iter()
+            .position(|l| by(l).is_some())
+            .expect("an input");
+        let Line::Input { n, seat, .. } = &mut written[at] else {
+            unreachable!()
+        };
+        let n = *n;
+        *seat = 7;
+        assert_eq!(
+            replay(&encode(&written)).err(),
+            Some(ReplayError::Refused { n })
+        );
+    }
+
+    #[test]
+    fn a_chair_line_alone_changes_nothing_in_the_replay() {
+        let written = lines(&played(3).take_record());
+        let without: Vec<Line> = written
+            .iter()
+            .filter(|l| !matches!(l, Line::Chair { .. }))
+            .cloned()
+            .collect();
+        let with = replay(&encode(&written)).expect("replays");
+        let bare = replay(&encode(&without)).expect("replays without its chair lines");
+        assert_eq!(with.inputs, bare.inputs);
+        assert_eq!(with.engine.snapshot_hash(), bare.engine.snapshot_hash());
+    }
+
+    #[test]
+    fn the_wire_spelling_of_a_record_is_snake_case_and_tagged() {
+        let end = Line::End {
+            n: 3,
+            at: 9,
+            winners: vec![1],
+            reason: "last standing".into(),
+        };
+        let json = serde_json::to_string(&end).unwrap();
+        assert!(json.starts_with(r#"{"kind":"end""#), "{json}");
+        let chair = serde_json::to_string(&Line::Chair {
+            n: 1,
+            at: 2,
+            seat: 0,
+            change: ChairChange::StoodIn,
+        })
+        .unwrap();
+        assert!(chair.contains(r#""change":"stood_in""#), "{chair}");
+        assert_eq!(serde_json::to_string(&Source::StandIn).unwrap(), r#""stand_in""#);
+    }
 }
