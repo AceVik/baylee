@@ -69,6 +69,11 @@ impl BatchNet {
             .context("the export has no batched files: run export_onnx3.py --batch")?;
         let mut sessions = BTreeMap::new();
         let mut batch = 0;
+        // Only the full-size export: every session holds its own activation
+        // memory, and a league of three nets at five sizes each filled the
+        // card's 12 GB. Smaller decisions are padded up, which costs compute
+        // the GPU has to spare and fills the batches better besides.
+        let mut largest: Option<(usize, std::path::PathBuf)> = None;
         for b in listed {
             let (Some(rows), Some(size), Some(file)) = (
                 b["entities"].as_u64(),
@@ -82,7 +87,13 @@ impl BatchNet {
                 bail!("the batched files mix batch sizes {batch} and {size}");
             }
             batch = size;
-            sessions.insert(usize::try_from(rows)?, open(&model.with_file_name(file))?);
+            let rows = usize::try_from(rows)?;
+            if largest.as_ref().is_none_or(|(r, _)| rows > *r) {
+                largest = Some((rows, model.with_file_name(file)));
+            }
+        }
+        if let Some((rows, file)) = largest {
+            sessions.insert(rows, open(&file)?);
         }
         let (tx, rx) = mpsc::sync_channel(4096);
         let stats = Arc::new([AtomicU64::new(0), AtomicU64::new(0)]);
@@ -142,8 +153,12 @@ fn open(path: &Path) -> anyhow::Result<Session> {
         builder
     } else {
         builder
+            // Each session's arena grows by what it is asked for: the
+            // default doubling ran a league of three nets (fifteen
+            // sessions) out of the card's 12 GB.
             .with_execution_providers([ort::ep::CUDA::default()
                 .with_tf32(false)
+                .with_arena_extend_strategy(ort::ep::ArenaExtendStrategy::SameAsRequested)
                 .build()
                 .error_on_failure()])
             .map_err(err)?

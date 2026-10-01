@@ -184,10 +184,10 @@ impl Player {
         let meta: Value = serde_json::from_slice(&fs::read(model.with_extension("onnx.json"))?)
             .with_context(|| format!("{}.json", model.display()))?;
         if meta["encoder_version"] == json!(3) {
-            let mut net = NetPlayer3::load(model, entities, 4)?;
-            if let Some(server) = servers.get(model) {
-                net = net.with_server(server.clone());
-            }
+            let mut net = match servers.get(model) {
+                Some(server) => NetPlayer3::served(model, entities, 4, server.clone())?,
+                None => NetPlayer3::load(model, entities, 4)?,
+            };
             net.temperature = temperature;
             net.seed(seed);
             Ok(Self::V3(Box::new(net)))

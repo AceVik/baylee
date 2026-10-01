@@ -331,12 +331,11 @@ fn main() -> anyhow::Result<()> {
         );
         std::thread::spawn(move || {
             let loaded = if encoder == u64::from(baylee_train::features3::VERSION) {
-                NetPlayer3::load(&model, entities, as_profile)
-                    .map(|n| match server {
-                        Some(server) => n.with_server(server),
-                        None => n,
-                    })
-                    .map(Net::V3)
+                match server {
+                    Some(server) => NetPlayer3::served(&model, entities, as_profile, server),
+                    None => NetPlayer3::load(&model, entities, as_profile),
+                }
+                .map(Net::V3)
             } else {
                 NetPlayer::load(&model, entities, glob_width, as_profile).map(Net::V2)
             };

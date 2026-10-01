@@ -181,14 +181,16 @@ pub const STALL_VISITS: u32 = 3;
 
 /// A v3 net on ONNX Runtime.
 pub struct NetPlayer3 {
-    session: Session,
+    /// The full-size export; `None` for a player whose decisions a batch
+    /// server runs.
+    session: Option<Session>,
     entities: usize,
     /// The house profile the net is asked to play as (0 novice … 4 expert).
     pub profile: i64,
     /// Smaller exports of the same net (`buckets` in the export's JSON),
     /// by the rows each takes: a decision runs on the smallest that holds
     /// its rows.
-    buckets: Vec<(usize, Session)>,
+    buckets: Vec<(usize, Option<Session>)>,
     /// 0 plays the best-scored option; above 0 samples from the softmax of
     /// the scores over this temperature (self-play's exploration).
     pub temperature: f32,
@@ -209,6 +211,32 @@ impl NetPlayer3 {
     /// # Errors
     /// When ONNX Runtime cannot load the model.
     pub fn load(model: &Path, entities: usize, profile: i64) -> anyhow::Result<Self> {
+        Self::open(model, entities, profile, None)
+    }
+
+    /// The same player with every decision run by `server` (the net's
+    /// fixed-batch exports, shared by the process's games). It opens no
+    /// sessions of its own: a hundred games on the GPU must not each hold
+    /// the net on the CPU as well.
+    ///
+    /// # Errors
+    /// When the export's JSON cannot be read.
+    pub fn served(
+        model: &Path,
+        entities: usize,
+        profile: i64,
+        server: crate::batchnet::BatchNet,
+    ) -> anyhow::Result<Self> {
+        Self::open(model, entities, profile, Some(server))
+    }
+
+    fn open(
+        model: &Path,
+        entities: usize,
+        profile: i64,
+        server: Option<crate::batchnet::BatchNet>,
+    ) -> anyhow::Result<Self> {
+        let local = server.is_none();
         let meta: Option<serde_json::Value> = std::fs::read(model.with_extension("onnx.json"))
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok());
@@ -234,20 +262,14 @@ impl NetPlayer3 {
                 continue;
             };
             let rows = usize::try_from(rows).unwrap_or(usize::MAX);
-            if rows < entities {
-                buckets.push((rows, open(&model.with_file_name(file))?));
+            // A served player pads every decision to the full size, the one
+            // export its server runs.
+            if rows < entities && local {
+                buckets.push((rows, Some(open(&model.with_file_name(file))?)));
             }
         }
         buckets.sort_by_key(|(rows, _)| *rows);
-        let builder = Session::builder().map_err(ort_error)?;
-        let builder = builder
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(ort_error)?;
-        let mut builder = builder.with_intra_threads(1).map_err(ort_error)?;
-        let session = builder
-            .commit_from_file(model)
-            .map_err(ort_error)
-            .with_context(|| format!("loading {}", model.display()))?;
+        let session = if local { Some(open(model)?) } else { None };
         Ok(Self {
             session,
             entities,
@@ -257,17 +279,8 @@ impl NetPlayer3 {
             rng: crate::deckgen::Rng::new(0x5e1f_91a7),
             asked: 0,
             forced: 0,
-            server: None,
+            server,
         })
-    }
-
-    /// Sends every decision to `server` (the same net's fixed-batch
-    /// exports, shared by the process's games) instead of this player's own
-    /// batch-1 sessions.
-    #[must_use]
-    pub fn with_server(mut self, server: crate::batchnet::BatchNet) -> Self {
-        self.server = Some(server);
-        self
     }
 
     /// Seeds the sampling (a game's number, so a run replays).
@@ -339,8 +352,11 @@ impl NetPlayer3 {
             return server.tables(feeds);
         }
         let session = match self.buckets.iter_mut().find(|(rows, _)| *rows == feeds.e) {
-            Some((_, s)) => s,
-            None => &mut self.session,
+            Some((_, Some(s))) => s,
+            _ => self
+                .session
+                .as_mut()
+                .context("a served player runs no session")?,
         };
         run(session, &[&feeds], 1)?
             .pop()
