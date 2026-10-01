@@ -975,7 +975,6 @@ async fn a_start_without_a_key_source_takes_the_mind_off_the_table() {
 /// lockdown: nothing was offered the model, nothing replied from it. The
 /// mind should cool down and play again, not be off the table for good.
 #[tokio::test]
-#[ignore = "defect: any reply before init, a rate limit included, is a permanent lockout (cli.rs Reader::run)"]
 async fn a_rate_limit_before_the_start_cools_the_mind_down() {
     let base = a_priority().await;
     let turn = base.view.turn;
@@ -990,11 +989,41 @@ async fn a_rate_limit_before_the_start_cools_the_mind_down() {
         matches!(&limited, MindError::Unavailable(why) if why.starts_with("rate limit")),
         "{limited:?}"
     );
-    rig.script(&json!({"steps": [pass(2, "")]}));
+    // The steps go on where the first process left them (the cursor is
+    // shared), now with a start line before the reply.
+    rig.script(&json!({"steps": [{"kind": "rate_limit"}, pass(2, "")]}));
     tokio::time::sleep(Duration::from_millis(1_200)).await;
     assert!(mind.ready().await, "cooled down, not locked out");
     let answer = mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
     assert_eq!(answer.action, PlayerAction::PassPriority);
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2);
+    assert_ne!(
+        messages[0].0, messages[1].0,
+        "the answer came from a new process, which said what it offers"
+    );
+}
+
+/// Only a rate limit before the start cools the mind down: a failure
+/// before it is a reply nothing vouched for, and takes the mind off the
+/// table as an answer would.
+#[tokio::test]
+async fn a_failure_before_the_start_is_still_refused() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "failfirst",
+        cli(json!({})),
+        &json!({"init": false, "steps": [{"kind": "fail"}, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+    assert!(
+        matches!(&refused, MindError::Unavailable(why) if why.contains("replied before it said what it offers")),
+        "{refused:?}"
+    );
+    assert!(!mind.ready().await);
+    assert_eq!(rig.starts().len(), 1, "no second process");
 }
 
 /// A conversation past its token size ends, and the next message of the

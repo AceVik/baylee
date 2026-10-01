@@ -379,9 +379,17 @@ fn private_dir(path: &Path) -> std::io::Result<()> {
 enum Gone {
     /// Its output ended: it exited or was killed.
     Ended,
-    /// It broke the lockdown: a tool or a server it must not have, or a
-    /// reply before it said what it offers.
+    /// It broke the lockdown: a tool or a server it must not have, or an
+    /// answer or a failure before it said what it offers.
     Refused(String),
+    /// It said it was rate limited before it said what it offers: no
+    /// answer, so nothing it could break, and nothing it vouched for
+    /// either. Its reader stops, so nothing more is taken from it; the
+    /// mind ends it and cools down.
+    Limited {
+        why: String,
+        lifts_in: Option<Duration>,
+    },
 }
 
 /// What a question waiting on a process hears.
@@ -845,6 +853,17 @@ impl CliMind {
     /// its last words, or the lockdown a process broke, which takes the
     /// mind off the table for good (its reader has done so already).
     async fn gone(&self, seat: &Mutex<CliSeat>, turn: u32, gone: Gone) -> MindError {
+        if let Gone::Limited { why, lifts_in } = gone {
+            // Ended, not lost: its conversation never began.
+            if let Some(session) = lock(seat).session.take() {
+                session.end(Duration::ZERO);
+            }
+            if let Some(why) = lock(&self.locked_out).clone() {
+                return MindError::Unavailable(why);
+            }
+            self.cool(lifts_in);
+            return MindError::Unavailable(format!("rate limit: {why}"));
+        }
         let session = Self::lose(seat, turn);
         if let Gone::Refused(why) = &gone {
             lock_out(&self.locked_out, Some(&self.seats), why);
@@ -1142,9 +1161,11 @@ struct Reader {
 impl Reader {
     /// Reads until the output ends or the process breaks the lockdown: a
     /// start that names a tool it must not have (or does not name them),
-    /// or a reply before any start, which would be a reply nothing
-    /// vouched for. A break locks the mind out and kills its processes
-    /// before any question waiting hears it.
+    /// or an answer or a failure before any start, which would be a reply
+    /// nothing vouched for. A break locks the mind out and kills its
+    /// processes before any question waiting hears it. A rate limit before
+    /// any start carries no answer and breaks nothing: reading stops there
+    /// ([`Gone::Limited`]), and the mind cools down instead.
     async fn run(self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
@@ -1166,6 +1187,9 @@ impl Reader {
                     }
                     started = true;
                 }
+                Event::Reply(Outcome::RateLimited { why, lifts_in }) if !started => {
+                    break Gone::Limited { why, lifts_in };
+                }
                 Event::Reply(_) if !started => {
                     break Gone::Refused(format!(
                         "the {} process replied before it said what it offers the model: the \
@@ -1181,14 +1205,17 @@ impl Reader {
             lock_out(&self.locked_out, self.seats.upgrade().as_deref(), why);
         }
         // Every question still waiting hears it, and counts at its worst:
-        // nobody knows what the tool spent on it.
+        // nobody knows what the tool spent on it. The oldest one's rate
+        // limit, which answered it, is unbilled, as any rate limit is.
         let waiting: Vec<Waiter> = {
             let mut queue = lock(&self.queue);
             queue.gone = Some(gone.clone());
             queue.waiting.drain(..).collect()
         };
+        let mut limited = matches!(gone, Gone::Limited { .. });
         for waiter in waiting {
-            lock(&self.tally).back(waiter.worst, Err(true), None);
+            lock(&self.tally).back(waiter.worst, Err(!limited), None);
+            limited = false;
             let _ = waiter.reply.send(Reply::Gone(gone.clone()));
         }
     }
