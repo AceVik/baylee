@@ -53,7 +53,7 @@ Status: open.
 
 Das Flagship Vessel ist ab 8+ Charge Countern eine Artefakt Kreatur, sie sollte durch die Kombi auf dem Feld alle Kreaturentypen haben, damit auch Ally sein und für Mana tapbar sein.
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 No rules defect in the reported position: the attached view has nine charge counters, artifact + creature types, every creature subtype and the granted five-colour mana ability. The log records Inspirit being cast this same turn (turn 19); summoning_sick is true, so its tap-symbol mana ability is correctly unavailable. Station can still be activated by tapping another creature.
 
@@ -67,19 +67,25 @@ Status: open.
 
 KI handelt masuchistisch.
 
-Status: open.
+Status: verified; ready to close.
+
+Check the actual eligible targets before spending a removal spell. The reported enemy board was hexproof (Padeem + Mycosynth Lattice), leaving only the AI’s Birds of Paradise targetable. Regression covers this position and same-name collateral damage; target selection also values the whole Pulse exchange. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
 ## 01a0f87d-af22-75aa-b125-515fd3158570
 
 Auto Manaauswähler wählt favorisiert Kreaturen als Mana, er sollte viel viel klüger werden. Ich denke er macht es einfach nach der Rheinfolge wie sie gespielt wurden rückwerts. Besser ist es, wenn er es intelligent macht, sich die Hand das Feld etc. anschaut und guckt das er zuerst Mana verbrät, das tatsächlich Länder & Mana Artefakte sind. Dabei auch schaut, welches Mana könnte noch gebraucht werden für das was auf der Hand liegt etc. DIr fällt sicherlich was Kluges ein.
 
-Status: open.
+Status: verified; ready to close.
+
+Shared mana planner preserves creatures before interchangeable lands/rocks and weights remaining colour supply against coloured costs in hand. Floating mana and avoiding sacrifice/life costs retain precedence; regression checks source ordering, colour needs, unavoidable creature taps and floating mana. Both human auto-mana and AI use this policy. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
 ## 01a0f879-b734-7218-9f2f-9d00c8940059
 
 DIe KI ist wieder masuchistisch.
 
-Status: open.
+Status: verified; ready to close.
+
+Reject Toxic Deluge before spending the card when no X gives a positive exchange after friendly losses and life cost. The report was a zero-life, zero-effect cast over only the AI’s own creatures. Regression covers declining a losing exchange, accepting a useful one, and choosing the smallest effective X. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
 ## 01a0f868-26c6-70c2-bf23-dc46193e6431
 
@@ -91,7 +97,7 @@ Status: open.
 
 Metamorphosis Fanatic hat Solitude zurück geholt, aber solitude hat funktioniert als ob es für Evoke gecastet wurde. Eigentlich müsste Solitude auf dem Feld bleiben.
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 Fixed: clear the alternative-cast flag on leaving the spell/permanent lifetime. The actual evoke → graveyard → Reanimate regression failed before and passes after the fix. All 4263 engine tests pass (2 ignored).
 
@@ -111,13 +117,15 @@ Status: open.
 
 KI spielt removal auf ihre eigene Karte?
 
-Status: open.
+Status: verified; ready to close.
+
+Vanishing Verse evaluates its monochromatic target requirement before casting. A colourless opposing Maskwood Nexus no longer makes the AI exile its own Charming Prince. Regression verifies decline with only a friendly matching target and acceptance once an enemy matches. Validation: client/core/AI suite passed; the final AI suite has 197 passing tests.
 
 ## 01a0eacb-7403-76ca-b380-7b9a1dc2eefd
 
 die karte alter ego kommt mit x   1+   1+    marken rein   in höhe  von X    das im manabetrag gezahlt wurde
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 Already implemented in 4e96d9fb. Tests cast Altered Ego with X counters and decline copying (which must not add counters). Verified by the 4263-test engine run.
 
@@ -132,7 +140,7 @@ Status: open.
 
 Unlicensed Harase Tap Effekt nicht einsethzbar (Sagt Ossi, der Spieler)
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 Already implemented in f423882a/e1a97c88. The engine tests play the exile ability against one graveyard, check its count, and crew the vehicle. Verified by the 4263-test engine run.
 
@@ -153,7 +161,7 @@ Status: open.
 
 bei der karte memory  konte ich keine karten anschauen und wählen
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 Already implemented in f372192a. Memory Deluge tests cast it for four and flash it back for seven, select cards and verify destinations. Verified by the 4263-test engine run.
 
@@ -161,7 +169,7 @@ Already implemented in f372192a. Memory Deluge tests cast it for four and flash 
 
 Ich kann beim oko nicht alle optionen wählen
 
-Status: verified; ready to close.
+Status: resolved in the feedback service (source verified; not deployed).
 
 Already implemented in 32709c71. Tests play Oko’s Food, Elk and control-exchange abilities. Verified by the 4263-test engine run.
 
@@ -171,3 +179,16 @@ Der Tisch und der Himmel sind seltsam verpixelt.
 
 Status: open.
 
+
+## Overnight continuation
+
+The owner explicitly requested twelve hourly continuations on 1 October;
+heartbeat `baylee-nachtarbeit` is active in this chat. Finish remaining feedback
+first, then complete the earliest unfinished set and continue by historical
+first-print release order. Read CLAUDE.md, cards/AGENTS.md and current set
+progress before card work; update docs/llm-learnings.md after each card batch.
+Do not interpret the older roadmap’s retired model lanes as current tooling.
+
+Local report attachments and the authenticated SSH helper are under
+/private/tmp/baylee-feedback-*. They contain private report data and must not
+be committed. Source fixes have not been deployed.

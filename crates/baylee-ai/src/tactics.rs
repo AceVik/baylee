@@ -658,6 +658,32 @@ impl HeuristicAgent {
         if let Some(action) = self.ability_targets(view, offer, context) {
             return Some(action);
         }
+        // A same-name removal spell can destroy our own copies as well.
+        // Rank its whole exchange, not just the permanent named as target.
+        if context
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::DestroyOthersNamedLike { .. }))
+            && let Some(source) = context.source
+            && let Some((_, id)) = objects
+                .iter()
+                .filter_map(|&id| {
+                    self.effects_worth(
+                        view,
+                        crate::worth::Origin::of(view, source),
+                        context.effects,
+                        crate::worth::Aim::Object(id),
+                        context.x,
+                    )
+                    .map(|worth| (worth, id))
+                })
+                .max_by_key(|&(worth, id)| (worth, std::cmp::Reverse(id)))
+        {
+            return Some(PlayerAction::ChooseTargets {
+                objects: vec![id],
+                players: vec![],
+            });
+        }
         if let Some(total) = context.effects.iter().find_map(|e| match e {
             Effect::DealDamageDivided { amount } => Some(*amount),
             _ => None,

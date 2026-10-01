@@ -97,6 +97,18 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             .then_with(|| matches!(a.tap, Tap::Ability(_)).cmp(&matches!(b.tap, Tap::Ability(_))))
     });
     sources.dedup_by(|a, b| a.id == b.id);
+    let costs: Vec<_> = view
+        .hand
+        .iter()
+        .filter_map(|object| {
+            let card = object.card;
+            baylee_cards::by_index(card.index)?
+                .faces
+                .get(usize::from(card.face))
+                .map(|face| face.mana_cost)
+        })
+        .collect();
+    baylee_client_core::manaplan::prioritize(&mut sources, view, &costs);
     sources
 }
 
@@ -320,6 +332,7 @@ fn mana_ability(
             amount,
             bundle: true,
             priced: priced(cost, effects),
+            preserve: 0,
         });
     }
     // The planner's door rather than the strict one: an ability that also
@@ -347,6 +360,7 @@ fn mana_ability(
         amount,
         bundle: false,
         priced: priced(cost, effects),
+        preserve: 0,
     })
 }
 
@@ -557,6 +571,7 @@ pub fn granted_source(
         // grant, and a priced grant would lose the dedup to the intrinsic and
         // leave the land making red only, the Lantern's whole point undone.
         priced: false,
+        preserve: 0,
     })
 }
 

@@ -1080,6 +1080,17 @@ impl HeuristicAgent {
                     self.removal(view, o)
                 }
             }),
+            Effect::DestroyOthersNamedLike { .. } => subject.map_or(0, |target| {
+                view.battlefield
+                    .iter()
+                    .filter(|o| {
+                        o.id != target.id
+                            && o.name == target.name
+                            && !has(o, KeywordSet::INDESTRUCTIBLE)
+                    })
+                    .map(|o| self.removal(view, o))
+                    .sum()
+            }),
             Effect::Exile { .. } => subject.map_or(0, |o| {
                 if view.battlefield.iter().any(|b| b.id == o.id) {
                     self.removal(view, o)

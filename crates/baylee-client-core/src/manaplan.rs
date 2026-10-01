@@ -86,6 +86,9 @@ pub struct Source {
     /// pays a pip. Who sets it: `manasources::priced` for the client, and
     /// `policy::sources` for the house AI.
     pub priced: bool,
+    /// Opportunity cost of tapping this permanent. Higher stays untapped
+    /// when a cheaper source can pay; this never changes affordability.
+    pub preserve: u32,
 }
 
 impl Source {
@@ -99,6 +102,7 @@ impl Source {
             amount: 1,
             bundle: false,
             priced: false,
+            preserve: 0,
         }
     }
 
@@ -118,6 +122,41 @@ impl Source {
         } else {
             1
         }
+    }
+}
+
+/// Rank taps by the board and colours still needed by cards in hand.
+/// Creatures retain their combat and tap-ability value; scarce hand colours
+/// are held back ahead of interchangeable mana. Floating mana and avoiding
+/// life/sacrifice costs still take precedence in the matcher.
+pub fn prioritize(sources: &mut [Source], view: &baylee_view::PlayerView, hand: &[ManaCost]) {
+    let mut supply = [0_u32; 6];
+    let mut demand = [0_u32; 6];
+    for (index, color) in ManaColor::ALL.into_iter().enumerate() {
+        supply[index] = u32::try_from(sources.iter().filter(|s| s.colors.contains(&color)).count())
+            .unwrap_or(u32::MAX);
+        demand[index] = u32::try_from(
+            hand.iter()
+                .flat_map(ManaCost::symbols)
+                .filter(|symbol| mask_of_set(symbol.colors()).holds(color))
+                .count(),
+        )
+        .unwrap_or(u32::MAX);
+    }
+    for source in sources {
+        let colour_value: u32 = ManaColor::ALL
+            .into_iter()
+            .enumerate()
+            .filter(|(_, color)| source.colors.contains(color))
+            .map(|(index, _)| 100_u32.saturating_mul(demand[index]) / supply[index].max(1))
+            .fold(0, u32::saturating_add);
+        let creature_value = view
+            .object(source.id)
+            .filter(|o| o.types.contains(baylee_core::types::TypeSet::CREATURE))
+            .map_or(0, |o| {
+                10_000 + u32::from(o.power.unwrap_or(0).unsigned_abs()) * 10
+            });
+        source.preserve = creature_value + colour_value.min(9_000);
     }
 }
 
@@ -467,6 +506,7 @@ fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Optio
             // Floating first: it is free and it empties at end of step.
             usize::from(unit.from.is_some()),
             unit.from.is_some_and(|source| sources[source].priced),
+            unit.from.map_or(0, |source| sources[source].preserve),
             unit.colors.count(),
             unit.from.unwrap_or(0),
         )
@@ -519,6 +559,7 @@ fn consolidate(
         candidates.sort_by_key(|&source| {
             (
                 !sources[source].priced,
+                std::cmp::Reverse(sources[source].preserve),
                 std::cmp::Reverse(mask_of(&sources[source].colors).count()),
                 source,
             )
@@ -708,6 +749,7 @@ mod tests {
             amount: 1,
             bundle: false,
             priced: false,
+            preserve: 0,
         }
     }
 
@@ -723,6 +765,48 @@ mod tests {
         let mut ids: Vec<u32> = plan.steps.iter().map(|s| s.source.slot()).collect();
         ids.sort_unstable();
         ids
+    }
+
+    #[test]
+    fn a_generic_payment_preserves_creatures_and_colours_needed_in_hand() {
+        use crate::test_support::{ViewBuilder, token};
+        let mut forest = token(2, 0, "Forest", 0, 0);
+        forest.types = baylee_core::types::TypeSet::LAND;
+        let mut island = forest.clone();
+        island.id = ObjectId::new(3, 0);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(1, 0, "Mana creature", 4, 4), forest, island])
+            .build();
+        for reverse in [false, true] {
+            let mut sources = vec![
+                land(1, ManaColor::Green),
+                land(3, ManaColor::Blue),
+                land(2, ManaColor::Green),
+            ];
+            if reverse {
+                sources.reverse();
+            }
+            prioritize(&mut sources, &view, &[cost("{U}{U}")]);
+            assert_eq!(
+                tapped(&plan(&cost("{1}"), &empty(), &sources).unwrap()),
+                vec![2]
+            );
+            assert_eq!(
+                tapped(&plan(&cost("{G}{G}"), &empty(), &sources).unwrap()),
+                vec![1, 2],
+                "a creature is still available when the cost needs it"
+            );
+            let pool = ManaPoolView {
+                green: 1,
+                ..empty()
+            };
+            assert!(
+                plan(&cost("{1}"), &pool, &sources)
+                    .unwrap()
+                    .steps
+                    .is_empty()
+            );
+        }
     }
 
     #[test]
@@ -899,6 +983,7 @@ mod tests {
             amount: 2,
             bundle: false,
             priced: false,
+            preserve: 0,
         }];
         assert!(plan(&cost("{2}"), &empty(), &coupled).is_none());
 
@@ -909,6 +994,7 @@ mod tests {
             amount: 2,
             bundle: false,
             priced: false,
+            preserve: 0,
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -934,6 +1020,7 @@ mod tests {
             amount: 2,
             bundle: true,
             priced: false,
+            preserve: 0,
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -961,6 +1048,7 @@ mod tests {
             amount: 1,
             bundle: false,
             priced: false,
+            preserve: 0,
         }
     }
 
@@ -968,6 +1056,7 @@ mod tests {
     fn treasure(id: u32) -> Source {
         Source {
             priced: true,
+            preserve: 0,
             ..tower(id)
         }
     }
@@ -978,6 +1067,7 @@ mod tests {
             colors: vec![ManaColor::Colorless],
             amount: 2,
             priced: true,
+            preserve: 0,
             ..tower(id)
         }
     }
@@ -1102,6 +1192,7 @@ mod tests {
             amount: 1,
             bundle: false,
             priced: false,
+            preserve: 0,
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());

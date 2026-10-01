@@ -877,6 +877,141 @@ mod tests {
     }
 
     #[test]
+    fn removal_waits_when_only_our_permanent_matches_its_colour_restriction() {
+        let mut friendly = permanent(obj(2), PlayerId::new(0), 2);
+        friendly.colors = ColorSet::of(baylee_core::color::Color::White);
+        let enemy = permanent(obj(3), PlayerId::new(1), 5);
+        let mut v = view(0, &[20, 20], vec![friendly, enemy]);
+        v.hand = vec![hand_card(1, "Vanishing Verse")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                castable: vec![obj(1)],
+                ..Default::default()
+            }),
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(agent.act(&v, &pending), PlayerAction::PassPriority);
+        v.battlefield[1].colors = ColorSet::of(baylee_core::color::Color::Blue);
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(1) }
+        );
+    }
+
+    #[test]
+    fn pulse_does_not_kill_its_own_bird_when_the_enemy_board_has_hexproof() {
+        let mut friendly = permanent(obj(2), PlayerId::new(0), 1);
+        friendly.name = "Birds of Paradise".into();
+        let mut enemy = permanent(obj(3), PlayerId::new(1), 5);
+        enemy.name = "Padeem, Consul of Innovation".into();
+        enemy.keywords = baylee_cards_dsl::KeywordSet::HEXPROOF.bits();
+        let mut v = view(0, &[40, 40], vec![friendly, enemy]);
+        v.hand = vec![hand_card(1, "Maelstrom Pulse")];
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert!(agent.spell_score(&v, v.hand[0].card) < 0);
+        v.battlefield[1].keywords = 0;
+        v.battlefield[1].name = "Opponent's creature".into();
+        assert!(agent.spell_score(&v, v.hand[0].card) > 0);
+    }
+
+    #[test]
+    fn deluge_waits_for_a_profitable_exchange_before_spending_the_card() {
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(2), PlayerId::new(0), 5),
+                permanent(obj(3), PlayerId::new(1), 6),
+            ],
+        );
+        v.hand = vec![hand_card(1, "Toxic Deluge")];
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                castable: vec![obj(1)],
+                ..Default::default()
+            }),
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(agent.act(&v, &pending), PlayerAction::PassPriority);
+        v.battlefield[1].toughness = Some(4);
+        assert_eq!(
+            agent.act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(1) }
+        );
+        let pending = Pending::ChooseNumber {
+            player: v.seat,
+            min: 0,
+            max: 20,
+            reason: baylee_engine::choice::NumberPrompt::X,
+        };
+        assert_eq!(
+            agent.act_with_context(
+                &v,
+                &pending,
+                &baylee_engine::engine::DecisionContext {
+                    life_x: true,
+                    ..Default::default()
+                }
+            ),
+            PlayerAction::ChooseNumber(4)
+        );
+    }
+
+    #[test]
+    fn pulse_counts_our_same_named_permanents_before_casting_and_targeting() {
+        let mut v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(2), PlayerId::new(0), 5),
+                permanent(obj(3), PlayerId::new(0), 5),
+                permanent(obj(4), PlayerId::new(1), 5),
+            ],
+        );
+        v.hand = vec![hand_card(1, "Maelstrom Pulse")];
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert!(agent.spell_score(&v, v.hand[0].card) < 0);
+        let mut other = permanent(obj(5), PlayerId::new(1), 3);
+        other.name = "Other creature".into();
+        v.battlefield.push(other);
+        assert!(agent.spell_score(&v, v.hand[0].card) > 0);
+        let def = baylee_cards::by_index(v.hand[0].card.index).unwrap();
+        let effects = def
+            .abilities
+            .iter()
+            .find_map(|a| match a {
+                baylee_cards_dsl::AbilityDef::Spell { effects, .. } => Some(*effects),
+                _ => None,
+            })
+            .unwrap();
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: v.battlefield.iter().map(|o| o.id).collect(),
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        assert_eq!(
+            agent.act_with_context(
+                &v,
+                &pending,
+                &baylee_engine::engine::DecisionContext {
+                    source: Some(obj(1)),
+                    effects,
+                    ..Default::default()
+                }
+            ),
+            PlayerAction::ChooseTargets {
+                objects: vec![obj(5)],
+                players: vec![]
+            }
+        );
+    }
+
+    #[test]
     fn third_iteration_subtype_follows_the_cards_being_played() {
         use baylee_core::generated::subtypes::creature::{ALLY, BIRD};
         let mut v = view(0, &[20, 20], vec![]);

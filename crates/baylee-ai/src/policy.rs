@@ -164,25 +164,7 @@ impl HeuristicAgent {
             // Pay the smallest amount giving the best exchange; preserving
             // life and friendly creatures matters more than maximizing X.
             return (min..=max.min(u32::try_from(seat.life.saturating_sub(1)).unwrap_or(0)))
-                .max_by_key(|&x| {
-                    let material: i64 = view
-                        .battlefield
-                        .iter()
-                        .filter(|o| {
-                            o.types.contains(TypeSet::CREATURE)
-                                && o.toughness.is_some_and(|t| i64::from(t) <= i64::from(x))
-                        })
-                        .map(|o| {
-                            crate::tactics::material(o)
-                                * if self.hostile(o.controller, view.seat) {
-                                    1
-                                } else {
-                                    -1
-                                }
-                        })
-                        .sum();
-                    (material - i64::from(x) * 60, std::cmp::Reverse(x))
-                })
+                .max_by_key(|&x| (self.life_sweep_value(view, x), std::cmp::Reverse(x)))
                 .unwrap_or(min);
         }
         let Some(cost) = context
@@ -198,6 +180,26 @@ impl HeuristicAgent {
                     && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
             })
             .unwrap_or(min)
+    }
+
+    fn life_sweep_value(&self, view: &PlayerView, x: u32) -> i64 {
+        let material: i64 = view
+            .battlefield
+            .iter()
+            .filter(|o| {
+                o.types.contains(TypeSet::CREATURE)
+                    && o.toughness.is_some_and(|t| i64::from(t) <= i64::from(x))
+            })
+            .map(|o| {
+                crate::tactics::material(o)
+                    * if self.hostile(o.controller, view.seat) {
+                        1
+                    } else {
+                        -1
+                    }
+            })
+            .sum();
+        material - i64::from(x) * 60
     }
 
     pub(crate) fn noise(&self, view: &PlayerView, id: ObjectId) -> i64 {
@@ -734,6 +736,72 @@ impl HeuristicAgent {
             .unwrap_or(0)
     }
 
+    fn bad_removal_exchange(
+        &self,
+        view: &PlayerView,
+        card: CardIdentity,
+        f: &FaceDef,
+        spells: &[AbilityDef],
+    ) -> bool {
+        if spells.iter().any(|a| {
+            matches!(a, AbilityDef::Spell { effects, .. }
+            if effects.iter().any(removal))
+        }) && !view
+            .battlefield
+            .iter()
+            .any(|o| self.hostile(o.controller, view.seat) && !o.types.contains(TypeSet::LAND))
+        {
+            return true;
+        }
+        // Decide whether the spell has a useful legal-shaped target before
+        // spending mana. Merely seeing an enemy permanent is insufficient
+        // for colour/type restrictions or a symmetric same-name sweep.
+        if let Some(id) = own_casts(view).find(|&id| identity(view, id) == Some(card)) {
+            for ability in spells {
+                let AbilityDef::Spell {
+                    effects, targets, ..
+                } = ability
+                else {
+                    continue;
+                };
+                if effects.iter().any(removal)
+                    && self
+                        .aimed_worth(
+                            view,
+                            crate::worth::Origin::of(view, id),
+                            effects,
+                            targets.as_ref(),
+                            0,
+                        )
+                        .is_some_and(|(worth, _)| worth <= 0)
+                {
+                    return true;
+                }
+            }
+        }
+        if f.mandatory_additional_costs
+            .contains(&baylee_cards_dsl::CostPart::PayLifeX)
+            && spells.iter().any(|a| {
+                matches!(a, AbilityDef::Spell { effects, .. }
+                if effects.iter().any(|e| matches!(e, Effect::PumpFilter {
+                    toughness: baylee_cards_dsl::Amount::NegX, ..
+                })))
+            })
+        {
+            let life = view.seat(view.seat).map_or(0, |s| s.life.saturating_sub(1));
+            let useful = view
+                .battlefield
+                .iter()
+                .filter_map(|o| o.toughness)
+                .filter(|&t| t > 0 && i32::from(t) <= life)
+                .any(|t| self.life_sweep_value(view, u32::try_from(t).unwrap_or(0)) > 0);
+            if !useful {
+                return true;
+            }
+        }
+        false
+    }
+
     pub(crate) fn spell_score(&self, view: &PlayerView, card: CardIdentity) -> i64 {
         let Some(f) = face(card) else {
             return 0;
@@ -742,14 +810,13 @@ impl HeuristicAgent {
             return 0;
         };
         let spells = def.abilities_for_face(usize::from(card.face));
+        if self.bad_removal_exchange(view, card, f, spells) {
+            return -10_000;
+        }
         let effects = spells.iter().filter_map(|a| match a {
             AbilityDef::Spell { effects, .. } => Some(*effects),
             _ => None,
         });
-        let enemy_board = view
-            .battlefield
-            .iter()
-            .any(|o| self.hostile(o.controller, view.seat) && !o.types.contains(TypeSet::LAND));
         let mut value = 200 + i64::from(f.mana_cost.cmc()) * 100;
         if f.types.contains(TypeSet::CREATURE) {
             value += 250 + i64::from(f.power.unwrap_or(0)) * 60 + self.strategy.creature_bonus;
@@ -800,9 +867,6 @@ impl HeuristicAgent {
                         }
                 })
             {
-                return -10_000;
-            }
-            if removal(effect) && !enemy_board {
                 return -10_000;
             }
             // A redirect is worth what it saves, and this seat's own spell is
@@ -1140,10 +1204,21 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                     // than restate the constant.
                     bundle: false,
                     priced,
+                    preserve: 0,
                 },
                 only_for,
             });
         }
+    }
+    let costs: Vec<_> = view
+        .hand
+        .iter()
+        .filter_map(|o| face(o.card).map(|f| f.mana_cost))
+        .collect();
+    let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
+    manaplan::prioritize(&mut ranked, view, &costs);
+    for (offer, source) in result.iter_mut().zip(ranked) {
+        offer.source.preserve = source.preserve;
     }
     result
 }
