@@ -279,6 +279,7 @@ fn play_one(
     learner: &mut Player,
     nets: &mut BTreeMap<usize, Player>,
     selfish: &mut Player,
+    slot: &mut Option<Session>,
 ) -> anyhow::Result<Played> {
     let seed = args.first_seed + i;
     let mut rng = Rng::new(mix(seed ^ name_hash(run)));
@@ -295,8 +296,10 @@ fn play_one(
         profiles[usize::from(other)] = *p;
     }
     let preset = table(seed, &decks[a], &decks[b], profiles);
-    let mut session =
-        Session::new_recorded(&preset, baylee_build::short()).context("the preset builds")?;
+    // In the caller's slot, so a game that panics leaves its record behind.
+    let session = slot.insert(
+        Session::new_recorded(&preset, baylee_build::short()).context("the preset builds")?,
+    );
     session.describe(format!("{run}-{i:07}"), vec!["0".into(), "1".into()]);
     let me = PlayerId::new(learner_seat);
     let them = PlayerId::new(other);
@@ -579,6 +582,7 @@ fn main() -> anyhow::Result<()> {
                         // the end of the run: it is reported with its seed,
                         // written as `panicked` (convert3 reads only
                         // finished games), and the next one is played.
+                        let mut slot = None;
                         let played = match std::panic::catch_unwind(
                             std::panic::AssertUnwindSafe(|| {
                                 play_one(
@@ -590,6 +594,7 @@ fn main() -> anyhow::Result<()> {
                                     &mut learner,
                                     &mut nets,
                                     &mut selfish,
+                                    &mut slot,
                                 )
                             }),
                         ) {
@@ -605,7 +610,12 @@ fn main() -> anyhow::Result<()> {
                                 Played {
                                     line: json!({"i": i, "seed": seed,
                                                  "outcome": {"kind": "panicked", "message": message}}),
-                                    record: Vec::new(),
+                                    // The record up to the panic, for the bug
+                                    // report (inspect reads it like any other).
+                                    record: slot
+                                        .take()
+                                        .map(|mut s| s.take_record())
+                                        .unwrap_or_default(),
                                     learner_won: None,
                                     opponent: 0,
                                 }
