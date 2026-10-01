@@ -530,6 +530,84 @@ mod tests {
     use crate::session::RegistryLookup;
     use baylee_core::preset::AIProfile;
 
+    fn forest_preset() -> GamePreset {
+        let forest = baylee_cards::decks::by_name("Forest").unwrap();
+        baylee_cards::decks::probe_preset(42, forest).unwrap()
+    }
+
+    fn two_agents() -> Vec<HeuristicAgent> {
+        vec![
+            HeuristicAgent::new(AIProfile::default()),
+            HeuristicAgent::new(AIProfile::default()),
+        ]
+    }
+
+    #[test]
+    #[should_panic(expected = "one agent per seat")]
+    fn an_agent_missing_for_a_seat_is_refused_up_front() {
+        let agents = vec![HeuristicAgent::new(AIProfile::default())];
+        let _ = play_report(RegistryLookup, &forest_preset(), &agents, 10);
+    }
+
+    #[test]
+    fn a_zero_action_cap_reports_the_opening_position_untouched() {
+        let r = play_report(RegistryLookup, &forest_preset(), &two_agents(), 0);
+        assert!(matches!(r.halt, Halt::CapReached));
+        assert!(!r.finished());
+        assert_eq!(r.actions, 0);
+        assert!(r.trail.is_empty());
+        assert_eq!(r.seats.len(), 2);
+        assert_eq!(r.tally.len(), 2);
+        assert!(r.tally.iter().all(|t| t.lands + t.spells + t.taps == 0));
+        assert!(r.seats.iter().all(|s| s.life > 0 && s.library > 0));
+    }
+
+    #[test]
+    fn a_short_cap_keeps_a_bounded_trail_and_reports_the_cap() {
+        let r = play_report(RegistryLookup, &forest_preset(), &two_agents(), 5);
+        // Either the cap ran out or the game was stopped sooner; never more.
+        assert!(r.actions <= 5);
+        assert!(r.trail.len() <= TRAIL);
+        if matches!(r.halt, Halt::CapReached) {
+            assert_eq!(r.actions, 5);
+            assert!(!r.trail.is_empty());
+        }
+        assert!(
+            r.trail.iter().all(|l| l.contains(" → ")),
+            "every trail line is a question and its answer: {:?}",
+            r.trail
+        );
+    }
+
+    #[test]
+    fn the_trail_never_outgrows_its_ring_however_long_the_game() {
+        let r = play_report(RegistryLookup, &forest_preset(), &two_agents(), 400);
+        assert!(r.trail.len() <= TRAIL, "{}", r.trail.len());
+    }
+
+    #[test]
+    fn the_same_preset_and_agents_play_the_same_game() {
+        let a = play_report(RegistryLookup, &forest_preset(), &two_agents(), 300);
+        let b = play_report(RegistryLookup, &forest_preset(), &two_agents(), 300);
+        assert_eq!(a.actions, b.actions);
+        assert_eq!(a.turn, b.turn);
+        assert_eq!(a.at, b.at);
+        assert_eq!(a.trail, b.trail);
+        assert_eq!(a.seats.len(), b.seats.len());
+        for (x, y) in a.seats.iter().zip(&b.seats) {
+            assert_eq!(
+                (x.life, x.hand, x.library, x.permanents, x.creatures),
+                (y.life, y.hand, y.library, y.permanents, y.creatures)
+            );
+        }
+    }
+
+    #[test]
+    fn play_game_agrees_with_play_report_on_whether_it_finished() {
+        let result = play_game(RegistryLookup, &forest_preset(), &two_agents(), 0);
+        assert!(result.is_none(), "no actions, no result");
+    }
+
     fn acceptance_text() -> String {
         std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
