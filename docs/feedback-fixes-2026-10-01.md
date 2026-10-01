@@ -167,7 +167,7 @@ Status: open.
 
 Es sollte möglich sein den Schaden auf Blocker selbst zu verteilen. (Mit einem Auto Button, der es dann automatisch die restlichen Punkte verteilt)
 
-Status: source and native UI verified; ready to close (not deployed).
+Status: resolved in the feedback service (b3bbad7d; source/native UI verified; not deployed).
 
 Added “Rest automatisch verteilen” to the combat-number prompt. It preserves
 previous manual shares and finishes only this source’s remaining division,
@@ -230,7 +230,7 @@ The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI)
 
 ## Next continuation: remaining investigations
 
-16 of the original 25 open reports are resolved. Nine remain open; finish them
+17 of the original 25 open reports are resolved. Eight remain open; finish them
 before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
 3f0ab837 (token/UI). No push or deployment has happened. The native test clients
 started for this pass were stopped; no live test process needs preserving.
@@ -250,7 +250,7 @@ started for this pass were stopped; no live test process needs preserving.
   hash fix. Native Metal rendering and shader tests pass, but the reported
   Windows/Vulkan setup has not been reproduced; leave this distinction clear.
 - Other remaining work: target pagination/hover/player filters, counts/life
-  readability, larger centered cards/text, auto remaining combat damage,
+  readability, larger centered cards/text,
   login-field transition and more distinct original battle/victory music.
 
 ## First hourly continuation
@@ -266,3 +266,5 @@ Completed and verified the remaining-combat-damage button described above.
 Client suites initially hit sandbox restrictions in eight local TCP tests;
 rerunning with local port access passes all 1150 tests. Native test client
 stopped after verification. No push or deployment.
+
+The combat report was closed via the feedback API, which returned `resolved`.
