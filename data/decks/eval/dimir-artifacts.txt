@@ -1,0 +1,17 @@
+[deck:Dimir Artifact Foundry]
+4 Island (TRK) 319
+2 Swamp (TRK) 321
+4 Seat of the Synod (EOC) 176
+4 Vault of Whispers (DSC) 322
+4 Underground Sea (VMA) 323
+4 Watery Grave (TRK) 306
+4 Ornithopter (DMR) 233
+4 Myr Retriever (2XM) 277
+4 Baleful Strix (OTC) 215
+4 Disciple of the Vault (2XM) 86
+4 Thopter Foundry (2XM) 222
+3 Skullclamp (MSC) 210
+3 Counterspell (DSC) 114
+4 Mox Opal (2XM) 275
+4 Night's Whisper (HOC) 189
+4 Bonesplitter (CMR) 458

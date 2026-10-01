@@ -414,3 +414,19 @@ shipped in the bundle. No third-party logo is added. Rechecked the
 [Wizards policy](https://company.wizards.com/en/legal/fancontentpolicy) on
 2026-09-26: “Don’t use Wizards’ logos and trademarks.” The Baylee icon depicts
 the owner's cat, moon and flowers; the existing fan-content notice remains.
+
+## Curated evaluation decks (2026-10-01)
+
+The fifteen lists in `data/decks/eval/` are original deck selections over
+Baylee's existing implemented, tested pool. Printing references come from
+the committed card headers; these files contain counts and printing
+identifiers, with no images, symbols, fonts, audio or copied corpus scripts.
+The repository licence and `NOTICE` continue to apply.
+
+Checked the [Wizards policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+and [Scryfall API and image terms](https://scryfall.com/docs/api) directly:
+“Tell the Community it’s unofficial.” The existing notice remains in place.
+Scryfall requires: “Your software must create additional value for end-users.”
+These curated archetypes supply repeatable evaluation matchups, rather than
+republishing a card database. No image is added or altered and no new
+third-party asset licence or policy exception is introduced.

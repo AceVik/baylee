@@ -1,0 +1,13 @@
+[deck:Red Burn]
+20 Mountain (TRK) 323
+4 Lightning Bolt (MSC) 806
+4 Shock (MSC) 809
+4 Volcanic Hammer (9ED) 226
+4 Fire Ambush (ME3) 97
+4 Magma Jet (JMP) 346
+4 Seal of Fire (JVC) 50
+4 Mogg Fanatic (EMA) 138
+4 Ragavan, Nimble Pilferer (MH2) 138
+2 Earthquake (CM2) 95
+2 Disintegrate (TSB) 58
+4 Raging Goblin (OANA) 43

@@ -1,0 +1,77 @@
+[deck:Padeem Artifact Workshop]
+28 Island (TRK) 319
+1 Seat of the Synod (EOC) 176
+1 Darksteel Citadel (C21) 285
+1 Academy Ruins (2XM) 309
+1 Buried Ruin (EOC) 150
+1 Reliquary Tower (SOC) 398
+1 Inventors' Fair (KLD) 247
+1 Padeem, Consul of Innovation (CMM) 109
+1 Sol Ring (MSC) 211
+1 Mind Stone (MBC) 76
+1 Thought Vessel (MBC) 78
+1 Sky Diamond (CLB) 337
+1 Liquimetal Torque (MH2) 228
+1 Worn Powerstone (MH3) 298
+1 Thran Dynamo (CMM) 415
+1 Gilded Lotus (MSC) 199
+1 Wayfarer's Bauble (HOC) 211
+1 Solemn Simulacrum (MSC) 215
+1 Silver Myr (NEC) 158
+1 Vedalken Archmage (JMP) 187
+1 Myr Retriever (2XM) 277
+1 Darksteel Gargoyle (TD2) 19
+1 Walking Ballista (2XM) 306
+1 Razormane Masticore (DDF) 56
+1 Juggernaut (FDN) 255
+1 Su-Chi (VMA) 285
+1 Cathodion (2XM) 237
+1 Bottle Gnomes (CM2) 177
+1 Myr Matrix (DST) 132
+1 The Hive (10E) 324
+1 Nuisance Engine (HOP) 121
+1 Darksteel Forge (2XM) 248
+1 Fabricate (HOP) 9
+1 Copy Artifact (ME4) 44
+1 Phyrexian Metamorph (EOC) 75
+1 Counterspell (DSC) 114
+1 Negate (TMT) 47
+1 Swan Song (EOC) 46
+1 An Offer You Can't Refuse (FDN) 160
+1 Mana Leak (2X2) 58
+1 Curse of the Swine (SOC) 192
+1 Nevinyrral's Disk (CMM) 965
+1 Icy Manipulator (DMR) 225
+1 Liquimetal Coating (CM2) 197
+1 Steal Artifact (8ED) 103
+1 Control Magic (CMA) 34
+1 Rhystic Study (J22) 114
+1 Mystic Remora (DMR) 59
+1 Fact or Fiction (FRC) 41
+1 Skullclamp (MSC) 210
+1 Sensei's Divining Top (2X2) 314
+1 Jayemdae Tome (ORI) 231
+1 Swiftfoot Boots (MBC) 77
+1 Lightning Greaves (MSC) 202
+1 Loxodon Warhammer (C21) 249
+1 Voltaic Key (M11) 219
+1 Unlicensed Hearse (SNC) 246
+1 Lonely Sandbar (EOC) 166
+1 Tolaria West (TSR) 286
+1 Manakin (IMA) 218
+1 Sage of Lat-Nam (DOM) 64
+1 Brass Secretary (UDS) 128
+1 Treasure Trove (9ED) 110
+1 Apprentice Wizard (2XM) 40
+1 Mantis Engine (10E) 333
+1 Vedalken Mastermind (10E) 123
+1 Spark Double (RVR) 62
+1 Unsummon (FRA) 46
+1 Rescind (VMA) 90
+1 Boomerang (ME3) 30
+1 Treachery (UDS) 50
+1 Concentrate (DDT) 4
+1 Archivist (9ED) 60
+
+[commander]
+Padeem, Consul of Innovation

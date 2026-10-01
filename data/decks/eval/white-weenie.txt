@@ -1,0 +1,12 @@
+[deck:White Weenie]
+22 Plains (TRK) 317
+4 Savannah Lions (FDN) 146
+4 Esper Sentinel (MH2) 12
+4 White Knight (DDG) 9
+4 Leonin Skyhunter (DDG) 7
+4 Swords to Plowshares (MSC) 143
+4 Raise the Alarm (CMR) 41
+4 Glorious Anthem (M21) 21
+3 Loran of the Third Path (MKC) 71
+3 Serra Angel (FDN) 740
+4 Bonesplitter (CMR) 458

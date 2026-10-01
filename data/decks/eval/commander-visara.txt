@@ -1,0 +1,75 @@
+[deck:Visara Mono Black Control]
+30 Swamp (TRK) 321
+1 Cabal Coffers (MH2) 301
+1 Urborg, Tomb of Yawgmoth (TSR) 287
+1 Cabal Stronghold (DOM) 238
+1 Reliquary Tower (SOC) 398
+1 Bojuka Bog (SOC) 363
+1 High Market (SOC) 380
+1 Visara the Dreadful (EMA) 114
+1 Sol Ring (MSC) 211
+1 Charcoal Diamond (CLB) 305
+1 Mind Stone (MBC) 76
+1 Thought Vessel (MBC) 78
+1 Wayfarer's Bauble (HOC) 211
+1 Worn Powerstone (MH3) 298
+1 Thran Dynamo (CMM) 415
+1 Gilded Lotus (MSC) 199
+1 Solemn Simulacrum (MSC) 215
+1 Leaden Myr (SOM) 170
+1 Phyrexian Arena (FDN) 180
+1 Greed (MH2) 274
+1 Night's Whisper (HOC) 189
+1 Ancient Craving (VOC) 117
+1 Ambition's Cost (MOC) 246
+1 Phyrexian Rager (MOC) 265
+1 Phyrexian Gargantua (CMM) 178
+1 Sheoldred, the Apocalypse (DMU) 107
+1 Massacre Wurm (FDN) 754
+1 Ravenous Chupacabra (MKC) 136
+1 Murderous Rider (MOC) 258
+1 Keening Banshee (GVL) 44
+1 Royal Assassin (DMR) 101
+1 Phyrexian Plaguelord (CMA) 61
+1 Metamorphosis Fanatic (DSC) 21
+1 Nightmare (W17) 17
+1 Dauthi Voidwalker (TDC) 176
+1 Opposition Agent (CMR) 141
+1 Orcish Bowmasters (LTR) 103
+1 Blood Artist (SOC) 209
+1 Zulaport Cutthroat (SOC) 233
+1 Viscera Seer (SOC) 229
+1 Reanimate (DSC) 155
+1 Entreat the Dead (C18) 15
+1 Raise Dead (W17) 18
+1 Demonic Tutor (CMM) 150
+1 Diabolic Tutor (CMA) 54
+1 Hero's Downfall (FDN) 175
+1 Terror (DMR) 103
+1 Deadly Rollick (CMM) 147
+1 Toxic Deluge (MSC) 161
+1 The Meathook Massacre (INR) 122
+1 Pestilence (6ED) 149
+1 Mind Twist (ME3) 72
+1 Swiftfoot Boots (MBC) 77
+1 Lightning Greaves (MSC) 202
+1 Loxodon Warhammer (C21) 249
+1 Barren Moor (DSC) 262
+1 Polluted Mire (DMR) 253
+1 Liquimetal Torque (MH2) 228
+1 Basalt Monolith (2XM) 232
+1 Mana Vault (2X2) 308
+1 Staff of Domination (CMR) 343
+1 Sensei's Divining Top (2X2) 314
+1 Highway Robber (DDM) 61
+1 Fallen Angel (A25) 91
+1 Primaris Eliminator (40K) 50
+1 Phyrexian Denouncer (DDE) 4
+1 Drudge Skeletons (GVL) 36
+1 Nevinyrral's Disk (CMM) 965
+1 Soul Feast (10E) 179
+1 Jandor's Saddlebags (7ED) 304
+1 Skullclamp (MSC) 210
+
+[commander]
+Visara the Dreadful

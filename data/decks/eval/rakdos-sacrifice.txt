@@ -1,0 +1,16 @@
+[deck:Rakdos Sacrifice]
+6 Swamp (TRK) 321
+4 Mountain (TRK) 323
+4 Badlands (VMA) 291
+4 Blood Crypt (TRK) 278
+4 Bloodstained Mire (MH3) 216
+2 Phyrexian Tower (MH3) 303
+4 Viscera Seer (SOC) 229
+4 Carrion Feeder (MH1) 81
+4 Blood Artist (SOC) 209
+4 Zulaport Cutthroat (SOC) 233
+4 Mogg Fanatic (EMA) 138
+4 Siege-Gang Commander (PLST) DMR-136
+4 Goblin Bombardment (MH2) 279
+4 Lightning Bolt (MSC) 806
+4 Night's Whisper (HOC) 189

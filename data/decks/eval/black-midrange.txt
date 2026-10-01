@@ -1,0 +1,13 @@
+[deck:Black Midrange]
+24 Swamp (TRK) 321
+4 Thoughtseize (2XM) 109
+4 Black Knight (ME4) 71
+4 Dauthi Voidwalker (TDC) 176
+4 Hypnotic Specter (M10) 100
+3 Sheoldred, the Apocalypse (DMU) 107
+3 Ravenous Chupacabra (MKC) 136
+4 Night's Whisper (HOC) 189
+4 Hero's Downfall (FDN) 175
+2 Toxic Deluge (MSC) 161
+2 Phyrexian Arena (FDN) 180
+2 Mind Twist (ME3) 72
