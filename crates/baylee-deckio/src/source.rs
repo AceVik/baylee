@@ -247,4 +247,57 @@ mod tests {
         assert_eq!(unknown_link("1 Sol Ring"), None);
         assert_eq!(unknown_link("Sol.Ring"), None);
     }
+
+    /// `moxfield.com@evil.example` is the host `evil.example`, whatever the
+    /// text before the `@` says: a deck link is judged by where it goes.
+    #[test]
+    fn a_link_cannot_borrow_a_host_through_its_userinfo() {
+        assert_eq!(
+            recognise("https://moxfield.com@evil.example/decks/abc"),
+            None
+        );
+        assert!(recognise("https://user@moxfield.com/decks/abc").is_some());
+        assert!(recognise("https://moxfield.com:443/decks/abc").is_some());
+    }
+
+    #[test]
+    fn a_deck_id_is_one_to_sixty_four_url_safe_characters() {
+        let at = |id: &str| recognise(&format!("https://moxfield.com/decks/{id}"));
+        assert!(at("a").is_some());
+        assert!(at(&"a".repeat(64)).is_some());
+        assert!(at("A_b-9").is_some());
+        assert_eq!(at(&"a".repeat(65)), None);
+        assert_eq!(at("a%20b"), None);
+        assert_eq!(at("a.b"), None);
+    }
+
+    #[test]
+    fn a_host_must_be_a_dotted_name_with_no_empty_label_at_its_edges() {
+        for text in [
+            "https://localhost/decks/abc",
+            "https://.moxfield.com/decks/abc",
+            "https://moxfield.com./decks/abc",
+            "",
+            "   ",
+        ] {
+            assert_eq!(recognise(text), None, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn a_source_says_its_name_and_its_only_answer_is_an_instruction() {
+        assert_eq!(SourceId::Moxfield.name(), "Moxfield");
+        assert_eq!(SOURCES.len(), 1);
+        assert_eq!(SOURCES[0].id(), SourceId::Moxfield);
+    }
+
+    #[test]
+    fn a_link_with_a_scheme_but_no_dot_is_no_link_at_all() {
+        assert_eq!(unknown_link("https://localhost/x"), None);
+        assert_eq!(
+            unknown_link("  HTTPS://WWW.Archidekt.com/decks/1  "),
+            Some("archidekt.com".to_string()),
+            "host is lower-cased and www is dropped"
+        );
+    }
 }

@@ -822,7 +822,11 @@ mod tests {
         rules.mulligan_free_first = false;
         assert_eq!(rules.free_mulligan_count(), 0);
         rules.free_mulligans = Some(3);
-        assert_eq!(rules.free_mulligan_count(), 3, "the count wins over the flag");
+        assert_eq!(
+            rules.free_mulligan_count(),
+            3,
+            "the count wins over the flag"
+        );
     }
 
     #[test]
@@ -847,7 +851,7 @@ mod tests {
                 CardList::StartingBattlefield => p.seats[1].starting_battlefield = vec![entry(4)],
                 _ => p.seats[1].commanders = vec![entry(4)],
             }
-            let at = if list == CardList::StartingHand { 1 } else { 0 };
+            let at = usize::from(list == CardList::StartingHand);
             assert_eq!(
                 p.validate(),
                 Err(PresetError::PrintOutOfRange {
@@ -940,7 +944,10 @@ mod tests {
             counters: vec![counters(1, "x")],
             ..RoomSeatSetup::default()
         };
-        assert!(with(orphan).validate(2).is_err(), "counters on no permanent");
+        assert!(
+            with(orphan).validate(2).is_err(),
+            "counters on no permanent"
+        );
         let zero = RoomSeatSetup {
             permanents: vec!["Island".into()],
             counters: vec![counters(0, "x")],

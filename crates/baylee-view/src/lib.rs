@@ -3489,7 +3489,10 @@ mod tests {
             reconnect_secs: None,
         };
         assert_eq!(game.print(PrintRef::new(0)).unwrap().scryfall_id, "abc");
-        assert!(game.print(PrintRef::new(1)).is_none(), "hidden: None, not shortened");
+        assert!(
+            game.print(PrintRef::new(1)).is_none(),
+            "hidden: None, not shortened"
+        );
         assert!(game.print(PrintRef::new(2)).is_none(), "past the table");
     }
 

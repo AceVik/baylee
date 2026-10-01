@@ -612,7 +612,10 @@ mod tests {
         if let Line::Header { preset, .. } = &mut written[0] {
             preset.seats.truncate(1);
         }
-        assert_eq!(replay(&encode(&written)).err(), Some(ReplayError::Unbuildable));
+        assert_eq!(
+            replay(&encode(&written)).err(),
+            Some(ReplayError::Unbuildable)
+        );
     }
 
     /// An input the engine would refuse is a refusal, never a quiet skip: a
@@ -668,6 +671,9 @@ mod tests {
         })
         .unwrap();
         assert!(chair.contains(r#""change":"stood_in""#), "{chair}");
-        assert_eq!(serde_json::to_string(&Source::StandIn).unwrap(), r#""stand_in""#);
+        assert_eq!(
+            serde_json::to_string(&Source::StandIn).unwrap(),
+            r#""stand_in""#
+        );
     }
 }
