@@ -562,16 +562,42 @@ fn main() -> anyhow::Result<()> {
                         if i >= args.games {
                             return Ok(());
                         }
-                        let played = play_one(
-                            i,
-                            run,
-                            args,
-                            decks,
-                            league,
-                            &mut learner,
-                            &mut nets,
-                            &mut selfish,
-                        )?;
+                        // A game that panics the engine is a finding, not
+                        // the end of the run: it is reported with its seed,
+                        // written as `panicked` (convert3 reads only
+                        // finished games), and the next one is played.
+                        let played = match std::panic::catch_unwind(
+                            std::panic::AssertUnwindSafe(|| {
+                                play_one(
+                                    i,
+                                    run,
+                                    args,
+                                    decks,
+                                    league,
+                                    &mut learner,
+                                    &mut nets,
+                                    &mut selfish,
+                                )
+                            }),
+                        ) {
+                            Ok(played) => played?,
+                            Err(panic) => {
+                                let message = panic
+                                    .downcast_ref::<&str>()
+                                    .map(ToString::to_string)
+                                    .or_else(|| panic.downcast_ref::<String>().cloned())
+                                    .unwrap_or_default();
+                                let seed = args.first_seed + i;
+                                eprintln!("[league] game {i} (seed {seed}) panicked: {message}");
+                                Played {
+                                    line: json!({"i": i, "seed": seed,
+                                                 "outcome": {"kind": "panicked", "message": message}}),
+                                    record: Vec::new(),
+                                    learner_won: None,
+                                    opponent: 0,
+                                }
+                            }
+                        };
                         if shard.as_ref().is_none_or(|s| s.games >= args.shard_games) {
                             shard = Some(Shard::open(&records, worker, shards)?);
                             shards += 1;
