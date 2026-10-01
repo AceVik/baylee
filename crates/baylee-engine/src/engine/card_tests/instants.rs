@@ -22779,6 +22779,46 @@ fn fog_prevents_all_combat_damage_this_turn() {
     );
 }
 
+fn purelace() -> CardIndex {
+    card_index("3773001a-8868-49ec-a406-298cf72359c2")
+}
+
+/// The five laces ("Target spell or permanent becomes …") and Sink into
+/// Stupor ("Return target spell or nonland permanent an opponent controls
+/// to its owner's hand"), each cast over an opponent's trigger: the
+/// permanent that put it there is a target, the trigger is not. Abilities
+/// on the stack aren't spells (CR 113.9), and the menu used to offer them.
+#[test]
+fn a_spell_or_permanent_instant_never_offers_an_ability_on_the_stack() {
+    let p0 = PlayerId::new(0);
+    for (card, lands) in [
+        (chaoslace(), vec![mountain()]),
+        (deathlace(), vec![swamp()]),
+        (lifelace(), vec![forest()]),
+        (purelace(), vec![plains()]),
+        (thoughtlace(), vec![island()]),
+        (sink_into_stupor(), vec![island(); 3]),
+    ] {
+        let name = baylee_cards::by_index(card).map_or("?", baylee_cards_dsl::CardDef::name);
+        let (mut engine, trigger, bowmasters) = an_opponents_trigger_on_the_stack(&lands, &[card]);
+        cast_from_hand(&mut engine, p0, card);
+        let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+            panic!(
+                "{name}: expected its target prompt, got {:?}",
+                engine.pending()
+            )
+        };
+        assert!(
+            options.contains(&bowmasters),
+            "{name}: the Bowmasters are a permanent: {options:?}"
+        );
+        assert!(
+            !options.contains(&trigger),
+            "{name}: their trigger is no spell and no permanent: {options:?}"
+        );
+    }
+}
+
 fn lifelace() -> CardIndex {
     card_index("eec1de80-4b3d-481d-a235-c299e0381830")
 }

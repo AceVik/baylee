@@ -91041,6 +91041,60 @@ fn venser_bounces_a_spell_off_the_stack_with_flash() {
     );
 }
 
+/// Venser's "target spell or permanent" over an opponent's trigger: the
+/// permanent that put it there is on the menu, and the trigger is not.
+///
+/// Abilities on the stack aren't spells (CR 113.9). The menu used to offer
+/// them, so in l29 game 1930 thirty token Vensers each found every Venser
+/// trigger stacked before it on its menu, which grew by one a question
+/// until 256 entries wrapped the question's maximum to zero.
+#[test]
+fn venser_returns_a_spell_or_permanent_and_never_offers_an_ability() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, trigger, bowmasters) =
+        an_opponents_trigger_on_the_stack(&[island(); 4], &[venser_shaper_savant()]);
+
+    // Flash: Venser is cast over the trigger and resolves first.
+    cast_from_hand(&mut engine, p0, venser_shaper_savant());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let Pending::ChooseTargets {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("the pass waited for exactly this")
+    };
+    assert_eq!(player, p0, "Venser's controller aims its trigger");
+    assert!(
+        engine.state().zones.contains(trigger, ZoneLocation::Stack),
+        "the Bowmasters' trigger is still waiting under it"
+    );
+    assert!(
+        options.contains(&bowmasters),
+        "the permanent that put it there is a target: {options:?}"
+    );
+    assert!(
+        !options.contains(&trigger),
+        "an ability on the stack is no spell and no permanent: {options:?}"
+    );
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bowmasters],
+                players: vec![],
+            },
+        )
+        .expect("the Bowmasters are a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_hand(&engine, p1, orcish_bowmasters()).is_some(),
+        "the Bowmasters went home to p1's hand"
+    );
+}
+
 /// `Ojer Kaslem, Deepest Growth` is a legendary creature costing `{3}{G}{G}` under `Coverage::Partial`.
 /// It prints 6/5 base power and toughness with trample.
 /// Under `Coverage::Partial`, its combat-damage reveal clause and dies trigger are not implemented.
