@@ -167,7 +167,19 @@ Status: open.
 
 Es sollte möglich sein den Schaden auf Blocker selbst zu verteilen. (Mit einem Auto Button, der es dann automatisch die restlichen Punkte verteilt)
 
-Status: open.
+Status: source and native UI verified; ready to close (not deployed).
+
+Added “Rest automatisch verteilen” to the combat-number prompt. It preserves
+previous manual shares and finishes only this source’s remaining division,
+using marked damage and deathtouch; unrelated decisions and subsequent turns
+are not approved. Engine integration: Craw Wurm versus four Grizzly Bears,
+first share manually 1, next shares automatically 2 and 2, final remainder 1.
+Native German UI reproduces the same sequence with Lure forcing all four
+blockers; one auto-button click kills only the middle two Bears, first/last
+survive, no client error. QA: /private/tmp/baylee-combat-auto-before.png,
+/private/tmp/baylee-combat-auto-after.png and -after.json (not committed).
+Validation: 1171 client-core tests, 1150 client tests (2 ignored), real-engine
+integration test and dev-control/all-targets clippy pass.
 
 ## 01a0e8c1-8999-717b-99ec-93f44f79ae22
 
@@ -247,3 +259,10 @@ The hand-limit report is resolved in the feedback service, verified in source
 and in the native client (ba2069c6). QA image: /private/tmp/baylee-hand-limit-live.png (not committed). The existing public effect is displayed; no new emblem object or rules exception is invented. The test client was stopped after verification. No push or deployment.
 
 Next useful UI task: auto-distribute remaining combat damage. The engine already asks NumberPrompt::CombatDamage per recipient and assigns the last recipient the remainder (`engine/banding.rs`). The AI already computes a lethal share (`ai/policy.rs::combat_share`); the human prompt still only offers manual number confirmation. Any client-side auto action must stay limited to the explicitly approved division and stop at unrelated decisions.
+
+## Second hourly continuation
+
+Completed and verified the remaining-combat-damage button described above.
+Client suites initially hit sandbox restrictions in eight local TCP tests;
+rerunning with local port access passes all 1150 tests. Native test client
+stopped after verification. No push or deployment.

@@ -50,6 +50,7 @@ pub mod cardquery;
 pub mod cardrail;
 pub mod caretspot;
 pub mod combat;
+pub mod combat_auto;
 pub mod commanderdamage;
 pub mod cue;
 pub mod decisionclock;

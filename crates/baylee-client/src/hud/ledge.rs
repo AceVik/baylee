@@ -1338,21 +1338,39 @@ fn answers_for(
                     .as_ref()
                     .is_some_and(baylee_client_core::Interaction::can_confirm) =>
         {
-            let mut answers = vec![say(PromptAction::Confirm, Phrase::ConfirmOk)];
-            if let Some((i, v)) = duel.interaction.as_ref().zip(duel.view.as_ref())
-                && let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch {
-                    count, ..
-                }) = baylee_client_core::targeting::batch_answer(i, v)
-            {
-                answers.push((
-                    Says::Answer(PromptAction::TargetBatch),
-                    Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),
-                ));
-            }
-            answers
+            confirmation_row(duel, lang)
         }
         _ => Vec::new(),
     }
+}
+
+/// The manual answer and explicit batch choices for the current decision.
+fn confirmation_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
+    use baylee_engine::choice::Pending;
+    let Some(interaction) = duel.interaction.as_ref() else {
+        return Vec::new();
+    };
+    let say = |action, phrase: Phrase| (Says::Answer(action), phrase.text(lang).to_string());
+    let mut answers = vec![say(PromptAction::Confirm, Phrase::ConfirmOk)];
+    if matches!(
+        interaction.pending(),
+        Pending::ChooseNumber {
+            reason: baylee_engine::choice::NumberPrompt::CombatDamage { .. },
+            ..
+        }
+    ) {
+        answers.push(say(PromptAction::AutoDamage, Phrase::AutoCombatDamage));
+    }
+    if let Some((i, v)) = duel.interaction.as_ref().zip(duel.view.as_ref())
+        && let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch { count, .. }) =
+            baylee_client_core::targeting::batch_answer(i, v)
+    {
+        answers.push((
+            Says::Answer(PromptAction::TargetBatch),
+            Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),
+        ));
+    }
+    answers
 }
 
 /// Whether the shelf is showing a running hold instead of a question.
@@ -2008,6 +2026,50 @@ fn clock_width() -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn auto_damage_button_is_only_offered_for_combat_shares() {
+        use baylee_engine::choice::{NumberPrompt, Pending};
+        let me = baylee_core::ids::PlayerId::new(0);
+        for (reason, offered) in [
+            (NumberPrompt::X, false),
+            (
+                NumberPrompt::CombatDamage {
+                    source: baylee_core::ids::ObjectId::new(1, 0),
+                    recipient: baylee_core::ids::ObjectId::new(2, 0),
+                    index: 1,
+                    of: 4,
+                    left: 5,
+                },
+                true,
+            ),
+        ] {
+            let duel = Duel {
+                interaction: Some(baylee_client_core::Interaction::new(
+                    Pending::ChooseNumber {
+                        player: me,
+                        min: 0,
+                        max: 5,
+                        reason,
+                    },
+                    me,
+                )),
+                ..Duel::default()
+            };
+            let answers = answers_for(&duel, Lang::De, false, false, false);
+            assert_eq!(
+                answers
+                    .iter()
+                    .any(|(a, _)| *a == Says::Answer(PromptAction::AutoDamage)),
+                offered
+            );
+            assert!(
+                answers
+                    .iter()
+                    .any(|(a, _)| *a == Says::Answer(PromptAction::Confirm))
+            );
+        }
+    }
 
     /// The shelf is a **dialog**, and nothing on it is borrowed from the
     /// parchment or from the table.

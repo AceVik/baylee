@@ -419,6 +419,7 @@ pub enum HoverSpot {
 pub struct Duel {
     /// Finite identical may decisions explicitly approved together.
     pub(crate) yes_batch: yes_batch::YesBatch,
+    pub(crate) combat_auto: Option<baylee_client_core::combat_auto::CombatAuto>,
     /// Page of the current legal target list.
     pub target_page: usize,
     /// Stable random surface for this local duel lifetime.
@@ -1940,17 +1941,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         duel.yes_batch = yes_batch::YesBatch::default();
         return;
     }
-    let Duel {
-        yes_batch,
-        view,
-        interaction,
-        ..
-    } = &mut *duel;
-    if let Some(answer) = view
-        .as_ref()
-        .zip(interaction.as_ref())
-        .and_then(|(v, i)| yes_batch.answer(v, i.pending()))
-    {
+    if let Some(answer) = requested_batch_answer(&mut duel) {
         duel.submit(answer);
         return;
     }
@@ -2011,6 +2002,19 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
         }
     };
     duel.submit(action);
+}
+
+/// Continue only the finite batch explicitly approved on the current prompt.
+fn requested_batch_answer(duel: &mut Duel) -> Option<PlayerAction> {
+    let (view, interaction) = duel.view.as_ref().zip(duel.interaction.as_ref())?;
+    if let Some(auto) = duel.combat_auto.as_mut() {
+        if !auto.accepts(view, interaction.pending()) {
+            duel.combat_auto = None;
+        } else if let Some(answer) = auto.answer(view, interaction.pending()) {
+            return Some(answer);
+        }
+    }
+    duel.yes_batch.answer(view, interaction.pending())
 }
 
 /// Tapping permanents for mana, one action at a time.

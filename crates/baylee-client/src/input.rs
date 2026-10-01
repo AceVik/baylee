@@ -3270,6 +3270,19 @@ pub fn pointer(
                     .as_ref()
                     .zip(duel.view.as_ref())
                     .and_then(|(i, v)| baylee_client_core::targeting::batch_answer(i, v)),
+                PromptAction::AutoDamage => {
+                    duel.combat_auto =
+                        duel.view
+                            .as_ref()
+                            .zip(duel.interaction.as_ref())
+                            .and_then(|(v, i)| {
+                                baylee_client_core::combat_auto::CombatAuto::begin(v, i.pending())
+                            });
+                    if duel.combat_auto.is_some() {
+                        duel.stack_stop_requested = false;
+                    }
+                    None
+                }
                 // Aiming changes nothing the engine can hear; it moves the
                 // focus the next declaration will use.
                 PromptAction::AimNext => {

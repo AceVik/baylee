@@ -198,6 +198,8 @@ pub enum PromptAction {
     Confirm,
     /// Confirm the displayed finite series of identical target decisions.
     TargetBatch,
+    /// Automatically assign the remaining shares of this combat damage division.
+    AutoDamage,
     /// Declare no attackers, or no blockers.
     DeclareNothing,
     /// Aim the next declaration at the next defender (or attacker).
@@ -227,7 +229,7 @@ impl PromptAction {
     /// values anything builds are `+1` and `-1` — a stepper moves by one.
     /// Listing them is what lets [`shortcut_for`] be tested over the whole
     /// enum rather than over the variants somebody remembered.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Yes,
         Self::YesBatch,
         Self::No,
@@ -235,6 +237,7 @@ impl PromptAction {
         Self::Mulligan,
         Self::Confirm,
         Self::TargetBatch,
+        Self::AutoDamage,
         Self::DeclareNothing,
         Self::AimNext,
         Self::SkipTurn,
@@ -269,7 +272,7 @@ pub const fn shortcut_for(action: PromptAction) -> Option<Action> {
         PromptAction::SkipTurn => Action::NextTurn,
         PromptAction::Step(1) => Action::NumberUp,
         PromptAction::Step(-1) => Action::NumberDown,
-        PromptAction::YesBatch | PromptAction::Step(_) => return None,
+        PromptAction::YesBatch | PromptAction::AutoDamage | PromptAction::Step(_) => return None,
     })
 }
 
@@ -571,7 +574,7 @@ mod tests {
     #[test]
     fn every_answer_a_button_carries_has_a_key_except_the_stepper_by_two() {
         for action in PromptAction::ALL {
-            if action == PromptAction::YesBatch {
+            if matches!(action, PromptAction::YesBatch | PromptAction::AutoDamage) {
                 continue;
             }
             assert!(
