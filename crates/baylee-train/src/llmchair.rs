@@ -67,6 +67,7 @@ impl LlmChair {
         effort: Option<&str>,
         transcripts: Option<&std::path::Path>,
         wait: Duration,
+        max_tokens: u32,
     ) -> anyhow::Result<Self> {
         let parsed = Spec::parse(spec)
             .context("--llm names openai:<model> or anthropic[:<model>]")?
@@ -88,6 +89,13 @@ impl LlmChair {
             settings.effort = Some(effort.to_owned());
         }
         settings.transcripts = transcripts.map(std::path::Path::to_path_buf);
+        settings.max_tokens = max_tokens;
+        // One mind serves every game of the arena, so the seat's budget per
+        // game would count them all as one game: 5M tokens ran out after
+        // ~400 calls and the house answered every block after it. The
+        // arena's limit is the server's (a forwarder's call cap).
+        settings.spend_tokens = u64::MAX;
+        settings.spend_usd = None;
         Ok(Self {
             mind: ApiMind::new(settings, credentials),
             runtime: tokio::runtime::Builder::new_multi_thread()

@@ -146,6 +146,11 @@ struct Args {
     #[cfg(feature = "llm")]
     #[arg(long, default_value_t = 300)]
     llm_wait_secs: u64,
+    /// The most tokens one reply may take, reasoning included: a reasoning
+    /// model that runs out before its answer is answered for by the house.
+    #[cfg(feature = "llm")]
+    #[arg(long, default_value_t = 16_000)]
+    llm_max_tokens: u32,
     /// Where results go; must not exist.
     #[arg(long)]
     out: PathBuf,
@@ -361,6 +366,7 @@ fn main() -> anyhow::Result<()> {
                 args.llm_effort.as_deref(),
                 args.llm_transcripts.as_deref(),
                 Duration::from_secs(args.llm_wait_secs),
+                args.llm_max_tokens,
             )
         })
         .transpose()?
