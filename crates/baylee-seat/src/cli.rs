@@ -59,7 +59,7 @@ use crate::llm::seatstate::Seat;
 use crate::llm::{MARGIN, RETRY_FLOOR, Settings, Tally, Usage, Worst, lock, prompt, scrub};
 use crate::mind::{Answer, Disclosure, GameContext, Mind, MindError, Readiness, Request, Thinking};
 use crate::narrator::{self, Decision, Menu, Narrator};
-use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path};
+use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path, shaped_like_a_key};
 use baylee_engine::choice::PlayerAction;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, VecDeque};
@@ -125,37 +125,6 @@ pub fn forbidden(name: &str) -> bool {
         || upper.contains("SECRET")
         || upper.contains("PASSWORD")
         || matches!(upper.as_str(), "SSH_AUTH_SOCK" | "DATABASE_URL")
-}
-
-/// Whether `value` looks like a key: an API key's `sk-` or a GitHub
-/// token's prefix where a word starts, with as many key characters after
-/// it as a key has, or an authorization header's words. Anchored at a
-/// word's start, so a path such as `/opt/desk-tools-collection/bin` is no
-/// key, and `/Users/sk-ant-…` is one.
-fn key_shaped(value: &str) -> bool {
-    const MARKERS: [(&str, usize); 10] = [
-        ("sk-", 16),
-        ("ghp_", 20),
-        ("gho_", 20),
-        ("ghu_", 20),
-        ("ghs_", 20),
-        ("ghr_", 20),
-        ("github_pat_", 20),
-        ("Bearer ", 1),
-        ("bearer ", 1),
-        ("x-api-key", 0),
-    ];
-    let key_char = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
-    MARKERS.iter().any(|(marker, least)| {
-        value.match_indices(marker).any(|(at, _)| {
-            let starts_a_word = value[..at].chars().next_back().is_none_or(|c| !key_char(c));
-            let run = value[at + marker.len()..]
-                .chars()
-                .take_while(|c| key_char(*c))
-                .count();
-            starts_a_word && run >= *least
-        })
-    })
 }
 
 /// How long processes live and how many at once.
@@ -292,7 +261,7 @@ impl Launch {
                     "{name} is never given to a CLI, and {tool} does not start"
                 ));
             }
-            if key_shaped(&value.to_string_lossy()) {
+            if shaped_like_a_key(&value.to_string_lossy()) {
                 return Err(format!(
                     "{name} looks like a key, and a key is never given to a CLI: {tool} does not \
                      start"
@@ -410,9 +379,17 @@ fn private_dir(path: &Path) -> std::io::Result<()> {
 enum Gone {
     /// Its output ended: it exited or was killed.
     Ended,
-    /// It broke the lockdown: a tool or a server it must not have, or a
-    /// reply before it said what it offers.
+    /// It broke the lockdown: a tool or a server it must not have, or an
+    /// answer or a failure before it said what it offers.
     Refused(String),
+    /// It said it was rate limited before it said what it offers: no
+    /// answer, so nothing it could break, and nothing it vouched for
+    /// either. Its reader stops, so nothing more is taken from it; the
+    /// mind ends it and cools down.
+    Limited {
+        why: String,
+        lifts_in: Option<Duration>,
+    },
 }
 
 /// What a question waiting on a process hears.
@@ -876,6 +853,17 @@ impl CliMind {
     /// its last words, or the lockdown a process broke, which takes the
     /// mind off the table for good (its reader has done so already).
     async fn gone(&self, seat: &Mutex<CliSeat>, turn: u32, gone: Gone) -> MindError {
+        if let Gone::Limited { why, lifts_in } = gone {
+            // Ended, not lost: its conversation never began.
+            if let Some(session) = lock(seat).session.take() {
+                session.end(Duration::ZERO);
+            }
+            if let Some(why) = lock(&self.locked_out).clone() {
+                return MindError::Unavailable(why);
+            }
+            self.cool(lifts_in);
+            return MindError::Unavailable(format!("rate limit: {why}"));
+        }
         let session = Self::lose(seat, turn);
         if let Gone::Refused(why) = &gone {
             lock_out(&self.locked_out, Some(&self.seats), why);
@@ -1173,9 +1161,11 @@ struct Reader {
 impl Reader {
     /// Reads until the output ends or the process breaks the lockdown: a
     /// start that names a tool it must not have (or does not name them),
-    /// or a reply before any start, which would be a reply nothing
-    /// vouched for. A break locks the mind out and kills its processes
-    /// before any question waiting hears it.
+    /// or an answer or a failure before any start, which would be a reply
+    /// nothing vouched for. A break locks the mind out and kills its
+    /// processes before any question waiting hears it. A rate limit before
+    /// any start carries no answer and breaks nothing: reading stops there
+    /// ([`Gone::Limited`]), and the mind cools down instead.
     async fn run(self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
@@ -1197,6 +1187,9 @@ impl Reader {
                     }
                     started = true;
                 }
+                Event::Reply(Outcome::RateLimited { why, lifts_in }) if !started => {
+                    break Gone::Limited { why, lifts_in };
+                }
                 Event::Reply(_) if !started => {
                     break Gone::Refused(format!(
                         "the {} process replied before it said what it offers the model: the \
@@ -1212,14 +1205,17 @@ impl Reader {
             lock_out(&self.locked_out, self.seats.upgrade().as_deref(), why);
         }
         // Every question still waiting hears it, and counts at its worst:
-        // nobody knows what the tool spent on it.
+        // nobody knows what the tool spent on it. The oldest one's rate
+        // limit, which answered it, is unbilled, as any rate limit is.
         let waiting: Vec<Waiter> = {
             let mut queue = lock(&self.queue);
             queue.gone = Some(gone.clone());
             queue.waiting.drain(..).collect()
         };
+        let mut limited = matches!(gone, Gone::Limited { .. });
         for waiter in waiting {
-            lock(&self.tally).back(waiter.worst, Err(true), None);
+            lock(&self.tally).back(waiter.worst, Err(!limited), None);
+            limited = false;
             let _ = waiter.reply.send(Reply::Gone(gone.clone()));
         }
     }

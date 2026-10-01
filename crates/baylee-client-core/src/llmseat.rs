@@ -1208,28 +1208,76 @@ fn keys_below(value: &Value, steps: &mut Vec<String>, path: &str, out: &mut Vec<
 
 /// `text` with each run shaped like an API key blanked: `sk-` followed by
 /// sixteen or more key characters (Anthropic's `sk-ant-…`, `OpenAI`'s and
-/// `DeepSeek`'s `sk-…`), and whatever follows `Bearer ` or `x-api-key` up
-/// to the next space or quote. The markers stay, so a reader still sees
-/// what was there. The seat bridge's scrubber blanks these and its own key.
+/// `DeepSeek`'s `sk-…`), a GitHub token's prefix followed by twenty or
+/// more, and whatever follows `Bearer ` or `x-api-key` up to the next space
+/// or quote. Unlike [`shaped_like_a_key`] it blanks inside a word too: a
+/// redaction errs towards blanking. The markers stay, so a reader still
+/// sees what was there. The seat bridge's scrubber blanks these and its own
+/// key.
 #[must_use]
 pub fn blank_key_shapes(text: &str) -> String {
     let mut out = blank_after(text, "sk-", 16);
+    for marker in ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"] {
+        out = blank_after(&out, marker, 20);
+    }
     for marker in ["Bearer ", "bearer ", "x-api-key: ", "x-api-key\":\""] {
         out = blank_after(&out, marker, 1);
     }
     out
 }
 
-/// Whether `text` holds anything shaped like an API key.
+/// Whether `text` holds anything shaped like a key: an API key's `sk-` or a
+/// GitHub token's prefix where a word starts, with as many key characters
+/// after it as such a key has, or an authorization header's words.
+///
+/// A marker glued to a lowercase word before it (`desk-tools-collection`,
+/// `task-…`, `my_ghp_…`: a lowercase letter, `_`, `-` or `.` before it) is
+/// part of that word and no key, so a path such as
+/// `/opt/desk-tools-collection/bin` is none. Anything else before it starts
+/// a word: the text's start, a space, `/`, `=`, an uppercase letter, a
+/// non-ASCII character, and a digit, since a model id ends in one and a key
+/// pasted after it (`claude-sonnet-5-5sk-ant-…`) starts where its marker
+/// does. A key glued to a lowercase word is missed.
+///
+/// The one definition: the settings file and panel refuse by it, and the
+/// seat bridge refuses to start a CLI whose environment holds such a value.
 #[must_use]
 pub fn shaped_like_a_key(text: &str) -> bool {
-    blank_key_shapes(text) != text
+    const MARKERS: [(&str, usize); 10] = [
+        ("sk-", 16),
+        ("ghp_", 20),
+        ("gho_", 20),
+        ("ghu_", 20),
+        ("ghs_", 20),
+        ("ghr_", 20),
+        ("github_pat_", 20),
+        ("Bearer ", 1),
+        ("bearer ", 1),
+        ("x-api-key", 0),
+    ];
+    MARKERS.iter().any(|(marker, least)| {
+        text.match_indices(marker).any(|(at, _)| {
+            let starts_a_word = text[..at]
+                .chars()
+                .next_back()
+                .is_none_or(|c| !(c.is_ascii_lowercase() || matches!(c, '_' | '-' | '.')));
+            let run = text[at + marker.len()..]
+                .chars()
+                .take_while(|c| key_char(*c))
+                .count();
+            starts_a_word && run >= *least
+        })
+    })
+}
+
+/// A character a key is written in.
+fn key_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')
 }
 
 /// Blanks each run of key characters that follows `marker`, when the run is
 /// at least `least` long.
 fn blank_after(text: &str, marker: &str, least: usize) -> String {
-    let key_char = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.';
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(at) = rest.find(marker) {

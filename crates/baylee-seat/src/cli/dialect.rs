@@ -69,7 +69,7 @@ pub(crate) struct Started {
     /// The slash commands and skills the conversation could run.
     pub(crate) slash_commands: Option<Vec<String>>,
     /// Where the credential it calls the model with comes from, as it
-    /// says.
+    /// says; `None` where it named no source as text, which is a fault.
     pub(crate) key_source: Option<String>,
 }
 

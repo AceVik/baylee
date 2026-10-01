@@ -16,9 +16,9 @@
 //!
 //! Its `init` line is the proof the flags held, checked before any reply
 //! is taken: it must name its tools (none but the answer's own), its MCP
-//! servers and its slash commands (none of either), and its key's source
-//! must not be a variable (`ANTHROPIC_API_KEY`); a subscription's is
-//! `none`.
+//! servers and its slash commands (none of either), and its key's source,
+//! which must be named and must not be a variable (`ANTHROPIC_API_KEY`); a
+//! subscription's is `none`.
 
 use super::dialect::{Dialect, Event, Outcome, Started};
 use crate::llm::{Settings, Usage, json_object, prompt};
@@ -143,12 +143,15 @@ impl Dialect for Claude {
         if !commands.is_empty() {
             return refused(format!("offered slash commands ({})", listed(commands)));
         }
-        match started.key_source.as_deref() {
-            Some(source) if names_a_variable(source) => {
-                refused(format!("calls the model with a key from {source}"))
-            }
-            _ => None,
+        // Named, as every list is: a start that does not say where its key
+        // comes from cannot show it is not a variable's.
+        let Some(source) = started.key_source.as_deref() else {
+            return refused("did not say where its key comes from".into());
+        };
+        if names_a_variable(source) {
+            return refused(format!("calls the model with a key from {source}"));
         }
+        None
     }
 
     fn probe_args(&self) -> Option<Vec<OsString>> {

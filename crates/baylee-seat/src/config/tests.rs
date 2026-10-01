@@ -480,3 +480,147 @@ fn where_the_file_and_the_book_are() {
     assert_eq!(bare.settings, None);
     assert_eq!(bare.load(), Ok(None));
 }
+
+fn scratch_file(name: &str, text: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("baylee-config-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("llm-seat.json");
+    std::fs::write(&path, text).unwrap();
+    path
+}
+
+/// A file named must be there; the default one may be missing; an empty
+/// variable names nothing; a refused file is one sentence, not a default.
+#[test]
+fn a_named_file_must_exist_and_a_default_one_may_not() {
+    let missing = std::env::temp_dir().join("baylee-config-nowhere/llm-seat.json");
+    let named = Paths::resolve(Some(&missing), None, &|_| None);
+    let why = named.load().unwrap_err();
+    assert!(why.contains("there is no settings file at"), "{why}");
+    assert!(why.contains(CONFIG_ENV), "{why}");
+    let default = Paths {
+        settings: Some(missing),
+        named: false,
+        ledger: None,
+    };
+    assert_eq!(default.load(), Ok(None));
+
+    let empty_var = |key: &str| (key == CONFIG_ENV).then(String::new);
+    let paths = Paths::resolve(None, None, &empty_var);
+    assert!(!paths.named, "an empty variable names no file");
+
+    let good = scratch_file(
+        "good",
+        r#"{"default": "local", "profiles": {"local": {"provider": "openai", "model": "qwen-local"}}}"#,
+    );
+    let loaded = Paths::resolve(Some(&good), None, &|_| None).load().unwrap();
+    assert_eq!(loaded.unwrap().default.as_deref(), Some("local"));
+    let bad = scratch_file("bad", "{ nope");
+    let why = Paths::resolve(Some(&bad), None, &|_| None)
+        .load()
+        .unwrap_err();
+    assert!(!why.is_empty() && why.lines().count() == 1, "{why}");
+    for path in [good, bad] {
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+}
+
+/// A key in the file is refused by the file's reader, before any plan.
+#[test]
+fn a_key_in_the_settings_file_is_refused() {
+    let keyed = scratch_file(
+        "keyed",
+        r#"{"profiles": {"x": {"provider": "openai", "model": "m",
+            "api_key": "sk-ant-api03-AAAABBBBCCCCDDDDEEEE"}}}"#,
+    );
+    let why = Paths::resolve(Some(&keyed), None, &|_| None)
+        .load()
+        .unwrap_err();
+    assert!(!why.contains("AAAABBBB"), "the key is never echoed: {why}");
+    let _ = std::fs::remove_dir_all(keyed.parent().unwrap());
+}
+
+/// Anthropic's models answer with tools: a flag or a profile that asks for
+/// JSON of them is refused in one sentence.
+#[test]
+fn an_anthropic_model_cannot_answer_in_json() {
+    let file = file();
+    for answer in [AnswerMode::Json, AnswerMode::JsonSchema] {
+        let why = refused(
+            None,
+            Some(&file),
+            Some("sonnet"),
+            &Overrides {
+                answer: Some(answer),
+                ..Overrides::default()
+            },
+        );
+        assert!(why.contains("OpenAI-compatible endpoint or a CLI"), "{why}");
+    }
+    let tools = planned(
+        None,
+        Some(&file),
+        Some("sonnet"),
+        &Overrides {
+            answer: Some(AnswerMode::Tools),
+            ..Overrides::default()
+        },
+    );
+    assert_eq!(tools.settings.answer, AnswerMode::Tools);
+}
+
+/// A flag beats the profile it sits over, field by field, and a field the
+/// flag leaves alone stays the profile's.
+#[test]
+fn flags_beat_the_profile_field_by_field() {
+    let file = file();
+    let flags = Overrides {
+        think_secs: Some(7),
+        max_tokens: Some(99),
+        spend_tokens: Some(1_234_567),
+        ..Overrides::default()
+    };
+    let plan = planned(None, Some(&file), Some("sonnet"), &flags);
+    assert_eq!(plan.think_secs, 7);
+    assert_eq!(plan.settings.max_tokens, 99);
+    assert_eq!(plan.settings.spend_tokens, 1_234_567);
+    assert_eq!(
+        plan.settings.effort.as_deref(),
+        Some("high"),
+        "the profile's"
+    );
+    assert_eq!(plan.base_url.as_deref(), Some("https://llm.example.com"));
+    let plain = planned(None, Some(&file), Some("sonnet"), &Overrides::default());
+    assert_eq!(plain.think_secs, 45);
+    let tokens = Overrides {
+        spend_tokens: Some(500_000),
+        ..Overrides::default()
+    };
+    let local = planned(None, Some(&file), Some("local"), &tokens);
+    assert_eq!(local.think_secs, DEFAULT_THINK_SECS);
+    assert_eq!(local.profile.as_deref(), Some("local"));
+    assert_eq!(local.note, None);
+}
+
+/// A profile that is not named and not the default plays nothing: with no
+/// `--mind` the house plays.
+#[test]
+fn with_no_default_and_no_mind_the_house_plays() {
+    let text =
+        r#"{"profiles": {"a": {"provider": "openai", "model": "m", "game_tokens": 1000000}}}"#;
+    let no_default = SeatSettings::parse(text).expect("a file");
+    assert!(
+        plan(
+            None,
+            Some(&no_default),
+            &paths(),
+            None,
+            &Overrides::default()
+        )
+        .unwrap()
+        .is_none()
+    );
+    let named = planned(None, Some(&no_default), Some("a"), &Overrides::default());
+    assert_eq!(named.profile.as_deref(), Some("a"));
+}

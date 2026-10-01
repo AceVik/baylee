@@ -189,11 +189,14 @@ owner to check before playing.
   says at its start (Claude Code's `init` line) is the proof the flags
   held, and no reply is taken before it: it must name the model's tools
   (none but `StructuredOutput`, the answer's own), its MCP servers and its
-  slash commands (none), and its key's source must not be a variable such
-  as `ANTHROPIC_API_KEY` (a subscription's is `none`). A process that does
-  not say so, replies before it does, or says anything else takes the mind
-  off the table for good: the process's own reader kills every process of
-  the mind at once, whether or not a question still waits. A line of
+  slash commands (none), and its key's source must be named and must not
+  be a variable such as `ANTHROPIC_API_KEY` (a subscription's is `none`).
+  A process that does not say so, answers or fails before it does, or says
+  anything else takes the mind off the table for good: the process's own
+  reader kills every process of the mind at once, whether or not a
+  question still waits. A rate limit before the `init` line carries no
+  answer: nothing more is read from that process, it is ended, and the mind
+  cools down as for any rate limit, then starts a new one. A line of
   output over a mebibyte is never read.
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool

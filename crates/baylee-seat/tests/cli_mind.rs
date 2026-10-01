@@ -898,3 +898,168 @@ async fn the_reaper_ends_idle_processes_and_keeps_to_the_limit() {
         "the idle process was ended"
     );
 }
+
+/// A failed reply is unavailable with the tool's words, billed at its worst
+/// (nobody knows what it cost), and does not cool the mind down: the next
+/// question goes out.
+#[tokio::test]
+async fn a_failed_reply_is_billed_at_its_worst_and_does_not_cool_the_mind() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "failed",
+        cli(json!({})),
+        &json!({"steps": [{"kind": "fail"}, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let failed = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+    assert_eq!(
+        failed,
+        MindError::Unavailable("the fake failed".into()),
+        "the tool's own words"
+    );
+    let tally = mind.tally();
+    assert!(rig.until(|_| spent(&tally).failed == 1).await);
+    assert!(spent(&tally).unsure.tokens > 0, "{:?}", spent(&tally));
+    assert!(mind.ready().await, "a failure is no cooldown");
+    let answer = mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+}
+
+/// A process that says its key comes from a variable is not played through,
+/// and the mind is off the table for good.
+#[tokio::test]
+async fn a_key_from_a_variable_takes_the_mind_off_the_table() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "keyvar",
+        cli(json!({})),
+        &json!({"init": {"apiKeySource": "ANTHROPIC_API_KEY"}, "steps": [pass(1, ""), pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+    assert!(
+        matches!(&refused, MindError::Unavailable(why) if why.contains("a key from ANTHROPIC_API_KEY")),
+        "{refused:?}"
+    );
+    assert!(!mind.ready().await);
+    assert_eq!(
+        mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err(),
+        refused
+    );
+    assert_eq!(rig.starts().len(), 1, "no second process");
+}
+
+/// A start that names no source for its key cannot show it is not a
+/// variable's, and the mind does not play through it.
+#[tokio::test]
+async fn a_start_without_a_key_source_takes_the_mind_off_the_table() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "nokeysource",
+        cli(json!({})),
+        &json!({"init": {"apiKeySource": null}, "steps": [pass(1, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let result = mind.decide(ask(&base, 1, turn, 20)).await;
+    assert!(
+        matches!(&result, Err(MindError::Unavailable(_))),
+        "played through a process that named no key source: {result:?}"
+    );
+    assert!(!mind.ready().await);
+}
+
+/// A rate limit that arrives before the start line says nothing about the
+/// lockdown: nothing was offered the model, nothing replied from it. The
+/// mind should cool down and play again, not be off the table for good.
+#[tokio::test]
+async fn a_rate_limit_before_the_start_cools_the_mind_down() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "limitfirst",
+        cli(json!({})),
+        &json!({"init": false, "steps": [{"kind": "rate_limit", "lifts_in": 1}, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+    assert!(
+        matches!(&limited, MindError::Unavailable(why) if why.starts_with("rate limit")),
+        "{limited:?}"
+    );
+    // The steps go on where the first process left them (the cursor is
+    // shared), now with a start line before the reply.
+    rig.script(&json!({"steps": [{"kind": "rate_limit"}, pass(2, "")]}));
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+    assert!(mind.ready().await, "cooled down, not locked out");
+    let answer = mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2);
+    assert_ne!(
+        messages[0].0, messages[1].0,
+        "the answer came from a new process, which said what it offers"
+    );
+}
+
+/// Only a rate limit before the start cools the mind down: a failure
+/// before it is a reply nothing vouched for, and takes the mind off the
+/// table as an answer would.
+#[tokio::test]
+async fn a_failure_before_the_start_is_still_refused() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "failfirst",
+        cli(json!({})),
+        &json!({"init": false, "steps": [{"kind": "fail"}, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+    assert!(
+        matches!(&refused, MindError::Unavailable(why) if why.contains("replied before it said what it offers")),
+        "{refused:?}"
+    );
+    assert!(!mind.ready().await);
+    assert_eq!(rig.starts().len(), 1, "no second process");
+}
+
+/// A conversation past its token size ends, and the next message of the
+/// same turn opens a new process with the game's prefix again.
+#[tokio::test]
+async fn a_conversation_past_its_size_starts_a_new_process_within_the_turn() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let mut rig = Rig::new(
+        "outgrown",
+        cli(json!({})),
+        &json!({"steps": [pass(1, ""), pass(2, "")]}),
+    );
+    rig.plan.settings.conversation_tokens = 1;
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2);
+    assert_ne!(messages[0].0, messages[1].0, "a new process");
+    assert_eq!(rig.starts().len(), 2);
+    assert!(
+        !messages[1].1.contains("conversation this turn was lost"),
+        "outgrown is not lost: {}",
+        messages[1].1
+    );
+}
+
+/// The login check decides readiness each time it is asked: signed out is
+/// not ready, signed in again is.
+#[tokio::test]
+async fn the_mind_is_ready_exactly_while_the_login_check_passes() {
+    let rig = Rig::new("probe", cli(json!({})), &json!({"logged_in": false}));
+    let mind = rig.mind(Limits::default());
+    assert!(!mind.ready().await, "signed out");
+    rig.script(&json!({"logged_in": true}));
+    assert!(mind.ready().await, "signed in");
+    assert_eq!(mind.disclosure(), baylee_seat::Disclosure::Llm);
+}
