@@ -13455,11 +13455,18 @@ fn ancestral_vision_suspended_is_cast_free_at_the_last_counter_and_draws_three()
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("priority")
     };
-    assert!(legal.suspendable.contains(&card), "{{U}} is paid: suspend is offered");
+    assert!(
+        legal.suspendable.contains(&card),
+        "{{U}} is paid: suspend is offered"
+    );
     engine
         .apply(p0, PlayerAction::Suspend { card })
         .expect("suspended for {U}");
-    assert_eq!(exiled(&engine, p0, ancestral_vision_card()), 1, "exiled, not cast");
+    assert_eq!(
+        exiled(&engine, p0, ancestral_vision_card()),
+        1,
+        "exiled, not cast"
+    );
 
     // Turns 3, 5, 7 remove a counter each; the fourth, on turn 9, is the last.
     for turn in [3, 5, 7, 9] {
@@ -13474,7 +13481,11 @@ fn ancestral_vision_suspended_is_cast_free_at_the_last_counter_and_draws_three()
         .expect("target player: myself");
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(library_size(&engine, p0), before - 3, "three cards drawn");
-    assert_eq!(engine.state().turn.number, 9, "at the ninth turn's upkeep, not before");
+    assert_eq!(
+        engine.state().turn.number,
+        9,
+        "at the ninth turn's upkeep, not before"
+    );
 }
 
 /// Temporal Mastery: "Take an extra turn after this one. Exile Temporal

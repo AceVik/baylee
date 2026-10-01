@@ -23392,3 +23392,33 @@ fn luminarch_ascension_makes_an_angel_only_from_four_quest_counters() {
     assert_eq!(pt(&engine, tokens[0]), (4, 4));
     assert!(keywords(&engine, tokens[0]).contains(KeywordSet::FLYING));
 }
+
+/// Clutch of Undeath's other half: "Otherwise, it gets -3/-3." Aimed at a
+/// Serra Angel, which is no Zombie, the 4/4 becomes a 1/1.
+#[test]
+fn clutch_of_undeath_shrinks_a_creature_that_is_not_a_zombie() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(4701, forest())
+        .battlefield(
+            0,
+            &[swamp(), swamp(), swamp(), swamp(), swamp(), serra_angel()],
+        )
+        .hand(0, &[clutch_of_undeath()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let angel = on_battlefield(&engine, p0, serra_angel()).expect("the Angel");
+    assert_eq!(pt(&engine, angel), (4, 4));
+
+    cast_from_hand(&mut engine, p0, clutch_of_undeath());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![angel],
+            },
+        )
+        .expect("the Angel is a creature to enchant");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, angel), (1, 1), "4/4 with -3/-3");
+}

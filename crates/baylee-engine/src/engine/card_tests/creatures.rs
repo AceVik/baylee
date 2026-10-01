@@ -103250,10 +103250,6 @@ fn charming_prince() -> CardIndex {
     card_index("c48d844c-3976-4fa5-8e0d-3f0e535e7619")
 }
 
-fn loran_of_the_third_path() -> CardIndex {
-    card_index("b3d81980-76f2-44e2-b1c9-01e30c726312")
-}
-
 fn surgical_metamorph() -> CardIndex {
     card_index("4f328996-f9dd-4c7a-9548-bc4b9d0d943f")
 }

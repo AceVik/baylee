@@ -25634,3 +25634,77 @@ fn alpha_eval_purelace_whitens_a_spell_through_resolution() {
         1
     );
 }
+
+fn flawless_maneuver() -> CardIndex {
+    card_index("4e183439-17d2-47ff-9d99-5e22821d91e3")
+}
+
+/// Flawless Maneuver: "Creatures you control gain indestructible until end
+/// of turn." Hard-cast for {2}{W}: my creature has it, theirs does not.
+#[test]
+fn flawless_maneuver_makes_my_creatures_indestructible_and_not_theirs() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4703, plains())
+        .battlefield(0, &[plains(), plains(), plains(), serra_angel()])
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[flawless_maneuver()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let mine = on_battlefield(&engine, p0, serra_angel()).expect("my Angel");
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    assert!(!keywords(&engine, mine).contains(KeywordSet::INDESTRUCTIBLE));
+    cast_from_hand(&mut engine, p0, flawless_maneuver());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, mine).contains(KeywordSet::INDESTRUCTIBLE));
+    assert!(!keywords(&engine, theirs).contains(KeywordSet::INDESTRUCTIBLE));
+}
+
+/// Banishing Stroke: "Put target artifact, creature, or enchantment on the
+/// bottom of its owner's library." The success path: the Elves leave the
+/// battlefield and are the library's last card, under the library that was
+/// already there.
+#[test]
+fn banishing_stroke_puts_its_target_on_the_bottom_of_its_owners_library() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(4704, forest())
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), plains(), plains(), plains()],
+        )
+        .battlefield(1, &[llanowar_elves()])
+        .hand(0, &[banishing_stroke()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let elves = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elves");
+    let before = library_size(&engine, p1);
+    cast_from_hand(&mut engine, p0, banishing_stroke());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the Elves are on offer");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
+    assert_eq!(library_size(&engine, p1), before + 1);
+    let library = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
+    let bottom_candidates = [library[0], library[library.len() - 1]];
+    let is_elves = |id: ObjectId| {
+        engine
+            .state()
+            .object(id)
+            .is_some_and(|o| o.card.is_some_and(|c| c.index == llanowar_elves()))
+    };
+    // The library's top is its last list element (as `seed_graveyard`
+    // reads it), so the bottom is the first.
+    assert!(
+        is_elves(bottom_candidates[0]),
+        "the Elves are at the bottom"
+    );
+    assert!(!is_elves(bottom_candidates[1]), "and not on top");
+    assert!(in_graveyard(&engine, p0, banishing_stroke()).is_some());
+}
