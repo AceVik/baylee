@@ -126,11 +126,11 @@ fn clock_probes_and_heartbeats_keep_their_64_bit_times() {
         client_time_ms: u64::MAX - 1,
         server_time_ms: 0,
     };
-    assert_eq!(trip(Msg::ClockProbe(probe.clone())), Msg::ClockProbe(probe));
+    assert_eq!(trip(Msg::ClockProbe(probe)), Msg::ClockProbe(probe));
     let beat = v1::Heartbeat {
         client_time_ms: 1 << 40,
     };
-    assert_eq!(trip(Msg::Heartbeat(beat.clone())), Msg::Heartbeat(beat));
+    assert_eq!(trip(Msg::Heartbeat(beat)), Msg::Heartbeat(beat));
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn the_empty_messages_still_say_which_kind_they_are() {
 fn a_seat_attach_keeps_its_resync_flag() {
     for resync in [false, true] {
         let a = v1::SeatAttached { seat: 3, resync };
-        assert_eq!(trip(Msg::SeatAttached(a.clone())), Msg::SeatAttached(a));
+        assert_eq!(trip(Msg::SeatAttached(a)), Msg::SeatAttached(a));
     }
 }
 
