@@ -96,6 +96,11 @@ struct Args {
     /// Games per record shard.
     #[arg(long, default_value_t = 1000)]
     shard_games: u64,
+    /// Play only these game numbers (comma-separated) instead of
+    /// `0..games`: with the same `--name` and arguments, each is the game
+    /// that number was in that run, move for move.
+    #[arg(long, value_delimiter = ',')]
+    only: Vec<u64>,
     /// The run's name; defaults to the name of `--out`.
     #[arg(long)]
     name: Option<String>,
@@ -558,8 +563,16 @@ fn main() -> anyhow::Result<()> {
                     let mut shard: Option<Shard> = None;
                     let mut shards = 0;
                     loop {
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        if i >= args.games {
+                        let taken = next.fetch_add(1, Ordering::Relaxed);
+                        let i = if args.only.is_empty() {
+                            taken
+                        } else {
+                            match usize::try_from(taken).ok().and_then(|n| args.only.get(n)) {
+                                Some(&i) => i,
+                                None => return Ok(()),
+                            }
+                        };
+                        if i >= args.games && args.only.is_empty() {
                             return Ok(());
                         }
                         // A game that panics the engine is a finding, not
