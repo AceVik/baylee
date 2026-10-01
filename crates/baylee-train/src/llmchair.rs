@@ -98,7 +98,10 @@ impl LlmChair {
             .map_err(|e| anyhow!(e))?;
         let credentials = credentials_at(
             parsed.provider,
-            parsed.provider.default_key_env(),
+            parsed
+                .provider
+                .default_key_env()
+                .context("the arena's chair plays an API model, not a CLI one")?,
             Some(base),
             &|k| std::env::var(k).ok(),
         )

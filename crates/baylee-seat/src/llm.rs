@@ -5,7 +5,8 @@
 //! the call back against the question's own options ([`Menu::resolve`]).
 //! Two providers: the Anthropic Messages API and any OpenAI-compatible chat
 //! endpoint (`DeepSeek`, `OpenAI`, a local server), the latter also without
-//! tools, answering one JSON object ([`AnswerMode::Json`]).
+//! tools, answering one JSON object ([`AnswerMode::Json`]), or one held to
+//! the answer's schema ([`AnswerMode::JsonSchema`]).
 //!
 //! # One conversation per turn
 //!
@@ -50,26 +51,25 @@
 mod anthropic;
 mod openai;
 pub mod prompt;
+pub(crate) mod seatstate;
 mod secret;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use openai::json_object;
 pub use secret::{Secret, scrub};
 
+use crate::config::Plan;
 use crate::mind::{Answer, Disclosure, Mind, MindError, Readiness, Request, Thinking};
-use crate::narrator::{self, Act, Decision, Hint, Menu, Narrator};
-use crate::transcript::Transcript;
+use crate::narrator::{self, Decision, Menu, Narrator};
 use baylee_client_core::llmseat::{
     address_fault, is_loopback, model_fault, worst_tokens, worst_usd,
 };
-use baylee_client_core::manaplan;
-use baylee_core::ids::ObjectId;
-use baylee_core::mana::ManaColor;
-use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
-use baylee_view::{LogEvent, LogObject};
+use baylee_engine::choice::PlayerAction;
+use seatstate::Seat;
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -78,22 +78,23 @@ use std::time::{Duration, Instant};
 /// The model's price and the build's defaults live beside the settings
 /// file's types, so the client's panel shows what the bridge plays with.
 pub use baylee_client_core::llmseat::{
-    AnswerMode, DEFAULT_ANTHROPIC_MODEL, DEFAULT_SPEND_TOKENS, DEFAULT_SPEND_USD, Price, Provider,
-    price,
+    AnswerMode, CliTool, DEFAULT_ANTHROPIC_MODEL, DEFAULT_CLI_CALLS, DEFAULT_CLI_SPEND_TOKENS,
+    DEFAULT_SPEND_TOKENS, DEFAULT_SPEND_USD, Price, Provider, cli_model, price,
 };
 
 /// The least time worth a second call after an unreadable answer.
-const RETRY_FLOOR: Duration = Duration::from_secs(5);
+pub(crate) const RETRY_FLOOR: Duration = Duration::from_secs(5);
 
 /// How much sooner than the bridge's deadline a call gives up, so the
 /// answer, if any, still reaches the seat.
-const MARGIN: Duration = Duration::from_secs(1);
+pub(crate) const MARGIN: Duration = Duration::from_secs(1);
 
 /// The most earlier notes a new turn's conversation carries.
-const SAYS: usize = 8;
+pub(crate) const SAYS: usize = 8;
 
-/// A model, as `--mind` names it: `anthropic`, `anthropic:<model>` or
-/// `openai:<model>`.
+/// A model, as `--mind` names it: `anthropic`, `anthropic:<model>`,
+/// `openai:<model>`, or an agent CLI, `cli:<tool>[:<model>]`, whose model
+/// is then `<tool>[:<model>]` ([`cli_model`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spec {
     /// The API.
@@ -103,12 +104,13 @@ pub struct Spec {
 }
 
 impl Spec {
-    /// Reads `anthropic[:<model>]` or `openai:<model>`; `None` for anything
-    /// else (the other minds).
+    /// Reads `anthropic[:<model>]`, `openai:<model>` or
+    /// `cli:<tool>[:<model>]`; `None` for anything else (the other minds).
     ///
     /// # Errors
-    /// For `openai` without a model, or a model id with characters no
-    /// provider uses.
+    /// For `openai` without a model, `cli` without a tool or with one this
+    /// build does not speak, or a model id with characters no provider
+    /// uses.
     pub fn parse(text: &str) -> Option<Result<Self, String>> {
         let (provider, model) = match text.split_once(':') {
             Some((provider, model)) => (provider, Some(model)),
@@ -117,6 +119,7 @@ impl Spec {
         let provider = match provider {
             "anthropic" => Provider::Anthropic,
             "openai" => Provider::OpenAi,
+            "cli" => Provider::Cli,
             _ => return None,
         };
         let model = match (provider, model) {
@@ -124,9 +127,18 @@ impl Spec {
             (Provider::OpenAi, None) => {
                 return Some(Err("name the model: openai:<model>".into()));
             }
+            (Provider::Cli, None) => {
+                return Some(Err(
+                    "name the CLI: cli:<tool>[:<model>], such as cli:claude:opus".into(),
+                ));
+            }
             (_, Some(model)) => model.trim().to_string(),
         };
-        if let Some(why) = model_fault(&model) {
+        let fault = match provider {
+            Provider::Cli => cli_model(&model).err(),
+            Provider::Anthropic | Provider::OpenAi => model_fault(&model),
+        };
+        if let Some(why) = fault {
             return Some(Err(why));
         }
         Some(Ok(Self { provider, model }))
@@ -134,39 +146,56 @@ impl Spec {
 
     /// The name a chair it plays sits under, after `LLM-`: the model's id
     /// without `claude-`, in the characters a seat name allows, at most
-    /// twelve.
+    /// twelve. A CLI's is its tool's name and its model's (`claude-opus`)
+    /// where both fit, else its model's alone, else the tool's.
     #[must_use]
     pub fn tag(&self) -> String {
-        let bare = self.model.strip_prefix("claude-").unwrap_or(&self.model);
-        let bare = bare.rsplit('/').next().unwrap_or(bare);
-        let mut tag: String = bare
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-                    c
-                } else {
-                    '-'
-                }
-            })
-            .collect();
-        if tag.len() > 12 {
-            // Cut at a word where one is near: `deepseek`, not `deepseek-cha`.
-            tag.truncate(12);
-            if let Some(at) = tag.rfind(['-', '_']).filter(|at| *at >= 3) {
-                tag.truncate(at);
-            }
+        if self.provider == Provider::Cli
+            && let Ok((tool, own)) = cli_model(&self.model)
+        {
+            let Some(own) = own else {
+                return tag_of(tool.name());
+            };
+            let own = tag_of(own);
+            let both = format!("{}-{own}", tool.name());
+            return if both.len() <= 12 { both } else { own };
         }
-        while tag.ends_with(['-', '_']) {
-            tag.pop();
-        }
-        if tag.len() < 3 {
-            tag = "model".into();
-        }
-        tag
+        tag_of(&self.model)
     }
 }
 
-/// How an [`ApiMind`] plays.
+/// A model id as a chair's name ([`Spec::tag`]).
+fn tag_of(model: &str) -> String {
+    let bare = model.strip_prefix("claude-").unwrap_or(model);
+    let bare = bare.rsplit('/').next().unwrap_or(bare);
+    let mut tag: String = bare
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    if tag.len() > 12 {
+        // Cut at a word where one is near: `deepseek`, not `deepseek-cha`.
+        tag.truncate(12);
+        if let Some(at) = tag.rfind(['-', '_']).filter(|at| *at >= 3) {
+            tag.truncate(at);
+        }
+    }
+    while tag.ends_with(['-', '_']) {
+        tag.pop();
+    }
+    if tag.len() < 3 {
+        tag = "model".into();
+    }
+    tag
+}
+
+/// How a language model plays, behind an API ([`ApiMind`]) or an agent
+/// CLI ([`crate::cli::CliMind`]).
 #[derive(Clone, Debug)]
 pub struct Settings {
     /// The API.
@@ -188,6 +217,9 @@ pub struct Settings {
     pub spend_usd: Option<f64>,
     /// The game's budget in tokens, input and output together.
     pub spend_tokens: u64,
+    /// The most calls the game may make, where that is a limit: a CLI's
+    /// subscription has no price, and its calls are what it counts.
+    pub spend_calls: Option<u64>,
     /// How long a turn's conversation may grow, in estimated tokens, before
     /// the next question starts a new one with the notes carried over: a
     /// long turn neither outgrows the model's context nor has every call
@@ -208,19 +240,30 @@ pub struct Settings {
 impl Settings {
     /// The defaults for `spec`: medium effort on Anthropic, the provider's
     /// own default elsewhere; tools; five million tokens a game, and five
-    /// dollars where this build knows the model's price.
+    /// dollars where this build knows the model's price. A CLI answers with
+    /// one JSON object held to the answer's schema, and plays on a
+    /// subscription, which has no price: twenty million tokens a game
+    /// ([`DEFAULT_CLI_SPEND_TOKENS`]), its whole context read again at
+    /// every decision counted among them, and 500 calls
+    /// ([`DEFAULT_CLI_CALLS`]).
     #[must_use]
     pub fn new(spec: &Spec) -> Self {
-        let price = price(&spec.model);
+        let cli = spec.provider == Provider::Cli;
+        let price = if cli { None } else { price(&spec.model) };
         Self {
             provider: spec.provider,
             model: spec.model.clone(),
             effort: spec.provider.default_effort().map(str::to_string),
-            answer: AnswerMode::Tools,
+            answer: spec.provider.default_answer(),
             max_tokens: spec.provider.default_max_tokens(),
             price,
             spend_usd: price.map(|_| DEFAULT_SPEND_USD),
-            spend_tokens: DEFAULT_SPEND_TOKENS,
+            spend_tokens: if cli {
+                DEFAULT_CLI_SPEND_TOKENS
+            } else {
+                DEFAULT_SPEND_TOKENS
+            },
+            spend_calls: cli.then_some(DEFAULT_CLI_CALLS),
             conversation_tokens: 100_000,
             transcripts: None,
             hard_limit: false,
@@ -248,13 +291,31 @@ impl Settings {
     /// # Errors
     /// A dollar budget cannot be held without a price, so a model that has
     /// none sits down only with a token budget stated as its limit, and
-    /// never with a dollar budget.
+    /// never with a dollar budget. A CLI's subscription has no price, so it
+    /// takes neither a price nor a dollar budget, and its token budget is
+    /// its own default where none is given.
     pub fn budget(
         &mut self,
         price: Option<Price>,
         spend_usd: Option<f64>,
         spend_tokens: Option<u64>,
     ) -> Result<(), String> {
+        if self.provider == Provider::Cli {
+            if price.is_some() || spend_usd.is_some() {
+                return Err(
+                    "a CLI plays on a subscription, which has no price: a price and a \
+                            dollar budget are for an API, and a CLI's limits are its tokens \
+                            and its calls (--spend-tokens, --spend-calls)"
+                        .into(),
+                );
+            }
+            self.price = None;
+            self.spend_usd = None;
+            if let Some(tokens) = spend_tokens {
+                self.spend_tokens = tokens;
+            }
+            return Ok(());
+        }
         if price.is_some() {
             self.price = price;
         }
@@ -283,12 +344,35 @@ impl Settings {
     }
 }
 
+/// The two APIs an [`ApiMind`] speaks; a CLI ([`crate::cli::CliMind`]) is
+/// none of them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Api {
+    Anthropic,
+    OpenAi,
+}
+
+impl Api {
+    const fn of(provider: Provider) -> Option<Self> {
+        match provider {
+            Provider::Anthropic => Some(Self::Anthropic),
+            Provider::OpenAi => Some(Self::OpenAi),
+            Provider::Cli => None,
+        }
+    }
+}
+
 /// Where the API is and the key it takes.
 #[derive(Clone, Debug)]
 pub struct Credentials {
+    api: Api,
     key: Option<Secret>,
     base: String,
 }
+
+/// Why a CLI has no credentials.
+const NOT_AN_API: &str = "a CLI is a program on this machine, not an API: it reads no key and \
+                          has no address";
 
 /// The key and address for `provider`, read by `env` (the process
 /// environment in the binary, a table in tests): `ANTHROPIC_API_KEY` and
@@ -301,7 +385,8 @@ pub fn credentials(
     provider: Provider,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Credentials, String> {
-    credentials_at(provider, provider.default_key_env(), None, env)
+    let key_env = provider.default_key_env().ok_or(NOT_AN_API)?;
+    credentials_at(provider, key_env, None, env)
 }
 
 /// The key in the environment variable `key_env`, for the address `base`
@@ -311,23 +396,30 @@ pub fn credentials(
 /// `base_url` wins over the variable.
 ///
 /// # Errors
-/// As [`credentials`].
+/// As [`credentials`], and for a CLI, which is no API.
 pub fn credentials_at(
     provider: Provider,
     key_env: &str,
     base: Option<&str>,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Credentials, String> {
+    let (Some(api), Some(base_env), Some(default_base)) = (
+        Api::of(provider),
+        provider.base_env(),
+        provider.default_base(),
+    ) else {
+        return Err(NOT_AN_API.into());
+    };
     let key = env(key_env).as_deref().and_then(Secret::new);
     let tidy = |b: &str| b.trim().trim_end_matches('/').to_string();
     let (base, named) = match base {
         Some(base) => (tidy(base), "base_url"),
         None => (
-            env(provider.base_env())
+            env(base_env)
                 .map(|b| tidy(&b))
                 .filter(|b| !b.is_empty())
-                .unwrap_or_else(|| provider.default_base().to_string()),
-            provider.base_env(),
+                .unwrap_or_else(|| default_base.to_string()),
+            base_env,
         ),
     };
     if let Some(why) = address_fault(&base, named) {
@@ -338,7 +430,92 @@ pub fn credentials_at(
             "set {key_env} in the environment (never on the command line)"
         ));
     }
-    Ok(Credentials { key, base })
+    Ok(Credentials { api, key, base })
+}
+
+/// What a plan's mind is reached through, checked before the game reserves
+/// anything in the spend book: an API's address and key, or a CLI's
+/// program and the variables it is given.
+#[derive(Debug)]
+pub enum Access {
+    /// An API.
+    Api(Credentials),
+    /// An agent CLI.
+    Cli(crate::cli::Launch),
+}
+
+/// A language model's mind, built from a plan ([`build`]).
+pub struct Built {
+    /// The mind.
+    pub mind: Arc<dyn Mind>,
+    /// What it spends, shared: it keeps counting while the mind plays.
+    pub tally: Arc<Mutex<Tally>>,
+    /// The name its chair sits under, after `LLM-` ([`Spec::tag`]).
+    pub label: String,
+}
+
+/// What `plan`'s mind is reached through, read by `env` (the process
+/// environment in the binary, a table in tests): for an API its key and
+/// address ([`credentials_at`]), for a CLI its program and the variables
+/// it is given ([`crate::cli::Launch::new`]).
+///
+/// # Errors
+/// A sentence: no key, an address that would carry it in the clear, a CLI
+/// whose program is not there or whose environment holds a key.
+pub fn check(plan: &Plan, env: &dyn Fn(&str) -> Option<String>) -> Result<Access, String> {
+    let provider = plan.settings.provider;
+    if provider == Provider::Cli {
+        return crate::cli::Launch::new(&plan.settings, plan.command.as_deref(), env)
+            .map(Access::Cli);
+    }
+    let key_env = plan
+        .key_env
+        .as_deref()
+        .or(provider.default_key_env())
+        .ok_or(NOT_AN_API)?;
+    credentials_at(provider, key_env, plan.base_url.as_deref(), env).map(Access::Api)
+}
+
+/// `plan`'s mind: [`ApiMind`] for an API, [`crate::cli::CliMind`] for a
+/// CLI, as [`check`] finds it.
+///
+/// # Errors
+/// As [`check`].
+pub fn build(plan: &Plan, env: &dyn Fn(&str) -> Option<String>) -> Result<Built, String> {
+    Ok(check(plan, env)?.build(plan))
+}
+
+impl Access {
+    /// The mind that plays `plan` through what was checked; the plan's
+    /// settings as they are now, a reservation's hard limit included.
+    #[must_use]
+    pub fn build(self, plan: &Plan) -> Built {
+        let label = plan.spec.tag();
+        match self {
+            Self::Api(credentials) => {
+                let mind = ApiMind::new(plan.settings.clone(), credentials);
+                let tally = mind.tally();
+                Built {
+                    mind: Arc::new(mind),
+                    tally,
+                    label,
+                }
+            }
+            Self::Cli(launch) => {
+                let mind = crate::cli::CliMind::new(
+                    plan.settings.clone(),
+                    launch,
+                    crate::cli::Limits::default(),
+                );
+                let tally = mind.tally();
+                Built {
+                    mind: Arc::new(mind),
+                    tally,
+                    label,
+                }
+            }
+        }
+    }
 }
 
 /// Tokens as a provider counted them for one reply.
@@ -392,6 +569,11 @@ pub struct Tally {
     /// call that timed out, or whose reply could not be read, may still
     /// have been billed in full.
     pub unsure: Worst,
+    /// Calls sent and not yet back.
+    pub out: u64,
+    /// The most calls a game may make, where that is a limit
+    /// ([`Settings::spend_calls`]), for the summary.
+    pub calls_cap: Option<u64>,
 }
 
 /// The most calls can cost: tokens, and dollars where the price is known.
@@ -446,9 +628,39 @@ impl Tally {
             .then(|| parts.iter().flatten().sum())
     }
 
+    /// Why the game's budget under `settings` is spent, if it is; then the
+    /// tally remembers that it is. Under a hard limit the calls still out
+    /// and those whose bill is unknown count at their worst; a call cap
+    /// counts the calls made and those out.
+    pub(crate) fn spent_under(&mut self, settings: &Settings) -> Option<String> {
+        let (tokens, usd) = if settings.hard_limit {
+            (self.spend_tokens(), self.spend_usd().unwrap_or(0.0))
+        } else {
+            (self.usage.total(), self.usd.unwrap_or(0.0))
+        };
+        let why = if tokens >= settings.spend_tokens {
+            format!(
+                "the game's budget of {} tokens is spent",
+                settings.spend_tokens
+            )
+        } else if let Some(budget) = settings.spend_usd
+            && usd >= budget
+        {
+            format!("the game's budget of ${budget:.2} is spent (${usd:.2})")
+        } else if let Some(cap) = settings.spend_calls
+            && self.calls.saturating_add(self.out) >= cap
+        {
+            format!("the game's budget of {cap} calls is spent")
+        } else {
+            return None;
+        };
+        self.spent = true;
+        Some(why)
+    }
+
     /// Holds `worst` for a call about to be sent, unless it could pass the
     /// game's hard limit ([`Settings::hard_limit`]); then the sentence why.
-    fn hold(&mut self, worst: Worst, settings: &Settings) -> Result<(), String> {
+    pub(crate) fn hold(&mut self, worst: Worst, settings: &Settings) -> Result<(), String> {
         if settings.hard_limit {
             if self.spend_tokens().saturating_add(worst.tokens) > settings.spend_tokens {
                 return Err(format!(
@@ -466,15 +678,22 @@ impl Tally {
                 ));
             }
         }
+        if let Some(cap) = settings.spend_calls
+            && self.calls.saturating_add(self.out) >= cap
+        {
+            return Err(format!("the game's budget of {cap} calls is spent"));
+        }
         self.held.add(worst);
+        self.out += 1;
         Ok(())
     }
 
     /// Takes back what [`Self::hold`] held for a call that came back, and
     /// counts how it came back: its tokens as the provider counted them, or
     /// its worst when the bill is unknown.
-    fn back(&mut self, worst: Worst, billed: Result<Usage, bool>, price: Option<Price>) {
+    pub(crate) fn back(&mut self, worst: Worst, billed: Result<Usage, bool>, price: Option<Price>) {
         self.held.sub(worst);
+        self.out = self.out.saturating_sub(1);
         self.calls += 1;
         match billed {
             Ok(usage) => self.add(usage, price),
@@ -485,6 +704,16 @@ impl Tally {
                 }
             }
         }
+    }
+
+    /// Takes back what [`Self::hold`] held for a call that came back
+    /// answered without saying what it cost: it counts at its worst, though
+    /// it did not fail.
+    pub(crate) fn back_at_worst(&mut self, worst: Worst) {
+        self.held.sub(worst);
+        self.out = self.out.saturating_sub(1);
+        self.calls += 1;
+        self.unsure.add(worst);
     }
 
     fn add(&mut self, usage: Usage, price: Option<Price>) {
@@ -540,45 +769,15 @@ struct ToolResult {
     is_error: bool,
 }
 
-/// Taps still to send, and what they pay for.
-#[derive(Clone, Debug)]
-struct Plan {
-    steps: VecDeque<manaplan::Step>,
-    then: PlayerAction,
-    /// The option, in words.
-    label: String,
-    /// The step it was chosen in: a plan never runs into another.
-    at: (u32, baylee_view::Phase, baylee_view::Step),
-    /// The colour the last tap makes, for the question it may ask.
-    color: Option<ManaColor>,
-}
-
-/// What one seat's conversation holds between decisions.
+/// What one seat's conversation holds between decisions: what every
+/// language-model seat keeps ([`Seat`]), and the conversation as the API
+/// takes it.
 struct SeatState {
-    narrator: Narrator,
+    seat: Seat,
     /// The conversation, as the provider takes it.
     messages: Vec<Value>,
-    /// The turn the conversation belongs to; 0 before the first.
-    turn: u32,
     /// What the seat owes the model's last tool calls.
     results: Vec<ToolResult>,
-    /// Whether the last answer sent was the model's own (not a plan's).
-    last_by_model: bool,
-    plan: Option<Plan>,
-    hint: Option<Hint>,
-    /// Lines for the next message, under its header.
-    notes: Vec<String>,
-    /// The model's own earlier `say` lines, newest last.
-    says: VecDeque<String>,
-    /// A question whose answer came after its time.
-    late: Option<u64>,
-    /// How many calls this seat has started, to tell a stale one.
-    asked: u64,
-    /// The card this seat last answered a cast of, until the log or the
-    /// next priority shows whether the cast happened
-    /// ([`SeatState::undone`]).
-    casting: Option<ObjectId>,
-    transcript: Transcript,
 }
 
 /// Each seat's conversation, by game and seat.
@@ -593,7 +792,7 @@ pub struct ApiMind {
     tally: Arc<Mutex<Tally>>,
 }
 
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
@@ -614,12 +813,16 @@ impl ApiMind {
             .timeout_global(Some(Duration::from_secs(600)))
             .build()
             .new_agent();
+        let tally = Tally {
+            calls_cap: settings.spend_calls,
+            ..Tally::default()
+        };
         Self {
             settings,
             credentials,
             agent,
             seats: Mutex::new(BTreeMap::new()),
-            tally: Arc::new(Mutex::new(Tally::default())),
+            tally: Arc::new(Mutex::new(tally)),
         }
     }
 
@@ -641,73 +844,30 @@ impl ApiMind {
         let key = (context.game_id.clone(), context.seat.get());
         let mut seats = lock(&self.seats);
         Arc::clone(seats.entry(key).or_insert_with(|| {
-            let transcript =
-                self.settings
-                    .transcripts
-                    .as_ref()
-                    .map_or_else(Transcript::none, |dir| {
-                        let path = dir.join(format!(
-                            "{}-seat{}-mind.jsonl",
-                            context.game_id,
-                            context.seat.get()
-                        ));
-                        Transcript::file(&path).unwrap_or_else(|_| Transcript::none())
-                    });
             Arc::new(Mutex::new(SeatState {
-                narrator: Narrator::new(context),
+                seat: Seat::new(context, self.settings.transcripts.as_deref()),
                 messages: Vec::new(),
-                turn: 0,
                 results: Vec::new(),
-                last_by_model: false,
-                plan: None,
-                hint: None,
-                notes: Vec::new(),
-                says: VecDeque::new(),
-                late: None,
-                asked: 0,
-                casting: None,
-                transcript,
             }))
         }))
     }
 
     /// Why the game's budget is spent, if it is.
     fn spent(&self) -> Option<String> {
-        let mut tally = lock(&self.tally);
-        // Under a hard limit, the calls still out and those whose bill is
-        // unknown count at their worst.
-        let (tokens, usd) = if self.settings.hard_limit {
-            (tally.spend_tokens(), tally.spend_usd().unwrap_or(0.0))
-        } else {
-            (tally.usage.total(), tally.usd.unwrap_or(0.0))
-        };
-        let why = if tokens >= self.settings.spend_tokens {
-            format!(
-                "the game's budget of {} tokens is spent",
-                self.settings.spend_tokens
-            )
-        } else if let Some(budget) = self.settings.spend_usd
-            && usd >= budget
-        {
-            format!("the game's budget of ${budget:.2} is spent (${usd:.2})")
-        } else {
-            return None;
-        };
-        tally.spent = true;
-        Some(why)
+        lock(&self.tally).spent_under(&self.settings)
     }
 
     /// The request's headers, the key among them.
     fn headers(&self) -> Vec<(&'static str, String)> {
         let mut headers = vec![("content-type", "application/json".to_string())];
-        match self.settings.provider {
-            Provider::Anthropic => {
+        match self.credentials.api {
+            Api::Anthropic => {
                 headers.push(("anthropic-version", anthropic::VERSION.to_string()));
                 if let Some(key) = &self.credentials.key {
                     headers.push(("x-api-key", key.expose().to_string()));
                 }
             }
-            Provider::OpenAi => {
+            Api::OpenAi => {
                 if let Some(key) = &self.credentials.key {
                     headers.push(("authorization", format!("Bearer {}", key.expose())));
                 }
@@ -727,15 +887,15 @@ impl ApiMind {
         seat: Arc<Mutex<SeatState>>,
         question: u64,
     ) -> Result<Reply, MindError> {
-        let url = match self.settings.provider {
-            Provider::Anthropic => anthropic::url(&self.credentials.base),
-            Provider::OpenAi => openai::url(&self.credentials.base),
+        let url = match self.credentials.api {
+            Api::Anthropic => anthropic::url(&self.credentials.base),
+            Api::OpenAi => openai::url(&self.credentials.base),
         };
         let headers = self.headers();
         let agent = self.agent.clone();
         let tally = Arc::clone(&self.tally);
         let price = self.settings.price;
-        let provider = self.settings.provider;
+        let api = self.credentials.api;
         let mode = self.settings.answer;
         let key = self.credentials.key.clone();
         let bytes = serde_json::to_vec(&body)
@@ -751,14 +911,14 @@ impl ApiMind {
             }
         }
         let result = tokio::task::spawn_blocking(move || {
-            let result = call(&agent, &url, &headers, &bytes, timeout, provider, mode);
+            let result = call(&agent, &url, &headers, &bytes, timeout, api, mode);
             let billed = match &result {
                 Ok(reply) => Ok(reply.usage),
                 Err(failed) => Err(failed.unknown_bill),
             };
             lock(&tally).back(worst, billed, price);
             if !alive.load(Ordering::SeqCst) && result.is_ok() {
-                lock(&seat).late = Some(question);
+                lock(&seat).seat.late = Some(question);
             }
             // A conversation the provider turned down would be turned
             // down at every question until the turn ends and take the
@@ -798,9 +958,9 @@ impl ApiMind {
             if left.is_zero() {
                 return Err(MindError::Declined("no time left to ask the model".into()));
             }
-            let body = match self.settings.provider {
-                Provider::Anthropic => anthropic::body(&self.settings, &messages),
-                Provider::OpenAi => openai::body(&self.settings, &messages),
+            let body = match self.credentials.api {
+                Api::Anthropic => anthropic::body(&self.settings, &messages),
+                Api::OpenAi => openai::body(&self.settings, &messages),
             };
             let sent = Instant::now();
             let reply = self
@@ -824,7 +984,7 @@ impl ApiMind {
             state.record(&request, &prepared.wake.text, Some(&reply), None);
             match read {
                 Ok(read) => {
-                    if state.asked != prepared.asked {
+                    if state.seat.asked != prepared.asked {
                         return Err(MindError::Declined("a newer question replaced it".into()));
                     }
                     messages.push(reply.assistant.clone());
@@ -855,7 +1015,7 @@ impl ApiMind {
                     }
                     drop(state);
                     ask_again(
-                        self.settings.provider,
+                        self.credentials.api,
                         &mut messages,
                         &reply,
                         &why,
@@ -875,41 +1035,33 @@ impl ApiMind {
         request: &Request,
     ) -> Result<Prepared, Result<Answer, MindError>> {
         let mut state = lock(seat);
-        state.narrator.hear(&request.log);
-        if let Some(undone) = state.undone(request) {
-            state.notes.push(undone);
-        }
-        if let Some(question) = state.late.take() {
-            state.notes.push(format!(
-                "Your answer to q{question} came after its time ran out; the house answered it."
-            ));
-        }
-        if let Some(refusal) = &request.retry {
-            state.refused(&refusal.reason, &refusal.answer, self.settings.answer);
-        }
-        if let Some((action, label)) = state.follow(request) {
-            state.last_by_model = false;
-            let note = json!({"plan": label}).to_string();
-            return Err(Ok(Answer {
-                action,
-                model_time: Duration::ZERO,
-                note: Some(note),
-            }));
+        let SeatState { seat, results, .. } = &mut *state;
+        // With tools, the refusal of the model's answer is that call's
+        // result.
+        let tools = self.settings.answer == AnswerMode::Tools;
+        let carried = seat.begin(request, |said| {
+            let Some(result) = results.first_mut().filter(|_| tools) else {
+                return false;
+            };
+            said.clone_into(&mut result.content);
+            result.is_error = true;
+            true
+        });
+        if let Some(answer) = carried {
+            return Err(Ok(answer));
         }
         if let Some(why) = self.spent() {
             return Err(Err(MindError::Declined(why)));
         }
-        state.asked += 1;
-        Ok(state.prepare(request, &self.settings))
+        state.seat.asked += 1;
+        Ok(state.prepare(request, &self.settings, self.credentials.api))
     }
 
     /// Whether the endpoint answers: the model's entry, or the model list.
     async fn probe(&self) -> bool {
-        let url = match self.settings.provider {
-            Provider::Anthropic => {
-                anthropic::model_url(&self.credentials.base, &self.settings.model)
-            }
-            Provider::OpenAi => openai::models_url(&self.credentials.base),
+        let url = match self.credentials.api {
+            Api::Anthropic => anthropic::model_url(&self.credentials.base, &self.settings.model),
+            Api::OpenAi => openai::models_url(&self.credentials.base),
         };
         let headers = self.headers();
         let agent = self.agent.clone();
@@ -934,13 +1086,7 @@ impl ApiMind {
 
 /// Sends an unreadable reply back with the reason, as the conversation's
 /// next turn: an error result for each of its calls, and the instruction.
-fn ask_again(
-    provider: Provider,
-    messages: &mut Vec<Value>,
-    reply: &Reply,
-    why: &str,
-    question: u64,
-) {
+fn ask_again(api: Api, messages: &mut Vec<Value>, reply: &Reply, why: &str, question: u64) {
     messages.push(reply.assistant.clone());
     let results: Vec<ToolResult> = reply
         .calls
@@ -953,9 +1099,9 @@ fn ask_again(
         })
         .collect();
     let text = format!("That answer could not be taken: {why}. Answer q{question} again.");
-    match provider {
-        Provider::Anthropic => anthropic::nudge(messages, &results, &text),
-        Provider::OpenAi => openai::user(messages, &results, None, &text),
+    match api {
+        Api::Anthropic => anthropic::nudge(messages, &results, &text),
+        Api::OpenAi => openai::user(messages, &results, None, &text),
     }
 }
 
@@ -1013,7 +1159,7 @@ fn call(
     headers: &[(&'static str, String)],
     bytes: &[u8],
     timeout: Duration,
-    provider: Provider,
+    api: Api,
     mode: AnswerMode,
 ) -> Result<Reply, Failed> {
     let mut request = agent.post(url);
@@ -1067,19 +1213,23 @@ fn call(
             }
         })?;
     if !success {
-        let why = match provider {
-            Provider::Anthropic => anthropic::error_message(&body),
-            Provider::OpenAi => openai::error_message(&body),
+        let why = match api {
+            Api::Anthropic => anthropic::error_message(&body),
+            Api::OpenAi => openai::error_message(&body),
         }
         .unwrap_or_else(|| "no reason given".into());
+        let why = match openai::response_format_hint(&why, mode) {
+            Some(hint) if api == Api::OpenAi && status == 400 => format!("{why} ({hint})"),
+            _ => why,
+        };
         return Err(Failed {
             turned_down: matches!(status, 400 | 413),
             ..Failed::unbilled(format!("{status}: {why}"))
         });
     }
-    Ok(match provider {
-        Provider::Anthropic => anthropic::parse(&body),
-        Provider::OpenAi => openai::parse(&body, mode),
+    Ok(match api {
+        Api::Anthropic => anthropic::parse(&body),
+        Api::OpenAi => openai::parse(&body, mode),
     }?)
 }
 
@@ -1113,7 +1263,9 @@ fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read, String> {
         return Err(match (mode, &reply.stop) {
             (_, Stop::MaxTokens) => "the reply ran out of tokens before it answered".into(),
             (AnswerMode::Tools, _) => "answer with one call of the decide tool".into(),
-            (AnswerMode::Json, _) => "answer with one JSON object and nothing else".into(),
+            (AnswerMode::Json | AnswerMode::JsonSchema, _) => {
+                "answer with one JSON object and nothing else".into()
+            }
         });
     };
     let decision = if call.name == "concede" {
@@ -1140,212 +1292,34 @@ struct Prepared {
 }
 
 impl SeatState {
-    /// What to tell the model when the cast it last answered did not
-    /// happen. The table takes back a cast whose whole cost cannot be paid
-    /// and gives priority back (CR 601.2h, 732.1, 732.2) without a word, so
-    /// the model would see the same question again and may answer it the
-    /// same way, again.
-    ///
-    /// A cast that happened is in the log ([`LogEvent::Cast`]), which the
-    /// mind is handed whole, a line at a time: from the cast's answer on,
-    /// every request's lines are read for it. One that did not reach the
-    /// log by the next priority, with its card still in the hand or the
-    /// command zone, was taken back. The card's place alone would not say
-    /// so: an object keeps its handle across zones, so a spell that
-    /// resolved and came back to the hand stands where it was cast from.
-    /// A refused answer says why itself, and gets no second reason.
-    fn undone(&mut self, request: &Request) -> Option<String> {
-        let card = self.casting?;
-        let cast = request.log.entries.iter().any(|entry| {
-            matches!(
-                &entry.event,
-                LogEvent::Cast { spell: LogObject::Known { id, .. }, .. } if *id == card
-            )
-        });
-        if cast {
-            self.casting = None;
-            return None;
-        }
-        if !matches!(request.pending, Pending::Priority { .. }) {
-            return None;
-        }
-        self.casting = None;
-        if request.retry.is_some() {
-            return None;
-        }
-        let view = &request.view;
-        let name = view
-            .hand
-            .iter()
-            .find(|c| c.id == card)
-            .map(|c| c.name.clone())
-            .or_else(|| {
-                view.command
-                    .iter()
-                    .flatten()
-                    .find(|o| o.id == card)
-                    .map(|o| o.name.clone())
-            })?;
-        Some(format!(
-            "Your cast of {name} {} did not happen: the card is where it was, and you have \
-             priority again. The table takes back a cast whose whole cost cannot be paid, \
-             with any kicker or additional cost you said yes to (CR 601.2h, 732.1); count \
-             the cost before you cast it again.",
-            narrator::tag(card)
-        ))
-    }
-
-    /// The table or the referee refused the seat's last answer.
-    fn refused(&mut self, reason: &str, action: &PlayerAction, mode: AnswerMode) {
-        self.plan = None;
-        self.hint = None;
-        let said = format!("Your answer was refused: {reason}. Answer the same question again.");
-        if self.last_by_model
-            && mode == AnswerMode::Tools
-            && let Some(result) = self.results.first_mut()
-        {
-            result.content = said;
-            result.is_error = true;
-            return;
-        }
-        if self.last_by_model {
-            self.notes.push(said);
-        } else {
-            self.notes.push(format!(
-                "Your plan stopped: the table refused {action:?} ({reason})."
-            ));
-        }
-    }
-
-    /// The answer the plan or the hint gives, when either fits.
-    fn follow(&mut self, request: &Request) -> Option<(PlayerAction, String)> {
-        if let Some(action) = self.follow_plan(request) {
-            let label = self
-                .plan
-                .as_ref()
-                .map_or_else(|| "the plan's last step".to_string(), |p| p.label.clone());
-            return Some((action, label));
-        }
-        if self.plan.is_none() && matches!(request.pending, Pending::Priority { .. }) {
-            self.hint = None;
-        }
-        self.follow_hint(request)
-            .map(|action| (action, "the targets named ahead".to_string()))
-    }
-
-    fn follow_plan(&mut self, request: &Request) -> Option<PlayerAction> {
-        let plan = self.plan.as_mut()?;
-        let view = &request.view;
-        let same = (view.turn, view.phase, view.step) == plan.at;
-        match &request.pending {
-            Pending::ChooseColor { options, .. } if same => {
-                if let Some(color) = plan.color.take().filter(|c| options.contains(c)) {
-                    return Some(PlayerAction::ChooseColor(color));
-                }
-            }
-            Pending::Priority { legal, .. } if same => {
-                if let Some(step) = plan.steps.front().copied() {
-                    let action = narrator::tap(&step);
-                    if offered(legal, &action) {
-                        plan.steps.pop_front();
-                        plan.color = step.color;
-                        return Some(action);
-                    }
-                } else if offered(legal, &plan.then) {
-                    let then = plan.then.clone();
-                    self.plan = None;
-                    return Some(then);
-                }
-            }
-            _ => {}
-        }
-        let plan = self.plan.take()?;
-        self.notes.push(format!(
-            "Your plan ({}) stopped before it finished: the table asked something else. Any \
-             mana it made is in your pool.",
-            plan.label
-        ));
-        None
-    }
-
-    fn follow_hint(&mut self, request: &Request) -> Option<PlayerAction> {
-        let hint = self.hint.take()?;
-        let Pending::ChooseTargets {
-            options,
-            player_options,
-            min,
-            max,
-            reason: TargetPrompt::Targets,
-            ..
-        } = &request.pending
-        else {
-            // A cast mode, an X or a colour may come before the targets.
-            if !matches!(request.pending, Pending::Priority { .. }) {
-                self.hint = Some(hint);
-            }
-            return None;
-        };
-        let targeting = request.view.targeting.as_ref()?;
-        let card = targeting
-            .source
-            .rules
-            .map(|r| r.card)
-            .or_else(|| targeting.source.card.map(|c| c.index));
-        let count = hint.objects.len() + hint.players.len();
-        let fits = card == Some(hint.card)
-            && !targeting.second
-            && (usize::from(*min)..=usize::from(*max)).contains(&count)
-            && hint.objects.iter().all(|o| options.contains(o))
-            && hint.players.iter().all(|p| player_options.contains(p));
-        if !fits {
-            self.notes
-                .push("The targets you named ahead are not legal now: choose them here.".into());
-            return None;
-        }
-        Some(PlayerAction::ChooseTargets {
-            objects: hint.objects,
-            players: hint.players,
-        })
-    }
-
     /// Tells the decision and builds the conversation that asks it.
-    fn prepare(&mut self, request: &Request, settings: &Settings) -> Prepared {
+    fn prepare(&mut self, request: &Request, settings: &Settings, api: Api) -> Prepared {
         let long = || {
             serde_json::to_string(&self.messages).map_or(0, |text| narrator::estimate_tokens(&text))
                 > settings.conversation_tokens
         };
-        let fresh = self.messages.is_empty() || request.view.turn != self.turn || long();
-        let mut told = Vec::new();
-        if fresh && !self.says.is_empty() {
-            let said: Vec<String> = self.says.iter().map(|s| format!("  - {s}")).collect();
-            told.push(format!(
-                "Your notes from earlier turns:\n{}",
-                said.join("\n")
-            ));
-        }
-        // Kept until the model answers: a message it never read is told
-        // again.
-        told.extend(self.notes.iter().cloned());
-        let mut narrator = self.narrator.clone();
+        let fresh = self.messages.is_empty() || request.view.turn != self.seat.turn || long();
+        let told = self.seat.told(fresh);
+        let mut narrator = self.seat.narrator.clone();
         if fresh {
             narrator.forget_cards();
         }
         let wake = narrator.wake(request, &told);
         let prefix = fresh.then(|| narrator::prefix(&request.context));
         let (mut messages, results) = if fresh {
-            let start = match settings.provider {
-                Provider::Anthropic => Vec::new(),
-                Provider::OpenAi => vec![openai::system(settings.answer)],
+            let start = match api {
+                Api::Anthropic => Vec::new(),
+                Api::OpenAi => vec![openai::system(settings.answer)],
             };
             (start, Vec::new())
         } else {
             (self.messages.clone(), self.results.clone())
         };
-        match settings.provider {
-            Provider::Anthropic => {
+        match api {
+            Api::Anthropic => {
                 anthropic::user(&mut messages, &results, prefix.as_deref(), &wake.text);
             }
-            Provider::OpenAi => {
+            Api::OpenAi => {
                 openai::user(&mut messages, &results, prefix.as_deref(), &wake.text);
             }
         }
@@ -1353,7 +1327,7 @@ impl SeatState {
             wake,
             narrator,
             messages,
-            asked: self.asked,
+            asked: self.seat.asked,
         }
     }
 
@@ -1368,10 +1342,6 @@ impl SeatState {
         took: Duration,
     ) -> Answer {
         self.messages = messages;
-        self.narrator = narrator;
-        self.turn = request.view.turn;
-        self.notes.clear();
-        self.last_by_model = true;
         let label = read.resolved.label.clone();
         self.results = read
             .call
@@ -1387,37 +1357,9 @@ impl SeatState {
                 is_error: false,
             }))
             .collect();
-        if let Some(say) = &read.say {
-            self.says.push_back(say.chars().take(300).collect());
-            while self.says.len() > SAYS {
-                self.says.pop_front();
-            }
-        }
-        self.hint.clone_from(&read.resolved.hint);
-        let action = match read.resolved.act {
-            Act::Now(action) => {
-                self.plan = None;
-                action
-            }
-            Act::Taps { steps, then } => {
-                let mut steps: VecDeque<manaplan::Step> = steps.into();
-                let first = steps.pop_front();
-                let view = &request.view;
-                self.plan = Some(Plan {
-                    steps,
-                    then: then.clone(),
-                    label: label.clone(),
-                    at: (view.turn, view.phase, view.step),
-                    color: first.and_then(|s| s.color),
-                });
-                if let Some(step) = first {
-                    narrator::tap(&step)
-                } else {
-                    self.plan = None;
-                    then
-                }
-            }
-        };
+        let action = self
+            .seat
+            .keep(request, narrator, read.resolved, read.say.as_deref());
         let note = json!({
             "chose": label,
             "say": read.say,
@@ -1440,7 +1382,7 @@ impl SeatState {
         reply: Option<&Reply>,
         error: Option<&MindError>,
     ) {
-        self.transcript.write_value(&json!({
+        self.seat.transcript.write_value(&json!({
             "question": request.question,
             "turn": request.view.turn,
             "message": text,
@@ -1453,21 +1395,7 @@ impl SeatState {
             })),
             "error": error.map(ToString::to_string),
         }));
-        self.transcript.flush();
-    }
-}
-
-/// Whether `legal` offers `action` now.
-fn offered(legal: &LegalActions, action: &PlayerAction) -> bool {
-    match action {
-        PlayerAction::ActivateManaAbility { source } => legal.mana_abilities.contains(source),
-        PlayerAction::ActivateAbility {
-            source,
-            ability_index,
-        } => legal.abilities.contains(&(*source, *ability_index)),
-        PlayerAction::CastSpell { card } => legal.castable.contains(card),
-        PlayerAction::PassPriority => legal.can_pass,
-        _ => false,
+        self.seat.transcript.flush();
     }
 }
 
@@ -1481,7 +1409,7 @@ impl Mind for ApiMind {
                 ..
             }) = &answer
             {
-                lock(&seat).casting = Some(*card);
+                lock(&seat).seat.casting = Some(*card);
             }
             answer
         })

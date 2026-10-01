@@ -689,6 +689,11 @@ impl Drawn<'_, '_, '_> {
                     Press::Seat(Act::Provider(at, Provider::OpenAi)),
                     provider == Provider::OpenAi,
                 ),
+                (
+                    Phrase::SeatProviderCli.text(lang),
+                    Press::Seat(Act::Provider(at, Provider::Cli)),
+                    provider == Provider::Cli,
+                ),
             ],
         );
 
@@ -720,6 +725,9 @@ impl Drawn<'_, '_, '_> {
             }
             self.line(cell, Phrase::SeatPricedAbout.text(lang), palette::MUTED);
         }
+        if let Some(note) = self.panel.model_note(at, lang) {
+            self.line(cell, &note, palette::MUTED);
+        }
         let answer = self.panel.answer(at);
         self.choice(
             model,
@@ -740,6 +748,11 @@ impl Drawn<'_, '_, '_> {
                     Press::Seat(Act::Answer(at, Some(AnswerMode::Json))),
                     answer == Some(AnswerMode::Json),
                 ),
+                (
+                    Phrase::SeatAnswerJsonSchema.text(lang),
+                    Press::Seat(Act::Answer(at, Some(AnswerMode::JsonSchema))),
+                    answer == Some(AnswerMode::JsonSchema),
+                ),
             ],
         );
         self.faults_at(model, spot(Slot::Answer));
@@ -755,8 +768,11 @@ impl Drawn<'_, '_, '_> {
             Slot::PriceOut,
             Slot::GameUsd,
             Slot::GameTokens,
+            Slot::GameCalls,
         ] {
-            self.field(money, spot(slot), slot.label().text(lang));
+            if self.panel.shows(spot(slot)) {
+                self.field(money, spot(slot), slot.label().text(lang));
+            }
         }
         let price = self.panel.price_note(at, lang);
         self.line(parent, &price, palette::MUTED);
@@ -765,12 +781,16 @@ impl Drawn<'_, '_, '_> {
         }
 
         let reach = self.cells(parent);
-        let key = self.field(reach, spot(Slot::KeyEnv), Phrase::SeatKeyEnv.text(lang));
-        if let Some((words, set)) = self.panel.key_line(at, &is_set, lang) {
-            self.line(key, &words, if set { palette::INK } else { palette::MUTED });
+        if self.panel.shows(spot(Slot::KeyEnv)) {
+            let key = self.field(reach, spot(Slot::KeyEnv), Phrase::SeatKeyEnv.text(lang));
+            if let Some((words, set)) = self.panel.key_line(at, &is_set, lang) {
+                self.line(key, &words, if set { palette::INK } else { palette::MUTED });
+            }
         }
-        if self.panel.shows(spot(Slot::BaseUrl)) {
-            self.field(reach, spot(Slot::BaseUrl), Phrase::SeatBaseUrl.text(lang));
+        for slot in [Slot::BaseUrl, Slot::Command] {
+            if self.panel.shows(spot(slot)) {
+                self.field(reach, spot(slot), slot.label().text(lang));
+            }
         }
     }
 

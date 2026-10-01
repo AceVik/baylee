@@ -191,19 +191,6 @@ fn every_refusal_shows_beside_its_field() {
         assert!(!en.is_empty() && en != de, "{spot:?}: «{en}» «{de}»");
     }
 
-    // The choices' own refusals.
-    let mut panel = panel();
-    panel.act(Act::Answer(0, Some(AnswerMode::Json)));
-    assert_eq!(
-        fault_at(&panel, Spot::Profile(0, Slot::Answer)),
-        Some(Problem::Refused(Why::JsonNeedsOpenAi))
-    );
-    panel.act(Act::Provider(0, Provider::OpenAi));
-    assert_eq!(
-        panel.faults(),
-        [],
-        "json is an OpenAI-compatible endpoint's"
-    );
     // A key in the model's box is one fault, beside it: the model it
     // blanks has no price, and that is not said a second time.
     let mut panel = self::panel();
@@ -236,6 +223,31 @@ fn every_refusal_shows_beside_its_field() {
     );
 }
 
+/// The answer's choice is refused beside it where the provider cannot
+/// answer that way: JSON, plain or by its schema, is an OpenAI-compatible
+/// endpoint's.
+#[test]
+fn a_json_answer_is_an_openai_compatible_endpoint_s() {
+    for json in [AnswerMode::Json, AnswerMode::JsonSchema] {
+        let mut panel = panel();
+        panel.act(Act::Answer(0, Some(json)));
+        assert_eq!(
+            fault_at(&panel, Spot::Profile(0, Slot::Answer)),
+            Some(Problem::Refused(Why::JsonNeedsOpenAi)),
+            "{json:?}"
+        );
+        panel.act(Act::Provider(0, Provider::OpenAi));
+        assert_eq!(
+            panel.faults(),
+            [],
+            "{json:?} is an OpenAI-compatible endpoint's"
+        );
+        let saved = panel.to_save().expect("an edit with nothing wrong");
+        let name = panel.name(0).expect("a profile").to_string();
+        assert_eq!(saved.profiles[&name].answer, Some(json));
+    }
+}
+
 /// Each way the file can be refused is placed on a field, and said in
 /// both languages: a new refusal fails to compile here until it is.
 #[test]
@@ -246,8 +258,12 @@ fn every_refusal_has_a_place_and_words() {
         Why::NoSuchProfile,
         Why::NotAName,
         Why::NotAModelId,
+        Why::NoSuchTool,
         Why::NotAWord,
         Why::JsonNeedsOpenAi,
+        Why::NotForCli,
+        Why::CliOnly,
+        Why::NotAbsolute,
         Why::Zero,
         Why::NotAnAmount,
         Why::Unpriced,
@@ -260,9 +276,11 @@ fn every_refusal_has_a_place_and_words() {
         let spot = match why {
             Why::KeyNamed | Why::KeyShaped | Why::NotAName => Spot::Profile(0, Slot::Name),
             Why::NoSuchProfile => Spot::Default,
-            Why::NotAModelId => Spot::Profile(0, Slot::Model),
+            Why::NotAModelId | Why::NoSuchTool => Spot::Profile(0, Slot::Model),
             Why::NotAWord => Spot::Profile(0, Slot::Effort),
             Why::JsonNeedsOpenAi => Spot::Profile(0, Slot::Answer),
+            Why::NotForCli => Spot::Profile(0, Slot::PriceIn),
+            Why::CliOnly | Why::NotAbsolute => Spot::Profile(0, Slot::Command),
             Why::Zero => Spot::Profile(0, Slot::MaxTokens),
             Why::NotAnAmount => Spot::Cap(CapField::DayUsd),
             Why::Unpriced => Spot::Profile(0, Slot::GameUsd),
@@ -290,7 +308,7 @@ fn a_key_typed_anywhere_is_never_saved() {
         .map(|slot| Spot::Profile(2, *slot))
         .collect();
     spots.extend(CapField::ALL.iter().map(|cap| Spot::Cap(*cap)));
-    assert_eq!(spots.len(), 15, "every box on the panel");
+    assert_eq!(spots.len(), 17, "every box on the panel");
     for pasted in [KEY, "Bearer abcdef", "x-api-key: 12345"] {
         for spot in &spots {
             let mut panel = panel();
@@ -562,6 +580,125 @@ fn tab_walks_the_shown_profile_then_the_caps() {
     panel.act(Act::Provider(2, Provider::Anthropic));
     panel.blur();
     assert!(panel.shows(Spot::Profile(2, Slot::BaseUrl)));
+}
+
+/// A CLI profile shows the boxes a CLI takes and hides an API's, says
+/// how its model and program are named and what it plays with when they
+/// are left empty, and refuses beside each box what a CLI does not take.
+#[test]
+fn a_cli_profile_shows_a_cli_s_boxes_and_refuses_an_api_s() {
+    let mut panel = panel();
+    panel.act(Act::Provider(0, Provider::Cli));
+    let spot = |slot| Spot::Profile(0, slot);
+    assert_eq!(
+        fault_at(&panel, spot(Slot::Model)),
+        Some(Problem::Refused(Why::NoSuchTool)),
+        "claude-opus-5-5 names no tool"
+    );
+    type_into(&mut panel, spot(Slot::Model), "claude:opus");
+    panel.blur();
+    assert_eq!(panel.faults(), []);
+    for (slot, shown) in [
+        (Slot::Model, true),
+        (Slot::Effort, true),
+        (Slot::GameTokens, true),
+        (Slot::GameCalls, true),
+        (Slot::Command, true),
+        (Slot::KeyEnv, false),
+        (Slot::BaseUrl, false),
+        (Slot::PriceIn, false),
+        (Slot::PriceOut, false),
+        (Slot::GameUsd, false),
+    ] {
+        assert_eq!(panel.shows(spot(slot)), shown, "{slot:?}");
+    }
+    assert!(panel.shows(Spot::Profile(1, Slot::KeyEnv)), "an API's");
+    assert!(!panel.shows(Spot::Profile(1, Slot::Command)), "an API's");
+    let hint = |panel: &SeatPanel, slot| panel.hint(spot(slot), Lang::En);
+    assert_eq!(
+        hint(&panel, Slot::Command).as_deref(),
+        Some("claude, found on PATH")
+    );
+    assert_eq!(
+        hint(&panel, Slot::GameTokens).as_deref(),
+        Some("20000000 by default")
+    );
+    assert_eq!(
+        hint(&panel, Slot::GameCalls).as_deref(),
+        Some("500 by default")
+    );
+    assert_eq!(hint(&panel, Slot::Effort).as_deref(), Some("the CLI's own"));
+    assert_eq!(hint(&panel, Slot::KeyEnv), None);
+    assert_eq!(
+        panel
+            .hint(Spot::Profile(1, Slot::GameCalls), Lang::En)
+            .as_deref(),
+        Some("no limit")
+    );
+    assert!(
+        panel
+            .model_note(0, Lang::En)
+            .unwrap()
+            .contains("claude:opus")
+    );
+    assert_eq!(panel.model_note(1, Lang::En), None);
+    assert!(panel.price_note(0, Lang::En).contains("no price"));
+    assert_eq!(panel.key_variable(0), None, "a CLI reads no key");
+    assert_eq!(panel.key_line(0, &|_| true, Lang::En), None);
+    assert!(panel.suggestions(0).is_empty());
+
+    // A program is named by its absolute path, and only a CLI runs one.
+    type_into(&mut panel, spot(Slot::Command), "claude");
+    assert_eq!(
+        fault_at(&panel, spot(Slot::Command)),
+        Some(Problem::Refused(Why::NotAbsolute))
+    );
+    type_into(&mut panel, spot(Slot::Command), "/opt/homebrew/bin/claude");
+    type_into(&mut panel, spot(Slot::GameCalls), "0");
+    assert_eq!(
+        fault_at(&panel, spot(Slot::GameCalls)),
+        Some(Problem::Refused(Why::Zero))
+    );
+    let fault = PanelFault {
+        spot: spot(Slot::GameCalls),
+        problem: Problem::Refused(Why::Zero),
+    };
+    assert!(panel.say(&fault, Lang::En).contains("calls"));
+    type_into(&mut panel, spot(Slot::GameCalls), "300");
+    panel.act(Act::Answer(0, Some(AnswerMode::Tools)));
+    assert_eq!(
+        fault_at(&panel, spot(Slot::Answer)),
+        Some(Problem::Refused(Why::NotForCli))
+    );
+    panel.act(Act::Answer(0, None));
+    type_into(&mut panel, Spot::Profile(1, Slot::Command), "/usr/bin/x");
+    assert_eq!(
+        fault_at(&panel, Spot::Profile(1, Slot::Command)),
+        Some(Problem::Refused(Why::CliOnly))
+    );
+    type_into(&mut panel, Spot::Profile(1, Slot::Command), "");
+    assert_eq!(panel.faults(), []);
+    let saved = panel.to_save().expect("a CLI profile with nothing wrong");
+    let cli = &saved.profiles["a"];
+    assert_eq!(cli.provider, Provider::Cli);
+    assert_eq!(cli.model, "claude:opus");
+    assert_eq!(cli.command.as_deref(), Some("/opt/homebrew/bin/claude"));
+    assert_eq!(cli.game_calls, Some(300));
+    assert_eq!(SeatSettings::parse(&saved.to_json()), Ok(saved.clone()));
+}
+
+/// What an API's profile holds that a CLI does not take stays in view
+/// when it becomes one, refused beside its box: here b's dollars a game.
+#[test]
+fn a_profile_made_a_cli_keeps_what_it_held_in_view_refused() {
+    let mut panel = panel();
+    panel.act(Act::Provider(1, Provider::Cli));
+    type_into(&mut panel, Spot::Profile(1, Slot::Model), "claude");
+    assert!(panel.shows(Spot::Profile(1, Slot::GameUsd)));
+    assert_eq!(
+        fault_at(&panel, Spot::Profile(1, Slot::GameUsd)),
+        Some(Problem::Refused(Why::NotForCli))
+    );
 }
 
 #[test]

@@ -173,15 +173,14 @@ impl Show {
             let money = tally
                 .usd
                 .map_or_else(|| "price unknown".to_string(), |usd| format!("${usd:.2}"));
+            let calls = tally.calls_cap.map_or_else(
+                || format!("{} calls", tally.calls),
+                |cap| format!("{} of {cap} calls", tally.calls),
+            );
             out.push(format!(
-                "tokens: {} in, {} written to the cache, {} read from it, {} out; {} calls \
+                "tokens: {} in, {} written to the cache, {} read from it, {} out; {calls} \
                  ({} failed); {money}",
-                usage.input,
-                usage.cache_write,
-                usage.cache_read,
-                usage.output,
-                tally.calls,
-                tally.failed,
+                usage.input, usage.cache_write, usage.cache_read, usage.output, tally.failed,
             ));
             if tally.spent {
                 out.push("the game's budget ran out: the house finished the game".into());
@@ -442,6 +441,17 @@ mod tests {
         assert!(summary[0].contains("(33.3 %)"), "{summary:?}");
         assert_eq!(summary[1], "house answers: 1× the time ran out");
         assert!(summary[2].ends_with("$0.01"), "{summary:?}");
+        assert!(summary[2].contains("; 1 calls (0 failed)"), "{summary:?}");
+        let capped = Tally {
+            calls_cap: Some(500),
+            usd: None,
+            ..tally
+        };
+        let summary = show.summary(&stats, Some(&capped));
+        assert!(
+            summary[2].ends_with("; 1 of 500 calls (0 failed); price unknown"),
+            "{summary:?}"
+        );
         assert!(summary[3].contains("(it was)"), "{summary:?}");
     }
 

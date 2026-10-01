@@ -44,7 +44,14 @@ fn a_file_reads_and_writes_back_the_same() {
     let deepseek = settings.profile("deepseek").expect("a profile");
     assert_eq!(deepseek.provider, Provider::OpenAi);
     assert_eq!(deepseek.answer, Some(AnswerMode::Json));
-    assert_eq!(deepseek.key_env(), "DEEPSEEK_API_KEY");
+    // The schema's mode, as the file spells it.
+    let lm = SeatSettings::parse(
+        r#"{"profiles": {"lm": {"provider": "openai", "model": "m-1", "answer": "json_schema"}}}"#,
+    )
+    .expect("json_schema");
+    assert_eq!(lm.profiles["lm"].answer, Some(AnswerMode::JsonSchema));
+    assert!(lm.to_json().contains(r#""answer": "json_schema""#));
+    assert_eq!(deepseek.key_env(), Some("DEEPSEEK_API_KEY"));
     let again = SeatSettings::parse(&settings.to_json()).expect("its own text");
     assert_eq!(again, settings);
     // What is the build's is left out, not written as a default.
@@ -75,6 +82,13 @@ fn the_documented_example_is_a_file_this_build_reads() {
             .values()
             .any(|p| p.price().is_none() || p.price.is_some()),
         "it shows a model with no price of this build's"
+    );
+    assert!(
+        settings
+            .profiles
+            .values()
+            .any(|p| p.provider == Provider::Cli && p.fault().is_none()),
+        "it shows a CLI"
     );
     assert!(!example.contains("sk-"), "no key in the example");
 }
@@ -161,6 +175,10 @@ fn a_profile_that_cannot_play_is_refused_by_name() {
             anthropic_json.to_string(),
             "answer json is for an OpenAI-compatible endpoint",
         ),
+        (
+            anthropic_json.replace(r#""json""#, r#""json_schema""#),
+            "answer json_schema is for an OpenAI-compatible endpoint",
+        ),
         (one(r#""max_tokens": 0"#), "max_tokens"),
         (one(r#""think_secs": 0"#), "think_secs"),
         (
@@ -239,8 +257,56 @@ fn a_profile_s_price_is_its_own_then_the_build_s() {
     assert_eq!(Profile::new(Provider::OpenAi, "m-1").price(), None);
     assert_eq!(
         Profile::new(Provider::OpenAi, "m-1").key_env(),
-        "BAYLEE_LLM_API_KEY"
+        Some("BAYLEE_LLM_API_KEY")
     );
+    // A CLI plays on a subscription: no price, and no key to read.
+    let mut cli = Profile::new(Provider::Cli, "claude:opus");
+    assert_eq!(cli.key_env(), None);
+    cli.key_env = Some("ANTHROPIC_API_KEY".into());
+    assert_eq!(
+        cli.key_env(),
+        None,
+        "a cli profile reads none, whatever it says"
+    );
+    assert_eq!(
+        Profile::new(Provider::Cli, "claude-sonnet-5-5").price(),
+        None
+    );
+}
+
+/// A CLI's model names its tool first, then the tool's own model if any.
+#[test]
+fn a_cli_model_names_its_tool_first() {
+    assert_eq!(cli_model("claude"), Ok((CliTool::Claude, None)));
+    assert_eq!(
+        cli_model("claude:opus"),
+        Ok((CliTool::Claude, Some("opus")))
+    );
+    assert_eq!(
+        cli_model("claude:claude-opus-5-5"),
+        Ok((CliTool::Claude, Some("claude-opus-5-5")))
+    );
+    for bad in [
+        "codex",
+        "claude-opus-5-5",
+        "",
+        "claude:bad model",
+        "sk-ant-api03-AAAABBBBCCCCDDDD",
+    ] {
+        let why = cli_model(bad).expect_err(bad);
+        assert!(!why.contains("AAAABBBB"), "{why}");
+    }
+    assert!(cli_model("gemini").unwrap_err().contains("claude"));
+    assert_eq!(Provider::Cli.default_answer(), AnswerMode::JsonSchema);
+    assert_eq!(Provider::Cli.default_key_env(), None);
+    assert_eq!(Provider::Cli.default_base(), None);
+    assert!(is_absolute_path("/opt/homebrew/bin/claude"));
+    assert!(is_absolute_path(r"C:\Program Files\claude.exe"));
+    assert!(is_absolute_path("C:/tools/claude.exe"));
+    assert!(is_absolute_path(r"\\server\share\claude.exe"));
+    for relative in ["claude", "./claude", "bin/claude", "C:claude", ""] {
+        assert!(!is_absolute_path(relative), "{relative}");
+    }
 }
 
 /// A day or month capped in dollars needs a token cap for a model whose
@@ -337,11 +403,68 @@ fn one_profile(edit: impl FnOnce(&mut Profile)) -> SeatSettings {
 )]
 fn every_refusal_is_a_fault_with_a_place() {
     let profile = |field| Place::Profile("p".into(), field);
+    let cli = |edit: fn(&mut Profile)| {
+        one_profile(|p| {
+            p.provider = Provider::Cli;
+            p.model = "claude:opus".into();
+            edit(p);
+        })
+    };
     let cases: Vec<(SeatSettings, Place, Why)> = vec![
         (
             one_profile(|p| p.model = "sk-ant-api03-AAAABBBBCCCCDDDDEEEE".into()),
             profile(Field::Model),
             Why::KeyShaped,
+        ),
+        (
+            cli(|p| p.model = "codex:o5".into()),
+            profile(Field::Model),
+            Why::NoSuchTool,
+        ),
+        (
+            cli(|p| p.answer = Some(AnswerMode::Tools)),
+            profile(Field::Answer),
+            Why::NotForCli,
+        ),
+        (
+            cli(|p| {
+                p.price = Some(GivenPrice {
+                    input: 1.0,
+                    output: 2.0,
+                });
+            }),
+            profile(Field::PriceInput),
+            Why::NotForCli,
+        ),
+        (
+            cli(|p| p.game_usd = Some(2.0)),
+            profile(Field::GameUsd),
+            Why::NotForCli,
+        ),
+        (
+            cli(|p| p.key_env = Some("ANTHROPIC_API_KEY".into())),
+            profile(Field::KeyEnv),
+            Why::NotForCli,
+        ),
+        (
+            cli(|p| p.base_url = Some("https://api.anthropic.com".into())),
+            profile(Field::BaseUrl),
+            Why::NotForCli,
+        ),
+        (
+            cli(|p| p.game_calls = Some(0)),
+            profile(Field::GameCalls),
+            Why::Zero,
+        ),
+        (
+            cli(|p| p.command = Some("bin/claude".into())),
+            profile(Field::Command),
+            Why::NotAbsolute,
+        ),
+        (
+            one_profile(|p| p.command = Some("/usr/local/bin/claude".into())),
+            profile(Field::Command),
+            Why::CliOnly,
         ),
         (
             one_profile(|p| p.key_env = Some("sk-ant-api03-AAAABBBBCCCCDDDDEEEE".into())),
@@ -514,9 +637,11 @@ fn the_field_paths_are_the_file_s_own() {
         }),
         game_usd: Some(1.0),
         game_tokens: Some(1),
+        game_calls: Some(1),
         think_secs: Some(1),
         key_env: Some("K".into()),
         base_url: Some("https://x".into()),
+        command: Some("/x".into()),
         ..Profile::new(Provider::Anthropic, "m")
     };
     let mut written = Vec::new();

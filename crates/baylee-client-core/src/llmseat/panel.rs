@@ -23,8 +23,9 @@
 
 use super::ledger::{Ledger, Moment, Spent};
 use super::{
-    AnswerMode, CapField, Caps, DEFAULT_ANTHROPIC_MODEL, Field, GivenPrice, PRICED, Period, Place,
-    Price, Profile, Provider, SeatSettings, Why, price, shaped_like_a_key,
+    AnswerMode, CapField, Caps, DEFAULT_ANTHROPIC_MODEL, DEFAULT_CLI_CALLS,
+    DEFAULT_CLI_SPEND_TOKENS, Field, GivenPrice, PRICED, Period, Place, Price, Profile, Provider,
+    SeatSettings, Why, cli_model, price, shaped_like_a_key,
 };
 use crate::i18n::{Lang, Phrase};
 use crate::textbuf::TextBuffer;
@@ -77,17 +78,21 @@ pub enum Slot {
     GameUsd,
     /// The most a game may spend in tokens.
     GameTokens,
+    /// The most calls a game may make.
+    GameCalls,
     /// The longest one answer may take.
     ThinkSecs,
     /// The name of the variable the key is read from.
     KeyEnv,
     /// Where the API is.
     BaseUrl,
+    /// The program a CLI profile runs.
+    Command,
 }
 
 impl Slot {
     /// The boxes typed into, in the order Tab walks them.
-    pub const TYPED: [Self; 11] = [
+    pub const TYPED: [Self; 13] = [
         Self::Name,
         Self::Model,
         Self::Effort,
@@ -96,9 +101,11 @@ impl Slot {
         Self::PriceOut,
         Self::GameUsd,
         Self::GameTokens,
+        Self::GameCalls,
         Self::ThinkSecs,
         Self::KeyEnv,
         Self::BaseUrl,
+        Self::Command,
     ];
 
     /// The box or choice that shows `field`.
@@ -114,9 +121,11 @@ impl Slot {
             Field::PriceOutput => Self::PriceOut,
             Field::GameUsd => Self::GameUsd,
             Field::GameTokens => Self::GameTokens,
+            Field::GameCalls => Self::GameCalls,
             Field::ThinkSecs => Self::ThinkSecs,
             Field::KeyEnv => Self::KeyEnv,
             Field::BaseUrl => Self::BaseUrl,
+            Field::Command => Self::Command,
         }
     }
 
@@ -134,9 +143,11 @@ impl Slot {
             Self::PriceOut => Phrase::SeatPriceOut,
             Self::GameUsd => Phrase::SeatGameUsd,
             Self::GameTokens => Phrase::SeatGameTokens,
+            Self::GameCalls => Phrase::SeatGameCalls,
             Self::ThinkSecs => Phrase::SeatThinkSecs,
             Self::KeyEnv => Phrase::SeatKeyEnv,
             Self::BaseUrl => Phrase::SeatBaseUrl,
+            Self::Command => Phrase::SeatCommand,
         }
     }
 }
@@ -256,9 +267,11 @@ struct Draft {
     price_out: TextBuffer,
     game_usd: TextBuffer,
     game_tokens: TextBuffer,
+    game_calls: TextBuffer,
     think_secs: TextBuffer,
     key_env: TextBuffer,
     base_url: TextBuffer,
+    command: TextBuffer,
 }
 
 /// A form's texts and choices, to tell whether anything was edited.
@@ -286,9 +299,11 @@ impl Draft {
             price_out: usd(profile.price.map(|p| p.output)),
             game_usd: usd(profile.game_usd),
             game_tokens: number(profile.game_tokens),
+            game_calls: number(profile.game_calls),
             think_secs: number(profile.think_secs),
             key_env: text(profile.key_env.as_deref()),
             base_url: text(profile.base_url.as_deref()),
+            command: text(profile.command.as_deref()),
         }
     }
 
@@ -302,9 +317,11 @@ impl Draft {
             Slot::PriceOut => &self.price_out,
             Slot::GameUsd => &self.game_usd,
             Slot::GameTokens => &self.game_tokens,
+            Slot::GameCalls => &self.game_calls,
             Slot::ThinkSecs => &self.think_secs,
             Slot::KeyEnv => &self.key_env,
             Slot::BaseUrl => &self.base_url,
+            Slot::Command => &self.command,
             Slot::Provider | Slot::Answer => return None,
         })
     }
@@ -319,9 +336,11 @@ impl Draft {
             Slot::PriceOut => &mut self.price_out,
             Slot::GameUsd => &mut self.game_usd,
             Slot::GameTokens => &mut self.game_tokens,
+            Slot::GameCalls => &mut self.game_calls,
             Slot::ThinkSecs => &mut self.think_secs,
             Slot::KeyEnv => &mut self.key_env,
             Slot::BaseUrl => &mut self.base_url,
+            Slot::Command => &mut self.command,
             Slot::Provider | Slot::Answer => return None,
         })
     }
@@ -371,9 +390,11 @@ impl Draft {
             price,
             game_usd: noted(Slot::GameUsd, dollars(&self.game_usd), &mut problems),
             game_tokens: noted(Slot::GameTokens, whole(&self.game_tokens), &mut problems),
+            game_calls: noted(Slot::GameCalls, whole(&self.game_calls), &mut problems),
             think_secs: noted(Slot::ThinkSecs, whole(&self.think_secs), &mut problems),
             key_env: word(&self.key_env),
             base_url: word(&self.base_url),
+            command: word(&self.command),
         };
         (profile, problems)
     }
@@ -683,21 +704,32 @@ impl SeatPanel {
         self.buffer(spot).is_some()
     }
 
-    /// Whether the box at `spot` is drawn. Every box is, but an address
-    /// on an Anthropic profile: an address is an OpenAI-compatible
-    /// endpoint's. One the file gives an Anthropic profile stays in view,
-    /// and so does the box with the caret, so nothing is kept or typed
-    /// unseen.
+    /// Whether the box at `spot` is drawn. Every box is, but the ones a
+    /// profile's provider does not take: an address is an OpenAI-compatible
+    /// endpoint's; a key's variable and the dollars are an API's, which a
+    /// CLI on a subscription has neither of; and the program to run is a
+    /// CLI's. One the file fills stays in view, and so does the box with
+    /// the caret, so nothing is kept or typed unseen.
     #[must_use]
     pub fn shows(&self, spot: Spot) -> bool {
-        match spot {
-            Spot::Profile(at, Slot::BaseUrl) => {
-                self.provider(at) == Some(Provider::OpenAi)
-                    || self.focus == Some(spot)
-                    || self.buffer(spot).is_some_and(|b| !b.text().is_empty())
+        let Spot::Profile(at, slot) = spot else {
+            return self.holds(spot);
+        };
+        let Some(provider) = self.provider(at) else {
+            return false;
+        };
+        let taken = match slot {
+            Slot::BaseUrl => provider == Provider::OpenAi,
+            Slot::KeyEnv | Slot::PriceIn | Slot::PriceOut | Slot::GameUsd => {
+                provider != Provider::Cli
             }
-            _ => self.holds(spot),
-        }
+            Slot::Command => provider == Provider::Cli,
+            _ => true,
+        };
+        self.holds(spot)
+            && (taken
+                || self.focus == Some(spot)
+                || self.buffer(spot).is_some_and(|b| !b.text().is_empty()))
     }
 
     /// The box with the caret.
@@ -1047,7 +1079,7 @@ impl SeatPanel {
             .iter()
             .any(|fault| fault.field == Field::KeyEnv)
             || profile.key_env.as_deref().is_some_and(shaped_like_a_key);
-        (!faulty).then(|| profile.key_env().to_string())
+        profile.key_env().filter(|_| !faulty).map(str::to_string)
     }
 
     /// A period the caps count dollars in and no tokens, which a profile
@@ -1109,8 +1141,10 @@ impl SeatPanel {
             return None;
         };
         let provider = self.provider(at)?;
+        let cli = provider == Provider::Cli;
         let by_default = |value: &str| Phrase::SeatByDefault.fill(lang, &[value]);
         Some(match slot {
+            Slot::Effort if cli => Phrase::SeatEffortCli.text(lang).to_string(),
             Slot::Effort => provider.default_effort().map_or_else(
                 || Phrase::SeatEffortEndpoint.text(lang).to_string(),
                 by_default,
@@ -1123,19 +1157,37 @@ impl SeatPanel {
                 self.drafts.get(at)?.read().0.price()?;
                 by_default(&usd_text(super::DEFAULT_SPEND_USD))
             }
+            Slot::GameTokens if cli => by_default(&DEFAULT_CLI_SPEND_TOKENS.to_string()),
             Slot::GameTokens => by_default(&super::DEFAULT_SPEND_TOKENS.to_string()),
+            Slot::GameCalls if cli => by_default(&DEFAULT_CLI_CALLS.to_string()),
+            Slot::GameCalls => Phrase::SeatNoCallLimit.text(lang).to_string(),
             Slot::ThinkSecs => by_default(&super::DEFAULT_THINK_SECS.to_string()),
-            Slot::KeyEnv => by_default(provider.default_key_env()),
+            Slot::KeyEnv => by_default(provider.default_key_env()?),
             Slot::BaseUrl => Phrase::SeatBaseByDefault
-                .fill(lang, &[provider.base_env(), provider.default_base()]),
+                .fill(lang, &[provider.base_env()?, provider.default_base()?]),
+            Slot::Command => {
+                let draft = self.drafts.get(at)?;
+                let tool = cli_model(draft.model.text().trim()).ok()?.0;
+                Phrase::SeatCommandByDefault.fill(lang, &[tool.name()])
+            }
             Slot::Name | Slot::Provider | Slot::Model | Slot::Answer => return None,
         })
     }
 
+    /// How a CLI profile names its model, as a line under the model's box;
+    /// `None` for an API's, whose priced models are offered there instead.
+    #[must_use]
+    pub fn model_note(&self, at: usize, lang: Lang) -> Option<String> {
+        (self.provider(at)? == Provider::Cli).then(|| Phrase::SeatCliModel.text(lang).to_string())
+    }
+
     /// What this build knows of a profile's model's price, as a line under
-    /// its price boxes.
+    /// its price boxes; for a CLI, that a subscription has none.
     #[must_use]
     pub fn price_note(&self, at: usize, lang: Lang) -> String {
+        if self.provider(at) == Some(Provider::Cli) {
+            return Phrase::SeatCliNoPrice.text(lang).to_string();
+        }
         self.build_price(at).map_or_else(
             || Phrase::SeatNoBuildPrice.text(lang).to_string(),
             |price| {
@@ -1237,12 +1289,21 @@ impl SeatPanel {
                 Why::NoSuchProfile => Phrase::SeatFaultNoDefault,
                 Why::NotAName => Phrase::SeatFaultName,
                 Why::NotAModelId => Phrase::SeatFaultModel,
+                Why::NoSuchTool => Phrase::SeatFaultTool,
                 Why::NotAWord => Phrase::SeatFaultEffort,
                 Why::JsonNeedsOpenAi => Phrase::SeatFaultJson,
-                Why::Zero if matches!(fault.spot, Spot::Profile(_, Slot::ThinkSecs)) => {
-                    Phrase::SeatFaultThinkSecs
-                }
-                Why::Zero => Phrase::SeatFaultMaxTokens,
+                Why::NotForCli => match fault.spot {
+                    Spot::Profile(_, Slot::Answer) => Phrase::SeatFaultCliAnswer,
+                    Spot::Profile(_, Slot::KeyEnv | Slot::BaseUrl) => Phrase::SeatFaultCliKey,
+                    _ => Phrase::SeatFaultCliPrice,
+                },
+                Why::CliOnly => Phrase::SeatFaultCliOnly,
+                Why::NotAbsolute => Phrase::SeatFaultCommand,
+                Why::Zero => match fault.spot {
+                    Spot::Profile(_, Slot::ThinkSecs) => Phrase::SeatFaultThinkSecs,
+                    Spot::Profile(_, Slot::GameCalls) => Phrase::SeatFaultGameCalls,
+                    _ => Phrase::SeatFaultMaxTokens,
+                },
                 Why::NotAnAmount => Phrase::SeatFaultDollars,
                 Why::Unpriced => Phrase::SeatFaultUnpriced,
                 Why::NotAVariable => {
@@ -1250,7 +1311,9 @@ impl SeatPanel {
                         Spot::Profile(at, _) => self.provider(at),
                         _ => None,
                     };
-                    let example = provider.unwrap_or(Provider::Anthropic).default_key_env();
+                    let example = provider
+                        .and_then(Provider::default_key_env)
+                        .unwrap_or("ANTHROPIC_API_KEY");
                     return Phrase::SeatFaultKeyEnv.fill(lang, &[example]);
                 }
                 Why::NotSecure => Phrase::SeatFaultAddress,

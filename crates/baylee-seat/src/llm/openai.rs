@@ -5,9 +5,12 @@
 //! JSON string, `role: tool` results. A model's `reasoning_content` is
 //! shown on the terminal and never sent back (`DeepSeek` refuses it in a
 //! request). For a server without tools, [`AnswerMode::Json`] asks for one
-//! JSON object instead.
+//! JSON object instead, and [`AnswerMode::JsonSchema`] for one held to the
+//! answer's schema ([`answer_schema`]), which is what a server that refuses
+//! a bare `json_object` takes (LM Studio: "`'response_format.type' must be
+//! 'json_schema' or 'text'`").
 
-use super::prompt::{JSON_MODE, SYSTEM, openai_tools};
+use super::prompt::{JSON_MODE, SYSTEM, answer_schema, openai_tools};
 use super::{AnswerMode, Call, Reply, Settings, Stop, ToolResult, Usage};
 use serde_json::{Value, json};
 
@@ -26,9 +29,10 @@ pub fn models_url(base: &str) -> String {
 /// The conversation's first message: the system prompt.
 #[must_use]
 pub fn system(mode: AnswerMode) -> Value {
-    let text = match mode {
-        AnswerMode::Tools => SYSTEM.to_string(),
-        AnswerMode::Json => format!("{SYSTEM}{JSON_MODE}"),
+    let text = if mode.is_json() {
+        format!("{SYSTEM}{JSON_MODE}")
+    } else {
+        SYSTEM.to_string()
     };
     json!({"role": "system", "content": text})
 }
@@ -47,6 +51,15 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
             body["tool_choice"] = json!("auto");
         }
         AnswerMode::Json => body["response_format"] = json!({"type": "json_object"}),
+        // Not `strict`: OpenAI's strict mode wants every field required and
+        // no other allowed, and a decision fills only the fields its
+        // question asks for.
+        AnswerMode::JsonSchema => {
+            body["response_format"] = json!({
+                "type": "json_schema",
+                "json_schema": {"name": "decide", "schema": answer_schema()},
+            });
+        }
     }
     if let Some(effort) = &settings.effort {
         body["reasoning_effort"] = json!(effort);
@@ -125,7 +138,7 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
             input,
         });
     }
-    if mode == AnswerMode::Json
+    if mode.is_json()
         && calls.is_empty()
         && let Some(object) = json_object(&text)
     {
@@ -189,6 +202,20 @@ pub fn json_object(text: &str) -> Option<Value> {
         .then(|| serde_json::from_str::<Value>(&text[start..=end]).ok())
         .flatten()
         .filter(Value::is_object)
+}
+
+/// What to try when an endpoint turned the request's `response_format`
+/// down: the other JSON mode, or none for a request that sent none.
+#[must_use]
+pub fn response_format_hint(why: &str, mode: AnswerMode) -> Option<&'static str> {
+    if !why.contains("response_format") {
+        return None;
+    }
+    match mode {
+        AnswerMode::Json => Some("the endpoint may take answer: json_schema instead"),
+        AnswerMode::JsonSchema => Some("the endpoint may take answer: json instead"),
+        AnswerMode::Tools => None,
+    }
 }
 
 /// A provider's error body in one sentence.

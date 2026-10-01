@@ -42,6 +42,7 @@
 - [Reporting a problem](#reporting-a-problem)
 - [Running your own gateway](#running-your-own-gateway)
 - [Building from source](#building-from-source)
+- [Playing against a language model](#playing-against-a-language-model)
 - [How it fits together](#how-it-fits-together)
 - [Contributing](#contributing)
 - [License and legal](#license-and-legal)
@@ -485,6 +486,93 @@ cargo fmt --all
 DATABASE_URL=… ./scripts/gate.sh               # the full gate: fmt, clippy, nextest, validate
 DATABASE_URL=… ./scripts/gate-features.sh      # the non-default feature builds
 ```
+
+## Playing against a language model
+
+A chair can be played by a language model through the seat bridge
+(`baylee-seat`). It sits at the table as an ordinary socket player and hands
+its questions to a model: a local one in LM Studio, or one behind an
+OpenAI-compatible or Anthropic API. Everything below is for a local test
+table; the full reference is [docs/llm-seat.md](docs/llm-seat.md).
+
+**1. A local gateway and agent.** Start them as in
+[Running your own gateway](#running-your-own-gateway), at the default address
+`http://127.0.0.1:28766`, then build the bridge:
+
+```bash
+cargo build -p baylee-seat -p xtask
+```
+
+**2. A settings file.** The bridge reads `llm-seat.json` from the client's
+config directory (`~/.config/baylee/` on macOS and Linux,
+`%APPDATA%\Baylee\` on Windows), or the file `BAYLEE_SEAT_CONFIG` names. Keys
+never go in this file: a profile names the environment variable its key is
+read from. Unknown fields are refused. An example with a local model and
+DeepSeek:
+
+```json
+{
+  "default": "lmstudio",
+  "caps": { "day_usd": 5, "month_usd": 30, "day_tokens": 50000000, "month_tokens": 500000000 },
+  "profiles": {
+    "lmstudio": {
+      "provider": "openai",
+      "model": "google/gemma-4-26b-a4b-qat",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "answer": "tools",
+      "effort": "low",
+      "game_tokens": 40000000
+    },
+    "deepseek": {
+      "provider": "openai",
+      "model": "deepseek-flash",
+      "base_url": "https://api.deepseek.com/v1",
+      "key_env": "DEEPSEEK_API_KEY",
+      "answer": "json",
+      "game_tokens": 5000000
+    }
+  }
+}
+```
+
+- **LM Studio:** start its server (Developer tab, or `lms server start`). The
+  model id is whatever `curl http://127.0.0.1:1234/v1/models` lists. LM Studio
+  needs no key, but the bridge wants a non-empty one:
+  `export BAYLEE_LLM_API_KEY=lm-studio`. Use `"answer": "tools"`; LM Studio
+  refuses the plain JSON mode. The first question loads the model, which can
+  take a minute. A 26B model on an M1 Max thinks 30–60 s a decision at full
+  effort; `"effort": "low"` shortens that.
+- **DeepSeek:** `export DEEPSEEK_API_KEY=…` in the shell you start the table
+  from. A model the bridge has no price for plays only under `game_tokens`
+  (or a `price` in its profile).
+- **Claude Code on a subscription:** a profile such as
+  `"cc": {"provider": "cli", "model": "claude:opus", "command": "/Users/<you>/.local/share/claude/versions/<version>", "game_calls": 300}`
+  plays through the `claude` you signed in to by hand, on that login and with
+  no key (`key_env`, `base_url` and `price` are refused). Pin `command` to a
+  version's own file, since `~/.local/bin/claude` is a link the tool moves on
+  every update. A game counts tokens (20,000,000 by default) and calls
+  (`game_calls`, 500 by default); see
+  [docs/llm-seat.md](docs/llm-seat.md#a-cli-as-the-model).
+- **Caps:** the `caps` hold across games. Each game reserves its budget in
+  `llm-spend.json` beside the settings file before it sits down, and settles
+  after.
+
+**3. Play against it.** This seats you in chair 0 (the client opens) and the
+profile's model in chair 1:
+
+```bash
+cargo run -p xtask -- dev-table --bridge profile:lmstudio --play
+```
+
+- `--bridge house` seats the house AI through the same bridge, a quick check
+  that the table works before a model is involved.
+- `--bridge profile:deepseek` plays the DeepSeek profile, `--bridge profile:cc`
+  Claude Code.
+- The bridge writes what it asked and what the model answered to
+  `target/seat-transcripts/`. That is the first place to look when a model
+  plays strangely.
+- When the model fails, times out or answers something illegal, the house
+  answers that question for it, and the transcript says so.
 
 ## How it fits together
 

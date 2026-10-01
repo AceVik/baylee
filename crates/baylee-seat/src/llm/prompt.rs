@@ -111,6 +111,19 @@ pub fn decide_schema() -> Value {
     })
 }
 
+/// One answer as a JSON object ([`super::AnswerMode::JsonSchema`]): the
+/// `decide` tool's fields, and `concede` with the reason for one that
+/// concedes instead (an object with `concede` is read as the concession).
+#[must_use]
+pub fn answer_schema() -> Value {
+    let mut schema = decide_schema();
+    schema["properties"]["concede"] = json!({
+        "type": "string",
+        "description": "Concede instead, with the reason: only when you are certain to lose."
+    });
+    schema
+}
+
 /// The `concede` tool's input schema.
 #[must_use]
 pub fn concede_schema() -> Value {
