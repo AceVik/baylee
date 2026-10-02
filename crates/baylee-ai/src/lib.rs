@@ -877,6 +877,57 @@ mod tests {
     }
 
     #[test]
+    fn gloom_taxed_mana_is_not_counted_as_free_production() {
+        let mut land = carded(
+            permanent(obj(10), PlayerId::new(0), 0),
+            "Plains",
+            TypeSet::LAND,
+        );
+        land.subtypes
+            .insert(baylee_core::generated::subtypes::land::PLAINS);
+        let mut v = view(0, &[20, 20], vec![land]);
+        v.seats[0].mana_pool.colorless = 3;
+        let legal = baylee_engine::choice::LegalActions {
+            mana_abilities: vec![obj(10)],
+            activation_increases: vec![(obj(10), 3)],
+            ..Default::default()
+        };
+        assert!(mana_sources(&v, &legal).is_empty());
+    }
+
+    #[test]
+    fn gloom_mana_planning_continues_past_the_printed_cost() {
+        let mut lands = Vec::new();
+        for id in 10..13 {
+            let mut land = carded(
+                permanent(obj(id), PlayerId::new(0), 0),
+                "Plains",
+                TypeSet::LAND,
+            );
+            land.subtypes
+                .insert(baylee_core::generated::subtypes::land::PLAINS);
+            lands.push(land);
+        }
+        let mut v = view(0, &[20, 20], lands);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.hand = vec![hand_card(1, "Savannah Lions")];
+        v.seats[0].mana_pool.white = 1;
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                mana_abilities: (10..13).map(obj).collect(),
+                spell_increases: vec![(obj(1), baylee_engine::choice::CastModeKind::Normal, 3)],
+                ..Default::default()
+            }),
+        };
+        assert!(matches!(
+            agent().act(&v, &pending),
+            PlayerAction::ActivateManaAbility { .. }
+        ));
+    }
+
+    #[test]
     fn removal_waits_when_only_our_permanent_matches_its_colour_restriction() {
         let mut friendly = permanent(obj(2), PlayerId::new(0), 2);
         friendly.colors = ColorSet::of(baylee_core::color::Color::White);

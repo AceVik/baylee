@@ -911,3 +911,44 @@ Further UX observations for the next client pass (not marked fixed):
 - The native log calls the offline bot “Solide 1” while the table and player
   chooser call it “Haus-KI”. Extend the shared seat naming to log wording; keep
   distinct player names at multiplayer tables.
+
+## Gloom: spell and activation cost increases
+
+Gloom is Implemented. Its two static effects tax white spells and abilities of
+white enchantments by three generic mana per copy, for both players. Spell
+colour is computed for the chosen spell face/form on the stack, independently
+of colour identity. Increases precede reductions and remain payable for free
+casts. Activated, granted, loyalty and intrinsic mana abilities all use the
+same additional price. Removing Gloom or changing source colour updates it.
+Protocol 11 supplies public cost hints to the client and AI without disclosing
+opposing private cards. Automatic mana planning excludes mana abilities that
+need an input payment; their manual activation remains available.
+
+Validation: 16 Gloom engine tests (including the existing cast smoke test), two
+AI and two client tests pass. Full regression: 4310 engine unit tests (two
+existing ignores), both footprint tests and benchmark smoke runs; 201 AI,
+1180 client-core, 129 cards, 59 DSL, 199 host unit plus 40 integration, 15
+protocol and 36 view tests pass. Full client suite passed 1150 tests (two
+existing ignores) before the final manual-mana regression addition; both
+Gloom client tests pass after that change. Workspace all-targets clippy,
+native dev-control build, validation of all 2955 cards and full codegen check
+pass. Table generation was repeated with no further changes. The previously
+recorded seat selfplay baseline failure is not claimed fixed.
+
+Native 1280x800 verification: Savannah Lions offered {3}{W}, tapped exactly
+four Plains and reached the stack with zero floating mana and unchanged mana
+value 1. Circle of Protection: Black then offered {4}, planned the remaining
+four Plains and successfully reached its black-source choice. Choosing Gloom
+completed without error. The client subsequently auto-advanced to the next
+own upkeep; the final ability screenshot is that later state, not an image
+of eight tapped lands. Screenshots: /private/tmp/baylee-gloom-before.png,
+baylee-gloom-spell-paid.png, baylee-gloom-ability-before.png and
+baylee-gloom-ability-paid.png. Logs under /private/tmp: baylee-gloom-final-
+targeted.log, baylee-gloom-final-regression.log, baylee-gloom-final-clippy.log,
+baylee-gloom-client-unrestricted.log, baylee-gloom-build.log,
+baylee-gloom-validate.log and baylee-gloom-codegen-check.log.
+
+Cyclopean Tomb is the one remaining Alpha Partial card; no claim of full-set
+completion yet. The current request prioritizes finishing and testing sets in
+historical order. No feedback ticket was closed in this milestone. No push or
+deployment was made.

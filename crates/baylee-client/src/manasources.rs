@@ -49,6 +49,9 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // exactly one basic type, and the colour follows from the *projected*
     // subtypes — an animated Dryad Arbor still taps for green.
     for &id in &legal.mana_abilities {
+        if legal.activation_increase(id) > 0 {
+            continue;
+        }
         let Some(object) = view.battlefield.iter().find(|o| o.id == id) else {
             continue;
         };
@@ -61,6 +64,9 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // and the one printed on no card the permanent has, which the view
     // carries instead.
     for &(id, index) in &legal.abilities {
+        if legal.activation_increase(id) > 0 {
+            continue;
+        }
         let source = match baylee_engine::choice::granted_slot(index) {
             Some(slot) => granted_source(view, id, slot),
             None => printed_source(view, id, index),

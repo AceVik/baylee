@@ -10,6 +10,8 @@ fn confirming_a_priority_choice_passes() {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                spell_increases: vec![],
+                activation_increases: vec![],
                 can_pass: true,
                 lands: vec![obj(1)],
                 castable: vec![],

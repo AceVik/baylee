@@ -5,6 +5,8 @@
 use super::*;
 use baylee_cards_dsl::counters;
 
+mod gloom;
+
 fn circle_of_protection_red() -> CardIndex {
     card_index("df2738fe-9cd1-4347-8808-105fcfde1190")
 }
@@ -23246,9 +23248,8 @@ fn circle_of_protection_black_prevents_a_chosen_black_attacker_and_only_once() {
     );
 }
 
-/// Gloom is Partial: both cost increases is unsupported.
-/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
-/// 608.3a); no assertion treats the missing text as a working ability.
+/// Gloom pays its printed cost and resolves; its two taxes are tested in
+/// the `gloom` submodule.
 #[test]
 fn alpha_eval_gloom_supported_cast_and_resolution() {
     let p0 = PlayerId::new(0);

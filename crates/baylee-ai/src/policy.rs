@@ -672,7 +672,9 @@ impl HeuristicAgent {
             } else {
                 available
             };
-            let printed = spell_cost(view, id, f);
+            let printed = spell_cost(view, id, f).with_more_generic(
+                legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
+            );
             let (cost, floats_first) = aim(view, card, f, printed, &plain, budget);
             if stillborn(f, &printed, &cost) {
                 continue;
@@ -1152,6 +1154,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // one reader wearing three names.
     let mut result: Vec<Offer> = Vec::new();
     for &id in &legal.mana_abilities {
+        if legal.activation_increase(id) > 0 {
+            continue;
+        }
         if let Some(color) = view
             .object(id)
             .and_then(|o| manaplan::basic_land_color(&o.subtypes))
@@ -1165,6 +1170,9 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         }
     }
     for &(id, index) in &legal.abilities {
+        if legal.activation_increase(id) > 0 {
+            continue;
+        }
         let Some(object) = view.object(id) else {
             continue;
         };

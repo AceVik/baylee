@@ -111,6 +111,8 @@ fn hand_app() -> bevy::app::App {
                 player: PlayerId::new(0),
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
+                    spell_increases: vec![],
+                    activation_increases: vec![],
                     can_pass: true,
                     lands: vec![obj(3)],
                     castable: vec![],
@@ -539,6 +541,8 @@ fn window_with(lands: Vec<ObjectId>, castable: Vec<ObjectId>) -> crate::Duel {
                 player: PlayerId::new(0),
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
+                    spell_increases: vec![],
+                    activation_increases: vec![],
                     can_pass: true,
                     lands,
                     castable,

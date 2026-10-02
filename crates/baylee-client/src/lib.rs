@@ -2314,6 +2314,8 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
             .find(|c| c.object == card)?;
         commander_cost(commander)?.with_more_generic(2 * commander.casts)
     };
+    let cost = cost
+        .with_more_generic(legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal));
     let pool = view.seat(view.seat)?.mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
 }
@@ -2682,7 +2684,10 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
         return std::collections::HashSet::new();
     };
-    let affordable = |cost: baylee_core::mana::ManaCost| {
+    let affordable = |id, cost: baylee_core::mana::ManaCost| {
+        let cost = cost.with_more_generic(
+            legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
+        );
         baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
     };
     view.hand
@@ -2707,7 +2712,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
             {
                 return !castmodes::reachable_modes(view, legal, card.id).is_empty();
             }
-            manasources::hand_cost(card).is_some_and(affordable)
+            manasources::hand_cost(card).is_some_and(|cost| affordable(card.id, cost))
                 || !castmodes::reachable_modes(view, legal, card.id).is_empty()
         })
         // And there has to be something to point it at (CR 601.2c). Last in
@@ -2760,9 +2765,9 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                     })
                 })
                 .filter(|c| {
-                    commander_cost(c)
-                        .map(|cost| cost.with_more_generic(2 * c.casts))
-                        .is_some_and(affordable)
+                    commander_cost(c).is_some_and(|cost| {
+                        affordable(c.object, cost.with_more_generic(2 * c.casts))
+                    })
                 })
                 .map(|c| c.object),
         )
@@ -2792,8 +2797,9 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                     })
                 })
                 .filter(|o| {
-                    o.flashback
-                        .is_some_and(|cost| cost.symbols().next().is_some() && affordable(cost))
+                    o.flashback.is_some_and(|cost| {
+                        cost.symbols().next().is_some() && affordable(o.id, cost)
+                    })
                 })
                 .filter(|o| {
                     o.card

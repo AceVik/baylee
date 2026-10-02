@@ -125,7 +125,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
         // them — it is about its controller's spells, and a set of objects
         // fixed at resolution would mean the cards in hand at that moment.
-        Modifier::LegendRuleOff
+        Modifier::SpellsCostMore(_)
+        | Modifier::AbilitiesCostMore(_)
+        | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
         // that changes characteristics or control. These change what their
         // controller may do, so there is no set of objects to lock: a land
@@ -835,6 +837,8 @@ mod tests {
             },
             Modifier::ModifyPTHalfCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
             Modifier::SwitchPT,
+            Modifier::SpellsCostMore(3),
+            Modifier::AbilitiesCostMore(3),
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
             Modifier::CastPermanentSpellsFromGraveyard,
@@ -925,7 +929,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            72,
+            74,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -977,7 +981,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty-one
-    /// modifiers lock the objects they found, forty-one do not.
+    /// modifiers lock the objects they found, forty-three do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -985,10 +989,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_one_modifiers_lock_a_set_and_forty_one_do_not() {
+    fn thirty_one_modifiers_lock_a_set_and_forty_three_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (31, 41));
+        assert_eq!((locking, all.len() - locking), (31, 43));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

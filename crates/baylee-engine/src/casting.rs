@@ -1241,12 +1241,6 @@ pub(crate) fn can_cast_form(
     {
         return Err(CastError::NoWayToCast);
     }
-    // "Without paying its mana cost" is an alternative cost (CR 118.9):
-    // nothing is paid, so there is nothing to afford, and a card that
-    // prints no mana cost is castable this way too (CR 118.6a).
-    if form.is_none() && permission.is_some_and(|p| p.free) {
-        return Ok(());
-    }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
     let with_restricted = spendable_pool(
@@ -1261,7 +1255,7 @@ pub(crate) fn can_cast_form(
     // of casting the card — printed cost, alternative cost and mode alike
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
-    let tax = commander_tax(state, player, card);
+    let tax = spell_increase(state, player, obj);
     if let Some(form) = form {
         return if affordable(state, pool, &form.cost().with_more_generic(tax)) {
             Ok(())
@@ -1273,7 +1267,10 @@ pub(crate) fn can_cast_form(
     // the same probes the tax does and in the other direction. Read off the
     // printed face: a granted convoke does not exist.
     let printed_face = printed.map(|def| &def.faces[0]);
-    let reduction = printed_face.map_or(0, |face| keyword_reduction(state, face, player, card));
+    let reduction = printed_face.map_or(0, |face| {
+        keyword_reduction(state, face, player, card)
+            .saturating_add(printed_reduction(state, face, player, card))
+    });
     let probe = |cost: &ManaCost| {
         affordable(
             state,
@@ -1281,13 +1278,56 @@ pub(crate) fn can_cast_form(
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
     };
+    // A waived mana cost still pays increases (CR 601.2f).
+    if permission.is_some_and(|p| p.free) {
+        let payable = if let Some(def) = printed.filter(|def| modes_are_the_only_way(def, 0)) {
+            def.abilities_for_face(0).iter().any(|a| match a {
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose } if !choose.is_one() => {
+                    mode_sets(modes, *choose).any(|set| {
+                        probe(&mode_set_cost(ManaCost::ZERO, modes, set))
+                            && mode_set_has_legal_targets(state, lookup, player, card, set)
+                    })
+                }
+                baylee_cards_dsl::AbilityDef::ModalSpell { modes, .. } => {
+                    probe(&ManaCost::ZERO)
+                        && modes.iter().enumerate().any(|(i, mode)| {
+                            mode.cost_override.is_none()
+                                && mode_has_a_legal_target(state, lookup, player, card, i)
+                        })
+                }
+                _ => false,
+            })
+        } else {
+            probe(&ManaCost::ZERO)
+        };
+        return if payable {
+            Ok(())
+        } else {
+            Err(CastError::NotEnoughMana)
+        };
+    }
+    let probe_back = |def: &baylee_cards_dsl::CardDef, i: usize| {
+        let face = &def.faces[i];
+        let tax = face_increase(state, player, card, def, i, None);
+        let reduction = printed_reduction(state, face, player, card)
+            .saturating_add(keyword_reduction(state, face, player, card));
+        affordable(
+            state,
+            pool,
+            &face
+                .mana_cost
+                .with_x(0)
+                .with_more_generic(tax)
+                .with_less_generic(reduction),
+        )
+    };
     // A back face that may be cast now, affordable and with something to
     // point at: the same three questions the wizard asks of it.
     let a_back_face_castable = || {
         printed.is_some_and(|def| {
-            castable_back_faces(def, on_adventure).any(|(i, f)| {
+            castable_back_faces(def, on_adventure).any(|(i, _)| {
                 face_timing_allows(state, player, card, def, i)
-                    && probe(&f.mana_cost.with_x(0))
+                    && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
         })
@@ -1332,20 +1372,10 @@ pub(crate) fn can_cast_form(
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
-        let ordinary = ordinary_targets_reachable(state, def, player, card)
-            && probe(
-                &c.mana_cost
-                    .with_less_generic(printed_reduction(state, &def.faces[0], player, card))
-                    .with_x(0),
-            );
-        let kicked_cost = kicked_mana_cost(&def.faces[0]).with_less_generic(printed_reduction(
-            state,
-            &def.faces[0],
-            player,
-            card,
-        ));
+        let ordinary =
+            ordinary_targets_reachable(state, def, player, card) && probe(&c.mana_cost.with_x(0));
         let kicked = requirement_is_reachable(Some(req), state, player, card)
-            && probe(&kicked_cost.with_x(0));
+            && probe(&kicked_mana_cost(&def.faces[0]).with_x(0));
         return if ordinary || kicked {
             Ok(())
         } else {
@@ -1364,7 +1394,7 @@ pub(crate) fn can_cast_form(
         let affordable_disturb = printed.is_some_and(|def| {
             def.faces.iter().enumerate().skip(1).any(|(i, f)| {
                 f.disturb
-                    && probe(&f.mana_cost.with_x(0))
+                    && probe_back(def, i)
                     && face_has_a_legal_target(state, lookup, player, card, i)
             })
         });
@@ -1381,9 +1411,7 @@ pub(crate) fn can_cast_form(
     // card itself; the full payment is validated when the wizard finishes.
     // A face with no printed cost has no normal way to be cast at all
     // (CR 202.1b) and falls straight through to the alternatives.
-    let normal_cost = c.mana_cost.with_less_generic(
-        printed_face.map_or(0, |face| printed_reduction(state, face, player, card)),
-    );
+    let normal_cost = c.mana_cost;
     // `c.mana_cost` and not `normal_cost`: the question is what the card
     // *prints*, and cost arithmetic does not preserve the answer —
     // `with_less_generic` rebuilds a cost symbol by symbol and drops a
@@ -2000,6 +2028,109 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
         .map_or(0, |c| c.casts.saturating_mul(2))
 }
 
+/// Increases are rules effects: match the spell as it will exist on the stack,
+/// including its chosen face/form and continuous color changes. A white cost
+/// on an alternative mode does not make a black spell white.
+pub(crate) fn spell_increase(
+    state: &GameState,
+    player: PlayerId,
+    object: &crate::object::GameObject,
+) -> u32 {
+    if !state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
+    {
+        return commander_tax(state, player, object.id);
+    }
+    let mut spell = object.clone();
+    spell.zone = Zone::Stack;
+    spell.controller = player;
+    spell.base_controller = player;
+    spell.cache.clear();
+    let projected = crate::layers::recompute(state, &spell);
+    spell.base = std::sync::Arc::new(projected.characteristics);
+    state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::SpellsCostMore(n)
+                if crate::effects::applies_to(state, fx, &spell) =>
+            {
+                Some(n)
+            }
+            _ => None,
+        })
+        .fold(commander_tax(state, player, object.id), u32::saturating_add)
+}
+
+/// The total generic increase for a particular printed face or casting form.
+pub(crate) fn face_increase(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    def: &baylee_cards_dsl::CardDef,
+    face: usize,
+    form: Option<SpellForm>,
+) -> u32 {
+    if !state
+        .effects
+        .iter()
+        .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
+    {
+        return commander_tax(state, player, card);
+    }
+    let Some(object) = state.object(card) else {
+        return 0;
+    };
+    let mut spell = object.clone();
+    spell.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+        def,
+        face,
+        object.base.name,
+    ));
+    spell.cache.clear();
+    spell.face_index = u8::try_from(face).unwrap_or(0);
+    if let Some(form) = form {
+        spell = form.project(&spell);
+    }
+    spell_increase(state, player, &spell)
+}
+
+/// Additional generic mana for activating an ability of this object. The
+/// filter's normal zone boundary deliberately excludes white enchantment
+/// *cards* cycling in hand; Gloom names enchantments, i.e. permanents.
+pub(crate) fn activation_increase(state: &GameState, source: ObjectId) -> u32 {
+    let Some(object) = state.object(source) else {
+        return 0;
+    };
+    state
+        .effects
+        .iter()
+        .filter_map(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::AbilitiesCostMore(n)
+                if crate::effects::applies_to(state, fx, object) =>
+            {
+                Some(n)
+            }
+            _ => None,
+        })
+        .fold(0, u32::saturating_add)
+}
+
+pub(crate) fn intrinsic_mana_price(state: &GameState, source: ObjectId) -> ManaCost {
+    ManaCost::ZERO.with_more_generic(activation_increase(state, source))
+}
+
+pub(crate) fn pay_intrinsic_mana_price(
+    state: &mut GameState,
+    player: PlayerId,
+    source: ObjectId,
+) -> bool {
+    let cost = intrinsic_mana_price(state, source);
+    pay_mana_for(state, player, SpendFor::Ability(source), &cost).is_some()
+}
+
 /// Does `player` control one of their own commanders right now?
 ///
 /// This is card text, not a rule — "if you control a commander" is what
@@ -2128,6 +2259,8 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
         // ability of a creature like any other (CR 302.6).
         && !crate::combat::summoning_sick(state, obj)
         && !intrinsic_mana_colors(state, source).is_empty()
+        && affordable(state, &state.players[player.get() as usize].mana_pool,
+            &intrinsic_mana_price(state, source))
 }
 
 /// Taps a basic land for its intrinsic mana (CR 305.6).
@@ -2153,6 +2286,9 @@ pub fn activate_mana(
         // this arm means a caller skipped that fork.
         return Err(CastFailure::Legality(CastError::BadTiming));
     };
+    if !pay_intrinsic_mana_price(state, player, source) {
+        return Err(CastFailure::Legality(CastError::NotEnoughMana));
+    }
     add_intrinsic_mana(state, player, source, *color);
     Ok(())
 }

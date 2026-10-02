@@ -2420,3 +2420,28 @@ land type"; both are convention tests that fire on a first try.
 - **Photograph the transitions, not just the result.** Balance's first live run
   was rules-correct but called lands, hand cards and creatures the same thing.
   Distinct keep prompts now identify the three stages without extra explanation.
+
+## Alpha Gloom (Codex, 2026-10-02)
+
+- **Price the spell that is announced.** Swift Spiral is white although Twining
+  Twins is blue; Damn remains black when its overload cost contains white mana.
+  Prototype and disguise need their announced characteristics, while a global
+  color effect still applies afterward. Color identity is not spell color.
+- **Free is an alternative cost, not immunity to increases.** Suspend/rebound,
+  granted free play, miracle and effect casts each have their own wizard entry.
+  Every entry must retain a priced option even when the base mana cost is zero.
+- **Trace every activation door.** Printed, granted, intrinsic mana and loyalty
+  abilities have different offer/payment paths. A white enchantment land must
+  pay before adding mana, including when its color choice suspends resolution.
+- **Test setup must run the lifecycle it claims to test.** Directly moving Gloom
+  out of play without advancing the engine leaves static registration stale.
+  The removal regression now casts and resolves Disenchant, paying its own tax.
+- **Do not borrow an unfinished card's omitted sentence as a fixture.** Sevinne's
+  Reclamation remains Partial with no printed flashback. The Gloom regression
+  explicitly grants flashback at the mana cost; it claims no Reclamation completion.
+- **A correct payment can still be unreachable.** Both client and AI previously
+  stopped floating at the printed cost. Authoritative, per-form increase hints
+  let them plan enough mana without independently interpreting public statics.
+  Protocol 11 prevents older clients silently retaining the wrong planner.
+- Source: Wizards' Gloom rulings retrieved from the
+  [Scryfall endpoint](https://api.scryfall.com/cards/0d26c559-ad06-4f78-b7b6-e658be8c7bdb/rulings).

@@ -251,6 +251,8 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
         player: ME,
         legal: Box::new(LegalActions {
             unpaid_abilities: vec![],
+            spell_increases: vec![],
+            activation_increases: vec![],
             can_pass: true,
             lands: vec![id(52)],
             castable: Vec::new(),

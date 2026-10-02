@@ -1504,6 +1504,9 @@ impl<L: CardLookup> Engine<L> {
                 let colors =
                     casting::intrinsic_mana_choices(&self.state, &self.lookup, player, source);
                 if !colors.is_empty() {
+                    if !casting::pay_intrinsic_mana_price(&mut self.state, player, source) {
+                        return Err(EngineError::IllegalAction("cannot pay mana ability cost"));
+                    }
                     // CR 305.6 gives the land one mana ability per basic
                     // type, so a land with several is a question. It is
                     // asked *here* and not inside `activate_mana`, which is

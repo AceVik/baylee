@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 10 adds the keep-card choice prompt and public keep selections.
-pub const PROTOCOL_VERSION: u32 = 10;
+/// Version 11 adds authoritative spell cost increases for client/AI planning.
+pub const PROTOCOL_VERSION: u32 = 11;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -218,7 +218,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_nine() {
+    fn the_wire_version_is_eleven() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -234,7 +234,8 @@ mod tests {
         // the sixteen-slot list a replicated cost overflowed.
         // 9: private hand-inspection prompt; older clients cannot decode it.
         // 10: explicit keep-card choices and public permanent selections.
-        assert_eq!(PROTOCOL_VERSION, 10);
+        // 11: spell cost increases; older clients would plan insufficient mana.
+        assert_eq!(PROTOCOL_VERSION, 11);
     }
 
     #[test]

@@ -1812,6 +1812,14 @@ pub struct LegalActions {
     pub lands: Vec<ObjectId>,
     /// Castable cards in hand (timing + mana verified).
     pub castable: Vec<ObjectId>,
+    /// Public rules-effect increases, excluding commander tax, for mana planning.
+    /// Form-specific entries override Normal; alternatives use Normal's color.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spell_increases: Vec<(ObjectId, CastModeKind, u32)>,
+    /// Generic activation increases on controlled permanents. Simple mana
+    /// planners must not count a taxed mana ability as free production.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub activation_increases: Vec<(ObjectId, u32)>,
     /// The CR 305.6 shortcut, and **not** every mana ability on the table.
     ///
     /// A permanent is named here when it taps for mana it has by virtue of a
@@ -1843,6 +1851,32 @@ pub struct LegalActions {
 }
 
 impl LegalActions {
+    /// Additional generic mana for an activation of this permanent.
+    #[must_use]
+    pub fn activation_increase(&self, source: ObjectId) -> u32 {
+        self.activation_increases
+            .iter()
+            .find(|(id, _)| *id == source)
+            .map_or(0, |(_, n)| *n)
+    }
+
+    /// Additional generic mana for a prospective cast, before reductions.
+    #[must_use]
+    pub fn spell_increase(&self, card: ObjectId, kind: CastModeKind) -> u32 {
+        if matches!(kind, CastModeKind::PlayLandFace(_)) {
+            return 0;
+        }
+        self.spell_increases
+            .iter()
+            .find(|(id, mode, _)| *id == card && *mode == kind)
+            .or_else(|| {
+                self.spell_increases
+                    .iter()
+                    .find(|(id, mode, _)| *id == card && *mode == CastModeKind::Normal)
+            })
+            .map_or(0, |(_, _, n)| *n)
+    }
+
     /// Whether passing is the only thing this seat could do.
     ///
     /// Mana abilities are excluded on purpose: the engine pays from the

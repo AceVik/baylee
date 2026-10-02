@@ -812,6 +812,8 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                spell_increases: vec![],
+                activation_increases: vec![],
                 can_pass: true,
                 lands: vec![baylee_core::ids::ObjectId::new(9, 0)],
                 castable: vec![],
@@ -828,6 +830,8 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                spell_increases: vec![],
+                activation_increases: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![],
@@ -1603,6 +1607,8 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                spell_increases: vec![],
+                activation_increases: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![baylee_core::ids::ObjectId::new(1, 0)],
@@ -1636,6 +1642,8 @@ mod tests {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
                 unpaid_abilities: vec![],
+                spell_increases: vec![],
+                activation_increases: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![],

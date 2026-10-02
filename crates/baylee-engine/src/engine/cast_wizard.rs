@@ -342,7 +342,7 @@ impl<L: CardLookup> Engine<L> {
         let options = vec![CastModeDesc {
             index: 0,
             kind: CastModeKind::Miracle,
-            cost,
+            cost: self.front_spell_price(player, card, cost),
         }];
         Some(CastWizard {
             card,
@@ -370,6 +370,62 @@ impl<L: CardLookup> Engine<L> {
             free: false,
             by_effect: None,
         })
+    }
+
+    /// Price an alternative/front-face cost through the same increases and
+    /// reductions as a normal cast. Waiving mana cost does not waive a tax.
+    fn front_spell_price(&self, player: PlayerId, card: ObjectId, cost: ManaCost) -> ManaCost {
+        let Some(def) = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+        else {
+            return cost;
+        };
+        cost.with_more_generic(casting::face_increase(
+            &self.state,
+            player,
+            card,
+            def,
+            0,
+            None,
+        ))
+        .with_less_generic(casting::printed_reduction(
+            &self.state,
+            &def.faces[0],
+            player,
+            card,
+        ))
+    }
+
+    fn free_normal_options(&self, player: PlayerId, card: ObjectId) -> Vec<CastModeDesc> {
+        let cost = self.front_spell_price(player, card, ManaCost::ZERO);
+        if !self.free_cost_affordable(player, card, cost) {
+            return Vec::new();
+        }
+        vec![CastModeDesc {
+            index: 0,
+            kind: CastModeKind::Normal,
+            cost,
+        }]
+    }
+
+    fn free_cost_affordable(&self, player: PlayerId, card: ObjectId, cost: ManaCost) -> bool {
+        let reduction = self
+            .state
+            .object(card)
+            .and_then(|o| o.card)
+            .and_then(|c| self.lookup.card(c.index))
+            .map_or(0, |def| {
+                casting::keyword_reduction(&self.state, &def.faces[0], player, card)
+            });
+        let restricted =
+            casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
+        let pool = restricted
+            .as_ref()
+            .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
+        casting::affordable(&self.state, pool, &cost.with_less_generic(reduction))
     }
 
     /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
@@ -402,8 +458,11 @@ impl<L: CardLookup> Engine<L> {
             }
             options
         } else {
-            Vec::new()
+            self.free_normal_options(player, card)
         };
+        if options.is_empty() {
+            return Err(EngineError::IllegalAction("cannot pay spell cost increase"));
+        }
         let (option, stage) = match options.as_slice() {
             [] => (Some(CastModeKind::Normal), WizardStage::Kicker),
             [only] => (Some(only.kind), WizardStage::Kicker),
@@ -466,9 +525,9 @@ impl<L: CardLookup> Engine<L> {
         let options = if modal_only {
             self.free_modes(player, card, def)
         } else {
-            Vec::new()
+            self.free_normal_options(player, card)
         };
-        if modal_only && options.is_empty() {
+        if options.is_empty() {
             return Err(EngineError::IllegalAction("no way to cast this spell"));
         }
         let single = options.len() <= 1;
@@ -553,7 +612,7 @@ impl<L: CardLookup> Engine<L> {
             options: vec![CastModeDesc {
                 index: 0,
                 kind: CastModeKind::Normal,
-                cost,
+                cost: self.front_spell_price(player, card, cost),
             }],
             free: false,
             by_effect: Some(if then_no_more_spells {
@@ -591,14 +650,13 @@ impl<L: CardLookup> Engine<L> {
                 // cast is (CR 118.9d), so a free Final Showdown still pays
                 // {1} for each "+ {1}" it chooses. Offered only when the pool
                 // already holds it, as every cost in the wizard is.
-                let with_restricted =
-                    casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
-                let pool = with_restricted
-                    .as_ref()
-                    .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
                 for set in casting::mode_sets(modes, *choose) {
-                    let cost = casting::mode_set_cost(ManaCost::ZERO, modes, set);
-                    if casting::wild_or_not(casting::mana_is_wild(&self.state), pool, &cost)
+                    let cost = self.front_spell_price(
+                        player,
+                        card,
+                        casting::mode_set_cost(ManaCost::ZERO, modes, set),
+                    );
+                    if self.free_cost_affordable(player, card, cost)
                         && casting::mode_set_has_legal_targets(
                             &self.state,
                             &self.lookup,
@@ -617,13 +675,15 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             for (i, mode) in modes.iter().enumerate() {
+                let cost = self.front_spell_price(player, card, ManaCost::ZERO);
                 if mode.cost_override.is_none()
+                    && self.free_cost_affordable(player, card, cost)
                     && casting::mode_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
                         index: u8::try_from(options.len()).unwrap_or(u8::MAX),
                         kind: CastModeKind::Mode(i),
-                        cost: ManaCost::ZERO,
+                        cost,
                     });
                 }
             }
@@ -663,7 +723,8 @@ impl<L: CardLookup> Engine<L> {
         if casting::modes_are_the_only_way(def, 0) {
             return !self.free_modes(player, card, def).is_empty();
         }
-        casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        !self.free_normal_options(player, card).is_empty()
+            && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
     }
 
     /// All legal ways to cast `card` right now.
@@ -700,7 +761,29 @@ impl<L: CardLookup> Engine<L> {
         // it lands on every way of casting the card, an alternative cost
         // included (CR 601.2f) — and on the affordability probes too, or a
         // mode would be offered that the player then cannot pay for.
-        let tax = casting::commander_tax(&self.state, player, card);
+        let tax = casting::face_increase(&self.state, player, card, def, 0, None);
+        let price = |cost: ManaCost| {
+            cost.with_more_generic(tax)
+                .with_less_generic(casting::printed_reduction(&self.state, face, player, card))
+        };
+        let back_price = |i: usize| {
+            def.faces[i]
+                .mana_cost
+                .with_more_generic(casting::face_increase(
+                    &self.state,
+                    player,
+                    card,
+                    def,
+                    i,
+                    None,
+                ))
+                .with_less_generic(casting::printed_reduction(
+                    &self.state,
+                    &def.faces[i],
+                    player,
+                    card,
+                ))
+        };
         // Convoke (CR 702.51a) pays {1} per untapped creature and
         // delve (CR 702.66a) pays {1} per card exiled from the graveyard, so
         // both are part of what "afford" means. It has to be the same count
@@ -715,7 +798,7 @@ impl<L: CardLookup> Engine<L> {
             casting::wild_or_not(
                 casting::mana_is_wild(&self.state),
                 pool,
-                &cost.with_more_generic(tax).with_less_generic(reduction),
+                &price(*cost).with_less_generic(reduction),
             )
         };
         let mut options = Vec::new();
@@ -728,13 +811,13 @@ impl<L: CardLookup> Engine<L> {
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
                 if back.disturb
-                    && afford(&back.mana_cost.with_x(0))
+                    && casting::affordable(&self.state, pool, &back_price(i).with_x(0))
                     && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Face(i),
-                        cost: back.mana_cost.with_more_generic(tax),
+                        cost: back_price(i),
                     });
                 }
             }
@@ -769,7 +852,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::Normal,
-                    cost: face.mana_cost.with_more_generic(tax),
+                    cost: price(face.mana_cost),
                 });
             }
             let fodder = casting::escape_exile_options(&self.state, player, card).len();
@@ -777,7 +860,7 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: options.len() as u8,
                     kind: CastModeKind::Escape,
-                    cost: escape.cost.with_more_generic(tax),
+                    cost: price(escape.cost),
                 });
             }
             if options.is_empty() {
@@ -794,14 +877,14 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: 0,
                     kind: CastModeKind::Normal,
-                    cost: face.mana_cost.with_more_generic(tax),
+                    cost: price(face.mana_cost),
                 });
             }
             if afford(&flashback.with_x(0)) {
                 options.push(CastModeDesc {
                     index: options.len() as u8,
                     kind: CastModeKind::Flashback,
-                    cost: flashback.with_more_generic(tax),
+                    cost: price(flashback),
                 });
             }
             if options.is_empty() {
@@ -814,12 +897,7 @@ impl<L: CardLookup> Engine<L> {
         // was the second place the two probes disagreed, and in the other
         // direction from convoke: the wizard knew the discount and the offer
         // did not, so the seat entitled to it was never shown the card.
-        let normal_cost = face.mana_cost.with_less_generic(casting::printed_reduction(
-            &self.state,
-            face,
-            player,
-            card,
-        ));
+        let normal_cost = face.mana_cost;
         // A modal spell (CR 700.2) has no "no mode" way to be cast: every one
         // of its effects sits under a mode, so a `Normal` option resolves to
         // nothing at all. `progress` looks for an `AbilityDef::Spell` first
@@ -859,19 +937,18 @@ impl<L: CardLookup> Engine<L> {
             options.push(CastModeDesc {
                 index: options.len() as u8,
                 kind: CastModeKind::Normal,
-                cost: normal_cost.with_more_generic(tax),
+                cost: price(normal_cost),
             });
         }
         if let Some(req) = face.kicked_targets {
-            let cost = casting::kicked_mana_cost(face)
-                .with_less_generic(casting::printed_reduction(&self.state, face, player, card));
+            let cost = casting::kicked_mana_cost(face);
             if afford(&cost.with_x(0))
                 && casting::requirement_is_reachable(Some(req), &self.state, player, card)
             {
                 options.push(CastModeDesc {
                     index: options.len() as u8,
                     kind: CastModeKind::Kicked,
-                    cost: cost.with_more_generic(tax),
+                    cost: price(cost),
                 });
             }
         }
@@ -888,7 +965,14 @@ impl<L: CardLookup> Engine<L> {
             options.push(CastModeDesc {
                 index: options.len() as u8,
                 kind: CastModeKind::Prototype,
-                cost: prototype.cost.with_more_generic(tax),
+                cost: prototype.cost.with_more_generic(casting::face_increase(
+                    &self.state,
+                    player,
+                    card,
+                    def,
+                    0,
+                    Some(casting::SpellForm::Prototype(prototype)),
+                )),
             });
         }
         if face.disguise.is_some() {
@@ -905,7 +989,14 @@ impl<L: CardLookup> Engine<L> {
                 options.push(CastModeDesc {
                     index: options.len() as u8,
                     kind: CastModeKind::Disguise,
-                    cost: cost.with_more_generic(tax),
+                    cost: cost.with_more_generic(casting::face_increase(
+                        &self.state,
+                        player,
+                        card,
+                        def,
+                        0,
+                        Some(casting::SpellForm::Disguise),
+                    )),
                 });
             }
         }
@@ -917,7 +1008,7 @@ impl<L: CardLookup> Engine<L> {
                 AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
             };
             let taxed = baylee_cards_dsl::Cost {
-                mana: alt.cost.mana.with_more_generic(tax),
+                mana: price(alt.cost.mana),
                 ..alt.cost
             };
             // The spell's own payment, restricted mana included: `can_cast`
@@ -933,7 +1024,7 @@ impl<L: CardLookup> Engine<L> {
             options.push(CastModeDesc {
                 index: (options.len()) as u8,
                 kind: CastModeKind::Alternative(i),
-                cost: alt.cost.mana.with_more_generic(tax),
+                cost: price(alt.cost.mana),
             });
         }
         // Dash (CR 702.109a): its cost "rather than its mana cost", which is
@@ -941,7 +1032,7 @@ impl<L: CardLookup> Engine<L> {
         // 601.2f–h) — asked of the pool the way the alternatives above are.
         if let Some(dash) = face.dash {
             let taxed = baylee_cards_dsl::Cost {
-                mana: dash.with_more_generic(tax),
+                mana: price(dash),
                 parts: &[],
             };
             if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
@@ -964,14 +1055,14 @@ impl<L: CardLookup> Engine<L> {
             o.zone == crate::zone::Zone::Exile
                 && o.riders.contains(&crate::object::Rider::Adventure)
         });
-        for (i, back) in casting::castable_back_faces(def, on_adventure) {
-            if afford(&back.mana_cost.with_x(0))
+        for (i, _) in casting::castable_back_faces(def, on_adventure) {
+            if casting::affordable(&self.state, pool, &back_price(i).with_x(0))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {
                 options.push(CastModeDesc {
                     index: (options.len()) as u8,
                     kind: CastModeKind::Face(i),
-                    cost: back.mana_cost.with_more_generic(tax),
+                    cost: back_price(i),
                 });
             }
         }
@@ -997,7 +1088,7 @@ impl<L: CardLookup> Engine<L> {
                         options.push(CastModeDesc {
                             index: (options.len()) as u8,
                             kind: CastModeKind::Modes(set),
-                            cost: cost.with_more_generic(tax),
+                            cost: price(cost),
                         });
                     }
                 }
@@ -1018,7 +1109,7 @@ impl<L: CardLookup> Engine<L> {
                     options.push(CastModeDesc {
                         index: (options.len()) as u8,
                         kind: CastModeKind::Mode(i),
-                        cost: cost.with_more_generic(tax),
+                        cost: price(cost),
                     });
                 }
             }

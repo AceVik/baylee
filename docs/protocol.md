@@ -2845,3 +2845,19 @@ order so later players can see the earlier decisions. These references preserve
 face-down visibility. Private hand choices never produce this event; discards
 become public only once everyone has chosen. This adds enum variants, so older
 protocol/view readers must refuse the session rather than silently omit them.
+
+## Spell cost planning (protocol 11)
+
+`LegalActions.spell_increases` carries `(ObjectId, CastModeKind, u32)` entries
+for generic increases other than commander tax. It defaults to empty and is
+omitted when empty. Normal applies to alternative costs; explicit face, prototype
+or disguise entries override it and may be zero. Only the acting seat's own
+candidate zones and explicit play permissions contribute identities. Clients and
+AI plan the additional mana before casting, then consult the refreshed legal
+list. Protocol 11 requires all peers to upgrade together: an older planner would
+stop at the printed price under Gloom even though the JSON field is additive.
+
+The same version adds default-empty `activation_increases` entries
+`(ObjectId, u32)`, identifying generic increases on controlled permanents.
+These keep mana planners from treating taxed activations as free mana sources;
+manual activations remain governed by the authoritative legal-action lists.

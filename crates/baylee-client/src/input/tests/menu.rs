@@ -34,6 +34,8 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                 player: PlayerId::new(0),
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
+                    spell_increases: vec![],
+                    activation_increases: vec![],
                     can_pass: true,
                     lands: vec![],
                     castable: vec![],

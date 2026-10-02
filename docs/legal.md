@@ -566,3 +566,7 @@ Balance (2026-10-02) follows the owner-approved rules-implementation exception
 above. Its keep prompt and public-choice log are plain text in the existing
 licensed fonts. No artwork, font, symbol or other asset is added; the complete
 card-image and attribution path is unchanged.
+
+Gloom (2026-10-02) follows the owner-approved rules-implementation exception
+above. Its cost increases and planning hints add no assets or player-facing
+symbols. Card images, attribution, fonts and existing mana symbols are unchanged.

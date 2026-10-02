@@ -63,6 +63,10 @@ pub const LAYERS: [Layer; 11] = [
 /// What a continuous effect changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modifier {
+    /// Generic cost increase for spells matching the static ability's filter.
+    SpellsCostMore(u32),
+    /// Generic cost increase for activated abilities of matching objects.
+    AbilitiesCostMore(u32),
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
     /// Removes types.
@@ -687,7 +691,9 @@ impl Modifier {
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
-            Self::LegendRuleOff
+            Self::SpellsCostMore(_)
+            | Self::AbilitiesCostMore(_)
+            | Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
             | Self::CastPermanentSpellsFromGraveyard
             | Self::PermanentOfEachTypeFromGraveyard
@@ -1038,6 +1044,8 @@ mod tests {
     #[test]
     fn a_rules_modifying_effect_changes_no_characteristic_and_parks_on_text() {
         for modifier in [
+            Modifier::SpellsCostMore(3),
+            Modifier::AbilitiesCostMore(3),
             Modifier::LegendRuleOff,
             Modifier::PlayLandsFromGraveyard,
             Modifier::CastPermanentSpellsFromGraveyard,

@@ -152,10 +152,108 @@ impl<L: CardLookup> Engine<L> {
 }
 
 impl<L: CardLookup> Engine<L> {
+    fn activation_increases(&self, player: PlayerId) -> Vec<(ObjectId, u32)> {
+        if !self.state.effects.iter().any(|fx| {
+            matches!(
+                fx.modifier,
+                baylee_cards_dsl::Modifier::AbilitiesCostMore(_)
+            )
+        }) {
+            return Vec::new();
+        }
+        self.state
+            .battlefield_seen()
+            .filter(|id| {
+                self.state
+                    .object(*id)
+                    .is_some_and(|o| o.controller == player)
+            })
+            .filter_map(|id| {
+                let n = casting::activation_increase(&self.state, id);
+                (n > 0).then_some((id, n))
+            })
+            .collect()
+    }
+
+    fn spell_increases(
+        &self,
+        player: PlayerId,
+    ) -> Vec<(ObjectId, crate::choice::CastModeKind, u32)> {
+        use crate::choice::CastModeKind;
+        if !self
+            .state
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
+        {
+            return Vec::new();
+        }
+        let mut cards: Vec<_> = [
+            ZoneLocation::Hand(player),
+            ZoneLocation::Graveyard(player),
+            ZoneLocation::Command(player),
+            ZoneLocation::Exile(player),
+        ]
+        .into_iter()
+        .flat_map(|zone| self.state.zones.list(zone).iter().copied())
+        .collect();
+        cards.extend(
+            self.state
+                .per_turn
+                .playable
+                .iter()
+                .filter(|p| p.player == player)
+                .map(|p| p.card),
+        );
+        cards.sort_unstable();
+        cards.dedup();
+        let mut out = Vec::new();
+        for card in cards {
+            let Some(def) = self
+                .state
+                .object(card)
+                .and_then(|o| o.card)
+                .and_then(|c| self.lookup.card(c.index))
+            else {
+                continue;
+            };
+            let commander = casting::commander_tax(&self.state, player, card);
+            let increase = |face, form| {
+                casting::face_increase(&self.state, player, card, def, face, form)
+                    .saturating_sub(commander)
+            };
+            let normal = increase(0, None);
+            if normal > 0 {
+                out.push((card, CastModeKind::Normal, normal));
+            }
+            for face in 1..def.faces.len() {
+                let n = increase(face, None);
+                if n != normal {
+                    out.push((card, CastModeKind::Face(face), n));
+                }
+            }
+            if let Some(prototype) = def.faces[0].prototype {
+                let n = increase(0, Some(casting::SpellForm::Prototype(prototype)));
+                if n != normal {
+                    out.push((card, CastModeKind::Prototype, n));
+                }
+            }
+            if def.faces[0].disguise.is_some() {
+                let n = increase(0, Some(casting::SpellForm::Disguise));
+                if n != normal {
+                    out.push((card, CastModeKind::Disguise, n));
+                }
+            }
+        }
+        out
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(crate) fn compute_legal(&self, player: PlayerId) -> LegalActions {
         let mut legal = LegalActions {
             can_pass: true,
+            spell_increases: self.spell_increases(player),
+            activation_increases: self.activation_increases(player),
             ..LegalActions::default()
         };
         let main_phase = matches!(self.state.turn.phase, Phase::FirstMain | Phase::SecondMain);
@@ -424,6 +522,10 @@ impl<L: CardLookup> Engine<L> {
                         if !sorcery_timing || self.loyalty_used_this_turn.contains(&id) {
                             continue;
                         }
+                        let price = self.activation_price(player, id, &Cost::FREE, None);
+                        if !self.activation_affordable(player, id, &price, &[]) {
+                            continue;
+                        }
                         let loyalty = obj.counters.get(baylee_cards_dsl::CounterKind::Loyalty);
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
@@ -452,12 +554,11 @@ impl<L: CardLookup> Engine<L> {
                 });
                 if let Some(linked_card) = linked {
                     let castable = self.lookup.card(linked_card).is_some_and(|spell_def| {
-                        let face = &spell_def.faces[0];
                         self.prepared_cast_is_timely(player, spell_def)
                             && casting::affordable(
                                 &self.state,
                                 &self.state.players[player.get() as usize].mana_pool,
-                                &face.mana_cost,
+                                &self.prepared_spell_price(player, spell_def),
                             )
                     });
                     if castable {
@@ -486,12 +587,13 @@ impl<L: CardLookup> Engine<L> {
                     .take(crate::choice::GRANTED_SLOTS as usize)
                     .enumerate()
             {
-                if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
+                let cost = self.activation_price(player, id, &granted.cost, None);
+                if !self.can_afford(player, id, &cost, casting::SpendFor::Ability(id)) {
                     self.offer_activation_payment(
                         player,
                         id,
                         crate::choice::granted_ability(n as u32),
-                        &granted.cost,
+                        &cost,
                         false,
                         &mut legal,
                     );
@@ -968,11 +1070,9 @@ impl<L: CardLookup> Engine<L> {
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> Cost {
         let off = casting::reduction_amount(&self.state, reduction, player, source);
-        if off == 0 {
-            return *cost;
-        }
+        let increase = casting::activation_increase(&self.state, source);
         Cost {
-            mana: cost.mana.with_less_generic(off),
+            mana: cost.mana.with_more_generic(increase).with_less_generic(off),
             parts: cost.parts,
         }
     }
@@ -1233,6 +1333,20 @@ impl<L: CardLookup> Engine<L> {
             )
     }
 
+    /// A newly cast copy has its own characteristics and no previous object
+    /// identity. In particular, the prepared permanent's color is irrelevant.
+    fn prepared_spell_price(
+        &self,
+        player: PlayerId,
+        def: &baylee_cards_dsl::CardDef,
+    ) -> baylee_core::mana::ManaCost {
+        let base = crate::object::Characteristics::from_face(def, 0, crate::state::NAMELESS);
+        let spell = GameObject::new_bare(ObjectId::NO_SOURCE, player, ObjectKind::Spell, base);
+        def.faces[0]
+            .mana_cost
+            .with_more_generic(casting::spell_increase(&self.state, player, &spell))
+    }
+
     /// Prepared cast (Emeritus of Woe): pays the linked spell's cost,
     /// puts a copy of it on the stack, and removes the prepared marker.
     fn start_prepared_cast(
@@ -1271,11 +1385,12 @@ impl<L: CardLookup> Engine<L> {
                 "the prepared spell cannot be cast right now",
             ));
         }
+        let cost = self.prepared_spell_price(player, spell_def);
         let wild = casting::mana_is_wild(&self.state);
         if !casting::pay_with(
             wild,
             &mut self.state.players[player.get() as usize].mana_pool,
-            &face.mana_cost,
+            &cost,
         ) {
             return Err(EngineError::IllegalAction("cannot pay the spell's cost"));
         }
@@ -1370,7 +1485,11 @@ impl<L: CardLookup> Engine<L> {
         let granted = crate::effects::granted_activated(&self.state, source)
             .nth(slot as usize)
             .ok_or(EngineError::IllegalAction("no granted ability"))?;
-        let (cost, effects, mana_ability) = (granted.cost, granted.effects, granted.mana_ability);
+        let (cost, effects, mana_ability) = (
+            self.activation_price(player, source, &granted.cost, None),
+            granted.effects,
+            granted.mana_ability,
+        );
         // A granted ability has no stage that asks, so a granted cost that
         // needs an answer is refused *here* rather than by the payer — which
         // is the difference between an activation that does not happen and
@@ -2291,6 +2410,8 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
+        let price = self.activation_price(player, source, &Cost::FREE, None);
+        self.pay_cost(player, source, &price, &[], 0)?;
         let new = if cost >= 0 {
             old.saturating_add(cost as u16)
         } else {

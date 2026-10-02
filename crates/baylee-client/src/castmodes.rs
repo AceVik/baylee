@@ -123,6 +123,7 @@ pub fn reachable_modes(
     let sources = crate::manasources::sources(view, legal);
     let mut out = Vec::new();
     let mut offer = |kind, cost: ManaCost| {
+        let cost = cost.with_more_generic(legal.spell_increase(card, kind));
         if let Some(plan) = manaplan::plan(&cost, &pool, &sources) {
             out.push(ReachableMode { kind, cost, plan });
         }
@@ -317,6 +318,42 @@ mod tests {
 
     fn kinds(modes: &[ReachableMode]) -> Vec<CastModeKind> {
         modes.iter().map(|m| m.kind).collect()
+    }
+
+    #[test]
+    fn gloom_taxed_mana_remains_manual_but_is_not_planned_as_free() {
+        let (mut view, mut legal) = table(vec![], 1);
+        let source = legal.mana_abilities[0];
+        view.seats[0].mana_pool.colorless = 3;
+        legal.activation_increases.push((source, 3));
+        assert!(crate::manasources::sources(&view, &legal).is_empty());
+        assert!(!crate::manasources::offers(&view, &legal, source).is_empty());
+    }
+
+    #[test]
+    fn gloom_plans_the_tax_for_normal_and_alternative_casts() {
+        let hand = card_in_hand(1, "Savannah Lions", &[Color::White]);
+        for (lands, expected) in [(3, 0), (4, 1)] {
+            let (view, mut legal) = table(vec![hand.clone()], lands);
+            legal
+                .spell_increases
+                .push((hand.id, CastModeKind::Normal, 3));
+            let modes = reachable_modes(&view, &legal, hand.id);
+            assert_eq!(modes.len(), expected);
+            if let Some(mode) = modes.first() {
+                assert_eq!(mode.cost, baylee_core::mana!("{3}{W}"));
+                assert_eq!(mode.plan.taps(), 4);
+            }
+        }
+        let solitude = card_in_hand(2, "Solitude", &[Color::White]);
+        let (view, mut legal) = table(vec![hand, solitude.clone()], 3);
+        legal
+            .spell_increases
+            .push((solitude.id, CastModeKind::Normal, 3));
+        let modes = reachable_modes(&view, &legal, solitude.id);
+        assert_eq!(kinds(&modes), vec![CastModeKind::Alternative(0)]);
+        assert_eq!(modes[0].cost, baylee_core::mana!("{3}"));
+        assert_eq!(modes[0].plan.taps(), 3);
     }
 
     #[test]

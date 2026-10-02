@@ -23,6 +23,8 @@ fn the_primary_key_plays_the_land_under_the_cursor() {
                 player: PlayerId::new(0),
                 legal: Box::new(LegalActions {
                     unpaid_abilities: vec![],
+                    spell_increases: vec![],
+                    activation_increases: vec![],
                     can_pass: true,
                     lands: vec![obj(3)],
                     castable: vec![],

@@ -2804,3 +2804,34 @@ counts later. Trigger placement and state-based actions wait until resolution
 finishes. The suspended choices participate in the engine snapshot fingerprint.
 See Wizards' 2016-06-08 rulings in the
 [Scryfall ruling record](https://api.scryfall.com/cards/ce648aa3-098b-4af0-a433-fd290bc85904/rulings).
+
+### Generic cost increases (Gloom)
+
+`Modifier::SpellsCostMore(n)` and `Modifier::AbilitiesCostMore(n)` are rules
+modifiers with the static ability's filter. They do not change characteristics
+or lock the affected set. Multiple matching effects add their generic increases.
+Spell matching projects the announced face/form onto the stack, including color
+changes; alternative mana costs do not change a spell's color. Activation matching
+uses the actual source, including granted, intrinsic mana and loyalty abilities.
+An enchantment filter does not name enchantment cards cycling from a hand.
+
+Normal and alternative casts, flashback/escape/disturb, miracle, effect casts and
+waived mana costs include the increase. Printed generic reductions are applied
+after increases. Commander tax remains independent and cumulative. The wizard
+keeps its announced price through payment; the underlying mana value is unchanged.
+
+The engine also publishes `LegalActions.spell_increases` for visible candidate
+cards: `(ObjectId, CastModeKind, generic_increase)`, excluding commander tax.
+An explicit form entry overrides Normal, including a zero for a colorless form;
+other alternative modes inherit Normal. These are planning hints, not permission
+to cast. The client and AI add them before planning taps, then recheck legality.
+
+Wizards' Gloom ruling states: “The extra mana is part of the total cost, so cost
+reducers can be applied to this cost.”
+[2004-10-04 ruling record](https://api.scryfall.com/cards/0d26c559-ad06-4f78-b7b6-e658be8c7bdb/rulings).
+
+`LegalActions.activation_increases` similarly carries `(ObjectId, u32)` entries
+for controlled permanents. The existing simple mana planners omit these taxed
+sources, as they already omit printed mana inputs; otherwise they would count a
+three-mana payment as free production. Manual mana bubbles remain available
+when the engine says the cost can be paid.
