@@ -82,7 +82,8 @@ use super::*;
 /// stamps it, six digits of build, a ten-character commit and `-dirty`:
 /// `0.1.0-beta.1+build.999999 (0123456789-dirty)`, 44 characters at
 /// [`VERSION_PT`], which is 251.7. Plus [`MENU_PAD_X`] either side and the
-/// border, 285.7 — and the constant carries eight pixels over that.
+/// border, 285.7 at the former text scale. The larger readability scale
+/// needs 314.7; the constant retains seven pixels of spare width.
 ///
 /// Every bound here was wrong once and the test said so, which is the
 /// argument for bounding it there rather than measuring once by hand: the
@@ -93,7 +94,7 @@ use super::*;
 /// version wider than the panel. The worst
 /// shape is now built from the real version, so a bump that lengthens it is
 /// measured by the same test.
-const MENU_W: f32 = 294.0;
+const MENU_W: f32 = 322.0;
 
 /// The air either side of a row. The drawer's number, because this is the
 /// drawer's shape one level smaller.

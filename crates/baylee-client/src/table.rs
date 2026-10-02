@@ -546,7 +546,7 @@ impl CameraRig {
             0.0
         };
         let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
-        let air = AIR - 1.95 * framing;
+        let air = AIR - (AIR - DUEL_AIR) * framing;
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
         let span = max - min;
 
@@ -664,10 +664,15 @@ impl CameraRig {
 /// being displayed. It is also roughly where [`GLOW_SPREAD`] fades out, so the
 /// halo under an active seat's mat stays in frame with it.
 ///
-/// Wide duels bring this down to three units, keeping the leather rail and
-/// a little sky visible. Smaller windows and rings retain the full margin
+/// Wide duels use [`DUEL_AIR`] to spend more of the viewport on cards.
+/// Smaller windows and rings retain the full margin
 /// to preserve their readability. Everything past [`SLAB_MARGIN`] is sky.
 const AIR: f32 = 3.5;
+/// A wide duel keeps its mat borders plus a small gutter in frame; the
+/// decorative outer rail may extend beyond the viewport. Cards use the
+/// recovered space without changing their lane geometry or hit regions.
+const DUEL_AIR: f32 = 0.65;
+const _: () = assert!(DUEL_AIR > ZONE_MARGIN);
 const _: () = assert!(AIR > ZONE_MARGIN);
 
 /// Half the camera's vertical field of view.

@@ -8351,5 +8351,12 @@ multiplies this base, including existing saved settings. Constructed text
 faces cap name/type/body at 26/19/18 pixels. Long rules stop shrinking at
 14 pixels and remain scrollable; smaller thumbnail faces keep their own
 proportional type. The shared preferred-size function is also exercised by
-window-edge and report-button placement tests. These changes do not yet
-enlarge battlefield card meshes or every general HUD label.
+window-edge and report-button placement tests.
+
+Wide desktop duels now frame the playmats with a 0.65-unit gutter instead
+of 1.55, keeping the mat borders visible and enlarging the projected cards
+by about six percent at 1440×900. Lane geometry and centered packing remain
+shared with the hit regions. Small windows and ring tables retain their
+framing. General HUD/lobby type is ten percent larger through the shared
+Alegreya Sans/Faustina scales; menu width, hand-tool reservations and stack
+text budgets follow the increase. Life totals continue fitting all digits.

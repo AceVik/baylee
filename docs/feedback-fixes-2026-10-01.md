@@ -502,3 +502,32 @@ wide; the preview is now 384. Inspect table framing and available lane space,
 keeping centered packing, piles, badges, combat steps and 3–8 seat geometry
 consistent. Do not claim the larger battlefield cards are already done.
 Alpha work follows the remaining feedback. No push or deployment.
+
+
+## Eighth continuation — permanent and general text sizing
+
+Completed the remaining layout portion of 01a0e8fb. Wide desktop duels
+use the playmat borders plus a small gutter for framing, recovering space
+from the decorative rail. Native 1440×900 measurements on the same fixture:
+Oko 39.9 → 42.3 px wide, Forest 40.6 → 43.2, Alaborn Grenadier 45.5 → 48.7
+(projected bounds); centered nonoverflow rows and scrollable crowded rows
+remain intact. Small windows and 3–8-seat framing retain their prior margin.
+
+Shared general text scales increased ten percent. Expanded the game menu
+and hand-tool reservations and adjusted stack truncation budgets. Three
+initial regression failures exposed these tight bounds and an obsolete
+life-total nominal-size assertion; final tests check full digits still fit
+and five-digit life draws at least as large as before. The user explicitly
+authorized a font replacement if useful. Current Alegreya Sans/Faustina
+remain suitable after this pass; their existing OFL licences are recorded.
+
+Validation: 1162 client unit tests, 16 duel, 33 mana/ability, 13 network
+and one binary test pass; two pre-existing ignored tests. All-targets
+dev-control clippy passes. Existing camera/seatbar/badge geometry tests
+cover 2–8 seats and desktop/phone viewports. Native screenshots show the
+full 45-creature fixture, centered Oko/lands, larger readable German ability
+sheet and game menu, full copyright line and unclipped HUD controls.
+Evidence: /private/tmp/baylee-framing-{row.json,crowded.png,abilities.png,menu.png},
+/private/tmp/baylee-framing-tests-final.log and baylee-framing-clippy.log.
+No push or deployment. Login/music and Windows Vulkan visual verification
+remain; Alpha follows those feedback items.

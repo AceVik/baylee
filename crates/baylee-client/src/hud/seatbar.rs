@@ -1634,7 +1634,10 @@ mod tests {
                 assert!(ink + 18.0 + 3.0 <= width, "{value} overflows {width}");
             }
         }
-        assert_eq!(life_number_size(25476, 24.0, 108.0, 18.0), 24.0);
+        assert_eq!(life_number_size(40, 24.0, 108.0, 18.0), 24.0);
+        // Five digits still draw at least as large as before the UI scale
+        // increased, even when the nominal size must shrink to fit.
+        assert!(life_number_size(25476, 24.0, 108.0, 18.0) * UI_SCALE >= 28.8);
     }
 
     /// What one name cell is asked about, handed to the system that draws it.

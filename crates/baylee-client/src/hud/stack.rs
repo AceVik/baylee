@@ -2126,15 +2126,15 @@ pub(super) fn spans_of(blocks: &[TextBlock], room: Option<usize>) -> Vec<Piece> 
 /// rather than by luck. Inter's lower case averaged 0.531 of its size and
 /// 0.52 was that, rounded down to be generous. Alegreya Sans measures 0.445
 /// of the size it is *rendered* at and Faustina 0.473, and they are rendered
-/// at 1.2x and 1.1x the nominal size a caller passes — **0.534 and 0.520**
-/// against the nominal, which brackets the same number. That is what let the
-/// scales be scales rather than three hundred new constants.
-pub(super) const CHAR_WIDTH: f32 = 0.52;
+/// at 1.32x and 1.21x the nominal size a caller passes — **0.587 and 0.572**
+/// against the nominal. The budget uses their midpoint, keeping truncation
+/// in step with the larger readability scale.
+pub(super) const CHAR_WIDTH: f32 = 0.58;
 
 /// A card name cut to one line `room` pixels wide, set at `size`.
 ///
 /// A serif's lower case averages a little over half its point size and a card
-/// name is mostly lower case, so `0.52` is the ratio the budget is taken at —
+/// name is mostly lower case, so [`CHAR_WIDTH`] is the budget ratio —
 /// deliberately generous, because the cost of guessing narrow is one word
 /// clipped by the body's own `overflow` and the cost of guessing wide is a
 /// name cut short that would have fitted.

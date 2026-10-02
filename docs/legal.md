@@ -484,3 +484,7 @@ require “Do not cover, crop, or clip off the copyright or artist name on card 
 The preview still fits the entire card at its original aspect ratio; native
 QA includes its bottom artist/copyright line. No new asset, symbol or legal
 exception is introduced.
+
+The follow-up camera/HUD pass uses the same bundled OFL fonts and original
+geometry. It reduces decorative table margin, keeping complete card images
+and notices. No additional assets or licence exceptions are needed.

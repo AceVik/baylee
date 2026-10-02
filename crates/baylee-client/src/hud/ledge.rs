@@ -666,12 +666,13 @@ const BUTTON_PAD_Y: f32 = 4.0;
 /// own widths came out of the shipped `AlegreyaSans-Bold` at the pixel size
 /// this row sets it (`TOOL_PT` × [`super::UI_SCALE`]), where English is 14.5
 /// wider than German across the five. 269.0 + 14.5 is 283.5 and this rounds
-/// up.
+/// up. The current readability scale adds ten percent; reserve that increase
+/// over the whole row so the marks and padding keep some spare room too.
 ///
 /// English is the wider of the two here, which is the opposite way round from
 /// [`RIGHT_RESERVED`]: "Draw order" is 10.6 px wider than "Zugfolge" and
 /// "Type" 5.6 wider than "Typ", against "Color" saving 1.8 on "Farbe".
-const TOOLS_WIDE: f32 = 284.0;
+const TOOLS_WIDE: f32 = 312.0;
 
 /// The same row when the window is too narrow for all five, and one button
 /// cycles through the orders instead.
@@ -682,8 +683,9 @@ const TOOLS_WIDE: f32 = 284.0;
 /// what a button puts around its label — two borders, the air either side,
 /// the step to the mark and the mark itself — measured 23.2 to 25.7 across
 /// the five photographed buttons, the spread being the marks' own advances.
-/// The widest of those is the one to reserve: 89.8 + 25.7, rounded up.
-const TOOLS_NARROW: f32 = 116.0;
+/// The former scale reserved 89.8 + 25.7, rounded up. The current reservation
+/// includes the ten-percent readability increase.
+const TOOLS_NARROW: f32 = 128.0;
 
 /// What the left column takes at this width, [`EDGE`] included.
 ///

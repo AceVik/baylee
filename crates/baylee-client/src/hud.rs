@@ -117,15 +117,12 @@ pub fn setup_fonts(mut commands: Commands, assets: Res<AssetServer>) {
 /// two steps smaller. Every size in this client was chosen against Inter, so
 /// the correction lives *here* and not in three hundred call sites.
 ///
-/// It has a second, load-bearing effect. The width estimator in
-/// [`stack::CHAR_WIDTH`] is 0.52 of the size per character, measured on
-/// Inter; Alegreya Sans measures 0.445, and 0.445 × 1.2 is 0.534. The
-/// apparent size and the character budget therefore both stay where they
-/// were, which is why this is a scale and not a set of new constants.
-pub(crate) const UI_SCALE: f32 = 1.2;
+/// The readability pass adds ten percent to the original 1.2 correction.
+/// Width estimates and line boxes must use this scale as well as the glyphs.
+pub(crate) const UI_SCALE: f32 = 1.32;
 
 /// The same for Faustina, whose x-height is 0.494.
-pub(crate) const SERIF_SCALE: f32 = 1.1;
+pub(crate) const SERIF_SCALE: f32 = 1.21;
 
 /// Below this nominal size the Regular cut is asked to do too much.
 ///
