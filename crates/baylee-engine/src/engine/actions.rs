@@ -1,8 +1,8 @@
 use super::{
     AbilityDef, AttackerInfo, CardLookup, Cause, CombatDeclared, Engine, EngineError, GameEvent,
     ObjectId, ObjectKind, PaymentContinuation, PaymentWindow, Pending, PlanKind, PlayerAction,
-    PlayerId, SmallVec, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, mana_pay,
-    resolve, sba,
+    PlayerId, SmallVec, Zone, ZoneLocation, ZonePosition, cast_wizard, casting, combat, resolve,
+    sba,
 };
 use crate::choice::CastModeKind;
 
@@ -504,17 +504,12 @@ impl<L: CardLookup> Engine<L> {
                     })
                     .ok_or(EngineError::IllegalAction("not a suspend card"))?;
                 // Suspending costs the printed suspend cost (CR 702.62).
-                // Through `pay_with`, because the offer asks `can_pay_mana`,
+                // Through `pay_mana`, because the offer asks `can_pay_mana`,
                 // which reads Mycosynth Lattice: a bare `mana_pay::pay` here
                 // would refuse a suspend that this seat's every mana is
                 // allowed to pay for, which is the offer disagreeing with the
                 // answer on a second axis.
-                let wild = casting::mana_is_wild(&self.state);
-                if !casting::pay_with(
-                    wild,
-                    &mut self.state.players[player.get() as usize].mana_pool,
-                    &cost,
-                ) {
+                if !casting::pay_mana(&mut self.state, player, &cost) {
                     return Err(EngineError::IllegalAction("cannot pay the suspend cost"));
                 }
                 let owner = self.state.object(card).map_or(player, |o| o.owner);
@@ -1129,11 +1124,7 @@ impl<L: CardLookup> Engine<L> {
                     else {
                         unreachable!()
                     };
-                    let paid = answer
-                        && mana_pay::pay(
-                            &mut self.state.players[player.get() as usize].mana_pool,
-                            &cost,
-                        );
+                    let paid = answer && casting::pay_mana(&mut self.state, player, &cost);
                     debug_assert!(!answer || paid, "echo cost was offered as payable");
                     if !paid {
                         let owner = self.state.object(card).map_or(player, |o| o.owner);
@@ -1644,8 +1635,12 @@ impl<L: CardLookup> Engine<L> {
     /// reason since the price may have colour in it: two floating red do
     /// not pay Phantasmal Forces' `{U}`.
     fn pool_pays_tax(&self, player: PlayerId, cost: &baylee_core::mana::ManaCost) -> bool {
-        let mut pool = self.state.players[player.get() as usize].mana_pool.clone();
-        mana_pay::pay(&mut pool, cost)
+        casting::affordable(
+            &self.state,
+            player,
+            &self.state.players[player.get() as usize].mana_pool,
+            cost,
+        )
     }
 
     /// Ends a payment window and settles the payment it was opened for.
@@ -1673,10 +1668,7 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             PaymentContinuation::Pact(cost) => {
-                if !mana_pay::pay(
-                    &mut self.state.players[window.player.get() as usize].mana_pool,
-                    &cost,
-                ) {
+                if !casting::pay_mana(&mut self.state, window.player, &cost) {
                     let _ = sba::lose_by_effect(&mut self.state, window.player);
                 }
                 return;

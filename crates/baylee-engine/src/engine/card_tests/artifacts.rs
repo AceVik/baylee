@@ -5,6 +5,7 @@
 use super::*;
 
 mod cyclopean_tomb;
+mod sunglasses_of_urza;
 
 fn forcefield() -> CardIndex {
     card_index("bd6823fb-a696-4e6d-9c5e-3b55dfe03730")
@@ -17977,34 +17978,16 @@ fn pithing_needle_returned_to_hand_forgets_its_name_and_asks_again() {
     );
 }
 
-/// Illusionary Mask and Sunglasses of Urza are `Coverage::Partial` with none
-/// of their text written: each is cast and sits on the battlefield offering
-/// nothing.
+/// Illusionary Mask remains partial: it casts but implements no rules text.
 #[test]
-fn partial_artifacts_with_no_text_written_sit_doing_nothing() {
-    for (name, card, lands) in [
-        (
-            "Illusionary Mask",
-            card_index("05ac866d-0405-4d25-986a-c10fcfc097e6"),
-            2,
-        ),
-        (
-            "Sunglasses of Urza",
-            card_index("eea64b1f-d6a9-4f72-8612-efab4b124b63"),
-            3,
-        ),
-    ] {
-        let def = baylee_cards::by_index(card).expect("in the pool");
-        assert!(
-            matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
-            "{name} is fully Implemented now; drop its row from this list"
-        );
-        assert_eq!(
-            cast_saying_nothing(card, forest(), lands),
-            Zone::Battlefield,
-            "{name}"
-        );
-    }
+fn illusionary_mask_remains_partial_and_sits_doing_nothing() {
+    let card = card_index("05ac866d-0405-4d25-986a-c10fcfc097e6");
+    let def = baylee_cards::by_index(card).expect("in the pool");
+    assert!(matches!(
+        def.coverage,
+        baylee_cards_dsl::Coverage::Partial(_)
+    ));
+    assert_eq!(cast_saying_nothing(card, forest(), 2), Zone::Battlefield);
 }
 
 /// Library of Leng — "You have no maximum hand size." (Its discard

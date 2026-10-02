@@ -3,6 +3,23 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Mana spending permissions (compatible view-45 addition)
+
+`ManaPoolView.spending` carries each seat's current `ManaSpending` permissions.
+The six entries follow WUBRGC order; each is a bitmask of requirement types
+that the actual mana type may pay. Ordinary spending is `[1,2,4,8,16,32]`;
+Sunglasses of Urza gives its controller `[9,2,4,8,16,32]`. The pool counts
+continue to name actual mana, so a white unit remains in `white`.
+
+This keeps view 45 and the transport protocol unchanged. New readers default
+an absent field to ordinary spending; old readers ignore the added field.
+Ignoring this permission only undercounts affordable auto-taps. It cannot
+produce an underfunded payment plan: the old client can still tap mana manually
+and cast from the engine's authoritative `legal.castable` list. This differs
+from ignoring Gloom's cost increase, which overestimates affordability and can
+tap sources for an insufficient payment. The view shape fingerprint includes
+the new field and samples of exact, any-color and directed spending.
+
 ## Chosen opponent (compatible view-44 addition)
 
 `PublicObject.chosen_opponent` identifies the seat chosen as a permanent entered

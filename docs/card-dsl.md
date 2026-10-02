@@ -581,6 +581,22 @@ between the two halves: an *activation* can suspend on a question, a **cast**
 already has a wizard of its own and a second one inside it is a stage nobody
 has built.
 
+### Spending mana as another color
+
+`static_ability!(Filter::Any, Modifier::SpendManaAs { from, to })` gives the
+source's controller an additional payment permission. Sunglasses of Urza uses
+`ManaColor::White` to `ManaColor::Red`. It neither produces mana nor changes
+the pool, spell cost, or colors actually spent (CR 609.4b). White can still
+pay white requirements, and red cannot pay white merely because this effect
+exists. Multiple copies add no mana. Leaving the battlefield, phasing out or
+losing the ability removes the permission; changing control transfers it.
+
+`Modifier::ManaIsAnyColor` is the global Mycosynth Lattice permission. “Any
+color” does not include a colorless requirement or waive snow provenance.
+Both permissions use the same actual-mana assignment path, preserving spending
+restrictions and riders. The player's `ManaPoolView.spending` carries the
+permission to automatic mana planning; missing data defaults to exact colors.
+
 ### Ability kinds
 
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`

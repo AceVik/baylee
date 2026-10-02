@@ -598,3 +598,9 @@ notices. The graveyard-order instruction is plain text in the existing licensed
 fonts; no new asset or change to the image/attribution path is introduced.
 The bundled Alegreya Sans and Faustina licenses state: “This Font Software is
 licensed under the SIL Open Font License, Version 1.1.”
+
+Sunglasses of Urza (2026-10-02) follows the recorded owner exception and policy
+review above. Its rules and mana-planning changes introduce no shipped assets,
+symbols or fonts and do not alter complete-image rendering or attribution.
+The existing unofficial notice still satisfies “Tell the Community it’s unofficial.”
+from the [official policy](https://company.wizards.com/en/legal/fancontentpolicy).

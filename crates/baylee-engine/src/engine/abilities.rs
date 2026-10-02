@@ -425,7 +425,9 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             if let Some(cost) = self.disguise_cost(id)
-                && crate::mana_pay::can_pay(
+                && casting::affordable(
+                    &self.state,
+                    player,
                     &self.state.players[player.get() as usize].mana_pool,
                     &cost,
                 )
@@ -557,6 +559,7 @@ impl<L: CardLookup> Engine<L> {
                         self.prepared_cast_is_timely(player, spell_def)
                             && casting::affordable(
                                 &self.state,
+                                player,
                                 &self.state.players[player.get() as usize].mana_pool,
                                 &self.prepared_spell_price(player, spell_def),
                             )
@@ -1149,7 +1152,7 @@ impl<L: CardLookup> Engine<L> {
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
         // Mycosynth Lattice: mana spends as though it were any colour, so a
         // five-colour activation cost is payable off five Islands.
-        casting::affordable(&self.state, pool, cost)
+        casting::affordable(&self.state, player, pool, cost)
     }
 
     pub(crate) fn can_afford(
@@ -1386,12 +1389,7 @@ impl<L: CardLookup> Engine<L> {
             ));
         }
         let cost = self.prepared_spell_price(player, spell_def);
-        let wild = casting::mana_is_wild(&self.state);
-        if !casting::pay_with(
-            wild,
-            &mut self.state.players[player.get() as usize].mana_pool,
-            &cost,
-        ) {
+        if !casting::pay_mana(&mut self.state, player, &cost) {
             return Err(EngineError::IllegalAction("cannot pay the spell's cost"));
         }
         // Unprepare the source.

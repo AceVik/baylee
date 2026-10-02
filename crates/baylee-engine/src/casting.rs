@@ -14,7 +14,7 @@ use crate::zone::{Zone, ZoneLocation, ZonePosition};
 use baylee_cards_dsl::SpendRider;
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::{ObjectId, PlayerId};
-use baylee_core::mana::{ManaColor, ManaCost, ManaFlags, ManaPool, RestrictedMana};
+use baylee_core::mana::{ManaColor, ManaCost, ManaFlags, ManaPool, ManaSpending, RestrictedMana};
 use baylee_core::types::TypeSet;
 use smallvec::SmallVec;
 
@@ -69,6 +69,24 @@ pub fn mana_is_wild(state: &GameState) -> bool {
         .effects
         .iter()
         .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::ManaIsAnyColor))
+}
+
+/// The live permissions for `player` to spend actual mana as another type.
+/// Static-effect synchronization supplies the source's current controller
+/// and removes effects whose source left, phased out or lost its ability.
+#[must_use]
+pub fn mana_spending(state: &GameState, player: PlayerId) -> ManaSpending {
+    let mut spending = if mana_is_wild(state) {
+        ManaSpending::ANY_COLOR
+    } else {
+        ManaSpending::EXACT
+    };
+    for fx in state.effects.iter().filter(|fx| fx.controller == player) {
+        if let baylee_cards_dsl::Modifier::SpendManaAs { from, to } = fx.modifier {
+            spending.allow(from, to);
+        }
+    }
+    spending
 }
 
 /// The permanents convoke may be paid with (CR 702.51a): untapped creatures
@@ -570,9 +588,25 @@ fn x_bounded(
     crate::eval::reads_announced_x(filter).then_some((widened, filter))
 }
 
-/// Whether `pool` covers `cost`, honouring a mana-conversion effect.
-pub(crate) fn affordable(state: &GameState, pool: &ManaPool, cost: &ManaCost) -> bool {
-    wild_or_not(mana_is_wild(state), pool, cost)
+/// Whether `player` can spend `pool` to cover `cost` under current permissions.
+pub(crate) fn affordable(
+    state: &GameState,
+    player: PlayerId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+) -> bool {
+    mana_pay::can_pay_with(pool, cost, mana_spending(state, player))
+}
+
+/// Pays a cost that admits no restricted mana, under this player's current
+/// spending permissions. Spell and activation payments use [`pay_mana_for`].
+pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost) -> bool {
+    let spending = mana_spending(state, player);
+    mana_pay::pay_with(
+        &mut state.players[player.get() as usize].mana_pool,
+        cost,
+        spending,
+    )
 }
 
 /// What a payment is for, which is what restricted mana asks (CR 106.6).
@@ -790,7 +824,7 @@ pub(crate) fn pay_mana_for(
     what: SpendFor,
     cost: &ManaCost,
 ) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
-    let wild = mana_is_wild(state);
+    let spending = mana_spending(state, player);
     let entries = admitted(state, player, what);
     let riding = ridden_for(state, player, what);
     let real = &state.players[player.get() as usize].mana_pool;
@@ -800,7 +834,7 @@ pub(crate) fn pay_mana_for(
         let slot = &mut prefer[mana.color.index()];
         *slot = slot.saturating_add(mana.amount);
     }
-    let paid = mana_pay::payment_preferring(&merged, cost, wild, prefer)?;
+    let paid = mana_pay::payment_with(&merged, cost, spending, prefer)?;
 
     // What the payment consumed, per colour, and how much of it was snow.
     // Exact, because `spend` takes ordinary units before snow ones and
@@ -865,21 +899,6 @@ pub(crate) fn pay_mana_for(
     Some(spent)
 }
 
-/// [`affordable`] with the conversion flag already read.
-///
-/// Payment sites need it in this shape: `pool` is borrowed mutably there,
-/// so the state cannot be read at the same time.
-pub(crate) fn wild_or_not(wild: bool, pool: &ManaPool, cost: &ManaCost) -> bool {
-    if wild {
-        mana_pay::can_pay_wild(pool, cost)
-    } else {
-        mana_pay::can_pay(pool, cost)
-    }
-}
-
-/// Pays `cost` from `pool`, honouring a mana-conversion effect.
-///
-/// `wild` comes from [`mana_is_wild`], read before the pool is borrowed.
 /// Whether a face prints a mana cost at all (CR 202.1b).
 ///
 /// A card with **no** mana cost cannot be cast unless something else gives it
@@ -903,14 +922,6 @@ pub(crate) fn wild_or_not(wild: bool, pool: &ManaPool, cost: &ManaCost) -> bool 
 /// cast for free and was never in question here.
 pub(crate) fn has_a_printed_cost(cost: &ManaCost) -> bool {
     cost.symbols().next().is_some()
-}
-
-pub(crate) fn pay_with(wild: bool, pool: &mut ManaPool, cost: &ManaCost) -> bool {
-    if wild {
-        mana_pay::pay_wild(pool, cost)
-    } else {
-        mana_pay::pay(pool, cost)
-    }
 }
 
 /// Whether `player` may begin casting a spell with these characteristics
@@ -1257,7 +1268,7 @@ pub(crate) fn can_cast_form(
     // than into the first one.
     let tax = spell_increase(state, player, obj);
     if let Some(form) = form {
-        return if affordable(state, pool, &form.cost().with_more_generic(tax)) {
+        return if affordable(state, player, pool, &form.cost().with_more_generic(tax)) {
             Ok(())
         } else {
             Err(CastError::NotEnoughMana)
@@ -1274,6 +1285,7 @@ pub(crate) fn can_cast_form(
     let probe = |cost: &ManaCost| {
         affordable(
             state,
+            player,
             pool,
             &cost.with_more_generic(tax).with_less_generic(reduction),
         )
@@ -1313,6 +1325,7 @@ pub(crate) fn can_cast_form(
             .saturating_add(keyword_reduction(state, face, player, card));
         affordable(
             state,
+            player,
             pool,
             &face
                 .mana_cost
@@ -2259,7 +2272,7 @@ pub fn can_activate_mana(state: &GameState, player: PlayerId, source: ObjectId) 
         // ability of a creature like any other (CR 302.6).
         && !crate::combat::summoning_sick(state, obj)
         && !intrinsic_mana_colors(state, source).is_empty()
-        && affordable(state, &state.players[player.get() as usize].mana_pool,
+        && affordable(state, player, &state.players[player.get() as usize].mana_pool,
             &intrinsic_mana_price(state, source))
 }
 
@@ -2706,6 +2719,97 @@ mod tests {
             TypeSet::LAND,
             "a probe never changes the card"
         );
+    }
+
+    #[test]
+    fn directed_spending_preserves_restrictions_snow_and_actual_rider_units() {
+        for snow in [false, true] {
+            for ridden in [false, true] {
+                let mut state = state();
+                let creature = card_in_hand(&mut state, me(), "Creature", TypeSet::CREATURE);
+                let instant = card_in_hand(&mut state, me(), "Instant", TypeSet::INSTANT);
+                register(
+                    &mut state,
+                    me(),
+                    Modifier::SpendManaAs {
+                        from: ManaColor::White,
+                        to: ManaColor::Red,
+                    },
+                );
+                state
+                    .restriction_info
+                    .insert(42, (creature, &Filter::CREATURE, SpendRider::Uncounterable));
+                let mana = RestrictedMana {
+                    color: ManaColor::White,
+                    amount: 2,
+                    flags: if snow {
+                        ManaFlags::SNOW
+                    } else {
+                        ManaFlags::NONE
+                    },
+                    restriction: baylee_core::mana::RestrictionId(42),
+                };
+                if ridden {
+                    state.players[0].mana_pool.add_ridden(mana);
+                } else {
+                    state.players[0].mana_pool.add_restricted(mana);
+                    let before = state.players[0].mana_pool.clone();
+                    for what in [
+                        SpendFor::Spell(instant),
+                        SpendFor::Ability(creature),
+                        SpendFor::Other,
+                    ] {
+                        assert!(
+                            pay_mana_for(&mut state, me(), what, &ManaCost::parse("{R}")).is_none()
+                        );
+                        assert_eq!(state.players[0].mana_pool, before);
+                    }
+                }
+                state.players[0].mana_pool.add(ManaColor::Red, 1);
+                let cost = ManaCost::parse("{R}");
+                let pool = spendable_pool(&state, me(), SpendFor::Spell(creature));
+                assert!(affordable(
+                    &state,
+                    me(),
+                    pool.as_ref().unwrap_or(&state.players[0].mana_pool),
+                    &cost
+                ));
+                let paid =
+                    pay_mana_for(&mut state, me(), SpendFor::Spell(creature), &cost).unwrap();
+                assert_eq!(
+                    paid.as_slice(),
+                    &[(
+                        RestrictedMana { amount: 1, ..mana },
+                        creature,
+                        SpendRider::Uncounterable
+                    )]
+                );
+                let pool = &state.players[0].mana_pool;
+                assert_eq!(
+                    pool.available(ManaColor::Red),
+                    1,
+                    "the preferred white unit paid red"
+                );
+                let remaining = if ridden {
+                    pool.ridden()
+                } else {
+                    pool.restricted()
+                };
+                assert_eq!(remaining, &[RestrictedMana { amount: 1, ..mana }]);
+                if snow {
+                    assert!(
+                        pay_mana_for(
+                            &mut state,
+                            me(),
+                            SpendFor::Spell(creature),
+                            &ManaCost::parse("{R}{S}")
+                        )
+                        .is_some()
+                    );
+                    assert!(state.players[0].mana_pool.is_empty());
+                }
+            }
+        }
     }
 
     /// A face with no text, carrying only the three fields these probes read.

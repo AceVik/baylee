@@ -425,7 +425,12 @@ impl<L: CardLookup> Engine<L> {
         let pool = restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
-        casting::affordable(&self.state, pool, &cost.with_less_generic(reduction))
+        casting::affordable(
+            &self.state,
+            player,
+            pool,
+            &cost.with_less_generic(reduction),
+        )
     }
 
     /// Starts a free cast (rebound at upkeep, suspend finish, a discovered
@@ -795,8 +800,9 @@ impl<L: CardLookup> Engine<L> {
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
-            casting::wild_or_not(
-                casting::mana_is_wild(&self.state),
+            casting::affordable(
+                &self.state,
+                player,
                 pool,
                 &price(*cost).with_less_generic(reduction),
             )
@@ -811,7 +817,7 @@ impl<L: CardLookup> Engine<L> {
         if disturb_cast {
             for (i, back) in def.faces.iter().enumerate().skip(1) {
                 if back.disturb
-                    && casting::affordable(&self.state, pool, &back_price(i).with_x(0))
+                    && casting::affordable(&self.state, player, pool, &back_price(i).with_x(0))
                     && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
                 {
                     options.push(CastModeDesc {
@@ -1056,7 +1062,7 @@ impl<L: CardLookup> Engine<L> {
                 && o.riders.contains(&crate::object::Rider::Adventure)
         });
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
-            if casting::affordable(&self.state, pool, &back_price(i).with_x(0))
+            if casting::affordable(&self.state, player, pool, &back_price(i).with_x(0))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {
                 options.push(CastModeDesc {

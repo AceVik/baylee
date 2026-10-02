@@ -14,10 +14,11 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **258 Implemented, 28 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **259 Implemented, 27 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 258 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
-Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact and Nether Shadow are
+Thus 259 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
+Nether Shadow and Sunglasses of Urza are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -53,7 +54,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sengir Vampire](../crates/baylee-cards/src/cards/creatures/mv_5/sengir_vampire.rs) | the trigger on a creature it damaged this turn dying is not in the engine; it flies |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
-| [Sunglasses of Urza](../crates/baylee-cards/src/cards/artifacts/mv_3/sunglasses_of_urza.rs) | spending white mana as though it were red is not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | the copied upkeep ability that copies again is not in the DSL; it enters as a blue copy |
 | [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | looking at an opponent's hand, controlling that player and making them play a card are not in the engine |

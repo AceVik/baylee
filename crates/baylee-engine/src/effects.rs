@@ -168,6 +168,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerHexproof
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
+        | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover
         // CR 611.2c locks the set for an effect that changes
         // characteristics or control; this changes a rule, so a permanent
@@ -900,6 +901,10 @@ mod tests {
             Modifier::PlayerHexproof,
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
+            Modifier::SpendManaAs {
+                from: baylee_core::mana::ManaColor::White,
+                to: baylee_core::mana::ManaColor::Red,
+            },
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
@@ -943,7 +948,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            76,
+            77,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -995,7 +1000,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty-two
-    /// modifiers lock the objects they found, forty-four do not.
+    /// modifiers lock the objects they found, forty-five do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -1003,10 +1008,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_two_modifiers_lock_a_set_and_forty_four_do_not() {
+    fn thirty_two_modifiers_lock_a_set_and_forty_five_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (32, 44));
+        assert_eq!((locking, all.len() - locking), (32, 45));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

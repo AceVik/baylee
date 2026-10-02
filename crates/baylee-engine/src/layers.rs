@@ -1088,6 +1088,7 @@ fn apply(
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::ManaIsAnyColor
+        | Modifier::SpendManaAs { .. }
         | Modifier::SearchTakeover
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).

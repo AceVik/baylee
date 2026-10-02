@@ -1679,3 +1679,19 @@ legend-rule deaths and finished Sagas from that same check share one event
 (CR 704.3); an Aura that becomes illegal only because its host just died is
 handled in the next pass. This is necessary for the owner's order choice
 under CR 404.3, not just for a deterministic insertion order.
+
+## Mana spending permissions
+
+`ManaSpending` in core is a directed permission matrix over actual mana types
+and the requirements they may pay. Its default is exact matching. Sunglasses
+of Urza adds white-to-red for the source's current controller; Mycosynth Lattice
+allows every actual type to pay colored requirements. Neither changes the
+original mana, its snow provenance, the cost, or the payment record's colors.
+Compatible permissions compose under CR 609.4a.
+
+`casting::mana_spending(state, player)` reads live synchronized effects.
+Affordability and payment use those same permissions, including restricted
+mana and its spend riders. Gamehost exposes the matrix in `ManaPoolView` so
+automatic plans can choose Plains for a red requirement while respecting white
+requirements elsewhere in that cost. The player-facing pool still contains
+white mana; this is a payment permission, not a conversion ability.

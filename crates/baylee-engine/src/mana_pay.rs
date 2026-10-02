@@ -8,7 +8,7 @@
 //! a spell's cast wizard does not offer the life yet, so a spell's Phyrexian
 //! symbol is paid with its colour.
 
-use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSymbol};
+use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSpending, ManaSymbol};
 use smallvec::SmallVec;
 
 /// Whether `pool` can pay `cost` at all (ignoring Phyrexian life).
@@ -20,24 +20,12 @@ pub fn can_pay(pool: &ManaPool, cost: &ManaCost) -> bool {
 /// Mycosynth Lattice: mana may be spent as though it were any color.
 #[must_use]
 pub fn can_pay_wild(pool: &ManaPool, cost: &ManaCost) -> bool {
-    payment(pool, &wild_cost(cost)).is_some()
+    can_pay_with(pool, cost, ManaSpending::ANY_COLOR)
 }
 
 /// Pays a cost in wild mode; a failed payment leaves the pool unchanged.
 pub fn pay_wild(pool: &mut ManaPool, cost: &ManaCost) -> bool {
-    pay(pool, &wild_cost(cost))
-}
-
-fn wild_cost(cost: &ManaCost) -> ManaCost {
-    let mut result = ManaCost::ZERO;
-    for symbol in cost.symbols() {
-        result = result.combine(&ManaCost::from_symbol(if symbol == ManaSymbol::Snow {
-            symbol
-        } else {
-            ManaSymbol::Generic(symbol.cmc_contribution())
-        }));
-    }
-    result
+    pay_with(pool, cost, ManaSpending::ANY_COLOR)
 }
 
 /// Pays `cost` exactly; leaves the pool untouched on failure (#172).
@@ -51,6 +39,21 @@ pub fn pay(pool: &mut ManaPool, cost: &ManaCost) -> bool {
 
 fn payment(pool: &ManaPool, cost: &ManaCost) -> Option<ManaPool> {
     payment_preferring(pool, cost, false, [0; 6])
+}
+
+/// Whether `pool` pays `cost` under these spending permissions.
+#[must_use]
+pub fn can_pay_with(pool: &ManaPool, cost: &ManaCost, spending: ManaSpending) -> bool {
+    payment_with(pool, cost, spending, [0; 6]).is_some()
+}
+
+/// Pays using the actual mana types allowed by `spending`. Failure is atomic.
+pub fn pay_with(pool: &mut ManaPool, cost: &ManaCost, spending: ManaSpending) -> bool {
+    let Some(paid) = payment_with(pool, cost, spending, [0; 6]) else {
+        return false;
+    };
+    *pool = paid;
+    true
 }
 
 /// The pool after paying `cost`, spending the `prefer`red units first
@@ -75,14 +78,39 @@ pub fn payment_preferring(
     wild: bool,
     prefer: [u16; 6],
 ) -> Option<ManaPool> {
-    let cost = if wild { wild_cost(cost) } else { *cost };
+    payment_with(
+        pool,
+        cost,
+        if wild {
+            ManaSpending::ANY_COLOR
+        } else {
+            ManaSpending::EXACT
+        },
+        prefer,
+    )
+}
+
+/// Solves payment with directed spending permissions, preferring the
+/// specified actual units while preserving their colors and snow provenance.
+#[must_use]
+pub fn payment_with(
+    pool: &ManaPool,
+    cost: &ManaCost,
+    spending: ManaSpending,
+    prefer: [u16; 6],
+) -> Option<ManaPool> {
     let mut symbols: Vec<_> = cost.symbols().collect();
     symbols.sort_by_key(|s| match s {
-        ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => 1,
-        ManaSymbol::Generic(_) => 2,
-        _ => 0,
+        ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => {
+            (1, 0)
+        }
+        ManaSymbol::Generic(_) => (2, 0),
+        // A literal colorless requirement remains constrained under Lattice.
+        // Reserve it before colored pips can use all the colorless mana.
+        ManaSymbol::Colorless | ManaSymbol::Snow => (0, 0),
+        _ => (0, 1),
     });
-    assign(pool.clone(), &symbols, 0, prefer)
+    assign(pool.clone(), &symbols, 0, prefer, spending)
 }
 
 /// `prefer` with one unit of `color` spent.
@@ -110,7 +138,25 @@ fn assign(
     symbols: &[ManaSymbol],
     generic: u32,
     prefer: [u16; 6],
+    spending: ManaSpending,
 ) -> Option<ManaPool> {
+    // Reject an undersized pool before exploring equivalent color choices.
+    // A two-or-color pip needs at least one mana; deferred generic fallback
+    // is counted separately. Restricted entries are not plain spendable units.
+    let minimum = symbols.iter().fold(generic, |sum, symbol| {
+        sum.saturating_add(match symbol {
+            ManaSymbol::Generic(n) => *n,
+            ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => 0,
+            _ => 1,
+        })
+    });
+    let available: u32 = ManaColor::ALL
+        .into_iter()
+        .map(|c| u32::from(pool.available(c)))
+        .sum();
+    if minimum > available {
+        return None;
+    }
     let Some((symbol, rest)) = symbols.split_first() else {
         return pay_any(&mut pool, generic, prefer).then_some(pool);
     };
@@ -125,7 +171,7 @@ fn assign(
             for color in preferred_first(&ManaColor::ALL, prefer) {
                 let mut trial = pool.clone();
                 if trial.spend_snow(color)
-                    && let Some(paid) = assign(trial, rest, generic, spent(prefer, color))
+                    && let Some(paid) = assign(trial, rest, generic, spent(prefer, color), spending)
                 {
                     return Some(paid);
                 }
@@ -137,21 +183,35 @@ fn assign(
             ManaColor::from_color(p.first()),
             ManaColor::from_color(p.second()),
         ],
-        ManaSymbol::Generic(n) => return assign(pool, rest, generic.saturating_add(n), prefer),
+        ManaSymbol::Generic(n) => {
+            return assign(pool, rest, generic.saturating_add(n), prefer, spending);
+        }
         ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {
-            return assign(pool, rest, generic, prefer);
+            return assign(pool, rest, generic, prefer, spending);
         }
     };
-    for color in preferred_first(colors, prefer) {
+    // Literal colors first preserves the ordinary payer's choices. Added
+    // options name actual mana, so accounting never turns white into red.
+    let mut options: SmallVec<[ManaColor; 6]> = colors.iter().copied().collect();
+    for actual in ManaColor::ALL {
+        if !options.contains(&actual)
+            && colors
+                .iter()
+                .any(|&required| spending.permits(actual, required))
+        {
+            options.push(actual);
+        }
+    }
+    for color in preferred_first(&options, prefer) {
         let mut trial = pool.clone();
         if trial.spend(color, 1)
-            && let Some(paid) = assign(trial, rest, generic, spent(prefer, color))
+            && let Some(paid) = assign(trial, rest, generic, spent(prefer, color), spending)
         {
             return Some(paid);
         }
     }
     if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
-        return assign(pool, rest, generic.saturating_add(2), prefer);
+        return assign(pool, rest, generic.saturating_add(2), prefer, spending);
     }
     None
 }
@@ -184,6 +244,132 @@ fn pay_any(pool: &mut ManaPool, n: u32, prefer: [u16; 6]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn white_as_red() -> ManaSpending {
+        let mut spending = ManaSpending::EXACT;
+        spending.allow(ManaColor::White, ManaColor::Red);
+        spending
+    }
+
+    #[test]
+    fn directed_spending_preserves_actual_colors_and_other_requirements() {
+        let white = pool_of(&[(ManaColor::White, 1)]);
+        for cost in ["{R}", "{R/G}", "{2/R}", "{R/P}", "{R/G/P}"] {
+            let mut pool = white.clone();
+            assert!(
+                pay_with(&mut pool, &ManaCost::parse(cost), white_as_red()),
+                "{cost}"
+            );
+            assert!(pool.is_empty());
+        }
+        for cost in ["{U}", "{B}", "{G}", "{C}", "{S}", "{W}{R}"] {
+            let mut pool = white.clone();
+            assert!(
+                !pay_with(&mut pool, &ManaCost::parse(cost), white_as_red()),
+                "{cost}"
+            );
+            assert_eq!(pool, white, "a failed payment is atomic");
+        }
+        let mut red = pool_of(&[(ManaColor::Red, 1)]);
+        assert!(!pay_with(&mut red, &ManaCost::parse("{W}"), white_as_red()));
+
+        let pool = pool_of(&[(ManaColor::White, 2), (ManaColor::Red, 1)]);
+        let mut prefer = [0; 6];
+        prefer[ManaColor::White.index()] = 1;
+        let paid = payment_with(&pool, &ManaCost::parse("{R}"), white_as_red(), prefer).unwrap();
+        assert_eq!(
+            remaining(&paid),
+            [(ManaColor::White, 1), (ManaColor::Red, 1)]
+        );
+    }
+
+    #[test]
+    fn directed_spending_reserves_exact_colors_and_snow() {
+        let mut pool = pool_of(&[(ManaColor::White, 1), (ManaColor::Red, 1)]);
+        assert!(pay_with(
+            &mut pool,
+            &ManaCost::parse("{W}{R}"),
+            white_as_red()
+        ));
+        assert!(pool.is_empty());
+
+        let mut pool = pool_of(&[(ManaColor::White, 1)]);
+        pool.add_snow(ManaColor::White, 1);
+        assert!(pay_with(
+            &mut pool,
+            &ManaCost::parse("{R}{S}"),
+            white_as_red()
+        ));
+        assert!(pool.is_empty());
+        let mut pool = pool_of(&[(ManaColor::White, 2)]);
+        assert!(!pay_with(
+            &mut pool,
+            &ManaCost::parse("{R}{S}"),
+            white_as_red()
+        ));
+        assert_eq!(pool.total(), 2);
+    }
+
+    #[test]
+    fn directed_spending_probe_payment_and_preferences_agree() {
+        for white in 0..=2 {
+            for red in 0..=2 {
+                for green in 0..=2 {
+                    let before = pool_of(&[
+                        (ManaColor::White, white),
+                        (ManaColor::Red, red),
+                        (ManaColor::Green, green),
+                    ]);
+                    for text in [
+                        "{W}{R}",
+                        "{X}{R}",
+                        "{1}{R/G}{W}",
+                        "{2/R}{2/G}",
+                        "{R/P}{W/R/P}",
+                        "{S}{R}",
+                        "{C}{R}",
+                    ] {
+                        let cost = ManaCost::parse(text).with_x(2);
+                        let possible = can_pay_with(&before, &cost, white_as_red());
+                        for color in ManaColor::ALL {
+                            let mut prefer = [0; 6];
+                            prefer[color.index()] = 2;
+                            assert_eq!(
+                                payment_with(&before, &cost, white_as_red(), prefer).is_some(),
+                                possible,
+                                "{text}"
+                            );
+                        }
+                        let mut pool = before.clone();
+                        assert_eq!(pay_with(&mut pool, &cost, white_as_red()), possible);
+                        if !possible {
+                            assert_eq!(pool, before);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn any_color_spending_preserves_colorless_and_pays_twobrid_with_one_unit() {
+        let pool = pool_of(&[(ManaColor::White, 1)]);
+        assert!(!can_pay_wild(&pool, &ManaCost::parse("{C}")));
+        let mut pool = pool_of(&[(ManaColor::Colorless, 1)]);
+        assert!(pay_wild(&mut pool, &ManaCost::parse("{2/R}")));
+        assert!(pool.is_empty());
+        let mut pool = ManaPool::new();
+        for color in ManaColor::ALL {
+            pool.add(color, 2);
+        }
+        let before = pool.clone();
+        let too_many = ManaCost::parse("{R}").combine_n(&ManaCost::parse("{R}"), 12);
+        assert!(!pay_wild(&mut pool, &too_many));
+        assert_eq!(
+            pool, before,
+            "an undersized rainbow pool is refused atomically"
+        );
+    }
 
     #[test]
     fn issue_158_snow_is_provenance_not_color() {

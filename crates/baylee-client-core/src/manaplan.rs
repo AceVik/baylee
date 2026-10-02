@@ -313,7 +313,23 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     // both are tried: the coloured half first (it is one mana, not two), then
     // the generic one. Everything else has a single reading.
     for generic_twobrid in [false, true] {
-        let needs = needs(cost, generic_twobrid)?;
+        let needs = needs(cost, generic_twobrid)?
+            .into_iter()
+            .map(|need| {
+                ManaColor::ALL
+                    .into_iter()
+                    .fold(ColorMask::NONE, |mask, actual| {
+                        if need
+                            .colors()
+                            .any(|required| pool.spending.permits(actual, required))
+                        {
+                            mask.with(actual)
+                        } else {
+                            mask
+                        }
+                    })
+            })
+            .collect::<Vec<_>>();
         if let Some(found) = assign(&needs, pool, sources) {
             return Some(Plan {
                 cost: *cost,
@@ -759,6 +775,54 @@ mod tests {
 
     fn empty() -> ManaPoolView {
         ManaPoolView::default()
+    }
+
+    #[test]
+    fn spending_permissions_plan_actual_mana_without_inventing_source_colors() {
+        let mut pool = empty();
+        pool.spending.allow(ManaColor::White, ManaColor::Red);
+        let sources = [land(1, ManaColor::White)];
+        for text in ["{R}", "{R/G}", "{2/R}", "{R/P}", "{R/G/P}"] {
+            let found =
+                plan(&cost(text), &pool, &sources).expect("white pays this red requirement");
+            assert_eq!(tapped(&found), [1]);
+            assert_eq!(
+                found.steps[0].color, None,
+                "a Plains produces white without a question"
+            );
+            assert_eq!(
+                found.cost,
+                cost(text),
+                "the cost retains its printed colors"
+            );
+        }
+        for text in ["{U}", "{B}", "{G}", "{C}", "{W}{R}"] {
+            assert!(plan(&cost(text), &pool, &sources).is_none(), "{text}");
+        }
+        let choices = [Source {
+            colors: vec![ManaColor::White, ManaColor::Blue],
+            ..land(2, ManaColor::White)
+        }];
+        let found = plan(&cost("{R}"), &pool, &choices).unwrap();
+        assert_eq!(
+            found.steps[0].color,
+            Some(ManaColor::White),
+            "produce the actual color"
+        );
+        pool.white = 1;
+        assert!(plan(&cost("{R}"), &pool, &sources).unwrap().is_empty());
+        let found = plan(&cost("{W}{R}"), &pool, &[land(3, ManaColor::Red)]).unwrap();
+        assert_eq!(
+            tapped(&found),
+            [3],
+            "reserve floating white for the white pip"
+        );
+        pool.white = 0;
+        pool.red = 1;
+        assert!(
+            plan(&cost("{W}"), &pool, &[]).is_none(),
+            "permission is one-way"
+        );
     }
 
     fn tapped(plan: &Plan) -> Vec<u32> {

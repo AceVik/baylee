@@ -33,11 +33,17 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object(id)
             .filter(|o| o.doors.is_room())
-            .map(|o| &self.state.players[o.controller.get() as usize].mana_pool);
+            .map(|o| {
+                (
+                    o.controller,
+                    &self.state.players[o.controller.get() as usize].mana_pool,
+                )
+            });
         (0..2_u8).filter(move |&half| {
-            pool.is_some_and(|pool| {
-                self.unlock_cost(id, half)
-                    .is_some_and(|cost| crate::mana_pay::can_pay(pool, &cost))
+            pool.is_some_and(|(player, pool)| {
+                self.unlock_cost(id, half).is_some_and(|cost| {
+                    super::casting::affordable(&self.state, player, pool, &cost)
+                })
             })
         })
     }

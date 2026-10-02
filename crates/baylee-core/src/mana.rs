@@ -8,6 +8,44 @@ use crate::color::{Color, ColorPair, ColorSet};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 
+/// Permissions to spend actual mana as another type, without changing that
+/// mana or the cost (CR 609.4b). Shared by payment and client planning.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct ManaSpending([u8; 6]);
+
+impl Default for ManaSpending {
+    fn default() -> Self {
+        Self::EXACT
+    }
+}
+
+impl ManaSpending {
+    /// Every type pays itself only.
+    pub const EXACT: Self = Self([1, 2, 4, 8, 16, 32]);
+
+    /// Any mana pays any colored requirement; only colorless pays `{C}`.
+    pub const ANY_COLOR: Self = Self([31, 31, 31, 31, 31, 63]);
+
+    /// Adds a directed permission. Compatible "as though" effects combine
+    /// (CR 609.4a), independent of their registration order.
+    pub fn allow(&mut self, from: ManaColor, to: ManaColor) {
+        self.0[from.index()] |= 1 << to.index();
+        for via in 0..6 {
+            for actual in 0..6 {
+                if self.0[actual] & (1 << via) != 0 {
+                    self.0[actual] |= self.0[via];
+                }
+            }
+        }
+    }
+
+    /// Whether one unit of `actual` can pay a requirement for `required`.
+    #[must_use]
+    pub const fn permits(self, actual: ManaColor, required: ManaColor) -> bool {
+        self.0[actual.index()] & (1 << required.index()) != 0
+    }
+}
+
 /// Variable mana symbols `{X}`, `{Y}`, `{Z}`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Variable {
@@ -1134,6 +1172,36 @@ impl ManaCost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spending_permissions_are_directed_idempotent_and_combine_in_any_order() {
+        let a = (ManaColor::White, ManaColor::Red);
+        let b = (ManaColor::Red, ManaColor::Green);
+        for edges in [[a, b], [b, a]] {
+            let mut spending = ManaSpending::default();
+            for (from, to) in edges {
+                spending.allow(from, to);
+                spending.allow(from, to);
+            }
+            assert!(spending.permits(ManaColor::White, ManaColor::Green));
+            assert!(spending.permits(ManaColor::White, ManaColor::White));
+            assert!(!spending.permits(ManaColor::Red, ManaColor::White));
+            assert!(!spending.permits(ManaColor::White, ManaColor::Colorless));
+            assert!(!spending.permits(ManaColor::Colorless, ManaColor::White));
+        }
+        for actual in ManaColor::ALL {
+            for required in ManaColor::ALL {
+                assert_eq!(
+                    ManaSpending::EXACT.permits(actual, required),
+                    actual == required
+                );
+                assert_eq!(
+                    ManaSpending::ANY_COLOR.permits(actual, required),
+                    required != ManaColor::Colorless || actual == required
+                );
+            }
+        }
+    }
 
     fn ridden(color: ManaColor, amount: u16, id: u32) -> RestrictedMana {
         RestrictedMana {

@@ -130,6 +130,9 @@ use serde::{Deserialize, Serialize};
 /// absent; older readers ignore the additional JSON field.
 /// Compatible addition: the public chosen opponent defaults to absent.
 /// Version 45 adds public permanent choices (`LogEvent::CardsKept`).
+/// Compatible addition: [`ManaPoolView::spending`] defaults to exact colors;
+/// older readers ignore this extra field and retain their conservative
+/// planning. Existing mana counts, enum variants and field types are unchanged.
 pub const VIEW_VERSION: u32 = 45;
 
 // ---------------------------------------------------------------- turn shape
@@ -1165,6 +1168,10 @@ pub struct HandObject {
 /// needs it — which is why it lives here and not only in the engine.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug, Serialize, Deserialize)]
 pub struct ManaPoolView {
+    /// Current permissions for spending this seat's mana as other types.
+    /// Counts below retain the mana's actual colors (CR 609.4b).
+    #[serde(default)]
+    pub spending: baylee_core::mana::ManaSpending,
     /// White mana.
     pub white: u16,
     /// Blue mana.
@@ -3366,6 +3373,7 @@ mod tests {
             ("Defender", json(serde_json::json!(defenders))),
             ("ManaColor", json(serde_json::json!(ManaColor::ALL))),
             ("ManaCost", json(serde_json::json!(costs))),
+            ("ManaSpending", json(serde_json::json!(spending_samples()))),
             ("ObjectId", json(serde_json::json!(ObjectId::new(12, 3)))),
             ("PlayerId", json(serde_json::json!(PlayerId::new(3)))),
             ("PrintRef", json(serde_json::json!(PrintRef::new(5)))),
@@ -3393,6 +3401,13 @@ mod tests {
                 ])),
             ),
         ]
+    }
+
+    fn spending_samples() -> [baylee_core::mana::ManaSpending; 3] {
+        use baylee_core::mana::{ManaColor, ManaSpending};
+        let mut white_as_red = ManaSpending::EXACT;
+        white_as_red.allow(ManaColor::White, ManaColor::Red);
+        [ManaSpending::EXACT, ManaSpending::ANY_COLOR, white_as_red]
     }
 
     #[test]
@@ -3444,8 +3459,10 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Public keep selections add a log enum variant: view 45.
-        const RECORDED: (u32, u64) = (45, 0xde63_d69d_aeea_25a6);
+        // Spending permissions add a defaulted field; old readers ignore
+        // it, while new readers default old pools to exact-color spending.
+        // No existing field or enum variant changes, so this remains view 45.
+        const RECORDED: (u32, u64) = (45, 0x133d_0b7d_4b0b_37fa);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =
@@ -3507,6 +3524,33 @@ mod tests {
             ..ManaPoolView::default()
         };
         assert!(!only.is_empty());
+    }
+
+    #[test]
+    fn an_older_mana_pool_defaults_to_exact_spending_and_current_permissions_round_trip() {
+        use baylee_core::mana::{ManaColor, ManaSpending};
+        let old_pool = serde_json::json!({
+            "white": 2, "blue": 0, "black": 0, "red": 0,
+            "green": 0, "colorless": 1, "restricted": [1, 0, 0, 0, 0, 0]
+        });
+        let mut pool: ManaPoolView = serde_json::from_value(old_pool.clone()).unwrap();
+        assert_eq!(pool.spending, ManaSpending::EXACT);
+        assert_eq!(
+            (pool.white, pool.red, pool.colorless, pool.restricted[0]),
+            (2, 0, 1, 1)
+        );
+        assert!(!pool.spending.permits(ManaColor::White, ManaColor::Red));
+        pool.spending.allow(ManaColor::White, ManaColor::Red);
+        let mut current = serde_json::to_value(pool).unwrap();
+        assert_eq!(
+            serde_json::from_value::<ManaPoolView>(current.clone()).unwrap(),
+            pool
+        );
+        current.as_object_mut().unwrap().remove("spending");
+        assert_eq!(
+            current, old_pool,
+            "the existing wire fields remain unchanged"
+        );
     }
 
     /// CR 704.5g: lethal damage is toughness minus marked damage at or below 0.

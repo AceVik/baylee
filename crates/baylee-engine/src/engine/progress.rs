@@ -2,7 +2,7 @@ use super::{
     AbilityDef, AbilityLoc, CardLookup, Cause, Cleanup, CombatDeclared, EndReason, Engine,
     GameEvent, GameObject, GameResult, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind,
     PlayerId, Resolution, SmallVec, Status, Step, Zone, ZoneLocation, ZonePosition, combat, eval,
-    mana_pay, resolve, sba, trigger,
+    resolve, sba, trigger,
 };
 use crate::choice::{
     CastModeDesc, CastModeKind, ChoicePrompt, PlayerAction, PriorityHold, SeatAutomation,
@@ -4923,8 +4923,12 @@ impl<L: CardLookup> Engine<L> {
             return false;
         }
         let active = self.state.turn.active;
-        let can_pay =
-            mana_pay::can_pay(&self.state.players[active.get() as usize].mana_pool, &cost);
+        let can_pay = super::casting::affordable(
+            &self.state,
+            active,
+            &self.state.players[active.get() as usize].mana_pool,
+            &cost,
+        );
         if !can_pay {
             // Echo with an empty pool: sacrifice immediately.
             let owner = self.state.object(card).map_or(active, |o| o.owner);
@@ -4961,10 +4965,7 @@ impl<L: CardLookup> Engine<L> {
         // This is "pay", not "you may pay": available mana must be spent.
         // An empty pool is not a refusal. CR 605.3a allows mana abilities
         // while an effect asks for payment, including this delayed debt.
-        if mana_pay::pay(
-            &mut self.state.players[active.get() as usize].mana_pool,
-            &cost,
-        ) {
+        if super::casting::pay_mana(&mut self.state, active, &cost) {
             return false;
         }
         self.pending_plan = Some(PlanKind::DelayedPay { cost });

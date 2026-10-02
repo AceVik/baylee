@@ -638,14 +638,16 @@ fn per_seat_zone(
 /// engine holds one `RestrictedMana` per production, so two taps of the same
 /// Cavern naming white are two entries; the view is what a player reads, and
 /// "two restricted white" is the reading — how it got there is not.
-fn mana_pool(pool: &baylee_core::mana::ManaPool) -> baylee_view::ManaPoolView {
+fn mana_pool(state: &GameState, player: PlayerId) -> baylee_view::ManaPoolView {
     use baylee_core::mana::ManaColor;
+    let pool = &state.players[player.get() as usize].mana_pool;
     let mut restricted = [0u16; 6];
     for mana in pool.restricted() {
         let slot = &mut restricted[mana.color.index()];
         *slot = slot.saturating_add(mana.amount);
     }
     baylee_view::ManaPoolView {
+        spending: baylee_engine::casting::mana_spending(state, player),
         white: pool.available(ManaColor::White),
         blue: pool.available(ManaColor::Blue),
         black: pool.available(ManaColor::Black),
@@ -968,7 +970,7 @@ pub fn player_view(
                 graveyard_count: state.zones.list(ZoneLocation::Graveyard(p.id)).len() as u32,
                 loss: p.loss.map(loss_cause),
                 house_answered: house_answered.get(p.id.get() as usize).copied().flatten(),
-                mana_pool: mana_pool(&p.mana_pool),
+                mana_pool: mana_pool(state, p.id),
                 commanders: state
                     .commanders
                     .get(p.id.get() as usize)
@@ -3742,6 +3744,34 @@ mod tests {
             .unwrap_or_else(|| panic!("{name} is on the battlefield"))
             .board_mana
             .as_ref()
+    }
+
+    #[test]
+    fn mana_spending_is_projected_per_seat_without_recoloring_the_pool() {
+        let (engine, _) = board(&[baylee_core::generated::index::SUNGLASSES_OF_URZA], &[]);
+        let mut state = engine.state().clone();
+        for player in &mut state.players {
+            player.mana_pool.add(ManaColor::White, 1);
+        }
+        for viewer in [PlayerId::new(0), PlayerId::new(1)] {
+            let view = player_view(&state, viewer, 1, None, &SeatContext::default(), &[]);
+            for seat in view.seats {
+                assert_eq!((seat.mana_pool.white, seat.mana_pool.red), (1, 0));
+                assert_eq!(
+                    seat.mana_pool
+                        .spending
+                        .permits(ManaColor::White, ManaColor::Red),
+                    seat.player == PlayerId::new(0),
+                    "the controller's permission is public but belongs only to that seat"
+                );
+                assert!(
+                    !seat
+                        .mana_pool
+                        .spending
+                        .permits(ManaColor::Red, ManaColor::White)
+                );
+            }
+        }
     }
 
     /// The defect this whole field exists for, measured at the board it was

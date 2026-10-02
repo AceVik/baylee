@@ -2422,6 +2422,9 @@ fn check_player_targets_match_the_printing(
 /// - "you may play those cards … and you may spend mana as though" —
 ///   `SearchTakeover`. A permission is not a decision: playing a card is
 ///   optional already, and there is nothing to ask.
+/// - "you may spend white mana as though it were red mana" — `SpendManaAs`.
+///   The permission adds a payment option while preserving ordinary payment;
+///   it neither produces mana nor asks for a separate resolution decision.
 /// - "you may play lands from your graveyard" / "you may play an additional
 ///   land on each of your turns" — `PlayLandsFromGraveyard` and
 ///   `ExtraLandDrops`, the same argument one rule further on. These widen
@@ -2495,6 +2498,7 @@ fn check_optional_clauses_are_offered(
         "PutFromHandOnTop",
         "ReorderTopLibrary",
         "SearchTakeover",
+        "SpendManaAs",
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
         "ExtraLandDrops",
@@ -6965,6 +6969,29 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_mana_spending_permission_needs_no_separate_may_question() {
+        let payload = serde_json::json!({
+            "oracle_text": "You may spend white mana as though it were red mana."
+        });
+        let mut tally = super::PrintingTally::default();
+        let mut problems = 0;
+        for (name, expected) in [("Sunglasses of Urza", 0), ("Fog", 1)] {
+            let def = baylee_cards::decks::by_name(name)
+                .and_then(baylee_cards::by_index)
+                .expect("fixture is registered");
+            super::check_optional_clauses_are_offered(
+                "fixture",
+                def,
+                &payload,
+                &mut tally,
+                &mut problems,
+            );
+            assert_eq!(problems, expected, "{name}");
+        }
+        assert_eq!(tally.optional_clauses, 2);
+    }
+
     /// "You control enchanted creature" is the change of control, not a
     /// filter the card forgot: Control Magic passes the scope check with no
     /// exception written for it, and a card that says "you control" with

@@ -12,7 +12,6 @@ use crate::choice::{
 use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
-use crate::mana_pay;
 use crate::object::{Characteristics, GameObject, ObjectKind};
 use crate::sba;
 use crate::state::GameState;
@@ -1756,8 +1755,7 @@ pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool
     // `pay` mutates the pool — never hide the call behind `debug_assert!`,
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
-    let actually_paid =
-        paid && mana_pay::pay(&mut state.players[player.get() as usize].mana_pool, &cost);
+    let actually_paid = paid && crate::casting::pay_mana(state, player, &cost);
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     // A tax runs its effect on a refusal and a price on a payment; the
     // other answer is the ability doing nothing more.
@@ -5788,6 +5786,51 @@ mod price_tests {
             1,
             "and nothing was taken"
         );
+    }
+
+    #[test]
+    fn directed_spending_pays_resolution_prices_and_taxes() {
+        static RED_PRICE: &[Effect] = &[Effect::PlayerMayPayManaThen {
+            player: PlayerRel::You,
+            cost: baylee_core::mana!("{R}"),
+            effects: std::slice::from_ref(&GAIN),
+        }];
+        static RED_TAX: &[Effect] = &[Effect::PlayerMayPayManaOr {
+            player: PlayerRel::You,
+            cost: baylee_core::mana!("{R}"),
+            effect: &GAIN,
+        }];
+        for (effects, gain) in [(RED_PRICE, 1), (RED_TAX, 0)] {
+            let (mut state, mut res) = resolving(effects, ManaColor::White);
+            let modifier = baylee_cards_dsl::Modifier::SpendManaAs {
+                from: ManaColor::White,
+                to: ManaColor::Red,
+            };
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: Some(res.source),
+                controller: me(),
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp: 1,
+                duration: baylee_cards_dsl::Duration::Indefinitely,
+                filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+                modifier,
+            });
+            assert!(
+                matches!(run(&mut state, &mut res), Flow::Wait(Pending::YesNo { prompt: YesNoPrompt::PayMana { cost }, .. }) if cost == baylee_core::mana!("{R}"))
+            );
+            assert!(crate::casting::affordable(
+                &state,
+                me(),
+                &state.players[0].mana_pool,
+                &baylee_core::mana!("{R}")
+            ));
+            let before = life(&state);
+            let _ = resume_tax_choice(&mut state, &mut res, true);
+            assert_eq!(life(&state), before + gain);
+            assert!(state.players[0].mana_pool.is_empty());
+        }
     }
 }
 

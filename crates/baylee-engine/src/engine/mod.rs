@@ -9,7 +9,6 @@ use crate::choice::{LegalActions, Pending, PlayerAction};
 use crate::combat::{self, AttackerInfo};
 use crate::eval;
 use crate::event::{Cause, GameEvent};
-use crate::mana_pay;
 use crate::object::{AbilityLoc, GameObject, ObjectKind, Status};
 use crate::resolve::{self, Resolution};
 use crate::sba;

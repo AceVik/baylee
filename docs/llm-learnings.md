@@ -2573,3 +2573,32 @@ land type"; both are convention tests that fire on a first try.
 - Read official CR 404.3, 704.3 and 113.6b/m in the September 25 rules, plus
   WotC rulings through Scryfall for `11988c46-6d0c-46a8-85aa-8c6da72bfe30`.
   The corpus was used as a lookup reference only.
+
+## Alpha Sunglasses of Urza (Codex + Astra xhigh, 2026-10-02)
+
+- **Broaden payment permission, not mana production.** White paying a red
+  requirement is still white in the payment record. Preserve restrictions,
+  snow provenance and spend riders; do not recolor the pool or rewrite costs.
+  CR 609.4b was read in the current official rules before implementation.
+- **Publish the same permission to planning.** An engine accepting white mana
+  for red is insufficient if the client cannot propose tapping a Plains.
+  A default-exact permission matrix travels with the mana-pool view and lets
+  the planner choose actual source colors for expanded requirements.
+- **Reserve constrained mana and prune impossible assignments.** The Sol
+  `medium` review found a potential combinatorial regression when a global
+  any-color permission branches on each pip of an unpayable cost. A minimum
+  remaining-mana bound avoids that case; mixed white/red and snow costs test
+  that flexible payments cannot consume a later constrained requirement.
+- **A generated index does not mean a card is in the playable registry.**
+  Lightning Helix and Humility constants existed, but the test fixture rejected
+  those cards. The final scenarios use registered Thorin Oakenshield for `{R}{W}`
+  and Oko's real ability to remove the Glasses' ability.
+- Direct fixture zone changes need static-effect synchronization before
+  refreshing legality. `refresh_offer` republishes the question; it does not
+  run the engine machine. Real casting and activation scenarios exercise that
+  lifecycle without manual synchronization.
+- Astra `xhigh` implemented the payment paths; Sol `medium` independently
+  reviewed the card and coverage. The parent supplied card behavior scenarios,
+  including Ancient Ziggurat's real restricted white mana, and integration gates.
+  Oracle was read live through Scryfall; no card-specific rulings were returned.
+  The corpus was read only as a lookup reference.

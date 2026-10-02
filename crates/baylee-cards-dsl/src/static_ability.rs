@@ -395,6 +395,15 @@ pub enum Modifier {
     /// Players may spend mana as though it were mana of any color
     /// (Mycosynth Lattice).
     ManaIsAnyColor,
+    /// The controller may spend mana of `from` as though it were `to`
+    /// (Sunglasses of Urza). A payment permission, not a color change:
+    /// costs and the mana actually spent remain unchanged (CR 609.4b).
+    SpendManaAs {
+        /// The actual type of mana being spent.
+        from: baylee_core::mana::ManaColor,
+        /// The type of requirement that mana may also pay.
+        to: baylee_core::mana::ManaColor,
+    },
     /// While an opponent searches their library, the effect's controller
     /// makes the search choices and the found cards go to exile playable
     /// by them (Opposition Agent).
@@ -743,6 +752,7 @@ impl Modifier {
             | Self::PlayerHexproof
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
+            | Self::SpendManaAs { .. }
             | Self::SearchTakeover
             | Self::DoesNotUntap
             | Self::MayChooseNotToUntap
@@ -1095,6 +1105,10 @@ mod tests {
             Modifier::PlayerHexproof,
             Modifier::SorceriesHaveFlash,
             Modifier::ManaIsAnyColor,
+            Modifier::SpendManaAs {
+                from: baylee_core::mana::ManaColor::White,
+                to: baylee_core::mana::ManaColor::Red,
+            },
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,

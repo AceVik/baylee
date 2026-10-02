@@ -2,7 +2,8 @@
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
 > never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
-> Bond, Consecrate Land, Animate Artifact and Nether Shadow, 28 Alpha cards remain Partial.
+> Bond, Consecrate Land, Animate Artifact, Nether Shadow and Sunglasses of Urza,
+> 27 Alpha cards remain Partial.
 > See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
@@ -1197,3 +1198,78 @@ Inventory by first-printing Oracle identity: **258 Implemented / 28 Partial /
 4 explicit exclusions**. Alpha remains incomplete. The feedback service was
 rechecked: 50 resolved and the Windows Vulkan report still open, awaiting relevant
 hardware verification. No report was closed in this batch. No push or deployment.
+
+## Alpha continuation — Sunglasses of Urza, 2026-10-02
+
+Sunglasses of Urza now grants its controller permission to spend white mana
+on red requirements. It does not produce mana, change printed costs, recolor
+the pool, or change the colors actually spent. Source control, departure,
+phasing and ability loss determine whether the permission exists now.
+
+Astra `xhigh` implemented the shared spending matrix, engine payment/offer
+paths, and client planning. Gamehost publishes it per seat with exact-color
+defaults for older view payloads. White mana retains its restrictions, snow
+provenance and spend riders. Mycosynth Lattice uses the same matcher and now
+correctly preserves explicit colorless requirements and the one-mana colored
+alternative of a twobrid symbol. Sol `medium` independently reviewed the
+implementation and tests; its unpayable-cost branching concern was fixed with
+minimum-mana pruning and a regression.
+
+The **15 card tests** cover both controller seats, wrong colors/direction,
+opponents, battlefield-only operation, phasing, ordinary white payment,
+mixed `{R}{W}` costs, recorded payment color, red activated abilities, X,
+multiple copies, real Steal Artifact control change, Oko removing the ability,
+and Ancient Ziggurat's restricted white mana. Generic payment tests cover
+hybrid/Phyrexian/twobrid symbols, snow/colorless requirements, restricted-mana
+riders and colored resolution prices. Client and gamehost tests verify actual
+source colors, planning and per-seat projection.
+
+The optional-clause validator previously treated “You may spend …” as a missing
+question. It now recognizes `SpendManaAs` as a permission, alongside its existing
+play/cast permission cases. A regression accepts Sunglasses and still rejects a
+definition with no permission. The old cast-only Partial census no longer lists
+this completed card. No corpus source file was copied.
+
+Regression evidence: core 113, cards 129, DSL 60 plus walker 1, AI 201,
+client-core 1182 plus 7 integration tests (1 ignored) passed in
+`/private/tmp/baylee-sunglasses-regression.log`. Its sole engine failure was the
+obsolete Partial census asserting that Sunglasses was still Partial. After
+updating that census, all **4425 engine tests passed, 2 ignored**, plus footprint
+2 and benchmark smoke checks. Gamehost 200 (2 ignored) plus 41 integration tests
+and protocol 30 passed in `/private/tmp/baylee-sunglasses-regression-final.log`.
+That run reached the view wire-shape guard, which required a sample of the new
+core permission type and an updated recorded fingerprint. The validator's new
+positive/negative test passes in `/private/tmp/baylee-sunglasses-validator-test.log`.
+The previously documented seat self-play p90 failure was not rerun or fixed.
+
+After adding the new permission type to the view schema samples, all **37 view
+tests** pass, including legacy defaulting and current round-trip coverage.
+Workspace/all-targets Clippy with warnings denied passes:
+`/private/tmp/baylee-sunglasses-clippy.log`. Formatting and diff checks pass.
+Tables were regenerated twice and full codegen check is up to date:
+`/private/tmp/baylee-sunglasses-codegen-check.log`. The corrected validator checks
+all 2955 card headers successfully: `/private/tmp/baylee-sunglasses-validate-final.log`.
+Live Oracle matched the implementation; the Scryfall rulings endpoint returned
+no card-specific rulings.
+
+Native acceptance also passed at 1280×800 logical pixels: with Sunglasses and
+one Plains, clicking Lightning Bolt armed a `{R}` plan using that Plains's
+intrinsic mana ability. Sending the plan and targeting the house AI resolved
+the Bolt, reducing its life from 40 to 37 without an engine error. The view
+reported `[9, 2, 4, 8, 16, 32]` spending permissions for the controller and
+exact-color permissions for the opponent. Automatic priority advancement had
+already reached the next upkeep when the final state was captured, so that
+state is not evidence of the Plains's intermediate tapped state.
+Screenshots were captured and visually inspected:
+`/private/tmp/baylee-sunglasses-plan.png` and
+`/private/tmp/baylee-sunglasses-result.png`; final state:
+`/private/tmp/baylee-sunglasses-result.json`. The initial screenshot includes
+the card hover preview; the result screenshot shows the unobscured table.
+The native build succeeded with the existing macOS debug-linker warning about
+the `__eh_frame` section exceeding compact-unwind's 16 MB limit:
+`/private/tmp/baylee-sunglasses-native-build.log`.
+
+Inventory by first-printing Oracle identity: **259 Implemented / 27 Partial /
+4 explicit exclusions**. Alpha remains incomplete. Feedback was rechecked:
+50 resolved and the same Windows Vulkan report remains open. No report was closed,
+and no push or deployment was performed.
