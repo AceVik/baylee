@@ -220,7 +220,7 @@ Already implemented in f423882a/e1a97c88. The engine tests play the exile abilit
 Food token auf dem Stack zeigt weder Bild vom Token noch die Ability.
 Food token Fähigkeit nur nutzbar, wenn vorher Mana manuell getappt, das sollte auch automatisch möglich sein, wie bei den Handkarten, wenn genug Mana verfügbar ist. (Betrifft alles auf dem Feld, auch Equip)
 
-Status: fixed and source/native verified; feedback closure pending.
+Status: resolved in the feedback service (2091fa1e; source/native verified; not deployed).
 
 Food now pays automatically and retains its token image and full ability
 sentence after sacrifice, including in a freshly reconstructed client view.
@@ -439,3 +439,11 @@ error. Evidence: /private/tmp/baylee-food-stack.png,
 a second fixture named an unavailable card and was corrected before the
 successful visual run. Its crash report was not sent. Test clients stopped.
 No push or deployment.
+
+
+Milestone 2091fa1e is committed. The feedback API confirmed the Food report
+as `resolved`: 21 of the original 25 reports are resolved, four remain open.
+Next: dense creature layout and larger readable permanents/preview, followed
+by login transition/music and the platform-specific sky/table report. The
+known baseline seat selfplay wake-count failure remains on the testing
+backlog. Alpha's four Partial cards follow the remaining feedback work.
