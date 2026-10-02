@@ -930,6 +930,18 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        for entry in self
+            .state
+            .journal
+            .entries()
+            .iter()
+            .skip(self.trigger_scan_seq as usize)
+        {
+            if let Some(departure) = &entry.departure {
+                extra = extra.wrapping_mul(31).wrapping_add(entry.seq);
+                extra = extra.wrapping_mul(31).wrapping_add(departure.fingerprint());
+            }
+        }
         if self.library_announcement_open() {
             for top in self.library_action_tops.iter().flatten() {
                 extra = extra.wrapping_mul(31).wrapping_add(top.map_or(0, |id| {
@@ -938,6 +950,12 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra =
+                extra
+                    .wrapping_mul(31)
+                    .wrapping_add(trigger.event_departure.map_or(0, |(p, t)| {
+                        1 + u64::from(p.get()) + (u64::from(t as u16) << 8)
+                    }));
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .counter_source_version

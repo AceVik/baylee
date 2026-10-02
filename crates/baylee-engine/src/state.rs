@@ -2779,6 +2779,22 @@ impl GameState {
         })
     }
 
+    /// Battlefield information before a simultaneous destruction starts.
+    pub(crate) fn departure_snapshot(&self, id: ObjectId) -> Option<crate::event::Departure> {
+        let object = self.object(id).filter(|o| o.zone == Zone::Battlefield)?;
+        Some(crate::event::Departure {
+            controller: object.controller,
+            toughness: object.characteristics().toughness.unwrap_or(0),
+            attachments: self
+                .battlefield_seen()
+                .filter(|other| {
+                    self.object(*other)
+                        .is_some_and(|o| o.attached_to == Some(id))
+                })
+                .collect(),
+        })
+    }
+
     /// Moves an object between zones (CR 400.7: `version` bumps — it
     /// becomes a new object for rules that track identity).
     ///
@@ -2794,6 +2810,20 @@ impl GameState {
         to: ZoneLocation,
         pos: ZonePosition,
         cause: Cause,
+    ) -> Result<ObjectId, StateError> {
+        self.move_object_with_departure(id, to, pos, cause, None)
+    }
+
+    /// A batch move supplies the battlefield information captured before any
+    /// member of the simultaneous event left.
+    #[allow(clippy::too_many_lines)] // one reset per field CR 400.7 clears
+    pub(crate) fn move_object_with_departure(
+        &mut self,
+        id: ObjectId,
+        to: ZoneLocation,
+        pos: ZonePosition,
+        cause: Cause,
+        departure: Option<crate::event::Departure>,
     ) -> Result<ObjectId, StateError> {
         let (from_zone, from_player) = {
             let obj = self.object(id).ok_or(StateError::NoSuchObject(id))?;
@@ -3083,13 +3113,32 @@ impl GameState {
             ZoneLocation::Library(_) => Some(library_place(pos, self.zones.list(to).len())),
             _ => None,
         };
-        self.journal.record(GameEvent::ZoneChanged {
-            object: id,
-            from: from_zone,
-            to: to.zone(),
-            cause,
-            place,
+        let departure = departure.or_else(|| {
+            (from_zone == Zone::Battlefield).then(|| crate::event::Departure {
+                controller: self
+                    .last_known_controller(id)
+                    .expect("departure controller"),
+                toughness: self
+                    .last_known_characteristics(id)
+                    .and_then(|c| c.toughness)
+                    .unwrap_or(0),
+                attachments: self
+                    .ltb_attachments
+                    .iter()
+                    .find(|(host, _)| *host == id)
+                    .map_or_else(Vec::new, |(_, worn)| worn.clone()),
+            })
         });
+        self.journal.record_departure(
+            GameEvent::ZoneChanged {
+                object: id,
+                from: from_zone,
+                to: to.zone(),
+                cause,
+                place,
+            },
+            departure,
+        );
         if let Some(kind) = exile_counter {
             crate::replacement::put_counters(self, id, kind, 1);
         }
@@ -3941,6 +3990,11 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     // creature will survive are different situations.
     h.u8(obj.regeneration_shields);
     h.option_u32(obj.source_power_lki.map(|p| p as u32));
+    let departure = obj.riders.iter().find_map(|r| match r {
+        crate::object::Rider::EventDeparture(p, t) => Some((*p, *t)),
+        _ => None,
+    });
+    departure.hash(h);
     // What was paid is part of what the spell will do: Neoform after a
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
@@ -4267,6 +4321,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 version.hash(h);
             }
             Rider::Dashed => h.u8(14),
+            Rider::EventDeparture(p, toughness) => {
+                h.u8(19);
+                p.hash(h);
+                toughness.hash(h);
+            }
             Rider::EventPlayer(p) => {
                 h.u8(15);
                 h.u8(p.get());

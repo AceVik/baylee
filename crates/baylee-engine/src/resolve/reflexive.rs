@@ -55,6 +55,7 @@ pub(super) fn arm(
             counter_source_version: None,
             event_mana: None,
             event_mana_value: None,
+            event_departure: None,
             event_damage: None,
             source: res.source,
             ability_index: AbilityRef::SYNTHETIC,

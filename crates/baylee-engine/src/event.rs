@@ -465,6 +465,33 @@ pub enum LossReason {
     Effect,
 }
 
+/// Immutable battlefield information for a zone-change event. Kept on the
+/// journal entry because an object may move again before triggers are collected.
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct Departure {
+    /// Controller immediately before departure.
+    pub controller: PlayerId,
+    /// Toughness immediately before departure (zero for a noncreature).
+    pub toughness: i16,
+    /// Auras/equipment attached immediately before departure.
+    pub attachments: Vec<ObjectId>,
+}
+
+impl Departure {
+    /// Stable continuation fingerprint while a departure awaits trigger collection.
+    pub(crate) fn fingerprint(&self) -> u64 {
+        let mut hash =
+            1 + u64::from(self.controller.get()) + (u64::from(self.toughness as u16) << 8);
+        for id in &self.attachments {
+            hash = hash.wrapping_mul(31).wrapping_add(u64::from(id.slot()));
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(id.generation()));
+        }
+        hash
+    }
+}
+
 /// One journaled entry.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct JournalEntry {
@@ -472,6 +499,9 @@ pub struct JournalEntry {
     pub seq: u64,
     /// The event.
     pub event: GameEvent,
+    /// Last battlefield information, present only on a departure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub departure: Option<Box<Departure>>,
 }
 
 /// The append-only event journal.
@@ -484,7 +514,22 @@ impl Journal {
     /// Appends an event, returning its sequence number.
     pub fn record(&mut self, event: GameEvent) -> u64 {
         let seq = self.entries.len() as u64 + 1;
-        self.entries.push(JournalEntry { seq, event });
+        self.entries.push(JournalEntry {
+            seq,
+            event,
+            departure: None,
+        });
+        seq
+    }
+
+    /// Record a zone change with its immutable battlefield information.
+    pub(crate) fn record_departure(
+        &mut self,
+        event: GameEvent,
+        departure: Option<Departure>,
+    ) -> u64 {
+        let seq = self.record(event);
+        self.entries.last_mut().expect("just recorded").departure = departure.map(Box::new);
         seq
     }
 

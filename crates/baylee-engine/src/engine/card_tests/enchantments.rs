@@ -5,6 +5,7 @@
 use super::*;
 use baylee_cards_dsl::counters;
 
+mod creature_bond;
 mod gloom;
 
 fn circle_of_protection_red() -> CardIndex {
@@ -22048,9 +22049,7 @@ fn creature_bond() -> CardIndex {
     card_index("70492e32-ba4d-4314-b016-892fb15f7a23")
 }
 
-/// Creature Bond — PARTIAL: only "Enchant creature" is modeled; the damage
-/// trigger on the enchanted creature's death is not. Offered only a
-/// creature, never Sol Ring, and ends attached to the Elves.
+/// Creature Bond targets a creature, never Sol Ring, and attaches to the Elves.
 #[test]
 fn creature_bond_attaches_only_to_a_creature() {
     let p0 = PlayerId::new(0);

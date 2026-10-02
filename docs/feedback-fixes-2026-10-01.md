@@ -1,8 +1,8 @@
 # Feedback pass, 1 October 2026
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
-> never a complete set inventory. After Gloom and Cyclopean Tomb, 32 other
-> Alpha cards remain Partial. See [the complete inventory](set-progress.md);
+> never a complete set inventory. After Gloom, Cyclopean Tomb and Creature
+> Bond, 31 Alpha cards remain Partial. See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
 Source: the live feedback service, read on 1 October 2026. A report is closed
@@ -1005,3 +1005,37 @@ incomplete; Beta/Arabian Nights must not be called complete or begun on the
 basis of the old worklist. This correction supersedes every earlier "last
 remaining Alpha card" statement in this chronological log. No feedback ticket
 was closed, no push or deployment was made.
+
+## Alpha milestone — Creature Bond (2026-10-02)
+
+Implemented the complete death trigger. The Aura deals preventable damage equal
+to the enchanted creature's last battlefield toughness to that creature's last
+controller. It does not target the player. Negative toughness deals no damage.
+The death-time values survive token cleanup, later reanimation and a return
+within the same resolution before trigger collection.
+
+The engine now retains departure context on the journal/queued trigger/stack
+ability. Simultaneous `DestroyAll` captures attachments before removing anything,
+so Nevinyrral's Disk gives the same result with either internal Aura/host order.
+The journal field is optional when reading old serialized entries.
+
+Validation:
+- 14 Creature Bond tests (13 new plus the existing Aura-target test), including
+  cast Terror, prevention, player hexproof, counters and marked damage, stolen
+  creatures, tokens, zero/negative toughness, simultaneous destruction, two
+  reanimation timings, Aura removal, exile and replay/loop hashes.
+- Broad all-target regression: engine 4335 passed / 2 ignored plus 2 footprint
+  tests and benchmark smoke checks; AI 201; cards 129; DSL 60 plus walker guard;
+  client-core 1180 plus 7 integration / 1 ignored; gamehost 199 / 2 ignored plus
+  integrations; protocol and view suites passed. Log:
+  `/private/tmp/baylee-bond-regression.log`.
+- Workspace all-target Clippy with `-D warnings` passed. Codegen tables run twice,
+  full `codegen --check` up to date, and all 2955 cards pass header validation.
+  Cached payload age remains 12 days; the specific card's live Oracle endpoint
+  was checked too. No renderer change or new native screenshot in this batch.
+- Full first-printing Oracle inventory rechecked: **255 Implemented, 31 Partial,
+  4 existing scope exclusions**. Alpha remains incomplete. No later set started.
+
+The previously documented seat self-play p90 baseline was not part of this
+selected regression run; this entry does not claim a green whole-workspace test
+run. No push, deployment or feedback-ticket closure belongs to this milestone.

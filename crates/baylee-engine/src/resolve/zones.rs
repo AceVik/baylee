@@ -267,13 +267,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
                 })
                 .collect();
-            for id in all {
-                if no_regen {
-                    sba::destroy_no_regen(state, id);
-                } else {
-                    sba::destroy(state, id);
-                }
-            }
+            sba::destroy_all(state, &all, no_regen);
             None
         }
         // Farewell's four sweeps. Nothing is targeted, and a phased-out

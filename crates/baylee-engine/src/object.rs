@@ -798,6 +798,8 @@ pub enum Rider {
     /// field because `GameObject` had no byte to spare for it
     /// (`tests/footprint.rs`), and a triggered ability carries no other.
     EventPlayer(PlayerId),
+    /// Event-time controller and toughness of a departed permanent.
+    EventDeparture(PlayerId, i16),
     /// Opponent chosen as this permanent entered; not a target. Stored in
     /// the sparse rider list to preserve the per-object size budget.
     ChosenOpponent(PlayerId),
@@ -879,6 +881,7 @@ impl Rider {
             | Self::Escaped
             // "That player" of a triggered ability on the stack, which is
             // never in exile.
+            | Self::EventDeparture(..)
             | Self::EventPlayer(_) => false,
         }
     }

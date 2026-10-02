@@ -299,6 +299,24 @@ the same path. `Amount::UntappedLandsAtTurnStart` reads it throughout the turn,
 independently of whether the requesting ability existed at the boundary.
 The value participates in both the snapshot hash and the loop signature.
 
+### Immutable departure context
+
+A battlefield departure's `JournalEntry::departure` records its controller,
+toughness and attached permanents. It survives later moves of the object within
+one resolution. `PendingTrigger::event_departure` carries the numeric/controller
+context into `Rider::EventDeparture` on the stack; Creature Bond reads it through
+`Amount::EventLastToughness` and `PlayerRel::ControllerOfEvent`. Thus reanimation
+before collection or resolution cannot substitute new characteristics.
+
+`Effect::DestroyAll` snapshots every member before destruction starts, then uses
+`sba::destroy_all` and `move_object_with_departure`. This retains an Aura's
+attachment even if the destruction loop happens to visit that Aura before its
+host. Individual moves use the ordinary LKI snapshot. Indestructibility and
+regeneration still use the same destruction checks. Pending event context and
+queued captures participate in the engine snapshot; the stack rider participates
+in both state snapshot and loop signature. Existing serialized journal entries
+without a departure remain readable via the field's serde default.
+
 ### Damage dealt to a player
 
 `GameState::damage_player` is the door for damage that reaches a player, as

@@ -2366,6 +2366,11 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some((controller, toughness)) = trigger.event_departure {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventDeparture(controller, toughness));
+            }
             if let Some(version) = trigger.counter_source_version {
                 object
                     .riders
@@ -2917,6 +2922,10 @@ impl<L: CardLookup> Engine<L> {
                     // nothing — undying and persist put a trigger on the stack
                     // that resolved into silence.
                     obj.event_object = t.event_object;
+                    if let Some((p, toughness)) = t.event_departure {
+                        obj.riders
+                            .push(crate::object::Rider::EventDeparture(p, toughness));
+                    }
                     if let Some(version) = t.counter_source_version {
                         obj.riders
                             .push(crate::object::Rider::CounterSourceVersion(version));
@@ -4224,6 +4233,10 @@ impl<L: CardLookup> Engine<L> {
             // Same as the sibling site: the chosen targets are one handle and
             // the event object is another.
             obj.event_object = t.event_object;
+            if let Some((p, toughness)) = t.event_departure {
+                obj.riders
+                    .push(crate::object::Rider::EventDeparture(p, toughness));
+            }
             if let Some(version) = t.counter_source_version {
                 obj.riders
                     .push(crate::object::Rider::CounterSourceVersion(version));
@@ -4476,6 +4489,7 @@ impl<L: CardLookup> Engine<L> {
                     counter_source_version: None,
                     event_mana: None,
                     event_mana_value: None,
+                    event_departure: None,
                     event_damage: None,
                     source: id,
                     ability_index: *ability_index,
@@ -4869,6 +4883,7 @@ impl<L: CardLookup> Engine<L> {
                 event_damage: None,
                 event_mana: None,
                 event_mana_value: None,
+                event_departure: None,
                 source,
                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
                 abilities: None,

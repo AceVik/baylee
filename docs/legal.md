@@ -574,3 +574,10 @@ symbols. Card images, attribution, fonts and existing mana symbols are unchanged
 Cyclopean Tomb (2026-10-02) follows the same owner-approved rules-implementation
 exception above. Its new mark-removal prompt is ordinary text using the existing
 licensed fonts. No card artwork, symbols, font or other asset is added.
+
+Creature Bond (2026-10-02) follows the owner-approved rules-implementation
+exception above. The policy's instruction “Tell the Community it’s unofficial.”
+([official page](https://company.wizards.com/en/legal/fancontentpolicy), checked
+2026-10-02) remains satisfied by the existing project notices. This rules/test
+change introduces no artwork, symbol, font or other shipped asset; the existing
+Scryfall attribution and complete-image rendering path is unchanged.

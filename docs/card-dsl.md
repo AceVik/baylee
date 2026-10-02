@@ -2183,6 +2183,16 @@ Effects:
 
 Triggers, reflexive events and amounts:
 
+- **`Amount::EventLastToughness`** reads a departed permanent's last battlefield
+  toughness from the triggering event, clamped at zero. Creature Bond pairs it
+  with `Trigger::Dies(&Filter::AttachedToBySource)` and untargeted
+  `TargetSpec::Player(PlayerRel::ControllerOfEvent)`. Departure events retain
+  controller, toughness and attachments before any later move can erase them;
+  the queued trigger and stack ability carry their own copy. The controller
+  relation prefers this captured controller over the object's current owner or
+  controller. Damage still goes through ordinary prevention and is sourced by
+  the Aura, not the dead creature.
+
 - **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
   What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
   cost discards the card, and the effect draws one card. Typecycling is not

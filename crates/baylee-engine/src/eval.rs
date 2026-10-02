@@ -401,6 +401,7 @@ pub fn amount(
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::TargetPower
         | Amount::TargetCmc
+        | Amount::EventLastToughness
         | Amount::EventAmount
         | Amount::TargetsPutIntoGraveyard => 0,
         // The object the payment wrote it on. A resolution asks

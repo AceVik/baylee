@@ -528,7 +528,7 @@ pub fn apply_legend_choice(
 /// Lethal damage routes through here, so a shielded creature survives a
 /// Lightning Bolt and a "destroy target creature" by the same line.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, true);
+    destroy_with(state, id, true, None);
 }
 
 /// Destroys a permanent whose destruction a card said it could not be
@@ -541,7 +541,7 @@ pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
 /// overload — and every one of them was correct for free while no shield
 /// existed at all.
 pub fn destroy_no_regen(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, false);
+    destroy_with(state, id, false, None);
 }
 
 /// The two doors above, and the order the rules put their questions in.
@@ -557,7 +557,12 @@ pub fn destroy_no_regen(state: &mut GameState, id: baylee_core::ids::ObjectId) {
 /// damage is what the rule removes, and a creature that kept the deathtouch
 /// mark would be judged lethal again by the very next state-based check,
 /// which would spend the next shield and then kill it.
-fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regeneratable: bool) {
+fn destroy_with(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    regeneratable: bool,
+    departure: Option<crate::event::Departure>,
+) {
     // Only a permanent is destroyed (CR 701.8a: "move it from the
     // battlefield"). A delayed "destroy that creature" whose creature went
     // back to its owner's hand names a card that stays there.
@@ -595,7 +600,22 @@ fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regenerat
         state.combat.remove_from_combat(id);
         return;
     }
-    put_into_graveyard(state, id);
+    put_into_graveyard_with_departure(state, id, departure);
+}
+
+/// Destroy a simultaneous set, retaining attachments before any member leaves.
+pub(crate) fn destroy_all(
+    state: &mut GameState,
+    objects: &[baylee_core::ids::ObjectId],
+    no_regen: bool,
+) {
+    let departures: Vec<_> = objects
+        .iter()
+        .map(|id| (*id, state.departure_snapshot(*id)))
+        .collect();
+    for (id, departure) in departures {
+        destroy_with(state, id, !no_regen, departure);
+    }
 }
 
 /// Moves a permanent to its owner's graveyard without destroying it.
@@ -608,6 +628,14 @@ fn destroy_with(state: &mut GameState, id: baylee_core::ids::ObjectId, regenerat
 /// (CR 704.5m). Indestructible saves a permanent from destruction and from
 /// none of those.
 pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId) {
+    put_into_graveyard_with_departure(state, id, None);
+}
+
+fn put_into_graveyard_with_departure(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    departure: Option<crate::event::Departure>,
+) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
     // Only the kind. The marked damage and the deathtouch flag used to be
     // cleared here too, which was this one caller doing by hand what every
@@ -616,11 +644,12 @@ pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId)
     if let Some(obj) = state.object_mut(id) {
         obj.kind = ObjectKind::Card;
     }
-    let _ = state.move_object(
+    let _ = state.move_object_with_departure(
         id,
         ZoneLocation::Graveyard(owner),
         ZonePosition::Top,
         Cause::StateBased,
+        departure,
     );
 }
 

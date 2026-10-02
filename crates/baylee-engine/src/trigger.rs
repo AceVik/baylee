@@ -51,6 +51,8 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// The event permanent's mana value before leaving the battlefield.
     pub event_mana_value: Option<u32>,
+    /// Controller and toughness captured before the event permanent left play.
+    pub event_departure: Option<(PlayerId, i16)>,
     /// Actual production captured for a triggered mana ability.
     pub event_mana: Option<EventMana>,
     /// The player a damage event dealt damage to, and how much: "that
@@ -186,6 +188,10 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
+                                event_departure: entry
+                                    .departure
+                                    .as_ref()
+                                    .map(|d| (d.controller, d.toughness)),
                                 event_damage,
                                 source: emblem,
                                 ability_index: index as u32,
@@ -305,6 +311,7 @@ pub fn state_triggers(
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
+                event_departure: None,
                 event_damage: None,
                 source: permanent,
                 ability_index: index,
@@ -353,6 +360,7 @@ fn replicate_triggers(
             event_damage: None,
             event_mana: None,
             event_mana_value: None,
+            event_departure: None,
             source: object,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             abilities: None,
@@ -432,6 +440,7 @@ fn watch_triggers(
             event_damage: None,
             event_mana: None,
             event_mana_value: None,
+            event_departure: None,
             source,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             abilities: None,
@@ -592,6 +601,7 @@ fn monarch_triggers(
         counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
+        event_departure: None,
         event_damage: None,
         source: ObjectId::NO_SOURCE,
         ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -850,6 +860,7 @@ fn cast_this_spell_triggers(
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
+                event_departure: None,
                 source: object,
                 ability_index: index as u32,
                 abilities: Some(list),
@@ -916,6 +927,30 @@ fn hits(
         },
         _ => u32::from(matches(trigger, event, batch, state, source, you)) * repeats(event),
     }
+}
+
+fn departure_hit(
+    trigger: &Trigger,
+    entry: &crate::event::JournalEntry,
+    source: ObjectId,
+) -> Option<u32> {
+    if matches!(
+        *trigger,
+        Trigger::Dies(&baylee_cards_dsl::Filter::AttachedToBySource)
+    ) && matches!(
+        entry.event,
+        GameEvent::ZoneChanged {
+            from: Zone::Battlefield,
+            to: Zone::Graveyard,
+            ..
+        }
+    ) {
+        return entry
+            .departure
+            .as_ref()
+            .map(|d| u32::from(d.attachments.contains(&source)));
+    }
+    None
 }
 
 /// A leaves-the-battlefield trigger's filter, asked of the object as it
@@ -1099,6 +1134,7 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_departure: None,
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1201,6 +1237,7 @@ fn collect_for_objects(
                                 counter_source_version: None,
                                 event_mana: None,
                                 event_mana_value: None,
+                                event_departure: None,
                                 event_damage: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1234,14 +1271,16 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                let hit = hits(
-                    trigger,
-                    &entry.event,
-                    events,
-                    state,
-                    permanent,
-                    obj.controller,
-                );
+                let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
+                    hits(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        permanent,
+                        obj.controller,
+                    )
+                });
                 if hit > 0 {
                     let event_object = event_object_for(trigger, &entry.event, permanent);
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
@@ -1250,6 +1289,10 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_departure: entry
+                                .departure
+                                .as_ref()
+                                .map(|d| (d.controller, d.toughness)),
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1296,6 +1339,7 @@ fn collect_for_objects(
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
+                            event_departure: None,
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -1338,14 +1382,16 @@ fn collect_for_objects(
                 continue;
             }
             for entry in events {
-                let hit = hits(
-                    trigger,
-                    &entry.event,
-                    events,
-                    state,
-                    permanent,
-                    obj.controller,
-                );
+                let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
+                    hits(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        permanent,
+                        obj.controller,
+                    )
+                });
                 if hit > 0 {
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     let event_object = event_object_for(trigger, &entry.event, permanent);
@@ -1373,6 +1419,10 @@ fn collect_for_objects(
                             }),
                             event_mana: produced_mana(&entry.event, events),
                             event_mana_value: None,
+                            event_departure: entry
+                                .departure
+                                .as_ref()
+                                .map(|d| (d.controller, d.toughness)),
                             event_damage,
                             source: permanent,
                             ability_index: index as u32,
@@ -2056,7 +2106,11 @@ mod tests {
         );
 
         let fungus = Trigger::DealtDamage(&Filter::This);
-        let entry = |seq, event| JournalEntry { seq, event };
+        let entry = |seq, event| JournalEntry {
+            seq,
+            event,
+            departure: None,
+        };
         let blocked = vec![
             entry(1, dealt(one, DamageTarget::Object(fungusaur), 1, true)),
             entry(2, dealt(two, DamageTarget::Object(fungusaur), 1, true)),
@@ -2110,7 +2164,11 @@ mod tests {
             amount,
             is_combat,
         };
-        let entry = |seq, event| JournalEntry { seq, event };
+        let entry = |seq, event| JournalEntry {
+            seq,
+            event,
+            departure: None,
+        };
         let you = Trigger::PlayerDealtDamage(PlayerRel::You);
         let fired = |batch: &[JournalEntry], at: usize| {
             hits(&you, &batch[at].event, batch, &state, aura, me())

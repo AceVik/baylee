@@ -932,6 +932,17 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 || eval::amount(amount, state, you, res.source, res.x),
                 |p| p.max(0) as u32,
             ),
+        Amount::EventLastToughness => state
+            .object(res.on_stack)
+            .and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::EventDeparture(_, toughness) => {
+                        Some((*toughness).max(0) as u32)
+                    }
+                    _ => None,
+                })
+            })
+            .unwrap_or(0),
         Amount::TargetPower => target_chars(res, state)
             .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
@@ -1082,9 +1093,18 @@ pub(super) fn players_of(
         // there (an enter trigger) has no look-back entry and answers with
         // the controller it has now. A player who has since left the game
         // is nobody's "that player" (CR 800.4a).
-        PlayerRel::ControllerOfEvent => res
-            .event_object
-            .and_then(|id| state.last_known_controller(id))
+        PlayerRel::ControllerOfEvent => state
+            .object(res.on_stack)
+            .and_then(|o| {
+                o.riders.iter().find_map(|r| match r {
+                    crate::object::Rider::EventDeparture(controller, _) => Some(*controller),
+                    _ => None,
+                })
+            })
+            .or_else(|| {
+                res.event_object
+                    .and_then(|id| state.last_known_controller(id))
+            })
             .filter(|seat| !state.has_left(*seat))
             .into_iter()
             .collect(),

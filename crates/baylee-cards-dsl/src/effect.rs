@@ -263,6 +263,9 @@ pub enum Amount {
     /// (Questing Beast's redirect). Carried from the event onto the
     /// triggered ability as it goes on the stack; 0 anywhere else.
     EventAmount,
+    /// Last battlefield toughness of the event permanent, captured on its
+    /// triggered ability. Negative values count as zero.
+    EventLastToughness,
     /// "The sacrificed creature's mana value": the mana value, as it last
     /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
     /// to pay the cost of the spell or ability that is resolving (Eldritch

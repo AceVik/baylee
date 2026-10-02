@@ -2,8 +2,8 @@
 //! Oracle: Enchant creature
 //! Oracle: When enchanted creature dies, this Aura deals damage equal to that creature's toughness to the creature's controller.
 //! Set: 4ED #66 — Fourth Edition | Scryfall ID: 717c5ee5-a033-4a58-bdcb-ef54e6c8b7a9 | Oracle ID: 70492e32-ba4d-4314-b016-892fb15f7a23
-// PARTIAL — damage equal to the dying creature's toughness is not in the DSL;
-// the Aura attaches and does nothing.
+// IMPLEMENTED — enchant creature; its death deals its last toughness to its
+// last controller. Behavioral coverage: engine/card_tests/enchantments/creature_bond.rs.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,9 +13,7 @@ card!(
     oracle_id = "70492e32-ba4d-4314-b016-892fb15f7a23",
     scryfall_id = "717c5ee5-a033-4a58-bdcb-ef54e6c8b7a9",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Partial(
-        "damage equal to the dying creature's toughness is not in the DSL; the Aura attaches and does nothing"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Creature Bond",
         mana_cost = mana!("{1}{U}"),
@@ -29,7 +27,12 @@ card!(
             }],
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)))
         ),
-        // NOT SUPPORTED: When enchanted creature dies, this Aura deals damage equal to
-        // that creature's toughness to the creature's controller.
+        triggered!(
+            Trigger::Dies(&Filter::AttachedToBySource),
+            &[Effect::DealDamage {
+                amount: Amount::EventLastToughness,
+                target: TargetSpec::Player(PlayerRel::ControllerOfEvent),
+            }]
+        ),
     ],
 );

@@ -2471,3 +2471,22 @@ land type"; both are convention tests that fire on a first try.
 - Official ruling read from the Scryfall WotC record: “The land remains a Swamp
   as long as it has a mire counter on it.” Source:
   https://api.scryfall.com/cards/7c77c7c1-39a5-4049-8e2c-3561b046152e/rulings
+
+## Alpha Creature Bond (Codex, 2026-10-02)
+
+- **Capture an event, not the latest incarnation.** The existing LKI stores are
+  erased when a card moves again. A trigger must retain its own death-time
+  toughness and controller, even when a single resolution kills and returns the
+  creature before triggers are collected. Store immutable departure information
+  on the journal entry and bind the required values to the queued/stack trigger.
+- **Simultaneous destruction must not depend on iteration order.** Removing the
+  Aura first erased its attachment before the host was examined. Snapshot all
+  departures before `DestroyAll` begins; a real Disk activation now tests both
+  internal orders, including the Aura dying with its host.
+- **A generated index is not a compiled card.** Leyline of Sanctity has an index
+  but is absent from this pool. The damage regression grants player hexproof
+  through the existing modifier and a prevention shield explicitly, then casts
+  Terror. It proves untargeted, preventable Aura damage without relying on a
+  nonexistent fixture card.
+- Oracle data checked via the Scryfall card endpoint and `xtask explain`; the
+  corpus was read as a mechanics reference only. No external script was copied.

@@ -14,10 +14,10 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **254 Implemented, 32 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **255 Implemented, 31 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 254 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
-Gloom and Cyclopean Tomb are included in the Implemented count. Their dedicated
+Thus 255 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Gloom, Cyclopean Tomb and Creature Bond are included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
 
@@ -34,7 +34,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | paying life for {C} any time a mana ability could be activated is not in the engine |
 | [Clockwork Beast](../crates/baylee-cards/src/cards/creatures/artifacts/mv_6/clockwork_beast.rs) | an end-of-combat trigger and putting up to X counters, at most seven in all, are not in the engine; it enters with seven +1/+0 counters |
 | [Consecrate Land](../crates/baylee-cards/src/cards/enchantments/auras/mv_1/consecrate_land.rs) | refusing other Auras is not in the engine; the enchanted land has indestructible |
-| [Creature Bond](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/creature_bond.rs) | damage equal to the dying creature's toughness is not in the DSL; the Aura attaches and does nothing |
 | [Demonic Hordes](../crates/baylee-cards/src/cards/creatures/mv_6/demonic_hordes.rs) | the upkeep payment and a land sacrificed by an opponent's choice are not in the engine; it destroys lands |
 | [Drain Life](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_life.rs) | black mana only for X and the capped life gain are not in the engine; it deals X damage |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | making a player activate a mana ability of each land they control is not in the engine |
