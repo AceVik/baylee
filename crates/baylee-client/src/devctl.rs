@@ -62,7 +62,7 @@
 use crate::Duel;
 use crate::settings::ClientSettings;
 use baylee_client_core::Interaction;
-use baylee_client_core::i18n::{Lang, Refusal};
+use baylee_client_core::i18n::{Lang, Phrase, Refusal};
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKeyCode};
 use bevy::input::mouse::MouseButtonInput;
@@ -1396,7 +1396,24 @@ fn presentation_json(believed: &Believed) -> serde_json::Value {
         .collect();
     let music: Vec<_> = believed.music_controls.iter()
         .map(|(action,node,place)|serde_json::json!({"action":format!("{action:?}"),"bounds":bounds(node,place)})).collect();
-    serde_json::json!({"legal":legal,"music_controls":music,
+    let lang = believed
+        .settings
+        .as_ref()
+        .map_or(Lang::En, |s| Lang::of(&s.lang));
+    let hints = [
+        Phrase::PreviewTurn,
+        Phrase::PreviewAlternate,
+        Phrase::PreviewTurnCompact,
+        Phrase::PreviewAlternateCompact,
+    ]
+    .map(|phrase| phrase.text(lang));
+    let preview_hints: Vec<_> = believed
+        .legal_text
+        .iter()
+        .filter(|(text, _, _)| hints.contains(&text.0.as_str()))
+        .map(|(text, node, place)| serde_json::json!({"text":text.0,"bounds":bounds(node,place)}))
+        .collect();
+    serde_json::json!({"legal":legal,"music_controls":music,"preview_hints":preview_hints,
         "volume":believed.settings.as_ref().map(|s|s.music.volume()),
         "muted":believed.settings.as_ref().map(|s|s.music.muted())})
 }

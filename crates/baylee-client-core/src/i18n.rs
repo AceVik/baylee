@@ -132,6 +132,14 @@ macro_rules! messages {
 }
 
 messages! {
+    /// Hold Shift to turn the preview.
+    PreviewTurn { en: "Turn over", de: "Drehen" },
+    /// Hold Alt/Option for the alternative preview.
+    PreviewAlternate { en: "Alternate view", de: "Andere Ansicht" },
+    /// Compact preview footer: hold Shift.
+    PreviewTurnCompact { en: "Turn", de: "Drehen" },
+    /// Compact preview footer: hold Alt/Option.
+    PreviewAlternateCompact { en: "View", de: "Ansicht" },
     /// Restyle an existing row, preserving quantity.
     ApplyPrinting { en: "Apply to this row", de: "Auf diese Zeile anwenden" },
     /// Explicit catalog insertion destinations.

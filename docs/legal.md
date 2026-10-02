@@ -612,3 +612,21 @@ and [Scryfall API/image terms](https://scryfall.com/docs/api) were re-read.
 “Do not cover, crop, or clip off the copyright or artist name on card images.”
 remains unchanged by this rules-only completion. No assets, fonts or corpus
 source files are added.
+
+The Shift-preview correction (2026-10-02) reuses the existing image cache and
+selected printing: only the requested face changes, while print id, language
+and finish stay identical. No card images are bundled or newly licensed assets
+introduced. The [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
+re-read today, says: “Don’t mess with the legal notices in our stuff.” The full
+reverse image retains its notices just like the front. Foil continues under the
+already recorded owner approval. The Scryfall API terms endpoint again returned
+HTTP 403 during this check; the existing image-delivery restrictions above
+remain in force, without claiming a fresh successful read of that page.
+The preview's keyboard hints use the already licensed UI font and original,
+simple line geometry for Shift and Option; no additional icon or font asset is
+shipped, and the hints sit outside the complete card image.
+
+Earthbind (2026-10-02) follows the recorded owner exception and today's official
+policy review above. Its rules and tests add no assets, font, artwork or corpus
+source files. The policy requirement “Don’t mess with the legal notices in our
+stuff.” remains satisfied by the unchanged complete-image rendering path.

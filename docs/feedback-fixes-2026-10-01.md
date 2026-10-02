@@ -1347,3 +1347,117 @@ Inventory regenerated from every first-printing Alpha Oracle identity:
 Alpha remains incomplete. Feedback was rechecked: **50 resolved, 1 new**; the
 same Windows Vulkan report awaits relevant hardware verification. No reports
 were closed, and no push or deployment was performed.
+
+## 2026-10-02 — Khalni Ambush cast chooser follow-up
+
+The spell row now keeps its explicit cast intent even when the same object is
+also a legal land play. Confirmation re-reads the selected mode and its mana
+plan; an empty plan still ends in `CastSpell`, never the generic land-first
+`play_card` path. The confirmation strip validates this chosen mode instead of
+requiring membership in `reachable`, which deliberately omits legal land plays.
+The local cast sheet's displayed number keys now select a row and arm it without
+committing the spell.
+
+Five new regressions cover spell selection with automatic and already floating
+mana, land selection, the real keyboard message path, mana floated after arming,
+and cancellation. The `mana` integration suite passes all **38** tests. The
+client unit suite passes **1,153**, with two existing ignored tests. Its initial
+sandboxed run could not bind eight tests' loopback sockets; rerunning the built
+test executable with local sockets permitted passed all of them.
+
+Native acceptance (German, 1280×800 logical pixels): mouse selection with a
+settled pointer and Digit1 both arm the spell, show the cost and the confirmation
+button, and leave all Forests untapped until confirmed. Escape cancels. Digit1
+then Enter pays with three Forests and reaches both fight-target questions.
+Sengir Vampire fights Llanowar Elves, the Elf dies, and Sengir becomes 5/5 with
+exactly one +1/+1 counter. No refusal was reported. Inspected screenshots:
+`/private/tmp/baylee-cast-armed.png`, `/private/tmp/baylee-cast-result.png`;
+measured final state `/private/tmp/baylee-cast-result.json`.
+
+The earlier pointer observation needs a narrower qualification: a combined
+harness move-and-click can still close the chooser, whereas a separate hover
+followed by the same click succeeds. The harness already stages clicks across
+several frames, so this does **not** establish a same-frame input cause. The
+rapid gesture/hover timing remains a follow-up; it is not counted as fixed here.
+
+### Shift preview — same printing and finish
+
+Owner clarification: reverse-face display belongs only to the preview while
+Shift is held, and must preserve the front's chosen set/printing and foil.
+`has_back_image` had searched only `PlayerView::object`, which excludes hand
+cards. It now also reads the visible hand. The far-face `ImageKey` retains its
+print reference and size; only `Face::Back` changes, and both material finishes
+come from that same print-table entry. A card already showing its reverse
+previews its front when turned. Added regressions distinguish MDFCs in
+hand from Adventure and single-faced cards, and check selected printing,
+language and Normal/Foil/Etched finishes. Battlefield orientation is unchanged.
+
+The preview also has two equally sized keyboard-hint columns below the image:
+Shift to turn, Alt/Option for the alternate view. Apple platforms show Shift and
+Option symbols drawn as UI geometry; other platforms show named keycaps. Muted
+ink and compact labels below 280 pixels keep the hints secondary. The footer is
+outside the flip transform and included in the preview's bounds above the
+action ledge.
+
+Three native screenshot iterations exposed and fixed two layout defects:
+`min_width: 0` gave both labels zero measured width; the labels now keep their
+intrinsic width without wrapping. The added footer then overlapped the action
+ledge at the default scale; the entire preview now fits above it while keeping
+the card's aspect ratio. A geometry regression checks 720/800-pixel laptop
+windows at minimum, default and maximum requested scales.
+
+Final native acceptance (macOS, German, 1280×800): Shift shows Khalni Territory
+from the same ZNR 192 EN printing; releasing it restores Khalni Ambush. The hand
+stays front-facing throughout. Option shows the alternative text face and the
+legend stays upright in both modes. At the smallest scale, 0.5, both 43-pixel
+labels fit within separate 96-pixel columns. At the default scale, the measured
+labels are 43 and 87.5 pixels wide and sit above the action ledge. Inspected
+final screenshots:
+`/private/tmp/baylee-preview-legend-v3-front.png`,
+`/private/tmp/baylee-preview-legend-v3-back.png`,
+`/private/tmp/baylee-preview-legend-v3-alt.png`, and
+`/private/tmp/baylee-preview-legend-v3-compact.png`.
+The dev-control snapshot now exposes these text bounds as
+`presentation.preview_hints` for future layout checks.
+
+The client unit run with dev-control passed **1,171**, with two existing ignored;
+after the final sizing change all six flip/layout regressions passed. Native
+build, final client clippy (all targets with dev-control), WASM compilation check,
+workspace formatting and diff whitespace checks passed. The native linker emits
+its existing compact-unwind size warning. Final gate logs use the prefix
+`/private/tmp/baylee-preview-legend-final-`; the layout suite is
+`/private/tmp/baylee-preview-legend-layout-tests.log`.
+
+## 2026-10-02 — Earthbind
+
+Astra xhigh completed the conditional entry trigger, two damage, and the static
+ability gained by the Aura. The reusable engine paths preserve intervening-if
+checks, ability removal, later flying grants, attachment timestamps, phasing,
+source/host incarnations, and last-known attachment information. Host departure
+now detaches Auras immediately, preventing a blink from reconnecting one to a
+new incarnation of the same stable object handle. Phased attachments remember
+that their former host departed and phase in unattached.
+
+Sol medium independently compared the implementation against fresh Oracle and
+the September 25 Comprehensive Rules and authored eight real-spell regressions.
+Its findings about attachment timestamps, phasing LKI and host blinking were
+fixed. There are **32 Earthbind tests**, including real Jump, Flight, Disenchant,
+Unsummon, Ephemerate and Tishana's Tidebinder interactions. The gained ability is
+not copied as a copiable characteristic.
+
+Engine all-target validation passed **4,480 unit tests**, with two existing
+ignored, both footprint tests and 18 benchmark smoke cases. Cards/DSL passed
+190 tests; scoped engine/cards/DSL clippy is clean. Codegen tables were generated
+twice, their reproducibility check and the full corpus-backed codegen check
+passed, and validate accepted all 2,955 cards.
+The attachment identity fields preserve the existing **312-byte GameObject**
+budget. Logs: `/private/tmp/baylee-earthbind-engine-all-targets.log`,
+`/private/tmp/baylee-earthbind-card-tests.log`,
+`/private/tmp/baylee-earthbind-codegen-check.log`, and
+`/private/tmp/baylee-earthbind-validate.log`.
+
+Fresh inventory from every first-printing Alpha Oracle identity:
+**261 Implemented / 25 Partial / 4 explicit exclusions**, no missing entries.
+Alpha remains incomplete. The Windows Vulkan feedback report remains open;
+no report was closed without relevant hardware verification.
+Engine milestone: `da67bf86`.

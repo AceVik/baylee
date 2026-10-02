@@ -735,14 +735,15 @@ pub fn sync_overlay(
             let asked = slip.as_ref().map_or(0.0, |s| {
                 super::slip::height(&runs, want.x, s.kind.is_some())
             });
-            let art_size = preview_art_size(want, 6.0, window - Vec2::new(0.0, asked));
+            let art_size = preview_with_footer_size(want, window, asked);
             let (img_w, img_h) = (art_size.x, art_size.y);
             let slip_h = slip
                 .as_ref()
                 .map_or(0.0, |s| super::slip::height(&runs, img_w, s.kind.is_some()));
             // The panel is the picture plus its six pixels of padding on
             // every side, and the sheet under it when there is one.
-            let panel = art_size + Vec2::splat(12.0) + Vec2::new(0.0, slip_h);
+            let panel =
+                art_size + Vec2::splat(12.0) + Vec2::new(0.0, slip_h + super::preview_keys::HEIGHT);
             // The drawer, if one is open, as the rectangle the preview
             // must not cover. Read off the tree rather than rebuilt from
             // `drawer.rs`'s constants: what is drawn is what a player sees
@@ -952,7 +953,7 @@ pub fn sync_overlay(
                         Node {
                             position_type: PositionType::Absolute,
                             right: px(4),
-                            bottom: px(4.0 + slip_h),
+                            bottom: px(4.0 + slip_h + super::preview_keys::HEIGHT),
                             padding: UiRect::all(px(4)),
                             border_radius: btn_radius(),
                             ..default()
@@ -1125,6 +1126,8 @@ pub fn sync_overlay(
                 );
                 commands.entity(tooltip).add_child(sheet);
             }
+            let legend = super::preview_keys::spawn(&mut commands, &fonts, lang, img_w);
+            commands.entity(tooltip).add_child(legend);
             commands.entity(root).add_child(tooltip);
             // Over the end screen once it stands: its log's links open this
             // preview, and one drawn at the overlay's own rung is behind the
@@ -1482,6 +1485,17 @@ pub(super) fn armed_label(
         // `{4}{U}{U}` — so the plan carries the cost it was built for and
         // the row draws it.
         crate::Deed::Run { plan, then } => {
+            if matches!(then, crate::RunEnd::Cast)
+                && duel
+                    .cast_answer
+                    .is_some_and(|(card, _)| card == armed.object)
+            {
+                let current = crate::input::chosen_cast_plan(duel, armed.object)?;
+                return Some(ArmedWords {
+                    text: Phrase::ArmedPayAndCast.text(lang).to_string(),
+                    cost: Some(current.cost),
+                });
+            }
             if let crate::RunEnd::Ability(index) = then {
                 let view = duel.view.as_ref()?;
                 let legal = duel.interaction.as_ref()?.legal_actions()?;
@@ -1768,7 +1782,10 @@ pub(super) fn spawn_commander_track(
 pub(super) const fn far_face(key: Option<ImageKey>, has_back: bool) -> Option<ImageKey> {
     match key {
         Some(key) if has_back => Some(ImageKey {
-            face: baylee_client_core::images::Face::Back,
+            face: match key.face {
+                baylee_client_core::images::Face::Front => baylee_client_core::images::Face::Back,
+                baylee_client_core::images::Face::Back => baylee_client_core::images::Face::Front,
+            },
             ..key
         }),
         _ => None,
@@ -1797,6 +1814,15 @@ pub(super) fn face_node(width: f32, height: f32) -> Node {
     }
 }
 
+/// Keep the whole preview, including its hints, above the playable hand ledge.
+pub(super) fn preview_with_footer_size(want: Vec2, window: Vec2, slip: f32) -> Vec2 {
+    preview_art_size(
+        want,
+        PREVIEW_PAD,
+        window - Vec2::new(0.0, HAND_ZONE_H + slip + super::preview_keys::HEIGHT),
+    )
+}
+
 /// Whether the hovered object has a second picture to turn over to.
 ///
 /// The view says which face is up, not whether there is another one, so the
@@ -1818,8 +1844,13 @@ pub(super) fn face_node(width: f32, height: f32) -> Node {
 /// `pick_hint` went to the drawer and left it standing over nothing.
 fn has_back_image(view: &PlayerView, hovered: Option<ObjectId>) -> bool {
     hovered
-        .and_then(|id| view.object(id))
-        .and_then(|object| object.card.as_ref())
+        .and_then(|id| {
+            view.hand
+                .iter()
+                .find(|card| card.id == id)
+                .map(|card| &card.card)
+                .or_else(|| view.object(id).and_then(|object| object.card.as_ref()))
+        })
         .is_some_and(|card| baylee_cards::sides::has_back_image(card.index))
 }
 
@@ -1890,6 +1921,32 @@ mod tests {
         );
         let (view, id) = hovering("Lightning Bolt");
         assert!(!has_back_image(&view, id), "an ordinary card has no back");
+    }
+
+    #[test]
+    fn a_double_faced_card_in_hand_previews_its_actual_back() {
+        for (name, double_faced) in [
+            ("Khalni Ambush", true),
+            ("Agadeem's Awakening", true),
+            ("Murderous Rider", false),
+            ("Lightning Bolt", false),
+        ] {
+            let mut view = baylee_client_core::test_support::ViewBuilder::new(2)
+                .with_hand(vec![(name, 3, 4)])
+                .build();
+            view.hand[0].card.index = baylee_cards::decks::by_name(name).expect("registered");
+            let id = view.hand[0].id;
+            assert!(
+                view.object(id).is_none(),
+                "hand cards are not public objects"
+            );
+            assert_eq!(has_back_image(&view, Some(id)), double_faced, "{name}");
+            let front = ImageKey::new(view.hand[0].card.print, 0, ArtSize::Normal);
+            assert_eq!(
+                far_face(Some(front), has_back_image(&view, Some(id))).is_some(),
+                double_faced
+            );
+        }
     }
 
     /// Nothing hovered, and a token, are both "no back" rather than a panic.

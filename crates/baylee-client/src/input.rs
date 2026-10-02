@@ -554,6 +554,26 @@ fn arm(duel: &mut Duel, object: ObjectId, deed: Deed) {
     duel.armed = Some(crate::Armed { object, deed });
 }
 
+/// Re-read the chosen spell mode after any manual mana taps. A land face in
+/// the same card must never stand in for the spell the player selected.
+pub(crate) fn chosen_cast_plan(
+    duel: &Duel,
+    object: ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let (card, kind) = duel.cast_answer?;
+    if card != object {
+        return None;
+    }
+    crate::castmodes::reachable_modes(
+        duel.view.as_ref()?,
+        duel.interaction.as_ref()?.legal_actions()?,
+        object,
+    )
+    .into_iter()
+    .find(|mode| mode.kind == kind)
+    .map(|mode| mode.plan)
+}
+
 /// One ability: sent outright when the whole cost is this permanent's own
 /// tap, armed otherwise.
 ///
@@ -688,6 +708,44 @@ fn arm_ability(
     }
 }
 
+/// Confirm the chosen spell independently of any land play the same card offers.
+fn fire_cast_payment(duel: &mut Duel, object: ObjectId, plan: baylee_client_core::manaplan::Plan) {
+    // The short-circuit below is for the *manual* land tap that may
+    // have happened between the two clicks, and it must not fire when
+    // the player has chosen a way to cast: the engine's answer with
+    // the pool as it stands is exactly the wrong one — a Solitude
+    // whose printed cost the player picked is `castable` this whole
+    // time, for its free evoke. Re-plan the chosen mode, then use
+    // the run even with zero taps: its final action is explicitly a
+    // cast, while `play_card` prefers a legal MDFC land face.
+    let chosen = duel
+        .cast_answer
+        .as_ref()
+        .is_some_and(|(card, _)| *card == object);
+    if chosen {
+        let Some(plan) = chosen_cast_plan(duel, object) else {
+            duel.cast_answer = None;
+            duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+            return;
+        };
+        duel.last_error = None;
+        duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Cast));
+    } else if let Some(action) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .filter(|legal| legal.castable.contains(&object))
+        .map(|_| PlayerAction::CastSpell { card: object })
+    {
+        duel.submit(action);
+    } else if duel.reachable.contains(&object) {
+        duel.last_error = None;
+        duel.mana_run = Some(crate::ManaRun::new(plan, object, crate::RunEnd::Cast));
+    } else {
+        duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+    }
+}
+
 /// Sends what is armed, or disarms when the engine no longer offers it.
 ///
 /// Everything is resolved against the *current* `LegalActions` rather than
@@ -750,34 +808,7 @@ pub fn fire_armed(duel: &mut Duel) {
         Deed::Run {
             plan,
             then: crate::RunEnd::Cast,
-        } => {
-            // The short-circuit below is for the *manual* land tap that may
-            // have happened between the two clicks, and it must not fire when
-            // the player has chosen a way to cast: the engine's answer with
-            // the pool as it stands is exactly the wrong one — a Solitude
-            // whose printed cost the player picked is `castable` this whole
-            // time, for its free evoke. So a chosen way with taps left to
-            // make goes to the run, and only the run.
-            let chosen = duel
-                .cast_answer
-                .as_ref()
-                .is_some_and(|(card, _)| *card == armed.object);
-            if chosen && !plan.is_empty() {
-                duel.last_error = None;
-                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, crate::RunEnd::Cast));
-            } else if let Some(action) = duel
-                .interaction
-                .as_ref()
-                .and_then(|i| i.play_card(armed.object))
-            {
-                duel.submit(action);
-            } else if duel.reachable.contains(&armed.object) {
-                duel.last_error = None;
-                duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, crate::RunEnd::Cast));
-            } else {
-                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
-            }
-        }
+        } => fire_cast_payment(duel, armed.object, plan),
         // The same shape for the other end, and the same short-circuit: the
         // manual tap that happened between the two clicks may already have
         // floated the cost, in which case the engine is offering the suspend
@@ -1637,8 +1668,8 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     false
 }
 
-/// The digits, while the ability sheet stands: each row is sent by the number
-/// drawn on it, and `0` turns the page. Returns whether it consumed the
+/// The digits, while an ability or local cast sheet stands: each row is
+/// selected by its printed number; `0` pages abilities. Returns whether it consumed the
 /// frame.
 ///
 /// Read straight off `KeyboardInput` as `Key::Character`, the way
@@ -1657,7 +1688,7 @@ fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bo
     // `typed.read()` drains every key rather than the digits alone — so a
     // sheet that read here unconditionally would eat the letters a player is
     // typing into that box and open an ability with the digits.
-    if duel.ability_menu.is_none() || duel.browser.is_typing() {
+    if (duel.ability_menu.is_none() && duel.cast_menu.is_none()) || duel.browser.is_typing() {
         return false;
     }
     let pressed: Vec<char> = typed
@@ -1675,6 +1706,18 @@ fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bo
     }
     let mut took = false;
     for digit in pressed {
+        if let Some(menu) = duel.cast_menu.as_ref() {
+            let row = digit
+                .to_digit(10)
+                .and_then(|n| n.checked_sub(1))
+                .map(|n| n as usize);
+            if let Some(row) = row.filter(|row| *row < menu.modes.len()) {
+                take_cast_row(duel, row);
+            }
+            // Choosing only arms. Further digits from this frame cannot
+            // accidentally confirm the newly armed spell.
+            return true;
+        }
         // A digit may have sent something, which puts the sheet away, and
         // every digit after it would then be read against a permanent that is
         // no longer being asked about.

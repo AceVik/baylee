@@ -24,6 +24,11 @@ fn a_double_faced_card_still_turns_over_to_its_second_face() {
     assert_eq!(far.face, Face::Back);
     assert_eq!(far.source, key.source, "the same printing, turned over");
     assert_eq!(far.size, key.size);
+    assert_eq!(
+        crate::hud::overlay::far_face(Some(far), true),
+        Some(key),
+        "a reverse-facing permanent previews its front when turned"
+    );
 }
 
 /// The two faces are one card seen from two sides, so they stand in the
@@ -43,6 +48,23 @@ fn both_faces_of_the_preview_stand_in_the_same_place() {
     assert_eq!(node.height, bevy::ui::Val::Px(265.0));
 }
 
+/// The hint footer must not sit on top of Keep/Pass/Confirm on a laptop.
+#[test]
+fn the_preview_and_its_keyboard_footer_clear_the_action_ledge() {
+    use crate::hud::{hand, overlay, preview_keys};
+    use bevy::prelude::Vec2;
+    for window in [Vec2::new(1280.0, 720.0), Vec2::new(1280.0, 800.0)] {
+        for scale in [0.5, 1.0, 1.75] {
+            let art = overlay::preview_with_footer_size(hand::preview_want(scale), window, 0.0);
+            let panel = art + Vec2::new(12.0, 12.0 + preview_keys::HEIGHT);
+            let place = hand::preview_place(hand::PreviewAt::Hand(640.0), panel, window, None);
+            assert!(place.y >= 0.0);
+            assert!(place.y + panel.y <= window.y - hand::HAND_ZONE_H);
+            assert!((art.x / art.y - 63.0 / 88.0).abs() < 0.001);
+        }
+    }
+}
+
 /// A card this seat may not read has no printing to ask about — and it is
 /// precisely the card whose back is the interesting side, because the
 /// back is all anyone else at the table can see of it.
@@ -50,4 +72,35 @@ fn both_faces_of_the_preview_stand_in_the_same_place() {
 fn a_card_with_no_printing_turns_over_to_the_back_as_well() {
     assert_eq!(crate::hud::overlay::far_face(None, false), None);
     assert_eq!(crate::hud::overlay::far_face(None, true), None);
+}
+
+/// The reverse belongs to the selected piece of cardboard, including its
+/// language and finish. Do not fall back to the registry's default printing.
+#[test]
+fn the_preview_reverse_keeps_the_selected_print_language_and_finish() {
+    use crate::cardmat::{CardLook, finish_of};
+    use baylee_client_core::images::image_url;
+    use baylee_view::Finish;
+
+    let front = ImageKey::new(PrintRef::new(3), 0, ArtSize::Normal);
+    let back = crate::hud::overlay::far_face(Some(front), true).expect("reverse");
+    let mut statics = baylee_client_core::test_support::statics(4);
+    for finish in [Finish::Normal, Finish::Foil, Finish::Etched] {
+        let print = statics.prints[3].as_mut().expect("chosen print");
+        print.scryfall_id = "99535539-aa73-41ed-86ab-21c97b92620d".to_string();
+        print.lang = "de".to_string();
+        print.finish = finish;
+        let entry = statics
+            .print(back.printing().expect("print source"))
+            .expect("same print");
+        assert_eq!(back.source, front.source);
+        assert_eq!(entry.lang, "de");
+        assert_eq!(entry.finish, finish);
+        let url = image_url(entry, back.face, back.size).expect("back image");
+        assert!(url.contains("/back/"), "{url}");
+        assert!(url.contains(&entry.scryfall_id), "{url}");
+        let look = CardLook::art(back, finish_of(&statics, Some(back)));
+        assert_eq!(look.finish, finish_of(&statics, Some(front)));
+        assert_eq!(look.finish, finish.into());
+    }
 }

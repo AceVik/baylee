@@ -1964,6 +1964,19 @@ until it landed. `board.rs` now asks `small` everywhere; the only key at the
 readable size is the one `hud::overlay` rewrites for the preview, which is also
 the only place drawing a card big enough to need it.
 
+The duel preview has a quiet, 34-pixel keyboard footer outside its card frame.
+Two equal columns explain held Shift (turn over) and Alt/Option (alternate
+view), using Shift/Option marks on Apple platforms and named keycaps elsewhere.
+The footer keeps its orientation while the card turns, participates in the
+preview's bounds above the hand's action ledge, and does not intercept the
+pointer. The complete panel fits there before its card is sized, preserving
+the card's aspect ratio rather than putting the hints over Keep/Pass/Confirm.
+Its symbols are
+simple UI geometry, so missing glyphs in the text font cannot erase the hint.
+For a double-faced card, including one in hand, Shift requests the reverse of
+the selected printing. Both faces retain that printing's language and finish.
+This inspection gesture does not change the card's state on the battlefield.
+
 That preview reads a size nothing else does, and it asks at the instant the
 pointer arrives — too late to fetch. So `Preload` warms `normal` for the local
 hand and the local command zone: the two zones the preview can point at that

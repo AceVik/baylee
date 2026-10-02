@@ -220,6 +220,7 @@ web-sys = { workspace = true, features = [
     "HtmlInputElement",
     "KeyboardEvent",
     "Location",
+    "Navigator",
     "Storage",
     "Window",
 ] }

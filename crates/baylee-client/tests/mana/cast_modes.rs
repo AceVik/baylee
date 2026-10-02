@@ -443,3 +443,150 @@ fn taking_the_deed_back_forgets_the_way_that_was_chosen() {
         "Esc takes back the whole of what was said, which way included"
     );
 }
+
+/// Spell and land are offers on the same object. Choosing the spell must
+/// survive both the automatic taps and an already floating pool.
+fn khalni_table() -> (Table, baylee_client::Duel, baylee_core::ids::ObjectId) {
+    let mut preset = white_preset(&["37a55560-6e32-4f54-b9a8-fd157aea6eb5"], 0);
+    preset.seats[0].starting_battlefield = vec![
+        entry(FOREST),
+        entry(FOREST),
+        entry(FOREST),
+        entry("000d5588-5a4c-434e-988d-396632ade42c"),
+    ];
+    preset.seats[1].starting_battlefield = vec![entry("68954295-54e3-4303-a6bc-fc4547a4e3a3")];
+    let mut table = Table::open_with(&preset);
+    table.walk_to_main();
+    let card = id_in_hand(&table, "Khalni Ambush");
+    let mut duel = baylee_client::Duel::default();
+    refresh(&mut duel, &table);
+    (table, duel, card)
+}
+
+fn float_khalni_mana(table: &mut Table, duel: &mut baylee_client::Duel) {
+    let forests: Vec<_> = table
+        .view()
+        .battlefield
+        .iter()
+        .filter(|o| o.name == "Forest" && o.controller == PlayerId::new(0))
+        .map(|o| o.id)
+        .collect();
+    for forest in forests {
+        let options = baylee_client::abilities::options(
+            baylee_client_core::Lang::En,
+            table.view(),
+            duel.interaction.as_ref().expect("priority"),
+            forest,
+        );
+        table.submit(options[0].action.clone());
+        refresh(duel, table);
+    }
+}
+
+#[test]
+fn khalni_spell_selection_survives_automatic_and_manual_mana() {
+    use baylee_client::input::{activate_card, fire_armed, pick_choice};
+    for floating in [false, true] {
+        let (mut table, mut duel, card) = khalni_table();
+        if floating {
+            float_khalni_mana(&mut table, &mut duel);
+        }
+        activate_card(&mut duel, card);
+        pick_choice(&mut duel, 0);
+        assert!(duel.armed.is_some());
+        assert!(duel.outbox().is_empty(), "choosing does not commit");
+        fire_armed(&mut duel);
+        play_it_out(&mut duel, &mut table);
+        assert!(
+            matches!(table.pending, Some(Pending::ChooseTargets { .. })),
+            "the spell asks for fight targets; it must not become a land: {:?}",
+            table.pending
+        );
+        assert!(!table.view().battlefield.iter().any(|o| o.id == card));
+        assert_eq!(untapped_lands(&table), 0);
+    }
+}
+
+#[test]
+fn khalni_land_selection_still_plays_the_land() {
+    let (mut table, mut duel, card) = khalni_table();
+    baylee_client::input::activate_card(&mut duel, card);
+    baylee_client::input::pick_choice(&mut duel, 1);
+    baylee_client::input::fire_armed(&mut duel);
+    let actions = duel.take_outbox();
+    assert_eq!(actions, vec![PlayerAction::PlayLand { card }]);
+    for action in actions {
+        table.submit(action);
+    }
+    assert!(
+        table
+            .view()
+            .battlefield
+            .iter()
+            .any(|o| o.id == card && o.name == "Khalni Territory")
+    );
+    assert_eq!(untapped_lands(&table), 3);
+}
+
+#[test]
+fn khalni_digit_selects_but_does_not_confirm_the_spell() {
+    use bevy::input::ButtonState;
+    use bevy::input::keyboard::{Key, KeyboardInput};
+    use bevy::prelude::*;
+    let (_, mut duel, card) = khalni_table();
+    baylee_client::input::activate_card(&mut duel, card);
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<baylee_client::prefs::Prefs>()
+        .init_resource::<baylee_client::table::CameraRig>()
+        .init_resource::<baylee_client::settings::ClientSettings>()
+        .add_message::<KeyboardInput>()
+        .insert_resource(duel)
+        .add_systems(Update, baylee_client::input::keyboard);
+    app.world_mut().write_message(KeyboardInput {
+        key_code: KeyCode::Digit1,
+        logical_key: Key::Character("1".into()),
+        state: ButtonState::Pressed,
+        text: Some("1".into()),
+        repeat: false,
+        window: Entity::PLACEHOLDER,
+    });
+    app.update();
+    let duel = app.world().resource::<baylee_client::Duel>();
+    assert!(duel.cast_menu.is_none());
+    assert!(duel.armed.is_some());
+    assert_eq!(
+        duel.cast_answer,
+        Some((card, baylee_engine::choice::CastModeKind::Normal))
+    );
+    assert!(duel.outbox().is_empty());
+}
+
+#[test]
+fn khalni_replans_after_mana_is_floated_while_armed() {
+    let (mut table, mut duel, card) = khalni_table();
+    baylee_client::input::activate_card(&mut duel, card);
+    baylee_client::input::pick_choice(&mut duel, 0);
+    float_khalni_mana(&mut table, &mut duel);
+    baylee_client::input::fire_armed(&mut duel);
+    play_it_out(&mut duel, &mut table);
+    assert!(matches!(table.pending, Some(Pending::ChooseTargets { .. })));
+}
+
+#[test]
+fn khalni_cancel_leaves_the_card_and_lands_untouched() {
+    use baylee_client::keys::Fired;
+    use baylee_client_core::prefs::Action;
+    let (table, mut duel, card) = khalni_table();
+    baylee_client::input::activate_card(&mut duel, card);
+    baylee_client::input::pick_choice(&mut duel, 0);
+    assert!(baylee_client::input::armed_keys(
+        Fired::of_actions(&[Action::Cancel]),
+        &mut duel
+    ));
+    assert!(duel.armed.is_none());
+    assert!(duel.cast_answer.is_none());
+    assert!(duel.outbox().is_empty());
+    assert_eq!(untapped_lands(&table), 3);
+    assert!(table.view().hand.iter().any(|o| o.id == card));
+}
