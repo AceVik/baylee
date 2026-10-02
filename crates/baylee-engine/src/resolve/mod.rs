@@ -28,6 +28,7 @@ mod control;
 mod counters;
 mod equalize;
 mod life;
+pub(crate) mod linked_counters;
 mod mana;
 mod reflexive;
 mod retarget;
@@ -248,6 +249,13 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 pub enum AwaitingOp {
     /// A private inspection; the empty acknowledgement changes no cards.
     InspectHand,
+    /// A land whose linked counters this source has not yet removed.
+    LinkedCounterCleanup {
+        /// Source incarnation.
+        version: u32,
+        /// Counter kind.
+        kind: baylee_cards_dsl::CounterKind,
+    },
     /// Rotation direction, chosen by the neighbour to receive from.
     ControlRotation {
         /// Living seats in table order at the time of the choice.
@@ -2131,6 +2139,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             });
         }
         AwaitingOp::InspectHand => {}
+        AwaitingOp::LinkedCounterCleanup { version, kind } => {
+            linked_counters::finish_cleanup(state, res.source, version, kind, chosen);
+        }
         AwaitingOp::TakeMilled => {
             for &card in chosen {
                 let owner = state
@@ -3690,6 +3701,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::SetPTFilter { .. }
         | Effect::PumpFilter { .. }
         | Effect::PumpTarget { .. } => counters::exec(state, res, op),
+        Effect::MarkLandWithCounter { .. }
+        | Effect::ScheduleLinkedCounterCleanup { .. }
+        | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),
         Effect::CreateTokenForTargetController { .. }
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }

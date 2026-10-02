@@ -4,6 +4,8 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+mod cyclopean_tomb;
+
 fn forcefield() -> CardIndex {
     card_index("bd6823fb-a696-4e6d-9c5e-3b55dfe03730")
 }

@@ -617,6 +617,8 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Choose a land from which this ability removes all linked counters.
+    RemoveLandCounters,
     /// Privately inspect the offered hand, then acknowledge without selecting.
     LookAtHand,
     /// Library search (tutor/fetch).

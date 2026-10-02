@@ -2108,6 +2108,26 @@ pub enum Effect {
         /// How many.
         amount: Amount,
     },
+    /// Put one linked counter on the target land, setting its basic land
+    /// type while any counter of this kind remains.
+    MarkLandWithCounter {
+        /// Counter to place and remember for this source incarnation.
+        kind: CounterKind,
+        /// The new basic land type.
+        subtype: SubtypeId,
+    },
+    /// Create a recurring own-upkeep cleanup for this source incarnation.
+    ScheduleLinkedCounterCleanup {
+        /// The linked counter kind.
+        kind: CounterKind,
+        /// The recurring cleanup instructions, using the captured incarnation.
+        effects: &'static [Effect],
+    },
+    /// Remove every counter of the given kind from one still-eligible land.
+    CleanLinkedCounters {
+        /// The linked counter kind.
+        kind: CounterKind,
+    },
     /// Take `n` counters of `kind` off the source (Living Artifact: "you
     /// may remove a vitality counter from this Aura. If you do, you gain 1
     /// life").
@@ -3346,6 +3366,7 @@ impl Effect {
                 effects,
             }
             // What the delayed trigger will do.
+            | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextEndStep { effects }
             | Effect::AtEndOfCombat { about: _, effects } => (effects, NONE),
             Effect::IfCreaturesDiedAtLeast { n: _, then }
@@ -3491,6 +3512,8 @@ impl Effect {
             | Effect::AddManaLikeEvent { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
+            | Effect::MarkLandWithCounter { .. }
+            | Effect::CleanLinkedCounters { .. }
             | Effect::RemoveCounterSelf { .. }
             | Effect::AddCounterFilter { .. }
             | Effect::DoubleCountersFilter { .. }
@@ -3686,6 +3709,23 @@ mod verb_tests {
         });
         assert_eq!(seen, 2);
         assert!(body_seen);
+    }
+
+    #[test]
+    fn linked_counter_cleanup_body_is_visited() {
+        let effects = &[Effect::ScheduleLinkedCounterCleanup {
+            kind: crate::counters::MIRE,
+            effects: &[Effect::CleanLinkedCounters {
+                kind: crate::counters::MIRE,
+            }],
+        }];
+        let mut seen = 0;
+        let mut found = false;
+        Effect::walk(effects, &mut seen, &mut |effect| {
+            found |= matches!(effect, Effect::CleanLinkedCounters { .. });
+        });
+        assert_eq!(seen, 2);
+        assert!(found);
     }
 
     /// "Destroy that creature at end of combat" (Cockatrice) carries the

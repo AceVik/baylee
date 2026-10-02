@@ -59,7 +59,8 @@
 /// Raised 27 → 28 for `IfEventObjectMatches` (Berserk's delayed "destroy that
 /// creature if it attacked this turn");
 /// `verb_tests::if_event_object_matches_body_is_visited`.
-const NESTING_FIELDS: usize = 28;
+/// Linked counter cleanup adds a delayed body; its traversal has a behavioral test.
+const NESTING_FIELDS: usize = 29;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -91,7 +92,8 @@ const NESTING_FIELDS: usize = 28;
 /// one branch. `AtEndOfCombat` moved both on 2026-09-30: one new carrier,
 /// one branch. `IfEventObjectMatches` moved both on 2026-09-30: one new
 /// carrier, one branch.
-const CARRYING_VARIANTS: usize = 25;
+/// `ScheduleLinkedCounterCleanup` is the twenty-sixth carrier.
+const CARRYING_VARIANTS: usize = 26;
 
 /// The floor under the reader itself.
 ///

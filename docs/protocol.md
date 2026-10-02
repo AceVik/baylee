@@ -2861,3 +2861,7 @@ The same version adds default-empty `activation_increases` entries
 `(ObjectId, u32)`, identifying generic increases on controlled permanents.
 These keep mana planners from treating taxed activations as free mana sources;
 manual activations remain governed by the authoritative legal-action lists.
+
+Protocol 12 adds `ChoicePrompt::RemoveLandCounters`, identifying the land whose
+linked counters will be removed. The German/English client and seat narrator
+explain the consequence before confirmation. No view schema change is needed.

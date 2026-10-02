@@ -2366,6 +2366,14 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(version) = trigger.counter_source_version {
+                object
+                    .riders
+                    .retain(|r| !matches!(r, crate::object::Rider::CounterSourceVersion(_)));
+                object
+                    .riders
+                    .push(crate::object::Rider::CounterSourceVersion(version));
+            }
             object.event_amount = trigger
                 .event_damage
                 .and_then(|(_, n)| core::num::NonZeroU16::new(n));
@@ -2909,6 +2917,10 @@ impl<L: CardLookup> Engine<L> {
                     // nothing — undying and persist put a trigger on the stack
                     // that resolved into silence.
                     obj.event_object = t.event_object;
+                    if let Some(version) = t.counter_source_version {
+                        obj.riders
+                            .push(crate::object::Rider::CounterSourceVersion(version));
+                    }
                     obj
                 });
                 self.synthetic_fx.insert(id, synthetic);
@@ -4131,12 +4143,21 @@ impl<L: CardLookup> Engine<L> {
         let mut i = 0;
         while i < self.state.delayed.len() {
             let fire = match self.state.delayed[i].when {
-                crate::state::DelayedWhen::NextUpkeep => self.state.delayed[i].controller == active,
+                crate::state::DelayedWhen::NextUpkeep | crate::state::DelayedWhen::EachUpkeep => {
+                    self.state.delayed[i].controller == active
+                }
                 crate::state::DelayedWhen::NextUpkeepOfAnyone => true,
                 _ => false,
             };
             if fire {
-                let trigger = self.state.delayed.remove(i);
+                let trigger = if self.state.delayed[i].when == crate::state::DelayedWhen::EachUpkeep
+                {
+                    let trigger = self.state.delayed[i].clone();
+                    i += 1;
+                    trigger
+                } else {
+                    self.state.delayed.remove(i)
+                };
                 // A payment waits for this upkeep's priority window; see
                 // `upkeep_payments`. Everything else does what it does now.
                 if matches!(
@@ -4203,6 +4224,10 @@ impl<L: CardLookup> Engine<L> {
             // Same as the sibling site: the chosen targets are one handle and
             // the event object is another.
             obj.event_object = t.event_object;
+            if let Some(version) = t.counter_source_version {
+                obj.riders
+                    .push(crate::object::Rider::CounterSourceVersion(version));
+            }
             // What the targets were chosen against. CR 608.2b re-checks
             // them against it at resolution, as it does a spell's.
             obj.target_req = t
@@ -4448,6 +4473,7 @@ impl<L: CardLookup> Engine<L> {
         for ability_index in &hits {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
+                    counter_source_version: None,
                     event_mana: None,
                     event_mana_value: None,
                     event_damage: None,
@@ -4794,6 +4820,17 @@ impl<L: CardLookup> Engine<L> {
             // there, as any trigger is. Earthbend's watch is read off the
             // journal (`trigger::watch_triggers`) and never reaches this
             // queue; no step-timed one exists yet.
+            crate::state::DelayedAction::LinkedCounterCleanup {
+                source,
+                version,
+                effects,
+            } => {
+                self.queue_delayed_trigger(controller, source, effects, None);
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.counter_source_version = Some(version);
+                }
+                false
+            }
             crate::state::DelayedAction::Trigger { source, effects } => {
                 self.queue_delayed_trigger(controller, source, effects, None);
                 false
@@ -4828,6 +4865,7 @@ impl<L: CardLookup> Engine<L> {
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
+                counter_source_version: None,
                 event_damage: None,
                 event_mana: None,
                 event_mana_value: None,

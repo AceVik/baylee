@@ -12,7 +12,7 @@ pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
 /// Version 11 adds authoritative spell cost increases for client/AI planning.
-pub const PROTOCOL_VERSION: u32 = 11;
+pub const PROTOCOL_VERSION: u32 = 12;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -235,7 +235,8 @@ mod tests {
         // 9: private hand-inspection prompt; older clients cannot decode it.
         // 10: explicit keep-card choices and public permanent selections.
         // 11: spell cost increases; older clients would plan insufficient mana.
-        assert_eq!(PROTOCOL_VERSION, 11);
+        // 12: explicit land-counter removal choice.
+        assert_eq!(PROTOCOL_VERSION, 12);
     }
 
     #[test]

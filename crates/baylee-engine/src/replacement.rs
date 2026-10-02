@@ -269,6 +269,7 @@ pub fn remove_counters(
         });
     }
     state.invalidate_projections();
+    crate::resolve::linked_counters::expire(state);
     taken
 }
 

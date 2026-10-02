@@ -87,6 +87,9 @@ pub const CORPSE: CounterKind = CounterKind::Custom(11);
 /// Vitality counters (Living Artifact).
 pub const VITALITY: CounterKind = CounterKind::Custom(12);
 
+/// Mire counters (Cyclopean Tomb).
+pub const MIRE: CounterKind = CounterKind::Custom(13);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -105,6 +108,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("age", AGE),
     ("corpse", CORPSE),
     ("vitality", VITALITY),
+    ("mire", MIRE),
 ];
 
 #[cfg(test)]

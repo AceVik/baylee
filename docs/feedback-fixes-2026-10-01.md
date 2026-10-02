@@ -1,5 +1,10 @@
 # Feedback pass, 1 October 2026
 
+> Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
+> never a complete set inventory. After Gloom and Cyclopean Tomb, 32 other
+> Alpha cards remain Partial. See [the complete inventory](set-progress.md);
+> earlier “last remaining” claims in this chronological log are superseded.
+
 Source: the live feedback service, read on 1 October 2026. A report is closed
 only after its requested behaviour is verified. Fixes below describe source
 changes; deployment is recorded separately. No private report attachments are
@@ -952,3 +957,51 @@ Cyclopean Tomb is the one remaining Alpha Partial card; no claim of full-set
 completion yet. The current request prioritizes finishing and testing sets in
 historical order. No feedback ticket was closed in this milestone. No push or
 deployment was made.
+
+## Cyclopean Tomb and full Alpha inventory correction
+
+Cyclopean Tomb is Implemented. The activation requires its controller's upkeep,
+{2} and tapping the source, and targets only a non-Swamp land. Mire placement
+uses counter replacements; the Swamp effect preserves supertypes and expires
+permanently when the last mire counter is removed. It survives the source's
+removal. Each source incarnation has its own marked-land history. The death
+trigger creates a recurring own-upkeep trigger, which uses the stack, chooses
+on resolution and removes all mire counters from one eligible land. A land
+already cleaned by that incarnation is excluded forever. Blinked sources and
+lands, abilities waiting after source death, a same-resolution return, multiple
+Tombs and countering one cleanup occurrence are covered.
+
+Twelve new card-specific engine tests plus the original cast smoke test pass.
+The full engine run passed 4321 unit tests (two existing ignores), both footprint
+tests and benchmark smoke tests; the thirteenth targeted scenario was added
+after that full run and the final 13-test Tomb group passes. Regression suites:
+201 AI, 129 cards, 60 DSL plus its nesting-walker guard, 1180 client-core, 199
+host unit plus 40 integration, 15 protocol and 36 view tests pass. Workspace
+all-targets clippy and native dev-control build pass. Table codegen ran twice;
+full codegen --check reports up to date, and validate accepts all 2955 cards.
+The card-table failure before codegen and the nested-effect walker guard both
+identified missing integration; both are repaired, not bypassed. Existing seat
+selfplay baseline failure remains as previously documented.
+
+Protocol 12 adds a dedicated RemoveLandCounters choice; German/English client
+and seat narration state the consequence. Native 1280x800 verification used a
+paid Tomb activation on the opposing Forest, then Disenchant on Tomb. At turn
+3 upkeep, only the marked land was offered; the prompt and confirmation stayed
+readable. Confirming removed its mire counter and restored its Forest subtype,
+with no client error. Disenchant and Tomb were in the graveyard. Screenshots:
+/private/tmp/baylee-tomb-activation.png, baylee-tomb-marked.png,
+baylee-tomb-cleanup-choice.png, baylee-tomb-cleanup-selected.png and
+baylee-tomb-cleanup-result.png. Logs: /private/tmp/baylee-tomb-engine.log,
+baylee-tomb-final-targeted.log, baylee-tomb-regression.log,
+baylee-tomb-clippy.log, baylee-tomb-build.log, baylee-tomb-validate.log and
+baylee-tomb-codegen-check.log. The native test client was stopped afterward.
+
+**The previous set-completion count was wrong.** A complete Oracle-id join
+against set_lea.rs finds 254 Implemented, 32 Partial and four explicit
+exclusions in data/unplayable.tsv. The former seven-card list was a cast-test
+backfill list, not the entire set. [docs/set-progress.md](set-progress.md)
+records all 32 remaining cards and their unsupported clauses. Alpha is still
+incomplete; Beta/Arabian Nights must not be called complete or begun on the
+basis of the old worklist. This correction supersedes every earlier "last
+remaining Alpha card" statement in this chronological log. No feedback ticket
+was closed, no push or deployment was made.

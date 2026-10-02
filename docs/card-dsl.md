@@ -2835,3 +2835,21 @@ for controlled permanents. The existing simple mana planners omit these taxed
 sources, as they already omit printed mana inputs; otherwise they would count a
 three-mana payment as free production. Manual mana bubbles remain available
 when the engine says the cost can be paid.
+
+### Linked counter land changes
+
+`MarkLandWithCounter { kind, subtype }` places a counter on each legal target,
+records the land's and source's incarnations, and registers `SetLandType` for
+`WhileCounterRemains(kind)`. Removing the last counter ends that effect
+permanently; adding another later does not restart it. The effect survives the
+source's departure and does not grant or remove supertypes such as snow.
+
+`ScheduleLinkedCounterCleanup { kind, effects }` registers the given instructions
+for every own upkeep, preserving the source incarnation captured by its death
+trigger. `CleanLinkedCounters { kind }` chooses one currently eligible land and
+removes every counter of that kind from it. A land cleaned by that source is
+never eligible again for that source incarnation. The recurring trigger uses the
+stack and remains registered if one occurrence is countered. Cyclopean Tomb is
+the first card using these operations; its scenarios cover timing, payment,
+multiple instances, blinked sources and lands, last-counter expiry, replacement
+multipliers and countering the recurring cleanup.

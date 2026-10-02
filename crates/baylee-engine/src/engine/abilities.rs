@@ -2804,6 +2804,8 @@ impl<L: CardLookup> Engine<L> {
                 })
         });
         let abilities = list.abilities;
+        let counter_version = crate::resolve::linked_counters::uses_links(abilities)
+            .then(|| self.state.object(source).map_or(0, |o| o.version));
         // CR 107.3m: an object's **own** enters-the-battlefield triggered
         // ability that refers to X uses the X chosen for the spell that
         // became that object, although X for the permanent itself is 0. The
@@ -2846,6 +2848,10 @@ impl<L: CardLookup> Engine<L> {
             );
             obj.take_abilities(list);
             obj.x_value = announced_x;
+            if let Some(version) = counter_version {
+                obj.riders
+                    .push(crate::object::Rider::CounterSourceVersion(version));
+            }
             obj
         });
         self.state

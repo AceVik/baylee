@@ -2445,3 +2445,29 @@ land type"; both are convention tests that fire on a first try.
   Protocol 11 prevents older clients silently retaining the wrong planner.
 - Source: Wizards' Gloom rulings retrieved from the
   [Scryfall endpoint](https://api.scryfall.com/cards/0d26c559-ad06-4f78-b7b6-e658be8c7bdb/rulings).
+
+## Alpha Cyclopean Tomb and complete inventory (Codex, 2026-10-02)
+
+- **A seven-card worklist is not a set inventory.** Joining every Oracle id in
+  `generated/index/set_lea.rs` to its actual card file found 32 other Partials
+  after Gloom and Tomb. Current print-set headers are reprints, not reliable
+  original-set membership. `docs/set-progress.md` supersedes the earlier counts.
+- **Capture the source incarnation before it leaves.** A linked-counter ability
+  carries its source version on the stack; death triggers bind event-time
+  identity. A returning Tomb must not inherit an older incarnation's lands,
+  and a pending activation still marks for its old source after that source dies.
+- **A duration ending at zero must stay ended.** Re-adding a mire counter later
+  does not revive the expired land-type effect. Counter removal expires it
+  immediately, including before another instruction in the same resolution.
+  Bulk drains must use the same removal path. Source departure does not end it.
+- **A recurring trigger stays registered after being countered.** Tomb's cleanup
+  goes on the stack every own upkeep, with choices made on resolution; a
+  Tidebinder can counter one occurrence without canceling future occurrences.
+  The ledger tracks all counters removed from one eligible land, including
+  counters supplied by another effect, and remembers that this land was cleaned.
+- **Dev mutation is not an engine step.** Refresh the legal offer after filling
+  mana, and refresh characteristics after directly changing a test board before
+  inspecting it. These are fixture obligations, not reasons to change rules.
+- Official ruling read from the Scryfall WotC record: “The land remains a Swamp
+  as long as it has a mire counter on it.” Source:
+  https://api.scryfall.com/cards/7c77c7c1-39a5-4049-8e2c-3561b046152e/rulings

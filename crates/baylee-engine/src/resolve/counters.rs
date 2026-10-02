@@ -106,14 +106,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::DrainAllCountersIntoSelf => {
             let mut drained: u16 = 0;
             for id in state.battlefield_view() {
-                if let Some(obj) = state.object_mut(id) {
-                    let held: Vec<_> = obj.counters.iter().collect();
-                    for (kind, n) in held {
-                        if n > 0 {
-                            obj.counters.set(kind, 0);
-                            drained = drained.saturating_add(n);
-                        }
-                    }
+                let held: Vec<_> = state
+                    .object(id)
+                    .map(|o| o.counters.iter().collect())
+                    .unwrap_or_default();
+                for (kind, n) in held {
+                    drained = drained
+                        .saturating_add(crate::replacement::remove_counters(state, id, kind, n));
                 }
             }
             // The drain half above is removal and stays where it is. The

@@ -727,6 +727,8 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
+    /// The source incarnation captured by a linked-counter ability.
+    CounterSourceVersion(u32),
     /// Exiled by another object, which finds it again as a card "exiled
     /// with" it (CR 607.2a): Skyclave Apparition, Safe Haven, and the two
     /// "until" exiles.
@@ -862,7 +864,8 @@ impl Rider {
             | Self::Foretold
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
-            Self::Flashback
+            Self::CounterSourceVersion(_)
+            | Self::Flashback
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
             | Self::Prepared

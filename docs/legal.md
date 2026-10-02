@@ -570,3 +570,7 @@ card-image and attribution path is unchanged.
 Gloom (2026-10-02) follows the owner-approved rules-implementation exception
 above. Its cost increases and planning hints add no assets or player-facing
 symbols. Card images, attribution, fonts and existing mana symbols are unchanged.
+
+Cyclopean Tomb (2026-10-02) follows the same owner-approved rules-implementation
+exception above. Its new mark-removal prompt is ordinary text using the existing
+licensed fonts. No card artwork, symbols, font or other asset is added.

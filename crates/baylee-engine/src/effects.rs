@@ -245,16 +245,24 @@ pub struct EffectTable {
     /// rescanned (a copy's own statics, a token's).
     parked: Vec<ContinuousEffect>,
     next_id: u32,
+    /// Monotone performance hint; false proves there is no counter duration.
+    /// Derived cache only, with no effect on rules or snapshot identity.
+    may_have_counter_duration: bool,
     /// Bumped on every add/remove — the projection cache key.
     pub generation: u64,
 }
 
 impl EffectTable {
+    pub(crate) fn may_have_counter_duration(&self) -> bool {
+        self.may_have_counter_duration
+    }
+
     /// Registers an effect; bumps the generation.
     pub fn register(&mut self, mut fx: ContinuousEffect) -> EffectId {
         let id = EffectId::new(self.next_id);
         self.next_id += 1;
         fx.id = id;
+        self.may_have_counter_duration |= matches!(fx.duration, Duration::WhileCounterRemains(_));
         self.effects.push(fx);
         self.generation += 1;
         id
@@ -400,6 +408,7 @@ impl EffectTable {
             effects,
             parked,
             next_id,
+            may_have_counter_duration: _,
             generation,
         } = self;
         (effects, parked, *next_id, *generation)

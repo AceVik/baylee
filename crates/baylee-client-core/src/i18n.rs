@@ -1721,6 +1721,10 @@ messages! {
         en: "permanents to sacrifice",
         de: "bleibende Karten, die geopfert werden",
     },
+    /// land from which to remove counters
+    NounLandToRemoveCounters { en: "land to remove counters from", de: "Land, von dem die Marken entfernt werden" },
+    /// lands from which to remove counters
+    NounLandsToRemoveCounters { en: "lands to remove counters from", de: "Länder, von denen die Marken entfernt werden" },
     /// land to keep
     NounLandToKeep { en: "land to keep", de: "Land, das du behältst" },
     /// lands to keep

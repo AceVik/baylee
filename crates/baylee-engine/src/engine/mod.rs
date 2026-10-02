@@ -938,6 +938,11 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra.wrapping_mul(31).wrapping_add(
+                trigger
+                    .counter_source_version
+                    .map_or(0, |v| u64::from(v) + 1),
+            );
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(trigger.event_mana.map_or(0, crate::trigger::EventMana::key));

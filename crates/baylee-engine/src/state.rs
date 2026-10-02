@@ -190,6 +190,8 @@ pub struct DelayedTrigger {
 pub enum DelayedWhen {
     /// At the controller's next upkeep.
     NextUpkeep,
+    /// Every upkeep of the controller, for the rest of the game.
+    EachUpkeep,
     /// At the beginning of the next upkeep, whoever's turn it is
     /// (Archangel Avacyn's delayed transform).
     NextUpkeepOfAnyone,
@@ -233,6 +235,15 @@ pub enum DelayedWhen {
 /// What a delayed trigger does.
 #[derive(Clone, Hash, Debug)]
 pub enum DelayedAction {
+    /// Repeated cleanup tied to the incarnation that originally marked lands.
+    LinkedCounterCleanup {
+        /// Source object.
+        source: ObjectId,
+        /// Source incarnation.
+        version: u32,
+        /// The recurring instructions.
+        effects: &'static [baylee_cards_dsl::Effect],
+    },
     /// Cast a card from exile without paying its mana cost (rebound,
     /// suspend finish).
     CastFromExileWithoutPaying {
@@ -699,6 +710,10 @@ pub struct GameState {
     pub per_turn: PerTurn,
     /// Registered delayed triggers (suspend finishes, pact payments).
     pub delayed: Vec<DelayedTrigger>,
+    /// Lands marked by a particular source incarnation; survives its departure.
+    pub counter_links: Vec<crate::resolve::linked_counters::CounterLink>,
+    /// Source identities immediately before battlefield departures.
+    pub ltb_versions: Vec<(ObjectId, u32)>,
     /// First-of-turn drawn cards awaiting a miracle offer (CR 702.94).
     pub pending_miracle: std::collections::VecDeque<(PlayerId, ObjectId)>,
     /// Queued extra turns (CR 500.7); the front player takes the next
@@ -1066,6 +1081,8 @@ impl GameState {
             combat,
             per_turn,
             delayed,
+            counter_links,
+            ltb_versions,
             pending_miracle,
             extra_turns,
             restriction_info,
@@ -1124,6 +1141,8 @@ impl GameState {
             ("state.combat", format!("{combat:?}")),
             ("state.per_turn", format!("{per_turn:?}")),
             ("state.delayed", format!("{delayed:?}")),
+            ("state.counter_links", format!("{counter_links:?}")),
+            ("state.ltb_versions", format!("{ltb_versions:?}")),
             ("state.pending_miracle", format!("{pending_miracle:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
             ("state.restriction_info", format!("{restrictions:?}")),
@@ -1381,6 +1400,8 @@ impl GameState {
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             delayed: Vec::new(),
+            counter_links: Vec::new(),
+            ltb_versions: Vec::new(),
             pending_miracle: std::collections::VecDeque::new(),
             extra_turns: std::collections::VecDeque::new(),
             restriction_info: rustc_hash::FxHashMap::default(),
@@ -2131,6 +2152,7 @@ impl GameState {
     /// # Panics
     /// Internal invariant violations (zone objects always exist).
     pub fn refresh_characteristics(&mut self) {
+        crate::resolve::linked_counters::expire(self);
         // Both halves of the stack shortcut below fail silently — an id
         // left in the subset is projected after its object is gone, a spell
         // missing from it quietly stops being affected by anthems — and the
@@ -2670,6 +2692,12 @@ impl GameState {
                 token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
             })
         });
+        if from_zone == Zone::Battlefield {
+            self.ltb_versions.retain(|(other, _)| *other != id);
+            if let Some(o) = self.object(id) {
+                self.ltb_versions.push((id, o.version));
+            }
+        }
         self.ltb_abilities.retain(|(other, _)| *other != id);
         if from_zone == Zone::Battlefield
             && let Some(abilities) = departing
@@ -3277,6 +3305,8 @@ impl GameState {
             combat,
             per_turn,
             delayed,
+            counter_links,
+            ltb_versions,
             pending_miracle,
             extra_turns,
             restriction_info,
@@ -3345,6 +3375,8 @@ impl GameState {
         starting_player.hash(&mut h);
         per_turn.hash(&mut h);
         delayed.hash(&mut h);
+        counter_links.hash(&mut h);
+        ltb_versions.hash(&mut h);
         pending_miracle.hash(&mut h);
         extra_turns.hash(&mut h);
         rng.hash(&mut h);
@@ -3588,6 +3620,9 @@ impl GameState {
         // Prevention shields are what damage will do next, so two states
         // that differ only in what is shielded are two states.
         hash_shields(&mut h, self, &position);
+        // A land already cleaned by this incarnation is not eligible again,
+        // even if the visible board and counter totals are identical.
+        self.counter_links.hash(&mut h);
         h.finish()
     }
 
@@ -4207,6 +4242,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                         h.u8(of.get());
                     }
                 }
+            }
+            Rider::CounterSourceVersion(version) => {
+                h.u8(18);
+                version.hash(h);
             }
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),

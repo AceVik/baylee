@@ -34,6 +34,8 @@ impl EventMana {
 pub struct PendingTrigger {
     /// The permanent whose ability triggered.
     pub source: ObjectId,
+    /// Event-time source incarnation for linked-counter effects.
+    pub counter_source_version: Option<u32>,
     /// Index into the source card's abilities.
     pub ability_index: u32,
     /// Event-time rules text. Captured even while the source is on the
@@ -181,6 +183,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
+                                counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
                                 event_damage,
@@ -299,6 +302,7 @@ pub fn state_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
+                counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
                 event_damage: None,
@@ -345,6 +349,7 @@ fn replicate_triggers(
         };
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
+            counter_source_version: None,
             event_damage: None,
             event_mana: None,
             event_mana_value: None,
@@ -423,6 +428,7 @@ fn watch_triggers(
             continue;
         }
         triggers.push(PendingTrigger {
+            counter_source_version: None,
             event_damage: None,
             event_mana: None,
             event_mana_value: None,
@@ -583,6 +589,7 @@ fn monarch_triggers(
         return;
     };
     let inherent = |effects, event_object| PendingTrigger {
+        counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
         event_damage: None,
@@ -840,6 +847,7 @@ fn cast_this_spell_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
+                counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
                 source: object,
@@ -1088,6 +1096,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
@@ -1189,6 +1198,7 @@ fn collect_for_objects(
                             permanent,
                         ) {
                             triggers.push(PendingTrigger {
+                                counter_source_version: None,
                                 event_mana: None,
                                 event_mana_value: None,
                                 event_damage: None,
@@ -1237,6 +1247,7 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
@@ -1282,6 +1293,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
@@ -1340,6 +1352,25 @@ fn collect_for_objects(
                     let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            counter_source_version: crate::resolve::linked_counters::uses_links(
+                                abilities,
+                            )
+                            .then(|| {
+                                // A source may return during the resolution that killed it,
+                                // before this event batch is collected.
+                                if matches!(entry.event, GameEvent::ZoneChanged {
+                                    object, from: Zone::Battlefield, to: Zone::Graveyard, ..
+                                } if object == permanent)
+                                {
+                                    state
+                                        .ltb_versions
+                                        .iter()
+                                        .find(|(id, _)| *id == permanent)
+                                        .map_or(obj.version, |(_, version)| *version)
+                                } else {
+                                    obj.version
+                                }
+                            }),
                             event_mana: produced_mana(&entry.event, events),
                             event_mana_value: None,
                             event_damage,

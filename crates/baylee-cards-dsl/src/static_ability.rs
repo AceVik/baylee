@@ -790,6 +790,9 @@ pub enum Duration {
     UntilEndOfCombat,
     /// Indefinitely (emblems, boss effects).
     Indefinitely,
+    /// Until the affected object loses its last counter of this kind.
+    /// Bound to one object by the resolving effect, independently of its source.
+    WhileCounterRemains(crate::CounterKind),
     /// Until the start of the effect controller's next turn (Elspeth's
     /// flying, Teferi's sorcery-flash).
     UntilYourNextTurn,
