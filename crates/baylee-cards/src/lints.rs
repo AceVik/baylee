@@ -779,7 +779,10 @@ fn as_granted_activated(modifier: &Modifier) -> Option<(bool, &'static [Effect])
 
 /// Whether an effect adds mana.
 fn makes_mana(effect: &Effect) -> bool {
-    matches!(effect, Effect::AddMana { .. } | Effect::AddManaFor { .. })
+    matches!(
+        effect,
+        Effect::AddMana { .. } | Effect::AddManaFor { .. } | Effect::AddManaLikeEvent { .. }
+    )
 }
 
 /// Whether an activated ability's `mana_ability` flag disagrees with what

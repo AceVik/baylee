@@ -755,6 +755,7 @@ mod tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,

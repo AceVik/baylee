@@ -81,6 +81,8 @@ pub struct Resolution {
     pub target_players: baylee_core::ids::SeatSet,
     /// The object the triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
+    /// Production captured by the triggering mana event.
+    pub event_mana: Option<crate::trigger::EventMana>,
     /// The suspended choice, if any.
     pub awaiting: Option<AwaitingOp>,
     /// Whether the thing being resolved said "target" at all.
@@ -598,6 +600,8 @@ pub enum AwaitingOp {
     /// colors the lands on the battlefield produce are game state, so they
     /// are settled when the effect runs, not when the answer arrives.
     ManaChoice {
+        /// Player receiving and choosing the mana.
+        recipient: PlayerId,
         /// Colors offered.
         colors: Vec<ManaColor>,
         /// Picks still to make (a combination picks once per mana).
@@ -1190,6 +1194,7 @@ pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: Man
         return run(state, res);
     }
     let AwaitingOp::ManaChoice {
+        recipient,
         colors,
         remaining,
         per_pick,
@@ -1199,16 +1204,17 @@ pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: Man
         panic!("resume_with_color on a question that is not about a color");
     };
     debug_assert!(colors.contains(&color));
-    mana::add(state, res, color, per_pick, restriction);
+    mana::add_to(state, res, recipient, color, per_pick, restriction);
     if remaining > 1 {
         res.awaiting = Some(AwaitingOp::ManaChoice {
+            recipient,
             colors: colors.clone(),
             remaining: remaining - 1,
             per_pick,
             restriction,
         });
         return Flow::Wait(Pending::ChooseColor {
-            player: res.controller,
+            player: recipient,
             options: colors,
         });
     }
@@ -3562,6 +3568,7 @@ fn run_nested_with(
         mana_ability: false,
         countered_source: res.countered_source,
         target_lki: None,
+        event_mana: res.event_mana,
         retarget_left: None,
     };
     match run(state, &mut nested) {
@@ -3662,9 +3669,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::DelayedManaAtNextFirstMain { .. } | Effect::AddManaFor { .. } => {
-            mana::exec(state, res, op)
-        }
+        Effect::DelayedManaAtNextFirstMain { .. }
+        | Effect::AddManaFor { .. }
+        | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::AddCounterFilter { .. }
@@ -5067,6 +5074,7 @@ mod host_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         };
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));
@@ -5137,6 +5145,7 @@ mod toggle_tests {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                event_mana: None,
                 retarget_left: None,
             };
             assert!(matches!(run(&mut state, &mut res), Flow::Complete));
@@ -5202,6 +5211,7 @@ mod mana_short_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         };
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));
@@ -5267,6 +5277,7 @@ mod no_regeneration_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         };
         assert!(matches!(run(&mut state, &mut res), Flow::Complete));
@@ -5321,6 +5332,7 @@ mod whole_zone_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         }
     }
@@ -5541,6 +5553,7 @@ mod price_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         };
         (state, res)
@@ -5877,6 +5890,7 @@ mod created_for_the_departed_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
@@ -6133,6 +6147,7 @@ mod counted_choice_tests {
             targeted: false,
             mana_ability: false,
             countered_source: None,
+            event_mana: None,
             retarget_left: None,
         }
     }
@@ -6209,6 +6224,7 @@ mod controller_of_target_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,

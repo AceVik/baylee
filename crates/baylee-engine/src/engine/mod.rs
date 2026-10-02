@@ -937,6 +937,9 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(trigger.event_mana.map_or(0, crate::trigger::EventMana::key));
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .event_mana_value
@@ -945,6 +948,8 @@ impl<L: CardLookup> Engine<L> {
         }
         if let Some(r) = &self.resolution {
             extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(r.event_mana.map_or(0, crate::trigger::EventMana::key))
                 .wrapping_mul(31)
                 .wrapping_add(r.pc as u64)
                 .wrapping_add(u64::from(r.on_stack.slot()))

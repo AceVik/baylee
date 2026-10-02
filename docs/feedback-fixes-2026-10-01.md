@@ -785,3 +785,52 @@ baylee-vise-final-clippy.log and baylee-vise-codegen-check.log.
 
 The final native build confirms the corrected chooser label “Haus-KI” before
 selection: /private/tmp/baylee-vise-choice-final.png.
+
+
+## Alpha milestone: Mana Flare (2026-10-02, 09:06 continuation)
+
+Feedback remains 50 resolved / one new; the unchanged Windows/Vulkan visual
+report stays open pending the affected-renderer verification.
+
+Mana Flare is now Implemented. Its triggered mana ability captures all types
+actually produced by one land activation, including colorless, and adds one
+mana of a chosen produced type to that activation's player. It resolves off the
+stack. Multiple Flares each supply one bonus, even if the land made multiple
+mana. The bonus inherits neither spending restrictions nor riders from the
+land. Its snow provenance belongs to the enchantment, not the land.
+
+The eight played-card tests cover printed cost, both players, nonland exclusion,
+Ancient Tomb's multiple colorless mana, two Flares with an opponent's Gruul Turf,
+a dual's chosen color, Ziggurat mana actually casting Lightning Bolt, snow,
+Mystic Gate's two suspended original choices, and removing Flare with Disenchant.
+The multiplayer test exposed a real priority bug: a suspended triggered mana
+choice returned to the trigger's controller. It now returns to the original
+mana activator. The event context participates in snapshot hashes and lives in
+trigger/resolution data, leaving the GameObject footprint unchanged.
+
+Validation so far: all eight targeted tests, all 4290 engine unit tests (two
+preexisting ignores), both footprint checks and all-target benchmark smoke runs
+pass. Workspace all-targets clippy passes. Table codegen ran twice; the sole
+generated diff is Mana Flare's ability-line entry.
+
+Three Alpha Partial cards remain: Balance, Gloom and Cyclopean Tomb. The next
+set has not started. The previously reproduced seat selfplay wake-count failure
+remains a separate baseline issue; no threshold was changed.
+
+The broader regression run also passes: 198 AI, 129 card, 59 DSL and 197
+host unit tests, all 40 host integration scenarios and the DSL doc test.
+`xtask validate` accepts all 2955 cards. Logs are /private/tmp/baylee-flare-tests.log,
+baylee-flare-engine.log, baylee-flare-regression.log, baylee-flare-clippy.log
+and baylee-flare-validate.log.
+
+Full `xtask codegen --check` is up to date and the native dev-control build
+passes, with the existing nonfatal macOS large-unwind-section linker warning.
+
+Native verification: seat 1 controlled Mana Flare, seat 0 tapped Gruul Turf.
+The live client offered exactly Red/Green to seat 0, off-stack. Choosing Green
+in the main phase yielded red 1 / green 2, retained seat 0 priority, left seat
+1's pool empty and reported no error. Screenshots are
+/private/tmp/baylee-flare-choice.png and /private/tmp/baylee-flare-result.png.
+The first upkeep run advanced through an automatic pass and emptied its pool
+normally at the step boundary; the final measured run used the main phase.
+No push or deployment was made.

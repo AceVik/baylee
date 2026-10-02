@@ -13,6 +13,22 @@ use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+/// Mana types actually produced by one activation, including colorless.
+#[derive(Clone, Copy, Debug)]
+pub struct EventMana {
+    /// The player who activated the mana ability.
+    pub player: PlayerId,
+    /// One bit per `ManaColor`, independent of amount and spending restrictions.
+    pub types: u8,
+}
+
+impl EventMana {
+    /// Compact nonzero key for a captured production in the engine snapshot.
+    pub(crate) fn key(self) -> u64 {
+        1 + u64::from(self.player.get()) + (u64::from(self.types) << 8)
+    }
+}
+
 /// A triggered ability waiting to go on the stack.
 #[derive(Clone, Debug)]
 pub struct PendingTrigger {
@@ -33,6 +49,8 @@ pub struct PendingTrigger {
     pub event_object: Option<ObjectId>,
     /// The event permanent's mana value before leaving the battlefield.
     pub event_mana_value: Option<u32>,
+    /// Actual production captured for a triggered mana ability.
+    pub event_mana: Option<EventMana>,
     /// The player a damage event dealt damage to, and how much: "that
     /// player" and "that much" of a combat-damage trigger (Questing Beast).
     pub event_damage: Option<(PlayerId, u16)>,
@@ -163,6 +181,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
+                                event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
                                 event_damage,
                                 source: emblem,
@@ -280,6 +299,7 @@ pub fn state_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
+                event_mana: None,
                 event_mana_value: None,
                 event_damage: None,
                 source: permanent,
@@ -326,6 +346,7 @@ fn replicate_triggers(
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
             event_damage: None,
+            event_mana: None,
             event_mana_value: None,
             source: object,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -403,6 +424,7 @@ fn watch_triggers(
         }
         triggers.push(PendingTrigger {
             event_damage: None,
+            event_mana: None,
             event_mana_value: None,
             source,
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
@@ -457,6 +479,41 @@ fn first_mana_of_a_tap(
             _ => None,
         })
         .unwrap_or(false)
+}
+
+/// Capture all types made by this activation, stopping at the next tap of
+/// the same source. Bonus mana from another permanent is not its production.
+fn produced_mana(event: &GameEvent, batch: &[crate::event::JournalEntry]) -> Option<EventMana> {
+    let GameEvent::ManaProduced {
+        player,
+        source: Some(source),
+        ..
+    } = event
+    else {
+        return None;
+    };
+    let at = batch
+        .iter()
+        .position(|entry| std::ptr::eq(&raw const entry.event, event))?;
+    let mut types = 0;
+    for entry in &batch[at..] {
+        match entry.event {
+            GameEvent::ObjectTapped { object, .. } if object == *source => break,
+            GameEvent::ManaProduced {
+                source: Some(object),
+                player: who,
+                color,
+                amount,
+            } if object == *source && who == *player && amount > 0 => {
+                types |= 1 << (color as u8);
+            }
+            _ => {}
+        }
+    }
+    Some(EventMana {
+        player: *player,
+        types,
+    })
 }
 
 /// Whether a combat `DamageDealt` is the first of its combat damage step to
@@ -526,6 +583,7 @@ fn monarch_triggers(
         return;
     };
     let inherent = |effects, event_object| PendingTrigger {
+        event_mana: None,
         event_mana_value: None,
         event_damage: None,
         source: ObjectId::NO_SOURCE,
@@ -782,6 +840,7 @@ fn cast_this_spell_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
+                event_mana: None,
                 event_mana_value: None,
                 source: object,
                 ability_index: index as u32,
@@ -1029,6 +1088,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
                             source: permanent,
@@ -1129,6 +1189,7 @@ fn collect_for_objects(
                             permanent,
                         ) {
                             triggers.push(PendingTrigger {
+                                event_mana: None,
                                 event_mana_value: None,
                                 event_damage: None,
                                 source: permanent,
@@ -1176,6 +1237,7 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
                             source: permanent,
@@ -1220,6 +1282,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            event_mana: None,
                             event_mana_value: None,
                             event_damage: None,
                             source: permanent,
@@ -1277,6 +1340,7 @@ fn collect_for_objects(
                     let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            event_mana: produced_mana(&entry.event, events),
                             event_mana_value: None,
                             event_damage,
                             source: permanent,

@@ -2456,6 +2456,7 @@ impl<L: CardLookup> Engine<L> {
                 continue;
             }
             let mut res = crate::resolve::Resolution {
+                event_mana: t.event_mana,
                 retarget_left: None,
                 source: t.source,
                 on_stack: t.source,
@@ -3429,6 +3430,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
+                    event_mana: None,
                     retarget_left: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
@@ -3462,6 +3464,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                event_mana: None,
                 retarget_left: None,
             };
             match resolve::run(&mut self.state, &mut res) {
@@ -3516,6 +3519,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 retarget_left,
+                event_mana: None,
             };
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
@@ -3783,7 +3787,9 @@ impl<L: CardLookup> Engine<L> {
         // unbounded mana. Nothing to finalize; the activating player keeps
         // priority (CR 605.3a).
         if res.mana_ability {
-            self.after_action(res.controller);
+            // A triggered mana ability may belong to another player (Mana
+            // Flare). Its choice returns to the original mana activator.
+            self.after_action(res.event_mana.map_or(res.controller, |event| event.player));
             return;
         }
         if self
@@ -4442,6 +4448,7 @@ impl<L: CardLookup> Engine<L> {
         for ability_index in &hits {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
+                    event_mana: None,
                     event_mana_value: None,
                     event_damage: None,
                     source: id,
@@ -4822,6 +4829,7 @@ impl<L: CardLookup> Engine<L> {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
                 event_damage: None,
+                event_mana: None,
                 event_mana_value: None,
                 source,
                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,

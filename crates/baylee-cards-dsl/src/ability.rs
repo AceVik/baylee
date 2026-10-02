@@ -825,7 +825,7 @@ impl AbilityDef {
                 ..
             } if effects.iter().any(|effect| matches!(
                 effect,
-                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. }
+                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. } | crate::effect::Effect::AddManaLikeEvent { .. }
             ))
         )
     }

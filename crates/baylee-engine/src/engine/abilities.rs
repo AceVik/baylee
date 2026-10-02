@@ -1402,6 +1402,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                event_mana: None,
                 retarget_left: None,
             };
             match crate::resolve::run(&mut self.state, &mut res) {
@@ -2018,6 +2019,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                event_mana: None,
                 retarget_left: None,
             };
             let flow = resolve::run(&mut self.state, &mut res);

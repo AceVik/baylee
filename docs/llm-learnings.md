@@ -2368,3 +2368,24 @@ land type"; both are convention tests that fire on a first try.
   localized the bot difficulty as “Solide 1”, while the table used “Haus-KI”.
   The player chooser now shares the table's naming function when its view is
   available; a regression test uses the real difficulty-based roster name.
+
+
+## Alpha Mana Flare (Codex, 2026-10-02)
+
+- **Capture production, not capability.** Taiga choosing green produces only
+  green, while Gruul Turf produces red and green. Mystic Gate's two suspended
+  picks belong to one activation. Capture the complete event batch and stop
+  at the source's next tap; do not count a different permanent's bonus mana.
+- **Mana trigger controller and activator can differ.** The opponent's Flare
+  asks the land's controller for the type. The multiple-copy test exposed
+  `finish_resolution` returning priority to the enchantment's controller after
+  a suspended mana choice; it now returns to the captured mana activator.
+- **Production restrictions are not inherited.** A Ziggurat bonus actually
+  casts Lightning Bolt while the land's own mana stays creature-only. A snow
+  Forest contributes one snow mana, with an ordinary bonus from ordinary Flare.
+- **Choose the correct test turn helper.** `reach_main_phase` is for reaching
+  priority in the current turn. Crossing the first combat requires
+  `reach_their_main_phase`, which handles empty attacker/blocker declarations.
+- **Rule source:** Wizards' 2023-09-01 rulings, retrieved through Scryfall's
+  [rulings endpoint](https://api.scryfall.com/cards/a4bb303d-b230-430a-a2c3-f91a776de34e/rulings),
+  confirm one chosen produced type and no inherited restrictions or riders.

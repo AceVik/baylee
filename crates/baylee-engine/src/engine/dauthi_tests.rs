@@ -209,6 +209,7 @@ fn dauthi_does_not_outlive_a_destroy_all_instruction_in_the_same_resolution() {
         mana_ability: false,
         countered_source: None,
         target_lki: None,
+        event_mana: None,
         retarget_left: None,
     };
     assert!(matches!(

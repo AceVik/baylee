@@ -20,6 +20,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             combination,
             restriction,
         } => add_mana(state, res, source, &amount, combination, restriction),
+        Effect::AddManaLikeEvent { amount } => add_like_event(state, res, amount),
         Effect::AddManaFor { who, color, amount } => {
             for player in players_of(who, state, res.controller, res) {
                 add_to(state, res, player, color, amount, None);
@@ -73,6 +74,7 @@ fn add_mana(
     // picks one color for the whole amount.
     let (picks, per_pick) = if combination { (n, 1) } else { (1, n) };
     res.awaiting = Some(AwaitingOp::ManaChoice {
+        recipient: you,
         colors: options.clone(),
         remaining: picks,
         per_pick,
@@ -80,6 +82,34 @@ fn add_mana(
     });
     Some(Pending::ChooseColor {
         player: you,
+        options,
+    })
+}
+
+/// Adds the extra mana to the player who tapped the land, with their choice
+/// restricted to types that activation actually produced.
+fn add_like_event(state: &mut GameState, res: &mut Resolution, amount: u16) -> Option<Pending> {
+    let event = res.event_mana?;
+    let options: Vec<_> = ManaColor::ALL
+        .into_iter()
+        .filter(|color| event.types & (1 << (*color as u8)) != 0)
+        .collect();
+    if amount == 0 || options.is_empty() {
+        return None;
+    }
+    if let [color] = options[..] {
+        add_to(state, res, event.player, color, amount, None);
+        return None;
+    }
+    res.awaiting = Some(AwaitingOp::ManaChoice {
+        recipient: event.player,
+        colors: options.clone(),
+        remaining: 1,
+        per_pick: amount,
+        restriction: None,
+    });
+    Some(Pending::ChooseColor {
+        player: event.player,
         options,
     })
 }
@@ -98,7 +128,7 @@ pub(super) fn add(
 /// [`add`] into `you`'s pool, which is the ability's controller's unless
 /// the effect names another player ("its controller adds", Gauntlet of
 /// Might).
-fn add_to(
+pub(super) fn add_to(
     state: &mut GameState,
     res: &Resolution,
     you: PlayerId,

@@ -556,3 +556,8 @@ The Black Vise completion (2026-10-02) follows that owner decision. Its new
 client annotation is ordinary seat-name text in the existing licensed fonts;
 full card images, notices and attribution use the unchanged rendering path.
 No artwork, symbol or font asset is added.
+
+
+Mana Flare (2026-10-02) follows the same owner-approved rules-implementation
+exception above. It adds no assets and uses the existing mana-choice UI,
+licensed fonts/symbols, complete card rendering and attribution unchanged.

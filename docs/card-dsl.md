@@ -2770,3 +2770,16 @@ constant, with zero as the floor. Counts are evaluated on resolution: Black Vise
 uses four as the subtraction and sees cards drawn or discarded in response.
 The public `chosen_opponent` view field also distinguishes otherwise identical
 permanents for grouping, and the client labels the chosen seat by its table name.
+
+
+### Mana of a type the triggering land produced
+
+`Effect::AddManaLikeEvent { amount }` belongs under `Trigger::TappedForMana`.
+The engine captures the activation's actual mana types, including colorless,
+across all production events and color choices. The mana activator receives the
+bonus and chooses its type when there is more than one. The amount is per tap,
+not per unit produced. Multiple triggered sources make independent bonuses.
+This effect copies neither spending restrictions nor riders from the land;
+snow provenance comes from the bonus-producing permanent itself. Mana triggers
+resolve off-stack, and a suspended choice returns to the original activator.
+The event record is in the trigger/resolution context, never in `GameObject`.

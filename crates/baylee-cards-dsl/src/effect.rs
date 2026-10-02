@@ -2066,6 +2066,12 @@ pub enum Effect {
         /// How much.
         amount: u16,
     },
+    /// Add mana of a type the triggering activation produced, chosen by
+    /// and added to the player who activated it (Mana Flare).
+    AddManaLikeEvent {
+        /// How much additional mana of one chosen type.
+        amount: u16,
+    },
     /// Add mana to your pool.
     ///
     /// Prefer the constructors — [`Effect::mana`], [`Effect::mana_choice`],
@@ -3471,6 +3477,7 @@ impl Effect {
             | Effect::Mill { .. }
             | Effect::AddMana { .. }
             | Effect::AddManaFor { .. }
+            | Effect::AddManaLikeEvent { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::RemoveCounterSelf { .. }

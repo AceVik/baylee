@@ -1,8 +1,8 @@
 //! Mana Flare — {2}{R} — Enchantment
 //! Oracle: Whenever a player taps a land for mana, that player adds one mana of any type that land produced.
 //! Set: ME1 #103 — Masters Edition | Scryfall ID: a4bb303d-b230-430a-a2c3-f91a776de34e | Oracle ID: 97159138-c34b-416e-b079-5c952383a243
-// PARTIAL — adding mana of a type the tapped land produced is not in the engine;
-// it does nothing.
+// IMPLEMENTED — one extra mana of a type the land actually produced.
+// Behavior tests: baylee-engine/src/engine/card_tests/enchantments.rs.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,16 +11,17 @@ card!(
     oracle_id = "97159138-c34b-416e-b079-5c952383a243",
     scryfall_id = "a4bb303d-b230-430a-a2c3-f91a776de34e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "adding mana of a type the tapped land produced is not in the engine; it does nothing"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mana Flare",
         mana_cost = mana!("{2}{R}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[
-        // NOT SUPPORTED: Whenever a player taps a land for mana, that player adds one mana
-        // of any type that land produced.
-    ],
+    abilities = &[triggered!(
+        Trigger::TappedForMana {
+            by: PlayerRel::EachPlayer,
+            filter: &Filter::HasType(TypeSet::LAND)
+        },
+        &[Effect::AddManaLikeEvent { amount: 1 }]
+    )],
 );

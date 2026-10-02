@@ -52,6 +52,7 @@ pub(super) fn arm(
     let timestamp = state.object(res.source).map_or(0, |o| o.timestamp);
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
+            event_mana: None,
             event_mana_value: None,
             event_damage: None,
             source: res.source,
@@ -186,6 +187,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            event_mana: None,
             retarget_left: None,
         }
     }
