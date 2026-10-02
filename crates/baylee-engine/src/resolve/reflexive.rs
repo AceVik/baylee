@@ -53,6 +53,7 @@ pub(super) fn arm(
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
             source_version: None,
+            event_object_identity: None,
             counter_source_version: None,
             event_mana: None,
             event_mana_value: None,

@@ -2,8 +2,8 @@
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
 > never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
-> Bond, Consecrate Land, Animate Artifact, Nether Shadow and Sunglasses of Urza,
-> 27 Alpha cards remain Partial.
+> Bond, Consecrate Land, Animate Artifact, Nether Shadow, Sunglasses of Urza
+> and Sengir Vampire, 26 Alpha cards remain Partial.
 > See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
@@ -1273,3 +1273,77 @@ Inventory by first-printing Oracle identity: **259 Implemented / 27 Partial /
 4 explicit exclusions**. Alpha remains incomplete. Feedback was rechecked:
 50 resolved and the same Windows Vulkan report remains open. No report was closed,
 and no push or deployment was performed.
+
+
+## Alpha continuation — Sengir Vampire, 2026-10-02
+
+Sengir Vampire now implements its complete death-after-damage trigger alongside
+flying. Actual positive damage is recorded with both objects' incarnations;
+repeated hits produce one trigger per dying creature. The ability is read at
+death time and includes noncombat damage and later destruction by another
+source. Simultaneous death still triggers, but the departed Sengir receives no
+counter. History survives cleanup and expires at the next turn.
+
+Astra xhigh implemented the shared engine/DSL support. Sol 6.1 medium reviewed
+rules, implementation and tests independently. Its findings led to fixes for
+granted-trigger identity, phasing after a trigger, loop equivalence and an old
+event-object damage dealer after blink. The latter now retains original identity
+and last-known power, including across copying/retargeting of the stack object.
+Damage history and pending snapshots participate in deterministic hashes and
+fuzz diagnostics. Empty history skips the additional SBA snapshot pass.
+
+**12 card tests** pass (11 new plus the existing flying test): casting with the
+printed cost; legal flying blocks; combat kill; two damaged blockers dying;
+nonlethal damage followed by Terror; an undamaged victim; an earlier turn's
+damage; simultaneous trade; source Unsummon in response; exile instead of death;
+Fog; and real Khalni Ambush fights, including repeated hits followed by one death.
+**12 additional engine regressions** exercise controller and incarnation changes,
+type/ability changes at death, sequential/simultaneous departures, cleanup,
+phasing, granted triggers, old stacked damage, LKI power and history hashing.
+A codegen regression ensures the death clause, rather than a damage-dealt clause,
+is displayed for this trigger.
+
+Validation: `/private/tmp/baylee-sengir-regression.log` contains a successful
+all-targets run across core (113), engine (**4448**, 2 ignored, plus footprint 2
+and benchmark smoke checks), cards (129), DSL (60 plus walker 1), codegen (268),
+AI (201), client-core (1182 plus 7 integration, 1 ignored), gamehost (200,
+2 ignored, plus 41 integration), protocol (30) and view (37).
+Workspace/all-targets Clippy with warnings denied passes in
+`/private/tmp/baylee-sengir-clippy.log`. All 12 damage-history tests also pass with
+`--features fuzz`: `/private/tmp/baylee-sengir-fuzz-tests.log`. Formatting and
+diff checks pass. Two-pass table regeneration and full codegen check pass
+(`/private/tmp/baylee-sengir-codegen-check.log`), and all 2955 card headers validate
+(`/private/tmp/baylee-sengir-validate.log`). This is not a claim that every
+workspace test passed: the previously documented seat self-play p90 failure was
+not rerun or changed. No full pre-push gate or release/MSRV matrix was run.
+
+Live Scryfall Oracle and all three card rulings were checked:
+`/private/tmp/baylee-sengir-oracle.json` and
+`/private/tmp/baylee-sengir-rulings.json`. The external corpus was consulted
+through explain only, without copying source files into this repository.
+
+Native acceptance at 1280×800 logical pixels passed through real combat:
+the house AI attacked with Sengir, the player assigned Storm Crow as blocker,
+and after the Crow died Sengir became **5/5 with exactly one +1/+1 counter**.
+No engine error occurred. Inspected screenshots:
+`/private/tmp/baylee-sengir-block.png` and
+`/private/tmp/baylee-sengir-result.png`; measured view:
+`/private/tmp/baylee-sengir-combat-result.json`. The native build succeeded
+with the existing macOS debug-linker compact-unwind warning, recorded in
+`/private/tmp/baylee-sengir-native-build.log`.
+
+Additional UI follow-up found during acceptance, **not fixed in this rules
+milestone**: in a seeded local duel with Sengir, three Forests and Khalni Ambush,
+clicking the spell row of the cast/land chooser closed it without arming a spell.
+It reproduced with both untapped Forests and three green mana already floating.
+The chooser advertised number keys, but Digit1 did not choose the row. Enter
+could leave an armed Run in `/state` while the prompt bar still offered Pass;
+a second Enter advanced into combat rather than casting. Screenshot:
+`/private/tmp/baylee-sengir-cast-choice.png`. This needs an interaction regression
+and live recheck; the fight itself is covered by passing engine card tests.
+
+Inventory regenerated from every first-printing Alpha Oracle identity:
+**260 Implemented / 26 Partial / 4 explicit exclusions**, with no missing entries.
+Alpha remains incomplete. Feedback was rechecked: **50 resolved, 1 new**; the
+same Windows Vulkan report awaits relevant hardware verification. No reports
+were closed, and no push or deployment was performed.

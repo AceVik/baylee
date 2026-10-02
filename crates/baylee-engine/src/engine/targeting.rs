@@ -12,6 +12,7 @@ use crate::trigger::PendingTrigger;
 fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
     a.source == b.source
         && a.source_version == b.source_version
+        && a.event_object_identity == b.event_object_identity
         && a.counter_source_version == b.counter_source_version
         && a.timestamp == b.timestamp
         && a.ability_index == b.ability_index

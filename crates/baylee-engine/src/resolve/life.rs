@@ -56,11 +56,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .unwrap_or_default();
             for &target in &res.targets.clone() {
                 if let Some(&(_, n)) = shares.iter().find(|(t, _)| *t == target) {
-                    deal_to_object_with_loyalty(
+                    let version = source_version(state, res);
+                    deal_to_object(
                         state,
                         target,
                         i16::try_from(n).unwrap_or(i16::MAX),
                         res.source,
+                        &mut Redirected::default(),
+                        version,
                     );
                 }
             }
@@ -80,10 +83,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // last existed there (CR 608.2h); with neither, the effect
             // fails to determine an amount and deals nothing.
             let dealer = res.event_object?;
+            let identity = event_object_identity(state, res);
             let power = state
                 .object(dealer)
-                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && identity.is_none_or(|(version, _)| o.version == version)
+                })
                 .map(|o| o.characteristics().power.unwrap_or(0))
+                .or_else(|| identity.map(|(_, power)| power))
                 .or_else(|| {
                     state
                         .ltb_powers
@@ -100,7 +108,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(&target_id) = res.targets.first() {
                 let controller = state.object(target_id).map_or(you, |o| o.controller);
                 let n = amount2(&amount, state, you, res) as i16;
-                deal_to_player(state, res.source, controller, n);
+                let version = source_version(state, res);
+                deal_to_player_after(
+                    state,
+                    res.source,
+                    controller,
+                    n,
+                    &mut Redirected::default(),
+                    version,
+                );
             }
             None
         }
@@ -207,11 +223,22 @@ fn deal_to_spec(
     n: i16,
     target: TargetSpec,
 ) {
+    let version = if Some(source) == res.event_object {
+        event_object_identity(state, res).map(|(version, _)| version)
+    } else if source == res.source {
+        source_version(state, res)
+    } else {
+        None
+    };
     for recipient in recipients(state, res, you, target) {
-        match recipient {
-            DamageTarget::Player(player) => deal_to_player(state, source, player, n),
-            DamageTarget::Object(id) => deal_to_object_with_loyalty(state, id, n, source),
-        }
+        deal_redirected(
+            state,
+            source,
+            recipient,
+            n,
+            &mut Redirected::default(),
+            version,
+        );
     }
 }
 
@@ -321,8 +348,16 @@ fn damage_each(state: &mut GameState, res: &Resolution, amount: &Amount, filter:
             })
         })
         .collect();
+    let version = source_version(state, res);
     for id in hit {
-        deal_to_object_with_loyalty(state, id, n, res.source);
+        deal_to_object(
+            state,
+            id,
+            n,
+            res.source,
+            &mut Redirected::default(),
+            version,
+        );
     }
 }
 
@@ -429,7 +464,7 @@ pub(super) fn deal_to_object_with_loyalty(
     n: i16,
     source: ObjectId,
 ) {
-    deal_to_object(state, target, n, source, &mut Redirected::default());
+    deal_to_object(state, target, n, source, &mut Redirected::default(), None);
 }
 
 /// Damage a redirection moved (CR 614.9), dealt through the door for its
@@ -440,10 +475,13 @@ fn deal_redirected(
     recipient: DamageTarget,
     n: i16,
     done: &mut Redirected,
+    source_version: Option<u32>,
 ) {
     match recipient {
-        DamageTarget::Player(player) => deal_to_player_after(state, source, player, n, done),
-        DamageTarget::Object(id) => deal_to_object(state, id, n, source, done),
+        DamageTarget::Player(player) => {
+            deal_to_player_after(state, source, player, n, done, source_version);
+        }
+        DamageTarget::Object(id) => deal_to_object(state, id, n, source, done, source_version),
     }
 }
 
@@ -453,6 +491,7 @@ fn deal_to_object(
     n: i16,
     source: ObjectId,
     done: &mut Redirected,
+    source_version: Option<u32>,
 ) {
     if n <= 0 {
         return;
@@ -466,7 +505,7 @@ fn deal_to_object(
         return;
     }
     if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
-        deal_redirected(state, source, to, n, done);
+        deal_redirected(state, source, to, n, done, source_version);
         return;
     }
     let n = crate::combat::absorbed(state, source, target, n, false);
@@ -507,16 +546,12 @@ fn deal_to_object(
             obj.deathtouched |= deathtouch;
         }
     }
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Object(target),
-        amount: n as u16,
-        is_combat: false,
-    });
+    state.record_permanent_damage(source, source_version, target, n as u16, false);
 }
 
+#[cfg(test)]
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
-    deal_to_player_after(state, source, player, n, &mut Redirected::default());
+    deal_to_player_after(state, source, player, n, &mut Redirected::default(), None);
 }
 
 fn deal_to_player_after(
@@ -525,6 +560,7 @@ fn deal_to_player_after(
     player: PlayerId,
     n: i16,
     done: &mut Redirected,
+    source_version: Option<u32>,
 ) {
     if n <= 0 {
         return;
@@ -535,7 +571,7 @@ fn deal_to_player_after(
     }
     // After the shields and before the life, as combat's door does it.
     if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
-        deal_redirected(state, source, to, n, done);
+        deal_redirected(state, source, to, n, done, source_version);
         return;
     }
     state.damage_player(source, player, n as u16, false, Cause::Effect);

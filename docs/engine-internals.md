@@ -333,6 +333,23 @@ queued captures participate in the engine snapshot; the stack rider participates
 in both state snapshot and loop signature. Existing serialized journal entries
 without a departure remain readable via the field's serde default.
 
+### Damage history and later deaths
+
+`damage_history` records actual positive permanent damage after prevention and
+redirection. Both sides of each deduplicated pair carry an object handle and
+zone-change version. Marked damage is independent: removing it during cleanup
+does not erase what happened earlier in the turn. `PerTurn::reset` clears the
+history when the turn ends.
+
+A battlefield departure snapshots the victim and its surviving damage sources,
+including their abilities, controller, grants and trigger multiplier. A group
+of simultaneous departures takes these snapshots before moving its members.
+`Trigger::DiesAfterDamageByThis` reads the snapshot rather than reconstructing
+the earlier battlefield from objects that may already have moved again.
+The source's version also follows the resulting ability onto the stack, so a
+self-counter cannot affect a later incarnation. A phased-out source is absent
+both when observing a death and when an effect would put a counter on it.
+
 ### Damage dealt to a player
 
 `GameState::damage_player` is the door for damage that reaches a player, as

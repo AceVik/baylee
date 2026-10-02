@@ -74,6 +74,7 @@ pub mod loops;
 
 // Phasing out and in, with what is attached (CR 702.26): `GameState`
 // methods the resolver and the untap step share.
+mod damage_history;
 mod graveyard_order;
 mod phasing;
 

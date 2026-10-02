@@ -345,6 +345,10 @@ pub enum Trigger {
     LeavesBattlefield(&'static Filter),
     /// An object matching the filter dies (battlefield → graveyard).
     Dies(&'static Filter),
+    /// An object matching the filter dies after this source dealt damage to
+    /// it this turn. Both objects retain their zone-change identities; the
+    /// filter and the source's ability are read immediately before death.
+    DiesAfterDamageByThis(&'static Filter),
     /// A spell matching the filter is cast.
     SpellCast(&'static Filter),
     /// The source becomes the target of a spell or ability (ward,

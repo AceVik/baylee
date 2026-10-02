@@ -14,11 +14,11 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **259 Implemented, 27 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **260 Implemented, 26 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 259 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 260 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
-Nether Shadow and Sunglasses of Urza are
+Nether Shadow, Sunglasses of Urza and Sengir Vampire are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -52,7 +52,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Power Leak](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_leak.rs) | paying any amount of mana to prevent that much of the damage is not in the DSL; it only enchants an enchantment |
 | [Power Sink](../crates/baylee-cards/src/cards/instants/mv_1/power_sink.rs) | tapping the lands and emptying the mana pool of a player who doesn't pay are not in the engine; it counters unless {X} is paid |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
-| [Sengir Vampire](../crates/baylee-cards/src/cards/creatures/mv_5/sengir_vampire.rs) | the trigger on a creature it damaged this turn dying is not in the engine; it flies |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | the copied upkeep ability that copies again is not in the DSL; it enters as a blue copy |

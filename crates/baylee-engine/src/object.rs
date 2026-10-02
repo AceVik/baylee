@@ -729,6 +729,10 @@ impl Status {
 pub enum Rider {
     /// Incarnation of the graveyard card whose printed ability triggered.
     TriggerSourceVersion(u32),
+    /// Source incarnation captured when its ability went on the stack.
+    AbilitySourceVersion(u32),
+    /// Incarnation and last known power of a trigger's event object.
+    EventObjectIdentity(u32, i16),
     /// The source incarnation captured by a linked-counter ability.
     CounterSourceVersion(u32),
     /// Exiled by another object, which finds it again as a card "exiled
@@ -868,7 +872,9 @@ impl Rider {
             | Self::Foretold
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
-            Self::TriggerSourceVersion(_)
+            Self::EventObjectIdentity(..)
+            | Self::AbilitySourceVersion(_)
+            | Self::TriggerSourceVersion(_)
             | Self::CounterSourceVersion(_)
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard

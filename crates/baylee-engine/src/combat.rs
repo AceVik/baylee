@@ -1531,12 +1531,7 @@ fn deal_damage_to_object(
             obj.deathtouched |= deathtouch;
         }
     }
-    state.journal.record(GameEvent::DamageDealt {
-        source: Some(source),
-        target: DamageTarget::Object(target),
-        amount: amount as u16,
-        is_combat,
-    });
+    state.record_permanent_damage(source, None, target, amount as u16, is_combat);
     amount
 }
 

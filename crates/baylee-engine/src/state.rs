@@ -384,6 +384,9 @@ pub struct PerTurn {
     /// dealt to you this turn", Simulacrum). Written by
     /// [`GameState::damage_player`] and nothing else.
     pub damage_dealt_to: Vec<u32>,
+    /// Actual positive permanent damage, deduplicated by both incarnations.
+    /// This historical fact survives cleanup; reset only as the turn ends.
+    pub(crate) permanent_damage: Vec<crate::damage_history::DamageRecord>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
@@ -502,6 +505,7 @@ impl PerTurn {
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
             damage_dealt_to: vec![0; players],
+            permanent_damage: Vec::new(),
             creatures_died: 0,
             draws: vec![0; players],
             drew_in_draw_step: false,
@@ -566,6 +570,7 @@ impl PerTurn {
         self.no_more_spells.iter_mut().for_each(|v| *v = false);
         self.life_lost.iter_mut().for_each(|v| *v = false);
         self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
+        self.permanent_damage.clear();
         self.creatures_died = 0;
         self.entered_battlefield.clear();
         self.drawn.clear();
@@ -718,6 +723,8 @@ pub struct GameState {
     pub counter_links: Vec<crate::resolve::linked_counters::CounterLink>,
     /// Source identities immediately before battlefield departures.
     pub ltb_versions: Vec<(ObjectId, u32)>,
+    /// Death-time information for damage-history triggers, until collection.
+    pub(crate) damage_deaths: Vec<crate::damage_history::DamageDeath>,
     /// First-of-turn drawn cards awaiting a miracle offer (CR 702.94).
     pub pending_miracle: std::collections::VecDeque<(PlayerId, ObjectId)>,
     /// Queued extra turns (CR 500.7); the front player takes the next
@@ -1089,6 +1096,7 @@ impl GameState {
             delayed,
             counter_links,
             ltb_versions,
+            damage_deaths,
             pending_miracle,
             extra_turns,
             restriction_info,
@@ -1154,6 +1162,7 @@ impl GameState {
             ("state.delayed", format!("{delayed:?}")),
             ("state.counter_links", format!("{counter_links:?}")),
             ("state.ltb_versions", format!("{ltb_versions:?}")),
+            ("state.damage_deaths", format!("{damage_deaths:?}")),
             ("state.pending_miracle", format!("{pending_miracle:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
             ("state.restriction_info", format!("{restrictions:?}")),
@@ -1415,6 +1424,7 @@ impl GameState {
             delayed: Vec::new(),
             counter_links: Vec::new(),
             ltb_versions: Vec::new(),
+            damage_deaths: Vec::new(),
             pending_miracle: std::collections::VecDeque::new(),
             extra_turns: std::collections::VecDeque::new(),
             restriction_info: rustc_hash::FxHashMap::default(),
@@ -2698,6 +2708,24 @@ impl GameState {
                 }
             }
         }
+        if from_zone == Zone::Battlefield
+            && let Some(source) = self.object(id)
+        {
+            let (version, power) = (source.version, source.characteristics().power.unwrap_or(0));
+            for waiting in self.zones.list(ZoneLocation::Stack).clone() {
+                if let Some(ability) = self.object_mut(waiting)
+                    && ability.event_object == Some(id)
+                {
+                    for rider in &mut ability.riders {
+                        if let crate::object::Rider::EventObjectIdentity(v, p) = rider
+                            && *v == version
+                        {
+                            *p = power;
+                        }
+                    }
+                }
+            }
+        }
         // What the object could *do*.
         let departing = self.object(id).and_then(|o| {
             o.own_abilities.map(|abilities| crate::object::AbilityList {
@@ -2794,18 +2822,26 @@ impl GameState {
     }
 
     /// Battlefield information before a simultaneous destruction starts.
-    pub(crate) fn departure_snapshot(&self, id: ObjectId) -> Option<crate::event::Departure> {
+    pub(crate) fn departure_snapshot(
+        &self,
+        id: ObjectId,
+    ) -> Option<crate::damage_history::BattlefieldDeparture> {
         let object = self.object(id).filter(|o| o.zone == Zone::Battlefield)?;
-        Some(crate::event::Departure {
-            controller: object.controller,
-            toughness: object.characteristics().toughness.unwrap_or(0),
-            attachments: self
-                .battlefield_seen()
-                .filter(|other| {
-                    self.object(*other)
-                        .is_some_and(|o| o.attached_to == Some(id))
-                })
-                .collect(),
+        Some(crate::damage_history::BattlefieldDeparture {
+            damage: self.damage_death_snapshot(id),
+            event: crate::event::Departure {
+                version: object.version,
+                power: object.characteristics().power.unwrap_or(0),
+                controller: object.controller,
+                toughness: object.characteristics().toughness.unwrap_or(0),
+                attachments: self
+                    .battlefield_seen()
+                    .filter(|other| {
+                        self.object(*other)
+                            .is_some_and(|o| o.attached_to == Some(id))
+                    })
+                    .collect(),
+            },
         })
     }
 
@@ -2837,7 +2873,7 @@ impl GameState {
         to: ZoneLocation,
         pos: ZonePosition,
         cause: Cause,
-        departure: Option<crate::event::Departure>,
+        departure: Option<crate::damage_history::BattlefieldDeparture>,
     ) -> Result<ObjectId, StateError> {
         let (from_zone, from_player) = {
             let obj = self.object(id).ok_or(StateError::NoSuchObject(id))?;
@@ -2898,6 +2934,7 @@ impl GameState {
                 cards: vec![id],
             });
         }
+        let departure = departure.or_else(|| self.departure_snapshot(id));
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;
@@ -3151,21 +3188,14 @@ impl GameState {
             ZoneLocation::Library(_) => Some(library_place(pos, self.zones.list(to).len())),
             _ => None,
         };
-        let departure = departure.or_else(|| {
-            (from_zone == Zone::Battlefield).then(|| crate::event::Departure {
-                controller: self
-                    .last_known_controller(id)
-                    .expect("departure controller"),
-                toughness: self
-                    .last_known_characteristics(id)
-                    .and_then(|c| c.toughness)
-                    .unwrap_or(0),
-                attachments: self
-                    .ltb_attachments
-                    .iter()
-                    .find(|(host, _)| *host == id)
-                    .map_or_else(Vec::new, |(_, worn)| worn.clone()),
-            })
+        let departure = departure.map(|snapshot| {
+            if to.zone() == Zone::Graveyard
+                && let Some(mut death) = snapshot.damage
+            {
+                death.seq = self.journal.last_seq() + 1;
+                self.damage_deaths.push(death);
+            }
+            snapshot.event
         });
         self.journal.record_departure(
             GameEvent::ZoneChanged {
@@ -3396,6 +3426,7 @@ impl GameState {
             delayed,
             counter_links,
             ltb_versions,
+            damage_deaths,
             pending_miracle,
             extra_turns,
             restriction_info,
@@ -3468,6 +3499,19 @@ impl GameState {
         delayed.hash(&mut h);
         counter_links.hash(&mut h);
         ltb_versions.hash(&mut h);
+        damage_deaths.len().hash(&mut h);
+        for death in damage_deaths {
+            death.seq.hash(&mut h);
+            hash_object(&mut h, &death.victim);
+            hash_characteristics(&mut h, death.victim.characteristics());
+            death.sources.len().hash(&mut h);
+            for observer in &death.sources {
+                hash_object(&mut h, &observer.object);
+                hash_characteristics(&mut h, observer.object.characteristics());
+                observer.grants.hash(&mut h);
+                observer.times.hash(&mut h);
+            }
+        }
         pending_miracle.hash(&mut h);
         extra_turns.hash(&mut h);
         rng.hash(&mut h);
@@ -3602,6 +3646,7 @@ impl GameState {
         // A later effect can read this historical count even when the
         // present battlefield is identical, so it distinguishes situations.
         h.u32(self.per_turn.untapped_lands_at_start);
+        self.live_damage_pairs(&position).hash(&mut h);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 731). The
@@ -3669,7 +3714,7 @@ impl GameState {
             h.usize(list.len());
             for id in list {
                 match self.object(*id) {
-                    Some(obj) => hash_object_situation(&mut h, obj, &position),
+                    Some(obj) => hash_object_situation(&mut h, obj, self, &position),
                     None => h.u8(0),
                 }
             }
@@ -3982,7 +4027,12 @@ fn hash_defender(h: &mut Hasher, defender: Defender, locate: impl Fn(ObjectId) -
 /// The identity fields `hash_object` includes — slot, generation — are
 /// exactly what has to be left out here; see
 /// [`GameState::loop_signature`].
-fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
+fn hash_object_situation(
+    h: &mut Hasher,
+    obj: &GameObject,
+    state: &GameState,
+    position: &impl Fn(ObjectId) -> u32,
+) {
     h.u8(1);
     h.u8(obj.owner.get());
     h.u8(obj.controller.get());
@@ -4037,6 +4087,30 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
         _ => None,
     });
     departure.hash(h);
+    for rider in &obj.riders {
+        match rider {
+            crate::object::Rider::AbilitySourceVersion(version) => {
+                h.u8(21);
+                h.boolean(
+                    obj.ability
+                        .and_then(|a| state.object(a.source))
+                        .is_some_and(|source| source.version == *version),
+                );
+            }
+            crate::object::Rider::EventObjectIdentity(version, power) => {
+                h.u8(22);
+                let still_here = obj
+                    .event_object
+                    .and_then(|id| state.object(id))
+                    .is_some_and(|event| event.version == *version);
+                h.boolean(still_here);
+                if !still_here {
+                    h.u16(*power as u16);
+                }
+            }
+            _ => {}
+        }
+    }
     // What was paid is part of what the spell will do: Neoform after a
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
@@ -4341,6 +4415,15 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::CounterSourceVersion(version) => {
                 h.u8(18);
+                version.hash(h);
+            }
+            Rider::EventObjectIdentity(version, power) => {
+                h.u8(22);
+                version.hash(h);
+                power.hash(h);
+            }
+            Rider::AbilitySourceVersion(version) => {
+                h.u8(21);
                 version.hash(h);
             }
             Rider::TriggerSourceVersion(version) => {

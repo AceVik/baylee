@@ -176,6 +176,22 @@ pub(crate) fn run_with_sagas(
     // dies in this pass only makes its formerly legal Aura fall off in the
     // next pass; those two arrivals are not simultaneous (CR 704.3).
     let attachments = attachment_sbas(state, lookup);
+    let departures: Vec<_> = if state.per_turn.permanent_damage.is_empty() {
+        Vec::new()
+    } else {
+        state
+            .battlefield_view()
+            .into_iter()
+            .filter(|id| state.has_damage_history(*id))
+            .map(|id| (id, state.departure_snapshot(id)))
+            .collect()
+    };
+    let departure = |id| {
+        departures
+            .iter()
+            .find(|(other, _)| *other == id)
+            .and_then(|(_, snapshot)| snapshot.clone())
+    };
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
     for id in state.battlefield_view() {
@@ -188,7 +204,7 @@ pub(crate) fn run_with_sagas(
             && obj.counters.get(CounterKind::Loyalty) == 0
             && obj.kind == ObjectKind::Permanent
         {
-            put_into_graveyard(state, id);
+            put_into_graveyard_with_departure(state, id, departure(id));
             outcome.changed = true;
             continue;
         }
@@ -199,7 +215,7 @@ pub(crate) fn run_with_sagas(
         // CR 704.5f: zero or less toughness puts it in the graveyard. This
         // is not destruction, so indestructible does not save it.
         if toughness <= 0 {
-            put_into_graveyard(state, id);
+            put_into_graveyard_with_departure(state, id, departure(id));
             outcome.changed = true;
             continue;
         }
@@ -215,7 +231,7 @@ pub(crate) fn run_with_sagas(
         // CR 704.5g lethal damage, CR 704.5h deathtouch — one point from a
         // deathtouch source is lethal however big the creature is.
         if obj.damage >= toughness as u16 || obj.deathtouched {
-            destroy(state, id);
+            destroy_with(state, id, true, departure(id));
             outcome.changed = true;
         }
     }
@@ -266,7 +282,7 @@ pub(crate) fn run_with_sagas(
                     .object(id)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
             {
-                put_into_graveyard(state, id);
+                put_into_graveyard_with_departure(state, id, departure(id));
                 outcome.changed = true;
             }
         }
@@ -276,7 +292,7 @@ pub(crate) fn run_with_sagas(
             .object(id)
             .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
         {
-            put_into_graveyard(state, id);
+            put_into_graveyard_with_departure(state, id, departure(id));
             outcome.changed = true;
         }
     }
@@ -658,7 +674,7 @@ fn destroy_with(
     state: &mut GameState,
     id: baylee_core::ids::ObjectId,
     regeneratable: bool,
-    departure: Option<crate::event::Departure>,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
 ) {
     // Only a permanent is destroyed (CR 701.8a: "move it from the
     // battlefield"). A delayed "destroy that creature" whose creature went
@@ -731,7 +747,7 @@ pub fn put_into_graveyard(state: &mut GameState, id: baylee_core::ids::ObjectId)
 fn put_into_graveyard_with_departure(
     state: &mut GameState,
     id: baylee_core::ids::ObjectId,
-    departure: Option<crate::event::Departure>,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
 ) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
     // Only the kind. The marked damage and the deathtouch flag used to be

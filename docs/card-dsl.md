@@ -687,6 +687,7 @@ activated!(COST, EFFECTS, targets = Some(TargetReq::up_to_one(TargetSpec::Object
 activated!(EQUIP, EFFECTS, timing = ActivationTiming::SorcerySpeed)
 mana_ability!(COST, EFFECTS, limit = ActivationLimit::PerTurn(1))  // "only once each turn"
 triggered!(Trigger::ETB, EFFECTS)                     // when this enters
+triggered!(Trigger::DiesAfterDamageByThis(&Filter::CREATURE), EFFECTS)
 triggered!(UPKEEP, EFFECTS, condition = Some(Condition::SourceMatches(&Filter::Tapped)))
 spell!(EFFECTS)
 spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
@@ -702,6 +703,14 @@ mode!(DRAW_EFFECTS)                                   // one arm of a modal
 `TargetReq::one` and `TargetReq::up_to_one` take a `TargetSpec`, never a
 `&Filter` — a target is an object, a player, a spell or a card in a
 graveyard, and the filter is only how an *object* target is picked.
+
+`DiesAfterDamageByThis` is a death trigger, not a delayed trigger installed by
+each damage event. It reads actual positive damage dealt earlier in the same
+turn, including noncombat damage, and applies its filter to the dying object's
+last battlefield characteristics. Repeated damage to one object still gives
+one trigger for its death. The source must have the ability immediately before
+that death; it need not have had it when dealing damage. The history survives
+cleanup's removal of marked damage, but not the transition to the next turn.
 
 An activated ability takes its target two ways, and a card writes one of
 them. `target = Some(spec)` is the printed singular, "target creature",

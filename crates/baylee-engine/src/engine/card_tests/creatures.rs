@@ -6,6 +6,7 @@ use super::*;
 use crate::choice::ChoicePrompt;
 
 mod nether_shadow;
+mod sengir_vampire;
 
 /// Verdant Force — "At the beginning of **each** upkeep, create a 1/1 green
 /// Saproling creature token": the opponent's upkeep as well as its
@@ -99640,9 +99641,7 @@ fn sengir_vampire() -> CardIndex {
     card_index("749141aa-f6c4-4ad8-b146-406e68ae9b0b")
 }
 
-/// Sengir Vampire — {3}{B}{B} 4/4 Vampire. `Coverage::Partial`: the
-/// +1/+1-counter trigger on a creature it damaged this turn dying is not in
-/// the engine, but flying is. Attacking with it, the opponent's
+/// Sengir Vampire — {3}{B}{B} 4/4 Vampire. Attacking with it, the opponent's
 /// non-flying, non-reach Llanowar Elves cannot legally be assigned to
 /// block — while a flying Wall of Swords beside it still may, which is
 /// what says the menu reads flying and not "nothing may block it" — and

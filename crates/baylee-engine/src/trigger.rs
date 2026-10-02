@@ -36,6 +36,8 @@ pub struct PendingTrigger {
     pub source: ObjectId,
     /// Event-time source incarnation for linked-counter effects.
     pub counter_source_version: Option<u32>,
+    /// Event object incarnation and power, retained for damage it deals later.
+    pub event_object_identity: Option<(u32, i16)>,
     /// Incarnation of a card whose ability triggered from its graveyard.
     pub source_version: Option<u32>,
     /// Index into the source card's abilities.
@@ -171,13 +173,16 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     watch_triggers(state, events, &mut triggers);
     replicate_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
+    crate::damage_history::collect(state, lookup, from_seq, &mut triggers);
     for trigger in &mut triggers {
-        trigger.event_mana_value = trigger.event_object.and_then(|id| {
-            state
-                .ltb_mana_values
-                .iter()
-                .find(|(object, _)| *object == id)
-                .map(|(_, value)| *value)
+        trigger.event_mana_value = trigger.event_mana_value.or_else(|| {
+            trigger.event_object.and_then(|id| {
+                state
+                    .ltb_mana_values
+                    .iter()
+                    .find(|(object, _)| *object == id)
+                    .map(|(_, value)| *value)
+            })
         });
     }
     // APNAP, then a stable timestamp order within each player's triggers.
@@ -231,6 +236,8 @@ fn collect_emblems(
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
                                 source_version: None,
+                                event_object_identity: event_object
+                                    .and_then(|id| state.event_object_identity(id, entry.seq)),
                                 counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
@@ -325,6 +332,7 @@ fn graveyard_triggers(
                         triggers.push(PendingTrigger {
                             source,
                             source_version: Some(object.version),
+                            event_object_identity: None,
                             counter_source_version: None,
                             ability_index: index as u32,
                             abilities: Some(list),
@@ -404,6 +412,7 @@ pub fn state_triggers(
             }
             triggers.push(PendingTrigger {
                 source_version: None,
+                event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
@@ -453,6 +462,7 @@ fn replicate_triggers(
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
             source_version: None,
+            event_object_identity: None,
             counter_source_version: None,
             event_damage: None,
             event_mana: None,
@@ -534,6 +544,7 @@ fn watch_triggers(
         }
         triggers.push(PendingTrigger {
             source_version: None,
+            event_object_identity: None,
             counter_source_version: None,
             event_damage: None,
             event_mana: None,
@@ -697,6 +708,7 @@ fn monarch_triggers(
     };
     let inherent = |effects, event_object| PendingTrigger {
         source_version: None,
+        event_object_identity: None,
         counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
@@ -959,6 +971,7 @@ fn cast_this_spell_triggers(
             }
             triggers.push(PendingTrigger {
                 source_version: None,
+                event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
@@ -1234,6 +1247,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             source_version: None,
+                            event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1338,6 +1352,7 @@ fn collect_for_objects(
                         ) {
                             triggers.push(PendingTrigger {
                                 source_version: None,
+                                event_object_identity: None,
                                 counter_source_version: None,
                                 event_mana: None,
                                 event_mana_value: None,
@@ -1391,6 +1406,8 @@ fn collect_for_objects(
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             source_version: None,
+                            event_object_identity: event_object
+                                .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1442,6 +1459,7 @@ fn collect_for_objects(
                     ) {
                         triggers.push(PendingTrigger {
                             source_version: None,
+                            event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1508,6 +1526,8 @@ fn collect_for_objects(
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
                             source_version: None,
+                            event_object_identity: event_object
+                                .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: crate::resolve::linked_counters::uses_links(
                                 abilities,
                             )
@@ -1633,7 +1653,7 @@ fn trigger_count(
 /// pushes used to build one trigger each and never ask, so Katara doubled
 /// Sokka's token and left his prowess, and every Ally's he granted, at one
 /// (#318).
-fn times_triggered(
+pub(crate) fn times_triggered(
     state: &GameState,
     event_kind: baylee_cards_dsl::TriggerEventKind,
     source: ObjectId,

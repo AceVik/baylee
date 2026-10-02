@@ -51,7 +51,21 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     crate::replacement::put_counters(state, target, kind, n);
                 }
             } else {
-                crate::replacement::put_counters(state, this_object(res)?, kind, n);
+                let target = this_object(res)?;
+                if state
+                    .object(target)
+                    .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
+                {
+                    return None;
+                }
+                if target == res.source
+                    && source_version(state, res).is_some_and(|version| {
+                        state.object(target).is_none_or(|o| o.version != version)
+                    })
+                {
+                    return None;
+                }
+                crate::replacement::put_counters(state, target, kind, n);
             }
             None
         }

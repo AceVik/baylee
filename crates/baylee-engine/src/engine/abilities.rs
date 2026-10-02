@@ -2805,6 +2805,7 @@ impl<L: CardLookup> Engine<L> {
                 })
         });
         let abilities = list.abilities;
+        let source_version = self.state.object(source).map(|o| o.version);
         let counter_version = crate::resolve::linked_counters::uses_links(abilities)
             .then(|| self.state.object(source).map_or(0, |o| o.version));
         // CR 107.3m: an object's **own** enters-the-battlefield triggered
@@ -2848,6 +2849,10 @@ impl<L: CardLookup> Engine<L> {
                 base,
             );
             obj.take_abilities(list);
+            if let Some(version) = source_version {
+                obj.riders
+                    .push(crate::object::Rider::AbilitySourceVersion(version));
+            }
             obj.x_value = announced_x;
             if let Some(version) = counter_version {
                 obj.riders

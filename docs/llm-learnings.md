@@ -6,6 +6,27 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-02 — Sengir Vampire: damage history is not marked damage
+
+A death after damage reads a historical relationship, not the victim's marked
+damage or a delayed trigger installed at the hit. It must observe abilities
+at death time, preserve facts through cleanup, distinguish both objects'
+incarnations, and read a simultaneous departure before either participant
+moves. Real combat, fights and later removal spells make useful independent
+card tests; synthetic fixtures reach type changes, phasing and granted abilities.
+
+Astra xhigh owns engine work; Sol 6.1 medium independently checks the rules and
+identity paths. Early review found missing source binding on granted triggers,
+phase-out after triggering, and history absent from loop equivalence. Reviewing
+an event's damage dealer also exposed a pre-existing incarnation/LKI gap when
+an entering creature leaves before its damage trigger resolves. An ordinary
+card-only happy path would not have exposed those shared-engine defects.
+
+Adding a Trigger variant also requires the codegen sentence mapper to recognize
+its wording. The new mapping test distinguishes death after damage from a
+trigger that fires when damage is dealt; successful compilation alone does not
+prove the client will display the correct rules sentence.
+
 ## 2026-09-28 — Revealing and choosing are separate permissions
 
 Thoughtseize's partial implementation only charged life. A discard choice

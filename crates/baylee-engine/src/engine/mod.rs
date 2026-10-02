@@ -949,6 +949,10 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            if let Some((version, power)) = trigger.event_object_identity {
+                extra = extra.wrapping_mul(31).wrapping_add(u64::from(version) + 1);
+                extra = extra.wrapping_mul(31).wrapping_add(u64::from(power as u16));
+            }
             extra = extra.wrapping_mul(31).wrapping_add(
                 trigger
                     .source_version
@@ -1576,6 +1580,8 @@ mod convoke_tests;
 mod counted_pt_tests;
 #[cfg(test)]
 mod cycling_tests;
+#[cfg(test)]
+mod damage_history_tests;
 #[cfg(test)]
 mod day_night_tests;
 #[cfg(test)]

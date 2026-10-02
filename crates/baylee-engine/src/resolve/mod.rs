@@ -170,6 +170,30 @@ pub struct TargetLki {
     pub chars: crate::object::Characteristics,
 }
 
+/// Identity and departure power retained for the triggering event's object.
+fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i16)> {
+    state
+        .object(res.on_stack)?
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::EventObjectIdentity(version, power) => Some((*version, *power)),
+            _ => None,
+        })
+}
+
+/// The source incarnation an ability captured, independent of later moves.
+pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32> {
+    state
+        .object(res.on_stack)?
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::AbilitySourceVersion(version) => Some(*version),
+            _ => None,
+        })
+}
+
 /// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
 ///
 /// The target if one was chosen; the source if the ability never asked for

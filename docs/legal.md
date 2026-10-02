@@ -604,3 +604,11 @@ review above. Its rules and mana-planning changes introduce no shipped assets,
 symbols or fonts and do not alter complete-image rendering or attribution.
 The existing unofficial notice still satisfies “Tell the Community it’s unofficial.”
 from the [official policy](https://company.wizards.com/en/legal/fancontentpolicy).
+
+Sengir Vampire (2026-10-02) follows the same recorded owner exception. The
+[official Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+and [Scryfall API/image terms](https://scryfall.com/docs/api) were re-read.
+“Tell the Community it’s unofficial.” remains satisfied by the project notices;
+“Do not cover, crop, or clip off the copyright or artist name on card images.”
+remains unchanged by this rules-only completion. No assets, fonts or corpus
+source files are added.

@@ -580,7 +580,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::EntersBattlefieldEvoked => &["evoke"],
         T::CycledThis => &["cycle"],
         T::LeavesBattlefield(_) => &["leave"],
-        T::Dies(_) => &["die", "put into a graveyard"],
+        T::Dies(_) | T::DiesAfterDamageByThis(_) => &["die", "put into a graveyard"],
         T::SpellCast(_) | T::NthSpellCast { .. } | T::FirstNoncreatureSpellCast(_) => &["cast"],
         T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
         T::TurnedFaceUp => &["turned face up"],
@@ -1152,6 +1152,24 @@ mod tests {
     use baylee_cards_dsl::effect::{Amount, Effect};
     use baylee_cards_dsl::filter::Filter;
     use baylee_cards_dsl::loyalty;
+
+    #[test]
+    fn damage_history_death_trigger_maps_to_the_death_clause() {
+        use baylee_cards_dsl::{CounterKind, Trigger, triggered};
+        let ability = triggered!(
+            Trigger::DiesAfterDamageByThis(&Filter::CREATURE),
+            &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }]
+        );
+        let text = "Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.";
+        assert_eq!(map(&[ability], text).lines, [Some(1)]);
+        assert!(!content_fits(
+            &ability,
+            "Whenever this creature deals damage to a creature, put a +1/+1 counter on this creature."
+        ));
+    }
 
     #[test]
     fn life_ward_maps_to_its_printed_sentence_for_the_client() {

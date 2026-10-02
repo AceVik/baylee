@@ -2361,7 +2361,18 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some((version, power)) = trigger.event_object_identity {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventObjectIdentity(version, power));
+            }
             if let Some(version) = trigger.source_version {
+                object
+                    .riders
+                    .retain(|r| !matches!(r, crate::object::Rider::AbilitySourceVersion(_)));
+                object
+                    .riders
+                    .push(crate::object::Rider::AbilitySourceVersion(version));
                 object
                     .riders
                     .push(crate::object::Rider::TriggerSourceVersion(version));
@@ -2546,6 +2557,7 @@ impl<L: CardLookup> Engine<L> {
                 .retain(|(id, _)| !gone.contains(id));
         }
         self.state.ceased.clear();
+        self.state.damage_deaths.clear();
         self.state.ltb_mana_values.clear();
         // A watch whose object has left the battlefield is spent, whether
         // the scan just fired it or the object left some other way: the
@@ -2602,6 +2614,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue.clear();
             self.trigger_scan_seq = self.state.journal.last_seq();
             self.state.ceased.clear();
+            self.state.damage_deaths.clear();
             self.state.ltb_mana_values.clear();
             return;
         }
@@ -2922,9 +2935,17 @@ impl<L: CardLookup> Engine<L> {
                     // nothing — undying and persist put a trigger on the stack
                     // that resolved into silence.
                     obj.event_object = t.event_object;
+                    if let Some((version, power)) = t.event_object_identity {
+                        obj.riders
+                            .push(crate::object::Rider::EventObjectIdentity(version, power));
+                    }
                     if let Some((p, toughness)) = t.event_departure {
                         obj.riders
                             .push(crate::object::Rider::EventDeparture(p, toughness));
+                    }
+                    if let Some(version) = t.source_version {
+                        obj.riders
+                            .push(crate::object::Rider::AbilitySourceVersion(version));
                     }
                     if let Some(version) = t.counter_source_version {
                         obj.riders
@@ -4243,9 +4264,17 @@ impl<L: CardLookup> Engine<L> {
             // Same as the sibling site: the chosen targets are one handle and
             // the event object is another.
             obj.event_object = t.event_object;
+            if let Some((version, power)) = t.event_object_identity {
+                obj.riders
+                    .push(crate::object::Rider::EventObjectIdentity(version, power));
+            }
             if let Some((p, toughness)) = t.event_departure {
                 obj.riders
                     .push(crate::object::Rider::EventDeparture(p, toughness));
+            }
+            if let Some(version) = t.source_version {
+                obj.riders
+                    .push(crate::object::Rider::AbilitySourceVersion(version));
             }
             if let Some(version) = t.counter_source_version {
                 obj.riders
@@ -4494,6 +4523,7 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
                     source_version: None,
+                    event_object_identity: None,
                     counter_source_version: None,
                     event_mana: None,
                     event_mana_value: None,
@@ -4888,6 +4918,7 @@ impl<L: CardLookup> Engine<L> {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
                 source_version: None,
+                event_object_identity: None,
                 counter_source_version: None,
                 event_damage: None,
                 event_mana: None,
