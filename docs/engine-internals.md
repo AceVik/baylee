@@ -585,6 +585,20 @@ who tapped next has priority, and nothing went on the stack. One that asked
 a question would suspend like a colour-choice mana ability; none in the pool
 does.
 
+### Miracle can make its mana after the cast choices
+
+Accepting Miracle no longer requires floating mana. After X and targets,
+`cast_or_make_miracle_mana` opens a mana-only payment window when the pool
+cannot pay and a mana source is available. `PaymentContinuation::Miracle`
+holds the completed wizard outside both the active wizard and resolution
+slots, so a mana ability can ask a color or cost question safely. The public
+debt is the complete chosen cost, including X. Passing attempts that cast
+once; an insufficient payment keeps the card in hand, clears announced X,
+and spends no part of the spell's cost. Its answers are included in the replay
+snapshot. The engine tests exercise an X spell with two targets and a Lotus
+Petal color question; `gamehost/tests/ai_miracle.rs` verifies the AI's actual
+Temporal Mastery payment and extra turn through the projected debt.
+
 ### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you
 don't, you lose the game" are delayed actions, not stack objects, and they
@@ -1577,4 +1591,3 @@ resolution's `CreateContinuousEffect` registers one. A search is never taken
 over by a player who has left. A card put onto the battlefield "under your
 control" by a leaver's resolution stays where it is. Tokens and copies of
 spells were closed by #278.
-

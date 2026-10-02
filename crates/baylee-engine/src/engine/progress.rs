@@ -762,15 +762,10 @@ impl<L: CardLookup> Engine<L> {
             self.priority_holder = None;
             if self.state.zones.stack_is_empty() {
                 // A miracle is offered here and not at the draw itself
-                // (CR 702.94a). The reveal is a triggered ability and the
-                // cast happens when it resolves, which is after a priority
-                // window — and a priority window is the only place this
-                // engine lets a player float mana, because a cost is paid
-                // from the pool and CR 601.2g is compressed away. Asked at
-                // the moment of the draw, a miracle was a question nobody
-                // could ever answer yes to: the previous step ended, so the
-                // pool was empty (CR 500.5), and the turn-based draw comes
-                // before anybody holds priority (CR 504.1, then CR 504.2).
+                // (CR 702.94a). The ability triggered by revealing the card
+                // allows its cast when it resolves, after a priority window.
+                // The cast can now open its own mana-only payment window;
+                // floating mana before this offer is no longer required.
                 // Answered either way, the round that follows is the one the
                 // rules give the step anyway.
                 if self.offer_miracle() {

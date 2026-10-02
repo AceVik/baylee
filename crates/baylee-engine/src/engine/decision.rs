@@ -26,6 +26,8 @@ pub struct DecisionContext<'a> {
     pub effects: &'a [Effect],
     /// Mana cost before substituting X, when the choice belongs to a cast.
     pub cost: Option<ManaCost>,
+    /// Selected casting route, including miracle's later mana opportunity.
+    pub cast_mode: Option<CastModeKind>,
     /// Whether X also costs life (for example Toxic Deluge).
     pub life_x: bool,
     /// X already announced for targeting and resolution.
@@ -259,6 +261,7 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .find(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
                 .map_or(&[], |a| effects(a, mode)),
+            cast_mode: wizard.option,
             cost: wizard
                 .options
                 .iter()

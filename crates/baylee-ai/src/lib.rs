@@ -2526,7 +2526,7 @@ mod tests {
     }
 
     #[test]
-    fn third_iteration_miracle_needs_floating_mana_not_untapped_lands() {
+    fn miracle_counts_untapped_sources_and_requires_the_right_color() {
         let mut v = view(
             0,
             &[20, 20],
@@ -2543,6 +2543,10 @@ mod tests {
                 ),
             ],
         );
+        for land in &mut v.battlefield {
+            land.subtypes
+                .insert(baylee_core::generated::subtypes::land::ISLAND);
+        }
         v.hand = vec![hand_card(1, "Temporal Mastery")];
         let pending = Pending::YesNo {
             player: v.seat,
@@ -2550,12 +2554,50 @@ mod tests {
             source: None,
         };
         let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(true));
+        for land in &mut v.battlefield {
+            land.status = ObjectStatus::TAPPED;
+        }
         assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(false));
         v.seats[0].mana_pool.black = 2;
         assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(false));
         v.seats[0].mana_pool.black = 0;
         v.seats[0].mana_pool.blue = 2;
         assert_eq!(agent.act(&v, &pending), PlayerAction::YesNo(true));
+    }
+
+    #[test]
+    fn miracle_x_counts_the_sources_its_payment_window_will_offer() {
+        let mut land = carded(
+            permanent(obj(2), PlayerId::new(0), 0),
+            "Island",
+            TypeSet::LAND,
+        );
+        land.subtypes
+            .insert(baylee_core::generated::subtypes::land::ISLAND);
+        let mut v = view(0, &[20, 20], vec![land]);
+        v.seats[0].mana_pool.blue = 2;
+        let mut context = baylee_engine::engine::DecisionContext {
+            cost: Some("{X}{U}".parse().unwrap()),
+            cast_mode: Some(baylee_engine::choice::CastModeKind::Miracle),
+            ..Default::default()
+        };
+        let pending = Pending::ChooseNumber {
+            player: v.seat,
+            min: 0,
+            max: 50,
+            reason: baylee_engine::choice::NumberPrompt::X,
+        };
+        let agent = HeuristicAgent::new(AIProfile::EXPERT);
+        assert_eq!(
+            agent.act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseNumber(2)
+        );
+        context.cast_mode = Some(baylee_engine::choice::CastModeKind::Normal);
+        assert_eq!(
+            agent.act_with_context(&v, &pending, &context),
+            PlayerAction::ChooseNumber(1)
+        );
     }
 
     #[test]

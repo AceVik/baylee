@@ -96,10 +96,9 @@ impl HeuristicAgent {
         let Some(cost) = identity(view, id).and_then(face).and_then(|f| f.miracle) else {
             return false;
         };
-        // The engine asks yes/no inside resolution; it has no intervening
-        // priority window in which this controller can tap another source.
-        view.seat(view.seat)
-            .is_some_and(|s| manaplan::plan(&cost.with_x(0), &s.mana_pool, &[]).is_some())
+        // Accepting opens a mana-only payment window when the floating pool
+        // is short; the usual owed-payment planner taps the actual offer.
+        can_pay(view, &cost.with_x(0))
     }
 
     /// One target's share of damage this seat divides (CR 601.2d): what
@@ -173,10 +172,15 @@ impl HeuristicAgent {
         else {
             return min;
         };
+        let sources = if context.cast_mode == Some(baylee_engine::choice::CastModeKind::Miracle) {
+            remaining_sources(view)
+        } else {
+            Vec::new()
+        };
         (min..=max.min(context.x_targets.unwrap_or(max)))
             .rev()
             .find(|&x| {
-                manaplan::plan(&cost.with_x(x), &seat.mana_pool, &[]).is_some()
+                manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
                     && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
             })
             .unwrap_or(min)

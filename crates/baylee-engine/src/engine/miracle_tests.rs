@@ -335,8 +335,13 @@ fn declining_miracle_keeps_the_card_in_hand() {
 /// Every card in both libraries is an Entreat the Dead, so the first draw of
 /// seat 0's turn is one; seat 1's offers on the way are declined.
 #[test]
-#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability
 fn a_miracle_cost_with_an_x_asks_for_x() {
+    cast_x_miracle(false);
+    cast_x_miracle(true);
+}
+
+#[allow(clippy::too_many_lines)] // scenario script — step-by-step readability
+fn cast_x_miracle(pay: bool) {
     use crate::engine::testkit::{
         Duel, keep_mulligans, on_battlefield, pass_until, stack_is_empty, tap_all_mana,
     };
@@ -381,15 +386,6 @@ fn a_miracle_cost_with_an_x_asks_for_x() {
                 engine.apply(player, PlayerAction::YesNo(false)).unwrap();
             }
             Pending::Priority { player, .. } => {
-                // The miracle is paid in the draw step, while its trigger
-                // waits: a pool empties as the step ends (CR 500.5).
-                if player == p0
-                    && engine.state().turn.active == p0
-                    && engine.state().turn.step == Step::Draw
-                    && engine.state().players[0].mana_pool.total() == 0
-                {
-                    tap_all_mana(&mut engine, p0);
-                }
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
             Pending::ChooseAttackers { player, .. } => {
@@ -441,6 +437,36 @@ fn a_miracle_cost_with_an_x_asks_for_x() {
             },
         )
         .expect("two targets, and X was announced as two");
+    assert_eq!(
+        engine.payment_window(),
+        Some((p0, "{2}{B}{B}".parse().unwrap()))
+    );
+    assert!(
+        engine.cast_wizard.is_none(),
+        "mana choices must not see the spell wizard"
+    );
+    if !pay {
+        let Some(PaymentWindow {
+            suspended: PaymentContinuation::Miracle { wizard, .. },
+            ..
+        }) = &engine.mana_window
+        else {
+            panic!("miracle continuation")
+        };
+        let card = wizard.card;
+        engine.apply(p0, PlayerAction::PassPriority).unwrap();
+        assert_eq!(engine.state().object(card).unwrap().zone, Zone::Hand);
+        assert_eq!(engine.state().object(card).unwrap().x_value, 0);
+        assert!(
+            buried
+                .iter()
+                .all(|id| engine.state().object(*id).unwrap().zone == Zone::Graveyard)
+        );
+        assert_eq!(engine.payment_window(), None);
+        return;
+    }
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
@@ -507,4 +533,148 @@ fn an_unpayable_miracle_yes_is_a_no() {
         differ.is_empty(),
         "an unpaid yes differs from a no in {differ:?}"
     );
+}
+
+/// Earn the first draw's offer without floating mana before it resolves.
+fn draw_miracle(board: Vec<CardIndex>) -> (Engine<RegistryLookup>, ObjectId) {
+    let mut engine = Engine::new(&preset(11, vec![], board), RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    for _ in 0..200 {
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { card },
+                ..
+            } if player == PlayerId::new(0) => return (engine, card),
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .unwrap();
+            }
+            other => panic!("unexpected before miracle: {other:?}"),
+        }
+    }
+    panic!("no miracle offer");
+}
+
+#[test]
+fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
+    let petal = card_index("32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5");
+    let (mut engine, card) = draw_miracle(vec![island(), petal]);
+    let player = PlayerId::new(0);
+    let debt = Some((player, "{1}{U}".parse().unwrap()));
+    assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+    engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(engine.payment_window(), debt);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("mana window")
+    };
+    assert!(legal.castable.is_empty() && legal.lands.is_empty());
+    assert!(engine.cast_wizard.is_none());
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateManaAbility {
+                source: legal.mana_abilities[0],
+            },
+        )
+        .unwrap();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("mana window after tap")
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, _)| engine.state.object(*id).unwrap().card.unwrap().index == petal)
+        .expect("Lotus Petal is still offered");
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    assert!(matches!(engine.pending(), Pending::ChooseColor { .. }));
+    assert_eq!(engine.payment_window(), debt);
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue),
+        )
+        .unwrap();
+    assert_eq!(engine.state.players[0].mana_pool.total(), 2);
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    assert_eq!(engine.payment_window(), None);
+    assert_eq!(engine.state.object(card).unwrap().zone, Zone::Stack);
+    assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+    for _ in 0..10 {
+        if !engine.state.extra_turns.is_empty() {
+            break;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!("spell priority")
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+    assert!(!engine.state.extra_turns.is_empty());
+    assert_eq!(engine.state.object(card).unwrap().zone, Zone::Exile);
+}
+
+#[test]
+fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
+    for make_mana in [false, true] {
+        let (mut engine, card) = draw_miracle(vec![island()]);
+        let player = PlayerId::new(0);
+        engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("mana window")
+        };
+        if make_mana {
+            engine
+                .apply(
+                    player,
+                    PlayerAction::ActivateManaAbility {
+                        source: legal.mana_abilities[0],
+                    },
+                )
+                .unwrap();
+        }
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        assert_eq!(engine.payment_window(), None);
+        assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
+        assert_eq!(
+            engine.state.players[0].mana_pool.total(),
+            u32::from(make_mana)
+        );
+        assert!(matches!(engine.pending(), Pending::Priority { .. }));
+        assert!(engine.state.extra_turns.is_empty());
+    }
+}
+
+#[test]
+fn miracle_payment_answers_are_part_of_the_replay_snapshot() {
+    let (mut engine, _) = draw_miracle(vec![island()]);
+    engine
+        .apply(PlayerId::new(0), PlayerAction::YesNo(true))
+        .unwrap();
+    let before = engine.snapshot_hash();
+    let Some(PaymentWindow {
+        suspended: PaymentContinuation::Miracle { wizard, .. },
+        ..
+    }) = &mut engine.mana_window
+    else {
+        panic!("miracle continuation")
+    };
+    // No board field changes: the held answers themselves must be compared.
+    wizard.chosen_player = Some(PlayerId::new(1));
+    assert_ne!(before, engine.snapshot_hash());
 }

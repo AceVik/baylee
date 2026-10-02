@@ -117,6 +117,12 @@ struct PaymentWindow {
 enum PaymentContinuation {
     Tax(Box<crate::resolve::Resolution>),
     Pact(baylee_core::mana::ManaCost),
+    /// Miracle's choices are complete; mana abilities may now pay them.
+    Miracle {
+        wizard: Box<cast_wizard::CastWizard>,
+        version: u32,
+        cost: baylee_core::mana::ManaCost,
+    },
     /// "You may cast that card" said yes to (CR 608.2g): the mana is made
     /// here, and passing casts the card out of the pool.
     Cast {
@@ -835,9 +841,9 @@ impl<L: CardLookup> Engine<L> {
     pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
-            PaymentContinuation::Pact(cost) | PaymentContinuation::Cast { cost, .. } => {
-                Some((window.player, *cost))
-            }
+            PaymentContinuation::Pact(cost)
+            | PaymentContinuation::Cast { cost, .. }
+            | PaymentContinuation::Miracle { cost, .. } => Some((window.player, *cost)),
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
                     if player == window.player =>
@@ -982,6 +988,16 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(r.on_stack.slot()))
                     .wrapping_add(u64::from(r.controller.get())),
                 PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+                PaymentContinuation::Miracle {
+                    wizard,
+                    version,
+                    cost,
+                } => wizard
+                    .miracle_payment_fingerprint()
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(*version))
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
                 PaymentContinuation::Cast {
                     card,
                     version,

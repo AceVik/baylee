@@ -1647,6 +1647,12 @@ impl<L: CardLookup> Engine<L> {
         };
         let mut res = match window.suspended {
             PaymentContinuation::Tax(res) => *res,
+            PaymentContinuation::Miracle {
+                wizard, version, ..
+            } => {
+                self.finish_miracle_payment(&wizard, version);
+                return;
+            }
             PaymentContinuation::Pact(cost) => {
                 if !mana_pay::pay(
                     &mut self.state.players[window.player.get() as usize].mana_pool,

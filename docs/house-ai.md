@@ -618,7 +618,12 @@ commanders. Counterspells distinguish spells from activated or triggered
 abilities, and beneficial player-targeted draw goes to the caster. X uses
 affordable coloured mana and the number of distinct legal targets; life-X
 weighs friendly casualties and preserves the player's last life. Miracle
-checks the actual coloured cost.
+checks the actual coloured cost against floating mana and available sources.
+Accepting a miracle can open a mana-only payment window after X and targets;
+the projected debt drives the same planner that pays ward. The casting route
+in `DecisionContext::cast_mode` lets Miracle's X include those sources too.
+`tests/ai_miracle.rs` earns the offer in a real game: with no floating mana,
+Temporal Mastery taps exactly two Islands, pays {1}{U}, and grants an extra turn.
 
 **A clone copies what is worth having twice, whoever controls it.** Its choice
 arrives as a target question with no effect behind it, because copying is an

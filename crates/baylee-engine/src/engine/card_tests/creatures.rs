@@ -93300,19 +93300,13 @@ fn delney_doubles_the_triggers_of_small_creatures_only() {
 }
 
 /// Metamorphosis Fanatic's miracle over an untapped Sol Ring and Swamp, with
-/// nothing floating: "yes" is taken, and the card stays in hand.
+/// nothing floating: "yes" opens a window to make its {1}{B}.
 ///
 /// By the rules this {1}{B} can be paid, because mana abilities may be
-/// activated while a spell's costs are paid (CR 601.2g). This engine pays a
-/// cast out of the pool alone, and a miracle is offered at the draw, before
-/// any priority in which the mana could be made; so the cast cannot be
-/// completed and is reversed (CR 732.1), which for a miracle is a "no". It
-/// was refused instead, and a driver that proposed "yes" again met a
-/// question with no answer it would give (the arena's first case). A pinned
-/// limitation: when a cast opens a window for its mana, this is the test
-/// that must change.
+/// activated while a spell's costs are paid (CR 601.2g). Previously this
+/// test pinned a cast that quietly failed because only floating mana counted.
 #[test]
-fn metamorphosis_fanatics_miracle_yes_is_taken_over_mana_the_cast_cannot_tap() {
+fn metamorphosis_fanatics_miracle_can_tap_its_sources_to_pay() {
     let mut engine = Duel::new(41, metamorphosis_fanatic())
         .battlefield(0, &[sol_ring(), swamp()])
         .battlefield(1, &[sol_ring(), swamp()])
@@ -93328,24 +93322,18 @@ fn metamorphosis_fanatics_miracle_yes_is_taken_over_mana_the_cast_cannot_tap() {
                 engine
                     .apply(player, PlayerAction::YesNo(true))
                     .expect("an offered yes is an answer");
-                assert!(
-                    engine
-                        .state()
-                        .zones
-                        .list(ZoneLocation::Hand(player))
-                        .contains(&card),
-                    "the reversed cast left the card in hand"
+                assert_eq!(
+                    engine.payment_window(),
+                    Some((player, "{1}{B}".parse().unwrap()))
                 );
-                assert!(
-                    engine.state().zones.stack_is_empty(),
-                    "an unpaid miracle reached the stack"
-                );
+                tap_all_mana(&mut engine, player);
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+                assert_eq!(engine.state().object(card).unwrap().zone, Zone::Stack);
                 assert_eq!(
                     engine.state().players[player.get() as usize]
                         .mana_pool
                         .total(),
-                    0,
-                    "nothing was made, so nothing floats"
+                    1
                 );
                 return;
             }

@@ -113,6 +113,47 @@ pub(crate) struct CastWizard {
     pub by_effect: Option<EffectCast>,
 }
 
+impl CastWizard {
+    /// The answers held by a miracle payment window, for replay comparison.
+    /// Its mode is fixed, but identical boards can still owe different casts.
+    pub(super) fn miracle_payment_fingerprint(&self) -> u64 {
+        let mut hash = u64::from(self.card.slot())
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(self.card.generation()))
+            .wrapping_mul(31)
+            .wrapping_add(u64::from(self.x))
+            .wrapping_mul(2)
+            .wrapping_add(u64::from(self.kicked))
+            .wrapping_mul(257)
+            .wrapping_add(u64::from(self.replicated))
+            .wrapping_mul(17)
+            .wrapping_add(self.chosen_player.map_or(0, |p| u64::from(p.get()) + 1));
+        for targets in [
+            self.targets.as_slice(),
+            self.second_targets.as_slice(),
+            self.pitch.as_slice(),
+            self.delve_exiles.as_slice(),
+            self.escape_exiles.as_slice(),
+            self.convoke_taps.as_slice(),
+            self.sacrifices.as_slice(),
+        ] {
+            hash = hash.wrapping_mul(31).wrapping_add(targets.len() as u64);
+            for target in targets {
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(target.slot()))
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(target.generation()));
+            }
+        }
+        let seats = self
+            .target_players
+            .iter()
+            .fold(0, |bits, p| bits | (1_u64 << p.get()));
+        hash.wrapping_mul(65_537).wrapping_add(seats)
+    }
+}
+
 /// A cast an effect makes as it resolves, paying the card's costs
 /// (CR 608.2g). No graveyard permission is spent on it, because none was
 /// used.
@@ -1585,7 +1626,62 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 Ok(())
             }
-            WizardStage::Done => self.finish_cast(&wizard),
+            WizardStage::Done => self.cast_or_make_miracle_mana(wizard),
+        }
+    }
+
+    /// A miracle is offered during resolution, when its caster cannot first
+    /// float mana through ordinary priority. Give it the same mana-only
+    /// opportunity as other resolution payments (CR 605.3a), after X and
+    /// targets have fixed the price. Keep the wizard outside the active
+    /// choice slot: a mana ability may ask its own color or cost question.
+    fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
+        let face = self.wizard_face(&wizard);
+        let cost = wizard_total_cost(face, &wizard)
+            .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
+        if wizard.option == Some(CastModeKind::Miracle)
+            && !self.can_pay_mana(wizard.player, spend_for(&wizard, face), &cost)
+        {
+            let mut legal = self.compute_legal(wizard.player);
+            self.narrow_to_mana(&mut legal);
+            if legal.has_mana_source() {
+                let player = wizard.player;
+                let version = self
+                    .state
+                    .object(wizard.card)
+                    .expect("wizard card exists")
+                    .version;
+                self.cast_wizard = None;
+                self.mana_window = Some(super::PaymentWindow {
+                    player,
+                    suspended: super::PaymentContinuation::Miracle {
+                        wizard: Box::new(wizard),
+                        version,
+                        cost,
+                    },
+                });
+                self.pending = Pending::Priority {
+                    player,
+                    legal: Box::new(legal),
+                };
+                self.awaiting_answer = true;
+                return Ok(());
+            }
+        }
+        self.finish_cast(&wizard)
+    }
+
+    /// Closing the mana opportunity tries the chosen cast once. A short
+    /// payment leaves the card in hand and cannot reopen the miracle offer.
+    pub(super) fn finish_miracle_payment(&mut self, wizard: &CastWizard, version: u32) {
+        if self
+            .state
+            .object(wizard.card)
+            .is_some_and(|card| card.version == version && card.zone == crate::zone::Zone::Hand)
+            && self.finish_cast(wizard).is_err()
+            && let Some(card) = self.state.object_mut(wizard.card)
+        {
+            card.x_value = 0;
         }
     }
 
