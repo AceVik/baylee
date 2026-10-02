@@ -160,9 +160,47 @@ impl Doors {
     }
 }
 
-/// An ability list, and the printed face it is when it is one.
+/// Compact provenance of captured rules: a card face or a registry token.
+/// The top bit tags tokens; card faces use the remaining 31 bits. This keeps
+/// provenance at four bytes per object instead of growing every AI search ply.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct AbilityOrigin(std::num::NonZeroU32);
+
+impl AbilityOrigin {
+    /// Capture one known origin. Token ids retain their id-plus-one encoding.
+    /// Returns `None` for card faces outside the 31-bit presentation range.
+    #[must_use]
+    pub fn new(printed: Option<PrintedFace>, token: Option<std::num::NonZeroU16>) -> Option<Self> {
+        if let Some(face) = printed {
+            return (face.0.get() < 1 << 31).then_some(Self(face.0));
+        }
+        token
+            .and_then(|id| std::num::NonZeroU32::new((1 << 31) | u32::from(id.get())))
+            .map(Self)
+    }
+
+    /// The captured card face, if this is a card's list.
+    #[must_use]
+    pub fn printed(self) -> Option<PrintedFace> {
+        (self.0.get() < 1 << 31).then_some(PrintedFace(self.0))
+    }
+
+    /// The captured token id plus one, if this is a token's list.
+    #[must_use]
+    pub fn token(self) -> Option<std::num::NonZeroU16> {
+        (self.0.get() >= 1 << 31)
+            .then(|| {
+                u16::try_from(self.0.get() & 0xffff)
+                    .ok()
+                    .and_then(std::num::NonZeroU16::new)
+            })
+            .flatten()
+    }
+}
+
+/// An ability list and its card-face or token provenance.
 ///
-/// One value so the two cannot come apart: every place the engine sets a
+/// One value so the list and its provenance cannot come apart: every place the engine sets a
 /// list aside — a trigger waiting for the stack, an activation paying its
 /// cost, a copy that has just left the battlefield — sets this aside
 /// instead, and whatever it later writes onto an object carries both.
@@ -173,6 +211,8 @@ pub struct AbilityList {
     /// Where that is printed; `None` for a token's list and an emblem's,
     /// which no card prints.
     pub printed: Option<PrintedFace>,
+    /// Registry token identity, encoded as id + 1 to occupy two bytes.
+    pub token: Option<std::num::NonZeroU16>,
 }
 
 impl AbilityList {
@@ -180,6 +220,7 @@ impl AbilityList {
     pub const NONE: Self = Self {
         abilities: &[],
         printed: None,
+        token: None,
     };
 }
 
@@ -1121,19 +1162,9 @@ pub struct GameObject {
     ///
     /// [`Engine::cleanup_ends_the_turns_effects`]: crate::engine::Engine
     pub own_abilities_until_eot: bool,
-    /// Which printed face [`GameObject::own_abilities`] is, when it is one.
-    ///
-    /// Written wherever that field is written, and read only through
-    /// [`GameObject::printed_face`], which answers from the card underneath
-    /// whenever there is no list of the object's own. `None` beside a list
-    /// is a token's or an emblem's (neither is printed on a card).
-    ///
-    /// Four bytes on every object ([`PrintedFace`] says how), and the face
-    /// alone: not a token definition beside it, because a token's list is
-    /// already named by [`GameObject::token`] everywhere but on an ability
-    /// whose token source is gone — a Clue's, sacrificed to pay for it — and
-    /// that one case is not worth a pointer on every object in every AI ply.
-    pub own_face: Option<PrintedFace>,
+    /// Provenance of `own_abilities`, carried through copies and stack entries.
+    /// A card face or token identity in four bytes; never changes token status.
+    pub own_origin: Option<AbilityOrigin>,
     /// What this object could do as it *left* the battlefield is not here but
     /// on the state, in [`GameState::ltb_abilities`], for the reason the
     /// paragraph above gives about a second `Option<&[_]>`: it is `Some` for
@@ -1223,7 +1254,7 @@ impl GameObject {
             face_index: 0,
             own_abilities: None,
             own_abilities_until_eot: false,
-            own_face: None,
+            own_origin: None,
             token: None,
             pending_face_change: None,
             cast_from_hand: true,
@@ -1323,7 +1354,7 @@ impl GameObject {
             return None;
         }
         if self.own_abilities.is_some() {
-            return self.own_face;
+            return self.own_origin.and_then(AbilityOrigin::printed);
         }
         // A Room with both doors locked has no rules text (CR 709.5), so it
         // names no face to read any from.
@@ -1341,6 +1372,7 @@ impl GameObject {
         AbilityList {
             abilities: self.abilities(lookup),
             printed: self.printed_face(),
+            token: self.ability_token(lookup),
         }
     }
 
@@ -1353,20 +1385,37 @@ impl GameObject {
         AbilityList {
             abilities: self.printed_abilities(lookup),
             printed: self.printed_face(),
+            token: self.ability_token(lookup),
         }
+    }
+
+    /// Token whose rules this list carries, including through copies.
+    #[must_use]
+    pub fn ability_token(
+        &self,
+        lookup: &impl crate::state::CardLookup,
+    ) -> Option<std::num::NonZeroU16> {
+        if self.status.contains(Status::FACE_DOWN) {
+            return None;
+        }
+        if self.own_abilities.is_some() {
+            return self.own_origin.and_then(AbilityOrigin::token);
+        }
+        let id = lookup.token_id(self.token?)?;
+        id.checked_add(1).and_then(std::num::NonZeroU16::new)
     }
 
     /// Makes `list` this object's own abilities, and its face with it.
     pub fn take_abilities(&mut self, list: AbilityList) {
         self.own_abilities = Some(list.abilities);
-        self.own_face = list.printed;
+        self.own_origin = AbilityOrigin::new(list.printed, list.token);
     }
 
     /// Gives up a list of the object's own, so the card underneath answers
     /// again.
     pub fn drop_own_abilities(&mut self) {
         self.own_abilities = None;
-        self.own_face = None;
+        self.own_origin = None;
     }
 
     /// The abilities this object actually has, whatever it is.
@@ -1699,5 +1748,25 @@ mod object_tests {
             Status::PHASED_OUT.bits(),
             "an Aura phased out with its creature shows as phased out"
         );
+    }
+}
+
+#[cfg(test)]
+mod provenance_tests {
+    use super::*;
+    #[test]
+    fn card_and_token_origins_are_compact_and_never_alias() {
+        assert_eq!(size_of::<Option<AbilityOrigin>>(), 4);
+        for index in [0, 1, 4096, 65534] {
+            let token = std::num::NonZeroU16::new(index + 1).unwrap();
+            let origin = AbilityOrigin::new(None, Some(token)).unwrap();
+            assert_eq!(origin.token(), Some(token));
+            assert_eq!(origin.printed(), None);
+            let face = PrintedFace::new(CardIndex::new(u32::from(index)), 1).unwrap();
+            let card = AbilityOrigin::new(Some(face), None).unwrap();
+            assert_eq!(card.printed(), Some(face));
+            assert_eq!(card.token(), None);
+        }
+        assert_eq!(AbilityOrigin::new(None, None), None);
     }
 }

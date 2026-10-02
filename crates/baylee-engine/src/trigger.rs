@@ -167,10 +167,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                                 event_damage,
                                 source: emblem,
                                 ability_index: index as u32,
-                                abilities: Some(crate::object::AbilityList {
-                                    abilities,
-                                    printed: obj.own_face,
-                                }),
+                                abilities: Some(obj.ability_list(lookup)),
                                 controller: obj.controller,
                                 timestamp: obj.timestamp,
                                 event_object,

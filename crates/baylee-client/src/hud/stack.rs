@@ -1912,9 +1912,9 @@ fn waiting_line(lang: Lang, name: &str, is_me: bool) -> String {
 /// The printed sentence a stack entry stands for, in the player's own
 /// language, or `None` when there is nothing trustworthy to draw.
 ///
-/// The host has to know which sentence it is and on which card — it does
-/// not for a token's ability, an emblem's, or one a continuous effect
-/// granted — which is why each is a `?` and the panel falls back to the
+/// Captured token abilities use the verified token sentence table. Other
+/// entries need the host's card and sentence; an unknown token sentence,
+/// emblem or granted ability falls back to the
 /// label it drew before. The source need not still be there: text is filed
 /// under the card the entry's `rules` names, and that is a property of the
 /// ability itself, which outlives its source (CR 113.7a). The words are
@@ -1939,11 +1939,15 @@ pub(super) fn stack_sentence(
         text,
         rules,
         ability,
+        token,
         ..
     } = item.kind
     else {
         return None;
     };
+    if let Some(token) = token {
+        return crate::cardtext::token_sentence(token.token, token.index);
+    }
     let (card, text) = (rules?.card, text?);
     crate::cardtext::sentence(Some(faces.texts), card, text).or_else(|| {
         let own = baylee_cards::lines::ability_line(card, usize::from(text.face), ability?.index)?;
@@ -2356,6 +2360,7 @@ mod tests {
                 let mut ability = token(30 + at as u32, 0, "Sheoldred", 0, 0);
                 ability.card = None;
                 ability.stack_item = Some(baylee_view::StackItem::Ability {
+                    token: None,
                     source: ObjectId::new(7, 0),
                     ability: None,
                     rules: Some(baylee_view::RulesFace { card, face: 0 }),
@@ -2453,6 +2458,44 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_food_ability_draws_its_sentence_without_a_source_or_card_text() {
+        let (mut board, view) = a_stack_of(&[None]);
+        let token = baylee_cards::tokens::token_id(&baylee_cards::tokens::FOOD);
+        board.stack[0].kind = baylee_client_core::board::StackKind::Ability {
+            source: ObjectId::new(999, 0),
+            ability: None,
+            text: None,
+            rules: None,
+            token: Some(baylee_view::TokenAbility { token, index: 0 }),
+        };
+        let texts = crate::cardtext::CardTexts::default();
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: Some(&view),
+            widths: crate::face::Widths::of(None),
+        };
+        assert_eq!(
+            queued_ability_line(&board.stack[0], &faces).as_deref(),
+            Some("{2}, {T}, Sacrifice this token: You gain 3 life.")
+        );
+        if let baylee_client_core::board::StackKind::Ability {
+            token: Some(ref mut t),
+            ..
+        } = board.stack[0].kind
+        {
+            t.index = 1;
+        }
+        assert!(
+            stack_sentence(&board.stack[0], &faces).is_none(),
+            "never substitute another ability's sentence"
+        );
+    }
+
     /// A row never comes out blank because a lookup missed.
     ///
     /// The host sends no line index for some abilities, and the catalog's
@@ -2491,6 +2534,7 @@ mod tests {
         let mut trigger = token(30, 0, "Sheoldred", 0, 0);
         trigger.card = None;
         trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: ObjectId::new(7, 0),
             ability,
             rules: Some(baylee_view::RulesFace { card, face: 0 }),

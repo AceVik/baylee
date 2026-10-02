@@ -628,7 +628,19 @@ pub enum StackItem {
         /// anything the source becomes. `None` for a token's ability and an
         /// emblem's.
         rules: Option<RulesFace>,
+        /// Token definition and ability captured before its source disappeared.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        token: Option<TokenAbility>,
     },
+}
+
+/// A registry token's exact ability, independent of the source's lifetime.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct TokenAbility {
+    /// Stable token registry id.
+    pub token: u16,
+    /// Index in that token definition's ability list.
+    pub index: u32,
 }
 
 /// Where an ability's printed sentence is, so a client can draw a stack
@@ -2489,6 +2501,7 @@ mod tests {
         copy.rules = Some(rules(20));
         let mut ability = obj(3, 1);
         ability.stack_item = Some(StackItem::Ability {
+            token: None,
             source: ObjectId::new(1, 0),
             ability: None,
             text: None,
@@ -3343,6 +3356,21 @@ mod tests {
         ]
     }
 
+    #[test]
+    fn an_old_stack_ability_payload_defaults_to_no_token_provenance() {
+        let ability = StackItem::Ability {
+            source: ObjectId::new(1, 0),
+            ability: None,
+            text: None,
+            rules: None,
+            token: Some(TokenAbility { token: 0, index: 0 }),
+        };
+        let mut wire = serde_json::to_value(ability).unwrap();
+        wire["Ability"].as_object_mut().unwrap().remove("token");
+        let restored: StackItem = serde_json::from_value(wire).unwrap();
+        assert!(matches!(restored, StackItem::Ability { token: None, .. }));
+    }
+
     /// **The shape on the wire and the number that names it move together.**
     ///
     /// [`VIEW_VERSION`] is what lets a client refuse a host it cannot
@@ -3377,7 +3405,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        const RECORDED: (u32, u64) = (44, 0xfbc2_c1ba_6876_300c);
+        // Token provenance is additive and defaults to absent; keep view 44.
+        const RECORDED: (u32, u64) = (44, 0xe94d_aff4_f1e8_b735);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

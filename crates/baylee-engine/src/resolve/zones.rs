@@ -1177,7 +1177,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::TransformSource => {
             let printed = state
                 .object(res.on_stack)
-                .and_then(|ability| ability.own_face)
+                .and_then(|ability| ability.own_origin)
+                .and_then(crate::object::AbilityOrigin::printed)
                 .map(crate::object::PrintedFace::face);
             if let Some(obj) = state.object_mut(res.source)
                 && obj.zone == crate::zone::Zone::Battlefield

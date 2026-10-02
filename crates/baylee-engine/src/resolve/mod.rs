@@ -4642,6 +4642,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             if let Some(obj) = state.object_mut(id) {
                 // No card prints an emblem's list.
                 obj.take_abilities(crate::object::AbilityList {
+                    token: None,
                     abilities,
                     printed: None,
                 });

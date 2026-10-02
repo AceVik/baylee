@@ -280,3 +280,97 @@ fn missing_targets_and_insufficient_mana_never_become_clickable_plans() {
     input::activate_card(&mut duel, nexus);
     assert!(duel.armed.is_none() && duel.outbox.is_empty());
 }
+
+#[test]
+fn sacrificed_food_keeps_its_stack_picture_and_sentence_after_automatic_payment() {
+    use baylee_client_core::images::{ArtSize, ImageKey};
+    let mut engine = table(&["Oko, Thief of Crowns", "Forest", "Forest"]);
+    let mut duel = Duel::default();
+    sync(&mut duel, &engine);
+    let oko = object(&duel, "Oko, Thief of Crowns");
+    engine
+        .apply(
+            PlayerId::new(0),
+            PlayerAction::ActivateAbility {
+                source: oko,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    settle_stack(&mut engine);
+    sync(&mut duel, &engine);
+    let food = object(&duel, "Food");
+    let token = baylee_cards::tokens::token_id(&baylee_cards::tokens::FOOD);
+    input::activate_card(&mut duel, food);
+    assert!(duel.outbox.is_empty());
+    let option = abilities::options(
+        baylee_client_core::i18n::Lang::En,
+        duel.view.as_ref().unwrap(),
+        duel.interaction.as_ref().unwrap(),
+        food,
+    )
+    .remove(0);
+    let words = abilities::printed_words(None, duel.view.as_ref().unwrap(), food, &option).unwrap();
+    assert_eq!(
+        words.head.as_deref(),
+        Some("{2}, {T}, Sacrifice this token")
+    );
+    input::fire_armed(&mut duel);
+    run(&mut duel, &mut engine);
+    let view = duel.view.as_ref().unwrap();
+    assert!(
+        view.object(food).is_none(),
+        "the sacrificed token has ceased to exist"
+    );
+    assert_eq!(view.seats[0].mana_pool.total(), 0);
+    let stack = view.stack.last().unwrap();
+    assert!(stack.token.is_none(), "the ability itself is not a token");
+    assert!(
+        matches!(stack.stack_item, Some(baylee_view::StackItem::Ability {
+        token: Some(baylee_view::TokenAbility { token: id, index: 0 }), ..
+    }) if id == token)
+    );
+    let model = duel.board.as_ref().unwrap();
+    assert_eq!(
+        model.stack[0].art,
+        Some(ImageKey::token(token, ArtSize::Small))
+    );
+    assert!(
+        model
+            .required_images()
+            .contains(&ImageKey::token(token, ArtSize::Small))
+    );
+    assert_eq!(
+        crate::cardtext::token_sentence(token, 0).unwrap(),
+        baylee_client_core::card_face::split_blocks(
+            "{2}, {T}, Sacrifice this token: You gain 3 life."
+        )
+    );
+    let life = view.seats[0].life;
+    // A fresh view (as after reconnect) carries everything; no previous client cache.
+    let mut fresh = Duel::default();
+    sync(&mut fresh, &engine);
+    assert_eq!(
+        fresh.board.as_ref().unwrap().stack[0].art,
+        model.stack[0].art
+    );
+    settle_stack(&mut engine);
+    sync(&mut duel, &engine);
+    assert_eq!(duel.view.as_ref().unwrap().seats[0].life, life + 3);
+    assert!(duel.last_error.is_none());
+}
+
+fn settle_stack(engine: &mut Engine<RegistryLookup>) {
+    for _ in 0..20 {
+        if engine.state().zones.stack_is_empty() {
+            return;
+        }
+        engine
+            .apply(
+                engine.pending().asked().unwrap(),
+                PlayerAction::PassPriority,
+            )
+            .unwrap();
+    }
+    panic!("stack did not settle");
+}

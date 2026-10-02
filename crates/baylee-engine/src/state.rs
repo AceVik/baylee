@@ -24,6 +24,11 @@ use xxhash_rust::xxh3::Xxh3;
 pub trait CardLookup {
     /// Resolves a card index to its definition.
     fn card(&self, index: CardIndex) -> Option<&'static CardDef>;
+    /// Stable presentation id of a registry token; `u16::MAX` is reserved.
+    /// Custom lookups may omit identities without affecting token rules.
+    fn token_id(&self, _token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
+        None
+    }
 }
 
 /// A seat's mutable state.
@@ -2656,7 +2661,8 @@ impl GameState {
         let departing = self.object(id).and_then(|o| {
             o.own_abilities.map(|abilities| crate::object::AbilityList {
                 abilities,
-                printed: o.own_face,
+                printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
+                token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
             })
         });
         self.ltb_abilities.retain(|(other, _)| *other != id);
@@ -3379,6 +3385,7 @@ impl GameState {
         for (object, list) in ltb_abilities {
             object.hash(&mut h);
             hash_ability_list(&mut h, list.abilities, list.printed);
+            list.token.hash(&mut h);
         }
         ltb_attachments.hash(&mut h);
         ltb_counters.hash(&mut h);
@@ -4141,7 +4148,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         face_index,
         own_abilities,
         own_abilities_until_eot,
-        own_face,
+        own_origin,
         token,
         pending_face_change,
         event_object,
@@ -4247,12 +4254,16 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     event_amount.hash(h);
     cast_from_hand.hash(h);
     // What the object can do when it is not what its card says: a copy's
-    // list, an emblem's, an ability's captured one. `own_face` names it.
+    // list, an emblem's, an ability's captured one. `own_origin` names it.
     h.boolean(own_abilities.is_some());
     if let Some(list) = own_abilities {
-        hash_ability_list(h, list, *own_face);
+        hash_ability_list(
+            h,
+            list,
+            own_origin.and_then(crate::object::AbilityOrigin::printed),
+        );
     }
-    own_face.hash(h);
+    own_origin.hash(h);
     own_abilities_until_eot.hash(h);
     // A token's definition, hashed by what it says for the reason
     // `hash_ability_list` gives.
@@ -5497,8 +5508,9 @@ mod tests {
             ("own_abilities_until_eot", |s, id| {
                 fixture_object(s, id).own_abilities_until_eot = true;
             }),
-            ("own_face", |s, id| {
-                fixture_object(s, id).own_face = PrintedFace::new(CardIndex::new(1), 0);
+            ("own_origin", |s, id| {
+                fixture_object(s, id).own_origin =
+                    crate::object::AbilityOrigin::new(PrintedFace::new(CardIndex::new(1), 0), None);
             }),
             ("token", |s, id| fixture_object(s, id).token = Some(&TOKEN)),
             ("pending_face_change", |s, id| {

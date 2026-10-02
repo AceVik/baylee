@@ -452,3 +452,10 @@ are given.
   stays empty and never allocates) on every refresh.
 - The other rows moved within what the same code moves between rounds here
   (`state/clone`, which neither commit touches: +2 %).
+
+
+2026-10-02: captured token ability provenance uses `AbilityOrigin` in the
+existing four-byte provenance slot (card face or token id). The footprint test
+still measures `GameObject = 312 B`, `GameState = 1912 B`; neither budget was
+raised. A separate two-byte field would round the object to 320 B and was
+replaced with the packed representation before committing.

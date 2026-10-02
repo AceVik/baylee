@@ -754,6 +754,7 @@ mod tests {
         let mut ability = token(30, 0, "Ondu Cleric", 0, 0);
         ability.card = None;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: ObjectId::new(7, 0),
             ability: None,
             rules: Some(baylee_view::RulesFace { card, face: 0 }),

@@ -8321,3 +8321,17 @@ client also installs the bundled `brand/baylee.icns` into AppKit at startup,
 so Cargo/direct launches use the same Dock icon as the packaged `.app`.
 The setter runs on the main thread and accepts only a decoded, non-null image;
 the installed image is read back to verify the assignment.
+
+### Token abilities after their source disappears
+
+A sacrificed Food keeps its image and exact English Oracle ability sentence
+on the stack. The engine captures its token provenance with the ability list;
+the host sends `StackItem::Ability.token`, and the board requests that token's
+existing full-image key without looking the vanished source up. The sentence
+comes from the verified token/index entry in `baylee_cards::tokens::ability_text`,
+which the activation sheet also reads. Unknown token/index pairs have no
+invented text. Food uses the normal English fallback even in a German UI.
+
+The provenance survives a fresh view/reconnect. It is stored in the same
+four-byte `AbilityOrigin` that carries a copied card face, so `GameObject`
+remains within its measured 312-byte memory budget.

@@ -1136,9 +1136,18 @@ pub fn printed_words(
     object: ObjectId,
     option: &AbilityOption,
 ) -> Option<baylee_client_core::abilitysheet::Cut> {
-    let at = option.printed?;
     let object = view.object(object)?;
-    let blocks = crate::cardtext::sentence(texts, object.rules?.card, at)?;
+    let blocks = if let Some(at) = option.printed {
+        crate::cardtext::sentence(texts, object.rules?.card, at)?
+    } else {
+        let PlayerAction::ActivateAbility { ability_index, .. } = option.action else {
+            return None;
+        };
+        if object.status.is_face_down() {
+            return None;
+        }
+        crate::cardtext::token_sentence(object.token?, ability_index)?
+    };
     Some(baylee_client_core::abilitysheet::cut(
         blocks,
         option.cost.as_deref().unwrap_or_default(),

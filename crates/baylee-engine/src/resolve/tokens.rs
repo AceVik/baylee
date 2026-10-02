@@ -385,8 +385,9 @@ pub(super) fn create_token_copies(
     let (own, token, face) = state.object(original).map_or((None, None, None), |o| {
         (
             o.own_abilities.map(|abilities| crate::object::AbilityList {
+                token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
                 abilities,
-                printed: o.own_face,
+                printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
             }),
             o.token,
             o.card.map(|c| (c.index, o.face_index)),

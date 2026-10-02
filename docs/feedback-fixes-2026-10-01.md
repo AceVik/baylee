@@ -220,7 +220,11 @@ Already implemented in f423882a/e1a97c88. The engine tests play the exile abilit
 Food token auf dem Stack zeigt weder Bild vom Token noch die Ability.
 Food token Fähigkeit nur nutzbar, wenn vorher Mana manuell getappt, das sollte auch automatisch möglich sein, wie bei den Handkarten, wenn genug Mana verfügbar ist. (Betrifft alles auf dem Feld, auch Equip)
 
-Status: open.
+Status: fixed and source/native verified; feedback closure pending.
+
+Food now pays automatically and retains its token image and full ability
+sentence after sacrifice, including in a freshly reconstructed client view.
+See the sixth continuation for tests and native evidence.
 
 ## 01a0e8d7-d898-73f4-a201-6482913cfce6
 
@@ -398,3 +402,40 @@ lifetime, without marking the ability object itself as a battlefield token.
 The token definition has no oracle-text field; use trustworthy existing token
 text/presentation infrastructure and verify the sacrificed Food in a native
 game. Its report stays open until both payment and stack display are proven.
+
+
+## Sixth hourly continuation
+
+Refreshed the feedback list: no new open reports. Food stack presentation is
+implemented and verified by the full affected suites and native QA. `AbilityList` now carries token provenance through
+cost payment, copies and look-back. `GameObject::own_origin` packs either the
+card face or token identity into the existing four-byte slot, preserving the
+312-byte object footprint. Host/view/board carry `TokenAbility` independently
+of the vanished source and of the ability object's own token status. Food's
+verified Scryfall Oracle sentence is shared by its ability sheet and stack.
+
+Focused tests create Food with Oko, automatically pay two mana, verify the
+source has ceased to exist while the stack keeps its token art and sentence,
+reconstruct a fresh client view, and resolve for three life. A renderer test
+checks the full sentence and rejects an unknown ability index. Card/token
+origin round-trips and the footprint test cover the compact representation.
+Validation: 1161 client, 1173 client-core, 4267 engine, 195 host, 198 AI,
+129 cards and 35 view unit tests pass, plus the affected integration suites.
+The additive optional wire field retains version 44; its shape fingerprint
+and old-payload compatibility test are updated. Clippy passes for client,
+host, engine and view with dev-control/fuzz and all targets. GameObject
+remains 312 bytes. Logs: /private/tmp/baylee-food-full-tests.log,
+/private/tmp/baylee-food-view-tests.log and
+/private/tmp/baylee-food-clippy-final.log.
+
+Native QA at 1440×900 logical pixels: create Food with Oko, activate with an
+empty mana pool, confirm the plan, observe exactly two tapped Forests and a
+vanished Food source. With Prodigal Sorcerer available to retain a reaction
+window, the stack visibly shows the Food card image and full verified Oracle
+sentence. Resolving increases life from 40 to 43 with no remaining mana or
+error. Evidence: /private/tmp/baylee-food-stack.png,
+/private/tmp/baylee-food-live-stack.json and
+/private/tmp/baylee-food-live-final.json. The first run auto-resolved normally;
+a second fixture named an unavailable card and was corrected before the
+successful visual run. Its crash report was not sent. Test clients stopped.
+No push or deployment.

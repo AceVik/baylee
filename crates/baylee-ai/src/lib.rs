@@ -2608,6 +2608,7 @@ mod tests {
         friendly.stack_item = Some(baylee_view::StackItem::Spell);
         let mut enemy = permanent(obj(2), PlayerId::new(1), 0);
         enemy.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: obj(99),
             ability: None,
             text: None,
@@ -3547,6 +3548,7 @@ mod tests {
         ability.card = Some(hand_card(1, "Opt").card);
         ability.types = TypeSet::EMPTY;
         ability.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: obj(2),
             ability: None,
             text: None,
@@ -3741,6 +3743,7 @@ mod tests {
         let mut trigger = permanent(obj(2), me, 0);
         trigger.types = TypeSet::EMPTY;
         trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: obj(20),
             ability: None,
             text: None,
@@ -3791,6 +3794,7 @@ mod tests {
         let mut trigger = permanent(obj(7), me, 0);
         trigger.types = TypeSet::EMPTY;
         trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            token: None,
             source: obj(6),
             ability: None,
             text: None,

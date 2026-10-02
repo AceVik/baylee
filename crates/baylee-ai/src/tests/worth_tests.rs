@@ -860,6 +860,7 @@ fn waiting(id: u32, source: &PublicObject, index: u32) -> PublicObject {
     ability.power = None;
     ability.toughness = None;
     ability.stack_item = Some(baylee_view::StackItem::Ability {
+        token: None,
         source: source.id,
         ability: source
             .rules

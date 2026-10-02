@@ -556,6 +556,7 @@ mod tests {
         let mut ability = printed(5, 1, "Orcish Bowmasters", 5);
         ability.types = TypeSet::EMPTY;
         ability.stack_item = Some(StackItem::Ability {
+            token: None,
             source: baylee_core::ids::ObjectId::new(4, 0),
             ability: None,
             rules: None,

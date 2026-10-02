@@ -14,6 +14,15 @@ Reading refuses text that is no cost (`ManaCost::try_parse`). Protocol 8 and
 view 43 refuse the older shape; deploy the engine, gateway, agent and
 clients together.
 
+## Token abilities on the stack
+
+`StackItem::Ability.token` is an optional, default-absent `TokenAbility`
+containing the stable token registry id and its ability index. Captured with
+the rules before costs are paid, it survives sacrifice and copied abilities.
+It does not make the stack object a token: `PublicObject.token` stays absent
+on that ability. Clients use this provenance for the existing token image key
+and verified token sentence. Older clients ignore the additive field.
+
 ## Unpaid activation hints
 
 `LegalActions.unpaid_abilities` is an optional, default-empty list of

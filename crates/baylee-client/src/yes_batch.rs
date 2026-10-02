@@ -99,6 +99,7 @@ mod tests {
         for id in 1..=101 {
             let mut o = token(id, 0, "Ondu Cleric", 1, 1);
             o.stack_item = Some(StackItem::Ability {
+                token: None,
                 source: ObjectId::new(500 + id, 0),
                 ability: None,
                 rules: Some(baylee_view::RulesFace {

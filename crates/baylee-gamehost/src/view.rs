@@ -553,6 +553,13 @@ fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
     match obj.kind {
         ObjectKind::Spell => Some(StackItem::Spell),
         ObjectKind::AbilityOnStack => obj.ability.map(|loc| StackItem::Ability {
+            token: obj
+                .own_origin
+                .and_then(baylee_engine::object::AbilityOrigin::token)
+                .map(|id| baylee_view::TokenAbility {
+                    token: id.get() - 1,
+                    index: loc.index,
+                }),
             source: loc.source,
             ability: loc
                 .card
@@ -578,7 +585,7 @@ pub(crate) fn rules_face(face: PrintedFace) -> RulesFace {
 /// text in the player's own language.
 ///
 /// Read against the card the ability is *printed on*, which the engine
-/// carried beside the list the ability took with it (`GameObject::own_face`)
+/// carried beside the list the ability took with it (`GameObject::own_origin`)
 /// — not the source's card, which for a copy is the wrong card, and not the
 /// source's current face, which a transform may have turned since
 /// (CR 113.7a). It used to be recovered from the list's address, and a copy
@@ -2847,6 +2854,7 @@ mod tests {
             .object_mut(effigy)
             .expect("the Effigy is there")
             .take_abilities(baylee_engine::object::AbilityList {
+                token: None,
                 abilities: lantern.abilities_for_face(0),
                 printed: PrintedFace::new(chromatic_lantern(), 0),
             });
@@ -3402,6 +3410,7 @@ mod tests {
             sheoldred.index,
             index,
             baylee_engine::object::AbilityList {
+                token: None,
                 abilities: sheoldred.abilities_for_face(1),
                 printed: Some(back),
             },
@@ -3451,6 +3460,7 @@ mod tests {
             spark_double.index,
             index,
             baylee_engine::object::AbilityList {
+                token: None,
                 abilities: solemn.abilities_for_face(0),
                 printed: PrintedFace::new(solemn.index, 0),
             },
@@ -3491,6 +3501,7 @@ mod tests {
             spark_double.index,
             0,
             baylee_engine::object::AbilityList {
+                token: None,
                 abilities: solemn.abilities_for_face(0),
                 printed: None,
             },

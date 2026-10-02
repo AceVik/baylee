@@ -49,6 +49,12 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 
+/// Verified Oracle sentence for a token ability; unknown pairs stay unknown.
+#[must_use]
+pub fn token_sentence(token: u16, index: u32) -> Option<Vec<TextBlock>> {
+    baylee_cards::tokens::ability_text(token, index).map(split_blocks)
+}
+
 /// Where the fetch callback leaves its answer.
 ///
 /// A channel would be the obvious choice, but `Receiver` is not `Sync` and a

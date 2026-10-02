@@ -50,6 +50,7 @@ fn an_ability_on_the_stack_borrows_its_sources_picture() {
     ability.power = None;
     ability.toughness = None;
     ability.stack_item = Some(StackItem::Ability {
+        token: None,
         source: ObjectId::new(1, 0),
         ability: Some(AbilityRef::new(CardIndex::new(33), 0)),
         text: None,
@@ -64,6 +65,7 @@ fn an_ability_on_the_stack_borrows_its_sources_picture() {
     assert_eq!(
         m.stack[0].kind,
         StackKind::Ability {
+            token: None,
             source: ObjectId::new(1, 0),
             text: None,
             rules: None,
@@ -95,6 +97,7 @@ fn an_abilitys_picture_is_taken_from_the_face_its_text_came_from() {
     ability.power = None;
     ability.toughness = None;
     ability.stack_item = Some(StackItem::Ability {
+        token: None,
         source: ObjectId::new(1, 0),
         ability: Some(AbilityRef::new(CardIndex::new(33), 2)),
         text: Some(StackText {
@@ -130,6 +133,7 @@ fn an_ability_whose_source_is_gone_still_draws() {
     let mut ability = token(2, 0, "Cast Down", 0, 0);
     ability.card = None;
     ability.stack_item = Some(StackItem::Ability {
+        token: None,
         source: ObjectId::new(99, 0),
         ability: Some(AbilityRef::new(CardIndex::new(1), 0)),
         text: None,

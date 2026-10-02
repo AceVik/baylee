@@ -856,6 +856,8 @@ pub enum StackKind {
         /// card text; this is the handle the client's own line table places
         /// the ability by when the two builds disagree.
         ability: Option<baylee_core::ids::AbilityRef>,
+        /// Token provenance captured on the stack entry, even after sacrifice.
+        token: Option<baylee_view::TokenAbility>,
     },
 }
 
@@ -1013,6 +1015,62 @@ pub struct BoardModel {
     pub hand: Vec<HandCard>,
 }
 
+fn stack_art(
+    view: &PlayerView,
+    object: &PublicObject,
+    kind: StackKind,
+    reg: Registry<'_>,
+) -> Option<ImageKey> {
+    // Token abilities carry their captured token identity, so a
+    // sacrificed Food still has its picture. Other abilities borrow
+    // their source's picture while that object remains visible.
+    //
+    // `Small`, like every other card on the board, and for two
+    // reasons that agree: the stack panel draws a card 66 logical
+    // pixels wide, so `Normal` was fetching 488×680 for a
+    // thumbnail — and because it was the only board key at that
+    // size, a spell cast from a hand the player could already see
+    // drew the constructed face while a second copy of the same
+    // art was fetched.
+    //
+    // Which *face* of the source is the host's answer and not the
+    // source's current one: a Sheoldred who has turned back over
+    // while her chapter ability waits on the stack is showing the
+    // wrong side of herself, and the picture beside the sentence
+    // has to be the picture that sentence is printed on. It is an
+    // override of the key rather than a branch above `art_of`
+    // because a `text` at all means a real printed card — the
+    // host answers nothing for a token or an emblem — so there is
+    // no token key here to put a second face on.
+    //
+    // Only where the source *is* the card the text is printed on.
+    // A copy's ability names the copied card's face, and the
+    // picture borrowed here is the copy's own printing: a Spark
+    // Double carrying a back face's trigger would otherwise ask
+    // for a back face its printing does not have.
+    match kind {
+        StackKind::Ability {
+            source,
+            text,
+            rules,
+            token,
+            ..
+        } => token
+            .map(|t| ImageKey::token(t.token, ArtSize::Small))
+            .or_else(|| {
+                view.object(source).and_then(|s| {
+                    let key = art_of(s, ArtSize::Small, reg)?;
+                    let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
+                    Some(text.filter(|_| own).map_or(key, |t| ImageKey {
+                        face: Face::from_index(t.face),
+                        ..key
+                    }))
+                })
+            }),
+        StackKind::Spell => art_of(object, ArtSize::Small, reg),
+    }
+}
+
 impl BoardModel {
     /// Builds the render model from a view.
     ///
@@ -1079,58 +1137,17 @@ impl BoardModel {
                         text,
                         rules,
                         ability,
+                        token,
                     }) => StackKind::Ability {
                         source,
                         text,
                         rules,
                         ability,
+                        token,
                     },
                     _ => StackKind::Spell,
                 };
-                // An ability is its own object with no card, so it borrows
-                // its source's picture. When the source has already left
-                // (CR 113.7a) there is nothing to borrow and the name stands
-                // alone — which is exactly what the panel then draws.
-                //
-                // `Small`, like every other card on the board, and for two
-                // reasons that agree: the stack panel draws a card 66 logical
-                // pixels wide, so `Normal` was fetching 488×680 for a
-                // thumbnail — and because it was the only board key at that
-                // size, a spell cast from a hand the player could already see
-                // drew the constructed face while a second copy of the same
-                // art was fetched.
-                //
-                // Which *face* of the source is the host's answer and not the
-                // source's current one: a Sheoldred who has turned back over
-                // while her chapter ability waits on the stack is showing the
-                // wrong side of herself, and the picture beside the sentence
-                // has to be the picture that sentence is printed on. It is an
-                // override of the key rather than a branch above `art_of`
-                // because a `text` at all means a real printed card — the
-                // host answers nothing for a token or an emblem — so there is
-                // no token key here to put a second face on.
-                //
-                // Only where the source *is* the card the text is printed on.
-                // A copy's ability names the copied card's face, and the
-                // picture borrowed here is the copy's own printing: a Spark
-                // Double carrying a back face's trigger would otherwise ask
-                // for a back face its printing does not have.
-                let art = match kind {
-                    StackKind::Ability {
-                        source,
-                        text,
-                        rules,
-                        ..
-                    } => view.object(source).and_then(|s| {
-                        let key = art_of(s, ArtSize::Small, reg)?;
-                        let own = s.card.zip(rules).is_some_and(|(c, r)| c.index == r.card);
-                        Some(text.filter(|_| own).map_or(key, |t| ImageKey {
-                            face: Face::from_index(t.face),
-                            ..key
-                        }))
-                    }),
-                    StackKind::Spell => art_of(o, ArtSize::Small, reg),
-                };
+                let art = stack_art(view, o, kind, reg);
                 StackItem {
                     id: o.id,
                     name: o.name.clone(),

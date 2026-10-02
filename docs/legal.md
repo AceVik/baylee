@@ -463,3 +463,13 @@ Target filters are original localized controls. Choice-button previews reuse
 the existing full-card image renderer and licensed image delivery, keeping
 artist/copyright lines intact; the battlefield cue uses the existing hover
 transform. No new external asset, font or policy exception is introduced.
+
+
+Food stack presentation (2026-10-02) reuses the full registered ELD token
+image and its verified Oracle sentence from
+[Scryfall's token record](https://scryfall.com/card/teld/15/food).
+The sentence is displayed beside the image, with no bundled artwork.
+Rechecked the policy/FAQ and Scryfall page quoted above: “Don’t mess with the
+legal notices in our stuff.” and “Do not cover, crop, or clip off the copyright
+or artist name on card images.” Existing fonts, attribution and notices apply;
+no new asset licence or exception is introduced.

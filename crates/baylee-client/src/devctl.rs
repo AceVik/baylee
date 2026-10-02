@@ -1846,6 +1846,14 @@ fn ability_row_words(believed: &Believed, index: usize) -> String {
     // refused reports no words, as it draws none.
     let words = said.map_or_else(
         || {
+            if let Some(token) = shown.and_then(|o| o.token)
+                && let baylee_engine::choice::PlayerAction::ActivateAbility {
+                    ability_index, ..
+                } = option.action
+                && let Some(blocks) = crate::cardtext::token_sentence(token, ability_index)
+            {
+                return Some(prose(&blocks));
+            }
             (option.printed_index().is_none() && !option.label.is_empty())
                 .then(|| option.label.clone())
         },

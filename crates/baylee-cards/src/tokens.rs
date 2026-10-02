@@ -53,7 +53,7 @@ static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[mana_ability!(
 static SACRIFICE_TO_DRAW: &[AbilityDef] =
     &[activated!(cost!("{2}", SacrificeSelf), &[Effect::draw(1)])];
 
-/// `{2}, {T}, Sacrifice this artifact: You gain 3 life.` (Food)
+/// `{2}, {T}, Sacrifice this token: You gain 3 life.` (Food)
 static SACRIFICE_TO_GAIN_LIFE: &[AbilityDef] = &[activated!(
     cost!("{2}", TapSelf, SacrificeSelf),
     &[Effect::gain_life(3)]
@@ -199,7 +199,7 @@ pub static ELEMENTAL_X_X_GREEN_WHITE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
-/// Colorless Food artifact: `{2}, {T}, Sacrifice this artifact: You gain
+/// Colorless Food artifact: `{2}, {T}, Sacrifice this token: You gain
 /// 3 life.`
 pub static FOOD: TokenDef = TokenDef {
     name: "Food",
@@ -327,6 +327,15 @@ pub fn token_id(token: &TokenDef) -> u16 {
 #[must_use]
 pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
     ALL.get(id as usize).copied()
+}
+
+/// Verified printed ability text for central tokens, indexed by the DSL list.
+/// Food: Scryfall ELD token 15, bf36408d-ed85-497f-8e68-d3a922c388a0,
+/// checked 2026-10-02. Unknown token/index pairs have no invented sentence.
+#[must_use]
+pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
+    (index == 0 && std::ptr::eq(by_token_id(id)?, &raw const FOOD))
+        .then_some("{2}, {T}, Sacrifice this token: You gain 3 life.")
 }
 
 #[cfg(test)]
