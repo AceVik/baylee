@@ -172,7 +172,17 @@ Copied token art now matches name, base power/toughness, colours and card types,
 
 Maskwood Nexus hat keinen schönen Abilities Dialog & Effekte sowie Equip Effekte von Artefakten sollen ähnlich wie das Ausspielen von Karten aus der Hatd wirkbar sein.
 
-Status: open.
+Status: resolved in the feedback service (58351153; source/native UI verified; not deployed).
+
+A single costly ability now opens the ordinary ability sheet with its printed
+sentence. Engine-checked unpaid hints let the client plan mana before an
+activation, including equip. Confirmation replans against the current pool and
+sources and rechecks the final engine offer. Native German UI: Nexus displayed
+its localized cost and sentence, tapped exactly three Forests only after
+confirmation and made a blue 2/2 Shapeshifter. Bonesplitter then tapped one more
+Forest, stopped for target selection, and equipped Grizzly Bears as 4/2.
+Six regressions cover the payment path and single-row sheet. The feedback API
+confirmed `resolved`.
 
 ## 01a0f85d-8ed7-7585-a62c-edd5344a070f
 
@@ -279,7 +289,7 @@ The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI)
 
 ## Next continuation: remaining investigations
 
-19 of the original 25 open reports are resolved. Six remain open; finish them
+20 of the original 25 open reports are resolved. Five remain open; finish them
 before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
 3f0ab837 (token/UI). No push or deployment has happened. The native test clients
 started for this pass were stopped; no live test process needs preserving.
@@ -291,8 +301,10 @@ started for this pass were stopped; no live test process needs preserving.
 - Food/activation: ability stack art depends on the still-present source;
   sacrificed Food has disappeared. Token abilities also lack the card text
   reference used by the stack sentence. Preserve truthful ability presentation
-  across the sacrifice. Automatic mana for activated abilities/equip is still
-  separate unfinished work: `legal.abilities` means payable from floating mana.
+  across the sacrifice. Automatic mana for activated abilities/equip is
+  implemented in 58351153; `legal.abilities` still means payable from floating
+  mana, with separate `unpaid_abilities` planning hints. Verify Food itself
+  alongside its missing presentation before closing that report.
 - Pixel report: report build c3d5aa55 predates 2aae4a59's shared integer noise
   hash fix. Native Metal rendering and shader tests pass, but the reported
   Windows/Vulkan setup has not been reproduced; leave this distinction clear.
@@ -344,3 +356,45 @@ and /private/tmp/baylee-miracle-clippy.log.
 Next: activation/equip automatic mana and the Maskwood/Food reports, then the
 remaining visual/audio feedback. Alpha remains the earliest incomplete set;
 finish feedback before returning to its four recorded Partial cards.
+
+## Fifth hourly continuation
+
+Implemented automatic mana for activated battlefield abilities, including
+Maskwood Nexus and equip. The engine exposes separate unpaid planning hints
+after non-mana costs, targets, timing and locks pass. Only actual paid offers
+authorize actions. The client reserves the source, arms a mana plan with the
+ability's readable sheet, replans on confirmation, and hands later target or
+cost questions back to the player. Five real-engine regressions cover Nexus
+(including its blue 2/2 token), equip, manual pre-tapping, Karn's activation
+lock, missing targets and insufficient sources. A sixth regression checks
+that a single armed ability actually produces its sheet and printed words;
+native QA caught an old renderer guard that suppressed lists shorter than two.
+
+Validation: 1159 client, 1173 client-core, 4266 engine, 198 AI,
+195 host and 146 seat unit tests pass, along with the ability-sheet, mana,
+network and host integration suites. The broad run found an existing failure
+in `baylee-seat --test selfplay how_often_the_mind_is_woken`: p90 249 wakes
+exceeds 150. A separately rebuilt archive of HEAD (8f664d77) produces the
+identical four seat-game counts (median 54, p90 249); this activation change
+does not cause it. Keep it on the testing backlog rather than loosening the
+threshold silently. Logs: /private/tmp/baylee-activation-full-tests.log and
+/private/tmp/baylee-activation-baseline-selfplay.log.
+
+Milestone 58351153 passed native verification at 1440×900 logical pixels and
+clippy with `dev-control` and all targets for client and seat. QA image:
+/private/tmp/baylee-activation-nexus-dialog.png; final view:
+/private/tmp/baylee-activation-live-final.json. Nexus and equip both show the
+localized ability text, spend exactly three and one mana respectively, and
+retain explicit confirmation/target selection. The feedback API confirmed the
+Maskwood/equip report as `resolved`. Twenty reports are now resolved; five
+remain. The test client was stopped. No push or deployment.
+
+Next: Food's missing stack art and text. `push_ability_to_stack` captures an
+ability list but loses the source token's presentation after sacrifice;
+`gamehost::view::stack_item` only exports printed-card rules/text, and
+`client-core::board` gets ability art from `view.object(source)`, which is then
+absent. Preserve source token identity and the ability index across this
+lifetime, without marking the ability object itself as a battlefield token.
+The token definition has no oracle-text field; use trustworthy existing token
+text/presentation infrastructure and verify the sacrificed Food in a native
+game. Its report stays open until both payment and stack display are proven.
