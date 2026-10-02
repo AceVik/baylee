@@ -132,7 +132,25 @@ Reject Toxic Deluge before spending the card when no X gives a positive exchange
 
 KI Wirkt Zeitliche Überlegenheit für ihre vollen Manakosten. Bitte prüfen ob sie hätte auch Miracle nutzen können und ob Miracle überhaupt funktioniert.
 
-Status: open.
+Status: resolved in the feedback service (565cf940; not deployed).
+
+Miracle now opens a mana-only payment window after choosing X and targets if
+floating mana is insufficient. The completed cast is held separately from
+mana-ability questions, and the full price is projected as owed. The AI counts
+available sources when accepting Miracle and choosing its X, then pays through
+the existing debt planner. An unpaid cast leaves its card in hand, clears X,
+and cannot reopen the offer. Held choices participate in the replay snapshot.
+
+Validation: all 4266 engine tests (2 ignored), 198 AI tests, 195 gamehost unit
+tests (2 ignored) and all gamehost integration/example targets pass. Clippy
+with all targets and engine/fuzz passes. Real engine regressions cover Lotus
+Petal's sacrifice/color choice, Entreat the Dead's X=2 and two targets, short
+payments and the formerly pinned Metamorphosis Fanatic limitation. The actual
+AI/gamehost integration earns a Temporal Mastery offer with zero floating
+mana, taps exactly two Islands, pays {1}{U}, exiles the resolved spell and
+queues its extra turn. This is engine/host verification; no UI change or
+native client run was required for this fix. The original screenshot alone
+does not establish whether that particular card was the turn's first draw.
 
 ## 01a0f864-b11f-76cb-9633-813213b8d856
 
@@ -261,15 +279,13 @@ The client/core/AI suites pass (1148 client tests, 2 ignored; 1169 core; 197 AI)
 
 ## Next continuation: remaining investigations
 
-18 of the original 25 open reports are resolved. Seven remain open; finish them
+19 of the original 25 open reports are resolved. Six remain open; finish them
 before card batches. Commits: 8084106f (evoke lifetime), b4355e7f (AI and mana),
 3f0ab837 (token/UI). No push or deployment has happened. The native test clients
 started for this pass were stopped; no live test process needs preserving.
 
-- Miracle: `engine/cast_wizard.rs::start_miracle_cast` currently reaches payment
-  using only floating mana. AI intentionally declines without floating mana;
-  see `third_iteration_miracle_needs_floating_mana_not_untapped_lands`. Fix the
-  engine payment opportunity before changing that AI policy.
+- Miracle: completed in 565cf940 and closed in the fourth hourly continuation;
+  the engine payment window and AI source planning are verified above.
 - Maximum hand size: completed in ba2069c6 and closed in the first hourly
   continuation; do not repeat this work.
 - Food/activation: ability stack art depends on the still-present source;
@@ -316,3 +332,15 @@ scrolling already follows a hovered group member. The creature-density portion
 and the larger-card/text report still need a measured layout change.
 
 The feedback API confirmed the target-pagination report as `resolved`.
+
+## Fourth hourly continuation
+
+The Miracle report is fixed, tested, committed (565cf940), and confirmed
+`resolved` by the feedback API. No new reports appeared in the refreshed list.
+Six of the original reports remain open. No push or deployment; no native
+test client was started. Local test logs: /private/tmp/baylee-miracle-tests.log
+and /private/tmp/baylee-miracle-clippy.log.
+
+Next: activation/equip automatic mana and the Maskwood/Food reports, then the
+remaining visual/audio feedback. Alpha remains the earliest incomplete set;
+finish feedback before returning to its four recorded Partial cards.
