@@ -741,9 +741,10 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
             Phrase::NounCardFromGraveyard,
             Phrase::NounCardsFromGraveyard,
         ),
-        ChoicePrompt::Delve | ChoicePrompt::OneOfType { .. } | ChoicePrompt::Generic => {
-            (Phrase::NounCard, Phrase::NounCards)
-        }
+        ChoicePrompt::LookAtHand
+        | ChoicePrompt::Delve
+        | ChoicePrompt::OneOfType { .. }
+        | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }
 
@@ -758,6 +759,9 @@ fn cards_line(
     max: u8,
     name: &dyn Fn(ObjectId) -> Option<String>,
 ) -> String {
+    if reason == ChoicePrompt::LookAtHand {
+        return Phrase::InspectHand.text(lang).to_owned();
+    }
     if let ChoicePrompt::Band { with } = reason
         && let Some(leader) = name(with)
     {
@@ -1310,6 +1314,7 @@ impl Interaction {
     #[must_use]
     pub fn selectable(&self) -> &[ObjectId] {
         match &self.mode {
+            Mode::Objects { max: 0, .. } => &[],
             Mode::Objects { options, .. } => options,
             Mode::Arrange(arrangement) => arrangement.dealt(),
             Mode::Attackers { candidates, .. } | Mode::Blockers { candidates, .. } => candidates,
@@ -1358,7 +1363,9 @@ impl Interaction {
     #[must_use]
     pub fn is_selectable(&self, id: ObjectId) -> bool {
         match &self.mode {
-            Mode::Objects { options, .. } => options.is_empty() || options.contains(&id),
+            Mode::Objects { options, max, .. } => {
+                *max > 0 && (options.is_empty() || options.contains(&id))
+            }
             Mode::Arrange(arrangement) => arrangement.dealt().contains(&id),
             // Combat accepts both halves of a pair: the creature being
             // declared, and the thing it is being declared against — tapping

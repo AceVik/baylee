@@ -23296,9 +23296,8 @@ fn alpha_eval_mana_flare_supported_cast_and_resolution() {
     assert!(in_hand(&engine, p0, card).is_none());
 }
 
-/// Power Surge is Partial: the turn-start land count and damage trigger is unsupported.
-/// Exercise only the printed cost and normal spell resolution (CR 601.2h,
-/// 608.3a); no assertion treats the missing text as a working ability.
+/// Power Surge pays its printed mana cost and resolves onto the battlefield.
+/// Its upkeep behavior is covered separately below.
 #[test]
 fn alpha_eval_power_surge_supported_cast_and_resolution() {
     let p0 = PlayerId::new(0);
@@ -23421,4 +23420,75 @@ fn clutch_of_undeath_shrinks_a_creature_that_is_not_a_zombie() {
         .expect("the Angel is a creature to enchant");
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, angel), (1, 1), "4/4 with -3/-3");
+}
+
+/// Tapping in response cannot change the historical count, and the other
+/// player's upkeep uses their own pre-untap lands, not the source controller's.
+#[test]
+fn alpha_eval_power_surge_uses_each_turns_pre_untap_count() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let surge = card_index("156b2228-f7b2-4816-b894-c4953a32c05f");
+    let mut engine = Duel::new(1010, forest())
+        .battlefield(0, &[surge, mountain(), mountain(), mountain()])
+        .battlefield(1, &[forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(!stack_is_empty(&engine), "the first upkeep triggers");
+    let mountains = all_on_battlefield(&engine, p0, mountain());
+    for source in mountains.iter().take(2) {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source: *source })
+            .unwrap();
+    }
+    pass_until(&mut engine, |e| at_rest(e, p1));
+    let green = on_battlefield(&engine, p1, forest()).unwrap();
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: green })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 17);
+    assert_eq!(engine.state().players[1].life, 20);
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2 && !stack_is_empty(e)
+    });
+    assert!(
+        !engine
+            .state()
+            .object(green)
+            .unwrap()
+            .status
+            .contains(Status::TAPPED)
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[1].life,
+        19,
+        "only one Forest was untapped before the turn"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3 && !stack_is_empty(e)
+    });
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().players[0].life,
+        16,
+        "two Mountains untapped this turn, one was already untapped"
+    );
+}
+
+#[test]
+fn alpha_eval_power_surge_with_no_untapped_lands_deals_no_damage() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let surge = card_index("156b2228-f7b2-4816-b894-c4953a32c05f");
+    let mut engine = Duel::new(1011, forest()).battlefield(0, &[surge]).start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 20);
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2 && !stack_is_empty(e)
+    });
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 20);
+    assert!(on_battlefield(&engine, p0, surge).is_some());
+    assert!(at_rest(&engine, p1) || at_rest(&engine, p0));
 }

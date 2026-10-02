@@ -1682,6 +1682,11 @@ messages! {
         en: "cards to put into their owner's graveyard",
         de: "Karten, die in den Friedhof ihres Besitzers kommen",
     },
+    /// A private hand inspection is acknowledged without choosing a card.
+    InspectHand {
+        en: "Look at the hand, then confirm when finished",
+        de: "Sieh dir die Hand an und bestätige, wenn du fertig bist",
+    },
     /// card for the first pile — the rest are the second
     NounCardForFirstPile {
         en: "card for the first pile (the rest are the second)",
@@ -2642,7 +2647,7 @@ messages! {
 
     // ---- the zone browser
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
-    BrowseLooking { en: "Revealed", de: "Aufgedeckt" },
+    BrowseLooking { en: "Shown", de: "Gezeigt" },
     /// A graveyard.
     BrowseGraveyard { en: "Graveyard", de: "Friedhof" },
     /// A public exile pile.

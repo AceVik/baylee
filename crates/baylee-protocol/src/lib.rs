@@ -11,7 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-pub const PROTOCOL_VERSION: u32 = 8;
+/// Version 9 adds the private hand-inspection choice prompt.
+pub const PROTOCOL_VERSION: u32 = 9;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -217,7 +218,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_eight() {
+    fn the_wire_version_is_nine() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -231,7 +232,8 @@ mod tests {
         // 7: PayLife choices for Ward; older clients cannot decode this enum.
         // 8: a `ManaCost` in a `Pending` is its notation (`"{2}{U}{U}"`), not
         // the sixteen-slot list a replicated cost overflowed.
-        assert_eq!(PROTOCOL_VERSION, 8);
+        // 9: private hand-inspection prompt; older clients cannot decode it.
+        assert_eq!(PROTOCOL_VERSION, 9);
     }
 
     #[test]

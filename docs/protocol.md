@@ -3,6 +3,14 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Private hand inspection (protocol 9)
+
+`ChoicePrompt::LookAtHand` suspends resolution until the inspecting player sends
+`ChooseObjects` with an empty list. Both selection bounds are zero. Only that
+seat receives the cards through `PlayerView.looking_at`; acknowledgement removes
+them, and no public reveal event is sent. This new serialized enum case requires
+protocol 9, so gateway, engine, agent and clients must be updated together.
+
 ## Mana costs as notation (protocol 8, view 43)
 
 Every `ManaCost` on the wire, in a `Pending` (a cast option's price, the

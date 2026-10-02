@@ -214,6 +214,7 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::CostCrew { power } => {
             format!("Choose creatures to tap to crew (total power {power} or more)")
         }
+        ChoicePrompt::LookAtHand => "Inspect the hand, then confirm with no cards selected".into(),
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }

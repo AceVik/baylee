@@ -1705,7 +1705,9 @@ pub(super) fn spawn_tray(
     // The tally. The engine names a minimum and a maximum, so the dialog can
     // say how far along the answer is — and a panel with no question in it (a
     // graveyard opened by hand) says nothing rather than "0 of 0".
-    if let Some((min, max)) = answering.and_then(baylee_client_core::Interaction::bounds) {
+    if let Some((min, max)) = answering.and_then(baylee_client_core::Interaction::bounds)
+        && max > 0
+    {
         let chosen = answering.map_or(0, baylee_client_core::Interaction::declared);
         let words = if min == max {
             Phrase::BrowseTallyExact.fill(lang, &[&chosen.to_string(), &max.to_string()])
@@ -1996,7 +1998,7 @@ fn spawn_footer(
     view: &PlayerView,
 ) -> Option<Entity> {
     let it = interaction?;
-    let (min, _max) = it.bounds()?;
+    let (min, max) = it.bounds()?;
     let foot = commands
         .spawn((
             Node {
@@ -2100,7 +2102,8 @@ fn spawn_footer(
         commands.entity(foot).add_child(batch);
     }
 
-    if min == 0 {
+    // Inspection has no alternative answer to cancel into.
+    if min == 0 && max > 0 {
         let out = dialog_label(
             commands,
             fonts,

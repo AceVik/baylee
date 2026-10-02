@@ -1556,6 +1556,9 @@ pub enum Effect {
         /// Which cards the controller may choose from the revealed hand.
         filter: &'static Filter,
     },
+    /// The resolving controller privately looks at the chosen player's hand.
+    /// Nothing is revealed to the other players and no card changes zones.
+    LookAtChosenHand,
     /// Each player in `who` discards their whole hand (Wheel of Fortune:
     /// "each player discards their hand"). Nobody chooses: every card goes,
     /// and each is a discard of its own (CR 701.9a), as the journal says.
@@ -3432,6 +3435,7 @@ impl Effect {
             | Effect::DiscardRandom { .. }
             | Effect::DiscardHand { .. }
             | Effect::RevealHandDiscard { .. }
+            | Effect::LookAtChosenHand
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
             | Effect::YourGraveyardToBattlefield { .. }

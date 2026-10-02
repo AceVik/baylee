@@ -2318,3 +2318,22 @@ land type"; both are convention tests that fire on a first try.
   for each. Five synthetic behavior tests cover turn changes, extra turns,
   later taps, skipped untap, phasing, and a late observer. The card remains
   Partial until its implementation and independent card tests are present.
+
+
+## Alpha Power Surge and Glasses of Urza (Codex, 2026-10-02)
+
+- **Look and reveal are different permissions.** Reusing a public reveal event
+  for Glasses of Urza would disclose the hand to every seat and the game log.
+  Private inspection uses the existing deciding-seat `looking_at` projection
+  and an empty acknowledgement; a three-player played test checks both the
+  temporary view and the absence of public reveal events.
+- **A zero-selection prompt is an inspection, not a broken picker.** The
+  browser still opens, but cards are not selectable and its footer has only
+  Confirm. Tests cover an opponent's hand, one's own hand and an empty hand.
+- **Power Surge reads history, not the upkeep board.** Card-specific tests
+  tap lands in response, cross both players' turns and exercise zero damage.
+  The prior engine tests cover skipped untaps, extra turns and late observers.
+- **Codegen needs a complete printing cache.** An incomplete local cache made
+  `codegen --tables` fail after writing partial ability-line data. Refreshing
+  with `xtask scryfall-cache` (2955/2955) and regenerating twice restored the
+  full output; the final diff only adds these two cards' ability lines.

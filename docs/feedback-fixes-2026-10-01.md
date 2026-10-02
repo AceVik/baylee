@@ -690,3 +690,51 @@ AGENTS.md legal guardrail, new card implementation is held for that clarificatio
 This is a new policy finding, not the previous model decision being reopened.
 No card files changed in this continuation; all seven remain Partial, and the
 last tested engine/build milestones remain 8e561802 and a4518d1f.
+
+
+The owner subsequently confirmed continuation as a deliberately tolerated grey
+area (2026-10-02). This decision is recorded beside the quoted restriction in
+docs/legal.md. Both the model-lane and rules-implementation decisions are settled
+for this task; do not ask again. Finish Alpha, then the next historical set.
+
+
+## Alpha milestone: Power Surge and Glasses of Urza (2026-10-02)
+
+Both hand-owned cards are now Implemented. Power Surge triggers at every upkeep
+and damages that active player using the stored pre-untap land count. Glasses of
+Urza pays its tap cost, targets any player and privately shows that player's hand
+until acknowledgement, including self-targets and empty hands. A three-player
+host test proves that neither the bystander nor public log receives the hand.
+The new choice requires protocol version 9; mixed client/server versions refuse
+connection rather than dropping an undecodable prompt.
+
+Native testing found and fixed two presentation faults: the source preview could
+cover the newly opened inspection, and the generic browser called privately
+shown cards “Revealed”. New chooser openings clear stale previews; the neutral
+label is now “Shown” / “Gezeigt”. Inspection has one Confirm button, no misleading
+selection marks or “0 of 0” tally. Re-sent views preserve a new hover within the
+chooser. Before/after screenshots are /private/tmp/baylee-glasses-inspect.png,
+baylee-glasses-inspect-final.png and baylee-glasses-after-final.png. The final
+native run reached the private two-card hand, then returned to priority with
+`looking_at` empty, unchanged hands and the Glasses tapped.
+
+Validation: 4278 engine unit tests and both footprint tests pass (two preexisting
+unit ignores); 196 gamehost unit tests pass (two preexisting ignores), with all
+40 associated integration scenarios also passing. 1180 client-core unit tests,
+129 card tests, 15 protocol tests and the targeted native hover/footer tests
+pass. `xtask validate` accepts all 2955 cards; table codegen succeeds twice with
+only these two cards' ability-line additions. All 146 seat unit tests pass with
+local test-server access; its earlier sandbox failures were port restrictions.
+
+One broader gate has an independently reproduced preexisting failure:
+`baylee-seat --test selfplay how_often_the_mind_is_woken` records p90 249 wakes.
+A clean `git archive HEAD` baseline produces the identical 249-wake failure;
+no threshold was weakened. Logs are /private/tmp/baylee-alpha-regression.log,
+baylee-alpha-seat-unrestricted-tests.log and baylee-alpha-selfplay-baseline.log.
+
+Five Alpha Partial cards remain: Balance, Gloom, Mana Flare, Black Vise and
+Cyclopean Tomb. Alpha is not complete and the next set has not started. The
+Windows/Vulkan feedback report remains open pending an affected-renderer check.
+
+Final workspace all-targets clippy passes after the native UI corrections
+(/private/tmp/baylee-alpha-final-clippy.log). No push or deployment was made.

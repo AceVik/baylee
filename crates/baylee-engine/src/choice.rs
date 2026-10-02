@@ -617,6 +617,8 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Privately inspect the offered hand, then acknowledge without selecting.
+    LookAtHand,
     /// Library search (tutor/fetch).
     SearchLibrary,
     /// Put cards from your hand on top of your library (chosen order).

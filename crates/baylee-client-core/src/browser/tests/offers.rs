@@ -252,3 +252,36 @@ fn a_pile_choice_draws_the_cards_in_its_piles() {
         "a pile is taken by its row in the prompt, not by clicking a card"
     );
 }
+
+/// Private inspection opens the offered hand without presenting checkboxes
+/// as legal choices. Confirming is the only answer.
+#[test]
+fn a_hand_inspection_shows_every_card_without_making_it_selectable() {
+    let view = ViewBuilder::new(2)
+        .with_looking_at(vec![
+            printed(10, 1, "Island", 1),
+            printed(11, 1, "Sol Ring", 2),
+        ])
+        .build();
+    let it = Interaction::new(
+        Pending::ChooseCards {
+            player: me(),
+            options: vec![obj(10), obj(11)],
+            min: 0,
+            max: 0,
+            prompt: ChoicePrompt::LookAtHand,
+            total: None,
+        },
+        me(),
+    );
+    assert!(Browser::wanted(&view, &it));
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&it));
+    let rows = browser.rows(&view, Some(&it), Names::projected());
+    assert_eq!(rows.len(), 2);
+    assert!(
+        rows.iter()
+            .all(|row| row.zone == BrowseZone::Looking && !row.standing.selectable)
+    );
+    assert!(it.can_confirm());
+}

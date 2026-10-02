@@ -943,6 +943,21 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 total: None,
             })
         }
+        Effect::LookAtChosenHand => {
+            let player = res.chosen_player?;
+            let options = state.zones.list(ZoneLocation::Hand(player)).clone();
+            // Only the deciding seat receives these through looking_at.
+            // A public Revealed journal event would leak the whole hand.
+            res.awaiting = Some(AwaitingOp::InspectHand);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: 0,
+                prompt: ChoicePrompt::LookAtHand,
+                total: None,
+            })
+        }
         Effect::RevealHandDiscard { filter } => {
             let player = res.chosen_player?;
             let hand = state.zones.list(ZoneLocation::Hand(player)).clone();

@@ -537,3 +537,16 @@ an explicit prohibition. Further card implementation is therefore held pending
 clarification of the applicable permission or a reviewed change to that project
 rule. Existing code is preserved; nothing was deployed or deleted. No broader
 legal audit or claim that earlier policy checks settled this issue is implied.
+
+
+### Owner decision: rules implementation as tolerated practice (2026-10-02)
+
+The owner explicitly confirmed that this project proceeds as a tolerated grey
+area, citing comparable community rules simulators, and authorized continuation.
+This is acceptance of that uncertainty, not a claim of written Wizards permission
+or proof that the Fan Content Policy grants the use. The quoted “game mechanics”
+and “our prior written permission” restriction above remains documented beside
+this decision. For this task, the owner-approved treatment is analogous to the
+existing tolerated-use exceptions: continue the non-commercial rules engine and
+card implementations while preserving notices, attribution and asset restrictions.
+The temporary hold recorded above is lifted by this explicit owner instruction.

@@ -404,6 +404,22 @@ fn the_footer_offers_only_what_the_question_allows() {
         (true, true),
         "a question that takes an empty answer drew no way out"
     );
+    let inspect = baylee_client_core::Interaction::new(
+        Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: vec![ObjectId::new(1, 0)],
+            min: 0,
+            max: 0,
+            prompt: ChoicePrompt::LookAtHand,
+            total: None,
+        },
+        PlayerId::new(0),
+    );
+    assert_eq!(
+        footer_of(&inspect),
+        (true, false),
+        "inspection has one acknowledgement, no duplicate cancel"
+    );
 }
 
 /// W2's whole claim, written as an order: the veil goes over what answers

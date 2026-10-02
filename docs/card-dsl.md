@@ -2741,3 +2741,15 @@ When you hit one of these: implement everything expressible, then
 you hit a sentence this file says is impossible and the card it names looks
 finished, **believe the card** — and say so, so this list can lose another
 entry.
+
+
+### Private hand inspection
+
+`Effect::LookAtChosenHand` inspects the player selected by the ability's target
+requirement (`TargetReq::one(TargetSpec::AnyPlayer)` for Glasses of Urza).
+Resolution suspends on `ChoicePrompt::LookAtHand`, offered to the controller with
+zero selections required and zero allowed. An empty acknowledgement resumes it.
+No public reveal event is emitted and no card changes zones. The host exposes the
+hand only through the deciding seat's temporary `looking_at`; acknowledgement
+removes that access. Protocol 9 adds the prompt. Clients show the cards without
+selection marks, a selection tally or a duplicate Cancel button.

@@ -235,3 +235,32 @@ fn mulligan_and_yes_no_answers_are_mode_gated() {
     assert_eq!(yn.answer_yes_no(true), Some(PlayerAction::YesNo(true)));
     assert_eq!(yn.answer_mulligan(true), None);
 }
+
+#[test]
+fn inspecting_a_hand_needs_only_confirmation_and_never_selects_cards() {
+    for options in [vec![], vec![obj(1), obj(2)]] {
+        let mut i = interaction(Pending::ChooseCards {
+            player: me(),
+            options,
+            min: 0,
+            max: 0,
+            prompt: ChoicePrompt::LookAtHand,
+            total: None,
+        });
+        assert!(i.can_confirm());
+        assert!(!i.is_selectable(obj(1)));
+        assert_eq!(i.toggle(obj(1)), SelectionOutcome::Rejected);
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseObjects { objects: vec![] })
+        );
+        assert_eq!(
+            i.prompt().headline(Lang::En, Turn::Mine, None, false),
+            "Look at the hand, then confirm when finished"
+        );
+        assert_eq!(
+            i.prompt().headline(Lang::De, Turn::Mine, None, false),
+            "Sieh dir die Hand an und bestätige, wenn du fertig bist"
+        );
+    }
+}

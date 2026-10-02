@@ -254,3 +254,37 @@ fn a_target_choice_previews_its_card_and_pagination_clears_the_hover() {
     app.update();
     assert_eq!(app.world().resource::<crate::Duel>().hovered, None);
 }
+
+/// A source preview must not cover the private hand that just opened.
+#[test]
+fn opening_a_hand_inspection_clears_the_source_preview_but_not_later_hovers() {
+    use baylee_client_core::test_support::{ViewBuilder, printed};
+    use baylee_engine::choice::ChoicePrompt;
+    let mut duel = crate::Duel {
+        hovered: Some(obj(1)),
+        ..Default::default()
+    };
+    let view = ViewBuilder::new(2)
+        .with_looking_at(vec![printed(10, 1, "Island", 1)])
+        .build();
+    let choice = Pending::ChooseCards {
+        player: PlayerId::new(0),
+        options: vec![obj(10)],
+        min: 0,
+        max: 0,
+        prompt: ChoicePrompt::LookAtHand,
+        total: None,
+    };
+    duel.receive_view(view.clone());
+    duel.receive_choice(choice.clone());
+    assert!(duel.browser.for_choice());
+    assert_eq!(duel.hovered, None);
+    duel.hovered = Some(obj(10));
+    duel.receive_view(view);
+    duel.receive_choice(choice);
+    assert_eq!(
+        duel.hovered,
+        Some(obj(10)),
+        "re-sends preserve the inspected card's preview"
+    );
+}

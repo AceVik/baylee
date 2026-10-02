@@ -4644,6 +4644,102 @@ mod tests {
         assert_eq!(seen_by(&engine, me).graveyards[1][0].name, "Sol Ring");
     }
 
+    /// Looking is private, unlike revealing: the third seat learns nothing,
+    /// and access ends immediately when the activating player acknowledges.
+    #[test]
+    fn glasses_of_urza_keeps_hand_inspection_private_and_temporary() {
+        let entry = |name: &str| DeckEntry {
+            card: baylee_cards::generated::ALL
+                .iter()
+                .find(|(_, card)| card.name() == name)
+                .unwrap()
+                .1
+                .index,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        preset.seats[0].starting_hand = Some(vec![entry("Forest")]);
+        preset.seats[0].starting_battlefield = vec![entry("Glasses of Urza")];
+        preset.seats[1].starting_hand = Some(vec![entry("Island"), entry("Sol Ring")]);
+        preset.seats[2].starting_hand = Some(vec![entry("Lightning Bolt")]);
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let (me, them, other) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+        let target_hand = engine.state().zones.list(ZoneLocation::Hand(them)).clone();
+        let mut log = GameLog::new(engine.state());
+        let from = log.len();
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateAbility {
+                    source: view
+                        .battlefield
+                        .iter()
+                        .find(|o| o.name == "Glasses of Urza")
+                        .unwrap()
+                        .id,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![them],
+                },
+            )
+            .unwrap();
+        for _ in 0..6 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        assert!(matches!(
+            engine.pending(),
+            Pending::ChooseCards {
+                prompt: baylee_engine::choice::ChoicePrompt::LookAtHand,
+                ..
+            }
+        ));
+        log.consume(engine.state());
+        for seat in [me, them, other] {
+            assert!(
+                !told_since(&log, seat, from)
+                    .iter()
+                    .any(|event| matches!(event, LogEvent::Revealed { .. })),
+                "inspection must not enter the public log"
+            );
+            let shown = seen_by(&engine, seat);
+            if seat == me {
+                assert_eq!(
+                    shown
+                        .looking_at
+                        .iter()
+                        .map(|card| card.id)
+                        .collect::<Vec<_>>(),
+                    target_hand
+                );
+            } else {
+                assert!(shown.looking_at.is_empty());
+            }
+        }
+        engine
+            .apply(me, PlayerAction::ChooseObjects { objects: vec![] })
+            .unwrap();
+        for seat in [me, them, other] {
+            assert!(seen_by(&engine, seat).looking_at.is_empty());
+        }
+        assert_eq!(
+            *engine.state().zones.list(ZoneLocation::Hand(them)),
+            target_hand
+        );
+    }
+
     /// A card taken from a library to a hand is the searcher's to know. Once
     /// revealed on the way, as a search for anything narrower than "a card"
     /// has to be, it is everyone's.

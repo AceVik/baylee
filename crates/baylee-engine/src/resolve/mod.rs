@@ -243,6 +243,8 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// A private inspection; the empty acknowledgement changes no cards.
+    InspectHand,
     /// Rotation direction, chosen by the neighbour to receive from.
     ControlRotation {
         /// Living seats in table order at the time of the choice.
@@ -2116,6 +2118,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 piles,
             });
         }
+        AwaitingOp::InspectHand => {}
         AwaitingOp::TakeMilled => {
             for &card in chosen {
                 let owner = state
@@ -3640,6 +3643,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::ShuffleLibrary { .. }
         | Effect::RevealHandDiscard { .. }
+        | Effect::LookAtChosenHand
         | Effect::SacrificeFilter { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }

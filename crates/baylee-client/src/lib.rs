@@ -934,9 +934,11 @@ impl Duel {
             .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
         self.known_cards.extend(view.cards());
         self.view = Some(view);
+        let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
             self.browser.saw_reveal(v);
         }
+        self.clear_hover_for_new_browser(was_choosing);
         self.refresh_owed_plan();
     }
 
@@ -1013,6 +1015,16 @@ impl Duel {
         }
     }
 
+    /// A newly opened chooser takes focus from the card that launched it.
+    /// Re-sent views leave the player's hover inside that chooser intact.
+    fn clear_hover_for_new_browser(&mut self, was_choosing: bool) {
+        if !was_choosing && self.browser.for_choice() {
+            self.hovered = None;
+            self.hovered_at = None;
+            self.hovered_log = None;
+        }
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
         self.target_page = 0;
         self.target_filter = None;
@@ -1042,9 +1054,11 @@ impl Duel {
         }
         // Decided here and not per frame: a panel that re-decided
         // every frame whether to be open could never be closed.
+        let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
             self.browser.follow(v, self.interaction.as_ref());
         }
+        self.clear_hover_for_new_browser(was_choosing);
         // A chooser belongs to the choice it was opened under. It
         // would heal itself anyway — the options are rebuilt from the
         // current `LegalActions` — but a menu that outlives its
