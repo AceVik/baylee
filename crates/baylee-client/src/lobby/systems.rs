@@ -1241,6 +1241,18 @@ pub(super) fn clicks(
             Press::RoomDeckPicker(seat) => {
                 state.room_deck_seat = (state.room_deck_seat != Some(seat)).then_some(seat);
             }
+            Press::RoomSetup(seat) => {
+                state.room_setup_seat = (state.room_setup_seat != Some(seat)).then_some(seat);
+                state.room_card_edit = None;
+                // Collapsing or switching editors must not leave a hidden
+                // card search (or counter field) receiving keyboard input.
+                if matches!(
+                    state.lobby.focus(),
+                    Field::RoomBoard(_) | Field::RoomCounter
+                ) {
+                    state.lobby.focus_on(Field::RoomName);
+                }
+            }
             Press::RoomAdjust(change) => state.lobby.adjust_room(change),
             Press::SaveRoom(remove_password) => {
                 let request = state.lobby.save_room(remove_password);
@@ -1255,6 +1267,9 @@ pub(super) fn clicks(
                 }
             }
             Press::OpenRoom(chairs) => {
+                state.room_setup_seat = None;
+                state.room_card_edit = None;
+                state.room_deck_seat = None;
                 let request = state.lobby.open_room(GameMode::Open, chairs, String::new());
                 dispatch(&mut state, &mailbox, request);
             }
@@ -2003,6 +2018,8 @@ pub(crate) enum Press {
     RoomDeck(usize, u32, usize),
     /// Toggle the deck choices for a seat.
     RoomDeckPicker(u32),
+    /// Expand or collapse a seat's optional starting-position editor.
+    RoomSetup(u8),
     RoomCardAdd(u8, usize, bool),
     RoomCardRemove(u8, usize),
     RoomCardEdit(u8, usize),

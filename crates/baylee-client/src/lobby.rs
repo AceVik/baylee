@@ -240,6 +240,8 @@ pub struct LobbyState {
     pub(crate) pane: Pane,
     pub(crate) hub: Hub,
     pub(crate) room_deck_seat: Option<u32>,
+    /// The seat whose optional starting-position editor is expanded.
+    pub(crate) room_setup_seat: Option<u8>,
     pub(crate) room_card_edit: Option<(u8, usize)>,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
@@ -400,6 +402,7 @@ impl LobbyState {
             pane: Pane::Cards,
             hub: Hub::Play,
             room_deck_seat: None,
+            room_setup_seat: None,
             room_card_edit: None,
             settings: SettingsPane::Closed,
             seat: crate::seatpanel::SeatDesk::default(),

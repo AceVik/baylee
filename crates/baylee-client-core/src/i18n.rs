@@ -1287,6 +1287,8 @@ messages! {
     RoomRules { en: "Rules & starting position", de: "Regeln & Startaufstellung" },
     /// Host authority explanation.
     RoomHostHelp { en: "You arrange the table. Players choose their own decks and confirm they are ready.", de: "Du konfigurierst den Tisch. Jeder Spieler wählt sein eigenes Deck und bestätigt seine Bereitschaft." },
+    /// Offline room guidance: the local player controls every seat.
+    RoomOfflineHelp { en: "Choose decks and AI strength. Adjust the starting rules if you like, then start the game.", de: "Wähle Decks und KI-Stärke. Passe bei Bedarf die Startregeln an und starte das Spiel." },
     /// Visitor authority explanation.
     RoomGuestHelp { en: "The host arranges the table. Choose your deck below, then mark yourself ready.", de: "Der Host konfiguriert den Tisch. Wähle unten dein Deck und bestätige anschließend mit Bereit." },
     /// Seats heading.
@@ -1297,6 +1299,8 @@ messages! {
     RoomMulligans { en: "Free mulligans", de: "Freie Mulligans" },
     /// Permanent input label.
     RoomBoard { en: "Find starting permanents", de: "Start-Permanents suchen" },
+    /// Expandable starting-position editor; {0} counts configured permanents.
+    RoomStartingCards { en: "Starting cards · {0}", de: "Startkarten · {0}" },
     /// Draft submit.
     RoomApply { en: "Apply settings", de: "Einstellungen übernehmen" },
     /// Optional password help.

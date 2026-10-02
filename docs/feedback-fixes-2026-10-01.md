@@ -582,3 +582,13 @@ fbe381ac: 24/25 original reports resolved. Windows renderer verification is
 still open. The requested UX pass has begun; see docs/ux-review-2026-10-02.md
 for the native before/after screenshots, first implemented improvements and
 remaining iteration work.
+
+## 2026-10-02 — requested UX follow-up, waiting room
+
+Continued the user-requested multi-iteration client audit in
+`docs/ux-review-2026-10-02.md`. At 1280×800 the room now groups seat identity,
+readiness and deck controls compactly, expands starting cards on demand and
+keeps Start/Leave visible above its scroller. Count, draft and focus behavior
+are tested; screenshots cover before, after, expanded and scrolled states.
+Offline room guidance now describes AI/deck setup. Client unit and integration
+suites and clippy pass; no feedback report was closed for this separate UX work.

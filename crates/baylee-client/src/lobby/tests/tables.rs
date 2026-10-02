@@ -165,6 +165,56 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
     assert!(app.world().contains_resource::<InstalledHost>());
 }
 
+#[test]
+fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "open room", |p| *p == Press::OpenRoom(2));
+    assert!(!presses(&mut app).contains(&Press::Focus(Field::RoomBoard(0))));
+    // A nonempty preset stays visible as a count even while its editor is shut.
+    press(
+        &mut app,
+        Press::RoomAdjust(client_core::lobby::room::Adjustment::Template(2)),
+    );
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|s| s.contains("Starting cards · 5"))
+    );
+    tap_control(&mut app, "expand starting cards", |p| {
+        *p == Press::RoomSetup(0)
+    });
+    tap_control(&mut app, "focus card search", |p| {
+        *p == Press::Focus(Field::RoomBoard(0))
+    });
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .set_field(Field::RoomBoard(0), "island");
+    tap_control(&mut app, "expand the other seat", |p| {
+        *p == Press::RoomSetup(1)
+    });
+    let controls = presses(&mut app);
+    assert!(!controls.contains(&Press::Focus(Field::RoomBoard(0))));
+    assert!(controls.contains(&Press::Focus(Field::RoomBoard(1))));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.focus(), Field::RoomName);
+    assert_eq!(state.lobby.field(Field::RoomBoard(0)), "island");
+    assert_eq!(
+        state.lobby.room_draft().unwrap().setup.seats[0]
+            .permanents
+            .len(),
+        5
+    );
+    tap_control(&mut app, "collapse starting cards", |p| {
+        *p == Press::RoomSetup(1)
+    });
+    assert!(!presses(&mut app).contains(&Press::Focus(Field::RoomBoard(1))));
+}
+
 /// And the one-tap duel is one tap.
 ///
 /// `mode: "ai"` seats you at once — the lobby takes that handover straight

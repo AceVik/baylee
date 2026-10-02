@@ -504,3 +504,8 @@ says: “the SIL OFL license applies to all icons packaged as web and desktop
 font files.” Existing font notices and embedding remain unchanged. The
 label sits outside the card image; full localized counter text appears on
 card hover. No new font or artwork is shipped.
+
+The compact waiting-room pass (2026-10-02) rearranges original controls and
+text using the same bundled fonts. Card thumbnails and hover previews use
+the unchanged full-image path. The policy and image-term quotations above
+continue to apply; there is no additional asset or licence exception.

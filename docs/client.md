@@ -8389,3 +8389,14 @@ The empty offline play area provides the single direct house-AI start action
 and explains the alternative room setup; it does not ask for online invites.
 An empty table list no longer creates a scrollbar. UX evidence and follow-up
 observations live in `docs/ux-review-2026-10-02.md`.
+
+### Compact room preparation (2026-10-02)
+
+Seat cards put player/readiness and deck/deck-picker on shared wrapping rows;
+readiness is a non-interactive text badge. Team and AI selectors share a row.
+Starting permanents are behind a per-seat expander with their count visible
+when collapsed. Switching or closing an editor retains the draft and search
+buffer but moves focus out of hidden card/counter inputs. The desktop/tablet
+room header stays above the scroller so Start and Leave remain reachable;
+the room now has a scrollbar. Offline guidance describes local deck/AI setup
+and omits the online host-succession explanation.

@@ -32,7 +32,7 @@ pub(super) fn draw(
             min_height: px(0),
             flex_grow: 1.0,
             flex_direction: FlexDirection::Column,
-            row_gap: px(m.pad),
+            row_gap: px(m.gap),
             padding: UiRect::all(px(m.pad)),
             overflow: if m.frame == Frame::Phone {
                 Overflow::visible()
@@ -48,8 +48,14 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
         ));
     }
-    commands.entity(root).add_child(page);
     let title = row(commands, m, true);
+    commands
+        .entity(title)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.padding = UiRect::all(px(m.pad));
+            n.flex_shrink = 0.0;
+        });
     let name = if game.name.is_empty() {
         Phrase::RoomTitle.text(lang)
     } else {
@@ -67,13 +73,22 @@ pub(super) fn draw(
         !lobby.busy(),
     );
     commands.entity(title).add_child(leave);
-    commands.entity(page).add_child(title);
+    // Keep the room's primary action reachable while scrolling many seats
+    // or an expanded starting-position editor.
+    commands.entity(root).add_child(title);
+    if m.frame == Frame::Phone {
+        commands.entity(root).add_child(page);
+    } else {
+        super::scrollbars::attach(commands, root, page, m);
+    }
     let help = note(
         commands,
         fonts,
         m,
         if lobby.room_dirty() {
             Phrase::RoomDraft
+        } else if lobby.offline() {
+            Phrase::RoomOfflineHelp
         } else if game.yours {
             Phrase::RoomHostHelp
         } else {
@@ -251,7 +266,9 @@ pub(super) fn draw(
         );
     }
     add_note(commands, rules, fonts, m, Phrase::RoomPlanechase.text(lang));
-    add_note(commands, rules, fonts, m, Phrase::RoomSuccession.text(lang));
+    if !lobby.offline() {
+        add_note(commands, rules, fonts, m, Phrase::RoomSuccession.text(lang));
+    }
     let seats = commands
         .spawn((
             Node {
@@ -343,9 +360,11 @@ fn seat_card(
             .as_deref()
             .unwrap_or(Phrase::StateWaiting.text(lang))
     };
+    let identity = row(commands, m, true);
+    commands.entity(card).add_child(identity);
     add_heading(
         commands,
-        card,
+        identity,
         fonts,
         m,
         &format!(
@@ -360,31 +379,28 @@ fn seat_card(
     } else {
         Phrase::NotReady
     };
-    let readiness = chip(
-        commands,
-        fonts,
-        m,
-        status.text(lang),
-        Press::PickerNothing,
-        seat.ready,
-    );
-    commands
-        .entity(readiness)
-        .insert(BackgroundColor(if seat.ready {
+    let readiness = note(commands, fonts, m, status.text(lang));
+    commands.entity(readiness).insert((
+        TextColor(palette::DOCK_INK),
+        BackgroundColor(if seat.ready {
             palette::ACTIVE.with_alpha(0.22)
         } else {
             palette::PANEL_LIT
-        }));
-    commands.entity(card).add_child(readiness);
+        }),
+    ));
+    commands.entity(identity).add_child(readiness);
     commands
         .entity(readiness)
         .entry::<Node>()
         .and_modify(|mut n| {
-            n.align_self = AlignSelf::Start;
+            n.padding = UiRect::axes(px(10), px(4));
+            n.border_radius = BorderRadius::all(px(6));
         });
+    let deck_line = row(commands, m, true);
+    commands.entity(card).add_child(deck_line);
     add_note(
         commands,
-        card,
+        deck_line,
         fonts,
         m,
         &if seat.deck.is_empty() {
@@ -455,7 +471,6 @@ fn seat_card(
     }
     commands.entity(card).add_child(tools);
     if game.yours && seat.kind == SeatKind::Ai {
-        let ai = row(commands, m, true);
         for (name, _) in baylee_core::preset::AIProfile::NAMED {
             let b = chip(
                 commands,
@@ -465,9 +480,8 @@ fn seat_card(
                 Press::SeatAi(index, seat.seat, name),
                 seat.ai.as_deref() == Some(name),
             );
-            commands.entity(ai).add_child(b);
+            commands.entity(tools).add_child(b);
         }
-        commands.entity(card).add_child(ai);
     }
     if seat.you || (game.yours && seat.kind == SeatKind::Ai) {
         let b = button(
@@ -479,7 +493,7 @@ fn seat_card(
             palette::PANEL_LIT,
             !lobby.busy(),
         );
-        commands.entity(card).add_child(b);
+        commands.entity(deck_line).add_child(b);
         if state.room_deck_seat == Some(seat.seat) {
             let picks = row(commands, m, true);
             for (at, deck) in lobby.decks().iter().enumerate() {
@@ -537,16 +551,38 @@ fn seat_card(
             &format!("{} · {life}", Phrase::RoomLife.text(lang)),
         );
     }
-    cards::draw(
-        commands,
-        card,
-        state,
-        fonts,
-        m,
-        seat.seat as u8,
-        personal,
-        game.yours,
-    );
+    let count = personal.map_or(0, |s| s.permanents.len());
+    let expanded = state.room_setup_seat == Some(seat.seat as u8);
+    if game.yours || count > 0 {
+        let toggle = chip(
+            commands,
+            fonts,
+            m,
+            &format!(
+                "{} {}",
+                if expanded { "−" } else { "+" },
+                Phrase::RoomStartingCards.fill(lang, &[&count.to_string()])
+            ),
+            Press::RoomSetup(seat.seat as u8),
+            expanded,
+        );
+        commands.entity(toggle).entry::<Node>().and_modify(|mut n| {
+            n.align_self = AlignSelf::Start;
+        });
+        commands.entity(card).add_child(toggle);
+    }
+    if expanded {
+        cards::draw(
+            commands,
+            card,
+            state,
+            fonts,
+            m,
+            seat.seat as u8,
+            personal,
+            game.yours,
+        );
+    }
 }
 
 fn add_heading(commands: &mut Commands, parent: Entity, fonts: &UiFonts, m: Metrics, text: &str) {
