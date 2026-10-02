@@ -179,6 +179,19 @@ fn playing_the_house_offline_is_still_one_press() {
 
     to_gateway_face(&mut app);
     tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    let words = labels(&mut app);
+    assert!(words.contains(&Phrase::OfflineReadyToPlay.text(Lang::En).to_string()));
+    assert!(!words.contains(&Phrase::NoTablesOpen.text(Lang::En).to_string()));
+    let mut controls = app.world_mut().query::<&Press>();
+    assert_eq!(
+        controls
+            .iter(app.world())
+            .filter(|p| **p == Press::Host(GameMode::Ai))
+            .count(),
+        1
+    );
+    let mut lists = app.world_mut().query::<&Scrollable>();
+    assert!(!lists.iter(app.world()).any(|list| list.0 == List::Games));
     tap_control(&mut app, "play the house", |p| {
         *p == Press::Host(GameMode::Ai)
     });

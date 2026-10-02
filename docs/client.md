@@ -8376,3 +8376,16 @@ dedicated orchestration: an ascending brass fanfare over D–G–A–D for victo
 quiet descending cello/piano for defeat, open fifths for a draw. No outcome
 reuses the sanctuary's current arpeggio pattern. The continuous clock, tails,
 bar-boundary changes and four-bar cadence completion remain intact.
+
+
+### Compact gameplay annotations and offline lobby
+
+Chosen creature types are displayed by their localized name, without a
+“Chosen:” prefix. Charge counters use a number and the existing Font Awesome
+battery-half glyph; card hover expands them to the full localized wording.
+Card interaction and image notices remain unobstructed.
+
+The empty offline play area provides the single direct house-AI start action
+and explains the alternative room setup; it does not ask for online invites.
+An empty table list no longer creates a scrollbar. UX evidence and follow-up
+observations live in `docs/ux-review-2026-10-02.md`.

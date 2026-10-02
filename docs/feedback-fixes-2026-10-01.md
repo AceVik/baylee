@@ -575,3 +575,10 @@ screenshot iterations. Specifically shorten chosen-type labels and use
 count plus icon for charge counters. This review precedes Alpha card work.
 Font replacement is explicitly permitted when readability, compactness and
 licensing justify it. No parallel-agent authorization was added.
+
+
+The service confirmed login/music report 01a0f912 resolved after milestone
+fbe381ac: 24/25 original reports resolved. Windows renderer verification is
+still open. The requested UX pass has begun; see docs/ux-review-2026-10-02.md
+for the native before/after screenshots, first implemented improvements and
+remaining iteration work.

@@ -642,6 +642,11 @@ messages! {
         en: "The tables are quiet for now. Open yours and invite someone to play.",
         de: "Noch sind alle Tische frei. Eröffne deinen und lade jemanden zum Spielen ein.",
     },
+    /// Empty offline play area: only the local house AI is available.
+    OfflineReadyToPlay {
+        en: "Your deck is ready. Play the house AI now, or create a table to choose its seats and teams.",
+        de: "Dein Deck ist bereit. Spiele direkt gegen die Haus-KI oder erstelle einen Tisch mit eigener Sitz- und Teamaufteilung.",
+    },
     /// The gateway stopped answering: the feed closed or a request found
     /// nobody there. Stays until it answers again.
     GatewayUnreachable {

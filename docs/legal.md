@@ -496,3 +496,11 @@ the [publisher's sample licence](https://versilian-studios.com/vsco-community/):
 these samples.” Attribution and the bundled CC0 dedication remain intact;
 no third-party melody or additional recording was imported. The login fade
 changes original procedural button surfaces only.
+
+Compact charge labels (2026-10-02) use the battery-half glyph already in the
+bundled Font Awesome Free font, distinct from the player's energy symbol.
+The [upstream licence](https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/LICENSE.txt)
+says: “the SIL OFL license applies to all icons packaged as web and desktop
+font files.” Existing font notices and embedding remain unchanged. The
+label sits outside the card image; full localized counter text appears on
+card hover. No new font or artwork is shipped.

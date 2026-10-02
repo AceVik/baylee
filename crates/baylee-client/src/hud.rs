@@ -299,6 +299,8 @@ pub(crate) mod glyph {
     pub const EXILE: char = '\u{f05e}';
     /// Skull and crossbones (poison counters), on a player's button (#264).
     pub const POISON: char = '\u{f714}';
+    /// Battery half (charge counters on a permanent).
+    pub const CHARGE: char = '\u{f242}';
     /// Bolt (energy counters).
     ///
     /// Drawn by nothing since the commit that took the seat tab off the top

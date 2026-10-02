@@ -1033,7 +1033,7 @@ fn table(
     } else {
         commands.entity(games).add_child(search_tools);
     }
-    if lobby.selected().is_some() {
+    if lobby.selected().is_some() && (!alone || !lobby.games().is_empty()) {
         let play = button(
             commands,
             fonts,
@@ -1064,6 +1064,13 @@ fn table(
                 Phrase::HouseDecks,
                 Press::BrowseHouse,
             )
+        } else if alone {
+            (
+                Phrase::EmptyTablesTitle,
+                Phrase::OfflineReadyToPlay.text(lang).to_string(),
+                Phrase::PlayTheHouse,
+                Press::Host(GameMode::Ai),
+            )
         } else {
             (
                 Phrase::EmptyTablesTitle,
@@ -1073,9 +1080,9 @@ fn table(
             )
         };
         let empty = super::empty::state(commands, fonts, metrics, title.text(lang), &said);
-        // With a selected deck, the adjacent room form already owns its
-        // submit. Do not duplicate that action in the empty list below it.
-        if !hunt.is_empty() || lobby.selected().is_none() {
+        // Online, the adjacent room form owns its submit. Offline, the empty
+        // area owns the single direct house-game action.
+        if alone || !hunt.is_empty() || lobby.selected().is_none() {
             let action = button(
                 commands,
                 fonts,
@@ -1090,7 +1097,11 @@ fn table(
         commands.entity(games).add_child(empty);
     }
     let game_list = scroller(commands, metrics, List::Games, scrolled_to.get(List::Games));
-    super::scrollbars::attach(commands, games, game_list, metrics);
+    if lobby.games().is_empty() {
+        commands.entity(game_list).despawn();
+    } else {
+        super::scrollbars::attach(commands, games, game_list, metrics);
+    }
     for (index, game) in lobby.games().iter().enumerate() {
         let row = commands
             .spawn((

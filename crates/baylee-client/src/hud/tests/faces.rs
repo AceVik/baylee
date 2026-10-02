@@ -247,6 +247,7 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
         ("EXILE", glyph::EXILE),
         ("POISON", glyph::POISON),
         ("ENERGY", glyph::ENERGY),
+        ("CHARGE", glyph::CHARGE),
         ("CARET_DOWN", glyph::CARET_DOWN),
         ("EXPAND", glyph::EXPAND),
         ("COMMAND", glyph::COMMAND),
