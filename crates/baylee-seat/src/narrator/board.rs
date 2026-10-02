@@ -340,6 +340,7 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         ability,
         text,
         rules,
+        ..
     }) = object.stack_item
     {
         let from = if table.visible(source) {
