@@ -58,7 +58,7 @@ The stack now has a visible draggable scrollbar, a taller viewport, and a window
 
 DIe Menge an Kreaturen sowie die Lebenspunkte, das sieht nicht mehr sauber aus.
 
-Status: fixed and source/native verified; feedback closure pending.
+Status: resolved in the feedback service (7e1397b9 and 15e5f332; source/native verified; not deployed).
 
 The attached report shows life 25476 wrapping below the heart. The fixed
 72-pixel life cell was too narrow. The attached row now reserves 108 pixels,
@@ -489,4 +489,16 @@ the full artwork preview retains its artist/copyright line. Evidence:
 The final wider scrollbar is visibly distinct and clear of both adjacent
 rows (/private/tmp/baylee-readability-scrollbar.png). All four rowbar tests
 and final dev-control/all-targets clippy pass after that last change. Test
-clients stopped. Ticket closure pending. No push or deployment.
+clients stopped. No push or deployment.
+
+
+Milestone 7e1397b9 is committed and the service confirmed the creature/life
+report as `resolved`. Twenty-two of the original 25 reports are resolved;
+three remain: permanent/general-HUD sizing (preview/Alt text now improved),
+login transition/music, and the unverified Windows sky/table rendering.
+Next continuation should finish permanent/general-HUD sizing. The native
+1440×900 snapshot still shows battlefield cards about 39–46 logical pixels
+wide; the preview is now 384. Inspect table framing and available lane space,
+keeping centered packing, piles, badges, combat steps and 3–8 seat geometry
+consistent. Do not claim the larger battlefield cards are already done.
+Alpha work follows the remaining feedback. No push or deployment.
