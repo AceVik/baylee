@@ -2,7 +2,7 @@
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
 > never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
-> Bond, Consecrate Land and Animate Artifact, 29 Alpha cards remain Partial.
+> Bond, Consecrate Land, Animate Artifact and Nether Shadow, 28 Alpha cards remain Partial.
 > See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
@@ -1128,3 +1128,72 @@ explicit exclusions**. Alpha remains incomplete; the 257 declarations do not
 stand for a completed independent review of every earlier card. No later set
 was started. No rendering change or new screenshot is claimed for this rules
 batch, and no feedback report was closed. No push or deployment.
+
+## Alpha continuation — Nether Shadow, 2026-10-02
+
+Nether Shadow now implements the optional upkeep return from its owner's
+graveyard, with at least three creature cards above it, and haste. The condition
+is checked both when the ability triggers and when it resolves. The source's
+zone-change incarnation is retained, so exiling and returning that card does not
+let an older trigger return it. Its return is an untargeted ability, not a spell.
+
+This completion also adds owner-controlled ordering for simultaneous graveyard
+arrivals. The existing arrange dialog now explains that the first card is on top.
+Mass destruction, milling, discards, multi-card sacrifice costs and simultaneous
+state-based actions use this path. Independent instructions remain separate;
+tokens and spell copies are excluded. Games with no order-sensitive participating
+card avoid irrelevant questions.
+
+Astra `xhigh` implemented the engine work. An independent GPT-6.1 Sol `medium`
+review found and prompted fixes for payment capture, legend-rule batching and
+finished Saga sacrifices, then reported no remaining concrete card blocker.
+Additional regressions distinguish permanent-only trigger multipliers from
+graveyard triggers and preserve nested optional effect continuations.
+
+The **15 Nether Shadow tests** cover threshold boundaries, cards above versus
+below, noncreatures, owner upkeep, declining and retrying, real Scavenging Ooze
+interaction, source incarnation, hand/exile exclusion, late arrivals, untapped
+return and immediate attack, four Shadows, real Wrath with both useful orderings,
+and Counterspell's inability to target this ability.
+
+Validation:
+
+- Broad regression: engine **4402 passed, 2 ignored**, footprint 2 and benchmark
+  smoke checks passed; cards 129, DSL 60 plus walker 1, AI 201, client-core 1181
+  plus 7 integration tests (1 ignored), gamehost 199 (2 ignored) plus 41
+  integration tests, protocol 30, view 36. Log:
+  `/private/tmp/baylee-nether-regression.log`. The unrelated previously recorded
+  seat self-play p90 failure was not rerun or fixed by this selected-crate gate.
+- Two subsequent Aura regression additions also pass: **82 graveyard-filtered
+  tests**, including both same-pass and next-pass Aura deaths. Log:
+  `/private/tmp/baylee-nether-graveyard-final.log`. Engine inventory is now 4404
+  passing tests plus 2 ignored; the full broad run preceded those final two tests.
+- Workspace/all-targets Clippy with warnings denied passes:
+  `/private/tmp/baylee-nether-clippy.log`. Formatting and diff checks pass.
+- Tables regenerated twice; full codegen check is up to date; all 2955 card
+  headers validate. Logs: `/private/tmp/baylee-nether-codegen-check.log`,
+  `/private/tmp/baylee-nether-validate.log`. Nether Shadow's Oracle and rulings
+  were checked live alongside the cached validation data.
+- Native dev-control build succeeds. The macOS debug linker reports its large
+  `__eh_frame` unwind-table warning; there is no compile or runtime failure.
+  German 1280×800 live test: cast real Wrath, move Shadow from fourth to first
+  and back to fourth via the arrange shelf, confirm, verify graveyard ids
+  `[1,2,3,4,126]` bottom first (Shadow, three Elves, Wrath), then accept its
+  next-own-upkeep return. It returns untapped, 1/1, with haste; no client error.
+  Screenshots: `/private/tmp/baylee-nether-order.png`,
+  `/private/tmp/baylee-nether-order-top.png`,
+  `/private/tmp/baylee-nether-order-bottom.png`,
+  `/private/tmp/baylee-nether-may-return.png`,
+  `/private/tmp/baylee-nether-returned.png`.
+
+UX observations for the subsequent client pass: the arrange shelf still shows
+the generic “0 von 4 gewählt” selection counter while all four cards already
+have a valid order; that counter should describe sorting instead. A card preview
+can also remain over the shelf after changing the picked row or hovering the
+confirmation button. Ordering and confirmation work, but the overlay obscures
+the list. These are observed follow-ups, not claimed fixed in this rules batch.
+
+Inventory by first-printing Oracle identity: **258 Implemented / 28 Partial /
+4 explicit exclusions**. Alpha remains incomplete. The feedback service was
+rechecked: 50 resolved and the Windows Vulkan report still open, awaiting relevant
+hardware verification. No report was closed in this batch. No push or deployment.

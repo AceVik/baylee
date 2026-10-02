@@ -585,7 +585,7 @@ has built.
 
 - `AbilityDef::Spell { effects, targets: Option<TargetReq> }`
 - `AbilityDef::Activated { cost, effects, targets: Option<TargetReq>, timing, mana_ability, zone }`
-- `AbilityDef::Triggered { trigger, effects, targets, once_per_turn }`
+- `AbilityDef::Triggered { trigger, zone, effects, targets, second_targets, once_per_turn, condition }`
 - `AbilityDef::Static(StaticAbility { layer, filter, modifier })` — written
   `static_ability!(filter, modifier)`, which takes no layer: CR 613.1 makes it
   a function of the modifier and `Modifier::layer` is that function
@@ -619,7 +619,7 @@ has built.
   the copy's and is not copiable, so a second clone of it does not inherit
   it
 - `AbilityDef::ModalSpell { modes: &[SpellMode] }` — overload & friends
-- `AbilityDef::ModalTriggered { trigger, modes, once_per_turn }` — "choose
+- `AbilityDef::ModalTriggered { trigger, zone, modes, once_per_turn, condition }` — "choose
   one/up to one" ETB triggers (decline = an empty mode)
 - `AbilityDef::Ward { mana }` — engine-level synthetic trigger (like
   prowess), supports generic mana ward from {0} through {10}. For a
@@ -820,16 +820,22 @@ Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)),
 condition = Some(Condition::Not(&Condition::CitysBlessing)))`: `CANT_ATTACK`
 is the mirror of `CANT_BLOCK`, read by `combat::can_attack`.
 
-There is no `All`, and that is not an omission. The printed sentence that
-needs a disjunction is real and prints as one — "activate only if this land
-entered this turn or you control a basic land" is Gathering Place, Gleaming
-Bastion and Hidden Lair. A conjunction is printed too, but inside an
-effect: the Urza lands' "if you control an Urza's Mine and an Urza's
-Power-Plant, add {C}{C}{C} instead" is two nested `Effect::IfCondition`s,
-one per land type. Add `All` the day a card prints one where a single
-condition is all there is room for — an activation restriction or an
-intervening `if` — not before, so that every variant here stands for a
-sentence somebody printed.
+`All(&[..])` requires every named condition. It combines restrictions where
+an ability has room for one condition, such as a turn and step restriction.
+Inside an effect, nested `Effect::IfCondition`s can also express conjunction.
+
+`GraveyardCardsAbove(&filter, n)` requires this source to be a card in its
+owner's graveyard with at least `n` matching cards above it. Above means put
+there later; cards below it, tokens and spell copies do not count. Nether
+Shadow uses `&Filter::CREATURE` and three, as an intervening condition.
+
+Both trigger builders default to `TriggerZone::Battlefield`. For an ability
+that functions in the graveyard, write `zone = TriggerZone::Graveyard`.
+The owner controls that trigger, regardless of the card's last battlefield
+controller. Its source incarnation is retained: leaving and returning to the
+graveyard cannot let the old trigger return the new object. Nether Shadow's
+optional return is `Effect::MayDo` around `Effect::reanimate(TargetSpec::ThisObject)`;
+it does not target and does not cast a spell.
 
 `triggered!` and `modal_triggered!` take the same vocabulary as
 `condition = Some(…)`, and there it is the printed **intervening `if`**

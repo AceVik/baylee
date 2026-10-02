@@ -48,6 +48,7 @@
 
 use crate::ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, SpellMode, Trigger,
+    TriggerZone,
 };
 use crate::cost::Cost;
 use crate::effect::{Effect, TargetReq, TargetSpec};
@@ -184,6 +185,8 @@ impl ActivatedParts {
 pub struct TriggeredParts {
     /// What makes it trigger.
     pub trigger: Trigger,
+    /// The zone in which the ability functions.
+    pub zone: TriggerZone,
     /// What it does.
     pub effects: &'static [Effect],
     /// What it targets, if anything.
@@ -203,6 +206,7 @@ impl TriggeredParts {
     pub const fn new(trigger: Trigger, effects: &'static [Effect]) -> Self {
         Self {
             trigger,
+            zone: TriggerZone::Battlefield,
             effects,
             targets: None,
             second_targets: None,
@@ -216,6 +220,7 @@ impl TriggeredParts {
     pub const fn build(self) -> AbilityDef {
         AbilityDef::Triggered {
             trigger: self.trigger,
+            zone: self.zone,
             effects: self.effects,
             targets: self.targets,
             second_targets: self.second_targets,
@@ -230,6 +235,8 @@ impl TriggeredParts {
 pub struct ModalTriggeredParts {
     /// What makes it trigger.
     pub trigger: Trigger,
+    /// The zone in which the ability functions.
+    pub zone: TriggerZone,
     /// The modes to choose from (CR 700.2).
     pub modes: &'static [SpellMode],
     /// Whether it fires at most once each turn.
@@ -246,6 +253,7 @@ impl ModalTriggeredParts {
     pub const fn new(trigger: Trigger, modes: &'static [SpellMode]) -> Self {
         Self {
             trigger,
+            zone: TriggerZone::Battlefield,
             modes,
             once_per_turn: false,
             condition: None,
@@ -257,6 +265,7 @@ impl ModalTriggeredParts {
     pub const fn build(self) -> AbilityDef {
         AbilityDef::ModalTriggered {
             trigger: self.trigger,
+            zone: self.zone,
             modes: self.modes,
             once_per_turn: self.once_per_turn,
             condition: self.condition,
@@ -933,7 +942,7 @@ macro_rules! crew {
 pub mod prelude {
     pub use crate::ability::{
         AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod,
-        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind,
+        ModeCount, SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
     };
     pub use crate::build::{
         ActivatedParts, EQUIP_TARGET, LoyaltyParts, ModalTriggeredParts, SagaChapterParts,

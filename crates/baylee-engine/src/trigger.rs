@@ -1,8 +1,8 @@
 //! Triggered abilities: collection and APNAP ordering.
 //!
 //! After every mutation batch the engine scans new journal entries and
-//! matches them against the triggered abilities of all permanents (and,
-//! later, cards in other zones). Matches are put on the stack in APNAP
+//! matches them against the triggered abilities of permanents and cards
+//! whose abilities function in other zones. Matches go on the stack in APNAP
 //! order. Same-controller ordering currently follows timestamp; the
 //! player-facing ordering choice is M2 (documented in engine-internals).
 
@@ -10,7 +10,7 @@ use crate::eval;
 use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
 use crate::zone::{Zone, ZoneLocation};
-use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger};
+use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// Mana types actually produced by one activation, including colorless.
@@ -32,10 +32,12 @@ impl EventMana {
 /// A triggered ability waiting to go on the stack.
 #[derive(Clone, Debug)]
 pub struct PendingTrigger {
-    /// The permanent whose ability triggered.
+    /// The object whose ability triggered.
     pub source: ObjectId,
     /// Event-time source incarnation for linked-counter effects.
     pub counter_source_version: Option<u32>,
+    /// Incarnation of a card whose ability triggered from its graveyard.
+    pub source_version: Option<u32>,
     /// Index into the source card's abilities.
     pub ability_index: u32,
     /// Event-time rules text. Captured even while the source is on the
@@ -110,6 +112,8 @@ pub struct PendingTrigger {
 struct Firing {
     /// The event it listens for.
     trigger: &'static Trigger,
+    /// Zone in which the printed ability functions.
+    zone: TriggerZone,
     /// Whether it fires at most once each turn.
     once_per_turn: bool,
     /// The intervening-`if` clause, if the card prints one (CR 603.4).
@@ -120,17 +124,20 @@ const fn triggered_parts(ability: &'static AbilityDef) -> Option<Firing> {
     match ability {
         AbilityDef::Triggered {
             trigger,
+            zone,
             once_per_turn,
             condition,
             ..
         }
         | AbilityDef::ModalTriggered {
             trigger,
+            zone,
             once_per_turn,
             condition,
             ..
         } => Some(Firing {
             trigger,
+            zone: *zone,
             once_per_turn: *once_per_turn,
             condition: *condition,
         }),
@@ -157,12 +164,47 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
         true,
         &mut triggers,
     );
+    collect_emblems(state, lookup, events, &mut triggers);
+    graveyard_triggers(state, lookup, events, &mut triggers);
+    monarch_triggers(state, events, &mut triggers);
+    cast_this_spell_triggers(state, lookup, events, &mut triggers);
+    watch_triggers(state, events, &mut triggers);
+    replicate_triggers(state, events, &mut triggers);
+    collect_departed(state, lookup, events, &mut triggers);
+    for trigger in &mut triggers {
+        trigger.event_mana_value = trigger.event_object.and_then(|id| {
+            state
+                .ltb_mana_values
+                .iter()
+                .find(|(object, _)| *object == id)
+                .map(|(_, value)| *value)
+        });
+    }
+    // APNAP, then a stable timestamp order within each player's triggers.
+    let active = state.turn.active;
+    triggers.sort_by_key(|t| {
+        let distance = (t.controller.get() + state.players.len() as u8 - active.get())
+            % state.players.len() as u8;
+        (distance, t.timestamp)
+    });
+    triggers
+}
+
+fn collect_emblems(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
     // Emblems (command zone, CR 114.2): their triggered abilities fire
     // from the command zone.
     for seat in 0..state.players.len() {
         let p = PlayerId::new(seat as u8);
         for &emblem in state.zones.list(ZoneLocation::Command(p)) {
-            let Some(obj) = state.object(emblem) else {
+            let Some(obj) = state
+                .object(emblem)
+                .filter(|o| o.kind == crate::object::ObjectKind::Emblem)
+            else {
                 continue;
             };
             let Some(abilities) = obj.own_abilities else {
@@ -172,6 +214,9 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 let Some(firing) = triggered_parts(ability) else {
                     continue;
                 };
+                if firing.zone != TriggerZone::Battlefield {
+                    continue;
+                }
                 let trigger = firing.trigger;
                 // CR 603.4's first check, as in the battlefield loop below.
                 if !eval::intervening_if(state, firing.condition, obj.controller, emblem) {
@@ -185,6 +230,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
+                                source_version: None,
                                 counter_source_version: None,
                                 event_mana: produced_mana(&entry.event, events),
                                 event_mana_value: None,
@@ -212,10 +258,14 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
             }
         }
     }
-    monarch_triggers(state, events, &mut triggers);
-    cast_this_spell_triggers(state, lookup, events, &mut triggers);
-    watch_triggers(state, events, &mut triggers);
-    replicate_triggers(state, events, &mut triggers);
+}
+
+fn collect_departed(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
     // LTB/Dies triggers look back in time (CR 603.10): the source is no
     // longer on the battlefield when they fire.
     for seat in 0..state.players.len() {
@@ -227,7 +277,7 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
                 state.zones.list(loc),
                 events,
                 false,
-                &mut triggers,
+                triggers,
             );
         }
     }
@@ -238,25 +288,67 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     // its own death — the loop above walks zone *lists*, and a swept token
     // has left those too.
     let departed: Vec<ObjectId> = state.ceased.iter().map(|o| o.id).collect();
-    collect_for_objects(state, lookup, &departed, events, false, &mut triggers);
-    for trigger in &mut triggers {
-        trigger.event_mana_value = trigger.event_object.and_then(|id| {
-            state
-                .ltb_mana_values
-                .iter()
-                .find(|(object, _)| *object == id)
-                .map(|(_, value)| *value)
-        });
+    collect_for_objects(state, lookup, &departed, events, false, triggers);
+}
+
+/// Printed graveyard abilities read the card as it exists there, never its
+/// old battlefield abilities. A card outside the battlefield has no
+/// controller, so its owner controls this trigger (CR 113.8).
+fn graveyard_triggers(
+    state: &GameState,
+    lookup: &impl CardLookup,
+    events: &[crate::event::JournalEntry],
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    for seat in 0..state.players.len() {
+        let owner = PlayerId::new(seat as u8);
+        for &source in state.zones.list(ZoneLocation::Graveyard(owner)) {
+            let Some(object) = state.object(source).filter(|o| o.is_card()) else {
+                continue;
+            };
+            let list = object.ability_list(lookup);
+            for (index, ability) in list.abilities.iter().enumerate() {
+                let Some(firing) = triggered_parts(ability) else {
+                    continue;
+                };
+                if firing.zone != TriggerZone::Graveyard
+                    || !eval::intervening_if(state, firing.condition, owner, source)
+                {
+                    continue;
+                }
+                for entry in events {
+                    let hit = hits(firing.trigger, &entry.event, events, state, source, owner);
+                    // These replacements describe triggered abilities of
+                    // permanents (CR 109.2). A graveyard card is not one,
+                    // even though its last controller is still stored.
+                    for _ in 0..hit {
+                        triggers.push(PendingTrigger {
+                            source,
+                            source_version: Some(object.version),
+                            counter_source_version: None,
+                            ability_index: index as u32,
+                            abilities: Some(list),
+                            controller: owner,
+                            timestamp: object.timestamp,
+                            event_object: event_object_for(firing.trigger, &entry.event, source),
+                            event_mana_value: None,
+                            event_departure: entry
+                                .departure
+                                .as_ref()
+                                .map(|d| (d.controller, d.toughness)),
+                            event_mana: produced_mana(&entry.event, events),
+                            event_damage: event_damage_of(firing.trigger, &entry.event, events),
+                            implicit_target: None,
+                            synthetic_effects: None,
+                            synthetic_target: None,
+                            once_per_turn: firing.once_per_turn,
+                            chosen_mode: None,
+                        });
+                    }
+                }
+            }
+        }
     }
-    // APNAP: active player first, then in turn order; same controller by
-    // timestamp (M2: player ordering choice).
-    let active = state.turn.active;
-    triggers.sort_by_key(|t| {
-        let distance = (t.controller.get() + state.players.len() as u8 - active.get())
-            % state.players.len() as u8;
-        (distance, t.timestamp)
-    });
-    triggers
 }
 
 /// Replicate's copies, one entry for each payment the trigger can copy for:
@@ -297,6 +389,9 @@ pub fn state_triggers(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
+            if firing.zone != TriggerZone::Battlefield {
+                continue;
+            }
             let Trigger::State(condition) = firing.trigger else {
                 continue;
             };
@@ -308,6 +403,7 @@ pub fn state_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
+                source_version: None,
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
@@ -356,6 +452,7 @@ fn replicate_triggers(
         };
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
+            source_version: None,
             counter_source_version: None,
             event_damage: None,
             event_mana: None,
@@ -436,6 +533,7 @@ fn watch_triggers(
             continue;
         }
         triggers.push(PendingTrigger {
+            source_version: None,
             counter_source_version: None,
             event_damage: None,
             event_mana: None,
@@ -598,6 +696,7 @@ fn monarch_triggers(
         return;
     };
     let inherent = |effects, event_object| PendingTrigger {
+        source_version: None,
         counter_source_version: None,
         event_mana: None,
         event_mana_value: None,
@@ -847,16 +946,19 @@ fn cast_this_spell_triggers(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
-            if !matches!(
-                firing.trigger,
-                baylee_cards_dsl::Trigger::SpellCast(baylee_cards_dsl::Filter::This)
-            ) {
+            if firing.zone != TriggerZone::Battlefield
+                || !matches!(
+                    firing.trigger,
+                    baylee_cards_dsl::Trigger::SpellCast(baylee_cards_dsl::Filter::This)
+                )
+            {
                 continue;
             }
             if !eval::intervening_if(state, firing.condition, player, object) {
                 continue;
             }
             triggers.push(PendingTrigger {
+                source_version: None,
                 counter_source_version: None,
                 event_mana: None,
                 event_mana_value: None,
@@ -1131,6 +1233,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            source_version: None,
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1234,6 +1337,7 @@ fn collect_for_objects(
                             permanent,
                         ) {
                             triggers.push(PendingTrigger {
+                                source_version: None,
                                 counter_source_version: None,
                                 event_mana: None,
                                 event_mana_value: None,
@@ -1286,6 +1390,7 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            source_version: None,
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1336,6 +1441,7 @@ fn collect_for_objects(
                         permanent,
                     ) {
                         triggers.push(PendingTrigger {
+                            source_version: None,
                             counter_source_version: None,
                             event_mana: None,
                             event_mana_value: None,
@@ -1361,6 +1467,9 @@ fn collect_for_objects(
             let Some(firing) = triggered_parts(ability) else {
                 continue;
             };
+            if firing.zone != TriggerZone::Battlefield {
+                continue;
+            }
             let trigger = firing.trigger;
             // Off the battlefield, the triggers that look back (CR 603.10a)
             // and "when you cycle this card", which triggers from wherever
@@ -1398,6 +1507,7 @@ fn collect_for_objects(
                     let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            source_version: None,
                             counter_source_version: crate::resolve::linked_counters::uses_links(
                                 abilities,
                             )
@@ -1920,6 +2030,84 @@ mod tests {
     }
     fn them() -> PlayerId {
         PlayerId::new(1)
+    }
+
+    #[test]
+    fn graveyard_trigger_zone_uses_the_cards_owner_and_only_its_graveyard() {
+        const UPKEEP: Trigger = Trigger::StepBegin {
+            step: baylee_cards_dsl::StepKind::Upkeep,
+            whose: PlayerRel::You,
+        };
+        static ABILITIES: &[AbilityDef] = &[
+            baylee_cards_dsl::triggered!(UPKEEP, &[baylee_cards_dsl::Effect::gain_life(1)]),
+            baylee_cards_dsl::triggered!(
+                UPKEEP,
+                &[baylee_cards_dsl::Effect::gain_life(1)],
+                zone = TriggerZone::Graveyard
+            ),
+        ];
+        for zone in [
+            ZoneLocation::Battlefield,
+            ZoneLocation::Graveyard(me()),
+            ZoneLocation::Hand(me()),
+            ZoneLocation::Library(me()),
+            ZoneLocation::Exile(me()),
+            ZoneLocation::Command(me()),
+        ] {
+            for active in [me(), them()] {
+                let mut state = state();
+                let card = state.zones.list(ZoneLocation::Library(me()))[0];
+                state
+                    .move_object(
+                        card,
+                        zone,
+                        crate::zone::ZonePosition::Top,
+                        crate::event::Cause::Effect,
+                    )
+                    .unwrap();
+                let object = state.object_mut(card).expect("card");
+                object.own_abilities = Some(ABILITIES);
+                object.set_controller(them());
+                let version = object.version;
+                rule(
+                    &mut state,
+                    them(),
+                    ReplacementRule::TriggerMultiplier {
+                        source_filter: &Filter::ControlledByYou,
+                        event: TriggerEventKind::Any,
+                    },
+                );
+                state.turn.active = active;
+                let from = state.journal.len() as u64;
+                state.journal.record(GameEvent::StepChanged {
+                    phase: crate::turn::Phase::Beginning,
+                    step: crate::turn::Step::Upkeep,
+                });
+                let triggers = collect(&state, &RegistryLookup, from);
+                let expected = match zone {
+                    ZoneLocation::Battlefield if active == them() => Some((2, 0, them(), None)),
+                    ZoneLocation::Graveyard(_) if active == me() => {
+                        Some((1, 1, me(), Some(version)))
+                    }
+                    _ => None,
+                };
+                assert_eq!(
+                    triggers.len(),
+                    expected.map_or(0, |(count, ..)| count),
+                    "zone {zone:?}, active {active:?}"
+                );
+                if let Some((_, index, controller, source_version)) = expected {
+                    assert_eq!(
+                        (
+                            triggers[0].ability_index,
+                            triggers[0].controller,
+                            triggers[0].source_version
+                        ),
+                        (index, controller, source_version)
+                    );
+                }
+            }
+        }
     }
 
     fn state() -> GameState {

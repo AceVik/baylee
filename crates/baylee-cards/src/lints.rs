@@ -1838,6 +1838,7 @@ mod tests {
             effects,
             targets,
             second_targets: None,
+            zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
         };
@@ -2205,6 +2206,7 @@ mod tests {
             effects: &GRANT,
             targets: None,
             second_targets: None,
+            zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
         };
@@ -2245,6 +2247,7 @@ mod tests {
             effects: &LIST,
             targets: None,
             second_targets: None,
+            zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
         };

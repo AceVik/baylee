@@ -14,10 +14,10 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **257 Implemented, 29 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **258 Implemented, 28 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 257 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
-Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land and Animate Artifact are
+Thus 258 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact and Nether Shadow are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -47,7 +47,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Library of Leng](../crates/baylee-cards/src/cards/artifacts/mv_1/library_of_leng.rs) | discarding a card onto the top of the library instead of into the graveyard is not in the engine; you have no maximum hand size |
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | text-changing effects (CR 612) are not in the engine |
-| [Nether Shadow](../crates/baylee-cards/src/cards/creatures/mv_2/nether_shadow.rs) | returning from the graveyard by the creature cards above it is not in the engine; it has haste |
 | [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | redirecting damage to its owner, activation by its owner only, and losing half the owner’s life rounded up |
 | [Power Leak](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_leak.rs) | paying any amount of mana to prevent that much of the damage is not in the DSL; it only enchants an enchantment |
 | [Power Sink](../crates/baylee-cards/src/cards/instants/mv_1/power_sink.rs) | tapping the lands and emptying the mana pool of a player who doesn't pay are not in the engine; it counters unless {X} is paid |

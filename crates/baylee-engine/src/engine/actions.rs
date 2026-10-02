@@ -1023,6 +1023,10 @@ impl<L: CardLookup> Engine<L> {
             (Pending::Arrange { player: p, .. }, PlayerAction::Arrange { piles })
                 if *p == player =>
             {
+                if self.resolution.is_none() {
+                    crate::graveyard_order::answer(&mut self.state, &piles[0]);
+                    return Ok(());
+                }
                 let mut res = self.resolution.take().expect("resolution suspended");
                 match resolve::resume_arranged(&mut self.state, &mut res, &piles) {
                     resolve::Flow::Wait(pending) => {
@@ -1569,6 +1573,7 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction("card not in hand"));
                     }
                 }
+                let since = self.state.journal.last_seq();
                 for card in objects {
                     self.state.journal.record(GameEvent::Discarded {
                         object: card,
@@ -1581,6 +1586,7 @@ impl<L: CardLookup> Engine<L> {
                         Cause::TurnBased,
                     )?;
                 }
+                crate::graveyard_order::capture(&mut self.state, since);
                 // Then CR 514.2, and the step's check after it (CR 514.3a):
                 // a trigger on the discard waits for that check like any
                 // other, since triggers are collected from the journal.

@@ -124,6 +124,82 @@ fn an_effect_that_names_its_own_source_moves_the_source() {
     );
 }
 
+/// The source version also protects an untargeted return with no
+/// intervening-if clause to remove the old trigger (CR 400.7).
+#[test]
+fn a_graveyard_return_names_only_the_incarnation_that_triggered() {
+    static RETURN: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+        Trigger::StepBegin {
+            step: baylee_cards_dsl::StepKind::Upkeep,
+            whose: baylee_cards_dsl::PlayerRel::You,
+        },
+        &[Effect::reanimate(TargetSpec::ThisObject)],
+        zone = baylee_cards_dsl::TriggerZone::Graveyard,
+    )];
+    let me = PlayerId::new(0);
+    for leave_and_return in [false, true] {
+        let (mut engine, source) = seated(145);
+        engine
+            .state
+            .move_object(
+                source,
+                ZoneLocation::Graveyard(me),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        engine
+            .state
+            .object_mut(source)
+            .expect("source card")
+            .own_abilities = Some(RETURN);
+        for step in 0..400 {
+            if !engine.state.zones.list(ZoneLocation::Stack).is_empty() {
+                break;
+            }
+            assert!(step < 399, "reached the source's upkeep trigger");
+            let pending = engine.pending().clone();
+            assert!(walk_past(&mut engine, &pending), "{pending:?}");
+        }
+        if leave_and_return {
+            engine
+                .state
+                .move_object(
+                    source,
+                    ZoneLocation::Exile(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+            engine
+                .state
+                .move_object(
+                    source,
+                    ZoneLocation::Graveyard(me),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        }
+        for step in 0..30 {
+            if engine.state.zones.list(ZoneLocation::Stack).is_empty() {
+                break;
+            }
+            assert!(step < 29, "return trigger resolved");
+            let pending = engine.pending().clone();
+            assert!(walk_past(&mut engine, &pending), "{pending:?}");
+        }
+        assert_eq!(
+            engine.state.object(source).expect("card remains").zone,
+            if leave_and_return {
+                Zone::Graveyard
+            } else {
+                Zone::Battlefield
+            }
+        );
+    }
+}
+
 /// And the half that refuses the tempting wrong fix.
 ///
 /// Declaring `targets = Some(TargetReq::one(TargetSpec::ThisObject))` also
@@ -251,7 +327,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "ReturnToHand { target: ThisObject }",
         "Destroy { target: ThisObject, no_regen: false }",
         "Destroy { target: ThisObject, no_regen: true }",
-        "GraveyardToBattlefield { target: ThisObject }",
+        "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",
         "Regenerate { target: ThisObject }",
         // Rock Hydra's "{R}: Prevent the next 1 damage that would be dealt
         // to this creature": `resolve::life::recipients`. Left open, the

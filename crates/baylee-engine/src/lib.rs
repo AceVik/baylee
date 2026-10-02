@@ -74,6 +74,7 @@ pub mod loops;
 
 // Phasing out and in, with what is attached (CR 702.26): `GameState`
 // methods the resolver and the untap step share.
+mod graveyard_order;
 mod phasing;
 
 // The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;

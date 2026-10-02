@@ -261,6 +261,11 @@ impl<L: CardLookup> Engine<L> {
         // loop without a player being able to stop it (see `crate::loops`).
         let mut watch = crate::loops::LoopWatch::default();
         loop {
+            if let Some(pending) = crate::graveyard_order::pending(&mut self.state) {
+                self.pending = pending;
+                self.awaiting_answer = true;
+                return;
+            }
             let signature = watch.wants_sample().then(|| self.state.loop_signature());
             if let Some(period) = watch.step(signature)
                 && self.on_loop_detected(period)
@@ -346,7 +351,7 @@ impl<L: CardLookup> Engine<L> {
             // 117.5: detection precedes SBAs; stacking and target choices follow.
             self.queue_new_triggers();
             // 2. State-based actions (fixpoint).
-            let outcome = sba::run(&mut self.state, &self.lookup);
+            let outcome = self.run_state_based_actions();
             if outcome.changed
                 || outcome.legend_choice.is_some()
                 || outcome.commander_zone.is_some()
@@ -363,16 +368,6 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             if outcome.changed {
-                continue;
-            }
-            // 2b. Sagas (CR 714.4). A state-based action like the ones
-            //     above, out here only because it has to read a permanent's
-            //     abilities and `sba::run` has no lookup to read them with —
-            //     which is 2c's reason too, and the whole of the difference
-            //     between the two steps is that 2c's rules say in as many
-            //     words that they are *not* state-based actions.
-            if self.finished_sagas() {
-                self.cleanup_check_acted();
                 continue;
             }
             // 2c. Daybound and nightbound (CR 702.145c–g). Explicitly *not*
@@ -2366,6 +2361,11 @@ impl<L: CardLookup> Engine<L> {
         });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(version) = trigger.source_version {
+                object
+                    .riders
+                    .push(crate::object::Rider::TriggerSourceVersion(version));
+            }
             if let Some((controller, toughness)) = trigger.event_departure {
                 object
                     .riders
@@ -3013,7 +3013,17 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         }
         .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
-        !crate::eval::intervening_if(&self.state, condition, obj.controller, loc.source)
+        let version = obj.riders.iter().find_map(|rider| match rider {
+            crate::object::Rider::TriggerSourceVersion(version) => Some(*version),
+            _ => None,
+        });
+        !crate::eval::intervening_if_for_incarnation(
+            &self.state,
+            condition,
+            obj.controller,
+            loc.source,
+            version,
+        )
     }
 
     /// What the object on top of the stack is allowed to target.
@@ -4365,6 +4375,16 @@ impl<L: CardLookup> Engine<L> {
                 .any(|t| t.source == source && self.is_a_chapter_of(source, t.ability_index))
     }
 
+    /// One simultaneous SBA event, including Saga sacrifices and every
+    /// answered legend choice, followed by its graveyard-order choices.
+    fn run_state_based_actions(&mut self) -> sba::SbaOutcome {
+        let finished_sagas = self.finished_sagas();
+        let since = self.state.journal.last_seq();
+        let outcome = sba::run_with_sagas(&mut self.state, &self.lookup, &finished_sagas);
+        crate::graveyard_order::capture(&mut self.state, since);
+        outcome
+    }
+
     /// CR 714.4: a Saga whose lore counters cover its final chapter, and
     /// which no chapter of its own has triggered and not yet left the stack,
     /// is sacrificed by its controller.
@@ -4384,13 +4404,12 @@ impl<L: CardLookup> Engine<L> {
     /// [`Self::is_saga`] uses, and the reason the rule's own "with one or
     /// more chapter abilities" needs no subtype here.
     ///
-    /// Returns whether anything was sacrificed, which sends the fixpoint
-    /// round again — a Saga leaving the battlefield is exactly the kind of
-    /// thing the state-based actions above want another look at.
+    /// The applicable Saga sacrifices, planned before the simultaneous
+    /// SBA pass mutates any object (CR 704.3).
     ///
     /// [`Object::abilities`]: crate::object::GameObject::abilities
-    fn finished_sagas(&mut self) -> bool {
-        let mut changed = false;
+    fn finished_sagas(&self) -> Vec<ObjectId> {
+        let mut finished_sagas = Vec::new();
         // A phased-out Saga is not sacrificed (CR 702.26b).
         for id in self.state.battlefield_view() {
             let finished = self.state.object(id).is_some_and(|o| {
@@ -4422,21 +4441,9 @@ impl<L: CardLookup> Engine<L> {
             if !finished || self.a_chapter_of_it_has_triggered(id) {
                 continue;
             }
-            let Some(owner) = self.state.object(id).map(|o| o.owner) else {
-                continue;
-            };
-            if let Some(obj) = self.state.object_mut(id) {
-                obj.kind = ObjectKind::Card;
-            }
-            let _ = self.state.move_object(
-                id,
-                ZoneLocation::Graveyard(owner),
-                ZonePosition::Top,
-                crate::event::Cause::Effect,
-            );
-            changed = true;
+            finished_sagas.push(id);
         }
-        changed
+        finished_sagas
     }
 
     /// Queues every chapter ability the lore count just crossed, and says
@@ -4486,6 +4493,7 @@ impl<L: CardLookup> Engine<L> {
         for ability_index in &hits {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
+                    source_version: None,
                     counter_source_version: None,
                     event_mana: None,
                     event_mana_value: None,
@@ -4879,6 +4887,7 @@ impl<L: CardLookup> Engine<L> {
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
+                source_version: None,
                 counter_source_version: None,
                 event_damage: None,
                 event_mana: None,

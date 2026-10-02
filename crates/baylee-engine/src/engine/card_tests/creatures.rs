@@ -5,6 +5,8 @@
 use super::*;
 use crate::choice::ChoicePrompt;
 
+mod nether_shadow;
+
 /// Verdant Force — "At the beginning of **each** upkeep, create a 1/1 green
 /// Saproling creature token": the opponent's upkeep as well as its
 /// controller's. The reader read a phase trigger naming no player as "your
@@ -99557,9 +99559,7 @@ fn nether_shadow() -> CardIndex {
     card_index("c358b9e2-524c-434b-b3fa-74d2aa6d1df7")
 }
 
-/// Nether Shadow — {B}{B} 1/1 Spirit with haste and nothing else the
-/// engine reads (its graveyard-return trigger is `Coverage::Partial` and
-/// not implemented). Haste (CR 702.10b) is the one permission a
+/// Nether Shadow — {B}{B} 1/1 Spirit with haste. Haste (CR 702.10b) is the one permission a
 /// summoning-sick creature (CR 302.6) otherwise lacks: cast this turn and
 /// walked straight to combat, it may still attack, while an ordinary
 /// Llanowar Elves cast beside it off the same mana may not.

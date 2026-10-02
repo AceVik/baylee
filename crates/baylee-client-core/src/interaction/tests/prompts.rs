@@ -752,6 +752,12 @@ fn a_one_pile_ordering_says_which_end_the_first_card_is() {
         piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, 2)],
         prompt: ArrangePrompt::Order,
     };
+    let graveyard = Pending::Arrange {
+        player: me(),
+        cards: vec![obj(1), obj(2)],
+        piles: vec![ArrangePile::all_of(ArrangePlace::Graveyard, 2)],
+        prompt: ArrangePrompt::Order,
+    };
     for (pending, en, de) in [
         (
             put_back(vec![obj(1), obj(2)]),
@@ -759,6 +765,7 @@ fn a_one_pile_ordering_says_which_end_the_first_card_is() {
             "neue oberste Karte",
         ),
         (bottom, "the bottom card", "unterste Karte"),
+        (graveyard, "first card on top", "erste Karte oben"),
     ] {
         let i = interaction(pending);
         let english = i.prompt().headline(Lang::En, Turn::Mine, None, false);

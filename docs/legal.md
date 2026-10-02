@@ -590,3 +590,11 @@ Animate Artifact (2026-10-02) uses the same recorded owner exception. The
 official policy and FAQ were reread; “Tell the Community it’s unofficial.”
 remains covered by the existing notices. This change adds only rules and tests;
 no artwork, font, symbol, image distribution or attribution behavior changes.
+
+Nether Shadow (2026-10-02) uses the same recorded owner exception. The
+[policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy) were
+reread: “Tell the Community it’s unofficial.” remains covered by the existing
+notices. The graveyard-order instruction is plain text in the existing licensed
+fonts; no new asset or change to the image/attribution path is introduced.
+The bundled Alegreya Sans and Faustina licenses state: “This Font Software is
+licensed under the SIL Open Font License, Version 1.1.”

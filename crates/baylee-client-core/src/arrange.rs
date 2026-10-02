@@ -427,6 +427,21 @@ mod tests {
     }
 
     #[test]
+    fn ordered_graveyard_cards_keep_the_chosen_top_to_bottom_order_in_the_answer() {
+        let mut a = Arrangement::new(
+            &[obj(1), obj(2), obj(3), obj(4)],
+            &[pile(ArrangePlace::Graveyard, 4, 4)],
+        );
+        assert_eq!(a.label(Row::Pile(0)), Phrase::ArrangeGraveyard);
+        a.toggle(obj(1));
+        assert!(
+            a.place(Row::Pile(0)),
+            "put Nether Shadow underneath the other cards"
+        );
+        assert_eq!(a.answer(), Some(vec![vec![obj(2), obj(3), obj(4), obj(1)]]));
+    }
+
+    #[test]
     fn tapping_the_held_card_again_lets_go_of_it_where_it_is() {
         let mut a = scry();
         a.toggle(obj(2));

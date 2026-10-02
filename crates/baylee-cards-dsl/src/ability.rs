@@ -51,6 +51,15 @@ pub enum ActivationZone {
     Graveyard,
 }
 
+/// Where a printed triggered ability functions (CR 113.6).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TriggerZone {
+    /// The normal zone; leaves-the-battlefield triggers also look back here.
+    Battlefield,
+    /// In the card owner's graveyard (CR 113.6b, 113.6m).
+    Graveyard,
+}
+
 /// Steps a trigger can listen to, and a step a timing restriction names.
 ///
 /// Listed in turn order, which is the order [`Condition::BeforeStep`]
@@ -199,6 +208,10 @@ pub enum Condition {
     /// opposite wrong answers — which is the argument for the variant rather
     /// than for a house style.
     GraveyardCountAtLeast(u8),
+    /// This card is in your graveyard with at least N matching **cards**
+    /// above it. The graveyard's order matters (CR 404.1–3); cards below
+    /// the source and tokens do not count.
+    GraveyardCardsAbove(&'static Filter, u8),
     /// The source has at least N counters of a kind (Luminarch
     /// Ascension's quest counters).
     CountersOnSelf(crate::effect::CounterKind, u8),
@@ -577,6 +590,8 @@ pub enum AbilityDef {
     Triggered {
         /// Trigger condition.
         trigger: Trigger,
+        /// The zone in which this ability functions.
+        zone: TriggerZone,
         /// Effect operations.
         effects: &'static [Effect],
         /// Target requirement.
@@ -733,6 +748,8 @@ pub enum AbilityDef {
     ModalTriggered {
         /// Trigger condition.
         trigger: Trigger,
+        /// The zone in which this ability functions.
+        zone: TriggerZone,
         /// The modes to choose from.
         modes: &'static [SpellMode],
         /// Fires at most once each turn.
@@ -1127,6 +1144,7 @@ mod tests {
                 effects: NOTHING,
                 targets: None,
                 second_targets: None,
+                zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
             },
@@ -1182,6 +1200,7 @@ mod tests {
             AbilityDef::ModalTriggered {
                 trigger: Trigger::ETB,
                 modes: &[],
+                zone: TriggerZone::Battlefield,
                 once_per_turn: false,
                 condition: None,
             },

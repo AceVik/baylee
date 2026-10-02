@@ -450,6 +450,9 @@ impl Prompt {
                 (ArrangePrompt::Order, Some(ArrangePlace::LibraryBottom)) => {
                     Phrase::OrderOnBottom.text(lang).to_string()
                 }
+                (ArrangePrompt::Order, Some(ArrangePlace::Graveyard)) => {
+                    Phrase::OrderGraveyard.text(lang).to_string()
+                }
                 (ArrangePrompt::Order, _) => Phrase::PutInOrder.text(lang).to_string(),
                 (ArrangePrompt::Scry, _) => Phrase::ScryPrompt.text(lang).to_string(),
                 (ArrangePrompt::Surveil, _) => Phrase::SurveilPrompt.text(lang).to_string(),

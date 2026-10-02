@@ -421,6 +421,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !owner_control && state.has_left(you) {
                 return None;
             }
+            if matches!(target, TargetSpec::ThisObject)
+                && state.object(res.on_stack).is_some_and(|ability| {
+                    ability.riders.iter().any(|rider| match rider {
+                        crate::object::Rider::TriggerSourceVersion(version) => state
+                            .object(res.source)
+                            .is_none_or(|source| source.version != *version),
+                        _ => false,
+                    })
+                })
+            {
+                return None;
+            }
             for target_id in spec_objects(res, target) {
                 // The card has to still be in a graveyard, asked per card:
                 // one of several targets leaving does not stop the others.

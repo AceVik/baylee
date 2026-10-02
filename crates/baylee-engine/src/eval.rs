@@ -5,7 +5,7 @@
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
-use crate::zone::ZoneLocation;
+use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{Amount, Condition, Filter, PlayerRel, TargetSpec, ZoneSel};
 use baylee_core::ids::{ObjectId, PlayerId};
 
@@ -609,6 +609,20 @@ pub fn condition_holds(
         Condition::GraveyardCountAtLeast(min) => {
             state.zones.list(ZoneLocation::Graveyard(you)).len() >= min as usize
         }
+        Condition::GraveyardCardsAbove(filter, min) => {
+            let cards = state.zones.list(ZoneLocation::Graveyard(you));
+            state
+                .object(source)
+                .is_some_and(|o| o.is_card() && o.zone == Zone::Graveyard && o.owner == you)
+                && cards.iter().position(|id| *id == source).is_some_and(|at| {
+                    cards[at + 1..]
+                        .iter()
+                        .filter_map(|id| state.object(*id))
+                        .filter(|o| o.is_card() && matches(filter, state, o, you, source))
+                        .count()
+                        >= usize::from(min)
+                })
+        }
         Condition::CountersOnSelf(kind, min) => state
             .object(source)
             .is_some_and(|o| o.counters.get(kind) >= u16::from(min)),
@@ -728,6 +742,34 @@ pub fn intervening_if(
     source: ObjectId,
 ) -> bool {
     condition.is_none_or(|c| condition_holds(state, you, source, c))
+}
+
+/// Resolution's intervening-if check with the source incarnation that
+/// triggered. A graveyard-order clause cannot find a later object that
+/// reuses the same engine handle (CR 400.7).
+pub(crate) fn intervening_if_for_incarnation(
+    state: &GameState,
+    condition: Option<Condition>,
+    you: PlayerId,
+    source: ObjectId,
+    version: Option<u32>,
+) -> bool {
+    match condition {
+        Some(Condition::All(conditions)) => conditions.iter().all(|condition| {
+            intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+        }),
+        Some(Condition::Any(conditions)) => conditions.iter().any(|condition| {
+            intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+        }),
+        Some(Condition::Not(condition)) => {
+            !intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+        }
+        Some(Condition::GraveyardCardsAbove(_, _)) => {
+            version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
+                && intervening_if(state, condition, you, source)
+        }
+        _ => intervening_if(state, condition, you, source),
+    }
 }
 
 /// Protection (CR 702.16): does `object` have protection from a filter
@@ -1265,6 +1307,104 @@ mod tests {
             controller_of_attached(&state, aura),
             Some(P1),
             "the host's controller, not the Aura's (CR 303.4e)"
+        );
+    }
+
+    fn buried_card(state: &mut GameState, types: TypeSet) -> ObjectId {
+        let name = state.names.intern("Graveyard fixture");
+        let id = state.create_bare(P0, ObjectKind::Card, name, ZoneLocation::Graveyard(P0));
+        let object = state.object_mut(id).expect("created card");
+        object.card = Some(crate::object::CardRef {
+            index: CardIndex::new(1),
+            print: baylee_core::ids::PrintRef::new(0),
+        });
+        object.base_mut().types = types;
+        id
+    }
+
+    #[test]
+    fn graveyard_cards_above_counts_only_matching_cards_above_the_source() {
+        let mut state = empty_state();
+        for _ in 0..3 {
+            buried_card(&mut state, TypeSet::CREATURE);
+        }
+        let source = buried_card(&mut state, TypeSet::CREATURE);
+        let condition = Condition::GraveyardCardsAbove(&ANY_CREATURE, 3);
+        assert!(!condition_holds(&state, P0, source, condition));
+        for _ in 0..2 {
+            buried_card(&mut state, TypeSet::CREATURE);
+        }
+        buried_card(&mut state, TypeSet::LAND);
+        let token = buried_card(&mut state, TypeSet::CREATURE);
+        state.object_mut(token).expect("token fixture").card = None;
+        let copy = buried_card(&mut state, TypeSet::CREATURE);
+        state
+            .object_mut(copy)
+            .expect("copy fixture")
+            .riders
+            .push(crate::object::Rider::SpellCopy);
+        assert!(!condition_holds(&state, P0, source, condition));
+        buried_card(&mut state, TypeSet::CREATURE);
+        assert!(condition_holds(&state, P0, source, condition));
+        assert!(!condition_holds(&state, P1, source, condition));
+        state
+            .move_object(
+                source,
+                ZoneLocation::Exile(P0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        assert!(!condition_holds(
+            &state,
+            P0,
+            source,
+            Condition::GraveyardCardsAbove(&ANY_CREATURE, 0)
+        ));
+    }
+
+    #[test]
+    fn graveyard_order_condition_cannot_find_a_later_incarnation() {
+        let mut state = empty_state();
+        let source = buried_card(&mut state, TypeSet::CREATURE);
+        for _ in 0..3 {
+            buried_card(&mut state, TypeSet::CREATURE);
+        }
+        let condition = Some(Condition::All(&[Condition::GraveyardCardsAbove(
+            &Filter::CREATURE,
+            3,
+        )]));
+        let version = state.object(source).expect("source").version;
+        assert!(intervening_if_for_incarnation(
+            &state,
+            condition,
+            P0,
+            source,
+            Some(version)
+        ));
+        state
+            .move_object(
+                source,
+                ZoneLocation::Exile(P0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                source,
+                ZoneLocation::Graveyard(P0),
+                crate::zone::ZonePosition::Bottom,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        assert!(
+            intervening_if(&state, condition, P0, source),
+            "the new card independently satisfies the clause"
+        );
+        assert!(
+            !intervening_if_for_incarnation(&state, condition, P0, source, Some(version)),
+            "the old trigger cannot find that new card"
         );
     }
 

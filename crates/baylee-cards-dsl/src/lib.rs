@@ -31,7 +31,7 @@ pub static ANY_COLOR_MANA: &[crate::effect::Effect] = &[crate::effect::Effect::m
 
 pub use ability::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Condition, CopyMod, ModeCount,
-    SpellMode, StepKind, Trigger, TriggerEventKind,
+    SpellMode, StepKind, Trigger, TriggerEventKind, TriggerZone,
 };
 pub use build::prelude;
 pub use build::{

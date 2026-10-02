@@ -1907,6 +1907,11 @@ messages! {
     HintTypeToFilter { en: "Type to narrow the list", de: "Tippe, um die Liste einzugrenzen" },
     /// Put these in order
     PutInOrder { en: "Put these in order", de: "Bringe diese in eine Reihenfolge" },
+    /// The first card in a graveyard ordering will be on top of the others.
+    OrderGraveyard {
+        en: "Order graveyard cards: first card on top",
+        de: "Friedhof ordnen: erste Karte oben",
+    },
     /// Put these back on top: the first is the new top card
     OrderOnTop {
         en: "Put these back on top: the first is the new top card",

@@ -2567,7 +2567,9 @@ impl<L: CardLookup> Engine<L> {
             )
             .ok_or(EngineError::IllegalAction("not enough mana"))?;
         }
+        let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in cost.parts {
+            graveyard_batch.before_part(&mut self.state, part);
             if paid_by_the_casting_wizard(part) {
                 continue;
             }
@@ -2732,6 +2734,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        graveyard_batch.finish(&mut self.state);
         Ok(paid)
     }
 

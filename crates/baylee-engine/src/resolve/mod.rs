@@ -247,6 +247,13 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// An owner orders simultaneous graveyard arrivals before the next
+    /// instruction or a choice that instruction produced.
+    GraveyardOrder {
+        /// The interrupted choice, if the instruction also asked one.
+        next: Option<Box<(AwaitingOp, Pending)>>,
+    },
+
     /// A private inspection; the empty acknowledgement changes no cards.
     InspectHand,
     /// A land whose linked counters this source has not yet removed.
@@ -1164,6 +1171,12 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
+    // A payment may have moved several cards just before this resolution
+    // began (including a mana ability). Settle that order before any effect
+    // can read the graveyard.
+    if let Some(pending) = order_before_continuing(state, res, None) {
+        return Flow::Wait(pending);
+    }
     // The moment CR 608.2h measures from. `run` is re-entered after every
     // suspended choice, so this has to be the *first* entry and not any
     // entry, which is what the `Option` says.
@@ -1202,14 +1215,52 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         state.refresh_characteristics();
         state.award_enduring_stories();
         state.award_citys_blessings();
-        if let Some(pending) = exec(state, res, op) {
-            crate::replacement::expire_graveyard_rules(state);
+        let since = state.journal.last_seq();
+        let pending = exec(state, res, op);
+        crate::graveyard_order::capture(state, since);
+        crate::replacement::expire_graveyard_rules(state);
+        if pending.is_none() {
+            res.pc += 1;
+        }
+        if let Some(pending) = order_before_continuing(state, res, pending) {
             return Flow::Wait(pending);
         }
-        crate::replacement::expire_graveyard_rules(state);
-        res.pc += 1;
     }
     Flow::Complete
+}
+
+/// Preserve an instruction's own choice while CR 404.3 is answered. The
+/// program counter already names the next instruction when `next` is absent.
+fn order_before_continuing(
+    state: &mut GameState,
+    res: &mut Resolution,
+    next: Option<Pending>,
+) -> Option<Pending> {
+    // A nested program already suspended on this very queue.
+    if matches!(res.awaiting, Some(AwaitingOp::GraveyardOrder { .. })) {
+        return next;
+    }
+    let Some(question) = crate::graveyard_order::pending(state) else {
+        return next;
+    };
+    let next =
+        next.map(|pending| Box::new((res.awaiting.take().expect("choice continuation"), pending)));
+    res.awaiting = Some(AwaitingOp::GraveyardOrder { next });
+    Some(question)
+}
+
+fn finish_choice(state: &mut GameState, res: &mut Resolution, since: u64) -> Flow {
+    crate::graveyard_order::capture(state, since);
+    res.pc += 1;
+    match order_before_continuing(state, res, None) {
+        Some(pending) => Flow::Wait(pending),
+        None => run(state, res),
+    }
+}
+
+fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending: Pending) -> Flow {
+    crate::graveyard_order::capture(state, since);
+    Flow::Wait(order_before_continuing(state, res, Some(pending)).expect("next choice"))
 }
 
 /// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
@@ -1613,6 +1664,22 @@ pub fn resume_arranged(
     res: &mut Resolution,
     piles: &[Vec<ObjectId>],
 ) -> Flow {
+    if let Some(AwaitingOp::GraveyardOrder { next }) = res
+        .awaiting
+        .take_if(|op| matches!(op, AwaitingOp::GraveyardOrder { .. }))
+    {
+        crate::graveyard_order::answer(state, &piles[0]);
+        let pending = next.map(|next| {
+            let (awaiting, pending) = *next;
+            res.awaiting = Some(awaiting);
+            pending
+        });
+        return match order_before_continuing(state, res, pending) {
+            Some(pending) => Flow::Wait(pending),
+            None => run(state, res),
+        };
+    }
+    let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     let library = ZoneLocation::Library(res.controller);
     match (awaiting, piles) {
@@ -1667,8 +1734,7 @@ pub fn resume_arranged(
         }
         (other, _) => panic!("resume_arranged on {other:?} with {} piles", piles.len()),
     }
-    res.pc += 1;
-    run(state, res)
+    finish_choice(state, res, since)
 }
 
 /// Resumes a tax choice (Rhystic Study & co.) or a price (Crystal Rod):
@@ -1931,6 +1997,7 @@ fn ask_separator(res: &mut Resolution, opponent: PlayerId, cards: Vec<ObjectId>)
 /// If no pile choice is suspended.
 #[must_use]
 pub fn resume_pile(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
+    let since = state.journal.last_seq();
     let Some(AwaitingOp::TakePile { piles }) = res.awaiting.take() else {
         panic!("pile choice not suspended");
     };
@@ -1951,8 +2018,7 @@ pub fn resume_pile(state: &mut GameState, res: &mut Resolution, index: usize) ->
             let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
         }
     }
-    res.pc += 1;
-    run(state, res)
+    finish_choice(state, res, since)
 }
 
 /// Asks `opponent` which `count` of the found cards go to the graveyard.
@@ -2036,6 +2102,7 @@ pub fn resume_pick_splitter(res: &mut Resolution, opponent: PlayerId) -> Flow {
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
+    let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
         AwaitingOp::SearchLibrary {
@@ -2046,7 +2113,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             split: Some(count),
         } => {
             if let Some(question) = begin_split(state, res, chosen, count, library, receiver) {
-                return Flow::Wait(question);
+                return next_choice(state, res, since, question);
             }
         }
         AwaitingOp::SearchLibrary {
@@ -2201,7 +2268,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 Some(_) => {}
                 None => {
                     if let Some(question) = search_library_for_one(state, res, filter, find) {
-                        return Flow::Wait(question);
+                        return next_choice(state, res, since, question);
                     }
                 }
             }
@@ -2228,7 +2295,14 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 discarded += 1;
             }
             if discarded > 0 {
-                state.draw_cards(you, discarded);
+                // Drawing is a later instruction: first settle the discarded
+                // cards' order, even if a draw will ask another question.
+                res.effects.insert(
+                    res.pc + 1,
+                    Effect::DrawCards {
+                        amount: baylee_cards_dsl::Amount::Fixed(discarded),
+                    },
+                );
             }
         }
         AwaitingOp::PickSeparator { .. } => {
@@ -2302,14 +2376,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             let rest: Vec<ObjectId> = looked.into_iter().filter(|c| !chosen.contains(c)).collect();
             if rest.len() > 1 {
                 res.awaiting = Some(AwaitingOp::BottomThenPlay { rest: rest.clone() });
-                return Flow::Wait(Pending::ChooseCards {
-                    player: res.controller,
-                    options: rest,
-                    min: 1,
-                    max: 1,
-                    prompt: ChoicePrompt::PutOnBottom,
-                    total: None,
-                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player: res.controller,
+                        options: rest,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::PutOnBottom,
+                        total: None,
+                    },
+                );
             }
             // One card left is the bottom card: the sentence puts one there
             // before it exiles any, so a library of two exiles nothing.
@@ -2343,7 +2422,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         }
         AwaitingOp::ChooseDrawn { life } => {
             if let Some(pending) = put_back_question(state, res, chosen.to_vec(), life) {
-                return Flow::Wait(pending);
+                return next_choice(state, res, since, pending);
             }
         }
         AwaitingOp::PayOrPutBack { cards, life } => {
@@ -2443,7 +2522,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 );
             }
             if let Some(pending) = one_per_type(state, res, revealed, next) {
-                return Flow::Wait(pending);
+                return next_choice(state, res, since, pending);
             }
         }
         AwaitingOp::CopyNewTargets { copy } => {
@@ -2472,7 +2551,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         }
         AwaitingOp::Equalize(selection) => {
             if let Some(pending) = equalize::resume(state, res, *selection, chosen) {
-                return Flow::Wait(pending);
+                return next_choice(state, res, since, pending);
             }
         }
         AwaitingOp::DiscardChain {
@@ -2505,14 +2584,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     count,
                     remaining,
                 });
-                return Flow::Wait(Pending::ChooseCards {
-                    player,
-                    options: hand,
-                    min: n,
-                    max: n,
-                    prompt: ChoicePrompt::Generic,
-                    total: None,
-                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options: hand,
+                        min: n,
+                        max: n,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
             }
         }
         AwaitingOp::DestroyChosen { filter, remaining } => {
@@ -2524,14 +2608,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
             {
                 res.awaiting = Some(AwaitingOp::DestroyChosen { filter, remaining });
-                return Flow::Wait(Pending::ChooseCards {
-                    player,
-                    options,
-                    min: 0,
-                    max: 1,
-                    prompt: ChoicePrompt::Generic,
-                    total: None,
-                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 0,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
             }
         }
         AwaitingOp::SacrificeFilter { filter, remaining } => {
@@ -2553,14 +2642,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
             {
                 res.awaiting = Some(AwaitingOp::SacrificeFilter { filter, remaining });
-                return Flow::Wait(Pending::ChooseCards {
-                    player,
-                    options,
-                    min: 1,
-                    max: 1,
-                    prompt: ChoicePrompt::Generic,
-                    total: None,
-                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
             }
         }
         AwaitingOp::ReturnChosen { filter, remaining } => {
@@ -2602,14 +2696,19 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
             {
                 res.awaiting = Some(AwaitingOp::ReturnChosen { filter, remaining });
-                return Flow::Wait(Pending::ChooseCards {
-                    player,
-                    options,
-                    min: 1,
-                    max: 1,
-                    prompt: ChoicePrompt::Generic,
-                    total: None,
-                });
+                return next_choice(
+                    state,
+                    res,
+                    since,
+                    Pending::ChooseCards {
+                        player,
+                        options,
+                        min: 1,
+                        max: 1,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    },
+                );
             }
         }
         AwaitingOp::UntapChosen => {
@@ -2628,7 +2727,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 let pending = run_nested_with(state, res, flatten(then), smallvec::smallvec![id]);
                 res.targeted = targeted;
                 if let Some(pending) = pending {
-                    return Flow::Wait(pending);
+                    return next_choice(state, res, since, pending);
                 }
             }
         }
@@ -2677,7 +2776,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 });
             }
         }
-        AwaitingOp::ReorderTopLibrary { .. }
+        AwaitingOp::GraveyardOrder { .. }
+        | AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
         | AwaitingOp::Scry { .. }
         | AwaitingOp::Surveil => {
@@ -2721,8 +2821,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             }
         }
     }
-    res.pc += 1;
-    run(state, res)
+    finish_choice(state, res, since)
 }
 
 /// Gives `player` permission to play `card` this turn, for the object it

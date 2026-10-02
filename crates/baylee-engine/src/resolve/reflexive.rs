@@ -52,6 +52,7 @@ pub(super) fn arm(
     let timestamp = state.object(res.source).map_or(0, |o| o.timestamp);
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
+            source_version: None,
             counter_source_version: None,
             event_mana: None,
             event_mana_value: None,

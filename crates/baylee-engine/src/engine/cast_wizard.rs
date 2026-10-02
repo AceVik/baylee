@@ -1997,7 +1997,9 @@ impl<L: CardLookup> Engine<L> {
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
         let mut sacrificed = wizard.sacrifices.iter();
         let mut sacrificed_mana_value = None;
+        let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in face.mandatory_additional_costs {
+            graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
             }
@@ -2051,6 +2053,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::ExileFromHand(_) => {}
             }
         }
+        graveyard_batch.finish(&mut self.state);
         // Move the card to the stack as a spell. The targeting requirement
         // rides along on the object: a copy of this spell may be retargeted
         // during resolution (CR 707.10c), and the resolver has no card lookup

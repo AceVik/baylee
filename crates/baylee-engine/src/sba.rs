@@ -26,11 +26,87 @@ pub struct SbaOutcome {
     pub commander_zone: Option<(PlayerId, baylee_core::ids::ObjectId)>,
 }
 
+/// A legend choice held until every choice for the simultaneous SBA event
+/// is made (CR 704.3). No permanent moves while these decisions are collected.
+#[derive(Clone, Debug, Hash)]
+pub(crate) struct LegendDecision {
+    player: PlayerId,
+    keep: baylee_core::ids::ObjectId,
+    options: Vec<baylee_core::ids::ObjectId>,
+}
+
+/// The next unanswered legend group, in APNAP order.
+fn legend_choice(state: &GameState) -> Option<(PlayerId, Vec<baylee_core::ids::ObjectId>)> {
+    for distance in 0..state.players.len() {
+        let seat = (usize::from(state.turn.active.get()) + distance) % state.players.len();
+        let player = PlayerId::new(seat as u8);
+        // Sakashima-style suppression: the legend rule doesn't apply to
+        // permanents this player controls.
+        let legend_off = state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
+                && fx.controller == player
+        });
+        if legend_off {
+            continue;
+        }
+        // Group by name in battlefield (zone) order — no HashMap: hash
+        // iteration order is build/platform-dependent, and this loop
+        // decides WHICH choice a player sees first when two legend pairs
+        // coexist, so it is part of the determinism contract.
+        let mut names: Vec<u32> = Vec::new();
+        let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
+        for id in state.battlefield_seen() {
+            let Some(obj) = state.object(id) else {
+                continue;
+            };
+            if obj.controller == player
+                && obj
+                    .characteristics()
+                    .supertypes
+                    .contains(SupertypeSet::LEGENDARY)
+                && obj.kind == ObjectKind::Permanent
+            {
+                let name = obj.characteristics().name.get();
+                if let Some(i) = names.iter().position(|&n| n == name) {
+                    groups[i].push(id);
+                } else {
+                    names.push(name);
+                    groups.push(vec![id]);
+                }
+            }
+        }
+        for mut group in groups {
+            if group.len() > 1 {
+                group.sort(); // deterministic option order (oldest slot first)
+                if !state
+                    .sba_legend_decisions
+                    .iter()
+                    .any(|decision| decision.player == player && decision.options == group)
+                {
+                    return Some((player, group));
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Runs one SBA pass over the state (CR 704.3 list, S2 subset):
 /// player losses, lethal damage, loyalty, legend rule, counter
 /// annihilation, token cleanup.
-#[allow(clippy::too_many_lines)] // the CR 704.3 list is naturally one long pass
 pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> SbaOutcome {
+    run_with_sagas(state, lookup, &[])
+}
+
+/// The engine supplies Saga decisions made against the same starting state,
+/// since its pending chapter triggers are engine continuation state.
+#[allow(clippy::too_many_lines)] // one simultaneous pass over the SBA list
+pub(crate) fn run_with_sagas(
+    state: &mut GameState,
+    lookup: &impl crate::state::CardLookup,
+    finished_sagas: &[baylee_core::ids::ObjectId],
+) -> SbaOutcome {
     let mut outcome = SbaOutcome::default();
 
     // --- Player losses (CR 704.5a-c) -----------------------------------
@@ -78,6 +154,28 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
             outcome.changed = true;
         }
     }
+
+    // Conceding while another choice is pending can remove an owner and
+    // their cards. Such a group must be asked again if it still exists.
+    state.sba_legend_decisions = core::mem::take(&mut state.sba_legend_decisions)
+        .into_iter()
+        .filter(|decision| {
+            decision.options.iter().all(|id| {
+                state.object(*id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller == decision.player
+                })
+            })
+        })
+        .collect();
+    if let Some(choice) = legend_choice(state) {
+        outcome.legend_choice = Some(choice);
+        return outcome;
+    }
+
+    // All SBAs in a pass see the same starting attachments. A host that
+    // dies in this pass only makes its formerly legal Aura fall off in the
+    // next pass; those two arrivals are not simultaneous (CR 704.3).
+    let attachments = attachment_sbas(state, lookup);
 
     // --- Lethal damage / zero toughness (CR 704.5f-h) -------------------
     for id in state.battlefield_view() {
@@ -133,7 +231,7 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
     }
 
     // --- Attachments (CR 704.5m-p) --------------------------------------
-    outcome.changed |= run_attachment_sbas(state, lookup);
+    outcome.changed |= apply_attachment_sbas(state, attachments);
 
     // --- +1/+1 vs -1/-1 annihilation (CR 704.5q) -------------------------
     // That pair and no other. `CounterKind` says every +X/+Y counter in one
@@ -159,50 +257,27 @@ pub fn run(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> Sba
         }
     }
 
-    // --- Legend rule (CR 704.5j) ----------------------------------------
-    for seat in 0..state.players.len() {
-        let player = PlayerId::new(seat as u8);
-        // Sakashima-style suppression: the legend rule doesn't apply to
-        // permanents this player controls.
-        let legend_off = state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
-                && fx.controller == player
-        });
-        if legend_off {
-            continue;
-        }
-        // Group by name in battlefield (zone) order — no HashMap: hash
-        // iteration order is build/platform-dependent, and this loop
-        // decides WHICH choice a player sees first when two legend pairs
-        // coexist, so it is part of the determinism contract.
-        let mut names: Vec<u32> = Vec::new();
-        let mut groups: Vec<Vec<baylee_core::ids::ObjectId>> = Vec::new();
-        for id in state.battlefield_seen() {
-            let Some(obj) = state.object(id) else {
-                continue;
-            };
-            if obj.controller == player
-                && obj
-                    .characteristics()
-                    .supertypes
-                    .contains(SupertypeSet::LEGENDARY)
-                && obj.kind == ObjectKind::Permanent
+    // Every legend decision was made against this pass's starting state.
+    // A chosen survivor can also die to a different SBA in this same pass.
+    for decision in core::mem::take(&mut state.sba_legend_decisions) {
+        for id in decision.options {
+            if id != decision.keep
+                && state
+                    .object(id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
             {
-                let name = obj.characteristics().name.get();
-                if let Some(i) = names.iter().position(|&n| n == name) {
-                    groups[i].push(id);
-                } else {
-                    names.push(name);
-                    groups.push(vec![id]);
-                }
+                put_into_graveyard(state, id);
+                outcome.changed = true;
             }
         }
-        for mut group in groups {
-            if group.len() > 1 {
-                group.sort(); // deterministic option order (oldest slot first)
-                outcome.legend_choice = Some((player, group));
-                return outcome; // interrupt: player choice resolves first
-            }
+    }
+    for &id in finished_sagas {
+        if state
+            .object(id)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        {
+            put_into_graveyard(state, id);
+            outcome.changed = true;
         }
     }
 
@@ -379,9 +454,14 @@ fn enchant_restriction(
 /// attaches it to a creature — so the two are asked differently and answered
 /// differently, which is why the counter-test matters more than the test:
 /// both sit on the same illegal host, and only one of them is destroyed.
-fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLookup) -> bool {
+fn attachment_sbas(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+) -> (
+    Vec<baylee_core::ids::ObjectId>,
+    Vec<baylee_core::ids::ObjectId>,
+) {
     use baylee_core::types::TypeSet as T;
-    let mut changed = false;
     let mut falling_off = Vec::new();
     let mut unattaching = Vec::new();
     for id in state.battlefield_seen() {
@@ -475,7 +555,24 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
             unattaching.push(id);
         }
     }
+    (falling_off, unattaching)
+}
+
+fn apply_attachment_sbas(
+    state: &mut GameState,
+    (falling_off, unattaching): (
+        Vec<baylee_core::ids::ObjectId>,
+        Vec<baylee_core::ids::ObjectId>,
+    ),
+) -> bool {
+    let mut changed = false;
     for id in falling_off {
+        if state
+            .object(id)
+            .is_none_or(|obj| obj.zone != crate::zone::Zone::Battlefield)
+        {
+            continue;
+        }
         put_into_graveyard(state, id);
         changed = true;
     }
@@ -492,8 +589,8 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
     changed
 }
 
-/// Applies a legend-rule choice (the kept object survives, the rest go to
-/// the graveyard).
+/// Records a legend-rule choice; the next pass applies every answered
+/// group together with all other applicable SBAs (CR 704.3).
 pub fn apply_legend_choice(
     state: &mut GameState,
     player: PlayerId,
@@ -501,12 +598,11 @@ pub fn apply_legend_choice(
     options: &[baylee_core::ids::ObjectId],
 ) {
     debug_assert!(options.contains(&keep));
-    let _ = player;
-    for &id in options {
-        if id != keep {
-            put_into_graveyard(state, id);
-        }
-    }
+    state.sba_legend_decisions.push(LegendDecision {
+        player,
+        keep,
+        options: options.to_vec(),
+    });
 }
 
 /// Destroys a permanent (CR 701.8a), unless it can't be.
@@ -959,6 +1055,71 @@ mod tests {
         }
     }
 
+    #[test]
+    fn graveyard_order_combines_all_legend_choices_lethal_and_finished_sagas() {
+        let mut state = GameState::from_preset(&two_legend_pairs_preset(713), &RegistryLookup)
+            .expect("two legend pairs");
+        let owner = PlayerId::new(0);
+        state.graveyard_order.enabled = true;
+        let keep_dying = state.zones.list(ZoneLocation::Battlefield)[0];
+        state.object_mut(keep_dying).expect("first legend").damage = u16::MAX;
+        let extra: Vec<_> = state.zones.list(ZoneLocation::Library(owner))[..2].to_vec();
+        for &card in &extra {
+            state
+                .move_object(
+                    card,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        }
+        let dying = state.object_mut(extra[0]).expect("lethal creature");
+        dying.kind = ObjectKind::Permanent;
+        dying.base_mut().types = TypeSet::CREATURE;
+        dying.base_mut().toughness = Some(0);
+        let finished = &[extra[1]];
+        let since = state.journal.last_seq();
+        let first = run_with_sagas(&mut state, &RegistryLookup, finished);
+        let (player, first_group) = first.legend_choice.expect("choose first legend group");
+        assert!(
+            first_group.contains(&keep_dying),
+            "even a dying legend is part of this pass's choice"
+        );
+        assert!(!first.changed);
+        assert!(state.zones.list(ZoneLocation::Graveyard(owner)).is_empty());
+        let before = state.snapshot_hash();
+        apply_legend_choice(&mut state, player, keep_dying, &first_group);
+        assert_ne!(
+            state.snapshot_hash(),
+            before,
+            "a deferred choice is part of the snapshot"
+        );
+        let second = run_with_sagas(&mut state, &RegistryLookup, finished);
+        let (player, second_group) = second.legend_choice.expect("choose second legend group");
+        assert!(!second.changed);
+        assert!(state.zones.list(ZoneLocation::Graveyard(owner)).is_empty());
+        apply_legend_choice(&mut state, player, second_group[0], &second_group);
+        let complete = run_with_sagas(&mut state, &RegistryLookup, finished);
+        assert!(complete.changed);
+        assert!(complete.legend_choice.is_none());
+        assert!(state.sba_legend_decisions.is_empty());
+        crate::graveyard_order::capture(&mut state, since);
+        let Some(crate::choice::Pending::Arrange { cards, .. }) =
+            crate::graveyard_order::pending(&mut state)
+        else {
+            panic!("one simultaneous graveyard order");
+        };
+        assert_eq!(
+            cards.len(),
+            5,
+            "both first legends, second legend, lethal creature and finished Saga"
+        );
+        assert!(cards.contains(&keep_dying));
+        assert!(cards.contains(&extra[0]));
+        assert!(cards.contains(&extra[1]));
+    }
+
     /// CR 704.5d, now driven by a recorded candidate instead of a scan of
     /// the whole arena. The pass has to keep finding the token *and* keep
     /// its hands off the two card-less objects that legitimately live
@@ -1033,6 +1194,97 @@ mod tests {
             .first()
             .expect("the aura is in play");
         (state, aura)
+    }
+
+    fn graveyard_aura_host() -> (
+        GameState,
+        baylee_core::ids::ObjectId,
+        baylee_core::ids::ObjectId,
+    ) {
+        let mut preset = empty_boards_preset(404);
+        preset.seats[0].starting_battlefield = vec![
+            entry(flight()),
+            entry(card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")),
+        ];
+        let mut state = GameState::from_preset(&preset, &RegistryLookup).expect("Flight and Bears");
+        state.graveyard_order.enabled = true;
+        let aura = state.zones.list(ZoneLocation::Battlefield)[0];
+        let host = state.zones.list(ZoneLocation::Battlefield)[1];
+        attach(&mut state, aura, host);
+        state.object_mut(host).expect("Grizzly Bears").damage = 2;
+        (state, aura, host)
+    }
+
+    #[test]
+    fn graveyard_aura_follows_a_dying_host_in_a_later_sba_pass() {
+        let (mut state, aura, host) = graveyard_aura_host();
+        let owner = PlayerId::new(0);
+        let since = state.journal.last_seq();
+        assert!(run(&mut state, &RegistryLookup).changed);
+        crate::graveyard_order::capture(&mut state, since);
+        assert!(
+            on_battlefield(&state, aura),
+            "the Aura was legally attached at this pass's start"
+        );
+        assert_eq!(state.zones.list(ZoneLocation::Graveyard(owner)), &[host]);
+        assert!(crate::graveyard_order::pending(&mut state).is_none());
+
+        let since = state.journal.last_seq();
+        assert!(run(&mut state, &RegistryLookup).changed);
+        crate::graveyard_order::capture(&mut state, since);
+        assert_eq!(
+            state.zones.list(ZoneLocation::Graveyard(owner)),
+            &[host, aura],
+            "the Aura arrives later, so it is above its former host"
+        );
+        assert!(
+            crate::graveyard_order::pending(&mut state).is_none(),
+            "separate SBA passes give no choice to reverse these two cards"
+        );
+    }
+
+    #[test]
+    fn graveyard_an_already_illegal_aura_and_dying_host_can_be_ordered_together() {
+        let (mut state, aura, host) = graveyard_aura_host();
+        let owner = PlayerId::new(0);
+        // Protection already makes Flight illegal when this pass starts;
+        // its host independently has lethal damage in that same state.
+        let modifier = baylee_cards_dsl::Modifier::ProtectionFrom(&baylee_cards_dsl::Filter::Any);
+        let filter = crate::effects::EffectFilter::object(&state, host);
+        let timestamp = state.next_timestamp();
+        state.effects.register(crate::effects::ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: None,
+            controller: owner,
+            origin: crate::effects::EffectOrigin::Resolution,
+            layer: modifier.layer(),
+            timestamp,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            filter,
+            modifier,
+        });
+        let since = state.journal.last_seq();
+        assert!(run(&mut state, &RegistryLookup).changed);
+        crate::graveyard_order::capture(&mut state, since);
+        let Some(crate::choice::Pending::Arrange {
+            player,
+            cards,
+            piles,
+            ..
+        }) = crate::graveyard_order::pending(&mut state)
+        else {
+            panic!("one simultaneous order choice");
+        };
+        assert_eq!(player, owner);
+        assert_eq!(cards.len(), 2);
+        assert!(cards.contains(&aura) && cards.contains(&host));
+        assert!(piles[0].ordered);
+        crate::graveyard_order::answer(&mut state, &[host, aura]);
+        assert_eq!(
+            state.zones.list(ZoneLocation::Graveyard(owner)),
+            &[aura, host],
+            "the owner can put the host above the Aura when both died together"
+        );
     }
 
     /// A permanent of exactly these types and subtypes, controlled by seat 0.

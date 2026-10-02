@@ -23,9 +23,8 @@ pub enum ArrangePlace {
     /// will lie.
     LibraryBottom,
     /// Into each card's owner's graveyard — a surveil's other pile
-    /// (CR 701.25a). Cards put there together arrive in the order listed,
-    /// but the rule gives the player no order to choose, so a graveyard pile
-    /// is never an ordered one.
+    /// (CR 701.25a), or a simultaneous arrival's order (CR 404.3).
+    /// An ordered graveyard pile is listed top to bottom, newest first.
     Graveyard,
 }
 
@@ -58,8 +57,8 @@ impl ArrangePile {
     }
 
     /// A pile that may take any number of `n` cards: one half of a scry or
-    /// a surveil. Ordered unless it is a graveyard, which is the one place
-    /// the rules give no order to choose.
+    /// a surveil. A surveil's graveyard selection is unordered here;
+    /// when order matters, its owner orders that arrival batch separately.
     #[must_use]
     pub const fn up_to(place: ArrangePlace, n: u32) -> Self {
         Self {

@@ -1375,6 +1375,7 @@ mod tests {
             effects: &GREEN,
             targets: None,
             second_targets: None,
+            zone: baylee_cards_dsl::TriggerZone::Battlefield,
             once_per_turn: false,
             condition: None,
         };

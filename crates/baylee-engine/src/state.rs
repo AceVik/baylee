@@ -698,6 +698,10 @@ pub struct GameState {
     pub arena: Arena<GameObject>,
     /// Ordered zone contents.
     pub zones: Zones,
+    /// Choices owed for simultaneous graveyard arrivals.
+    pub(crate) graveyard_order: crate::graveyard_order::Ordering,
+    /// Legend decisions waiting for their simultaneous SBA pass.
+    pub(crate) sba_legend_decisions: Vec<crate::sba::LegendDecision>,
     /// Seats in turn order.
     pub players: Vec<Player>,
     /// Turn bookkeeping.
@@ -1076,6 +1080,8 @@ impl GameState {
         let GameState {
             arena,
             zones,
+            graveyard_order,
+            sba_legend_decisions,
             players,
             turn,
             combat,
@@ -1136,6 +1142,11 @@ impl GameState {
         out.extend([
             ("state.arena", heavy(arena)),
             ("state.zones", format!("{zones:?}")),
+            ("state.graveyard_order", format!("{graveyard_order:?}")),
+            (
+                "state.sba_legend_decisions",
+                format!("{sba_legend_decisions:?}"),
+            ),
             ("state.players", format!("{players:?}")),
             ("state.turn", format!("{turn:?}")),
             ("state.combat", format!("{combat:?}")),
@@ -1399,6 +1410,8 @@ impl GameState {
             turn: TurnInfo::new(PlayerId::new(0)),
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
+            graveyard_order: crate::graveyard_order::Ordering::default(),
+            sba_legend_decisions: Vec::new(),
             delayed: Vec::new(),
             counter_links: Vec::new(),
             ltb_versions: Vec::new(),
@@ -1672,6 +1685,7 @@ impl GameState {
         let def = lookup
             .card(entry.card)
             .ok_or(SetupError::UnknownCard(entry.card))?;
+        self.graveyard_order.enabled |= crate::graveyard_order::card_reads_order(def);
         let base = self.card_base(def, entry.card);
         let card = CardRef {
             index: entry.card,
@@ -3373,6 +3387,8 @@ impl GameState {
         let Self {
             arena,
             zones,
+            graveyard_order,
+            sba_legend_decisions,
             players,
             turn,
             combat,
@@ -3438,6 +3454,8 @@ impl GameState {
         let mut h = Hasher::new();
         h.u64(*timestamp);
         h.u64(*characteristics_generation);
+        graveyard_order.hash(&mut h);
+        sba_legend_decisions.hash(&mut h);
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
@@ -4323,6 +4341,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             }
             Rider::CounterSourceVersion(version) => {
                 h.u8(18);
+                version.hash(h);
+            }
+            Rider::TriggerSourceVersion(version) => {
+                h.u8(20);
                 version.hash(h);
             }
             Rider::Rebound => h.u8(2),

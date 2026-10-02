@@ -2542,3 +2542,34 @@ land type"; both are convention tests that fire on a first try.
 - Official rules text checked: CR 205.1b, 208.3, 613.4, 613.6, 613.8 in the
   September 25 rules. WotC rulings were read from the Scryfall endpoint for
   `63aec27b-8cda-46c2-9f4f-9ebe98dffe2e`. The corpus was only a lookup reference.
+
+## Alpha Nether Shadow (Codex + Astra xhigh, 2026-10-02)
+
+- **A graveyard-count condition needs real ordering choices.** Counting vector
+  positions is insufficient when a mass destruction spell or sacrifice cost
+  puts several cards there together. CR 404.3 gives that choice to their owner,
+  who may differ from the controller choosing which cards to sacrifice.
+- **Zone membership does not establish identity.** A source exiled and returned
+  to the same graveyard is a new incarnation. Tests must restore the numerical
+  condition too, otherwise an intervening-if failure hides the identity bug.
+- **Use a real response and real mass removal.** Scavenging Ooze removes one of
+  the three required creature cards while the trigger waits. Wrath destroys
+  four creatures; its own card must go above them only after their order has
+  been chosen. A subsequent upkeep proves the chosen order affects gameplay.
+- Astra `xhigh` handled the engine jobs; GPT-6.1 Sol `medium` reviewed the card,
+  rules and coverage independently. The first review found missing cost-payment
+  capture and SBA batching across legend choices, plus finished Saga sacrifices.
+  Targeted regressions cover these paths and nested optional effects before the
+  broad integration gate. Cargo jobs are serialized across agents.
+- **A whole cost transaction is not one simultaneous instruction.** Capture
+  contiguous sacrifice or discard parts together, preserving multi-card costs
+  such as Time Sieve and Great Hall of Starnheim, but close the group at a
+  different cost kind. Do not mistake Great Hall's single "sacrifice this land
+  and a creature" instruction for two independent costs.
+- **Preselect SBA choices, then apply the event.** Resolving legend choices
+  after lethal creatures have already died creates a false second event. A
+  creature selected to remain under the legend rule can still die to lethal
+  damage in that same check. Multiple legend groups belong to the same pass.
+- Read official CR 404.3, 704.3 and 113.6b/m in the September 25 rules, plus
+  WotC rulings through Scryfall for `11988c46-6d0c-46a8-85aa-8c6da72bfe30`.
+  The corpus was used as a lookup reference only.

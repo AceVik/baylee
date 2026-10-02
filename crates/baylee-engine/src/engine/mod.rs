@@ -950,6 +950,11 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra.wrapping_mul(31).wrapping_add(
+                trigger
+                    .source_version
+                    .map_or(0, |version| u64::from(version) + 1),
+            );
             extra =
                 extra
                     .wrapping_mul(31)
@@ -1584,6 +1589,8 @@ mod enter_tests;
 mod fight_tests;
 #[cfg(test)]
 mod flashback_tests;
+#[cfg(test)]
+mod graveyard_order_tests;
 #[cfg(test)]
 mod requirements_tests;
 #[cfg(test)]

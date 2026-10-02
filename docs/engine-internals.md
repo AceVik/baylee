@@ -1645,3 +1645,37 @@ resolution's `CreateContinuousEffect` registers one. A search is never taken
 over by a player who has left. A card put onto the battlefield "under your
 control" by a leaver's resolution stays where it is. Tokens and copies of
 spells were closed by #278.
+
+## Graveyard triggers and card order
+
+Nether Shadow uses a graveyard-active trigger, distinct from a battlefield
+ability that observes a death. `TriggerZone::Graveyard` collects from the
+owner's graveyard, with the owner as controller. Permanent-only trigger
+multipliers do not apply. The source's zone-change version travels through
+the pending trigger and stack rider; both the intervening condition and a
+`ThisObject` return reject a different incarnation, even at the same object id.
+
+Graveyard vectors store bottom first. `GraveyardCardsAbove` counts matching
+cards after the source; tokens and spell copies are not cards. When a
+participating card definition can read this order, `graveyard_order::capture`
+records simultaneous arrivals grouped by owner. Owners answer in APNAP order
+using the existing ordered `ArrangePlace::Graveyard` pile: **first card on top**.
+Reordering changes neither zone-change versions nor the zone-change journal.
+Games without an order-sensitive participating definition need no extra prompt.
+
+Capture boundaries are effect instructions, completed choice instructions,
+simultaneous payment groups and state-based-action passes. The current cost DSL
+represents one multi-card sacrifice or discard by contiguous parts of that
+kind; a different cost kind closes the group. Distinct discard and sacrifice
+instructions therefore do not become one ordering choice. The queue and
+staged legend choices are part of checkpoints and fingerprints. A failed
+payment rolls back its arrivals and queue. Resolutions drain payment order
+before their first effect and preserve nested continuations around an ordering
+question. In particular, Wrath of God stays on the stack while the owner
+orders destroyed creatures; the spell enters the graveyard afterwards.
+
+Legend choices are selected before applying the SBA pass. Lethal creatures,
+legend-rule deaths and finished Sagas from that same check share one event
+(CR 704.3); an Aura that becomes illegal only because its host just died is
+handled in the next pass. This is necessary for the owner's order choice
+under CR 404.3, not just for a deterministic insertion order.

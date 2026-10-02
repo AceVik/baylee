@@ -727,6 +727,8 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
+    /// Incarnation of the graveyard card whose printed ability triggered.
+    TriggerSourceVersion(u32),
     /// The source incarnation captured by a linked-counter ability.
     CounterSourceVersion(u32),
     /// Exiled by another object, which finds it again as a card "exiled
@@ -866,7 +868,8 @@ impl Rider {
             | Self::Foretold
             | Self::Plotted => true,
             // About the stack or the battlefield, not exile.
-            Self::CounterSourceVersion(_)
+            Self::TriggerSourceVersion(_)
+            | Self::CounterSourceVersion(_)
             | Self::Flashback
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
