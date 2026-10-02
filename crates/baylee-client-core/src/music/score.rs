@@ -153,7 +153,7 @@ impl Tune {
         if self.ending_bars > 0 {
             let i = usize::from(4 - self.ending_bars);
             return match self.mood {
-                Mood::Victory => [(58, 4), (60, 4), (57, 4), (62, 4)][i],
+                Mood::Victory => [(62, 4), (55, 4), (57, 4), (62, 4)][i],
                 Mood::Defeat => [(62, 3), (55, 3), (57, 4), (62, 3)][i],
                 _ => [(58, 4), (60, 4), (62, 5), (62, 3)][i],
             };
@@ -176,6 +176,10 @@ impl Tune {
     }
 
     fn schedule(&mut self) {
+        if self.mood.ending() {
+            self.schedule_ending();
+            return;
+        }
         let (root, third) = self.chord();
         let phrase = (self.bar % 32) as usize;
         let arc = 0.72 + 0.28 * (std::f32::consts::PI * (phrase % 8) as f32 / 8.0).sin();
@@ -185,26 +189,81 @@ impl Tune {
         self.percussion(root, third);
     }
 
+    /// Outcomes have their own orchestration and phrase, independent of the
+    /// sanctuary's current piano pattern and the battle's accumulated energy.
+    fn schedule_ending(&mut self) {
+        let (root, third) = self.chord();
+        let t = self.tick;
+        let victory = self.mood == Mood::Victory;
+        let cadence = self.ending_bars > 0;
+        if t == 0 {
+            let gain = if cadence && victory { 0.22 } else { 0.10 };
+            self.play(2, root - 12, 11.5, gain, 0.2);
+            self.play(1, root + third, 11.0, gain * 0.45, -0.2);
+            self.play(0, root + 7, 10.5, gain * 0.45, -0.4);
+        }
+        if !cadence {
+            if t == 0 && self.bar.is_multiple_of(4) {
+                self.piano(root + third, 14.0, 0.10, 0.18);
+            }
+            return;
+        }
+        if victory {
+            // D–G–A–D, with an ascending brass statement, a dominant answer
+            // and a high tonic arrival: original notes, existing licensed samples.
+            let bar = usize::from(4 - self.ending_bars);
+            let melody = [
+                [74, 78, 81, 86],
+                [83, 81, 79, 83],
+                [73, 76, 81, 79],
+                [78, 81, 86, 86],
+            ];
+            if t.is_multiple_of(3) {
+                let pitch = melody[bar][usize::from(t / 3)];
+                self.play(9, pitch - 12, 2.8, 0.28, 0.18);
+                self.play(0, pitch, 2.7, 0.085, -0.3);
+                self.piano(pitch, 4.0, 0.16, 0.78);
+            }
+            if t.is_multiple_of(2) {
+                let degree = [0, 7, third, 7, 12, 7][usize::from(t / 2)];
+                self.play(3, root + degree, 0.85, 0.11, -0.45);
+            }
+            if t == 0 || t == 6 {
+                self.play(11, root - if t == 0 { 24 } else { 17 }, 3.0, 0.24, 0.0);
+            }
+            if t == 0 && (bar == 0 || bar == 3) {
+                self.play(14, 60, 10.0, 0.085, 0.3);
+            }
+        } else if t == 0 || t == 6 {
+            // Defeat withdraws into low piano and a descending cello answer;
+            // draw holds an open fifth. Neither inherits celebratory brass,
+            // percussion or the busy arpeggios of the normal score.
+            let degree = if t == 0 || self.mood == Mood::Draw {
+                7
+            } else {
+                third
+            };
+            self.piano(root + degree, 8.0, 0.15, 0.18);
+            self.play(2, root - 12 + degree, 5.5, 0.085, 0.25);
+        }
+    }
+
     fn foundation(&mut self, root: u8, third: u8, arc: f32) {
         let t = self.tick;
         let phrase = (self.bar % 32) as usize;
         let e = self.energy;
         let battle = self.mood == Mood::Battle;
         // Inversions make a bass melody instead of jumping root to root.
-        let bass = if self.mood.ending() {
-            root - 12
-        } else {
-            BASSES[phrase]
-        };
+        let bass = BASSES[phrase];
         if t == 0 {
             self.play(2, bass, 11.8, 0.20 * arc, 0.22);
             self.play(1, root + third, 11.4, 0.085 * arc, -0.12);
             self.play(0, root + 7, 10.8, 0.09 * arc, -0.42);
             // A soft ninth expands the harmony; dominant A stays pointed and clear.
-            if root != 57 && !self.mood.ending() {
+            if root != 57 {
                 self.play(0, root + 14, 8.5, 0.035 * arc, 0.38);
             }
-            if battle || self.mood == Mood::Victory {
+            if battle {
                 self.play(
                     if e > 0.7 { 9 } else { 8 },
                     root,
@@ -214,7 +273,7 @@ impl Tune {
                 );
             }
         }
-        if t == 6 && phrase % 4 >= 2 && !self.mood.ending() {
+        if t == 6 && phrase % 4 >= 2 {
             let next = BASSES[(phrase + 1) % 32];
             let step = if next > bass {
                 bass + 2
@@ -224,7 +283,7 @@ impl Tune {
             self.play(2, step, 5.7, 0.09 * arc, 0.24);
         }
         // Harp answers the piano on offbeats; it no longer doubles every attack.
-        if (t == 3 || t == 9) && (!self.mood.ending() || self.ending_bars > 0) {
+        if t == 3 || t == 9 {
             let pitch = root + if t == 3 { 7 } else { 12 + third };
             self.play(if pitch < 70 { 6 } else { 7 }, pitch, 5.0, 0.10 * arc, -0.3);
         }
@@ -234,19 +293,8 @@ impl Tune {
         let t = self.tick;
         let phrase = (self.bar % 32) as usize;
         let e = self.energy;
-        let ending = self.mood.ending();
-        if ending && self.ending_bars == 0 {
-            if self.bar.is_multiple_of(4) && t == 0 {
-                self.piano(root, 14.0, 0.16, 0.18);
-                self.piano(root + 7, 14.0, 0.10, 0.15);
-            }
-            return;
-        }
-        let bass = if ending {
-            root - 24
-        } else {
-            BASSES[phrase] - 12
-        };
+        let arc = arc * if self.mood == Mood::Battle { 0.68 } else { 1.0 };
+        let bass = BASSES[phrase] - 12;
         let touch = (0.22 + 0.15 * arc + 0.48 * e).min(1.0);
         if t == 0 || t == 6 {
             self.piano(
@@ -284,13 +332,13 @@ impl Tune {
             self.piano(pitch, 5.2, 0.17 * arc * accent, touch);
         }
         // Suspension resolves within the bar; late phrases grow wider, not just louder.
-        if t == 1 && phrase % 4 == 2 && !ending {
+        if t == 1 && phrase % 4 == 2 {
             self.piano(root + 5, 2.0, 0.085 * arc, touch * 0.8);
         }
-        if t == 4 && phrase % 4 == 2 && !ending {
+        if t == 4 && phrase % 4 == 2 {
             self.piano(root + third, 5.0, 0.10 * arc, touch * 0.8);
         }
-        if t == 10 && phrase % 8 >= 6 && !ending {
+        if t == 10 && phrase % 8 >= 6 {
             self.piano(root + 19, 4.2, 0.08 * arc, touch * 0.72);
         }
     }
@@ -299,66 +347,54 @@ impl Tune {
         let t = self.tick;
         let phrase = (self.bar % 32) as usize;
         let e = self.energy;
-        if !self.mood.ending() {
-            let (pitch, length) = MELODY[phrase][usize::from(t)];
-            if pitch > 0 {
-                // The piano carries the theme in every state. Horns answer only
-                // at the peak of battle, leaving its transients and phrasing clear.
-                self.piano(
-                    pitch,
-                    f32::from(length) + 2.0,
-                    0.27 * arc + e * 0.035,
-                    0.36 + e * 0.5,
-                );
-                if self.mood == Mood::Battle && e > 0.55 && t.is_multiple_of(6) {
-                    self.play(8, pitch - 12, f32::from(length) * 0.9, 0.10 * e, 0.18);
-                }
-            } else if phrase < 4 && (t == 2 || t == 8) {
-                self.piano(
-                    root + if t == 2 { 7 } else { 12 + third },
-                    6.5,
-                    0.18 * arc,
-                    0.24,
-                );
-            }
-            // Contrary-motion cello/viola dialogue develops on alternate cycles.
-            if phrase % 8 >= 4 && (t == 3 || t == 9) {
-                let degree = if t == 3 { 7 } else { third };
-                self.play(
-                    if (self.bar / 32).is_multiple_of(2) {
-                        2
-                    } else {
-                        1
-                    },
-                    root + degree,
-                    4.4,
-                    0.105 * arc,
-                    0.32,
-                );
-            }
-            if phrase % 8 == 7 && t == 10 {
-                self.piano(CHORDS[(phrase + 1) % 32].0 + 7, 3.0, 0.105, 0.32);
-            }
-        } else if self.ending_bars > 0 && (t == 0 || t == 6) {
-            let rise = 4 - self.ending_bars;
-            let pitch = match self.mood {
-                Mood::Victory => root + if t == 0 { 7 } else { 12 + third },
-                Mood::Defeat => root + if t == 0 { 7 } else { third },
-                _ => root + if rise < 2 { 7 } else { 12 },
-            };
+        let (pitch, length) = MELODY[phrase][usize::from(t)];
+        if pitch > 0 {
+            // Battle passes the melody to horns; the piano remains an
+            // articulated support rather than masking the brass attacks.
             self.piano(
                 pitch,
-                8.0,
-                0.25,
-                if self.mood == Mood::Victory {
-                    0.65
+                f32::from(length) + 2.0,
+                if self.mood == Mood::Battle {
+                    0.16 * arc
                 } else {
-                    0.23
+                    0.27 * arc
                 },
+                0.36 + e * 0.5,
             );
-            if self.mood == Mood::Victory {
-                self.play(8, pitch - 12, 5.5, 0.13, 0.2);
+            if self.mood == Mood::Battle {
+                self.play(
+                    if e > 0.65 { 9 } else { 8 },
+                    pitch - 12,
+                    f32::from(length) * 0.9,
+                    0.16 + 0.12 * e,
+                    0.18,
+                );
             }
+        } else if phrase < 4 && (t == 2 || t == 8) {
+            self.piano(
+                root + if t == 2 { 7 } else { 12 + third },
+                6.5,
+                0.18 * arc,
+                0.24,
+            );
+        }
+        // Contrary-motion cello/viola dialogue develops on alternate cycles.
+        if phrase % 8 >= 4 && (t == 3 || t == 9) {
+            let degree = if t == 3 { 7 } else { third };
+            self.play(
+                if (self.bar / 32).is_multiple_of(2) {
+                    2
+                } else {
+                    1
+                },
+                root + degree,
+                4.4,
+                0.105 * arc,
+                0.32,
+            );
+        }
+        if phrase % 8 == 7 && t == 10 {
+            self.piano(CHORDS[(phrase + 1) % 32].0 + 7, 3.0, 0.105, 0.32);
         }
     }
 
@@ -366,14 +402,13 @@ impl Tune {
         let t = self.tick;
         let e = self.energy;
         let battle = self.mood == Mood::Battle;
-        if t == 0 && ((battle && e > 0.25) || (self.ending_bars == 4 && self.mood == Mood::Victory))
-        {
+        if t == 0 && battle && e > 0.08 {
             self.play(11, root - 24, 4.0, 0.12 + e * 0.22, 0.0);
-            if self.bar.is_multiple_of(4) || self.mood.ending() {
+            if self.bar.is_multiple_of(4) {
                 self.play(14, 60, 10.0, 0.045 + e * 0.07, 0.3);
             }
         }
-        if battle && e > 0.18 && (t.is_multiple_of(2) || e > 0.78) {
+        if battle && (t.is_multiple_of(2) || e > 0.78) {
             let pitch = root + [0, 7, 12, 7, third, 7][usize::from(t) % 6];
             self.play(
                 3 + ((self.bar + u64::from(t)) % 2) as usize,
@@ -944,6 +979,7 @@ mod tests {
     }
     #[test]
     fn every_orchestration_is_finite_audible_and_leaves_headroom() {
+        let mut outcome_power = [0.0; 2];
         for mood in [
             Mood::Sanctuary,
             Mood::Battle,
@@ -972,7 +1008,16 @@ mod tests {
             assert!((0.015..0.80).contains(&peak));
             assert!(rms > 0.003 && rms < 0.22);
             assert!(jump < 0.20);
+            match mood {
+                Mood::Victory => outcome_power[0] = rms,
+                Mood::Defeat => outcome_power[1] = rms,
+                _ => {}
+            }
         }
+        assert!(
+            outcome_power[0] > outcome_power[1] * 1.5,
+            "the brass victory must contrast audibly with the quiet defeat: {outcome_power:?}"
+        );
     }
     #[test]
     fn invalid_energy_cannot_poison_the_audio_clock() {

@@ -139,7 +139,8 @@ impl Plugin for LobbyPlugin {
             // (a button warming under the pointer) has written it first.
             .add_systems(
                 PostUpdate,
-                front::fade_front.run_if(in_state(DuelPhase::Closed)),
+                (front::fade_front, front::fade_primary_surfaces)
+                    .run_if(in_state(DuelPhase::Closed)),
             )
             .add_systems(
                 Update,

@@ -8360,3 +8360,19 @@ shared with the hit regions. Small windows and ring tables retain their
 framing. General HUD/lobby type is ten percent larger through the shared
 Alegreya Sans/Faustina scales; menu width, hand-tool reservations and stack
 text budgets follow the increase. Life totals continue fitting all digits.
+
+
+### Login transition and score follow-up, 2 October 2026
+
+Primary button shader surfaces now follow the front-panel fade. An individual
+surface acquires its own material only when it first fades; the shared
+resting material stays unchanged. Reversing the passage restores opacity
+from the original alpha rather than compounding it. This removes the solid
+blue/gray bars that remained after the button's text and frame disappeared.
+
+Battle hands the melody to horns, reduces the piano accompaniment and brings
+in a bowed pulse and timpani even during restrained play. Outcomes have
+dedicated orchestration: an ascending brass fanfare over D–G–A–D for victory,
+quiet descending cello/piano for defeat, open fifths for a draw. No outcome
+reuses the sanctuary's current arpeggio pattern. The continuous clock, tails,
+bar-boundary changes and four-bar cadence completion remain intact.

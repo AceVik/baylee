@@ -531,3 +531,47 @@ Evidence: /private/tmp/baylee-framing-{row.json,crowded.png,abilities.png,menu.p
 /private/tmp/baylee-framing-tests-final.log and baylee-framing-clippy.log.
 No push or deployment. Login/music and Windows Vulkan visual verification
 remain; Alpha follows those feedback items.
+
+
+Milestone 8a5cddda committed. The service confirmed 01a0e8fb as resolved:
+23 of the original 25 reports are resolved. Two remain: login/music and
+Windows sky/table. The current follow-up reproduces the login bars as
+primary button shader surfaces that ignore panel alpha, not text input data.
+
+
+### Login/music milestone
+
+Reproduced the solid transition bar natively, paused at 5% clock speed.
+Its source was the primary-button shader's hardcoded alpha 1.0, combined
+with a shared material outside the existing text/frame fade. Shader opacity
+now follows the panel through a per-surface material cloned once on first
+fade. A regression checks both panels, unchanged shared material, bounded
+clone count and reversing the passage. Before/after/reverse screenshots:
+/private/tmp/baylee-login-{before-late,after-late,after-reverse}.png. The opaque
+bar is gone in the same intermediate phase.
+
+Battle now foregrounds horns with quieter piano accompaniment and an
+ostinato/timpani pulse at low activity. Victory has its own original D–G–A–D
+brass fanfare, strings and percussion; defeat uses quiet piano/cello with
+no brass or percussion. Outcome scheduling no longer reuses the sanctuary
+piano pattern. Existing CC0 recordings are unchanged; publisher licence
+rechecked directly. The 150-second runtime demo rendered successfully to
+/private/tmp/baylee-score-review.wav. This is an audition artifact, not a
+claim of subjective approval of the new music.
+
+All six music tests pass, including continuous transport/cadence completion
+and sampled output bounds. Measured 12-second RMS: battle 0.101, victory
+0.082, defeat 0.024; maximum peak across moods 0.389 and sample jump 0.064.
+The outcome contrast regression requires victory RMS > 1.5× defeat.
+All 1163 client unit tests, one binary, 16 duel, 33 mana/ability and 13
+network tests pass (two existing ignored tests). Client/core all-targets
+clippy passes. Logs: /private/tmp/baylee-login-score-tests-final.log,
+baylee-login-score-clippy.log, baylee-score-tests.log, baylee-score-render.log.
+No push or deployment.
+
+New user steering: after feedback, review gameplay and the lobby for UX/UI
+inconsistencies; document findings, implement improvements with multiple
+screenshot iterations. Specifically shorten chosen-type labels and use
+count plus icon for charge counters. This review precedes Alpha card work.
+Font replacement is explicitly permitted when readability, compactness and
+licensing justify it. No parallel-agent authorization was added.

@@ -571,6 +571,57 @@ pub(super) fn fade_front(
     }
 }
 
+/// A fading button owns its material; its original alpha is retained so a
+/// reversed passage restores it without multiplying yesterday's fade.
+#[derive(Component)]
+pub(super) struct FadedPrimary(f32);
+
+/// Primary buttons normally share a material. Clone it only when a panel
+/// fades, so its surface follows the text without fading another panel or
+/// a stationary button that happens to share the original handle.
+#[allow(clippy::type_complexity)]
+pub(super) fn fade_primary_surfaces(
+    mut commands: Commands,
+    motion: Res<FrontMotion>,
+    cards: Query<(Entity, &FrontCard)>,
+    children: Query<&Children>,
+    mut surfaces: Query<(
+        Entity,
+        &mut MaterialNode<crate::ambience::AmbienceMaterial>,
+        Option<&FadedPrimary>,
+    )>,
+    materials: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+) {
+    let Some(mut materials) = materials else {
+        return;
+    };
+    for (card, panel) in &cards {
+        let alpha = pose(&motion, panel.0, 0.0).alpha;
+        for node in children.iter_descendants(card) {
+            let Ok((entity, mut handle, faded)) = surfaces.get_mut(node) else {
+                continue;
+            };
+            let base = if let Some(faded) = faded {
+                faded.0
+            } else {
+                if alpha >= 1.0 {
+                    continue;
+                }
+                let Some(material) = materials.get(&handle.0).cloned() else {
+                    continue;
+                };
+                let base = material.params.low.w;
+                handle.0 = materials.add(material);
+                commands.entity(entity).insert(FadedPrimary(base));
+                base
+            };
+            if let Some(mut material) = materials.get_mut(&handle.0) {
+                material.params.low.w = base * alpha;
+            }
+        }
+    }
+}
+
 /// The leather's own fade: its density, and the grain that moves it, as a
 /// share of what they are at rest.
 fn fade_leather(
@@ -1735,6 +1786,59 @@ mod tests {
         let late = moving(Panel::SignIn, Panel::Create, 0.8);
         assert!(!pose(&late, Panel::SignIn, 520.0).over);
         assert!(pose(&late, Panel::Create, 520.0).over);
+    }
+
+    #[test]
+    fn button_surfaces_fade_independently_and_recover_on_reversal() {
+        use crate::ambience::{AmbienceMaterial, AmbienceParams};
+        let mut app = App::new();
+        app.init_resource::<Assets<AmbienceMaterial>>()
+            .insert_resource(moving(Panel::Gateway, Panel::SignIn, 0.0))
+            .add_systems(Update, fade_primary_surfaces);
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<AmbienceMaterial>>()
+            .add(AmbienceMaterial {
+                params: AmbienceParams {
+                    low: Vec4::new(0.1, 0.2, 0.3, 0.8),
+                    high: Vec4::ONE,
+                    energy: 1.0,
+                    seed: 0.0,
+                    aspect: 3.0,
+                    pad: 1.0,
+                },
+            });
+        let mut panels = Vec::new();
+        for panel in [Panel::Gateway, Panel::SignIn] {
+            let parent = app.world_mut().spawn(FrontCard(panel)).id();
+            let surface = app
+                .world_mut()
+                .spawn((MaterialNode(handle.clone()), ChildOf(parent)))
+                .id();
+            panels.push((panel, surface));
+        }
+        // Repeated frames, including a reversal: clones must neither compound
+        // the fade nor allocate another material each frame.
+        for t in [0.0, 0.35, 0.55, 0.8, 0.55, 0.35, 0.0] {
+            *app.world_mut().resource_mut::<FrontMotion>() =
+                moving(Panel::Gateway, Panel::SignIn, t);
+            app.update();
+            let materials = app.world().resource::<Assets<AmbienceMaterial>>();
+            for &(panel, entity) in &panels {
+                let actual = app
+                    .world()
+                    .get::<MaterialNode<AmbienceMaterial>>(entity)
+                    .unwrap();
+                let alpha = materials.get(&actual.0).unwrap().params.low.w;
+                let expected = 0.8 * pose(app.world().resource::<FrontMotion>(), panel, 0.0).alpha;
+                assert!(
+                    (alpha - expected).abs() < 1e-6,
+                    "{panel:?} at {t}: {alpha} != {expected}"
+                );
+            }
+            assert!((materials.get(&handle).unwrap().params.low.w - 0.8).abs() < 1e-6);
+            assert!(materials.len() <= 3, "only one clone per fading surface");
+        }
     }
 
     #[test]

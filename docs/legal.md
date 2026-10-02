@@ -488,3 +488,11 @@ exception is introduced.
 The follow-up camera/HUD pass uses the same bundled OFL fonts and original
 geometry. It reduces decorative table margin, keeping complete card images
 and notices. No additional assets or licence exceptions are needed.
+
+Score follow-up (2026-10-02): only original note scheduling and orchestration
+changed. The existing VSCO 2 Community Edition bank is unchanged. Rechecked
+the [publisher's sample licence](https://versilian-studios.com/vsco-community/):
+“Licensed under CC0 (Creative Commons Zero) you can do whatever you want with
+these samples.” Attribution and the bundled CC0 dedication remain intact;
+no third-party melody or additional recording was imported. The login fade
+changes original procedural button surfaces only.
