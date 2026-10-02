@@ -84,10 +84,10 @@ fn the_key_is_asked_for_only_by_a_closed_beta_with_something_to_make() {
             Field::DisplayName,
             Field::Password,
             Field::PasswordAgain,
-            Field::InviteKey,
             Field::GuestName,
+            Field::InviteKey,
         ],
-        "drawn first, above the guest's name, and Tab goes round to it"
+        "registration key first, account fields next, guest entry last"
     );
     lobby.focus_on(Field::InviteKey);
     assert!(lobby.typing_here());
@@ -95,6 +95,15 @@ fn the_key_is_asked_for_only_by_a_closed_beta_with_something_to_make() {
     // … and on the sign-in tab for a new guest …
     lobby.toggle_registering();
     assert!(lobby.invite_key_offered());
+    assert_eq!(
+        ring(&mut lobby),
+        [
+            Field::Username,
+            Field::Password,
+            Field::InviteKey,
+            Field::GuestName
+        ]
+    );
     // … but not for a guest this device keeps, nor with no guests at all.
     lobby.keep_guest(Some(KeptGuest {
         token: "tok".into(),

@@ -1467,8 +1467,6 @@ impl Lobby {
             // Signing up: four, in the order they are drawn, and the direction
             // finally reads. The display name and the repeated password are
             // drawn only for signing up, so only that ring has them.
-            // A guest's name is drawn first, above the tabs, when it is asked
-            // for at all.
             let form: &[Field] = if self.registering() {
                 &[
                     Field::Username,
@@ -1479,14 +1477,18 @@ impl Lobby {
             } else {
                 &[Field::Username, Field::Password]
             };
-            // The closed-beta key is drawn above both, for either door.
-            let ring: Vec<Field> = self
-                .invite_key_offered()
-                .then_some(Field::InviteKey)
-                .into_iter()
-                .chain(self.guest_name_offered().then_some(Field::GuestName))
-                .chain(form.iter().copied())
-                .collect();
+            // Match visual order: account fields first on sign-in; the key
+            // precedes account creation. Optional guest entry follows both.
+            let key = self.invite_key_offered().then_some(Field::InviteKey);
+            let mut ring = Vec::new();
+            if self.registering() {
+                ring.extend(key);
+            }
+            ring.extend_from_slice(form);
+            if !self.registering() {
+                ring.extend(key);
+            }
+            ring.extend(self.guest_name_offered().then_some(Field::GuestName));
             self.focus = match ring.iter().position(|field| *field == self.focus) {
                 Some(at) => {
                     let next = match dir {

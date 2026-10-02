@@ -169,6 +169,51 @@ fn offline_play_can_be_pressed_all_the_way_to_a_table() {
 }
 
 #[test]
+fn room_tab_visits_only_expanded_inputs_in_both_directions() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().offline =
+        Some(super::offline::Offline::without_a_file());
+    to_gateway_face(&mut app);
+    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "open room", |p| *p == Press::OpenRoom(2));
+    let tab = |app: &mut App, backwards: bool| {
+        if backwards {
+            app.world_mut()
+                .resource_mut::<ButtonInput<KeyCode>>()
+                .press(KeyCode::ShiftLeft);
+        }
+        app.world_mut()
+            .resource_mut::<Messages<KeyboardInput>>()
+            .write(pressed(KeyCode::Tab, Key::Tab));
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::ShiftLeft);
+        app.world().resource::<LobbyState>().lobby.focus()
+    };
+    assert_eq!(tab(&mut app, false), Field::RoomName);
+    assert_eq!(tab(&mut app, true), Field::RoomName);
+    tap_control(&mut app, "expand seat two", |p| *p == Press::RoomSetup(1));
+    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
+    assert_eq!(tab(&mut app, true), Field::RoomName);
+    press(
+        &mut app,
+        Press::RoomAdjust(client_core::lobby::room::Adjustment::Template(2)),
+    );
+    tap_control(&mut app, "edit a starting card", |p| {
+        *p == Press::RoomCardEdit(1, 0)
+    });
+    assert_eq!(tab(&mut app, false), Field::RoomBoard(1));
+    assert_eq!(tab(&mut app, false), Field::RoomCounter);
+    assert_eq!(tab(&mut app, false), Field::RoomName);
+    assert_eq!(tab(&mut app, true), Field::RoomCounter);
+    tap_control(&mut app, "collapse the editor", |p| {
+        *p == Press::RoomSetup(1)
+    });
+    assert_eq!(tab(&mut app, true), Field::RoomName);
+}
+
+#[test]
 fn starting_cards_expand_per_seat_without_losing_the_draft_or_hidden_focus() {
     let mut app = headless();
     app.world_mut().resource_mut::<LobbyState>().offline =

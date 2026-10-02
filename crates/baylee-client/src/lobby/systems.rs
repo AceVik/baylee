@@ -776,6 +776,47 @@ fn paste_into_form(
     }
 }
 
+/// The room's optional editors are shell state. Tab only visits fields the
+/// room currently draws; the other forms keep the core's normal field ring.
+fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
+    let lobby = &mut state.lobby;
+    if lobby.screen() != &Screen::Table
+        || lobby.awaiting().is_none()
+        || lobby.deleting_account().is_some()
+    {
+        lobby.cycle_focus(direction);
+        return;
+    }
+    let Some(room) = lobby
+        .games()
+        .iter()
+        .find(|g| lobby.awaiting().is_some_and(|h| h.game_id == g.id))
+        .filter(|g| g.yours)
+    else {
+        return;
+    };
+    let mut fields = vec![Field::RoomName];
+    if !lobby.offline() {
+        fields.push(Field::RoomPassword);
+    }
+    if let Some(seat) = state
+        .room_setup_seat
+        .filter(|s| usize::from(*s) < room.seats.len())
+    {
+        fields.push(Field::RoomBoard(seat));
+        if state.room_card_edit.is_some_and(|(s, _)| s == seat) {
+            fields.push(Field::RoomCounter);
+        }
+    }
+    let at = fields.iter().position(|f| *f == lobby.focus()).unwrap_or(0);
+    let next = match direction {
+        Tab::Next => (at + 1) % fields.len(),
+        Tab::Back => (at + fields.len() - 1) % fields.len(),
+    };
+    lobby.focus_on(fields[next]);
+    lobby.select_all();
+}
+
 #[allow(clippy::too_many_arguments)] // the clipboard and its pending answer ride along
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
@@ -826,9 +867,7 @@ fn text_field_keys(
             Key::ArrowRight => state.lobby.move_caret(reach, Dir::Right, shift),
             Key::Home => state.lobby.move_caret(Reach::Line, Dir::Left, shift),
             Key::End => state.lobby.move_caret(Reach::Line, Dir::Right, shift),
-            Key::Tab => state
-                .lobby
-                .cycle_focus(if shift { Tab::Back } else { Tab::Next }),
+            Key::Tab => cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next }),
             Key::Escape if state.lobby.deleting_account().is_some() => {
                 state.lobby.cancel_account_deletion();
             }

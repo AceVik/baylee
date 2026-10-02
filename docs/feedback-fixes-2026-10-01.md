@@ -448,7 +448,7 @@ as `resolved`: 21 of the original 25 reports are resolved, four remain open.
 Next: dense creature layout and larger readable permanents/preview, followed
 by login transition/music and the platform-specific sky/table report. The
 known baseline seat selfplay wake-count failure remains on the testing
-backlog. Alpha's four Partial cards follow the remaining feedback work.
+backlog. Alpha's remaining Partial cards follow the feedback work (the corrected seven-card list is recorded below).
 
 
 ## Seventh hourly continuation
@@ -609,3 +609,23 @@ log. The sole open entry remains `01a0e8b0-28ab-72b3-ab48-59b825687add`, the
 Windows Vulkan report awaiting affected-renderer verification. No new report
 appeared during this UX pass. The login form hierarchy remains an audit item;
 historical Alpha completion has not yet resumed after the user's UX priority.
+
+
+## 2026-10-02 — login and room keyboard follow-up
+
+Completed the fourth UX iteration: returning-player credentials and Sign in are
+visible without scrolling at 1280×800; optional beta-key/guest entry follows them.
+Registration retains its required key before the account form. Native screenshots
+check both forms and their lower actions. Fixed Tab entering collapsed room setup
+fields; forward/backward navigation now follows only visible editors. Core/client
+lobby tests and all-targets client clippy pass. See the UX review for evidence.
+The Windows Vulkan report remains open; this UX milestone closes no extra report.
+
+
+### Alpha status correction after reading the actual card files
+
+Earlier progress notes named only four Partials; that was an incomplete inventory,
+not evidence that the other three were implemented. All seven remain Partial:
+Balance, Gloom, Mana Flare, Power Surge, Black Vise, Cyclopean Tomb and Glasses of
+Urza. Their cast/payment/destination tests do not exercise the unsupported sentences.
+No card is promoted and no next set starts based on that incomplete count.

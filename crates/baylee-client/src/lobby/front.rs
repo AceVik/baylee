@@ -1454,35 +1454,8 @@ fn account_face(
     let line = super::gateway::chosen_line(commands, state, fonts, metrics);
     commands.entity(card).add_children(&[header, line]);
 
-    // A closed beta's key (#317), above both doors it opens: a new guest's
-    // and the sign-up tab's. Drawn only while there is one of those to use
-    // it for, on a gateway that asks for it.
-    if lobby.invite_key_offered() {
-        let key = text_field(
-            commands,
-            fonts,
-            metrics,
-            Phrase::InviteKey.text(lang),
-            &FieldLook {
-                buffer: lobby.buffer(Field::InviteKey),
-                focused: lobby.focus() == Field::InviteKey,
-                mask: None,
-                press: Press::Focus(Field::InviteKey),
-                lead: None,
-                hint: Some(Phrase::InviteKeyShape.text(lang)),
-                tail: None,
-            },
-        );
-        let hint = note(commands, fonts, metrics, Phrase::InviteKeyHint.text(lang));
-        commands.entity(card).add_children(&[key, hint]);
-    }
-
-    // Playing as a guest (#269), first, between the gateway and the tabs, and
-    // a rule under it: the tabs below are the other way in.
-    if lobby.guest_offered() {
-        guest_entry(commands, card, state, fonts, metrics);
-        let rule = rule(commands);
-        commands.entity(card).add_child(rule);
+    if registering && lobby.invite_key_offered() {
+        invite_entry(commands, card, state, fonts, metrics);
     }
 
     let fields = commands
@@ -1594,6 +1567,46 @@ fn account_face(
     let actions = halves(commands, metrics, &[submit, switch]);
     let status = status_slot(commands, state, fonts, metrics);
     commands.entity(card).add_children(&[status, actions]);
+
+    // Returning players can submit before reaching the optional guest path.
+    // A registration key stays before its form; on sign-in it belongs to
+    // the new-guest section, because existing accounts need no beta key.
+    if lobby.guest_offered() {
+        let rule = rule(commands);
+        commands.entity(card).add_child(rule);
+        if !registering && lobby.invite_key_offered() {
+            invite_entry(commands, card, state, fonts, metrics);
+        }
+        guest_entry(commands, card, state, fonts, metrics);
+    }
+}
+
+fn invite_entry(
+    commands: &mut Commands,
+    card: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let key = text_field(
+        commands,
+        fonts,
+        metrics,
+        Phrase::InviteKey.text(lang),
+        &FieldLook {
+            buffer: lobby.buffer(Field::InviteKey),
+            focused: lobby.focus() == Field::InviteKey,
+            mask: None,
+            press: Press::Focus(Field::InviteKey),
+            lead: None,
+            hint: Some(Phrase::InviteKeyShape.text(lang)),
+            tail: None,
+        },
+    );
+    let hint = note(commands, fonts, metrics, Phrase::InviteKeyHint.text(lang));
+    commands.entity(card).add_children(&[key, hint]);
 }
 
 /// The guest's way in (#269): the guest this device keeps here, as one
