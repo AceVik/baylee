@@ -57,7 +57,9 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             id: "d1".to_string(),
             name: "Allytifact".to_string(),
             cards: 96,
-            sideboard: 0,
+            copies: 100,
+            sideboard: 2,
+            side_copies: 4,
             commanders: Vec::new(),
             ..Default::default()
         }]));
@@ -82,6 +84,7 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             }])));
     }
     app.update();
+    assert!(labels(&mut app).contains(&Phrase::LibraryCounts.fill(Lang::En, &["100", "4"])));
     let found = presses(&mut app);
     for wanted in [
         Press::SignOut,

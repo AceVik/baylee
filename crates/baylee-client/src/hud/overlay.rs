@@ -46,6 +46,10 @@ const CAPTION_H: f32 = 13.0;
 #[derive(Component)]
 pub(super) struct PreviewAttached;
 
+/// The full preview bubble, kept clear by persistent card annotations.
+#[derive(Component)]
+pub(crate) struct PreviewBounds;
+
 /// The preview bubble's padding, in logical pixels: the gap its shadow needs
 /// to read as a shadow rather than as a rim.
 const PREVIEW_PAD: f32 = 6.0;
@@ -912,6 +916,7 @@ pub fn sync_overlay(
             }
             let tooltip = commands
                 .spawn((
+                    PreviewBounds,
                     Node {
                         position_type: PositionType::Absolute,
                         top: px(place.y),

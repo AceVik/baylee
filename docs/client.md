@@ -8400,3 +8400,14 @@ buffer but moves focus out of hidden card/counter inputs. The desktop/tablet
 room header stays above the scroller so Start and Leave remain reachable;
 the room now has a scrollbar. Offline guidance describes local deck/AI setup
 and omits the online host-succession explanation.
+
+Permanent annotations use renderer-independent collision placement, measured
+logical text size after layout, and occupied rectangles for card prints,
+preview bubbles and already placed labels. They stay within the window and
+prefer beside, then below, then above their card; subpixel projection changes
+do not alternate otherwise equivalent labels across a row. If no free bounded
+position exists, the label is hidden rather than covering a printing.
+
+The personal deck overview displays copy counts supplied by both the gateway
+and offline performer. Responses without these totals still say “rows”; the
+house-library catalog retains that wording until its summary supplies totals.

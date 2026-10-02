@@ -592,3 +592,20 @@ keeps Start/Leave visible above its scroller. Count, draft and focus behavior
 are tested; screenshots cover before, after, expanded and scrolled states.
 Offline room guidance now describes AI/deck setup. Client unit and integration
 suites and clippy pass; no feedback report was closed for this separate UX work.
+
+## 2026-10-02 — gameplay annotation verification
+
+The next screenshot iteration reproduced a charge-counter explanation hidden
+behind its own hover preview. Annotation placement now avoids full preview
+rectangles, card prints and other annotations, uses measured text dimensions
+and respects window bounds. Four core geometry regressions, the full client
+suite and clippy pass. Native before/after screenshots and the room-driven
+three-counter fixture are recorded in `docs/ux-review-2026-10-02.md`.
+Personal deck summaries now show copy totals rather than stored line counts;
+older gateway payloads retain a correctly labelled row-count fallback.
+
+The final feedback-service read shows **50 resolved, 1 new** across the whole
+log. The sole open entry remains `01a0e8b0-28ab-72b3-ab48-59b825687add`, the
+Windows Vulkan report awaiting affected-renderer verification. No new report
+appeared during this UX pass. The login form hierarchy remains an audit item;
+historical Alpha completion has not yet resumed after the user's UX priority.

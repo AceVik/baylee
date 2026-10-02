@@ -509,3 +509,8 @@ The compact waiting-room pass (2026-10-02) rearranges original controls and
 text using the same bundled fonts. Card thumbnails and hover previews use
 the unchanged full-image path. The policy and image-term quotations above
 continue to apply; there is no additional asset or licence exception.
+
+Annotation collision placement additionally keeps text outside the complete
+hover-preview rectangle. The full image and its artist/copyright lines remain
+visible in the 1280×800 native comparison. This is layout arithmetic only;
+no new asset, font or symbol is introduced.

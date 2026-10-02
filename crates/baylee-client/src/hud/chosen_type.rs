@@ -3,7 +3,12 @@
 //! Room still locked (CR 709.5).
 use super::{UiFonts, glyph, icon_tf, palette, tf};
 use crate::{Duel, settings::ClientSettings, table};
-use baylee_client_core::{Lang, i18n::Phrase, type_names};
+use baylee_client_core::{
+    Lang,
+    annotations::{self, Bounds},
+    i18n::Phrase,
+    type_names,
+};
 use baylee_core::{generated::subtypes, ids::ObjectId};
 use bevy::prelude::*;
 
@@ -60,6 +65,17 @@ fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String
     Some(name.to_string())
 }
 
+type Geometry<'w, 's> = (
+    Query<'w, 's, &'static Window>,
+    Query<'w, 's, (&'static table::CardVisual, &'static Transform)>,
+    Query<
+        'w,
+        's,
+        (&'static ComputedNode, &'static UiGlobalTransform),
+        With<super::overlay::PreviewBounds>,
+    >,
+);
+
 /// Follow the actual card pose without taking its pointer events. Only cards
 /// carrying a choice or charge counters get a label.
 pub(crate) fn sync(
@@ -67,7 +83,7 @@ pub(crate) fn sync(
     duel: Res<Duel>,
     (settings, fonts): (Res<ClientSettings>, Res<UiFonts>),
     shown: Res<table::ShownRig>,
-    (windows, cards): (Query<&Window>, Query<(&table::CardVisual, &Transform)>),
+    (windows, cards, previews): Geometry<'_, '_>,
     mut labels: Query<(
         Entity,
         &ChosenTypeLabel,
@@ -75,6 +91,7 @@ pub(crate) fn sync(
         &mut Node,
         &mut Visibility,
         &Children,
+        &ComputedNode,
     )>,
     mut icons: Query<&mut TextSpan, With<ChargeIcon>>,
 ) {
@@ -85,21 +102,8 @@ pub(crate) fn sync(
             .ok()
             .map(|window| table::Lens::new(rig, Vec2::new(window.width(), window.height())))
     });
-    let wanted: Vec<_> = duel
-        .view
-        .as_ref()
-        .into_iter()
-        .flat_map(|view| &view.battlefield)
-        .filter_map(|object| {
-            let detail = duel.hovered == Some(object.id);
-            let icon = !detail
-                && object.counters.iter().any(|counter| {
-                    counter.kind == baylee_view::CounterKind::Charge && counter.count > 0
-                });
-            words(object, lang, detail).map(|label| (object.id, label, icon))
-        })
-        .collect();
-    for (entity, mark, _, _, _, _) in &mut labels {
+    let wanted = wanted_labels(&duel, lang);
+    for (entity, mark, _, _, _, _, _) in &mut labels {
         if !wanted.iter().any(|(id, _, _)| *id == mark.0) {
             commands.entity(entity).despawn();
         }
@@ -112,24 +116,51 @@ pub(crate) fn sync(
             })
         })
         .collect();
+    let mut occupied: Vec<_> = boxes.iter().map(|(_, r)| bounds(*r)).collect();
+    occupied.extend(previews.iter().map(|(node, pose)| {
+        let scale = node.inverse_scale_factor;
+        bounds(Rect::from_center_size(
+            pose.translation * scale,
+            node.size() * scale,
+        ))
+    }));
+    let window = windows
+        .single()
+        .ok()
+        .map(|w| Vec2::new(w.width(), w.height()));
     for (id, label, charge) in wanted {
+        // Reuse the renderer's measured logical size once this exact text
+        // has been laid out. Changed text gets a conservative first frame.
+        let size = labels
+            .iter()
+            .find(|(_, mark, text, _, _, _, node)| {
+                mark.0 == id && text.0 == label && node.size().x > 0.0
+            })
+            .map_or_else(
+                || estimated_size(&label, charge),
+                |(_, _, _, _, _, _, node)| node.size() * node.inverse_scale_factor,
+            );
         let at = boxes
             .iter()
             .find(|(object, _)| *object == id)
-            .map(|(_, rect)| {
-                // Conservative first-frame width; every letter is at most one em.
-                let width = label.chars().count() as f32 * 13.0 * super::UI_SCALE
-                    + if charge { 16.0 } else { 0.0 }
-                    + 10.0;
-                label_anchor(*rect, Vec2::new(width, 22.0), &boxes)
+            .and_then(|(_, rect)| {
+                window
+                    .and_then(|window| annotations::anchor(bounds(*rect), size, window, &occupied))
             });
+        if let Some(at) = at {
+            occupied.push(Bounds {
+                min: at,
+                max: at + size,
+            });
+        }
         let visible = if at.is_some() {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         };
-        if let Some((_, _, mut text, mut node, mut visibility, children)) =
-            labels.iter_mut().find(|(_, mark, _, _, _, _)| mark.0 == id)
+        if let Some((_, _, mut text, mut node, mut visibility, children, _)) = labels
+            .iter_mut()
+            .find(|(_, mark, _, _, _, _, _)| mark.0 == id)
         {
             if text.0 != label {
                 text.0 = label;
@@ -156,6 +187,31 @@ pub(crate) fn sync(
             spawn_label(&mut commands, &fonts, id, label, charge, at);
         }
     }
+}
+
+fn estimated_size(label: &str, charge: bool) -> Vec2 {
+    Vec2::new(
+        label.chars().count() as f32 * 13.0 * super::UI_SCALE
+            + if charge { 16.0 } else { 0.0 }
+            + 10.0,
+        28.0,
+    )
+}
+
+fn wanted_labels(duel: &Duel, lang: Lang) -> Vec<(ObjectId, String, bool)> {
+    duel.view
+        .as_ref()
+        .into_iter()
+        .flat_map(|view| &view.battlefield)
+        .filter_map(|object| {
+            let detail = duel.hovered == Some(object.id);
+            let icon = !detail
+                && object.counters.iter().any(|counter| {
+                    counter.kind == baylee_view::CounterKind::Charge && counter.count > 0
+                });
+            words(object, lang, detail).map(|label| (object.id, label, icon))
+        })
+        .collect()
 }
 
 fn spawn_label(
@@ -221,34 +277,11 @@ fn card_rect(lens: &table::Lens, pose: &Transform) -> Option<Rect> {
     Some(rect)
 }
 
-fn label_anchor(card: Rect, size: Vec2, cards: &[(ObjectId, Rect)]) -> Vec2 {
-    // Prefer the same row, so a label cannot appear to belong to a land
-    // below the permanent whose counters it describes.
-    for x in [card.max.x + 4.0, card.min.x - size.x - 4.0] {
-        let at = Vec2::new(x, card.center().y - size.y * 0.5);
-        let label = Rect::from_corners(at, at + size);
-        if x >= 0.0 && cards.iter().all(|(_, r)| !overlaps(label, *r)) {
-            return at;
-        }
+fn bounds(rect: Rect) -> Bounds {
+    Bounds {
+        min: rect.min,
+        max: rect.max,
     }
-    let mut at = Vec2::new(card.center().x - size.x * 0.5, card.max.y + 3.0);
-    // Move down only when the label would cover another printing. Each
-    // collision passes at least one card bottom, so this is bounded.
-    for _ in 0..cards.len() {
-        let label = Rect::from_corners(at, at + size);
-        let bottom = cards
-            .iter()
-            .filter(|(_, r)| overlaps(label, *r))
-            .map(|(_, r)| r.max.y)
-            .max_by(f32::total_cmp);
-        let Some(bottom) = bottom else { break };
-        at.y = bottom + 3.0;
-    }
-    at
-}
-
-fn overlaps(a: Rect, b: Rect) -> bool {
-    a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y
 }
 
 fn place(node: &mut Node, at: Vec2) {
@@ -264,22 +297,6 @@ fn place(node: &mut Node, at: Vec2) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn counter_label_stays_clear_of_the_next_rows_print() {
-        let card = Rect::from_corners(Vec2::new(100.0, 100.0), Vec2::new(140.0, 160.0));
-        let below = Rect::from_corners(Vec2::new(70.0, 170.0), Vec2::new(110.0, 230.0));
-        let at = label_anchor(
-            card,
-            Vec2::new(130.0, 22.0),
-            &[(ObjectId::new(2, 0), below)],
-        );
-        assert_eq!(at, Vec2::new(144.0, 119.0));
-        assert_eq!(
-            label_anchor(card, Vec2::new(10.0, 22.0), &[]),
-            Vec2::new(144.0, 119.0)
-        );
-    }
 
     #[test]
     fn charge_counters_are_visible_and_localized_without_a_chosen_type() {

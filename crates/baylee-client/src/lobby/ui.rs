@@ -873,10 +873,23 @@ fn table(
             .id();
         let size = commands
             .spawn((
-                Text::new(Phrase::DeckRows.fill(
-                    lang,
-                    &[&deck.cards.to_string(), &deck.sideboard.to_string()],
-                )),
+                Text::new(
+                    if (deck.copies > 0 || deck.cards == 0)
+                        && (deck.side_copies > 0 || deck.sideboard == 0)
+                    {
+                        Phrase::LibraryCounts.fill(
+                            lang,
+                            &[&deck.copies.to_string(), &deck.side_copies.to_string()],
+                        )
+                    } else {
+                        // Older gateways omit copy totals. Keep their row counts
+                        // honest instead of relabelling them as cards.
+                        Phrase::DeckRows.fill(
+                            lang,
+                            &[&deck.cards.to_string(), &deck.sideboard.to_string()],
+                        )
+                    },
+                ),
                 tf(fonts, metrics.small),
                 TextColor(palette::MUTED),
                 Pickable::IGNORE,
