@@ -1823,6 +1823,11 @@ pub struct LegalActions {
     /// Activated abilities available on controlled permanents:
     /// `(source, ability_index)`.
     pub abilities: Vec<(ObjectId, u32)>,
+    /// Battlefield abilities legal except for their floating mana payment:
+    /// `(source, ability_index, mana_cost)`. These are planning hints, never
+    /// accepted actions. A client may make mana, then recheck `abilities`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unpaid_abilities: Vec<(ObjectId, u32, baylee_core::mana::ManaCost)>,
     /// Cards suspendable from hand.
     pub suspendable: Vec<ObjectId>,
 }

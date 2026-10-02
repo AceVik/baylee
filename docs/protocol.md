@@ -14,6 +14,17 @@ Reading refuses text that is no cost (`ManaCost::try_parse`). Protocol 8 and
 view 43 refuse the older shape; deploy the engine, gateway, agent and
 clients together.
 
+## Unpaid activation hints
+
+`LegalActions.unpaid_abilities` is an optional, default-empty list of
+`(ObjectId, ability_index, ManaCost)` tuples. These are planning hints whose
+remaining missing cost is mana, filtered through the same activation locks
+as ordinary offers. They never authorize an `ActivateAbility` action:
+only membership in `LegalActions.abilities` does. A client may plan mana
+activations, confirm them with the player and recheck the actual offer after
+making mana. Older clients ignore this additive field and retain manual
+payment. The cost uses the existing protocol-8 notation.
+
 ## Ward life payments (protocol 7)
 
 `Pending::YesNo` can carry `PayLife { amount }`. The client displays the

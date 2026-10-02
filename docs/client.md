@@ -4258,6 +4258,24 @@ run as a tap on a hand card does, where it used to fall through to opening the
 graveyard. The pile is still opened from the tray button and `G`, and by a tap
 on any top card nothing is offered for.
 
+### Activated abilities can make their mana first
+
+`LegalActions.abilities` still contains only actions payable now. The separate
+`unpaid_abilities` hints carry a source, ability index and engine-calculated
+mana cost after timing, targets, non-mana costs and activation locks have been
+checked. The client uses the existing mana planner to offer only hints it can
+fund. It reserves the ability's own source, which must survive untapped when
+that source is part of the activation cost.
+
+These permanents have the same indigo reach indication as a spell needing
+land taps. Even a single costly ability opens its readable ability sheet when
+armed. Confirmation replans against the current pool and sources, then runs
+the taps and sends the exact activation only if the engine now offers it.
+Manual taps between arming and confirmation therefore do not overpay. Target
+and other cost choices remain ordinary player questions after the run ends.
+Cancelling the armed action spends nothing. Pure mana abilities retain their
+immediate interaction.
+
 ### Which way to cast it is asked before anything is tapped
 
 `Engine::cast_options` counts a spell's ways against the mana that is

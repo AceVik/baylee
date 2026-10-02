@@ -4552,7 +4552,12 @@ fn tuck(
             count: 1,
             badge: 0,
             art: card.art,
-            offer: crate::cardmat::Offer::on(duel.proposing(), &card.members, card.activatable),
+            offer: crate::cardmat::Offer::on(duel.proposing(), &card.members, card.activatable)
+                .reaching(
+                    card.members
+                        .iter()
+                        .all(|id| duel.ability_reach.contains(id)),
+                ),
             corner: baylee_client_core::cardplate::Corner::default(),
             selected: duel
                 .interaction
@@ -4672,6 +4677,12 @@ fn placements(duel: &Duel) -> Vec<Placement> {
                         duel.proposing(),
                         &group.members,
                         group.activatable,
+                    )
+                    .reaching(
+                        group
+                            .members
+                            .iter()
+                            .all(|id| duel.ability_reach.contains(id)),
                     ),
                     // Power, toughness, marked damage and the counters — the
                     // rules facts printed on every real card and drawn nowhere

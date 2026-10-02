@@ -112,9 +112,9 @@ fn a_non_mana_ability_is_named_by_what_it_costs() {
 /// …and the client's own click path activates it.
 ///
 /// Through `activate_card`, which is where a pointer and the keyboard cursor
-/// both end up: one option activates on the click that found it, so a player
-/// never sees a menu of one. Before any of this the same click selected the
-/// permanent for a choice that was not pending and did nothing at all.
+/// both end up: the first click exposes even a single costly ability's
+/// sentence, and confirmation activates it. Before any of this the same click
+/// selected the permanent for a choice that was not pending and did nothing.
 #[test]
 fn clicking_a_permanent_with_one_ability_activates_it() {
     use baylee_client::Duel;
@@ -141,9 +141,10 @@ fn clicking_a_permanent_with_one_ability_activates_it() {
     ));
 
     activate_card(&mut duel, mire);
-    assert!(
-        duel.ability_menu.is_none(),
-        "one option needs no chooser at all"
+    assert_eq!(
+        duel.ability_menu,
+        Some(mire),
+        "the costly ability stays readable while armed"
     );
     // Sacrificing a land and paying a life is irreversible, so the first
     // click arms and the second sends (`docs/design.md` §2.5). This is the

@@ -181,11 +181,9 @@ impl Offer {
         }
     }
 
-    /// The same offer, with this client's own on top: a pile card it would
-    /// tap lands for ([`crate::Reach::Taps`]).
-    ///
-    /// Separate from [`Self::on`] because only a pile card can be reached
-    /// for — a hand card says it with a halo, and a permanent is never cast.
+    /// Add this client's mana plan to the engine's offer: a pile card it
+    /// would cast or a permanent it would activate after making mana
+    /// ([`crate::Reach::Taps`]). Hand cards use the same state for their halo.
     #[must_use]
     pub const fn reaching(self, reachable: bool) -> Self {
         Self { reachable, ..self }

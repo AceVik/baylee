@@ -33,6 +33,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
             Pending::Priority {
                 player: PlayerId::new(0),
                 legal: Box::new(LegalActions {
+                    unpaid_abilities: vec![],
                     can_pass: true,
                     lands: vec![],
                     castable: vec![],

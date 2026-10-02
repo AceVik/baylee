@@ -6,7 +6,8 @@
 //! existed and nothing called it.
 //!
 //! What is here is the list, in a stable order, built only from what the
-//! engine offered — and a label for each, which is the part that needs the
+//! engine offered or marked payable after making mana — and a label for each,
+//! which is the part that needs the
 //! card registry and is therefore the reason this is not in
 //! `baylee-client-core`. "Ability 2" is a label a player has to guess at;
 //! "Tap for {G}" and "+1" are not.
@@ -27,8 +28,8 @@ use baylee_core::mana::ManaCost;
 /// One thing a permanent is offering to do.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct AbilityOption {
-    /// The action that does it — built through [`Interaction::activate`], so
-    /// it is one the engine listed.
+    /// The eventual action. An unpaid offer needs a mana run first; only
+    /// membership in `LegalActions::abilities` permits sending it now.
     pub action: PlayerAction,
     /// What the button says.
     pub label: String,
@@ -402,15 +403,13 @@ pub fn options_for(
         }
     }
 
-    for &(source, index) in &legal.abilities {
-        if source != object {
-            continue;
-        }
+    for index in payable_indices(view, legal, object) {
         if already_on_screen(view, offered_as_mana, object, index) {
             continue;
         }
-        let Some(action) = interaction.activate(object, index) else {
-            continue;
+        let action = PlayerAction::ActivateAbility {
+            source: object,
+            ability_index: index,
         };
         // The synthetic indices are not positions on the card, so neither the
         // registry nor the card's ability list has anything to say about
@@ -471,6 +470,45 @@ pub fn options_for(
     }
     pour_out(view, legal, object, &mut out);
     out
+}
+
+fn payable_indices<'a>(
+    view: &'a PlayerView,
+    legal: &'a baylee_engine::choice::LegalActions,
+    object: ObjectId,
+) -> impl Iterator<Item = u32> + 'a {
+    let payable = legal
+        .unpaid_abilities
+        .iter()
+        .filter_map(move |&(source, index, _)| {
+            (source == object && mana_for(view, legal, source, index).is_some()).then_some(index)
+        });
+    legal
+        .abilities
+        .iter()
+        .filter_map(move |&(source, index)| (source == object).then_some(index))
+        .chain(payable)
+}
+
+/// A plan for an engine-verified ability whose only missing cost is mana.
+/// Reserve the source itself: tapping or sacrificing it to make mana could
+/// invalidate the activation the player is confirming.
+#[must_use]
+pub fn mana_for(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    source: ObjectId,
+    index: u32,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let (_, _, cost) = legal
+        .unpaid_abilities
+        .iter()
+        .find(|(s, i, _)| *s == source && *i == index)?;
+    let sources: Vec<_> = crate::manasources::sources(view, legal)
+        .into_iter()
+        .filter(|s| s.id != source)
+        .collect();
+    baylee_client_core::manaplan::plan(cost, &view.seat(view.seat)?.mana_pool, &sources)
 }
 
 /// A permanent's **mana** rows become one row per colour, at the head of the

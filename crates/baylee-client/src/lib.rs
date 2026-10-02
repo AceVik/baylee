@@ -301,15 +301,13 @@ pub enum Deed {
 
 /// What a mana run does once the mana is up.
 ///
-/// The run exists because the engine offers a spell only when its mana is
-/// already floating, and there are exactly two things in this client that a
-/// seat pays mana for out of its hand. They are told apart here rather than
-/// guessed at the end, because the engine's answer at that moment is a
-/// `LegalActions` in which both lists are populated and a run that picked the
-/// wrong one would cast a card the player meant to suspend — which is not an
-/// action anything can take back.
+/// The run makes mana for a particular cast, suspend or activation. That
+/// action is remembered from confirmation and rechecked against the engine's
+/// actual offer after the final tap; it is never guessed from the new list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunEnd {
+    /// Activate this exact ability after its mana has been made.
+    Ability(u32),
     /// `PlayerAction::CastSpell`.
     Cast,
     /// `PlayerAction::Suspend`.
@@ -560,6 +558,8 @@ pub struct Duel {
     /// click has to ask which, and because the run that spends the mana must
     /// know which list to look in when it finishes.
     pub suspend_reach: std::collections::HashSet<ObjectId>,
+    /// Permanents whose unpaid ability this client can fund automatically.
+    pub ability_reach: std::collections::HashSet<ObjectId>,
     /// Permanents the engine listed at least one activatable ability for.
     ///
     /// The engine's own answer, unlike [`Self::reachable`] — `LegalActions`
@@ -1006,7 +1006,7 @@ impl Duel {
                 });
         if offered {
             Some(Reach::Offered)
-        } else if self.reachable.contains(&object) {
+        } else if self.reachable.contains(&object) || self.ability_reach.contains(&object) {
             Some(Reach::Taps)
         } else {
             None
@@ -1987,7 +1987,9 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty
                 // hand and passes the window away.
-                offering: !duel.reachable.is_empty() || !duel.suspend_reach.is_empty(),
+                offering: !duel.reachable.is_empty()
+                    || !duel.suspend_reach.is_empty()
+                    || !duel.ability_reach.is_empty(),
             },
             prefs.orders(),
             prefs.auto(),
@@ -2128,6 +2130,16 @@ pub fn advance_mana_run(duel: &mut Duel) {
                 // and neither is undoable.
                 let run = duel.mana_run.as_ref().map(|r| (r.card, r.then));
                 match run {
+                    Some((source, RunEnd::Ability(ability_index))) => {
+                        if legal.abilities.contains(&(source, ability_index)) {
+                            action = Some(PlayerAction::ActivateAbility {
+                                source,
+                                ability_index,
+                            });
+                        } else {
+                            abort = Some(Phrase::DeedWithdrawn);
+                        }
+                    }
                     Some((card, RunEnd::Cast)) if legal.castable.contains(&card) => {
                         action = Some(PlayerAction::CastSpell { card });
                     }
@@ -2486,6 +2498,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
     duel.suspend_reach = suspend_reach(duel);
     duel.activatable = activatable(duel);
+    duel.ability_reach = ability_reach(duel);
     duel.proposed = proposals(duel);
 
     let Some(view) = duel.view.as_ref() else {
@@ -2597,6 +2610,28 @@ fn activatable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn ability_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
+    let Some(view) = &duel.view else {
+        return std::collections::HashSet::new();
+    };
+    let Some(legal) = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+    else {
+        return std::collections::HashSet::new();
+    };
+    legal
+        .unpaid_abilities
+        .iter()
+        .filter_map(|&(source, index, _)| {
+            abilities::mana_for(view, legal, source, index)
+                .is_some()
+                .then_some(source)
+        })
+        .collect()
 }
 
 /// Which cards a tap or two would make castable: in hand, in the command
@@ -2863,6 +2898,8 @@ pub(crate) mod flashback_reach_tests;
 #[cfg(test)]
 mod owed_tests;
 
+#[cfg(test)]
+mod activation_payment_tests;
 #[cfg(test)]
 mod reachable_tests;
 

@@ -15,6 +15,7 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
     let i = interaction(Pending::Priority {
         player: me(),
         legal: Box::new(LegalActions {
+            unpaid_abilities: vec![],
             can_pass: true,
             lands: vec![],
             castable: vec![],
@@ -490,6 +491,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
         Pending::Priority {
             player: me(),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![],
@@ -668,6 +670,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
     let i = interaction(Pending::Priority {
         player: me(),
         legal: Box::new(LegalActions {
+            unpaid_abilities: vec![],
             can_pass: true,
             lands: vec![],
             castable: vec![],

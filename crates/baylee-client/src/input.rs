@@ -370,16 +370,16 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         );
         return Answer::Took;
     }
-    // A permanent with something to do does it. One ability goes straight
-    // through — a menu of one only ever wastes a tap — and several open the
-    // chooser in the prompt bar, because "ability 2" is not a thing a player
-    // should have to count out on a card.
+    // Mana and tap-only actions retain their one-click path. A costly
+    // ability opens its sentence while armed, even when it is the only row.
     if let Some(options) = abilities_of(duel, object) {
         match options.len() {
             0 => {}
             1 => {
                 duel.ability_menu = None;
-                arm_ability(duel, object, &options[0]);
+                if !arm_ability(duel, object, &options[0]) && !options[0].mana {
+                    open_ability_sheet(duel, object);
+                }
                 return Answer::Took;
             }
             _ => {
@@ -657,6 +657,25 @@ fn arm_ability(
     // Whether this row is armed already is never asked here: `fire_armed` is
     // the path for that, and it re-resolves the deed against the current
     // `LegalActions` rather than trusting a list drawn a frame ago.
+    if let PlayerAction::ActivateAbility { ability_index, .. } = option.action
+        && let (Some(view), Some(legal)) = (
+            duel.view.as_ref(),
+            duel.interaction
+                .as_ref()
+                .and_then(Interaction::legal_actions),
+        )
+        && let Some(plan) = crate::abilities::mana_for(view, legal, object, ability_index)
+    {
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Ability(ability_index),
+            },
+        );
+        return false;
+    }
     match abilitysheet::press(option.mana || option.tap_only, false) {
         abilitysheet::Press::Send => {
             duel.submit(option.action.clone());
@@ -724,6 +743,10 @@ pub fn fire_armed(duel: &mut Duel) {
                 None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
             }
         }
+        Deed::Run {
+            then: crate::RunEnd::Ability(index),
+            ..
+        } => fire_ability_payment(duel, armed.object, index),
         Deed::Run {
             plan,
             then: crate::RunEnd::Cast,
@@ -797,6 +820,42 @@ pub fn fire_armed(duel: &mut Duel) {
                 crate::RunEnd::Float,
             ));
         }
+    }
+}
+
+fn open_ability_sheet(duel: &mut Duel, object: ObjectId) {
+    duel.ability_menu = Some(object);
+    duel.ability_pick = 0;
+    duel.ability_page = 0;
+    duel.ability_tap = None;
+}
+
+fn fire_ability_payment(duel: &mut Duel, object: ObjectId, index: u32) {
+    let offered = duel
+        .interaction
+        .as_ref()
+        .and_then(Interaction::legal_actions)
+        .is_some_and(|legal| legal.abilities.contains(&(object, index)));
+    if offered {
+        duel.submit(PlayerAction::ActivateAbility {
+            source: object,
+            ability_index: index,
+        });
+    } else if let (Some(view), Some(legal)) = (
+        duel.view.as_ref(),
+        duel.interaction
+            .as_ref()
+            .and_then(Interaction::legal_actions),
+    ) && let Some(plan) = crate::abilities::mana_for(view, legal, object, index)
+    {
+        duel.last_error = None;
+        duel.mana_run = Some(crate::ManaRun::new(
+            plan,
+            object,
+            crate::RunEnd::Ability(index),
+        ));
+    } else {
+        duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
     }
 }
 
@@ -1680,7 +1739,21 @@ fn take_sheet_row(duel: &mut Duel, at: usize) {
     };
     duel.ability_pick = at;
     let armed = duel.armed.as_ref().is_some_and(|a| {
-        a.object == object && matches!(&a.deed, Deed::Ability(action) if *action == option.action)
+        a.object == object
+            && match &a.deed {
+                Deed::Ability(action) => *action == option.action,
+                Deed::Run {
+                    then: crate::RunEnd::Ability(index),
+                    ..
+                } => {
+                    option.action
+                        == PlayerAction::ActivateAbility {
+                            source: object,
+                            ability_index: *index,
+                        }
+                }
+                _ => false,
+            }
     });
     match abilitysheet::press(option.mana || option.tap_only, armed) {
         // Through `fire_armed` and not `duel.submit`, so the deed is

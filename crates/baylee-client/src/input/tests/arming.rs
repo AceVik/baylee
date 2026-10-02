@@ -9,6 +9,7 @@ fn confirming_a_priority_choice_passes() {
         Pending::Priority {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![obj(1)],
                 castable: vec![],

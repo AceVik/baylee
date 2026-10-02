@@ -811,6 +811,7 @@ mod tests {
         Pending::Priority {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![baylee_core::ids::ObjectId::new(9, 0)],
                 castable: vec![],
@@ -826,6 +827,7 @@ mod tests {
         Pending::Priority {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![],
@@ -1600,6 +1602,7 @@ mod tests {
         let castable = Pending::Priority {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![baylee_core::ids::ObjectId::new(1, 0)],
@@ -1632,6 +1635,7 @@ mod tests {
         let only_mana = Pending::Priority {
             player: PlayerId::new(0),
             legal: Box::new(LegalActions {
+                unpaid_abilities: vec![],
                 can_pass: true,
                 lands: vec![],
                 castable: vec![],

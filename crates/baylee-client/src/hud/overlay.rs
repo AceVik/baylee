@@ -1477,6 +1477,22 @@ pub(super) fn armed_label(
         // `{4}{U}{U}` — so the plan carries the cost it was built for and
         // the row draws it.
         crate::Deed::Run { plan, then } => {
+            if let crate::RunEnd::Ability(index) = then {
+                let view = duel.view.as_ref()?;
+                let legal = duel.interaction.as_ref()?.legal_actions()?;
+                let cost = crate::abilities::mana_for(view, legal, armed.object, *index)
+                    .map(|current| current.cost)
+                    .or_else(|| {
+                        legal
+                            .abilities
+                            .contains(&(armed.object, *index))
+                            .then_some(plan.cost)
+                    })?;
+                return Some(ArmedWords {
+                    text: Phrase::ArmedPayAndActivate.text(lang).to_string(),
+                    cost: Some(cost),
+                });
+            }
             let offered = match then {
                 crate::RunEnd::Cast => Some((&duel.reachable, Phrase::ArmedPayAndCast)),
                 crate::RunEnd::Suspend => Some((&duel.suspend_reach, Phrase::ArmedSuspend)),
@@ -1485,7 +1501,7 @@ pub(super) fn armed_label(
                 // whole of "the card taps once the mana has been chosen". So
                 // there is no row to draw here, and no price to quote either
                 // — the mana *is* the point, and it costs a tap.
-                crate::RunEnd::Float => None,
+                crate::RunEnd::Float | crate::RunEnd::Ability(_) => None,
             };
             offered
                 .filter(|(offered, _)| offered.contains(&armed.object))

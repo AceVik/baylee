@@ -603,10 +603,18 @@ fn armed_row(
     if armed.object != object {
         return None;
     }
-    let crate::Deed::Ability(action) = &armed.deed else {
-        return None;
+    let action = match &armed.deed {
+        crate::Deed::Ability(action) => action.clone(),
+        crate::Deed::Run {
+            then: crate::RunEnd::Ability(index),
+            ..
+        } => baylee_engine::choice::PlayerAction::ActivateAbility {
+            source: object,
+            ability_index: *index,
+        },
+        _ => return None,
     };
-    options.iter().position(|o| &o.action == action)
+    options.iter().position(|o| o.action == action)
 }
 
 /// What a sheet is about, whichever model opened it.
@@ -646,7 +654,7 @@ struct Opening {
 fn ability_opening(duel: &Duel, lang: Lang, faces: &crate::cardtext::CardTexts) -> Option<Opening> {
     let object = duel.ability_menu?;
     let options = ability_options(duel, lang, object)?;
-    if options.len() < 2 {
+    if options.is_empty() {
         return None;
     }
     let view = duel.view.as_ref()?;
@@ -2302,6 +2310,44 @@ fn corner_for(mid: Vec2, card: Vec2, sheet: Vec2, window: Vec2) -> Vec2 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_single_armed_ability_keeps_its_printed_sentence_on_the_sheet() {
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+        use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
+        let card = baylee_cards::decks::by_name("Maskwood Nexus").unwrap();
+        let mut object = printed(1, 0, "Maskwood Nexus", 1);
+        object.card.as_mut().unwrap().index = card;
+        object.rules = Some(baylee_view::RulesFace { card, face: 0 });
+        let id = object.id;
+        let mut duel = Duel::default();
+        duel.receive_view(ViewBuilder::new(2).with_battlefield(0, [object]).build());
+        duel.receive_choice(Pending::Priority {
+            player: baylee_core::ids::PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                abilities: vec![(id, 1)],
+                ..Default::default()
+            }),
+        });
+        duel.ability_menu = Some(id);
+        duel.armed = Some(crate::Armed {
+            object: id,
+            deed: crate::Deed::Ability(PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 1,
+            }),
+        });
+        let opening = ability_opening(&duel, Lang::En, &crate::cardtext::CardTexts::default())
+            .expect("one costly ability still has a sheet");
+        assert_eq!(opening.rows.len(), 1);
+        assert_eq!(opening.armed, Some(0));
+        assert!(
+            opening.rows[0]
+                .blocks
+                .as_ref()
+                .is_some_and(|b| !b.is_empty())
+        );
+    }
 
     /// A duel's window, measured off the running client.
     const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);

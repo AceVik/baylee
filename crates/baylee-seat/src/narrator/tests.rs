@@ -250,6 +250,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
     Pending::Priority {
         player: ME,
         legal: Box::new(LegalActions {
+            unpaid_abilities: vec![],
             can_pass: true,
             lands: vec![id(52)],
             castable: Vec::new(),

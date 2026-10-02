@@ -374,9 +374,10 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        if self.activation_affordable(player, id, &cost, &[]) {
-                            legal.abilities.push((id, i as u32));
-                        }
+                        let payable = self.activation_affordable(player, id, &cost, &[]);
+                        self.offer_activation_payment(
+                            player, id, i as u32, &cost, payable, &mut legal,
+                        );
                     }
                     AbilityDef::ActivatedConditional {
                         cost,
@@ -407,9 +408,10 @@ impl<L: CardLookup> Engine<L> {
                             continue;
                         }
                         let cost = self.activation_price(player, id, cost, *cost_reduction);
-                        if self.activation_affordable(player, id, &cost, &[]) {
-                            legal.abilities.push((id, i as u32));
-                        }
+                        let payable = self.activation_affordable(player, id, &cost, &[]);
+                        self.offer_activation_payment(
+                            player, id, i as u32, &cost, payable, &mut legal,
+                        );
                     }
                     AbilityDef::Loyalty {
                         cost,
@@ -485,6 +487,14 @@ impl<L: CardLookup> Engine<L> {
                     .enumerate()
             {
                 if !self.can_afford(player, id, &granted.cost, casting::SpendFor::Ability(id)) {
+                    self.offer_activation_payment(
+                        player,
+                        id,
+                        crate::choice::granted_ability(n as u32),
+                        &granted.cost,
+                        false,
+                        &mut legal,
+                    );
                     continue;
                 }
                 legal
@@ -638,7 +648,47 @@ impl<L: CardLookup> Engine<L> {
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
+        // Planning hints obey every final lock too. They passed through the
+        // same narrowing as actual offers, then leave the actionable list.
         legal
+            .unpaid_abilities
+            .retain(|(source, index, _)| legal.abilities.contains(&(*source, *index)));
+        legal.abilities.retain(|(source, index)| {
+            !legal
+                .unpaid_abilities
+                .iter()
+                .any(|(s, i, _)| s == source && i == index)
+        });
+        legal
+    }
+
+    /// Check non-mana costs with the same reader as activation. An unpaid
+    /// hint does not grant permission to activate or manufacture any mana.
+    fn offer_activation_payment(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        index: u32,
+        cost: &Cost,
+        payable: bool,
+        legal: &mut LegalActions,
+    ) {
+        if payable {
+            legal.abilities.push((source, index));
+        } else if cost.mana != baylee_core::mana::ManaCost::ZERO
+            && self.activation_affordable(
+                player,
+                source,
+                &Cost {
+                    mana: baylee_core::mana::ManaCost::ZERO,
+                    parts: cost.parts,
+                },
+                &[],
+            )
+        {
+            legal.abilities.push((source, index));
+            legal.unpaid_abilities.push((source, index, cost.mana));
+        }
     }
 
     /// Pithing Needle: "Activated abilities of sources with the chosen name

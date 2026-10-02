@@ -2003,6 +2003,8 @@ messages! {
     /// which counted the client's own lands instead of naming what the
     /// spell costs.
     ArmedPayAndCast { en: "Pay {0} and cast", de: "{0} zahlen und zaubern" },
+    /// Confirm an ability and the automatic taps that pay its mana.
+    ArmedPayAndActivate { en: "Pay {0} and activate", de: "{0} zahlen und aktivieren" },
     /// The armed button for suspending a card whose cost still has to be tapped.
     ///
     /// `{0}` is the suspend cost, drawn as pips like [`Self::ArmedPayAndCast`]
