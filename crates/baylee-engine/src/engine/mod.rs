@@ -926,6 +926,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Determinism hash (state + suspended resolution + machine fields).
     #[must_use]
+    #[allow(clippy::too_many_lines)] // Keep the complete continuation fingerprint together.
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
@@ -947,6 +948,9 @@ impl<L: CardLookup> Engine<L> {
             );
         }
         if let Some(r) = &self.resolution {
+            if let Some(resolve::AwaitingOp::Equalize(selection)) = &r.awaiting {
+                extra = extra.wrapping_mul(31).wrapping_add(selection.fingerprint());
+            }
             extra = extra
                 .wrapping_mul(31)
                 .wrapping_add(r.event_mana.map_or(0, crate::trigger::EventMana::key))

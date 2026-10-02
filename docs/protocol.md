@@ -2830,3 +2830,18 @@ graveyard. Like dash it is part of the unreleased protocol-7 batch, so
 `PROTOCOL_VERSION` does not move. `PublicObject::flashback` carries the
 escape mana to the owner while the cast can be paid, so a planner taps for
 it. The client labels the row with the keyword in the player's language.
+
+### Keeping cards during an equalization (protocol 10, view 45)
+
+`ChoicePrompt::Keep`, `KeepLands`, `KeepCreatures` and `KeepPermanents`
+identify `ChooseCards` selections whose chosen cards stay; the unchosen cards
+will be discarded or sacrificed. The prompt names the correct zone/type in
+the client and seat narrator. Exact counts remain
+`min == max`. Counts greater than 255 use successive choices over the remaining
+options, without applying the sacrifice/discard between those choices.
+
+`LogEvent::CardsKept { player, cards }` announces permanent choices in turn
+order so later players can see the earlier decisions. These references preserve
+face-down visibility. Private hand choices never produce this event; discards
+become public only once everyone has chosen. This adds enum variants, so older
+protocol/view readers must refuse the session rather than silently omit them.

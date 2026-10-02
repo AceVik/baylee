@@ -129,7 +129,8 @@ use serde::{Deserialize, Serialize};
 /// Compatible addition: `SeatView::no_max_hand_size` defaults to false when
 /// absent; older readers ignore the additional JSON field.
 /// Compatible addition: the public chosen opponent defaults to absent.
-pub const VIEW_VERSION: u32 = 44;
+/// Version 45 adds public permanent choices (`LogEvent::CardsKept`).
+pub const VIEW_VERSION: u32 = 45;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -2255,6 +2256,13 @@ pub enum LogEvent {
         /// The cards.
         cards: Vec<LogObject>,
     },
+    /// Publicly chosen permanents to keep; face-down identities stay hidden.
+    CardsKept {
+        /// Who chose them.
+        player: PlayerId,
+        /// The kept permanents.
+        cards: Vec<LogObject>,
+    },
     /// A player's library was shuffled.
     Shuffled {
         /// Whose.
@@ -2325,7 +2333,9 @@ impl LogEvent {
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
             | Self::Transformed { object: o } => out.push(o),
-            Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
+            Self::Drew { cards, .. }
+            | Self::Revealed { cards, .. }
+            | Self::CardsKept { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
                 out.extend(source);
                 if let LogTarget::Object(o) = target {
@@ -2374,7 +2384,9 @@ impl LogEvent {
             | Self::ControlChanged { object: o, .. }
             | Self::TurnedFaceUp { object: o }
             | Self::Transformed { object: o } => out.push(o),
-            Self::Drew { cards, .. } | Self::Revealed { cards, .. } => out.extend(cards),
+            Self::Drew { cards, .. }
+            | Self::Revealed { cards, .. }
+            | Self::CardsKept { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
                 out.extend(source);
                 if let LogTarget::Object(o) = target {
@@ -3432,8 +3444,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Token provenance and the chosen opponent are additive with defaults; keep view 44.
-        const RECORDED: (u32, u64) = (44, 0x6c0a_aeab_0f82_46c2);
+        // Public keep selections add a log enum variant: view 45.
+        const RECORDED: (u32, u64) = (45, 0xde63_d69d_aeea_25a6);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

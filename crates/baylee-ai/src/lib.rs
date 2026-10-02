@@ -1195,6 +1195,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn balance_keeps_the_valuable_permanent_or_castable_hand_card() {
+        use baylee_engine::choice::ChoicePrompt;
+        let me = PlayerId::new(0);
+        let (elves, wurm) = (obj(1), obj(2));
+        let board = view(
+            0,
+            &[20, 20],
+            vec![
+                carded(permanent(elves, me, 1), "Llanowar Elves", TypeSet::CREATURE),
+                carded(permanent(wurm, me, 6), "Endless Wurm", TypeSet::CREATURE),
+            ],
+        );
+        let mut hand = view(0, &[20, 20], vec![]);
+        hand.hand = vec![hand_card(1, "Llanowar Elves"), hand_card(2, "Endless Wurm")];
+        for (view, keep, prompt) in [
+            (&board, wurm, ChoicePrompt::KeepCreatures),
+            (&hand, elves, ChoicePrompt::Keep),
+        ] {
+            for (name, profile) in PROFILES {
+                assert_eq!(
+                    HeuristicAgent::new(profile).act(
+                        view,
+                        &Pending::ChooseCards {
+                            player: me,
+                            options: vec![elves, wurm],
+                            min: 1,
+                            max: 1,
+                            prompt,
+                            total: None,
+                        }
+                    ),
+                    PlayerAction::ChooseObjects {
+                        objects: vec![keep]
+                    },
+                    "{name}"
+                );
+            }
+        }
+    }
+
     /// A price is paid, and paid with the card this seat misses least.
     ///
     /// "Sacrifice Endless Wurm unless you sacrifice an enchantment" asks

@@ -215,6 +215,10 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             format!("Choose creatures to tap to crew (total power {power} or more)")
         }
         ChoicePrompt::LookAtHand => "Inspect the hand, then confirm with no cards selected".into(),
+        ChoicePrompt::Keep => "Choose hand cards to keep; discard the rest".into(),
+        ChoicePrompt::KeepLands => "Choose lands to keep; sacrifice the rest".into(),
+        ChoicePrompt::KeepCreatures => "Choose creatures to keep; sacrifice the rest".into(),
+        ChoicePrompt::KeepPermanents => "Choose permanents to keep; sacrifice the rest".into(),
         ChoicePrompt::Generic => "Choose cards".into(),
     }
 }

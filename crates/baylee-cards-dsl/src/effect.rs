@@ -1551,6 +1551,15 @@ pub enum Effect {
         /// What may be destroyed.
         filter: &'static Filter,
     },
+    /// In active-player order, each player keeps as many matching permanents
+    /// as the player with the fewest; everyone sacrifices the rest together.
+    EqualizePermanents {
+        /// The kind of permanent to balance.
+        filter: &'static Filter,
+    },
+    /// Each player privately keeps as many hand cards as the smallest hand;
+    /// all unchosen cards are discarded only after everyone has chosen.
+    EqualizeHands,
     /// Each player in `who` discards `count` cards (their choice).
     DiscardForPlayers {
         /// Who discards.
@@ -3446,6 +3455,8 @@ impl Effect {
             | Effect::ExchangeControlOrSacrifice
             | Effect::ExchangeControl
             | Effect::DestroyChosenForPlayers { .. }
+            | Effect::EqualizePermanents { .. }
+            | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
             | Effect::DiscardRandom { .. }
             | Effect::DiscardHand { .. }

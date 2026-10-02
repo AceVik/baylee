@@ -2783,3 +2783,24 @@ This effect copies neither spending restrictions nor riders from the land;
 snow provenance comes from the bonus-producing permanent itself. Mana triggers
 resolve off-stack, and a suspended choice returns to the original activator.
 The event record is in the trigger/resolution context, never in `GameObject`.
+
+### Equalizing permanents and hands (Balance)
+
+`EqualizePermanents { filter }` counts each living player's matching, unphased
+permanents and fixes the smallest count for that instruction. In active-player
+order each player chooses that many to keep. All choices finish before any
+unchosen permanent is sacrificed. These are choices, not targets; protection,
+shroud and indestructible do not prevent the sacrifices. Objects go to their
+owners' graveyards through normal zone replacements.
+
+`EqualizeHands` uses the same continuation with private hand selections, then
+records and performs all discards together. It publishes neither kept identities
+nor intermediate discards while another player is choosing. Both instructions
+skip forced choices and chunk counts above 255 without reducing the total.
+
+Balance runs land equalization, hand equalization, then creature equalization.
+Each instruction takes a fresh count: a land creature sacrificed first no longer
+counts later. Trigger placement and state-based actions wait until resolution
+finishes. The suspended choices participate in the engine snapshot fingerprint.
+See Wizards' 2016-06-08 rulings in the
+[Scryfall ruling record](https://api.scryfall.com/cards/ce648aa3-098b-4af0-a433-fd290bc85904/rulings).

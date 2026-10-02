@@ -701,6 +701,10 @@ pub fn table_losses(
 /// any of the cards listed.
 fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
     match reason {
+        ChoicePrompt::Keep => (Phrase::NounCardToKeep, Phrase::NounCardsToKeep),
+        ChoicePrompt::KeepLands => (Phrase::NounLandToKeep, Phrase::NounLandsToKeep),
+        ChoicePrompt::KeepCreatures => (Phrase::NounCreatureToKeep, Phrase::NounCreaturesToKeep),
+        ChoicePrompt::KeepPermanents => (Phrase::NounPermanentToKeep, Phrase::NounPermanentsToKeep),
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
         ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
         ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),

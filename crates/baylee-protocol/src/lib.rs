@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 9 adds the private hand-inspection choice prompt.
-pub const PROTOCOL_VERSION: u32 = 9;
+/// Version 10 adds the keep-card choice prompt and public keep selections.
+pub const PROTOCOL_VERSION: u32 = 10;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -233,7 +233,8 @@ mod tests {
         // 8: a `ManaCost` in a `Pending` is its notation (`"{2}{U}{U}"`), not
         // the sixteen-slot list a replicated cost overflowed.
         // 9: private hand-inspection prompt; older clients cannot decode it.
-        assert_eq!(PROTOCOL_VERSION, 9);
+        // 10: explicit keep-card choices and public permanent selections.
+        assert_eq!(PROTOCOL_VERSION, 10);
     }
 
     #[test]

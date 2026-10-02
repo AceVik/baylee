@@ -4790,6 +4790,153 @@ mod tests {
         );
     }
 
+    /// Earlier hand selections never reveal identities or move cards before
+    /// the remaining players have chosen.
+    #[test]
+    #[allow(clippy::too_many_lines)] // One played three-seat privacy boundary, before and after commitment.
+    fn balance_keeps_hand_choices_private_until_all_players_have_chosen() {
+        let entry = |name: &str| DeckEntry {
+            card: baylee_cards::generated::ALL
+                .iter()
+                .find(|(_, card)| card.name() == name)
+                .unwrap()
+                .1
+                .index,
+            print: PrintRef::new(0),
+        };
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        for seat in &mut preset.seats {
+            seat.starting_battlefield.clear();
+        }
+        preset.seats[0].starting_battlefield = vec![entry("Plains"); 2];
+        preset.seats[0].starting_hand =
+            Some(vec![entry("Balance"), entry("Island"), entry("Sol Ring")]);
+        preset.seats[1].starting_hand = Some(vec![entry("Mountain"), entry("Lightning Bolt")]);
+        preset.seats[2].starting_hand = Some(vec![entry("Forest")]);
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        settle(&mut engine, None);
+        let (me, them, other) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+        let lands = engine.state().zones.list(ZoneLocation::Battlefield).clone();
+        for source in lands {
+            engine
+                .apply(me, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+        let card = seen_by(&engine, me)
+            .hand
+            .iter()
+            .find(|o| o.name == "Balance")
+            .unwrap()
+            .id;
+        engine.apply(me, PlayerAction::CastSpell { card }).unwrap();
+        for _ in 0..6 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        let my_hand = engine.state().zones.list(ZoneLocation::Hand(me)).clone();
+        let their_hand = engine.state().zones.list(ZoneLocation::Hand(them)).clone();
+        let mut log = GameLog::new(engine.state());
+        let from = log.len();
+        let Pending::ChooseCards {
+            player, min, max, ..
+        } = engine.pending()
+        else {
+            panic!("{:?}", engine.pending());
+        };
+        assert_eq!((*player, *min, *max), (me, 1, 1));
+        engine
+            .apply(
+                me,
+                PlayerAction::ChooseObjects {
+                    objects: vec![my_hand[0]],
+                },
+            )
+            .unwrap();
+        assert!(matches!(engine.pending(), Pending::ChooseCards { player, .. } if *player == them));
+        log.consume(engine.state());
+        for seat in [me, them, other] {
+            assert!(
+                told_since(&log, seat, from).is_empty(),
+                "private choices produce no public line"
+            );
+            let view = seen_by(&engine, seat);
+            assert!(
+                view.looking_at
+                    .iter()
+                    .all(|o| their_hand.contains(&o.id) && seat == them)
+            );
+            assert!(view.hand.iter().all(|o| {
+                engine
+                    .state()
+                    .zones
+                    .list(ZoneLocation::Hand(seat))
+                    .contains(&o.id)
+            }));
+        }
+        assert_eq!(engine.state().zones.list(ZoneLocation::Hand(me)), &my_hand);
+        assert_eq!(
+            engine.state().zones.list(ZoneLocation::Hand(them)),
+            &their_hand
+        );
+        engine
+            .apply(
+                them,
+                PlayerAction::ChooseObjects {
+                    objects: vec![their_hand[0]],
+                },
+            )
+            .unwrap();
+        log.consume(engine.state());
+        for seat in [me, them, other] {
+            let lines = told_since(&log, seat, from);
+            let discarded: Vec<_> = lines
+                .iter()
+                .filter_map(|event| {
+                    if let LogEvent::Discarded { card, .. } = event {
+                        handle(card)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            assert!(discarded.contains(&my_hand[1]) && discarded.contains(&their_hand[1]));
+            assert!(!discarded.contains(&my_hand[0]) && !discarded.contains(&their_hand[0]));
+        }
+    }
+
+    #[test]
+    fn balance_public_keep_log_preserves_face_down_identity() {
+        let (mut engine, mut log) = a_logged_table();
+        let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+        let land = engine.state().zones.list(ZoneLocation::Battlefield)[0];
+        let from = log.len();
+        let state = engine.dev_state_mut(me).unwrap();
+        state
+            .object_mut(land)
+            .unwrap()
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+        state.journal.record(GameEvent::CardsKept {
+            player: me,
+            cards: vec![land],
+        });
+        log.consume(engine.state());
+        for seat in [me, them] {
+            let Some(LogEvent::CardsKept { cards, .. }) = told_since(&log, seat, from).pop() else {
+                panic!("missing keep announcement");
+            };
+            if seat == me {
+                assert!(matches!(&cards[0], LogObject::Known { id, .. } if *id == land));
+            } else {
+                assert_eq!(cards, vec![LogObject::FaceDown { id: land }]);
+            }
+        }
+    }
+
     /// A card taken from a library to a hand is the searcher's to know. Once
     /// revealed on the way, as a search for anything narrower than "a card"
     /// has to be, it is everyone's.

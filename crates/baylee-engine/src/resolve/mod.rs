@@ -26,6 +26,7 @@ use smallvec::SmallVec;
 mod chosen;
 mod control;
 mod counters;
+mod equalize;
 mod life;
 mod mana;
 mod reflexive;
@@ -493,6 +494,8 @@ pub enum AwaitingOp {
         /// Whose hand the rest go to.
         receiver: PlayerId,
     },
+    /// Collect all keep choices before sacrificing or discarding together.
+    Equalize(Box<equalize::Selection>),
     /// After `DiscardForPlayers`: discard the chosen cards, then ask the
     /// next remaining player.
     DiscardChain {
@@ -2436,6 +2439,11 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 }
             }
         }
+        AwaitingOp::Equalize(selection) => {
+            if let Some(pending) = equalize::resume(state, res, *selection, chosen) {
+                return Flow::Wait(pending);
+            }
+        }
         AwaitingOp::DiscardChain {
             player,
             count,
@@ -3647,6 +3655,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::Regenerate { .. }
         | Effect::RegenerateAll { .. }
         | Effect::DestroyChosenForPlayers { .. }
+        | Effect::EqualizePermanents { .. }
+        | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
         | Effect::DiscardRandom { .. }
         | Effect::DiscardHand { .. }

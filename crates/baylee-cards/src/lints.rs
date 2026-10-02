@@ -211,6 +211,7 @@ fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         | Effect::DoubleCountersFilter { filter, .. }
         | Effect::PumpFilter { filter, .. }
         | Effect::SacrificeFilter { filter, .. }
+        | Effect::EqualizePermanents { filter }
         | Effect::DealDamageEach { filter, .. }
         | Effect::CreateContinuousEffect { filter, .. } => {
             if matches!(filter, Filter::This) {

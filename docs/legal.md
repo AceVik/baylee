@@ -561,3 +561,8 @@ No artwork, symbol or font asset is added.
 Mana Flare (2026-10-02) follows the same owner-approved rules-implementation
 exception above. It adds no assets and uses the existing mana-choice UI,
 licensed fonts/symbols, complete card rendering and attribution unchanged.
+
+Balance (2026-10-02) follows the owner-approved rules-implementation exception
+above. Its keep prompt and public-choice log are plain text in the existing
+licensed fonts. No artwork, font, symbol or other asset is added; the complete
+card-image and attribution path is unchanged.

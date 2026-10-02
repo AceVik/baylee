@@ -834,3 +834,80 @@ in the main phase yielded red 1 / green 2, retained seat 0 priority, left seat
 The first upkeep run advanced through an automatic pass and emptied its pool
 normally at the step boundary; the final measured run used the main phase.
 No push or deployment was made.
+
+## Alpha milestone: Balance (2026-10-02, 10:07 continuation)
+
+Feedback remains 50 resolved / one new. The Windows/Vulkan visual report still
+needs affected-renderer verification and remains open.
+
+Balance now performs the land, hand and creature equalizations. Each stage
+counts afresh and gathers all choices in active-player order before moving
+unchosen cards together. Permanent choices are public; hand selections stay
+private until the simultaneous discard. Indestructible, shroud and protection
+do not prevent these untargeted sacrifices. Large keep counts use consecutive
+menus rather than truncating at 255.
+
+Six played-card tests cover the printed cost and zero minima, three-player
+APNAP and delayed moves for all three stages, Dryad Arbor changing the later
+creature minimum, protected/indestructible creatures, 258-versus-256 lands, and
+private selections changing snapshot hashes while the board remains identical.
+Two host tests prove hand-choice privacy and face-down log redaction. One AI
+test checks keeping a valuable permanent or castable hand card across profiles.
+
+The new Keep prompt is localized for the client and named by the seat narrator.
+A separate CardsKept log event preserves ordinary object visibility instead of
+faking a reveal. These enum changes raise protocol to 10 and view to 45.
+
+Validation: 4295 engine unit tests pass (two existing ignores), both footprint
+checks and engine benchmark smoke runs pass. Also green: 199 AI, 1180 client-core,
+15 protocol, 36 view, 129 cards, 59 DSL, 199 host unit tests and all 40 host
+integration scenarios. Workspace all-targets clippy, validate for all 2955
+cards, and full codegen reproducibility check pass. Table codegen ran twice;
+Balance's ability-line entry is the sole generated change.
+
+Two Alpha Partial cards remain: Gloom and Cyclopean Tomb. The next historical
+set has not started. The independently reproduced seat selfplay wake-count
+failure remains the separate baseline issue documented above. No push or
+deployment was made.
+
+Logs: /private/tmp/baylee-balance-tests.log, baylee-balance-host.log,
+baylee-balance-ui-tests.log, baylee-balance-engine.log,
+baylee-balance-regression.log, baylee-balance-clippy.log,
+baylee-balance-validate.log and baylee-balance-codegen-check.log. The initial
+view-schema test correctly requested a new fingerprint after the version bump;
+the updated view suite passes all 36 tests.
+
+Native iteration 1 completed all three stages at 1280×800 with no error. The
+result was exactly two lands, one hand card and one creature per player; the
+chosen untapped Plains and Grizzly Bears survived, and Balance, the other two
+Plains, Lightning Bolt and Savannah Lions were in the graveyard. Screenshots:
+/private/tmp/baylee-balance-lands.png, baylee-balance-lands-selected.png,
+baylee-balance-hand.png, baylee-balance-creatures.png and baylee-balance-result.png.
+
+The screenshots exposed a wording ambiguity: every stage said only “card to
+keep”, including the land and creature stages. Iteration 2 gives Keep separate
+land, creature and permanent prompts; the private stage explicitly says hand
+card. This is still the same unreleased protocol 10. The first native build
+retained only the existing nonfatal macOS large-unwind-section warning.
+
+Native iteration 2 passes with the same correct end state and no client error.
+The prompts now say “Wähle 2 Länder”, “Wähle 1 Handkarte” and “Wähle 1 Kreatur”,
+each explicitly identifying what stays. Public keep lines appear in the log;
+no kept hand identity does. Final screenshots:
+/private/tmp/baylee-balance-lands-final.png, baylee-balance-hand-final.png,
+baylee-balance-creatures-final.png and baylee-balance-log-final.png.
+Final targeted engine/AI/privacy tests (6+1+2), all 1180 client-core tests,
+workspace all-targets clippy and the native dev-control build pass after this
+wording refinement. Logs: baylee-balance-final-targeted.log,
+baylee-balance-final-client.log, baylee-balance-final-clippy.log and
+baylee-balance-final-build.log under /private/tmp.
+
+Further UX observations for the next client pass (not marked fixed):
+
+- The retained Plains preview overlapped the hand-stage instruction after the
+  land choice. Moving over a HUD button did not clear it in the photographed
+  state. Recheck preview retention/placement at an instruction transition; the
+  entire prompt must stay readable even while a preview is open.
+- The native log calls the offline bot “Solide 1” while the table and player
+  chooser call it “Haus-KI”. Extend the shared seat naming to log wording; keep
+  distinct player names at multiplayer tables.

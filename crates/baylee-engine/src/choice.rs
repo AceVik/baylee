@@ -652,6 +652,14 @@ pub enum ChoicePrompt {
     CostSacrifice,
     /// "Discard a card" in an activation cost (CR 701.9a).
     CostDiscard,
+    /// Keep these hand cards; the unchosen ones will be discarded.
+    Keep,
+    /// Keep these lands; the unchosen ones will be sacrificed.
+    KeepLands,
+    /// Keep these creatures; the unchosen ones will be sacrificed.
+    KeepCreatures,
+    /// Keep these other matching permanents; the rest will be sacrificed.
+    KeepPermanents,
     /// "Tap an untapped creature you control" in an activation cost.
     ///
     /// The first cost prompt whose answer is not destroyed, which is why it

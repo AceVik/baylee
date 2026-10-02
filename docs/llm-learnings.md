@@ -2389,3 +2389,34 @@ land type"; both are convention tests that fire on a first try.
 - **Rule source:** Wizards' 2023-09-01 rulings, retrieved through Scryfall's
   [rulings endpoint](https://api.scryfall.com/cards/a4bb303d-b230-430a-a2c3-f91a776de34e/rulings),
   confirm one chosen produced type and no inherited restrictions or riders.
+
+## Alpha Balance (Codex, 2026-10-02)
+
+- **Collect choices before moving any cards.** Reusing sequential discard or
+  sacrifice chains would reveal earlier hand decisions and change the board
+  before later players chose. The new equalization continuation stores each
+  group's choices and commits that group only after all players have answered.
+- **APNAP begins with the active player.** A three-player test casts on seat 1's
+  turn and verifies seat 1, seat 2, seat 0 order, including forced keeps. Each
+  group computes its own minimum; a sacrificed Dryad Arbor is no longer a
+  creature in the last stage.
+- **Public choice does not mean reveal.** Permanent keeps have a dedicated
+  journal/log event with normal visibility rules, preserving face-down identity.
+  Hand keeps have no public event. A host test observes every seat before and
+  after the final hand choice, when discards first become public.
+- **Private continuations still affect determinism.** Two games with the same
+  unchanged board and different already-chosen hand keeps must hash differently.
+  The selection fingerprint includes its progress, options, keeps and removals.
+- **A byte-sized menu is not a rules limit.** Exact selections above 255 cards
+  continue in chunks without moving cards early. The played 258-versus-256-land
+  test keeps 256, rather than truncating the minimum to zero or 255.
+- **Tell both humans and AI what the selection means.** The explicit Keep prompt
+  reverses the sacrifice/discard preference: keep valuable battlefield objects
+  or castable hand cards. Existing clients cannot decode that new enum variant,
+  requiring protocol 10; the new public log variant requires view 45.
+- **Rule source:** Wizards' 2016-06-08 Balance rulings, retrieved via
+  [Scryfall](https://api.scryfall.com/cards/ce648aa3-098b-4af0-a433-fd290bc85904/rulings).
+
+- **Photograph the transitions, not just the result.** Balance's first live run
+  was rules-correct but called lands, hand cards and creatures the same thing.
+  Distinct keep prompts now identify the three stages without extra explanation.

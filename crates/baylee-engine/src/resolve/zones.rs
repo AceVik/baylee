@@ -918,6 +918,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 total: None,
             })
         }
+        Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
+        Effect::EqualizeHands => equalize::start(state, res, None),
         Effect::DiscardForPlayers { who, count } => {
             let players = players_of(who, state, you, res);
             let mut remaining: Vec<PlayerId> = players

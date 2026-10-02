@@ -1721,6 +1721,22 @@ messages! {
         en: "permanents to sacrifice",
         de: "bleibende Karten, die geopfert werden",
     },
+    /// land to keep
+    NounLandToKeep { en: "land to keep", de: "Land, das du behältst" },
+    /// lands to keep
+    NounLandsToKeep { en: "lands to keep", de: "Länder, die du behältst" },
+    /// creature to keep
+    NounCreatureToKeep { en: "creature to keep", de: "Kreatur, die du behältst" },
+    /// creatures to keep
+    NounCreaturesToKeep { en: "creatures to keep", de: "Kreaturen, die du behältst" },
+    /// permanent to keep
+    NounPermanentToKeep { en: "permanent to keep", de: "bleibende Karte, die du behältst" },
+    /// permanents to keep
+    NounPermanentsToKeep { en: "permanents to keep", de: "bleibende Karten, die du behältst" },
+    /// hand card to keep
+    NounCardToKeep { en: "hand card to keep", de: "Handkarte, die du behältst" },
+    /// cards to keep
+    NounCardsToKeep { en: "hand cards to keep", de: "Handkarten, die du behältst" },
     /// card to discard
     NounCardToDiscard { en: "card to discard", de: "Karte, die abgeworfen wird" },
     /// cards to discard
@@ -3167,6 +3183,10 @@ messages! {
     LogTurnedFaceUp { en: "{1} turned face up", de: "{1} wurde aufgedeckt" },
     /// A permanent transforms.
     LogTransformed { en: "{1} transformed", de: "{1} hat sich verwandelt" },
+    /// The reading seat chose which permanents to keep. `{1}` is the list.
+    LogCardsKeptYou { en: "{7} chose to keep {1}", de: "{7} behältst {1}" },
+    /// Another seat chose which permanents to keep.
+    LogCardsKept { en: "{0} chose to keep {1}", de: "{0} behält {1}" },
     /// The reading seat revealed cards. `{1}` is the list.
     LogRevealedYou { en: "{7} revealed {1}", de: "{7} hast {1} offen vorgezeigt" },
     /// Another seat revealed cards.
@@ -3962,6 +3982,10 @@ mod tests {
                 Phrase::NounPermanentToSacrifice,
                 Phrase::NounPermanentsToSacrifice,
             ),
+            (Phrase::NounCardToKeep, Phrase::NounCardsToKeep),
+            (Phrase::NounLandToKeep, Phrase::NounLandsToKeep),
+            (Phrase::NounCreatureToKeep, Phrase::NounCreaturesToKeep),
+            (Phrase::NounPermanentToKeep, Phrase::NounPermanentsToKeep),
             (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
             (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
             (

@@ -394,6 +394,10 @@ impl GameLog {
                 self.turn = *number;
                 self.push(LogEvent::TurnStarted { active: *active }, Vec::new());
             }
+            GameEvent::CardsKept { player, cards } => {
+                let (cards, sees) = cards.iter().map(|id| self.refer(state, *id)).unzip();
+                self.push(LogEvent::CardsKept { player: *player, cards }, sees);
+            }
             GameEvent::Revealed { player, cards } => {
                 shown.extend(cards.iter().copied());
                 let cards: Vec<LogObject> =

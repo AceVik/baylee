@@ -89,6 +89,14 @@ pub enum GameEvent {
         /// The cards, in the order they were found.
         cards: Vec<ObjectId>,
     },
+    /// Public choices of permanents to keep, before a simultaneous sacrifice.
+    /// Never used for private hand-card selections, nor a face-down reveal.
+    CardsKept {
+        /// The choosing player.
+        player: PlayerId,
+        /// The kept permanents.
+        cards: Vec<ObjectId>,
+    },
     /// A zone was shuffled.
     Shuffled {
         /// Whose zone.

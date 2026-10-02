@@ -339,6 +339,26 @@ impl HeuristicAgent {
             ranked.truncate(usize::from(min.max(1).min(max)));
             return Some(ranked);
         }
+        if matches!(
+            prompt,
+            ChoicePrompt::Keep
+                | ChoicePrompt::KeepLands
+                | ChoicePrompt::KeepCreatures
+                | ChoicePrompt::KeepPermanents
+        ) {
+            let card_value = Self::card_value(view);
+            let mut ranked = options.to_vec();
+            ranked.sort_by_key(|id| {
+                let value = view
+                    .battlefield
+                    .iter()
+                    .find(|o| o.id == *id)
+                    .map_or_else(|| card_value(id), |o| self.given_up(view, o));
+                (std::cmp::Reverse(value), *id)
+            });
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         if self.profile.mulligan_skill < 2 {
             return None;
         }

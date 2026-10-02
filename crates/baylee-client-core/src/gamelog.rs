@@ -960,6 +960,12 @@ impl Writer<'_> {
             LogEvent::Transformed { object } => {
                 self.about_nobody(Phrase::LogTransformed, vec![self.object(object)])
             }
+            LogEvent::CardsKept { player, cards } => self.about(
+                *player,
+                Phrase::LogCardsKeptYou,
+                Phrase::LogCardsKept,
+                vec![self.objects(cards)],
+            ),
             LogEvent::Revealed { player, cards } => self.about(
                 *player,
                 Phrase::LogRevealedYou,
@@ -1876,10 +1882,11 @@ mod tests {
             LogEvent::LoopDetected { .. } => 27,
             LogEvent::DayNight { .. } => 28,
             LogEvent::Banded { .. } => 30,
+            LogEvent::CardsKept { .. } => 31,
         }
     }
 
-    const VARIANTS: usize = 31;
+    const VARIANTS: usize = 32;
 
     /// Every kind of line, about `player`, with every answer, cause, zone and
     /// counter a line can carry.
@@ -1972,6 +1979,10 @@ mod tests {
             },
             LogEvent::Transformed {
                 object: card.clone(),
+            },
+            LogEvent::CardsKept {
+                player,
+                cards: vec![card.clone()],
             },
             LogEvent::Revealed {
                 player,
@@ -2195,6 +2206,7 @@ mod tests {
                 ..
             }
             | LogEvent::ControlChanged { new: player, .. }
+            | LogEvent::CardsKept { player, .. }
             | LogEvent::Revealed { player, .. }
             | LogEvent::Shuffled { player }
             | LogEvent::DiceRolled { player, .. }
