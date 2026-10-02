@@ -48,6 +48,9 @@ pub enum ShieldKind {
     /// "Prevent the next N damage" (CR 615.7): each 1 damage prevented
     /// takes 1 off, and the shield is gone at 0.
     Next(u32),
+    /// Prevention installed for the one damage event currently being
+    /// processed. Its writer removes any unused amount immediately.
+    ThisEvent(u32),
     /// "Prevent all combat damage that would be dealt this turn" (Fog):
     /// every combat damage event, never used up.
     AllCombat,
@@ -292,7 +295,7 @@ fn rank(shield: &Shield) -> u8 {
         } => 0,
         ShieldKind::AllCombat => 1,
         ShieldKind::NextFrom { all_but: 0, .. } => 2,
-        ShieldKind::NextFrom { .. } => 3,
+        ShieldKind::NextFrom { .. } | ShieldKind::ThisEvent(_) => 3,
         ShieldKind::Next(_) => 4,
         ShieldKind::RedirectNextFrom { .. } => 5,
     }
@@ -337,10 +340,14 @@ pub fn apply(
                     left = 0;
                 }
             }
-            ShieldKind::Next(n) => {
+            ShieldKind::Next(n) | ShieldKind::ThisEvent(n) => {
                 let prevented = left.min(n);
                 left -= prevented;
-                state.shields[i].kind = ShieldKind::Next(n - prevented);
+                state.shields[i].kind = if matches!(shield.kind, ShieldKind::ThisEvent(_)) {
+                    ShieldKind::ThisEvent(n - prevented)
+                } else {
+                    ShieldKind::Next(n - prevented)
+                };
                 if n == prevented {
                     spent.push(i);
                 }

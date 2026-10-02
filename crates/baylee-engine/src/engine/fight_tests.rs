@@ -93,7 +93,7 @@ fn name(
     engine: &mut Engine<RegistryLookup>,
     seat: PlayerId,
     objects: &[ObjectId],
-) -> (Vec<ObjectId>, u8, u8) {
+) -> (Vec<ObjectId>, u32, u32) {
     let Pending::ChooseTargets {
         player,
         options,

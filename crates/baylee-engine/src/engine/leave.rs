@@ -193,7 +193,7 @@ impl<L: CardLookup> Engine<L> {
                 } = &mut self.pending
                 {
                     let n = options.len() + player_options.len();
-                    *min = u8::try_from(n).unwrap_or(u8::MAX).min(*min);
+                    *min = u32::try_from(n).unwrap_or(u32::MAX).min(*min);
                 }
             }
         }

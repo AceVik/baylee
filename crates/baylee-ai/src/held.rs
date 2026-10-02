@@ -180,10 +180,13 @@ fn targets(
     view: &PlayerView,
     (options, player_options): (&[ObjectId], &[PlayerId]),
     (objects, players): (&[ObjectId], &[PlayerId]),
-    (min, max): (u8, u8),
+    (min, max): (u32, u32),
     hostile: &dyn Fn(PlayerId) -> bool,
 ) -> PlayerAction {
-    let (min, max) = (usize::from(min), usize::from(max));
+    let (min, max) = (
+        usize::try_from(min).unwrap_or(usize::MAX),
+        usize::try_from(max).unwrap_or(usize::MAX),
+    );
     let enemy = |id: &ObjectId| view.object(*id).is_none_or(|o| hostile(o.controller));
     let offered: BTreeSet<ObjectId> = options.iter().copied().collect();
     let seats: BTreeSet<PlayerId> = player_options.iter().copied().collect();

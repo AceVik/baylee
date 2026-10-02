@@ -19708,7 +19708,10 @@ fn pact_of_negation_counters_a_spell_now_and_charges_for_it_at_the_next_upkeep()
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(
         engine.payment_window(),
-        Some((p0, baylee_core::mana::ManaCost::parse("{3}{U}{U}")))
+        Some((
+            p0,
+            baylee_core::mana::ManaPayment::Fixed(baylee_core::mana::ManaCost::parse("{3}{U}{U}"))
+        ))
     );
     tap_all_mana(&mut engine, p0);
     let before = engine.state().players[0].mana_pool.total();
@@ -20122,7 +20125,7 @@ fn concealment_is_offered(engine: &Engine<RegistryLookup>) -> bool {
 /// its convoke asks, if it asks one.
 fn concealment_convoke_question(
     engine: &mut Engine<RegistryLookup>,
-) -> Option<(Vec<ObjectId>, u8)> {
+) -> Option<(Vec<ObjectId>, u32)> {
     let seat = PlayerId::new(0);
     let card = in_hand(engine, seat, clever_concealment()).expect("in hand");
     engine

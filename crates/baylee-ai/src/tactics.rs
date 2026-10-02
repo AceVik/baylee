@@ -52,8 +52,8 @@ impl Meaning {
 pub(crate) struct Offer<'a> {
     pub objects: &'a [ObjectId],
     pub players: &'a [PlayerId],
-    pub min: u8,
-    pub max: u8,
+    pub min: u32,
+    pub max: u32,
 }
 
 /// A deliberately partial evaluator: an amount this side of the wire cannot
@@ -247,6 +247,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.benefit = -1;
             }
             Effect::DealDamage { amount: n, .. }
+            | Effect::DealDamageEvenly { amount: n, .. }
             | Effect::DealDamageWithCappedLifeGain { amount: n } => {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.benefit = -1;
@@ -629,8 +630,8 @@ impl HeuristicAgent {
         view: &PlayerView,
         objects: &[ObjectId],
         players: &[PlayerId],
-        min: u8,
-        max: u8,
+        min: u32,
+        max: u32,
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
         // A clone's choice is not answered by a sign either: the copy is
@@ -720,7 +721,7 @@ impl HeuristicAgent {
         let mut chosen: Vec<ObjectId> = Vec::new();
         for o in &hostile {
             let need = damage_to_finish(o);
-            if chosen.len() < usize::from(max) && need <= left {
+            if chosen.len() < usize::try_from(max).unwrap_or(usize::MAX) && need <= left {
                 chosen.push(o.id);
                 left -= need;
             }
@@ -732,7 +733,7 @@ impl HeuristicAgent {
             chosen.push(o.id);
         }
         for id in objects {
-            if chosen.len() >= usize::from(min) {
+            if chosen.len() >= usize::try_from(min).unwrap_or(usize::MAX) {
                 break;
             }
             if !chosen.contains(id) {
@@ -845,8 +846,8 @@ impl HeuristicAgent {
             .iter()
             .take_while(|(score, _, _)| *score > 0)
             .count()
-            .max(usize::from(min))
-            .min(usize::from(max));
+            .max(usize::try_from(min).unwrap_or(usize::MAX))
+            .min(usize::try_from(max).unwrap_or(usize::MAX));
         let mut selected = Vec::new();
         let mut seats = Vec::new();
         for (_, object, player) in ranked.into_iter().take(count) {

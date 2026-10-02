@@ -414,8 +414,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Demonic Hordes
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
         modes: &[],
         alternatives: &[],
     }],
@@ -1285,8 +1285,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Power Leak
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

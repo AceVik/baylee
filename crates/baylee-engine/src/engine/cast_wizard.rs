@@ -316,7 +316,8 @@ impl<L: CardLookup> Engine<L> {
                 }
             } else if max > 0 {
                 let objects = eval::target_options(&req.spec, &self.state, player, card);
-                if objects.len() + players.len() < usize::from(min) {
+                if u64::try_from(objects.len() + players.len()).unwrap_or(u64::MAX) < u64::from(min)
+                {
                     return false;
                 }
             }
@@ -1412,6 +1413,8 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options,
@@ -1452,12 +1455,14 @@ impl<L: CardLookup> Engine<L> {
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
                 }
+                let (min, max) = req.bounds(wizard.x);
+                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options,
                     player_options: Vec::new(),
-                    min: req.min,
-                    max: req.max,
+                    min,
+                    max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
@@ -1684,7 +1689,7 @@ impl<L: CardLookup> Engine<L> {
                 // "choose up to 99 targets", over two creatures, for a
                 // question that is not targeting at all. *Which* permanents
                 // tap is the player's, so every source stays in `options`.
-                let max = u8::try_from(sources.len().min(room)).unwrap_or(u8::MAX);
+                let max = u32::try_from(sources.len().min(room)).unwrap_or(u32::MAX);
                 self.pending = Pending::ChooseTargets {
                     player: wizard.player,
                     options: sources,
@@ -1731,16 +1736,17 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    /// A miracle is offered during resolution, when its caster cannot first
-    /// float mana through ordinary priority. Give it the same mana-only
-    /// opportunity as other resolution payments (CR 605.3a), after X and
-    /// targets have fixed the price. Keep the wizard outside the active
-    /// choice slot: a mana ability may ask its own color or cost question.
+    /// Opens the mana opportunity after choices fix the price (CR 601.2g).
+    /// A miracle cannot float mana before its offer; a per-target increase
+    /// likewise cannot be known until targets are chosen. Keep the wizard
+    /// outside the active choice slot while a mana ability asks its choices.
     fn cast_or_make_miracle_mana(&mut self, wizard: CastWizard) -> Result<(), EngineError> {
         let face = self.wizard_face(&wizard);
         let cost = wizard_total_cost(face, &wizard)
             .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
-        if wizard.makes_mana_after_choices() && !self.wizard_pool_can_pay(&wizard, cost) {
+        if (wizard.makes_mana_after_choices() || face.extra_target_cost > 0)
+            && !self.wizard_pool_can_pay(&wizard, cost)
+        {
             let mut legal = self.compute_legal(wizard.player);
             self.narrow_to_mana(&mut legal);
             if legal.has_mana_source() {
@@ -1771,12 +1777,13 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// Closing the mana opportunity tries the chosen cast once. A short
-    /// payment leaves the card in hand and cannot reopen the miracle offer.
+    /// payment leaves the card in its original zone and cannot reopen an offer.
+    /// The captured version also protects casts from graveyard or exile.
     pub(super) fn finish_miracle_payment(&mut self, wizard: &CastWizard, version: u32) {
         if self
             .state
             .object(wizard.card)
-            .is_some_and(|card| card.version == version && card.zone == crate::zone::Zone::Hand)
+            .is_some_and(|card| card.version == version)
             && self.finish_cast(wizard).is_err()
             && let Some(card) = self.state.object_mut(wizard.card)
         {
@@ -1891,7 +1898,7 @@ impl<L: CardLookup> Engine<L> {
     /// The mana is paid first and all at once, and every refusal after it (a
     /// delve, pitch or sacrifice answer naming an object that is gone, the
     /// card itself gone) used to leave what was paid by then spent while the
-    /// cast was reversed. CR 732.1 cancels "any payments already made", so
+    /// cast was reversed. CR 733.1 cancels "any payments already made", so
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {
@@ -1958,15 +1965,19 @@ impl<L: CardLookup> Engine<L> {
         total: ManaCost,
     ) -> (ManaCost, Option<(baylee_core::mana::ManaColor, u32)>) {
         let face = self.wizard_face(wizard);
-        let Some(color) = face.x_mana_color.filter(|_| !wizard.free) else {
+        let restricted_color = face.x_mana_color.filter(|_| !wizard.free);
+        if restricted_color.is_none() && face.extra_target_cost == 0 {
             return (total, None);
-        };
+        }
         let reduction = casting::printed_reduction(&self.state, face, wizard.player, wizard.card);
-        let fixed = face.mana_cost.generic_total().saturating_add(
-            self.state.object(wizard.card).map_or(0, |o| {
-                casting::spell_increase(&self.state, wizard.player, o)
-            }),
-        );
+        let fixed = (if wizard.free {
+            0
+        } else {
+            face.mana_cost.generic_total()
+        })
+        .saturating_add(self.state.object(wizard.card).map_or(0, |o| {
+            casting::spell_increase(&self.state, wizard.player, o)
+        }));
         let total = total.with_less_generic(reduction.saturating_sub(fixed));
         let restricted = wizard
             .x
@@ -1974,7 +1985,8 @@ impl<L: CardLookup> Engine<L> {
             .min(total.generic_total());
         (
             total,
-            Some((baylee_core::mana::ManaColor::from_color(color), restricted)),
+            restricted_color
+                .map(|color| (baylee_core::mana::ManaColor::from_color(color), restricted)),
         )
     }
 
@@ -2494,6 +2506,17 @@ fn wizard_cost(wizard: &CastWizard) -> ManaCost {
 /// the variable into generic mana before this is read).
 fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
     let mut total = wizard_cost(wizard);
+    let players = wizard.target_players.len()
+        + usize::from(
+            wizard
+                .chosen_player
+                .is_some_and(|p| !wizard.target_players.contains(p)),
+        );
+    let extra = (wizard.targets.len() + wizard.second_targets.len() + players).saturating_sub(1);
+    total = total.with_more_generic(
+        face.extra_target_cost
+            .saturating_mul(u32::try_from(extra).unwrap_or(u32::MAX)),
+    );
     if wizard.kicked && wizard.option != Some(CastModeKind::Kicked) {
         for add in face.additional_costs {
             total = total.combine(&add.mana);
@@ -2672,6 +2695,154 @@ mod restricted_x_tests {
                 20 + i32::try_from(expected_x).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn an_exact_x_target_spell_selects_and_pays_for_more_than_255_targets() {
+        let template = probe_spell(0, false, false);
+        let definition = Box::leak(Box::new(CardDef {
+            faces: Box::leak(Box::new([FaceDef {
+                mana_cost: ManaCost::parse("{X}"),
+                ..template.faces[0]
+            }])),
+            abilities: Box::leak(Box::new([AbilityDef::Spell {
+                effects: &[Effect::GainLife { amount: Amount::X }],
+                targets: Some(TargetReq::x_targets(TargetSpec::Object(
+                    &baylee_cards_dsl::Filter::LAND,
+                ))),
+                second_targets: None,
+                condition: None,
+            }])),
+            ..*template
+        }));
+        let land = synthetic::land(98_011, "Target-count probe", &[]);
+        let mut preset = synthetic::preset(74, &[98_011; 256]);
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: definition.index,
+            print: PrintRef::new(0),
+        }]);
+        let mut engine =
+            Engine::new(&preset, SyntheticLookup::new(vec![definition, land])).unwrap();
+        synthetic::keep_mulligans(&mut engine);
+        let player = PlayerId::new(0);
+        for _ in 0..30 {
+            if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        engine.state.players[0]
+            .mana_pool
+            .add(ManaColor::Colorless, 256);
+        engine.refresh_offer();
+        let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+        engine
+            .apply(player, PlayerAction::CastSpell { card })
+            .unwrap();
+        engine
+            .apply(player, PlayerAction::ChooseNumber(256))
+            .unwrap();
+        let Pending::ChooseTargets {
+            min: 256,
+            max: 256,
+            options,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("exact X retains its full count: {:?}", engine.pending());
+        };
+        let before = engine.fingerprint();
+        assert!(
+            engine
+                .apply(
+                    player,
+                    PlayerAction::ChooseObjects {
+                        objects: options[..255].to_vec()
+                    }
+                )
+                .is_err()
+        );
+        assert_eq!(
+            engine.fingerprint(),
+            before,
+            "one fewer target is an atomic refusal"
+        );
+        engine
+            .apply(player, PlayerAction::ChooseObjects { objects: options })
+            .unwrap();
+        assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+        for _ in 0..10 {
+            if engine.state.zones.stack_is_empty() {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        assert_eq!(engine.state.players[0].life, 276);
+    }
+
+    #[test]
+    fn target_cost_increases_join_x_before_unused_generic_reductions() {
+        let template = probe_spell(3, false, false);
+        let definition = Box::leak(Box::new(CardDef {
+            faces: Box::leak(Box::new([FaceDef {
+                extra_target_cost: 1,
+                ..template.faces[0]
+            }])),
+            abilities: Box::leak(Box::new([AbilityDef::Spell {
+                effects: &[Effect::GainLife { amount: Amount::X }],
+                targets: Some(TargetReq::up_to(TargetSpec::AnyTarget, 2)),
+                second_targets: None,
+                condition: None,
+            }])),
+            ..*template
+        }));
+        let mut preset = synthetic::preset(73, &[]);
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: definition.index,
+            print: PrintRef::new(0),
+        }]);
+        let mut engine = Engine::new(&preset, SyntheticLookup::new(vec![definition])).unwrap();
+        synthetic::keep_mulligans(&mut engine);
+        let player = PlayerId::new(0);
+        for _ in 0..30 {
+            if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        engine.state.players[0].mana_pool.add(ManaColor::Black, 5);
+        engine.refresh_offer();
+        let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+        engine
+            .apply(player, PlayerAction::CastSpell { card })
+            .unwrap();
+        engine.apply(player, PlayerAction::ChooseNumber(5)).unwrap();
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![player, PlayerId::new(1)],
+                },
+            )
+            .unwrap();
+        assert_eq!(engine.state.zones.list(ZoneLocation::Stack), &[card]);
+        assert_eq!(
+            engine.state.players[0].mana_pool.total(),
+            0,
+            "X5 plus fixed1 plus second-target1 minus reduction3, and B"
+        );
+        for _ in 0..10 {
+            if engine.state.zones.stack_is_empty() {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        assert_eq!(engine.state.players[0].life, 25);
     }
 
     #[test]

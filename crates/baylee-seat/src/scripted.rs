@@ -188,11 +188,12 @@ pub fn least_answer(
             min,
             ..
         } => {
-            let objects: Vec<_> = first(usize::from(*min), options);
+            let minimum = usize::try_from(*min).unwrap_or(usize::MAX);
+            let objects: Vec<_> = first(minimum, options);
             let players = player_options
                 .iter()
                 .copied()
-                .take(usize::from(*min).saturating_sub(objects.len()))
+                .take(minimum.saturating_sub(objects.len()))
                 .collect();
             PlayerAction::ChooseTargets { objects, players }
         }

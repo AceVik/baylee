@@ -425,10 +425,10 @@ pub fn options(
             max,
             ..
         } => {
-            if picked.count >= usize::from(*min) {
+            if picked.count >= usize::try_from(*min).unwrap_or(usize::MAX) {
                 out.push(Choice::Fixed(fixed::DONE));
             }
-            if picked.count < usize::from(*max) {
+            if picked.count < usize::try_from(*max).unwrap_or(usize::MAX) {
                 out.extend(
                     options
                         .iter()
@@ -485,8 +485,9 @@ fn complete(pending: &Pending, picked: &Picked) -> bool {
             picked.count >= usize::from(*count)
         }
         Pending::LegendChoice { .. } => picked.count >= 1,
-        Pending::ChooseCards { max, .. } | Pending::ChooseTargets { max, .. } => {
-            picked.count >= usize::from(*max)
+        Pending::ChooseCards { max, .. } => picked.count >= usize::from(*max),
+        Pending::ChooseTargets { max, .. } => {
+            picked.count >= usize::try_from(*max).unwrap_or(usize::MAX)
         }
         _ => false,
     }

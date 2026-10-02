@@ -36,6 +36,7 @@ use std::borrow::Cow;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, PrintRef, SeatSet};
 use baylee_core::mana::ManaCost;
+pub use baylee_core::mana::ManaPayment;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
@@ -135,7 +136,9 @@ use serde::{Deserialize, Serialize};
 /// planning. Existing mana counts, enum variants and field types are unchanged.
 /// Version 46 widens the [`LogEvent::Damage`] amount from `u16` to `u32` so
 /// large paid X values retain their full damage amount in public logs.
-pub const VIEW_VERSION: u32 = 46;
+/// Version 47 distinguishes fixed mana debts from optional payments of any
+/// amount in [`PlayerView::owed`].
+pub const VIEW_VERSION: u32 = 47;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -1584,26 +1587,12 @@ pub struct PlayerView {
     /// tap lands in every other quiet window too. The information was
     /// missing, not merely hard to reach.
     ///
-    /// **A cost and not a number**: `Effect::PlayerMayPayOr` charges generic
-    /// mana (an `Amount`, because Esper Sentinel's tax is its own power), but
-    /// `Effect::PlayerMayPayManaOr` charges a printed price with colour in
-    /// it (Phantasmal Forces' `{U}`). By the time a window is open either
-    /// has been evaluated, and both readers on the other side
-    /// already take a `ManaCost`: `manapip::cost` draws one and
-    /// `manaplan::plan` solves one. A `u16` would be converted at both call
-    /// sites on the way in.
-    ///
-    /// **Mana only, by construction rather than by omission.** The other
-    /// payment the engine can ask for — a Karoo's "return an untapped Plains
-    /// you control" — is answered by naming an object, from a list the
-    /// pending choice already carries, and opens no window at all. There is
-    /// no unreachable arm here waiting to be filled in.
-    ///
-    /// The *total* that was asked, not the remainder: the pool is in this
-    /// same view, so a reader that wants the difference can take it, and a
-    /// number that shrank as lands tapped would be a second thing to keep in
-    /// step with the pool.
-    pub owed: Option<ManaCost>,
+    /// `Fixed` names the entire determined mana cost, not the remainder;
+    /// the pool is present in this view. `AnyAmount` permits mana abilities
+    /// before a voluntary number choice. Its prevention amount explains
+    /// the benefit and never imposes an upper bound or mandatory payment.
+    /// Nonmana payments use their own pending object choices.
+    pub owed: Option<ManaPayment>,
     /// The monarch, if the game has one.
     pub monarch: Option<PlayerId>,
     /// The day/night designation, if the game has one (CR 731).
@@ -3375,6 +3364,7 @@ mod tests {
             ("Defender", json(serde_json::json!(defenders))),
             ("ManaColor", json(serde_json::json!(ManaColor::ALL))),
             ("ManaCost", json(serde_json::json!(costs))),
+            ("ManaPayment", json(serde_json::json!(payment_samples()))),
             ("ManaSpending", json(serde_json::json!(spending_samples()))),
             ("ObjectId", json(serde_json::json!(ObjectId::new(12, 3)))),
             ("PlayerId", json(serde_json::json!(PlayerId::new(3)))),
@@ -3403,6 +3393,21 @@ mod tests {
                 ])),
             ),
         ]
+    }
+
+    fn payment_samples() -> [ManaPayment; 2] {
+        let payments = [
+            ManaPayment::Fixed(ManaCost::parse("{2}{B}")),
+            ManaPayment::AnyAmount {
+                preventable_damage: 2,
+            },
+        ];
+        for payment in payments {
+            match payment {
+                ManaPayment::Fixed(_) | ManaPayment::AnyAmount { .. } => {}
+            }
+        }
+        payments
     }
 
     fn spending_samples() -> [baylee_core::mana::ManaSpending; 3] {
@@ -3461,8 +3466,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Damage log amounts widened to u32 so large X damage is preserved.
-        const RECORDED: (u32, u64) = (46, 9_521_353_877_518_654_948);
+        // Payment windows distinguish fixed debts from an arbitrary amount.
+        const RECORDED: (u32, u64) = (47, 11_772_928_919_686_085_005);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

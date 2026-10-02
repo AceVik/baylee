@@ -4,7 +4,7 @@
 use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource};
 use baylee_client_core::manaplan::{self, Source, Tap};
 use baylee_core::ids::ObjectId;
-use baylee_core::mana::ManaColor;
+use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_core::preset::HoldUp;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, PlayerAction};
@@ -329,6 +329,22 @@ impl HeuristicAgent {
         // — flat for every creature once the lands are there — gave up
         // whichever the handles put first. Ahead of the gate, as crew is:
         // it is a price the seat already chose to pay.
+        if let ChoicePrompt::SacrificeFor { player } = prompt {
+            let mut ranked = options.to_vec();
+            ranked.sort_by_key(|id| {
+                let value = view.object(*id).map_or(0, |o| self.given_up(view, o));
+                (
+                    if self.hostile(player, view.seat) {
+                        -value
+                    } else {
+                        value
+                    },
+                    *id,
+                )
+            });
+            ranked.truncate(usize::from(min));
+            return Some(ranked);
+        }
         if prompt == ChoicePrompt::CostSacrifice
             && options
                 .iter()
@@ -1001,7 +1017,12 @@ fn removal(effect: &Effect) -> bool {
 /// leaves one fewer step, and a pool that covers the price plans no steps at
 /// all, which is the pass that closes the window.
 pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
-    let owed = view.owed?;
+    let owed = match view.owed? {
+        ManaPayment::Fixed(cost) => cost,
+        ManaPayment::AnyAmount { preventable_damage } => {
+            ManaCost::from_symbol_generic(preventable_damage)
+        }
+    };
     // `owed` is what the *awaited* seat owes, and that is only this seat
     // while this seat is the one being asked. Both fields ride in every
     // view, so reading one without the other would have a seat paying for
@@ -1010,7 +1031,20 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
         return None;
     }
     let seat = view.seat(view.seat)?;
-    let plan = manaplan::plan(&owed, &seat.mana_pool, &sources(view, legal))?;
+    let sources = sources(view, legal);
+    let plan = manaplan::plan(&owed, &seat.mana_pool, &sources).or_else(|| {
+        // Partial prevention still helps when the full amount is unreachable.
+        if matches!(view.owed, Some(ManaPayment::AnyAmount { .. })) {
+            let one_more = seat.mana_pool.total() - seat.mana_pool.restricted_total() + 1;
+            manaplan::plan(
+                &ManaCost::from_symbol_generic(one_more),
+                &seat.mana_pool,
+                &sources,
+            )
+        } else {
+            None
+        }
+    })?;
     let step = plan.steps.first()?;
     Some(match step.tap {
         Tap::Intrinsic => PlayerAction::ActivateManaAbility {
@@ -1041,7 +1075,9 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
 /// reachable, as for ward's generic tax, or none does): the hand decides
 /// those as before.
 fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
-    let owed = view.owed.filter(|_| view.awaiting == Some(view.seat))?;
+    let ManaPayment::Fixed(owed) = view.owed.filter(|_| view.awaiting == Some(view.seat))? else {
+        return None;
+    };
     let seat = view.seat(view.seat)?;
     let sources = remaining_sources(view);
     let keeps: Vec<ManaColor> = options
@@ -1486,9 +1522,11 @@ pub(crate) fn convoke_taps(
     view: &PlayerView,
     context: &DecisionContext<'_>,
     mut options: Vec<ObjectId>,
-    max: u8,
+    max: u32,
 ) -> Vec<ObjectId> {
-    let max = usize::from(max).min(options.len());
+    let max = usize::try_from(max)
+        .unwrap_or(usize::MAX)
+        .min(options.len());
     let needed = taps_needed(view, context, max).unwrap_or(max);
     options.sort_by_key(|id| {
         view.object(*id)

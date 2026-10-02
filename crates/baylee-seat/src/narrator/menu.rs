@@ -13,7 +13,7 @@ use crate::wake::{Reach, ReachFrom, reachable};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
 use baylee_core::ids::{AbilityRef, CardIndex, Defender, ObjectId, PlayerId, SubtypeId};
-use baylee_core::mana::{ManaColor, ManaCost};
+use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
 use baylee_engine::choice::{
     ArrangePile, ArrangePlace, ArrangePrompt, AttackerBound, BlockOption, CardTotal, CastModeDesc,
     CastModeKind, LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
@@ -838,7 +838,16 @@ impl Builder<'_, '_> {
                 total,
                 ..
             } => {
-                self.line(format!("QUESTION: {}.", words::choice_prompt(*prompt)));
+                let question =
+                    if let baylee_engine::choice::ChoicePrompt::SacrificeFor { player } = prompt {
+                        format!(
+                            "Choose the permanents that {} sacrifices",
+                            self.table.player(*player)
+                        )
+                    } else {
+                        words::choice_prompt(*prompt)
+                    };
+                self.line(format!("QUESTION: {question}."));
                 if let Some(total) = total {
                     self.card_total(total);
                 }
@@ -859,8 +868,8 @@ impl Builder<'_, '_> {
             } => self.targets(
                 options,
                 player_options,
-                usize::from(*min),
-                usize::from(*max),
+                usize::try_from(*min).unwrap_or(usize::MAX),
+                usize::try_from(*max).unwrap_or(usize::MAX),
                 *reason,
             ),
             Pending::ChooseSubtype { options, .. } => self.subtype(options),
@@ -1021,23 +1030,36 @@ impl Builder<'_, '_> {
             .map(|s| s.mana_pool)
             .unwrap_or_default();
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
-        if let Some(owed) = owed {
-            self.line(format!(
-                "You owe {owed}: a payment you agreed to. Pay it, or pass and leave it unpaid \
-                 (what it was for is lost)."
-            ));
+        if let Some(payment) = owed {
+            match payment {
+                ManaPayment::Fixed(cost) => self.line(format!(
+                    "You owe {cost}: a payment you agreed to. Pay it, or pass and leave it unpaid \
+                     (what it was for is lost)."
+                )),
+                ManaPayment::AnyAmount { preventable_damage } => self.line(format!(
+                    "You may generate mana to prevent up to {preventable_damage} damage. \
+                     Pass to choose how much mana to pay, including zero."
+                )),
+            }
         } else if !pool.is_empty() {
             self.line(
                 "Mana is in your pool (see your seat line); unspent mana empties at the end of \
                  this step (CR 500.5).",
             );
         }
-        if let Some(owed) = owed {
-            self.pay_owed(owed, &pool, legal);
+        if let Some(payment) = owed {
+            match payment {
+                ManaPayment::Fixed(cost) => self.pay_owed(cost, &pool, legal),
+                ManaPayment::AnyAmount { .. } => self.optional_payment_sources(legal),
+            }
         }
         self.plays(legal);
         if legal.can_pass {
-            let label = self.pass_label(owed.is_some());
+            let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {
+                "Finish generating mana and choose the payment amount".into()
+            } else {
+                self.pass_label(owed.is_some())
+            };
             self.option("p", label, Act::Now(PlayerAction::PassPriority));
             self.options.last_mut().expect("just pushed").alias = Some("pass".into());
         }
@@ -1047,6 +1069,29 @@ impl Builder<'_, '_> {
             "pick=[one option id]. For a spell or ability that will ask for targets you may add \
              then={\"targets\":[ids]}",
         );
+    }
+
+    /// A variable payment has no fixed plan: every legal mana ability is usable.
+    fn optional_payment_sources(&mut self, legal: &LegalActions) {
+        for &source in &legal.mana_abilities {
+            self.offer(
+                format!("Generate mana with {}", self.table.named(source)),
+                Act::Now(PlayerAction::ActivateManaAbility { source }),
+                self.card_of(source),
+            );
+        }
+        for &(source, ability_index) in &legal.abilities {
+            if baylee_ai::only_makes_mana(self.table.view, source, ability_index) {
+                self.offer(
+                    self.ability_label(source, ability_index),
+                    Act::Now(PlayerAction::ActivateAbility {
+                        source,
+                        ability_index,
+                    }),
+                    self.card_of(source),
+                );
+            }
+        }
     }
 
     /// The taps of a plan: "taps Forest #22, Mountain #23".
@@ -1365,7 +1410,7 @@ impl Builder<'_, '_> {
                     baylee_engine::choice::TargetRef::Player(id) => table.player(id),
                 };
                 let keep = if min == 0 { " Choose no targets to keep this target." } else { "" };
-                self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u32::from(index) + 1));
+                self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u64::from(index) + 1));
             },
             TargetPrompt::Convoke => self.line(format!(
                 "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
@@ -1637,6 +1682,10 @@ impl Builder<'_, '_> {
                 table.named(*target),
             ),
             NumberPrompt::X => "Choose the value of X".to_string(),
+            NumberPrompt::ManaPayment { preventable_damage } => format!(
+                "How much mana will you pay? Each mana prevents one of up to \
+                 {preventable_damage} damage; paying more is allowed but prevents no more"
+            ),
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")
             }

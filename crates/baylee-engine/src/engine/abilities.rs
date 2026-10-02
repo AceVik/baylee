@@ -1941,6 +1941,8 @@ impl<L: CardLookup> Engine<L> {
                     source,
                     ability_index,
                 });
+                let max = max
+                    .min(u32::try_from(options.len() + player_options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,
                     options,
@@ -1975,12 +1977,14 @@ impl<L: CardLookup> Engine<L> {
                     targets,
                     target_players: chosen_players,
                 });
+                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,
                     options,
                     player_options: Vec::new(),
-                    min: req.min,
-                    max: req.max,
+                    min,
+                    max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
@@ -2334,12 +2338,14 @@ impl<L: CardLookup> Engine<L> {
                     targets,
                     target_players: Vec::new(),
                 });
+                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,
                     options,
                     player_options: Vec::new(),
-                    min: req.min,
-                    max: req.max,
+                    min,
+                    max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
@@ -2459,12 +2465,14 @@ impl<L: CardLookup> Engine<L> {
                     source,
                     ability_index,
                 });
+                let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
+                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player,
                     options,
                     player_options: Vec::new(),
-                    min: req.min,
-                    max: req.max,
+                    min,
+                    max,
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;

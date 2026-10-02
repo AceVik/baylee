@@ -3952,6 +3952,10 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 h.u32(n);
             }
             crate::prevention::ShieldKind::AllCombat => h.u8(1),
+            crate::prevention::ShieldKind::ThisEvent(n) => {
+                h.u8(4);
+                h.u32(n);
+            }
             crate::prevention::ShieldKind::NextFrom {
                 source,
                 all_but,

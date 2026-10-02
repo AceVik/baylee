@@ -442,7 +442,10 @@ fn drive_watching(
                         offered: options.clone(),
                     });
                 }
-                let want = usize::from(min).max(1).min(usize::from(max));
+                let want = usize::try_from(min)
+                    .unwrap()
+                    .max(1)
+                    .min(usize::try_from(max).unwrap());
                 let objects: Vec<_> = options.into_iter().take(want).collect();
                 let players = player_options
                     .into_iter()

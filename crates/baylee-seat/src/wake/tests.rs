@@ -249,7 +249,9 @@ fn a_cleanup_window_wakes() {
 #[test]
 fn an_owed_payment_wakes_whatever_else_is_offered() {
     let (mut view, legal) = table(&["Forest"], &[]);
-    view.owed = Some("{1}".parse::<ManaCost>().unwrap());
+    view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+        "{1}".parse::<ManaCost>().unwrap(),
+    ));
     assert_eq!(judge(&view, legal), Verdict::Wake(Why::Owed));
 }
 

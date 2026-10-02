@@ -1,4 +1,4 @@
-# Set progress — 2026-10-02
+# Set progress — 2026-10-03
 
 ## Scope and evidence
 
@@ -14,9 +14,9 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **265 Implemented, 21 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **267 Implemented, 19 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 265 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 267 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
 Nether Shadow, Sunglasses of Urza, Sengir Vampire and Earthbind are
 included in the Implemented count. Their dedicated
@@ -33,10 +33,8 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | an Aura that enchants a creature card in a graveyard and returns it is not in the engine |
 | [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
 | [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | paying life for {C} any time a mana ability could be activated is not in the engine |
-| [Demonic Hordes](../crates/baylee-cards/src/cards/creatures/mv_6/demonic_hordes.rs) | the upkeep payment and a land sacrificed by an opponent's choice are not in the engine; it destroys lands |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | making a player activate a mana ability of each land they control is not in the engine |
 | [False Orders](../crates/baylee-cards/src/cards/instants/mv_1/false_orders.rs) | removing a blocker from combat and having it block again is not in the engine |
-| [Fireball](../crates/baylee-cards/src/cards/sorceries/mv_1/fireball.rs) | damage divided evenly among any number of targets, and the cost of each target beyond the first, are not in the DSL; X damage to one target |
 | [Guardian Angel](../crates/baylee-cards/src/cards/instants/mv_1/guardian_angel.rs) | paying {1} any time until end of turn for another shield is not in the engine; the first shield only |
 | [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | casting a creature card face down for the mana spent on {X}, and turning it face up instead of dealing or being dealt damage, are not in the engine |
 | [Island Sanctuary](../crates/baylee-cards/src/cards/enchantments/mv_2/island_sanctuary.rs) | skipping a draw in exchange for an attack restriction until your next turn is not in the engine |
@@ -45,12 +43,53 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | text-changing effects (CR 612) are not in the engine |
 | [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | redirecting damage to its owner, activation by its owner only, and losing half the owner’s life rounded up |
-| [Power Leak](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_leak.rs) | paying any amount of mana to prevent that much of the damage is not in the DSL; it only enchants an enchantment |
+| [Power Leak](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_leak.rs) | optional arbitrary payment and scoped prevention work; affected-player ordering of overlapping prevention/redirection remains unsupported |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | the copied upkeep ability that copies again is not in the DSL; it enters as a blue copy |
 | [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | looking at an opponent's hand, controlling that player and making them play a card are not in the engine |
+
+## Shared rule blocker for full Alpha acceptance
+
+The independent Batch B review confirmed that `prevention.rs` currently applies
+prevention/redirection in a fixed rank instead of letting the affected player
+choose under current CR 616.1. This is a real outcome difference, not only a
+missing test: against Power Leak, applying its paid transient prevention first
+can preserve Reverse Damage or Healing Salve for later; applying Reverse Damage
+first instead gains life and consumes that shield.
+
+Power Leak remains Partial until that choice is implemented. The generic damage
+procedure needs a resumable player choice, corresponding client presentation,
+and independent interaction tests. This also affects Guardian Angel, Personal
+Incarnation and existing damage/prevention cards. Individual coverage flags do
+not establish complete-set acceptance while this shared blocker remains.
+Astra xhigh will address it after the current Fireball/Hordes working milestone.
+The same audit must cover CR 615.7: allocating a limited prevention shield
+between simultaneous damage sources is a separate affected-player choice.
+Fixing only the single-event ordering is not sufficient for full-set acceptance.
+
+### Planned damage-procedure extension
+
+Astra xhigh's read-only design review recommends one resumable damage batch for
+spell/ability resolution and combat. Capture simultaneous assignments before
+mutating counters or damage, then apply replacement/prevention choices and
+commit the resulting damage without intermediate priority or state-based actions.
+Resolution retains its program counter and paid costs across suspension.
+
+Use stable deterministic shield and damage-part identities rather than mutable
+vector offsets. Re-evaluate applicability after each chosen effect, preserve
+application history across redirection, and include pending work in replay and
+fingerprint state. Static protection, Rock Hydra and redirection must participate
+in the same procedure rather than retaining hidden fixed-order paths.
+
+Two structured questions are needed: choose the next applicable effect (CR
+616.1), and allocate a limited shield across simultaneous sources (CR 615.7).
+Wire, client, AI and narrated-seat consumers must all support both, with readable
+source/effect descriptions. Independent tests must cover both Power Leak/Reverse
+Damage outcomes, remaining Healing Salve capacity, redirection changing the
+chooser, simultaneous-source allocation, invalid/stale answers, APNAP and large
+amounts. This is a design plan, not implemented functionality.
 
 ## Following sets
 
@@ -90,7 +129,7 @@ the independent Oracle/card-behavior reviewer for this pass.
 Astra xhigh authored the Engine changes, Sol medium authored independent card
 scenarios and the final rules review, and Astra high completed client acceptance.
 The first four declarations are Implemented and their acceptance checks pass.
-Alpha as a whole remains incomplete.
+Milestone commit: `b81591ec`. Alpha as a whole remains incomplete.
 
 | Card | Behavior exercised independently |
 | --- | --- |
@@ -150,13 +189,17 @@ The final broad no-fail-fast rules gate passes: **7,844 tests passed, 10 existin
 skipped**, Clippy clean, and all 2,955 cards validated. Log:
 `/private/tmp/baylee-alpha-rules-gate.log`.
 
-### Next batch prepared
+### Second batch acceptance
 
-Fireball, Demonic Hordes and Power Leak have 12 independently authored tests in
-unregistered `*_batch_b.rs` files. They are not yet compiled or coverage evidence.
-Remaining acceptance scenarios include all-illegal Fireball targets/surcharge
-refusal, Hordes control changes/already-tapped state, and Power Leak controller
-capture/unpreventable damage/redirection. No next-batch card is promoted yet.
+Fireball, Demonic Hordes and Power Leak now have 24 active independent tests
+(9/8/7 respectively), plus one explicitly ignored known-failure regression for
+Power Leak's prevention-order choice. Together with the prior 27 tests, all 51
+active independent tests pass. The 256-target Fireball scenario pays all 256
+mana, and late surcharge payment/refusal, controller changes and source loss
+are exercised. Astra xhigh implemented the engine changes; Astra high completed the payment/choice
+UI and AI/seat consumers. Sol medium independently reviewed the cards and
+identified the shared prevention-order gap. Fireball and Demonic Hordes passed
+final independent review and live acceptance; Power Leak remains Partial.
 
 Wasm release check passed for the client and its shared crates. Power Sink's
 live decline prompt renders the generic-two mana glyph correctly; declining
@@ -173,3 +216,37 @@ for three damage while the main phase remains unchanged. Screenshot:
 A next-batch wording improvement is recorded: the payment instruction currently
 says to tap lands, although artifact and other mana abilities also work; the
 new payment UI should describe activating mana abilities generally.
+
+Batch B interface contract: fixed payments and optional arbitrary payments have
+separate presentation states. Power Leak opens a mana-ability window before the
+amount choice, permits zero and overpaying beyond two, and confines its
+prevention to that one damage instruction. Hordes' opponent choice names the
+player who will sacrifice and retains the upkeep trigger's controller even if
+the permanent changes control. Fireball's surcharge is per extra target, while
+resolution division counts only remaining legal targets. Protocol14 guards the
+new payment/choice data; View47 records the new schema.
+
+The same review found that Fireball's "any number" inherited a u8 target-choice
+limit of 255. The compact DSL retains an explicit any-number sentinel, while
+materialized target bounds and wire choices are widened to u32 and capped by
+the actual legal options. The independent real-card regression with 256 targets now passes, including
+actual payment. This also removes the old X-target clamp; the client consumer
+changes also passed their final live acceptance.
+
+
+Second-batch final validation: **7,881 rules tests passed, 11 skipped** (the
+additional skip is the explicitly known Power Leak ordering regression),
+workspace rules Clippy clean, 2,955 cards validated. Native client acceptance:
+1,226 tests passed, 2 existing ignored; client-core 1,188, AI 207, narrated seat
+147. Subsequent symbol/name regressions and 48 cardtext tests also passed,
+with all-target Clippy and a rebuilt native client. Wasm release check passed
+again after the symbol repair. Logs: `/private/tmp/baylee-alpha-batch-b-rules-gate.log`
+and `/private/tmp/baylee-alpha-batch-b-wasm-check.log`.
+
+Root independently viewed the final Hordes upkeep/preview/opponent-choice
+screenshots and Power Leak's optional window/overpayment screenshots. Power
+Leak paid three mana from Sol Ring plus Forest, reduced the pool from three to
+zero while remaining in upkeep, and lost no life; on the next own upkeep,
+payment zero caused exactly two damage. This ordinary live flow does not
+resolve the separate prevention-order blocker. Final client findings and
+screenshot paths are recorded in `docs/feedback-fixes-2026-10-01.md`.

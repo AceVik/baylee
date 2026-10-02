@@ -286,7 +286,10 @@ fn offered(
             max,
             ..
         } => {
-            let (min, max) = (usize::from(*min), usize::from(*max));
+            let (min, max) = (
+                usize::try_from(*min).unwrap(),
+                usize::try_from(*max).unwrap(),
+            );
             let everything: Vec<Result<ObjectId, PlayerId>> = options
                 .iter()
                 .map(|&o| Ok(o))
@@ -617,7 +620,7 @@ fn malformed(pending: &Pending) -> Option<String> {
             min,
             max,
             ..
-        } if usize::from(*min) > options.len() + player_options.len() || min > max => {
+        } if usize::try_from(*min).unwrap() > options.len() + player_options.len() || min > max => {
             Some(format!(
                 "ChooseTargets min {min} max {max} over {} + {} options",
                 options.len(),

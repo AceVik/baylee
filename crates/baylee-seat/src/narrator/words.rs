@@ -182,6 +182,12 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),
         ChoicePrompt::Delve => "Choose cards to exile from your graveyard for delve".into(),
         ChoicePrompt::CostSacrifice => "Choose what to sacrifice to pay the cost".into(),
+        ChoicePrompt::SacrificeFor { player } => {
+            format!(
+                "Choose the permanents that seat {} sacrifices",
+                player.get()
+            )
+        }
         ChoicePrompt::CostDiscard => "Choose the cards to discard to pay the cost".into(),
         ChoicePrompt::CostTap => "Choose what to tap to pay the cost".into(),
         ChoicePrompt::CostReturn => {

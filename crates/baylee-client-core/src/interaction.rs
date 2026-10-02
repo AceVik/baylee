@@ -146,9 +146,9 @@ pub enum Prompt {
     /// Choose targets.
     ChooseTargets {
         /// Minimum.
-        min: u8,
+        min: u32,
         /// Maximum.
-        max: u8,
+        max: u32,
         /// Why.
         reason: TargetPrompt,
     },
@@ -416,7 +416,9 @@ impl Prompt {
             // Karten, die nach unten gehen". Without it a tutor, a scry, a
             // put-back and a wish all read "Wähle 1 Karte", and two of those
             // four decide the turn.
-            Self::ChooseCards { reason, min, max } => cards_line(lang, *reason, *min, *max, &name),
+            Self::ChooseCards { reason, min, max } => {
+                cards_line(lang, *reason, *min, *max, statics, &name)
+            }
             Self::ChooseTargets { reason, min, max } => {
                 targets_line(lang, *reason, *min, *max, statics, &name)
             }
@@ -711,7 +713,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
         ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
         ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),
-        ChoicePrompt::CostSacrifice => (
+        ChoicePrompt::CostSacrifice | ChoicePrompt::SacrificeFor { .. } => (
             Phrase::NounPermanentToSacrifice,
             Phrase::NounPermanentsToSacrifice,
         ),
@@ -764,6 +766,7 @@ fn cards_line(
     reason: ChoicePrompt,
     min: u8,
     max: u8,
+    statics: Option<&GameStatic>,
     name: &dyn Fn(ObjectId) -> Option<String>,
 ) -> String {
     if reason == ChoicePrompt::LookAtHand {
@@ -778,18 +781,34 @@ fn cards_line(
             Phrase::NounAttackersToBandWith,
         )
         .fill(lang, &[&leader]);
-        return choose_line_of(lang, &noun, min, max);
+        return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     let (one, many) = choice_noun(reason);
-    choose_line(lang, one, many, min, max)
+    let selection = choose_line(lang, one, many, u32::from(min), u32::from(max));
+    if let ChoicePrompt::SacrificeFor { player } = reason {
+        Phrase::SacrificeForPlayer.fill(lang, &[&seat_name(lang, statics, player), &selection])
+    } else {
+        selection
+    }
+}
+
+/// Payment instructions distinguish a fixed debt from an optional amount.
+#[must_use]
+pub fn payment_line(lang: Lang, payment: baylee_core::mana::ManaPayment) -> String {
+    match payment {
+        baylee_core::mana::ManaPayment::Fixed(_) => Phrase::PayOrPass.text(lang).to_owned(),
+        baylee_core::mana::ManaPayment::AnyAmount { preventable_damage } => {
+            Phrase::PrepareManaPayment.fill(lang, &[&preventable_damage.to_string()])
+        }
+    }
 }
 
 /// A target question, including which existing target a retarget may replace.
 fn targets_line(
     lang: Lang,
     reason: TargetPrompt,
-    min: u8,
-    max: u8,
+    min: u32,
+    max: u32,
     statics: Option<&GameStatic>,
     name: &dyn Fn(ObjectId) -> Option<String>,
 ) -> String {
@@ -813,7 +832,7 @@ fn targets_line(
             Phrase::RetargetContext.fill(
                 lang,
                 &[
-                    &(u32::from(index) + 1).to_string(),
+                    &(u64::from(index) + 1).to_string(),
                     &of.to_string(),
                     &target,
                     question.text(lang),
@@ -851,7 +870,7 @@ fn number_line(
             &[
                 &source,
                 &recipient,
-                &(u32::from(index) + 1).to_string(),
+                &(u64::from(index) + 1).to_string(),
                 &of.to_string(),
                 &left.to_string(),
                 &min,
@@ -868,6 +887,9 @@ fn number_line(
             )
         }
         NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
+        NumberPrompt::ManaPayment { preventable_damage } => {
+            Phrase::ChooseManaPayment.fill(lang, &[&min, &max, &preventable_damage.to_string()])
+        }
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
@@ -876,7 +898,7 @@ fn number_line(
         } => Phrase::CombatDamageShare.fill(
             lang,
             &[
-                &(u32::from(index) + 1).to_string(),
+                &(u64::from(index) + 1).to_string(),
                 &of.to_string(),
                 &left.to_string(),
                 &min,
@@ -888,7 +910,7 @@ fn number_line(
         } => Phrase::DamageShare.fill(
             lang,
             &[
-                &(u32::from(index) + 1).to_string(),
+                &(u64::from(index) + 1).to_string(),
                 &of.to_string(),
                 &left.to_string(),
                 &min,
@@ -950,17 +972,17 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
 /// `max` is the number the noun stands next to in all three frames: "up to
 /// 2 cards", "1 card", "1–3 cards". A range whose top is more than one is
 /// plural however low it starts.
-fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u8, max: u8) -> String {
+fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u32, max: u32) -> String {
     choose_line_of(
         lang,
-        Phrase::counted(usize::from(max), one, many).text(lang),
+        Phrase::counted(usize::try_from(max).unwrap_or(usize::MAX), one, many).text(lang),
         min,
         max,
     )
 }
 
 /// [`choose_line`] with the counted noun already written.
-fn choose_line_of(lang: Lang, noun: &str, min: u8, max: u8) -> String {
+fn choose_line_of(lang: Lang, noun: &str, min: u32, max: u32) -> String {
     match (min, max) {
         (0, m) => Phrase::ChooseUpTo.fill(lang, &[&m.to_string(), noun]),
         (a, b) if a == b => Phrase::ChooseExactly.fill(lang, &[&a.to_string(), noun]),
@@ -1255,8 +1277,8 @@ impl Interaction {
             } => Mode::Objects {
                 options: options.clone(),
                 player_options: player_options.clone(),
-                min: *min as usize,
-                max: *max as usize,
+                min: usize::try_from(*min).unwrap_or(usize::MAX),
+                max: usize::try_from(*max).unwrap_or(usize::MAX),
                 focus: 0,
             },
             Pending::Arrange { cards, piles, .. } => Mode::Arrange(Arrangement::new(cards, piles)),

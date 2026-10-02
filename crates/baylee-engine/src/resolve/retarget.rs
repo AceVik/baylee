@@ -156,11 +156,12 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut retarget: Retarget) -> O
         if !options.is_empty() || !player_options.is_empty() {
             let slot = retarget.now.len();
             let keep = retarget.was[slot].1;
-            let min = u8::from(retarget.change_to.is_some() || !can_finish(state, &retarget, keep));
+            let min =
+                u32::from(retarget.change_to.is_some() || !can_finish(state, &retarget, keep));
             let reason = TargetPrompt::Retarget {
                 current: keep,
-                index: u16::try_from(slot).unwrap_or(u16::MAX),
-                of: u16::try_from(retarget.was.len()).unwrap_or(u16::MAX),
+                index: u32::try_from(slot).unwrap_or(u32::MAX),
+                of: u32::try_from(retarget.was.len()).unwrap_or(u32::MAX),
             };
             res.awaiting = Some(AwaitingOp::NewTargets(Box::new(retarget)));
             return Some(Pending::ChooseTargets {

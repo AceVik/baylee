@@ -104,8 +104,9 @@ pub struct Aligned {
 /// lines together — and every row on the face then falls to the Oracle.
 #[must_use]
 pub fn align(oracle: &str, printed: &str, layout: &str) -> Option<Aligned> {
+    let printed = crate::repair_printed_symbols(oracle, printed);
     let want: Vec<&str> = sentences(oracle).collect();
-    let raw: Vec<&str> = sentences(printed).collect();
+    let raw: Vec<&str> = sentences(&printed).collect();
     if raw.len() == want.len() {
         return Some(one_to_one(Stage::Raw, &raw));
     }

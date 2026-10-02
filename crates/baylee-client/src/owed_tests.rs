@@ -26,6 +26,30 @@ fn forest(slot: u32) -> baylee_view::PublicObject {
     obj
 }
 
+#[test]
+fn optional_payment_offers_mana_without_arming_a_fixed_debt_plan() {
+    use baylee_client_core::i18n::Lang;
+    use baylee_core::mana::ManaPayment;
+    let mut duel = seat_with_two_forests(None);
+    let mut view = duel.view.clone().unwrap();
+    view.owed = Some(ManaPayment::AnyAmount {
+        preventable_damage: 2,
+    });
+    duel.receive_view(view);
+    assert!(duel.owed_plan.is_none());
+    let legal = duel.interaction.as_ref().unwrap().legal_actions().unwrap();
+    assert_eq!(legal.mana_abilities.len(), 2);
+    let texts = crate::cardtext::CardTexts::default();
+    assert_eq!(
+        duel.headline(Lang::En, &texts).unwrap(),
+        "You may generate mana to prevent up to 2 damage. Pass to choose the amount."
+    );
+    assert_eq!(
+        duel.headline(Lang::De, &texts).unwrap(),
+        "Erzeuge bei Bedarf Mana gegen bis zu 2 Schaden. Passe zur Wahl des Betrags."
+    );
+}
+
 /// A seat holding priority with two Forests it may tap, fed through the two
 /// real edges rather than built as a struct literal.
 ///
@@ -43,7 +67,7 @@ pub(crate) fn seat_with_two_forests(owed: Option<ManaCost>) -> Duel {
     let ids: Vec<ObjectId> = lands.iter().map(|o| o.id).collect();
     let mut view = ViewBuilder::new(2).with_battlefield(0, lands).build();
     view.awaiting = Some(view.seat);
-    view.owed = owed;
+    view.owed = owed.map(baylee_core::mana::ManaPayment::Fixed);
     let legal = LegalActions {
         can_pass: true,
         mana_abilities: ids,
@@ -161,7 +185,9 @@ fn the_plan_survives_either_edge_arriving_last() {
     let ids: Vec<ObjectId> = lands_.iter().map(|o| o.id).collect();
     let mut view = ViewBuilder::new(2).with_battlefield(0, lands_).build();
     view.awaiting = Some(view.seat);
-    view.owed = Some(ManaCost::parse("{1}"));
+    view.owed = Some(baylee_core::mana::ManaPayment::Fixed(ManaCost::parse(
+        "{1}",
+    )));
     let mut duel = Duel::default();
     duel.receive_choice(Pending::Priority {
         player: PlayerId::new(0),

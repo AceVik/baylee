@@ -28,6 +28,49 @@ use baylee_core::ids::{ObjectId, PlayerId};
 use crate::eval;
 use crate::state::GameState;
 
+/// An opponent chooses a permanent, but the named player sacrifices it.
+pub(super) fn opponent_sacrifice(
+    state: &GameState,
+    res: &mut super::Resolution,
+    player: PlayerId,
+    filter: &'static Filter,
+) -> Option<crate::choice::Pending> {
+    let options = options(state, player, filter, res.controller, res.source);
+    if options.is_empty() {
+        return None;
+    }
+    let opponents = eval::players(baylee_cards_dsl::PlayerRel::Opponent, state, player)?;
+    match opponents.as_slice() {
+        [] => None,
+        [only] => Some(ask_sacrifice(res, player, *only, options)),
+        _ => {
+            res.awaiting = Some(super::AwaitingOp::SacrificeOpponent { player, options });
+            Some(crate::choice::Pending::ChoosePlayer {
+                player,
+                options: opponents,
+            })
+        }
+    }
+}
+
+/// The opponent selects among the sacrificing player's untargeted options.
+pub(super) fn ask_sacrifice(
+    res: &mut super::Resolution,
+    player: PlayerId,
+    chooser: PlayerId,
+    options: Vec<ObjectId>,
+) -> crate::choice::Pending {
+    res.awaiting = Some(super::AwaitingOp::SacrificeChosen { player });
+    crate::choice::Pending::ChooseCards {
+        player: chooser,
+        options,
+        min: 1,
+        max: 1,
+        prompt: crate::choice::ChoicePrompt::SacrificeFor { player },
+        total: None,
+    }
+}
+
 /// The permanents `player` controls that `filter` matches
 /// ([`eval::controlled_matching`], which `Condition::CanSacrifice` asks too,
 /// so "if you can't" and the question agree).

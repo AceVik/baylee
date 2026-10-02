@@ -4,8 +4,11 @@
 use super::*;
 
 mod artifacts;
+mod creatures_batch_b;
+mod enchantments_batch_b;
 mod instants;
 mod sorceries;
+mod sorceries_batch_b;
 
 fn fork() -> CardIndex {
     card_index("50c53ae0-51ba-4046-ac74-87c65e688032")

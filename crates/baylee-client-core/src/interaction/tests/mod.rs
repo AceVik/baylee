@@ -70,8 +70,8 @@ fn block_choice(options: Vec<BlockOption>) -> Pending {
 fn target_choice(
     options: Vec<ObjectId>,
     player_options: Vec<PlayerId>,
-    min: u8,
-    max: u8,
+    min: u32,
+    max: u32,
 ) -> Pending {
     Pending::ChooseTargets {
         player: me(),

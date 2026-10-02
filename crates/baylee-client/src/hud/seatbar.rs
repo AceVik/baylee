@@ -931,13 +931,10 @@ pub(crate) fn called(
         || Phrase::SeatNumbered.fill(lang, &[&player.to_string()]),
         |s| s.seat_name(player).to_string(),
     );
-    // A chair the house plays is called the house in the player's own
-    // language. Off the **flag** and never by matching the string, for the
-    // reason `Phrase::SeatHouse` gives: neither host has another name for such
-    // a chair, so there is nothing here to hide — only an English word a
-    // German player was being shown. A chair that is merely *held* keeps its
-    // player's name, which is the whole reason `away` is not `is_ai`.
-    let printed = if role == SeatRole::House {
+    // Generic house chairs are localized; named AI seats retain the roster's
+    // name, just as targeting prompts and stack entries do. A temporarily
+    // held human chair keeps its name regardless of who is driving it.
+    let printed = if role == SeatRole::House && printed == "House AI" {
         let house = Phrase::SeatHouse.text(lang);
         if statics.is_some_and(|s| s.seats.iter().filter(|s| s.is_ai).count() > 1) {
             format!("{house} {}", player.get() + 1)
@@ -1879,6 +1876,10 @@ mod tests {
             "a German player was still being shown an English word: {:?}",
             said(&mut house)
         );
+
+        let mut named = cell(SeatRole::House, Lang::De, "Solide 1");
+        assert!(said(&mut named).iter().any(|word| word == "Solide 1"));
+        assert!(!said(&mut named).iter().any(|word| word == "Haus-KI"));
 
         let mut held = cell(SeatRole::Away, Lang::De, "Alice");
         assert!(

@@ -1267,7 +1267,9 @@ impl HeuristicAgent {
             }
             // At least the damage exchange is known; prevention and replacement
             // effects can reduce the incidental life gain, so do not rely on it.
-            Effect::DealDamage { amount, .. } | Effect::DealDamageWithCappedLifeGain { amount } => {
+            Effect::DealDamage { amount, .. }
+            | Effect::DealDamageEvenly { amount, .. }
+            | Effect::DealDamageWithCappedLifeGain { amount } => {
                 let n = count(*amount)?;
                 match aim {
                     Aim::Player(p) => {
@@ -1520,7 +1522,10 @@ impl HeuristicAgent {
             .iter()
             .take_while(|(worth, _)| *worth > 0)
             .count()
-            .clamp(usize::from(offer.min), usize::from(offer.max));
+            .clamp(
+                usize::try_from(offer.min).unwrap_or(usize::MAX),
+                usize::try_from(offer.max).unwrap_or(usize::MAX),
+            );
         if wanted > scored.len() {
             return None;
         }

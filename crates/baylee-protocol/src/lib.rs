@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 13 adds counter-amount/retargeting questions and full-width damage logs.
-pub const PROTOCOL_VERSION: u32 = 13;
+/// Version 14 adds optional mana payments, opponent land choices and wider target counts.
+pub const PROTOCOL_VERSION: u32 = 14;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -237,7 +237,8 @@ mod tests {
         // 11: spell cost increases; older clients would plan insufficient mana.
         // 12: explicit land-counter removal choice.
         // 13: counter amounts and retargeting; older clients cannot decode these prompts.
-        assert_eq!(PROTOCOL_VERSION, 13);
+        // 14: optional mana payments, opponent sacrifices and target counts beyond 255.
+        assert_eq!(PROTOCOL_VERSION, 14);
     }
 
     #[test]

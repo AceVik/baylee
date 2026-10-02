@@ -62,6 +62,6 @@ pub use align::{Aligned, Stage, align, untranslated};
 pub use cost::{Split, licensed, split_cost};
 pub use entry::{TextFace, TextPrinting, card_entry};
 pub use pick::{Layer, Printing, pick};
-pub use text::{repair_braces, sentence_count, sentences, symbols};
+pub use text::{repair_braces, repair_printed_symbols, sentence_count, sentences, symbols};
 pub use verify::{Verdict, localized, verify};
 pub use wire::{CardTextEntry, FaceText};

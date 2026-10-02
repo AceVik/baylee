@@ -2951,3 +2951,37 @@ stay separate, swaps within a group are permitted, and division amounts move
 with the corresponding target positions. Copies preserve nonmana additional-
 cost information, X, modes and kicker, while recording no mana spent to cast
 the copy.
+
+
+### Variable target costs and payments during resolution
+
+`FaceDef::extra_target_cost` adds generic mana for each chosen target beyond
+one. It counts object and player targets together, after target announcement;
+it does not change mana value. Unused generic reductions apply after this
+increase and X are included. A short floating pool opens the ordinary mana-only
+payment window after choices. Copies retain X and target count without paying
+casting costs again. `Effect::DealDamageEvenly { amount, target }` divides by
+the recipients still legal when resolving, rounds down, and does nothing for an
+empty set. Pair it with `TargetReq::up_to(..., 255)` for any number of targets.
+The compact DSL value 255 explicitly means unbounded, not exactly 255:
+`TargetReq::bounds` expands it to `u32::MAX`, and each pending target question
+caps that maximum to its actual legal options. Both pending bounds are `u32`;
+exactly-X targeting also preserves the full X instead of truncating at 255.
+
+`Effect::PayManaToPreventDamage { player, amount }` captures its affected player,
+opens a mana-only resolution window, then asks `NumberPrompt::ManaPayment`.
+`ManaPayment::AnyAmount { preventable_damage }` describes the benefit, not a
+payment ceiling: zero and overpayment are legal, bounded only by spendable mana.
+This is an ordinary resolution payment, so spell-only restricted mana cannot
+pay. The effect deals the full damage through the usual prevention pipeline;
+its temporary prevention applies only to that event, including redirection,
+and leaves no shield for another effect or turn. Fixed prices use
+`ManaPayment::Fixed(ManaCost)` through the same public payment-window boundary.
+
+`Effect::SacrificeChosenByOpponent { player, filter }` asks the sacrificing player
+to select an opponent in multiplayer, then asks that opponent to choose among
+the sacrificing player's matching permanents. `ChoicePrompt::SacrificeFor`
+names the owner of that sacrifice decision separately from its chooser. Neither
+choice targets. No matching permanent means no sacrifice question.
+`Effect::TapSelf` affects only the resolving source's original battlefield
+incarnation; an impossible tap does not stop subsequent sequence instructions.

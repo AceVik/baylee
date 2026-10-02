@@ -2708,3 +2708,35 @@ land type"; both are convention tests that fire on a first try.
   sacrifice-for-63-black fixture checks actual payment of X=61 after the choice.
   Do not replace this with counting untapped lands, which misses dynamic and
   sacrifice mana abilities.
+
+
+### Alpha completion, second batch — payment and target boundaries
+
+- A generic target-count sentinel must remain unbounded through Engine, wire,
+  client, AI and narrated-seat consumers. Widening only the card definition
+  leaves hidden 255-target ceilings. Independent Fireball scenarios select 256
+  real targets and pay the actual additional cost; retarget position metadata
+  also needs a wide representation.
+- Additional target costs become known after targets are selected. Reuse the
+  casting mana window at that point, including transactional refusal, instead
+  of requiring the entire final cost to have been floated before casting.
+- Optional arbitrary payments are not fixed debts. Preserve the opportunity to
+  activate mana abilities from an empty pool, offer zero and legal overpayment,
+  and use the same spending restriction for the offered bound and actual debit.
+- Prevention is an effect on a damage event, not subtraction from the printed
+  damage amount. Power Leak's event-scoped shield follows redirection and must
+  expire after its event. A second independent test exposed the older shared
+  fixed prevention ordering: Reverse Damage can produce a different result
+  depending on the affected player's choice under CR 616.1. Keep Power Leak
+  Partial while that choice is absent; an explicitly ignored known-failure
+  regression is documentation, not acceptance evidence.
+- Trigger controller, current source controller and damaged player can diverge.
+  Test Demonic Hordes after both control change and source loss, and label the
+  player whose land will be sacrificed in the opponent's selection prompt.
+
+- Live screenshots exposed bare legacy `BBB` in translated printed text and
+  inconsistent AI names between the HUD and decision prompts. Repair missing
+  repeated mana symbols only when Oracle symbol evidence matches exactly, and
+  apply it when old cached presentation data is loaded too. Preserve roster
+  names for named AI seats; localize only the generic house label. Both fixes
+  have regression tests and were verified in the rebuilt client's screenshots.

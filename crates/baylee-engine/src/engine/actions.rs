@@ -313,7 +313,13 @@ impl<L: CardLookup> Engine<L> {
                 if *p == player =>
             {
                 if self.resolution.as_ref().is_some_and(|res| {
-                    matches!(res.awaiting, Some(resolve::AwaitingOp::Counters { .. }))
+                    matches!(
+                        res.awaiting,
+                        Some(
+                            resolve::AwaitingOp::Counters { .. }
+                                | resolve::AwaitingOp::DamagePayment { .. }
+                        )
+                    )
                 }) {
                     let mut res = self.resolution.take().expect("counter choice suspended");
                     match resolve::resume_with_number(&mut self.state, &mut res, n) {
@@ -446,6 +452,7 @@ impl<L: CardLookup> Engine<L> {
                         Some(
                             resolve::AwaitingOp::PickSplitter { .. }
                                 | resolve::AwaitingOp::PickSeparator { .. }
+                                | resolve::AwaitingOp::SacrificeOpponent { .. }
                         )
                     )
                 }) {
@@ -1611,6 +1618,29 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Opens an arbitrary payment's mana opportunity before automation or
+    /// a host can observe the suspended numeric choice.
+    pub(super) fn open_variable_mana_window(&mut self) {
+        let Some(resolve::AwaitingOp::ManaForDamage { player, .. }) =
+            self.resolution.as_ref().and_then(|r| r.awaiting.as_ref())
+        else {
+            return;
+        };
+        let player = *player;
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        let suspended = self.resolution.take().expect("payment suspended");
+        self.mana_window = Some(PaymentWindow {
+            player,
+            suspended: PaymentContinuation::Tax(Box::new(suspended)),
+        });
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(legal),
+        };
+        self.awaiting_answer = true;
+    }
+
     pub(crate) fn in_hand(&self, player: PlayerId, card: ObjectId) -> bool {
         self.state
             .object(card)
@@ -1701,6 +1731,20 @@ impl<L: CardLookup> Engine<L> {
             }
         };
         let paid = self.can_settle_tax(&res);
+        if let Some(resolve::AwaitingOp::ManaForDamage { player, amount }) = res.awaiting {
+            res.awaiting = Some(resolve::AwaitingOp::DamagePayment { player, amount });
+            self.pending = Pending::ChooseNumber {
+                player,
+                min: 0,
+                max: casting::spendable_units(&self.state, player, casting::SpendFor::Other),
+                reason: crate::choice::NumberPrompt::ManaPayment {
+                    preventable_damage: amount,
+                },
+            };
+            self.resolution = Some(res);
+            self.awaiting_answer = true;
+            return;
+        }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Wait(pending) => {
                 self.resolution = Some(res);

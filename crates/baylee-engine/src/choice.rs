@@ -411,9 +411,9 @@ pub enum Pending {
         /// two lists are one choice, and `min`/`max` count across both.
         player_options: Vec<PlayerId>,
         /// Minimum to choose (0 for "up to" targets).
-        min: u8,
+        min: u32,
         /// Maximum to choose.
-        max: u8,
+        max: u32,
         /// Why (UI hint).
         reason: TargetPrompt,
     },
@@ -617,6 +617,12 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Choose a permanent that this player sacrifices; the chooser may be
+    /// an opponent, and the choice does not target the permanent.
+    SacrificeFor {
+        /// The player who will sacrifice the selected permanent.
+        player: PlayerId,
+    },
     /// Choose a land from which this ability removes all linked counters.
     RemoveLandCounters,
     /// Privately inspect the offered hand, then acknowledge without selecting.
@@ -802,6 +808,11 @@ pub enum ChoicePrompt {
     Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum NumberPrompt {
+    /// Spend any chosen amount of floating mana to prevent damage.
+    ManaPayment {
+        /// Damage this payment can prevent; overpayment is legal.
+        preventable_damage: u32,
+    },
     /// How many counters to put on an object while an effect resolves.
     Counters {
         /// Object receiving the counters.
@@ -883,9 +894,9 @@ pub enum TargetPrompt {
         /// The target this slot currently retains unless it is changed.
         current: TargetRef,
         /// Zero-based position in the spell or ability's target sequence.
-        index: u16,
+        index: u32,
         /// Total number of targets retained by the spell or ability.
-        of: u16,
+        of: u32,
     },
     /// Tap permanents to help pay, each paying for {1}: creatures for
     /// convoke (CR 702.51a), artifacts and creatures for a paid waterbend
@@ -1120,7 +1131,11 @@ impl Pending {
                 min,
                 max,
                 ..
-            } => usize::from(*min) <= options.len() + player_options.len() && min <= max,
+            } => {
+                u64::from(*min)
+                    <= u64::try_from(options.len() + player_options.len()).unwrap_or(u64::MAX)
+                    && min <= max
+            }
             Self::ChooseNumber { min, max, .. } => min <= max,
             Self::LegendChoice { options, .. } => !options.is_empty(),
             Self::ChooseSubtype { options, .. } => !options.is_empty(),
@@ -1213,7 +1228,7 @@ impl Pending {
             ) => block_fault(blockers, capacity, bounds, declared)
                 .or_else(|| obeying_fault(obeying, demands, declared)),
             (Self::LegendChoice { options, .. }, A::ChooseObjects { objects }) => {
-                counted(objects.len(), 1, 1).or_else(|| not_offered(options, objects))
+                counted(objects.len(), 1u8, 1u8).or_else(|| not_offered(options, objects))
             }
             (
                 Self::ChooseCards {
@@ -1304,10 +1319,11 @@ impl Pending {
 }
 
 /// A count against `min..=max`.
-fn counted(n: usize, min: u8, max: u8) -> Option<AnswerFault> {
-    if n < usize::from(min) {
+fn counted(n: usize, min: impl Into<u64>, max: impl Into<u64>) -> Option<AnswerFault> {
+    let n = u64::try_from(n).unwrap_or(u64::MAX);
+    if n < min.into() {
         Some(AnswerFault::TooFew)
-    } else if n > usize::from(max) {
+    } else if n > max.into() {
         Some(AnswerFault::TooMany)
     } else {
         None
@@ -1333,7 +1349,7 @@ fn not_offered<T: Ord>(options: &[T], chosen: &[T]) -> Option<AnswerFault> {
 fn target_fault(
     options: &[ObjectId],
     player_options: &[PlayerId],
-    (min, max): (u8, u8),
+    (min, max): (u32, u32),
     objects: &[ObjectId],
     players: &[PlayerId],
 ) -> Option<AnswerFault> {

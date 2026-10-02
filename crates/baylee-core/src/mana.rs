@@ -8,6 +8,19 @@ use crate::color::{Color, ColorPair, ColorSet};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
 
+/// The mana decision a resolving operation has opened a payment window for.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum ManaPayment {
+    /// A fixed total cost, including its colored requirements.
+    Fixed(ManaCost),
+    /// Any amount may be generated, then chosen and spent. The amount of
+    /// damage is a useful-payment hint, never an upper bound on payment.
+    AnyAmount {
+        /// Damage the payment can prevent from this event.
+        preventable_damage: u32,
+    },
+}
+
 /// Permissions to spend actual mana as another type, without changing that
 /// mana or the cost (CR 609.4b). Shared by payment and client planning.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]

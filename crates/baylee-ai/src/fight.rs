@@ -132,8 +132,8 @@ impl HeuristicAgent {
         &self,
         view: &PlayerView,
         objects: &[ObjectId],
-        min: u8,
-        max: u8,
+        min: u32,
+        max: u32,
         context: &DecisionContext<'_>,
     ) -> Option<PlayerAction> {
         let brawl = brawl(context.effects, context.x)?;
@@ -187,11 +187,13 @@ impl HeuristicAgent {
         // but the foe slot of an "up to one" is declined rather than spent
         // on a bout that loses a creature for nothing.
         let wanted = if asked == brawl.fighter {
-            usize::from(min.max(1))
+            usize::try_from(min.max(1)).unwrap_or(usize::MAX)
         } else {
             ranked.iter().take_while(|(score, _)| *score > 0).count()
         };
-        let count = wanted.max(usize::from(min)).min(usize::from(max));
+        let count = wanted
+            .max(usize::try_from(min).unwrap_or(usize::MAX))
+            .min(usize::try_from(max).unwrap_or(usize::MAX));
         Some(PlayerAction::ChooseTargets {
             objects: ranked.into_iter().take(count).map(|(_, id)| id).collect(),
             players: vec![],

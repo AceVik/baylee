@@ -93320,7 +93320,10 @@ fn metamorphosis_fanatics_miracle_can_tap_its_sources_to_pay() {
                     .expect("an offered yes is an answer");
                 assert_eq!(
                     engine.payment_window(),
-                    Some((player, "{1}{B}".parse().unwrap()))
+                    Some((
+                        player,
+                        baylee_core::mana::ManaPayment::Fixed("{1}{B}".parse().unwrap())
+                    ))
                 );
                 tap_all_mana(&mut engine, player);
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
@@ -96121,7 +96124,7 @@ fn fury_enters(theirs: &[CardIndex], evoke: bool) -> Engine<RegistryLookup> {
     };
     assert_eq!(player, p0);
     assert_eq!(
-        (min, usize::from(max)),
+        (min, usize::try_from(max).unwrap()),
         (0, options.len().min(4)),
         "any number, and a fifth target could not be dealt 1"
     );
@@ -99469,19 +99472,35 @@ fn demonic_hordes() -> CardIndex {
     card_index("2847c8a0-f6aa-4e4a-a7b8-fc116436a264")
 }
 
-/// Demonic Hordes — {3}{B}{B}{B} 5/5 Demon. `Coverage::Partial`: the
-/// upkeep tax and the opponent's-choice land sacrifice are not in the
-/// engine, but its `{T}: Destroy target land` is. `Filter::LAND` names no
-/// side, so the menu holds a land from either seat and excludes the
-/// creature standing beside them.
+/// Demonic Hordes pays its upkeep before using `{T}: Destroy target land`.
+/// `Filter::LAND` names no side, so the menu holds a land from either seat
+/// and excludes the creature standing beside them.
 #[test]
 fn demonic_hordes_taps_to_destroy_a_targeted_land_of_either_seat() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[demonic_hordes(), swamp()])
+        .battlefield(0, &[demonic_hordes(), swamp(), swamp(), swamp()])
         .battlefield(1, &[forest(), llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    assert!(
+        matches!(engine.pending(), Pending::YesNo { player, prompt: YesNoPrompt::PayMana { cost }, .. }
+        if *player == p0 && *cost == baylee_core::mana!("{B}{B}{B}"))
+    );
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(tap_all_mana(&mut engine, p0), 3);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
     reach_main_phase(&mut engine, p0);
 
     let hordes = on_battlefield(&engine, p0, demonic_hordes()).expect("seated");

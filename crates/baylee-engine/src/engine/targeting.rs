@@ -162,13 +162,14 @@ impl<L: CardLookup> Engine<L> {
             // "Up to one" with nothing to point at: nothing to decide.
             return false;
         }
-        let max = req.max.min(u8::try_from(options.len()).unwrap_or(u8::MAX));
+        let (min, max) = req.bounds(0);
+        let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
         self.pending_plan = Some(PlanKind::TriggerSecondTarget { on_stack: top });
         self.pending = Pending::ChooseTargets {
             player: controller,
             options,
             player_options: Vec::new(),
-            min: req.min,
+            min,
             max,
             reason: TargetPrompt::Targets,
         };
@@ -329,7 +330,7 @@ impl<L: CardLookup> Engine<L> {
             }
             let valid = matches!(&self.pending, Pending::ChooseTargets { player: chooser, options, player_options, min, max, .. }
                 if *chooser == player
-                    && (usize::from(*min)..=usize::from(*max)).contains(&(objects.len() + players.len()))
+                    && (u64::from(*min)..=u64::from(*max)).contains(&u64::try_from(objects.len() + players.len()).unwrap_or(u64::MAX))
                     && objects.iter().all(|o| options.contains(o))
                     && players.iter().all(|p| player_options.contains(p))
                     && objects.iter().enumerate().all(|(i,o)| !objects[..i].contains(o))

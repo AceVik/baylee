@@ -332,7 +332,9 @@ impl Seat {
         let count = hint.objects.len() + hint.players.len();
         let fits = card == Some(hint.card)
             && !targeting.second
-            && (usize::from(*min)..=usize::from(*max)).contains(&count)
+            && (usize::try_from(*min).unwrap_or(usize::MAX)
+                ..=usize::try_from(*max).unwrap_or(usize::MAX))
+                .contains(&count)
             && hint.objects.iter().all(|o| options.contains(o))
             && hint.players.iter().all(|p| player_options.contains(p));
         if !fits {

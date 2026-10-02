@@ -439,7 +439,10 @@ fn cast_x_miracle(pay: bool) {
         .expect("two targets, and X was announced as two");
     assert_eq!(
         engine.payment_window(),
-        Some((p0, "{2}{B}{B}".parse().unwrap()))
+        Some((
+            p0,
+            baylee_core::mana::ManaPayment::Fixed("{2}{B}{B}".parse().unwrap())
+        ))
     );
     assert!(
         engine.cast_wizard.is_none(),
@@ -568,7 +571,10 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
     let petal = card_index("32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5");
     let (mut engine, card) = draw_miracle(vec![island(), petal]);
     let player = PlayerId::new(0);
-    let debt = Some((player, "{1}{U}".parse().unwrap()));
+    let debt = Some((
+        player,
+        baylee_core::mana::ManaPayment::Fixed("{1}{U}".parse().unwrap()),
+    ));
     assert_eq!(engine.state.players[0].mana_pool.total(), 0);
     engine.apply(player, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.payment_window(), debt);

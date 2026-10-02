@@ -394,7 +394,7 @@ fn a_coloured_tax_is_paid_in_its_colour_and_not_in_another() {
         engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
         assert_eq!(
             engine.payment_window(),
-            Some((p0, blue)),
+            Some((p0, baylee_core::mana::ManaPayment::Fixed(blue))),
             "an empty pool and a land: the window, for the printed price"
         );
         tap_all_mana(&mut engine, p0);
@@ -772,7 +772,12 @@ fn a_payment_window_is_part_of_the_engine_snapshot() {
     assert!(asked.payment_window().is_none(), "one is still being asked");
     assert_eq!(
         open.payment_window(),
-        Some((p1, baylee_core::mana::ManaCost::from_symbol_generic(1))),
+        Some((
+            p1,
+            baylee_core::mana::ManaPayment::Fixed(
+                baylee_core::mana::ManaCost::from_symbol_generic(1)
+            )
+        )),
         "and the other is inside a window for the tax it just agreed to"
     );
     assert_eq!(

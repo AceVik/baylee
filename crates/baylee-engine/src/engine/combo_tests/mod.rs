@@ -960,22 +960,27 @@ fn advance_until(
             Pending::Priority { player, .. } => {
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
             }
-            // One arm on purpose: both prompts are answered by
-            // `ChooseObjects` over a list of object ids, and taking `min` of
-            // them is the same shrug in both cases.
             Pending::ChooseTargets {
                 player,
                 options,
                 min,
                 ..
+            } => {
+                let objects = options
+                    .into_iter()
+                    .take(usize::try_from(min).unwrap())
+                    .collect();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
             }
-            | Pending::ChooseCards {
+            Pending::ChooseCards {
                 player,
                 options,
                 min,
                 ..
             } => {
-                let objects = options.into_iter().take(min as usize).collect();
+                let objects = options.into_iter().take(usize::from(min)).collect();
                 engine
                     .apply(player, PlayerAction::ChooseObjects { objects })
                     .unwrap();

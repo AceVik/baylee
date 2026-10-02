@@ -12,6 +12,24 @@ use baylee_core::types::TypeSet;
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::DealDamageEvenly { amount, target } => {
+            let targets = recipients(state, res, you, target);
+            let count = u32::try_from(targets.len()).unwrap_or(u32::MAX);
+            if let Some(share) = amount2(&amount, state, you, res).checked_div(count) {
+                let version = source_version(state, res);
+                for recipient in targets {
+                    deal_redirected(
+                        state,
+                        res.source,
+                        recipient,
+                        share,
+                        &mut Redirected::default(),
+                        version,
+                    );
+                }
+            }
+            None
+        }
         Effect::DealDamageWithCappedLifeGain { amount } => {
             let recipient = *recipients(state, res, you, TargetSpec::AnyTarget).first()?;
             let before_damage_cap = match recipient {
@@ -306,6 +324,33 @@ fn deal_to_spec(
             version,
         );
     }
+}
+
+/// Apply paid prevention through the ordinary damage pipeline, and discard
+/// unused prevention immediately: it belongs to this event, not the turn.
+pub(super) fn damage_with_payment(
+    state: &mut GameState,
+    res: &Resolution,
+    player: PlayerId,
+    damage: u32,
+    paid: u32,
+) {
+    state.shields.push(Shield {
+        protects: Shielded::Everything,
+        kind: ShieldKind::ThisEvent(paid),
+        controller: player,
+    });
+    deal_redirected(
+        state,
+        res.source,
+        DamageTarget::Player(player),
+        damage,
+        &mut Redirected::default(),
+        source_version(state, res),
+    );
+    state
+        .shields
+        .retain(|shield| !matches!(shield.kind, ShieldKind::ThisEvent(_)));
 }
 
 /// Whom `target` names as this resolves: the objects and players an

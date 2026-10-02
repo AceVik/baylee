@@ -657,17 +657,23 @@ impl TargetReq {
 
     /// How many targets may be chosen, once `x` has been announced.
     ///
-    /// "X target creatures" is exactly X, and every other requirement is its
-    /// own bounds. This is the one reading of "how many" that both the cast
-    /// wizard and an activation use. X above 255 is capped there, since no
-    /// board holds more objects than that.
+    /// A ranged printed maximum 255 means any number; exactly 255 remains
+    /// exact. A pending choice
+    /// bounds that open maximum by its actual legal options. X retains its
+    /// full announced value; boards may contain more than 255 objects.
     #[must_use]
-    pub const fn bounds(self, x: u32) -> (u8, u8) {
+    pub const fn bounds(self, x: u32) -> (u32, u32) {
         if self.count_is_x {
-            let n = if x > 255 { 255 } else { x as u8 };
-            (n, n)
+            (x, x)
         } else {
-            (self.min, self.max)
+            (
+                self.min as u32,
+                if self.max == u8::MAX && self.min < self.max {
+                    u32::MAX
+                } else {
+                    self.max as u32
+                },
+            )
         }
     }
 
@@ -888,6 +894,32 @@ pub enum ExileUntil {
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Divide the amount evenly, rounded down, among the targets still
+    /// legal when the spell resolves. Zero targets deal no damage.
+    DealDamageEvenly {
+        /// Total damage before division.
+        amount: Amount,
+        /// Chosen recipients, including objects and players for any target.
+        target: TargetSpec,
+    },
+    /// The player may make and spend any amount of mana. Deal the stated
+    /// damage to them, with that payment preventing only this damage event.
+    PayManaToPreventDamage {
+        /// The affected player, captured when the operation begins.
+        player: PlayerRel,
+        /// Damage before prevention.
+        amount: Amount,
+    },
+    /// Tap this source if it remains the same battlefield object.
+    TapSelf,
+    /// This player sacrifices a matching permanent chosen by one of their
+    /// opponents. The player chooses the opponent if more than one exists.
+    SacrificeChosenByOpponent {
+        /// Player sacrificing a permanent they control.
+        player: PlayerRel,
+        /// Permanents the opponent may choose, without targeting.
+        filter: &'static Filter,
+    },
     /// Deal damage to the chosen target and gain that much life, capped
     /// at its current toughness, or its loyalty/life total before damage,
     /// as applicable.
@@ -3541,6 +3573,10 @@ impl Effect {
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::DealDamageWithCappedLifeGain { .. }
+            | Effect::DealDamageEvenly { .. }
+            | Effect::PayManaToPreventDamage { .. }
+            | Effect::SacrificeChosenByOpponent { .. }
+            | Effect::TapSelf
             | Effect::AddCountersUpTo { .. }
             | Effect::MarkLandWithCounter { .. }
             | Effect::CleanLinkedCounters { .. }
@@ -4086,13 +4122,15 @@ mod amount_and_target_tests {
             "X is not this count"
         );
         assert_eq!(TargetReq::exactly(WHAT, 2).bounds(0), (2, 2));
+        assert_eq!(TargetReq::exactly(WHAT, 255).bounds(0), (255, 255));
+        assert_eq!(TargetReq::up_to(WHAT, 255).bounds(0), (0, u32::MAX));
         let x = TargetReq::x_targets(WHAT);
         assert_eq!(x.bounds(0), (0, 0), "X = 0 targets nothing");
         assert_eq!(x.bounds(3), (3, 3), "X targets is exactly X");
         assert_eq!(
             x.bounds(300),
-            (255, 255),
-            "a count past the field's width saturates rather than wrapping to 44"
+            (300, 300),
+            "X target counts retain the full announced value"
         );
     }
 }

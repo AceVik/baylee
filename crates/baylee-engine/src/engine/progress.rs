@@ -236,6 +236,7 @@ impl<L: CardLookup> Engine<L> {
         const AUTO_ANSWER_LIMIT: u32 = 4096;
         for step in 0..AUTO_ANSWER_LIMIT {
             self.run_machine();
+            self.open_variable_mana_window();
             if !self.awaiting_answer {
                 return;
             }
@@ -2812,12 +2813,13 @@ impl<L: CardLookup> Engine<L> {
                     // one target of at most none (l29 game 1930). `offered`
                     // reaching `req.min` is checked above, so the count can
                     // only cap the maximum, never undercut the minimum.
-                    let max = req.max.min(u8::try_from(offered).unwrap_or(u8::MAX));
+                    let (min, max) = req.bounds(0);
+                    let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
                         player: t.controller,
                         options,
                         player_options,
-                        min: req.min,
+                        min,
                         max,
                         reason: TargetPrompt::Targets,
                     };

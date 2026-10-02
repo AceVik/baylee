@@ -49,7 +49,10 @@ fn pact_colored_payment_survives_a_nested_mana_color_question() {
         )
         .unwrap();
     assert!(matches!(engine.pending(), Pending::ChooseColor { .. }));
-    assert_eq!(engine.payment_window(), Some((me, cost)));
+    assert_eq!(
+        engine.payment_window(),
+        Some((me, baylee_core::mana::ManaPayment::Fixed(cost)))
+    );
     engine
         .apply(me, PlayerAction::ChooseColor(ManaColor::Black))
         .unwrap();

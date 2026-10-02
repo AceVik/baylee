@@ -1500,3 +1500,32 @@ outside the repository. Fresh full Alpha inventory: **265 Implemented / 21
 Partial / 4 explicit exclusions**. Alpha is not complete. The Windows Vulkan
 report remains open; no hardware claim or ticket closure is inferred from these
 macOS checks. Fireball, Demonic Hordes and Power Leak are the next batch.
+
+First-four milestone commit: `b81591ec`. Batch B implementation has started.
+
+
+### Batch B client acceptance — additional findings
+
+Fireball's live two-target cast opens the late mana window for total {5}{R}
+when X=4. One additional Forest pays the surcharge; the creature and opposing
+player each take two, with no client error. The screenshot was independently
+viewed: `/private/tmp/alpha-fireball-additional-payment.png`.
+
+Demonic Hordes' opposing-player land selection works live. The check also found
+two presentation defects under repair: an old German printed sentence contains
+bare `BBB` instead of Mana-font symbols, and the seat HUD replaces a named AI
+with the generic House AI label while prompts and stack use its actual name.
+Acceptance requires rechecking both after the client rebuild. Hordes has only
+one activated ability and therefore opens target selection directly; absence
+of a multiple-ability chooser in this case is intentional.
+
+
+The rebuilt client now passes the Hordes checks. Root independently viewed
+`/private/tmp/alpha-hordes-upkeep-final.png` and
+`/private/tmp/alpha-hordes-opponent-choice-final.png`: the printed German `BBB`
+is rendered with three Mana-font glyphs, the payment question uses the same
+symbols, and HUD, stack and sacrifice question consistently name `Solide 1`.
+The actual upkeep payment, tap activation destroying a land, and opposing
+unpaid trigger followed by a human-selected land sacrifice all completed without
+client errors. The shared printed-text repair is Oracle-checked and also runs
+when old cached presentation data is loaded.

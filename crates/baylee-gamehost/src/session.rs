@@ -2885,7 +2885,7 @@ pub(crate) mod tests {
             "the removal was never cast at the warded creature"
         );
 
-        let owed = ManaCost::from_symbol_generic(2);
+        let owed = baylee_view::ManaPayment::Fixed(ManaCost::from_symbol_generic(2));
         assert_eq!(
             session.awaiting_seat(),
             Some(payer),

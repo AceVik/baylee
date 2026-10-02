@@ -488,6 +488,16 @@ impl HeuristicAgent {
                 max,
                 ..
             } => {
+                // Concentrate evenly divided damage on one target. Splitting
+                // it weakens each hit and may require an additional payment.
+                let max = if min <= 1
+                    && context.effects.iter().any(|effect| {
+                        matches!(effect, baylee_cards_dsl::Effect::DealDamageEvenly { .. })
+                    }) {
+                    max.min(1)
+                } else {
+                    max
+                };
                 if let Some(action) =
                     self.targets(view, &options, &player_options, min, max, context)
                 {
@@ -526,11 +536,11 @@ impl HeuristicAgent {
                 // and the engine refused the answer as too many (the
                 // trained AI's fuzzer, main 50050ff3, seeds 486 and 1931).
                 let n = if max <= 2 {
-                    usize::from(max)
+                    usize::try_from(max).unwrap_or(usize::MAX)
                 } else if min == 0 {
-                    enemies.clamp(1, usize::from(max))
+                    enemies.clamp(1, usize::try_from(max).unwrap_or(usize::MAX))
                 } else {
-                    usize::from(min)
+                    usize::try_from(min).unwrap_or(usize::MAX)
                 };
                 let objects = ordered[..n.min(ordered.len())].to_vec();
                 // "Any target" with nothing on the battlefield worth hitting
@@ -587,6 +597,9 @@ impl HeuristicAgent {
                     }
                 }
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
+                baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
+                    preventable_damage.clamp(min, max)
+                }
                 // Every payment the engine offers: it bounded the count by
                 // what the floating pool pays beside the rest of the cast,
                 // and each payment is the spell once more (CR 702.56a).
@@ -3517,7 +3530,7 @@ mod tests {
     fn a_convoke_answer_taps_only_what_the_pool_leaves_unpaid() {
         use baylee_engine::engine::DecisionContext;
         let seat = PlayerId::new(0);
-        let asked_x = |v: &PlayerView, cost: &str, x: u32, max: u8| {
+        let asked_x = |v: &PlayerView, cost: &str, x: u32, max: u32| {
             let context = DecisionContext {
                 source: Some(obj(1)),
                 cost: Some(cost.parse().unwrap()),
@@ -3537,7 +3550,7 @@ mod tests {
                 other => panic!("the tap question was answered with {other:?}"),
             }
         };
-        let asked = |v: &PlayerView, cost: &str, max: u8| asked_x(v, cost, 0, max);
+        let asked = |v: &PlayerView, cost: &str, max: u32| asked_x(v, cost, 0, max);
 
         // Clever Concealment, `{2}{W}{W}`: a 3/3 and, listed second, a 1/1.
         let mut v = view(
@@ -6823,7 +6836,9 @@ mod tests {
         // plans one fewer because `plan` spends the pool first.
         let mut v = base.clone();
         v.awaiting = Some(v.seat);
-        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(2));
+        v.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::from_symbol_generic(2),
+        ));
         let pending = Pending::Priority {
             player: v.seat,
             legal: legal(),
@@ -6842,7 +6857,9 @@ mod tests {
         // lost the mana and the spell both.
         let mut v = base.clone();
         v.awaiting = Some(v.seat);
-        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(3));
+        v.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::from_symbol_generic(3),
+        ));
         let pending = Pending::Priority {
             player: v.seat,
             legal: legal(),
@@ -6858,7 +6875,9 @@ mod tests {
         // seat paying for an opponent's window.
         let mut v = base;
         v.awaiting = Some(PlayerId::new(1));
-        v.owed = Some(baylee_core::mana::ManaCost::from_symbol_generic(2));
+        v.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::from_symbol_generic(2),
+        ));
         let pending = Pending::Priority {
             player: v.seat,
             legal: legal(),
@@ -6868,6 +6887,152 @@ mod tests {
             PlayerAction::PassPriority,
             "this seat is not the one being asked for the payment"
         );
+    }
+
+    #[test]
+    fn optional_prevention_uses_available_mana_without_overpaying() {
+        use baylee_core::generated::subtypes::land;
+        use baylee_core::mana::ManaPayment;
+        use baylee_engine::choice::{LegalActions, NumberPrompt};
+        let mut source = permanent(obj(1), PlayerId::new(0), 0);
+        source.types = TypeSet::LAND;
+        source.subtypes.insert(land::PLAINS);
+        let mut v = view(0, &[20, 20], vec![source]);
+        v.awaiting = Some(v.seat);
+        v.owed = Some(ManaPayment::AnyAmount {
+            preventable_damage: 2,
+        });
+        let legal = LegalActions {
+            can_pass: true,
+            mana_abilities: vec![obj(1)],
+            ..Default::default()
+        };
+        assert_eq!(
+            policy::pay_owed(&v, &legal),
+            Some(PlayerAction::ActivateManaAbility { source: obj(1) }),
+            "one available mana still prevents one damage"
+        );
+        v.seats[0].mana_pool.white = 2;
+        assert_eq!(
+            policy::pay_owed(&v, &legal),
+            None,
+            "a covered optional payment must not tap an extra source"
+        );
+        for (max, want) in [(0, 0), (1, 1), (2, 2), (80, 2)] {
+            assert_eq!(
+                agent().act(
+                    &v,
+                    &Pending::ChooseNumber {
+                        player: v.seat,
+                        min: 0,
+                        max,
+                        reason: NumberPrompt::ManaPayment {
+                            preventable_damage: 2
+                        },
+                    }
+                ),
+                PlayerAction::ChooseNumber(want)
+            );
+        }
+    }
+
+    #[test]
+    fn sacrifice_for_another_player_respects_which_side_loses_the_permanent() {
+        use baylee_engine::choice::ChoicePrompt;
+        let other = PlayerId::new(1);
+        let v = view(
+            0,
+            &[20, 20],
+            vec![permanent(obj(1), other, 1), permanent(obj(2), other, 7)],
+        );
+        let pending = Pending::ChooseCards {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            min: 1,
+            max: 1,
+            prompt: ChoicePrompt::SacrificeFor { player: other },
+            total: None,
+        };
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(2)]
+            }
+        );
+        let teammate = agent().with_teams(vec![Some(1), Some(1)]);
+        assert_eq!(
+            teammate.act(&v, &pending),
+            PlayerAction::ChooseObjects {
+                objects: vec![obj(1)]
+            }
+        );
+    }
+
+    #[test]
+    fn evenly_split_burn_does_not_add_unbudgeted_targets() {
+        use baylee_cards_dsl::{Amount, Effect, TargetSpec};
+        use baylee_engine::engine::DecisionContext;
+        let v = view(
+            0,
+            &[20, 20],
+            vec![
+                permanent(obj(1), PlayerId::new(1), 2),
+                permanent(obj(2), PlayerId::new(1), 3),
+            ],
+        );
+        let pending = Pending::ChooseTargets {
+            player: v.seat,
+            options: vec![obj(1), obj(2)],
+            player_options: vec![PlayerId::new(1)],
+            min: 0,
+            max: 255,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        let effects = [Effect::DealDamageEvenly {
+            amount: Amount::X,
+            target: TargetSpec::AnyTarget,
+        }];
+        let action = agent().act_with_context(
+            &v,
+            &pending,
+            &DecisionContext {
+                effects: &effects,
+                x: 4,
+                ..Default::default()
+            },
+        );
+        let count = match action {
+            PlayerAction::ChooseObjects { objects } => objects.len(),
+            PlayerAction::ChooseTargets { objects, players } => objects.len() + players.len(),
+            other => panic!("expected a target selection, got {other:?}"),
+        };
+        assert_eq!(
+            count, 1,
+            "concentrate damage without incurring another target's cost"
+        );
+    }
+
+    #[test]
+    fn mandatory_target_selection_is_not_limited_to_a_byte() {
+        let options: Vec<_> = (1..=300).map(obj).collect();
+        let v = view(0, &[20, 20], vec![]);
+        let action = agent().act(
+            &v,
+            &Pending::ChooseTargets {
+                player: v.seat,
+                options: options.clone(),
+                player_options: vec![],
+                min: 300,
+                max: 300,
+                reason: baylee_engine::choice::TargetPrompt::Targets,
+            },
+        );
+        let chosen = match action {
+            PlayerAction::ChooseObjects { objects }
+            | PlayerAction::ChooseTargets { objects, .. } => objects,
+            other => panic!("expected target selection, got {other:?}"),
+        };
+        assert_eq!(chosen, options);
     }
 
     /// A colour named inside this seat's own payment window is named for the
@@ -6904,7 +7069,9 @@ mod tests {
 
         let mut v = base.clone();
         v.awaiting = Some(seat);
-        v.owed = Some(ManaCost::parse("{1}{U}{U}"));
+        v.owed = Some(baylee_core::mana::ManaPayment::Fixed(ManaCost::parse(
+            "{1}{U}{U}",
+        )));
         for profile in [
             AIProfile::NOVICE,
             AIProfile::CASUAL,
@@ -6922,7 +7089,9 @@ mod tests {
 
         let mut v = base;
         v.awaiting = Some(PlayerId::new(1));
-        v.owed = Some(ManaCost::from_symbol(ManaSymbol::White));
+        v.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            ManaCost::from_symbol(ManaSymbol::White),
+        ));
         v.hand = vec![hand_card(3, "Brainstorm")];
         assert_eq!(
             HeuristicAgent::new(AIProfile::SHARP).act(&v, &pending),
@@ -6971,7 +7140,9 @@ mod tests {
             });
             let mut v = view(0, &[20, 20], vec![object]);
             v.awaiting = Some(v.seat);
-            v.owed = Some(ManaCost::from_symbol(ManaSymbol::Green));
+            v.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+                ManaCost::from_symbol(ManaSymbol::Green),
+            ));
             v
         };
         let pending = || Pending::Priority {

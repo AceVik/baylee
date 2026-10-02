@@ -13,7 +13,7 @@
 use baylee_ai::pending_player;
 use baylee_cards::dsl::AbilityDef;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
-use baylee_core::mana::ManaCost;
+use baylee_core::mana::{ManaCost, ManaPayment};
 use baylee_engine::choice::Pending;
 use baylee_engine::event::LossReason;
 use baylee_engine::object::{GameObject, ObjectKind, PrintedFace};
@@ -739,7 +739,7 @@ fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> V
 #[must_use]
 pub fn owed_payment<L: baylee_engine::state::CardLookup>(
     engine: &baylee_engine::engine::Engine<L>,
-) -> Option<ManaCost> {
+) -> Option<ManaPayment> {
     engine.payment_window().map(|(_, cost)| cost)
 }
 
@@ -824,7 +824,7 @@ pub struct SeatContext<'a> {
     pub held: bool,
     /// What the awaited seat owes inside a CR 605.3a payment window. Pass
     /// [`owed_payment`].
-    pub owed: Option<ManaCost>,
+    pub owed: Option<ManaPayment>,
     /// How long the awaited seat has left to answer, in milliseconds. Pass
     /// [`Session::decision_remaining_ms`](crate::Session::decision_remaining_ms).
     ///

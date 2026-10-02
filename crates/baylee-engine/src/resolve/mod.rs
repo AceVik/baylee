@@ -287,6 +287,32 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Mana may be generated before choosing the amount to spend.
+    ManaForDamage {
+        /// Player who may generate and spend mana.
+        player: PlayerId,
+        /// Damage before prevention.
+        amount: u32,
+    },
+    /// Mana generation has ended; the player chooses the actual payment.
+    DamagePayment {
+        /// Player paying from their floating pool.
+        player: PlayerId,
+        /// Damage before prevention.
+        amount: u32,
+    },
+    /// Choose which opponent selects this player's sacrificed permanent.
+    SacrificeOpponent {
+        /// The player sacrificing and choosing an opponent.
+        player: PlayerId,
+        /// Their permanents the opponent may select.
+        options: Vec<ObjectId>,
+    },
+    /// An opponent chooses one of the sacrificing player's permanents.
+    SacrificeChosen {
+        /// Player sacrificing the opponent's selection.
+        player: PlayerId,
+    },
     /// Choosing a number of counters while resolving a bounded placement.
     Counters {
         /// Incarnation receiving the counters.
@@ -1320,6 +1346,15 @@ fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending:
 
 /// Resumes a bounded counter placement's numeric choice.
 pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u32) -> Flow {
+    if let Some(AwaitingOp::DamagePayment { player, amount }) = res.awaiting {
+        res.awaiting = None;
+        let cost = baylee_core::mana::ManaCost::from_symbol_generic(number);
+        let paid = crate::casting::pay_mana(state, player, &cost);
+        debug_assert!(paid, "the numeric payment is bounded by spendable mana");
+        life::damage_with_payment(state, res, player, amount, if paid { number } else { 0 });
+        res.pc += 1;
+        return run(state, res);
+    }
     let Some(AwaitingOp::Counters {
         target,
         version,
@@ -2158,6 +2193,9 @@ fn finish_split(
 #[must_use]
 pub fn resume_pick_splitter(res: &mut Resolution, opponent: PlayerId) -> Flow {
     match res.awaiting.take() {
+        Some(AwaitingOp::SacrificeOpponent { player, options }) => {
+            Flow::Wait(chosen::ask_sacrifice(res, player, opponent, options))
+        }
         Some(AwaitingOp::PickSplitter {
             found,
             count,
@@ -2182,6 +2220,21 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
+        AwaitingOp::SacrificeChosen { player } => {
+            if let Some(&victim) = chosen.first()
+                && let Some(owner) = state
+                    .object(victim)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield && o.controller == player)
+                    .map(|o| o.owner)
+            {
+                let _ = state.move_object(
+                    victim,
+                    ZoneLocation::Graveyard(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         AwaitingOp::SearchLibrary {
             finds: _,
             reveal: _,
@@ -2854,6 +2907,9 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ControlRotation { .. }
+        | AwaitingOp::ManaForDamage { .. }
+        | AwaitingOp::DamagePayment { .. }
+        | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::Counters { .. }
@@ -3136,6 +3192,8 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
+        | Effect::PayManaToPreventDamage { .. }
+        | Effect::SacrificeChosenByOpponent { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }
@@ -3152,6 +3210,20 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
 fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::PayManaToPreventDamage { player, amount } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let amount = amount2(&amount, state, you, res);
+            res.awaiting = Some(AwaitingOp::ManaForDamage { player, amount });
+            // The driver fills this mana-only offer before exposing it.
+            Some(Pending::Priority {
+                player,
+                legal: Box::default(),
+            })
+        }
+        Effect::SacrificeChosenByOpponent { player, filter } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            chosen::opponent_sacrifice(state, res, player, filter)
+        }
         Effect::SearchLibrary {
             filter,
             finds,
@@ -3834,6 +3906,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::LoseLife { .. }
         | Effect::DealDamage { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::DealDamageEvenly { .. }
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
@@ -4935,6 +5008,17 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
+        Effect::TapSelf => {
+            if let Some(id) = this_to_affect(state, res)
+                && state.object(id).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && source_version(state, res).is_none_or(|version| version == o.version)
+                })
+            {
+                state.set_tapped(id, true);
+            }
+            None
+        }
         Effect::ToggleTapTarget => {
             for &target in &res.targets.clone() {
                 let tapped = state
@@ -5123,6 +5207,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PlayerMayPayLifeOr { .. }
         | Effect::PlayerMayPayCostOr { .. }
+        | Effect::PayManaToPreventDamage { .. }
+        | Effect::SacrificeChosenByOpponent { .. }
         | Effect::ReorderTopLibrary { .. }
         | Effect::ReorderTopLibraryOf { .. }
         | Effect::AddMana { .. }

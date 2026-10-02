@@ -688,11 +688,11 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
     for turn in [Turn::Mine, Turn::Theirs] {
         assert_eq!(
             i.prompt().headline(Lang::En, turn, None, true),
-            "You owe mana. Tap lands to pay, or pass."
+            "You owe mana. Activate mana abilities to pay, or pass."
         );
         assert_eq!(
             i.prompt().headline(Lang::De, turn, None, true),
-            "Du schuldest Mana. Tappe Länder zum Bezahlen, oder passe."
+            "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe."
         );
     }
 }
@@ -1090,5 +1090,98 @@ fn retarget_names_the_current_player_and_sends_a_selected_player() {
             objects: vec![],
             players: vec![other],
         })
+    );
+}
+
+#[test]
+fn optional_payment_keeps_zero_and_overpayment_reachable() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 80,
+        reason: baylee_engine::choice::NumberPrompt::ManaPayment {
+            preventable_damage: 2,
+        },
+    });
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(0)));
+    assert_eq!(i.set_number(80), 80);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(80)));
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "How much mana will you pay? (0–80; prevent up to 2 damage)"
+    );
+    assert_eq!(
+        i.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Wie viel Mana zahlen? (0–80; bis zu 2 Schaden verhindern)"
+    );
+}
+
+#[test]
+fn an_effects_sacrifice_choice_names_the_player_who_loses_the_cards() {
+    let i = interaction(Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::SacrificeFor {
+            player: PlayerId::new(1),
+        },
+        total: None,
+    });
+    assert!(
+        i.prompt()
+            .headline(Lang::En, Turn::Mine, None, false)
+            .starts_with("Seat 1 sacrifices the chosen permanents.")
+    );
+    assert!(
+        i.prompt()
+            .headline(Lang::De, Turn::Mine, None, false)
+            .starts_with("Platz 1 opfert die gewählten bleibenden Karten.")
+    );
+}
+
+#[test]
+fn large_target_counts_survive_selection_and_the_display_boundary() {
+    let options: Vec<_> = (1..=300).map(obj).collect();
+    let mut i = interaction(Pending::ChooseTargets {
+        player: me(),
+        options: options.clone(),
+        player_options: vec![],
+        min: 300,
+        max: 300,
+        reason: TargetPrompt::Targets,
+    });
+    assert_eq!(i.bounds(), Some((300, 300)));
+    assert!(
+        i.prompt()
+            .headline(Lang::En, Turn::Mine, None, false)
+            .contains("300")
+    );
+    for &object in &options[..299] {
+        i.toggle(object);
+    }
+    assert!(!i.can_confirm());
+    i.toggle(options[299]);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseObjects { objects: options })
+    );
+    let retarget = interaction(Pending::ChooseTargets {
+        player: me(),
+        options: vec![obj(1)],
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: TargetPrompt::Retarget {
+            current: baylee_engine::choice::TargetRef::Object(obj(2)),
+            index: 69_999,
+            of: 70_000,
+        },
+    });
+    assert!(
+        retarget
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false)
+            .starts_with("Target 70000 of 70000:")
     );
 }

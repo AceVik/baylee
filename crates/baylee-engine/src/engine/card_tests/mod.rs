@@ -93,7 +93,7 @@ fn darksteel_pendant() -> CardIndex {
 
 /// The question a convoke or waterbend cast asks for its taps, if it asked
 /// one: `(options, max)`.
-fn tap_to_pay_question(engine: &Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u8)> {
+fn tap_to_pay_question(engine: &Engine<RegistryLookup>) -> Option<(Vec<ObjectId>, u32)> {
     match engine.pending() {
         Pending::ChooseTargets {
             options,

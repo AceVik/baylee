@@ -627,19 +627,8 @@ messages! {
     Refresh { en: "Refresh", de: "Neu laden" },
     /// The one-tap game against the house AI.
     PlayTheHouse { en: "Play the house", de: "Gegen das Haus" },
-    /// What a chair the house plays is called on its own bar.
-    ///
-    /// Written from the **flag** and never from the name the host sent, and
-    /// that is safe for a plain reason rather than a clever one: neither
-    /// producer has any other name for such a chair. `LocalHost` seats the
-    /// literal `"House AI"` and the gateway writes the same string for every
-    /// empty chair in a running game, so there is no host-chosen name for
-    /// this to hide — only an English one for a German player to read.
-    ///
-    /// The day a host does name its AI chairs, this is the line that has to
-    /// give way, and `a_house_chair_is_called_the_house_in_the_players_own_
-    /// language`'s sibling in `host.rs` is what will say so: it pins the one
-    /// string `LocalHost` writes.
+    /// Localized name for an unnamed house-controlled chair. Named AI seats
+    /// retain their roster name so the HUD, prompts and stack agree.
     SeatHouse { en: "House AI", de: "Haus-KI" },
     /// Caption over the room password box.
     RoomPassword { en: "ROOM PASSWORD", de: "RAUM-PASSWORT" },
@@ -1563,7 +1552,7 @@ messages! {
         en: "Waiting for the house — {0} is away",
         de: "Warte auf das Haus — {0} ist abwesend",
     },
-    /// You owe mana. Tap lands to pay, or pass.
+    /// You owe mana. Activate mana abilities to pay, or pass.
     ///
     /// The sentence a payment window had none of. A CR 605.3a window is an
     /// ordinary priority round offering mana abilities and nothing else, so
@@ -1578,8 +1567,25 @@ messages! {
     /// countered, or a tax unpaid — because that is the engine's sentence and
     /// this client does not know which it is.
     PayOrPass {
-        en: "You owe mana. Tap lands to pay, or pass.",
-        de: "Du schuldest Mana. Tappe Länder zum Bezahlen, oder passe.",
+        en: "You owe mana. Activate mana abilities to pay, or pass.",
+        de: "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe.",
+    },
+    /// Mana may be generated before choosing an optional amount to prevent damage.
+    PrepareManaPayment {
+        en: "You may generate mana to prevent up to {0} damage. Pass to choose the amount.",
+        de: "Erzeuge bei Bedarf Mana gegen bis zu {0} Schaden. Passe zur Wahl des Betrags.",
+    },
+    /// A variable payment can exceed the damage it could prevent.
+    ChooseManaPayment {
+        en: "How much mana will you pay? ({0}–{1}; prevent up to {2} damage)",
+        de: "Wie viel Mana zahlen? ({0}–{1}; bis zu {2} Schaden verhindern)",
+    },
+    /// A payment window with no fixed amount owed.
+    OptionalPayment { en: "Optional payment", de: "Freiwillige Zahlung" },
+    /// {0} is the player who must sacrifice the chosen permanents.
+    SacrificeForPlayer {
+        en: "{0} sacrifices the chosen permanents. {1}",
+        de: "{0} opfert die gewählten bleibenden Karten. {1}",
     },
     /// Owed
     ///

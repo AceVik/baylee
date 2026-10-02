@@ -77,6 +77,57 @@ pub fn repair_braces(text: &str) -> Cow<'_, str> {
     }
 }
 
+/// Repairs old printed runs such as `BBB` only when the Oracle accounts for
+/// exactly those missing mana symbols. A single letter, a mixed word, a run
+/// inside a word/braces, or more than one candidate is deliberately left alone.
+#[must_use]
+pub fn repair_printed_symbols<'a>(oracle: &str, printed: &'a str) -> Cow<'a, str> {
+    let repaired = repair_braces(printed);
+    let mut missing = symbols(oracle);
+    for symbol in symbols(&repaired) {
+        let Some(at) = missing.iter().position(|known| *known == symbol) else {
+            return repaired;
+        };
+        missing.remove(at);
+    }
+    if missing.len() < 2 || !missing.iter().all(|symbol| symbol == &missing[0]) {
+        return repaired;
+    }
+    let mut candidates = repaired
+        .match_indices(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '{' | '}')))
+        .map(|(at, delimiter)| (at, delimiter.len()))
+        .collect::<Vec<_>>();
+    candidates.push((repaired.len(), 0));
+    let mut start = 0;
+    let mut found = None;
+    for (end, delimiter) in candidates {
+        let token = &repaired[start..end];
+        if token.len() >= 2
+            && token.bytes().all(|c| c == token.as_bytes()[0])
+            && b"WUBRGC".contains(&token.as_bytes()[0])
+        {
+            if found.is_some() {
+                return repaired;
+            }
+            found = Some((start, end));
+        }
+        start = end + delimiter;
+    }
+    let Some((start, end)) = found else {
+        return repaired;
+    };
+    let token = &repaired[start..end];
+    if token.len() != missing.len() || missing[0] != format!("{{{}}}", &token[..1]) {
+        return repaired;
+    }
+    let mut out = repaired[..start].to_owned();
+    for symbol in missing {
+        out.push_str(&symbol);
+    }
+    out.push_str(&repaired[end..]);
+    Cow::Owned(out)
+}
+
 /// `{(}w/b)}` or `{(w/b)}` at the start of `at`, as `{W/B}` and its length.
 fn garbled_hybrid(at: &str) -> Option<(String, usize)> {
     let body = at
@@ -284,6 +335,33 @@ pub(crate) fn fold(text: &str, keep_reminders: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_bare_runs_require_exact_oracle_evidence() {
+        let oracle = "{T}: Destroy target land.\nPay {B}{B}{B}.";
+        assert_eq!(
+            repair_printed_symbols(oracle, "{T}: Zerstöre ein Land.\nZahle BBB."),
+            "{T}: Zerstöre ein Land.\nZahle {B}{B}{B}."
+        );
+        for printed in [
+            "Zahle BBB.",
+            "{T}: BBBB.",
+            "{T}: xBBB.",
+            "{T}: BBBÄ.",
+            "{T}: BBB BBB.",
+            "{T}: BUG.",
+            "{T}: {R} BBB.",
+            "{T}: B.",
+        ] {
+            assert_eq!(repair_printed_symbols(oracle, printed), printed);
+        }
+        assert_eq!(repair_printed_symbols("No mana.", "BBB"), "BBB");
+        assert_eq!(repair_printed_symbols("Pay {B}{B}.", "BB."), "{B}{B}.");
+        assert_eq!(
+            repair_printed_symbols(oracle, "{T}: {BBB}."),
+            "{T}: {B}{B}{B}."
+        );
+    }
 
     /// The blank line between two paragraphs is a separator, not a
     /// sentence — an index that counted it would be off by one for every

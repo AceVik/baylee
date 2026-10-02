@@ -836,6 +836,16 @@ impl Duel {
             let view = self.view.as_ref()?;
             Some(crate::face::name_of(view.object(id)?, view, texts))
         };
+        if matches!(
+            prompt,
+            baylee_client_core::interaction::Prompt::Priority { .. }
+        ) && let Some(payment) = self
+            .view
+            .as_ref()
+            .and_then(|v| v.owed.filter(|_| v.awaiting == Some(v.seat)))
+        {
+            return Some(baylee_client_core::interaction::payment_line(lang, payment));
+        }
         Some(prompt.headline_naming(
             lang,
             turn,
@@ -965,7 +975,9 @@ impl Duel {
         if view.awaiting != Some(view.seat) {
             return None;
         }
-        let cost = view.owed?;
+        let baylee_core::mana::ManaPayment::Fixed(cost) = view.owed? else {
+            return None;
+        };
         let legal = self.interaction.as_ref()?.legal_actions()?;
         let pool = view.seat(view.seat)?.mana_pool;
         baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))

@@ -287,6 +287,9 @@ pub struct FaceDef {
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
     pub x_mana_color: Option<baylee_core::color::Color>,
+    /// Additional generic mana for each chosen target beyond the first.
+    /// This changes the casting cost, never the spell's mana value.
+    pub extra_target_cost: u32,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -403,6 +406,7 @@ impl FaceDef {
         disguise: None,
         replicate: None,
         x_mana_color: None,
+        extra_target_cost: 0,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,

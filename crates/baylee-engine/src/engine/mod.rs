@@ -842,18 +842,27 @@ impl<L: CardLookup> Engine<L> {
     /// one. There is no such moment to confuse this with any more: a
     /// resolution only reaches this field once the seat has said yes (#167).
     #[must_use]
-    pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaCost)> {
+    pub fn payment_window(&self) -> Option<(PlayerId, baylee_core::mana::ManaPayment)> {
+        use baylee_core::mana::ManaPayment;
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
             PaymentContinuation::Pact(cost)
             | PaymentContinuation::Cast { cost, .. }
-            | PaymentContinuation::Miracle { cost, .. } => Some((window.player, *cost)),
+            | PaymentContinuation::Miracle { cost, .. } => {
+                Some((window.player, ManaPayment::Fixed(*cost)))
+            }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
                     if player == window.player =>
                 {
-                    Some((player, cost))
+                    Some((player, ManaPayment::Fixed(cost)))
                 }
+                Some(crate::resolve::AwaitingOp::ManaForDamage { player, amount }) => Some((
+                    player,
+                    ManaPayment::AnyAmount {
+                        preventable_damage: amount,
+                    },
+                )),
                 _ => None,
             },
         }
@@ -1732,3 +1741,6 @@ mod tear_asunder_tests;
 
 #[cfg(test)]
 mod dauthi_tests;
+
+#[cfg(test)]
+mod variable_payment_tests;

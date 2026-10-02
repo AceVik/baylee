@@ -1154,7 +1154,10 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
                 .apply(
                     player,
                     PlayerAction::ChooseTargets {
-                        objects: options.into_iter().take(usize::from(min)).collect(),
+                        objects: options
+                            .into_iter()
+                            .take(usize::try_from(min).unwrap())
+                            .collect(),
                         players: Vec::new(),
                     },
                 )
@@ -1318,7 +1321,10 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
         } => {
             // An "up to" prompt (`min` 0) is answered with one anyway:
             // choosing nothing is legal and exercises nothing.
-            let want = usize::from(min).max(1).min(usize::from(max));
+            let want = usize::try_from(min)
+                .unwrap()
+                .max(1)
+                .min(usize::try_from(max).unwrap());
             // **Not the permanent whose ability this is**, while any other
             // option exists. Targets are chosen before costs are paid
             // (CR 601.2c, then 601.2h), so an ability that sacrifices its

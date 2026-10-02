@@ -224,11 +224,22 @@ impl CardTexts {
     /// printing and left `oracle_id` empty.
     fn absorb(&mut self, entries: Vec<CardTextEntry>) -> usize {
         let mut filed = 0;
-        for entry in entries {
+        for mut entry in entries {
             let Some(def) = baylee_cards::by_oracle_id(&entry.oracle_id.to_ascii_lowercase())
             else {
                 continue;
             };
+            for (index, face) in entry.faces.iter_mut().enumerate() {
+                if let Some(oracle) = baylee_cards::oracle::face(def.index, index) {
+                    face.oracle_text =
+                        baylee_cardtext::repair_printed_symbols(oracle, &face.oracle_text)
+                            .into_owned();
+                    if let Some(printed) = &mut face.printed {
+                        *printed =
+                            baylee_cardtext::repair_printed_symbols(oracle, printed).into_owned();
+                    }
+                }
+            }
             let aligned = (0..entry.faces.len())
                 .map(|face| {
                     let oracle = baylee_cards::oracle::face(def.index, face)?;
@@ -1041,6 +1052,30 @@ mod tests {
         let face = texts.face(card, 0).expect("a face");
         assert_eq!(face.name, "Gedankenstein");
         assert_eq!(face.lang, "de");
+    }
+
+    #[test]
+    fn legacy_mana_is_repaired_for_both_cached_preview_and_ability() {
+        let card = fixture::card("Demonic Hordes");
+        let texts = CardTexts::filed(fixture::german(
+            "Demonic Hordes",
+            "Dämonische Horden",
+            Some("{T}: Zerstöre ein Land deiner Wahl.\nZahle BBB während Deiner Versorgungsphase."),
+        ));
+        let face = texts.face(card, 0).expect("cached face");
+        assert!(face.oracle_text.contains("{B}{B}{B}"));
+        let line = texts
+            .localized(
+                card,
+                StackText {
+                    face: 0,
+                    line: 1,
+                    of: 2,
+                },
+            )
+            .expect("localized ability");
+        assert!(line.contains("{B}{B}{B}"));
+        assert!(!line.contains("BBB"));
     }
 
     /// And where none has — no gateway, English, a card nobody translated —

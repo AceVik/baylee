@@ -185,7 +185,7 @@ pub struct PoolRevision {
     lang: Option<Lang>,
     /// What the seat owes in an open payment window, and `None` the rest of
     /// the time — which is nearly always.
-    owed: Option<baylee_core::mana::ManaCost>,
+    owed: Option<baylee_core::mana::ManaPayment>,
 }
 
 /// Spawns the strip, once, beside the shelf.
@@ -633,7 +633,7 @@ fn owed_group(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
-    cost: &baylee_core::mana::ManaCost,
+    payment: &baylee_core::mana::ManaPayment,
 ) -> Entity {
     let group = commands
         .spawn((
@@ -651,7 +651,14 @@ fn owed_group(
         .id();
     let word = commands
         .spawn((
-            Text::new(Phrase::Owed.text(lang).to_string()),
+            Text::new(
+                match payment {
+                    baylee_core::mana::ManaPayment::Fixed(_) => Phrase::Owed,
+                    baylee_core::mana::ManaPayment::AnyAmount { .. } => Phrase::OptionalPayment,
+                }
+                .text(lang)
+                .to_string(),
+            ),
             tf(fonts, POOL_LABEL_PT),
             TextColor(palette::LEDGE_SOFT),
             Node {
@@ -662,11 +669,13 @@ fn owed_group(
         ))
         .id();
     let mut kids = vec![word];
-    kids.extend(
-        baylee_client_core::manapip::cost(cost)
-            .into_iter()
-            .map(|pip| crate::manaui::spawn_pip(commands, fonts, pip, POOL_PIP)),
-    );
+    if let baylee_core::mana::ManaPayment::Fixed(cost) = payment {
+        kids.extend(
+            baylee_client_core::manapip::cost(cost)
+                .into_iter()
+                .map(|pip| crate::manaui::spawn_pip(commands, fonts, pip, POOL_PIP)),
+        );
+    }
     commands.entity(group).replace_children(&kids);
     group
 }

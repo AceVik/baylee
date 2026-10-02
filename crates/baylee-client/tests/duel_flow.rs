@@ -1324,7 +1324,8 @@ fn declaring_no_attackers_is_the_same_answer_as_declaring_none() {
 /// How few objects a choice will accept — the answer a pass-key player gives.
 fn smallest_legal_pick(pending: &Pending) -> usize {
     match pending {
-        Pending::ChooseCards { min, .. } | Pending::ChooseTargets { min, .. } => *min as usize,
+        Pending::ChooseCards { min, .. } => usize::from(*min),
+        Pending::ChooseTargets { min, .. } => usize::try_from(*min).unwrap_or(usize::MAX),
         // The legend rule keeps exactly one.
         Pending::LegendChoice { .. } => 1,
         _ => 0,

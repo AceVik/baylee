@@ -1209,7 +1209,11 @@ mod tests {
                 } => (
                     player,
                     PlayerAction::ChooseObjects {
-                        objects: options.iter().take(usize::from(min)).copied().collect(),
+                        objects: options
+                            .iter()
+                            .take(usize::try_from(min).unwrap())
+                            .copied()
+                            .collect(),
                     },
                 ),
                 _ => return,

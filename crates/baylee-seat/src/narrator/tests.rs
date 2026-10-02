@@ -20,6 +20,36 @@ use std::time::Duration;
 pub(crate) const ME: PlayerId = PlayerId::new(0);
 pub(crate) const THEM: PlayerId = PlayerId::new(1);
 
+#[test]
+fn optional_payment_exposes_mana_actions_before_the_number_question() {
+    use baylee_core::mana::ManaPayment;
+    let (mut view, log) = board();
+    view.awaiting = Some(ME);
+    view.owed = Some(ManaPayment::AnyAmount {
+        preventable_damage: 2,
+    });
+    let request = request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                mana_abilities: vec![id(21)],
+                ..Default::default()
+            }),
+        },
+        log,
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(wake.text.contains("prevent up to 2 damage"));
+    assert!(wake.text.contains("Generate mana with"));
+    assert!(
+        wake.text
+            .contains("Finish generating mana and choose the payment amount")
+    );
+    assert!(!wake.text.contains("a payment you agreed to"));
+}
+
 pub(crate) fn identity(name: &str) -> CardIdentity {
     let index = baylee_cards::decks::by_name(name).unwrap_or_else(|| panic!("{name}"));
     CardIdentity {

@@ -3763,7 +3763,10 @@ fn conduit_of_worlds_casts_a_graveyard_card_and_locks_further_spells() {
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(
         engine.payment_window(),
-        Some((p0, baylee_core::mana::ManaCost::parse("{G}"))),
+        Some((
+            p0,
+            baylee_core::mana::ManaPayment::Fixed(baylee_core::mana::ManaCost::parse("{G}"))
+        )),
         "the window owes the card's mana cost"
     );
     assert_eq!(tap_all_mana(&mut engine, p0), 2, "the other two Forests");

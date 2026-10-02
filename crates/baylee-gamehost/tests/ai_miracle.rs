@@ -69,7 +69,10 @@ fn temporal_mastery_is_cast_for_miracle_with_no_floating_mana() {
         if matches!(action, PlayerAction::ActivateManaAbility { .. }) && seat == me {
             assert_eq!(
                 engine.payment_window(),
-                Some((me, "{1}{U}".parse().unwrap()))
+                Some((
+                    me,
+                    baylee_core::mana::ManaPayment::Fixed("{1}{U}".parse().unwrap())
+                ))
             );
             taps += 1;
         }
