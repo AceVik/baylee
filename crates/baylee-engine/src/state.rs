@@ -1860,6 +1860,30 @@ impl GameState {
         true
     }
 
+    /// Attach an Aura or Equipment to a new permanent. A new attachment
+    /// gives it and its static effects a new timestamp (CR 613.7a, 613.7e).
+    /// Reattaching to the same object does nothing (CR 701.3b).
+    pub(crate) fn attach(&mut self, source: ObjectId, host: ObjectId) {
+        let Some(object) = self.object(source) else {
+            return;
+        };
+        if object.attached_to == Some(host) {
+            return;
+        }
+        let on_battlefield = object.zone == Zone::Battlefield;
+        let timestamp = on_battlefield.then(|| self.next_timestamp());
+        if let Some(object) = self.object_mut(source) {
+            object.attached_to = Some(host);
+            if let Some(timestamp) = timestamp {
+                object.timestamp = timestamp;
+            }
+        }
+        if let Some(timestamp) = timestamp {
+            self.effects.retimestamp_statics(source, timestamp);
+        }
+        self.invalidate_projections();
+    }
+
     /// Switches an object to another face of its card (MDFC cast/land
     /// play, CR 712.11b and CR 712.12): rebuilds base characteristics from
     /// the face and
@@ -2406,8 +2430,7 @@ impl GameState {
                 .map(|o| o.controller)
         };
         self.effects.iter().all(|fx| {
-            fx.origin != crate::effects::EffectOrigin::Static
-                || fx.source.and_then(now).is_none_or(|c| c == fx.controller)
+            !fx.origin.is_static() || fx.source.and_then(now).is_none_or(|c| c == fx.controller)
         }) && self
             .replacement_rules
             .iter()
@@ -2663,6 +2686,66 @@ impl GameState {
         }
     }
 
+    /// Keep the source's last attachment on waiting abilities before it
+    /// leaves or phases out (CR 113.7a, 608.2h). Later appearances of either
+    /// handle cannot substitute for the captured incarnations.
+    pub(crate) fn remember_source_attachment(&mut self, id: ObjectId) {
+        let Some(source) = self.object(id) else {
+            return;
+        };
+        let source_version = source.version;
+        let attachment = source.attached_to.and_then(|host| {
+            self.object(host).map(|object| {
+                let version = if object.zone == Zone::Battlefield {
+                    object.version
+                } else {
+                    self.ltb_versions
+                        .iter()
+                        .find(|(id, _)| *id == host)
+                        .map_or(object.version, |(_, version)| *version)
+                };
+                [
+                    crate::object::Rider::SourceAttachmentLki(host),
+                    crate::object::Rider::SourceAttachmentVersion(version),
+                ]
+            })
+        });
+        for waiting in self.zones.list(ZoneLocation::Stack).clone() {
+            if let Some(ability) = self.object_mut(waiting)
+                && ability.ability.is_some_and(|loc| loc.source == id)
+                && ability
+                    .riders
+                    .contains(&crate::object::Rider::AbilitySourceVersion(source_version))
+            {
+                ability.riders.retain(|rider| {
+                    !matches!(
+                        rider,
+                        crate::object::Rider::SourceAttachmentLki(_)
+                            | crate::object::Rider::SourceAttachmentVersion(_)
+                    )
+                });
+                ability.riders.extend(attachment.into_iter().flatten());
+            }
+        }
+    }
+
+    /// Capture source information on its waiting abilities before this incarnation leaves.
+    fn remember_ability_source(&mut self, id: ObjectId) {
+        self.remember_source_attachment(id);
+        let power = self
+            .object(id)
+            .and_then(|o| o.characteristics().power)
+            .unwrap_or(0);
+        for waiting in self.zones.list(ZoneLocation::Stack).clone() {
+            if let Some(obj) = self.object_mut(waiting)
+                && obj.ability.is_some_and(|loc| loc.source == id)
+                && obj.source_power_lki.is_none()
+            {
+                obj.source_power_lki = Some(power);
+            }
+        }
+    }
+
     /// Writes down what `id` was, one statement before the move erases it.
     ///
     /// The three look-back stores are one job and are done in one place
@@ -2694,19 +2777,7 @@ impl GameState {
             self.ltb_controllers.push((id, controller));
         }
         if from_zone == Zone::Battlefield {
-            let power = self
-                .object(id)
-                .and_then(|o| o.characteristics().power)
-                .unwrap_or(0);
-            let stack = self.zones.list(ZoneLocation::Stack).clone();
-            for waiting in stack {
-                if let Some(obj) = self.object_mut(waiting)
-                    && obj.ability.is_some_and(|loc| loc.source == id)
-                    && obj.source_power_lki.is_none()
-                {
-                    obj.source_power_lki = Some(power);
-                }
-            }
+            self.remember_ability_source(id);
         }
         if from_zone == Zone::Battlefield
             && let Some(source) = self.object(id)
@@ -2939,6 +3010,32 @@ impl GameState {
         self.timestamp += 1;
         let ts = self.timestamp;
         self.record_last_known(id, from_zone);
+        if from_zone == Zone::Battlefield && to.zone() != Zone::Battlefield {
+            // CR 400.7: a returning permanent is a new object even though
+            // its arena handle is stable. Detach now, after departure
+            // snapshots, so a blink cannot restore the old relationship
+            // before the next SBA.
+            // phasing: remember that a phased-out attachment must phase in
+            // unattached if its original host left (CR 702.26i), even if
+            // that handle has since returned. Do not affect it before then.
+            for worn in self.zones.list(ZoneLocation::Battlefield).clone() {
+                if let Some(attachment) = self.object_mut(worn)
+                    && attachment.attached_to == Some(id)
+                {
+                    if attachment
+                        .status
+                        .contains(crate::object::Status::PHASED_OUT)
+                    {
+                        let marker = crate::object::Rider::AttachmentHostLeft;
+                        if !attachment.riders.contains(&marker) {
+                            attachment.riders.push(marker);
+                        }
+                    } else {
+                        attachment.attached_to = None;
+                    }
+                }
+            }
+        }
         // CR 400.7 for the turn's per-ability tally: what the old object
         // used this turn is not the new object's. An id is stable for the
         // whole game and only `version` moves, so the tally keyed by id kept
@@ -2986,6 +3083,8 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                obj.riders
+                    .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
                 // A name chosen as it entered belongs to that permanent
                 // (CR 400.7): a Pithing Needle bounced and cast again names
                 // again, and nothing in between names anything.
@@ -4082,35 +4181,7 @@ fn hash_object_situation(
     // creature will survive are different situations.
     h.u8(obj.regeneration_shields);
     h.option_u32(obj.source_power_lki.map(|p| p as u32));
-    let departure = obj.riders.iter().find_map(|r| match r {
-        crate::object::Rider::EventDeparture(p, t) => Some((*p, *t)),
-        _ => None,
-    });
-    departure.hash(h);
-    for rider in &obj.riders {
-        match rider {
-            crate::object::Rider::AbilitySourceVersion(version) => {
-                h.u8(21);
-                h.boolean(
-                    obj.ability
-                        .and_then(|a| state.object(a.source))
-                        .is_some_and(|source| source.version == *version),
-                );
-            }
-            crate::object::Rider::EventObjectIdentity(version, power) => {
-                h.u8(22);
-                let still_here = obj
-                    .event_object
-                    .and_then(|id| state.object(id))
-                    .is_some_and(|event| event.version == *version);
-                h.boolean(still_here);
-                if !still_here {
-                    h.u16(*power as u16);
-                }
-            }
-            _ => {}
-        }
-    }
+    hash_rider_situation(h, obj, state, position);
     // What was paid is part of what the spell will do: Neoform after a
     // two-drop and after a five-drop are two different futures.
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
@@ -4138,6 +4209,54 @@ fn hash_object_situation(
             h.u32(position(loc.source));
         }
         None => h.u8(0),
+    }
+}
+
+/// Hash identity-sensitive riders by whether their remembered incarnation
+/// still exists, rather than by the counter value of its version.
+fn hash_rider_situation(
+    h: &mut Hasher,
+    obj: &GameObject,
+    state: &GameState,
+    position: &impl Fn(ObjectId) -> u32,
+) {
+    let departure = obj.riders.iter().find_map(|r| match r {
+        crate::object::Rider::EventDeparture(p, t) => Some((*p, *t)),
+        _ => None,
+    });
+    departure.hash(h);
+    for rider in &obj.riders {
+        match rider {
+            crate::object::Rider::AbilitySourceVersion(version) => {
+                h.u8(21);
+                h.boolean(
+                    obj.ability
+                        .and_then(|a| state.object(a.source))
+                        .is_some_and(|source| source.version == *version),
+                );
+            }
+            crate::object::Rider::EventObjectIdentity(version, power) => {
+                h.u8(22);
+                let still_here = obj
+                    .event_object
+                    .and_then(|id| state.object(id))
+                    .is_some_and(|event| event.version == *version);
+                h.boolean(still_here);
+                if !still_here {
+                    h.u16(*power as u16);
+                }
+            }
+            crate::object::Rider::SourceAttachmentLki(id) => {
+                h.u8(23);
+                h.u32(position(*id));
+                h.boolean(state.object(*id).is_some_and(|o| {
+                    obj.riders
+                        .contains(&crate::object::Rider::SourceAttachmentVersion(o.version))
+                }));
+            }
+            crate::object::Rider::AttachmentHostLeft => h.u8(24),
+            _ => {}
+        }
     }
 }
 
@@ -4430,6 +4549,15 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(20);
                 version.hash(h);
             }
+            Rider::SourceAttachmentLki(id) => {
+                h.u8(23);
+                id.hash(h);
+            }
+            Rider::SourceAttachmentVersion(version) => {
+                h.u8(25);
+                version.hash(h);
+            }
+            Rider::AttachmentHostLeft => h.u8(24),
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),
             Rider::Foretold => h.u8(4),

@@ -1085,6 +1085,7 @@ fn apply(
         | Modifier::GrantsFlashback
         | Modifier::PlayerHexproof
         | Modifier::GrantActivated { .. }
+        | Modifier::GrantStatic { .. }
         | Modifier::SorceriesHaveFlash
         | Modifier::GrantTriggered { .. }
         | Modifier::ManaIsAnyColor

@@ -58,6 +58,7 @@ impl GameState {
             .map(|&id| (id, false))
             .chain(indirect.iter().map(|&id| (id, true)));
         for (id, indirectly) in phasing.collect::<Vec<_>>() {
+            self.remember_source_attachment(id);
             if let Some(obj) = self.object_mut(id) {
                 obj.status.insert(Status::PHASED_OUT);
                 if indirectly {
@@ -130,6 +131,14 @@ impl GameState {
             if let Some(obj) = self.object_mut(host) {
                 obj.status.remove(Status::PHASED_OUT);
                 obj.status.remove(Status::PHASED_OUT_INDIRECTLY);
+                if obj
+                    .riders
+                    .contains(&crate::object::Rider::AttachmentHostLeft)
+                {
+                    obj.attached_to = None;
+                    obj.riders
+                        .retain(|r| *r != crate::object::Rider::AttachmentHostLeft);
+                }
             }
             self.journal.record(GameEvent::PhaseChanged {
                 object: host,

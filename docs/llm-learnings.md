@@ -2623,3 +2623,25 @@ land type"; both are convention tests that fire on a first try.
   including Ancient Ziggurat's real restricted white mana, and integration gates.
   Oracle was read live through Scryfall; no card-specific rulings were returned.
   The corpus was read only as a lookup reference.
+
+## Alpha Earthbind (Codex + Astra xhigh + Sol medium, 2026-10-02)
+
+- **A gained static ability belongs to its recipient.** Earthbind's trigger
+  grants an ability to the Aura after dealing damage; it does not create an
+  unconditional printed flying-removal ability. Keep the trigger's intervening
+  condition and damage distinct from the gained ability, and preserve ability
+  removal, copying, phasing and later flying grants.
+- **An attachment is an incarnation, not only an object handle.** The
+  independent review caught a host blink reconnecting an Aura to the returned
+  creature. Departure snapshots, attachment timestamps and phasing LKI need
+  separate checks; direct fixture reattachment alone missed those paths.
+- Astra xhigh implemented the engine primitives and generic regressions. Sol
+  medium independently checked current Oracle/CR and authored eight real-spell
+  tests, including Jump, Flight, Disenchant, Unsummon, Ephemerate and Tishana's
+  Tidebinder. Its three findings were fixed before the broad engine gate.
+- Run the footprint gate before declaring an engine milestone finished. The
+  first identity rider enlarged every GameObject by eight bytes; splitting its
+  compact fields preserved exact identity and the existing 312-byte budget.
+- The full first-printing ledger remains the set inventory: Earthbind moves
+  Alpha to 261 Implemented, 25 Partial and four explicit exclusions. Dedicated
+  coverage for one card cannot establish completion of the whole set.

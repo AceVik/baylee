@@ -194,6 +194,23 @@ pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32>
         })
 }
 
+/// Attachment captured when a waiting ability's source left the battlefield.
+pub(crate) fn source_attachment_lki(
+    state: &GameState,
+    on_stack: ObjectId,
+) -> Option<(ObjectId, u32)> {
+    let riders = &state.object(on_stack)?.riders;
+    let host = riders.iter().find_map(|rider| match rider {
+        crate::object::Rider::SourceAttachmentLki(id) => Some(*id),
+        _ => None,
+    })?;
+    let version = riders.iter().find_map(|rider| match rider {
+        crate::object::Rider::SourceAttachmentVersion(version) => Some(*version),
+        _ => None,
+    })?;
+    Some((host, version))
+}
+
 /// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
 ///
 /// The target if one was chosen; the source if the ability never asked for
@@ -3770,6 +3787,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
+        | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::DealDamageEach { .. }
         | Effect::PreventNextDamage { .. }
@@ -4276,6 +4294,16 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 // was activated with none, or its object is gone, so this
                 // half of its sentence has no subject and registers nothing.
                 let this = this_to_affect(state, res)?;
+                // Gaining an ability affects this incarnation of the source,
+                // not a card or permanent returned under its old handle.
+                if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. })
+                    && this == res.source
+                    && source_version(state, res).is_some_and(|version| {
+                        state.object(this).is_none_or(|o| o.version != version)
+                    })
+                {
+                    return None;
+                }
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
                 bound_now(state, filter, &modifier, you, res.source, None)
@@ -4293,6 +4321,10 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     filter,
                     modifier,
                 });
+            }
+            if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. }) {
+                state.refresh_characteristics();
+                crate::effects::sync_granted_statics(state);
             }
             None
         }
@@ -5058,17 +5090,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             {
                 return None;
             }
-            if let Some(&target_id) = res.targets.first()
-                && let Some(obj) = state.object_mut(res.source)
-            {
-                obj.attached_to = Some(target_id);
-                // An Equipment grants through `Filter::AttachedToBySource`,
-                // so what it is attached to is an input to the layer
-                // projection. This is the attaching write; the SBA unattach
-                // in `sba.rs` is the other, and both have to bump the
-                // generation or the cached characteristics stay valid and
-                // the equipped creature keeps none of the keywords.
-                state.invalidate_projections();
+            if let Some(&target_id) = res.targets.first() {
+                state.attach(res.source, target_id);
             }
             None
         }

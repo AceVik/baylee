@@ -1757,6 +1757,12 @@ mod tests {
         let host = creature(&mut state);
         let gear = equipment(&mut state);
         attach(&mut state, gear, host);
+        for id in [aura, gear] {
+            let obj = state.object_mut(id).unwrap();
+            obj.status.insert(crate::object::Status::PHASED_OUT);
+            obj.counters.set(CounterKind::P1P1, 2);
+            obj.counters.set(CounterKind::M1M1, 1);
+        }
         // The host leaves while the equipment is phased out; the aura has no host.
         state
             .move_object(
@@ -1766,12 +1772,6 @@ mod tests {
                 Cause::Effect,
             )
             .unwrap();
-        for id in [aura, gear] {
-            let obj = state.object_mut(id).unwrap();
-            obj.status.insert(crate::object::Status::PHASED_OUT);
-            obj.counters.set(CounterKind::P1P1, 2);
-            obj.counters.set(CounterKind::M1M1, 1);
-        }
         run(&mut state, &RegistryLookup);
         for id in [aura, gear] {
             assert!(on_battlefield(&state, id));

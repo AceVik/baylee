@@ -1233,6 +1233,12 @@ pub enum Effect {
         /// How much.
         amount: Amount,
     },
+    /// The source deals damage to its enchanted or equipped permanent.
+    /// This does not target; the source's last attachment is used if it left.
+    DealDamageToAttached {
+        /// Damage to deal.
+        amount: Amount,
+    },
     /// "~ deals N damage to each [filter]" — every permanent the filter
     /// matches as this resolves, all at once (CR 608.2f), the set read once
     /// (CR 608.2h), and none of them a target (CR 115.10a): hexproof and
@@ -3439,6 +3445,7 @@ impl Effect {
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
             | Effect::DealDamageToTargetController { .. }
+            | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
             | Effect::PreventNextDamage { .. }
             | Effect::PreventAllCombatDamageThisTurn

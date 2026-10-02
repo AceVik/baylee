@@ -667,6 +667,8 @@ pub fn condition_holds(
         Condition::Escaped => state
             .object(source)
             .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
+        Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
+            .is_some_and(|o| matches(filter, state, o, you, source)),
         Condition::SourceMatches(filter) => state
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
@@ -753,16 +755,40 @@ pub(crate) fn intervening_if_for_incarnation(
     you: PlayerId,
     source: ObjectId,
     version: Option<u32>,
+    attachment: Option<(ObjectId, u32)>,
 ) -> bool {
     match condition {
         Some(Condition::All(conditions)) => conditions.iter().all(|condition| {
-            intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+            intervening_if_for_incarnation(
+                state,
+                Some(*condition),
+                you,
+                source,
+                version,
+                attachment,
+            )
         }),
         Some(Condition::Any(conditions)) => conditions.iter().any(|condition| {
-            intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+            intervening_if_for_incarnation(
+                state,
+                Some(*condition),
+                you,
+                source,
+                version,
+                attachment,
+            )
         }),
-        Some(Condition::Not(condition)) => {
-            !intervening_if_for_incarnation(state, Some(*condition), you, source, version)
+        Some(Condition::Not(condition)) => !intervening_if_for_incarnation(
+            state,
+            Some(*condition),
+            you,
+            source,
+            version,
+            attachment,
+        ),
+        Some(Condition::AttachedMatches(filter)) => {
+            attached_for_ability(state, source, version, attachment)
+                .is_some_and(|o| matches(filter, state, o, you, source))
         }
         Some(Condition::GraveyardCardsAbove(_, _)) => {
             version.is_none_or(|version| state.object(source).is_some_and(|o| o.version == version))
@@ -770,6 +796,33 @@ pub(crate) fn intervening_if_for_incarnation(
         }
         _ => intervening_if(state, condition, you, source),
     }
+}
+
+/// A resolving ability reads its source's current attachment, or the
+/// attachment recorded as that source left (CR 608.2h). A later incarnation
+/// of either permanent cannot stand in for the old one (CR 400.7).
+pub(crate) fn attached_for_ability(
+    state: &GameState,
+    source: ObjectId,
+    version: Option<u32>,
+    attachment: Option<(ObjectId, u32)>,
+) -> Option<&crate::object::GameObject> {
+    let current = state.object(source).filter(|o| {
+        o.zone == crate::zone::Zone::Battlefield
+            && version.is_none_or(|version| o.version == version)
+            && !o.status.contains(crate::object::Status::PHASED_OUT)
+    });
+    let (host, version) = if let Some(source) = current {
+        let host = state.object(source.attached_to?)?;
+        (host.id, host.version)
+    } else {
+        attachment?
+    };
+    state.object(host).filter(|o| {
+        o.zone == crate::zone::Zone::Battlefield
+            && o.version == version
+            && !o.status.contains(crate::object::Status::PHASED_OUT)
+    })
 }
 
 /// Protection (CR 702.16): does `object` have protection from a filter
@@ -1380,7 +1433,8 @@ mod tests {
             condition,
             P0,
             source,
-            Some(version)
+            Some(version),
+            None
         ));
         state
             .move_object(
@@ -1403,7 +1457,7 @@ mod tests {
             "the new card independently satisfies the clause"
         );
         assert!(
-            !intervening_if_for_incarnation(&state, condition, P0, source, Some(version)),
+            !intervening_if_for_incarnation(&state, condition, P0, source, Some(version), None),
             "the old trigger cannot find that new card"
         );
     }

@@ -497,8 +497,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Earthbind
     &[FaceLines {
         sentences: 2,
-        stackable: 0,
-        lines: &[None],
+        stackable: 1,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

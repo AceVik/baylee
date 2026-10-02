@@ -2137,6 +2137,7 @@ impl<L: CardLookup> Engine<L> {
         for fx in to_register {
             self.state.effects.register(fx);
         }
+        crate::effects::sync_granted_statics(&mut self.state);
         self.sync_replacement_rules();
         #[cfg(test)]
         crate::ability_log::note_sources(&self.state, &self.lookup);
@@ -3044,6 +3045,7 @@ impl<L: CardLookup> Engine<L> {
             obj.controller,
             loc.source,
             version,
+            crate::resolve::source_attachment_lki(&self.state, on_stack),
         )
     }
 

@@ -113,6 +113,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AddTypeIfCountersAtLeast { .. }
         | Modifier::AddKeywordIfCountersAtLeast { .. }
         | Modifier::GrantActivated { .. }
+        | Modifier::GrantStatic { .. }
         | Modifier::GrantTriggered { .. }
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
@@ -206,6 +207,17 @@ pub enum EffectOrigin {
     /// (CR 611.3a): its controller is whoever controls the source now, and
     /// `GameState::refresh_characteristics` keeps it so.
     Static,
+    /// A static ability granted by the named effect. Its source is the
+    /// object that gained the ability, which supplies its "this" and "you".
+    GrantedStatic(EffectId),
+}
+
+impl EffectOrigin {
+    /// Whether this effect follows a permanent's static ability.
+    #[must_use]
+    pub const fn is_static(self) -> bool {
+        matches!(self, Self::Static | Self::GrantedStatic(_))
+    }
 }
 
 /// A registered continuous effect.
@@ -297,9 +309,8 @@ impl EffectTable {
     /// to the permanents it affects, and ends by its own duration
     /// (CR 702.26f).
     pub(crate) fn follow_phasing(&mut self, phased_out: impl Fn(ObjectId) -> bool) {
-        let named = |fx: &ContinuousEffect| {
-            fx.origin == EffectOrigin::Static && fx.source.is_some_and(&phased_out)
-        };
+        let named =
+            |fx: &ContinuousEffect| fx.origin.is_static() && fx.source.is_some_and(&phased_out);
         let back: Vec<ContinuousEffect> = self.parked.extract_if(.., |fx| !named(fx)).collect();
         let away: Vec<ContinuousEffect> = self.effects.extract_if(.., |fx| named(fx)).collect();
         if back.is_empty() && away.is_empty() {
@@ -366,12 +377,23 @@ impl EffectTable {
     /// `GameObject::controller` is, and not the table changing.
     pub(crate) fn follow_sources(&mut self, controller_of: impl Fn(ObjectId) -> Option<PlayerId>) {
         for fx in &mut self.effects {
-            if fx.origin == EffectOrigin::Static
+            if fx.origin.is_static()
                 && let Some(now) = fx.source.and_then(&controller_of)
             {
                 fx.controller = now;
             }
         }
+    }
+
+    /// A new attachment restamps printed statics. Granted statics are
+    /// reconciled from the source's new timestamp by their own sync.
+    pub(crate) fn retimestamp_statics(&mut self, source: ObjectId, timestamp: u64) {
+        for effect in self.effects.iter_mut().chain(&mut self.parked) {
+            if effect.source == Some(source) && effect.origin == EffectOrigin::Static {
+                effect.timestamp = timestamp;
+            }
+        }
+        self.generation += 1;
     }
 
     /// CR 400.7a: an effect from a spell or ability that changed a
@@ -542,6 +564,48 @@ pub fn applies_to(
                     fx.controller,
                     fx.source.unwrap_or(obj.id),
                 )
+        }
+    }
+}
+
+/// Materialize gained static abilities as effects whose source is the
+/// recipient. Keep their filters live (CR 611.3a) and their timestamp at
+/// the later of the grant and recipient timestamps (CR 613.7a).
+pub(crate) fn sync_granted_statics(state: &mut crate::state::GameState) {
+    let mut wanted = Vec::new();
+    for grant in state.effects.iter() {
+        let Modifier::GrantStatic { filter, modifier } = grant.modifier else {
+            continue;
+        };
+        for id in state.battlefield_seen() {
+            let Some(object) = state.object(id) else {
+                continue;
+            };
+            if applies_to(state, grant, object) {
+                wanted.push(ContinuousEffect {
+                    id: EffectId::new(0),
+                    source: Some(id),
+                    controller: object.controller,
+                    origin: EffectOrigin::GrantedStatic(grant.id),
+                    layer: modifier.layer(),
+                    timestamp: grant.timestamp.max(object.timestamp),
+                    duration: Duration::WhileSourceOnBattlefield,
+                    filter: EffectFilter::Dsl(filter),
+                    modifier: *modifier,
+                });
+            }
+        }
+    }
+    let same = |a: &ContinuousEffect, b: &ContinuousEffect| {
+        a.origin == b.origin && a.source == b.source && a.timestamp == b.timestamp
+    };
+    state.effects.remove_where(|fx| {
+        matches!(fx.origin, EffectOrigin::GrantedStatic(_))
+            && !wanted.iter().any(|candidate| same(fx, candidate))
+    });
+    for effect in wanted {
+        if !state.effects.iter().any(|existing| same(existing, &effect)) {
+            state.effects.register(effect);
         }
     }
 }
@@ -830,6 +894,10 @@ mod tests {
                 effects: NOTHING,
                 target: None,
             },
+            Modifier::GrantStatic {
+                filter: &Filter::AttachedToBySource,
+                modifier: &Modifier::RemoveKeyword(KeywordSet::FLYING),
+            },
             Modifier::GrantsFlashback,
             Modifier::ProtectionFrom(&Filter::CREATURE),
             Modifier::CharacteristicPT {
@@ -948,7 +1016,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            77,
+            78,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1008,10 +1076,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_two_modifiers_lock_a_set_and_forty_five_do_not() {
+    fn thirty_three_modifiers_lock_a_set_and_forty_five_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (32, 45));
+        assert_eq!((locking, all.len() - locking), (33, 45));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
@@ -1178,5 +1246,54 @@ mod tests {
              second slot"
         );
         assert_eq!(granted_activated(&state, other).count(), 1);
+    }
+
+    #[test]
+    fn gained_statics_preserve_relative_order_when_their_recipient_is_reattached() {
+        use baylee_cards_dsl::KeywordSet;
+        for grants_flying_last in [false, true] {
+            let mut state = state();
+            let source = permanent(&mut state, "Equipment");
+            let host = permanent(&mut state, "Host");
+            let other = permanent(&mut state, "Other");
+            state.attach(source, host);
+            let add = &Modifier::AddKeyword(KeywordSet::FLYING);
+            let remove = &Modifier::RemoveKeyword(KeywordSet::FLYING);
+            let modifiers = if grants_flying_last {
+                [remove, add]
+            } else {
+                [add, remove]
+            };
+            for modifier in modifiers {
+                let mut grant = effect(
+                    source,
+                    EffectFilter::object(&state, source),
+                    Modifier::GrantStatic {
+                        filter: &Filter::AttachedToBySource,
+                        modifier,
+                    },
+                );
+                grant.timestamp = state.next_timestamp();
+                state.effects.register(grant);
+            }
+            for reattach in [false, true] {
+                if reattach {
+                    state.attach(source, other);
+                    state.attach(source, host);
+                }
+                state.refresh_characteristics();
+                sync_granted_statics(&mut state);
+                state.refresh_characteristics();
+                assert_eq!(
+                    state
+                        .object(host)
+                        .unwrap()
+                        .characteristics()
+                        .keywords
+                        .contains(KeywordSet::FLYING),
+                    grants_flying_last
+                );
+            }
+        }
     }
 }

@@ -253,6 +253,10 @@ pub enum Condition {
     /// so a land that left the battlefield between the trigger and its
     /// resolution leaves "this land is tapped" with nothing to be true of.
     SourceMatches(&'static Filter),
+    /// The permanent enchanted or equipped by the source matches this
+    /// filter. An intervening condition reads the attachment again on
+    /// resolution, using the source's last attachment if it has left.
+    AttachedMatches(&'static Filter),
     /// "If you can't" of "sacrifice a [filter]": you control a permanent
     /// the filter matches, asked with the ability's source as the filter's
     /// `This` — the permanents `Effect::SacrificeFilter` would offer you.

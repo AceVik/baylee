@@ -8,6 +8,8 @@ use baylee_cards_dsl::counters;
 mod animate_artifact;
 mod consecrate_land;
 mod creature_bond;
+mod earthbind;
+mod earthbind_independent;
 mod gloom;
 
 fn circle_of_protection_red() -> CardIndex {
@@ -22068,9 +22070,8 @@ fn earthbind() -> CardIndex {
     card_index("e8e35b49-8cfb-4fb5-89aa-8050f15b11bf")
 }
 
-/// Earthbind — PARTIAL: only "Enchant creature" is modeled; the enter
-/// trigger that damages a flier and strips its flying is not. Offered
-/// only a creature, never Sol Ring, and ends attached to the Elves.
+/// Earthbind's enchant restriction offers a creature, never Sol Ring,
+/// and attaches to the Elves without triggering on their lack of flying.
 #[test]
 fn earthbind_attaches_only_to_a_creature() {
     let p0 = PlayerId::new(0);

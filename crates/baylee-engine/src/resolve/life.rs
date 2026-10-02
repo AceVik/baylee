@@ -44,6 +44,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             deal_to_spec(state, res, you, res.source, n, target);
             None
         }
+        Effect::DealDamageToAttached { amount } => {
+            let version = source_version(state, res);
+            let attachment = source_attachment_lki(state, res.on_stack);
+            let host =
+                crate::eval::attached_for_ability(state, res.source, version, attachment)?.id;
+            let n = amount2(&amount, state, you, res) as i16;
+            deal_to_object(
+                state,
+                host,
+                n,
+                res.source,
+                &mut Redirected::default(),
+                version,
+            );
+            None
+        }
         Effect::DealDamageDivided { .. } => {
             // As divided when the ability went on the stack (CR 601.2d).
             // `res.targets` holds only the targets still legal, and one that

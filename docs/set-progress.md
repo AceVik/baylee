@@ -14,11 +14,11 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **260 Implemented, 26 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **261 Implemented, 25 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 260 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 261 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
-Nether Shadow, Sunglasses of Urza and Sengir Vampire are
+Nether Shadow, Sunglasses of Urza, Sengir Vampire and Earthbind are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -37,7 +37,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Demonic Hordes](../crates/baylee-cards/src/cards/creatures/mv_6/demonic_hordes.rs) | the upkeep payment and a land sacrificed by an opponent's choice are not in the engine; it destroys lands |
 | [Drain Life](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_life.rs) | black mana only for X and the capped life gain are not in the engine; it deals X damage |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | making a player activate a mana ability of each land they control is not in the engine |
-| [Earthbind](../crates/baylee-cards/src/cards/enchantments/auras/mv_1/earthbind.rs) | the enter trigger's condition and the ability the Aura gains are not read; the Aura attaches and does nothing |
 | [False Orders](../crates/baylee-cards/src/cards/instants/mv_1/false_orders.rs) | removing a blocker from combat and having it block again is not in the engine |
 | [Fireball](../crates/baylee-cards/src/cards/sorceries/mv_1/fireball.rs) | damage divided evenly among any number of targets, and the cost of each target beyond the first, are not in the DSL; X damage to one target |
 | [Fork](../crates/baylee-cards/src/cards/instants/mv_2/fork.rs) | a copy of a spell aimed at a player keeps that player: only object targets may be chosen anew |

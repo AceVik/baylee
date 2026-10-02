@@ -443,6 +443,7 @@ fn granted_list(modifier: &Modifier) -> Option<(&'static [Effect], bool)> {
             ..
         } => Some((effects, !*mana_ability)),
         Modifier::GrantTriggered { effects, .. } => Some((effects, true)),
+        Modifier::GrantStatic { modifier, .. } => granted_list(modifier),
         _ => None,
     }
 }

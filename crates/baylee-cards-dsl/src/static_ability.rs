@@ -504,6 +504,14 @@ pub enum Modifier {
         /// Whether it's a mana ability.
         mana_ability: bool,
     },
+    /// The affected object gains a static ability. The granted ability's
+    /// filter is read relative to that object, not the object granting it.
+    GrantStatic {
+        /// What the granted ability affects.
+        filter: &'static Filter,
+        /// What that ability changes, on its own derived layer.
+        modifier: &'static Modifier,
+    },
     /// The affected object gains a triggered ability (class levels).
     GrantTriggered {
         /// The trigger condition.
@@ -695,6 +703,7 @@ impl Modifier {
             | Self::LoseAllAbilities
             | Self::AddKeywordIfCountersAtLeast { .. }
             | Self::GrantActivated { .. }
+            | Self::GrantStatic { .. }
             | Self::GrantsFlashback
             | Self::CantActivateArtifacts
             // CR 613.1f is the whole argument for these two: "Layer 6:

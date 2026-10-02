@@ -731,6 +731,16 @@ pub enum Rider {
     TriggerSourceVersion(u32),
     /// Source incarnation captured when its ability went on the stack.
     AbilitySourceVersion(u32),
+    /// The attachment the ability's source had when it left or phased out.
+    /// Paired with `SourceAttachmentVersion`: separate eight-byte riders
+    /// preserve the full identity without growing every object's inline list.
+    SourceAttachmentLki(ObjectId),
+    /// Incarnation of `SourceAttachmentLki`, preventing a returning creature
+    /// from receiving damage meant for its previous battlefield incarnation.
+    SourceAttachmentVersion(u32),
+    /// A phased-out attachment's host left. It phases in unattached even
+    /// if a later incarnation of the same host handle has returned.
+    AttachmentHostLeft,
     /// Incarnation and last known power of a trigger's event object.
     EventObjectIdentity(u32, i16),
     /// The source incarnation captured by a linked-counter ability.
@@ -874,6 +884,9 @@ impl Rider {
             // About the stack or the battlefield, not exile.
             Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
+            | Self::SourceAttachmentLki(..)
+            | Self::SourceAttachmentVersion(_)
+            | Self::AttachmentHostLeft
             | Self::TriggerSourceVersion(_)
             | Self::CounterSourceVersion(_)
             | Self::Flashback
