@@ -416,6 +416,7 @@ pub fn amount(
             .map_or(0, |p| p.mana_spent),
         Amount::TappedPower => tapped_power(state, this),
         Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
+        Amount::UntappedLandsAtTurnStart => state.per_turn.untapped_lands_at_start,
         Amount::DamageDealtToYouThisTurn => state
             .per_turn
             .damage_dealt_to

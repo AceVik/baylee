@@ -439,6 +439,12 @@ express at all yet.
   left, read as the effect applies (CR 608.2h). The reader writes it for
   `Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature` wherever it
   reads an amount, an `etbCounter` included.
+- `Amount::UntappedLandsAtTurnStart` — the untapped lands controlled by the
+  current active player at the turn boundary, before untapping or phasing.
+  It reads a saved count, so later taps, arrivals and control changes do not
+  change it. The engine records it even without a source in play and when
+  the untap step is skipped. Power Surge needs this vocabulary; its card
+  implementation and reader mapping remain pending.
 - `Amount::DamageDealtToYouThisTurn` — "the damage dealt to you this turn"
   (Simulacrum): every point dealt to the ability's controller since the turn
   began, combat or not, counted where the damage is dealt

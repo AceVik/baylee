@@ -2299,3 +2299,22 @@ land type"; both are convention tests that fire on a first try.
   stats lose exactly one bonus each time. No rule state is edited by the test.
   Both new scenarios pass; the generated card remains unchanged (original
   implementation f9db2475, Claude Opus). No coverage status is promoted.
+
+
+## Alpha engine prerequisite (Codex, 2026-10-02, 06:49 UTC)
+
+- **Historical counts belong at the event boundary.** Power Surge asks about
+  untapped lands at turn start, not the now-untapped board at upkeep resolution.
+  `begin_turn` now records the active player's count before untap/phasing;
+  normal and extra turns, skipped untap, and first turns all use that path.
+- **A source need not exist when the history is recorded.** The WotC ruling
+  dated 2004-10-04, read directly from the Scryfall API, says: “This card knows
+  how many were untapped even if it was not on the battlefield at the beginning
+  of the turn.” The snapshot is unconditional; a synthetic observer entering
+  later reads the earlier count through an actual resolving effect.
+  Source: https://api.scryfall.com/cards/0b5717af-a1a3-45cb-8b05-7543eed5532a/rulings
+- **History also distinguishes otherwise identical game states.** The saved
+  count joins the replay snapshot hash and the loop signature, with regressions
+  for each. Five synthetic behavior tests cover turn changes, extra turns,
+  later taps, skipped untap, phasing, and a late observer. The card remains
+  Partial until its implementation and independent card tests are present.

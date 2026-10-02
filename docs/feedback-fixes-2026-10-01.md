@@ -645,3 +645,33 @@ limited cast smoke tests; engine all-targets clippy passes after fixing two
 doc-comment formatting warnings. Logs: /private/tmp/baylee-alpha-eval-tests.log
 and baylee-alpha-gauntlet-clippy.log. No card code, coverage status or generated
 file changed. No push/deployment.
+
+
+## 2026-10-02 06:49 UTC — turn-start history for Alpha
+
+Feedback service still reports 50 resolved / 1 new. The remaining Windows Vulkan
+report is unchanged and stays open; no new ticket was closed.
+
+Added the engine/DSL prerequisite for Power Surge: the active player's untapped
+land count is captured at each turn boundary and exposed as
+`Amount::UntappedLandsAtTurnStart`. It is independent of the querying source,
+excludes phased-out permanents, survives changes later in the turn and refreshes
+on first/extra turns even if untap is skipped. Both snapshot and loop hashes
+include the historical value. Five synthetic behavior scenarios use a resolving
+life-gain effect to read it; hash sensitivity has separate regression coverage.
+Power Surge itself remains Partial pending card implementation and card-specific
+tests. No next set was started and no generated card was changed.
+
+All 4275 engine unit tests pass (two existing ignored), as do 59 DSL unit tests
+and one doctest. Workspace all-targets clippy passes. That broader check found
+an older exhaustive-pattern compile error in baylee-seat's narrator after the
+stack token handle was added; its card-text pattern now accepts the extra field.
+The narrator's existing wording is unchanged. All 11 record/replay tests and
+13 narrator tests pass. Logs: /private/tmp/baylee-turn-start-engine-tests.log,
+baylee-turn-start-dsl-tests.log, baylee-turn-start-workspace-clippy.log,
+baylee-turn-start-replay-tests.log and baylee-seat-narrator-tests.log.
+
+A decision was requested about CLAUDE.md:179's explicit Opus/card-author and
+separate-test-model policy. No other agent was started or messaged. Until the
+owner answers, engine prerequisites and independent tests can continue; the
+seven Partial cards have not been claimed complete.

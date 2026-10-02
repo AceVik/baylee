@@ -1652,6 +1652,8 @@ mod token_tests;
 #[cfg(test)]
 mod trigger_target_tests;
 #[cfg(test)]
+mod turn_start_tests;
+#[cfg(test)]
 mod undying_tests;
 #[cfg(test)]
 mod untap_tests;

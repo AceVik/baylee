@@ -347,6 +347,9 @@ pub enum DelayedAction {
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
 pub struct PerTurn {
+    /// Untapped lands controlled by this turn's active player at its start,
+    /// before untapping or phasing; independent of any source's presence.
+    pub untapped_lands_at_start: u32,
     /// Noncreature spells cast this turn, per player.
     pub noncreature_spells: Vec<u32>,
     /// Cards drawn this turn, per player.
@@ -482,6 +485,7 @@ impl PerTurn {
     #[must_use]
     pub fn new(players: usize) -> Self {
         Self {
+            untapped_lands_at_start: 0,
             noncreature_spells: vec![0; players],
             spells_cast: vec![0; players],
             no_more_spells: vec![false; players],
@@ -543,6 +547,7 @@ impl PerTurn {
 
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
+        self.untapped_lands_at_start = 0;
         self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
         self.draws.iter_mut().for_each(|v| *v = 0);
         self.drew_in_draw_step = false;
@@ -3470,6 +3475,9 @@ impl GameState {
         h.u8(self.turn.active.get());
         h.u8(self.turn.phase as u8);
         h.u8(self.turn.step as u8);
+        // A later effect can read this historical count even when the
+        // present battlefield is identical, so it distinguishes situations.
+        h.u32(self.per_turn.untapped_lands_at_start);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 731). The
@@ -5222,6 +5230,16 @@ mod tests {
         );
     }
 
+    #[test]
+    fn turn_start_history_is_part_of_the_loop_signature() {
+        let mut state = GameState::from_preset(&make_preset(9), &RegistryLookup).unwrap();
+        let before = state.loop_signature();
+        state.per_turn.untapped_lands_at_start = 2;
+        assert_ne!(before, state.loop_signature());
+        state.per_turn.reset();
+        assert_eq!(before, state.loop_signature());
+    }
+
     /// What a shield names is part of the loop signature. A shield on a
     /// permanent is on that object (CR 400.7), so the same shield after its
     /// creature left and came back protects nothing, and a chosen source's
@@ -5323,6 +5341,9 @@ mod tests {
         let mutations: &[Mutation] = &[
             ("per_turn", |s, _| s.per_turn.creatures_died += 1),
             ("per_turn.life_lost", |s, _| s.per_turn.life_lost[0] = true),
+            ("per_turn.untapped_lands_at_start", |s, _| {
+                s.per_turn.untapped_lands_at_start = 3;
+            }),
             ("per_turn.damage_dealt_to", |s, _| {
                 s.per_turn.damage_dealt_to[0] = 3;
             }),

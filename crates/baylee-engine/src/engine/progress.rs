@@ -4018,6 +4018,21 @@ impl<L: CardLookup> Engine<L> {
         let stamp = self.state.timestamp;
         let seat = self.state.turn.active.get() as usize;
         self.state.players[seat].turn_start_timestamp = stamp;
+        // Capture the turn boundary itself, before untap-step actions or
+        // effects ending as this turn begins change the battlefield.
+        // Always record it: an ability may arrive later and ask about it.
+        let untapped_lands = self
+            .state
+            .battlefield_seen()
+            .filter_map(|id| self.state.object(id))
+            .filter(|o| {
+                o.controller == self.state.turn.active
+                    && o.characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::LAND)
+                    && !o.status.contains(Status::TAPPED)
+            })
+            .count();
         // "Until your next turn" effects end as their controller's turn
         // begins (Elspeth's flying, Teferi's sorcery-flash).
         let new_active = self.state.turn.active;
@@ -4026,6 +4041,8 @@ impl<L: CardLookup> Engine<L> {
                 && fx.controller == new_active
         });
         self.state.per_turn.reset();
+        self.state.per_turn.untapped_lands_at_start =
+            u32::try_from(untapped_lands).unwrap_or(u32::MAX);
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;

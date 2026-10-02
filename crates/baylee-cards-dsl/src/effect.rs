@@ -294,6 +294,10 @@ pub enum Amount {
     /// a creature if it was one as it left, not if the card in the graveyard
     /// is one. It is counted once, as the effect applies (CR 608.2h).
     CreaturesDiedThisTurn,
+    /// Untapped lands the active player controlled as this turn began,
+    /// before the untap step or phasing. This historical count is retained
+    /// even if the ability's source was not on the battlefield then.
+    UntappedLandsAtTurnStart,
     /// "The damage dealt to you this turn" (Simulacrum): every point of
     /// damage dealt to the ability's controller since the turn began,
     /// combat and not, from any source. Damage dealt, not life lost: a

@@ -288,6 +288,17 @@ required creatures and nothing else, each at the first defender it may
 attack; the house AI keeps its own choice and adds what the rules make it
 (`combat::obey_attack_rules`).
 
+### Historical land count at turn start
+
+`Engine::begin_turn` records `PerTurn::untapped_lands_at_start` after selecting
+this turn's active player, before turn-start expiry and untap-step actions.
+It counts visible untapped lands using their controller and projected types;
+phased-out permanents are absent. The normal per-turn reset is followed by
+storing this snapshot. First turns, extra turns and skipped untap steps use
+the same path. `Amount::UntappedLandsAtTurnStart` reads it throughout the turn,
+independently of whether the requesting ability existed at the boundary.
+The value participates in both the snapshot hash and the loop signature.
+
 ### Damage dealt to a player
 
 `GameState::damage_player` is the door for damage that reaches a player, as
