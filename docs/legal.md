@@ -514,3 +514,26 @@ Annotation collision placement additionally keeps text outside the complete
 hover-preview rectangle. The full image and its artist/copyright lines remain
 visible in the 1280×800 native comparison. This is layout arithmetic only;
 no new asset, font or symbol is introduced.
+
+
+## Rules-implementation policy gap found during Alpha review (2026-10-02)
+
+The owner explicitly authorized Codex to implement the remaining Alpha cards
+and their tests, overriding the model assignment in CLAUDE.md:179 for this task.
+That authorization does not establish permission from Wizards.
+
+On re-reading the [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
+the answer to “Can I use all of Wizards’ IP?” expressly includes “game mechanics”
+among uses requiring “our prior written permission”. This is a broader restriction
+than the image/font/notice checks documented above. No such written permission
+was found in AGENTS.md, CLAUDE.md, NOTICE or this document. This records a conflict
+with the project's claimed policy basis, not a conclusion about copyright law.
+
+A concrete existing example is the triggered land-tap/damage implementation in
+`crates/baylee-cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
+Power Surge would add another rules implementation. AGENTS.md's legal guardrail
+requires stopping and telling the owner when a requested change conflicts with
+an explicit prohibition. Further card implementation is therefore held pending
+clarification of the applicable permission or a reviewed change to that project
+rule. Existing code is preserved; nothing was deployed or deleted. No broader
+legal audit or claim that earlier policy checks settled this issue is implied.

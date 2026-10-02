@@ -675,3 +675,18 @@ A decision was requested about CLAUDE.md:179's explicit Opus/card-author and
 separate-test-model policy. No other agent was started or messaged. Until the
 owner answers, engine prerequisites and independent tests can continue; the
 seven Partial cards have not been claimed complete.
+
+
+## Owner authorization and policy finding (2026-10-02)
+
+The owner answered yes to completing the seven Alpha card implementations and
+tests here, then proceeding to the next historical set. The CLAUDE model-lane
+restriction is overridden for this task; no further model approval is needed.
+
+Before editing cards, the required fresh Fan Content Policy/FAQ check exposed
+the explicit game-mechanics permission restriction described in docs/legal.md.
+No permission is documented in the checked project policy files. Under the
+AGENTS.md legal guardrail, new card implementation is held for that clarification.
+This is a new policy finding, not the previous model decision being reopened.
+No card files changed in this continuation; all seven remain Partial, and the
+last tested engine/build milestones remain 8e561802 and a4518d1f.
