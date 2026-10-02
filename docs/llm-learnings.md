@@ -2506,3 +2506,39 @@ land type"; both are convention tests that fire on a first try.
 - Live WotC ruling (Scryfall endpoint, checked 2026-10-02): existing other Auras
   go to their owners' graveyards. Current CR 303.4 and 702.5 were read from the
   official September 25 text. The corpus was inspected without copying a file.
+
+## Alpha Animate Artifact (Codex + Astra xhigh, 2026-10-02)
+
+- **Keep a multi-layer effect together.** A noncreature filter independently
+  reevaluated in layer 7b rejects the creature the same effect just animated.
+  Carry the layer-4 affected set forward within the projection (CR 613.6).
+  This needs no persistent ledger, and a fresh projection makes a fresh choice.
+- **Read mana value after copying.** Copy Artifact copying Sol Ring has mana
+  value one, despite the original card costing two. Its animation must also
+  retain enchantment alongside artifact and creature.
+- **Test actions after animation.** An old artifact can immediately attack and
+  use its tap ability; a newly entered one cannot until its controller's next
+  turn. Creature age is irrelevant. Mana-value zero needs an actual SBA test,
+  including an indestructible artifact land and a counter that keeps it alive.
+- Viktor explicitly requested an Astra agent with `xhigh` for engine jobs.
+  Engine/DSL work was delegated accordingly, with card behavior tests and
+  integration review kept in the parent task; cargo gates are serialized.
+- A separate GPT-6.1 Sol `medium` review was then explicitly requested. It
+  found a concrete counterexample to a conservative dependency shortcut:
+  Animate Artifact followed by Swift Reconfiguration on printed Sol Ring.
+  Removing creature from the initially noncreature ring does nothing, so it
+  must not force the earlier animation to wait. The real-cast regression
+  failed before the correction while the other fourteen card tests passed.
+- **Ignore cycle-internal edges before choosing a ready effect.** Two
+  conditional animations can form a dependency loop while an unrelated
+  type-removal effect is ready. Waiting until the entire graph is stuck picks
+  that removal too early. The dynamic path removes strongly connected edges
+  and re-evaluates after each effect. Its packed graph also handles more than
+  64 effects; a 66-effect regression guards against a silent timestamp fallback.
+- **Printed mana abilities use indexed actions.** Sol Ring's tap is in
+  `LegalActions::abilities` and uses `ActivateAbility`; `mana_abilities` is
+  the intrinsic/granted shortcut. Tests must assert the same offer and action
+  a client actually uses, even when both abilities produce mana immediately.
+- Official rules text checked: CR 205.1b, 208.3, 613.4, 613.6, 613.8 in the
+  September 25 rules. WotC rulings were read from the Scryfall endpoint for
+  `63aec27b-8cda-46c2-9f4f-9ebe98dffe2e`. The corpus was only a lookup reference.

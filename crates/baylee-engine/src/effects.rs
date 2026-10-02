@@ -91,6 +91,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // Characteristics: types, colors, abilities, P/T — and control,
         // which the rule names beside them.
         Modifier::AddType(_)
+        | Modifier::AnimateNoncreatureArtifact
         | Modifier::RemoveType(_)
         | Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
@@ -221,7 +222,8 @@ pub struct ContinuousEffect {
     pub controller: PlayerId,
     /// What generated it, and so how `controller` is kept.
     pub origin: EffectOrigin,
-    /// The layer it applies in.
+    /// The first layer it applies in; a modifier may continue in later
+    /// layers as part of the same effect (CR 613.6).
     pub layer: Layer,
     /// Registration timestamp (effects ordering within a layer).
     pub timestamp: u64,
@@ -789,6 +791,7 @@ mod tests {
             Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
             Modifier::GainControl,
             Modifier::AddType(TypeSet::ARTIFACT),
+            Modifier::AnimateNoncreatureArtifact,
             Modifier::RemoveType(TypeSet::CREATURE),
             Modifier::AddSubtype(SubtypeId::new(1)),
             Modifier::AllCreatureTypes,
@@ -940,7 +943,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            75,
+            76,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -991,7 +994,7 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: thirty-one
+    /// the other is a failure and not a quiet re-balancing: thirty-two
     /// modifiers lock the objects they found, forty-four do not.
     ///
     /// The second number is counted off the list and not written as
@@ -1000,10 +1003,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_one_modifiers_lock_a_set_and_forty_four_do_not() {
+    fn thirty_two_modifiers_lock_a_set_and_forty_four_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (31, 44));
+        assert_eq!((locking, all.len() - locking), (32, 44));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

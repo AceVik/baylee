@@ -5,6 +5,7 @@
 use super::*;
 use baylee_cards_dsl::counters;
 
+mod animate_artifact;
 mod consecrate_land;
 mod creature_bond;
 mod gloom;
@@ -22018,9 +22019,7 @@ fn animate_artifact() -> CardIndex {
     card_index("2dd7a4dc-902a-4e85-8a3b-c96a898fba86")
 }
 
-/// Animate Artifact — PARTIAL: only "Enchant artifact" is modeled; the
-/// power/toughness clause is not. Offered only an artifact, never the
-/// Elves, and ends attached to Sol Ring.
+/// The Aura targets only an artifact, never the Elves, and animates Sol Ring.
 #[test]
 fn animate_artifact_attaches_only_to_an_artifact() {
     let p0 = PlayerId::new(0);
@@ -22043,6 +22042,7 @@ fn animate_artifact_attaches_only_to_an_artifact() {
     let rock = on_battlefield(&engine, p0, sol_ring()).expect("Sol Ring is seated");
     let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves is seated");
     attaches_only_to(&mut engine, p0, animate_artifact(), rock, elf);
+    assert_eq!(pt(&engine, rock), (1, 1));
 }
 
 fn creature_bond() -> CardIndex {

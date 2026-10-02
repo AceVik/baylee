@@ -20,6 +20,10 @@
 //! object afterwards yields the same sequence the per-object sort did —
 //! and a *more* consistent one, since every object now sees one global
 //! ordering decision instead of a separately-tied one.
+//!
+//! Conditional animation is the exception: whether removing creature
+//! changes its condition depends on the current object. A plan containing
+//! it reevaluates layer-4 dependencies during each projection (CR 613.8c).
 
 use crate::effects::{ContinuousEffect, EffectFilter, EffectTable};
 use crate::eval;
@@ -27,17 +31,16 @@ use crate::object::{Characteristics, GameObject};
 use crate::state::GameState;
 use baylee_cards_dsl::{Filter, KeywordSet, LAYERS, Layer, Modifier};
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
-use baylee_core::types::SubtypeSet;
+use baylee_core::types::{SubtypeSet, TypeSet};
 use smallvec::SmallVec;
 use std::sync::Arc;
 
 /// Number of layers (CR 613.1 sublayers included).
 const LAYER_COUNT: usize = LAYERS.len();
 
-/// The largest bucket the exact dependency sort handles; beyond it CR
-/// 613.8's timestamp fallback applies. No real board reaches 64 continuous
-/// effects *in one layer*, and the bound is what keeps the adjacency
-/// matrix a fixed-size bitmask instead of a nested allocation.
+/// The shared plan's fixed-size dependency graph limit; larger buckets
+/// use its timestamp-only approximation. Conditional animation's dynamic
+/// type-layer graph uses this inline capacity and grows for larger boards.
 const MAX_SORTED: usize = 64;
 
 /// The result of a projection: characteristics plus the controller a
@@ -59,19 +62,24 @@ pub struct Projection {
     pub read_board: bool,
 }
 
-/// The effect table bucketed per layer and ordered once (CR 613.8).
+/// The effect table bucketed per layer, with object-independent ordering
+/// prepared once (CR 613.8).
 ///
 /// Build one per projection pass and hand it to [`recompute_with`] for
 /// every object.
 #[derive(Clone, Debug, Default)]
 pub struct LayerPlan {
     /// Indices into the effect table, grouped by layer and ordered within
-    /// each group. Indices rather than references: a plan that borrows the
-    /// table cannot coexist with the `&mut` needed to store the results,
-    /// and a `u32` is half a pointer.
+    /// each group except a type bucket with conditional animation, which
+    /// is ordered during projection. Indices rather than references: a
+    /// plan that borrows the table cannot coexist with the `&mut` needed
+    /// to store the results, and a `u32` is half a pointer.
     ordered: Vec<u32>,
     /// `(start, end)` into `ordered`, indexed by `Layer as usize`.
     spans: [(u32, u32); LAYER_COUNT],
+    /// A conditional animation needs actual, changing type-layer matches
+    /// rather than the conservative order shared by other projections.
+    conditional_animation: bool,
 }
 
 impl LayerPlan {
@@ -81,6 +89,9 @@ impl LayerPlan {
         let mut plan = Self {
             ordered: Vec::with_capacity(effects.len()),
             spans: [(0, 0); LAYER_COUNT],
+            conditional_animation: effects
+                .iter()
+                .any(|fx| matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)),
         };
         if effects.is_empty() {
             return plan;
@@ -94,11 +105,17 @@ impl LayerPlan {
             plan.ordered.extend(
                 all.iter()
                     .enumerate()
-                    .filter(|(_, fx)| fx.layer == layer)
+                    .filter(|(_, fx)| {
+                        fx.layer == layer
+                            || (layer == Layer::PtSet
+                                && matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact))
+                    })
                     .map(|(i, _)| i as u32),
             );
             let end = plan.ordered.len() as u32;
-            sort_by_dependency(all, &mut plan.ordered[start as usize..end as usize]);
+            if layer != Layer::Type || !plan.conditional_animation {
+                sort_by_dependency(all, &mut plan.ordered[start as usize..end as usize], layer);
+            }
             plan.spans[layer as usize] = (start, end);
         }
         plan
@@ -167,18 +184,50 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     // no trace.
     let mut controller = obj.base_controller;
     let mut read_board = false;
+    // CR 613.6: an effect that began in layer 4 continues on the same
+    // objects in layer 7b. This belongs to this projection, never the game
+    // state: the next refresh starts from the copiable values again.
+    let mut animations: SmallVec<[u32; 4]> = SmallVec::new();
     let all = state.effects.as_slice();
     for layer in LAYERS {
-        for &idx in plan.layer(layer) {
+        let dynamic_types = layer == Layer::Type && plan.conditional_animation;
+        let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {
+            plan.layer(layer).into()
+        } else {
+            SmallVec::new()
+        };
+        for &ordered_idx in plan.layer(layer) {
+            let idx = if dynamic_types {
+                next_type_effect(state, obj, &c, all, &mut remaining)
+            } else {
+                ordered_idx
+            };
             let fx = &all[idx as usize];
             // CR 613.1: each layer sees the characteristics as modified by
             // every earlier layer, so the filter is evaluated against the
             // in-progress projection — an "all creatures get +1/+1" anthem
             // has to see a land that layer 4 just animated.
-            if applies(state, fx, obj, &c) {
+            let animation = matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact);
+            let applies_now = if animation && layer == Layer::PtSet {
+                animations.contains(&idx)
+            } else {
+                applies(state, fx, obj, &c) && (!animation || !c.types.contains(TypeSet::CREATURE))
+            };
+            if applies_now {
+                if animation && layer == Layer::Type {
+                    animations.push(idx);
+                }
                 #[cfg(test)]
                 crate::ability_log::static_applied(fx);
-                apply(&mut c, &mut controller, fx, state, obj, &mut read_board);
+                apply(
+                    &mut c,
+                    &mut controller,
+                    fx,
+                    state,
+                    obj,
+                    &mut read_board,
+                    layer,
+                );
             }
         }
         // CR 604.3: a characteristic-defining P/T works in every zone. On
@@ -361,14 +410,14 @@ fn applies(
 /// The adjacency matrix is one `u64` row per effect, so the whole graph
 /// for a realistic layer fits in 512 bytes of stack and needs no
 /// allocation at all.
-fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32]) {
+fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32], layer: Layer) {
     let n = fxs.len();
     if n < 2 {
         return;
     }
     let fx = |slot: usize| &all[fxs[slot] as usize];
     if n > MAX_SORTED {
-        // CR 613.8's own fallback. `sort_by_key` is stable, so effects
+        // The shared plan's bounded fallback. `sort_by_key` is stable, so effects
         // sharing a timestamp keep registration order — determinism holds.
         fxs.sort_by_key(|i| all[*i as usize].timestamp);
         return;
@@ -378,7 +427,7 @@ fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32]) {
     let mut any_edge = false;
     for (j, row) in deps.iter_mut().enumerate().take(n) {
         for i in 0..n {
-            if i != j && depends_on(fx(j), fx(i)) {
+            if i != j && depends_on(fx(j), fx(i), layer) {
                 *row |= 1u64 << i;
                 any_edge = true;
             }
@@ -420,11 +469,122 @@ fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32]) {
     fxs.copy_from_slice(&order);
 }
 
-fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect) -> bool {
+fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect, layer: Layer) -> bool {
+    if matches!(dependent.modifier, Modifier::AnimateNoncreatureArtifact) {
+        // Layer 4 uses `depends_on_in_type_layer` against the projection.
+        // In 7b this effect's affected objects are fixed by layer 4
+        // (CR 613.6), so its filter and condition create no dependency.
+        return false;
+    }
     let EffectFilter::Dsl(filter) = dependent.filter else {
         return false;
     };
-    could_change_match(&depended.modifier, filter)
+    could_change_match(&depended.modifier, filter, layer)
+}
+
+/// CR 613.8c: after each type effect, reconsider which remaining effects
+/// must wait. The normal shared plan remains sufficient on boards without
+/// conditional animation. Equal timestamps keep registration order.
+fn next_type_effect(
+    state: &GameState,
+    obj: &GameObject,
+    projected: &Characteristics,
+    all: &[ContinuousEffect],
+    remaining: &mut SmallVec<[u32; 16]>,
+) -> u32 {
+    let n = remaining.len();
+    let words = n.div_ceil(u64::BITS as usize);
+    // One word per row up to 64 effects, entirely on the stack. Larger
+    // boards use additional words rather than dropping dependencies.
+    let mut deps: SmallVec<[u64; MAX_SORTED]> = smallvec::smallvec![0; n * words];
+    for (slot, &index) in remaining.iter().enumerate() {
+        for (other_slot, &other) in remaining.iter().enumerate() {
+            if slot != other_slot
+                && depends_on_in_type_layer(
+                    &all[index as usize],
+                    &all[other as usize],
+                    state,
+                    obj,
+                    projected,
+                )
+            {
+                deps[slot * words + other_slot / 64] |= 1u64 << (other_slot % 64);
+            }
+        }
+    }
+    // CR 613.8b ignores dependencies *within* a loop even if some
+    // unrelated effect is ready. Waiting until the whole graph has no
+    // ready node would wrongly let that unrelated effect jump ahead.
+    let mut reachable = deps.clone();
+    for via in 0..n {
+        for slot in 0..n {
+            if reachable[slot * words + via / 64] & (1u64 << (via % 64)) != 0 {
+                for word in 0..words {
+                    let through = reachable[via * words + word];
+                    reachable[slot * words + word] |= through;
+                }
+            }
+        }
+    }
+    for slot in 0..n {
+        for other in 0..n {
+            if reachable[slot * words + other / 64] & (1u64 << (other % 64)) != 0
+                && reachable[other * words + slot / 64] & (1u64 << (slot % 64)) != 0
+            {
+                deps[slot * words + other / 64] &= !(1u64 << (other % 64));
+            }
+        }
+    }
+    let slot = remaining
+        .iter()
+        .enumerate()
+        .filter(|(slot, _)| {
+            deps[slot * words..(slot + 1) * words]
+                .iter()
+                .all(|row| *row == 0)
+        })
+        .min_by_key(|(_, index)| (all[**index as usize].timestamp, **index))
+        .map_or(0, |(slot, _)| slot);
+    remaining.remove(slot)
+}
+
+/// Dependency involving conditional animation reads what the effect
+/// actually changes on this object. Removing creature from a noncreature
+/// changes nothing; treating that no-op as a dependency would wrongly
+/// reorder a later Swift Reconfiguration before Animate Artifact.
+fn depends_on_in_type_layer(
+    dependent: &ContinuousEffect,
+    depended: &ContinuousEffect,
+    state: &GameState,
+    obj: &GameObject,
+    projected: &Characteristics,
+) -> bool {
+    if !matches!(dependent.modifier, Modifier::AnimateNoncreatureArtifact)
+        && !matches!(depended.modifier, Modifier::AnimateNoncreatureArtifact)
+    {
+        return depends_on(dependent, depended, Layer::Type);
+    }
+    let matches = |fx: &ContinuousEffect, c: &Characteristics| {
+        applies(state, fx, obj, c)
+            && (!matches!(fx.modifier, Modifier::AnimateNoncreatureArtifact)
+                || !c.types.contains(TypeSet::CREATURE))
+    };
+    if !matches(depended, projected) {
+        return false;
+    }
+    let mut after = projected.clone();
+    let mut controller = obj.controller;
+    let mut read_board = false;
+    apply(
+        &mut after,
+        &mut controller,
+        depended,
+        state,
+        obj,
+        &mut read_board,
+        Layer::Type,
+    );
+    matches(dependent, projected) != matches(dependent, &after)
 }
 
 /// Conservative dependency test: does `modifier` change anything `filter`
@@ -438,7 +598,7 @@ fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect) -> bool
 /// read an object's subtypes without writing one down, and both control
 /// predicates against `GainControl` — and the compiler had nothing to say.
 /// A filter added from here on has to answer.
-fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
+fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> bool {
     match filter {
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
@@ -446,20 +606,22 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::LacksType(_)
         | Filter::HasSubtype(_)
         | Filter::MatchesChosenTypeOfSource
-        | Filter::SharesSubtypeWithCommander => matches!(
-            modifier,
-            Modifier::AddType(_)
-                | Modifier::RemoveType(_)
-                | Modifier::AddSubtype(_)
-                | Modifier::AllCreatureTypes
-                | Modifier::ReplaceCreatureTypes(_)
-                | Modifier::AllBasicLandTypes
-                | Modifier::SetLandType(_)
-                | Modifier::SetLandTypeToChosen
-                | Modifier::BecomeType { .. }
-                | Modifier::AddTypeIfCountersAtLeast { .. }
-                | Modifier::BecomeCopyOf(_)
-        ),
+        | Filter::SharesSubtypeWithCommander => {
+            matches!(
+                modifier,
+                Modifier::AddType(_)
+                    | Modifier::RemoveType(_)
+                    | Modifier::AddSubtype(_)
+                    | Modifier::AllCreatureTypes
+                    | Modifier::ReplaceCreatureTypes(_)
+                    | Modifier::AllBasicLandTypes
+                    | Modifier::SetLandType(_)
+                    | Modifier::SetLandTypeToChosen
+                    | Modifier::BecomeType { .. }
+                    | Modifier::AddTypeIfCountersAtLeast { .. }
+                    | Modifier::BecomeCopyOf(_)
+            ) || (layer == Layer::Type && matches!(modifier, Modifier::AnimateNoncreatureArtifact))
+        }
         Filter::HasColor(_) | Filter::IsColorless | Filter::Monocolored => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -480,18 +642,20 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::PowerAtLeast(_)
         | Filter::PowerAtMost(_)
         | Filter::PowerLessThanSourcePower
-        | Filter::ToughnessLessThanSourcePower => matches!(
-            modifier,
-            Modifier::ModifyPT(..)
-                | Modifier::SetPT(..)
-                | Modifier::SetPTToCount(_)
-                | Modifier::SwitchPT
-                | Modifier::CharacteristicPT { .. }
-                | Modifier::ModifyPTPerCount { .. }
-                | Modifier::ModifyPTHalfCount(_)
-                | Modifier::ModifyPTPerGraveyardCard { .. }
-                | Modifier::BecomeCopyOf(_)
-        ),
+        | Filter::ToughnessLessThanSourcePower => {
+            matches!(
+                modifier,
+                Modifier::ModifyPT(..)
+                    | Modifier::SetPT(..)
+                    | Modifier::SetPTToCount(_)
+                    | Modifier::SwitchPT
+                    | Modifier::CharacteristicPT { .. }
+                    | Modifier::ModifyPTPerCount { .. }
+                    | Modifier::ModifyPTHalfCount(_)
+                    | Modifier::ModifyPTPerGraveyardCard { .. }
+                    | Modifier::BecomeCopyOf(_)
+            ) || (layer == Layer::PtSet && matches!(modifier, Modifier::AnimateNoncreatureArtifact))
+        }
         // Layer 2 moves a permanent from one side of the table to the
         // other, which is the whole of what these read: a change of
         // control also restarts how long it has been controlled (CR 302.6).
@@ -501,9 +665,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter) -> bool {
         | Filter::ControlledByDefendingPlayer
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
-            parts.iter().any(|f| could_change_match(modifier, f))
+            parts.iter().any(|f| could_change_match(modifier, f, layer))
         }
-        Filter::Not(f) => could_change_match(modifier, f),
+        Filter::Not(f) => could_change_match(modifier, f, layer),
         // Nothing in the modifier vocabulary changes any of these. Ownership
         // and tokenhood are fixed for as long as the object exists (CR
         // 108.3, CR 111.1); tapped, attacking, attachment and zone are game
@@ -743,8 +907,20 @@ fn apply(
     state: &GameState,
     obj: &GameObject,
     read_board: &mut bool,
+    layer: Layer,
 ) {
     match &fx.modifier {
+        Modifier::AnimateNoncreatureArtifact => {
+            if layer == Layer::Type {
+                c.types = c.types.union(TypeSet::ARTIFACT).union(TypeSet::CREATURE);
+            } else if layer == Layer::PtSet && c.types.contains(TypeSet::CREATURE) {
+                // Read the in-progress values, including layer-1 copies,
+                // rather than this object's cache from the last refresh.
+                let value = i16::try_from(c.mana_value()).unwrap_or(i16::MAX);
+                c.power = Some(value);
+                c.toughness = Some(value);
+            }
+        }
         // Layer 2 (CR 613.1b): whoever controls the effect controls the
         // permanent, for exactly as long as the effect lasts. Never a player
         // who has left the game (CR 800.4b): their effects end as they leave
@@ -1016,7 +1192,7 @@ mod tests {
         );
         let all = [b, c, a];
         let mut fxs = vec![0u32, 1, 2];
-        sort_by_dependency(&all, &mut fxs);
+        sort_by_dependency(&all, &mut fxs, Layer::Type);
         let ids: Vec<u32> = fxs.iter().map(|i| all[*i as usize].id.get()).collect();
         assert_eq!(ids, [1, 2, 3], "A, then the dependent B, then C");
     }
@@ -1029,7 +1205,7 @@ mod tests {
         let y = fx(2, 5, &ANY_F, Modifier::AddKeyword(KeywordSet::FLYING));
         let all = [x, y];
         let mut fxs = vec![0u32, 1];
-        sort_by_dependency(&all, &mut fxs);
+        sort_by_dependency(&all, &mut fxs, Layer::Type);
         let ids: Vec<u32> = fxs.iter().map(|i| all[*i as usize].id.get()).collect();
         assert_eq!(ids, [2, 1], "earlier timestamp first");
     }
@@ -1192,6 +1368,266 @@ mod tests {
         let obj = state.object(id).expect("in play");
         let c = recompute(state, obj).characteristics;
         (c.power, c.toughness)
+    }
+
+    fn artifact_with_cost(state: &mut GameState, cost: &str) -> ObjectId {
+        let artifact = permanent(state, "Artifact", TypeSet::ARTIFACT, None);
+        state
+            .object_mut(artifact)
+            .expect("in play")
+            .base_mut()
+            .mana_cost = baylee_core::mana::ManaCost::parse(cost);
+        artifact
+    }
+
+    /// CR 613.6: the filter can stop matching after layer 4 without
+    /// stopping the same effect's layer-7b portion. A fresh projection
+    /// makes the decision afresh instead of reading the previous result.
+    #[test]
+    fn conditional_animation_continues_after_its_filter_stops_matching() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{2}{U}");
+        let animation = fx(
+            1,
+            1,
+            &Filter::NONCREATURE,
+            Modifier::AnimateNoncreatureArtifact,
+        );
+        state.effects.register(animation);
+        register(&mut state, 2, Modifier::LoseAllAbilities);
+
+        let plan = LayerPlan::build(&state.effects);
+        assert_eq!(plan.layer(Layer::Type), plan.layer(Layer::PtSet));
+        for _ in 0..2 {
+            state.invalidate_projections();
+            state.refresh_characteristics();
+            let c = state.object(artifact).expect("in play").characteristics();
+            assert_eq!(c.types, TypeSet::ARTIFACT.union(TypeSet::CREATURE));
+            assert_eq!((c.power, c.toughness), (Some(3), Some(3)));
+            assert!(c.abilities_lost.is_some());
+        }
+    }
+
+    /// An independent animation applies first even with a later timestamp,
+    /// because it changes whether the noncreature condition holds (CR 613.8a).
+    #[test]
+    fn conditional_animation_waits_for_other_animations_and_resumes_when_they_end() {
+        for (conditional_timestamp, other_timestamp) in [(1, 2), (2, 1)] {
+            let mut state = fresh();
+            let artifact = artifact_with_cost(&mut state, "{5}");
+            register(
+                &mut state,
+                conditional_timestamp,
+                Modifier::AnimateNoncreatureArtifact,
+            );
+            register(
+                &mut state,
+                other_timestamp,
+                Modifier::AddType(TypeSet::CREATURE),
+            );
+            register(&mut state, other_timestamp, Modifier::SetPT(2, 4));
+            assert_eq!(body(&state, artifact), (Some(2), Some(4)));
+
+            state.effects.remove_where(|effect| {
+                matches!(effect.modifier, Modifier::AddType(_) | Modifier::SetPT(..))
+            });
+            assert_eq!(body(&state, artifact), (Some(5), Some(5)));
+        }
+    }
+
+    /// Two conditional animations form a dependency loop, so the earlier
+    /// one starts. The skipped later one's P/T portion must stay skipped,
+    /// allowing a setting effect between their timestamps to win in 7b.
+    #[test]
+    fn only_the_conditional_animation_that_started_can_set_power_and_toughness() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{5}");
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+        register(&mut state, 2, Modifier::SetPT(2, 4));
+        register(&mut state, 3, Modifier::AnimateNoncreatureArtifact);
+        assert_eq!(body(&state, artifact), (Some(2), Some(4)));
+        state.effects.remove_where(|effect| effect.timestamp == 1);
+        assert_eq!(body(&state, artifact), (Some(5), Some(5)));
+    }
+
+    /// Setting P/T precedes modifiers and counters, but competes with
+    /// other settings by its own timestamp (CR 613.4b, 613.7).
+    #[test]
+    fn conditional_animation_uses_its_timestamp_in_layer_seven_b() {
+        for (animation_timestamp, set_timestamp, expected) in [(1, 2, (5, 8)), (2, 1, (7, 9))] {
+            let mut state = fresh();
+            let artifact = artifact_with_cost(&mut state, "{5}");
+            register(
+                &mut state,
+                animation_timestamp,
+                Modifier::AnimateNoncreatureArtifact,
+            );
+            register(&mut state, set_timestamp, Modifier::SetPT(3, 4));
+            register(&mut state, 0, Modifier::ModifyPT(1, 2));
+            state.object_mut(artifact).expect("in play").counters.add(
+                crate::object::CounterKind::Plus {
+                    power: 1,
+                    toughness: 2,
+                },
+                1,
+            );
+            assert_eq!(body(&state, artifact), (Some(expected.0), Some(expected.1)));
+        }
+    }
+
+    /// Mana value is read from this projection, including copied values,
+    /// without requiring another projection pass through a stale cache.
+    #[test]
+    fn conditional_animation_uses_the_copy_layers_mana_value() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{3}");
+        let original = artifact_with_cost(&mut state, "{7}");
+        state.refresh_characteristics();
+        let mut copy = fx(1, 2, &ANY_F, Modifier::BecomeCopyOf(original));
+        copy.layer = Layer::Copy;
+        copy.filter = EffectFilter::object(&state, artifact);
+        state.effects.register(copy);
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+
+        let projected = recompute(&state, state.object(artifact).expect("in play"));
+        assert_eq!(projected.characteristics.mana_value(), 7);
+        assert_eq!(projected.characteristics.power, Some(7));
+        assert_eq!(projected.characteristics.toughness, Some(7));
+        assert!(
+            !projected.read_board,
+            "this object's mana value needs no board read"
+        );
+    }
+
+    /// CR 202.3b: the native back face's mana value belongs to the front,
+    /// even when its castable disturb cost differs. CR 202.3e makes X zero
+    /// off the stack.
+    #[test]
+    fn conditional_animation_uses_front_face_mana_value_and_zero_for_x() {
+        let mut state = fresh();
+        let transformed = artifact_with_cost(&mut state, "{2}");
+        state
+            .object_mut(transformed)
+            .expect("in play")
+            .base_mut()
+            .front_mana_value = Some(6);
+        let variable = artifact_with_cost(&mut state, "{X}{3}");
+        let zero = artifact_with_cost(&mut state, "");
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+        assert_eq!(body(&state, transformed), (Some(6), Some(6)));
+        assert_eq!(body(&state, variable), (Some(3), Some(3)));
+        assert_eq!(body(&state, zero), (Some(0), Some(0)));
+    }
+
+    /// Removing creature from something that is not a creature changes
+    /// no applicability. On a printed creature it enables the animation,
+    /// so that animation waits for it regardless of their timestamps.
+    #[test]
+    fn conditional_animation_depends_on_removal_only_when_it_changes_creature_membership() {
+        for was_creature in [false, true] {
+            for (animation_timestamp, removal_timestamp) in [(1, 2), (2, 1)] {
+                let mut state = fresh();
+                let artifact = artifact_with_cost(&mut state, "{5}");
+                if was_creature {
+                    let base = state.object_mut(artifact).expect("in play").base_mut();
+                    base.types = base.types.union(TypeSet::CREATURE);
+                    base.power = Some(2);
+                    base.toughness = Some(4);
+                }
+                register(
+                    &mut state,
+                    animation_timestamp,
+                    Modifier::AnimateNoncreatureArtifact,
+                );
+                register(
+                    &mut state,
+                    removal_timestamp,
+                    Modifier::RemoveType(TypeSet::CREATURE),
+                );
+                let c = recompute(&state, state.object(artifact).expect("in play")).characteristics;
+                let animated = was_creature || removal_timestamp < animation_timestamp;
+                assert_eq!(c.types.contains(TypeSet::CREATURE), animated);
+                assert_eq!(c.power, animated.then_some(5));
+                assert_eq!(c.toughness, animated.then_some(5));
+            }
+        }
+    }
+
+    /// Adding artifact to an existing artifact does not change what the
+    /// other animation applies to: there is no reverse dependency loop.
+    #[test]
+    fn conditional_animation_waits_for_artifact_filtered_animation_without_a_false_cycle() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{5}");
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+        state.effects.register(fx(
+            1,
+            2,
+            &Filter::ARTIFACT,
+            Modifier::AddType(TypeSet::CREATURE),
+        ));
+        register(&mut state, 0, Modifier::SetPT(2, 4));
+        assert_eq!(body(&state, artifact), (Some(2), Some(4)));
+    }
+
+    /// Adding unrelated type effects cannot make a real dependency fall
+    /// back to timestamps. The competing animation is in a second bitset
+    /// word, after the 64-effect budget of the ordinary shared-plan sort.
+    #[test]
+    fn conditional_animation_keeps_dependencies_on_large_boards() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{5}");
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+        for timestamp in 2..66 {
+            register(&mut state, timestamp, Modifier::AddType(TypeSet::ARTIFACT));
+        }
+        register(&mut state, 66, Modifier::AddType(TypeSet::CREATURE));
+        register(&mut state, 0, Modifier::SetPT(2, 4));
+        assert_eq!(
+            LayerPlan::build(&state.effects).layer(Layer::Type).len(),
+            66
+        );
+        assert_eq!(body(&state, artifact), (Some(2), Some(4)));
+    }
+
+    /// Ignore the two animations' loop before choosing among *all* ready
+    /// effects. The earlier animation starts, removal then takes creature
+    /// away, and the later animation starts too and wins the P/T timestamp.
+    #[test]
+    fn conditional_animation_loop_does_not_let_an_unrelated_ready_effect_jump_ahead() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{5}");
+        register(&mut state, 1, Modifier::AnimateNoncreatureArtifact);
+        register(&mut state, 2, Modifier::RemoveType(TypeSet::CREATURE));
+        register(&mut state, 2, Modifier::SetPT(2, 4));
+        register(&mut state, 3, Modifier::AnimateNoncreatureArtifact);
+        assert_eq!(body(&state, artifact), (Some(5), Some(5)));
+    }
+
+    /// Named effects on different objects are independent. Animating the
+    /// other artifact must not postpone the older animation until after
+    /// the creature-removing effect on this one.
+    #[test]
+    fn conditional_animation_dependencies_respect_named_object_filters() {
+        let mut state = fresh();
+        let artifact = artifact_with_cost(&mut state, "{5}");
+        let other = artifact_with_cost(&mut state, "{3}");
+        let mut animation = fx(1, 1, &ANY_F, Modifier::AnimateNoncreatureArtifact);
+        animation.filter = EffectFilter::object(&state, artifact);
+        state.effects.register(animation);
+        let mut removal = fx(2, 3, &ANY_F, Modifier::RemoveType(TypeSet::CREATURE));
+        removal.filter = EffectFilter::object(&state, artifact);
+        state.effects.register(removal);
+        let mut other_animation = fx(3, 4, &ANY_F, Modifier::AddType(TypeSet::CREATURE));
+        other_animation.filter = EffectFilter::object(&state, other);
+        state.effects.register(other_animation);
+        assert_eq!(body(&state, artifact), (None, None));
+        assert!(
+            recompute(&state, state.object(other).expect("in play"))
+                .characteristics
+                .types
+                .contains(TypeSet::CREATURE)
+        );
     }
 
     /// CR 205.1b: "becomes a Golem artifact creature" replaces the creature

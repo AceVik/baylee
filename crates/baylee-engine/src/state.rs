@@ -2167,9 +2167,9 @@ impl GameState {
             return;
         }
         let generation = self.effects.generation;
-        // Bucket and dependency-order the effect table ONCE for the whole
-        // pass; the ordering does not depend on the object being projected
-        // (see `layers::LayerPlan`).
+        // Bucket and prepare the object-independent dependency orders
+        // once for the whole pass. Conditional animation's type-layer
+        // order is decided during projection (see `layers::LayerPlan`).
         let plan = crate::layers::LayerPlan::build(&self.effects);
         // Cross-zone effects (Maskwood Nexus & co.) reach into library,
         // hand, graveyard — then every object must be projected, not only

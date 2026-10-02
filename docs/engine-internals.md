@@ -145,6 +145,22 @@ and a planeswalker behind a shockland entered with no loyalty and died
 `shocklands_of_two_players_entering_together_are_asked_in_apnap_order`;
 `mechanics_tests::transforms::a_question_asked_as_permanents_enter_waits_for_the_ones_behind_it`.
 
+Animate Artifact is one continuous effect with two layer parts.
+`AnimateNoncreatureArtifact` is registered at layer 4; `LayerPlan` also places
+its index in layer 7b. Each object projection remembers which such effects
+started applying in layer 4 and continues only those in 7b (CR 613.6). The
+implicit noncreature check participates in type-layer dependencies; it is not
+repeated after the effect has made the object a creature. A type layer containing
+this modifier selects effects against the current object projection, recalculating
+dependencies involving the conditional animation after each application. A type
+removal that currently changes nothing does not impose a dependency. Internal
+edges of dependency loops are ignored before choosing the next timestamp, even
+when another independent effect is ready. The ordinary precomputed plan remains
+the path for layers without this conditional animation. Mana value comes from
+the in-progress copiable characteristics, so copying an artifact changes the
+base P/T appropriately. This temporary projection bookkeeping adds no replay
+state or object footprint. Separate static abilities remain separate effects.
+
 A projection reads the *board*, and there are two ways for it to read a
 stale one. `recompute_with` walks **one object through all the layers**, so
 while it runs, that object's cached characteristics are still the previous

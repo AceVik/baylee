@@ -1681,7 +1681,7 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`, `SetLandType(subtype)`,
 `SetLandTypeToChosen`,
-`BecomeType { types, subtype }`, `AddColor`, `SetColor`,
+`BecomeType { types, subtype }`, `AnimateNoncreatureArtifact`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
@@ -1705,6 +1705,16 @@ as well (cycling), a loyalty ability included, and spares a mana ability
 (CR 605.1a), turning a permanent face up and a prepared cast. A name chosen
 by a *trigger* ("when this land enters, choose a land card name", Petrified
 Hamlet) has no DSL yet.
+
+`AnimateNoncreatureArtifact` implements Animate Artifact's conditional animation.
+Write it with `Filter::AttachedToBySource`. The effect checks for a noncreature
+in layer 4 and adds artifact and creature while retaining the other types,
+colors and abilities. The same effect continues in layer 7b, setting both base
+values to the affected object's current mana value. Do not split this into two
+independently filtered statics: its own animation would invalidate the later
+noncreature check. Already-creature artifacts retain their existing P/T.
+The continuation follows CR 613.6; other type changes participate in dependency
+ordering in layer 4, while competing P/T setters use layer 7b order.
 
 `SetPTToCount(count)` is "this creature's power and toughness are each equal
 to [count]" **granted** by an effect (Druid Class's animated land), with

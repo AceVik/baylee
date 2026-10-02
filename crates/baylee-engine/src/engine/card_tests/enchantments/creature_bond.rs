@@ -24,6 +24,44 @@ fn setup() -> (Engine<RegistryLookup>, ObjectId, ObjectId) {
     (e, creature, aura)
 }
 
+#[test]
+fn creature_bond_remembers_toughness_from_an_anthem_destroyed_in_the_same_batch() {
+    let mut e = Duel::new(1101, forest())
+        .battlefield(
+            0,
+            &[island(), island(), sol_ring(), index::NEVINYRRAL_S_DISK],
+        )
+        .battlefield(1, &[index::GLORIOUS_ANTHEM, index::WALL_OF_AIR])
+        .hand(0, &[creature_bond()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let creature = on_battlefield(&e, P1, index::WALL_OF_AIR).unwrap();
+    let anthem = on_battlefield(&e, P1, index::GLORIOUS_ANTHEM).unwrap();
+    let rock = on_battlefield(&e, P0, sol_ring()).unwrap();
+    let aura = attaches_only_to(&mut e, P0, creature_bond(), creature, rock);
+    assert_eq!(pt(&e, creature), (2, 6));
+    pass_until(&mut e, |e| at_rest(e, P0));
+    let disk = on_battlefield(&e, P0, index::NEVINYRRAL_S_DISK).unwrap();
+    e.dev_state_mut(P0).unwrap().players[0]
+        .mana_pool
+        .add(ManaColor::Colorless, 1);
+    e.refresh_offer();
+    e.apply(
+        P0,
+        PlayerAction::ActivateAbility {
+            source: disk,
+            ability_index: 0,
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    for object in [anthem, creature, aura] {
+        assert_eq!(e.state().object(object).unwrap().zone, Zone::Graveyard);
+    }
+    assert_eq!(damage(&e, aura), vec![(P1, 6)]);
+}
+
 fn damage(e: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(PlayerId, u16)> {
     e.journal()
         .entries()

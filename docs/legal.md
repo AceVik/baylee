@@ -585,3 +585,8 @@ Scryfall attribution and complete-image rendering path is unchanged.
 Consecrate Land (2026-10-02) uses the same recorded owner exception and the
 policy/asset checks above. Only card rules, engine checks and tests changed;
 no new artwork, font, symbol or other asset is shipped.
+
+Animate Artifact (2026-10-02) uses the same recorded owner exception. The
+official policy and FAQ were reread; “Tell the Community it’s unofficial.”
+remains covered by the existing notices. This change adds only rules and tests;
+no artwork, font, symbol, image distribution or attribution behavior changes.

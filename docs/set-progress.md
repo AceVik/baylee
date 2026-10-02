@@ -14,10 +14,11 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **256 Implemented, 30 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **257 Implemented, 29 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 256 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
-Gloom, Cyclopean Tomb, Creature Bond and Consecrate Land are included in the Implemented count. Their dedicated
+Thus 257 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land and Animate Artifact are
+included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
 
@@ -28,7 +29,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 
 | Card | Explicitly unsupported behavior from its implementation |
 | --- | --- |
-| [Animate Artifact](../crates/baylee-cards/src/cards/enchantments/auras/mv_4/animate_artifact.rs) | power and toughness equal to the enchanted artifact's mana value are not in the DSL; the Aura attaches and does nothing |
 | [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | an Aura that enchants a creature card in a graveyard and returns it is not in the engine |
 | [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
 | [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | paying life for {C} any time a mana ability could be activated is not in the engine |

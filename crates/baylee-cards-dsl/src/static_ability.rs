@@ -1,7 +1,7 @@
 //! Static (continuous) abilities and effect modifiers — the layer system.
 //!
 //! Static abilities on cards declare *what* changes (a [`Modifier`]), on
-//! *which* layer it applies (CR 613.1), and *which* objects are affected
+//! *which* layer it starts in (CR 613.1), and *which* objects are affected
 //! (a [`Filter`]). The engine registers matching [`crate::AbilityDef::Static`]
 //! abilities into its effect table and projects characteristics through
 //! them — removal when the source leaves is structural, never card code.
@@ -69,6 +69,12 @@ pub enum Modifier {
     AbilitiesCostMore(u32),
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
+    /// Animate Artifact: if the affected object is not a creature in layer
+    /// 4, add artifact and creature without removing any types, then set
+    /// its power and toughness to its mana value in layer 7b. This is one
+    /// effect across both layers (CR 613.6): its layer-4 choice of objects
+    /// survives becoming a creature and losing the source ability.
+    AnimateNoncreatureArtifact,
     /// Removes types.
     RemoveType(TypeSet),
     /// Adds a subtype.
@@ -599,7 +605,11 @@ pub enum PtCount {
 }
 
 impl Modifier {
-    /// The layer this modifier applies in (CR 613.1).
+    /// The first layer this modifier applies in (CR 613.1).
+    ///
+    /// [`Self::AnimateNoncreatureArtifact`] starts in layer 4 and continues
+    /// in layer 7b. The engine keeps both parts together as one effect,
+    /// carrying its affected objects forward between layers (CR 613.6).
     ///
     /// A layer is not a decision a card makes. "All permanents are
     /// artifacts" is layer 4 because it changes types, and no printing of
@@ -657,6 +667,7 @@ impl Modifier {
             Self::GainControl => Layer::Control,
             // Layer 4: type-changing effects.
             Self::AddType(_)
+            | Self::AnimateNoncreatureArtifact
             | Self::RemoveType(_)
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
@@ -742,10 +753,10 @@ impl Modifier {
 }
 
 /// A static ability on a card: `modifier` applies to objects matching
-/// `filter` on `layer`, while the source is on the battlefield.
+/// `filter` starting on `layer`, while the source is on the battlefield.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct StaticAbility {
-    /// The layer the effect applies in.
+    /// The first layer the effect applies in ([`Modifier::layer`]).
     pub layer: Layer,
     /// Which objects are affected — including *where* they are.
     ///
@@ -949,6 +960,7 @@ mod tests {
             (Modifier::BecomeCopyOf(ObjectId::new(1, 0)), Layer::Copy),
             (Modifier::GainControl, Layer::Control),
             (Modifier::AddType(TypeSet::ARTIFACT), Layer::Type),
+            (Modifier::AnimateNoncreatureArtifact, Layer::Type),
             (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),

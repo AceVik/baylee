@@ -2,7 +2,8 @@
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
 > never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
-> Bond and Consecrate Land, 30 Alpha cards remain Partial. See [the complete inventory](set-progress.md);
+> Bond, Consecrate Land and Animate Artifact, 29 Alpha cards remain Partial.
+> See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
 Source: the live feedback service, read on 1 October 2026. A report is closed
@@ -1071,3 +1072,59 @@ Validation:
 
 Final workspace all-target Clippy (`-D warnings`) passed after the last edits:
 `/private/tmp/baylee-consecrate-clippy-final.log`. No push or deployment.
+
+## Continuation — Alpha Animate Artifact and independent card review, 2026-10-02
+
+Animate Artifact is now Implemented. Its Aura still targets only artifacts;
+its single continuous effect conditionally starts in layer 4 and continues on
+that same object in layer 7b, setting base P/T from the current mana value.
+Existing artifact creatures retain their values; other types, colors, abilities,
+counters, copy values, control and ordinary summoning-sickness rules are retained.
+
+Per Viktor's new instructions, engine/DSL work was delegated to **GPT-6 Astra
+with xhigh**, and **GPT-6.1 Sol with medium** independently reviewed this card
+plus the recently completed Creature Bond and Consecrate Land. The parent wrote
+card behavior tests and integrated the results. The review found two real layer
+ordering gaps: Swift Reconfiguration's initially ineffective creature removal,
+and two conditional animations in a dependency loop with another ready effect.
+The first was reproduced by a failing real-cast test. Both now have regressions;
+the dynamic path recalculates actual dependencies involving the animation,
+ignores cycle-internal edges, and supports more than 64 effects. A second review
+found no remaining actionable findings, including in the larger dependency graph.
+General older-effect dependency approximations elsewhere are not claimed solved.
+
+There are **16 Animate Artifact behavior tests** and **11 new layer tests**
+(22 layer tests total). They cover actual mana activation and combat, newly
+entered versus previously controlled artifacts, zero mana value and SBAs,
+artifact creatures, other controllers, counters and pumps, Aura removal,
+multiple Auras, copied mana value, front-face/X values, source ability loss,
+Swift Reconfiguration, competing setters, dependency loops and a 66-effect board.
+Additional review regressions verify Creature Bond's disappearing anthem LKI
+and Consecrate Land's attachment restriction after its host loses indestructible.
+Their dedicated suites now contain 15 and 11 tests respectively. This batch adds
+28 tests in total; the review supports Oracle-clause coverage, not an exhaustive
+proof of every possible card interaction.
+
+Validation:
+
+- Engine: **4372 passed, 2 ignored**, plus both footprint tests and benchmark
+  smoke checks; gamehost 199 passed, 2 ignored, plus 41 integration tests;
+  protocol 30 and view 36 passed. Log: `/private/tmp/baylee-animate-regression-final.log`.
+- Cards 129, DSL 60 plus walker 1, AI 201, client-core 1180 plus integration 7
+  (1 ignored) passed. Log: `/private/tmp/baylee-animate-regression.log`. That run's
+  only engine failure was the newly added review fixture attempting a sorcery
+  after passing out of its main phase; the corrected test and full engine rerun
+  above pass. Existing unrelated seat self-play p90 failure was not rerun or fixed.
+- `codegen --tables` was run twice; full `codegen --check` is up to date.
+  `validate` checks all 2955 card headers successfully (cached payloads are up
+  to 12 days old; Animate Artifact's Oracle and WotC rulings were also read live).
+  Logs: `/private/tmp/baylee-animate-codegen-check.log`,
+  `/private/tmp/baylee-animate-validate.log`.
+- Workspace/all-targets Clippy with `-D warnings` passes; log:
+  `/private/tmp/baylee-animate-clippy.log`. Formatting and whitespace checks pass.
+
+The full original-set inventory is now **257 Implemented / 29 Partial / 4
+explicit exclusions**. Alpha remains incomplete; the 257 declarations do not
+stand for a completed independent review of every earlier card. No later set
+was started. No rendering change or new screenshot is claimed for this rules
+batch, and no feedback report was closed. No push or deployment.

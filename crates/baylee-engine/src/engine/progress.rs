@@ -2084,10 +2084,10 @@ impl<L: CardLookup> Engine<L> {
         // before layer 6 took the abilities away and go on applying (CR
         // 613.6). The rest — layer 6 on, and every rules effect parked in
         // layer 3 — is gone with the ability, so it lapses like a static
-        // whose condition failed. (CR 613.6 also carries one ability's
-        // effect on into its later layers; the DSL writes each layer's part
-        // as a static of its own, so a printed ability that spans layer 4
-        // and layer 7 is not told apart here and loses its layer-7 part.)
+        // whose condition failed. A modifier spanning multiple layers
+        // (AnimateNoncreatureArtifact) is registered at its first layer,
+        // so its later parts survive with it (CR 613.6). Separate statics
+        // remain separate effects and do not share that continuation.
         // That reads the projection, so it is made current first: the effect
         // that took the abilities may have been registered a moment ago.
         self.state.refresh_characteristics();
