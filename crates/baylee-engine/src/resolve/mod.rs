@@ -4923,6 +4923,20 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             retarget::start_copy(state, res, copy)
         }
         Effect::AttachSelf { .. } => {
+            // A resolving Aura spell carries its intended attachment into
+            // the entry check. An Aura already on the battlefield cannot
+            // move to a forbidden host (CR 303.4j).
+            if let Some(&host) = res.targets.first()
+                && state.object(res.source).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && o.characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::enchantment::AURA)
+                })
+                && !eval::permits_enchantment(state, host, res.source)
+            {
+                return None;
+            }
             if let Some(&target_id) = res.targets.first()
                 && let Some(obj) = state.object_mut(res.source)
             {

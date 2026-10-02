@@ -2863,3 +2863,20 @@ stack and remains registered if one occurrence is countered. Cyclopean Tomb is
 the first card using these operations; its scenarios cover timing, payment,
 multiple instances, blinked sources and lands, last-counter expiry, replacement
 multipliers and countering the recurring cleanup.
+
+### Consecrate Land: attachment restriction
+
+`Modifier::CantBeEnchantedExceptSource` applies a rules restriction to the
+filtered host; only the effect's source Aura is exempt. It does not grant
+shroud or change which objects an Aura's enchant ability targets. Existing
+forbidden Auras leave through attachment SBAs. A forbidden entering Aura stays
+in its previous zone, or goes directly from stack to graveyard; it never enters
+and never creates an ETB event. An Aura already on the battlefield stays on its
+old host when an effect attempts an illegal move. Equipment is unaffected.
+The separate `AddKeyword(INDESTRUCTIBLE)` still allows targeting, sacrifice and
+exile and prevents destruction only.
+
+Rules verified in Wizards' September 25, 2026
+[Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
+303.4a/c/i/j and 702.5a. The separation between targeting and attachment follows
+those distinct checks; no targeting prohibition is added by this modifier.

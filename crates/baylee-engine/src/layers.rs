@@ -886,6 +886,7 @@ fn apply(
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose

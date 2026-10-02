@@ -518,6 +518,15 @@ collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
 ### Attachments (CR 704.5m, 704.5n, 704.5p)
+
+`eval::permits_enchantment` reads `CantBeEnchantedExceptSource` for Consecrate
+Land. Attachment SBAs apply it alongside the enchant filter and protection.
+The zone-entry door rejects a forbidden Aura before any battlefield move or ETB
+journal entry: it stays in its non-stack zone, or goes from stack to graveyard.
+An existing Aura's `AttachSelf` attempt leaves its old attachment intact when
+forbidden. The source Aura itself is exempt; another copy is not. Targeting is
+still governed separately by the enchant keyword and targeting restrictions.
+
 `sba::run_attachment_sbas` asks the first sentence of CR 704.5p before
 anything else: a battle or creature attached to an object or player becomes
 unattached and stays on the battlefield, whatever else it is. That is how an

@@ -455,6 +455,7 @@ fn run_attachment_sbas(state: &mut GameState, lookup: &impl crate::state::CardLo
                     // attachment has the quality of. An Aura falls off, an
                     // Equipment stays on the battlefield unattached.
                     && !crate::eval::protected_from(state, host, id)
+                    && (!is_aura || crate::eval::permits_enchantment(state, host, id))
             })
         });
         if host_ok {

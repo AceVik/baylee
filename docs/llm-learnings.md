@@ -2490,3 +2490,19 @@ land type"; both are convention tests that fire on a first try.
   nonexistent fixture card.
 - Oracle data checked via the Scryfall card endpoint and `xtask explain`; the
   corpus was read as a mechanics reference only. No external script was copied.
+
+## Alpha Consecrate Land (Codex, 2026-10-02)
+
+- **Targeting and attachment are separate questions.** The Aura's enchant
+  keyword chooses targets; this card's restriction prevents attachment. Do not
+  implement it as shroud or silently forbid land-destruction targets.
+- **A forbidden entering Aura must never generate an ETB event.** Checking only
+  attachment SBAs briefly puts it on the battlefield. Check the actual zone
+  transition: from the stack it goes to the graveyard, from another zone it
+  stays there. An already attached Aura stays on its old host when a move fails.
+- **"Other" means another object, not another card name.** A second Consecrate
+  Land is refused as well. Existing other Auras fall off, while the granting
+  Aura remains attached and its land keeps indestructible.
+- Live WotC ruling (Scryfall endpoint, checked 2026-10-02): existing other Auras
+  go to their owners' graveyards. Current CR 303.4 and 702.5 were read from the
+  official September 25 text. The corpus was inspected without copying a file.

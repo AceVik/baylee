@@ -5,6 +5,7 @@
 use super::*;
 use baylee_cards_dsl::counters;
 
+mod consecrate_land;
 mod creature_bond;
 mod gloom;
 
@@ -21986,8 +21987,7 @@ fn consecrate_land() -> CardIndex {
     card_index("4627691c-4ed4-4add-9cc3-2e019be2f9fd")
 }
 
-/// Consecrate Land — PARTIAL: refusing other Auras is not modeled;
-/// "Enchant land. Enchanted land has indestructible" is. Offered only a
+/// Consecrate Land targets only a
 /// land, never the Elves; the land it attaches to gains indestructible,
 /// and a bystander land beside it does not.
 #[test]

@@ -380,6 +380,9 @@ pub enum Modifier {
     /// The controller can't be targeted by spells or abilities (player
     /// hexproof, Everybody Lives!).
     PlayerHexproof,
+    /// Affected permanents cannot be enchanted by any Aura except this
+    /// effect's source (Consecrate Land). This restricts attachment, not targeting.
+    CantBeEnchantedExceptSource,
     /// The controller may cast sorcery spells as though they had flash
     /// (Teferi, Time Raveler +1).
     SorceriesHaveFlash,
@@ -703,6 +706,7 @@ impl Modifier {
             | Self::OpponentsCastAsSorcery
             | Self::ChosenNameCantActivate
             | Self::OpponentsCantCast(_)
+            | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose

@@ -2,8 +2,8 @@
 //! Oracle: Enchant land
 //! Oracle: Enchanted land has indestructible and can't be enchanted by other Auras.
 //! Set: TSB #4 — Time Spiral Timeshifted | Scryfall ID: ded79afb-2a65-49e8-81c3-757e5d4c2203 | Oracle ID: 4627691c-4ed4-4add-9cc3-2e019be2f9fd
-// PARTIAL — refusing other Auras is not in the engine; the enchanted land has
-// indestructible.
+// IMPLEMENTED — enchanted land has indestructible and permits only this Aura.
+// Tests: engine/card_tests/enchantments/consecrate_land.rs.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,9 +13,7 @@ card!(
     oracle_id = "4627691c-4ed4-4add-9cc3-2e019be2f9fd",
     scryfall_id = "ded79afb-2a65-49e8-81c3-757e5d4c2203",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial(
-        "refusing other Auras is not in the engine; the enchanted land has indestructible"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Consecrate Land",
         mana_cost = mana!("{W}"),
@@ -33,6 +31,9 @@ card!(
             Filter::AttachedToBySource,
             Modifier::AddKeyword(KeywordSet::INDESTRUCTIBLE)
         ),
-        // NOT SUPPORTED: Enchanted land … can't be enchanted by other Auras.
+        static_ability!(
+            Filter::AttachedToBySource,
+            Modifier::CantBeEnchantedExceptSource
+        ),
     ],
 );

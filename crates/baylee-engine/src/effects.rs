@@ -144,6 +144,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
@@ -859,6 +860,7 @@ mod tests {
             Modifier::ChosenNameCantActivate,
             Modifier::OpponentsCastAsSorcery,
             Modifier::OpponentsCantCast(&Filter::NONCREATURE),
+            Modifier::CantBeEnchantedExceptSource,
             Modifier::CantBeTargetedBy(&Filter::CREATURE),
             Modifier::DrawLimitPerTurn {
                 who: PlayerRel::EachPlayer,
@@ -938,7 +940,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            74,
+            75,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -990,7 +992,7 @@ mod tests {
 
     /// The counts, so that a change which flips a modifier from one side to
     /// the other is a failure and not a quiet re-balancing: thirty-one
-    /// modifiers lock the objects they found, forty-three do not.
+    /// modifiers lock the objects they found, forty-four do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -998,10 +1000,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_one_modifiers_lock_a_set_and_forty_three_do_not() {
+    fn thirty_one_modifiers_lock_a_set_and_forty_four_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (31, 43));
+        assert_eq!((locking, all.len() - locking), (31, 44));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

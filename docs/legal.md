@@ -581,3 +581,7 @@ exception above. The policy's instruction “Tell the Community it’s unofficia
 2026-10-02) remains satisfied by the existing project notices. This rules/test
 change introduces no artwork, symbol, font or other shipped asset; the existing
 Scryfall attribution and complete-image rendering path is unchanged.
+
+Consecrate Land (2026-10-02) uses the same recorded owner exception and the
+policy/asset checks above. Only card rules, engine checks and tests changed;
+no new artwork, font, symbol or other asset is shipped.

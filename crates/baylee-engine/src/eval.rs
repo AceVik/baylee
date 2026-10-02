@@ -792,6 +792,22 @@ pub fn untargetable_by(state: &GameState, object: ObjectId, you: PlayerId) -> bo
         && state.is_opponent(obj.controller, you)
 }
 
+/// Whether rules-modifying effects permit this Aura to enchant the host.
+/// Targeting restrictions and the Aura's own enchant filter are separate.
+#[must_use]
+pub fn permits_enchantment(state: &GameState, host: ObjectId, aura: ObjectId) -> bool {
+    let Some(object) = state.object(host) else {
+        return false;
+    };
+    !state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::CantBeEnchantedExceptSource
+        ) && fx.source != Some(aura)
+            && crate::effects::applies_to(state, fx, object)
+    })
+}
+
 /// The players a spell or ability may target.
 ///
 /// A player is untargetable only through an effect, never through a

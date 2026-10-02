@@ -1,8 +1,8 @@
 # Feedback pass, 1 October 2026
 
 > Set-count correction, 2026-10-02: the seven-card Alpha worklist below was
-> never a complete set inventory. After Gloom, Cyclopean Tomb and Creature
-> Bond, 31 Alpha cards remain Partial. See [the complete inventory](set-progress.md);
+> never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
+> Bond and Consecrate Land, 30 Alpha cards remain Partial. See [the complete inventory](set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
 Source: the live feedback service, read on 1 October 2026. A report is closed
@@ -1039,3 +1039,35 @@ Validation:
 The previously documented seat self-play p90 baseline was not part of this
 selected regression run; this entry does not claim a green whole-workspace test
 run. No push, deployment or feedback-ticket closure belongs to this milestone.
+
+## Alpha milestone — Consecrate Land (2026-10-02)
+
+Completed the missing prohibition on other Auras. Existing other Auras go to
+their owners' graveyards; Consecrate Land itself remains. A later Aura (including
+another Consecrate Land) cannot enter attached to the land. It never produces
+an ETB event. From a non-stack zone it stays there; an Aura already on the
+battlefield stays with its old host when an attempted move is forbidden.
+The restriction is distinct from targeting: land destruction remains targetable,
+and indestructible does not prevent exile or sacrifice.
+
+Validation:
+- 10 Consecrate Land tests (9 new plus the previous enchant-land test), including
+  multiple older Auras, a second copy, stack/graveyard entry, a forbidden move,
+  Disenchant ending both restrictions, Stone Rain, exile and Zuran Orb sacrifice.
+- Final engine suite: **4344 passed, 2 ignored**, plus 2 footprint tests and
+  benchmark smoke checks. Gamehost, protocol and view suites passed in
+  `/private/tmp/baylee-consecrate-regression-final.log`.
+- AI 201, cards 129, DSL 60 plus walker guard, client-core 1180 plus 7 integration
+  tests passed in `/private/tmp/baylee-consecrate-regression.log`. That earlier
+  run exposed two pinned modifier-inventory counts; both were updated for the
+  new rules modifier (75 total, 31 locking / 44 non-locking), then the complete
+  engine suite was rerun successfully. No functional tests were weakened.
+- Codegen tables ran twice; full codegen check is current and all 2955 card
+  headers validate. Native rendering is unchanged; no screenshot or deployment
+  belongs to this rules batch. The known seat self-play baseline remains outside
+  this selected regression run.
+- Full Alpha inventory: **256 Implemented, 30 Partial, 4 existing exclusions**.
+  Alpha is still incomplete and later sets remain unstarted.
+
+Final workspace all-target Clippy (`-D warnings`) passed after the last edits:
+`/private/tmp/baylee-consecrate-clippy-final.log`. No push or deployment.
