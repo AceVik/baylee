@@ -99,7 +99,7 @@ fn an_unfittable_lane_reports_overflow_so_the_caller_can_group() {
 fn the_gap_after_a_merged_card_is_held_and_the_rest_fan() {
     let mut held = vec![false; 14];
     held[5] = true;
-    let packing = pack_row(&held, 10.0);
+    let packing = pack_row(&held, 12.0);
     assert!(packing.fanned && !packing.overflowing);
     let steps: Vec<f32> = packing.offsets.windows(2).map(|w| w[1] - w[0]).collect();
     for (i, step) in steps.iter().enumerate() {
@@ -341,4 +341,19 @@ fn a_pile_holds_its_room_on_the_left() {
         (pile_reach(100) - pile_reach(PILE_SLABS + 1)).abs() < 1e-6,
         "a pile shows at most {PILE_SLABS} cards under its top"
     );
+}
+
+/// Crowding must not turn distinct creatures into narrow strips. All cards
+/// remain individually reachable through a bounded row window.
+#[test]
+fn a_hundred_distinct_creatures_keep_two_thirds_of_their_faces() {
+    let packing = pack_lane(130, 20.0);
+    assert!(packing.overflowing);
+    assert!(packing.pitch >= 2.0 / 3.0 - 1e-5);
+    for index in 0..130 {
+        let first = packing.reveal(0, index);
+        let shown = packing.window(first);
+        assert!(shown.shown.contains(&index));
+        assert!(shown.shown.len() <= 28);
+    }
 }

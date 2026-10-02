@@ -58,7 +58,7 @@ The stack now has a visible draggable scrollbar, a taller viewport, and a window
 
 DIe Menge an Kreaturen sowie die Lebenspunkte, das sieht nicht mehr sauber aus.
 
-Status: open; life-number wrapping corrected, creature-density work remains.
+Status: fixed and source/native verified; feedback closure pending.
 
 The attached report shows life 25476 wrapping below the heart. The fixed
 72-pixel life cell was too narrow. The attached row now reserves 108 pixels,
@@ -70,7 +70,8 @@ All 11 seat-bar tests, dev-control/all-targets clippy and the native build pass.
 Native smoke check confirms heart, life, hand and active-turn label remain
 aligned at ordinary totals (/private/tmp/baylee-life-fit-live.png). Large
 values were verified by font-metric tests, not a native high-life game.
-The report remains open: this does not resolve the crowded creature lane.
+The seventh continuation completes the crowded-creature portion with earlier
+scrolling, a two-thirds visible card face and a clearly visible scrollbar.
 
 ## 01a0f907-59fa-7186-852d-a58d7e6ce51e
 
@@ -205,7 +206,8 @@ Already implemented in 4e96d9fb. Tests cast Altered Ego with X counters and decl
 Permanents und Card Preview größer, sowie zentriert in der Battlefield Zeile.
 Der Alt Text, größer ebenfalls, kann man schlecht lesen. Generell alle Texte etwas größer.
 
-Status: open.
+Status: open; preview and Alt-text size improved in the seventh continuation.
+Battlefield permanent size and general HUD text remain.
 
 ## 01a0e8f9-fb25-7062-a1f3-1eaf35c75a00
 
@@ -447,3 +449,44 @@ Next: dense creature layout and larger readable permanents/preview, followed
 by login transition/music and the platform-specific sky/table report. The
 known baseline seat selfplay wake-count failure remains on the testing
 backlog. Alpha's four Partial cards follow the remaining feedback work.
+
+
+## Seventh hourly continuation
+
+Refreshed the service: four open reports, no new reports. The dense-creature
+row now keeps two thirds of each upright card visible, instead of a third,
+and scrolls sooner. Distinct counters, sickness, targets and identities are
+preserved; no additional cards are merged. Wide-duel row scrollbars use their
+available seam instead of a subpixel hairline. A 130-card regression checks
+individual reachability and the larger visible portion, alongside the
+existing geometry, badge, plate, keyboard and scroll tests.
+
+Preview/Alt-text portion of 01a0e8fb: base width 308 → 384 logical pixels;
+constructed face name/type/body caps 26/19/18 pixels and body floor 14 instead
+of 10. Long text scrolls rather than shrinking further. Window fitting and
+aspect ratio remain enforced, including the larger scale settings and phone
+viewports. Battlefield card size and general HUD type still need work, so
+that report remains open.
+
+Validation: all 1161 client and 1174 core unit tests, 16 headless duel,
+33 mana/ability-sheet, 13 network-host and 7 play-caddy tests pass (three
+pre-existing ignored tests). Clippy with dev-control/all-targets passes.
+Local logs: /private/tmp/baylee-readability-tests.log and
+/private/tmp/baylee-readability-clippy.log. The first non-escalated run could
+not bind eight loopback test servers; the permitted rerun passed. The linker
+reported its existing oversized unwind-section warning.
+
+Native 1440×900 QA: 45 distinct creatures show 1–40 initially, then 6–45
+after horizontal scrolling, without changing engine state. Oko's larger
+German Alt-text is readable and scrolling reaches the complete last ability;
+the full artwork preview retains its artist/copyright line. Evidence:
+/private/tmp/baylee-readability-crowded.png,
+/private/tmp/baylee-readability-row-start.json,
+/private/tmp/baylee-readability-row-end.json,
+/private/tmp/baylee-readability-preview.png,
+/private/tmp/baylee-readability-preview-bottom.png,
+/private/tmp/baylee-readability-art-preview.png.
+The final wider scrollbar is visibly distinct and clear of both adjacent
+rows (/private/tmp/baylee-readability-scrollbar.png). All four rowbar tests
+and final dev-control/all-targets clippy pass after that last change. Test
+clients stopped. Ticket closure pending. No push or deployment.

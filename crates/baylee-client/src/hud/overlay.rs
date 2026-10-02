@@ -707,7 +707,7 @@ pub fn sync_overlay(
             ),
         };
         if let Some((art, anchor)) = anchor {
-            let scale = settings.preview_scale.clamp(0.5, 1.75);
+            let scale = settings.preview_scale;
             let window = windows.single().map_or(Vec2::new(1200.0, 800.0), |w| {
                 Vec2::new(w.width(), w.height())
             });
@@ -716,7 +716,7 @@ pub fn sync_overlay(
             // wherever it is placed, and no amount of arithmetic in
             // `preview_place` can rescue it. The slider is a preference; the
             // window is not.
-            let want = Vec2::new(308.0 * scale, 308.0 * scale * 88.0 / 63.0);
+            let want = super::hand::preview_want(scale);
             // The sentence the stack is abbreviating, when that is what the
             // pointer is on. It is part of the bubble's *size* and therefore
             // has to be resolved before the picture is: a card sized to the

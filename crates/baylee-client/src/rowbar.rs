@@ -5,7 +5,7 @@
 //! run of whole cards and scrolls (`LanePacking::window`). What it does not
 //! show is not drawn, so the bar is what says it is there: a track the
 //! lane's width with a thumb the share of the row that is shown, standing
-//! where in the row the shown run is. In a duel it is a hairline in the seam
+//! where in the row the shown run is. In a duel it uses the available seam
 //! under the row; round a ring table, where the rows are 0.0185 apart, the
 //! three rows' bars stand one behind another in the mat's outer margin.
 //!
@@ -23,8 +23,8 @@ use baylee_client_core::rowscroll::{RowKey, packing_of};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-/// How thick the bar is where the rows leave it a seam: a hairline, the
-/// seam between two rows of a ring or a crowded duel being 0.0185.
+/// Minimum bar thickness for a narrow seam; wider duel rows use more of
+/// their clearance so the scrollbar remains visible.
 pub const SEAM_BAR: f32 = 0.010;
 /// How thick a bar in the mat's outer margin is.
 pub const MARGIN_BAR: f32 = 0.03;
@@ -114,7 +114,11 @@ pub fn lay(
     };
     // A duel's bar in the seam under its own row; a ring's in the margin.
     let (centre, thick) = if layout.slots.len() <= 2 {
-        (slot.lane_center(lane) + back * half, SEAM_BAR)
+        (
+            slot.lane_center(lane) + back * half,
+            ((slot.lane_height() - baylee_client_core::layout::CARD_HEIGHT) * 0.5)
+                .clamp(SEAM_BAR, GRAB),
+        )
     } else {
         let index = LaneKind::ALL.iter().position(|&l| l == lane).unwrap_or(0) as f32;
         let edge = slot.lane_center(LaneKind::Lands) + back * half;

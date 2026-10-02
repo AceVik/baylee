@@ -8335,3 +8335,21 @@ invented text. Food uses the normal English fallback even in a German UI.
 The provenance survives a fresh view/reconnect. It is stored in the same
 four-byte `AbilityOrigin` that carries a copied card face, so `GameObject`
 remains within its measured 312-byte memory budget.
+
+
+### Readability pass, 2 October 2026
+
+Crowded battlefield rows now retain two thirds of each upright card rather
+than one third. They reach the existing scrolling threshold sooner; identity,
+marks, targeting and grouping rules are unchanged. A wide duel's scrollbar
+uses the available seam up to its grab strip's width, instead of a 0.010-unit
+hairline. Narrow seams and ring-table margins retain their safe bounds.
+
+The default hover picture is 384 pixels wide (previously 308), fitted to the
+viewport with the original aspect ratio. The preview scale setting still
+multiplies this base, including existing saved settings. Constructed text
+faces cap name/type/body at 26/19/18 pixels. Long rules stop shrinking at
+14 pixels and remain scrollable; smaller thumbnail faces keep their own
+proportional type. The shared preferred-size function is also exercised by
+window-edge and report-button placement tests. These changes do not yet
+enlarge battlefield card meshes or every general HUD label.

@@ -200,7 +200,7 @@ fn the_panel_is_never_cut_off_by_a_window_edge() {
 /// The other half of "never cut off": a preview larger than the window is
 /// cut off wherever it is put, so it is not allowed to be larger.
 ///
-/// The scale slider goes to 1.75, which asks for a picture 539 × 753 plus
+/// The scale slider goes to 1.75, which asks for a picture 672 × 939 plus
 /// its padding. That is more than a 720-pixel window has, and no
 /// arithmetic in `preview_place` can rescue it — the size has to give,
 /// keeping the card's aspect, or the player reads the wrong numbers off a
@@ -216,7 +216,7 @@ fn a_preview_is_never_asked_to_be_bigger_than_the_window() {
         Vec2::new(600.0, 400.0),
     ] {
         for scale in [0.5_f32, 1.0, 1.75] {
-            let want = Vec2::new(308.0 * scale, 308.0 * scale * aspect);
+            let want = super::super::hand::preview_want(scale);
             let got = preview_art_size(want, PAD, window);
             let panel = got + Vec2::splat(2.0 * PAD);
             assert!(
@@ -234,7 +234,7 @@ fn a_preview_is_never_asked_to_be_bigger_than_the_window() {
         }
     }
     // The common case pays nothing at all.
-    let want = Vec2::new(308.0, 308.0 * aspect);
+    let want = super::super::hand::preview_want(1.0);
     assert_eq!(
         preview_art_size(want, PAD, Vec2::new(1728.0, 1052.0)),
         want,
@@ -280,7 +280,6 @@ fn a_panel_too_tall_for_the_band_sits_at_the_top_of_the_window() {
 #[test]
 fn no_preview_lands_under_the_report_button() {
     const PAD: f32 = 6.0;
-    let aspect = 88.0 / 63.0;
     for window in [
         WINDOW,
         Vec2::new(1280.0, 720.0),
@@ -291,11 +290,7 @@ fn no_preview_lands_under_the_report_button() {
     ] {
         let corner = report_corner(window);
         for scale in [0.5_f32, 1.0, 1.75] {
-            let art = preview_art_size(
-                Vec2::new(308.0 * scale, 308.0 * scale * aspect),
-                PAD,
-                window,
-            );
+            let art = preview_art_size(super::super::hand::preview_want(scale), PAD, window);
             let panel = art + Vec2::splat(2.0 * PAD);
             let right = window.x;
             let anchors = [

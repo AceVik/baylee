@@ -231,17 +231,17 @@ pub fn name_bar(lines: usize) -> f32 {
 
 /// The overlay's name, as a share of the card's width in pixels, held
 /// between two sizes in pixels.
-pub const UI_NAME: (f32, [f32; 2]) = (0.082, [7.0, 22.0]);
+pub const UI_NAME: (f32, [f32; 2]) = (0.082, [7.0, 26.0]);
 
 /// The overlay's type line and its name stepped down, likewise.
-pub const UI_TYPE: (f32, [f32; 2]) = (0.062, [6.0, 16.0]);
+pub const UI_TYPE: (f32, [f32; 2]) = (0.062, [6.0, 19.0]);
 
 /// The overlay's rules text at its own size, likewise.
-pub const UI_BODY: (f32, [f32; 2]) = (0.058, [6.0, 15.0]);
+pub const UI_BODY: (f32, [f32; 2]) = (0.058, [6.0, 18.0]);
 
 /// The smallest the rules text is stepped down to, in pixels. Past it the
-/// text box scrolls: ten pixels is where a sentence stops being read.
-pub const BODY_FLOOR_PX: f32 = 10.0;
+/// text box scrolls rather than shrinking long rules below a readable size.
+pub const BODY_FLOOR_PX: f32 = 14.0;
 
 /// The gap between two blocks of rules text, in lines of it.
 pub const BLOCK_GAP: f32 = 0.3;
@@ -1082,10 +1082,10 @@ mod tests {
         assert!((hand.name - 0.082).abs() < 1e-3, "{hand:?}");
         assert!((hand.small - 6.0 / 92.0).abs() < 1e-4, "held at 6 px");
         assert!(hand.type_floor < hand.small);
-        let preview = Sizes::overlay(308.0, 0.2);
-        assert!((preview.name - 22.0 / 308.0).abs() < 1e-5, "held at 22 px");
+        let preview = Sizes::overlay(384.0, 0.2);
+        assert!((preview.name - 26.0 / 384.0).abs() < 1e-5, "held at 26 px");
         assert!((preview.name_room - (line_width() - 0.2 - TEXT_INSET)).abs() < 1e-6);
-        assert!((Sizes::overlay(308.0, 0.0).name_room - line_width()).abs() < 1e-6);
+        assert!((Sizes::overlay(384.0, 0.0).name_room - line_width()).abs() < 1e-6);
 
         let table = Regions::new(Sizes::TABLE.depths(1));
         let ui = Regions::new(preview.depths(1));
@@ -1111,24 +1111,24 @@ mod tests {
     /// to reach the floor keeps its own size.
     #[test]
     fn rules_text_steps_down_to_the_floor_and_no_further() {
-        let px = |em: f32| em * 308.0;
+        let px = |em: f32| em * 384.0;
         let height = 0.3;
         // `n` lines of text, and nothing else, at an em.
         let lines = |n: f32| move |em: f32| n * LINE_BOX * em;
         assert!(
-            lines(1.0)(15.0 / 308.0) <= height,
+            lines(1.0)(18.0 / 384.0) <= height,
             "one line fits at its own size"
         );
-        assert!((px(fit_body(308.0, height, lines(1.0))) - 15.0).abs() < 1e-3);
+        assert!((px(fit_body(384.0, height, lines(1.0))) - 18.0).abs() < 1e-3);
 
-        // A box just deep enough for six lines at 13 px, and so too shallow
-        // at 15 and at 14: set at 13.
-        let snug = lines(6.0)(13.0 / 308.0) + 1e-6;
-        let got = px(fit_body(308.0, snug, lines(6.0)));
-        assert!((got - 13.0).abs() < 1e-3, "set at {got} px");
+        // A box just deep enough for six lines at 16 px, and so too shallow
+        // at 18 and at 17: set at 16.
+        let snug = lines(6.0)(16.0 / 384.0) + 1e-6;
+        let got = px(fit_body(384.0, snug, lines(6.0)));
+        assert!((got - 16.0).abs() < 1e-3, "set at {got} px");
 
         // Too deep for the floor: set at the floor, and the box scrolls.
-        let got = px(fit_body(308.0, height, lines(59.0)));
+        let got = px(fit_body(384.0, height, lines(59.0)));
         assert!((got - BODY_FLOOR_PX).abs() < 1e-3, "set at {got} px");
 
         // A hand card's own 6 px is under the floor already.

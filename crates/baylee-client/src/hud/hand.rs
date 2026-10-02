@@ -715,6 +715,13 @@ fn band(panel: Vec2, window: Vec2) -> (Vec2, Vec2) {
     (Vec2::new(low.x, top), Vec2::new(high.x, floor))
 }
 
+/// Preferred preview size before fitting it to the viewport. Keep the base
+/// here so the renderer and edge-placement tests use the same request.
+pub(super) fn preview_want(scale: f32) -> Vec2 {
+    let width = 384.0 * scale.clamp(0.5, 1.75);
+    Vec2::new(width, width * 88.0 / 63.0)
+}
+
 /// How large the preview's picture may be drawn in this window.
 ///
 /// Placement can put a panel anywhere; it cannot make one smaller than it is,

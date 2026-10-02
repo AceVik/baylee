@@ -473,3 +473,14 @@ Rechecked the policy/FAQ and Scryfall page quoted above: “Don’t mess with th
 legal notices in our stuff.” and “Do not cover, crop, or clip off the copyright
 or artist name on card images.” Existing fonts, attribution and notices apply;
 no new asset licence or exception is introduced.
+
+
+Readability review (2026-10-02): larger previews, text and less-overlapping
+rows change layout only, using the existing fonts and symbols under their
+recorded licences. The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were rechecked: “Don’t mess with the legal notices in our stuff.”
+[Scryfall API/image terms](https://scryfall.com/docs/api), retrieved directly,
+require “Do not cover, crop, or clip off the copyright or artist name on card images.”
+The preview still fits the entire card at its original aspect ratio; native
+QA includes its bottom artist/copyright line. No new asset, symbol or legal
+exception is introduced.

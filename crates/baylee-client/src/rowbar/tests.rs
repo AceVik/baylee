@@ -110,7 +110,7 @@ fn in_frame(slot: &SeatSlot, lane: LaneKind, at: Vec2) -> (f32, f32) {
     (off.dot(along), off.dot(slot.forward()))
 }
 
-/// A duel's bar is a hairline in the seam under its own row, clear of the
+/// A duel's bar lies in the seam under its own row, clear of the
 /// row's cards and of the next row's; a ring's three bars stand one behind
 /// another in the mat's outer margin, clear of every row.
 #[test]
@@ -222,4 +222,17 @@ fn only_a_row_that_scrolls_has_a_bar() {
     app.insert_resource(long_rows(2, 3));
     app.update();
     assert!(parts(&mut app).is_empty(), "a row that fits keeps its bar");
+}
+
+#[test]
+fn a_wide_duels_scrollbar_uses_its_clearance_instead_of_a_subpixel_hairline() {
+    for aspect in [1.4, 1.8, 2.4] {
+        let layout = TableLayout::new(&[PlayerId::new(0), PlayerId::new(1)], aspect, None);
+        for slot in &layout.slots {
+            let [_, grab, track, _] = lay(&layout, slot, LaneKind::Creatures, 0..30, 130, 100);
+            assert!(track.depth >= 0.06);
+            assert!(track.depth <= grab.depth);
+            assert!(track.depth <= slot.lane_height() - CARD_HEIGHT);
+        }
+    }
 }

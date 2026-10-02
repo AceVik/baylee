@@ -1556,14 +1556,14 @@ pub(crate) mod tests {
         wordy.body = vec![TextBlock::Rules("Flying. ".repeat(30))];
         let fitted = lay(&wordy, 308.0).body.expect("a full face") * 308.0;
         assert!(
-            (textface::BODY_FLOOR_PX..15.0).contains(&fitted),
+            (textface::BODY_FLOOR_PX..18.0).contains(&fitted),
             "{fitted}"
         );
         let own = lay(&creature("Elves", "Creature — Elf"), 308.0)
             .body
             .expect("a full face")
             * 308.0;
-        assert!((own - 15.0).abs() < 1e-3, "{own}");
+        assert!((own - 17.864).abs() < 1e-3, "{own}");
     }
 
     /// The rules text is drawn in the font the fit measured it in, at the
@@ -1790,7 +1790,7 @@ pub(crate) mod tests {
         let (mut fits, mut stepped) = (0, 0);
         for index in hardest_first().into_iter().take(40) {
             let (face, plate) = pool_face(index).expect("a pool card");
-            for width in [231.0, 308.0, 372.0] {
+            for width in [231.0, 384.0, 480.0] {
                 let m = measure(&mut app, &fonts, &face, width, plate);
                 if m.fits {
                     fits += 1;
@@ -1819,7 +1819,7 @@ pub(crate) mod tests {
         let (mut app, fonts) = layout_app();
         let cards: Vec<(CardFace, u32)> =
             hardest_first().into_iter().filter_map(pool_face).collect();
-        for width in [231.0, 308.0, 372.0] {
+        for width in [231.0, 384.0, 480.0] {
             let (mut over, mut own, mut worst) = (0, 0, 0.0_f32);
             let mut wrong = Vec::new();
             for (face, plate) in &cards {

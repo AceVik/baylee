@@ -82,13 +82,11 @@ pub const STAGE_STEP: f32 = CARD_HEIGHT * 0.5;
 pub const CARD_SPAN: f32 = CARD_HEIGHT;
 /// Gap between cards in a comfortably filled lane.
 pub const CARD_GAP: f32 = 0.12;
-/// How much of a card must stay visible when a lane fans: a third (the
-/// owner, 25.09: "at least 33% of each card stays visible").
-///
-/// Below that a row does not fan further but scrolls
-/// ([`LanePacking::window`]). It was 0.26, the point where the name and the
-/// power/toughness box are both gone, until rows could scroll.
-pub const MIN_VISIBLE_FRACTION: f32 = 0.33;
+/// How much of an upright card stays visible in a crowded row: two thirds.
+/// This exceeds the owner's minimum of 33% while keeping names, art and
+/// state marks distinguishable. Beyond this bound the row scrolls instead
+/// of compressing more cards into unreadable slivers.
+pub const MIN_VISIBLE_FRACTION: f32 = 2.0 / 3.0;
 
 /// Which row of a seat's board a permanent belongs to.
 ///
