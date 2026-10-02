@@ -380,6 +380,13 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                if let Some(PlanKind::ChooseOpponent { object }) = self.pending_plan {
+                    self.pending_plan = None;
+                    if let Some(obj) = self.state.object_mut(object) {
+                        obj.set_chosen_opponent(Some(chosen));
+                    }
+                    return Ok(());
+                }
                 // The graveyard an activation's targets come from; the
                 // target question follows, narrowed to it.
                 if let Some(PlanKind::ChooseActivationGraveyard {
@@ -870,6 +877,9 @@ impl<L: CardLookup> Engine<L> {
                         // queue and popping again would take the trigger
                         // behind it.
                         self.push_synthetic_trigger_with_targets(&trigger, targets);
+                    }
+                    PlanKind::ChooseOpponent { .. } => {
+                        unreachable!("opponent plans are answered via ChoosePlayer")
                     }
                     PlanKind::ChooseSubtype { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")

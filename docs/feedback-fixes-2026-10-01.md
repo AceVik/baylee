@@ -738,3 +738,50 @@ Windows/Vulkan feedback report remains open pending an affected-renderer check.
 
 Final workspace all-targets clippy passes after the native UI corrections
 (/private/tmp/baylee-alpha-final-clippy.log). No push or deployment was made.
+
+
+## Alpha milestone: Black Vise (2026-10-02, 08:06 continuation)
+
+Fresh feedback inventory: 50 resolved, one new, with no new actionable reports.
+The Windows/Vulkan RTX 4070 Ti visual report remains open: its old build predates
+our integer-noise correction, but the affected renderer is unavailable for the
+required live verification.
+
+Black Vise now chooses a living opponent as it enters, remembers that seat and
+triggers only on that player's upkeep. Damage uses the current hand size on
+resolution, floored at zero. The choice is public, survives control changes and
+is cleared on leaving the battlefield; reentry chooses again. Five played-card
+tests cover low/threshold/large hands, controller/teammate rejection, distinct
+opponents' upkeeps, destroying the Vise and drawing in response, and bounce/recast.
+The host announces the choice to every seat. Snapshot hashes, loop detection and
+board grouping distinguish different choices.
+
+The choice uses an existing sparse rider instead of enlarging every game object.
+The first direct-field version failed the 312-byte size budget at 320 bytes;
+the final storage retains 312 bytes and passes both unchanged footprint tests.
+All 4283 engine unit tests pass (two preexisting ignores), together with its
+all-target benchmark smoke runs. Full `xtask codegen --check` is up to date;
+`xtask validate` accepts all 2955 cards. Earlier regression checks pass all 198 AI,
+129 card, 59 DSL and 1180 client-core unit tests, plus 36 view tests.
+
+Native play chose the house opponent and displayed the compact “Haus-KI” badge
+beside the artifact. The first opponent upkeep reduced its life from 40 to 37
+for seven cards. Screenshots: /private/tmp/baylee-vise-choice.png,
+baylee-vise-label.png and baylee-vise-damage.png. Live QA also found a chooser
+naming mismatch (“Solide 1” versus the table's “Haus-KI”); the chooser now shares
+the table's naming function, with 26 passing choice tests.
+
+Four Alpha Partial cards remain: Balance, Gloom, Mana Flare and Cyclopean Tomb.
+The next historical set has not started. The independently reproduced baseline
+seat selfplay wake-count failure documented above remains unchanged. No push or
+deployment was made.
+
+Final storage/UI validation: 197 host unit tests and all 40 host integration
+scenarios pass (two preexisting unit ignores). Workspace all-targets clippy and
+the native dev-control build pass; the build retains the existing nonfatal
+macOS large-unwind-section linker warning. Logs: /private/tmp/baylee-vise-final-engine.log,
+baylee-vise-final-host.log, baylee-vise-choice-tests.log,
+baylee-vise-final-clippy.log and baylee-vise-codegen-check.log.
+
+The final native build confirms the corrected chooser label “Haus-KI” before
+selection: /private/tmp/baylee-vise-choice-final.png.

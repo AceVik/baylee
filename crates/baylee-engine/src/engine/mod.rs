@@ -543,6 +543,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing an opponent as a permanent enters (Black Vise).
+    ChooseOpponent {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// Choosing a card name as a permanent enters (Pithing Needle).
     ChooseCardName {
         /// The entering permanent.
@@ -1433,6 +1438,7 @@ impl<L: CardLookup> Engine<L> {
                         | PlanKind::ChooseSubtype { .. }
                         | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
+                        | PlanKind::ChooseOpponent { .. }
                         | PlanKind::IntrinsicMana { .. }
                         | PlanKind::PlayLandFace { .. }
                 )

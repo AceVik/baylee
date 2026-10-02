@@ -1019,6 +1019,7 @@ pub(crate) mod tests {
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
             chosen_name: None,
+            chosen_opponent: None,
             unlocked_doors: None,
             suspended: false,
             token: None,

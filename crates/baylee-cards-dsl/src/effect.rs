@@ -351,6 +351,13 @@ pub enum Amount {
     /// read this one as positive, which is a card that prints `-X/-X` and
     /// hands out `+X/+X`.
     Negated(&'static Amount),
+    /// Subtract a constant from a nonnegative amount, with zero as the floor.
+    SaturatingSub {
+        /// The amount being reduced.
+        base: &'static Amount,
+        /// The constant subtracted.
+        subtract: u32,
+    },
 }
 
 impl Amount {
@@ -389,6 +396,8 @@ pub enum ZoneSel {
     GraveyardAll,
     /// Your hand.
     HandYou,
+    /// The hand of the player whose turn it is.
+    HandActivePlayer,
 }
 
 /// Which colors a mana effect may produce.

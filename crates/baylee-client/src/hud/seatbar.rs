@@ -920,7 +920,7 @@ fn swatch(
 /// What a seat is called, on its bar and on its button in the players' strip
 /// ([`crate::hud::ledge`]'s `players`, #264): one function, so the two never
 /// name one seat two ways.
-pub(in crate::hud) fn called(
+pub(crate) fn called(
     lang: Lang,
     view: &PlayerView,
     statics: Option<&GameStatic>,

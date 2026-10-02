@@ -2337,3 +2337,34 @@ land type"; both are convention tests that fire on a first try.
   `codegen --tables` fail after writing partial ability-line data. Refreshing
   with `xtask scryfall-cache` (2955/2955) and regenerating twice restored the
   full output; the final diff only adds these two cards' ability lines.
+
+
+## Alpha Black Vise (Codex, 2026-10-02)
+
+- **An entry choice is not a target.** `ChooseOpponent` goes through the entry
+  modifier queue and offers living opponents through the shared relationship
+  evaluator. It must not borrow the casting wizard or target legality checks.
+  The four-seat scenario rejects the controller and teammate and distinguishes
+  the two opponents' upkeeps.
+- **Remember the choice as permanent state.** A separate chosen-opponent rider
+  clears when the permanent leaves, participates in snapshot and loop hashes,
+  reaches every seat and separates board groups. The ordinary spell-target
+  `chosen_player` would conflate two different rules facts.
+- **Damage reads the hand when resolving.** The test destroys the Vise and casts
+  Ancestral Recall in response: the already-stacked trigger still deals six for
+  ten cards. Separate scenarios cover zero/four/seven cards before the draw step
+  and a new choice after bouncing and recasting the artifact.
+- **Preserve test mana deliberately.** `cast_from_hand` taps every mana source.
+  A response test must pay the initial artifact from one land explicitly so it
+  still has mana during the opponent's upkeep; otherwise the failure tests its
+  fixture rather than its rule.
+
+- **Rare choices must not enlarge every AI search object.** A direct optional
+  field raised `GameObject` from 312 to 320 bytes. The existing sparse rider
+  list stores the choice with no base-size increase; both footprint tests now
+  pass with the original budget. Explicit rider hashing and the loop signature
+  still distinguish the choice.
+- **Compare chooser names with the board during live QA.** The raw roster name
+  localized the bot difficulty as “Solide 1”, while the table used “Haus-KI”.
+  The player chooser now shares the table's naming function when its view is
+  available; a regression test uses the real difficulty-based roster name.

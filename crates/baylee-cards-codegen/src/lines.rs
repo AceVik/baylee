@@ -619,7 +619,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // of it that cannot be phrased otherwise: "At the beginning of your
         // upkeep", "… of your draw step", "… of your end step", "At the
         // beginning of combat on your turn".
-        T::StepBegin { step, .. } => match step {
+        T::StepBegin { step, .. } | T::StepBeginChosenOpponent { step } => match step {
             StepKind::Upkeep => &["upkeep"],
             StepKind::Draw => &["draw step"],
             StepKind::CombatBegin => &["beginning of combat"],

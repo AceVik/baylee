@@ -528,6 +528,8 @@ pub enum EnterModifier {
     /// "As this enters, choose a creature type" (Roaming Throne,
     /// Reflections of Littjara, Cavern of Souls).
     ChooseSubtype,
+    /// As this permanent enters, choose an opponent (Black Vise).
+    ChooseOpponent,
     /// "As this enters, choose a basic land type" (Phantasmal Terrain): one
     /// of the five CR 205.3i names, kept where [`Self::ChooseSubtype`] keeps
     /// its answer, and read back by [`crate::Modifier::SetLandTypeToChosen`].

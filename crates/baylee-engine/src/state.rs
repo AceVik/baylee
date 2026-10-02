@@ -2857,6 +2857,7 @@ impl GameState {
                 // (CR 400.7): a Pithing Needle bounced and cast again names
                 // again, and nothing in between names anything.
                 obj.chosen_name = None;
+                obj.set_chosen_opponent(None);
                 // A Room's designations are the permanent's (CR 709.5c), and
                 // its face was the half they left showing. The card that
                 // arrives is the card, left half first, and `original_base`
@@ -3867,6 +3868,7 @@ fn hash_object_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(Ob
     h.u8(obj.kind as u8);
     h.u8(obj.face_index);
     h.u8(obj.doors.bits());
+    h.u8(obj.chosen_opponent().map_or(255, PlayerId::get));
     h.boolean(obj.prototyped);
     match &obj.card {
         Some(c) => {
@@ -4231,6 +4233,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(p.get());
             }
             Rider::Escaped => h.u8(16),
+            Rider::ChosenOpponent(p) => {
+                h.u8(17);
+                h.u8(p.get());
+            }
         }
     }
     // What the spell or ability on the stack was cast or put there with:
@@ -5231,6 +5237,16 @@ mod tests {
     }
 
     #[test]
+    fn chosen_opponent_changes_the_loop_signature() {
+        let (mut state, id) = hash_fixture();
+        let before = state.loop_signature();
+        fixture_object(&mut state, id).set_chosen_opponent(Some(PlayerId::new(1)));
+        assert_ne!(before, state.loop_signature());
+        fixture_object(&mut state, id).set_chosen_opponent(None);
+        assert_eq!(before, state.loop_signature());
+    }
+
+    #[test]
     fn turn_start_history_is_part_of_the_loop_signature() {
         let mut state = GameState::from_preset(&make_preset(9), &RegistryLookup).unwrap();
         let before = state.loop_signature();
@@ -5511,6 +5527,9 @@ mod tests {
             }),
             ("chosen_subtype", |s, id| {
                 fixture_object(s, id).chosen_subtype = Some(SubtypeId::new(1));
+            }),
+            ("chosen_opponent", |s, id| {
+                fixture_object(s, id).set_chosen_opponent(Some(PlayerId::new(1)));
             }),
             ("chosen_color", |s, id| {
                 fixture_object(s, id).chosen_color = Some(ManaColor::Blue);

@@ -349,6 +349,9 @@ pub fn amount(
         Amount::Plus { base, offset } => {
             self::amount(base, state, you, this, x).saturating_add(*offset)
         }
+        Amount::SaturatingSub { base, subtract } => {
+            self::amount(base, state, you, this, x).saturating_sub(*subtract)
+        }
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
             x.unwrap_or(0)
@@ -423,34 +426,47 @@ pub fn amount(
             .get(you.get() as usize)
             .copied()
             .unwrap_or(0),
-        Amount::CountOf { filter, zone } => {
-            let objects: Vec<ObjectId> = match zone {
-                ZoneSel::Battlefield => state.battlefield_view(),
-                ZoneSel::LibraryYou => state.zones.list(ZoneLocation::Library(you)).clone(),
-                ZoneSel::GraveyardYou => state.zones.list(ZoneLocation::Graveyard(you)).clone(),
-                ZoneSel::HandYou => state.zones.list(ZoneLocation::Hand(you)).clone(),
-                ZoneSel::GraveyardAll => state
-                    .players
-                    .iter()
-                    .flat_map(|p| {
-                        state
-                            .zones
-                            .list(ZoneLocation::Graveyard(p.id))
-                            .iter()
-                            .copied()
-                    })
-                    .collect(),
-            };
-            objects
-                .iter()
-                .filter(|id| {
-                    state
-                        .object(**id)
-                        .is_some_and(|o| matches(filter, state, o, you, this))
-                })
-                .count() as u32
-        }
+        Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, this),
     }
+}
+
+/// Counts matching objects in the selected zone from this ability's perspective.
+fn count_in_zone(
+    filter: &Filter,
+    zone: ZoneSel,
+    state: &GameState,
+    you: PlayerId,
+    this: ObjectId,
+) -> u32 {
+    let objects: Vec<ObjectId> = match zone {
+        ZoneSel::Battlefield => state.battlefield_view(),
+        ZoneSel::LibraryYou => state.zones.list(ZoneLocation::Library(you)).clone(),
+        ZoneSel::GraveyardYou => state.zones.list(ZoneLocation::Graveyard(you)).clone(),
+        ZoneSel::HandActivePlayer => state
+            .zones
+            .list(ZoneLocation::Hand(state.turn.active))
+            .clone(),
+        ZoneSel::HandYou => state.zones.list(ZoneLocation::Hand(you)).clone(),
+        ZoneSel::GraveyardAll => state
+            .players
+            .iter()
+            .flat_map(|p| {
+                state
+                    .zones
+                    .list(ZoneLocation::Graveyard(p.id))
+                    .iter()
+                    .copied()
+            })
+            .collect(),
+    };
+    objects
+        .iter()
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| matches(filter, state, o, you, this))
+        })
+        .count() as u32
 }
 
 /// Whether a card's stated [`Condition`] holds right now.

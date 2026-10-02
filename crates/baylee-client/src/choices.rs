@@ -317,7 +317,21 @@ pub fn options(
                 // pickable, so `seat_name` numbers it rather than dropping
                 // the row — in the words a player is shown everywhere else,
                 // which this list used to spell `#7`.
-                .map(|(i, p)| ChoiceOption::text(i, seat_name(lang, statics, *p)))
+                .map(|(i, p)| {
+                    let label = names.view.map_or_else(
+                        || seat_name(lang, statics, *p),
+                        |view| {
+                            let role = statics
+                                .and_then(|s| s.seats.iter().find(|seat| seat.player == *p))
+                                .map_or(
+                                    baylee_client_core::board::SeatRole::Present,
+                                    baylee_client_core::board::SeatRole::of,
+                                );
+                            crate::hud::seatbar::called(lang, view, statics, *p, role)
+                        },
+                    );
+                    ChoiceOption::text(i, label)
+                })
                 .collect(),
         ),
         Prompt::CastMode { object, options } => Some(
@@ -685,6 +699,41 @@ mod tests {
         // numbered in the words the rest of the interface numbers a seat in,
         // which this row used to spell `#7`.
         assert_eq!(rows[1].label, "Seat 7");
+    }
+
+    #[test]
+    fn player_choices_use_the_same_localized_house_name_as_the_table() {
+        let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let mut statics = GameStatic {
+            decision_secs: None,
+            reconnect_secs: None,
+            view_version: baylee_view::VIEW_VERSION,
+            game_id: "g".into(),
+            your_seat: PlayerId::new(0),
+            seats: vec![baylee_view::SeatIdentity {
+                player: PlayerId::new(1),
+                display_name: String::new(),
+                is_ai: true,
+                away: false,
+                team: None,
+            }],
+            prints: vec![],
+        };
+        statics.seats[0].display_name = "steady 1".into();
+        let rows = options(
+            &Prompt::ChoosePlayer {
+                options: vec![statics.seats[0].player],
+            },
+            Lang::De,
+            Some(&statics),
+            "",
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(rows[0].label, "Haus-KI");
     }
 
     #[test]

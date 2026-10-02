@@ -2753,3 +2753,20 @@ No public reveal event is emitted and no card changes zones. The host exposes th
 hand only through the deciding seat's temporary `looking_at`; acknowledgement
 removes that access. Protocol 9 adds the prompt. Clients show the cards without
 selection marks, a selection tally or a duplicate Cancel button.
+
+
+### An opponent chosen on entry
+
+`EnterModifier::ChooseOpponent` asks the controller to choose among their living
+opponents. It is an entry choice, not targeting. The answer is retained as the
+permanent's `chosen_opponent`, survives a control change and clears when it leaves
+the battlefield. `Trigger::StepBeginChosenOpponent { step }` observes only that
+seat's step. Black Vise uses the active player for its upkeep effect, so removing
+the source after the trigger has stacked does not lose the affected player.
+
+`ZoneSel::HandActivePlayer` counts the current active player's hand.
+`Amount::SaturatingSub { base, subtract }` reduces a nonnegative amount by a fixed
+constant, with zero as the floor. Counts are evaluated on resolution: Black Vise
+uses four as the subtraction and sees cards drawn or discarded in response.
+The public `chosen_opponent` view field also distinguishes otherwise identical
+permanents for grouping, and the client labels the chosen seat by its table name.

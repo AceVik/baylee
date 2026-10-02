@@ -199,17 +199,31 @@ fn estimated_size(label: &str, charge: bool) -> Vec2 {
 }
 
 fn wanted_labels(duel: &Duel, lang: Lang) -> Vec<(ObjectId, String, bool)> {
-    duel.view
-        .as_ref()
-        .into_iter()
-        .flat_map(|view| &view.battlefield)
+    let Some(view) = duel.view.as_ref() else {
+        return Vec::new();
+    };
+    view.battlefield
+        .iter()
         .filter_map(|object| {
             let detail = duel.hovered == Some(object.id);
             let icon = !detail
                 && object.counters.iter().any(|counter| {
                     counter.kind == baylee_view::CounterKind::Charge && counter.count > 0
                 });
-            words(object, lang, detail).map(|label| (object.id, label, icon))
+            let mut parts: Vec<_> = words(object, lang, detail).into_iter().collect();
+            if let Some(opponent) = object.chosen_opponent {
+                parts.insert(
+                    0,
+                    super::seatbar::called(
+                        lang,
+                        view,
+                        duel.statics.as_ref(),
+                        opponent,
+                        super::seatbar::role_of(duel, opponent),
+                    ),
+                );
+            }
+            (!parts.is_empty()).then(|| (object.id, parts.join(" · "), icon))
         })
         .collect()
 }
@@ -297,6 +311,32 @@ fn place(node: &mut Node, at: Vec2) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_chosen_opponent_label_uses_the_actual_seat_name() {
+        use baylee_client_core::test_support::ViewBuilder;
+        let mut object = crate::registry_printed(1, 0, "Black Vise");
+        object.chosen_opponent = Some(baylee_core::ids::PlayerId::new(1));
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![object])
+            .build();
+        let mut duel = Duel::default();
+        duel.receive_view(view);
+        let labels = wanted_labels(&duel, Lang::En);
+        assert_eq!(labels.len(), 1);
+        assert!(
+            labels[0].1.contains('1'),
+            "fallback still identifies the chosen seat"
+        );
+        // The named table, as sent with a real game, replaces the numbered fallback.
+        let mut statics = baylee_client_core::test_support::statics(1);
+        let mut opponent = statics.seats[0].clone();
+        opponent.player = baylee_core::ids::PlayerId::new(1);
+        opponent.display_name = "Mira".into();
+        statics.seats.push(opponent);
+        duel.statics = Some(statics);
+        assert_eq!(wanted_labels(&duel, Lang::En)[0].1, "Mira");
+    }
 
     #[test]
     fn charge_counters_are_visible_and_localized_without_a_chosen_type() {

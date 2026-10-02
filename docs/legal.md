@@ -550,3 +550,9 @@ this decision. For this task, the owner-approved treatment is analogous to the
 existing tolerated-use exceptions: continue the non-commercial rules engine and
 card implementations while preserving notices, attribution and asset restrictions.
 The temporary hold recorded above is lifted by this explicit owner instruction.
+
+
+The Black Vise completion (2026-10-02) follows that owner decision. Its new
+client annotation is ordinary seat-name text in the existing licensed fonts;
+full card images, notices and attribution use the unchanged rendering path.
+No artwork, symbol or font asset is added.

@@ -248,6 +248,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
         chosen_subtype: obj.chosen_subtype,
+        chosen_opponent: obj.chosen_opponent(),
         chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
             card: named.card(),
             face: named.face(),
@@ -1569,6 +1570,55 @@ mod tests {
                     .iter()
                     .filter(|o| o.id != card)
                     .all(|o| o.chosen_name.is_none())
+            );
+        }
+    }
+
+    #[test]
+    fn black_vise_announces_its_chosen_opponent_to_every_seat() {
+        let vise = baylee_cards::decks::by_name("Black Vise").unwrap();
+        let mut preset = mixed_print_preset();
+        preset.seats.push(preset.seats[1].clone());
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            card: vise,
+            print: PrintRef::new(0),
+        }]);
+        preset.seats[0].starting_battlefield = vec![DeckEntry {
+            card: island(),
+            print: PrintRef::new(0),
+        }];
+        let mut engine = Engine::new(&preset, Registry).unwrap();
+        let view = settle(&mut engine, None);
+        let me = PlayerId::new(0);
+        engine
+            .apply(
+                me,
+                PlayerAction::ActivateManaAbility {
+                    source: view.battlefield[0].id,
+                },
+            )
+            .unwrap();
+        let card = view.hand.iter().find(|o| o.card.index == vise).unwrap().id;
+        engine.apply(me, PlayerAction::CastSpell { card }).unwrap();
+        for _ in 0..6 {
+            if let Pending::Priority { player, .. } = engine.pending() {
+                engine.apply(*player, PlayerAction::PassPriority).unwrap();
+            } else {
+                break;
+            }
+        }
+        let chosen = PlayerId::new(2);
+        engine
+            .apply(me, PlayerAction::ChoosePlayer(chosen))
+            .unwrap();
+        for seat in [me, PlayerId::new(1), chosen] {
+            let view = seen_by(&engine, seat);
+            assert_eq!(view.object(card).unwrap().chosen_opponent, Some(chosen));
+            assert!(
+                view.battlefield
+                    .iter()
+                    .filter(|o| o.id != card)
+                    .all(|o| o.chosen_opponent.is_none())
             );
         }
     }

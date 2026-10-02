@@ -796,6 +796,9 @@ pub enum Rider {
     /// field because `GameObject` had no byte to spare for it
     /// (`tests/footprint.rs`), and a triggered ability carries no other.
     EventPlayer(PlayerId),
+    /// Opponent chosen as this permanent entered; not a target. Stored in
+    /// the sparse rider list to preserve the per-object size budget.
+    ChosenOpponent(PlayerId),
     /// Cast from a graveyard with escape (CR 702.138b): the spell, and the
     /// permanent it becomes, "escaped". Kept and given up as
     /// [`Rider::Dashed`] is.
@@ -863,6 +866,7 @@ impl Rider {
             | Self::ExileInsteadOfGraveyard
             | Self::Uncounterable
             | Self::Prepared
+            | Self::ChosenOpponent(_)
             | Self::SpellCopy
             // How the spell was cast, written before it moves to the stack:
             // a dashed spell cast out of exile (an impulse's permission)
@@ -1281,6 +1285,24 @@ impl GameObject {
         obj.targets = targets;
         obj.zone = Zone::Stack;
         obj
+    }
+
+    /// Opponent chosen as this permanent entered, if any.
+    #[must_use]
+    pub fn chosen_opponent(&self) -> Option<PlayerId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenOpponent(player) => Some(*player),
+            _ => None,
+        })
+    }
+
+    /// Replaces the entry choice, or clears it when the permanent leaves.
+    pub fn set_chosen_opponent(&mut self, opponent: Option<PlayerId>) {
+        self.riders
+            .retain(|rider| !matches!(rider, Rider::ChosenOpponent(_)));
+        if let Some(player) = opponent {
+            self.riders.push(Rider::ChosenOpponent(player));
+        }
     }
 
     /// Whether this spell or ability targets `id` through **either**

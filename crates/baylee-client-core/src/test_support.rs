@@ -30,6 +30,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         subtypes: SubtypeSet::EMPTY,
         chosen_subtype: None,
         chosen_name: None,
+        chosen_opponent: None,
         unlocked_doors: None,
         suspended: false,
         token: None,

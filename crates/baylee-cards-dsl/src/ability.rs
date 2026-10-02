@@ -491,6 +491,11 @@ pub enum Trigger {
         /// Whose turn.
         whose: crate::effect::PlayerRel,
     },
+    /// Beginning of a step of the opponent chosen as this permanent entered.
+    StepBeginChosenOpponent {
+        /// The step to observe.
+        step: StepKind,
+    },
     /// A state trigger (CR 603.8): "When you control no Islands, sacrifice
     /// this creature." It triggers whenever the condition holds, asked with
     /// the source as `this` and its controller as "you", and not again

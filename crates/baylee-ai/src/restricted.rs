@@ -88,6 +88,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         subtypes,
         chosen_subtype: None,
         chosen_name: None,
+        chosen_opponent: None,
         unlocked_doors: None,
         suspended: false,
         token: None,

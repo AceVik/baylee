@@ -1690,6 +1690,18 @@ fn matches(
             is_noncreature && count == 1
         }
         (
+            Trigger::StepBeginChosenOpponent { step },
+            GameEvent::StepChanged {
+                step: began_step, ..
+            },
+        ) => {
+            began_step.kind() == Some(*step)
+                && state
+                    .object(source)
+                    .and_then(crate::object::GameObject::chosen_opponent)
+                    == Some(state.turn.active)
+        }
+        (
             Trigger::StepBegin { step, whose },
             GameEvent::StepChanged {
                 step: began_step, ..

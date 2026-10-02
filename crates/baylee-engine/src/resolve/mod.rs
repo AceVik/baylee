@@ -965,6 +965,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         // A wrapper around one of the above has to reach it through this
         // reader and not through `eval::amount`, which has no stack object.
         Amount::Plus { base, offset } => amount2(base, state, you, res).saturating_add(*offset),
+        Amount::SaturatingSub { base, subtract } => {
+            amount2(base, state, you, res).saturating_sub(*subtract)
+        }
         other => eval::amount(other, state, you, res.source, res.x),
     }
 }

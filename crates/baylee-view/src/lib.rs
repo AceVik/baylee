@@ -128,6 +128,7 @@ use serde::{Deserialize, Serialize};
 /// the log line an attacker joining a band writes, [`LogEvent::Banded`].
 /// Compatible addition: `SeatView::no_max_hand_size` defaults to false when
 /// absent; older readers ignore the additional JSON field.
+/// Compatible addition: the public chosen opponent defaults to absent.
 pub const VIEW_VERSION: u32 = 44;
 
 // ---------------------------------------------------------------- turn shape
@@ -741,6 +742,9 @@ pub struct PublicObject {
     /// Public: the choice is announced as it is made.
     #[serde(default)]
     pub chosen_name: Option<NamedFace>,
+    /// Opponent publicly chosen as this permanent entered (Black Vise).
+    #[serde(default)]
+    pub chosen_opponent: Option<PlayerId>,
     /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
     /// half is unlocked; `None` for anything that is not a Room on the
     /// battlefield. Public, as the designations are. A locked half has no
@@ -1019,6 +1023,7 @@ impl PublicObject {
             subtypes: self.subtypes,
             chosen_subtype: self.chosen_subtype,
             chosen_name: self.chosen_name,
+            chosen_opponent: self.chosen_opponent,
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
             colors: self.colors,
@@ -1067,6 +1072,7 @@ pub struct ObjectSummaryKey {
     /// Two Needles naming different cards are two different cards to look
     /// at, and a pile shows one label.
     chosen_name: Option<NamedFace>,
+    chosen_opponent: Option<PlayerId>,
     /// Two Rooms with different doors open are different cards to act on:
     /// one has a door left to unlock.
     unlocked_doors: Option<[bool; 2]>,
@@ -1103,6 +1109,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.types.hash(state);
         self.chosen_subtype.hash(state);
         self.chosen_name.hash(state);
+        self.chosen_opponent.hash(state);
         self.unlocked_doors.hash(state);
         self.suspended.hash(state);
         self.power.hash(state);
@@ -2407,6 +2414,7 @@ mod tests {
             subtypes: SubtypeSet::EMPTY,
             chosen_subtype: None,
             chosen_name: None,
+            chosen_opponent: None,
             unlocked_doors: None,
             suspended: false,
             token: None,
@@ -2604,6 +2612,22 @@ mod tests {
             b.summary_key(),
             "the back face's name is another name"
         );
+    }
+
+    #[test]
+    fn chosen_opponents_are_public_and_keep_different_vises_apart() {
+        let mut a = obj(1, 0);
+        let mut b = obj(2, 0);
+        a.chosen_opponent = Some(PlayerId::new(1));
+        assert_ne!(a.summary_key(), b.summary_key());
+        b.chosen_opponent = a.chosen_opponent;
+        assert_eq!(a.summary_key(), b.summary_key());
+        b.chosen_opponent = Some(PlayerId::new(2));
+        assert_ne!(a.summary_key(), b.summary_key());
+        let mut json = serde_json::to_value(obj(1, 0)).unwrap();
+        json.as_object_mut().unwrap().remove("chosen_opponent");
+        let decoded: PublicObject = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded.chosen_opponent, None);
     }
 
     #[test]
@@ -2834,6 +2858,9 @@ mod tests {
             ("suspended", |o| o.suspended = true),
             ("chosen_subtype", |o| {
                 o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
+            }),
+            ("chosen_opponent", |o| {
+                o.chosen_opponent = Some(PlayerId::new(1));
             }),
             ("chosen_name", |o| {
                 o.chosen_name = Some(NamedFace {
@@ -3405,8 +3432,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Token provenance is additive and defaults to absent; keep view 44.
-        const RECORDED: (u32, u64) = (44, 0xe94d_aff4_f1e8_b735);
+        // Token provenance and the chosen opponent are additive with defaults; keep view 44.
+        const RECORDED: (u32, u64) = (44, 0x6c0a_aeab_0f82_46c2);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

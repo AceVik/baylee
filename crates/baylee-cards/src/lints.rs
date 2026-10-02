@@ -3322,6 +3322,7 @@ mod tests {
             | EnterModifier::ChooseBasicLandType
             | EnterModifier::ChooseCardName
             | EnterModifier::ChooseColor
+            | EnterModifier::ChooseOpponent
             | EnterModifier::ChooseColorExcept(_)
             | EnterModifier::TappedOrPayLife(_)
             | EnterModifier::TappedUnlessReveal(_) => true,

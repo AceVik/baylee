@@ -1155,6 +1155,7 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::ChooseBasicLandType
                     | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
+                    | EnterModifier::ChooseOpponent
                     | EnterModifier::ChooseColorExcept(_)
                     | EnterModifier::TappedOrPayLife(_)
                     | EnterModifier::TappedUnlessReveal(_) => {
@@ -1208,6 +1209,22 @@ impl<L: CardLookup> Engine<L> {
         false
     }
 
+    /// The entry choice uses opponent relationships, never targeting restrictions.
+    fn ask_enter_opponent(&mut self, id: ObjectId, controller: PlayerId) -> bool {
+        let options =
+            eval::players(PlayerRel::Opponent, &self.state, controller).unwrap_or_default();
+        if options.is_empty() {
+            return false;
+        }
+        self.pending_plan = Some(PlanKind::ChooseOpponent { object: id });
+        self.pending = Pending::ChoosePlayer {
+            player: controller,
+            options,
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
     /// Asks one permanent's as-it-enters question, or settles it without
     /// one when there is nothing to choose; says whether a question is out.
     fn ask_entry_modifier(
@@ -1219,6 +1236,7 @@ impl<L: CardLookup> Engine<L> {
     ) -> bool {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
+            EnterModifier::ChooseOpponent => self.ask_enter_opponent(id, controller),
             EnterModifier::ChooseSubtype | EnterModifier::ChooseBasicLandType => {
                 use baylee_core::generated::subtypes::land::{
                     FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP,

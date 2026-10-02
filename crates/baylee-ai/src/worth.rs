@@ -393,6 +393,9 @@ impl HeuristicAgent {
             Amount::Plus { base, offset } => {
                 self.count(view, origin, *base, aim, x)? + i64::from(offset)
             }
+            Amount::SaturatingSub { base, subtract } => {
+                (self.count(view, origin, *base, aim, x)? - i64::from(subtract)).max(0)
+            }
             Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone)?,
             Amount::DistinctColorsAmong(filter) => i64::from(
                 view.battlefield
@@ -438,13 +441,16 @@ impl HeuristicAgent {
                 view.graveyards.iter().flatten().collect(),
                 ZoneRef::Graveyard,
             ),
+            ZoneSel::HandActivePlayer if matches!(filter, Filter::Any) => {
+                return view.seat(view.active).map(|s| i64::from(s.hand_count));
+            }
             ZoneSel::HandYou if matches!(filter, Filter::Any) => {
                 return i64::try_from(view.hand.len()).ok();
             }
             ZoneSel::LibraryYou if matches!(filter, Filter::Any) => {
                 return view.seat(view.seat).map(|s| i64::from(s.library_count));
             }
-            ZoneSel::HandYou | ZoneSel::LibraryYou => return None,
+            ZoneSel::HandYou | ZoneSel::HandActivePlayer | ZoneSel::LibraryYou => return None,
         };
         objects.into_iter().try_fold(0i64, |n, o| {
             Some(n + i64::from(self.filter_matches(filter, view, o, zone, Some(origin.id))?))

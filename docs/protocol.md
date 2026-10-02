@@ -3,6 +3,13 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Chosen opponent (compatible view-44 addition)
+
+`PublicObject.chosen_opponent` identifies the seat chosen as a permanent entered
+(Black Vise). This is public information, distinct from a spell's targets.
+Absent fields decode as `None`; old clients ignore the added field. Updated
+clients keep different choices in separate board groups and show the seat name.
+
 ## Private hand inspection (protocol 9)
 
 `ChoicePrompt::LookAtHand` suspends resolution until the inspecting player sends
