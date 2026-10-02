@@ -629,3 +629,19 @@ not evidence that the other three were implemented. All seven remain Partial:
 Balance, Gloom, Mana Flare, Power Surge, Black Vise, Cyclopean Tomb and Glasses of
 Urza. Their cast/payment/destination tests do not exercise the unsupported sentences.
 No card is promoted and no next set starts based on that incomplete count.
+
+
+### Alpha behavior-test continuation
+
+Added two independent Gauntlet of Might scenarios: Taiga producing green still
+receives red, including the paused color-choice boundary and correct recipient;
+two Gauntlets stack and lose their power/toughness and mana contributions one at
+a time after Disenchant. Both pass alongside the prior Gauntlet test. The generated
+card implementation is unchanged; seven Alpha Partials remain. Lessons and the
+verified WotC ruling are recorded in docs/llm-learnings.md.
+
+Validation: all 15 `alpha_eval` scenarios pass, including the seven explicitly
+limited cast smoke tests; engine all-targets clippy passes after fixing two
+doc-comment formatting warnings. Logs: /private/tmp/baylee-alpha-eval-tests.log
+and baylee-alpha-gauntlet-clippy.log. No card code, coverage status or generated
+file changed. No push/deployment.

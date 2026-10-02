@@ -2276,3 +2276,26 @@ land type"; both are convention tests that fire on a first try.
 - `reach_main_phase` only walks priority windows. To cross a whole turn,
   use `walk_to_own_main` or an explicit `pass_until` predicate; a harness
   panic at the attackers question is not a card defect.
+
+
+## Alpha verification follow-up (Codex, 2026-10-02)
+
+- **Count Partials from card files, not a hand-written subset.** Seven Alpha
+  files still explicitly refuse sentences: Balance, Gloom, Mana Flare, Power
+  Surge, Black Vise, Cyclopean Tomb and Glasses of Urza. The feedback handoff's
+  later “four” count omitted the last three without any implementation change.
+  Cast/payment/destination smoke tests do not justify promoting those cards.
+- **Exercise both sides of a mana-choice boundary.** Gauntlet of Might's
+  previous behavior test covered basic Mountains. The new Taiga test observes
+  zero mana before the color answer and exactly green + red after choosing
+  green; the opponent controls the artifact, so the recipient is checked too.
+  The WotC ruling dated 2004-10-04 was read directly from Scryfall's rulings API:
+  “Dual lands which have Mountain as one of their types produce an extra red
+  mana when tapped for either color.”
+  Source: https://api.scryfall.com/cards/df3bc33f-23f8-4eb4-a70e-b8b7af5b40f6/rulings
+- **Remove the source through game actions.** Two Gauntlets on opposite sides
+  give both red creatures +2/+2 and a Mountain three red. Disenchant removes
+  them one at a time; subsequent taps yield two, then one red, and creature
+  stats lose exactly one bonus each time. No rule state is edited by the test.
+  Both new scenarios pass; the generated card remains unchanged (original
+  implementation f9db2475, Claude Opus). No coverage status is promoted.
