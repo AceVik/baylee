@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 11 adds authoritative spell cost increases for client/AI planning.
-pub const PROTOCOL_VERSION: u32 = 12;
+/// Version 13 adds counter-amount/retargeting questions and full-width damage logs.
+pub const PROTOCOL_VERSION: u32 = 13;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -236,7 +236,8 @@ mod tests {
         // 10: explicit keep-card choices and public permanent selections.
         // 11: spell cost increases; older clients would plan insufficient mana.
         // 12: explicit land-counter removal choice.
-        assert_eq!(PROTOCOL_VERSION, 12);
+        // 13: counter amounts and retargeting; older clients cannot decode these prompts.
+        assert_eq!(PROTOCOL_VERSION, 13);
     }
 
     #[test]

@@ -355,13 +355,15 @@ fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
     to_main(&mut engine, me());
     float_all(&mut engine, me());
     let ray = cast(&mut engine, RAY);
-    assert!(
-        matches!(engine.pending(), Pending::ChooseNumber { .. }),
-        "X is announced: {:?}",
-        engine.pending()
-    );
+    let Pending::ChooseNumber { min, max, .. } = engine.pending() else {
+        panic!("X must be announced: {:?}", engine.pending());
+    };
+    let announced = *max;
+    assert_eq!(*min, 0);
+    assert!(announced + 1 > engine.state().players[0].mana_pool.total());
+    // The offered X plus the fixed {G} exceeds the pool, testing rollback.
     engine
-        .apply(me(), PlayerAction::ChooseNumber(5))
+        .apply(me(), PlayerAction::ChooseNumber(announced))
         .expect("an X the question offered is taken; the cast is reversed");
     assert_eq!(
         objects(&engine, ZoneLocation::Hand(me()), RAY),

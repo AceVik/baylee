@@ -236,15 +236,7 @@ fn storm_of_saruman_copies_only_the_second_spell() {
         )
         .unwrap();
 
-    let offered = options_offered_including(&mut engine, lieutenant);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![offered[0]],
-            },
-        )
-        .unwrap();
+    // No alternative creature remains: the copy automatically retains its target.
 
     // The copy resolves and the trigger does not fire again: a copy is put on
     // the stack, never cast, so it is not a third spell.

@@ -630,3 +630,15 @@ Earthbind (2026-10-02) follows the recorded owner exception and today's official
 policy review above. Its rules and tests add no assets, font, artwork or corpus
 source files. The policy requirement “Don’t mess with the legal notices in our
 stuff.” remains satisfied by the unchanged complete-image rendering path.
+
+The remaining-25 Alpha completion pass (2026-10-02) follows the same recorded
+owner exception. The [official policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were reread for this pass: “Tell the Community it’s unofficial.” is covered by
+the existing notices. Oracle and rulings are fetched for local verification;
+no image, font, audio or corpus source asset is added. The Scryfall API terms
+page still returns HTTP 403; no fresh successful terms-page read is claimed.
+
+The same pass extends the existing Mana-font rendering path to gameplay
+prompts and error text in `hud/ledge.rs::sentence`, where brace tokens could
+previously appear as literal text. No new font, glyph artwork or external
+asset is added. The recorded owner exception for the Mana font in §2a applies.

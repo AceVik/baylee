@@ -99,7 +99,28 @@ pub fn payment_with(
     spending: ManaSpending,
     prefer: [u16; 6],
 ) -> Option<ManaPool> {
-    let mut symbols: Vec<_> = cost.symbols().collect();
+    payment_restricting_generic(pool, cost, spending, prefer, None)
+}
+
+/// Solves a payment with a restriction on the actual type of some generic
+/// mana. Spending permissions cannot change which actual units satisfy it.
+#[must_use]
+pub fn payment_restricting_generic(
+    pool: &ManaPool,
+    cost: &ManaCost,
+    spending: ManaSpending,
+    prefer: [u16; 6],
+    restriction: Option<(ManaColor, u32)>,
+) -> Option<ManaPool> {
+    let mut reserved = pool.clone();
+    let mut remaining = *cost;
+    if let Some((color, amount)) = restriction {
+        if amount > cost.generic_total() || !reserved.spend(color, u16::try_from(amount).ok()?) {
+            return None;
+        }
+        remaining = cost.with_less_generic(amount);
+    }
+    let mut symbols: Vec<_> = remaining.symbols().collect();
     symbols.sort_by_key(|s| match s {
         ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => {
             (1, 0)
@@ -110,7 +131,7 @@ pub fn payment_with(
         ManaSymbol::Colorless | ManaSymbol::Snow => (0, 0),
         _ => (0, 1),
     });
-    assign(pool.clone(), &symbols, 0, prefer, spending)
+    assign(reserved, &symbols, 0, prefer, spending)
 }
 
 /// `prefer` with one unit of `color` spent.
@@ -745,5 +766,43 @@ mod tests {
         prefer[ManaColor::Blue.index()] = 1;
         let paid = payment_preferring(&pool, &baylee_core::mana!("{W/U}"), false, prefer).unwrap();
         assert_eq!(remaining(&paid), vec![(ManaColor::White, 1)]);
+    }
+    #[test]
+    fn generic_actual_color_restriction_survives_spending_permissions() {
+        let cost = baylee_core::mana!("{2}{B}");
+        let red = pool_of(&[(ManaColor::Red, 3)]);
+        assert!(payment_with(&red, &cost, ManaSpending::ANY_COLOR, [0; 6]).is_some());
+        assert!(
+            payment_restricting_generic(
+                &red,
+                &cost,
+                ManaSpending::ANY_COLOR,
+                [0; 6],
+                Some((ManaColor::Black, 2)),
+            )
+            .is_none()
+        );
+        let mixed = pool_of(&[(ManaColor::Black, 2), (ManaColor::Red, 1)]);
+        let paid = payment_restricting_generic(
+            &mixed,
+            &cost,
+            ManaSpending::ANY_COLOR,
+            [0; 6],
+            Some((ManaColor::Black, 2)),
+        )
+        .unwrap();
+        assert_eq!(paid.total(), 0);
+        assert_eq!(mixed.total(), 3, "probing cannot spend the original pool");
+        assert!(
+            payment_restricting_generic(
+                &mixed,
+                &cost,
+                ManaSpending::EXACT,
+                [0; 6],
+                Some((ManaColor::Black, 2)),
+            )
+            .is_none(),
+            "the printed black pip needs a third black unit without permission"
+        );
     }
 }

@@ -60,7 +60,7 @@ fn flies(engine: &Engine<RegistryLookup>, host: ObjectId) -> bool {
     keywords(engine, host).contains(KeywordSet::FLYING)
 }
 
-fn hits(engine: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(ObjectId, u16)> {
+fn hits(engine: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(ObjectId, u32)> {
     engine
         .journal()
         .entries()

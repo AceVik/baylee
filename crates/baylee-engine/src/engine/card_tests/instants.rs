@@ -2541,10 +2541,14 @@ fn deflecting_swat_moves_one_of_two_targets_and_leaves_the_other() {
     let Some(Pending::ChooseTargets { options, min, .. }) = swatted(&mut engine, p0, curse) else {
         panic!("the Raptor is another legal target, so the Swat asks")
     };
-    assert_eq!(
-        (options, min),
-        (vec![raptor], 0),
-        "the first target: the Raptor, and not the other Elves the second names"
+    assert_eq!(min, 0);
+    assert!(
+        options.contains(&raptor) && options.contains(&elves[1]),
+        "later targets are offered so a final legal swap is possible"
+    );
+    assert!(
+        !options.contains(&elves[0]),
+        "an empty answer keeps this slot's original target"
     );
     engine
         .apply(
@@ -7744,13 +7748,9 @@ fn enrage_pumps_the_target_by_x_until_the_turn_ends() {
                 player, min, max, ..
             } => {
                 assert_eq!(player, p0, "the caster names X");
-                // **Not** bounded by the pool: `cast_wizard` offers up to
-                // `X_CEILING` and validates the mana when the wizard
-                // finishes, because a printed `{X}` has no legality of its
-                // own (CR 601.2b) — the payment is where an unpayable
-                // announcement is refused. So the floor is what this
-                // assertion is about, and the three the Mountains pay is
-                // asserted below, where it is actually spent.
+                // The resource bound can overestimate the X that remains
+                // after fixed costs and later choices. The legal two must
+                // be offered; the actual payment is checked below.
                 assert_eq!(min, 0, "nothing is a legal X");
                 assert!(max >= 2, "the two the Mountains pay is offered: {max}");
                 engine
@@ -20547,12 +20547,11 @@ fn dig_through_time_flashed_back_does_not_offer_itself_to_its_own_delve() {
 /// Heliod's Intervention with an X its pool cannot pay: the X is taken, so is
 /// the player it then names, and the cast is reversed.
 ///
-/// CR 601.2b lets the caster announce any X, and a total cost they cannot
-/// then pay makes the cast illegal: it is reversed (CR 601.2h, 732.1), with
-/// the mana back in the pool and the card back in hand. The arena's net
-/// named X = 50 over five floating mana; the X was taken, and both players
-/// the lifegain mode then offered were refused with "cannot pay the total
-/// cost", a question no answer could leave (its third and fourth cases).
+/// A total cost the caster cannot pay makes the cast illegal: it is reversed
+/// (CR 601.2h, 732.1), with the mana back in the pool and the card back in
+/// hand. Choosing the offered maximum still exceeds the pool once the
+/// spell's fixed {W}{W} is included, so the resource-bounded X menu must
+/// preserve the same rollback behavior.
 #[test]
 fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
     let p0 = PlayerId::new(0);
@@ -20569,7 +20568,10 @@ fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
     for _ in 0..12 {
         match engine.pending().clone() {
             Pending::ChooseNumber { player, max, .. } => {
-                assert!(max > floating, "the range ends where the pool does: {max}");
+                assert!(
+                    max > floating.saturating_sub(2),
+                    "the offered X plus fixed {{W}}{{W}} must exceed the pool: {max} over {floating}"
+                );
                 engine
                     .apply(player, PlayerAction::ChooseNumber(max))
                     .expect("an X the question offers is an answer");
@@ -23168,7 +23170,7 @@ fn fork() -> CardIndex {
 /// spells are legal targets — a creature spell on the stack underneath the
 /// Giant Growth this test points Fork at is never offered. "May" (CR
 /// 707.10c: "The player may leave any number of the targets unchanged")
-/// means the original target is still on the retarget menu even though
+/// means an empty answer retains the original target even though
 /// Fork's own caster goes on to choose a different creature (CR 707.10c),
 /// and both effects land independently: the original's own target gets
 /// its own +3/+3 and the copy's new target gets its own, which is only
@@ -23252,7 +23254,7 @@ fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
         panic!("the copy asks to be retargeted, got {:?}", engine.pending())
     };
     assert_eq!(player, p1, "the copy's controller picks its new target");
-    assert_eq!((min, max), (1, 1), "one target, asked once");
+    assert_eq!((min, max), (0, 1), "one target; an empty answer keeps it");
     let copy = top_of_stack(&engine);
     assert_ne!(
         copy, growth_spell,
@@ -23274,9 +23276,8 @@ fn fork_copies_an_instant_and_its_caster_retargets_the_copy() {
         "the other creature is a legal new target: {options:?}"
     );
     assert!(
-        options.contains(&qc_a),
-        "CR 707.10c: \"the player may leave any number of the targets \
-         unchanged\" — the original target is still on the menu: {options:?}"
+        !options.contains(&qc_a),
+        "the original target is kept by an empty answer: {options:?}"
     );
     engine
         .apply(

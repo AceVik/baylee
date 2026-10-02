@@ -679,6 +679,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // vocabulary has no such modifier, `BecomeCopyOf` being layer 1 and
         // applied before any of this. The day a text-changing modifier
         // exists, `Named` is what leaves this list.
+        Filter::HasManaAbility => matches!(layer, Layer::Ability | Layer::Type),
         Filter::Any
         | Filter::Named(_)
         | Filter::This

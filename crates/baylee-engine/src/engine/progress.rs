@@ -2391,10 +2391,10 @@ impl<L: CardLookup> Engine<L> {
                     .riders
                     .push(crate::object::Rider::CounterSourceVersion(version));
             }
-            object.event_amount = trigger
-                .event_damage
-                .and_then(|(_, n)| core::num::NonZeroU16::new(n));
-            if let Some((player, _)) = trigger.event_damage {
+            if let Some((player, amount)) = trigger.event_damage {
+                object
+                    .riders
+                    .push(crate::object::Rider::EventAmount(amount));
                 object
                     .riders
                     .push(crate::object::Rider::EventPlayer(player));

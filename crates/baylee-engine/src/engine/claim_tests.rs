@@ -556,7 +556,9 @@ fn witnessed(delta: &[JournalEntry]) -> Vec<(Kind, Option<u16>)> {
     let mut out = Vec::new();
     for entry in delta {
         match &entry.event {
-            GameEvent::DamageDealt { amount, .. } => out.push((Kind::Damage, Some(*amount))),
+            GameEvent::DamageDealt { amount, .. } => {
+                out.push((Kind::Damage, u16::try_from(*amount).ok()));
+            }
             GameEvent::CardsDrawn { count, .. } => out.push((Kind::Draw, Some(*count))),
             GameEvent::LifeChanged { old, new, .. } => {
                 let (kind, moved) = match new.cmp(old) {

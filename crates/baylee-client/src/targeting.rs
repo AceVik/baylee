@@ -401,7 +401,9 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // rather than a reading. And `CmcAtMostX` is bounded by the X
         // announced for the source, which is a number no view carries — the
         // same refusal `baylee-ai`'s reader makes about it.
-        Filter::MatchesChosenTypeOfSource
+        // Continuous ability removal and grants are evaluated by the engine.
+        Filter::HasManaAbility
+        | Filter::MatchesChosenTypeOfSource
         | Filter::SharesSubtypeWithCommander
         | Filter::AttachedToBySource
         | Filter::HasKeyword(_)

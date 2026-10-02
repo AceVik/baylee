@@ -194,6 +194,22 @@ fn a_number_can_be_typed_rather_than_stepped_to() {
     });
     app.update();
     assert_eq!(number(&app), 0);
+
+    // Resource-bounded X can exceed the former 50 ceiling by many digits.
+    // Exercise the real keyboard message path, including a pasted amount.
+    for maximum in [80, 393_208, u32::MAX] {
+        app.insert_resource(number_duel(maximum));
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Digit0,
+            logical_key: Key::Character(maximum.to_string().into()),
+            state: bevy::input::ButtonState::Pressed,
+            text: Some(maximum.to_string().into()),
+            repeat: false,
+            window,
+        });
+        app.update();
+        assert_eq!(number(&app), maximum);
+    }
 }
 
 /// `⇧E` on a merged card takes the whole of it (#210): pressed at the real

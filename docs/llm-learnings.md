@@ -2645,3 +2645,66 @@ land type"; both are convention tests that fire on a first try.
 - The full first-printing ledger remains the set inventory: Earthbind moves
   Alpha to 261 Implemented, 25 Partial and four explicit exclusions. Dedicated
   coverage for one card cannot establish completion of the whole set.
+
+## Alpha Fork / Power Sink / Clockwork Beast / Drain Life (2026-10-02)
+
+- A stale Partial explanation is not an implementation specification. Fork
+  already retargeted players; the actual remaining gaps were separate target
+  groups, legal swaps and copied decision context. Stage target changes until
+  the complete assignment is legal, preserving fixed damage shares and the
+  right to keep an unchanged target that has become illegal.
+- Copying remembers choices and relevant additional-cost information, but a
+  copy spent no mana. A real Sacrifice/Fork scenario checks sacrificed mana
+  value; generic tests separately check copied damage shares and zero mana
+  spent. Legacy tests must follow the optional per-target prompt without
+  deleting their outcome assertions.
+- “Has a mana ability” is a current characteristic, including granted and
+  removed abilities. A basic-land subtype or printed ability list is not
+  enough for Power Sink. Its unpaid penalty still happens when the target
+  spell cannot be countered, and the original controller survives stack exit
+  as last-known information.
+- Clockwork Beast records participation for the combat and incarnation, then
+  chooses its refill amount at resolution. The paid X, remaining capacity,
+  optional zero and old-trigger/new-object separation are distinct tests.
+  Preserve the 312-byte GameObject budget when adding history.
+- Drain Life restricts the actual mana spent on X. Spend-as-color permissions
+  cannot turn other mana into black mana for this restriction. Cost reduction
+  applies once to both the total payment and the restricted portion; synthetic
+  cast tests cover reductions of zero, two and five. Life gain follows actual
+  damage and the recipient's pre-damage limit, not chosen X or remaining
+  toughness after earlier damage.
+- Generated ability-to-sentence mappings are part of client acceptance.
+  Clockwork's activation moved to index 1 and required regenerated tables;
+  otherwise a correct activation could have no printed sentence in its sheet.
+- New choices need all consumers, including the heuristic AI, client-core,
+  native targeting and the narrated seat. The counter-amount prompt also needs
+  a protocol version bump so older clients fail clearly at connection time.
+- Astra xhigh authored Engine changes and generic regressions. Sol medium
+  independently authored card scenarios; Astra high owns the client/display
+  acceptance and Mana-font prompt repair. The first 26 independent scenarios
+  passed before final broad integration gates and visual acceptance.
+- Audit numeric ceilings through the full route: legal choice bound, actual
+  payment, effect amount, event payload, trigger rider and visible log. Removing
+  the arbitrary X=50 ceiling exposed a signed 16-bit damage conversion. Boundary
+  tests now pay for X=32,767, 32,768, 65,534 and 393,208 and assert a single full
+  damage event plus the exact pool debit and life gain. Sparse event amounts in
+  riders preserve the object footprint; both fingerprint readers must follow.
+- A client screenshot caught a Mana-font tap glyph wrapping below a fixed-height
+  confirmation button. Text-renderer correctness alone does not prove layout;
+  recheck the armed button after changing wrapping. Existing direct numeric
+  keyboard input already supports large values: inspect that route before
+  inventing a second input widget.
+- Drain Life's final independent review caught a timing distinction hidden by
+  ordinary damage tests: only player life and planeswalker loyalty are captured
+  before damage. Creature toughness is current when life gain is applied. Rock
+  Hydra can lose every counter during prevention; one damage may then imply
+  zero life gain. Refresh characteristics between those instructions and combine
+  both caps for a permanent that is a creature and a planeswalker.
+- X bounds depend on when mana may be produced. Immediate-payment casts can
+  derive a resource bound; a deferred mana-ability window cannot be bounded by
+  the pool that happens to be floating before it opens. The full suite caught
+  Miracle offering X=0 over four untapped Swamps. Preserve arbitrary announced
+  X for deferred payment and enforce transactional affordability afterward; a
+  sacrifice-for-63-black fixture checks actual payment of X=61 after the choice.
+  Do not replace this with counting untapped lands, which misses dynamic and
+  sacrifice mana abilities.

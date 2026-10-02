@@ -163,7 +163,7 @@ pub enum GameEvent {
         /// What was damaged.
         target: DamageTarget,
         /// Amount (after prevention).
-        amount: u16,
+        amount: u32,
         /// Whether it was combat damage.
         is_combat: bool,
     },

@@ -31,6 +31,7 @@ fn face(name: &'static str, cost: &'static str, types: TypeSet, pt: Option<(i16,
     FaceDef {
         name,
         mana_cost: baylee_core::mana::ManaCost::parse(cost),
+        x_mana_color: None,
         types,
         supertypes: SupertypeSet::EMPTY,
         subtypes: &[],

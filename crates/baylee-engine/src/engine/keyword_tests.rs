@@ -506,7 +506,7 @@ fn a_spell_that_cannot_be_countered_can_still_be_copied() {
         .unwrap();
     let retarget = options_offered_including(&mut engine, their_cleric);
     assert!(
-        retarget.contains(&my_elves) && retarget.contains(&their_cleric),
+        !retarget.contains(&my_elves) && retarget.contains(&their_cleric),
         "the copy is asked where it points, like any other copy: {retarget:?}"
     );
     engine

@@ -27,22 +27,15 @@
 //!   `Filter::WithSingleTarget` reads as the card targets. A spell that holds
 //!   two anyway (a filter written without it) is left alone and nothing is
 //!   asked: none is 115.7a's answer too.
-//! - **A swap between two targets is not offered.** Another target's
-//!   current object or player is kept out of each question, because under
-//!   115.7d it may stay, and two instances of one target would break CR
-//!   115.3. CR 115.7e would allow a swap, since only the final set is
-//!   judged.
-//! - **An ability's targets stay** when it carries no `target_req`: its
-//!   requirement is in its definition, which the resolver cannot read
-//!   without a card lookup (#249).
-//! - **Only the first instance of "target"** is asked about. A second one
-//!   (a fight's other creature) keeps its target, which is a legal answer
-//!   under 115.7d and a gap under 115.7a.
+//!
+//! Each target group is kept distinct, so separate instances of "target"
+//! may name the same object. Choices are staged until the complete final set
+//! is legal, including swaps between targets within one group.
 //!
 //! [`Effect::ChangeTarget`]: baylee_cards_dsl::Effect::ChangeTarget
 //! [`Effect::ChooseNewTargets`]: baylee_cards_dsl::Effect::ChooseNewTargets
 
-use baylee_cards_dsl::Filter;
+use baylee_cards_dsl::{Filter, TargetReq, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 
 use super::{AwaitingOp, Resolution};
@@ -51,14 +44,7 @@ use crate::eval;
 use crate::state::GameState;
 use crate::zone::Zone;
 
-/// One target a spell holds: an object or a player.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Aim {
-    /// An object target.
-    Object(ObjectId),
-    /// A player target.
-    Player(PlayerId),
-}
+pub use crate::choice::TargetRef as Aim;
 
 /// A change of targets waiting on its next answer.
 #[derive(Clone, Debug)]
@@ -70,7 +56,7 @@ pub struct Retarget {
     /// [`Effect::ChooseNewTargets`](baylee_cards_dsl::Effect::ChooseNewTargets).
     change_to: Option<&'static Filter>,
     /// What the spell targeted when the effect began, in order.
-    was: Vec<Aim>,
+    was: Vec<(u8, Aim)>,
     /// What each of `was` becomes, as far as it has been asked about.
     /// `None` stays.
     now: Vec<Option<Aim>>,
@@ -119,15 +105,16 @@ fn begin(
 ) -> Option<Pending> {
     let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
     let req = obj.target_req?;
-    let was: Vec<Aim> = obj
+    let was: Vec<(u8, Aim)> = obj
         .targets
         .iter()
-        .map(|&id| Aim::Object(id))
+        .map(|&id| (0, Aim::Object(id)))
         .chain(
             eval::targeted_players(obj, &req.spec)
                 .iter()
-                .map(Aim::Player),
+                .map(|p| (0, Aim::Player(p))),
         )
+        .chain(obj.second_targets().iter().map(|&id| (1, Aim::Object(id))))
         .collect();
     if change_to.is_some() && was.len() != 1 {
         return None;
@@ -167,7 +154,14 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut retarget: Retarget) -> O
     while retarget.now.len() < retarget.was.len() {
         let (options, player_options) = options(state, res, &retarget)?;
         if !options.is_empty() || !player_options.is_empty() {
-            let min = u8::from(retarget.change_to.is_some());
+            let slot = retarget.now.len();
+            let keep = retarget.was[slot].1;
+            let min = u8::from(retarget.change_to.is_some() || !can_finish(state, &retarget, keep));
+            let reason = TargetPrompt::Retarget {
+                current: keep,
+                index: u16::try_from(slot).unwrap_or(u16::MAX),
+                of: u16::try_from(retarget.was.len()).unwrap_or(u16::MAX),
+            };
             res.awaiting = Some(AwaitingOp::NewTargets(Box::new(retarget)));
             return Some(Pending::ChooseTargets {
                 player: res.controller,
@@ -175,7 +169,7 @@ fn ask(state: &mut GameState, res: &mut Resolution, mut retarget: Retarget) -> O
                 player_options,
                 min,
                 max: 1,
-                reason: TargetPrompt::Targets,
+                reason,
             });
         }
         if retarget.change_to.is_some() {
@@ -200,22 +194,14 @@ fn options(
     let obj = state
         .object(retarget.spell)
         .filter(|o| o.zone == Zone::Stack)?;
-    let req = obj.target_req?;
+    let req = requirement(obj, retarget.was[slot].0)?;
     let (mut objects, mut players) = eval::stack_target_options(state, obj, &req.spec);
-    // Its own target, what an earlier one became, and what a later one
-    // still holds.
-    let taken: Vec<Aim> = retarget
-        .was
-        .iter()
-        .enumerate()
-        .map(|(i, was)| retarget.now.get(i).copied().flatten().unwrap_or(*was))
-        .enumerate()
-        .filter(|(i, _)| *i != slot)
-        .map(|(_, aim)| aim)
-        .chain(std::iter::once(retarget.was[slot]))
-        .collect();
-    objects.retain(|id| !taken.contains(&Aim::Object(*id)));
-    players.retain(|p| !taken.contains(&Aim::Player(*p)));
+    objects.retain(|id| {
+        Aim::Object(*id) != retarget.was[slot].1 && can_finish(state, retarget, Aim::Object(*id))
+    });
+    players.retain(|p| {
+        Aim::Player(*p) != retarget.was[slot].1 && can_finish(state, retarget, Aim::Player(*p))
+    });
     if let Some(to) = retarget.change_to {
         objects.retain(|id| {
             state
@@ -251,37 +237,48 @@ fn write(state: &mut GameState, retarget: &Retarget) {
     let Some(obj) = state.object_mut(retarget.spell) else {
         return;
     };
-    for (was, now) in retarget.was.iter().zip(&retarget.now) {
-        let Some(now) = *now else { continue };
-        match (*was, now) {
-            (Aim::Object(old), Aim::Object(new)) => {
-                for id in &mut obj.targets {
-                    if *id == old {
-                        *id = new;
-                    }
+    let first_req = obj.target_req;
+    let second_req = obj.second_target_req();
+    obj.targets.clear();
+    obj.target_players = SeatSet::new();
+    if first_req
+        .is_some_and(|req| matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent))
+    {
+        obj.chosen_player = None;
+    }
+    let mut second = smallvec::SmallVec::new();
+    for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
+        let aim = now.unwrap_or(*was);
+        match (*group, aim) {
+            (0, Aim::Object(id)) => obj.targets.push(id),
+            (0, Aim::Player(player)) => {
+                if first_req.is_some_and(|req| {
+                    matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent)
+                }) {
+                    obj.chosen_player = Some(player);
+                } else {
+                    obj.target_players.insert(player);
                 }
             }
-            (Aim::Object(old), Aim::Player(new)) => {
-                obj.targets.retain(|id| *id != old);
-                obj.target_players.insert(new);
-            }
-            (Aim::Player(old), now) => {
-                let new = match now {
-                    Aim::Player(new) => Some(new),
-                    Aim::Object(new) => {
-                        obj.targets.push(new);
-                        None
-                    }
-                };
-                if obj.target_players.contains(old) {
-                    obj.target_players = without(obj.target_players, old);
-                    if let Some(new) = new {
-                        obj.target_players.insert(new);
-                    }
-                }
-                if obj.chosen_player == Some(old) {
-                    obj.chosen_player = new;
-                }
+            (_, Aim::Object(id)) => second.push(id),
+            (_, Aim::Player(_)) => unreachable!("second target groups contain objects"),
+        }
+    }
+    obj.set_second(second, second_req);
+    if let Some((_, shares)) = state
+        .divided
+        .iter_mut()
+        .find(|(id, _)| *id == retarget.spell)
+    {
+        for (target, _) in shares {
+            if let Some((slot, _)) = retarget
+                .was
+                .iter()
+                .enumerate()
+                .find(|(_, (group, aim))| *group == 0 && *aim == Aim::Object(*target))
+                && let Some(Aim::Object(new)) = retarget.now[slot]
+            {
+                *target = new;
             }
         }
     }
@@ -298,13 +295,52 @@ fn targeted_players(obj: &crate::object::GameObject) -> Vec<PlayerId> {
     players
 }
 
-/// `set` without `player`.
-fn without(set: SeatSet, player: PlayerId) -> SeatSet {
-    let mut out = SeatSet::new();
-    for p in set.iter().filter(|p| *p != player) {
-        out.insert(p);
+fn requirement(obj: &crate::object::GameObject, group: u8) -> Option<TargetReq> {
+    if group == 0 {
+        obj.target_req
+    } else {
+        obj.second_target_req()
     }
-    out
+}
+
+/// Whether this staged choice leaves a distinct legal completion. The legal
+/// alternatives are shared within one target group; each remaining slot can
+/// also retain its original target even if that target is now illegal.
+fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
+    let slot = retarget.now.len();
+    let group = retarget.was[slot].0;
+    let Some(obj) = state.object(retarget.spell) else {
+        return false;
+    };
+    let Some(req) = requirement(obj, group) else {
+        return false;
+    };
+    let used: Vec<_> = retarget.was[..slot]
+        .iter()
+        .zip(&retarget.now)
+        .filter(|((g, _), _)| *g == group)
+        .map(|((_, old), new)| new.unwrap_or(*old))
+        .collect();
+    if used.contains(&candidate) {
+        return false;
+    }
+    let (objects, players) = eval::stack_target_options(state, obj, &req.spec);
+    let mut available: Vec<Aim> = objects
+        .into_iter()
+        .map(Aim::Object)
+        .chain(players.into_iter().map(Aim::Player))
+        .filter(|aim| *aim != candidate && !used.contains(aim))
+        .collect();
+    let remaining: Vec<_> = retarget.was[slot + 1..]
+        .iter()
+        .filter(|(g, _)| *g == group)
+        .collect();
+    for (_, original) in &remaining {
+        if *original != candidate && !used.contains(original) && !available.contains(original) {
+            available.push(*original);
+        }
+    }
+    available.len() >= remaining.len()
 }
 
 /// Journal each newly acquired target once, objects and players. Copies pass
@@ -432,6 +468,72 @@ mod tests {
                 player: new,
                 controller: caster
             }]
+        );
+    }
+    #[test]
+    fn staged_swaps_preserve_targets_and_require_a_legal_completion() {
+        let mut state =
+            GameState::from_preset(&preset(410, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let player = PlayerId::new(0);
+        let name = state.names.intern("retarget test");
+        let spell = state.create_bare(player, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let a = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let b = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        for id in [a, b] {
+            state.object_mut(id).unwrap().base_mut().types = baylee_core::types::TypeSet::CREATURE;
+        }
+        let obj = state.object_mut(spell).unwrap();
+        obj.target_req = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)));
+        obj.targets.extend([a, b]);
+        let mut choice = Retarget {
+            spell,
+            change_to: None,
+            was: vec![(0, Aim::Object(a)), (0, Aim::Object(b))],
+            now: vec![],
+            copy: true,
+        };
+        assert!(
+            can_finish(&state, &choice, Aim::Object(b)),
+            "the complete swap is legal"
+        );
+        choice.now.push(Some(Aim::Object(b)));
+        assert!(
+            !can_finish(&state, &choice, Aim::Object(b)),
+            "the second target cannot retain a duplicate"
+        );
+        assert!(can_finish(&state, &choice, Aim::Object(a)));
+        choice.now.push(Some(Aim::Object(a)));
+        state.divided.push((spell, vec![(a, 3), (b, 1)]));
+        write(&mut state, &choice);
+        assert_eq!(
+            state.object(spell).unwrap().targets.as_slice(),
+            &[b, a],
+            "staged writes cannot overwrite both occurrences"
+        );
+        assert_eq!(
+            state.divided[0].1,
+            vec![(b, 3), (a, 1)],
+            "each fixed damage share moves with its slot"
+        );
+        choice.now.clear();
+        state.object_mut(a).unwrap().base_mut().types = baylee_core::types::TypeSet::ARTIFACT;
+        assert!(
+            !can_finish(&state, &choice, Aim::Object(b)),
+            "a swap may not make a newly chosen target illegal"
+        );
+        assert!(
+            can_finish(&state, &choice, Aim::Object(a)),
+            "the existing illegal target can remain unchanged"
         );
     }
 }

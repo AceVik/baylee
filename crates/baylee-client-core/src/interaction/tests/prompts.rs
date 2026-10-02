@@ -958,3 +958,137 @@ fn division_and_band_questions_name_their_creatures() {
         "Combat damage to creature 1 of 2, 6 left to divide (0–6)"
     );
 }
+
+#[test]
+fn counter_amount_names_the_counter_and_recipient_in_both_languages() {
+    let mut i = interaction(Pending::ChooseNumber {
+        player: me(),
+        min: 0,
+        max: 4,
+        reason: baylee_engine::choice::NumberPrompt::Counters {
+            target: obj(1),
+            kind: baylee_engine::object::CounterKind::Plus {
+                power: 1,
+                toughness: 0,
+            },
+        },
+    });
+    assert_eq!(
+        i.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "How many +1/+0 counters? (0–4)"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::En, Turn::Mine, None, false, &|_| Some(
+                "Clockwork Beast".into()
+            )),
+        "How many +1/+0 counters on Clockwork Beast? (0–4)"
+    );
+    assert_eq!(
+        i.prompt()
+            .headline_naming(Lang::De, Turn::Mine, None, false, &|_| Some(
+                "Uhrwerkbestie".into()
+            )),
+        "Wie viele +1/+0-Marken auf Uhrwerkbestie? (0–4)"
+    );
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(0)));
+    assert_eq!(i.set_number(u32::MAX), 4);
+    assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(4)));
+}
+
+#[test]
+fn retarget_explains_when_an_empty_answer_preserves_the_existing_target() {
+    for min in [0, 1] {
+        let mut i = interaction(Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(1)],
+            player_options: vec![],
+            min,
+            max: 1,
+            reason: TargetPrompt::Retarget {
+                current: baylee_engine::choice::TargetRef::Object(obj(9)),
+                index: 1,
+                of: 3,
+            },
+        });
+        for lang in [Lang::En, Lang::De] {
+            let phrase = if min == 0 {
+                Phrase::ChooseNewTargetOrKeep
+            } else {
+                Phrase::ChooseNewTarget
+            };
+            assert_eq!(
+                i.prompt()
+                    .headline_naming(lang, Turn::Mine, None, false, &|_| Some("Goblin".into())),
+                format!(
+                    "{} {}",
+                    if lang == Lang::En {
+                        "Target 2 of 3: Goblin."
+                    } else {
+                        "Ziel 2 von 3: Goblin."
+                    },
+                    phrase.text(lang)
+                )
+            );
+        }
+        assert_eq!(i.can_confirm(), min == 0);
+        if min == 0 {
+            assert_eq!(
+                i.confirm(),
+                Some(PlayerAction::ChooseObjects { objects: vec![] })
+            );
+        }
+        i.toggle(obj(1));
+        assert_eq!(
+            i.confirm(),
+            Some(PlayerAction::ChooseObjects {
+                objects: vec![obj(1)],
+            })
+        );
+    }
+}
+
+#[test]
+fn retarget_names_the_current_player_and_sends_a_selected_player() {
+    let other = PlayerId::new(1);
+    let mut i = interaction(Pending::ChooseTargets {
+        player: me(),
+        options: vec![obj(1)],
+        player_options: vec![other],
+        min: 0,
+        max: 1,
+        reason: TargetPrompt::Retarget {
+            current: baylee_engine::choice::TargetRef::Player(me()),
+            index: 0,
+            of: 1,
+        },
+    });
+    for lang in [Lang::En, Lang::De] {
+        let expected = format!(
+            "{}: {}.",
+            if lang == Lang::En {
+                "Target 1 of 1"
+            } else {
+                "Ziel 1 von 1"
+            },
+            crate::i18n::seat_name(lang, None, me()),
+        );
+        assert!(
+            i.prompt()
+                .headline(lang, Turn::Mine, None, false)
+                .starts_with(&expected)
+        );
+    }
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseObjects { objects: vec![] })
+    );
+    i.toggle_player(other);
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseTargets {
+            objects: vec![],
+            players: vec![other],
+        })
+    );
+}

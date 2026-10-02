@@ -92,7 +92,7 @@ impl GameState {
         source: ObjectId,
         source_version: Option<u32>,
         recipient: ObjectId,
-        amount: u16,
+        amount: u32,
         is_combat: bool,
     ) {
         if amount == 0 {

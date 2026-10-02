@@ -1461,3 +1461,42 @@ Fresh inventory from every first-printing Alpha Oracle identity:
 Alpha remains incomplete. The Windows Vulkan feedback report remains open;
 no report was closed without relevant hardware verification.
 Engine milestone: `da67bf86`.
+
+
+## Alpha completion pass — first four cards
+
+Fork, Power Sink, Clockwork Beast and Drain Life have complete declarations and
+27 independent behavior tests. Shared fixes cover optional per-target
+retargeting, current mana abilities on lands, incarnation-safe combat history,
+optional capped counter refill, black-only X payments and actual-damage life
+gain. The final review also corrected Drain Life's post-damage creature-toughness
+cap, verified against Rock Hydra with a regression that fails on the old code.
+
+X choices now exceed the former limit of 50. Immediate payments use resource
+bounds; deferred mana-ability windows preserve announced X until final payment.
+Tests cover sacrifice-generated mana after choosing X=61 and actual paid damage
+up to 393,208. Damage event/log widths were extended while preserving the
+312-byte GameObject budget. Protocol13/View46 describe the new wire contract.
+
+The owner's display request exposed plain-text symbols in prompt/error and
+response-button paths. Astra high switched those to the existing Mana-font
+renderer, retaining plain-text button structure and click-through behavior.
+Screenshots exposed and then verified the fix for a tap glyph wrapping below an
+activation button. Final 1280×800 captures show the complete Clockwork ability
+and Fork's named, numbered keep/change prompts. Original targets `[1,2]` and
+copied targets `[1,3]` were confirmed from the live stack with no error.
+
+Validation: **7,844 rules/workspace tests passed, 10 existing skipped**; full
+rules Clippy and validation of all 2,955 cards passed. Native client: **1,157
+passed, 2 existing ignored**, Clippy and dev-control build passed. Engine fuzz
+Clippy and complete corpus-backed codegen reproducibility passed. The Wasm
+release check passed. Power Sink’s decline dialog and land-tapping behavior
+also passed live. The paid branch opens the mana window, consumes exactly two
+mana and preserves the other untapped mana sources; Lightning Bolt then deals
+three damage. Both branches report no error.
+
+Final screenshot paths are recorded in `docs/set-progress.md`; assets remain
+outside the repository. Fresh full Alpha inventory: **265 Implemented / 21
+Partial / 4 explicit exclusions**. Alpha is not complete. The Windows Vulkan
+report remains open; no hardware claim or ticket closure is inferred from these
+macOS checks. Fireball, Demonic Hordes and Power Leak are the next batch.

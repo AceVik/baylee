@@ -1359,6 +1359,14 @@ impl Builder<'_, '_> {
             |t| format!("{} {}", super::object_name(&t.source), tag(t.source.id)),
         );
         match reason {
+            TargetPrompt::Retarget { current, index, of } => {
+                let current = match current {
+                    baylee_engine::choice::TargetRef::Object(id) => table.named(id),
+                    baylee_engine::choice::TargetRef::Player(id) => table.player(id),
+                };
+                let keep = if min == 0 { " Choose no targets to keep this target." } else { "" };
+                self.line(format!("QUESTION: Target {} of {of} for {what} is {current}. Choose a new target.{keep}", u32::from(index) + 1));
+            },
             TargetPrompt::Convoke => self.line(format!(
                 "QUESTION: Convoke: choose creatures to tap to help pay for {what} (each pays {{1}} \
                  or one mana of its colour)."
@@ -1620,6 +1628,14 @@ impl Builder<'_, '_> {
     fn number(&mut self, min: u32, max: u32, reason: &NumberPrompt) {
         let table = self.table;
         let question = match reason {
+            NumberPrompt::Counters { target, kind } => format!(
+                "How many {} on {}?",
+                baylee_client_core::interaction::counter_label(
+                    *kind,
+                    baylee_client_core::i18n::Lang::En
+                ),
+                table.named(*target),
+            ),
             NumberPrompt::X => "Choose the value of X".to_string(),
             NumberPrompt::Replicate { cost } => {
                 format!("How many times do you replicate it? Each copy costs {cost} more")

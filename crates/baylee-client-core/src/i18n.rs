@@ -1841,6 +1841,18 @@ messages! {
     CrewWithPower { en: "Crew {0}: tap any number of your other untapped creatures with total power {0} or more", de: "Besatzung {0}: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von {0} oder mehr" },
     /// Choose up to {0} {1}
     ChooseUpTo { en: "Choose up to {0} {1}", de: "Wähle bis zu {0} {1}" },
+    /// A resolving effect changes one target at a time.
+    ChooseNewTarget { en: "Choose a new target", de: "Wähle ein neues Ziel" },
+    /// Selecting nothing preserves the current target of the spell or copy.
+    ChooseNewTargetOrKeep { en: "Choose a new target, or keep this target without selecting one", de: "Neues Ziel wählen oder ohne Auswahl dieses Ziel behalten" },
+    /// Identifies the current target before asking whether to change it.
+    RetargetContext { en: "Target {0} of {1}: {2}. {3}", de: "Ziel {0} von {1}: {2}. {3}" },
+    /// A former object target may no longer be visible in the current view.
+    PreviousTarget { en: "previous target", de: "bisheriges Ziel" },
+    /// Confirm an optional retarget with no selected replacement.
+    KeepCurrentTarget { en: "Keep current target", de: "Bisheriges Ziel behalten" },
+    /// Confirm a selected replacement target.
+    ChangeTarget { en: "Change target", de: "Ziel ändern" },
     /// Choose {0} {1}
     ChooseExactly { en: "Choose {0} {1}", de: "Wähle {0} {1}" },
     /// Choose {0}–{1} {2}
@@ -1853,6 +1865,10 @@ messages! {
     ChooseCardName { en: "Choose a card name", de: "Wähle einen Kartennamen" },
     /// Choose a colour
     ChooseColour { en: "Choose a colour", de: "Wähle eine Farbe" },
+    /// Counter amount chosen while an effect resolves.
+    ChooseCounters { en: "How many {0}? ({1}–{2})", de: "Wie viele {0}? ({1}–{2})" },
+    /// Counter amount with the recipient named.
+    ChooseCountersNamed { en: "How many {0} on {1}? ({2}–{3})", de: "Wie viele {0} auf {1}? ({2}–{3})" },
     /// Choose a number ({0}–{1})
     ChooseNumberIn { en: "Choose a number ({0}–{1})", de: "Wähle eine Zahl ({0}–{1})" },
     /// One target's share of damage divided as the player chooses (Fury).

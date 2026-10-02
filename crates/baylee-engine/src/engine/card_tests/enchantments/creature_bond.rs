@@ -62,7 +62,7 @@ fn creature_bond_remembers_toughness_from_an_anthem_destroyed_in_the_same_batch(
     assert_eq!(damage(&e, aura), vec![(P1, 6)]);
 }
 
-fn damage(e: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(PlayerId, u16)> {
+fn damage(e: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(PlayerId, u32)> {
     e.journal()
         .entries()
         .iter()

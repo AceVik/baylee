@@ -284,6 +284,9 @@ pub struct FaceDef {
     /// `Effect::CopyThisSpell` for each payment. Every printed replicate
     /// cost is mana.
     pub replicate: Option<ManaCost>,
+    /// Only actual mana of this color may pay the X portion. Cost
+    /// reductions still reduce that generic portion before mana is paid.
+    pub x_mana_color: Option<baylee_core::color::Color>,
     /// Face name.
     pub name: &'static str,
     /// Mana cost (`ManaCost::ZERO` for lands/MDFC backs without cost).
@@ -399,6 +402,7 @@ impl FaceDef {
         prototype: None,
         disguise: None,
         replicate: None,
+        x_mana_color: None,
         name: "",
         mana_cost: ManaCost::ZERO,
         types: TypeSet::EMPTY,

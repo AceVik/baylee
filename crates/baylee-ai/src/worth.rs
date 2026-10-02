@@ -34,6 +34,25 @@ use crate::activate::printed_list;
 use crate::combat::{self, Fighter};
 use crate::tactics::material;
 
+/// Match engine counter identities to their public representation.
+fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
+    use baylee_view::CounterKind as V;
+    match kind {
+        CounterKind::Plus { power, toughness } => V::Plus { power, toughness },
+        CounterKind::Minus { power, toughness } => V::Minus { power, toughness },
+        CounterKind::Loyalty => V::Loyalty,
+        CounterKind::Lore => V::Lore,
+        CounterKind::Time => V::Time,
+        CounterKind::Charge => V::Charge,
+        CounterKind::Poison => V::Poison,
+        CounterKind::Energy => V::Energy,
+        CounterKind::Rad => V::Rad,
+        CounterKind::Lifelink => V::Lifelink,
+        CounterKind::Level => V::Level,
+        CounterKind::Custom(id) => V::Custom(u32::from(id)),
+    }
+}
+
 /// A card drawn: the unit the rest is measured against.
 const CARD: i64 = 400;
 /// Drawing from an empty library (CR 704.5b), or making an opponent do it.
@@ -920,7 +939,7 @@ impl HeuristicAgent {
     }
 
     /// Counters put on `o`, to this seat.
-    fn counters(
+    pub(crate) fn counters(
         &self,
         view: &PlayerView,
         o: &PublicObject,
@@ -1217,6 +1236,24 @@ impl HeuristicAgent {
                 Some(o) => self.counters(view, o, *kind, count(*amount)?)?,
                 None => 0,
             },
+            Effect::AddCountersUpTo {
+                kind,
+                amount,
+                maximum,
+            } => match origin.object {
+                Some(o) => {
+                    let existing: u32 = o
+                        .counters
+                        .iter()
+                        .filter(|entry| entry.kind == counter_view(*kind))
+                        .map(|entry| u32::from(entry.count))
+                        .sum();
+                    let room = u32::from(*maximum).saturating_sub(existing);
+                    self.counters(view, o, *kind, count(*amount)?.min(i64::from(room)))?
+                        .max(0)
+                }
+                None => 0,
+            },
             Effect::AddCounterFilter {
                 filter,
                 kind,
@@ -1228,7 +1265,9 @@ impl HeuristicAgent {
                     .map(|o| self.counters(view, o, *kind, n))
                     .sum::<Option<i64>>()?
             }
-            Effect::DealDamage { amount, .. } => {
+            // At least the damage exchange is known; prevention and replacement
+            // effects can reduce the incidental life gain, so do not rely on it.
+            Effect::DealDamage { amount, .. } | Effect::DealDamageWithCappedLifeGain { amount } => {
                 let n = count(*amount)?;
                 match aim {
                     Aim::Player(p) => {

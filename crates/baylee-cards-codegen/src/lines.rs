@@ -626,6 +626,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             StepKind::DeclareAttackers => &["declare attackers step"],
             StepKind::DeclareBlockers => &["declare blockers step"],
             StepKind::CombatDamage => &["combat damage step"],
+            StepKind::CombatEnd => &["end of combat"],
             StepKind::End => &["end step"],
         },
         // A state trigger (CR 603.8) prints the state it waits for: Sea

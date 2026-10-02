@@ -312,6 +312,20 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseNumber { player: p, .. }, PlayerAction::ChooseNumber(n))
                 if *p == player =>
             {
+                if self.resolution.as_ref().is_some_and(|res| {
+                    matches!(res.awaiting, Some(resolve::AwaitingOp::Counters { .. }))
+                }) {
+                    let mut res = self.resolution.take().expect("counter choice suspended");
+                    match resolve::resume_with_number(&mut self.state, &mut res, n) {
+                        resolve::Flow::Wait(pending) => {
+                            self.resolution = Some(res);
+                            self.pending = pending;
+                            self.awaiting_answer = true;
+                        }
+                        resolve::Flow::Complete => self.finish_resolution(&res),
+                    }
+                    return Ok(());
+                }
                 // Inside the offered range, which `answer_fault` checked: an
                 // unchecked X overflows costs, life payments, and token
                 // counts downstream.
@@ -1821,6 +1835,7 @@ impl<L: CardLookup> Engine<L> {
             // one way a creature attacks, so it is the one writer.
             if let Some(version) = self.state.object(creature).map(|o| o.version) {
                 self.state.per_turn.attacked.push((creature, version));
+                self.state.combat.participants.push((creature, version));
             }
         }
         self.state
@@ -1913,6 +1928,9 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for &(blocker, attacker) in blockers {
+            if let Some(version) = self.state.object(blocker).map(|o| o.version) {
+                self.state.combat.participants.push((blocker, version));
+            }
             self.state.combat.declare_block(blocker, attacker);
             self.state.journal.record(GameEvent::BecameBlocker {
                 object: blocker,

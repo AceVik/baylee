@@ -802,6 +802,13 @@ pub enum ChoicePrompt {
     Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum NumberPrompt {
+    /// How many counters to put on an object while an effect resolves.
+    Counters {
+        /// Object receiving the counters.
+        target: ObjectId,
+        /// Kind of counters to put.
+        kind: baylee_cards_dsl::CounterKind,
+    },
     /// The value of X (CR 107.3): a spell's printed `{X}`, an activation's,
     /// or the X of a counter cost.
     #[default]
@@ -847,6 +854,15 @@ pub enum NumberPrompt {
     },
 }
 
+/// One existing target, carried without card identity or other hidden data.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
+pub enum TargetRef {
+    /// An object target.
+    Object(ObjectId),
+    /// A player target.
+    Player(PlayerId),
+}
+
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
 ///
 /// The convoke question is not targeting, and the only thing that ever said
@@ -861,6 +877,16 @@ pub enum TargetPrompt {
     /// The targets of a spell or ability (CR 115).
     #[default]
     Targets,
+    /// Change one existing target. An empty answer retains that target when
+    /// `min` is zero; a required answer changes it to a legal new target.
+    Retarget {
+        /// The target this slot currently retains unless it is changed.
+        current: TargetRef,
+        /// Zero-based position in the spell or ability's target sequence.
+        index: u16,
+        /// Total number of targets retained by the spell or ability.
+        of: u16,
+    },
     /// Tap permanents to help pay, each paying for {1}: creatures for
     /// convoke (CR 702.51a), artifacts and creatures for a paid waterbend
     /// (CR 701.67a). `options` says which.

@@ -2921,3 +2921,33 @@ Rules verified in Wizards' September 25, 2026
 [Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt),
 303.4a/c/i/j and 702.5a. The separation between targeting and attachment follows
 those distinct checks; no targeting prohibition is added by this modifier.
+
+### Completing Alpha: copies, mana taxes, counters and restricted X
+
+`Filter::HasManaAbility` asks whether an object has a mana ability, not
+whether it can activate one now. It includes intrinsic land-type and granted
+abilities and respects ability removal. Combine it with `Filter::LAND` for
+Power Sink, whose unpaid branch sequences countering, tapping and emptying
+the targeted spell controller's pool. Resolution retains that controller
+when the countered spell leaves the stack.
+
+`StepKind::CombatEnd` and `Condition::AttackedOrBlockedThisCombat` express
+Clockwork Beast's intervening condition. The combat history records declared
+attackers and blockers by incarnation, survives removal from combat, and
+resets for the next combat. `Effect::AddCountersUpTo { kind, amount, maximum }`
+asks its controller for a number during resolution and applies the total cap
+after counter replacements; it never removes counters already above the cap.
+
+`FaceDef::x_mana_color` restricts the actual mana paying X. Generic reductions
+still apply to X, and permissions to spend another color as black do not make
+that mana black. The X choice and transactional payment use the same shared
+solver. `Effect::DealDamageWithCappedLifeGain` gains the actual damage dealt,
+capped by the recipient's pre-damage life or loyalty, or its current toughness
+after damage and prevention have been processed. Prevented damage gains nothing.
+
+Spell copies and retargeting share one choice path. Retaining a target is an
+empty answer; newly chosen targets must be legal. Independent target groups
+stay separate, swaps within a group are permitted, and division amounts move
+with the corresponding target positions. Copies preserve nonmana additional-
+cost information, X, modes and kicker, while recording no mana spent to cast
+the copy.

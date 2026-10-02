@@ -91,7 +91,8 @@ impl Step {
             Step::DeclareBlockers => Some(StepKind::DeclareBlockers),
             Step::CombatDamageFirst | Step::CombatDamage => Some(StepKind::CombatDamage),
             Step::End => Some(StepKind::End),
-            Step::Untap | Step::Main | Step::CombatEnd | Step::Cleanup => None,
+            Step::CombatEnd => Some(StepKind::CombatEnd),
+            Step::Untap | Step::Main | Step::Cleanup => None,
         }
     }
 }
@@ -107,6 +108,7 @@ pub const fn position_of(kind: StepKind) -> u8 {
         StepKind::DeclareAttackers => 5,
         StepKind::DeclareBlockers => 6,
         StepKind::CombatDamage => 7,
+        StepKind::CombatEnd => 9,
         StepKind::End => 11,
     }
 }
@@ -295,6 +297,7 @@ mod tests {
             StepKind::DeclareAttackers,
             StepKind::DeclareBlockers,
             StepKind::CombatDamage,
+            StepKind::CombatEnd,
             StepKind::End,
         ] {
             let first = turn

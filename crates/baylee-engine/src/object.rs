@@ -289,6 +289,7 @@ pub fn ability_target_req(
 /// Computed/layered characteristics are a *projection* of this base plus
 /// continuous effects (M2); for M1 the projection IS the base.
 #[derive(Clone, PartialEq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // Independent projected rules facts, not mutually exclusive states.
 pub struct Characteristics {
     /// Interned name.
     pub name: NameRef,
@@ -326,6 +327,8 @@ pub struct Characteristics {
     /// by an entry and says nothing about what the permanent does with it,
     /// so Reflecting Pool asks this before counting that colour as mana.
     pub produced_chosen: bool,
+    /// The active printed face has a mana ability, including one producing no mana now.
+    pub has_mana_ability: bool,
     /// Whether an effect set this land's subtype to a basic land type, so it
     /// lost every ability its rules text gives it (CR 305.7): Evil Presence
     /// makes a land a Swamp and nothing else. Never a printed value.
@@ -543,6 +546,10 @@ impl Characteristics {
             color_identity: def.color_identity,
             produced_colors: produced,
             produced_chosen,
+            has_mana_ability: def
+                .abilities_for_face(face)
+                .iter()
+                .any(|a| a.is_mana_ability() || a.is_triggered_mana_ability()),
             produced_colorless,
             rules_text_lost: false,
             abilities_lost: None,
@@ -814,6 +821,9 @@ pub enum Rider {
     /// field because `GameObject` had no byte to spare for it
     /// (`tests/footprint.rs`), and a triggered ability carries no other.
     EventPlayer(PlayerId),
+    /// Full damage amount captured by a triggered ability. Sparse because
+    /// only damage-triggered stack objects need this 32-bit value.
+    EventAmount(u32),
     /// Event-time controller and toughness of a departed permanent.
     EventDeparture(PlayerId, i16),
     /// Opponent chosen as this permanent entered; not a target. Stored in
@@ -904,6 +914,7 @@ impl Rider {
             // "That player" of a triggered ability on the stack, which is
             // never in exile.
             | Self::EventDeparture(..)
+            | Self::EventAmount(_)
             | Self::EventPlayer(_) => false,
         }
     }
@@ -1220,13 +1231,6 @@ pub struct GameObject {
     pub pending_face_change: Option<u8>,
     /// The object a triggering event was about (event-driven triggers).
     pub event_object: Option<ObjectId>,
-    /// "That much": the amount of damage the triggering event dealt, on a
-    /// triggered ability that was put on the stack for one (Questing
-    /// Beast), read by `Amount::EventAmount`. Never zero: a source that
-    /// would deal 0 damage deals none (CR 120.8), so no damage event carries
-    /// it. The field is two bytes, but `GameObject` had no padding left and
-    /// the object grew by eight (`tests/footprint.rs`).
-    pub event_amount: Option<core::num::NonZeroU16>,
     /// Whether the spell was cast from the hand (rebound condition).
     pub cast_from_hand: bool,
 }
@@ -1266,7 +1270,6 @@ impl GameObject {
             second: None,
             original_base: None,
             event_object: None,
-            event_amount: None,
             ability: None,
             source_power_lki: None,
             paid: None,
@@ -1322,6 +1325,19 @@ impl GameObject {
             Rider::ChosenOpponent(player) => Some(*player),
             _ => None,
         })
+    }
+
+    /// "That much": damage captured when this triggered ability was put
+    /// on the stack, without narrowing the event's unsigned amount.
+    #[must_use]
+    pub fn event_amount(&self) -> u32 {
+        self.riders
+            .iter()
+            .find_map(|rider| match rider {
+                Rider::EventAmount(amount) => Some(*amount),
+                _ => None,
+            })
+            .unwrap_or(0)
     }
 
     /// Replaces the entry choice, or clears it when the permanent leaves.

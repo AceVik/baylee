@@ -27152,9 +27152,8 @@ fn inkmoth_nexus_animates_into_a_flying_artifact_blinkmoth() {
 /// What is asserted now is the announcement itself and not merely the
 /// outcome, because a 2/2 is also what a hard-coded two would produce. The
 /// bound is the interesting half: `max` is what the **pool** can pay, which
-/// is where an activation differs from a cast — the cast wizard offers
-/// `X_CEILING` and validates at the end, an activation has nothing to unwind
-/// to.
+/// is where an activation differs from a cast: the cast wizard starts
+/// with a conservative resource bound and validates later choices at payment.
 ///
 /// `min` is 0 and the card says X can't be 0, which is the whole of its
 /// remaining `Coverage::Partial`: a lower bound printed on the card has no
@@ -78879,6 +78878,17 @@ fn mirrorpool_copies_a_spell_you_control() {
                     break;
                 }
                 engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseTargets { player, min: 0, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![],
+                        },
+                    )
+                    .unwrap();
             }
             other => panic!("unexpected on the way to resolution: {other:?}"),
         }

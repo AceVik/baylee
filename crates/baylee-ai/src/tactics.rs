@@ -246,7 +246,8 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 m.counter = true;
                 m.benefit = -1;
             }
-            Effect::DealDamage { amount: n, .. } => {
+            Effect::DealDamage { amount: n, .. }
+            | Effect::DealDamageWithCappedLifeGain { amount: n } => {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.benefit = -1;
             }

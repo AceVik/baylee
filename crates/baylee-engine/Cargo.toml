@@ -31,6 +31,7 @@ rand_core.workspace = true
 baylee-cards = { workspace = true, features = ["mutate"] }
 uuid.workspace = true
 criterion.workspace = true
+serde_json.workspace = true
 
 [[bench]]
 name = "basics"

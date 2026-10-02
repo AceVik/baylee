@@ -133,7 +133,9 @@ use serde::{Deserialize, Serialize};
 /// Compatible addition: [`ManaPoolView::spending`] defaults to exact colors;
 /// older readers ignore this extra field and retain their conservative
 /// planning. Existing mana counts, enum variants and field types are unchanged.
-pub const VIEW_VERSION: u32 = 45;
+/// Version 46 widens the [`LogEvent::Damage`] amount from `u16` to `u32` so
+/// large paid X values retain their full damage amount in public logs.
+pub const VIEW_VERSION: u32 = 46;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -2190,7 +2192,7 @@ pub enum LogEvent {
         /// What it was dealt to.
         target: LogTarget,
         /// How much.
-        amount: u16,
+        amount: u32,
         /// Whether it was combat damage.
         combat: bool,
     },
@@ -3459,10 +3461,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Spending permissions add a defaulted field; old readers ignore
-        // it, while new readers default old pools to exact-color spending.
-        // No existing field or enum variant changes, so this remains view 45.
-        const RECORDED: (u32, u64) = (45, 0x133d_0b7d_4b0b_37fa);
+        // Damage log amounts widened to u32 so large X damage is preserved.
+        const RECORDED: (u32, u64) = (46, 9_521_353_877_518_654_948);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

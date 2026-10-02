@@ -59,6 +59,11 @@ pub fn matches_projected(
         Filter::WithSingleTarget => {
             obj.targets.len() + obj.second_targets().len() + obj.target_players.len() == 1
         }
+        Filter::HasManaAbility => {
+            (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
+                || !crate::casting::intrinsic_mana_colors(state, obj.id).is_empty()
+                || crate::effects::granted_activated(state, obj.id).any(|a| a.mana_ability)
+        }
         Filter::ControlledByYou => obj.controller == you,
         Filter::ControlledByOpponent => state.is_opponent(obj.controller, you),
         Filter::ControlledByActivePlayer => obj.controller == state.turn.active,
@@ -673,6 +678,9 @@ pub fn condition_holds(
             .object(source)
             .is_some_and(|o| matches(filter, state, o, you, source)),
         Condition::DuringCombat => state.turn.phase == crate::turn::Phase::Combat,
+        Condition::AttackedOrBlockedThisCombat => state
+            .object(source)
+            .is_some_and(|o| state.combat.participants.contains(&(source, o.version))),
         Condition::All(all) => all.iter().all(|c| condition_holds(state, you, source, *c)),
         Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
         Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
@@ -2393,5 +2401,56 @@ mod tests {
             "an ability on the stack is no spell: {options:?}"
         );
         assert_eq!(options.len(), 2, "and nothing else: {options:?}");
+    }
+    #[test]
+    fn combat_participation_survives_removal_but_not_a_new_incarnation_or_combat() {
+        let mut state = empty_state();
+        let id = creature(&mut state, P0, KeywordSet::EMPTY);
+        let version = state.object(id).unwrap().version;
+        state.combat.participants.push((id, version));
+        let participated =
+            |s: &GameState| condition_holds(s, P0, id, Condition::AttackedOrBlockedThisCombat);
+        assert!(participated(&state));
+        state.combat.remove_from_combat(id);
+        assert!(
+            participated(&state),
+            "removal cannot undo an attack or block declaration"
+        );
+        state.object_mut(id).unwrap().version += 1;
+        assert!(
+            !participated(&state),
+            "a later incarnation did not participate"
+        );
+        state.combat.participants.push((id, version + 1));
+        assert!(participated(&state));
+        state.combat = crate::combat::CombatState::default();
+        assert!(!participated(&state), "an additional combat starts fresh");
+    }
+
+    #[test]
+    fn losing_all_abilities_removes_intrinsic_land_mana_as_well_as_printed_mana() {
+        let mut state = empty_state();
+        let id = land(
+            &mut state,
+            P0,
+            &[baylee_core::generated::subtypes::land::FOREST],
+        );
+        assert!(!crate::casting::intrinsic_mana_colors(&state, id).is_empty());
+        assert!(matches(
+            &Filter::HasManaAbility,
+            &state,
+            state.object(id).unwrap(),
+            P0,
+            id
+        ));
+        state.object_mut(id).unwrap().base_mut().abilities_lost = std::num::NonZeroU32::new(1);
+        assert!(crate::casting::intrinsic_mana_colors(&state, id).is_empty());
+        assert!(!matches(
+            &Filter::HasManaAbility,
+            &state,
+            state.object(id).unwrap(),
+            P0,
+            id
+        ));
     }
 }

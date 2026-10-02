@@ -888,6 +888,13 @@ pub enum ExileUntil {
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Deal damage to the chosen target and gain that much life, capped
+    /// at its current toughness, or its loyalty/life total before damage,
+    /// as applicable.
+    DealDamageWithCappedLifeGain {
+        /// Damage requested before prevention and replacement effects.
+        amount: Amount,
+    },
     /// Run operations in order.
     Sequence(&'static [Effect]),
     /// You gain life.
@@ -2116,6 +2123,17 @@ pub enum Effect {
         kind: CounterKind,
         /// How many.
         amount: Amount,
+    },
+    /// Put any number up to `amount` counters on the source, without this
+    /// instruction increasing its total above `maximum` (including any
+    /// multiplying replacements). An already greater total is unchanged.
+    AddCountersUpTo {
+        /// Counter kind.
+        kind: CounterKind,
+        /// Largest amount the controller may choose.
+        amount: Amount,
+        /// Largest resulting total this instruction may produce.
+        maximum: u16,
     },
     /// Put one linked counter on the target land, setting its basic land
     /// type while any counter of this kind remains.
@@ -3522,6 +3540,8 @@ impl Effect {
             | Effect::AddManaLikeEvent { .. }
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
+            | Effect::DealDamageWithCappedLifeGain { .. }
+            | Effect::AddCountersUpTo { .. }
             | Effect::MarkLandWithCounter { .. }
             | Effect::CleanLinkedCounters { .. }
             | Effect::RemoveCounterSelf { .. }

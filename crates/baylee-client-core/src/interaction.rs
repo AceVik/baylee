@@ -417,12 +417,8 @@ impl Prompt {
             // put-back and a wish all read "Wähle 1 Karte", and two of those
             // four decide the turn.
             Self::ChooseCards { reason, min, max } => cards_line(lang, *reason, *min, *max, &name),
-            Self::ChooseTargets {
-                reason: TargetPrompt::Convoke,
-                ..
-            } => Phrase::TapToHelpPay.text(lang).to_string(),
-            Self::ChooseTargets { min, max, .. } => {
-                choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, *min, *max)
+            Self::ChooseTargets { reason, min, max } => {
+                targets_line(lang, *reason, *min, *max, statics, &name)
             }
             // "Choose a basic land type" offers the five (CR 205.3i) and
             // nothing else; every other subtype question names creatures.
@@ -788,6 +784,45 @@ fn cards_line(
     choose_line(lang, one, many, min, max)
 }
 
+/// A target question, including which existing target a retarget may replace.
+fn targets_line(
+    lang: Lang,
+    reason: TargetPrompt,
+    min: u8,
+    max: u8,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    match reason {
+        TargetPrompt::Convoke => Phrase::TapToHelpPay.text(lang).to_string(),
+        TargetPrompt::Targets => {
+            choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, min, max)
+        }
+        TargetPrompt::Retarget { current, index, of } => {
+            let target = match current {
+                baylee_engine::choice::TargetRef::Object(id) => {
+                    name(id).unwrap_or_else(|| Phrase::PreviousTarget.text(lang).to_string())
+                }
+                baylee_engine::choice::TargetRef::Player(id) => seat_name(lang, statics, id),
+            };
+            let question = if min == 0 {
+                Phrase::ChooseNewTargetOrKeep
+            } else {
+                Phrase::ChooseNewTarget
+            };
+            Phrase::RetargetContext.fill(
+                lang,
+                &[
+                    &(u32::from(index) + 1).to_string(),
+                    &of.to_string(),
+                    &target,
+                    question.text(lang),
+                ],
+            )
+        }
+    }
+}
+
 /// The line a number question gets: the range to choose from, or, for one
 /// target's share of a division, that target by its place in the order the
 /// player chose them (the order the stack shows) and what is still to give.
@@ -825,6 +860,13 @@ fn number_line(
         );
     }
     match reason {
+        NumberPrompt::Counters { target, kind } => {
+            let label = counter_label(kind, lang);
+            name(target).map_or_else(
+                || Phrase::ChooseCounters.fill(lang, &[&label, &min, &max]),
+                |target| Phrase::ChooseCountersNamed.fill(lang, &[&label, &target, &min, &max]),
+            )
+        }
         NumberPrompt::X => Phrase::ChooseNumberIn.fill(lang, &[&min, &max]),
         NumberPrompt::Replicate { cost } => {
             Phrase::ReplicateHowOften.fill(lang, &[&cost.to_string(), &min, &max])
@@ -853,6 +895,30 @@ fn number_line(
                 &max,
             ],
         ),
+    }
+}
+
+/// Localized plural name for counters offered by an engine choice.
+#[must_use]
+pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> String {
+    use baylee_engine::object::CounterKind;
+    match kind {
+        CounterKind::Plus { power, toughness } => {
+            Phrase::LogCountersPlus.fill(lang, &[&power.to_string(), &toughness.to_string()])
+        }
+        CounterKind::Minus { power, toughness } => {
+            Phrase::LogCountersMinus.fill(lang, &[&power.to_string(), &toughness.to_string()])
+        }
+        CounterKind::Loyalty => Phrase::LogCountersLoyalty.text(lang).to_owned(),
+        CounterKind::Lore => Phrase::LogCountersLore.text(lang).to_owned(),
+        CounterKind::Time => Phrase::LogCountersTime.text(lang).to_owned(),
+        CounterKind::Charge => Phrase::LogCountersCharge.text(lang).to_owned(),
+        CounterKind::Poison => Phrase::LogCountersPoison.text(lang).to_owned(),
+        CounterKind::Energy => Phrase::LogCountersEnergy.text(lang).to_owned(),
+        CounterKind::Rad => Phrase::LogCountersRad.text(lang).to_owned(),
+        CounterKind::Lifelink => Phrase::LogCountersLifelink.text(lang).to_owned(),
+        CounterKind::Level => Phrase::LogCountersLevel.text(lang).to_owned(),
+        CounterKind::Custom(_) => Phrase::LogCountersOther.text(lang).to_owned(),
     }
 }
 

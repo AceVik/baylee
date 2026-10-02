@@ -81,6 +81,8 @@ pub enum StepKind {
     /// combat with first strike has two, and "the combat damage step" is
     /// reached at the first of them.
     CombatDamage,
+    /// End of combat step.
+    CombatEnd,
     /// End step.
     End,
 }
@@ -104,6 +106,9 @@ pub enum StepKind {
 /// as it resolves.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Condition {
+    /// This incarnation was declared as an attacker or blocker this combat,
+    /// even if it has since been removed from combat.
+    AttackedOrBlockedThisCombat,
     /// It is the current controller's turn (not necessarily the owner's).
     YourTurn,
     /// "If no spells were cast last turn" — by any player (the Innistrad

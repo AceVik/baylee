@@ -44,7 +44,7 @@ fn flying(e: &Engine<RegistryLookup>, object: ObjectId) -> bool {
         .contains(KeywordSet::FLYING)
 }
 
-fn damage(e: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(ObjectId, u16)> {
+fn damage(e: &Engine<RegistryLookup>, aura: ObjectId) -> Vec<(ObjectId, u32)> {
     e.journal()
         .entries()
         .iter()

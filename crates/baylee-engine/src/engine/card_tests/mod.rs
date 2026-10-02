@@ -22,6 +22,7 @@
 //! moves `#[test]` functions and nothing else, which is also what makes it
 //! reviewable: no item was rewritten, only re-filed.
 
+mod alpha_completion_review;
 mod artifacts;
 mod creatures;
 mod enchantments;
@@ -963,7 +964,7 @@ fn gray_ogre() -> CardIndex {
 fn damage_events(
     engine: &Engine<RegistryLookup>,
     from: usize,
-) -> Vec<(ObjectId, crate::event::DamageTarget, u16, bool)> {
+) -> Vec<(ObjectId, crate::event::DamageTarget, u32, bool)> {
     engine.journal().entries()[from..]
         .iter()
         .filter_map(|e| match e.event {

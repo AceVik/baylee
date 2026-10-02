@@ -573,6 +573,19 @@ impl HeuristicAgent {
             Pending::ChooseNumber {
                 min, max, reason, ..
             } => PlayerAction::ChooseNumber(match reason {
+                // The cost was already paid. Evaluate the offered counters,
+                // without trying to buy X again from the remaining mana pool.
+                baylee_engine::choice::NumberPrompt::Counters { target, kind } => {
+                    if view
+                        .object(target)
+                        .and_then(|object| self.counters(view, object, kind, 1))
+                        .is_some_and(|worth| worth > 0)
+                    {
+                        max
+                    } else {
+                        min
+                    }
+                }
                 baylee_engine::choice::NumberPrompt::X => self.number(view, min, max, context),
                 // Every payment the engine offers: it bounded the count by
                 // what the floating pool pays beside the rest of the cast,
@@ -2385,29 +2398,36 @@ mod tests {
     fn third_iteration_burn_finishes_the_player_before_killing_a_creature() {
         use baylee_cards_dsl::{Amount, Effect, TargetSpec};
         let v = view(0, &[20, 3], vec![permanent(obj(1), PlayerId::new(1), 1)]);
-        let effects = [Effect::DealDamage {
-            amount: Amount::Fixed(3),
-            target: TargetSpec::AnyTarget,
-        }];
-        let context = baylee_engine::engine::DecisionContext {
-            effects: &effects,
-            ..Default::default()
-        };
-        let pending = Pending::ChooseTargets {
-            player: v.seat,
-            options: vec![obj(1)],
-            player_options: vec![v.seat, PlayerId::new(1)],
-            min: 1,
-            max: 1,
-            reason: baylee_engine::choice::TargetPrompt::Targets,
-        };
-        assert_eq!(
-            HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![PlayerId::new(1)]
-            }
-        );
+        for effect in [
+            Effect::DealDamage {
+                amount: Amount::Fixed(3),
+                target: TargetSpec::AnyTarget,
+            },
+            Effect::DealDamageWithCappedLifeGain {
+                amount: Amount::Fixed(3),
+            },
+        ] {
+            let effects = [effect];
+            let context = baylee_engine::engine::DecisionContext {
+                effects: &effects,
+                ..Default::default()
+            };
+            let pending = Pending::ChooseTargets {
+                player: v.seat,
+                options: vec![obj(1)],
+                player_options: vec![v.seat, PlayerId::new(1)],
+                min: 1,
+                max: 1,
+                reason: baylee_engine::choice::TargetPrompt::Targets,
+            };
+            assert_eq!(
+                HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![PlayerId::new(1)]
+                }
+            );
+        }
     }
 
     /// #87. The policy seed is a recorded derivation, not a hash of the day.
@@ -2615,6 +2635,80 @@ mod tests {
             HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
             PlayerAction::ChooseNumber(2)
         );
+    }
+
+    #[test]
+    fn optional_counter_refill_is_valuable_only_below_its_cap() {
+        use crate::worth::{Aim, Origin};
+        use baylee_cards_dsl::{Amount, Effect};
+        let kind = baylee_cards_dsl::CounterKind::Plus {
+            power: 1,
+            toughness: 0,
+        };
+        for (existing, expected) in [(6, 110), (7, 0), (9, 0)] {
+            let mut creature = permanent(obj(1), PlayerId::new(0), 3);
+            creature.counters.push(CounterEntry {
+                kind: CounterKind::Plus {
+                    power: 1,
+                    toughness: 0,
+                },
+                count: existing,
+            });
+            let v = view(0, &[20, 20], vec![creature]);
+            assert_eq!(
+                agent().effects_worth(
+                    &v,
+                    Origin::of(&v, obj(1)),
+                    &[Effect::AddCountersUpTo {
+                        kind,
+                        amount: Amount::X,
+                        maximum: 7
+                    }],
+                    Aim::Source,
+                    4
+                ),
+                Some(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn resolving_counter_amount_uses_value_not_the_already_spent_mana() {
+        let v = view(0, &[20, 20], vec![permanent(obj(1), PlayerId::new(0), 3)]);
+        for (kind, expected) in [
+            (
+                baylee_cards_dsl::CounterKind::Plus {
+                    power: 1,
+                    toughness: 0,
+                },
+                4,
+            ),
+            (
+                baylee_cards_dsl::CounterKind::Minus {
+                    power: 1,
+                    toughness: 1,
+                },
+                0,
+            ),
+        ] {
+            let pending = Pending::ChooseNumber {
+                player: v.seat,
+                min: 0,
+                max: 4,
+                reason: baylee_engine::choice::NumberPrompt::Counters {
+                    target: obj(1),
+                    kind,
+                },
+            };
+            assert_eq!(
+                HeuristicAgent::new(AIProfile::EXPERT).act_with_context(
+                    &v,
+                    &pending,
+                    &baylee_engine::engine::DecisionContext::default()
+                ),
+                PlayerAction::ChooseNumber(expected)
+            );
+        }
     }
 
     #[test]

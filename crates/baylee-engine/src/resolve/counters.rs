@@ -29,6 +29,36 @@ fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::AddCountersUpTo {
+            kind,
+            amount,
+            maximum,
+        } => {
+            let target = this_to_affect(state, res)?;
+            let obj = state.object(target)?;
+            if obj.zone != crate::zone::Zone::Battlefield
+                || source_version(state, res).is_some_and(|v| obj.version != v)
+            {
+                return None;
+            }
+            let room = maximum.saturating_sub(obj.counters.get(kind));
+            let max = amount2(&amount, state, you, res).min(u32::from(room));
+            if max == 0 {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::Counters {
+                target,
+                version: obj.version,
+                kind,
+                maximum,
+            });
+            Some(Pending::ChooseNumber {
+                player: you,
+                min: 0,
+                max,
+                reason: crate::choice::NumberPrompt::Counters { target, kind },
+            })
+        }
         Effect::AddCounter { kind, amount } => {
             let n = amount2(&amount, state, you, res) as u16;
             // "Put a +1/+1 counter on **each of** up to two target
@@ -73,6 +103,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // the source had them (`may_clause_possible`), so the door's
         // saturation never bites; it is the cost of "if you do" (CR 118.12).
         Effect::RemoveCounterSelf { kind, n } => {
+            if state.object(res.source).is_none_or(|o| {
+                o.zone != crate::zone::Zone::Battlefield
+                    || source_version(state, res).is_some_and(|v| o.version != v)
+            }) {
+                return None;
+            }
             crate::replacement::remove_counters(state, res.source, kind, n);
             None
         }
@@ -585,5 +621,56 @@ mod pump_tests {
             })
             .collect();
         assert_eq!(named, vec![theirs]);
+    }
+    #[test]
+    fn bounded_counter_choice_finishes_once_and_never_removes_existing_counters() {
+        use baylee_cards_dsl::CounterKind;
+        for (existing, chosen, expected) in [(5, 0, 5), (5, 2, 7), (9, 0, 9)] {
+            let mut state = state();
+            let source = permanent(&mut state, me(), "Bounded counters");
+            state
+                .object_mut(source)
+                .unwrap()
+                .counters
+                .add(CounterKind::P1P1, existing);
+            let before = state.players[0].life;
+            let mut res = resolution(source, &[]);
+            res.effects = vec![
+                Effect::AddCountersUpTo {
+                    kind: CounterKind::P1P1,
+                    amount: Amount::Fixed(4),
+                    maximum: 7,
+                },
+                Effect::GainLife {
+                    amount: Amount::Fixed(1),
+                },
+            ];
+            let flow = run(&mut state, &mut res);
+            if existing < 7 {
+                assert!(matches!(
+                    flow,
+                    Flow::Wait(Pending::ChooseNumber { min: 0, max: 2, .. })
+                ));
+                assert!(matches!(
+                    resume_with_number(&mut state, &mut res, chosen),
+                    Flow::Complete
+                ));
+            } else {
+                assert!(matches!(flow, Flow::Complete));
+            }
+            assert_eq!(
+                state
+                    .object(source)
+                    .unwrap()
+                    .counters
+                    .get(CounterKind::P1P1),
+                expected
+            );
+            assert_eq!(
+                state.players[0].life,
+                before + 1,
+                "the next instruction runs exactly once"
+            );
+        }
     }
 }

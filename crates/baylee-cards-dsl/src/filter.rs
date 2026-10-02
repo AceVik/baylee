@@ -66,6 +66,9 @@ pub enum Filter {
     /// a target once in all, counting every instance of "target" and every
     /// player (CR 115.9a).
     WithSingleTarget,
+    /// Has an activated or triggered mana ability, whether or not it can
+    /// currently be activated. Includes intrinsic and granted abilities.
+    HasManaAbility,
     /// Controlled by `you`.
     ControlledByYou,
     /// Controlled by an opponent of `you`.

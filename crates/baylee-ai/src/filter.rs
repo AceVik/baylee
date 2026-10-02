@@ -216,7 +216,9 @@ impl HeuristicAgent {
             // The ones the view cannot answer. Named in this module's own
             // documentation with the reason each one is a refusal and not an
             // omission; a caller gets `None` and falls back.
-            Filter::MatchesChosenTypeOfSource
+            // Ability removal and granted mana abilities require engine evaluation.
+            Filter::HasManaAbility
+            | Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX

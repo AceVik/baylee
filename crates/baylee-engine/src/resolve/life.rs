@@ -12,6 +12,49 @@ use baylee_core::types::TypeSet;
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::DealDamageWithCappedLifeGain { amount } => {
+            let recipient = *recipients(state, res, you, TargetSpec::AnyTarget).first()?;
+            let before_damage_cap = match recipient {
+                DamageTarget::Player(player) => {
+                    state.players[usize::from(player.get())].life.max(0)
+                }
+                DamageTarget::Object(id) => state.object(id).map_or(0, |o| {
+                    let c = o.characteristics();
+                    if c.types.contains(TypeSet::PLANESWALKER) {
+                        i32::from(o.counters.get(baylee_cards_dsl::CounterKind::Loyalty))
+                    } else {
+                        i32::MAX
+                    }
+                }),
+            };
+            let start = state.journal.len();
+            let n = amount2(&amount, state, you, res);
+            deal_to_spec(state, res, you, res.source, n, TargetSpec::AnyTarget);
+            // Only life and loyalty are explicitly measured before damage.
+            // The subsequent gain reads current toughness (CR 608.2c, h),
+            // including counters changed by prevention or damage. Layers
+            // update immediately (CR 613.5), before the next SBA check.
+            state.refresh_characteristics();
+            let cap = match recipient {
+                DamageTarget::Object(_) => target_chars(res, state)
+                    .filter(|c| c.types.contains(TypeSet::CREATURE))
+                    .map_or(before_damage_cap, |c| {
+                        before_damage_cap.min(i32::from(c.toughness.unwrap_or(0)).max(0))
+                    }),
+                DamageTarget::Player(_) => before_damage_cap,
+            };
+            let dealt: i32 = state.journal.entries()[start..]
+                .iter()
+                .filter_map(|entry| match entry.event {
+                    GameEvent::DamageDealt { source, amount, .. } if source == Some(res.source) => {
+                        Some(i32::try_from(amount).unwrap_or(i32::MAX))
+                    }
+                    _ => None,
+                })
+                .fold(0, i32::saturating_add);
+            gain_life(state, you, dealt.min(cap));
+            None
+        }
         Effect::GainLife { amount } => {
             let n = amount2(&amount, state, you, res) as i32;
             gain_life(state, you, n);
@@ -40,7 +83,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::DealDamage { amount, target } => {
-            let n = amount2(&amount, state, you, res) as i16;
+            let n = amount2(&amount, state, you, res);
             deal_to_spec(state, res, you, res.source, n, target);
             None
         }
@@ -49,7 +92,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let attachment = source_attachment_lki(state, res.on_stack);
             let host =
                 crate::eval::attached_for_ability(state, res.source, version, attachment)?.id;
-            let n = amount2(&amount, state, you, res) as i16;
+            let n = amount2(&amount, state, you, res);
             deal_to_object(
                 state,
                 host,
@@ -76,7 +119,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     deal_to_object(
                         state,
                         target,
-                        i16::try_from(n).unwrap_or(i16::MAX),
+                        n,
                         res.source,
                         &mut Redirected::default(),
                         version,
@@ -116,14 +159,21 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         .map(|(_, p)| *p)
                 });
             if let Some(n) = power.map(|p| p.max(0)) {
-                deal_to_spec(state, res, you, dealer, n, target);
+                deal_to_spec(
+                    state,
+                    res,
+                    you,
+                    dealer,
+                    u32::try_from(n).unwrap_or(0),
+                    target,
+                );
             }
             None
         }
         Effect::DealDamageToTargetController { amount } => {
             if let Some(&target_id) = res.targets.first() {
                 let controller = state.object(target_id).map_or(you, |o| o.controller);
-                let n = amount2(&amount, state, you, res) as i16;
+                let n = amount2(&amount, state, you, res);
                 let version = source_version(state, res);
                 deal_to_player_after(
                     state,
@@ -236,7 +286,7 @@ fn deal_to_spec(
     res: &Resolution,
     you: PlayerId,
     source: ObjectId,
-    n: i16,
+    n: u32,
     target: TargetSpec,
 ) {
     let version = if Some(source) == res.event_object {
@@ -352,7 +402,7 @@ fn damage_each(state: &mut GameState, res: &Resolution, amount: &Amount, filter:
     // treated as though it does not exist (CR 702.26b). `DestroyAll` walks the
     // raw list, which is #209.
     let you = res.controller;
-    let n = amount2(amount, state, you, res) as i16;
+    let n = amount2(amount, state, you, res);
     let can_be_dealt = TypeSet::CREATURE.union(TypeSet::PLANESWALKER);
     let hit: Vec<ObjectId> = state
         .battlefield_view()
@@ -480,7 +530,14 @@ pub(super) fn deal_to_object_with_loyalty(
     n: i16,
     source: ObjectId,
 ) {
-    deal_to_object(state, target, n, source, &mut Redirected::default(), None);
+    deal_to_object(
+        state,
+        target,
+        u32::try_from(n).unwrap_or(0),
+        source,
+        &mut Redirected::default(),
+        None,
+    );
 }
 
 /// Damage a redirection moved (CR 614.9), dealt through the door for its
@@ -489,7 +546,7 @@ fn deal_redirected(
     state: &mut GameState,
     source: ObjectId,
     recipient: DamageTarget,
-    n: i16,
+    n: u32,
     done: &mut Redirected,
     source_version: Option<u32>,
 ) {
@@ -504,28 +561,28 @@ fn deal_redirected(
 fn deal_to_object(
     state: &mut GameState,
     target: ObjectId,
-    n: i16,
+    n: u32,
     source: ObjectId,
     done: &mut Redirected,
     source_version: Option<u32>,
 ) {
-    if n <= 0 {
+    if n == 0 {
         return;
     }
     // Protection (CR 702.16e): matching sources deal no damage.
     if eval::protected_from(state, target, source) {
         return;
     }
-    let n = crate::combat::shielded(state, source, DamageTarget::Object(target), n, false);
-    if n <= 0 {
+    let n = crate::prevention::apply(state, source, DamageTarget::Object(target), n, false);
+    if n == 0 {
         return;
     }
     if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
         deal_redirected(state, source, to, n, done, source_version);
         return;
     }
-    let n = crate::combat::absorbed(state, source, target, n, false);
-    if n <= 0 {
+    let n = crate::prevention::absorb(state, source, target, n, false);
+    if n == 0 {
         return;
     }
     let is_walker = state.object(target).is_some_and(|o| {
@@ -538,7 +595,7 @@ fn deal_to_object(
         let old = state.object(target).map_or(0, |o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
         });
-        let new = old.saturating_sub(n as u16);
+        let new = old.saturating_sub(u16::try_from(n).unwrap_or(u16::MAX));
         if let Some(obj) = state.object_mut(target) {
             obj.counters
                 .set(baylee_cards_dsl::CounterKind::Loyalty, new);
@@ -558,31 +615,40 @@ fn deal_to_object(
                 .contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH)
         });
         if let Some(obj) = state.object_mut(target) {
-            obj.damage = obj.damage.saturating_add(n as u16);
+            obj.damage = obj
+                .damage
+                .saturating_add(u16::try_from(n).unwrap_or(u16::MAX));
             obj.deathtouched |= deathtouch;
         }
     }
-    state.record_permanent_damage(source, source_version, target, n as u16, false);
+    state.record_permanent_damage(source, source_version, target, n, false);
 }
 
 #[cfg(test)]
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
-    deal_to_player_after(state, source, player, n, &mut Redirected::default(), None);
+    deal_to_player_after(
+        state,
+        source,
+        player,
+        u32::try_from(n).unwrap_or(0),
+        &mut Redirected::default(),
+        None,
+    );
 }
 
 fn deal_to_player_after(
     state: &mut GameState,
     source: ObjectId,
     player: PlayerId,
-    n: i16,
+    n: u32,
     done: &mut Redirected,
     source_version: Option<u32>,
 ) {
-    if n <= 0 {
+    if n == 0 {
         return;
     }
-    let n = crate::combat::shielded(state, source, DamageTarget::Player(player), n, false);
-    if n <= 0 {
+    let n = crate::prevention::apply(state, source, DamageTarget::Player(player), n, false);
+    if n == 0 {
         return;
     }
     // After the shields and before the life, as combat's door does it.
@@ -590,7 +656,7 @@ fn deal_to_player_after(
         deal_redirected(state, source, to, n, done, source_version);
         return;
     }
-    state.damage_player(source, player, n as u16, false, Cause::Effect);
+    state.damage_player(source, player, n, false, Cause::Effect);
 }
 
 #[cfg(test)]
@@ -1131,6 +1197,63 @@ mod tests {
             mana_ability: false,
             countered_source: None,
         }
+    }
+
+    #[test]
+    fn capped_gain_reprojects_toughness_after_damage_prevention_changes_counters() {
+        use baylee_cards_dsl::CounterKind;
+
+        let mut state = state();
+        let source = permanent(&mut state, "Capped damage source");
+        let target = typed(&mut state, me(), "Counter body", TypeSet::CREATURE);
+        let obj = state.object_mut(target).unwrap();
+        obj.base_mut().power = Some(0);
+        obj.base_mut().toughness = Some(0);
+        obj.counters.set(CounterKind::P1P1, 3);
+        let modifier = Modifier::CountersPreventDamage(CounterKind::P1P1);
+        state.effects.register(ContinuousEffect {
+            id: baylee_core::ids::EffectId::new(0),
+            source: Some(target),
+            controller: me(),
+            origin: crate::effects::EffectOrigin::Static,
+            layer: modifier.layer(),
+            timestamp: 1,
+            duration: Duration::WhileSourceOnBattlefield,
+            filter: EffectFilter::Dsl(&Filter::This),
+            modifier,
+        });
+        state.refresh_characteristics();
+        assert_eq!(
+            state.object(target).unwrap().characteristics().toughness,
+            Some(3)
+        );
+        let mut res = untargeted(source);
+        res.targets.push(target);
+        res.targeted = true;
+        let before = life(&state, me());
+        assert!(
+            exec(
+                &mut state,
+                &mut res,
+                Effect::DealDamageWithCappedLifeGain {
+                    amount: Amount::Fixed(4),
+                },
+            )
+            .is_none()
+        );
+        let body = state.object(target).unwrap();
+        assert_eq!(body.damage, 1, "the unprevented damage was dealt");
+        assert_eq!(body.characteristics().toughness, Some(0));
+        assert_eq!(
+            body.zone,
+            crate::zone::Zone::Battlefield,
+            "no mid-effect SBA"
+        );
+        assert_eq!(
+            life(&state, me()),
+            before,
+            "current zero toughness caps gain"
+        );
     }
 
     /// "~ deals 2 damage to each …" over a filter that matches everything:

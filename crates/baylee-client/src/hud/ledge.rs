@@ -1353,7 +1353,24 @@ fn confirmation_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
         return Vec::new();
     };
     let say = |action, phrase: Phrase| (Says::Answer(action), phrase.text(lang).to_string());
-    let mut answers = vec![say(PromptAction::Confirm, Phrase::ConfirmOk)];
+    let confirm = if matches!(
+        interaction.pending(),
+        Pending::ChooseTargets {
+            reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+            ..
+        }
+    ) {
+        if interaction.selected().next().is_none()
+            && interaction.selected_players().next().is_none()
+        {
+            Phrase::KeepCurrentTarget
+        } else {
+            Phrase::ChangeTarget
+        }
+    } else {
+        Phrase::ConfirmOk
+    };
+    let mut answers = vec![say(PromptAction::Confirm, confirm)];
     if matches!(
         interaction.pending(),
         Pending::ChooseNumber {
@@ -1563,6 +1580,36 @@ fn ways_out(commands: &mut Commands, fonts: &UiFonts, column: Entity, revision: 
 /// `size` because the drawer writes in this voice too and writes quieter: a
 /// hint about where to click is not as loud as the question it is under.
 fn sentence(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32, ink: Color) -> Entity {
+    // Payment questions carry the same printed symbols as ability costs.
+    // Keep ordinary prose in one text layout; a symbol-bearing question uses
+    // the shared Mana-font renderer, including symbols inside an aside.
+    if baylee_client_core::manapip::segments(text)
+        .iter()
+        .any(|part| matches!(part, baylee_client_core::manapip::Segment::Symbol(_)))
+    {
+        let line = commands
+            .spawn((
+                Node {
+                    flex_wrap: bevy::ui::FlexWrap::Wrap,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        for (run, aside) in baylee_client_core::prose::bracketed(text) {
+            let span = crate::manaui::spawn_rich_in(
+                commands,
+                fonts,
+                run,
+                size,
+                if aside { palette::LEDGE_SOFT } else { ink },
+                tf_italic,
+            );
+            commands.entity(line).add_child(span);
+        }
+        return line;
+    }
     let line = commands
         .spawn((
             Text::default(),
@@ -1783,14 +1830,23 @@ pub(crate) fn answer_sized(
         let key = keycap(commands, fonts, legend, cap_fill, cap_ink, cap_edge, CAP_PT);
         commands.entity(button).add_child(key);
     }
-    let words = commands
-        .spawn((
-            Text::new(label.to_string()),
-            tf_bold(fonts, font_size),
-            TextColor(ink),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let words = if baylee_client_core::manapip::segments(label)
+        .iter()
+        .any(|run| matches!(run, baylee_client_core::manapip::Segment::Symbol(_)))
+    {
+        let words = crate::manaui::spawn_rich_in(commands, fonts, label, font_size, ink, tf_bold);
+        keep_label_on_one_line(commands, words);
+        words
+    } else {
+        commands
+            .spawn((
+                Text::new(label),
+                tf_bold(fonts, font_size),
+                TextColor(ink),
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
     commands.entity(button).add_child(words);
     button
 }
@@ -1850,7 +1906,19 @@ fn put_words(commands: &mut Commands, fonts: &UiFonts, button: Entity, text: &st
         return;
     }
     let node = crate::manaui::spawn_rich_label(commands, fonts, text, LABEL_PT, ink);
+    keep_label_on_one_line(commands, node);
     commands.entity(button).add_child(node);
+}
+
+/// Fixed-height controls must measure the whole symbol run, not its widest pip.
+fn keep_label_on_one_line(commands: &mut Commands, label: Entity) {
+    commands
+        .entity(label)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_wrap = bevy::ui::FlexWrap::NoWrap;
+            node.flex_shrink = 0.0;
+        });
 }
 
 /// How wide a keycap's box is, legend and air together.
@@ -2028,6 +2096,96 @@ fn clock_width() -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retarget_confirmation_names_keeping_or_changing_the_target() {
+        use baylee_core::ids::{ObjectId, PlayerId};
+        use baylee_engine::choice::{Pending, TargetPrompt};
+        let me = PlayerId::new(0);
+        let target = ObjectId::new(1, 0);
+        let mut duel = Duel {
+            interaction: Some(baylee_client_core::Interaction::new(
+                Pending::ChooseTargets {
+                    player: me,
+                    options: vec![target],
+                    player_options: vec![PlayerId::new(1)],
+                    min: 0,
+                    max: 1,
+                    reason: TargetPrompt::Retarget {
+                        current: baylee_engine::choice::TargetRef::Player(me),
+                        index: 0,
+                        of: 1,
+                    },
+                },
+                me,
+            )),
+            ..Duel::default()
+        };
+        for lang in [Lang::En, Lang::De] {
+            assert_eq!(
+                confirmation_row(&duel, lang)[0].1,
+                Phrase::KeepCurrentTarget.text(lang)
+            );
+        }
+        duel.interaction.as_mut().unwrap().toggle(target);
+        assert_eq!(confirmation_row(&duel, Lang::En)[0].1, "Change target");
+        duel.interaction.as_mut().unwrap().toggle(target);
+        duel.interaction
+            .as_mut()
+            .unwrap()
+            .toggle_player(PlayerId::new(1));
+        assert_eq!(confirmation_row(&duel, Lang::De)[0].1, "Ziel ändern");
+    }
+
+    #[test]
+    fn payment_questions_draw_symbols_in_the_mana_font_and_keep_asides_quiet() {
+        let mut app = App::new();
+        let mut assets = Assets::<Font>::default();
+        let mana = assets.add(Font::from_bytes(
+            include_bytes!("../../assets/fonts/mana.ttf").to_vec(),
+        ));
+        let fonts = UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: mana.clone(),
+        };
+        sentence(
+            &mut app.world_mut().commands(),
+            &fonts,
+            "Pay {X}{B} ({T}: add {B})?",
+            SENTENCE_PT,
+            palette::DIALOG_INK,
+        );
+        app.world_mut().flush();
+        let mut text = app.world_mut().query::<(&Text, &TextFont, &TextColor)>();
+        let mut marks = Vec::new();
+        let mut aside = false;
+        for (words, font, color) in text.iter(app.world()) {
+            assert!(
+                !words.0.contains('{'),
+                "printed symbols cannot remain prose"
+            );
+            if font.font == bevy::text::FontSource::Handle(mana.clone()) {
+                marks.push(words.0.clone());
+            }
+            if words.0.contains("add") {
+                aside = true;
+                assert_eq!(color.0, palette::LEDGE_SOFT);
+            }
+        }
+        assert_eq!(
+            marks.len(),
+            4,
+            "X, black, tap and black are all font glyphs"
+        );
+        assert!(aside, "the parenthesized payment hint remains visible");
+    }
 
     #[test]
     fn auto_damage_button_is_only_offered_for_combat_shares() {

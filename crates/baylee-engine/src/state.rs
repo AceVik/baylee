@@ -1632,6 +1632,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            has_mana_ability: false,
             rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
@@ -1676,6 +1677,7 @@ impl GameState {
             produced_colors: baylee_core::color::ColorSet::EMPTY,
             produced_colorless: false,
             produced_chosen: false,
+            has_mana_ability: false,
             rules_text_lost: false,
             abilities_lost: None,
             front_mana_value: None,
@@ -2069,16 +2071,16 @@ impl GameState {
         &mut self,
         source: ObjectId,
         player: PlayerId,
-        amount: u16,
+        amount: u32,
         is_combat: bool,
         cause: Cause,
     ) {
         if amount == 0 {
             return;
         }
-        self.change_life(player, -i32::from(amount), cause);
+        self.change_life(player, -i32::try_from(amount).unwrap_or(i32::MAX), cause);
         if let Some(tally) = self.per_turn.damage_dealt_to.get_mut(player.get() as usize) {
-            *tally = tally.saturating_add(u32::from(amount));
+            *tally = tally.saturating_add(amount);
         }
         self.journal.record(GameEvent::DamageDealt {
             source: Some(source),
@@ -3818,6 +3820,11 @@ impl GameState {
                 }
             }
         }
+        h.usize(self.combat.participants.len());
+        for &(id, version) in &self.combat.participants {
+            h.u32(position(id));
+            h.boolean(self.object(id).is_some_and(|o| o.version == version));
+        }
         h.usize(self.combat.attackers().len());
         for a in self.combat.attackers() {
             h.u32(position(a.creature));
@@ -4255,6 +4262,10 @@ fn hash_rider_situation(
                 }));
             }
             crate::object::Rider::AttachmentHostLeft => h.u8(24),
+            crate::object::Rider::EventAmount(amount) => {
+                h.u8(26);
+                h.u32(*amount);
+            }
             _ => {}
         }
     }
@@ -4411,6 +4422,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
         produced_colors,
         produced_colorless,
         produced_chosen,
+        has_mana_ability,
         rules_text_lost,
         abilities_lost,
         front_mana_value,
@@ -4429,6 +4441,7 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     produced_colors.hash(h);
     produced_colorless.hash(h);
     produced_chosen.hash(h);
+    has_mana_ability.hash(h);
     rules_text_lost.hash(h);
     abilities_lost.hash(h);
     front_mana_value.hash(h);
@@ -4486,7 +4499,6 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
         token,
         pending_face_change,
         event_object,
-        event_amount,
         cast_from_hand,
     } = obj;
     id.hash(h);
@@ -4587,6 +4599,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(15);
                 h.u8(p.get());
             }
+            Rider::EventAmount(amount) => {
+                h.u8(26);
+                amount.hash(h);
+            }
             Rider::Escaped => h.u8(16),
             Rider::ChosenOpponent(p) => {
                 h.u8(17);
@@ -4620,7 +4636,6 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
     face_index.hash(h);
     pending_face_change.hash(h);
     event_object.hash(h);
-    event_amount.hash(h);
     cast_from_hand.hash(h);
     // What the object can do when it is not what its card says: a copy's
     // list, an emblem's, an ability's captured one. `own_origin` names it.
@@ -4726,6 +4741,7 @@ pub(crate) fn filter_reaches_other_zones(filter: &baylee_cards_dsl::Filter) -> b
 }
 
 /// Deterministic structural hash of a DSL filter (modifier payloads).
+#[allow(clippy::too_many_lines)] // Exhaustive stable tag table for the filter vocabulary.
 fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
     use baylee_cards_dsl::Filter as F;
     match f {
@@ -4818,6 +4834,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             hash_counter(h, *kind);
         }
         F::WithSingleTarget => h.u8(34),
+        F::HasManaAbility => h.u8(48),
         // Its own tag rather than a payload on `CmcAtMost`: the bound is
         // read from the source at match time, so two filters that differ
         // only in *where* the number comes from are different filters.
@@ -5733,6 +5750,9 @@ mod tests {
             ("per_turn.attacked", |s, id| {
                 s.per_turn.attacked.push((id, 0));
             }),
+            ("combat.participants", |s, id| {
+                s.combat.participants.push((id, 0));
+            }),
             ("per_turn.entered_battlefield", |s, id| {
                 s.per_turn.entered_battlefield.push(id);
             }),
@@ -5915,7 +5935,9 @@ mod tests {
                 fixture_object(s, id).event_object = Some(id);
             }),
             ("event_amount", |s, id| {
-                fixture_object(s, id).event_amount = core::num::NonZeroU16::new(3);
+                fixture_object(s, id)
+                    .riders
+                    .push(crate::object::Rider::EventAmount(3));
             }),
             ("cast_from_hand", |s, id| {
                 let object = fixture_object(s, id);
@@ -5945,6 +5967,9 @@ mod tests {
             }),
             ("produced_chosen", |s, id| {
                 fixture_object(s, id).base_mut().produced_chosen = true;
+            }),
+            ("has_mana_ability", |s, id| {
+                fixture_object(s, id).base_mut().has_mana_ability = true;
             }),
             ("rules_text_lost", |s, id| {
                 fixture_object(s, id).base_mut().rules_text_lost = true;

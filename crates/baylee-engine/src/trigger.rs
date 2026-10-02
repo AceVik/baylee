@@ -61,7 +61,7 @@ pub struct PendingTrigger {
     pub event_mana: Option<EventMana>,
     /// The player a damage event dealt damage to, and how much: "that
     /// player" and "that much" of a combat-damage trigger (Questing Beast).
-    pub event_damage: Option<(PlayerId, u16)>,
+    pub event_damage: Option<(PlayerId, u32)>,
     /// What an untargeted synthetic trigger puts first among its targets,
     /// which is what its `Filter::This` and its "target" words then name
     /// (`resolve::this_object`).
@@ -370,8 +370,9 @@ fn graveyard_triggers(
 ///
 /// [`X_CEILING`]: crate::engine::cast_wizard::X_CEILING
 static REPLICATE_COPIES: [baylee_cards_dsl::Effect;
-    crate::engine::cast_wizard::X_CEILING as usize] =
-    [baylee_cards_dsl::Effect::CopyThisSpell; crate::engine::cast_wizard::X_CEILING as usize];
+    crate::engine::cast_wizard::REPLICATE_CEILING as usize] =
+    [baylee_cards_dsl::Effect::CopyThisSpell;
+        crate::engine::cast_wizard::REPLICATE_CEILING as usize];
 
 /// The state triggers that trigger now (CR 603.8): every
 /// [`Trigger::State`] on the battlefield whose condition holds, asked with
@@ -673,7 +674,7 @@ fn first_combat_damage_to(
 
 /// All the combat damage a batch dealt to `player`: the one event
 /// [`first_combat_damage_to`] fires on, as an amount (CR 510.2).
-fn combat_damage_in_batch(batch: &[crate::event::JournalEntry], player: PlayerId) -> u16 {
+fn combat_damage_in_batch(batch: &[crate::event::JournalEntry], player: PlayerId) -> u32 {
     batch
         .iter()
         .filter_map(|entry| match entry.event {
@@ -685,7 +686,7 @@ fn combat_damage_in_batch(batch: &[crate::event::JournalEntry], player: PlayerId
             } if to == player => Some(amount),
             _ => None,
         })
-        .fold(0u16, u16::saturating_add)
+        .fold(0u32, u32::saturating_add)
 }
 
 /// The monarch is read once for the whole batch. A batch is what happened
@@ -842,7 +843,7 @@ fn event_damage_of(
     trigger: &Trigger,
     event: &GameEvent,
     batch: &[crate::event::JournalEntry],
-) -> Option<(PlayerId, u16)> {
+) -> Option<(PlayerId, u32)> {
     match event {
         GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),

@@ -216,8 +216,8 @@ fn jin_gitaxias_copy_may_be_given_a_new_target() {
     // the way (its own target is the spell that was cast).
     let options = options_offered_including(&mut engine, lieutenant);
     assert!(
-        options.contains(&cleric) && options.contains(&lieutenant),
-        "every legal creature is offered, not just the original target"
+        !options.contains(&cleric) && options.contains(&lieutenant),
+        "new legal creatures are offered; an empty answer keeps the original"
     );
     engine
         .apply(
@@ -2752,11 +2752,10 @@ fn a_flashed_in_mage_copies_the_opponents_removal_and_points_it_back_at_them() {
         .unwrap();
 
     // The copy is made under p0's control, and p0 is asked again where it
-    // points — the original's target is offered too, which is how a player
-    // declines the "you may".
+    // points; an empty answer keeps the original target.
     let retarget = options_offered_including(&mut engine, their_cleric);
     assert!(
-        retarget.contains(&my_elves) && retarget.contains(&their_cleric),
+        !retarget.contains(&my_elves) && retarget.contains(&their_cleric),
         "the copy may be pointed at any legal creature: {retarget:?}"
     );
     engine
@@ -24773,14 +24772,8 @@ fn ivy_elemental_enters_with_its_announced_x_plus_one_plus_one_counters() {
         )
     };
     assert_eq!(player, p0, "the seat casting the spell names its own X");
-    // **Not** bounded by the pool, and that is the engine's own decision
-    // rather than an oversight: `cast_wizard` offers up to `X_CEILING` and
-    // validates the mana when the wizard finishes, because a printed `{X}`
-    // has no legality of its own (CR 601.2b) — the payment is where an
-    // unpayable announcement is refused. The one thing bounded on the
-    // *question* is `PayLifeX`, which no `can_afford` reads. Asserting the
-    // pool here would have been asserting a rule this engine deliberately
-    // does not have.
+    // The resource bound includes every payable X; the final payment
+    // below also accounts for the fixed green mana.
     assert!(
         max >= 3,
         "the announcement has to reach the three this board can pay: {max}"

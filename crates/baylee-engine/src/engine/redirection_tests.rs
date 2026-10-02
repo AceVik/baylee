@@ -204,7 +204,7 @@ fn zone(engine: &Engine<SyntheticLookup>, id: ObjectId) -> Option<Zone> {
 }
 
 /// Every `DamageDealt` in the game: source, recipient, amount, combat.
-fn dealt(engine: &Engine<SyntheticLookup>) -> Vec<(ObjectId, DamageTarget, u16, bool)> {
+fn dealt(engine: &Engine<SyntheticLookup>) -> Vec<(ObjectId, DamageTarget, u32, bool)> {
     engine
         .state()
         .journal

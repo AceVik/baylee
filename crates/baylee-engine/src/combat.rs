@@ -109,6 +109,9 @@ pub struct BlockerInfo {
 /// so the two lists cannot disagree.
 #[derive(Clone, Debug, Default)]
 pub struct CombatState {
+    /// Incarnations declared as attackers or blockers during this combat.
+    /// Removal from combat does not erase that history.
+    pub participants: Vec<(ObjectId, u32)>,
     /// Declared attackers, in declaration order.
     attackers: Vec<AttackerInfo>,
     /// The same creatures as `attackers`, sorted, each with what it
@@ -129,6 +132,7 @@ impl std::hash::Hash for CombatState {
         self.attackers.hash(state);
         self.blockers.hash(state);
         self.divisions.hash(state);
+        self.participants.hash(state);
     }
 }
 
@@ -1441,7 +1445,7 @@ fn deal_damage_to_player(
     state.damage_player(
         source,
         player,
-        amount as u16,
+        amount as u32,
         is_combat,
         crate::event::Cause::Spell,
     );
@@ -1531,7 +1535,7 @@ fn deal_damage_to_object(
             obj.deathtouched |= deathtouch;
         }
     }
-    state.record_permanent_damage(source, None, target, amount as u16, is_combat);
+    state.record_permanent_damage(source, None, target, amount as u32, is_combat);
     amount
 }
 

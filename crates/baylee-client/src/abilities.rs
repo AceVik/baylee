@@ -1386,6 +1386,42 @@ mod tests {
         )
     }
 
+    #[test]
+    fn clockwork_beasts_refill_keeps_its_full_sentence_and_symbol_cost() {
+        let mut beast = baylee_client_core::test_support::printed(1, 0, "Clockwork Beast", 1);
+        beast.card.as_mut().unwrap().index =
+            baylee_cards::decks::by_name("Clockwork Beast").unwrap();
+        beast.rules = beast.card.map(baylee_view::RulesFace::from);
+        let id = beast.id;
+        let view = ViewBuilder::new(2).with_battlefield(0, [beast]).build();
+        let rows = options(Lang::En, &view, &offering(vec![(id, 1)], vec![]), id);
+        assert_eq!(rows.len(), 1);
+        let row = &rows[0];
+        assert!(!row.mana);
+        assert_eq!(row.cost.as_deref(), Some("{X}, {T}"));
+        let cut = printed_words(None, &view, id, row).expect("the refill's Oracle sentence");
+        assert_eq!(cut.head.as_deref(), Some("{X}, {T}"));
+        let words = cut
+            .blocks
+            .iter()
+            .map(baylee_client_core::card_face::TextBlock::text)
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            words,
+            "Put up to X +1/+0 counters on this creature. This ability can't cause the total number of +1/+0 counters on this creature to be greater than seven. Activate only during your upkeep."
+        );
+        let symbols = baylee_client_core::manapip::segments(cut.head.as_deref().unwrap());
+        assert_eq!(
+            symbols
+                .iter()
+                .filter(|part| matches!(part, baylee_client_core::manapip::Segment::Symbol(_)))
+                .count(),
+            2,
+            "X and tap must reach the shared Mana-font renderer as symbols"
+        );
+    }
+
     /// A copy's row is the copied card's: its cost, its sentence, read off
     /// the card `rules` names and not the card the permanent is.
     ///

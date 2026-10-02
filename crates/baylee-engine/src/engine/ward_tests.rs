@@ -278,7 +278,15 @@ fn a_spell_copy_triggers_its_own_ward_without_being_cast() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-    aim(&mut engine, twins);
+    engine
+        .apply(
+            seat(1),
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
     wait_for_payment(&mut engine);
     assert!(
         matches!(engine.pending(), Pending::YesNo { player, prompt: YesNoPrompt::PayTax { mana: 1 }, .. } if *player == seat(1))

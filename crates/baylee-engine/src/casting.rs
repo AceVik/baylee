@@ -797,6 +797,35 @@ pub(crate) fn spendable_pool(
     Some(merged(pool, &admitted(state, player, what)))
 }
 
+/// Mana units this payment can spend, without counting the restricted
+/// entries a second time after merging them into the plain counters.
+pub(crate) fn spendable_units(state: &GameState, player: PlayerId, what: SpendFor) -> u32 {
+    let merged = spendable_pool(state, player, what);
+    let pool = merged
+        .as_ref()
+        .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
+    ManaColor::ALL
+        .iter()
+        .map(|color| u32::from(pool.available(*color)))
+        .sum()
+}
+
+/// Greatest affordable value within a known finite bound. Increasing X
+/// cannot make a fixed cost cheaper, so this takes at most 32 probes even
+/// when a player has a very large mana pool or life total.
+pub(crate) fn greatest_affordable(mut upper: u32, mut affordable: impl FnMut(u32) -> bool) -> u32 {
+    let mut lower = 0;
+    while lower < upper {
+        let middle = lower + (upper - lower).div_ceil(2);
+        if affordable(middle) {
+            lower = middle;
+        } else {
+            upper = middle - 1;
+        }
+    }
+    lower
+}
+
 /// Pays `cost` for `what` out of `player`'s pool, and returns the restricted
 /// mana it spent, and the rider-carrying mana it spent on a spell that rider
 /// names ([`ridden_for`]), each part with its source and rider. `None`
@@ -824,6 +853,17 @@ pub(crate) fn pay_mana_for(
     what: SpendFor,
     cost: &ManaCost,
 ) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
+    pay_mana_restricting_generic(state, player, what, cost, None)
+}
+
+/// The ordinary payment with an actual-mana restriction on a generic part.
+pub(crate) fn pay_mana_restricting_generic(
+    state: &mut GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+    restriction: Option<(ManaColor, u32)>,
+) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
     let spending = mana_spending(state, player);
     let entries = admitted(state, player, what);
     let riding = ridden_for(state, player, what);
@@ -834,7 +874,7 @@ pub(crate) fn pay_mana_for(
         let slot = &mut prefer[mana.color.index()];
         *slot = slot.saturating_add(mana.amount);
     }
-    let paid = mana_pay::payment_with(&merged, cost, spending, prefer)?;
+    let paid = mana_pay::payment_restricting_generic(&merged, cost, spending, prefer, restriction)?;
 
     // What the payment consumed, per colour, and how much of it was snow.
     // Exact, because `spend` takes ordinary units before snow ones and
@@ -1907,7 +1947,9 @@ pub fn intrinsic_mana_colors(state: &GameState, source: ObjectId) -> Vec<ManaCol
     let Some(obj) = state.object(source) else {
         return Vec::new();
     };
-    if !obj.characteristics().types.contains(TypeSet::LAND) {
+    if !obj.characteristics().types.contains(TypeSet::LAND)
+        || obj.characteristics().abilities_lost.is_some()
+    {
         return Vec::new();
     }
     let s = &obj.characteristics().subtypes;

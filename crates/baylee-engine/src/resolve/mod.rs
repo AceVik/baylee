@@ -6,9 +6,7 @@
 //! answer. Everything runs through the normal event pipeline, so the
 //! journal stays complete.
 
-use crate::choice::{
-    ArrangePile, ArrangePlace, ArrangePrompt, ChoicePrompt, Pending, TargetPrompt, YesNoPrompt,
-};
+use crate::choice::{ArrangePile, ArrangePlace, ArrangePrompt, ChoicePrompt, Pending, YesNoPrompt};
 use crate::engine::cost_wizard;
 use crate::eval;
 use crate::event::{Cause, DamageTarget, GameEvent};
@@ -166,6 +164,8 @@ pub struct TargetLki {
     pub id: ObjectId,
     /// Its `version` when the resolution began.
     pub version: u32,
+    /// Controller before the target left its expected zone.
+    pub controller: PlayerId,
     /// Its characteristics when the resolution began.
     pub chars: crate::object::Characteristics,
 }
@@ -287,6 +287,17 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Choosing a number of counters while resolving a bounded placement.
+    Counters {
+        /// Incarnation receiving the counters.
+        target: ObjectId,
+        /// Its zone-change version.
+        version: u32,
+        /// Counter kind.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Maximum total after placement and replacement effects.
+        maximum: u16,
+    },
     /// An owner orders simultaneous graveyard arrivals before the next
     /// instruction or a choice that instruction produced.
     GraveyardOrder {
@@ -498,13 +509,6 @@ pub enum AwaitingOp {
     NewTargets(Box<retarget::Retarget>),
     /// After `WishToHand`: the chosen card, if any, goes to its owner's hand.
     WishToHand,
-    /// After `CopyTargetSpell`: the copy's controller may choose new targets
-    /// for it (CR 707.10c). Picking the same objects again is how they
-    /// decline, so there is no separate "keep them" answer.
-    CopyNewTargets {
-        /// The copy on the stack whose targets change.
-        copy: ObjectId,
-    },
     /// After `DigRest`: the unpicked cards go to the bottom in the
     /// player's chosen order.
     DigBottom,
@@ -1007,8 +1011,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         // amount.
         Amount::EventAmount => state
             .object(res.on_stack)
-            .and_then(|o| o.event_amount)
-            .map_or(0, |n| u32::from(n.get())),
+            .map_or(0, GameObject::event_amount),
         // Off the stack object, which is where the payment wrote it — a
         // spell's own, or the ability's rather than its permanent's.
         Amount::SacrificedManaValue => state
@@ -1131,7 +1134,18 @@ pub(super) fn players_of(
         PlayerRel::ControllerOfTarget => res
             .targets
             .first()
-            .and_then(|t| state.last_known_controller(*t))
+            .and_then(|t| {
+                res.target_lki
+                    .as_ref()
+                    .and_then(|all| {
+                        all.iter().find(|lki| {
+                            lki.id == *t
+                                && state.object(*t).is_none_or(|o| o.version != lki.version)
+                        })
+                    })
+                    .map(|lki| lki.controller)
+                    .or_else(|| state.last_known_controller(*t))
+            })
             .into_iter()
             .collect(),
         // Last known first (CR 603.10a): the object left the battlefield,
@@ -1228,6 +1242,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
                     state.object(id).map(|o| TargetLki {
                         id,
                         version: o.version,
+                        controller: o.controller,
                         chars: o.characteristics().clone(),
                     })
                 })
@@ -1301,6 +1316,29 @@ fn finish_choice(state: &mut GameState, res: &mut Resolution, since: u64) -> Flo
 fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending: Pending) -> Flow {
     crate::graveyard_order::capture(state, since);
     Flow::Wait(order_before_continuing(state, res, Some(pending)).expect("next choice"))
+}
+
+/// Resumes a bounded counter placement's numeric choice.
+pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u32) -> Flow {
+    let Some(AwaitingOp::Counters {
+        target,
+        version,
+        kind,
+        maximum,
+    }) = res.awaiting.take()
+    else {
+        unreachable!("numeric resolution choice has a counter continuation");
+    };
+    if let Some(obj) = state.object(target).filter(|o| o.version == version) {
+        let room = maximum.saturating_sub(obj.counters.get(kind));
+        let count = u16::try_from(number)
+            .unwrap_or(u16::MAX)
+            .saturating_mul(crate::replacement::counter_multiplier(state, target))
+            .min(room);
+        crate::replacement::record_counters(state, target, kind, count);
+    }
+    res.pc += 1;
+    run(state, res)
 }
 
 /// Resumes a color choice suspended on [`AwaitingOp::ManaChoice`].
@@ -2564,13 +2602,6 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::CopyNewTargets { copy } => {
-            if let Some(obj) = state.object_mut(copy) {
-                obj.targets.clear();
-                obj.targets.extend(chosen.iter().copied());
-            }
-            retarget::record_new_targets(state, copy, &[], &[]);
-        }
         AwaitingOp::NewTargets(_) => {
             unreachable!("a change of targets resumes via resume_targets")
         }
@@ -2825,6 +2856,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
         AwaitingOp::ControlRotation { .. }
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
+        | AwaitingOp::Counters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::MayDo { .. }
@@ -2982,7 +3014,16 @@ fn copy_target_ability(
     if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
         state.synthetic_copies.push((original, id));
     }
+    copy_division(state, original, id);
     retarget::start_copy(state, res, id)
+}
+
+/// Damage distribution is an announcement decision, so it belongs to the
+/// copy too. Retargeting later moves each share with its corresponding slot.
+fn copy_division(state: &mut GameState, original: ObjectId, copy: ObjectId) {
+    if let Some((_, shares)) = state.divided.iter().find(|(id, _)| *id == original) {
+        state.divided.push((copy, shares.clone()));
+    }
 }
 
 /// Puts a copy of the spell `original` onto the stack under `you`'s control
@@ -2995,8 +3036,8 @@ fn copy_target_ability(
 /// reads), the players it targets, its mode or set of modes (CR 700.2g),
 /// X, the face it was cast as,
 /// whether it was kicked and how many times replicate was paid. Nothing that
-/// happened to the *card* comes with it: no rider it was cast with, nothing
-/// it paid (a copy is not cast, so no mana was spent to cast it), and no
+/// happened to the *card* comes with it: no rider it was cast with, no mana
+/// spent (a copy is not cast), and no
 /// `SpellCast` event (CR 707.10). Journalling one made every copy re-trigger
 /// "whenever you cast" abilities — Jin-Gitaxias copied its own copy without
 /// end — and made copies count towards Storm of Saruman's "second spell each
@@ -3029,6 +3070,13 @@ fn copy_spell(
     let mode_index = from.mode_index;
     let modes = from.modes;
     let face_index = from.face_index;
+    let paid = from.paid.as_ref().map(|paid| {
+        Box::new(crate::object::PaidRecord {
+            sacrificed_mana_value: paid.sacrificed_mana_value,
+            tapped: paid.tapped,
+            ..crate::object::PaidRecord::default()
+        })
+    });
     for m in mods {
         tokens::apply_copy_mod(&mut base, m);
     }
@@ -3056,6 +3104,7 @@ fn copy_spell(
         obj.mode_index = mode_index;
         obj.modes = modes;
         obj.face_index = face_index;
+        obj.paid = paid;
         obj.zone = crate::zone::Zone::Stack;
         // CR 704.5e: it stops existing the moment it is anywhere but the
         // stack or the battlefield. Carrying the copied card is what makes
@@ -3064,6 +3113,7 @@ fn copy_spell(
         obj.riders.push(crate::object::Rider::SpellCopy);
     }
     state.put_new_spell_on_stack(id);
+    copy_division(state, original, id);
     Some(id)
 }
 
@@ -3783,6 +3833,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::GainLifeDoubleX
         | Effect::LoseLife { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
@@ -3853,6 +3904,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::AddManaFor { .. }
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::AddCounter { .. }
+        | Effect::AddCountersUpTo { .. }
         | Effect::RemoveCounterSelf { .. }
         | Effect::AddCounterFilter { .. }
         | Effect::DoubleCountersFilter { .. }
@@ -5024,50 +5076,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CopyTargetSpell { mods } => {
-            // Copy the spell on the stack under your control. The copy starts
-            // with the original's targets and its controller may then choose
-            // new ones (CR 707.10c), so this can suspend on a choice.
-            if let Some(&target_id) = res.targets.first() {
-                let id = copy_spell(state, target_id, you, mods)?;
-                let (picks, target_req) = state.object(id).map_or((0, None), |obj| {
-                    (
-                        u8::try_from(obj.targets.len()).unwrap_or(u8::MAX),
-                        obj.target_req,
-                    )
-                });
-                // Only the first instance of the word is offered for
-                // re-choosing below, which is a gap and not a reading:
-                // CR 707.10c lets the controller change either, and the
-                // answer path has one `CopyNewTargets` question. The second
-                // keeps what the original chose rather than being dropped,
-                // which is the choice a player declining would make.
-                //
-                // "You may choose new targets for the copy." Only worth asking
-                // when the copy targets objects at all and there is something
-                // legal to point it at; the player declines by re-picking what
-                // it already targets.
-                if picks > 0
-                    && let Some(req) = target_req
-                    // Player targets ride in `chosen_player`, not `targets`;
-                    // re-choosing those is a separate Pending.
-                    && !matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent)
-                {
-                    let options = eval::target_options(&req.spec, state, you, id);
-                    if options.len() >= picks as usize {
-                        res.awaiting = Some(AwaitingOp::CopyNewTargets { copy: id });
-                        return Some(Pending::ChooseTargets {
-                            player: you,
-                            options,
-                            player_options: Vec::new(),
-                            min: picks,
-                            max: picks,
-                            reason: TargetPrompt::Targets,
-                        });
-                    }
-                }
-                retarget::record_new_targets(state, id, &[], &[]);
-            }
-            None
+            let &original = res.targets.first()?;
+            let copy = copy_spell(state, original, you, mods)?;
+            retarget::start_copy(state, res, copy)
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
         Effect::CopyThisSpell => {
@@ -6551,5 +6562,44 @@ mod controller_of_target_tests {
             Some(crate::zone::Zone::Exile)
         );
         assert_eq!(life(&state), (mine + 3, theirs));
+    }
+}
+
+#[cfg(test)]
+mod copied_decisions_tests {
+    use super::*;
+    use crate::engine::synthetic::{SyntheticLookup, preset};
+    use crate::object::PaidRecord;
+
+    #[test]
+    fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_mana() {
+        let mut state =
+            GameState::from_preset(&preset(411, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let caster = PlayerId::new(0);
+        let name = state.names.intern("copy decisions");
+        let original = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let target = state.create_bare(
+            caster,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state.object_mut(original).unwrap().paid = Some(Box::new(PaidRecord {
+            sacrificed_mana_value: Some(3),
+            mana_spent: 5,
+            colors_spent: ColorSet::ALL,
+            tapped: Some((target, 0)),
+        }));
+        state.divided.push((original, vec![(target, 4)]));
+        let copy = copy_spell(&mut state, original, PlayerId::new(1), &[]).unwrap();
+        let paid = state.object(copy).unwrap().paid.as_ref().unwrap();
+        assert_eq!(paid.sacrificed_mana_value, Some(3));
+        assert_eq!(paid.tapped, Some((target, 0)));
+        assert_eq!(paid.mana_spent, 0);
+        assert_eq!(paid.colors_spent, ColorSet::EMPTY);
+        assert_eq!(
+            state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
+            vec![(target, 4)]
+        );
     }
 }

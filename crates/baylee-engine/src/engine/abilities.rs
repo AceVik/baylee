@@ -1779,23 +1779,22 @@ impl<L: CardLookup> Engine<L> {
         // way.
         if cost.mana.has_variable() && self.activation_x.is_none() {
             // Bounded by what the pool can actually pay, which is where an
-            // activation differs from a cast. The cast wizard offers
-            // `X_CEILING` and validates at the end, because a cast that
+            // activation differs from a cast. The cast wizard bounds X by
+            // resources and validates at the end, because a cast that
             // cannot pay unwinds back to the player; an activation has no
             // wizard to unwind to — `pay_cost` below would return
             // `IllegalAction` and the ability would already have been
             // announced. So the question is the legality, which is where
             // this engine puts every other one.
-            let max = (0..=crate::engine::cast_wizard::X_CEILING)
-                .take_while(|x| {
-                    self.can_pay_mana(
-                        player,
-                        casting::SpendFor::Ability(source),
-                        &cost.mana.with_x(*x),
-                    )
-                })
-                .last()
-                .unwrap_or(0);
+            let upper =
+                casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source));
+            let max = casting::greatest_affordable(upper, |x| {
+                self.can_pay_mana(
+                    player,
+                    casting::SpendFor::Ability(source),
+                    &cost.mana.with_x(x),
+                )
+            });
             self.pending_plan = Some(PlanKind::ChooseActivationX {
                 source,
                 ability_index,
