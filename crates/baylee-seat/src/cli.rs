@@ -49,6 +49,7 @@
 //! fifteen); [`Mind::ready`] is the
 //! cooldown passed and the tool's login check passing.
 
+mod agy;
 mod claude;
 mod dialect;
 #[cfg(test)]
@@ -194,6 +195,7 @@ impl Launch {
         let (tool, model) = cli_model(&settings.model)?;
         let dialect: Arc<dyn Dialect> = match tool {
             CliTool::Claude => Arc::new(claude::Claude),
+            CliTool::Agy => Arc::new(agy::Agy),
         };
         let program = program(tool, command, env)?;
         let passed = COMMON

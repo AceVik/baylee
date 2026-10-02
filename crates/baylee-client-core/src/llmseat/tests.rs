@@ -286,6 +286,15 @@ fn a_cli_model_names_its_tool_first() {
         cli_model("claude:claude-opus-5-5"),
         Ok((CliTool::Claude, Some("claude-opus-5-5")))
     );
+    assert_eq!(cli_model("agy"), Ok((CliTool::Agy, None)));
+    assert_eq!(
+        cli_model("agy:gemini-3.8-flash-high"),
+        Ok((CliTool::Agy, Some("gemini-3.8-flash-high")))
+    );
+    assert_eq!(
+        cli_model("gemini:gemini-3.8-flash-high"),
+        Ok((CliTool::Agy, Some("gemini-3.8-flash-high")))
+    );
     for bad in [
         "codex",
         "claude-opus-5-5",
@@ -296,7 +305,7 @@ fn a_cli_model_names_its_tool_first() {
         let why = cli_model(bad).expect_err(bad);
         assert!(!why.contains("AAAABBBB"), "{why}");
     }
-    assert!(cli_model("gemini").unwrap_err().contains("claude"));
+    assert!(cli_model("unknown").unwrap_err().contains("claude"));
     assert_eq!(Provider::Cli.default_answer(), AnswerMode::JsonSchema);
     assert_eq!(Provider::Cli.default_key_env(), None);
     assert_eq!(Provider::Cli.default_base(), None);

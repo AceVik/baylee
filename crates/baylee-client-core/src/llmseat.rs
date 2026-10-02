@@ -154,30 +154,41 @@ impl Provider {
     }
 }
 
+/// The model a Gemini CLI (Antigravity) profile plays when none is named.
+pub const DEFAULT_AGY_MODEL: &str = "gemini-3.8-flash-high";
+
 /// An agent CLI a `cli` profile plays through, named first in its model
-/// (`claude:opus`). Only the tools whose dialect this build speaks.
+/// (`claude:opus`, `agy:gemini-3.8-flash-high`). Only the tools whose dialect
+/// this build speaks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CliTool {
     /// Claude Code, `claude`.
     Claude,
+    /// Gemini CLI (Antigravity), `agy`.
+    Agy,
 }
 
 impl CliTool {
     /// Every tool this build speaks.
-    pub const ALL: [Self; 1] = [Self::Claude];
+    pub const ALL: [Self; 2] = [Self::Claude, Self::Agy];
 
     /// Its name, which is also the program's name on `PATH`.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Claude => "claude",
+            Self::Agy => "agy",
         }
     }
 
     /// The tool called `name`.
     #[must_use]
     pub fn named(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|tool| tool.name() == name)
+        match name {
+            "claude" => Some(Self::Claude),
+            "agy" | "gemini" => Some(Self::Agy),
+            _ => None,
+        }
     }
 }
 
