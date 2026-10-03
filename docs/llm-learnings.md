@@ -2910,3 +2910,26 @@ land type"; both are convention tests that fire on a first try.
   to central Engine files, and parallelize disjoint implementation/review/client
   work. Serialize Cargo, not all work. Keep card flags Partial until independent
   rule tests and required live acceptance are complete.
+
+### Alpha text, copy and constrained casting — integration findings
+
+- Simultaneous questions need per-seat decision context. Using the globally
+  pending seat hid another player's own hand and broke otherwise valid mulligan
+  choices. Exercise agent, socket, snapshot and replay paths with two actual
+  questions, rather than only constructing an isolated view.
+- Copiable ability grants must participate in lint traversal and retain source
+  provenance. Test a second-generation copy and a real dynamically sized token;
+  copying a fixed test body cannot establish these properties.
+- A projected legal hand choice does not prove the client opens its selector.
+  Test receive-view/receive-choice routing and inspect the rendered payment
+  receipt, selection, confirmation and decline paths.
+- An embedded copied ability may have no standalone Oracle line. Preserve its
+  matching source rules and use the full unchanged Oracle as fallback; do not
+  invent shortened card text or silently display only the source card's name.
+- Measure rollback changes on the same branch and end-to-end action benchmark.
+  Reusing a scratch checkpoint improved an isolated clone measurement but slowed
+  the actual four-pass benchmark; the experiment was reverted. The remaining
+  checkpoint cost is an open performance issue, not a passed optimization.
+- Current integration gate: 8,128 rules tests passed, ten skipped; 1,272 native
+  tests passed, two skipped. Subsequent bounded fixes receive focused checks;
+  these counts do not establish completion of Word of Command's route/undo work.
