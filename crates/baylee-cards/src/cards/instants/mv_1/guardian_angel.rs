@@ -10,8 +10,7 @@ card!(
     oracle_id = "1a91ca69-e890-41dc-866b-3aabf10c9a9c",
     scryfall_id = "071ca80b-62b4-40e6-81c6-fc5bd9019354",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage =
-        Coverage::Partial("special actions implemented; independent and client acceptance pending"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Guardian Angel",
         mana_cost = mana!("{X}{W}"),

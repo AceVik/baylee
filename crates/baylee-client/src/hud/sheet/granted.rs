@@ -2,7 +2,6 @@
 #[allow(clippy::wildcard_imports)] // the shared sheet vocabulary
 use super::*;
 use baylee_cards_dsl::SpecialActionCost;
-use baylee_core::ids::TargetRef;
 use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer};
 
 /// Current offers belong only to this seat's priority, including mana payment.
@@ -89,31 +88,24 @@ fn cost(offer: &GrantedActionOffer, lang: Lang) -> String {
     }
 }
 
-fn recipient(offer: &GrantedActionOffer, duel: &Duel, lang: Lang) -> Option<String> {
+fn recipient(
+    offer: &GrantedActionOffer,
+    duel: &Duel,
+    lang: Lang,
+    faces: &crate::cardtext::CardTexts,
+) -> Option<String> {
     let GrantedActionKind::PreventNextDamage { target, .. } = offer.effect else {
         return None;
     };
-    let view = duel.view.as_ref()?;
-    let label = match target {
-        TargetRef::Player(player) => seat_name(lang, duel.statics.as_ref(), player),
-        TargetRef::Object(source) => view.target_object(source).map_or_else(
-            || Phrase::PreviousTarget.text(lang).to_string(),
-            |object| {
-                let name = if object.name == "Unknown source" {
-                    Phrase::SourceUnknown.text(lang)
-                } else if object.name == "Face-down" {
-                    Phrase::SourceFaceDown.text(lang)
-                } else {
-                    &object.name
-                };
-                if object.is_current {
-                    name.to_string()
-                } else {
-                    format!("{name} — {}", Phrase::TargetBeforeZoneChange.text(lang))
-                }
-            },
-        ),
-    };
+    let label = crate::choices::target_label(
+        lang,
+        target,
+        crate::choices::FaceNames {
+            view: duel.view.as_ref(),
+            texts: Some(faces),
+        },
+        duel.statics.as_ref(),
+    );
     Some(Phrase::GrantedRecipient.fill(lang, &[&label]))
 }
 
@@ -242,7 +234,7 @@ fn spawn_granted_rows(
                 blocks.push(TextBlock::Rules(oracle.oracle_text));
             }
         }
-        if let Some(recipient) = recipient(offer, duel, lang) {
+        if let Some(recipient) = recipient(offer, duel, lang, faces) {
             blocks.push(TextBlock::Rules(recipient));
         }
         let row = SheetRow {

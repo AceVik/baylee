@@ -1578,6 +1578,8 @@ messages! {
         en: "You owe mana. Activate mana abilities to pay, or pass.",
         de: "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe.",
     },
+    /// Compact fixed-payment guidance when temporary actions share the answer row.
+    GrantedPaymentHint { en: "Produce mana or pass.", de: "Mana erzeugen oder passen." },
     /// Mana may be generated before choosing an optional amount to prevent damage.
     PrepareManaPayment {
         en: "You may generate mana to prevent up to {0} damage. Pass to choose the amount.",

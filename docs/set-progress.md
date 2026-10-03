@@ -14,11 +14,12 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **269 Implemented, 17 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **271 Implemented, 15 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 269 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 271 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
-Nether Shadow, Sunglasses of Urza, Sengir Vampire, Earthbind and Personal Incarnation are
+Nether Shadow, Sunglasses of Urza, Sengir Vampire, Earthbind, Personal Incarnation,
+Channel and Guardian Angel are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -32,10 +33,8 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | --- | --- |
 | [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | an Aura that enchants a creature card in a graveyard and returns it is not in the engine |
 | [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
-| [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | temporary permission and explicit life payments implemented in the working tree; consumer integration, full regression and live client acceptance pending |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | making a player activate a mana ability of each land they control is not in the engine |
 | [False Orders](../crates/baylee-cards/src/cards/instants/mv_1/false_orders.rs) | removing a blocker from combat and having it block again is not in the engine |
-| [Guardian Angel](../crates/baylee-cards/src/cards/instants/mv_1/guardian_angel.rs) | reusable exact-recipient permission implemented in the working tree; final card tests, consumer integration and live client acceptance pending |
 | [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | casting a creature card face down for the mana spent on {X}, and turning it face up instead of dealing or being dealt damage, are not in the engine |
 | [Island Sanctuary](../crates/baylee-cards/src/cards/enchantments/mv_2/island_sanctuary.rs) | skipping a draw in exchange for an attack restriction until your next turn is not in the engine |
 | [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | destroying the enchanted land when it becomes tapped and moving the Aura to another land are not in the DSL; it only enchants a land |
@@ -461,7 +460,8 @@ client before its cards count as complete.
 
 The owner requested completion of all remaining cards as one continuing task,
 with independent batches worked concurrently instead of a one-card queue.
-Current Channel/Guardian work must pass final native/live acceptance first.
+Channel/Guardian passed native tests and live gameplay; their final compact
+payment layout and historical-recipient display were visually accepted.
 Do not promote a card merely because its shared primitive exists.
 
 | Shared work | Cards | Required acceptance focus |
@@ -480,3 +480,21 @@ proceed concurrently. Existing full Oracle text and abilities dialogs remain.
 Additional UI proposal (word mapping, creature piles, controlled-player context,
 and Mask private choice/payment detail) was sent to the owner; approval is
 pending. Existing UI approval is limited to the temporary-action entry.
+
+
+### Channel / Guardian Angel acceptance
+
+Both cards are Implemented following 12 independent card cases, shared payment,
+AI and view regressions, the broad rules gate plus corrected legacy-preferences
+regression, and 1,267 native tests (two existing ignores). Wasm, metadata for
+2,955 cards, reproducible codegen, Clippy, fuzz checks and footprint passed.
+Live Fireball X=1 paid exactly one Channel life (40→39), then dealt one damage;
+no payment occurred merely by opening/selecting. Two paid Guardian actions
+prevented two of Bolt's three damage, leaving Bears alive with one damage.
+After a blink, the old permission did not protect the returned Bears from Bolt.
+All captured outcomes had empty stacks and no client error. Root inspected the
+full Oracle, Manafont symbols, hourglass, historical recipient and corrected
+960-pixel payment layout. Evidence is linked in the feedback log.
+
+The general existing per-color u16 mana-pool ceiling remains: overflow refuses
+atomically before charging life. This is not a claim of unlimited numeric mana.

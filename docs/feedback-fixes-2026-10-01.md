@@ -1796,4 +1796,43 @@ The owner explicitly approved the proposed compact entry with: **“Hört sich g
 
 Chosen icon: **hourglass, U+F254**, verified in the cmap of the already bundled `fa-solid-900.ttf`. This adds no asset or dependency. The shipped `assets/fonts/licenses/OFL-FontAwesome.txt` states: “In the Font Awesome Free download, the SIL OFL license applies to all icons packaged as web and desktop font files.” Existing font attribution and license remain intact; existing approved Mana-font treatment continues for mana/tap symbols. Oracle prose is taken whole from the existing current English fallback, never rewritten into a card-specific summary.
 
-Implementation uses stable granted-action IDs, exact offer equality when confirming, and the entitled target snapshot for historical recipients. Opening focuses the first entry but does not select or pay. Keyboard J opens the menu; normal directional/confirmation/Esc controls and pointer/touch buttons share the same draft. Test and live evidence pending the coordinated build lane.
+Implementation uses stable granted-action IDs, exact offer equality when confirming, and the entitled target snapshot for historical recipients. Opening focuses the first entry but does not select or pay. Keyboard J opens the menu; normal directional/confirmation/Esc controls and pointer/touch buttons share the same draft.
+
+Validation completed: the full Native run passed 1,267 tests with two existing
+ignored tests; all 22 preferences tests passed, including legacy keymap migration.
+Native all-target Clippy including dev-control and the final build passed. The
+live 960-pixel payment bar exposed overlapping controls after the new entry was
+added. The approved narrow correction uses “Mana erzeugen oder passen.” while
+retaining the complete owed mana amount and every control, and measures the
+hourglass width. The actual presenter regression passes at 960 and 1,280 pixels
+in both languages; two granted-action input/presenter tests, Clippy and rebuild
+also pass. Historical recipients reuse the existing exact, localized target
+label: “Grizzlybären (vor dem Zonenwechsel)”. No current-incarnation fallback is
+used. Logs are `/private/tmp/baylee-granted-{native-final2,layout-tests,layout-input-tests,layout-clippy,layout-build}.log`.
+
+Live Channel: opening and selecting spend nothing; one explicit confirmation
+changes life 40 to 39 and adds exactly one colorless mana. Fireball X=1 can be
+announced with only red mana floating, then paid through Channel's actual
+payment-window entry; it resolves at life 39/39 with an empty pool and stack.
+The offer disappears at end of turn. Live Guardian Angel: two separately paid
+uses provide two one-point shields; Bolt leaves the 2/2 Bears with one damage.
+Guardian is absent from its mana-only payment window. After Ephemerate, its
+offer still names the earlier Bears; paying again does not protect the returned
+creature, which dies to the next Bolt. Recorded results have no client error.
+Root independently checked the result JSON and accepted gameplay, the corrected
+960-pixel payment bar, full Oracle and Mana-font symbols. Final screenshots and
+state evidence are archived outside the repository in
+`/Users/viktor/.codex/visualizations/2026/10/01/01a0f916-864d-7873-9579-b5acbfcacb23/granted-actions-2026-10-03/`.
+
+Deferred shared-renderer limitation: a mana symbol after a wrapped prose segment
+may begin a separate line, as documented by the existing rich-text renderer.
+It is visible in the unchanged Channel and Guardian Oracle. This is not a new
+granted-action text transformation; no shared renderer redesign was approved
+or performed in this milestone.
+
+Final acceptance: Root also inspected and accepted the 1,280-pixel payment
+image and the final 960-pixel dialog containing both permissions and the
+localized historical recipient. Final captures use `alpha-channel-*-final960`,
+`alpha-channel-*-final1280` and `alpha-guardian-historical-final960` in the
+archive above. The agent-owned test client was stopped after capture; no
+additional UI changes remain in this approved scope.

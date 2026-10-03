@@ -1383,6 +1383,15 @@ fn answers_for(
 
 /// Retarget identity and instructions live in the wrapping drawer above the shelf.
 fn shelf_headline(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardTexts) -> Option<String> {
+    if !super::granted_offers(duel).is_empty()
+        && duel
+            .view
+            .as_ref()
+            .is_some_and(|view| matches!(view.owed, Some(baylee_core::mana::ManaPayment::Fixed(_))))
+    {
+        return Some(Phrase::GrantedPaymentHint.text(lang).to_string());
+    }
+
     if duel.interaction.as_ref().is_some_and(|i| {
         matches!(
             i.pending(),
@@ -1998,12 +2007,17 @@ fn mid_width(
     let buttons: f32 = answers
         .iter()
         .enumerate()
-        .map(|(i, (_, label))| {
+        .map(|(i, (says, label))| {
             let cap = caps
                 .get(i)
                 .and_then(Option::as_deref)
                 .map_or(0.0, |c| cap_width(c) + CAP_GAP);
-            cap + super::text_width(label, LABEL_PT, true) + 2.0 * BUTTON_PAD_X
+            let icon = if *says == Says::Command(super::MenuAction::ToggleGrantedActions) {
+                13.0 + CAP_GAP
+            } else {
+                0.0
+            };
+            cap + icon + super::text_width(label, LABEL_PT, true) + 2.0 * BUTTON_PAD_X
         })
         .sum();
     #[allow(clippy::cast_precision_loss)]
@@ -2151,6 +2165,79 @@ fn clock_width() -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn temporary_payment_presenter_fits_at_960_and_1280_with_every_control() {
+        use baylee_core::ids::{DamageSourceRef, GrantedActionId};
+        use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer, LegalActions, Pending};
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        view.owed = Some(baylee_core::mana::ManaPayment::Fixed(
+            baylee_core::mana::ManaCost::parse("{1}{R}"),
+        ));
+        let mut duel = Duel::default();
+        duel.receive_view(view);
+        duel.receive_choice(Pending::Priority {
+            player: PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                granted_actions: vec![GrantedActionOffer {
+                    id: GrantedActionId::new(4),
+                    source: DamageSourceRef {
+                        object: ObjectId::new(3, 0),
+                        version: 2,
+                    },
+                    ability: None,
+                    timing: baylee_cards_dsl::SpecialActionTiming::ManaAbility,
+                    cost: baylee_cards_dsl::SpecialActionCost::Life(1),
+                    effect: GrantedActionKind::AddMana {
+                        color: baylee_core::mana::ManaColor::Colorless,
+                        amount: 1,
+                    },
+                }],
+                ..LegalActions::default()
+            }),
+        });
+        let texts = crate::cardtext::CardTexts::default();
+        let prefs = crate::prefs::Prefs::default();
+        for lang in [Lang::De, Lang::En] {
+            let sentence = shelf_headline(&duel, lang, &texts).unwrap();
+            assert_eq!(sentence, Phrase::GrantedPaymentHint.text(lang));
+            let answers = answers_for(&duel, lang, false, false, false);
+            assert!(
+                answers
+                    .iter()
+                    .any(|(says, _)| *says == Says::Answer(PromptAction::Confirm))
+            );
+            assert!(
+                answers.iter().any(|(says, _)| *says
+                    == Says::Command(super::super::MenuAction::ToggleGrantedActions))
+            );
+            assert!(
+                answers
+                    .iter()
+                    .any(|(says, _)| *says == Says::Answer(PromptAction::SkipTurn))
+            );
+            let caps = keys_for(&prefs, &answers, false, false);
+            let caps_w = caps.iter().flatten().map(|c| cap_width(c) + CAP_GAP).sum();
+            let mid = mid_width(Some(&sentence), Clock::None, &answers, &caps);
+            for width in [960, 1280] {
+                let layout = baylee_client_core::ledge::arrange(
+                    width as f32,
+                    baylee_client_core::ledge::Columns {
+                        left: tools_reserved(width),
+                        mid,
+                        right: RIGHT_RESERVED,
+                    },
+                    caps_w,
+                );
+                assert_ne!(
+                    layout.density,
+                    baylee_client_core::ledge::Density::Split,
+                    "{lang:?} at {width}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn damage_row_selection_rebuilds_confirm_without_a_new_board_snapshot() {
