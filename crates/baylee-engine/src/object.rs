@@ -954,6 +954,8 @@ pub struct SecondInstance {
 /// be an allocation in every AI ply's clone.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct PaidRecord {
+    /// Source found after this cost actually moved it to a public zone (CR 400.7j).
+    pub source_after_cost: Option<baylee_core::ids::DamageSourceRef>,
     /// The mana value of the permanent sacrificed to pay the cost, as it
     /// last existed on the battlefield (CR 608.2h) — "the sacrificed
     /// creature's mana value". `None` when nothing was sacrificed.

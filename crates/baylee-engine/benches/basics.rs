@@ -107,7 +107,16 @@ fn bench_snapshot_hash(c: &mut Criterion) {
     for id in tokens {
         board.object_mut(id).expect("token").token =
             Some(&baylee_cards::generated_tokens::ZOMBIE_2_2_BLACK);
-        board.ability_fires.insert((id, 0), 1);
+        board.ability_fires.insert(
+            (
+                baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: board.object(id).unwrap().version,
+                },
+                0,
+            ),
+            1,
+        );
     }
     c.bench_function("state/snapshot_hash_3k_tokens", |b| {
         b.iter(|| board.snapshot_hash());

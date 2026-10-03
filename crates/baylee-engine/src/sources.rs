@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod event_readers;
+mod subject_readers;
 
 use baylee_cards_dsl::{Filter, Modifier};
 use baylee_core::ids::{DamageSourceRef, EffectId, ObjectId, PlayerId, SourceChoiceId};
@@ -25,6 +26,7 @@ pub(crate) enum Slot {
     Second(u32),
     Tapped,
     Sacrificed,
+    MovedSource,
     Linked(u32),
 }
 
@@ -207,7 +209,8 @@ impl GameState {
                 slots.push((Slot::Sacrificed, id, Some(version)));
             }
             refs.retain(|slot, _| {
-                matches!(slot, Slot::Linked(_)) || slots.iter().any(|(s, _, _)| s == slot)
+                matches!(slot, Slot::Linked(_) | Slot::MovedSource)
+                    || slots.iter().any(|(s, _, _)| s == slot)
             });
             for (slot, object, version) in slots {
                 let reference = version
@@ -237,6 +240,41 @@ impl GameState {
         if let Some(card) = self.source_identity(card) {
             self.source_memory.linked.insert(card, source);
         }
+    }
+
+    /// The destination actually recorded by this source's own departure trigger.
+    /// CR 400.7e grants lookup of that version, never the current arena occupant.
+    pub(crate) fn own_departure_successor(&self, holder: ObjectId) -> Option<DamageSourceRef> {
+        let obj = self.object(holder)?;
+        let source = obj.ability?.source;
+        if obj.event_object != Some(source)
+            || !obj
+                .riders
+                .iter()
+                .any(|r| matches!(r, Rider::EventDeparture(..)))
+        {
+            return None;
+        }
+        let old = obj.riders.iter().find_map(|r| match r {
+            Rider::AbilitySourceVersion(v) => Some(*v),
+            _ => None,
+        })?;
+        let version = obj.riders.iter().find_map(|r| match r {
+            Rider::EventObjectIdentity(v, _) => Some(*v),
+            _ => None,
+        })?;
+        // Both identities came from the trigger's recorded departure. The
+        // arithmetic checks that association; it never infers a current one.
+        if old.checked_add(1) != Some(version) {
+            return None;
+        }
+        let reference = DamageSourceRef {
+            object: source,
+            version,
+        };
+        self.source_object(reference)
+            .filter(|object| !object.zone.is_hidden_by_default())
+            .map(|_| reference)
     }
 
     pub(crate) fn capture_rule_references(&mut self, lookup: &impl crate::state::CardLookup) {
@@ -283,10 +321,23 @@ impl GameState {
         effects: &'static [baylee_cards_dsl::Effect],
     ) {
         use baylee_cards_dsl::Effect;
-        if event_readers::refers_to_event(effects)
+        if (event_readers::refers_to_event(effects)
+            || (subject_readers::moves_subject(effects)
+                && self.own_departure_successor(holder).is_some()))
             && let Some(holder) = self.source_identity(holder)
         {
             self.source_memory.event_readers.insert(holder);
+        }
+        if let Some(obj) = self.object(holder)
+            && subject_readers::refers_to_subject(effects, obj.target_req.is_none())
+            && let Some(subject) = obj.paid.as_ref().and_then(|p| p.source_after_cost)
+            && let Some(holder) = self.source_identity(holder)
+        {
+            self.source_memory
+                .stack
+                .entry(holder)
+                .or_default()
+                .insert(Slot::MovedSource, subject);
         }
         let mut refers = false;
         Effect::walk(effects, &mut 0, &mut |effect| {

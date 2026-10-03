@@ -229,6 +229,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             retarget_left: None,
         };
         (state, res)

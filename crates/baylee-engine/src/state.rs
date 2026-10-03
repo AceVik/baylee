@@ -1006,15 +1006,15 @@ pub struct GameState {
     /// (Omnath, Locus of Creation: its resolutions) and "if this ability has
     /// been activated four or more times this turn" (Dragon Whelp: its
     /// activations, as "activate only once each turn" counts them). No
-    /// ability says two of them. The key is the object and the ability index, so a permanent
-    /// that leaves the battlefield and comes back starts over — CR 400.7
-    /// rather than a convenience.
+    /// ability says two of them. The key is the exact object incarnation and
+    /// ability index. A returning permanent starts over (CR 400.7), while
+    /// waiting abilities retain the departed source's count (CR 608.2h–i).
     ///
     /// It is hashed into [`Self::loop_signature`], because what is left of a
     /// limit decides what is offered. `Engine::loyalty_used_this_turn` is
     /// the same kind of state and is **not** hashed, because it does not
     /// live here; that is a known hole and not this field's.
-    pub ability_fires: rustc_hash::FxHashMap<(ObjectId, u32), u32>,
+    pub ability_fires: rustc_hash::FxHashMap<(baylee_core::ids::DamageSourceRef, u32), u32>,
     /// Seeded randomness.
     pub rng: GameRng,
     /// The event journal.
@@ -3080,12 +3080,8 @@ impl GameState {
                 }
             }
         }
-        // CR 400.7 for the turn's per-ability tally: what the old object
-        // used this turn is not the new object's. An id is stable for the
-        // whole game and only `version` moves, so the tally keyed by id kept
-        // counting across a blink — Omnath returned by Ephemerate took its
-        // second landfall for the second time this turn, not the first.
-        self.ability_fires.retain(|(object, _), _| *object != id);
+        // Historical tallies remain available to that incarnation's pending
+        // abilities. New incarnations have distinct keys (CR 400.7).
         let spell_version = self.object(id).map(|o| o.version);
         {
             let obj = self.object_mut(id).expect("checked above");
@@ -3739,14 +3735,15 @@ impl GameState {
             },
         );
         next_restriction_id.hash(&mut h);
-        // Thirteen bytes an entry, digested in one call: a streaming state
+        // Seventeen bytes an entry, digested in one call: a streaming state
         // set up per entry costs more than the entry does.
         hash_unordered(&mut h, ability_fires.iter(), |((object, index), uses)| {
-            let mut entry = [0u8; 13];
-            entry[..4].copy_from_slice(&object.slot().to_le_bytes());
-            entry[4] = object.generation();
-            entry[5..9].copy_from_slice(&index.to_le_bytes());
-            entry[9..].copy_from_slice(&uses.to_le_bytes());
+            let mut entry = [0u8; 17];
+            entry[..4].copy_from_slice(&object.object.slot().to_le_bytes());
+            entry[4] = object.object.generation();
+            entry[5..9].copy_from_slice(&object.version.to_le_bytes());
+            entry[9..13].copy_from_slice(&index.to_le_bytes());
+            entry[13..].copy_from_slice(&uses.to_le_bytes());
             xxhash_rust::xxh3::xxh3_64(&entry)
         });
         h.finish()
@@ -3901,18 +3898,7 @@ impl GameState {
         // signature depend on insertion — the rule this engine keeps
         // everywhere for determinism. The object is hashed by its canonical
         // position for the reason every other reference here is.
-        let mut used: Vec<(u32, u32, u32)> = self
-            .ability_fires
-            .iter()
-            .map(|((id, index), n)| (position(*id), *index, *n))
-            .collect();
-        used.sort_unstable();
-        h.usize(used.len());
-        for (obj, index, n) in used {
-            h.u32(obj);
-            h.u32(index);
-            h.u32(n);
-        }
+        hash_ability_tallies(self, &mut h, &position);
         // Prevention shields are what damage will do next, so two states
         // that differ only in what is shielded are two states.
         hash_shields(&mut h, self, &position);
@@ -4138,6 +4124,33 @@ fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: 
 /// apart: 0 is the same object, 1 the next one (the permanent a chosen spell
 /// became), 2 any later one, and 3 none at all. Capped, so an object that
 /// keeps moving settles, and a loop that blinks it is still a repeat.
+fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+    let mut used: Vec<(u32, u8, u32, u32)> = state
+        .ability_fires
+        .iter()
+        .filter(|((id, _), _)| {
+            state.source_identity(id.object) == Some(*id)
+                || !state.source_referenced_by(*id).is_empty()
+        })
+        .map(|((id, index), n)| {
+            (
+                position(id.object),
+                moves_since(state.object(id.object), id.version),
+                *index,
+                *n,
+            )
+        })
+        .collect();
+    used.sort_unstable();
+    h.usize(used.len());
+    for (obj, age, index, n) in used {
+        h.u32(obj);
+        h.u8(age);
+        h.u32(index);
+        h.u32(n);
+    }
+}
+
 fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {
     match obj.map(|o| o.version.wrapping_sub(version)) {
         Some(0) => 0,
@@ -4337,6 +4350,11 @@ fn hash_object_situation(
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     // And which creature station tapped: its power is what the counters
     // will be.
+    let followed = obj.paid.as_ref().and_then(|p| p.source_after_cost);
+    h.option_u32(followed.map(|r| position(r.object)));
+    if let Some(r) = followed {
+        hash_damage_source(h, state, r.object, r.version);
+    }
     let sacrificed = obj.paid.as_ref().and_then(|p| p.sacrificed);
     h.option_u32(sacrificed.map(|(id, _)| position(id)));
     if let Some((id, version)) = sacrificed {
@@ -5747,13 +5765,17 @@ mod tests {
         );
 
         let untouched = state.loop_signature();
-        state.ability_fires.insert((id, 0), 1);
+        state
+            .ability_fires
+            .insert((state.source_identity(id).unwrap(), 0), 1);
         let spent = state.loop_signature();
         assert_ne!(
             untouched, spent,
             "an ability used once this turn is a different state from one used none"
         );
-        state.ability_fires.insert((id, 0), 2);
+        state
+            .ability_fires
+            .insert((state.source_identity(id).unwrap(), 0), 2);
         assert_ne!(
             spent,
             state.loop_signature(),
@@ -5992,7 +6014,8 @@ mod tests {
                 s.starting_player = PlayerId::new(1);
             }),
             ("ability_fires", |s, id| {
-                s.ability_fires.insert((id, 0), 1);
+                s.ability_fires
+                    .insert((s.source_identity(id).unwrap(), 0), 1);
             }),
             ("replacement_rules", |s, id| {
                 s.replacement_rules.push(ReplacementEntry {
@@ -6180,7 +6203,9 @@ mod tests {
     #[test]
     fn the_snapshot_hash_does_not_depend_on_the_order_a_map_iterates_in() {
         let (base, id) = hash_fixture();
-        let entries: Vec<((ObjectId, u32), u32)> = (0..40).map(|i| ((id, i), i + 1)).collect();
+        let entries: Vec<_> = (0..40)
+            .map(|i| ((base.source_identity(id).unwrap(), i), i + 1))
+            .collect();
 
         let mut small = base.clone();
         for (key, n) in &entries {

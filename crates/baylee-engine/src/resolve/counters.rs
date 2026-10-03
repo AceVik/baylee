@@ -36,9 +36,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         } => {
             let target = this_to_affect(state, res)?;
             let obj = state.object(target)?;
-            if obj.zone != crate::zone::Zone::Battlefield
-                || source_version(state, res).is_some_and(|v| obj.version != v)
-            {
+            if obj.zone != crate::zone::Zone::Battlefield {
                 return None;
             }
             let room = maximum.saturating_sub(obj.counters.get(kind));
@@ -81,20 +79,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     crate::replacement::put_counters(state, target, kind, n);
                 }
             } else {
-                let target = this_object(res)?;
-                if state
-                    .object(target)
-                    .is_some_and(|o| o.status.contains(crate::object::Status::PHASED_OUT))
-                {
-                    return None;
-                }
-                if target == res.source
-                    && source_version(state, res).is_some_and(|version| {
-                        state.object(target).is_none_or(|o| o.version != version)
-                    })
-                {
-                    return None;
-                }
+                let target = this_to_affect(state, res)?;
                 crate::replacement::put_counters(state, target, kind, n);
             }
             None
@@ -103,10 +88,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // the source had them (`may_clause_possible`), so the door's
         // saturation never bites; it is the cost of "if you do" (CR 118.12).
         Effect::RemoveCounterSelf { kind, n } => {
-            if state.object(res.source).is_none_or(|o| {
-                o.zone != crate::zone::Zone::Battlefield
-                    || source_version(state, res).is_some_and(|v| o.version != v)
-            }) {
+            if !subjects::source(state, res).is_some_and(|r| subjects::on_battlefield(state, r)) {
                 return None;
             }
             crate::replacement::remove_counters(state, res.source, kind, n);
@@ -253,14 +235,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // trigger that lost its target) shrinks nothing, which is the
             // whole sentence doing nothing rather than half of it.
             let seats = controlled_by.map(|rel| super::players_of(rel, state, you, res));
-            let filters = super::bound_now(
-                state,
-                filter,
-                &baylee_cards_dsl::Modifier::ModifyPT(p, t),
-                you,
-                res.source,
-                seats.as_deref(),
-            );
+            let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                let this = this_to_affect(state, res)?;
+                if seats.as_ref().is_some_and(|seats| {
+                    state
+                        .object(this)
+                        .is_none_or(|o| !seats.contains(&o.controller))
+                }) {
+                    return None;
+                }
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
+            } else {
+                super::bound_now(
+                    state,
+                    filter,
+                    &baylee_cards_dsl::Modifier::ModifyPT(p, t),
+                    you,
+                    res.source,
+                    seats.as_deref(),
+                )
+            };
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
@@ -373,6 +367,7 @@ mod pump_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         }

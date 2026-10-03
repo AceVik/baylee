@@ -2835,3 +2835,32 @@ land type"; both are convention tests that fire on a first try.
   mutated wizard through Held produced a false failure; save/restore that wizard
   explicitly, then separately exercise a real refused input without changing the
   expected hash or announced references.
+
+### Self-effect incarnations — Rules gate accepted; live check pending
+
+- Keep an effect's exact subject separate from its original damage source.
+  A successful public-zone move by the effect or its costs can establish a
+  successor; an unrelated blink cannot. Preserve that provenance across nested
+  instructions and suspended choices, and hash retained state. Never infer a
+  successor by adding one to a version number.
+- Per-turn ability counts belong to an exact incarnation plus ability index.
+  Audit all shared readers (activation limits and trigger counts), not just the
+  card that exposed the defect. Historical counts may still be needed by an
+  ability resolving after its source leaves.
+- Distinguish sequential and stacked activations in Dragon Whelp tests. The
+  official sequential five-activation example yields two delayed triggers;
+  abilities held on the stack read the count at resolution. Old-incarnation
+  delayed triggers can exist harmlessly: assert which creature survives rather
+  than assuming the delay list must be empty.
+- A Basalt Monolith animated on the turn it entered is summoning-sick. Tap it
+  before animating when the test is about a later old untap ability, so the
+  fixture does not fail before reaching the behavior under test.
+- Share one broad final gate after focused tests. Preserve independent card
+  review while avoiding duplicate broad builds and repetitive context handoffs.
+
+- The broad gate caught Rancor: exact self-subject checks must still allow a
+  self-departure trigger to find its recorded public destination (CR 400.7e).
+  Apply this lookup only to instructions that refer to that destination, not
+  to every damage source or pump. Real Eternal Witness retrieval followed by
+  Patrol Hound discard is a negative control: the old trigger must not return
+  that later graveyard incarnation.

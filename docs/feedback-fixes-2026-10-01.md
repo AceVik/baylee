@@ -1668,3 +1668,18 @@ on the rebuilt layout binary. Version-stale confirmation is covered by actual
 native sync/input tests, not claimed as a manually reproduced live scenario.
 Final PNG/JSON evidence is archived outside the repository under
 `/Users/viktor/.codex/visualizations/2026/10/01/01a0f916-864d-7873-9579-b5acbfcacb23/target-selection-2026-10-03/`.
+
+
+### Self-effect incarnations — Rules gate accepted; live pending
+
+Exact self subjects, per-incarnation activation counts and explicit public-zone
+successors are implemented by Astra xhigh and independently tested by Sol medium.
+The final full Rules gate passes 7,990 tests with ten existing skips, Clippy and
+all 2,955 metadata validations. Rancor's return regression found by the first
+broad run is fixed and covered by both normal return and an unrelated later
+graveyard incarnation. Source LKI remains distinct. No Alpha coverage flags
+changed; native Shivan/Whelp gameplay acceptance remains pending.
+
+The owner now requires an explanation and explicit confirmation before each
+further UI change. Prepared target-label/filter/compact-browser QoL changes are
+uncommitted and paused for that decision; they have not been live-accepted.

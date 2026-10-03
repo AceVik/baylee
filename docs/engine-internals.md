@@ -777,11 +777,25 @@ Historical target projections carry their own entitled identity and do not
 link a target arrow to a newer object. Integration acceptance is tracked in
 `docs/set-progress.md`.
 
-Untargeted self-effects need a separate incarnation audit as well. For example,
-`PumpFilter { Filter::This }` still binds the bare source id in `bound_now`, so
-Shivan Dragon's pump may affect a returned Dragon. This is a read-only code
-finding, not yet a behavioral regression; the guards on AddCounter and damage
-must not be generalized to every self-effect.
+Untargeted self-effects now carry an exact resolution subject. Direct
+`Filter::This` pumps/continuous effects and self regeneration, prevention,
+untap, counters and sacrifice cannot affect a returned incarnation. Actual
+public-zone moves by this effect or its cost establish an explicit successor
+(CR 400.7j), retained through nested and suspended instructions. Damage source
+LKI is separate. Per-turn ability counts key by incarnation, and delayed
+sacrifices retain that incarnation. Focused behavioral coverage includes the
+four Alpha pumpers, Dragon Whelp's activation timing and delayed sacrifices,
+Drudge Skeletons, Sedge Troll, Rock Hydra, Basalt Monolith and Enduring Vitality.
+
+The current pool source census found 31 literal composite `This` occurrences
+(including nested duplicates), all in static abilities, trigger predicates or
+entry conditions. Alpha instances are Veteran Bodyguard, Ironclaw Orcs,
+Juggernaut, Winter Orb and the five Wards; shared `YOUR_ALLIES` is used only by
+trigger predicates. None uses a resolving `PumpFilter`, `SetPTFilter` or
+`CreateContinuousEffect` with composite `This`. This milestone does **not**
+claim general incarnation binding for future resolving `And`/`Or`/`Not`
+filters containing `This`; those must gain an explicit resolution-context
+reader before such a card is implemented.
 
 A spell leaves by `Engine::leave_stack_without_resolving` and not by
 `finalize_spell`: rebound (CR 702.88) and an Adventure (CR 715.3d) exile a

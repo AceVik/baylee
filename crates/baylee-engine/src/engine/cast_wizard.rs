@@ -2357,6 +2357,7 @@ impl<L: CardLookup> Engine<L> {
             obj.paid = Some(Box::new(crate::object::PaidRecord {
                 sacrificed_mana_value,
                 sacrificed: sacrificed_object,
+                source_after_cost: None,
                 mana_spent,
                 colors_spent,
                 tapped: None,

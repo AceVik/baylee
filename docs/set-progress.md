@@ -67,7 +67,7 @@ checks, Clippy, Wasm release check and validation of all 2,955 cards pass.
 The final live allocation check passes for both 1+2 and 0+3 across two sources,
 with different lifelink outcomes and correct draft reset at a new choice ID. Individual
 coverage flags still do not establish complete Alpha acceptance while the
-separate source-selection blocker remains.
+separate self-effect and remaining-card acceptance work remains.
 
 ### Exact source selection — accepted
 
@@ -100,19 +100,28 @@ pixels: current source yields 34/38 life, historical source 37/38, with correct
 keyboard selection and reset on a new decision. Root inspected the final source,
 Abilities, reset and result screenshots; evidence is in the feedback log.
 
-### Exact target incarnations — accepted; self-effects next
+### Exact target incarnations — accepted (`d95f741c`); self-effects rules-tested; live pending
 
-The read-only source audit also found an untargeted self-effect risk: Shivan
-Dragon's `PumpFilter(Filter::This)` binds a bare source id and may pump a new
-incarnation after a blink. This still needs a behavioral regression and a shared
-self-effect audit; the fixed counter and damage paths do not establish that all
-self-effects respect versions. The same pump route serves Frozen Shade (0/1),
-Granite Gargoyle (2/2) and Dragon Whelp (2/3). The independent next-test matrix
-covers old activation → real Ephemerate → returned base stats, multiple old plus
-one new activation, and ordinary pump/cleanup. Broader self-shield/regeneration,
-sacrifice and untap readers need separate review; preserve explicit same-effect
-zone-change exceptions such as Enduring Vitality. These are read-only findings,
-not runtime-verified fixes or additional Implemented claims.
+The self-effect incarnation correction is rules-tested. Shivan Dragon, Frozen
+Shade, Granite Gargoyle and Dragon Whelp bind pumps to the correct incarnation;
+self-prevention, regeneration, sacrifice and untap follow the same contract.
+Per-turn ability counts distinguish incarnations. Actual public moves caused by
+costs or the resolving effect retain explicit successor provenance, including
+nested/suspended instructions; damage attribution retains its original source.
+Enduring Vitality and Rancor exercise permitted public-zone followups. The broad
+gate caught Rancor's own-departure exception; the correction and two independent
+positive/negative real-card regressions now pass.
+
+Final Rules gate: **7,990 passed, ten existing skipped**, Clippy and all 2,955
+metadata validations green (`/private/tmp/baylee-self-rules-gate.log`). Focused
+checks include all ten independent self-effect card functions, Rancor's normal
+and reentered-graveyard cases, shared counters, source choices, hash state and
+footprint. GameObject remains 312 bytes; no generated, card-status or wire change.
+The compiled-pool census found no resolving composite-`This` effect; existing
+composite uses are static/condition/trigger filters, not additional acceptance
+claims. Native live Shivan/Whelp verification remains pending. UI work is paused
+for the owner's requested explicit pre-change confirmation; prepared QoL changes
+remain uncommitted. The Alpha count is unchanged.
 
 Issue #117's Engine implementation now captures exact target incarnations before
 announcement costs, checks both groups at resolution without substituting a
@@ -380,12 +389,14 @@ Logs: `/private/tmp/baylee-damage-rules-gate.log`,
 Damage client acceptance is complete on the final rebuilt binary: both Reverse
 Damage orders and both finite-shield allocations pass live, with no errors.
 Root reviewed final screenshots; detailed evidence is in the feedback log.
-The source-incarnation selection design remains the next separate engine job.
+Source-incarnation selection was subsequently accepted as `c6422ff1`; exact
+target incarnations were accepted as `d95f741c` (see the current sections above).
 
-Damage milestone committed as `81409297`. The source-selection extension is
-now in progress with Astra xhigh; it is not accepted yet. Sol medium authors
-independent real-card regressions, and Astra high owns client integration and
-the display audit. Protocol16 is reserved for the new exact-source contract.
+Damage milestone committed as `81409297`. The following source and target
+milestones are accepted; Protocol17/View50 are the current contract. Astra xhigh
+now owns the self-effect incarnation follow-up, with independent Sol medium
+card tests and Astra high client checks. No additional card has been marked
+Implemented by these shared-engine milestones.
 
 ### Remaining-card acceptance queue
 

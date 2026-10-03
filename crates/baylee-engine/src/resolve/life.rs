@@ -51,6 +51,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PreventNextDamage { target, amount } => {
+            if matches!(target, TargetSpec::ThisObject)
+                && !super::subjects::source(state, res)
+                    .is_some_and(|r| super::subjects::on_battlefield(state, r))
+            {
+                return None;
+            }
             let n = amount2(&amount, state, you, res);
             if n == 0 {
                 return None;
@@ -536,7 +542,11 @@ fn recipients(
         // `zones::spec_object` keeps for the moving effects). Rock Hydra's
         // "prevent the next 1 damage that would be dealt to this creature"
         // read `targets`, found nothing, and shielded nobody.
-        TargetSpec::ThisObject => vec![DamageTarget::Object(res.source)],
+        TargetSpec::ThisObject => super::subjects::source(state, res)
+            .filter(|r| super::subjects::on_battlefield(state, *r))
+            .map(|r| DamageTarget::Object(r.object))
+            .into_iter()
+            .collect(),
         // Everything else names an object, and the damage goes to
         // the one that was chosen. Spelled out rather than left to
         // a `_` arm: a new player-flavoured `TargetSpec` would land
@@ -1173,6 +1183,7 @@ mod tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),

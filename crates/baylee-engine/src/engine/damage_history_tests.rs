@@ -66,6 +66,7 @@ fn execute(
         mana_ability: false,
         countered_source: None,
         target_lki: None,
+        subject: crate::resolve::SubjectContext::default(),
         event_mana: None,
         retarget_left: None,
     };

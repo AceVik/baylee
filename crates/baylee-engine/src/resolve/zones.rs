@@ -24,11 +24,12 @@ use super::*;
 /// `resolve::exec_choice` reads it too, so "you may sacrifice this" is not
 /// offered when the answer "yes" is impossible (CR 608.2d).
 pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
-    state.object(res.source).is_some_and(|o| {
-        o.zone == crate::zone::Zone::Battlefield
-            && o.controller == res.controller
-            && !o.status.contains(crate::object::Status::PHASED_OUT)
-    })
+    super::subjects::source(state, res).is_some_and(|r| super::subjects::on_battlefield(state, r))
+        && state.object(res.source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.controller == res.controller
+                && !o.status.contains(crate::object::Status::PHASED_OUT)
+        })
 }
 
 /// The object an effect's own [`TargetSpec`] names at resolution.
@@ -74,9 +75,15 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
 /// asking for it reads as "nobody chose anything" there. Every variant is
 /// listed now, so the next implicit spec is a compile error instead of a
 /// card that quietly does nothing.
-pub(super) fn spec_object(res: &Resolution, target: TargetSpec) -> Option<ObjectId> {
+pub(super) fn spec_object(
+    state: &GameState,
+    res: &Resolution,
+    target: TargetSpec,
+) -> Option<ObjectId> {
     match target {
-        TargetSpec::ThisObject => Some(res.source),
+        TargetSpec::ThisObject => super::subjects::source(state, res)
+            .filter(|r| super::subjects::is_current(state, *r))
+            .map(|r| r.object),
         TargetSpec::EventObject => res.event_object,
         // The one spec that is only ever a second instance of "target"
         // names the object that instance chose.
@@ -114,14 +121,35 @@ pub(super) fn spec_object(res: &Resolution, target: TargetSpec) -> Option<Object
 /// The two implicit specs stay singular by construction: neither names a
 /// list, and `res.targets` for an untargeted synthetic trigger holds at most
 /// its one implicit target, so reading it here would add nothing.
-pub(super) fn spec_objects(res: &Resolution, target: TargetSpec) -> SmallVec<[ObjectId; 2]> {
+pub(super) fn spec_objects(
+    state: &GameState,
+    res: &Resolution,
+    target: TargetSpec,
+) -> SmallVec<[ObjectId; 2]> {
     match target {
         TargetSpec::ThisObject
         | TargetSpec::EventObject
         | TargetSpec::ObjectOfFirstTargetsPlayer(_) => {
-            spec_object(res, target).into_iter().collect()
+            spec_object(state, res, target).into_iter().collect()
         }
         _ => res.targets.clone(),
+    }
+}
+
+// Explicit movement instructions can use CR 400.7e's departure destination;
+// ordinary This readers retain the source incarnation instead.
+fn moving_objects(
+    state: &GameState,
+    res: &Resolution,
+    target: TargetSpec,
+) -> SmallVec<[ObjectId; 2]> {
+    if matches!(target, TargetSpec::ThisObject) {
+        super::subjects::moving_source(state, res)
+            .map(|r| r.object)
+            .into_iter()
+            .collect()
+    } else {
+        spec_objects(state, res, target)
     }
 }
 
@@ -197,7 +225,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::ReturnToHand { target } => {
-            if let Some(target_id) = spec_object(res, target) {
+            if let Some(&target_id) = moving_objects(state, res, target).first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 // CR 903.9b, before the kind flips below: this operation
                 // re-runs from the top once every owner has answered.
@@ -301,7 +329,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // one names nothing (CR 201.2a). Phased-out permanents are treated as
         // though they don't exist (CR 702.26b), which `battlefield_seen` is.
         Effect::DestroyOthersNamedLike { target } => {
-            let named = spec_object(res, target)?;
+            let named = spec_object(state, res, target)?;
             let name = state
                 .object(named)
                 .filter(|o| o.zone == crate::zone::Zone::Battlefield)
@@ -339,8 +367,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::GraveyardToHand { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+        Effect::GraveyardToHand { target } => {
+            if let Some(&target_id) = moving_objects(state, res, target).first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 // CR 903.9b. A commander is in a graveyard to be returned
                 // only because its owner declined 903.9a, and this is a
@@ -382,8 +410,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::GraveyardToTop { .. } => {
-            if let Some(&target_id) = res.targets.first() {
+        Effect::GraveyardToTop { target } => {
+            if let Some(&target_id) = moving_objects(state, res, target).first() {
                 let owner = state.object(target_id).map_or(you, |o| o.owner);
                 // CR 903.9b.
                 if let Some(pending) =
@@ -421,19 +449,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if !owner_control && state.has_left(you) {
                 return None;
             }
-            if matches!(target, TargetSpec::ThisObject)
-                && state.object(res.on_stack).is_some_and(|ability| {
-                    ability.riders.iter().any(|rider| match rider {
-                        crate::object::Rider::TriggerSourceVersion(version) => state
-                            .object(res.source)
-                            .is_none_or(|source| source.version != *version),
-                        _ => false,
-                    })
-                })
-            {
-                return None;
-            }
-            for target_id in spec_objects(res, target) {
+            for target_id in moving_objects(state, res, target) {
                 // The card has to still be in a graveyard, asked per card:
                 // one of several targets leaving does not stop the others.
                 if !state
@@ -653,7 +669,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // permanent of theirs that is still the object the spec names
         // (CR 701.21a; an event object that has left is none, CR 603.7c).
         Effect::SacrificeObject { target } => {
-            let id = spec_object(res, target)?;
+            let id = spec_object(state, res, target)?;
             let owner = state.object(id).and_then(|o| {
                 (o.zone == crate::zone::Zone::Battlefield
                     && o.controller == res.controller
@@ -695,7 +711,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::PutOnBottomOfLibraryFromGraveyard { target } => {
             // CR 400.7, as `GraveyardToBattlefield` asks it: a card that left
             // the graveyard in response is a new object, and "it" is gone.
-            let moves: Vec<(ObjectId, ZoneLocation)> = spec_objects(res, target)
+            let moves: Vec<(ObjectId, ZoneLocation)> = moving_objects(state, res, target)
                 .into_iter()
                 .filter_map(|card| {
                     let obj = state.object(card)?;
@@ -796,7 +812,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // Intervention prints "destroy X target artifacts and/or
             // enchantments", and a `first()` reader destroyed one of them.
             // `res.targets` is already narrowed to the legal ones (CR 608.2b).
-            for target_id in spec_objects(res, target) {
+            for target_id in spec_objects(state, res, target) {
                 if no_regen {
                     sba::destroy_no_regen(state, target_id);
                 } else {
@@ -815,7 +831,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // written about permanents (CR 701.19a) and a shield on an animated
         // land that stops being one is simply a shield nothing spends.
         Effect::Regenerate { target } => {
-            if let Some(target_id) = spec_object(res, target)
+            if matches!(target, TargetSpec::ThisObject)
+                && !super::subjects::source(state, res)
+                    .is_some_and(|r| super::subjects::on_battlefield(state, r))
+            {
+                return None;
+            }
+            if let Some(target_id) = spec_object(state, res, target)
                 && let Some(obj) = state.object_mut(target_id)
             {
                 obj.regeneration_shields = obj.regeneration_shields.saturating_add(1);
@@ -1168,7 +1190,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if state.has_left(you) {
                 return None;
             }
-            for card in spec_objects(res, target) {
+            for card in moving_objects(state, res, target) {
                 // Where the trigger event put it, or nowhere (CR 603.7c).
                 // The zone is asked and not the object's version, which a
                 // synthetic trigger does not carry: a card moved from the
@@ -1512,6 +1534,7 @@ mod arrival_control_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),

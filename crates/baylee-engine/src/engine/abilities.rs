@@ -1052,7 +1052,10 @@ impl<L: CardLookup> Engine<L> {
             ActivationLimit::PerTurn(n) => {
                 self.state
                     .ability_fires
-                    .get(&(source, index))
+                    .get(&(
+                        self.state.source_identity(source).expect("offered source"),
+                        index,
+                    ))
                     .copied()
                     .unwrap_or(0)
                     >= u32::from(n)
@@ -1519,6 +1522,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                subject: crate::resolve::SubjectContext::default(),
                 event_mana: None,
                 retarget_left: None,
             };
@@ -2110,7 +2114,18 @@ impl<L: CardLookup> Engine<L> {
             *self
                 .state
                 .ability_fires
-                .entry((source, ability_index))
+                .entry((
+                    baylee_core::ids::DamageSourceRef {
+                        object: source,
+                        version: activated_source_version.unwrap_or_else(|| {
+                            self.state
+                                .object(source)
+                                .expect("activation source")
+                                .version
+                        }),
+                    },
+                    ability_index,
+                ))
                 .or_insert(0) += 1;
         }
         if mana_ability {
@@ -2141,6 +2156,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                subject: resolve::SubjectContext::after_cost(paid.source_after_cost),
                 event_mana: None,
                 retarget_left: None,
             };
@@ -2566,6 +2582,8 @@ impl<L: CardLookup> Engine<L> {
     ) -> Result<crate::object::PaidRecord, EngineError> {
         let mut answers = chosen.iter().copied();
         let mut paid = crate::object::PaidRecord::default();
+        let subject_before = self.state.source_identity(source);
+        let subject_seq = self.state.journal.last_seq();
         if !cost.mana.is_empty() {
             // CR 107.3a, second half: while an activated ability is on the
             // stack, any X in its activation cost equals the announced
@@ -2757,6 +2775,14 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         graveyard_batch.finish(&mut self.state);
+        if let Some(before) = subject_before {
+            paid.source_after_cost = crate::resolve::subjects::public_successor(
+                &self.state,
+                before,
+                subject_seq,
+                Cause::Cost,
+            );
+        }
         Ok(paid)
     }
 

@@ -3033,3 +3033,36 @@ names the owner of that sacrifice decision separately from its chooser. Neither
 choice targets. No matching permanent means no sacrifice question.
 `Effect::TapSelf` affects only the resolving source's original battlefield
 incarnation; an impossible tap does not stop subsequent sequence instructions.
+
+### Self effects and zone changes
+
+Resolution-time `Filter::This` and `TargetSpec::ThisObject` bind the exact
+subject incarnation. An old pump, regeneration, prevention, untap, counter or
+sacrifice instruction cannot affect the permanent returned by a later blink
+(CR 400.7). Damage attribution continues to read the original source and its
+last-known characteristics independently of the subject being modified.
+
+CR 400.7j permits other instructions of an effect to find an object that this
+effect actually moved to a public zone. The resolver records that successful
+move, carries it through nested branches and suspended choices, and does not
+infer a successor merely because the arena handle now points at another
+version. Enduring Vitality's own return followed by a type change uses this
+path. A move through a hidden zone does not provide that lookup. Public-zone
+moves made while paying the ability's own cost carry the same explicit
+provenance; unrelated effects do not make those successors selectable damage
+sources.
+
+Per-turn ability tallies key by object incarnation and ability index. Departed
+objects retain their tallies for pending abilities until the turn ends; a
+returning permanent starts at zero. `IfActivatedThisTurnAtLeast` reads the
+count when it resolves (CR 608.2h–i), including activations still on the stack.
+For Dragon Whelp, five activations resolved one at a time create two delayed
+sacrifice abilities; four activated before any resolves create four. Delays
+created by old abilities still name the old incarnation and cannot sacrifice
+a returned Whelp (CR 603.7c).
+
+Zone-move triggers have a separate CR 400.7e lookup: a return instruction can
+find its source's recorded public departure destination (Rancor in its graveyard).
+That destination is an exact event reference, not the same card after another
+zone change. This exception is used by moving instructions and their semantic
+source references; it does not retarget self-pumps or change damage-source LKI.

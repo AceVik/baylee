@@ -1010,6 +1010,7 @@ impl<L: CardLookup> Engine<L> {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
         if let Some(r) = &self.resolution {
+            extra = extra.wrapping_mul(31).wrapping_add(r.subject.fingerprint());
             if let Some(resolve::AwaitingOp::Damage(damage)) = &r.awaiting {
                 extra = extra.wrapping_mul(31).wrapping_add(damage.fingerprint());
             }
@@ -1063,7 +1064,11 @@ impl<L: CardLookup> Engine<L> {
         // fuse here: it breaks a replay rather than a test.
         if let Some(w) = &self.mana_window {
             extra = extra.wrapping_mul(31).wrapping_add(match &w.suspended {
-                PaymentContinuation::Tax(r) => (r.pc as u64)
+                PaymentContinuation::Tax(r) => r
+                    .subject
+                    .fingerprint()
+                    .wrapping_mul(31)
+                    .wrapping_add(r.pc as u64)
                     .wrapping_add(u64::from(r.on_stack.slot()))
                     .wrapping_add(u64::from(r.controller.get())),
                 PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
@@ -1723,6 +1728,8 @@ mod s7c_tests;
 mod saga_tests;
 #[cfg(test)]
 mod search_tests;
+#[cfg(test)]
+mod self_subject_tests;
 #[cfg(test)]
 mod sickness_tests;
 #[cfg(test)]

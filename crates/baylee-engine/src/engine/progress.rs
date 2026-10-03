@@ -2535,6 +2535,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
+                subject: crate::resolve::SubjectContext::default(),
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]
@@ -2673,10 +2674,15 @@ impl<L: CardLookup> Engine<L> {
             // is cleared at end of turn, but nothing ever read it back, so the
             // clause did nothing at all.
             if t.once_per_turn
-                && self
-                    .state
-                    .ability_fires
-                    .contains_key(&(t.source, t.ability_index))
+                && self.state.ability_fires.contains_key(&(
+                    baylee_core::ids::DamageSourceRef {
+                        object: t.source,
+                        version: t.source_version.unwrap_or_else(|| {
+                            self.state.object(t.source).expect("trigger source").version
+                        }),
+                    },
+                    t.ability_index,
+                ))
             {
                 self.trigger_queue.pop_front();
                 continue;
@@ -2749,9 +2755,18 @@ impl<L: CardLookup> Engine<L> {
                     let targets: SmallVec<[ObjectId; 2]> = t.event_object.into_iter().collect();
                     self.trigger_queue.pop_front();
                     if t.once_per_turn {
-                        self.state
-                            .ability_fires
-                            .insert((t.source, t.ability_index), 1);
+                        self.state.ability_fires.insert(
+                            (
+                                baylee_core::ids::DamageSourceRef {
+                                    object: t.source,
+                                    version: t.source_version.unwrap_or_else(|| {
+                                        self.state.object(t.source).expect("trigger source").version
+                                    }),
+                                },
+                                t.ability_index,
+                            ),
+                            1,
+                        );
                     }
                     self.hand_over_trigger_abilities(&t);
                     self.push_ability_to_stack(t.controller, t.source, t.ability_index, targets);
@@ -2864,9 +2879,18 @@ impl<L: CardLookup> Engine<L> {
             }
             self.trigger_queue.pop_front();
             if t.once_per_turn {
-                self.state
-                    .ability_fires
-                    .insert((t.source, t.ability_index), 1);
+                self.state.ability_fires.insert(
+                    (
+                        baylee_core::ids::DamageSourceRef {
+                            object: t.source,
+                            version: t.source_version.unwrap_or_else(|| {
+                                self.state.object(t.source).expect("trigger source").version
+                            }),
+                        },
+                        t.ability_index,
+                    ),
+                    1,
+                );
             }
             // Synthetic triggers with a target requirement (granted
             // triggered abilities): ask for the target first.
@@ -3538,6 +3562,7 @@ impl<L: CardLookup> Engine<L> {
                     mana_ability: false,
                     countered_source: None,
                     target_lki: None,
+                    subject: crate::resolve::SubjectContext::default(),
                     event_mana: None,
                     retarget_left: None,
                 };
@@ -3572,6 +3597,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                subject: crate::resolve::SubjectContext::default(),
                 event_mana: None,
                 retarget_left: None,
             };
@@ -3626,6 +3652,7 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                subject: crate::resolve::SubjectContext::default(),
                 retarget_left,
                 event_mana: None,
             };

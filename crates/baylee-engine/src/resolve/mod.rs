@@ -29,6 +29,8 @@ pub(crate) mod linked_counters;
 mod mana;
 mod reflexive;
 mod retarget;
+pub(crate) mod subjects;
+pub use subjects::SubjectContext;
 mod tokens;
 mod zones;
 
@@ -129,6 +131,8 @@ pub struct Resolution {
     /// It is `None` at every construction site for the same reason: nothing
     /// but `run` may decide when "the resolution began" was.
     pub target_lki: Option<Vec<TargetLki>>,
+    /// Exact subject followed only through this resolution's own public-zone moves.
+    pub subject: SubjectContext,
     /// Where the effects of the second targeting mode of a spell cast with
     /// several modes begin (CR 700.2a, `progress::modal_program`), counted
     /// as the ops of the program still to run there: at that point
@@ -217,22 +221,9 @@ pub(crate) fn source_attachment_lki(
     Some((host, version))
 }
 
-/// What [`Filter::This`](baylee_cards_dsl::Filter::This) names right now.
-///
-/// The target if one was chosen; the source if the ability never asked for
-/// one; and `None` — nothing at all — if it asked and got none, which is
-/// what "up to one target" allows. A caller that gets `None` registers no
-/// effect: there is nothing for it to apply to. See [`Resolution::targeted`].
-pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
-    match res.targets.first().copied() {
-        Some(target) => Some(target),
-        None if res.targeted => None,
-        None => Some(res.source),
-    }
-}
-
 /// What an effect on [`Filter::This`](baylee_cards_dsl::Filter::This)
-/// registers against: [`this_object`], while it is still in the arena.
+/// registers against: its exact current subject, including a public-zone
+/// successor found by this resolution (CR 400.7j).
 ///
 /// An ability that never said "target" is not removed when its object goes
 /// (CR 115.1d; CR 608.2b checks targets only), so prowess on a token that
@@ -246,11 +237,9 @@ pub(crate) fn this_object(res: &Resolution) -> Option<ObjectId> {
 /// continuous effects that reference the permanent specifically"
 /// (CR 702.26e).
 pub(crate) fn this_to_affect(state: &GameState, res: &Resolution) -> Option<ObjectId> {
-    this_object(res).filter(|&id| {
-        state
-            .object(id)
-            .is_some_and(|o| !o.status.contains(crate::object::Status::PHASED_OUT))
-    })
+    subjects::this(state, res)
+        .filter(|r| subjects::is_current(state, *r))
+        .map(|r| r.object)
 }
 
 /// Whether `you` still control the permanent this resolution's ability came
@@ -474,7 +463,7 @@ pub enum AwaitingOp {
         /// the source and ability index a yes writes into
         /// `GameState::ability_fires`, the per-turn tally that is cleared as
         /// each turn begins. `None` for a plain "you may".
-        once_each_turn: Option<(ObjectId, u32)>,
+        once_each_turn: Option<(baylee_core::ids::DamageSourceRef, u32)>,
     },
     /// A card's owner picks the end of their library it goes to
     /// ([`Effect::OwnerPutsOnTopOrBottom`]).
@@ -1259,6 +1248,7 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
+    subjects::flush(state, res);
     // A payment may have moved several cards just before this resolution
     // began (including a mana ability). Settle that order before any effect
     // can read the graveyard.
@@ -1354,6 +1344,13 @@ fn next_choice(state: &mut GameState, res: &mut Resolution, since: u64, pending:
 
 /// Resumes a bounded counter placement's numeric choice.
 pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u32) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_with_number_inner(state, res, number);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_with_number_inner(state: &mut GameState, res: &mut Resolution, number: u32) -> Flow {
     if let Some(AwaitingOp::DamagePayment { player, amount }) = res.awaiting {
         res.awaiting = None;
         let cost = baylee_core::mana::ManaCost::from_symbol_generic(number);
@@ -1394,6 +1391,13 @@ pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u
 /// When the suspended operation is not a mana choice.
 #[must_use]
 pub fn resume_with_color(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_with_color_inner(state, res, color);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_with_color_inner(state: &mut GameState, res: &mut Resolution, color: ManaColor) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     if let AwaitingOp::ProtectionColor { target, duration } = awaiting {
         grant_protection_from(state, res, target, color, duration);
@@ -1659,6 +1663,13 @@ fn resume_cast_question(state: &mut GameState, res: &mut Resolution, answer: boo
 /// When the suspended operation is not a yes/no choice.
 #[must_use]
 pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_yes_no_inner(state, res, answer);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_yes_no_inner(state: &mut GameState, res: &mut Resolution, answer: bool) -> Flow {
     if let Some(flow) = resume_cast_question(state, res, answer) {
         return flow;
     }
@@ -1739,6 +1750,13 @@ pub fn resume_yes_no(state: &mut GameState, res: &mut Resolution, answer: bool) 
 /// When the suspended operation is not an optional clause.
 #[must_use]
 pub fn resume_may_do(state: &mut GameState, res: &mut Resolution, yes: bool) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_may_do_inner(state, res, yes);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_may_do_inner(state: &mut GameState, res: &mut Resolution, yes: bool) -> Flow {
     let AwaitingOp::MayDo {
         effects,
         once_each_turn,
@@ -1785,6 +1803,17 @@ fn look_question(player: PlayerId, looked: Vec<ObjectId>, away: ArrangePlace) ->
 /// When the suspended operation is not an arrangement.
 #[must_use]
 pub fn resume_arranged(
+    state: &mut GameState,
+    res: &mut Resolution,
+    piles: &[Vec<ObjectId>],
+) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_arranged_inner(state, res, piles);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_arranged_inner(
     state: &mut GameState,
     res: &mut Resolution,
     piles: &[Vec<ObjectId>],
@@ -1869,6 +1898,13 @@ pub fn resume_arranged(
 /// When the suspended operation is not a tax choice.
 #[must_use]
 pub fn resume_tax_choice(state: &mut GameState, res: &mut Resolution, paid: bool) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_tax_choice_inner(state, res, paid);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_tax_choice_inner(state: &mut GameState, res: &mut Resolution, paid: bool) -> Flow {
     let AwaitingOp::PlayerMayPay {
         player,
         cost,
@@ -1914,6 +1950,18 @@ fn run_fallback(state: &mut GameState, res: &mut Resolution, effects: &'static [
 /// When called without a suspended operation (engine invariant).
 #[must_use]
 pub fn resume_targets(
+    state: &mut GameState,
+    res: &mut Resolution,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_targets_inner(state, res, objects, players);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_targets_inner(
     state: &mut GameState,
     res: &mut Resolution,
     objects: &[ObjectId],
@@ -2121,6 +2169,13 @@ fn ask_separator(res: &mut Resolution, opponent: PlayerId, cards: Vec<ObjectId>)
 /// If no pile choice is suspended.
 #[must_use]
 pub fn resume_pile(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_pile_inner(state, res, index);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_pile_inner(state: &mut GameState, res: &mut Resolution, index: usize) -> Flow {
     let since = state.journal.last_seq();
     let Some(AwaitingOp::TakePile { piles }) = res.awaiting.take() else {
         panic!("pile choice not suspended");
@@ -2229,6 +2284,14 @@ pub fn resume_pick_splitter(res: &mut Resolution, opponent: PlayerId) -> Flow {
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_inner(state, res, chosen);
+    subjects::flush(state, res);
+    flow
+}
+
+#[allow(clippy::too_many_lines)] // suspended effect dispatch table
+fn resume_inner(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) -> Flow {
     let since = state.journal.last_seq();
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
     match awaiting {
@@ -2936,6 +2999,17 @@ pub fn resume_source(
     res: &mut Resolution,
     chosen: Option<baylee_core::ids::DamageSourceRef>,
 ) -> Flow {
+    subjects::begin_resume(state, res);
+    let flow = resume_source_inner(state, res, chosen);
+    subjects::flush(state, res);
+    flow
+}
+
+fn resume_source_inner(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chosen: Option<baylee_core::ids::DamageSourceRef>,
+) -> Flow {
     let since = state.journal.last_seq();
     match res.awaiting.take().expect("source choice suspended") {
         AwaitingOp::ShieldFromChosenSource {
@@ -3186,6 +3260,7 @@ fn copy_spell(
         Box::new(crate::object::PaidRecord {
             sacrificed_mana_value: paid.sacrificed_mana_value,
             sacrificed: paid.sacrificed,
+            source_after_cost: paid.source_after_cost,
             tapped: paid.tapped,
             ..crate::object::PaidRecord::default()
         })
@@ -3233,7 +3308,8 @@ fn copy_spell(
 
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
-    match op {
+    let before = subjects::before(state, res);
+    let pending = match op {
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
         | Effect::Surveil { .. }
@@ -3260,7 +3336,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::PayLifeOrEnterTapped { .. } => exec_choice(state, res, op),
         _ => exec_immediate(state, res, op),
-    }
+    };
+    subjects::after(state, res, &before);
+    pending
 }
 
 /// Operations that suspend on a player choice.
@@ -3792,7 +3870,17 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             let key = state
                 .object(res.on_stack)
                 .and_then(|o| o.ability)
-                .map(|loc| (loc.source, loc.index));
+                .map(|loc| {
+                    (
+                        baylee_core::ids::DamageSourceRef {
+                            object: loc.source,
+                            version: source_version(state, res).unwrap_or_else(|| {
+                                state.object(loc.source).expect("ability source").version
+                            }),
+                        },
+                        loc.index,
+                    )
+                });
             if key.is_some_and(|key| state.ability_fires.contains_key(&key))
                 || !may_clause_possible(state, res, effects)
             {
@@ -3925,10 +4013,13 @@ fn run_nested_with(
         mana_ability: false,
         countered_source: res.countered_source,
         target_lki: None,
+        subject: res.subject.clone(),
         event_mana: res.event_mana,
         retarget_left: None,
     };
-    match run(state, &mut nested) {
+    let flow = run(state, &mut nested);
+    res.subject = nested.subject.clone();
+    match flow {
         Flow::Complete => None,
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
@@ -4219,11 +4310,24 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             // Counted as the ability was activated (CR 602.2, the
             // activation in `engine/abilities.rs`), this one included, in
             // the turn's tally of that ability of that object — which a
-            // source that has left the battlefield no longer has.
+            // source retains even after leaving (CR 608.2h–i).
             let activated = state
                 .object(res.on_stack)
                 .and_then(|o| o.ability)
-                .and_then(|loc| state.ability_fires.get(&(loc.source, loc.index)).copied())
+                .and_then(|loc| {
+                    state
+                        .ability_fires
+                        .get(&(
+                            baylee_core::ids::DamageSourceRef {
+                                object: loc.source,
+                                version: source_version(state, res).unwrap_or_else(|| {
+                                    state.object(loc.source).expect("ability source").version
+                                }),
+                            },
+                            loc.index,
+                        ))
+                        .copied()
+                })
                 .unwrap_or(0);
             if activated >= u32::from(n) {
                 return run_nested(state, res, then);
@@ -4277,7 +4381,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::ExileIfDiesThisTurn { target } => {
-            for id in zones::spec_objects(res, target) {
+            for id in zones::spec_objects(state, res, target) {
                 if let Some(obj) = state.object(id)
                     && obj.zone == crate::zone::Zone::Battlefield
                 {
@@ -4289,17 +4393,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             }
             None
         }
-        // The delayed trigger is about the first target as it is now. An
-        // ability that never said "target" is about its source as it is
-        // now ("sacrifice this creature", Dragon Whelp); one that targeted
+        // The delayed trigger retains the exact subject of this resolution.
+        // An ability that never said "target" is about its source
+        // ("sacrifice this creature", Dragon Whelp); one that targeted
         // and has no object target left is about nothing.
         Effect::AtNextEndStep { effects } => {
-            let about = if res.targeted {
-                res.targets.first().copied()
-            } else {
-                Some(res.source)
-            };
-            let action = match about.and_then(|t| state.object(t).map(|o| (t, o.version))) {
+            let about_ref = subjects::this(state, res);
+            let action = match about_ref.map(|r| (r.object, r.version)) {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
                     source: res.source,
                     source_version: source_version(state, res)
@@ -4328,7 +4428,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         // resolves, as the object it is now (CR 603.7c); naming nothing, it
         // is about nothing.
         Effect::AtEndOfCombat { about, effects } => {
-            let action = match zones::spec_object(res, about)
+            let action = match zones::spec_object(state, res, about)
                 .and_then(|t| state.object(t).map(|o| (t, o.version)))
             {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
@@ -4356,7 +4456,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             None
         }
         Effect::CantBeRegeneratedThisTurn { target } => {
-            for id in zones::spec_objects(res, target) {
+            for id in zones::spec_objects(state, res, target) {
                 if let Some(obj) = state.object(id)
                     && obj.zone == crate::zone::Zone::Battlefield
                 {
@@ -4423,7 +4523,17 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let key = state
                 .object(res.on_stack)
                 .and_then(|o| o.ability)
-                .map(|loc| (loc.source, loc.index))?;
+                .map(|loc| {
+                    (
+                        baylee_core::ids::DamageSourceRef {
+                            object: loc.source,
+                            version: source_version(state, res).unwrap_or_else(|| {
+                                state.object(loc.source).expect("ability source").version
+                            }),
+                        },
+                        loc.index,
+                    )
+                })?;
             let nth = state.ability_fires.get(&key).copied().unwrap_or(0) + 1;
             state.ability_fires.insert(key, nth);
             let index = usize::try_from(nth - 1).ok()?;
@@ -4489,16 +4599,6 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 // was activated with none, or its object is gone, so this
                 // half of its sentence has no subject and registers nothing.
                 let this = this_to_affect(state, res)?;
-                // Gaining an ability affects this incarnation of the source,
-                // not a card or permanent returned under its old handle.
-                if matches!(modifier, baylee_cards_dsl::Modifier::GrantStatic { .. })
-                    && this == res.source
-                    && source_version(state, res).is_some_and(|version| {
-                        state.object(this).is_none_or(|o| o.version != version)
-                    })
-                {
-                    return None;
-                }
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
                 bound_now(state, filter, &modifier, you, res.source, None)
@@ -5083,10 +5183,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::TapSelf => {
             if let Some(id) = this_to_affect(state, res)
-                && state.object(id).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && source_version(state, res).is_none_or(|version| version == o.version)
-                })
+                && state
+                    .object(id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
             {
                 state.set_tapped(id, true);
             }
@@ -5202,7 +5301,11 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         // left the battlefield untaps nothing, which `untap` answers by
         // finding no object rather than by a check here.
         Effect::UntapSelf => {
-            untap(state, res.source);
+            if let Some(source) =
+                subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                untap(state, source.object);
+            }
             None
         }
         Effect::TargetSourceLosesAbilities { source_filter } => {
@@ -5449,6 +5552,7 @@ mod host_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         };
@@ -5520,6 +5624,7 @@ mod toggle_tests {
                 mana_ability: false,
                 countered_source: None,
                 target_lki: None,
+                subject: crate::resolve::SubjectContext::default(),
                 event_mana: None,
                 retarget_left: None,
             };
@@ -5586,6 +5691,7 @@ mod mana_short_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         };
@@ -5652,6 +5758,7 @@ mod no_regeneration_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         };
@@ -5707,6 +5814,7 @@ mod whole_zone_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         }
@@ -5928,6 +6036,7 @@ mod price_tests {
             mana_ability: false,
             countered_source: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
         };
@@ -6310,6 +6419,7 @@ mod created_for_the_departed_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
@@ -6561,6 +6671,7 @@ mod counted_choice_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,
@@ -6644,6 +6755,7 @@ mod controller_of_target_tests {
             x: None,
             chosen_player: None,
             target_lki: None,
+            subject: crate::resolve::SubjectContext::default(),
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
@@ -6822,6 +6934,7 @@ mod copied_decisions_tests {
             ZoneLocation::Battlefield,
         );
         state.object_mut(original).unwrap().paid = Some(Box::new(PaidRecord {
+            source_after_cost: None,
             sacrificed_mana_value: Some(3),
             sacrificed: Some((target, 0)),
             mana_spent: 5,
