@@ -13,6 +13,7 @@ mod activate;
 mod board;
 pub mod combat;
 mod copying;
+mod damage;
 mod fight;
 mod filter;
 mod held;
@@ -344,6 +345,11 @@ impl HeuristicAgent {
     ) -> PlayerAction {
         let player = view.seat;
         match pending {
+            ref pending @ (Pending::ChooseDamageEffect { .. }
+            | Pending::AllocatePrevention { .. }) => {
+                damage::answer(view, pending, &|other| self.hostile(player, other))
+                    .unwrap_or(PlayerAction::PassPriority)
+            }
             Pending::Mulligan {
                 taken,
                 next_is_free,
@@ -854,6 +860,8 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
+        | Pending::ChooseDamageEffect { player, .. }
+        | Pending::AllocatePrevention { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }

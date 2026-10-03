@@ -35,7 +35,8 @@ use baylee_core::ids::{CardIndex, Defender, ObjectId, PlayerId, SeatSet, Subtype
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{
     AnswerFault, ArrangePlace, ArrangePrompt, BlockOption, CastModeDesc, ChoicePrompt,
-    LegalActions, NumberPrompt, Pending, PlayerAction, TargetPrompt, YesNoPrompt,
+    DamageChoiceId, DamageEffectOption, DamagePartView, LegalActions, NumberPrompt, Pending,
+    PlayerAction, TargetPrompt, YesNoPrompt,
 };
 use baylee_engine::win::{EndReason, GameResult, Victor};
 use baylee_view::{GameStatic, HouseAnswer, LossCause, PlayerView, SeatView};
@@ -92,6 +93,24 @@ fn ordered_attackers(options: &[BlockOption]) -> Vec<ObjectId> {
 // compared.
 #[derive(Clone, Debug)]
 pub enum Prompt {
+    /// Select the next effect that modifies damage.
+    ChooseDamageEffect {
+        /// The simultaneous damage being modified.
+        damage: Vec<DamagePartView>,
+        /// Offered effects with stable IDs and provenance.
+        options: Vec<DamageEffectOption>,
+    },
+    /// Divide prevention between damage sources.
+    AllocatePrevention {
+        /// The already selected prevention effect.
+        effect: DamageEffectOption,
+        /// Damage parts in display order.
+        damage: Vec<DamagePartView>,
+        /// Exact amount required.
+        total: u32,
+        /// The current draft, in damage-part order.
+        amounts: Vec<u32>,
+    },
     /// Nothing is being asked of this seat.
     Waiting {
         /// Who the game is waiting for, when it is waiting for a player.
@@ -270,6 +289,16 @@ fn held_by_the_house(statics: Option<&GameStatic>, player: PlayerId) -> bool {
     })
 }
 
+fn waiting_line(lang: Lang, statics: Option<&GameStatic>, player: PlayerId) -> String {
+    let name = seat_name(lang, statics, player);
+    let phrase = if held_by_the_house(statics, player) {
+        Phrase::WaitingForHeldSeat
+    } else {
+        Phrase::WaitingForPlayer
+    };
+    phrase.fill(lang, &[&name])
+}
+
 impl Prompt {
     /// What the bar says to a seat that has kept its opening hand while
     /// others are still deciding theirs (#257), or `None`.
@@ -326,14 +355,14 @@ impl Prompt {
     ) -> String {
         let name = |id: ObjectId| name(id).filter(|n| !n.trim().is_empty());
         match self {
-            Self::Waiting { on: Some(p) } => {
-                let name = seat_name(lang, statics, *p);
-                if held_by_the_house(statics, *p) {
-                    Phrase::WaitingForHeldSeat.fill(lang, &[&name])
-                } else {
-                    Phrase::WaitingForPlayer.fill(lang, &[&name])
-                }
-            }
+            Self::ChooseDamageEffect { .. } => Phrase::ChooseDamageEffect.text(lang).to_string(),
+            Self::AllocatePrevention {
+                effect,
+                total,
+                amounts,
+                ..
+            } => crate::damage::allocation_headline(lang, effect, *total, amounts),
+            Self::Waiting { on: Some(p) } => waiting_line(lang, statics, *p),
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
             // One seat by name, as any other wait; several by count, because
             // eight names do not fit the shelf and the carets already point
@@ -1051,6 +1080,11 @@ pub enum SelectionOutcome {
 /// Internal shape of the answer being assembled.
 #[derive(Clone, Debug)]
 enum Mode {
+    DamageEffect {
+        choice: DamageChoiceId,
+        options: Vec<DamageEffectOption>,
+    },
+    Prevention(crate::damage::Allocation),
     /// Nothing to answer.
     Idle,
     /// A set of objects, bounded by `min` and `max`.
@@ -1098,30 +1132,45 @@ enum Mode {
         focus: usize,
     },
     /// A bounded number.
-    Number { min: u32, max: u32 },
+    Number {
+        min: u32,
+        max: u32,
+    },
     /// One of a fixed set of colours.
-    Color { options: Vec<ManaColor> },
+    Color {
+        options: Vec<ManaColor>,
+    },
     /// One of a fixed set of seats.
-    Player { options: Vec<PlayerId> },
+    Player {
+        options: Vec<PlayerId>,
+    },
     /// One of a fixed set of cast options.
-    CastOption { count: usize },
+    CastOption {
+        count: usize,
+    },
     /// One of a fixed set of creature types.
     ///
     /// Three hundred and fifty of them are offered, which is why the
     /// answer is an index into the list rather than a click on the board:
     /// a creature type is not a thing on the table. Narrowing that list is
     /// the renderer's job; the model only ever hears which row was picked.
-    Subtype { options: Vec<SubtypeId> },
+    Subtype {
+        options: Vec<SubtypeId>,
+    },
     /// A card name: the card and the face whose name it is, once one is
     /// picked.
     ///
     /// Not an index, because there is no list to index: the pool is the
     /// option set (CR 201.4), and the engine checks the answer against it.
-    CardName { named: Option<(CardIndex, u8)> },
+    CardName {
+        named: Option<(CardIndex, u8)>,
+    },
     /// A yes-or-no answer.
     YesNo,
     /// Priority: an action menu rather than a selection.
-    Priority { legal: Box<LegalActions> },
+    Priority {
+        legal: Box<LegalActions>,
+    },
     /// Keep or mulligan.
     Mulligan,
     /// The game has ended.
@@ -1175,10 +1224,10 @@ impl Interaction {
         Self {
             pending,
             seat,
+            choice_index: matches!(mode, Mode::Prevention(_)).then_some(0),
             mode,
             picks: Vec::new(),
             number,
-            choice_index: None,
         }
     }
 
@@ -1200,6 +1249,16 @@ impl Interaction {
         {
             *fresh = built.clone();
         }
+        if let (Mode::Prevention(fresh), Some(old)) =
+            (&mut next.mode, previous.filter(|p| p.seat == seat))
+            && let Mode::Prevention(built) = &old.mode
+            && built.same_offer(fresh)
+            && matches!((&next.pending, &old.pending),
+                (Pending::AllocatePrevention { effect: a, .. }, Pending::AllocatePrevention { effect: b, .. }) if a == b)
+        {
+            *fresh = built.clone();
+            next.choice_index = Some(built.focus());
+        }
         next
     }
 
@@ -1211,7 +1270,23 @@ impl Interaction {
                 Mode::Idle
             };
         }
+        Self::own_mode(pending)
+    }
+
+    fn own_mode(pending: &Pending) -> Mode {
         match pending {
+            Pending::ChooseDamageEffect {
+                choice, options, ..
+            } => Mode::DamageEffect {
+                choice: *choice,
+                options: options.clone(),
+            },
+            Pending::AllocatePrevention {
+                choice,
+                damage,
+                total,
+                ..
+            } => Mode::Prevention(crate::damage::Allocation::new(*choice, damage, *total)),
             Pending::Mulligan { .. } => Mode::Mulligan,
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
                 Mode::Objects {
@@ -1335,6 +1410,25 @@ impl Interaction {
             };
         }
         match &self.pending {
+            Pending::ChooseDamageEffect {
+                damage, options, ..
+            } => Prompt::ChooseDamageEffect {
+                damage: damage.clone(),
+                options: options.clone(),
+            },
+            Pending::AllocatePrevention {
+                effect,
+                damage,
+                total,
+                ..
+            } => Prompt::AllocatePrevention {
+                effect: effect.clone(),
+                damage: damage.clone(),
+                total: *total,
+                amounts: self
+                    .allocation()
+                    .map_or_else(Vec::new, |a| a.amounts().to_vec()),
+            },
             Pending::Mulligan {
                 taken,
                 next_is_free,
@@ -2001,6 +2095,10 @@ impl Interaction {
                 arrangement.cancel();
             }
             Mode::CardName { named } => *named = None,
+            Mode::Prevention(allocation) => {
+                allocation.clear();
+                self.choice_index = Some(allocation.focus());
+            }
             _ => {}
         }
     }
@@ -2052,6 +2150,9 @@ impl Interaction {
     /// are the only ones that exist here, so an out-of-range X is not
     /// expressible.
     pub fn set_number(&mut self, value: u32) -> u32 {
+        if let Mode::Prevention(allocation) = &mut self.mode {
+            return allocation.set_number(value);
+        }
         if let Mode::Number { min, max, .. } = &self.mode {
             self.number = value.clamp(*min, *max);
         }
@@ -2060,8 +2161,35 @@ impl Interaction {
 
     /// The currently chosen number.
     #[must_use]
-    pub const fn number(&self) -> u32 {
-        self.number
+    pub fn number(&self) -> u32 {
+        self.allocation()
+            .map_or(self.number, crate::damage::Allocation::number)
+    }
+
+    /// The prevention draft, when this seat is assigning shares.
+    #[must_use]
+    pub const fn allocation(&self) -> Option<&crate::damage::Allocation> {
+        if let Mode::Prevention(allocation) = &self.mode {
+            Some(allocation)
+        } else {
+            None
+        }
+    }
+
+    /// Identity used to reject clicks from a replaced damage dialog.
+    #[must_use]
+    pub const fn damage_choice(&self) -> Option<DamageChoiceId> {
+        match &self.pending {
+            Pending::ChooseDamageEffect { choice, .. }
+            | Pending::AllocatePrevention { choice, .. } => Some(*choice),
+            _ => None,
+        }
+    }
+
+    /// Whether direct numeric input edits this question.
+    #[must_use]
+    pub const fn edits_number(&self) -> bool {
+        matches!(self.mode, Mode::Number { .. } | Mode::Prevention(_))
     }
 
     /// Adds or removes a seat as a target ("any target", CR 115.4).
@@ -2112,8 +2240,16 @@ impl Interaction {
     ///
     /// Returns `false` when the index is not one the engine offered.
     pub fn choose_index(&mut self, index: usize) -> bool {
+        if let Mode::Prevention(allocation) = &mut self.mode {
+            if !allocation.select(index) {
+                return false;
+            }
+            self.choice_index = Some(index);
+            return true;
+        }
         let count = match &self.mode {
             Mode::CastOption { count } => *count,
+            Mode::DamageEffect { options, .. } => options.len(),
             Mode::Color { options } => options.len(),
             Mode::Player { options } => options.len(),
             Mode::Subtype { options } => options.len(),
@@ -2164,6 +2300,7 @@ impl Interaction {
     #[must_use]
     pub fn can_confirm(&self) -> bool {
         let complete = match &self.mode {
+            Mode::Prevention(allocation) => allocation.answer().is_some(),
             Mode::Objects { min, .. } => self.picks.len() >= *min,
             Mode::Arrange(arrangement) => arrangement.answer().is_some(),
             // Declaring nothing is always legal (no attacks, no blocks), a
@@ -2176,6 +2313,7 @@ impl Interaction {
             Mode::Color { .. }
             | Mode::Player { .. }
             | Mode::CastOption { .. }
+            | Mode::DamageEffect { .. }
             | Mode::Subtype { .. } => self.choice_index.is_some(),
             Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
@@ -2233,6 +2371,15 @@ impl Interaction {
             Mode::Blockers { pairs, .. } => Some(PlayerAction::DeclareBlockers {
                 blockers: pairs.clone(),
             }),
+            Mode::Prevention(allocation) => allocation.answer(),
+            Mode::DamageEffect { choice, options } => {
+                options
+                    .get(self.choice_index?)
+                    .map(|effect| PlayerAction::ChooseDamageEffect {
+                        choice: *choice,
+                        effect: effect.id,
+                    })
+            }
             Mode::Number { .. } => Some(PlayerAction::ChooseNumber(self.number)),
             Mode::Priority { .. } => Some(PlayerAction::PassPriority),
             Mode::Color { options } => options
@@ -2382,6 +2529,8 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
+        | Pending::ChooseDamageEffect { player, .. }
+        | Pending::AllocatePrevention { player, .. }
         | Pending::ChooseNumber { player, .. }
         | Pending::ChoosePlayer { player, .. }
         | Pending::ChooseCastMode { player, .. }
@@ -2394,3 +2543,6 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod damage_tests;

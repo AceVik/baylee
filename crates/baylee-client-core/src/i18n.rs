@@ -1580,6 +1580,42 @@ messages! {
         en: "How much mana will you pay? ({0}–{1}; prevent up to {2} damage)",
         de: "Wie viel Mana zahlen? ({0}–{1}; bis zu {2} Schaden verhindern)",
     },
+    /// Damage decision: `DamageCombat`.
+    DamageCombat { en: "combat damage", de: "Kampfschaden" },
+    /// Damage decision: `DamageNoncombat`.
+    DamageNoncombat { en: "noncombat damage", de: "Nichtkampfschaden" },
+    /// Damage decision: `DamagePart`.
+    DamagePart { en: "{0} → {1}: {2} ({3})", de: "{0} → {1}: {2} ({3})" },
+    /// Damage decision: `DamageShield`.
+    DamageShield { en: "Prevent the next damage; shield remaining: {0}", de: "Verhindere die nächsten Schadenspunkte; Schild übrig: {0}" },
+    /// Damage decision: `DamageEventShield`.
+    DamageEventShield { en: "Prevent this event’s damage; remaining: {0}; excess expires", de: "Verhindere Schaden dieses Ereignisses; übrig: {0}; Rest verfällt" },
+    /// Damage decision: `DamagePreventCombat`.
+    DamagePreventCombat { en: "Prevent all indicated combat damage", de: "Verhindere den gesamten angegebenen Kampfschaden" },
+    /// Damage decision: `DamageProtection`.
+    DamageProtection { en: "Protection prevents the indicated damage", de: "Schutz verhindert den angegebenen Schaden" },
+    /// Damage decision: `DamageRedirect`.
+    DamageRedirect { en: "Redirect the damage to {0}", de: "Leite den Schaden auf {0} um" },
+    /// Damage decision: `DamageCounter`.
+    DamageCounter { en: "Remove one {0} counter and try to prevent 1 damage; counters remaining: {1}", de: "Entferne eine {0}-Marke und versuche, 1 Schaden zu verhindern; Marken übrig: {1}" },
+    /// Damage decision: `DamageSourceShield`.
+    DamageSourceShield { en: "Use the shield against {0}; leave {1} damage unprevented", de: "Nutze das Schild gegen {0}; {1} Schaden bleibt unverhindert" },
+    /// Damage decision: `DamageShieldLife`.
+    DamageShieldLife { en: "; {0} gains life equal to the damage prevented", de: "; {0} erhält Lebenspunkte in Höhe des verhinderten Schadens" },
+    /// Prevention assigned to one damage part.
+    PreventionShare { en: "{0} — prevent {1} of at most {2}", de: "{0} — verhindere {1} von höchstens {2}" },
+    /// Damage decision: `DamageRule`.
+    DamageRule { en: "Rule effect", de: "Regeleffekt" },
+    /// Explicitly unpreventable damage in a replacement decision.
+    DamageUnpreventable { en: "; damage cannot be prevented", de: "; Schaden kann nicht verhindert werden" },
+    /// Counter removal allocation can still consume counters without preventing damage.
+    AllocateDamageCounters { en: "Distribute {0} counter removals — {1} remaining. Select a source and enter its share.", de: "Verteile {0} Markenentfernungen — {1} übrig. Wähle eine Quelle und gib ihren Anteil ein." },
+    /// A counter-removal share, distinct from guaranteed prevention.
+    DamageCounterShare { en: "{0} — apply {1} counter removals (maximum {2})", de: "{0} — {1} Markenentfernungen anwenden (höchstens {2})" },
+    /// Choosing between damage replacement and prevention effects.
+    ChooseDamageEffect { en: "Choose which effect modifies the damage next", de: "Wähle, welcher Effekt den Schaden als Nächstes verändert" },
+    /// Exact prevention budget and its still unassigned portion.
+    AllocatePrevention { en: "Distribute {0} prevention — {1} remaining. Select a source and enter its share.", de: "Verteile {0} Schadensverhinderung — {1} übrig. Wähle eine Quelle und gib ihren Anteil ein." },
     /// A payment window with no fixed amount owed.
     OptionalPayment { en: "Optional payment", de: "Freiwillige Zahlung" },
     /// {0} is the player who must sacrifice the chosen permanents.
@@ -2703,6 +2739,8 @@ messages! {
     // ---- the zone browser
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
     BrowseLooking { en: "Shown", de: "Gezeigt" },
+    /// Offered battlefield cards inside a mixed-zone question.
+    BrowseBattlefield { en: "Battlefield", de: "Spielfeld" },
     /// A graveyard.
     BrowseGraveyard { en: "Graveyard", de: "Friedhof" },
     /// A public exile pile.

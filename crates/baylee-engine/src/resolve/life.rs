@@ -3,7 +3,8 @@
 
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
-use crate::prevention::{Redirected, Shield, ShieldKind, Shielded, redirect};
+use crate::damage::{Assignment, DamageWork};
+use crate::prevention::{Shield, ShieldKind, ShieldOrigin, Shielded};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
@@ -12,67 +13,16 @@ use baylee_core::types::TypeSet;
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
-        Effect::DealDamageEvenly { amount, target } => {
-            let targets = recipients(state, res, you, target);
-            let count = u32::try_from(targets.len()).unwrap_or(u32::MAX);
-            if let Some(share) = amount2(&amount, state, you, res).checked_div(count) {
-                let version = source_version(state, res);
-                for recipient in targets {
-                    deal_redirected(
-                        state,
-                        res.source,
-                        recipient,
-                        share,
-                        &mut Redirected::default(),
-                        version,
-                    );
-                }
-            }
-            None
-        }
-        Effect::DealDamageWithCappedLifeGain { amount } => {
-            let recipient = *recipients(state, res, you, TargetSpec::AnyTarget).first()?;
-            let before_damage_cap = match recipient {
-                DamageTarget::Player(player) => {
-                    state.players[usize::from(player.get())].life.max(0)
-                }
-                DamageTarget::Object(id) => state.object(id).map_or(0, |o| {
-                    let c = o.characteristics();
-                    if c.types.contains(TypeSet::PLANESWALKER) {
-                        i32::from(o.counters.get(baylee_cards_dsl::CounterKind::Loyalty))
-                    } else {
-                        i32::MAX
-                    }
-                }),
-            };
-            let start = state.journal.len();
-            let n = amount2(&amount, state, you, res);
-            deal_to_spec(state, res, you, res.source, n, TargetSpec::AnyTarget);
-            // Only life and loyalty are explicitly measured before damage.
-            // The subsequent gain reads current toughness (CR 608.2c, h),
-            // including counters changed by prevention or damage. Layers
-            // update immediately (CR 613.5), before the next SBA check.
-            state.refresh_characteristics();
-            let cap = match recipient {
-                DamageTarget::Object(_) => target_chars(res, state)
-                    .filter(|c| c.types.contains(TypeSet::CREATURE))
-                    .map_or(before_damage_cap, |c| {
-                        before_damage_cap.min(i32::from(c.toughness.unwrap_or(0)).max(0))
-                    }),
-                DamageTarget::Player(_) => before_damage_cap,
-            };
-            let dealt: i32 = state.journal.entries()[start..]
-                .iter()
-                .filter_map(|entry| match entry.event {
-                    GameEvent::DamageDealt { source, amount, .. } if source == Some(res.source) => {
-                        Some(i32::try_from(amount).unwrap_or(i32::MAX))
-                    }
-                    _ => None,
-                })
-                .fold(0, i32::saturating_add);
-            gain_life(state, you, dealt.min(cap));
-            None
-        }
+        Effect::DealDamageEvenly { .. }
+        | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::DealDamage { .. }
+        | Effect::DealDamageToAttached { .. }
+        | Effect::DealDamageDivided { .. }
+        | Effect::Fight { .. }
+        | Effect::DamageEqualToPower { .. }
+        | Effect::EventObjectDealsDamageEqualToPower { .. }
+        | Effect::DealDamageToTargetController { .. }
+        | Effect::DealDamageEach { .. } => start(state, res, op),
         Effect::GainLife { amount } => {
             let n = amount2(&amount, state, you, res) as i32;
             gain_life(state, you, n);
@@ -100,114 +50,6 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::DealDamage { amount, target } => {
-            let n = amount2(&amount, state, you, res);
-            deal_to_spec(state, res, you, res.source, n, target);
-            None
-        }
-        Effect::DealDamageToAttached { amount } => {
-            let version = source_version(state, res);
-            let attachment = source_attachment_lki(state, res.on_stack);
-            let host =
-                crate::eval::attached_for_ability(state, res.source, version, attachment)?.id;
-            let n = amount2(&amount, state, you, res);
-            deal_to_object(
-                state,
-                host,
-                n,
-                res.source,
-                &mut Redirected::default(),
-                version,
-            );
-            None
-        }
-        Effect::DealDamageDivided { .. } => {
-            // As divided when the ability went on the stack (CR 601.2d).
-            // `res.targets` holds only the targets still legal, and one that
-            // is not is dealt nothing: its share goes to nobody (CR 608.2b).
-            let shares = state
-                .divided
-                .iter()
-                .find(|(id, _)| *id == res.on_stack)
-                .map(|(_, shares)| shares.clone())
-                .unwrap_or_default();
-            for &target in &res.targets.clone() {
-                if let Some(&(_, n)) = shares.iter().find(|(t, _)| *t == target) {
-                    let version = source_version(state, res);
-                    deal_to_object(
-                        state,
-                        target,
-                        n,
-                        res.source,
-                        &mut Redirected::default(),
-                        version,
-                    );
-                }
-            }
-            None
-        }
-        Effect::Fight { fighter, foe } => {
-            fight(state, res, fighter, foe);
-            None
-        }
-        Effect::DamageEqualToPower { dealer, to } => {
-            damage_equal_to_power(state, res, dealer, to);
-            None
-        }
-        Effect::EventObjectDealsDamageEqualToPower { target } => {
-            // "That creature": the object the event named. Its power now if
-            // it is still on the battlefield as the same object, else as it
-            // last existed there (CR 608.2h); with neither, the effect
-            // fails to determine an amount and deals nothing.
-            let dealer = res.event_object?;
-            let identity = event_object_identity(state, res);
-            let power = state
-                .object(dealer)
-                .filter(|o| {
-                    o.zone == crate::zone::Zone::Battlefield
-                        && identity.is_none_or(|(version, _)| o.version == version)
-                })
-                .map(|o| o.characteristics().power.unwrap_or(0))
-                .or_else(|| identity.map(|(_, power)| power))
-                .or_else(|| {
-                    state
-                        .ltb_powers
-                        .iter()
-                        .find(|(id, _)| *id == dealer)
-                        .map(|(_, p)| *p)
-                });
-            if let Some(n) = power.map(|p| p.max(0)) {
-                deal_to_spec(
-                    state,
-                    res,
-                    you,
-                    dealer,
-                    u32::try_from(n).unwrap_or(0),
-                    target,
-                );
-            }
-            None
-        }
-        Effect::DealDamageToTargetController { amount } => {
-            if let Some(&target_id) = res.targets.first() {
-                let controller = state.object(target_id).map_or(you, |o| o.controller);
-                let n = amount2(&amount, state, you, res);
-                let version = source_version(state, res);
-                deal_to_player_after(
-                    state,
-                    res.source,
-                    controller,
-                    n,
-                    &mut Redirected::default(),
-                    version,
-                );
-            }
-            None
-        }
-        Effect::DealDamageEach { amount, filter } => {
-            damage_each(state, res, &amount, filter);
-            None
-        }
         Effect::PreventNextDamage { target, amount } => {
             let n = amount2(&amount, state, you, res);
             if n == 0 {
@@ -221,20 +63,28 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         None => continue,
                     },
                 };
-                state.shields.push(Shield {
-                    protects,
-                    kind: ShieldKind::Next(n),
-                    controller: you,
-                });
+                let origin = origin(state, res);
+                state.shields.push_from(
+                    Shield {
+                        protects,
+                        kind: ShieldKind::Next(n),
+                        controller: you,
+                    },
+                    Some(origin),
+                );
             }
             None
         }
         Effect::PreventAllCombatDamageThisTurn => {
-            state.shields.push(Shield {
-                protects: Shielded::Everything,
-                kind: ShieldKind::AllCombat,
-                controller: you,
-            });
+            let origin = origin(state, res);
+            state.shields.push_from(
+                Shield {
+                    protects: Shielded::Everything,
+                    kind: ShieldKind::AllCombat,
+                    controller: you,
+                },
+                Some(origin),
+            );
             None
         }
         // The source is chosen as this resolves (CR 609.7a), and the choice
@@ -293,20 +143,156 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
-/// Deals `n` damage from `source` to what `target` names — the object or
-/// player it chose, every player it names, or both halves of "any target".
-///
-/// The recipient half of [`Effect::DealDamage`], shared with the effects
-/// whose damage comes from something other than the resolving ability's
-/// own source (Pyrogoyf's "that creature deals damage").
-fn deal_to_spec(
+/// State retained while a damage instruction asks replacement questions.
+#[derive(Clone, Debug, Hash)]
+pub struct DamageResolution {
+    work: DamageWork,
+    after: AfterDamage,
+}
+
+#[derive(Clone, Copy, Debug, Hash)]
+enum AfterDamage {
+    Done,
+    CappedLifeGain {
+        recipient: DamageTarget,
+        before_cap: i32,
+    },
+}
+
+fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {
+    ShieldOrigin {
+        source: res.source,
+        ability: super::resolving_ability(state, res),
+    }
+}
+
+fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
+    let assignments = assignments(state, res, op);
+    let after = if matches!(op, Effect::DealDamageWithCappedLifeGain { .. }) {
+        let recipient = assignments.first()?.recipient;
+        let before_cap = match recipient {
+            DamageTarget::Player(p) => state.players[usize::from(p.get())].life.max(0),
+            DamageTarget::Object(id) => state.object(id).map_or(0, |o| {
+                if o.characteristics().types.contains(TypeSet::PLANESWALKER) {
+                    i32::from(o.counters.get(baylee_cards_dsl::CounterKind::Loyalty))
+                } else {
+                    i32::MAX
+                }
+            }),
+        };
+        AfterDamage::CappedLifeGain {
+            recipient,
+            before_cap,
+        }
+    } else {
+        AfterDamage::Done
+    };
+    let work = DamageWork::new(state, assignments);
+    finish_or_suspend(state, res, DamageResolution { work, after })
+}
+
+fn finish_or_suspend(
     state: &mut GameState,
+    res: &mut Resolution,
+    mut damage: DamageResolution,
+) -> Option<Pending> {
+    if let Some(pending) = damage.work.advance(state) {
+        res.awaiting = Some(AwaitingOp::Damage(Box::new(damage)));
+        return Some(pending);
+    }
+    after_damage(state, res, &damage);
+    None
+}
+
+fn after_damage(state: &mut GameState, res: &Resolution, damage: &DamageResolution) {
+    if let AfterDamage::CappedLifeGain {
+        recipient,
+        before_cap,
+    } = damage.after
+    {
+        state.refresh_characteristics();
+        let cap = match recipient {
+            DamageTarget::Object(_) => target_chars(res, state)
+                .filter(|c| c.types.contains(TypeSet::CREATURE))
+                .map_or(before_cap, |c| {
+                    before_cap.min(i32::from(c.toughness.unwrap_or(0)).max(0))
+                }),
+            DamageTarget::Player(_) => before_cap,
+        };
+        gain_life(
+            state,
+            res.controller,
+            i32::try_from(damage.work.dealt())
+                .unwrap_or(i32::MAX)
+                .min(cap),
+        );
+    }
+}
+
+pub(crate) fn resume_damage(
+    state: &mut GameState,
+    res: &mut Resolution,
+    answer: &crate::choice::PlayerAction,
+) -> Flow {
+    let Some(AwaitingOp::Damage(mut damage)) = res.awaiting.take() else {
+        unreachable!("damage suspended")
+    };
+    if let Some(pending) = damage.work.answer(state, answer) {
+        res.awaiting = Some(AwaitingOp::Damage(damage));
+        return Flow::Wait(pending);
+    }
+    after_damage(state, res, &damage);
+    res.pc += 1;
+    run(state, res)
+}
+
+impl DamageResolution {
+    pub(crate) fn fingerprint(&self) -> u64 {
+        crate::state::structural_fingerprint(self)
+    }
+}
+
+pub(crate) fn refresh_damage(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let Some(AwaitingOp::Damage(mut damage)) = res.awaiting.take() else {
+        unreachable!("damage suspended")
+    };
+    if let Some(pending) = damage.work.refresh(state) {
+        res.awaiting = Some(AwaitingOp::Damage(damage));
+        return Flow::Wait(pending);
+    }
+    after_damage(state, res, &damage);
+    res.pc += 1;
+    run(state, res)
+}
+
+/// Prevention bought during this instruction belongs only to its damage.
+pub(super) fn damage_with_payment(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+    damage: u32,
+    paid: u32,
+) -> Option<Pending> {
+    let origin = origin(state, res);
+    let assignment = assignment(state, res, res.source, DamageTarget::Player(player), damage);
+    let work = DamageWork::new(state, vec![assignment]).with_paid_prevention(paid, origin, player);
+    finish_or_suspend(
+        state,
+        res,
+        DamageResolution {
+            work,
+            after: AfterDamage::Done,
+        },
+    )
+}
+
+fn assignment(
+    state: &GameState,
     res: &Resolution,
-    you: PlayerId,
     source: ObjectId,
-    n: u32,
-    target: TargetSpec,
-) {
+    recipient: DamageTarget,
+    amount: u32,
+) -> Assignment {
     let version = if Some(source) == res.event_object {
         event_object_identity(state, res).map(|(version, _)| version)
     } else if source == res.source {
@@ -314,43 +300,181 @@ fn deal_to_spec(
     } else {
         None
     };
-    for recipient in recipients(state, res, you, target) {
-        deal_redirected(
-            state,
-            source,
-            recipient,
-            n,
-            &mut Redirected::default(),
-            version,
-        );
+    Assignment {
+        source,
+        source_version: version,
+        recipient,
+        amount,
+        is_combat: false,
     }
 }
 
-/// Apply paid prevention through the ordinary damage pipeline, and discard
-/// unused prevention immediately: it belongs to this event, not the turn.
-pub(super) fn damage_with_payment(
-    state: &mut GameState,
-    res: &Resolution,
-    player: PlayerId,
-    damage: u32,
-    paid: u32,
-) {
-    state.shields.push(Shield {
-        protects: Shielded::Everything,
-        kind: ShieldKind::ThisEvent(paid),
-        controller: player,
-    });
-    deal_redirected(
-        state,
-        res.source,
-        DamageTarget::Player(player),
-        damage,
-        &mut Redirected::default(),
-        source_version(state, res),
-    );
-    state
-        .shields
-        .retain(|shield| !matches!(shield.kind, ShieldKind::ThisEvent(_)));
+#[allow(clippy::too_many_lines)] // the damage op family is one collection table
+fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignment> {
+    let you = res.controller;
+    let for_spec = |source, n, spec| {
+        recipients(state, res, you, spec)
+            .into_iter()
+            .map(|to| assignment(state, res, source, to, n))
+            .collect::<Vec<_>>()
+    };
+    match op {
+        Effect::DealDamage { amount, target } => {
+            for_spec(res.source, amount2(&amount, state, you, res), target)
+        }
+        Effect::DealDamageWithCappedLifeGain { amount } => for_spec(
+            res.source,
+            amount2(&amount, state, you, res),
+            TargetSpec::AnyTarget,
+        ),
+        Effect::DealDamageEvenly { amount, target } => {
+            let targets = recipients(state, res, you, target);
+            let count = u32::try_from(targets.len()).unwrap_or(u32::MAX);
+            let share = amount2(&amount, state, you, res)
+                .checked_div(count)
+                .unwrap_or(0);
+            targets
+                .into_iter()
+                .map(|to| assignment(state, res, res.source, to, share))
+                .collect()
+        }
+        Effect::DealDamageToAttached { amount } => {
+            let host = crate::eval::attached_for_ability(
+                state,
+                res.source,
+                source_version(state, res),
+                source_attachment_lki(state, res.on_stack),
+            );
+            host.into_iter()
+                .map(|host| {
+                    assignment(
+                        state,
+                        res,
+                        res.source,
+                        DamageTarget::Object(host.id),
+                        amount2(&amount, state, you, res),
+                    )
+                })
+                .collect()
+        }
+        Effect::DealDamageDivided { .. } => {
+            let shares = state
+                .divided
+                .iter()
+                .find(|(id, _)| *id == res.on_stack)
+                .map_or(&[][..], |(_, shares)| shares.as_slice());
+            res.targets
+                .iter()
+                .filter_map(|id| {
+                    shares
+                        .iter()
+                        .find(|(target, _)| target == id)
+                        .map(|(_, n)| {
+                            assignment(state, res, res.source, DamageTarget::Object(*id), *n)
+                        })
+                })
+                .collect()
+        }
+        Effect::Fight { fighter, foe } => {
+            let (Some(a), Some(b)) = (
+                fighting(state, slot_object(res, fighter)),
+                fighting(state, slot_object(res, foe)),
+            ) else {
+                return Vec::new();
+            };
+            vec![
+                assignment(
+                    state,
+                    res,
+                    a,
+                    DamageTarget::Object(b),
+                    u32::try_from(power_of(state, a)).unwrap_or(0),
+                ),
+                assignment(
+                    state,
+                    res,
+                    b,
+                    DamageTarget::Object(a),
+                    u32::try_from(power_of(state, b)).unwrap_or(0),
+                ),
+            ]
+        }
+        Effect::DamageEqualToPower { dealer, to } => {
+            let Some(source) = fighting(state, slot_object(res, dealer)) else {
+                return Vec::new();
+            };
+            slot_object(res, to)
+                .filter(|id| {
+                    state
+                        .object(*id)
+                        .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                })
+                .into_iter()
+                .map(|id| {
+                    assignment(
+                        state,
+                        res,
+                        source,
+                        DamageTarget::Object(id),
+                        u32::try_from(power_of(state, source)).unwrap_or(0),
+                    )
+                })
+                .collect()
+        }
+        Effect::EventObjectDealsDamageEqualToPower { target } => {
+            let Some(source) = res.event_object else {
+                return Vec::new();
+            };
+            let identity = event_object_identity(state, res);
+            let power = state
+                .object(source)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && identity.is_none_or(|(v, _)| o.version == v)
+                })
+                .map(|o| o.characteristics().power.unwrap_or(0))
+                .or_else(|| identity.map(|(_, p)| p))
+                .or_else(|| {
+                    state
+                        .ltb_powers
+                        .iter()
+                        .find(|(id, _)| *id == source)
+                        .map(|(_, p)| *p)
+                })
+                .unwrap_or(0);
+            for_spec(source, u32::try_from(power).unwrap_or(0), target)
+        }
+        Effect::DealDamageToTargetController { amount } => res
+            .targets
+            .first()
+            .and_then(|id| state.object(*id))
+            .map(|obj| {
+                vec![assignment(
+                    state,
+                    res,
+                    res.source,
+                    DamageTarget::Player(obj.controller),
+                    amount2(&amount, state, you, res),
+                )]
+            })
+            .unwrap_or_default(),
+        Effect::DealDamageEach { amount, filter } => {
+            let n = amount2(&amount, state, you, res);
+            state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        o.characteristics()
+                            .types
+                            .intersects(TypeSet::CREATURE.union(TypeSet::PLANESWALKER))
+                            && eval::matches(filter, state, o, you, res.source)
+                    })
+                })
+                .map(|id| assignment(state, res, res.source, DamageTarget::Object(id), n))
+                .collect()
+        }
+        _ => unreachable!("damage collection"),
+    }
 }
 
 /// Whom `target` names as this resolves: the objects and players an
@@ -436,96 +560,6 @@ fn recipients(
     }
 }
 
-/// `Effect::DealDamageEach` — "deals N damage to each <noun>".
-fn damage_each(state: &mut GameState, res: &Resolution, amount: &Amount, filter: &Filter) {
-    // The amount and the set are both read once, before anything is dealt
-    // (CR 608.2h), and every recipient is dealt its share before the
-    // state-based actions look (CR 704.3) — which is what makes the loop
-    // simultaneous in effect (CR 608.2f).
-    //
-    // `battlefield_view` and not the raw zone list: a phased-out permanent is
-    // treated as though it does not exist (CR 702.26b). `DestroyAll` walks the
-    // raw list, which is #209.
-    let you = res.controller;
-    let n = amount2(amount, state, you, res);
-    let can_be_dealt = TypeSet::CREATURE.union(TypeSet::PLANESWALKER);
-    let hit: Vec<ObjectId> = state
-        .battlefield_view()
-        .into_iter()
-        .filter(|id| {
-            state.object(*id).is_some_and(|o| {
-                o.characteristics().types.intersects(can_be_dealt)
-                    && eval::matches(filter, state, o, you, res.source)
-            })
-        })
-        .collect();
-    let version = source_version(state, res);
-    for id in hit {
-        deal_to_object(
-            state,
-            id,
-            n,
-            res.source,
-            &mut Redirected::default(),
-            version,
-        );
-    }
-}
-
-/// `Effect::Fight` (CR 701.14a).
-fn fight(state: &mut GameState, res: &Resolution, fighter: TargetSlot, foe: TargetSlot) {
-    // CR 701.14b, both halves at once: a side that is gone — left the
-    // battlefield, stopped being a creature, or was dropped by CR 608.2b's
-    // re-check as an illegal target, which is what an empty slot means here —
-    // and *neither* creature deals damage.
-    let (Some(a), Some(b)) = (
-        fighting(state, slot_object(res, fighter)),
-        fighting(state, slot_object(res, foe)),
-    ) else {
-        return;
-    };
-    // Both amounts are read before either is dealt: the damage is dealt at
-    // once (CR 701.14a, "each of those creatures deals damage"), and a
-    // creature's power does not depend on the damage marked on it, so this is
-    // the order that cannot matter — which is what makes it the right one to
-    // write.
-    let (power_a, power_b) = (power_of(state, a), power_of(state, b));
-    // Each creature is the source of its own damage, which is what makes
-    // deathtouch and protection read the right object (CR 702.2b,
-    // CR 702.16e). A creature fighting itself runs both lines at itself —
-    // twice its power, as CR 701.14c says.
-    deal_to_object_with_loyalty(state, b, power_a, a);
-    deal_to_object_with_loyalty(state, a, power_b, b);
-}
-
-/// `Effect::DamageEqualToPower` — "deals damage equal to its power to".
-fn damage_equal_to_power(
-    state: &mut GameState,
-    res: &Resolution,
-    dealer: TargetSlot,
-    to: TargetSlot,
-) {
-    // Not a fight, so CR 701.14b does not govern it; CR 608.2b does, and it
-    // lands in the same place. An illegal dealer is one whose power the
-    // effect "fails to determine", so no damage happens, and an illegal
-    // recipient is not affected by the part of the effect it is illegal for.
-    // The recipient may be a planeswalker (Stump Stomp), which
-    // `deal_to_object_with_loyalty` turns into loyalty (CR 306.8), so only the
-    // dealer has to be a creature.
-    let Some(from) = fighting(state, slot_object(res, dealer)) else {
-        return;
-    };
-    let Some(target) = slot_object(res, to).filter(|id| {
-        state
-            .object(*id)
-            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
-    }) else {
-        return;
-    };
-    let n = power_of(state, from);
-    deal_to_object_with_loyalty(state, target, n, from);
-}
-
 /// The object a [`TargetSlot`] names as the effect resolves, if there still
 /// is one.
 ///
@@ -569,139 +603,43 @@ pub(super) fn gain_life(state: &mut GameState, player: PlayerId, n: i32) {
     state.change_life(player, n, Cause::Effect);
 }
 
+#[cfg(test)]
 pub(super) fn deal_to_object_with_loyalty(
     state: &mut GameState,
     target: ObjectId,
     n: i16,
     source: ObjectId,
 ) {
-    deal_to_object(
-        state,
-        target,
-        u32::try_from(n).unwrap_or(0),
+    let assignment = Assignment {
         source,
-        &mut Redirected::default(),
-        None,
+        source_version: None,
+        recipient: DamageTarget::Object(target),
+        amount: u32::try_from(n).unwrap_or(0),
+        is_combat: false,
+    };
+    assert!(
+        DamageWork::new(state, vec![assignment])
+            .advance(state)
+            .is_none(),
+        "fixture needs a damage choice"
     );
-}
-
-/// Damage a redirection moved (CR 614.9), dealt through the door for its
-/// new recipient with the redirections that already moved it (CR 614.5).
-fn deal_redirected(
-    state: &mut GameState,
-    source: ObjectId,
-    recipient: DamageTarget,
-    n: u32,
-    done: &mut Redirected,
-    source_version: Option<u32>,
-) {
-    match recipient {
-        DamageTarget::Player(player) => {
-            deal_to_player_after(state, source, player, n, done, source_version);
-        }
-        DamageTarget::Object(id) => deal_to_object(state, id, n, source, done, source_version),
-    }
-}
-
-fn deal_to_object(
-    state: &mut GameState,
-    target: ObjectId,
-    n: u32,
-    source: ObjectId,
-    done: &mut Redirected,
-    source_version: Option<u32>,
-) {
-    if n == 0 {
-        return;
-    }
-    // Protection (CR 702.16e): matching sources deal no damage.
-    if eval::protected_from(state, target, source) {
-        return;
-    }
-    let n = crate::prevention::apply(state, source, DamageTarget::Object(target), n, false);
-    if n == 0 {
-        return;
-    }
-    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
-        deal_redirected(state, source, to, n, done, source_version);
-        return;
-    }
-    let n = crate::prevention::absorb(state, source, target, n, false);
-    if n == 0 {
-        return;
-    }
-    let is_walker = state.object(target).is_some_and(|o| {
-        o.characteristics()
-            .types
-            .contains(baylee_core::types::TypeSet::PLANESWALKER)
-    });
-    if is_walker {
-        // Damage to a planeswalker removes loyalty counters (CR 306.8).
-        let old = state.object(target).map_or(0, |o| {
-            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
-        });
-        let new = old.saturating_sub(u16::try_from(n).unwrap_or(u16::MAX));
-        if let Some(obj) = state.object_mut(target) {
-            obj.counters
-                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
-        }
-        state.journal.record(GameEvent::CounterChanged {
-            object: target,
-            kind: baylee_cards_dsl::CounterKind::Loyalty,
-            old,
-            new,
-        });
-    } else {
-        // CR 702.2b: deathtouch is a property of the *source*, and it
-        // applies to any damage it deals, not just combat damage.
-        let deathtouch = state.object(source).is_some_and(|o| {
-            o.characteristics()
-                .keywords
-                .contains(baylee_cards_dsl::KeywordSet::DEATHTOUCH)
-        });
-        if let Some(obj) = state.object_mut(target) {
-            obj.damage = obj
-                .damage
-                .saturating_add(u16::try_from(n).unwrap_or(u16::MAX));
-            obj.deathtouched |= deathtouch;
-        }
-    }
-    state.record_permanent_damage(source, source_version, target, n, false);
 }
 
 #[cfg(test)]
 pub(super) fn deal_to_player(state: &mut GameState, source: ObjectId, player: PlayerId, n: i16) {
-    deal_to_player_after(
-        state,
+    let assignment = Assignment {
         source,
-        player,
-        u32::try_from(n).unwrap_or(0),
-        &mut Redirected::default(),
-        None,
+        source_version: None,
+        recipient: DamageTarget::Player(player),
+        amount: u32::try_from(n).unwrap_or(0),
+        is_combat: false,
+    };
+    assert!(
+        DamageWork::new(state, vec![assignment])
+            .advance(state)
+            .is_none(),
+        "fixture needs a damage choice"
     );
-}
-
-fn deal_to_player_after(
-    state: &mut GameState,
-    source: ObjectId,
-    player: PlayerId,
-    n: u32,
-    done: &mut Redirected,
-    source_version: Option<u32>,
-) {
-    if n == 0 {
-        return;
-    }
-    let n = crate::prevention::apply(state, source, DamageTarget::Player(player), n, false);
-    if n == 0 {
-        return;
-    }
-    // After the shields and before the life, as combat's door does it.
-    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
-        deal_redirected(state, source, to, n, done, source_version);
-        return;
-    }
-    state.damage_player(source, player, n, false, Cause::Effect);
 }
 
 #[cfg(test)]

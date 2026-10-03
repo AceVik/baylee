@@ -58,6 +58,9 @@ impl<L: CardLookup> Engine<L> {
             self.end_game(result);
             return;
         }
+        if self.refresh_damage_question() {
+            return;
+        }
         if asked == Some(player) {
             self.drop_the_leavers_question(player);
         } else if !self.forget_the_departed(&exiled) {
@@ -77,8 +80,35 @@ impl<L: CardLookup> Engine<L> {
                 self.cast_wizard.is_some()
                     || self.pending_plan.is_some()
                     || self.resolution.is_some()
+                    || self.combat_damage.is_some()
             }
         }
+    }
+
+    fn refresh_damage_question(&mut self) -> bool {
+        if let Some(mut work) = self.combat_damage.take() {
+            self.awaiting_answer = false;
+            if let Some(pending) = work.refresh(&mut self.state) {
+                self.combat_damage = Some(work);
+                self.pending = pending;
+                self.awaiting_answer = true;
+            } else {
+                self.finish_combat_damage(&work);
+                self.run_until_choice();
+            }
+            return true;
+        }
+        if self
+            .resolution
+            .as_ref()
+            .is_some_and(|res| matches!(res.awaiting, Some(AwaitingOp::Damage(_))))
+        {
+            let mut res = self.resolution.take().expect("damage resolution");
+            let flow = resolve::refresh_damage(&mut self.state, &mut res);
+            self.go_on_with(res, flow);
+            return true;
+        }
+        false
     }
 
     /// Leaving while the round or the step machine is asking. The machine

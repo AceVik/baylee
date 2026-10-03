@@ -968,6 +968,9 @@ pub fn keyboard(
     if number_keys(&mut typed, &mut duel) {
         return;
     }
+    if damage_keys(fired, &mut duel) {
+        return;
+    }
     // And once more for the ability sheet, whose rows are sent by the digit
     // drawn on each of them. Same place in the order and the same reason: a
     // digit is bound to no action, so `Fired` is empty for exactly these
@@ -1407,10 +1410,11 @@ impl Gesture {
 /// keyboard's. Same family as the `still_gliding` splice: the anchor is the
 /// closing brace before a block, never the `///` after it.
 fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bool {
-    if !matches!(
-        duel.interaction.as_ref().map(Interaction::prompt),
-        Some(Prompt::ChooseNumber { .. })
-    ) {
+    if !duel
+        .interaction
+        .as_ref()
+        .is_some_and(Interaction::edits_number)
+    {
         return false;
     }
     let mut touched = false;
@@ -1442,6 +1446,35 @@ fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> boo
         }
     }
     touched
+}
+
+/// Damage dialogs own cursor navigation; the numeric editor owns their digits.
+fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
+    let Some(i) = duel
+        .interaction
+        .as_mut()
+        .filter(|i| i.damage_choice().is_some())
+    else {
+        return false;
+    };
+    let count = match i.prompt() {
+        Prompt::ChooseDamageEffect { options, .. } => options.len(),
+        Prompt::AllocatePrevention { damage, .. } => damage.len(),
+        _ => 0,
+    };
+    let step = i32::from(fired.has(Action::CursorDown)) - i32::from(fired.has(Action::CursorUp));
+    if step == 0 || count == 0 {
+        return false;
+    }
+    let at = i.chosen_index().unwrap_or(0);
+    let next = if step > 0 {
+        (at + 1) % count
+    } else {
+        at.checked_sub(1).unwrap_or(count - 1)
+    };
+    i.choose_index(next);
+    duel.target_page = next / crate::choices::DAMAGE_PAGE_SIZE;
+    true
 }
 
 /// The same localized, sorted creature-type rows the renderer shows.
@@ -2647,6 +2680,26 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if pick_attack_choice(duel, index) {
         return;
     }
+    if let Some(i) = duel
+        .interaction
+        .as_ref()
+        .filter(|i| i.damage_choice().is_some())
+    {
+        let count = match i.prompt() {
+            Prompt::ChooseDamageEffect { options, .. } => options.len(),
+            Prompt::AllocatePrevention { damage, .. } => damage.len(),
+            _ => 0,
+        };
+        if index == baylee_client_core::targeting::PREVIOUS {
+            duel.target_page = duel.target_page.saturating_sub(1);
+            return;
+        }
+        if index == baylee_client_core::targeting::NEXT {
+            duel.target_page = (duel.target_page + 1)
+                .min(count.saturating_sub(1) / crate::choices::DAMAGE_PAGE_SIZE);
+            return;
+        }
+    }
     if let Some(i) = duel.interaction.as_mut()
         && matches!(
             i.pending(),
@@ -2705,10 +2758,18 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if !offered {
         return;
     }
-    let action = duel
-        .interaction
-        .as_mut()
-        .and_then(|i| crate::choices::pick(i, index).then(|| i.confirm())?);
+    let action = duel.interaction.as_mut().and_then(|i| {
+        if !crate::choices::pick(i, index) {
+            return None;
+        }
+        if matches!(
+            i.prompt(),
+            Prompt::ChooseDamageEffect { .. } | Prompt::AllocatePrevention { .. }
+        ) {
+            return None;
+        }
+        i.confirm()
+    });
     if let Some(action) = action {
         duel.submit(action);
     }
@@ -3345,6 +3406,14 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {
+            if button.damage_choice
+                != duel
+                    .interaction
+                    .as_ref()
+                    .and_then(Interaction::damage_choice)
+            {
+                continue;
+            }
             pick_choice(&mut duel, button.index);
             continue;
         }
@@ -3352,6 +3421,13 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {
+            if !button.matches_damage_choice(
+                duel.interaction
+                    .as_ref()
+                    .and_then(Interaction::damage_choice),
+            ) {
+                continue;
+            }
             let action = match button.action {
                 PromptAction::Yes => duel
                     .interaction

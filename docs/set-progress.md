@@ -14,9 +14,9 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **267 Implemented, 19 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **268 Implemented, 18 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 267 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 268 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
 Nether Shadow, Sunglasses of Urza, Sengir Vampire and Earthbind are
 included in the Implemented count. Their dedicated
@@ -43,53 +43,43 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | text-changing effects (CR 612) are not in the engine |
 | [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | redirecting damage to its owner, activation by its owner only, and losing half the owner’s life rounded up |
-| [Power Leak](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/power_leak.rs) | optional arbitrary payment and scoped prevention work; affected-player ordering of overlapping prevention/redirection remains unsupported |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
 | [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | the copied upkeep ability that copies again is not in the DSL; it enters as a blue copy |
 | [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | looking at an opponent's hand, controlling that player and making them play a card are not in the engine |
 
-## Shared rule blocker for full Alpha acceptance
+## Damage rules extension
 
-The independent Batch B review confirmed that `prevention.rs` currently applies
-prevention/redirection in a fixed rank instead of letting the affected player
-choose under current CR 616.1. This is a real outcome difference, not only a
-missing test: against Power Leak, applying its paid transient prevention first
-can preserve Reverse Damage or Healing Salve for later; applying Reverse Damage
-first instead gains life and consumes that shield.
+The original fixed prevention order is replaced by resumable damage work shared
+by combat, spells and abilities. Affected players now choose the next applicable
+replacement/prevention effect under CR 616.1 and allocate a limited shield across
+simultaneous sources under CR 615.7. Pending decisions have stable identities;
+invalid and stale answers fail atomically. Life gain and counter removal are
+committed with the completed damage event, rather than exposed during an open
+choice. Replay, concession, LKI and fixed-width fingerprints are tested.
 
-Power Leak remains Partial until that choice is implemented. The generic damage
-procedure needs a resumable player choice, corresponding client presentation,
-and independent interaction tests. This also affects Guardian Angel, Personal
-Incarnation and existing damage/prevention cards. Individual coverage flags do
-not establish complete-set acceptance while this shared blocker remains.
-Astra xhigh will address it after the current Fireball/Hordes working milestone.
-The same audit must cover CR 615.7: allocating a limited prevention shield
-between simultaneous damage sources is a separate affected-player choice.
-Fixing only the single-event ordering is not sufficient for full-set acceptance.
+Power Leak is now Implemented after independent Oracle review and real-card
+regressions. Its former ignored ordering test is active and passes both outcomes.
+The full rules gate passes 7,913 tests with ten existing skips; native client
+passes 1,230 tests with two existing ignores. Client-Core, AI, Seat and Train
+checks, Clippy, Wasm release check and validation of all 2,955 cards pass.
+The final live allocation check passes for both 1+2 and 0+3 across two sources,
+with different lifelink outcomes and correct draft reset at a new choice ID. Individual
+coverage flags still do not establish complete Alpha acceptance while the
+separate source-selection blocker remains.
 
-### Planned damage-procedure extension
+### Separate source-selection blocker
 
-Astra xhigh's read-only design review recommends one resumable damage batch for
-spell/ability resolution and combat. Capture simultaneous assignments before
-mutating counters or damage, then apply replacement/prevention choices and
-commit the resulting damage without intermediate priority or state-based actions.
-Resolution retains its program counter and paid costs across suspension.
-
-Use stable deterministic shield and damage-part identities rather than mutable
-vector offsets. Re-evaluate applicability after each chosen effect, preserve
-application history across redirection, and include pending work in replay and
-fingerprint state. Static protection, Rock Hydra and redirection must participate
-in the same procedure rather than retaining hidden fixed-order paths.
-
-Two structured questions are needed: choose the next applicable effect (CR
-616.1), and allocate a limited shield across simultaneous sources (CR 615.7).
-Wire, client, AI and narrated-seat consumers must all support both, with readable
-source/effect descriptions. Independent tests must cover both Power Leak/Reverse
-Damage outcomes, remaining Healing Salve capacity, redirection changing the
-chooser, simultaneous-source allocation, invalid/stale answers, APNAP and large
-amounts. This is a design plan, not implemented functionality.
+The damage audit also identified a pre-existing source-menu limitation: source
+selection carries only `ObjectId`, so it cannot distinguish an earlier source
+incarnation whose ability is still on the stack from the returned permanent.
+For example, Orcish Artillery leaves and returns while its damage ability waits;
+Circle of Protection, Forcefield, Reverse Damage and Jade Monolith need the
+correct source identity. The new damage work respects a supplied source version,
+but the generic source-choice menu still needs a versioned contract. This is a
+separate full-Alpha acceptance blocker, documented in `docs/engine-internals.md`;
+it must not disappear behind an individual card's Implemented flag.
 
 ## Following sets
 
@@ -250,3 +240,80 @@ zero while remaining in upkeep, and lost no life; on the next own upkeep,
 payment zero caused exactly two damage. This ordinary live flow does not
 resolve the separate prevention-order blocker. Final client findings and
 screenshot paths are recorded in `docs/feedback-fixes-2026-10-01.md`.
+
+
+Second-batch working milestone: `34f5bb65` (2026-10-03). Fresh inventory of
+all 290 Alpha identities confirms 267 Implemented, 19 Partial and 4 excluded.
+The next active work is the shared resumable damage procedure described above;
+Astra xhigh owns its engine implementation and generic tests, with independent
+Sol medium review and Astra high client integration once the wire contract is
+ready. No additional card is claimed complete merely because this work started.
+
+
+Independent next-phase acceptance plan (Sol medium): Power Leak paid one plus
+Reverse Damage must allow life 21 or 22 according to the chosen order; with
+Healing Salve, a later Bolt must distinguish remaining shield capacity. Real
+Jade Monolith redirection must move the chooser with the recipient. A flying
+Two-Headed Giant blocking Baleful Strix and Extraction Specialist gives a
+behavioral simultaneous-allocation test: allocating protection to deathtouch
+versus lifelink changes survival and gained life. Three-player Fireball with
+multiple applicable shields tests APNAP choices starting from a nonzero active
+player. Invalid, repeated and stale responses must preserve pending state,
+fingerprint and journal atomically. These are planned scenarios, not passing
+coverage yet.
+
+
+Damage integration status (uncommitted, not accepted): the initial Engine
+compile and six generic damage tests pass. The public contract uses
+`ChooseDamageEffect` and `AllocatePrevention`, with stable batch/step choice
+identities and explicit preventability. Native/core/AI/seat/train consumers and
+regression tests are prepared but not yet compiled. Independent real-card tests
+are being authored; source-incarnation LKI and legacy overlapping-shield tests
+remain part of the ongoing audit. Protocol15 is reserved for this contract.
+
+
+The subsequent full Engine run passes 4,562 tests with two pre-existing ignored
+cases. The former ignored Power Leak ordering regression is active and passes
+both legal results, along with six independent real-card scenarios. Review
+caught and fixed premature life gain/counter removal during pending damage
+choices. View48/Protocol15 describe the contract. This is not final acceptance:
+consumer compilation/live checks and concession/replay continuation regressions
+are still outstanding at this checkpoint.
+
+
+Read-only next-step source-choice design: introduce an exact source reference
+(object plus zone-change version), a separate stable source-choice ID, and a
+one-source Pending/Action contract. Enumerate only sources allowed by current
+CR 609.7a, using live stack/effect/delayed references; deduplicate exact versions.
+Do not offer every archived graveyard object. Retain source snapshots while
+referenced instead of clearing them at cleanup. Delayed triggers and captured
+stack references (including cast/copy/retarget) need version propagation without
+increasing GameObject's 312-byte footprint.
+
+The view must project historical source labels and permitted identity separately
+from ordinary ObjectId-based `looking_at`: current permanent versus earlier
+incarnation with an ability on the stack, including tokens and hidden identity.
+Consumers need explicit source wording, stale-answer rejection, legal AI/seat
+fallback and training guards. Acceptance must cover all Circle colors, Reverse
+Damage, Jade Monolith and Forcefield, multiple old incarnations, source references
+across cleanup, projection privacy and live same-name rows. Merely making the
+Artillery example selectable will not close the full source-selection blocker.
+This remains a design, with no implementation started before the damage milestone.
+
+
+Final damage rules gate: **7,913 passed, ten existing skipped**, Clippy and
+validation of all 2,955 cards green. Wasm release check and full corpus-backed
+codegen reproducibility check also pass. Four additional continuation tests
+cover replay/stale responses and concessions; the central life-change guard
+preserves departed players' CR 800.4i last-known life and emits no new life
+changes for them. Power Leak's independent final review recommends Implemented;
+the fresh 290-card inventory is now 268 Implemented, 18 Partial, four excluded.
+Logs: `/private/tmp/baylee-damage-rules-gate.log`,
+`/private/tmp/baylee-damage-wasm-check.log`,
+`/private/tmp/baylee-damage-codegen-check.log`.
+
+
+Damage client acceptance is complete on the final rebuilt binary: both Reverse
+Damage orders and both finite-shield allocations pass live, with no errors.
+Root reviewed final screenshots; detailed evidence is in the feedback log.
+The source-incarnation selection design remains the next separate engine job.

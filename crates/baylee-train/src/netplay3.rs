@@ -380,7 +380,11 @@ impl NetPlayer3 {
         let mut value = f32::NAN;
         self.asked += 1;
         loop {
-            let enc = encode(view, pending, &picked, table);
+            let Some(enc) =
+                crate::policy::model_input(pending, || encode(view, pending, &picked, table))
+            else {
+                return Ok(None);
+            };
             let offered = options(&enc, view, pending, &picked);
             // One option: the answer is the question's, not the net's.
             if picks.is_empty() && offered.len() == 1 && !is_multi(pending) {

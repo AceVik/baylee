@@ -10,15 +10,14 @@
 //! on screen; before this module the client's only honest answer was to
 //! confirm whatever the interaction had defaulted to.
 //!
-//! # What is deliberately not in here
+//! # Cards already on the table
 //!
-//! [`BrowseZone`] has no `Hand` and no `Battlefield` variant, and that is
-//! load-bearing rather than an omission. The browser is the *complement* of
-//! what the table and the hand bar already make clickable, which is what
-//! lets the invariant test mean something: "every id the engine offered is
-//! drawn somewhere" is only a real claim while `BoardModel` and `Browser`
-//! cover disjoint halves of it. A browser that also listed the hand would
-//! satisfy that test on its own and prove nothing.
+//! Ordinary browsing complements the battlefield and hand, which are already
+//! clickable. A mixed `ChooseCards` question is the exception: its automatic
+//! sheet can cover the offered permanents while also asking about the stack
+//! or another pile. That sheet repeats only the offered battlefield cards,
+//! so every legal answer stays reachable inside the question's own dialog.
+//! Board-only choices still use the table, and the hand remains outside it.
 //!
 //! # The state it keeps, and the state it does not
 //!
@@ -53,6 +52,8 @@ pub enum BrowseZone {
     /// Cards the engine is showing this seat — a search, a scry, a reveal.
     /// They belong to no zone the seat can otherwise see.
     Looking,
+    /// Offered permanents obscured by a mixed-zone card-choice dialog.
+    Battlefield,
     /// The stack. Listed because a spell or ability can be a target, and
     /// because a player wants to read what is about to resolve.
     Stack,
@@ -69,7 +70,7 @@ impl BrowseZone {
     #[must_use]
     pub fn seat(self) -> Option<PlayerId> {
         match self {
-            Self::Looking | Self::Stack => None,
+            Self::Looking | Self::Battlefield | Self::Stack => None,
             Self::Graveyard(p) | Self::Exile(p) | Self::Command(p) => Some(p),
         }
     }
@@ -103,6 +104,7 @@ impl BrowseZone {
         };
         match self {
             Self::Looking => view.looking_at.len(),
+            Self::Battlefield => view.battlefield.len(),
             Self::Stack => view.stack.len(),
             Self::Graveyard(p) => pile(&view.graveyards, p),
             Self::Exile(p) => pile(&view.exile, p),
@@ -115,6 +117,7 @@ impl BrowseZone {
     pub fn label(self) -> Phrase {
         match self {
             Self::Looking => Phrase::BrowseLooking,
+            Self::Battlefield => Phrase::BrowseBattlefield,
             Self::Stack => Phrase::StackTitle,
             Self::Graveyard(_) => Phrase::BrowseGraveyard,
             Self::Exile(_) => Phrase::BrowseExile,
@@ -720,6 +723,8 @@ enum Opening {
 /// The panel's own state — what the player has said about it, nothing more.
 #[derive(Clone, Default, Debug)]
 pub struct Browser {
+    /// A mixed card-choice sheet must not hide the offered battlefield answers.
+    obscured_battlefield: bool,
     open: Opening,
     /// Which zones are ticked, and **empty means every one of them**.
     ///
@@ -1329,6 +1334,16 @@ impl Browser {
     /// puts the library on screen, the pick sends, the next question wants
     /// nothing from the sheet and the sheet gets out of the way.
     pub fn follow(&mut self, view: &PlayerView, interaction: Option<&Interaction>) {
+        self.obscured_battlefield = interaction.is_some_and(|it| {
+            matches!(
+                it.pending(),
+                baylee_engine::choice::Pending::ChooseCards { .. }
+            ) && Self::wanted(view, it)
+                && view
+                    .battlefield
+                    .iter()
+                    .any(|object| it.selectable().contains(&object.id))
+        });
         // A pile the player ticked can empty — the graveyard they were
         // merging gets exiled whole — and a tick on a zone that no longer
         // exists is a tick nothing draws and nothing can take back. Dropping
@@ -1462,7 +1477,12 @@ impl Browser {
     /// player looking for a card is usually looking in their own graveyard.
     #[must_use]
     pub fn zones(&self, view: &PlayerView) -> Vec<BrowseZone> {
-        zones_of(view)
+        let mut zones = zones_of(view);
+        if self.for_choice() && self.obscured_battlefield {
+            zones.push(BrowseZone::Battlefield);
+            zones.sort_unstable();
+        }
+        zones
     }
 }
 
@@ -1748,6 +1768,7 @@ fn shows(query: &Query, object: &PublicObject, shown: &str) -> bool {
 fn objects_in(view: &PlayerView, zone: BrowseZone) -> &[PublicObject] {
     match zone {
         BrowseZone::Looking => &view.looking_at,
+        BrowseZone::Battlefield => &view.battlefield,
         BrowseZone::Stack => &view.stack,
         BrowseZone::Graveyard(p) => pile(&view.graveyards, p),
         BrowseZone::Exile(p) => pile(&view.exile, p),

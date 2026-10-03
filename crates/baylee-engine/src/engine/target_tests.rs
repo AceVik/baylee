@@ -138,6 +138,8 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
             .flat_map(|(blocker, attacker)| [*blocker, *attacker])
             .collect(),
         PlayerAction::MulliganKeep
+        | PlayerAction::ChooseDamageEffect { .. }
+        | PlayerAction::AllocatePrevention { .. }
         | PlayerAction::MulliganTake
         | PlayerAction::PassPriority
         | PlayerAction::ChooseColor(_)

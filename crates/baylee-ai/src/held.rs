@@ -137,6 +137,9 @@ fn least(
         objects: Vec::new(),
     };
     match pending {
+        Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. } => {
+            crate::damage::answer(view, pending, hostile)
+        }
         Pending::ChooseTargets { .. }
         | Pending::ChooseCards { .. }
         | Pending::LegendChoice { .. }

@@ -589,8 +589,20 @@ pub struct PreviewResize;
 /// An answer button under the prompt headline.
 #[derive(Component)]
 pub struct PromptButton {
+    /// Damage decision whose confirmation this button represents.
+    pub damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
     /// Which answer the button sends.
     pub action: PromptAction,
+}
+
+impl PromptButton {
+    /// A stale confirmation must never answer a different damage decision.
+    pub fn matches_damage_choice(
+        &self,
+        current: Option<baylee_engine::choice::DamageChoiceId>,
+    ) -> bool {
+        self.action != PromptAction::Confirm || self.damage_choice == current
+    }
 }
 
 /// One offered ability, in the chooser under the prompt.
@@ -613,6 +625,8 @@ pub struct AbilityButton {
 /// has since replaced.
 #[derive(Component)]
 pub struct ChoiceButton {
+    /// Exact damage decision represented by this rendered row.
+    pub damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
     /// Position in the list [`crate::choices::options`] returns.
     pub index: usize,
 }
@@ -2175,3 +2189,26 @@ pub use tray::{TrayReveal, TrayRevision, reveal_tray, sync_tray};
 
 pub(crate) use seatbar::attached::describe_phase;
 pub(crate) use seatbar::attached::highlight_player;
+
+#[cfg(test)]
+mod damage_confirmation_tests {
+    use super::*;
+    use baylee_engine::choice::DamageChoiceId;
+    #[test]
+    fn stale_confirmation_cannot_answer_a_new_damage_question() {
+        let old = DamageChoiceId { batch: 9, step: 1 };
+        let new = DamageChoiceId { batch: 9, step: 2 };
+        let button = PromptButton {
+            action: PromptAction::Confirm,
+            damage_choice: Some(old),
+        };
+        assert!(button.matches_damage_choice(Some(old)));
+        assert!(!button.matches_damage_choice(Some(new)));
+        assert!(!button.matches_damage_choice(None));
+        let ordinary = PromptButton {
+            action: PromptAction::Confirm,
+            damage_choice: None,
+        };
+        assert!(!ordinary.matches_damage_choice(Some(new)));
+    }
+}

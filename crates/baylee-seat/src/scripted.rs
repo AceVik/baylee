@@ -171,6 +171,35 @@ pub fn least_answer(
         |n: usize, from: &[baylee_core::ids::ObjectId]| from.iter().copied().take(n).collect();
     let hand: Vec<_> = view.hand.iter().map(|card| card.id).collect();
     Some(match pending {
+        Pending::ChooseDamageEffect {
+            choice, options, ..
+        } => PlayerAction::ChooseDamageEffect {
+            choice: *choice,
+            effect: options.first()?.id,
+        },
+        Pending::AllocatePrevention {
+            choice,
+            damage,
+            total,
+            ..
+        } => {
+            let mut remaining = *total;
+            let allocation = damage
+                .iter()
+                .map(|part| {
+                    let amount = part.amount.min(remaining);
+                    remaining -= amount;
+                    (part.id, amount)
+                })
+                .collect();
+            if remaining != 0 {
+                return None;
+            }
+            PlayerAction::AllocatePrevention {
+                choice: *choice,
+                allocation,
+            }
+        }
         Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
             PlayerAction::ChooseObjects {
                 objects: first(usize::from(*count), &hand),
@@ -235,6 +264,8 @@ pub fn least_answer(
 #[must_use]
 pub const fn kind(pending: &Pending) -> &'static str {
     match pending {
+        Pending::ChooseDamageEffect { .. } => "ChooseDamageEffect",
+        Pending::AllocatePrevention { .. } => "AllocatePrevention",
         Pending::Mulligan { .. } => "Mulligan",
         Pending::MulliganBottom { .. } => "MulliganBottom",
         Pending::Priority { .. } => "Priority",

@@ -469,7 +469,11 @@ pub fn options(
         Pending::ChoosePlayer { options, .. } => {
             out.extend(options.iter().map(|p| Choice::Player(*p)));
         }
-        Pending::Arrange { .. } | Pending::ChooseCardName { .. } | Pending::ChoosePile { .. } => {
+        Pending::ChooseDamageEffect { .. }
+        | Pending::AllocatePrevention { .. }
+        | Pending::Arrange { .. }
+        | Pending::ChooseCardName { .. }
+        | Pending::ChoosePile { .. } => {
             return Err(Unscored::Unsupported);
         }
         Pending::GameOver(_) => return Err(Unscored::Over),
@@ -526,6 +530,12 @@ pub fn steps(
     hand: &[ObjectId],
     action: &PlayerAction,
 ) -> Result<Vec<Step>, Unmatched> {
+    if matches!(
+        pending,
+        Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
+    ) {
+        return Err(Unmatched::Unscored(Unscored::Unsupported));
+    }
     let single = |c: Choice| vec![c];
     let mut picks: Vec<Choice> = match (pending, action) {
         (Pending::Mulligan { .. }, PlayerAction::MulliganKeep) => {
@@ -780,7 +790,11 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
             Choice::Player(p) => PlayerAction::ChoosePlayer(p),
             _ => return Err(Unmatched::Shape),
         },
-        Pending::Arrange { .. } | Pending::ChooseCardName { .. } | Pending::ChoosePile { .. } => {
+        Pending::ChooseDamageEffect { .. }
+        | Pending::AllocatePrevention { .. }
+        | Pending::Arrange { .. }
+        | Pending::ChooseCardName { .. }
+        | Pending::ChoosePile { .. } => {
             return Err(Unmatched::Unscored(Unscored::Unsupported));
         }
         Pending::GameOver(_) => return Err(Unmatched::Unscored(Unscored::Over)),
@@ -1066,5 +1080,45 @@ mod tests {
             }
         }
         assert!(checked > 500, "only {checked} answers checked");
+    }
+}
+
+/// Damage decisions have no model encoding yet. Call before building features
+/// or samples so their diagnostic kind IDs never reach an existing model.
+pub fn model_input<T>(pending: &Pending, build: impl FnOnce() -> T) -> Option<T> {
+    if matches!(
+        pending,
+        Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
+    ) {
+        None
+    } else {
+        Some(build())
+    }
+}
+
+#[cfg(test)]
+mod damage_boundary_tests {
+    use super::*;
+    use baylee_client_core::test_support::ViewBuilder;
+    #[test]
+    fn damage_questions_use_legal_house_fallback_before_any_model_input() {
+        let view = ViewBuilder::new(2).build();
+        let house = baylee_ai::HeuristicAgent::new(baylee_ai::AIProfile::STEADY);
+        for pending in crate::damage_fixture::questions() {
+            assert_eq!(
+                options(&pending, &[], &Picked::default()),
+                Err(Unscored::Unsupported)
+            );
+            let action = house.act(&view, &pending);
+            assert_eq!(pending.answer_fault(&action), None);
+            assert_eq!(
+                steps(&pending, &[], &action),
+                Err(Unmatched::Unscored(Unscored::Unsupported))
+            );
+            let encoded: Option<()> = model_input(&pending, || {
+                panic!("unsupported question reached feature encoding")
+            });
+            assert!(encoded.is_none());
+        }
     }
 }

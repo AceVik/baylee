@@ -93,6 +93,10 @@ pub fn check(pending: &Pending, answer: &PlayerAction) -> Result<(), Foul> {
 #[must_use]
 pub fn offers_nothing(pending: &Pending) -> bool {
     match pending {
+        Pending::ChooseDamageEffect { options, .. } => options.is_empty(),
+        Pending::AllocatePrevention { damage, total, .. } => {
+            damage.iter().map(|p| u64::from(p.amount)).sum::<u64>() < u64::from(*total)
+        }
         Pending::LegendChoice { options, .. } => options.is_empty(),
         Pending::ChooseSubtype { options, .. } => options.is_empty(),
         Pending::ChooseColor { options, .. } => options.is_empty(),
@@ -378,6 +382,8 @@ mod tests {
             Pending::Arrange { .. } => 16,
             Pending::ChoosePile { .. } => 17,
             Pending::GameOver(_) => 18,
+            Pending::ChooseDamageEffect { .. } => 19,
+            Pending::AllocatePrevention { .. } => 20,
         }
     }
 

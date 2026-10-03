@@ -2740,3 +2740,28 @@ land type"; both are convention tests that fire on a first try.
   apply it when old cached presentation data is loaded too. Preserve roster
   names for named AI seats; localize only the generic house label. Both fixes
   have regression tests and were verified in the rebuilt client's screenshots.
+
+
+### Damage ordering integration — ongoing acceptance
+
+- Choosing the prevention order is not enough: simultaneous sources need a
+  true limited-shield allocation. Real deathtouch/lifelink combat proves that
+  the allocation changes outcomes, not just a displayed number.
+- A pending damage choice must not publish prevention life gain or counter
+  removal early. The independent APNAP scenario caught premature Reverse
+  Damage life gain. Accumulate these results until the damage event commits;
+  reserve consumed counters so later choices cannot overspend them.
+- Preserve incarnation identity from ability creation through damage and LKI.
+  A returned permanent is not the earlier source still represented by a stack
+  ability. The old ObjectId-only source menu is a distinct unresolved contract
+  limitation, even when the damage executor respects versions correctly.
+- Existing trained policies cannot score new decision kinds automatically.
+  Guard the actual replay-converter entry points before feature encoding and
+  sample emission; a downstream Unsupported result alone can leave an invalid
+  diagnostic sample path alive.
+
+- A local effect selection can change without a new board view. Include the
+  selected row and damage decision identity in the shelf revision so Confirm
+  appears immediately and disappears for a new question. A headless Bevy test
+  exercises the actual sync system with an unchanged view; a pure reducer test
+  would not catch this missed redraw.

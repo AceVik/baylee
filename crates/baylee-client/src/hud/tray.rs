@@ -2066,6 +2066,7 @@ fn spawn_footer(
         commands.entity(confirm).insert((
             Button,
             PromptButton {
+                damage_choice: None,
                 action: PromptAction::Confirm,
             },
             Feel::new(palette::CANDLE),
@@ -2094,6 +2095,7 @@ fn spawn_footer(
             commands,
             fonts,
             PromptButton {
+                damage_choice: None,
                 action: PromptAction::TargetBatch,
             },
             &Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),

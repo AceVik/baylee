@@ -54,6 +54,7 @@ pub mod combat;
 pub mod combat_auto;
 pub mod commanderdamage;
 pub mod cue;
+pub mod damage;
 pub mod decisionclock;
 pub mod deckbuilder;
 pub mod depart;

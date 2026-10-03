@@ -97000,7 +97000,7 @@ fn partial_creatures_are_their_printed_bodies() {
 /// 1 damage that would be dealt to this creature this turn." X = 3, the
 /// shield bought, then a Lightning Bolt at it: the shield prevents 1 of the
 /// 3, and each of the other 2 takes a +1/+1 counter instead of being dealt
-/// (the shield goes first: `prevention::absorb`).
+/// (its controller chooses the shield first, CR 616.1).
 #[test]
 fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
     let p0 = PlayerId::new(0);
@@ -97030,6 +97030,32 @@ fn rock_hydra_enters_with_x_counters_and_buys_a_shield() {
             },
         )
         .expect("the Hydra is a legal target");
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+    });
+    let Pending::ChooseDamageEffect {
+        player,
+        choice,
+        options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the Hydra's controller chooses prevention order");
+    };
+    assert_eq!(player, p0);
+    let effect = options
+        .iter()
+        .find(|option| {
+            matches!(
+                option.kind,
+                crate::choice::DamageEffectKind::PreventNext { .. }
+            )
+        })
+        .unwrap()
+        .id;
+    engine
+        .apply(player, PlayerAction::ChooseDamageEffect { choice, effect })
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine.state().object(hydra).map(|o| (o.zone, o.damage)),

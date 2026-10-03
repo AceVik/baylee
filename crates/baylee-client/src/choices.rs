@@ -297,6 +297,26 @@ pub fn options(
     names: FaceNames<'_>,
 ) -> Option<Vec<ChoiceOption>> {
     match prompt {
+        Prompt::ChooseDamageEffect { damage, options } => Some(
+            options
+                .iter()
+                .enumerate()
+                .map(|(index, effect)| {
+                    ChoiceOption::text(
+                        index,
+                        damage_effect_label(effect, damage, lang, statics, names),
+                    )
+                })
+                .collect(),
+        ),
+        Prompt::AllocatePrevention {
+            effect,
+            damage,
+            amounts,
+            ..
+        } => Some(prevention_options(
+            effect, damage, amounts, lang, statics, names,
+        )),
         Prompt::ChooseColor { options } => Some(
             options
                 .iter()
@@ -642,6 +662,44 @@ pub(crate) fn preview_object(
     }
 }
 
+fn prevention_options(
+    effect: &baylee_engine::choice::DamageEffectOption,
+    damage: &[baylee_engine::choice::DamagePartView],
+    amounts: &[u32],
+    lang: Lang,
+    statics: Option<&GameStatic>,
+    names: FaceNames<'_>,
+) -> Vec<ChoiceOption> {
+    damage
+        .iter()
+        .enumerate()
+        .map(|(index, part)| {
+            let label = baylee_client_core::damage::part_label(lang, part, &|target| {
+                damage_target(target, lang, statics, names)
+            });
+            let phrase = if matches!(
+                effect.kind,
+                baylee_engine::choice::DamageEffectKind::RemoveCounter { .. }
+            ) {
+                Phrase::DamageCounterShare
+            } else {
+                Phrase::PreventionShare
+            };
+            ChoiceOption::text(
+                index,
+                phrase.fill(
+                    lang,
+                    &[
+                        &label,
+                        &amounts.get(index).copied().unwrap_or(0).to_string(),
+                        &part.amount.to_string(),
+                    ],
+                ),
+            )
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -719,21 +777,37 @@ mod tests {
             }],
             prints: vec![],
         };
-        statics.seats[0].display_name = "steady 1".into();
-        let rows = options(
-            &Prompt::ChoosePlayer {
-                options: vec![statics.seats[0].player],
-            },
-            Lang::De,
-            Some(&statics),
-            "",
-            FaceNames {
-                view: Some(&view),
-                texts: None,
-            },
-        )
-        .unwrap();
-        assert_eq!(rows[0].label, "Haus-KI");
+        for (name, expected) in [
+            ("House AI", "Haus-KI"),
+            ("Solide 1", "Solide 1"),
+            ("Ada", "Ada"),
+        ] {
+            statics.seats[0].display_name = name.into();
+            let rows = options(
+                &Prompt::ChoosePlayer {
+                    options: vec![statics.seats[0].player],
+                },
+                Lang::De,
+                Some(&statics),
+                "",
+                FaceNames {
+                    view: Some(&view),
+                    texts: None,
+                },
+            )
+            .unwrap();
+            assert_eq!(rows[0].label, expected);
+            assert_eq!(
+                rows[0].label,
+                crate::hud::seatbar::called(
+                    Lang::De,
+                    &view,
+                    Some(&statics),
+                    statics.seats[0].player,
+                    baylee_client_core::board::SeatRole::House
+                )
+            );
+        }
     }
 
     #[test]
@@ -1570,5 +1644,133 @@ mod tests {
         // reading of modes that found none, would pass everything above.
         assert!(faces_seen >= 10, "only {faces_seen} modal faces walked");
         assert!(modes_seen >= 25, "only {modes_seen} modes walked");
+    }
+}
+
+fn damage_target(
+    target: baylee_engine::event::DamageTarget,
+    lang: Lang,
+    statics: Option<&GameStatic>,
+    names: FaceNames<'_>,
+) -> String {
+    match target {
+        baylee_engine::event::DamageTarget::Object(id) => {
+            names.of(id, 0).unwrap_or_else(|| format!("#{id}"))
+        }
+        baylee_engine::event::DamageTarget::Player(id) => seat_name(lang, statics, id),
+    }
+}
+
+fn damage_origin(
+    effect: &baylee_engine::choice::DamageEffectOption,
+    lang: Lang,
+    names: FaceNames<'_>,
+) -> String {
+    effect
+        .source
+        .and_then(|id| names.of(id, 0))
+        .or_else(|| {
+            effect.ability.and_then(|ability| {
+                baylee_cards::by_index(ability.card).map(|card| card.faces[0].name.to_string())
+            })
+        })
+        .unwrap_or_else(|| Phrase::DamageRule.text(lang).to_string())
+}
+
+/// Structured provenance and mechanics for an offered damage effect.
+pub(crate) fn damage_effect_label(
+    effect: &baylee_engine::choice::DamageEffectOption,
+    damage: &[baylee_engine::choice::DamagePartView],
+    lang: Lang,
+    statics: Option<&GameStatic>,
+    names: FaceNames<'_>,
+) -> String {
+    let origin = damage_origin(effect, lang, names);
+    baylee_client_core::damage::effect_label(lang, effect, damage, &origin, &|target| {
+        damage_target(target, lang, statics, names)
+    })
+}
+
+/// Damage rows remain bounded by page size, independent of damage amount.
+pub(crate) const DAMAGE_PAGE_SIZE: usize = 4;
+
+/// Limits a damage chooser and adds explicit page controls.
+pub(crate) fn damage_page(rows: &mut Vec<ChoiceOption>, page: usize, lang: Lang) {
+    let total = rows.len();
+    let page = page.min(total.saturating_sub(1) / DAMAGE_PAGE_SIZE);
+    let start = page * DAMAGE_PAGE_SIZE;
+    *rows = rows
+        .iter()
+        .skip(start)
+        .take(DAMAGE_PAGE_SIZE)
+        .cloned()
+        .collect();
+    if page > 0 {
+        rows.push(ChoiceOption::text(
+            baylee_client_core::targeting::PREVIOUS,
+            Phrase::PageBack.text(lang).into(),
+        ));
+    }
+    if start + DAMAGE_PAGE_SIZE < total {
+        rows.push(ChoiceOption::text(
+            baylee_client_core::targeting::NEXT,
+            Phrase::PageMore.text(lang).into(),
+        ));
+    }
+}
+
+#[cfg(test)]
+mod damage_choice_tests {
+    use super::*;
+    use baylee_core::ids::PlayerId;
+    use baylee_engine::choice::{DamageEffectKind, DamageEffectOption, DamagePartView};
+    use baylee_engine::event::DamageTarget;
+
+    #[test]
+    fn damage_rows_explain_the_offer_and_keep_bounded_pages() {
+        let parts: Vec<_> = (0..9)
+            .map(|id| DamagePartView {
+                id: id + 10,
+                source: ObjectId::new(id + 20, 0),
+                recipient: DamageTarget::Player(PlayerId::new(0)),
+                amount: u32::MAX,
+                is_combat: id == 0,
+                preventable: id != 1,
+            })
+            .collect();
+        let effect = DamageEffectOption {
+            id: 77,
+            source: None,
+            ability: None,
+            controller: PlayerId::new(0),
+            kind: DamageEffectKind::RemoveCounter {
+                kind: baylee_cards_dsl::CounterKind::P1P1,
+                remaining: 9,
+            },
+            parts: parts.iter().map(|part| part.id).collect(),
+        };
+        let prompt = Prompt::AllocatePrevention {
+            effect,
+            damage: parts,
+            total: 9,
+            amounts: vec![0; 9],
+        };
+        for lang in [Lang::En, Lang::De] {
+            let mut rows = options(&prompt, lang, None, "", FaceNames::default()).unwrap();
+            assert_eq!(rows.len(), 9);
+            assert!(
+                rows[1]
+                    .label
+                    .contains(Phrase::DamageUnpreventable.text(lang))
+            );
+            assert!(rows[0].label.contains("4294967295"));
+            damage_page(&mut rows, 1, lang);
+            assert_eq!(rows.len(), DAMAGE_PAGE_SIZE + 2);
+            assert_eq!(rows[0].index, 4);
+            assert_eq!(
+                rows.last().unwrap().index,
+                baylee_client_core::targeting::NEXT
+            );
+        }
     }
 }

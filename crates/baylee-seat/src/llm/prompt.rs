@@ -97,6 +97,12 @@ pub fn decide_schema() -> Value {
                     "required": ["blocker", "attacker"]
                 }
             },
+            "prevention": {"type": "array", "items": {
+                "type": "object", "properties": {
+                    "part": {"type": "string", "description": "Offered damage-part id, e.g. d7."},
+                    "amount": {"type": "integer", "minimum": 0}
+                }, "required": ["part", "amount"]
+            }},
             "number": {"type": "integer"},
             "piles": {"type": "array", "items": ids},
             "name": {"type": "string", "description": "A creature type or a card name."},

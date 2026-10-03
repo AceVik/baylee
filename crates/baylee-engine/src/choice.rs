@@ -18,9 +18,11 @@ use crate::win::GameResult;
 use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 
 mod arrange;
+mod damage;
 pub use arrange::{
     ArrangePile, ArrangePlace, ArrangePrompt, arrangement_fault, default_arrangement,
 };
+pub use damage::{DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView};
 
 /// One creature that may block, and the attackers it may be assigned to.
 ///
@@ -270,6 +272,31 @@ const fn yes() -> bool {
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
+    /// Choose which competing prevention or replacement modifies damage
+    /// next (CR 616.1). This is not priority or a targeting decision.
+    ChooseDamageEffect {
+        /// Affected player or affected permanent's controller.
+        player: PlayerId,
+        /// Identity of this exact decision.
+        choice: DamageChoiceId,
+        /// Damage the offered effects can modify.
+        damage: Vec<DamagePartView>,
+        /// Legal effects, each with its own stable identity.
+        options: Vec<DamageEffectOption>,
+    },
+    /// Divide finite prevention among simultaneous damage (CR 615.7).
+    AllocatePrevention {
+        /// Affected player or affected permanent's controller.
+        player: PlayerId,
+        /// Identity of this exact decision.
+        choice: DamageChoiceId,
+        /// The effect already selected to apply.
+        effect: DamageEffectOption,
+        /// Damage shares that can receive prevention.
+        damage: Vec<DamagePartView>,
+        /// Exact prevention to distribute; each part permits 0..=amount.
+        total: u32,
+    },
     /// A mulligan decision (London; first is free per house rules).
     Mulligan {
         /// Deciding player.
@@ -534,6 +561,8 @@ impl Pending {
     pub const fn asked(&self) -> Option<PlayerId> {
         match self {
             Self::Mulligan { player, .. }
+            | Self::ChooseDamageEffect { player, .. }
+            | Self::AllocatePrevention { player, .. }
             | Self::MulliganBottom { player, .. }
             | Self::Priority { player, .. }
             | Self::ChooseAttackers { player, .. }
@@ -1092,6 +1121,14 @@ impl Pending {
     /// question is classified here before it compiles.
     pub fn fit_to_options(&mut self) -> bool {
         match self {
+            Self::ChooseDamageEffect { options, .. } => !options.is_empty(),
+            Self::AllocatePrevention { damage, total, .. } => {
+                damage
+                    .iter()
+                    .map(|part| u64::from(part.amount))
+                    .sum::<u64>()
+                    >= u64::from(*total)
+            }
             // A total is fitted with the cards it weighs: one weight per
             // option, and a bound some choice of them can keep. The builder
             // that states a total also offers the question only where it
@@ -1191,6 +1228,34 @@ impl Pending {
     pub fn answer_fault(&self, answer: &PlayerAction) -> Option<AnswerFault> {
         use PlayerAction as A;
         match (self, answer) {
+            (
+                Self::ChooseDamageEffect {
+                    choice, options, ..
+                },
+                A::ChooseDamageEffect {
+                    choice: answered,
+                    effect,
+                },
+            ) => (*choice != *answered || !options.iter().any(|option| option.id == *effect))
+                .then_some(AnswerFault::NotOffered),
+            (
+                Self::AllocatePrevention {
+                    choice,
+                    damage,
+                    total,
+                    ..
+                },
+                A::AllocatePrevention {
+                    choice: answered,
+                    allocation,
+                },
+            ) => {
+                if choice == answered {
+                    damage::allocation_fault(damage, *total, allocation)
+                } else {
+                    Some(AnswerFault::NotOffered)
+                }
+            }
             (Self::Mulligan { .. }, A::MulliganKeep)
             | (Self::ChooseCardName { .. }, A::ChooseCardName { .. })
             | (Self::YesNo { .. }, A::YesNo(_)) => None,
@@ -1295,6 +1360,8 @@ impl Pending {
             ) => arrangement_fault(cards, specs, piles).map(AnswerFault::Misarranged),
             (
                 Self::Mulligan { .. }
+                | Self::ChooseDamageEffect { .. }
+                | Self::AllocatePrevention { .. }
                 | Self::MulliganBottom { .. }
                 | Self::ChooseAttackers { .. }
                 | Self::ChooseBlockers { .. }
@@ -1553,6 +1620,8 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
             .declining_does_nothing()
             .then_some(PlayerAction::YesNo(false)),
         Pending::MulliganBottom { .. }
+        | Pending::ChooseDamageEffect { .. }
+        | Pending::AllocatePrevention { .. }
         | Pending::DiscardChoice { .. }
         | Pending::LegendChoice { .. }
         | Pending::ChooseCards { .. }
@@ -1956,6 +2025,21 @@ impl LegalActions {
 /// one, and a host can deduplicate a resent action after a reconnect.
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerAction {
+    /// Apply one offered damage prevention/replacement effect.
+    ChooseDamageEffect {
+        /// The exact pending damage decision being answered.
+        choice: DamageChoiceId,
+        /// Stable ID from the offered effect options.
+        effect: u32,
+    },
+    /// Distribute the exact requested prevention among damage parts.
+    AllocatePrevention {
+        /// The exact pending allocation being answered.
+        choice: DamageChoiceId,
+        /// Pairs of stable part ID and prevention amount. Omitted parts
+        /// receive zero; duplicate or unknown parts are refused.
+        allocation: Vec<(u32, u32)>,
+    },
     /// Keep the current hand (mulligan).
     MulliganKeep,
     /// Take a mulligan (redraw, then bottom later).
@@ -2334,6 +2418,32 @@ mod choice_tests {
                 None,
             ),
             (
+                Pending::ChooseDamageEffect {
+                    player: p,
+                    choice: DamageChoiceId { batch: 1, step: 1 },
+                    damage: vec![],
+                    options: vec![],
+                },
+                None,
+            ),
+            (
+                Pending::AllocatePrevention {
+                    player: p,
+                    choice: DamageChoiceId { batch: 1, step: 2 },
+                    effect: DamageEffectOption {
+                        id: 0,
+                        source: None,
+                        ability: None,
+                        controller: p,
+                        kind: DamageEffectKind::PreventNext { remaining: 1 },
+                        parts: vec![],
+                    },
+                    damage: vec![],
+                    total: 0,
+                },
+                None,
+            ),
+            (
                 Pending::GameOver(GameResult {
                     winner: None,
                     reason: crate::win::EndReason::Draw,
@@ -2360,13 +2470,15 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 18 + 16;
+    const KINDS: usize = 20 + 16;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
     /// until it has a number, and then the table above is missing it.
     fn kind_of(pending: &Pending) -> usize {
         match pending {
+            Pending::ChooseDamageEffect { .. } => 34,
+            Pending::AllocatePrevention { .. } => 35,
             Pending::Mulligan { .. } => 0,
             Pending::MulliganBottom { .. } => 1,
             Pending::Priority { .. } => 2,

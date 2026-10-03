@@ -33,6 +33,7 @@ mod tokens;
 mod zones;
 
 pub use control::resume_control_rotation;
+pub(crate) use life::{refresh_damage, resume_damage};
 /// Which colours a mana source can produce right now, at this board.
 ///
 /// Exported because `baylee-gamehost` projects the answer into the view
@@ -287,6 +288,8 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Damage waiting for replacement ordering or simultaneous prevention.
+    Damage(Box<life::DamageResolution>),
     /// Mana may be generated before choosing the amount to spend.
     ManaForDamage {
         /// Player who may generate and spend mana.
@@ -1351,7 +1354,11 @@ pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u
         let cost = baylee_core::mana::ManaCost::from_symbol_generic(number);
         let paid = crate::casting::pay_mana(state, player, &cost);
         debug_assert!(paid, "the numeric payment is bounded by spendable mana");
-        life::damage_with_payment(state, res, player, amount, if paid { number } else { 0 });
+        if let Some(pending) =
+            life::damage_with_payment(state, res, player, amount, if paid { number } else { 0 })
+        {
+            return Flow::Wait(pending);
+        }
         res.pc += 1;
         return run(state, res);
     }
@@ -2869,16 +2876,23 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             if let Some(source) = chosen.first().and_then(|&id| {
                 crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
             }) {
-                state.shields.push(crate::prevention::Shield {
-                    protects: crate::prevention::Shielded::Player(you),
-                    kind: crate::prevention::ShieldKind::NextFrom {
-                        source,
-                        all_but: u32::from(all_but),
-                        gain_life,
-                        combat_only,
+                let origin = crate::prevention::ShieldOrigin {
+                    source: res.source,
+                    ability: resolving_ability(state, res),
+                };
+                state.shields.push_from(
+                    crate::prevention::Shield {
+                        protects: crate::prevention::Shielded::Player(you),
+                        kind: crate::prevention::ShieldKind::NextFrom {
+                            source,
+                            all_but: u32::from(all_but),
+                            gain_life,
+                            combat_only,
+                        },
+                        controller: you,
                     },
-                    controller: you,
-                });
+                    Some(origin),
+                );
             }
         }
         AwaitingOp::RedirectFromChosenSource { protects } => {
@@ -2892,11 +2906,18 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                     res.source,
                 )
             }) {
-                state.shields.push(crate::prevention::Shield {
-                    protects,
-                    kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
-                    controller: you,
-                });
+                let origin = crate::prevention::ShieldOrigin {
+                    source: res.source,
+                    ability: resolving_ability(state, res),
+                };
+                state.shields.push_from(
+                    crate::prevention::Shield {
+                        protects,
+                        kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
+                        controller: you,
+                    },
+                    Some(origin),
+                );
             }
         }
         AwaitingOp::GraveyardOrder { .. }
@@ -2907,6 +2928,7 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ControlRotation { .. }
+        | AwaitingOp::Damage(_)
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }

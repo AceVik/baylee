@@ -241,6 +241,8 @@ pub struct Engine<L: CardLookup> {
     awaiting_answer: bool,
     /// A suspended effect resolution (choice continuation).
     resolution: Option<Resolution>,
+    /// A combat damage step suspended before any damage results or SBAs.
+    combat_damage: Option<crate::damage::DamageWork>,
     /// A player making mana to meet a payment an effect has asked of them
     /// (CR 605.3a), while the resolution that asked is suspended above.
     ///
@@ -761,6 +763,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
             resolution: None,
+            combat_damage: None,
             mana_window: None,
             trigger_scan_seq,
             pending_plan: None,
@@ -987,7 +990,13 @@ impl<L: CardLookup> Engine<L> {
                     .map_or(0, |value| u64::from(value) + 1),
             );
         }
+        if let Some(work) = &self.combat_damage {
+            extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
+        }
         if let Some(r) = &self.resolution {
+            if let Some(resolve::AwaitingOp::Damage(damage)) = &r.awaiting {
+                extra = extra.wrapping_mul(31).wrapping_add(damage.fingerprint());
+            }
             if let Some(resolve::AwaitingOp::Equalize(selection)) = &r.awaiting {
                 extra = extra.wrapping_mul(31).wrapping_add(selection.fingerprint());
             }
@@ -1157,6 +1166,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_used_this_turn,
             awaiting_answer,
             resolution,
+            combat_damage,
             mana_window,
             trigger_scan_seq,
             pending_plan,
@@ -1206,6 +1216,7 @@ impl<L: CardLookup> Engine<L> {
             ),
             ("awaiting_answer", format!("{awaiting_answer:?}")),
             ("resolution", format!("{resolution:?}")),
+            ("combat_damage", format!("{combat_damage:?}")),
             ("mana_window", format!("{mana_window:?}")),
             ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
             ("pending_plan", format!("{pending_plan:?}")),
@@ -1744,3 +1755,6 @@ mod dauthi_tests;
 
 #[cfg(test)]
 mod variable_payment_tests;
+
+#[cfg(test)]
+mod damage_resume_tests;

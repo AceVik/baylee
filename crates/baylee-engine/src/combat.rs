@@ -24,9 +24,9 @@
 //! it attacks, which is one of the assignments its controller could have
 //! chosen.
 
-use crate::event::{DamageTarget, GameEvent};
+use crate::event::DamageTarget;
 use crate::object::{GameObject, Status};
-use crate::prevention::{Redirected, redirect};
+
 use crate::state::GameState;
 use baylee_cards_dsl::KeywordSet as K;
 use baylee_core::color::Color;
@@ -1234,358 +1234,119 @@ fn shares(
 ///
 /// The divisions players chose for this step (`divisions_owed`) are spent
 /// here and emptied, so a double striker's second step asks again.
-pub fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
-    let attackers = state.combat.attackers().to_vec();
-    for info in &attackers {
-        if !strikes_now(state, info.creature, first_strike_step) {
-            continue;
+pub(crate) fn collect_combat_damage(
+    state: &mut GameState,
+    first_strike_step: bool,
+) -> Vec<crate::damage::Assignment> {
+    let mut assignments = Vec::new();
+    for info in state.combat.attackers() {
+        if strikes_now(state, info.creature, first_strike_step) {
+            assign_attacker_damage(
+                state,
+                info.creature,
+                info.defending,
+                info.blocked,
+                &mut assignments,
+            );
         }
-        assign_attacker_damage(state, info.creature, info.defending, info.blocked);
     }
     for blocker in blocking_creatures(state) {
         if !strikes_now(state, blocker, first_strike_step) {
             continue;
         }
         let power = power_of(state, blocker);
-        if power <= 0 {
-            continue;
-        }
-        let blocked = live_blocked(state, blocker);
-        let mut dealt = 0i16;
-        for (attacker, amount) in shares(state, blocker, &blocked, power) {
-            if amount > 0 {
-                dealt += deal_damage_to_object(
-                    state,
-                    blocker,
-                    attacker,
-                    amount,
-                    true,
-                    &mut Redirected::default(),
-                );
-            }
-        }
-        if has_keyword(state, blocker, K::LIFELINK)
-            && let Some(controller) = state.object(blocker).map(|o| o.controller)
-        {
-            gain_life(state, controller, dealt);
+        for (attacker, amount) in shares(state, blocker, &live_blocked(state, blocker), power) {
+            assign(
+                &mut assignments,
+                blocker,
+                DamageTarget::Object(attacker),
+                amount,
+            );
         }
     }
     state.combat.divisions.clear();
+    assignments
 }
 
-/// One attacker's damage assignment (CR 510.1a–c).
+/// Assign every source before prevention can change a creature's power.
 fn assign_attacker_damage(
-    state: &mut GameState,
+    state: &GameState,
     attacker: ObjectId,
     defending: Defender,
     blocked: bool,
+    out: &mut Vec<crate::damage::Assignment>,
 ) {
     let power = power_of(state, attacker);
-    let trample = has_keyword(state, attacker, K::TRAMPLE);
-    let lifelink = has_keyword(state, attacker, K::LIFELINK);
-    let Some(controller) = state.object(attacker).map(|o| o.controller) else {
+    if power <= 0 {
         return;
-    };
-    let mut lifelinked = 0i16;
-    // CR 509.1h: an attacker whose blockers have all left is still
-    // *blocked*, so it deals no damage to the player — unless it has
-    // trample, which assigns everything past the (now absent) blockers to
-    // the defender. The question is the declaration, not the list: a
-    // creature that left the battlefield is out of combat entirely
-    // (CR 506.4) and `CombatState::remove_from_combat` has already dropped
-    // its entry, so an empty list here means either "never blocked" or
-    // "blocked by creatures that are gone", and only `blocked` tells them
-    // apart.
+    }
+    let trample = has_keyword(state, attacker, K::TRAMPLE);
     let live = live_blockers(state, attacker);
     if blocked && (!trample || live.iter().any(|b| has_banding(state, *b))) {
-        // CR 510.1c: all of it to the one blocker there is, or divided
-        // among two or more as its controller chose. CR 702.22j: blocked by
-        // a creature with banding, it is the defending player who divides
-        // it, among the creatures blocking it and among nothing else —
-        // trample assigns nothing past them, because the player dividing it
-        // is not its controller.
-        if power > 0 {
-            for (blocker, amount) in shares(state, attacker, &live, power) {
-                if amount > 0 {
-                    lifelinked += deal_damage_to_object(
-                        state,
-                        attacker,
-                        blocker,
-                        amount,
-                        true,
-                        &mut Redirected::default(),
-                    );
-                }
-            }
+        for (blocker, amount) in shares(state, attacker, &live, power) {
+            assign(out, attacker, DamageTarget::Object(blocker), amount);
         }
     } else if blocked {
-        // Trample (CR 702.19b): lethal damage to each blocker in
-        // declaration order, and what is left past them.
         let mut remaining = power;
         for blocker in &live {
             if remaining <= 0 {
                 break;
             }
             let assigned = remaining.min(lethal_damage(state, attacker, *blocker));
-            // Assignment and dealing are separate steps (CR 510.1c/510.2):
-            // prevented damage is still assigned, so it still uses up the
-            // attacker's power — but it was never dealt, so it links no life.
-            lifelinked += deal_damage_to_object(
-                state,
-                attacker,
-                *blocker,
-                assigned,
-                true,
-                &mut Redirected::default(),
-            );
+            assign(out, attacker, DamageTarget::Object(*blocker), assigned);
             remaining -= assigned;
         }
-        if remaining > 0 {
-            // CR 702.19b: what tramples through goes to "the player or
-            // planeswalker it's attacking", not to the player regardless.
-            lifelinked += deal_damage_to_defender(state, attacker, defending, remaining);
-        }
+        assign_defender(state, out, attacker, defending, remaining);
     } else {
-        lifelinked += deal_damage_to_defender(state, attacker, defending, power);
-    }
-    if lifelink {
-        gain_life(state, controller, lifelinked);
+        assign_defender(state, out, attacker, defending, power);
     }
 }
-/// Combat damage aimed at whatever the attacker declared against, and how
-/// much of it was actually dealt (prevention and a departed planeswalker
-/// both make that zero, and neither links any life).
-fn deal_damage_to_defender(
-    state: &mut GameState,
+
+fn assign_defender(
+    state: &GameState,
+    out: &mut Vec<crate::damage::Assignment>,
     source: ObjectId,
     defender: Defender,
     amount: i16,
-) -> i16 {
-    match defender {
-        Defender::Player(player) => deal_damage_to_player(
-            state,
-            source,
-            player,
-            amount,
-            true,
-            &mut Redirected::default(),
-        ),
-        // CR 506.4c: the attack stands even after the planeswalker has
-        // gone, but there is nothing left for the damage to land on.
-        Defender::Planeswalker(walker) => {
+) {
+    let to = match defender {
+        Defender::Player(player) => DamageTarget::Player(player),
+        Defender::Planeswalker(id) => {
             if defending_player(state, defender).is_none() {
-                return 0;
+                return;
             }
-            deal_damage_to_object(
-                state,
-                source,
-                walker,
-                amount,
-                true,
-                &mut Redirected::default(),
-            )
+            DamageTarget::Object(id)
         }
-    }
+    };
+    assign(out, source, to, amount);
 }
 
-/// Damage a redirection moved (CR 614.9): the same damage from the same
-/// source, now dealt through the door for its new recipient, where that
-/// recipient's own protection and shields meet it. `done` goes with it, so
-/// no redirection moves it twice (CR 614.5).
-fn deal_redirected(
-    state: &mut GameState,
+fn assign(
+    out: &mut Vec<crate::damage::Assignment>,
     source: ObjectId,
     recipient: DamageTarget,
     amount: i16,
-    is_combat: bool,
-    done: &mut Redirected,
-) -> i16 {
-    match recipient {
-        DamageTarget::Player(player) => {
-            deal_damage_to_player(state, source, player, amount, is_combat, done)
-        }
-        DamageTarget::Object(id) => {
-            deal_damage_to_object(state, source, id, amount, is_combat, done)
-        }
-    }
-}
-
-/// Deals damage to a player and returns how much landed, there or wherever
-/// a redirection moved it.
-fn deal_damage_to_player(
-    state: &mut GameState,
-    source: ObjectId,
-    player: PlayerId,
-    amount: i16,
-    is_combat: bool,
-    done: &mut Redirected,
-) -> i16 {
-    if amount <= 0 {
-        return 0;
-    }
-    if prevent_from(state, source) && !unpreventable(state, source, is_combat) {
-        return 0;
-    }
-    let amount = shielded(
-        state,
-        source,
-        DamageTarget::Player(player),
-        amount,
-        is_combat,
-    );
-    if amount <= 0 {
-        return 0;
-    }
-    // After the shields, before the life: damage a Veteran Bodyguard takes
-    // instead is never dealt to the player, so it is neither lost, counted
-    // nor a commander's (CR 614.9).
-    if let Some(to) = redirect(state, source, DamageTarget::Player(player), done) {
-        return deal_redirected(state, source, to, amount, is_combat, done);
-    }
-    state.damage_player(
-        source,
-        player,
-        amount as u32,
-        is_combat,
-        crate::event::Cause::Spell,
-    );
-    // Commander damage (CR 903.10a). Combat damage only — a commander's
-    // *ability* pinging for twenty-one is not this rule — and it counts by
-    // the commander, not by whoever is swinging it: a commander stolen with
-    // Agent of Treachery still adds to the tally its owner's opponents keep
-    // against it, because the rule names the object and not a controller.
-    let from_a_commander = state
-        .commanders
-        .iter()
-        .flatten()
-        .any(|c| c.object == source);
-    if is_combat && from_a_commander {
-        let dealt = amount as u16;
-        let tally = &mut state.players[player.get() as usize].commander_damage;
-        if let Some(entry) = tally.iter_mut().find(|(id, _)| *id == source) {
-            entry.1 = entry.1.saturating_add(dealt);
-        } else {
-            tally.push((source, dealt));
-        }
-    }
-    amount
-}
-
-/// Deals damage to a permanent and returns how much landed, there or
-/// wherever a redirection moved it.
-fn deal_damage_to_object(
-    state: &mut GameState,
-    source: ObjectId,
-    target: ObjectId,
-    amount: i16,
-    is_combat: bool,
-    done: &mut Redirected,
-) -> i16 {
-    if amount <= 0 {
-        return 0;
-    }
-    if (prevent_from(state, source)
-        || prevent_to(state, target)
-        || crate::eval::protected_from(state, target, source))
-        && !unpreventable(state, source, is_combat)
-    {
-        return 0;
-    }
-    let amount = shielded(
-        state,
-        source,
-        DamageTarget::Object(target),
-        amount,
-        is_combat,
-    );
-    if amount <= 0 {
-        return 0;
-    }
-    if let Some(to) = redirect(state, source, DamageTarget::Object(target), done) {
-        return deal_redirected(state, source, to, amount, is_combat, done);
-    }
-    let amount = absorbed(state, source, target, amount, is_combat);
-    if amount <= 0 {
-        return 0;
-    }
-    // Damage to a planeswalker removes loyalty instead of marking damage
-    // (CR 306.8), the same way the spell-resolution path does it.
-    let is_walker = state
-        .object(target)
-        .is_some_and(|o| o.characteristics().types.contains(TypeSet::PLANESWALKER));
-    if is_walker {
-        let old = state.object(target).map_or(0, |o| {
-            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+) {
+    if amount > 0 {
+        out.push(crate::damage::Assignment {
+            source,
+            source_version: None,
+            recipient,
+            amount: amount as u32,
+            is_combat: true,
         });
-        let new = old.saturating_sub(amount as u16);
-        if let Some(obj) = state.object_mut(target) {
-            obj.counters
-                .set(baylee_cards_dsl::CounterKind::Loyalty, new);
-        }
-        state.journal.record(GameEvent::CounterChanged {
-            object: target,
-            kind: baylee_cards_dsl::CounterKind::Loyalty,
-            old,
-            new,
-        });
-    } else {
-        let deathtouch = has_keyword(state, source, K::DEATHTOUCH);
-        if let Some(obj) = state.object_mut(target) {
-            obj.damage = obj.damage.saturating_add(amount as u16);
-            obj.deathtouched |= deathtouch;
-        }
     }
-    state.record_permanent_damage(source, None, target, amount as u32, is_combat);
-    amount
 }
 
-/// What is left of `amount` damage to the permanent `target` once its
-/// counters have prevented what they prevent
-/// ([`crate::prevention::absorb`]), in the writers' signed width.
-pub(crate) fn absorbed(
-    state: &mut GameState,
-    source: ObjectId,
-    target: ObjectId,
-    amount: i16,
-    is_combat: bool,
-) -> i16 {
-    let Ok(wanted) = u32::try_from(amount) else {
-        return amount;
-    };
-    let left = crate::prevention::absorb(state, source, target, wanted, is_combat);
-    i16::try_from(left).unwrap_or(i16::MAX)
-}
-
-/// What is left of `amount` once the prevention shields have had it
-/// ([`crate::prevention::apply`]), in the signed width the writers count in.
-pub(crate) fn shielded(
-    state: &mut GameState,
-    source: ObjectId,
-    recipient: DamageTarget,
-    amount: i16,
-    is_combat: bool,
-) -> i16 {
-    let Ok(wanted) = u32::try_from(amount) else {
-        return amount;
-    };
-    let left = crate::prevention::apply(state, source, recipient, wanted, is_combat);
-    i16::try_from(left).unwrap_or(i16::MAX)
-}
-
-/// True if the source object may not deal damage (`PreventDamageFromIt`).
-///
-/// `EffectFilter::names` and not an id compare written out here: a shield
-/// registered against the object that *was* at this id is not a shield on
-/// the object that is there now (CR 400.7). These two were the last pair of
-/// copies of that compare, which is the whole reason the predicate is one
-/// function.
-fn prevent_from(state: &GameState, source: ObjectId) -> bool {
-    state.object(source).is_some_and(|obj| {
-        state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageFromIt)
-                && fx.filter.names(obj)
-        })
-    })
+#[cfg(test)]
+fn deal_combat_damage(state: &mut GameState, first_strike_step: bool) {
+    let assignments = collect_combat_damage(state, first_strike_step);
+    assert!(
+        crate::damage::DamageWork::new(state, assignments)
+            .advance(state)
+            .is_none(),
+        "fixture needs damage choices"
+    );
 }
 
 /// True if the damage `source` is dealing can't be prevented
@@ -1602,23 +1363,6 @@ pub(crate) fn unpreventable(state: &GameState, source: ObjectId, is_combat: bool
                 ) && crate::effects::applies_to(state, fx, obj)
             })
         })
-}
-
-/// True if the target object may not be dealt damage (`PreventDamageToIt`).
-fn prevent_to(state: &GameState, target: ObjectId) -> bool {
-    state.object(target).is_some_and(|obj| {
-        state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::PreventDamageToIt)
-                && fx.filter.names(obj)
-        })
-    })
-}
-
-fn gain_life(state: &mut GameState, player: PlayerId, amount: i16) {
-    if amount <= 0 {
-        return;
-    }
-    state.change_life(player, i32::from(amount), crate::event::Cause::Spell);
 }
 
 #[cfg(test)]

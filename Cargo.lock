@@ -1130,8 +1130,10 @@ name = "baylee-train"
 version = "0.1.0-beta.4"
 dependencies = [
  "anyhow",
+ "baylee-ai",
  "baylee-build",
  "baylee-cards",
+ "baylee-client-core",
  "baylee-core",
  "baylee-engine",
  "baylee-gamehost",

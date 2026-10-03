@@ -12,7 +12,6 @@
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
 use baylee_client_core::commanderdamage;
-use baylee_client_core::interaction::Prompt;
 
 /// How wide the commander-damage track is drawn, in logical pixels.
 ///
@@ -451,7 +450,7 @@ pub fn sync_overlay(
     let number = duel
         .interaction
         .as_ref()
-        .and_then(|i| matches!(i.prompt(), Prompt::ChooseNumber { .. }).then(|| i.number()));
+        .and_then(|i| i.edits_number().then(|| i.number()));
     let choice = duel
         .interaction
         .as_ref()

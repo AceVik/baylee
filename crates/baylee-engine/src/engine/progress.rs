@@ -250,6 +250,20 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    fn advance_combat_damage(&mut self) -> bool {
+        let Some(mut work) = self.combat_damage.take() else {
+            return false;
+        };
+        if let Some(pending) = work.advance(&mut self.state) {
+            self.combat_damage = Some(work);
+            self.pending = pending;
+            self.awaiting_answer = true;
+            return true;
+        }
+        self.finish_combat_damage(&work);
+        false
+    }
+
     fn run_machine(&mut self) {
         // Nothing happens before turn 1, whatever the flag says: a
         // concession during the mulligans once cleared it and ran the game
@@ -261,7 +275,7 @@ impl<L: CardLookup> Engine<L> {
         // which nobody is asked anything, so it is the only place a game can
         // loop without a player being able to stop it (see `crate::loops`).
         let mut watch = crate::loops::LoopWatch::default();
-        loop {
+        while !self.advance_combat_damage() {
             if let Some(pending) = crate::graveyard_order::pending(&mut self.state) {
                 self.pending = pending;
                 self.awaiting_answer = true;
@@ -5027,34 +5041,25 @@ impl<L: CardLookup> Engine<L> {
     /// creature's toxic abilities as it has them now (CR 702.164b), asked of
     /// the object and not its card, so a copy's list answers.
     fn deal_combat_damage(&mut self, first_strike_step: bool) {
-        let from = self.state.journal.len();
-        combat::deal_combat_damage(&mut self.state, first_strike_step);
-        let poisoned: Vec<(PlayerId, u16)> = self.state.journal.entries()[from..]
-            .iter()
-            .filter_map(|entry| match entry.event {
-                GameEvent::DamageDealt {
-                    source: Some(source),
-                    target: crate::event::DamageTarget::Player(player),
-                    amount,
-                    is_combat: true,
-                } if amount > 0 => {
-                    let toxic: u16 = self
-                        .state
-                        .object(source)?
-                        .abilities(&self.lookup)
-                        .iter()
-                        .map(|ability| match ability {
-                            baylee_cards_dsl::AbilityDef::Toxic { poison } => u16::from(*poison),
-                            _ => 0,
-                        })
-                        .sum();
-                    (toxic > 0).then_some((player, toxic))
-                }
-                _ => None,
-            })
-            .collect();
-        for (player, toxic) in poisoned {
-            let counters = &mut self.state.players[player.get() as usize].poison;
+        let assignments = combat::collect_combat_damage(&mut self.state, first_strike_step);
+        self.combat_damage = Some(crate::damage::DamageWork::new(&mut self.state, assignments));
+    }
+
+    pub(super) fn finish_combat_damage(&mut self, work: &crate::damage::DamageWork) {
+        for (source, player) in work.damaged_players() {
+            let toxic: u16 = self.state.object(source).map_or(0, |obj| {
+                obj.abilities(&self.lookup)
+                    .iter()
+                    .filter_map(|ability| {
+                        if let baylee_cards_dsl::AbilityDef::Toxic { poison } = ability {
+                            Some(u16::from(*poison))
+                        } else {
+                            None
+                        }
+                    })
+                    .sum()
+            });
+            let counters = &mut self.state.players[usize::from(player.get())].poison;
             *counters = counters.saturating_add(toxic);
         }
     }
@@ -5635,6 +5640,7 @@ impl<L: CardLookup> Engine<L> {
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
+        self.state.damage_sources.clear();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();
         }

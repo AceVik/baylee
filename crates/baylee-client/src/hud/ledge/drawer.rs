@@ -143,6 +143,7 @@ struct Line {
 /// is already in every string below.
 #[derive(Resource, Default, Clone, PartialEq, Debug)]
 pub struct DrawerRevision {
+    damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
     /// The hint and combat's two lines, in the order they are drawn.
     lines: Vec<Line>,
     /// The value of the number being chosen, when one is.
@@ -334,6 +335,7 @@ pub fn sync_drawer(
                 duel.target_filter,
             )),
             &[],
+            None,
         );
         commands.entity(panel).add_child(filters);
     }
@@ -344,6 +346,7 @@ pub fn sync_drawer(
             &revision.rows,
             revision.picked,
             &revision.previews,
+            revision.damage_choice,
         );
         commands.entity(panel).add_child(rows);
     }
@@ -459,6 +462,32 @@ pub fn zoom_the_drawer(
     }
 }
 
+fn choice_rows(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    waiting: bool,
+) -> Vec<crate::choices::ChoiceOption> {
+    duel.interaction
+        .as_ref()
+        .filter(|_| !waiting)
+        .map(baylee_client_core::Interaction::prompt)
+        .filter(|prompt| !matches!(prompt, Prompt::CastMode { .. }))
+        .and_then(|p| {
+            crate::choices::options(
+                &p,
+                lang,
+                duel.statics.as_ref(),
+                &duel.subtype_filter,
+                crate::choices::FaceNames {
+                    view: duel.view.as_ref(),
+                    texts: Some(texts),
+                },
+            )
+        })
+        .unwrap_or_default()
+}
+
 /// What the drawer would draw right now.
 ///
 /// Separate from the drawing for the reason every revision in this client is:
@@ -522,6 +551,8 @@ fn reading(
 
     combat_lines(duel, lang, texts, waiting, &mut lines);
 
+    prevention_line(duel, lang, texts, waiting, &mut lines);
+
     // The one choice with nothing on the table to click. The headline on the
     // shelf says the range; what was missing was the value itself and any way
     // at all to change it with a pointer.
@@ -529,7 +560,7 @@ fn reading(
         .interaction
         .as_ref()
         .filter(|_| !waiting)
-        .and_then(|i| matches!(i.prompt(), Prompt::ChooseNumber { .. }).then(|| i.number()));
+        .and_then(|i| i.edits_number().then(|| i.number()));
 
     // Drawn whether or not anything matches: a filter with no rows under it
     // is exactly when a player needs to see what they typed.
@@ -557,25 +588,7 @@ fn reading(
     // `Prompt::CastMode` itself whenever this client did not get there first,
     // and a drawer that dropped one and kept the other would draw one question
     // in two different places depending on how it had arrived.
-    let mut rows = duel
-        .interaction
-        .as_ref()
-        .filter(|_| !waiting)
-        .map(baylee_client_core::Interaction::prompt)
-        .filter(|prompt| !matches!(prompt, Prompt::CastMode { .. }))
-        .and_then(|p| {
-            crate::choices::options(
-                &p,
-                lang,
-                duel.statics.as_ref(),
-                &duel.subtype_filter,
-                crate::choices::FaceNames {
-                    view: duel.view.as_ref(),
-                    texts: Some(texts),
-                },
-            )
-        })
-        .unwrap_or_default();
+    let mut rows = choice_rows(duel, lang, texts, waiting);
     if !waiting && !elsewhere {
         target_reading(duel, lang, texts, &mut lines, &mut rows);
         attack::reading(duel, lang, texts, &mut lines, &mut rows);
@@ -583,6 +596,8 @@ fn reading(
     // The cursor of the one chooser this drawer still draws. `CastMenu::pick`
     // went with its rows to the sheet.
     let picked = duel.interaction.as_ref().and_then(crate::choices::picked);
+
+    damage_paging(duel, lang, &mut rows);
 
     let previews = rows
         .iter()
@@ -594,6 +609,10 @@ fn reading(
         target_filters(duel, lang)
     };
     DrawerRevision {
+        damage_choice: duel
+            .interaction
+            .as_ref()
+            .and_then(baylee_client_core::Interaction::damage_choice),
         lines,
         number,
         filter,
@@ -692,6 +711,7 @@ fn arrow(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> E
     commands
         .spawn((
             PromptButton {
+                damage_choice: None,
                 action: PromptAction::Step(delta),
             },
             Node {
@@ -761,6 +781,7 @@ fn chooser(
     rows: &[crate::choices::ChoiceOption],
     picked: Option<usize>,
     previews: &[(usize, ObjectId)],
+    damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
 ) -> Entity {
     let row = commands
         .spawn((
@@ -793,6 +814,7 @@ fn chooser(
         let button = commands
             .spawn((
                 ChoiceButton {
+                    damage_choice,
                     index: option.index,
                 },
                 Node {
@@ -1040,6 +1062,45 @@ fn target_reading(
             pip: None,
             cost: None,
         });
+    }
+}
+
+fn prevention_line(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    waiting: bool,
+    lines: &mut Vec<Line>,
+) {
+    if let Some(Prompt::AllocatePrevention { effect, .. }) = duel
+        .interaction
+        .as_ref()
+        .filter(|_| !waiting)
+        .map(baylee_client_core::Interaction::prompt)
+    {
+        lines.push(Line {
+            text: crate::choices::damage_effect_label(
+                &effect,
+                &[],
+                lang,
+                duel.statics.as_ref(),
+                crate::choices::FaceNames {
+                    view: duel.view.as_ref(),
+                    texts: Some(texts),
+                },
+            ),
+            size: HINT_PT,
+            ink: palette::DOCK_INK,
+        });
+    }
+}
+fn damage_paging(duel: &Duel, lang: Lang, rows: &mut Vec<crate::choices::ChoiceOption>) {
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(|i| i.damage_choice().is_some())
+    {
+        crate::choices::damage_page(rows, duel.target_page, lang);
     }
 }
 

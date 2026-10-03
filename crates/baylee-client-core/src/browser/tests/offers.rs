@@ -40,7 +40,7 @@ fn a_library_search_is_shown_where_the_board_cannot_show_it() {
 /// The invariant the whole module exists for: an id the engine offered
 /// is an id somebody draws. `BoardModel` covers the table and the hand,
 /// `Browser` covers everything else, and the two are disjoint by
-/// construction — which is why [`BrowseZone`] has no `Battlefield`.
+/// construction for these ordinary browser and targeting questions.
 #[test]
 fn every_offered_object_is_drawn_somewhere() {
     let view = ViewBuilder::new(2)
@@ -284,4 +284,53 @@ fn a_hand_inspection_shows_every_card_without_making_it_selectable() {
             .all(|row| row.zone == BrowseZone::Looking && !row.standing.selectable)
     );
     assert!(it.can_confirm());
+}
+
+/// Reverse Damage can offer a permanent and a spell in the same source question.
+#[test]
+fn mixed_battlefield_and_stack_card_choice_keeps_every_legal_source_reachable() {
+    let view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            vec![printed(1, 0, "Power Leak", 1), printed(2, 0, "Island", 2)],
+        )
+        .with_stack(vec![printed(3, 0, "Reverse Damage", 3)])
+        .build();
+    let pending = Pending::ChooseCards {
+        player: me(),
+        options: vec![obj(1), obj(3)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    };
+    let mut interaction = Interaction::new(pending.clone(), me());
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&interaction));
+    assert!(browser.answers_here(Some(&interaction)));
+    let rows = browser.rows(&view, Some(&interaction), Names::projected());
+    assert_eq!(rows.len(), 2, "an unoffered Island is not a source option");
+    assert!(
+        rows.iter()
+            .any(|row| row.id == obj(1) && row.zone == BrowseZone::Battlefield)
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row.id == obj(3) && row.zone == BrowseZone::Stack)
+    );
+    for row in rows {
+        assert!(row.standing.selectable);
+        interaction.toggle(row.id);
+        assert_eq!(pending.answer_fault(&interaction.confirm().unwrap()), None);
+        interaction.cancel();
+    }
+    browser.follow(&view, None);
+    assert!(!browser.zones(&view).contains(&BrowseZone::Battlefield));
+    browser.open_at(BrowseZone::Stack);
+    assert!(
+        browser
+            .rows(&view, None, Names::projected())
+            .iter()
+            .all(|row| row.id != obj(1))
+    );
 }

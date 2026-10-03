@@ -516,6 +516,10 @@ fn strip_node(side: StripSide) -> Node {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Resource, Default, Clone, PartialEq)]
 pub struct LedgeRevision {
+    /// An explicitly selected row can make Confirm available without changing the board.
+    chosen_index: Option<usize>,
+    /// Identity of the damage question represented by the confirmation button.
+    damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
     hand_order: crate::hand_order::HandOrder,
     /// Which snapshot of the game.
     pub(super) seq: Option<u64>,
@@ -831,6 +835,14 @@ pub fn sync_ledge(
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
+        chosen_index: duel
+            .interaction
+            .as_ref()
+            .and_then(baylee_client_core::Interaction::chosen_index),
+        damage_choice: duel
+            .interaction
+            .as_ref()
+            .and_then(baylee_client_core::Interaction::damage_choice),
         hand_order: duel.hand_order,
         seq: duel.board.as_ref().map(|b| b.seq),
         over,
@@ -1096,7 +1108,13 @@ pub fn sync_ledge(
             let button = answer(&mut commands, &fonts, label, weight, cap);
             match *says {
                 Says::Answer(action) => {
-                    commands.entity(button).insert(PromptButton { action });
+                    commands.entity(button).insert(PromptButton {
+                        action,
+                        damage_choice: duel
+                            .interaction
+                            .as_ref()
+                            .and_then(baylee_client_core::Interaction::damage_choice),
+                    });
                     if clocked == Some(action) {
                         let (_, _, ink) = weight.colours();
                         let seconds = button_clock(&mut commands, &fonts, ink);
@@ -2096,6 +2114,89 @@ fn clock_width() -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn damage_row_selection_rebuilds_confirm_without_a_new_board_snapshot() {
+        use baylee_engine::choice::{
+            DamageChoiceId, DamageEffectKind, DamageEffectOption, Pending,
+        };
+        let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let me = view.seat;
+        let offer = |step| Pending::ChooseDamageEffect {
+            player: me,
+            choice: DamageChoiceId { batch: 7, step },
+            damage: vec![],
+            options: vec![DamageEffectOption {
+                id: 91,
+                source: None,
+                ability: None,
+                controller: me,
+                kind: DamageEffectKind::Protection,
+                parts: vec![],
+            }],
+        };
+        let mut app = App::new();
+        app.insert_resource(Duel {
+            view: Some(view),
+            interaction: Some(baylee_client_core::Interaction::new(offer(1), me)),
+            ..Duel::default()
+        });
+        app.insert_resource(UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        });
+        app.init_resource::<LedgeRevision>()
+            .init_resource::<LedgeLayout>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::cardtext::CardTexts>()
+            .add_systems(Update, sync_ledge);
+        app.world_mut().spawn((LedgeShelf, Node::default()));
+        app.update();
+        assert!(damage_confirm_ids(&mut app).is_empty());
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .interaction
+            .as_mut()
+            .unwrap()
+            .choose_index(0);
+        app.update();
+        assert_eq!(
+            damage_confirm_ids(&mut app),
+            vec![Some(DamageChoiceId { batch: 7, step: 1 })]
+        );
+        app.world_mut().resource_mut::<Duel>().interaction =
+            Some(baylee_client_core::Interaction::new(offer(2), me));
+        app.update();
+        assert!(damage_confirm_ids(&mut app).is_empty());
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .interaction
+            .as_mut()
+            .unwrap()
+            .choose_index(0);
+        app.update();
+        assert_eq!(
+            damage_confirm_ids(&mut app),
+            vec![Some(DamageChoiceId { batch: 7, step: 2 })]
+        );
+    }
+
+    fn damage_confirm_ids(app: &mut App) -> Vec<Option<baylee_engine::choice::DamageChoiceId>> {
+        let mut query = app.world_mut().query::<&PromptButton>();
+        query
+            .iter(app.world())
+            .filter(|button| button.action == PromptAction::Confirm)
+            .map(|button| button.damage_choice)
+            .collect()
+    }
 
     #[test]
     fn retarget_confirmation_names_keeping_or_changing_the_target() {

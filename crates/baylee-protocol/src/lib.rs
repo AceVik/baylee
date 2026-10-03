@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 14 adds optional mana payments, opponent land choices and wider target counts.
-pub const PROTOCOL_VERSION: u32 = 14;
+/// Version 15 adds explicit damage-effect ordering and prevention allocation choices.
+pub const PROTOCOL_VERSION: u32 = 15;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -238,7 +238,8 @@ mod tests {
         // 12: explicit land-counter removal choice.
         // 13: counter amounts and retargeting; older clients cannot decode these prompts.
         // 14: optional mana payments, opponent sacrifices and target counts beyond 255.
-        assert_eq!(PROTOCOL_VERSION, 14);
+        // 15: damage-effect ordering and prevention allocation with stable choice identities.
+        assert_eq!(PROTOCOL_VERSION, 15);
     }
 
     #[test]

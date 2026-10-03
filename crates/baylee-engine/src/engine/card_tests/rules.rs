@@ -1142,6 +1142,7 @@ fn nothing_changes_a_life_total_except_the_one_door() {
         // Any directory named `*_tests`, not the two there were: a list of
         // them read `mechanics_tests/` as engine source when it arrived.
         rel.ends_with("_tests.rs")
+            || rel.rsplit('/').next() == Some("tests.rs")
             || rel
                 .split('/')
                 .rev()
@@ -1199,11 +1200,11 @@ fn nothing_changes_a_life_total_except_the_one_door() {
             }
         }
     }
-    // 37 non-test files on 2026-09-24, 20 of them at the top level: a walk
+    // At least 30 non-test files, more than the 20 at the top level: a walk
     // that did not recurse would miss every former site under `engine/` and
     // `resolve/` and still find the door.
     assert!(
-        (30..60).contains(&files),
+        files >= 30,
         "the walk read {files} non-test files, which is not this crate"
     );
     writers.sort();

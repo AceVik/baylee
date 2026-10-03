@@ -110,6 +110,31 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if matches!(
+            self.pending,
+            Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
+        ) {
+            if let Some(mut work) = self.combat_damage.take() {
+                if let Some(pending) = work.answer(&mut self.state, &action) {
+                    self.combat_damage = Some(work);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                } else {
+                    self.finish_combat_damage(&work);
+                }
+            } else {
+                let mut res = self.resolution.take().expect("damage resolution suspended");
+                match resolve::resume_damage(&mut self.state, &mut res, &action) {
+                    resolve::Flow::Wait(pending) => {
+                        self.resolution = Some(res);
+                        self.pending = pending;
+                        self.awaiting_answer = true;
+                    }
+                    resolve::Flow::Complete => self.finish_resolution(&res),
+                }
+            }
+            return Ok(());
+        }
         match (&self.pending, action) {
             // Passing inside a CR 605.3a payment window says "I have made
             // what mana I am going to make", and must not reach the arm

@@ -331,7 +331,34 @@ fn power_leak_independent_paid_prevention_tracks_its_damage_through_redirection(
         let guard = synthetic::permanents(&engine, LEAK_GUARD)[0];
         leak_payment_window(&mut engine, p1);
         synthetic::tap_every_land(&mut engine, p1);
-        pay_leak(&mut engine, p1, paid);
+        engine.apply(p1, PlayerAction::PassPriority).unwrap();
+        engine.apply(p1, PlayerAction::ChooseNumber(paid)).unwrap();
+        if paid > 0 {
+            let Pending::ChooseDamageEffect {
+                player,
+                choice,
+                options,
+                ..
+            } = engine.pending().clone()
+            else {
+                panic!("the player chooses between paid prevention and redirection");
+            };
+            assert_eq!(player, p1);
+            let effect = options
+                .iter()
+                .find(|option| {
+                    matches!(
+                        option.kind,
+                        crate::choice::DamageEffectKind::Redirect { .. }
+                    )
+                })
+                .unwrap()
+                .id;
+            engine
+                .apply(player, PlayerAction::ChooseDamageEffect { choice, effect })
+                .unwrap();
+        }
+        leak_walk(&mut engine, |e| e.state().zones.stack_is_empty());
         // CR 614.9 calls redirection the same damage to another recipient.
         // "That damage" remains the Aura's event after its recipient changes.
         assert_eq!(
@@ -385,47 +412,82 @@ fn power_leak_independent_host_control_change_in_response_keeps_triggered_upkeep
 
 /// CR 616.1 permits the affected player to choose among applicable prevention
 /// effects. With one paid Power Leak prevention and Reverse Damage's shield,
-/// Leak-first yields one life gained; Reverse-first yields two. The engine's
-/// fixed rank currently forces Reverse-first and removes this decision.
+/// Leak-first yields one life gained; Reverse-first yields two. These
+/// choices are also covered by `damage_order_review`'s real-card order cases.
 #[test]
-#[ignore = "CR 616.1 prevention ordering needs a player choice before applying damage"]
 fn power_leak_independent_reverse_damage_requires_a_prevention_order_choice() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let reverse = card_index("eaaf7c30-f463-4115-a40e-7dc717063413");
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island()])
-        .hand(0, &[power_leak()])
-        .battlefield(1, &[leak_host(), plains(), plains(), plains(), plains()])
-        .hand(1, &[reverse])
-        .start();
-    keep_mulligans(&mut engine);
-    attach_leak(&mut engine);
-    let aura = on_battlefield(&engine, p0, power_leak()).unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && !e.state().zones.stack_is_empty()
-    });
-    cast_from_hand(&mut engine, p1, reverse);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::ChooseObjects {
-                objects: vec![aura],
-            },
-        )
-        .unwrap();
-    leak_payment_window(&mut engine, p1);
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
-    engine.apply(p1, PlayerAction::ChooseNumber(1)).unwrap();
-    assert_eq!(
-        engine.state().players[1].life,
-        20,
-        "the player must choose prevention order before lifegain is decided"
-    );
-    assert!(
-        !matches!(engine.pending(), Pending::Priority { .. }),
-        "a meaningful replacement/prevention decision remains"
-    );
+    for paid_first in [true, false] {
+        let mut engine = Duel::new(SEED, island())
+            .battlefield(0, &[island(), island()])
+            .hand(0, &[power_leak()])
+            .battlefield(1, &[leak_host(), plains(), plains(), plains(), plains()])
+            .hand(1, &[reverse])
+            .start();
+        keep_mulligans(&mut engine);
+        attach_leak(&mut engine);
+        let aura = on_battlefield(&engine, p0, power_leak()).unwrap();
+        pass_until(&mut engine, |e| {
+            e.state().turn.active == p1 && !e.state().zones.stack_is_empty()
+        });
+        cast_from_hand(&mut engine, p1, reverse);
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseCards { .. })
+        });
+        engine
+            .apply(
+                p1,
+                PlayerAction::ChooseObjects {
+                    objects: vec![aura],
+                },
+            )
+            .unwrap();
+        leak_payment_window(&mut engine, p1);
+        engine.apply(p1, PlayerAction::PassPriority).unwrap();
+        engine.apply(p1, PlayerAction::ChooseNumber(1)).unwrap();
+        assert_eq!(
+            engine.state().players[1].life,
+            20,
+            "the player must choose prevention order before lifegain is decided"
+        );
+        let Pending::ChooseDamageEffect {
+            player,
+            choice,
+            options,
+            ..
+        } = engine.pending().clone()
+        else {
+            panic!("a meaningful replacement/prevention decision remains");
+        };
+        assert_eq!(player, p1);
+        let effect = options
+            .iter()
+            .find(|option| {
+                if paid_first {
+                    matches!(
+                        option.kind,
+                        crate::choice::DamageEffectKind::PreventThisEvent { .. }
+                    )
+                } else {
+                    matches!(
+                        option.kind,
+                        crate::choice::DamageEffectKind::PreventFromSource {
+                            gain_life: true,
+                            ..
+                        }
+                    )
+                }
+            })
+            .unwrap()
+            .id;
+        engine
+            .apply(player, PlayerAction::ChooseDamageEffect { choice, effect })
+            .unwrap();
+        pass_until(&mut engine, |e| e.state().zones.stack_is_empty());
+        assert_eq!(
+            engine.state().players[1].life,
+            if paid_first { 21 } else { 22 }
+        );
+    }
 }

@@ -1024,7 +1024,13 @@ pub struct GameState {
     /// Prevention shields resolved spells and abilities left behind
     /// (CR 615), in the order they were made; every one ends at the turn's
     /// cleanup (CR 514.2). See [`crate::prevention`].
-    pub shields: Vec<crate::prevention::Shield>,
+    pub shields: crate::prevention::ShieldStore,
+    /// Identity for the next simultaneous damage event.
+    pub(crate) next_damage_batch: u64,
+    /// Source incarnations before leaving a public rules zone. Pending
+    /// abilities and chosen-source shields can still name those incarnations
+    /// after a second zone change; the ordinary last-move LKI cannot.
+    pub(crate) damage_sources: Vec<GameObject>,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
     /// Scratch list reused by [`GameState::refresh_characteristics`].
@@ -1130,6 +1136,8 @@ impl GameState {
             effects,
             replacement_rules,
             shields,
+            next_damage_batch,
+            damage_sources,
             characteristics_generation,
             projection_ids,
             projected_cross_zone,
@@ -1211,6 +1219,8 @@ impl GameState {
             ("state.effects", format!("{effects:?}")),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
+            ("state.next_damage_batch", format!("{next_damage_batch:?}")),
+            ("state.damage_sources", format!("{damage_sources:?}")),
             (
                 "state.characteristics_generation",
                 format!("{characteristics_generation:?}"),
@@ -1457,7 +1467,9 @@ impl GameState {
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
-            shields: Vec::new(),
+            shields: crate::prevention::ShieldStore::default(),
+            next_damage_batch: 0,
+            damage_sources: Vec::new(),
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
@@ -2034,7 +2046,10 @@ impl GameState {
     /// Two decisions stay with the caller: whether a change of nothing is
     /// worth recording, and the `Cause`.
     pub fn change_life(&mut self, player: PlayerId, by: i32, cause: Cause) {
-        if by < 0 && self.cant_lose_life(player) {
+        // A resolving instruction continues after its controller leaves
+        // (CR 608.2m), but the departed seat's retained information must
+        // remain what it was immediately before leaving (CR 800.4i).
+        if self.has_left(player) || (by < 0 && self.cant_lose_life(player)) {
             return;
         }
         let seat = player.get() as usize;
@@ -2497,6 +2512,18 @@ impl GameState {
             .map(|(_, was)| was)
     }
 
+    /// The exact incarnation dealing damage, current or retained as LKI.
+    pub(crate) fn damage_source(&self, id: ObjectId, version: Option<u32>) -> Option<&GameObject> {
+        self.object_or_departed(id)
+            .filter(|obj| version.is_none_or(|v| v == obj.version))
+            .or_else(|| {
+                self.damage_sources
+                    .iter()
+                    .rev()
+                    .find(|obj| obj.id == id && version == Some(obj.version))
+            })
+    }
+
     /// The game becomes day, or day becomes night's opposite (CR 730.1).
     ///
     /// Every route to the designation goes through this door and
@@ -2763,6 +2790,15 @@ impl GameState {
     /// again only on a departure from the battlefield, so each describes the
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
+        if matches!(from_zone, Zone::Battlefield | Zone::Stack)
+            && let Some(object) = self.object(id)
+            && !self
+                .damage_sources
+                .iter()
+                .any(|old| old.id == id && old.version == object.version)
+        {
+            self.damage_sources.push(object.clone());
+        }
         self.ltb_mana_values.retain(|(other, _)| *other != id);
         self.ltb_controllers.retain(|(other, _)| *other != id);
         self.ltb_powers.retain(|(other, _)| *other != id);
@@ -3572,6 +3608,8 @@ impl GameState {
             effects,
             replacement_rules,
             shields,
+            next_damage_batch,
+            damage_sources,
             characteristics_generation,
             // Scratch, always left empty.
             projection_ids: _,
@@ -3591,6 +3629,11 @@ impl GameState {
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
+        next_damage_batch.hash(&mut h);
+        h.usize(damage_sources.len());
+        for source in damage_sources {
+            hash_object(&mut h, source);
+        }
         turn.hash(&mut h);
         day_night.hash(&mut h);
         previous_turn.hash(&mut h);
@@ -3952,10 +3995,6 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 h.u32(n);
             }
             crate::prevention::ShieldKind::AllCombat => h.u8(1),
-            crate::prevention::ShieldKind::ThisEvent(n) => {
-                h.u8(4);
-                h.u32(n);
-            }
             crate::prevention::ShieldKind::NextFrom {
                 source,
                 all_but,
@@ -3979,7 +4018,7 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
 }
 
 /// A chosen source as [`hash_shields`] hashes it: everything
-/// `ChosenSource::deals` reads when the damage comes.
+/// `ChosenSource::deals_as` reads when the damage comes.
 fn hash_chosen_source(
     h: &mut Hasher,
     state: &GameState,
@@ -3995,6 +4034,17 @@ fn hash_chosen_source(
     filter_hash(h, source.filter);
     h.u8(source.you.get());
     h.u32(position(source.this));
+    hash_damage_source(h, state, source.id, source.version);
+}
+
+fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: u32) {
+    if let Some(source) = state.damage_source(id, Some(version)) {
+        h.u8(1);
+        h.u8(source.controller.get());
+        hash_characteristics(h, source.characteristics());
+    } else {
+        h.u8(0);
+    }
 }
 
 /// How far `obj` has moved on from `version`, in the steps a shield tells
@@ -4245,6 +4295,9 @@ fn hash_rider_situation(
                         .and_then(|a| state.object(a.source))
                         .is_some_and(|source| source.version == *version),
                 );
+                if let Some(ability) = obj.ability {
+                    hash_damage_source(h, state, ability.source, *version);
+                }
             }
             crate::object::Rider::EventObjectIdentity(version, power) => {
                 h.u8(22);
@@ -4255,6 +4308,9 @@ fn hash_rider_situation(
                 h.boolean(still_here);
                 if !still_here {
                     h.u16(*power as u16);
+                }
+                if let Some(id) = obj.event_object {
+                    hash_damage_source(h, state, id, *version);
                 }
             }
             crate::object::Rider::SourceAttachmentLki(id) => {
@@ -4910,6 +4966,13 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
 pub(crate) fn mana_cost_fingerprint(cost: &baylee_core::mana::ManaCost) -> u64 {
     let mut h = Hasher::new();
     hash_mana_cost(&mut h, cost);
+    h.finish()
+}
+
+/// Fixed-width structural hashing for continuation state shared with wasm.
+pub(crate) fn structural_fingerprint(value: &impl Hash) -> u64 {
+    let mut h = Hasher::new();
+    value.hash(&mut h);
     h.finish()
 }
 
@@ -5675,9 +5738,9 @@ mod tests {
             },
             controller: PlayerId::new(0),
         };
-        state.shields = vec![chosen(&baylee_cards_dsl::Filter::Any)];
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::Any)].into();
         let any_source = state.loop_signature();
-        state.shields = vec![chosen(&baylee_cards_dsl::Filter::CREATURE)];
+        state.shields = vec![chosen(&baylee_cards_dsl::Filter::CREATURE)].into();
         assert_ne!(
             any_source,
             state.loop_signature(),

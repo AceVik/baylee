@@ -1302,6 +1302,8 @@ pub enum Rest {
 #[allow(clippy::too_many_lines)] // one flat arm per question the engine asks
 pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAction), Rest> {
     Ok(match engine.pending().clone() {
+        Pending::ChooseDamageEffect { .. } => return Err(Rest::Unanswered("ChooseDamageEffect")),
+        Pending::AllocatePrevention { .. } => return Err(Rest::Unanswered("AllocatePrevention")),
         Pending::GameOver(_) => return Err(Rest::Over),
         Pending::Mulligan { .. } => return Err(Rest::Unanswered("Mulligan")),
         Pending::Priority { player, .. } => (player, PlayerAction::PassPriority),

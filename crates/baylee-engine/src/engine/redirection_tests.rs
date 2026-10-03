@@ -3,8 +3,8 @@
 //! would be dealt to you by unblocked creatures is dealt to this creature
 //! instead") and a resolved shield's ("the next time a source of your choice
 //! would deal damage to target creature this turn, that source deals that
-//! damage to you instead"). Each applies once to an event (CR 614.5), after
-//! the shields that prevent (the order `prevention::rank` fixes), and the
+//! damage to you instead"). Each applies once to an event (CR 614.5); the
+//! affected player chooses among applicable effects (CR 616.1), and the
 //! damage it moves is dealt, counted and triggered on where it lands.
 //!
 //! Played with permanents built for it, each with the sentence under test,
@@ -176,6 +176,30 @@ fn walk(
         }
     }
     panic!("the game never got there");
+}
+
+fn choose_damage_effect(
+    engine: &mut Engine<SyntheticLookup>,
+    wanted: impl Fn(crate::choice::DamageEffectKind) -> bool,
+) {
+    let Pending::ChooseDamageEffect {
+        player,
+        choice,
+        options,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("the affected player must choose a damage effect");
+    };
+    assert_eq!(player, THEM);
+    let effect = options
+        .iter()
+        .find(|option| wanted(option.kind))
+        .unwrap()
+        .id;
+    engine
+        .apply(player, PlayerAction::ChooseDamageEffect { choice, effect })
+        .unwrap();
 }
 
 fn my_end_step(engine: &Engine<SyntheticLookup>) -> bool {
@@ -373,8 +397,8 @@ fn deathtouch_on_the_redirected_damage_destroys_the_guard() {
     assert_eq!(life(&engine, THEM), before);
 }
 
-/// The engine's fixed order (`prevention::rank`): a shield on the player
-/// prevents first, and the Guard takes only what is left.
+/// The affected player chooses the shield first (CR 616.1), and the Guard
+/// takes only what is left.
 #[test]
 fn a_shield_on_the_player_prevents_before_the_guard_takes_the_rest() {
     let mut engine = start(&[OGRE], &[GUARD]);
@@ -386,6 +410,12 @@ fn a_shield_on_the_player_prevents_before_the_guard_takes_the_rest() {
         controller: THEM,
     });
     let before = life(&engine, THEM);
+    walk(&mut engine, &[ogre], &[], |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+    });
+    choose_damage_effect(&mut engine, |kind| {
+        matches!(kind, crate::choice::DamageEffectKind::PreventNext { .. })
+    });
     walk(&mut engine, &[ogre], &[], my_end_step);
     assert_eq!(damage(&engine, guard), 1, "3, less the 2 prevented");
     assert_eq!(life(&engine, THEM), before);
@@ -593,8 +623,8 @@ fn p1p1(engine: &Engine<SyntheticLookup>, id: ObjectId) -> u16 {
         .map_or(0, |o| o.counters.get(CounterKind::P1P1))
 }
 
-/// The engine's fixed order (`prevention::absorb`): a "prevent the next 1"
-/// shield on the Hydra is spent before its counters, which outlast the
+/// The Hydra's controller chooses its "prevent the next 1" shield before
+/// its counters (CR 616.1), which outlast the
 /// turn — the blocked Ogre's 3 cost one shield and two counters.
 #[test]
 fn a_shield_is_spent_before_the_hydra_s_counters() {
@@ -609,6 +639,12 @@ fn a_shield_is_spent_before_the_hydra_s_counters() {
         controller: THEM,
     });
 
+    walk(&mut engine, &[ogre], &[(hydra, ogre)], |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+    });
+    choose_damage_effect(&mut engine, |kind| {
+        matches!(kind, crate::choice::DamageEffectKind::PreventNext { .. })
+    });
     walk(&mut engine, &[ogre], &[(hydra, ogre)], my_end_step);
 
     assert!(engine.state().shields.is_empty(), "the shield went first");
@@ -636,6 +672,12 @@ fn damage_the_monolith_moves_costs_the_hydra_no_counter() {
         priority_in(Step::DeclareBlockers, THEM),
     );
     send(&mut engine, monolith, hydra, ogre);
+    walk(&mut engine, &[ogre], &[(hydra, ogre)], |e| {
+        matches!(e.pending(), Pending::ChooseDamageEffect { .. })
+    });
+    choose_damage_effect(&mut engine, |kind| {
+        matches!(kind, crate::choice::DamageEffectKind::Redirect { .. })
+    });
     walk(&mut engine, &[ogre], &[(hydra, ogre)], my_end_step);
 
     assert_eq!(life(&engine, THEM), before - 3, "moved to its controller");

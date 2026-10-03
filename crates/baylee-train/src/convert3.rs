@@ -202,8 +202,9 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
                         teams: &teams,
                         deck,
                     };
-                    let base = encode(&view, &pending, &Picked::default(), &table);
-                    if keep.forced || base.options > 1 {
+                    if let Some(base) = encode_decision(&view, &pending, &table)
+                        && (keep.forced || base.options > 1)
+                    {
                         if eligible.is_multiple_of(every) {
                             let kind = base.kind;
                             let (steps, why) = decision(&view, &pending, &action, &table, base);
@@ -318,5 +319,26 @@ mod tests {
             "{labelled} of {}",
             converted.samples.len()
         );
+    }
+}
+
+/// Model preparation gate used by the replay converter before any sample exists.
+fn encode_decision(view: &PlayerView, pending: &Pending, table: &Table<'_>) -> Option<Encoded> {
+    policy::model_input(pending, || encode(view, pending, &Picked::default(), table))
+}
+
+#[cfg(test)]
+mod damage_conversion_tests {
+    use super::*;
+    #[test]
+    fn damage_decisions_never_produce_converter_features_or_samples() {
+        let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let table = Table {
+            teams: &[],
+            deck: &[],
+        };
+        for pending in crate::damage_fixture::questions() {
+            assert!(encode_decision(&view, &pending, &table).is_none());
+        }
     }
 }

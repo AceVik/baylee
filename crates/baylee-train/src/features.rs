@@ -202,7 +202,7 @@ pub const GLOB_HEAD: [&str; 12] = [
 pub const GLOB_WIDTH: usize = GLOB_HEAD.len() + SEATS * SEAT_COLS.len();
 
 /// Question kinds, as `pending_kind` numbers them.
-pub const PENDING_KINDS: [&str; 19] = [
+pub const PENDING_KINDS: [&str; 21] = [
     "mulligan",
     "mulligan_bottom",
     "priority",
@@ -222,6 +222,8 @@ pub const PENDING_KINDS: [&str; 19] = [
     "game_over",
     "choose_card_name",
     "choose_pile",
+    "choose_damage_effect",
+    "allocate_prevention",
 ];
 
 /// The question's kind and how many answers it has, counting a multi-pick
@@ -230,6 +232,8 @@ pub const PENDING_KINDS: [&str; 19] = [
 pub fn question(pending: &Pending, hand: usize) -> (i16, u32) {
     let n = |v: usize| u32::try_from(v).unwrap_or(u32::MAX);
     match pending {
+        Pending::ChooseDamageEffect { options, .. } => (19, n(options.len())),
+        Pending::AllocatePrevention { damage, .. } => (20, n(damage.len())),
         Pending::Mulligan { .. } => (0, 2),
         Pending::MulliganBottom { .. } => (1, n(hand)),
         Pending::Priority { legal, .. } => (

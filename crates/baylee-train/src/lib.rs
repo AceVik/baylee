@@ -34,3 +34,6 @@ pub mod policy;
 #[cfg(feature = "play")]
 pub mod selfplay;
 pub mod working;
+
+#[cfg(all(test, feature = "play"))]
+mod damage_fixture;

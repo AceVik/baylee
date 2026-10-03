@@ -1529,3 +1529,44 @@ The actual upkeep payment, tap activation destroying a land, and opposing
 unpaid trigger followed by a human-selected land sacrifice all completed without
 client errors. The shared printed-text repair is Oracle-checked and also runs
 when old cached presentation data is loaded.
+
+
+### Damage-order live acceptance — mixed source browser
+
+The live Reverse Damage scenario exposed a source-selection browser defect:
+a ChooseCards offer can include battlefield and stack sources, but the modal
+browser covered the battlefield while listing only off-battlefield zones.
+Power Leak was consequently not selectable through the UI. Root viewed
+`/private/tmp/alpha-damage-source-choice-debug.png`. The client fix and a
+mixed-zone regression are in progress; this path is not yet live-accepted.
+The offline fixture starts at 40 life, so the two expected Reverse Damage
+results are 41 and 42 (the independent Engine tests start at 20 and expect
+21 and 22).
+
+
+The mixed-zone source browser is fixed and live-verified: Power Leak appears
+under Battlefield and is selectable with its {1}{U} Mana-font cost. Final
+screenshots: `/private/tmp/alpha-damage-source-choice-fixed.png`,
+`/private/tmp/alpha-damage-power-leak-order.png`, and
+`/private/tmp/alpha-damage-power-leak-paid-selected.png`. Root viewed all three.
+Clicking an effect marks it without resolving; Confirm then applies it. Paid
+prevention first produces life 41; Reverse Damage first produces life 42, from
+the same life-40/payment-one setup, with no errors.
+
+The allocation UI also passes its first live branch. Three Healing Salve points
+are divided 1+2 across Baleful Strix and Extraction Specialist; the human takes
+one damage and the opponent gains one life. The remaining allocation decreases
+from three to zero, direct numeric correction works, and Confirm appears only
+at the exact required sum. Root viewed `/private/tmp/alpha-damage-allocation-initial.png`
+and `/private/tmp/alpha-damage-allocation-split.png`.
+
+
+The second live combat confirms allocation 0+3: human life 39→38, opposing life
+stays 41, so preventing all lifelink damage prevents its gain. The new choice
+identity changes from batch0/step1 to batch1/step1 and resets the draft to zero
+with no Confirm until fully assigned. Final screenshots/JSON:
+`/private/tmp/alpha-damage-allocation-second-initial`,
+`/private/tmp/alpha-damage-allocation-lifelink-only`, and
+`/private/tmp/alpha-damage-allocation-lifelink-only-result`. Root viewed the final
+allocation screenshot. Both live branches have no client error; the client
+process was stopped after acceptance.

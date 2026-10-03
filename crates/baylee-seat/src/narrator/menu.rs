@@ -39,6 +39,8 @@ pub struct Menu {
 /// What kind of answer a question takes.
 #[derive(Clone, Debug)]
 enum Ask {
+    /// Exact, identity-bound prevention allocation.
+    Prevention { pending: Box<Pending> },
     /// One option id.
     Pick,
     /// Objects from a list, as few and as many as the question allows.
@@ -166,6 +168,8 @@ pub struct Decision {
     pub attacks: Vec<(String, String)>,
     /// `(blocker, attacker)` pairs.
     pub blocks: Vec<(String, String)>,
+    /// Damage-part IDs and their prevention amounts.
+    pub prevention: Vec<(String, String)>,
     /// A number, as written.
     pub number: Option<String>,
     /// Piles of ids.
@@ -211,6 +215,7 @@ impl Decision {
             pick: map.get("pick").map(list).unwrap_or_default(),
             attacks: pairs("attacks", "attacker", "at"),
             blocks: pairs("blocks", "blocker", "attacker"),
+            prevention: pairs("prevention", "part", "amount"),
             number: text("number"),
             piles: map
                 .get("piles")
@@ -317,6 +322,7 @@ impl Menu {
             });
         }
         match &self.ask {
+            Ask::Prevention { pending } => Self::prevention(pending, decision),
             Ask::Pick => self.pick(decision),
             Ask::Objects { from, min, max } => {
                 let objects = Self::chosen(&decision.pick, from, *min, *max)?;
@@ -424,6 +430,35 @@ impl Menu {
     }
 
     /// A player id: `P2`, or `you`/`me` for this seat.
+    fn prevention(pending: &Pending, decision: &Decision) -> Result<Resolved, String> {
+        let Pending::AllocatePrevention { choice, .. } = pending else {
+            return Err("not a prevention allocation".into());
+        };
+        let allocation: Result<Vec<_>, String> = decision
+            .prevention
+            .iter()
+            .map(|(part, amount)| {
+                let id = part
+                    .strip_prefix('d')
+                    .ok_or_else(|| format!("unknown damage part {part}"))?
+                    .parse::<u32>()
+                    .map_err(|_| format!("invalid damage part {part}"))?;
+                let amount = amount
+                    .parse::<u32>()
+                    .map_err(|_| format!("invalid prevention amount {amount}"))?;
+                Ok((id, amount))
+            })
+            .collect();
+        let action = PlayerAction::AllocatePrevention {
+            choice: *choice,
+            allocation: allocation?,
+        };
+        if let Some(fault) = pending.answer_fault(&action) {
+            return Err(format!("invalid prevention allocation: {fault:?}"));
+        }
+        Ok(now(action, "distribute prevention".into()))
+    }
+
     fn player(&self, written: &str) -> Option<PlayerId> {
         let written = normal(written);
         if written == "you" || written == "me" {
@@ -802,6 +837,55 @@ impl Builder<'_, '_> {
     fn write(&mut self) {
         let pending = self.request.pending.clone();
         match &pending {
+            Pending::ChooseDamageEffect {
+                choice,
+                damage,
+                options,
+                ..
+            } => {
+                self.line("QUESTION: Choose which replacement or prevention effect applies next.");
+                for effect in options {
+                    self.option(
+                        format!("damage{}-{}-{}", choice.batch, choice.step, effect.id),
+                        self.damage_effect(effect, damage),
+                        Act::Now(PlayerAction::ChooseDamageEffect {
+                            choice: *choice,
+                            effect: effect.id,
+                        }),
+                    );
+                }
+                self.list_options();
+                self.answer("pick=[one damage effect id]");
+            }
+            Pending::AllocatePrevention {
+                effect,
+                damage,
+                total,
+                ..
+            } => {
+                let what = if matches!(
+                    effect.kind,
+                    baylee_engine::choice::DamageEffectKind::RemoveCounter { .. }
+                ) {
+                    "counter removals"
+                } else {
+                    "points of prevention"
+                };
+                self.line(format!("QUESTION: Allocate exactly {total} {what} among the damage parts. Each share is 0 through that part's amount. Omitted parts receive zero."));
+                self.line(self.damage_effect(effect, &[]));
+                for part in damage {
+                    let label = baylee_client_core::damage::part_label(
+                        baylee_client_core::Lang::En,
+                        part,
+                        &|target| self.damage_target(target),
+                    );
+                    self.line(format!("  d{}: {label}", part.id));
+                }
+                self.ask = Ask::Prevention {
+                    pending: Box::new(pending.clone()),
+                };
+                self.answer("prevention=[{part: \"d<id>\", amount: <integer>}, ...]");
+            }
             Pending::Priority { legal, .. } => self.priority(legal),
             Pending::Mulligan {
                 taken,
@@ -2025,4 +2109,36 @@ fn own_subtypes(table: &Table<'_>, options: &[SubtypeId]) -> Vec<&'static str> {
     }
     names.truncate(20);
     names
+}
+
+impl Builder<'_, '_> {
+    fn damage_target(&self, target: baylee_engine::event::DamageTarget) -> String {
+        match target {
+            baylee_engine::event::DamageTarget::Object(id) => self.table.named(id),
+            baylee_engine::event::DamageTarget::Player(id) => self.table.player(id),
+        }
+    }
+
+    fn damage_effect(
+        &self,
+        effect: &baylee_engine::choice::DamageEffectOption,
+        damage: &[baylee_engine::choice::DamagePartView],
+    ) -> String {
+        let origin = effect
+            .source
+            .map(|id| self.table.named(id))
+            .or_else(|| {
+                effect.ability.and_then(|a| {
+                    baylee_cards::by_index(a.card).map(|c| c.faces[0].name.to_string())
+                })
+            })
+            .unwrap_or_else(|| "Rule effect".into());
+        baylee_client_core::damage::effect_label(
+            baylee_client_core::Lang::En,
+            effect,
+            damage,
+            &origin,
+            &|target| self.damage_target(target),
+        )
+    }
 }

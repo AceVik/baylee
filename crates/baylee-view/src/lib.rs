@@ -138,7 +138,9 @@ use serde::{Deserialize, Serialize};
 /// large paid X values retain their full damage amount in public logs.
 /// Version 47 distinguishes fixed mana debts from optional payments of any
 /// amount in [`PlayerView::owed`].
-pub const VIEW_VERSION: u32 = 47;
+/// Version 48 accompanies explicit damage replacement ordering and
+/// simultaneous prevention allocation decisions in the choice protocol.
+pub const VIEW_VERSION: u32 = 48;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -3466,8 +3468,8 @@ mod tests {
     /// only where it moves one of the three subtypes they name.
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
-        // Payment windows distinguish fixed debts from an arbitrary amount.
-        const RECORDED: (u32, u64) = (47, 11_772_928_919_686_085_005);
+        // Damage decisions carry event identities, effect metadata, and allocations.
+        const RECORDED: (u32, u64) = (48, 11_772_928_919_686_085_005);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

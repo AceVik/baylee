@@ -65,6 +65,8 @@ question_vocabulary!(
     ChoosePlayer,
     ChoosePile,
     Arrange,
+    ChooseDamageEffect,
+    AllocatePrevention,
     GameOver,
 );
 
@@ -576,7 +578,9 @@ impl Client {
             // the game dead while this test happily played on, because the
             // test was proving that the *engine* accepts an answer, not
             // that anybody could give one.
-            Pending::ChooseColor { .. } | Pending::ChoosePlayer { .. } => {
+            Pending::ChooseColor { .. }
+            | Pending::ChoosePlayer { .. }
+            | Pending::ChooseDamageEffect { .. } => {
                 let rows = baylee_client::choices::options(
                     &interaction.prompt(),
                     baylee_client_core::Lang::En,
@@ -590,6 +594,9 @@ impl Client {
                 interaction
                     .choose_index(index)
                     .then(|| interaction.confirm())?
+            }
+            Pending::AllocatePrevention { damage, total, .. } => {
+                allocate_prevention(interaction, damage, *total)
             }
             // A pile is taken by position as well; see `choose_pile`.
             Pending::ChoosePile { piles, .. } => self.choose_pile(interaction, piles),
@@ -1321,6 +1328,19 @@ fn declaring_no_attackers_is_the_same_answer_as_declaring_none() {
     }
 }
 
+fn allocate_prevention(
+    interaction: &mut Interaction,
+    damage: &[baylee_engine::choice::DamagePartView],
+    total: u32,
+) -> Option<PlayerAction> {
+    let mut remaining = total;
+    for (index, part) in damage.iter().enumerate() {
+        interaction.choose_index(index);
+        remaining -= interaction.set_number(part.amount.min(remaining));
+    }
+    interaction.confirm()
+}
+
 /// How few objects a choice will accept — the answer a pass-key player gives.
 fn smallest_legal_pick(pending: &Pending) -> usize {
     match pending {
@@ -1368,7 +1388,10 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
 /// whether that arm were correct or missing entirely. It is asserted exactly
 /// rather than merely printed, so a scenario that stops reaching one fails the
 /// build instead of quietly shrinking the ledger.
-const UNREACHED: &[&str] = &[];
+// These require overlapping shields or simultaneous sources. Their stable-ID
+// interaction paths have focused core/native tests and a live combat acceptance;
+// the deterministic spellbook scenarios below do not create those board states.
+const UNREACHED: &[&str] = &["ChooseDamageEffect", "AllocatePrevention"];
 
 /// The one member of the vocabulary that is not a question.
 ///

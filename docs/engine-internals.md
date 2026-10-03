@@ -947,125 +947,61 @@ Three things about it are easy to get backwards:
   position as the board without one and loop detection would otherwise call
   them equal.
 
-### Prevention shields, and the question the engine does not ask (CR 615)
+### Damage, prevention and redirection (CR 120.4, 615.7, 616.1)
 
-"Prevent the next 3 damage that would be dealt to any target this turn" and
-Fog leave a shield behind as they resolve (CR 615.1, 615.3), and the shield
-waits for damage. The shields live in `GameState::shields` in the order they
-were made, and `prevention::apply` is the one function that spends them:
-every writer of damage asks it how much of what it is about to deal still
-gets through, after the standing prevention it already asked (a permanent's
-protection, which every writer asks, and Maze of Ith's `PreventDamageToIt`
-and `PreventDamageFromIt`, which only combat's two ask: both cards that
-carry them, Maze of Ith and Kor Haven, prevent combat damage only; none of
-these is ever used up) and before anything is lost, marked or journalled. Four writers ask today — two
-in `combat`, two in `resolve::life` — and damage prevented in full is never
-dealt at all: no life change, no `DamageDealt`, no deathtouch, no lifelink.
+Every combat damage step and every damage instruction first collects its
+simultaneous assignments. `damage::DamageWork` then applies prevention and
+redirection before committing any damage result. Combat retains this work in
+`Engine::combat_damage`; a resolving spell or ability retains it in
+`AwaitingOp::Damage`. Finishing a choice resumes that exact instruction or
+combat step, without granting priority or checking state-based actions midway.
+Fight collects both creatures' power before either result changes counters.
 
-- **A shield on a permanent is on that object** (id and version, CR 400.7):
-  the creature that leaves and comes back is a new object with no shield.
-- **Damage that can't be prevented passes every shield untouched** and
-  reduces none of them (CR 615.12).
-- **Every shield ends at the cleanup step** (CR 514.2); they all say "this
-  turn". They are in `snapshot_hash`, `loop_signature` and the fingerprint.
-- **A chosen-source shield** ("the next time a red source of your choice
-  would deal damage to you", CR 615.8) is chosen as the ability resolves,
-  from `prevention::source_options` (CR 609.7a: permanents, spells, and the
-  source of an ability on the stack even once it has left), and waits for
-  that source's next instance of damage to its controller. It rechecks the
-  source's properties when the damage comes, against the source's last
-  known characteristics if it has left, and a shield that prevents nothing
-  is not used up (CR 609.7b). A damage source is an id, so which incarnation
-  dealt the damage is read from where the id is now
-  (`ChosenSource::deals` names the two corners that reading gets wrong).
+`ChooseDamageEffect` asks the affected player, or an affected permanent's
+controller, which applicable effect to apply. After each answer the engine
+recomputes applicability and the chooser. Different players decide in APNAP
+order, restarting that order when redirection makes an earlier player's
+choice applicable (CR 101.4d). One effect alone needs no ordering question.
+An infinite shield such as Fog remains in force; a finite shield spends only
+its actual prevention. A chosen-source shield that prevents or redirects
+nothing remains available (CR 609.7b).
 
-- **Counters that prevent** (Rock Hydra, `Modifier::CountersPreventDamage`)
-  are a static prevention effect, asked by both object doors through
-  `prevention::absorb` after the shields and after any redirection: each 1
-  damage takes a counter and is prevented while one is there. Damage that
-  can't be prevented still takes the counters and is dealt in full, the
-  removal being an effect of its own (CR 615.12), once for the event
-  (615.12a).
+When one finite shield cannot prevent all damage from several simultaneous
+sources, `AllocatePrevention` offers each source/recipient part and requires
+an exact total (CR 615.7). The player can split the shield between sources;
+this changes which source deals damage, including its deathtouch and lifelink.
+The action rejects duplicate or unknown parts, excessive shares and incorrect
+totals before mutation. `DamageChoiceId { batch, step }` rejects answers from
+an earlier decision even if the numeric effect IDs happen to coincide.
 
-The question the engine does not ask is CR 616.1's: when two shields could
-apply to one event, the affected player (or the controller of the affected
-permanent) chooses which applies first — and CR 615.7's last sentence, which
-of several simultaneous sources one shield prevents. `prevention::rank`
-applies them in a fixed order instead. For most pairs it is the order the
-player would always pick: a shield that prevents nothing is not used up, so
-the fuller shield first leaves the other standing (Fog before a Circle of
-Protection, a Circle before Forcefield), and two "next N" shields spend the
-same total either way. Two pairs are trades, and there the engine decides
-what the player would be asked — **an engine simplification**: Reverse
-Damage goes before Fog (the life now, rather than Reverse Damage kept for
-that source's later damage: a creature chosen for Reverse Damage attacks
-into a Fog, its combat damage spends Reverse Damage and gains its life,
-and that creature's later damage that turn is dealt in full), and a
-chosen-source shield before "the next N"
-(the N kept for any source, rather than the chosen-source shield kept for
-its one). A new kind of shield is placed in that order with its reason; a
-pair for which the fixed order would often be the wrong answer needs the
-question rather than a rank. Counters that prevent come after every
-shield: a shield ends with the turn and a counter does not, so spending
-the shield first is the choice a player would always make.
+Each part retains its source incarnation, recipient incarnation and applied
+effect history through redirection. A static or shield cannot redirect the
+same part again in the same event (CR 614.5), and the new recipient chooses
+among that recipient's applicable effects. A departed source is read from its
+retained last known characteristics, including when its card has since
+returned as a new permanent. Those histories and suspended continuations join
+the deterministic snapshot/fuzz fingerprints; `GameObject` gains no field.
 
-### Redirection: damage dealt to another instead (CR 614.9)
+All damage, deathtouch marks, commander-damage totals and lifelink results are
+committed only after every choice is complete. Life gained as an additional
+prevention effect and counters removed by a prevention effect are retained as
+results until that commit, so a later player's choice sees no partially
+applied life/counter results (CR 120.4, 615.5). Reserved counter removals reduce
+the capacity available to subsequent prevention applications. Unpreventable
+damage does not spend ordinary shield capacity, but still performs additional
+counter-removal effects once per point (CR 615.12–615.12a).
 
-"All damage that would be dealt to you by unblocked creatures is dealt to
-this creature instead" (Veteran Bodyguard) and "the next time a source of
-your choice would deal damage to target creature this turn, that source
-deals that damage to you instead" (Jade Monolith) are replacement effects
-that move damage (CR 614.9). `prevention::redirect` answers where a writer's
-damage goes instead, and all four writers ask it after the shields in front
-of the first recipient and before anything is lost, marked or journalled; a
-redirected amount goes through the door for the new recipient, where that
-recipient's protection and shields meet it (Veteran Bodyguard with
-protection from red takes nothing from a red attacker). The damage keeps its
-source and whether it is combat damage, so deathtouch and lifelink read it
-as ever; the player it was moved off is dealt nothing — no life, no
-`per_turn.damage_dealt_to`, no "whenever you're dealt damage", no commander
-damage.
+`ShieldStore` gives each resolved shield a stable identity and optional printed
+ability provenance. Its identities are never reused during a game, including
+after cleanup. A shield on a permanent names its version (CR 400.7), and
+cleanup removes shields whose duration is this turn. Prevention bought while
+resolving an instruction stays inside that instruction's damage work: it
+follows redirected damage and cannot prevent damage from a later instruction.
 
-- **The static** is `Modifier::RedirectDamageToYou(&from)`: damage a source
-  matching `from` would deal to the effect's controller is dealt to the
-  permanent the effect applies to. `from` is read on the source as it is
-  then, or as it last was once it has left the battlefield (CR 609.7c): the
-  ability of a red creature killed in response is still a red source's.
-  Combat status is not remembered, so an unblocked creature that has left
-  is no longer one. That is **a guess** where the rules do not settle it:
-  CR 609.7c applies such an effect "to any sources that aren't on the
-  battlefield that have that property", and CR 506.4 says only that a
-  creature removed from combat "stops being an attacking, blocking,
-  blocked, and/or unblocked creature". An unblocked Mogg Fanatic sacrificed
-  ("Sacrifice this creature: It deals 1 damage to any target") at the
-  Bodyguard's controller deals that 1 to the player; read by its last
-  known information, as it was just before it left, it would be an
-  unblocked creature's damage and go to the Bodyguard. The affected permanent is read then too
-  (`effects::applies_to`), so Veteran Bodyguard's "as long as this creature
-  is untapped" is in its affected filter, `And(This, Untapped)`, and a
-  Bodyguard tapped earlier in the same resolution is already out of the way.
-- **The shield** is `ShieldKind::RedirectNextFrom { source, to }`, made by
-  `Effect::RedirectNextFromChosenSource` as it resolves: the source is
-  chosen then (CR 609.7a), rechecked when the damage comes, used up by the
-  damage it moves and kept by damage it does not (CR 609.7b), and on the
-  creature as the object it was (CR 400.7). `prevention::apply` passes it by.
-- **Once to an event** (CR 614.5): a writer starts a `prevention::Redirected`
-  per event and hands it on with the damage, and a static that moved the
-  damage is not asked again — Jade Monolith's shield on a Veteran Bodyguard
-  sends the damage the Bodyguard took back to its controller, who is dealt
-  it. A shield needs no entry: it is gone once it has moved something.
-- **Nothing** is moved from or to a permanent that is no longer a creature
-  on the battlefield, or to or from a player who has left the game (CR
-  614.9); such a shield is still waiting afterwards.
-
-**An engine simplification**, beside the one above: CR 616.1 lets the
-affected player order redirection and prevention too, and the engine always
-applies the shields first. That is a trade: preventing first spares the
-creature a Bodyguard puts in the way and spends the shield; redirecting
-first keeps the shield and costs the creature. Counters that prevent (Rock
-Hydra) come after the redirection, so damage a Jade Monolith moves off the
-Hydra costs it no counter. Among several redirections the oldest shield goes
-first, then the oldest static, again without asking.
+The current damage-source selection UI still names objects by `ObjectId`.
+It does not yet distinguish two independently selectable historical
+incarnations of the same card in a single source-choice menu. Damage work
+itself does distinguish those incarnations once the source is known.
 
 ### The monarch's abilities have no source (CR 724.2)
 

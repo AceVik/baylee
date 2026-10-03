@@ -745,3 +745,73 @@ fn the_log_is_told_once_and_a_gap_is_said() {
     let text = narrator.wake(&request, &[]).text;
     assert!(text.contains("some earlier lines were lost"), "{text}");
 }
+
+#[test]
+fn damage_allocation_is_explicit_bounded_and_rejects_stale_or_duplicate_answers() {
+    use baylee_engine::choice::{
+        DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView,
+    };
+    use baylee_engine::event::DamageTarget;
+    let (view, log) = board();
+    let choice = DamageChoiceId { batch: 4, step: 7 };
+    let damage = vec![
+        DamagePartView {
+            id: 47,
+            source: id(30),
+            recipient: DamageTarget::Player(ME),
+            amount: 3,
+            is_combat: true,
+            preventable: false,
+        },
+        DamagePartView {
+            id: 83,
+            source: id(31),
+            recipient: DamageTarget::Player(ME),
+            amount: 4,
+            is_combat: false,
+            preventable: true,
+        },
+    ];
+    let effect = DamageEffectOption {
+        id: 61,
+        source: None,
+        ability: None,
+        controller: ME,
+        kind: DamageEffectKind::RemoveCounter {
+            kind: baylee_cards_dsl::CounterKind::P1P1,
+            remaining: 5,
+        },
+        parts: vec![47, 83],
+    };
+    let pending = Pending::AllocatePrevention {
+        player: ME,
+        choice,
+        effect,
+        damage,
+        total: 5,
+    };
+    let request = request(view, pending.clone(), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(wake.text.contains("d47") && wake.text.contains("d83"));
+    assert!(wake.text.contains("counter removals") && wake.text.contains("cannot be prevented"));
+    let decide = |shares: serde_json::Value| {
+        Decision::from_decide(&serde_json::json!({
+            "ask": format!("q{}", wake.menu.question), "prevention": shares
+        }))
+        .unwrap()
+    };
+    let valid = decide(serde_json::json!([{"part":"d47","amount":1},{"part":"d83","amount":4}]));
+    let action = wake.menu.resolve(&valid).unwrap().act.first();
+    assert_eq!(pending.answer_fault(&action), None);
+    for shares in [
+        serde_json::json!([{"part":"d47","amount":5}]),
+        serde_json::json!([{"part":"d47","amount":1},{"part":"d47","amount":1},{"part":"d83","amount":3}]),
+        serde_json::json!([{"part":"d999","amount":5}]),
+        serde_json::json!([]),
+    ] {
+        assert!(wake.menu.resolve(&decide(shares)).is_err());
+    }
+    let mut stale = valid;
+    stale.ask = Some("q999999".into());
+    assert!(wake.menu.resolve(&stale).is_err());
+}

@@ -136,6 +136,42 @@ fn offered(
 ) -> Vec<PlayerAction> {
     let mut out = Vec::new();
     match pending {
+        Pending::ChooseDamageEffect {
+            choice, options, ..
+        } => {
+            out.extend(
+                options
+                    .iter()
+                    .map(|option| PlayerAction::ChooseDamageEffect {
+                        choice: *choice,
+                        effect: option.id,
+                    }),
+            );
+        }
+        Pending::AllocatePrevention {
+            choice,
+            damage,
+            total,
+            ..
+        } => {
+            for _ in 0..3 {
+                let mut parts = damage.clone();
+                dice.shuffle(&mut parts);
+                let mut left = *total;
+                let allocation = parts
+                    .iter()
+                    .map(|part| {
+                        let n = left.min(part.amount);
+                        left -= n;
+                        (part.id, n)
+                    })
+                    .collect();
+                out.push(PlayerAction::AllocatePrevention {
+                    choice: *choice,
+                    allocation,
+                });
+            }
+        }
         Pending::Mulligan { taken, .. } => {
             out.push(PlayerAction::MulliganKeep);
             if *taken < 2 && dice.chance(20) {
