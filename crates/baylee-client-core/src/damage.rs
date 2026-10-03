@@ -147,6 +147,9 @@ pub fn effect_label(
         DamageEffectKind::PreventCombat => Phrase::DamagePreventCombat.text(lang).to_string(),
         DamageEffectKind::Protection => Phrase::DamageProtection.text(lang).to_string(),
         DamageEffectKind::Redirect { to } => Phrase::DamageRedirect.fill(lang, &[&name(to)]),
+        DamageEffectKind::RedirectNext { remaining, to } => {
+            Phrase::DamageRedirectNext.fill(lang, &[&name(to), &remaining.to_string()])
+        }
         DamageEffectKind::RemoveCounter { kind, remaining } => Phrase::DamageCounter.fill(
             lang,
             &[
@@ -190,10 +193,10 @@ pub fn allocation_headline(
     amounts: &[u32],
 ) -> String {
     let used: u64 = amounts.iter().map(|&n| u64::from(n)).sum();
-    let phrase = if matches!(effect.kind, DamageEffectKind::RemoveCounter { .. }) {
-        Phrase::AllocateDamageCounters
-    } else {
-        Phrase::AllocatePrevention
+    let phrase = match effect.kind {
+        DamageEffectKind::RemoveCounter { .. } => Phrase::AllocateDamageCounters,
+        DamageEffectKind::RedirectNext { .. } => Phrase::AllocateRedirection,
+        _ => Phrase::AllocatePrevention,
     };
     phrase.fill(
         lang,

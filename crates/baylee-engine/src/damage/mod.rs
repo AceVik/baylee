@@ -279,7 +279,8 @@ impl DamageWork {
     ) -> Option<Pending> {
         let budget = match candidate.option.kind {
             DamageEffectKind::PreventNext { remaining }
-            | DamageEffectKind::PreventThisEvent { remaining } => Some(remaining),
+            | DamageEffectKind::PreventThisEvent { remaining }
+            | DamageEffectKind::RedirectNext { remaining, .. } => Some(remaining),
             DamageEffectKind::RemoveCounter { remaining, .. } => {
                 Some(if forced { remaining } else { remaining.min(1) })
             }
@@ -294,6 +295,7 @@ impl DamageWork {
                         || matches!(
                             candidate.option.kind,
                             DamageEffectKind::RemoveCounter { .. }
+                                | DamageEffectKind::RedirectNext { .. }
                         )
                 })
                 .map(|mut p| {
@@ -354,6 +356,10 @@ impl DamageWork {
         candidate: &Candidate,
         allocation: &[(u32, u32)],
     ) {
+        if let DamageEffectKind::RedirectNext { to, .. } = candidate.option.kind {
+            self.redirect_allocated(state, candidate, allocation, to);
+            return;
+        }
         if let DamageEffectKind::RemoveCounter { kind, .. } = candidate.option.kind {
             let DamageTarget::Object(target) = candidate.recipient else {
                 unreachable!("counter recipient")
@@ -430,6 +436,56 @@ impl DamageWork {
         }
     }
 
+    fn redirect_allocated(
+        &mut self,
+        state: &mut GameState,
+        candidate: &Candidate,
+        allocation: &[(u32, u32)],
+        to: DamageTarget,
+    ) {
+        let mut redirected = 0_u32;
+        let mut split = Vec::new();
+        let first_id = self.parts.len();
+        for part in &mut self.parts {
+            let n = allocation
+                .iter()
+                .find(|(id, _)| *id == part.view.id)
+                .map_or(0, |(_, n)| *n);
+            if n == 0 {
+                continue;
+            }
+            let mut moved = part.clone();
+            moved.view.id = u32::try_from(first_id + split.len()).expect("damage part count");
+            moved.view.amount = n;
+            moved.view.recipient = to;
+            moved.recipient_version = match to {
+                DamageTarget::Player(_) => None,
+                DamageTarget::Object(id) => state.object(id).map(|o| o.version),
+            };
+            moved.applied.push(candidate.key);
+            part.view.amount -= n;
+            part.applied.push(candidate.key);
+            redirected += n;
+            split.push(moved);
+        }
+        self.parts.extend(split);
+        if let EffectKey::Shield(id) = candidate.key
+            && let Some(i) = state.shields.position(id)
+        {
+            let ShieldKind::RedirectNext { remaining, to } = state.shields[i].kind else {
+                unreachable!("finite redirection shield")
+            };
+            if remaining == redirected {
+                state.shields.remove(i);
+            } else {
+                state.shields[i].kind = ShieldKind::RedirectNext {
+                    remaining: remaining - redirected,
+                    to,
+                };
+            }
+        }
+    }
+
     fn apply_effect(&mut self, state: &mut GameState, candidate: &Candidate) {
         let mut prevented = 0_u32;
         let mut used = false;
@@ -468,7 +524,8 @@ impl DamageWork {
                     part.applied.push(candidate.key);
                 }
                 DamageEffectKind::PreventNext { .. }
-                | DamageEffectKind::PreventThisEvent { .. } => unreachable!("allocated shield"),
+                | DamageEffectKind::PreventThisEvent { .. }
+                | DamageEffectKind::RedirectNext { .. } => unreachable!("allocated shield"),
             }
         }
         if used

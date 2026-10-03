@@ -912,7 +912,10 @@ fn target_filters(duel: &Duel, lang: Lang) -> Vec<crate::choices::ChoiceOption> 
     let Some((i, view)) = duel.interaction.as_ref().zip(duel.view.as_ref()) else {
         return Vec::new();
     };
-    if !matches!(i.pending(), Pending::ChooseTargets { .. }) {
+    if !matches!(i.pending(), Pending::ChooseTargets { .. })
+        || (targeting::options(i.pending()).len() <= targeting::PAGE_SIZE
+            && duel.target_filter.is_none())
+    {
         return Vec::new();
     }
     let row = |player, label| crate::choices::ChoiceOption {
@@ -1011,15 +1014,23 @@ fn target_reading(
     } else {
         Phrase::TargetingChoices
     };
-    say(tally.fill(
-        lang,
-        &[
-            &min.to_string(),
-            &max.to_string(),
-            &options.len().to_string(),
-            &chosen.len().to_string(),
-        ],
-    ));
+    if !matches!(
+        i.pending(),
+        Pending::ChooseTargets {
+            reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+            ..
+        }
+    ) {
+        say(tally.fill(
+            lang,
+            &[
+                &min.to_string(),
+                &max.to_string(),
+                &options.len().to_string(),
+                &chosen.len().to_string(),
+            ],
+        ));
+    }
     if !chosen.is_empty() {
         say(Phrase::TargetingSelected.fill(lang, &[&chosen.join("; ")]));
         if let Some(context) = &view.targeting
@@ -1207,7 +1218,11 @@ mod targeting_tests {
         });
         duel.receive_choice(pending);
         let (lines, mut rows) = read(&duel);
-        assert!(lines.iter().any(|l| l.text.contains("Target 1 of 1: Bear")));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.text.contains("Previous target 1 of 1: Bear"))
+        );
         assert!(lines.iter().all(|l| !l.text.contains("Stale Fork context")));
         assert!(
             lines
@@ -1226,6 +1241,22 @@ mod targeting_tests {
                 .is_selected(ObjectId::new(16, 0))
         );
         assert!(duel.outbox.is_empty());
+    }
+
+    #[test]
+    fn small_target_offers_need_no_filter_but_an_active_filter_stays_reachable() {
+        let mut duel = choices();
+        let mut pending = duel.interaction.as_ref().unwrap().pending().clone();
+        if let Pending::ChooseTargets { options, .. } = &mut pending {
+            options.truncate(1);
+        }
+        duel.receive_choice(pending);
+        assert!(target_filters(&duel, Lang::En).is_empty());
+        assert_eq!(read(&duel).1.len(), 3);
+        crate::input::pick_choice(&mut duel, targeting::filter_index(Some(PlayerId::new(1))));
+        assert!(!target_filters(&duel, Lang::En).is_empty());
+        crate::input::pick_choice(&mut duel, targeting::filter_index(None));
+        assert_eq!(read(&duel).1.len(), 3);
     }
 
     #[test]

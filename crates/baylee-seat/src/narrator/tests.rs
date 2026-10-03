@@ -889,3 +889,51 @@ fn retarget_question_names_the_historical_target_separately_from_the_returned_ca
     assert!(!question.contains("Returned creature"));
     assert!(question.contains("Choose no targets to keep this target"));
 }
+
+#[test]
+fn redirected_damage_menu_keeps_the_existing_exact_allocation_contract() {
+    use baylee_engine::choice::{
+        DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView,
+    };
+    use baylee_engine::event::DamageTarget;
+    let (view, log) = board();
+    let pending = Pending::AllocatePrevention {
+        player: ME,
+        choice: DamageChoiceId { batch: 4, step: 8 },
+        effect: DamageEffectOption {
+            id: 61,
+            source: None,
+            ability: None,
+            controller: ME,
+            kind: DamageEffectKind::RedirectNext {
+                remaining: 2,
+                to: DamageTarget::Player(ME),
+            },
+            parts: vec![47],
+        },
+        damage: vec![DamagePartView {
+            id: 47,
+            source: id(30),
+            recipient: DamageTarget::Object(id(21)),
+            amount: 3,
+            is_combat: true,
+            preventable: false,
+        }],
+        total: 2,
+    };
+    let request = request(view, pending.clone(), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(
+        wake.text.contains("2 points of redirected damage"),
+        "{}",
+        wake.text
+    );
+    assert!(wake.text.contains("remaining: 2"));
+    let decision = Decision::from_decide(&serde_json::json!({
+        "ask": format!("q{}", wake.menu.question),
+        "prevention": [{"part":"d47", "amount":2}]
+    }))
+    .unwrap();
+    let action = wake.menu.resolve(&decision).unwrap().act.first();
+    assert_eq!(pending.answer_fault(&action), None);
+}

@@ -1660,6 +1660,23 @@ with the same privacy rules as source choices. It is separate from the offered
 `damage_sources` list. New target answers still select currently offered object
 IDs; retaining an old target is the explicit empty retarget answer.
 
+`RedirectNextDamage { target, amount, to }` creates finite redirection until
+cleanup. `target` binds the recipient's exact incarnation; `to` resolves once
+to the destination player. Its capacity is spent only by redirected damage,
+including damage that cannot be prevented (CR 614.9). The damage procedure
+splits redirected parts while retaining their source, keywords and replacement
+history. When simultaneous sources exceed its capacity, the affected player
+or permanent's controller allocates the redirected amount through the existing
+`AllocatePrevention` decision, labeled by `DamageEffectKind::RedirectNext`.
+
+`ActivationZone::BattlefieldOwner` restricts activation to the permanent's
+owner regardless of its controller (CR 602.2). Both the legal offer and the
+activation check enforce it. `PlayerRel::OwnerOfSource` reads the exact source's
+owner, including last known information after departure. `LoseHalfLife { player }`
+reads each indicated player's life on resolution, loses half rounded up for a
+positive total, and loses zero for a nonpositive total. Together these express
+Personal Incarnation without a card-specific engine branch.
+
 Its redirection sibling is `RedirectNextFromChosenSource { target }`, Jade
 Monolith's "the next time a source of your choice would deal damage to
 target creature this turn, that source deals that damage to you instead":

@@ -219,7 +219,8 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 // Whose the enchanted permanent is, the view could say only
                 // for a spell already attached to something, and a spell
                 // choosing targets is not.
-                PlayerRel::ControllerOfTarget
+                PlayerRel::OwnerOfSource
+                | PlayerRel::ControllerOfTarget
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer => {

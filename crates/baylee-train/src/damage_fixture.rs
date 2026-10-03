@@ -5,7 +5,7 @@ use baylee_engine::choice::{
 };
 use baylee_engine::event::DamageTarget;
 
-pub(crate) fn questions() -> [Pending; 3] {
+pub(crate) fn questions() -> [Pending; 4] {
     let player = PlayerId::new(0);
     let choice = DamageChoiceId { batch: 9, step: 4 };
     let damage = vec![DamagePartView {
@@ -25,6 +25,26 @@ pub(crate) fn questions() -> [Pending; 3] {
             remaining: u32::MAX,
         },
         parts: vec![77],
+    };
+    let redirected = Pending::AllocatePrevention {
+        player,
+        choice,
+        damage: damage
+            .iter()
+            .cloned()
+            .map(|mut part| {
+                part.preventable = false;
+                part
+            })
+            .collect(),
+        effect: DamageEffectOption {
+            kind: DamageEffectKind::RedirectNext {
+                remaining: u32::MAX,
+                to: DamageTarget::Player(PlayerId::new(1)),
+            },
+            ..effect.clone()
+        },
+        total: u32::MAX,
     };
     [
         Pending::ChooseDamageSource {
@@ -48,5 +68,6 @@ pub(crate) fn questions() -> [Pending; 3] {
             effect,
             total: u32::MAX,
         },
+        redirected,
     ]
 }

@@ -1719,6 +1719,7 @@ mod tests {
                         | PlayerRel::ControllerOfTarget
                         | PlayerRel::ControllerOfEvent
                         | PlayerRel::DamagedPlayer
+                        | PlayerRel::OwnerOfSource
                         | PlayerRel::ControllerOfAttached => false,
                     };
                     if !answerable {

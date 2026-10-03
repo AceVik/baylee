@@ -1682,4 +1682,72 @@ changed; native Shivan/Whelp gameplay acceptance remains pending.
 
 The owner now requires an explanation and explicit confirmation before each
 further UI change. Prepared target-label/filter/compact-browser QoL changes are
-uncommitted and paused for that decision; they have not been live-accepted.
+uncommitted and not yet live-accepted. The owner subsequently approved those
+three specific changes and the Personal Incarnation finite-redirection display
+("Schaden umleiten" plus remaining amount, retaining existing controls/layout).
+Any additional UI change still requires a proposal and explicit confirmation.
+
+#### Approved QoL scope and retained controls
+
+The owner explicitly requires the abilities dialog to remain available; it is
+not removed or automatically skipped. Compact presentation applies only to
+complete, small target-selection offers. Historical targets use “vor dem
+Zonenwechsel”; small unfiltered offers omit redundant seat filters. Existing
+keyboard, controller, touch, Esc and explicit confirmation paths remain.
+Personal Incarnation's finite redirection uses the existing damage-choice and
+allocation controls, with recipient and remaining amount labelled as redirection.
+
+A further observation is deliberately deferred for separate owner approval:
+the armed action's global Enter button shows only a mana symbol, while the
+abilities dialog says “1 zum Bestätigen”. A clear action verb could distinguish
+the two controls. No additional UI change was made for this observation.
+
+The owner explicitly requires the abilities dialog to remain. Compact target
+selection must neither remove nor automatically skip the abilities dialog.
+
+The live PI damage rows repeat the full source/recipient description for each
+effect. Allocation rows show each source's damage maximum (“höchstens 2”) even
+when the global budget is only 1. These are deferred clarity findings, not
+additional approved changes. The initial finite-redirection German phrase also
+produces “auf Du”; the proposed neutral arrow wording awaits owner confirmation.
+
+The real German PI cache exposes another unaccepted display defect:
+`alpha-pi-foreign-owner-ability.png` shows a historical printing that omits the
+`{0}` activation cost and the modern next-1-damage limit. The existing empty
+cost-symbol subset check accepts that line; the ability dialog therefore gives
+misleading rules even though the engine action is correct. The entire old
+sentence also becomes the armed Enter label and overruns the toolbar. Proposed
+for explicit owner approval: refuse that unmatched historical activation line
+and use the existing current English Oracle fallback; use a short “Fähigkeit
+aktivieren” action label. The abilities dialog must remain available. These
+findings prevent claiming full visual acceptance of PI until resolved.
+
+#### Live results and validation checkpoint
+
+Native all-target tests with dev-control: 1,264 passed, two existing ignored;
+Native all-target Clippy with `-D warnings` and final dev-control build passed.
+Logs: `/private/tmp/baylee-pi-qol-native-{tests-final,clippy,build}.log`.
+The build retains the existing macOS linker unwind-size warning.
+
+Live, final binary: Shivan returns as 5/5 under two old pump abilities; its new
+activation works, and Rancor returns to hand. Whelp returns as 2/3 under four old
+activations, a new activation makes it 3/3, and it survives the end step as 2/3.
+The no-blink control reaches 6/3 and is sacrificed at the end step. PI's owner
+can open the retained abilities dialog and activate after actual opposing
+Control Magic. Bolt then deals two to PI and one to its owner (40 to 39).
+A real Terror death under opposing control reduces only its owner's 39 to 19;
+the opponent remains at 40. With two Lure-forced Bears blockers, one PI
+redirection is explicitly allocated and Salve prevents the remaining three:
+PI has zero damage, owner 39, both Bears die. All recorded results have no
+client error.
+
+The compact Fork offer supports initial keyboard focus, selection feedback,
+Esc clearing without sending, and explicit confirmation. The retarget screen
+names the pre-zone-change target and offers the returned card distinctly.
+Final current-card selection destroys the returned Bears, leaves an empty
+stack and life 40/40: `/private/tmp/alpha-qol-retarget-result.json` (matching PNG).
+Representative other evidence prefixes are `alpha-self-shivan`,
+`alpha-self-whelp`, `alpha-pi`, and `alpha-qol` in `/private/tmp`.
+Root accepted the scoped QoL layouts. PI gameplay is accepted, but its visual
+acceptance remains open for the separately proposed text/button corrections.
+All agent-owned test clients were stopped after these captures.

@@ -22,6 +22,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::AttachSelf { target, .. }
             | Effect::ExileLinked { target, .. }
             | Effect::SacrificeObject { target, .. }
+            | Effect::RedirectNextDamage { target, .. }
             | Effect::PreventNextDamage { target, .. }
             | Effect::DealDamage { target, .. }
             | Effect::DealDamageEvenly { target, .. } => matches!(target, TargetSpec::ThisObject),

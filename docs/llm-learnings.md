@@ -2864,3 +2864,22 @@ land type"; both are convention tests that fire on a first try.
   to every damage source or pump. Real Eternal Witness retrieval followed by
   Patrol Hound discard is a negative control: the old trigger must not return
   that later graveyard incarnation.
+
+### Personal Incarnation — gameplay verified; UI approval pending
+
+- Owner and controller differ in activation, redirection choices, death life
+  loss and Swords life gain. Tests must explicitly steal the creature and assert
+  each role, rather than inferring all four from an unstolen case.
+- A finite redirect is not prevention: preserve unpreventable damage and let
+  the affected player allocate across simultaneous sources.
+- Removing the last life point can eliminate a player and remove their objects.
+  A test must not demand a graveyard object after that elimination.
+- Replace obsolete no-ability placeholders with actual cast/body/ability tests
+  when completing a card. A fixture-only correction needs a targeted rerun, not
+  a second full suite when all other cases and production are unchanged.
+- Printed translations may be older than Oracle. A live abilities check caught
+  missing activation cost and finite amount despite correct English metadata.
+  User approval is required before changing this display or its button labels.
+- Preserve the abilities dialog explicitly. Compact target selection is a
+  separate surface; removing redundant target tools does not authorize removing
+  the ability selection/confirmation flow.

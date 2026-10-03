@@ -411,3 +411,248 @@ fn shield_identity_survives_removing_an_earlier_shield() {
     store.clear();
     assert!(store.push_from(plain, None) > second);
 }
+
+#[test]
+fn finite_redirection_allocates_unpreventable_damage_by_recipient_controller() {
+    for unpreventable in [false, true] {
+        let mut state = state(2);
+        let first = creature(&mut state, B, 1, 1);
+        let second = creature(&mut state, B, 3, 3);
+        let target = creature(&mut state, B, 6, 6);
+        state.object_mut(second).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
+        if unpreventable {
+            let modifier = baylee_cards_dsl::Modifier::CombatDamageCantBePrevented;
+            state.effects.register(crate::effects::ContinuousEffect {
+                id: baylee_core::ids::EffectId::new(0),
+                source: None,
+                controller: A,
+                origin: crate::effects::EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp: 2,
+                duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                filter: crate::effects::EffectFilter::Dsl(&baylee_cards_dsl::Filter::Any),
+                modifier,
+            });
+        }
+        let version = state.object(target).unwrap().version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(target, version),
+            kind: ShieldKind::RedirectNext {
+                remaining: 1,
+                to: A,
+            },
+            controller: A,
+        });
+        let mut assignments = vec![
+            assigned(first, DamageTarget::Object(target), 1),
+            assigned(second, DamageTarget::Object(target), 3),
+        ];
+        for part in &mut assignments {
+            part.is_combat = true;
+        }
+        let mut work = DamageWork::new(&mut state, assignments);
+        let pending = work.advance(&mut state).unwrap();
+        let Pending::AllocatePrevention {
+            player,
+            choice,
+            ref damage,
+            total,
+            ref effect,
+        } = pending
+        else {
+            panic!("allocation: {pending:?}")
+        };
+        assert_eq!(player, B, "affected controller, not shield's controller");
+        assert_eq!(total, 1);
+        assert_eq!(
+            effect.kind,
+            DamageEffectKind::RedirectNext {
+                remaining: 1,
+                to: DamageTarget::Player(A)
+            }
+        );
+        assert!(damage.iter().all(|part| part.preventable != unpreventable));
+        let before = work.fingerprint();
+        let invalid = PlayerAction::AllocatePrevention {
+            choice,
+            allocation: vec![(damage[0].id, 2)],
+        };
+        assert_eq!(
+            pending.answer_fault(&invalid),
+            Some(AnswerFault::OutOfRange)
+        );
+        assert_eq!(before, work.fingerprint());
+        let action = PlayerAction::AllocatePrevention {
+            choice,
+            allocation: vec![(damage[0].id, 1)],
+        };
+        let mut replay_state = state.clone();
+        let mut replay = work.clone();
+        assert!(work.answer(&mut state, &action).is_none());
+        assert!(replay.answer(&mut replay_state, &action).is_none());
+        assert_eq!(work.fingerprint(), replay.fingerprint());
+        assert_eq!(state.players[0].life, 19);
+        assert_eq!(state.players[1].life, 23, "lifelink source is unchanged");
+        assert_eq!(state.object(target).unwrap().damage, 3);
+        assert!(state.shields.is_empty());
+        assert_eq!(work.parts[2].view.source, first);
+        assert_ne!(work.parts[2].view.id, work.parts[0].view.id);
+    }
+}
+
+#[test]
+fn finite_redirection_retains_capacity_across_events_and_never_prevents_damage() {
+    let mut state = state(2);
+    let source = creature(&mut state, B, 2, 2);
+    let target = creature(&mut state, A, 6, 6);
+    state.object_mut(source).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
+    state.shields.push(Shield {
+        protects: Shielded::Object(target, state.object(target).unwrap().version),
+        kind: ShieldKind::RedirectNext {
+            remaining: 3,
+            to: A,
+        },
+        controller: A,
+    });
+    for (damage, life, left) in [(2, 18, 1), (3, 17, 0)] {
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![assigned(source, DamageTarget::Object(target), damage)],
+        );
+        assert!(work.advance(&mut state).is_none());
+        assert_eq!(work.dealt(), damage);
+        assert_eq!(state.players[0].life, life);
+        if left > 0 {
+            assert_eq!(
+                state.shields[0].kind,
+                ShieldKind::RedirectNext {
+                    remaining: left,
+                    to: A
+                }
+            );
+        } else {
+            assert!(state.shields.is_empty());
+        }
+    }
+    assert_eq!(state.object(target).unwrap().damage, 2);
+    assert_eq!(state.players[1].life, 25);
+}
+
+#[test]
+fn finite_redirection_follows_only_damageable_type_changes() {
+    for types in [TypeSet::PLANESWALKER, TypeSet::ARTIFACT] {
+        let mut state = state(2);
+        let source = creature(&mut state, B, 2, 2);
+        let target = creature(&mut state, A, 6, 6);
+        let version = state.object(target).unwrap().version;
+        state.shields.push(Shield {
+            protects: Shielded::Object(target, version),
+            kind: ShieldKind::RedirectNext {
+                remaining: 1,
+                to: A,
+            },
+            controller: A,
+        });
+        state.object_mut(target).unwrap().base_mut().types = types;
+        state
+            .object_mut(target)
+            .unwrap()
+            .counters
+            .set(CounterKind::Loyalty, 5);
+        state.invalidate_projections();
+        state.refresh_characteristics();
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![assigned(source, DamageTarget::Object(target), 2)],
+        );
+        assert!(work.advance(&mut state).is_none());
+        if types == TypeSet::PLANESWALKER {
+            assert_eq!(state.players[0].life, 19);
+            assert_eq!(
+                state
+                    .object(target)
+                    .unwrap()
+                    .counters
+                    .get(CounterKind::Loyalty),
+                4
+            );
+        } else {
+            assert_eq!(state.players[0].life, 20);
+            assert_eq!(state.shields.len(), 1);
+        }
+    }
+}
+
+#[test]
+fn redirection_existing_shields_and_standing_effects_follow_damageable_types() {
+    for types in [TypeSet::PLANESWALKER, TypeSet::BATTLE, TypeSet::ARTIFACT] {
+        for standing in [false, true] {
+            let mut state = state(2);
+            let source = creature(&mut state, B, 2, 2);
+            let target = creature(&mut state, A, 6, 6);
+            let version = state.object(target).unwrap().version;
+            if standing {
+                let modifier =
+                    baylee_cards_dsl::Modifier::RedirectDamageToYou(&baylee_cards_dsl::Filter::Any);
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(target),
+                    controller: A,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp: 2,
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    filter: crate::effects::EffectFilter::ObjectIs(target, version),
+                    modifier,
+                });
+            } else {
+                let chosen = ChosenSource::new(
+                    &state,
+                    state.source_identity(source).unwrap(),
+                    &baylee_cards_dsl::Filter::Any,
+                    A,
+                    target,
+                )
+                .unwrap();
+                state.shields.push(Shield {
+                    protects: Shielded::Object(target, version),
+                    kind: ShieldKind::RedirectNextFrom {
+                        source: chosen,
+                        to: A,
+                    },
+                    controller: A,
+                });
+            }
+            state.object_mut(target).unwrap().base_mut().types = types;
+            state
+                .object_mut(target)
+                .unwrap()
+                .counters
+                .set(CounterKind::Loyalty, 5);
+            state.invalidate_projections();
+            state.refresh_characteristics();
+            let recipient = if standing {
+                DamageTarget::Player(A)
+            } else {
+                DamageTarget::Object(target)
+            };
+            let mut work = DamageWork::new(&mut state, vec![assigned(source, recipient, 2)]);
+            assert!(work.advance(&mut state).is_none());
+            let eligible = types != TypeSet::ARTIFACT;
+            let redirected = work.parts[0].view.recipient != recipient;
+            assert_eq!(redirected, eligible);
+            let life_lost = if standing { !eligible } else { eligible };
+            assert_eq!(state.players[0].life, if life_lost { 18 } else { 20 });
+            if standing && types == TypeSet::PLANESWALKER {
+                assert_eq!(
+                    state
+                        .object(target)
+                        .unwrap()
+                        .counters
+                        .get(CounterKind::Loyalty),
+                    3
+                );
+            }
+        }
+    }
+}

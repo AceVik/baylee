@@ -421,10 +421,8 @@ impl<L: CardLookup> Engine<L> {
             let Some(obj) = self.state.object(id) else {
                 continue;
             };
-            if obj.controller != player {
-                continue;
-            }
-            if let Some(cost) = self.disguise_cost(id)
+            if obj.controller == player
+                && let Some(cost) = self.disguise_cost(id)
                 && casting::affordable(
                     &self.state,
                     player,
@@ -435,7 +433,7 @@ impl<L: CardLookup> Engine<L> {
                 legal.abilities.push((id, crate::choice::TURN_FACE_UP));
             }
             // CR 709.5e: a locked door, as a sorcery, for its mana cost.
-            if sorcery_timing {
+            if obj.controller == player && sorcery_timing {
                 for half in self.unlockable_halves(id) {
                     legal.abilities.push((id, crate::choice::unlock_door(half)));
                 }
@@ -459,7 +457,11 @@ impl<L: CardLookup> Engine<L> {
                         cost_reduction,
                         ..
                     } => {
-                        if *zone != ActivationZone::Battlefield {
+                        if !match zone {
+                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::BattlefieldOwner => obj.owner == player,
+                            _ => false,
+                        } {
                             continue; // hand-zone abilities are scanned below
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
@@ -490,7 +492,11 @@ impl<L: CardLookup> Engine<L> {
                         cost_reduction,
                         ..
                     } => {
-                        if *zone != ActivationZone::Battlefield {
+                        if !match zone {
+                            ActivationZone::Battlefield => obj.controller == player,
+                            ActivationZone::BattlefieldOwner => obj.owner == player,
+                            _ => false,
+                        } {
                             continue;
                         }
                         if *timing == ActivationTiming::SorcerySpeed && !sorcery_timing {
@@ -521,7 +527,10 @@ impl<L: CardLookup> Engine<L> {
                     } => {
                         // Loyalty abilities: sorcery timing, once per turn
                         // per walker, enough loyalty for negative costs.
-                        if !sorcery_timing || self.loyalty_used_this_turn.contains(&id) {
+                        if obj.controller != player
+                            || !sorcery_timing
+                            || self.loyalty_used_this_turn.contains(&id)
+                        {
                             continue;
                         }
                         let price = self.activation_price(player, id, &Cost::FREE, None);
@@ -541,6 +550,9 @@ impl<L: CardLookup> Engine<L> {
                     }
                     _ => {}
                 }
+            }
+            if obj.controller != player {
+                continue;
             }
             // Prepared (Emeritus of Woe): a prepared permanent may cast
             // a copy of its linked spell — synthetic index `choice::PREPARED_CAST`.
@@ -1717,7 +1729,11 @@ impl<L: CardLookup> Engine<L> {
             ActivationZone::Battlefield => self
                 .state
                 .object(source)
-                .is_some_and(|o| o.zone == Zone::Battlefield),
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.controller == player),
+            ActivationZone::BattlefieldOwner => self
+                .state
+                .object(source)
+                .is_some_and(|o| o.zone == Zone::Battlefield && o.owner == player),
             ActivationZone::Hand => self
                 .state
                 .object(source)

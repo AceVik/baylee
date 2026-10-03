@@ -1618,6 +1618,8 @@ messages! {
     DamageProtection { en: "Protection prevents the indicated damage", de: "Schutz verhindert den angegebenen Schaden" },
     /// Damage decision: `DamageRedirect`.
     DamageRedirect { en: "Redirect the damage to {0}", de: "Leite den Schaden auf {0} um" },
+    /// Finite redirection names its recipient and remaining capacity.
+    DamageRedirectNext { en: "Redirect damage to {0}; remaining: {1}", de: "Schaden umleiten auf {0}; noch {1}" },
     /// Damage decision: `DamageCounter`.
     DamageCounter { en: "Remove one {0} counter and try to prevent 1 damage; counters remaining: {1}", de: "Entferne eine {0}-Marke und versuche, 1 Schaden zu verhindern; Marken übrig: {1}" },
     /// Damage decision: `DamageSourceShield`.
@@ -1626,6 +1628,8 @@ messages! {
     DamageShieldLife { en: "; {0} gains life equal to the damage prevented", de: "; {0} erhält Lebenspunkte in Höhe des verhinderten Schadens" },
     /// Prevention assigned to one damage part.
     PreventionShare { en: "{0} — prevent {1} of at most {2}", de: "{0} — verhindere {1} von höchstens {2}" },
+    /// Damage assigned to redirection rather than prevention.
+    RedirectionShare { en: "{0} — redirect {1} of at most {2}", de: "{0} — leite {1} von höchstens {2} um" },
     /// Damage decision: `DamageRule`.
     DamageRule { en: "Rule effect", de: "Regeleffekt" },
     /// Explicitly unpreventable damage in a replacement decision.
@@ -1638,6 +1642,8 @@ messages! {
     ChooseDamageEffect { en: "Choose which effect modifies the damage next", de: "Wähle, welcher Effekt den Schaden als Nächstes verändert" },
     /// Exact prevention budget and its still unassigned portion.
     AllocatePrevention { en: "Distribute {0} prevention — {1} remaining. Select a source and enter its share.", de: "Verteile {0} Schadensverhinderung — {1} übrig. Wähle eine Quelle und gib ihren Anteil ein." },
+    /// Exact redirection budget and its still unassigned portion.
+    AllocateRedirection { en: "Redirect {0} damage — {1} remaining. Select a source and enter its share.", de: "{0} Schaden umleiten — {1} übrig. Wähle eine Quelle und gib ihren Anteil ein." },
     /// A payment window with no fixed amount owed.
     OptionalPayment { en: "Optional payment", de: "Freiwillige Zahlung" },
     /// {0} is the player who must sacrifice the chosen permanents.
@@ -1911,6 +1917,12 @@ messages! {
     ChooseNewTargetOrKeep { en: "Choose a new target, or keep this target without selecting one", de: "Neues Ziel wählen oder ohne Auswahl dieses Ziel behalten" },
     /// Identifies the current target before asking whether to change it.
     RetargetContext { en: "Target {0} of {1}: {2}. {3}", de: "Ziel {0} von {1}: {2}. {3}" },
+    /// An exact former target, without exposing its internal version number.
+    TargetBeforeZoneChange { en: "before it changed zones", de: "vor dem Zonenwechsel" },
+    /// A returned card must be chosen anew to replace its earlier identity.
+    TargetReturnedHint { en: "To target a returned card, select it again below.", de: "Soll die zurückgekehrte Karte das Ziel sein, wähle sie unten erneut." },
+    /// Identifies the original target without repeating selection instructions.
+    RetargetOriginal { en: "Previous target {0} of {1}: {2}", de: "Bisheriges Ziel {0} von {1}: {2}" },
     /// A former object target may no longer be visible in the current view.
     PreviousTarget { en: "previous target", de: "bisheriges Ziel" },
     /// Confirm an optional retarget with no selected replacement.

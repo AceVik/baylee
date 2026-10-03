@@ -616,3 +616,103 @@ fn a_tap_on_a_piles_end_puts_the_held_card_last_in_it() {
     assert_eq!(arrangement.cards(Row::Pile(0)), &[obj(2)]);
     assert_eq!(arrangement.held(), None, "and was let go of");
 }
+
+fn compact_target_duel() -> crate::Duel {
+    let view = baylee_client_core::test_support::ViewBuilder::new(2)
+        .with_stack(vec![baylee_client_core::test_support::printed(
+            1, 0, "Spell", 1,
+        )])
+        .build();
+    let mut duel = crate::Duel {
+        view: Some(view),
+        ..crate::Duel::default()
+    };
+    duel.receive_choice(Pending::ChooseTargets {
+        player: PlayerId::new(0),
+        options: vec![obj(1)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    });
+    duel
+}
+
+#[test]
+fn compact_target_keyboard_starts_on_the_offer_and_esc_clears_without_sending() {
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::table::CameraRig>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .add_message::<bevy::input::keyboard::KeyboardInput>()
+        .insert_resource(compact_target_duel())
+        .add_systems(Update, (browser_takes_the_keyboard, keyboard).chain());
+    app.update();
+    assert!(!app.world().resource::<crate::Duel>().browser.is_typing());
+    assert_eq!(
+        app.world()
+            .resource::<crate::Duel>()
+            .interaction
+            .as_ref()
+            .unwrap()
+            .aim(),
+        Some(baylee_client_core::interaction::Pick::Object(obj(1)))
+    );
+    let press = |app: &mut App, code| {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.reset_all();
+        keys.press(code);
+        app.update();
+    };
+    press(&mut app, KeyCode::Enter);
+    assert!(app.world().resource::<crate::Duel>().outbox.is_empty());
+    press(&mut app, KeyCode::Space);
+    assert_eq!(
+        app.world()
+            .resource::<crate::Duel>()
+            .interaction
+            .as_ref()
+            .unwrap()
+            .selected()
+            .count(),
+        1
+    );
+    assert!(app.world().resource::<crate::Duel>().outbox.is_empty());
+    press(&mut app, KeyCode::Escape);
+    assert_eq!(
+        app.world()
+            .resource::<crate::Duel>()
+            .interaction
+            .as_ref()
+            .unwrap()
+            .selected()
+            .count(),
+        0
+    );
+    assert!(app.world().resource::<crate::Duel>().browser.is_open());
+    press(&mut app, KeyCode::Space);
+    press(&mut app, KeyCode::Enter);
+    assert!(
+        matches!(app.world().resource::<crate::Duel>().outbox.as_slice(), [PlayerAction::ChooseObjects { objects }] if objects == &[obj(1)])
+    );
+}
+
+#[test]
+fn compact_target_touch_row_selects_without_submitting() {
+    let mut app = hand_app();
+    app.insert_resource(compact_target_duel());
+    let row = app
+        .world_mut()
+        .spawn(crate::hud::TrayCard { object: obj(1) })
+        .id();
+    finger_down(&mut app, row);
+    app.update();
+    finger_up(&mut app, row);
+    finger_click(&mut app, row);
+    app.update();
+    let duel = app.world().resource::<crate::Duel>();
+    assert!(duel.interaction.as_ref().unwrap().is_selected(obj(1)));
+    assert!(duel.outbox.is_empty());
+}

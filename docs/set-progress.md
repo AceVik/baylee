@@ -42,7 +42,7 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Library of Leng](../crates/baylee-cards/src/cards/artifacts/mv_1/library_of_leng.rs) | discarding a card onto the top of the library instead of into the graveyard is not in the engine; you have no maximum hand size |
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | text-changing effects (CR 612) are not in the engine |
-| [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | redirecting damage to its owner, activation by its owner only, and losing half the owner’s life rounded up |
+| [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | rules and live gameplay pass; final display corrections await owner confirmation |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
@@ -119,9 +119,12 @@ and reentered-graveyard cases, shared counters, source choices, hash state and
 footprint. GameObject remains 312 bytes; no generated, card-status or wire change.
 The compiled-pool census found no resolving composite-`This` effect; existing
 composite uses are static/condition/trigger filters, not additional acceptance
-claims. Native live Shivan/Whelp verification remains pending. UI work is paused
-for the owner's requested explicit pre-change confirmation; prepared QoL changes
-remain uncommitted. The Alpha count is unchanged.
+claims. Native live Shivan/Whelp verification passes: old pumps do not affect the
+returned creature, a fresh pump works, and four fresh Whelp activations cause
+the end-step sacrifice. Rancor returns to hand during the live blink scenario. The owner approved the
+three proposed target-selection QoL changes and the finite-redirection display;
+those changes remain uncommitted until tests and live acceptance. Any additional
+UI change requires a new proposal and explicit confirmation. The Alpha count is unchanged.
 
 Issue #117's Engine implementation now captures exact target incarnations before
 announcement costs, checks both groups at resolution without substituting a
@@ -153,6 +156,37 @@ The multiplayer departure code also has an existing general substitute-chooser
 limitation under current CR 800.4g. New source-choice concession tests establish
 fresh questions for a surviving chooser and continuation when no source remains;
 they do not establish general replacement of a departed non-cost decision maker.
+
+### Personal Incarnation — gameplay verified; display acceptance pending
+
+Owner-only activation, finite next-one redirection and rounded-up owner life loss
+are implemented. Ten independent card tests include the real six-mana cast,
+foreign control, repeated shields, blink/expiry, source-owner LKI, negative life,
+resolution-time life and Swords' controller life gain. Generic finite redirection
+also covers unpreventable damage and affected-player choices. View51/Protocol18
+carry the new finite-redirection description.
+
+Rules suite: 8,006 passed initially; its sole failure was the obsolete PI-only
+no-ability placeholder. That test was replaced by a real cast/body/owner-ability
+test and passed in a targeted rerun, with no production change. Thus all 8,007
+cases are verified; ten existing skips remain. Native tests: 1,264 passed, two
+existing ignores. Clippy, Wasm release check, two-pass table codegen/check and all
+2,955 metadata validations pass. Logs: `/private/tmp/baylee-personal-rules-gate.log`,
+`/private/tmp/baylee-personal-wasm-metadata.log` and
+`/private/tmp/baylee-pi-qol-native-tests-final.log`.
+
+Live: two combat sources deal two each; one point redirects to the owner and
+Healing Salve prevents the other three (owner 40→39, creature damage0). After
+real Control Magic, owner activation still works; Bolt leaves damage2 and owner39.
+Terror then puts the creature in its owner's graveyard and changes owner39→19,
+while the controller stays40. The abilities dialog remains.
+
+Coverage stays Partial until display acceptance: the old German print translation
+omits the current {0}/next-one Oracle clause, its long confirmation label overflows,
+and “umleiten auf Du” needs a grammar correction. The owner has been asked to
+approve current Oracle fallback, a short activation button, and an arrow before
+the recipient; no such edits have been made yet. Evidence is archived outside
+the repository in `personal-qol-2026-10-03` under the task's visualization archive.
 
 ## Following sets
 

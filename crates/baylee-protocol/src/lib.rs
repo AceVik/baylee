@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 17 preserves target incarnations in target changes and public views.
-pub const PROTOCOL_VERSION: u32 = 17;
+/// Version 18 distinguishes finite damage redirection from prevention.
+pub const PROTOCOL_VERSION: u32 = 18;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -241,7 +241,8 @@ mod tests {
         // 15: damage-effect ordering and prevention allocation with stable choice identities.
         // 16: exact incarnation source choices and their historical view projection.
         // 17: exact target incarnations and historical target projections.
-        assert_eq!(PROTOCOL_VERSION, 17);
+        // 18: finite damage-redirection choices and allocation semantics.
+        assert_eq!(PROTOCOL_VERSION, 18);
     }
 
     #[test]

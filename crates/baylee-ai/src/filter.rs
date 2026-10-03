@@ -474,6 +474,7 @@ impl HeuristicAgent {
             | PlayerRel::ControllerOfTarget
             | PlayerRel::ControllerOfEvent
             | PlayerRel::DamagedPlayer
+            | PlayerRel::OwnerOfSource
             | PlayerRel::ControllerOfAttached => {
                 return None;
             }

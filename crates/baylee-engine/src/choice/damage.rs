@@ -63,6 +63,13 @@ pub enum DamageEffectKind {
         /// The new recipient.
         to: DamageTarget,
     },
+    /// Redirect a finite amount, allocating it among simultaneous sources.
+    RedirectNext {
+        /// Remaining total redirection capacity.
+        remaining: u32,
+        /// The new recipient.
+        to: DamageTarget,
+    },
     /// Remove one counter and try to prevent one damage. The effect can
     /// apply again to another point, so other effects may be chosen between.
     RemoveCounter {

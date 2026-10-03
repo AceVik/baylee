@@ -50,7 +50,16 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::PreventNextDamage { target, amount } => {
+        Effect::LoseHalfLife { player } => {
+            for player in super::players_of(player, state, you, res) {
+                let life = state.players[usize::from(player.get())].life;
+                let loss = u32::try_from(life).unwrap_or(0).div_ceil(2);
+                state.change_life(player, -(loss as i32), Cause::Effect);
+            }
+            None
+        }
+        Effect::PreventNextDamage { target, amount }
+        | Effect::RedirectNextDamage { target, amount, .. } => {
             if matches!(target, TargetSpec::ThisObject)
                 && !super::subjects::source(state, res)
                     .is_some_and(|r| super::subjects::on_battlefield(state, r))
@@ -61,6 +70,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if n == 0 {
                 return None;
             }
+            let kind = if let Effect::RedirectNextDamage { to, .. } = op {
+                let to = super::players_of(to, state, you, res).first().copied()?;
+                ShieldKind::RedirectNext { remaining: n, to }
+            } else {
+                ShieldKind::Next(n)
+            };
             for recipient in recipients(state, res, you, target) {
                 let protects = match recipient {
                     DamageTarget::Player(player) => Shielded::Player(player),
@@ -73,7 +88,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 state.shields.push_from(
                     Shield {
                         protects,
-                        kind: ShieldKind::Next(n),
+                        kind,
                         controller: you,
                     },
                     Some(origin),
@@ -1192,6 +1207,34 @@ mod tests {
             targeted: false,
             mana_ability: false,
             countered_source: None,
+        }
+    }
+
+    #[test]
+    fn half_life_reads_each_current_total_without_signed_overflow() {
+        for (before, expected) in [
+            (i32::MIN, i32::MIN),
+            (-1, -1),
+            (0, 0),
+            (1, 0),
+            (21, 10),
+            (i32::MAX, i32::MAX / 2),
+        ] {
+            let mut state = state();
+            let source = permanent(&mut state, "Life fixture");
+            state.players[0].life = before;
+            let mut res = untargeted(source);
+            assert!(
+                exec(
+                    &mut state,
+                    &mut res,
+                    Effect::LoseHalfLife {
+                        player: PlayerRel::OwnerOfSource
+                    }
+                )
+                .is_none()
+            );
+            assert_eq!(state.players[0].life, expected);
         }
     }
 

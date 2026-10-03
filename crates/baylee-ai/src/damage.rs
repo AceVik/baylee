@@ -27,7 +27,8 @@ fn score(
     let amount: u64 = affected.clone().map(|part| u64::from(part.amount)).sum();
     let capacity = match effect.kind {
         DamageEffectKind::PreventNext { remaining }
-        | DamageEffectKind::PreventThisEvent { remaining } => u64::from(remaining).min(amount),
+        | DamageEffectKind::PreventThisEvent { remaining }
+        | DamageEffectKind::RedirectNext { remaining, .. } => u64::from(remaining).min(amount),
         DamageEffectKind::RemoveCounter { .. } => amount.min(1),
         _ => amount,
     };
@@ -38,8 +39,8 @@ fn score(
         left -= share;
         let weight = value(view, part.recipient, hostile);
         let benefit = match effect.kind {
-            DamageEffectKind::Redirect { to } => {
-                i64::from(part.amount) * (weight - value(view, to, hostile))
+            DamageEffectKind::Redirect { to } | DamageEffectKind::RedirectNext { to, .. } => {
+                i64::try_from(share).unwrap_or(i64::MAX / 256) * (weight - value(view, to, hostile))
             }
             _ if !part.preventable => 0,
             DamageEffectKind::PreventFromSource {
@@ -120,15 +121,18 @@ pub(crate) fn answer(
             choice,
             damage,
             total,
+            effect,
             ..
         } => {
             let mut parts: Vec<_> = damage.iter().collect();
             parts.sort_by_key(|part| {
                 (
-                    std::cmp::Reverse(if part.preventable {
-                        value(view, part.recipient, hostile)
-                    } else {
-                        0
+                    std::cmp::Reverse(match effect.kind {
+                        DamageEffectKind::RedirectNext { to, .. } => {
+                            value(view, part.recipient, hostile) - value(view, to, hostile)
+                        }
+                        _ if part.preventable => value(view, part.recipient, hostile),
+                        _ => 0,
                     }),
                     part.id,
                 )
@@ -286,6 +290,54 @@ mod tests {
         assert_eq!(pending.answer_fault(&action), None);
         assert!(
             matches!(action, PlayerAction::AllocatePrevention { allocation, .. } if allocation == vec![(13, 3), (29, u32::MAX - 3)])
+        );
+    }
+    #[test]
+    fn finite_redirection_scores_only_capacity_and_allocates_unpreventable_damage() {
+        let view = ViewBuilder::new(2).build();
+        let me = view.seat;
+        let other = PlayerId::new(1);
+        let part = DamagePartView {
+            id: 3,
+            source: ObjectId::new(4, 0),
+            recipient: DamageTarget::Player(me),
+            amount: 10,
+            is_combat: true,
+            preventable: false,
+        };
+        let effect = DamageEffectOption {
+            id: 8,
+            source: None,
+            ability: None,
+            controller: me,
+            kind: DamageEffectKind::RedirectNext {
+                remaining: 1,
+                to: DamageTarget::Player(other),
+            },
+            parts: vec![3, 4],
+        };
+        assert_eq!(
+            score(&view, &effect, std::slice::from_ref(&part), &|p| p != me),
+            800
+        );
+        let pending = Pending::AllocatePrevention {
+            player: me,
+            choice: DamageChoiceId { batch: 9, step: 2 },
+            effect,
+            damage: vec![
+                DamagePartView {
+                    id: 4,
+                    recipient: DamageTarget::Player(other),
+                    ..part.clone()
+                },
+                part,
+            ],
+            total: 1,
+        };
+        let action = answer(&view, &pending, &|p| p != me).unwrap();
+        assert_eq!(pending.answer_fault(&action), None);
+        assert!(
+            matches!(action, PlayerAction::AllocatePrevention { allocation, .. } if allocation == vec![(3,1),(4,0)])
         );
     }
 }

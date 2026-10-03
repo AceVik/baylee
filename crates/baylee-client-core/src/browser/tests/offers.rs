@@ -334,3 +334,35 @@ fn mixed_battlefield_and_stack_card_choice_keeps_every_legal_source_reachable() 
             .all(|row| row.id != obj(1))
     );
 }
+
+#[test]
+fn compact_target_offers_are_complete_small_and_never_select_for_the_player() {
+    let view = ViewBuilder::new(2)
+        .with_stack((1..7).map(|id| printed(id, 0, "Spell", 1)).collect())
+        .build();
+    for (count, players, expected) in [
+        (1, false, true),
+        (4, false, true),
+        (5, false, false),
+        (1, true, false),
+    ] {
+        let mut view = view.clone();
+        view.stack.truncate(count);
+        let it = Interaction::new(
+            Pending::ChooseTargets {
+                player: me(),
+                options: view.stack.iter().map(|o| o.id).collect(),
+                player_options: if players { vec![me()] } else { vec![] },
+                min: 1,
+                max: 1,
+                reason: TargetPrompt::Targets,
+            },
+            me(),
+        );
+        let mut browser = Browser::new();
+        browser.follow(&view, Some(&it));
+        assert_eq!(browser.compact_targets(&view, Some(&it)), expected);
+        assert!(!it.can_confirm());
+        assert!(it.selected().next().is_none());
+    }
+}

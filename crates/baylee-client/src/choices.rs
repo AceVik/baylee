@@ -375,11 +375,7 @@ pub(crate) fn target_label(
     if projected.is_current {
         name.to_string()
     } else {
-        format!(
-            "{name} · {} {}",
-            Phrase::SourceHistorical.text(lang),
-            source.version
-        )
+        format!("{name} ({})", Phrase::TargetBeforeZoneChange.text(lang))
     }
 }
 
@@ -760,31 +756,32 @@ pub(crate) fn target_question(
     texts: &crate::cardtext::CardTexts,
     statics: Option<&GameStatic>,
 ) -> Vec<String> {
-    if matches!(
-        interaction.pending(),
-        baylee_engine::choice::Pending::ChooseTargets {
-            reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
-            ..
-        }
-    ) {
-        return vec![interaction.prompt().headline_naming_targets(
+    if let baylee_engine::choice::Pending::ChooseTargets {
+        reason: baylee_engine::choice::TargetPrompt::Retarget { current, index, of },
+        ..
+    } = interaction.pending()
+    {
+        let name = target_label(
             lang,
-            baylee_client_core::Turn::of(view.active, view.seat),
-            statics,
-            false,
-            &|_| None,
-            &|source| {
-                Some(target_label(
-                    lang,
-                    baylee_view::TargetRef::Object(source),
-                    FaceNames {
-                        view: Some(view),
-                        texts: Some(texts),
-                    },
-                    statics,
-                ))
+            *current,
+            FaceNames {
+                view: Some(view),
+                texts: Some(texts),
             },
+            statics,
+        );
+        let mut lines = vec![Phrase::RetargetOriginal.fill(
+            lang,
+            &[&(u64::from(*index) + 1).to_string(), &of.to_string(), &name],
         )];
+        if let baylee_view::TargetRef::Object(source) = current
+            && view
+                .target_object(*source)
+                .is_some_and(|object| !object.is_current)
+        {
+            lines.push(Phrase::TargetReturnedHint.text(lang).to_string());
+        }
+        return lines;
     }
     target_explanation(view, lang, texts)
 }
@@ -869,13 +866,14 @@ fn prevention_options(
             let label = baylee_client_core::damage::part_label(lang, part, &|target| {
                 damage_target(target, lang, statics, names)
             });
-            let phrase = if matches!(
-                effect.kind,
-                baylee_engine::choice::DamageEffectKind::RemoveCounter { .. }
-            ) {
-                Phrase::DamageCounterShare
-            } else {
-                Phrase::PreventionShare
+            let phrase = match effect.kind {
+                baylee_engine::choice::DamageEffectKind::RemoveCounter { .. } => {
+                    Phrase::DamageCounterShare
+                }
+                baylee_engine::choice::DamageEffectKind::RedirectNext { .. } => {
+                    Phrase::RedirectionShare
+                }
+                _ => Phrase::PreventionShare,
             };
             ChoiceOption::text(
                 index,
@@ -1919,6 +1917,47 @@ mod decision_id_tests {
     use baylee_engine::event::DamageTarget;
 
     #[test]
+    fn redirection_rows_describe_shares_without_promising_prevention() {
+        let part = DamagePartView {
+            id: 71,
+            source: ObjectId::new(20, 0),
+            recipient: DamageTarget::Player(PlayerId::new(0)),
+            amount: 5,
+            is_combat: true,
+            preventable: false,
+        };
+        let prompt = Prompt::AllocatePrevention {
+            effect: DamageEffectOption {
+                id: 77,
+                source: None,
+                ability: None,
+                controller: PlayerId::new(0),
+                kind: DamageEffectKind::RedirectNext {
+                    remaining: 3,
+                    to: DamageTarget::Player(PlayerId::new(1)),
+                },
+                parts: vec![71],
+            },
+            damage: vec![part],
+            total: 3,
+            amounts: vec![2],
+        };
+        for (lang, share) in [
+            (Lang::De, "leite 2 von höchstens 5 um"),
+            (Lang::En, "redirect 2 of at most 5"),
+        ] {
+            let rows = options(&prompt, lang, None, "", FaceNames::default()).unwrap();
+            assert_eq!(rows.len(), 1);
+            assert!(rows[0].label.contains(share), "{}", rows[0].label);
+            assert!(
+                rows[0]
+                    .label
+                    .contains(Phrase::DamageUnpreventable.text(lang))
+            );
+        }
+    }
+
+    #[test]
     fn damage_rows_explain_the_offer_and_keep_bounded_pages() {
         let parts: Vec<_> = (0..9)
             .map(|id| DamagePartView {
@@ -2112,7 +2151,7 @@ mod exact_target_tests {
             },
             None,
         );
-        assert!(label.contains("Original Bears") && label.contains("früheres Objekt 1"));
+        assert!(label.contains("Original Bears") && label.contains("vor dem Zonenwechsel"));
         assert!(!label.contains("Returned"));
         let question = |version| Pending::ChooseTargets {
             player: PlayerId::new(0),

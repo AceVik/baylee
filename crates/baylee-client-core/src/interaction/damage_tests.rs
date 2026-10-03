@@ -190,3 +190,41 @@ fn source_choices_keep_exact_versions_and_reset_replaced_offers() {
     assert!(changed_seat.confirm().is_none());
     assert!(baylee_engine::choice::timeout_answer(&pending).is_none());
 }
+
+#[test]
+fn redirection_allocates_unpreventable_damage_with_exact_ids_and_remaining_amount() {
+    let mut pending = allocation();
+    if let Pending::AllocatePrevention { effect, damage, .. } = &mut pending {
+        effect.kind = DamageEffectKind::RedirectNext {
+            remaining: 6,
+            to: DamageTarget::Player(PlayerId::new(1)),
+        };
+        damage[0].preventable = false;
+        let label =
+            crate::damage::effect_label(Lang::De, effect, damage, "Personal Incarnation", &|_| {
+                "Empfänger".into()
+            });
+        assert!(label.contains("Schaden umleiten auf Empfänger; noch 6"));
+    }
+    let mut interaction = Interaction::new(pending.clone(), ME);
+    interaction.set_number(3);
+    let headline = interaction
+        .prompt()
+        .headline(Lang::De, Turn::Mine, None, false);
+    assert!(
+        headline.contains("6 Schaden umleiten — 3 übrig"),
+        "{headline}"
+    );
+    assert!(!interaction.can_confirm());
+    interaction.choose_index(1);
+    interaction.set_number(3);
+    let action = interaction.confirm().unwrap();
+    assert_eq!(pending.answer_fault(&action), None);
+    assert_eq!(
+        action,
+        PlayerAction::AllocatePrevention {
+            choice: CHOICE,
+            allocation: vec![(7, 3), (42, 3)],
+        }
+    );
+}

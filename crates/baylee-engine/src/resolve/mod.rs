@@ -1149,6 +1149,12 @@ pub(super) fn players_of(
     res: &Resolution,
 ) -> Vec<PlayerId> {
     match rel {
+        PlayerRel::OwnerOfSource => state
+            .damage_source(res.source, source_version(state, res))
+            .map(|source| source.owner)
+            .filter(|p| !state.has_left(*p))
+            .into_iter()
+            .collect(),
         PlayerRel::Chosen => res.chosen_player.into_iter().collect(),
         // Last known first (CR 608.2h), for the same reason as the event's
         // below: "Exile target creature. Its controller gains life …" reads
@@ -4063,6 +4069,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::DealDamageEach { .. }
+        | Effect::RedirectNextDamage { .. }
+        | Effect::LoseHalfLife { .. }
         | Effect::PreventNextDamage { .. }
         | Effect::PreventAllCombatDamageThisTurn
         | Effect::PreventNextFromChosenSource { .. }

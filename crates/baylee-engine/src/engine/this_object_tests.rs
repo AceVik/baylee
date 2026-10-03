@@ -333,6 +333,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         // to this creature": `resolve::life::recipients`. Left open, the
         // amount after the target is not this list's business.
         "PreventNextDamage { target: ThisObject",
+        "RedirectNextDamage { target: ThisObject",
     ];
 
     let mut unread = Vec::new();

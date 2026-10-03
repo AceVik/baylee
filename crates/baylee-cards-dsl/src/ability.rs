@@ -44,6 +44,8 @@ pub enum ActivationLimit {
 pub enum ActivationZone {
     /// On the battlefield (default).
     Battlefield,
+    /// On the battlefield, activated only by its owner, regardless of controller.
+    BattlefieldOwner,
     /// From your hand (cycling).
     Hand,
     /// From your graveyard (eternalize, embalm): the card is in its owner's

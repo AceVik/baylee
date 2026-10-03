@@ -798,7 +798,19 @@ pub fn sync_tray(
     // centred — `Browser::placement` carries the measurement that says why a
     // clamp was not enough.
     let band = band_of(&windows);
-    let place = duel.browser.placement(band, settings.zone_browser);
+    let place = if duel
+        .browser
+        .compact_targets(view, duel.interaction.as_ref())
+    {
+        compact_target_placement(
+            band,
+            duel.interaction
+                .as_ref()
+                .map_or(0, |i| i.selectable().len()),
+        )
+    } else {
+        duel.browser.placement(band, settings.zone_browser)
+    };
     let tray = spawn_tray(
         &mut commands,
         lang,
@@ -1243,6 +1255,19 @@ fn head_button(commands: &mut Commands, fonts: &UiFonts, mark: char) -> Entity {
         .id()
 }
 
+/// Small complete offers keep the board visible and all rows directly reachable.
+fn compact_target_placement(band: (f32, f32), count: usize) -> Placement {
+    let width = 640.0_f32.min((band.0 - 24.0).max(0.0));
+    let rows = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    let height = (150.0 + rows * TRAY_ROW_H).min((band.1 - 24.0).max(0.0));
+    Placement {
+        left: (band.0 - width) / 2.0,
+        top: (band.1 - height) / 2.0,
+        width,
+        height,
+    }
+}
+
 /// The zone browser: a dialog over the table, in the middle of it.
 ///
 /// Centred rather than pinned to a corner, because that is where a stack of
@@ -1297,6 +1322,8 @@ pub(super) fn spawn_tray(
         .answers_here(interaction)
         .then_some(interaction)
         .flatten();
+    let compact = browser.compact_targets(view, interaction);
+    let mode = if compact { ViewMode::Detailed } else { mode };
     // The band: the whole window between its top edge and the hand zone,
     // painting nothing and answering no click. It is the coordinate space the
     // sheet is placed in, which is what makes a remembered position mean the
@@ -1390,364 +1417,407 @@ pub(super) fn spawn_tray(
     // sideways would have carried the sheet with it; that is now settled
     // where the minimise button already settles it — `tray_drag` lets the
     // control claim the press before the row it stands on does.
-    let title_row = commands
-        .spawn((
-            TrayGrip,
-            Node {
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                column_gap: px(TRAY_GAP),
-                height: px(TRAY_TITLE_H),
-                flex_shrink: 0.0,
-                ..default()
-            },
-        ))
-        .id();
-    // The two ways the sheet changes size, in the order every window on this
-    // player's desktop puts them: down into the tray, then out to full.
-    //
-    // Drawn only on a sheet the player opened by hand, which is the corner's
-    // rule one control along and is there for the same measurement: on a
-    // sheet a *question* opened the minimise button fired, `Browser::follow`
-    // put the sheet straight back, and it was a control that lit under the
-    // pointer and left the screen exactly as it was. The maximise button
-    // inherits the rule for a different reason with the same shape — a sheet
-    // a question opened reads no stored rectangle, so there is nothing for it
-    // to write and nothing to come back to.
-    //
-    // The owner asked for the pair on 19.09.2026: *"Der maximieren Button
-    // wandert neben den minimieren Button"*. It used to be the resize
-    // corner's second job, found by a click that travelled less than
-    // `input::tray_drag`'s `TAP_SLOP` — which is a gesture nothing on the
-    // sheet said was there.
-    let close = (!browser.for_choice()).then(|| {
-        let row = commands
+    let tools = if compact {
+        None
+    } else {
+        let title_row = commands
+            .spawn((
+                TrayGrip,
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    column_gap: px(TRAY_GAP),
+                    height: px(TRAY_TITLE_H),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+            ))
+            .id();
+        // The two ways the sheet changes size, in the order every window on this
+        // player's desktop puts them: down into the tray, then out to full.
+        //
+        // Drawn only on a sheet the player opened by hand, which is the corner's
+        // rule one control along and is there for the same measurement: on a
+        // sheet a *question* opened the minimise button fired, `Browser::follow`
+        // put the sheet straight back, and it was a control that lit under the
+        // pointer and left the screen exactly as it was. The maximise button
+        // inherits the rule for a different reason with the same shape — a sheet
+        // a question opened reads no stored rectangle, so there is nothing for it
+        // to write and nothing to come back to.
+        //
+        // The owner asked for the pair on 19.09.2026: *"Der maximieren Button
+        // wandert neben den minimieren Button"*. It used to be the resize
+        // corner's second job, found by a click that travelled less than
+        // `input::tray_drag`'s `TAP_SLOP` — which is a gesture nothing on the
+        // sheet said was there.
+        let close = (!browser.for_choice()).then(|| {
+            let row = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        column_gap: px(HEAD_BTN_GAP),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    // The row is furniture; the two buttons in it are the
+                    // controls. A press on the gap between them is a press on the
+                    // title bar, which is what starts a drag.
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let down = head_button(commands, fonts, glyph::MINIMISE);
+            commands.entity(down).insert(TrayMinimise);
+            // Two marks, not one that means both: a button offering to maximise a
+            // sheet that already fills the band is the same lie as a lit control
+            // that refuses its gesture. `window-restore` is the pair's other half
+            // in the shipped icon font and draws as two overlapping frames.
+            let out = head_button(
+                commands,
+                fonts,
+                if maximised {
+                    glyph::RESTORE
+                } else {
+                    glyph::MAXIMISE
+                },
+            );
+            commands.entity(out).insert(TrayMaximise);
+            commands.entity(row).add_children(&[down, out]);
+            row
+        });
+        // ---- the zone tabs, "All" first ----
+        //
+        // They take the row's slack and the minimise button keeps its 22 px,
+        // which is why the tabs grow and it does not. `min_width` of zero is the
+        // half a flex row always needs: without it a row of eight piles refuses
+        // to shrink below the width of its own chips and pushes the button off
+        // the sheet. On a question's sheet there is no button and the tabs have
+        // the row to themselves, which is the one case where that slack is free.
+        let tabs = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(4),
+                    align_items: AlignItems::Center,
+                    height: px(TRAY_TAB_H),
+                    overflow: Overflow::clip(),
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
+                    min_width: px(0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        // "All" carries no count: a sum of a graveyard, a stack and a reveal is a
+        // number about nothing. Its box is ticked when no other one is, which is
+        // the empty set's meaning drawn rather than a fourth state
+        // ([`Browser::shows_every_zone`]).
+        //
+        // A question that lives in one zone pins the tab to it (W3): nothing in
+        // the row is a button then, "All" included.
+        let pinned = browser.locked();
+        let live = pinned.is_none();
+        let mut chips = vec![spawn_tab(
+            commands,
+            fonts,
+            None,
+            Phrase::BrowseAll.text(lang).to_string(),
+            browser.shows_every_zone(),
+            live,
+        )];
+        for zone in browser.zones(view) {
+            chips.push(spawn_tab(
+                commands,
+                fonts,
+                Some(zone),
+                zone_label(lang, zone, view, statics),
+                browser.is_ticked(zone) || pinned == Some(zone),
+                live,
+            ));
+        }
+        commands.entity(tabs).add_children(&chips);
+        commands.entity(title_row).add_child(tabs);
+        if let Some(close) = close {
+            commands.entity(title_row).add_child(close);
+        }
+
+        // ---- what is typed, how it is sorted, and how much is answered ----
+        //
+        // An ordering has no filter to offer — the panel is the answer being
+        // assembled, and narrowing it would hide places in it — so the row says
+        // what to do instead. Everywhere else this is a field: empty and unfocused
+        // it shows what it is for, focused it shows a caret, and either way it is
+        // the thing a player clicks to search the pile they are looking at.
+        let ordering = interaction.is_some_and(baylee_client_core::Interaction::is_ordering);
+        let typing = browser.is_typing();
+        // A field being typed into draws itself out of its own segments below; a
+        // field at rest is one line saying what it holds or what it is for.
+        let hint = if ordering {
+            Some(Phrase::BrowseOrderHint.text(lang).to_string())
+        } else if typing {
+            None
+        } else if browser.filter().trim().is_empty() {
+            Some(Phrase::BrowseFilter.text(lang).to_string())
+        } else {
+            Some(format!("\u{201c}{}\u{201d}", browser.filter()))
+        };
+        let controls = commands
             .spawn((
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    column_gap: px(HEAD_BTN_GAP),
+                    column_gap: px(TRAY_GAP),
+                    height: px(TRAY_CTRL_H),
                     flex_shrink: 0.0,
                     ..default()
                 },
-                // The row is furniture; the two buttons in it are the
-                // controls. A press on the gap between them is a press on the
-                // title bar, which is what starts a drag.
                 Pickable::IGNORE,
             ))
             .id();
-        let down = head_button(commands, fonts, glyph::MINIMISE);
-        commands.entity(down).insert(TrayMinimise);
-        // Two marks, not one that means both: a button offering to maximise a
-        // sheet that already fills the band is the same lie as a lit control
-        // that refuses its gesture. `window-restore` is the pair's other half
-        // in the shipped icon font and draws as two overlapping frames.
-        let out = head_button(
-            commands,
-            fonts,
-            if maximised {
-                glyph::RESTORE
-            } else {
-                glyph::MAXIMISE
-            },
-        );
-        commands.entity(out).insert(TrayMaximise);
-        commands.entity(row).add_children(&[down, out]);
-        row
-    });
-    // ---- the zone tabs, "All" first ----
-    //
-    // They take the row's slack and the minimise button keeps its 22 px,
-    // which is why the tabs grow and it does not. `min_width` of zero is the
-    // half a flex row always needs: without it a row of eight piles refuses
-    // to shrink below the width of its own chips and pushes the button off
-    // the sheet. On a question's sheet there is no button and the tabs have
-    // the row to themselves, which is the one case where that slack is free.
-    let tabs = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(4),
-                align_items: AlignItems::Center,
-                height: px(TRAY_TAB_H),
-                overflow: Overflow::clip(),
-                flex_grow: 1.0,
-                flex_basis: px(0),
-                min_width: px(0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    // "All" carries no count: a sum of a graveyard, a stack and a reveal is a
-    // number about nothing. Its box is ticked when no other one is, which is
-    // the empty set's meaning drawn rather than a fourth state
-    // ([`Browser::shows_every_zone`]).
-    //
-    // A question that lives in one zone pins the tab to it (W3): nothing in
-    // the row is a button then, "All" included.
-    let pinned = browser.locked();
-    let live = pinned.is_none();
-    let mut chips = vec![spawn_tab(
-        commands,
-        fonts,
-        None,
-        Phrase::BrowseAll.text(lang).to_string(),
-        browser.shows_every_zone(),
-        live,
-    )];
-    for zone in browser.zones(view) {
-        chips.push(spawn_tab(
-            commands,
-            fonts,
-            Some(zone),
-            zone_label(lang, zone, view, statics),
-            browser.is_ticked(zone) || pinned == Some(zone),
-            live,
-        ));
-    }
-    commands.entity(tabs).add_children(&chips);
-    commands.entity(title_row).add_child(tabs);
-    if let Some(close) = close {
-        commands.entity(title_row).add_child(close);
-    }
-
-    // ---- what is typed, how it is sorted, and how much is answered ----
-    //
-    // An ordering has no filter to offer — the panel is the answer being
-    // assembled, and narrowing it would hide places in it — so the row says
-    // what to do instead. Everywhere else this is a field: empty and unfocused
-    // it shows what it is for, focused it shows a caret, and either way it is
-    // the thing a player clicks to search the pile they are looking at.
-    let ordering = interaction.is_some_and(baylee_client_core::Interaction::is_ordering);
-    let typing = browser.is_typing();
-    // A field being typed into draws itself out of its own segments below; a
-    // field at rest is one line saying what it holds or what it is for.
-    let hint = if ordering {
-        Some(Phrase::BrowseOrderHint.text(lang).to_string())
-    } else if typing {
-        None
-    } else if browser.filter().trim().is_empty() {
-        Some(Phrase::BrowseFilter.text(lang).to_string())
-    } else {
-        Some(format!("\u{201c}{}\u{201d}", browser.filter()))
-    };
-    let controls = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: px(TRAY_GAP),
-                height: px(TRAY_CTRL_H),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let said = typing || !browser.filter().trim().is_empty();
-    let ink = if said {
-        palette::DIALOG_INK
-    } else {
-        palette::DIALOG_SOFT
-    };
-    let filter_text: Vec<Entity> = match &hint {
-        Some(words) => vec![dialog_text(commands, fonts, words, 11.5, ink)],
-        None => filter_runs(commands, fonts, browser, ink),
-    };
-    // The magnifier the deck builder's box wears, in this register's ink. It
-    // is what says the box is a *search* before a word has been typed into
-    // it, and it is deliberately the quiet ink even while the field holds the
-    // keyboard: it is a label on the box, not part of what is written in it.
-    let lens = commands
-        .spawn((
-            Text::new(glyph::MAGNIFIER.to_string()),
-            icon_tf(fonts, 10.5),
-            TextColor(palette::DIALOG_SOFT),
-            Node {
-                flex_shrink: 0.0,
-                margin: UiRect::right(px(TRAY_GAP - 4.0)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    // A sunk field: the ring that says where the typing goes is the border
-    // turning candle, not a second fill.
-    let filter_line = commands
-        .spawn((
-            TrayFilter,
-            Button,
-            Node {
-                flex_grow: 1.0,
-                flex_basis: px(0),
-                min_width: px(0),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                padding: UiRect::horizontal(px(9)),
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BackgroundColor(palette::DIALOG),
-            BorderColor::all(if typing {
-                palette::CANDLE
-            } else {
-                palette::DIALOG_LINE
-            }),
-            Feel::new(palette::DIALOG),
-        ))
-        .id();
-    // The gear lives *inside* the box, which is what says it is about what
-    // the box holds. It stays lit while the builder is open, because the
-    // builder has no frame of its own to say so — it is a mode of this field
-    // and not a window.
-    let building = browser.builder().is_some();
-    let gear = commands
-        .spawn((
-            TrayGear,
-            Button,
-            Node {
-                width: px(TRAY_CTRL_H - 8.0),
-                height: px(TRAY_CTRL_H - 8.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_shrink: 0.0,
-                // `auto` on the left is what puts it at the far end of the
-                // box rather than beside the text: the runs are sized to the
-                // letters in them, so a fixed margin would walk the gear
-                // along as the player typed.
-                margin: UiRect::left(Val::Auto),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(if building {
-                palette::CANDLE_WASH
-            } else {
-                Color::NONE
-            }),
-            Feel::tinting_to(
-                if building {
+        let said = typing || !browser.filter().trim().is_empty();
+        let ink = if said {
+            palette::DIALOG_INK
+        } else {
+            palette::DIALOG_SOFT
+        };
+        let filter_text: Vec<Entity> = match &hint {
+            Some(words) => vec![dialog_text(commands, fonts, words, 11.5, ink)],
+            None => filter_runs(commands, fonts, browser, ink),
+        };
+        // The magnifier the deck builder's box wears, in this register's ink. It
+        // is what says the box is a *search* before a word has been typed into
+        // it, and it is deliberately the quiet ink even while the field holds the
+        // keyboard: it is a label on the box, not part of what is written in it.
+        let lens = commands
+            .spawn((
+                Text::new(glyph::MAGNIFIER.to_string()),
+                icon_tf(fonts, 10.5),
+                TextColor(palette::DIALOG_SOFT),
+                Node {
+                    flex_shrink: 0.0,
+                    margin: UiRect::right(px(TRAY_GAP - 4.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        // A sunk field: the ring that says where the typing goes is the border
+        // turning candle, not a second fill.
+        let filter_line = commands
+            .spawn((
+                TrayFilter,
+                Button,
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
+                    min_width: px(0),
+                    height: percent(100),
+                    align_items: AlignItems::Center,
+                    padding: UiRect::horizontal(px(9)),
+                    border: UiRect::all(px(1)),
+                    border_radius: btn_radius(),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                BackgroundColor(palette::DIALOG),
+                BorderColor::all(if typing {
+                    palette::CANDLE
+                } else {
+                    palette::DIALOG_LINE
+                }),
+                Feel::new(palette::DIALOG),
+            ))
+            .id();
+        // The gear lives *inside* the box, which is what says it is about what
+        // the box holds. It stays lit while the builder is open, because the
+        // builder has no frame of its own to say so — it is a mode of this field
+        // and not a window.
+        let building = browser.builder().is_some();
+        let gear = commands
+            .spawn((
+                TrayGear,
+                Button,
+                Node {
+                    width: px(TRAY_CTRL_H - 8.0),
+                    height: px(TRAY_CTRL_H - 8.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_shrink: 0.0,
+                    // `auto` on the left is what puts it at the far end of the
+                    // box rather than beside the text: the runs are sized to the
+                    // letters in them, so a fixed margin would walk the gear
+                    // along as the player typed.
+                    margin: UiRect::left(Val::Auto),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(if building {
                     palette::CANDLE_WASH
                 } else {
                     Color::NONE
+                }),
+                Feel::tinting_to(
+                    if building {
+                        palette::CANDLE_WASH
+                    } else {
+                        Color::NONE
+                    },
+                    palette::CANDLE_WASH_LIT,
+                ),
+            ))
+            .id();
+        let cog = commands
+            .spawn((
+                Text::new(glyph::GEAR.to_string()),
+                icon_tf(fonts, 11.0),
+                TextColor(if building {
+                    palette::CANDLE
+                } else {
+                    palette::DIALOG_SOFT
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(gear).add_child(cog);
+        commands.entity(filter_line).add_child(lens);
+        commands.entity(filter_line).add_children(&filter_text);
+        commands.entity(filter_line).add_child(gear);
+        // A library is a hundred cards and a long graveyard is thirty, so "look
+        // through this pile" is not a question the pile's own order answers on
+        // its own. The key and the direction are two buttons because they are two
+        // questions, and the arrow says which way the current one runs rather
+        // than being a third state of the key.
+        //
+        // Not while an arrangement is being built, though: the order on the
+        // sheet is then the answer, `Browser::rows` sorts by nothing else, and
+        // a key that lit under the pointer and moved no card would be a control
+        // refusing its gesture.
+        let sorting = (!ordering).then(|| {
+            let key = spawn_control(
+                commands,
+                fonts,
+                TraySort { reverse: false },
+                browser.sort().label().text(lang),
+                9.0,
+            );
+            let direction = spawn_control(
+                commands,
+                fonts,
+                TraySort { reverse: true },
+                if browser.descending() {
+                    "\u{2193}"
+                } else {
+                    "\u{2191}"
                 },
-                palette::CANDLE_WASH_LIT,
-            ),
-        ))
-        .id();
-    let cog = commands
-        .spawn((
-            Text::new(glyph::GEAR.to_string()),
-            icon_tf(fonts, 11.0),
-            TextColor(if building {
-                palette::CANDLE
+                8.0,
+            );
+            [key, direction]
+        });
+        // And after them, the three shapes the same rows can be drawn in. They
+        // sit at the right end so that every "how it is shown" control is one
+        // cluster and the search field keeps the growing left — and they are
+        // three buttons rather than a fourth cycling one, for the reason
+        // [`super::TrayView`] gives: a sort key is a ring of equivalent answers
+        // and a view is a shape you are looking at.
+        let views = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    height: percent(100),
+                    flex_shrink: 0.0,
+                    overflow: Overflow::clip(),
+                    border: UiRect::all(px(1)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BorderColor::all(palette::DIALOG_LINE),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let segments: Vec<Entity> = ViewMode::ALL
+            .into_iter()
+            .map(|each| spawn_view(commands, fonts, each, each == mode))
+            .collect();
+        commands.entity(views).add_children(&segments);
+        commands.entity(controls).add_child(filter_line);
+        if let Some(sorting) = sorting {
+            commands.entity(controls).add_children(&sorting);
+        }
+        commands.entity(controls).add_child(views);
+        // The tally. The engine names a minimum and a maximum, so the dialog can
+        // say how far along the answer is — and a panel with no question in it (a
+        // graveyard opened by hand) says nothing rather than "0 of 0".
+        if let Some((min, max)) = answering.and_then(baylee_client_core::Interaction::bounds)
+            && max > 0
+        {
+            let chosen = answering.map_or(0, baylee_client_core::Interaction::declared);
+            let words = if min == max {
+                Phrase::BrowseTallyExact.fill(lang, &[&chosen.to_string(), &max.to_string()])
             } else {
-                palette::DIALOG_SOFT
-            }),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(gear).add_child(cog);
-    commands.entity(filter_line).add_child(lens);
-    commands.entity(filter_line).add_children(&filter_text);
-    commands.entity(filter_line).add_child(gear);
-    // A library is a hundred cards and a long graveyard is thirty, so "look
-    // through this pile" is not a question the pile's own order answers on
-    // its own. The key and the direction are two buttons because they are two
-    // questions, and the arrow says which way the current one runs rather
-    // than being a third state of the key.
-    //
-    // Not while an arrangement is being built, though: the order on the
-    // sheet is then the answer, `Browser::rows` sorts by nothing else, and
-    // a key that lit under the pointer and moved no card would be a control
-    // refusing its gesture.
-    let sorting = (!ordering).then(|| {
-        let key = spawn_control(
-            commands,
-            fonts,
-            TraySort { reverse: false },
-            browser.sort().label().text(lang),
-            9.0,
-        );
-        let direction = spawn_control(
-            commands,
-            fonts,
-            TraySort { reverse: true },
-            if browser.descending() {
-                "\u{2193}"
-            } else {
-                "\u{2191}"
-            },
-            8.0,
-        );
-        [key, direction]
-    });
-    // And after them, the three shapes the same rows can be drawn in. They
-    // sit at the right end so that every "how it is shown" control is one
-    // cluster and the search field keeps the growing left — and they are
-    // three buttons rather than a fourth cycling one, for the reason
-    // [`super::TrayView`] gives: a sort key is a ring of equivalent answers
-    // and a view is a shape you are looking at.
-    let views = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                height: percent(100),
-                flex_shrink: 0.0,
-                overflow: Overflow::clip(),
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BorderColor::all(palette::DIALOG_LINE),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let segments: Vec<Entity> = ViewMode::ALL
-        .into_iter()
-        .map(|each| spawn_view(commands, fonts, each, each == mode))
-        .collect();
-    commands.entity(views).add_children(&segments);
-    commands.entity(controls).add_child(filter_line);
-    if let Some(sorting) = sorting {
-        commands.entity(controls).add_children(&sorting);
-    }
-    commands.entity(controls).add_child(views);
-    // The tally. The engine names a minimum and a maximum, so the dialog can
-    // say how far along the answer is — and a panel with no question in it (a
-    // graveyard opened by hand) says nothing rather than "0 of 0".
-    if let Some((min, max)) = answering.and_then(baylee_client_core::Interaction::bounds)
-        && max > 0
-    {
-        let chosen = answering.map_or(0, baylee_client_core::Interaction::declared);
-        let words = if min == max {
-            Phrase::BrowseTallyExact.fill(lang, &[&chosen.to_string(), &max.to_string()])
-        } else {
-            Phrase::BrowseTallyUpTo.fill(lang, &[&chosen.to_string(), &max.to_string()])
-        };
-        let tally = dialog_text(commands, fonts, &words, 10.5, palette::DIALOG_SOFT);
-        commands.entity(controls).add_child(tally);
-    }
+                Phrase::BrowseTallyUpTo.fill(lang, &[&chosen.to_string(), &max.to_string()])
+            };
+            let tally = dialog_text(commands, fonts, &words, 10.5, palette::DIALOG_SOFT);
+            commands.entity(controls).add_child(tally);
+        }
+
+        Some((title_row, controls))
+    };
 
     // Two rows, where it was three: the tabs went up into the title row —
     // and a third when the gear is open, which is the builder. It sits under
     // the controls rather than over the list, because it is what the box in
     // that row holds: a panel floating over the cards would be a second
     // window, and this is a mode of the field above it.
-    commands.entity(head).add_child(title_row);
+    if let Some((title, _)) = tools {
+        commands.entity(head).add_child(title);
+    }
     if let Some(answering) = answering {
-        for text in
-            crate::choices::target_question(answering, view, lang, faces.texts, Some(statics))
+        let mut context =
+            crate::choices::target_question(answering, view, lang, faces.texts, Some(statics));
+        if compact
+            && !matches!(
+                answering.pending(),
+                baylee_engine::choice::Pending::ChooseTargets {
+                    reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+                    ..
+                }
+            )
         {
+            // Full card rules remain in the card preview; this sheet answers the target choice.
+            context.truncate(1);
+        }
+        for text in context {
             let line = target_context_line(commands, fonts, &text);
             commands.entity(head).add_child(line);
         }
+        if compact
+            && !matches!(
+                answering.pending(),
+                baylee_engine::choice::Pending::ChooseTargets {
+                    reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+                    ..
+                }
+            )
+        {
+            let line = target_context_line(
+                commands,
+                fonts,
+                &answering.prompt().headline(
+                    lang,
+                    baylee_client_core::Turn::of(view.active, view.seat),
+                    Some(statics),
+                    false,
+                ),
+            );
+            commands.entity(head).add_child(line);
+        }
     }
-    commands.entity(head).add_child(controls);
+    if let Some((_, controls)) = tools {
+        commands.entity(head).add_child(controls);
+    }
     if let Some(panel) = browser.builder() {
         let built = crate::filterui::build(
             commands,

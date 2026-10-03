@@ -914,6 +914,36 @@ impl Browser {
         }
     }
 
+    /// A small complete target offer needs selection controls, not browser tools.
+    /// Mixed player/card offers and any hidden or filtered-out option keep the full browser.
+    #[must_use]
+    pub fn compact_targets(&self, view: &PlayerView, interaction: Option<&Interaction>) -> bool {
+        let Some(it) = interaction.filter(|_| self.answers_here(interaction)) else {
+            return false;
+        };
+        let baylee_engine::choice::Pending::ChooseTargets {
+            options,
+            player_options,
+            ..
+        } = it.pending()
+        else {
+            return false;
+        };
+        if options.is_empty()
+            || options.len() > 4
+            || !player_options.is_empty()
+            || !self.filter().is_empty()
+            || self.builder().is_some()
+        {
+            return false;
+        }
+        let rows = self.rows(view, Some(it), Names::projected());
+        rows.len() == options.len()
+            && options
+                .iter()
+                .all(|id| rows.iter().any(|row| row.id == *id))
+    }
+
     /// What is typed in the filter.
     #[must_use]
     pub fn filter(&self) -> &str {

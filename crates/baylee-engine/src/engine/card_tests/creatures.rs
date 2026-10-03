@@ -96970,33 +96970,6 @@ fn dragon_whelp_pumps_and_is_sacrificed_after_four_activations() {
     );
 }
 
-/// Personal Incarnation (damage redirection not written) is a
-/// `Coverage::Partial` body: it is cast, enters offering no ability, and
-/// is the printed 6/6 with no flying.
-#[test]
-fn partial_creatures_are_their_printed_bodies() {
-    let p0 = PlayerId::new(0);
-    let card = card_index("6e49a5b8-6bc4-4c7b-82c1-957f1fb0ca5f");
-    let def = baylee_cards::by_index(card).expect("in the pool");
-    assert!(
-        matches!(def.coverage, baylee_cards_dsl::Coverage::Partial(_)),
-        "Personal Incarnation is fully Implemented now; this test no longer proves anything"
-    );
-    assert_eq!(
-        cast_saying_nothing(card, plains(), 6),
-        Zone::Battlefield,
-        "Personal Incarnation"
-    );
-    let mut engine = Duel::new(SEED, plains()).battlefield(0, &[card]).start();
-    keep_mulligans(&mut engine);
-    let id = on_battlefield(&engine, p0, card).expect("seated");
-    assert_eq!(pt(&engine, id), (6, 6), "Personal Incarnation");
-    assert!(
-        !keywords(&engine, id).contains(KeywordSet::FLYING),
-        "Personal Incarnation has no flying"
-    );
-}
-
 /// Rock Hydra: it enters with X +1/+1 counters, and "{R}: Prevent the next
 /// 1 damage that would be dealt to this creature this turn." X = 3, the
 /// shield bought, then a Lightning Bolt at it: the shield prevents 1 of the

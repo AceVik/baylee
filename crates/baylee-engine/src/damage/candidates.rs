@@ -4,7 +4,7 @@ use super::{
     Candidate, DamageEffectKind as Kind, DamageEffectOption, DamageTarget, DamageWork, EffectKey,
     GameState, Part,
 };
-use crate::prevention::{ShieldKind, ShieldOrigin, still_a_creature};
+use crate::prevention::{ShieldKind, ShieldOrigin, damageable_recipient};
 use crate::zone::Zone;
 use baylee_cards_dsl::Modifier;
 
@@ -21,6 +21,16 @@ impl DamageWork {
                 }
                 let kind = match shield.kind {
                     ShieldKind::Next(remaining) if remaining > 0 => Kind::PreventNext { remaining },
+                    ShieldKind::RedirectNext { remaining, to }
+                        if remaining > 0
+                            && damageable_recipient(state, part.view.recipient)
+                            && !state.has_left(to) =>
+                    {
+                        Kind::RedirectNext {
+                            remaining,
+                            to: DamageTarget::Player(to),
+                        }
+                    }
                     ShieldKind::AllCombat if part.view.is_combat => Kind::PreventCombat,
                     ShieldKind::NextFrom {
                         source,
@@ -40,7 +50,7 @@ impl DamageWork {
                         }
                     }
                     ShieldKind::RedirectNextFrom { source, to }
-                        if still_a_creature(state, part.view.recipient)
+                        if damageable_recipient(state, part.view.recipient)
                             && !state.has_left(to)
                             && state
                                 .damage_source(part.view.source, part.source_version)
@@ -179,7 +189,7 @@ impl DamageWork {
                         continue;
                     }
                     let Some(to) = state.battlefield_seen().find(|&id| {
-                        still_a_creature(state, DamageTarget::Object(id))
+                        damageable_recipient(state, DamageTarget::Object(id))
                             && state
                                 .object(id)
                                 .is_some_and(|o| crate::effects::applies_to(state, fx, o))

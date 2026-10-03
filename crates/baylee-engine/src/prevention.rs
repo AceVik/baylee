@@ -32,6 +32,13 @@ pub enum ShieldKind {
     /// "Prevent the next N damage" (CR 615.7): each 1 damage prevented
     /// takes 1 off, and the shield is gone at 0.
     Next(u32),
+    /// Redirect the next finite amount to a player; this is not prevention.
+    RedirectNext {
+        /// Remaining total damage redirected.
+        remaining: u32,
+        /// The new recipient.
+        to: PlayerId,
+    },
     /// "Prevent all combat damage that would be dealt this turn" (Fog):
     /// every combat damage event, never used up.
     AllCombat,
@@ -165,16 +172,17 @@ impl Shielded {
 }
 
 /// Whether `recipient` is something a redirection may move damage from or
-/// to: a player, or a creature on the battlefield (CR 614.9).
-pub(crate) fn still_a_creature(state: &GameState, recipient: DamageTarget) -> bool {
+/// to: a player, or a battlefield battle, creature or planeswalker (CR 614.9).
+pub(crate) fn damageable_recipient(state: &GameState, recipient: DamageTarget) -> bool {
     match recipient {
-        DamageTarget::Player(_) => true,
+        DamageTarget::Player(player) => !state.has_left(player),
         DamageTarget::Object(id) => state.object(id).is_some_and(|obj| {
             obj.zone == Zone::Battlefield
-                && obj
-                    .characteristics()
-                    .types
-                    .contains(baylee_core::types::TypeSet::CREATURE)
+                && obj.characteristics().types.intersects(
+                    baylee_core::types::TypeSet::CREATURE
+                        .union(baylee_core::types::TypeSet::PLANESWALKER)
+                        .union(baylee_core::types::TypeSet::BATTLE),
+                )
         }),
     }
 }

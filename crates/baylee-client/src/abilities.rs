@@ -1387,6 +1387,37 @@ mod tests {
     }
 
     #[test]
+    fn a_legal_owner_ability_on_an_opponents_permanent_stays_available() {
+        let mut object = baylee_client_core::test_support::printed(1, 1, "Personal Incarnation", 1);
+        object.owner = PlayerId::new(0);
+        object.card.as_mut().unwrap().index =
+            baylee_cards::decks::by_name("Personal Incarnation").unwrap();
+        object.rules = object.card.map(baylee_view::RulesFace::from);
+        let id = object.id;
+        let view = ViewBuilder::new(2).with_battlefield(1, [object]).build();
+        assert_ne!(view.object(id).unwrap().controller, view.seat);
+        let rows = options(Lang::En, &view, &offering(vec![(id, 0)], vec![]), id);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].action,
+            PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 0
+            }
+        );
+        assert_eq!(rows[0].cost, None, "free actions have no payment-plan cost");
+        let words = printed_words(None, &view, id, &rows[0]).unwrap();
+        let sentence = words
+            .blocks
+            .iter()
+            .map(TextBlock::text)
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(sentence.starts_with("{0}:"), "{sentence}");
+        assert!(sentence.contains("owner may activate"), "{sentence}");
+    }
+
+    #[test]
     fn clockwork_beasts_refill_keeps_its_full_sentence_and_symbol_cost() {
         let mut beast = baylee_client_core::test_support::printed(1, 0, "Clockwork Beast", 1);
         beast.card.as_mut().unwrap().index =

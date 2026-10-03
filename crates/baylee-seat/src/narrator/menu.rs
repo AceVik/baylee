@@ -890,13 +890,14 @@ impl Builder<'_, '_> {
                 total,
                 ..
             } => {
-                let what = if matches!(
-                    effect.kind,
-                    baylee_engine::choice::DamageEffectKind::RemoveCounter { .. }
-                ) {
-                    "counter removals"
-                } else {
-                    "points of prevention"
+                let what = match effect.kind {
+                    baylee_engine::choice::DamageEffectKind::RemoveCounter { .. } => {
+                        "counter removals"
+                    }
+                    baylee_engine::choice::DamageEffectKind::RedirectNext { .. } => {
+                        "points of redirected damage"
+                    }
+                    _ => "points of prevention",
                 };
                 self.line(format!("QUESTION: Allocate exactly {total} {what} among the damage parts. Each share is 0 through that part's amount. Omitted parts receive zero."));
                 self.line(self.damage_effect(effect, &[]));

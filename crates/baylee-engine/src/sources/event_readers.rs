@@ -42,7 +42,8 @@ fn reads_event(effect: &Effect) -> bool {
         }
         Effect::PayManaToPreventDamage { player, amount, .. }
         | Effect::ScryFor { player, amount, .. } => reads_player(*player) || reads_amount(*amount),
-        Effect::SacrificeChosenByOpponent { player, .. }
+        Effect::LoseHalfLife { player }
+        | Effect::SacrificeChosenByOpponent { player, .. }
         | Effect::ExileLibraryAndShuffleHand { player, .. }
         | Effect::ExileGraveyard { player, .. }
         | Effect::BottomCardFromHand { player, .. }
@@ -90,6 +91,9 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::ChooseExiledToPlay { owner, .. } => reads_player(*owner),
         Effect::LoseLife { amount, target, .. } | Effect::Mill { amount, target, .. } => {
             reads_amount(*amount) || reads_player(*target)
+        }
+        Effect::RedirectNextDamage { target, amount, to } => {
+            reads_target(*target) || reads_amount(*amount) || reads_player(*to)
         }
         Effect::PreventNextDamage { target, amount, .. } => {
             reads_target(*target) || reads_amount(*amount)

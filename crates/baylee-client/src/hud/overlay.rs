@@ -3907,6 +3907,75 @@ mod tests {
     /// cannot do is the lie this dialog already refuses to tell with a lit
     /// tab or an unlit Confirm.
     #[test]
+    fn a_compact_target_sheet_draws_only_the_offer_and_explicit_confirmation() {
+        use baylee_engine::choice::{Pending, TargetPrompt};
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_stack(vec![baylee_client_core::test_support::printed(
+                1, 0, "Spell", 1,
+            )])
+            .build();
+        let mut duel = Duel {
+            view: Some(view),
+            statics: Some(baylee_client_core::test_support::statics(8)),
+            ..Duel::default()
+        };
+        duel.receive_choice(Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![ObjectId::new(1, 0)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        });
+        let mut app = bar_of(duel);
+        assert_eq!(
+            app.world_mut()
+                .query::<&TrayCard>()
+                .iter(app.world())
+                .count(),
+            1
+        );
+        assert_eq!(
+            app.world_mut()
+                .query::<&TrayFilter>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+        assert_eq!(
+            app.world_mut()
+                .query::<&TrayTab>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+        let panel = app
+            .world_mut()
+            .query_filtered::<&Node, With<TrayPanel>>()
+            .single(app.world())
+            .unwrap();
+        assert!(matches!(panel.width, Val::Px(w) if w <= 640.0));
+        assert!(matches!(panel.height, Val::Px(h) if h < 300.0));
+        assert!(app.world().resource::<Duel>().outbox.is_empty());
+        let confirm_count = |app: &mut App| {
+            app.world_mut()
+                .query::<&PromptButton>()
+                .iter(app.world())
+                .filter(|b| b.action == PromptAction::Confirm)
+                .count()
+        };
+        assert_eq!(confirm_count(&mut app), 0);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .interaction
+            .as_mut()
+            .unwrap()
+            .toggle(ObjectId::new(1, 0));
+        app.update();
+        assert_eq!(confirm_count(&mut app), 1);
+    }
+
+    #[test]
     fn a_maximised_sheet_offers_to_put_itself_back() {
         use baylee_client_core::browser::Placement;
 

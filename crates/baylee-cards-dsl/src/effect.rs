@@ -532,6 +532,8 @@ pub enum PlayerRel {
     /// "enchanted land's controller" (Cursed Land). Not the Aura's own
     /// controller: the two need not be the same (CR 303.4e).
     ControllerOfAttached,
+    /// The owner of the ability's source, including its last known incarnation.
+    OwnerOfSource,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).
@@ -1302,6 +1304,21 @@ pub enum Effect {
         amount: Amount,
         /// Which permanents.
         filter: &'static Filter,
+    },
+    /// Redirect the next finite amount of damage from a creature this turn.
+    /// The recipient creature and destination player are fixed on resolution.
+    RedirectNextDamage {
+        /// Creature receiving the shield.
+        target: TargetSpec,
+        /// Total damage redirected before the shield expires.
+        amount: Amount,
+        /// Player receiving redirected damage.
+        to: PlayerRel,
+    },
+    /// Each indicated player loses half their current positive life, rounded up.
+    LoseHalfLife {
+        /// Whose life total is read and reduced on resolution.
+        player: PlayerRel,
     },
     /// "Prevent the next N damage that would be dealt to any target this
     /// turn" (Samite Healer; CR 615.7): a shield on each recipient the
@@ -3497,6 +3514,8 @@ impl Effect {
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
+            | Effect::RedirectNextDamage { .. }
+            | Effect::LoseHalfLife { .. }
             | Effect::PreventNextDamage { .. }
             | Effect::PreventAllCombatDamageThisTurn
             | Effect::PreventNextFromChosenSource { .. }

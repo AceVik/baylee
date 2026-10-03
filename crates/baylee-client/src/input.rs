@@ -1095,7 +1095,7 @@ fn look_around(
     }
 }
 
-/// The filter box takes the keyboard as the zone dialog opens.
+/// Browsing starts in search; a small complete target offer starts on its first row.
 ///
 /// Every application with a search field does this, and §6's reading of the
 /// dialog is the same one — *„ein Ort, an dem man arbeitet"*. It was the
@@ -1121,6 +1121,15 @@ pub fn browser_takes_the_keyboard(mut duel: ResMut<Duel>, mut was_open: Local<bo
     let open = duel.browser.is_open();
     let opening = open && !*was_open;
     *was_open = open;
+    if open
+        && duel.view.as_ref().is_some_and(|view| {
+            duel.browser
+                .compact_targets(view, duel.interaction.as_ref())
+        })
+    {
+        duel.browser.stop_typing();
+        return;
+    }
     if !opening || crate::softkeys::SoftKeyboard::owns_typing() {
         return;
     }
