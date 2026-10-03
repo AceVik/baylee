@@ -1727,7 +1727,12 @@ impl<L: CardLookup> Engine<L> {
                     *cost,
                     *effects,
                     (*first, *second_targets),
-                    *mana_ability,
+                    *mana_ability
+                        && baylee_cards_dsl::mana_rule::activated_mana_ability(
+                            cost,
+                            effects,
+                            first.is_some() || second_targets.is_some(),
+                        ),
                     *zone,
                     *limit,
                     *cost_reduction,
@@ -1756,7 +1761,12 @@ impl<L: CardLookup> Engine<L> {
                         *cost,
                         *effects,
                         (*first, *second_targets),
-                        *mana_ability,
+                        *mana_ability
+                            && baylee_cards_dsl::mana_rule::activated_mana_ability(
+                                cost,
+                                effects,
+                                first.is_some() || second_targets.is_some(),
+                            ),
                         *zone,
                         *limit,
                         *cost_reduction,

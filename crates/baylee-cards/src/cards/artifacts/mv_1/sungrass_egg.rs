@@ -16,7 +16,7 @@ card!(
         mana_cost = mana!("{1}"),
         types = TypeSet::ARTIFACT,
     ),],
-    abilities = &[mana_ability!(
+    abilities = &[activated!(
         cost!("{2}", TapSelf, SacrificeSelf),
         &[
             Effect::mana(ManaColor::Green, 1),

@@ -475,23 +475,9 @@ fn a_pool_does_not_survive_the_turn_the_mana_was_made_in() {
     );
 }
 
-/// CR 605.1a asks whether an activated ability **could** add mana without
-/// targeting — not whether adding mana is the only thing it does.
-///
-/// Five cards in this pool print a rider beside their mana, and the reader
-/// that wrote them asked the wrong question: `.all(…)` over the effects,
-/// "every one of these is mana", where the rule asks `.any(…)`. So all five
-/// were written `activated!`, and the engine put them on the **stack** — a
-/// land tapped for mana became something an opponent could respond to, and
-/// the client, which reads the same flag to decide that a mana ability is the
-/// one thing it need not confirm (CR 605.1), asked for a second tap.
-///
-/// This is the rules half of that fix and it fails against the old pool on
-/// the very first assertion, because the ability is sitting on the stack
-/// instead of having resolved. All five are played here rather than one,
-/// because each was written by the same rule and each is a different shape:
-/// a flat colour, a choice of two, a choice that pays an *opponent*, and one
-/// whose whole cost is paid out of the card itself.
+/// Mana abilities may have riders, except costs/effects that move library cards.
+/// The four non-library examples resolve immediately. Chromatic Sphere is the
+/// control: its draw means an ordinary activated ability with a response window.
 #[test]
 fn a_mana_ability_that_does_something_else_too_still_skips_the_stack() {
     let p0 = PlayerId::new(0);
@@ -579,10 +565,15 @@ fn a_mana_ability_that_does_something_else_too_still_skips_the_stack() {
 
     // "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a
     // card." The cost is paid out of the four mana the riders just made, so
-    // this also shows a mana ability spending a mana ability's own output.
+    // this also shows an ordinary ability spending mana abilities' output.
     let pool_before = engine.state().players[0].mana_pool.total();
     assert_eq!(pool_before, 4, "one from each of the four above");
     activate(&mut engine, p0, chromatic_sphere(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), pool_before - 1);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
         panic!("expected a colour choice, got {:?}", engine.pending())
     };
@@ -592,7 +583,7 @@ fn a_mana_ability_that_does_something_else_too_still_skips_the_stack() {
         .expect("any colour");
     assert!(
         super::testkit::stack_is_empty(&engine),
-        "sacrificing itself to draw a card is still a mana ability",
+        "the ordinary activated ability has finished resolving",
     );
     assert_eq!(
         engine.state().players[0]

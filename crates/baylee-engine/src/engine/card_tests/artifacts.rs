@@ -5603,8 +5603,8 @@ fn darkwater_egg() -> CardIndex {
 /// Sacrificing the Egg is the second half of the price and is read as the
 /// permanent leaving the battlefield for its owner's graveyard — the card is
 /// gone, not merely tapped. The draw is the half no pool reading can see, so
-/// it is asserted off the library and the hand together; and nothing of this
-/// used the stack (CR 605.3b), which is asserted rather than assumed.
+/// it is asserted off the library and the hand together. The activated ability
+/// uses the stack: costs happen first, mana and the draw only on resolution.
 #[test]
 fn darkwater_egg_trades_itself_for_blue_black_and_a_card() {
     let p0 = PlayerId::new(0);
@@ -5643,6 +5643,14 @@ fn darkwater_egg_trades_itself_for_blue_black_and_a_card() {
     );
 
     activate(&mut engine, p0, darkwater_egg(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    assert!(in_graveyard(&engine, p0, darkwater_egg()).is_some());
+    pass_until(&mut engine, stack_is_empty);
 
     let pool = &engine.state().players[0].mana_pool;
     assert_eq!(
@@ -5681,8 +5689,7 @@ fn darkwater_egg_trades_itself_for_blue_black_and_a_card() {
     );
     assert!(
         stack_is_empty(&engine),
-        "CR 605.3b: a mana ability uses no stack, so the mana and the card are \
-         already here"
+        "the activated ability has finished resolving"
     );
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
@@ -6509,10 +6516,9 @@ fn mossfire_egg() -> CardIndex {
 }
 
 /// Mossfire Egg is `{1}` for one line: "`{2}`, `{T}`, Sacrifice this
-/// artifact: Add `{R}{G}`. Draw a card." That line is a *mana* ability
-/// (CR 605.1a), so the red, the green and the card all arrive with nothing on
-/// the stack (CR 605.3b) — which is why the pool and the hand are read the
-/// instant the activation is applied, with nothing to resolve between them.
+/// artifact: Add `{R}{G}`. Draw a card." Moving a card from the library
+/// makes this an ordinary activated ability under the current rules, so the
+/// sacrifice and payment precede the stack's resolution; mana and draw follow.
 /// Three Plains pay the `{1}` and the `{2}` and are spent down to nothing, so
 /// exactly one red and one green are left: neither is a colour any permanent
 /// on this board could have produced. The Egg is read in its owner's
@@ -6520,7 +6526,7 @@ fn mossfire_egg() -> CardIndex {
 /// sacrifice is a cost and a cost that silently never happened looks exactly
 /// like one that did.
 #[test]
-fn mossfire_egg_sacrifices_itself_for_red_green_and_a_card_without_using_the_stack() {
+fn mossfire_egg_sacrifices_itself_then_resolves_for_red_green_and_a_card() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(7331, forest())
         .battlefield(0, &[plains(), plains(), plains()])
@@ -6554,10 +6560,18 @@ fn mossfire_egg_sacrifices_itself_for_red_green_and_a_card_without_using_the_sta
     let library_before = library_size(&engine, p0);
 
     activate(&mut engine, p0, mossfire_egg(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    assert!(in_graveyard(&engine, p0, mossfire_egg()).is_some());
+    pass_until(&mut engine, stack_is_empty);
 
     assert!(
         stack_is_empty(&engine),
-        "CR 605.3b: a mana ability uses no stack, so nothing is waiting to resolve"
+        "the activated ability has finished resolving"
     );
     assert!(
         matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
@@ -7633,6 +7647,13 @@ fn shadowblood_egg_trades_itself_and_two_mana_for_black_red_and_a_card() {
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     activate(&mut engine, p0, shadowblood_egg(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    assert!(in_graveyard(&engine, p0, shadowblood_egg()).is_some());
     pass_until(&mut engine, stack_is_empty);
 
     let pool = &engine.state().players[0].mana_pool;
@@ -7841,11 +7862,18 @@ fn skycloud_egg_trades_two_mana_and_itself_for_white_blue_and_a_card() {
     );
 
     activate(&mut engine, p0, skycloud_egg(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    assert!(in_graveyard(&engine, p0, skycloud_egg()).is_some());
+    pass_until(&mut engine, stack_is_empty);
 
     assert!(
         stack_is_empty(&engine),
-        "CR 605.3b: a mana ability uses no stack, so the mana, the sacrifice \
-         and the draw all happened as it was activated"
+        "the activated ability has finished resolving"
     );
     assert!(
         on_battlefield(&engine, p0, skycloud_egg()).is_none(),
@@ -9570,8 +9598,8 @@ fn sungrass_egg() -> CardIndex {
 
 /// `Sungrass Egg` prints `{{2}}, {{T}}, Sacrifice this artifact: Add {{G}}{{W}}. Draw a card.` with `Coverage::Implemented`.
 /// In this scenario, seat 0 controls `Sungrass Egg` and two copies of `forest()`.
-/// Floating two mana to pay the activation cost activates the mana ability without using the stack,
-/// sacrificing the egg, producing one green and one white mana, and drawing a card.
+/// Two floating mana pay the ordinary activated ability. The Egg is sacrificed
+/// immediately; one green, one white and the drawn card arrive on resolution.
 #[test]
 fn sungrass_egg_filters_mana_and_draws_a_card() {
     let p0 = PlayerId::new(0);
@@ -9586,9 +9614,17 @@ fn sungrass_egg_filters_mana_and_draws_a_card() {
     assert_eq!(engine.state().players[0].mana_pool.total(), 2);
 
     activate(&mut engine, p0, sungrass_egg(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        initial_hand
+    );
+    assert!(in_graveyard(&engine, p0, sungrass_egg()).is_some());
+    pass_until(&mut engine, stack_is_empty);
     assert!(
         stack_is_empty(&engine),
-        "mana ability does not use the stack"
+        "the activated ability has finished resolving"
     );
     assert!(
         in_graveyard(&engine, p0, sungrass_egg()).is_some(),
@@ -9967,8 +10003,8 @@ fn chromatic_sphere() -> CardIndex {
 /// `Chromatic Sphere` prints `{{1}}, {{T}}, Sacrifice this artifact: Add one mana of any color. Draw a card.`
 /// with `Coverage::Implemented`.
 /// In this scenario, seat 0 controls a `Forest` and `Chromatic Sphere`.
-/// Floating one green mana pays the activation cost, which prompts for a color choice via `Pending::ChooseColor`.
-/// Choosing blue mana produces one blue mana without using the stack, draws a card into hand, and sacrifices the sphere.
+/// One green mana pays the cost and the artifact is sacrificed immediately.
+/// The ability uses the stack; its color choice, mana and draw occur on resolution.
 #[test]
 fn chromatic_sphere_adds_chosen_mana_and_draws_a_card() {
     let p0 = PlayerId::new(0);
@@ -9987,6 +10023,15 @@ fn chromatic_sphere_adds_chosen_mana_and_draws_a_card() {
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     activate(&mut engine, p0, chromatic_sphere(), 0);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 1);
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
     let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
         panic!("expected ChooseColor prompt, got {:?}", engine.pending());
     };
@@ -9996,7 +10041,8 @@ fn chromatic_sphere_adds_chosen_mana_and_draws_a_card() {
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
         .expect("chose blue mana");
 
-    assert!(stack_is_empty(&engine), "mana ability skips the stack");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(stack_is_empty(&engine), "the ability finished resolving");
     assert!(
         in_graveyard(&engine, p0, chromatic_sphere()).is_some(),
         "sphere was sacrificed"

@@ -503,7 +503,8 @@ pub fn granted_activated_among<'a>(
         applies_to(state, fx, obj).then_some(GrantedAbility {
             cost: *cost,
             effects,
-            mana_ability: *mana_ability,
+            mana_ability: *mana_ability
+                && baylee_cards_dsl::mana_rule::activated_mana_ability(cost, effects, false),
             source: fx.source,
             text: state.effect_text(fx),
         })

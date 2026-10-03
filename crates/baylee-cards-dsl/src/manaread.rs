@@ -298,7 +298,9 @@ pub fn mana_written(effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)
 /// invisible to the plan, and a player tapped it by hand every time.
 #[must_use]
 pub fn mana_with_riders(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, Option<u8>, bool)> {
-    if cost.mana != ManaCost::ZERO {
+    if cost.mana != ManaCost::ZERO
+        || !crate::mana_rule::activated_mana_ability(cost, effects, false)
+    {
         return None;
     }
     mana_written(effects)
@@ -327,7 +329,9 @@ pub fn mana_with_riders(cost: &Cost, effects: &[Effect]) -> Option<(ManaSource, 
 /// above keep the single-mana case to themselves.
 #[must_use]
 pub fn mana_bundle(cost: &Cost, effects: &[Effect]) -> Option<Vec<ManaColor>> {
-    if cost.mana != ManaCost::ZERO {
+    if cost.mana != ManaCost::ZERO
+        || !crate::mana_rule::activated_mana_ability(cost, effects, false)
+    {
         return None;
     }
     let mut colors = Vec::new();

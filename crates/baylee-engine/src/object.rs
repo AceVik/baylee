@@ -435,6 +435,9 @@ impl Characteristics {
             .iter()
             .chain(def.faces.iter().flat_map(|f| f.abilities.iter()));
         for ability in all_abilities {
+            if !ability.is_mana_ability() {
+                continue;
+            }
             // A conditional mana ability counts, and counts unconditionally.
             // CR 106.7 asks what an ability "would produce if the ability
             // were to resolve at that time", and the only thing it says to

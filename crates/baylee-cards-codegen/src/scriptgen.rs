@@ -217,6 +217,8 @@ impl Params {
 struct Chain {
     effects: Vec<String>,
     target: Option<String>,
+    could_add_mana: bool,
+    moves_library: bool,
 }
 
 /// "… unless <a player> pays <a price>" (CR 118.12a), read off one line.
@@ -1122,6 +1124,13 @@ impl Tx<'_> {
             return self.deny("an ability spec with no `$` in it".to_string());
         };
         p.drop_prose();
+        chain.could_add_mana |= api == "Mana";
+        chain.moves_library |= matches!(api.as_str(), "Draw" | "Mill" | "Surveil")
+            || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+                && (p
+                    .peek("Origin")
+                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
+                    != (p.peek("Destination") == Some("Library"))));
         let valid = p.take("ValidTgts");
         let targets_here = valid.is_some();
         if let Some(valid) = valid {
@@ -4775,7 +4784,7 @@ impl Tx<'_> {
             if chain.effects.is_empty() {
                 return self.deny("a granted ability that reads as no effect at all".to_string());
             }
-            let mana = chain.effects.iter().any(|e| e.contains("Effect::mana"));
+            let mana = chain.could_add_mana && !chain.moves_library;
             out.push(Self::static_expr(
                 filter,
                 &format!(
@@ -4916,25 +4925,11 @@ impl Tx<'_> {
                 return self.deny("an activated ability with no `Cost$`".to_string());
             };
             let cost = self.cost_expr(&cost)?;
-            // CR 605.1a: an activated ability is a mana ability if it could
-            // add mana, does not require a target, and is not a loyalty
-            // ability. **Could**, not "does nothing else" — this read `all`
-            // and so refused every ability with a rider, which is most of
-            // the ones that have one: a Talisman's `{T}: Add {U} or {B}.
-            // This artifact deals 1 damage to you.`, a painland's, a
-            // Chromatic Sphere's `Add one mana of any color. Draw a card.`
-            // Five cards in this pool were written as ordinary activated
-            // abilities and put their mana on the stack, where an opponent
-            // may respond to it — and the ability sheet, which reads the
-            // flag to decide whether a press needs arming, asked for a
-            // second tap before a land would make mana.
-            //
-            // The target is the ability's own (`target = Some(…)`) and not
-            // a `TargetSpec` inside an effect: "deals 1 damage to you" names
-            // a player without targeting one, and Deathrite Shaman, which
-            // does target, is the card on the other side of the line.
+            // CR 605.1a includes the library-movement exclusion. These
+            // properties describe this chain, not separately created delayed
+            // or granted abilities and not any external replacement.
             let mana_ability =
-                chain.effects.iter().any(|e| e.contains("Effect::mana")) && chain.target.is_none();
+                chain.could_add_mana && !chain.moves_library && chain.target.is_none();
             let target = chain
                 .target
                 .map(|t| format!(", target = Some({t})"))
@@ -6297,17 +6292,9 @@ mod tests {
         transcode(&parse(text), &cats(), None).is_none()
     }
 
-    /// CR 605.1a: **could** add mana, not "does nothing else".
-    ///
-    /// This was `all`, and so a Talisman, a painland and a Chromatic Sphere
-    /// — every mana ability printed with a rider — came out as an ordinary
-    /// activated ability. Two things follow from that flag and both were
-    /// wrong: the engine put the mana on the stack, where an opponent may
-    /// respond to it, and the client's ability sheet, which reads it to
-    /// decide whether a press needs arming (CR 605.1 is the whole reason a
-    /// mana ability stays one tap), asked for a second tap.
+    /// Current CR 605.1a permits damage riders but excludes library movement.
     #[test]
-    fn an_ability_that_could_add_mana_is_a_mana_ability_whatever_else_it_does() {
+    fn mana_classification_distinguishes_damage_from_library_riders() {
         // A painland: mana, and a rider that names a player without
         // targeting one.
         let pain = read(
@@ -6332,7 +6319,7 @@ mod tests {
         );
         assert_eq!(
             sphere.abilities,
-            ["mana_ability!(cost!(\"{1}\", TapSelf, SacrificeSelf), \
+            ["activated!(cost!(\"{1}\", TapSelf, SacrificeSelf), \
               &[Effect::mana_of_any_color(), Effect::draw(1)])"]
         );
 

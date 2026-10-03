@@ -11000,8 +11000,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Chromatic Sphere
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -12560,8 +12560,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Darkwater Egg
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -12744,8 +12744,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Mossfire Egg
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -12929,8 +12929,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Shadowblood Egg
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -12952,8 +12952,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Skycloud Egg
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],
@@ -12993,8 +12993,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Sungrass Egg
     &[FaceLines {
         sentences: 1,
-        stackable: 0,
-        lines: &[Some(0)],
+        stackable: 1,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],

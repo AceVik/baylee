@@ -803,27 +803,22 @@ fn reflexive_fault_in(effects: &'static [Effect], on_the_stack: bool) -> Option<
     None
 }
 
-/// The `(flag, effects)` of an activated ability a modifier **grants**.
+/// The `(flag, cost, effects)` of an activated ability a modifier **grants**.
 ///
 /// [`None`] for every other modifier, so a caller may hand it whatever a
 /// walk turned up without asking twice.
-fn as_granted_activated(modifier: &Modifier) -> Option<(bool, &'static [Effect])> {
+fn as_granted_activated(
+    modifier: &Modifier,
+) -> Option<(bool, crate::dsl::Cost, &'static [Effect])> {
     match modifier {
         Modifier::GrantActivated {
+            cost,
             effects,
             mana_ability,
             ..
-        } => Some((*mana_ability, effects)),
+        } => Some((*mana_ability, *cost, effects)),
         _ => None,
     }
-}
-
-/// Whether an effect adds mana.
-fn makes_mana(effect: &Effect) -> bool {
-    matches!(
-        effect,
-        Effect::AddMana { .. } | Effect::AddManaFor { .. } | Effect::AddManaLikeEvent { .. }
-    )
 }
 
 /// Whether an activated ability's `mana_ability` flag disagrees with what
@@ -835,12 +830,12 @@ fn makes_mana(effect: &Effect) -> bool {
 ///
 /// The rule is read the way it is written: an activated ability is a mana
 /// ability if it **could** add mana, does not require a target, and is not
-/// a loyalty ability. Not "does nothing but add mana" — the rider a
-/// Talisman, a painland or a Chromatic Sphere prints beside its mana
-/// changes none of the three conditions.
+/// a loyalty ability, and its own cost/effect cannot move library cards.
+/// Damage/life riders are permitted; Chromatic Sphere's draw is not.
 fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
-    let (claimed, effects, target) = match ability {
+    match ability {
         AbilityDef::Activated {
+            cost,
             mana_ability,
             effects,
             targets,
@@ -848,64 +843,44 @@ fn mana_ability_fault(ability: &AbilityDef) -> Option<&'static str> {
             ..
         }
         | AbilityDef::ActivatedConditional {
+            cost,
             mana_ability,
             effects,
             targets,
             second_targets,
             ..
-        } => (
+        } => mana_ability_fault_of(
             *mana_ability,
-            *effects,
-            // Whether it targets at all, through either instance of the
-            // word: CR 605.1a asks "doesn't target", not "has no first
-            // target", and a second requirement is a target like the first.
-            // "Up to one" requires a target all the same (CR 115.6), so the
-            // count plays no part.
+            cost,
+            effects,
             targets
                 .map(|req| req.spec)
                 .or(second_targets.map(|req| req.spec)),
         ),
-        _ => return None,
-    };
-    mana_ability_fault_of(claimed, effects, target)
+        _ => None,
+    }
 }
 
-/// The CR 605.1 question itself, over the three things it reads.
-///
-/// Split out from [`mana_ability_fault`] so that an ability a card *grants*
-/// is held to the same rule rather than to a copy of it: a
-/// [`Modifier::GrantActivated`] is not an [`AbilityDef`] and cannot reach
-/// the match above, but it carries a `mana_ability` flag that means exactly
-/// what the flag on a printed ability means.
-///
-/// `target` is [`None`] for a grant and structurally so — `GrantActivated`
-/// has no such field — which is why one of the three faults below cannot
-/// fire for one. That is a thing this signature can say and a second copy of
-/// the rule could not.
+/// Printed and granted abilities obey the same current CR 605.1a criteria.
 fn mana_ability_fault_of(
     claimed: bool,
+    cost: &crate::dsl::Cost,
     effects: &'static [Effect],
     target: Option<TargetSpec>,
 ) -> Option<&'static str> {
-    let makes_any = effects.iter().any(makes_mana);
+    let makes_any = crate::dsl::mana_rule::could_add_mana(effects);
     if claimed && !makes_any {
         return Some("claims a mana ability that makes no mana");
     }
     if claimed && target.is_some() {
         return Some("claims a mana ability that targets (CR 605.1a)");
     }
-    // **Could** add mana, not "does nothing else". This read `all` and so
-    // said nothing about every mana ability printed with a rider — a
-    // Talisman's "Add {U} or {B}. This artifact deals 1 damage to you.", a
-    // painland's, a Chromatic Sphere's "Add one mana of any color. Draw a
-    // card." Five of them were in the pool as ordinary activated abilities,
-    // putting their mana on the stack where an opponent may respond to it,
-    // and the lint written to catch exactly that was green over all five.
-    if !makes_any || target.is_some() {
-        return None;
+    let actual = crate::dsl::mana_rule::activated_mana_ability(cost, effects, target.is_some());
+    if claimed && !actual {
+        return Some("claims a mana ability whose cost or effect moves a library card (CR 605.1a)");
     }
-    if !claimed {
-        return Some("adds mana, targets nothing, and is not marked a mana ability (CR 605.1a)");
+    if !claimed && actual {
+        return Some("meets CR 605.1a but is not marked a mana ability");
     }
     None
 }
@@ -1793,16 +1768,10 @@ mod tests {
     /// it skips a window the rules guarantee — and nothing else in the suite
     /// reads either as a bug.
     ///
-    /// It used to ask whether the ability did *nothing but* add mana, which
-    /// is not the rule and is not what the cards print. Five of this pool's
-    /// cards add mana with a rider beside it — both Talismans, Grove of the
-    /// Burnwillows, Fogwell's Gym and Chromatic Sphere — and all five were
-    /// written as ordinary activated abilities, put their mana on the stack,
-    /// and were asked for a second tap by the ability sheet, which reads
-    /// this flag to decide whether a press needs arming. The lint written to
-    /// catch exactly that was green over all five.
+    /// Damage/life riders do not exclude a mana ability. Library movement
+    /// does: Chromatic Sphere now belongs on the stack under CR 605.1a.
     #[test]
-    fn a_mana_ability_is_an_ability_that_could_add_mana_without_targeting() {
+    fn mana_abilities_meet_all_current_activation_criteria() {
         let mut wrong = Vec::new();
         let mut seen = 0_usize;
         for def in crate::all() {
@@ -2404,10 +2373,10 @@ mod tests {
                         GrantDoor::Effect => by_effect += 1,
                         GrantDoor::Copy => by_copy += 1,
                     }
-                    let Some((claimed, effects)) = as_granted_activated(modifier) else {
+                    let Some((claimed, cost, effects)) = as_granted_activated(modifier) else {
                         continue;
                     };
-                    if let Some(fault) = mana_ability_fault_of(claimed, effects, None) {
+                    if let Some(fault) = mana_ability_fault_of(claimed, &cost, effects, None) {
                         wrong.push(format!("{} grants an ability that {fault}", def.name()));
                     }
                 }
@@ -2519,7 +2488,7 @@ mod tests {
         );
 
         // The case the `all` reading could not see: mana **and** a rider,
-        // which is what a Talisman, a painland and a Chromatic Sphere print.
+        // while library movement now changes the answer under CR 605.1a.
         let with_a_rider = AbilityDef::Activated {
             cost: crate::dsl::cost::Cost::TAP,
             effects: &MANA_AND_DRAW,
@@ -2532,8 +2501,8 @@ mod tests {
             cost_reduction: None,
         };
         assert!(
-            mana_ability_fault(&with_a_rider).is_some(),
-            "an ability that adds mana beside something else is still a mana ability"
+            mana_ability_fault(&with_a_rider).is_none(),
+            "mana with a draw uses the stack under current CR 605.1a"
         );
 
         let lying = AbilityDef::Activated {

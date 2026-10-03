@@ -12,6 +12,7 @@ pub mod cost;
 pub mod counters;
 pub mod effect;
 pub mod filter;
+pub mod mana_rule;
 pub mod manaread;
 pub mod special;
 pub mod static_ability;

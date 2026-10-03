@@ -823,17 +823,33 @@ impl AbilityDef {
     /// and six readers across the engine, the client and the lints once
     /// matched only the unconditional one.
     #[must_use]
-    pub const fn is_mana_ability(&self) -> bool {
-        matches!(
-            self,
+    pub fn is_mana_ability(&self) -> bool {
+        match self {
             Self::Activated {
-                mana_ability: true,
-                ..
-            } | Self::ActivatedConditional {
-                mana_ability: true,
+                cost,
+                effects,
+                targets,
+                second_targets,
+                mana_ability,
                 ..
             }
-        )
+            | Self::ActivatedConditional {
+                cost,
+                effects,
+                targets,
+                second_targets,
+                mana_ability,
+                ..
+            } => {
+                *mana_ability
+                    && crate::mana_rule::activated_mana_ability(
+                        cost,
+                        effects,
+                        targets.is_some() || second_targets.is_some(),
+                    )
+            }
+            _ => false,
+        }
     }
 
     /// Whether this is a **triggered** mana ability (CR 605.1b): it has no
@@ -843,7 +859,7 @@ impl AbilityDef {
     /// (CR 605.4a).
     ///
     /// Derived, as [`Self::is_mana_ability`]'s flag is checked against the
-    /// same three questions by `lints::mana_ability_fault`: a "whenever you
+    /// activated criteria by `lints::mana_ability_fault`: a "whenever you
     /// tap this land for mana" that targets (Forbidden Orchard's) is an
     /// ordinary trigger and goes on the stack.
     #[must_use]
@@ -1060,11 +1076,12 @@ mod tests {
     use crate::static_ability::{Layer, Modifier, ReplacementRule, StaticAbility};
 
     const NOTHING: &[Effect] = &[];
+    const TEST_MANA: &[Effect] = &[Effect::mana(crate::ManaColor::Green, 1)];
 
     fn activated(mana_ability: bool) -> AbilityDef {
         AbilityDef::Activated {
             cost: crate::cost::Cost::TAP,
-            effects: NOTHING,
+            effects: TEST_MANA,
             targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,
@@ -1078,7 +1095,7 @@ mod tests {
     fn conditional(mana_ability: bool) -> AbilityDef {
         AbilityDef::ActivatedConditional {
             cost: crate::cost::Cost::TAP,
-            effects: NOTHING,
+            effects: TEST_MANA,
             targets: None,
             second_targets: None,
             timing: ActivationTiming::InstantSpeed,

@@ -736,10 +736,17 @@ ones an ability cannot be written without; everything after them is
 | `once_per_turn` | `false` | a trigger fires on every occurrence |
 | `condition` | `None` | most triggers print no intervening `if` |
 
-`mana_ability = false` is the load-bearing one: an ability wrongly marked
-`true` would silently skip the stack, and no test would read that as a rules
-bug. That is why it is a default you have to opt *out* of, and why a mana
-ability gets its own macro rather than a flag.
+`mana_ability = false` is the default; the mana-ability macro opts into the
+exception. The shared `mana_rule::activated_mana_ability` check also guards
+execution and validates that declaration: no targets, possible mana production,
+no loyalty ability, and no card moved to or from a library by its own cost or
+immediate effects (CR 605.1a, September 2026). A damage rider is allowed;
+Chromatic Sphere and the five Eggs use the stack because they draw cards.
+Quoted grants and delayed triggers are separate abilities. External replacements
+do not change this classification. Scry or shuffling alone does not cross a
+library zone boundary, but can still prohibit reversing an action under
+CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
+abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.
 
