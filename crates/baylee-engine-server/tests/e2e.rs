@@ -438,7 +438,7 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
                         Some(v1::envelope::Msg::ChoiceRequest(req)) => {
                             let pending = serde_json::from_slice(&req.pending_json)
                                 .expect("seat 0's question decodes");
-                            return Some(Asked::Human(pending));
+                            return Some(Asked::Human(Box::new(pending)));
                         }
                         _ => {}
                     },
@@ -450,7 +450,7 @@ async fn a_socket_can_take_an_ai_chair_and_hand_it_back() {
         .flatten();
         match asked {
             Some(Asked::Driver) => driver_asked = true,
-            Some(Asked::Human(pending)) => seat_0_asked = Some(pending),
+            Some(Asked::Human(pending)) => seat_0_asked = Some(*pending),
             None => break,
         }
     }
@@ -610,7 +610,7 @@ enum Asked {
     /// The socket driving an AI chair.
     Driver,
     /// Seat 0, and what it was asked.
-    Human(Pending),
+    Human(Box<Pending>),
 }
 
 /// Answers a pending with the most trivial legal reply it has.
