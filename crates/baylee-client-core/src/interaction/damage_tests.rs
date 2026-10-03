@@ -204,7 +204,7 @@ fn redirection_allocates_unpreventable_damage_with_exact_ids_and_remaining_amoun
             crate::damage::effect_label(Lang::De, effect, damage, "Personal Incarnation", &|_| {
                 "Empfänger".into()
             });
-        assert!(label.contains("Schaden umleiten auf Empfänger; noch 6"));
+        assert!(label.contains("Schaden umleiten → Empfänger; noch 6"));
     }
     let mut interaction = Interaction::new(pending.clone(), ME);
     interaction.set_number(3);

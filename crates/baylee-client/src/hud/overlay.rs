@@ -1439,12 +1439,7 @@ pub(super) struct ArmedWords {
 /// offering something that has since been withdrawn. The row simply
 /// disappears; the state itself is cleared by the next key or tap, both of
 /// which run the same resolution.
-pub(super) fn armed_label(
-    duel: &Duel,
-    lang: Lang,
-    texts: &crate::cardtext::CardTexts,
-    armed: &crate::Armed,
-) -> Option<ArmedWords> {
+pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Option<ArmedWords> {
     match &armed.deed {
         crate::Deed::Play => duel
             .interaction
@@ -1457,27 +1452,15 @@ pub(super) fn armed_label(
                 // price left to quote.
                 cost: None,
             }),
-        // What the armed ability costs, as the card prints it — the head the
-        // sheet's column draws, in the same words: `{T}, Sacrifice this
-        // artifact`. Most of a cost is not mana and there are no discs for a
-        // sacrifice, so it is the text, and pips beside it would say the mana
-        // half twice. A sentence with no head is a keyword line that is its
-        // own cost (`Equip {2}`), and is drawn whole. The ability's symbols
-        // only where the card prints no sentence for it, and the label (a
-        // grant's, the CR 305.6 tap's) where there are none.
-        crate::Deed::Ability(action) => {
-            let view = duel.view.as_ref()?;
-            super::ability_options(duel, lang, armed.object)?
-                .into_iter()
-                .find(|o| o.action == *action)
-                .map(|o| ArmedWords {
-                    text: crate::abilities::printed_words(Some(texts), view, armed.object, &o)
-                        .and_then(|cut| cut.head.or_else(|| rules_line(&cut.blocks)))
-                        .or(o.cost)
-                        .unwrap_or(o.label),
-                    cost: None,
-                })
-        }
+        // The retained abilities dialog shows the complete printed sentence
+        // and costs. Confirmation names the action without repeating that text.
+        crate::Deed::Ability(action) => super::ability_options(duel, lang, armed.object)?
+            .into_iter()
+            .any(|option| option.action == *action)
+            .then(|| ArmedWords {
+                text: Phrase::ArmedActivate.text(lang).to_string(),
+                cost: None,
+            }),
         // The owner's report: this said "Tap 3, then cast", which is a fact
         // about the client's plan and not about the spell. What a player
         // needs to read before spending a turn's lands is the *price* —
@@ -1540,21 +1523,6 @@ pub(super) fn armed_label(
                 cost: None,
             }),
     }
-}
-
-/// A sentence's rules text as one line, its reminder left out: what the
-/// armed shelf says of a keyword ability that is its own cost.
-fn rules_line(blocks: &[baylee_client_core::card_face::TextBlock]) -> Option<String> {
-    use baylee_client_core::card_face::TextBlock;
-    let line = blocks
-        .iter()
-        .filter_map(|block| match block {
-            TextBlock::Rules(text) => Some(text.as_str()),
-            TextBlock::Reminder(_) => None,
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-    (!line.trim().is_empty()).then_some(line)
 }
 
 /// One arm of the number stepper.

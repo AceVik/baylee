@@ -1619,7 +1619,7 @@ messages! {
     /// Damage decision: `DamageRedirect`.
     DamageRedirect { en: "Redirect the damage to {0}", de: "Leite den Schaden auf {0} um" },
     /// Finite redirection names its recipient and remaining capacity.
-    DamageRedirectNext { en: "Redirect damage to {0}; remaining: {1}", de: "Schaden umleiten auf {0}; noch {1}" },
+    DamageRedirectNext { en: "Redirect damage to {0}; remaining: {1}", de: "Schaden umleiten → {0}; noch {1}" },
     /// Damage decision: `DamageCounter`.
     DamageCounter { en: "Remove one {0} counter and try to prevent 1 damage; counters remaining: {1}", de: "Entferne eine {0}-Marke und versuche, 1 Schaden zu verhindern; Marken übrig: {1}" },
     /// Damage decision: `DamageSourceShield`.
@@ -2131,6 +2131,8 @@ messages! {
     HoldRelease { en: "Ask me again", de: "Wieder fragen" },
     /// The armed button for a spell or a land: pressing it sends the card.
     ArmedPlay { en: "Play this card", de: "Diese Karte spielen" },
+    /// Explicit confirmation of the ability shown in the retained dialog.
+    ArmedActivate { en: "Activate ability", de: "Fähigkeit aktivieren" },
     /// The armed button for a spell whose mana still has to be tapped.
     ///
     /// `{0}` is the *price* — the spell's mana cost, tax and all — and it is

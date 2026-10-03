@@ -2865,7 +2865,7 @@ land type"; both are convention tests that fire on a first try.
   Patrol Hound discard is a negative control: the old trigger must not return
   that later graveyard incarnation.
 
-### Personal Incarnation — gameplay verified; UI approval pending
+### Personal Incarnation — accepted
 
 - Owner and controller differ in activation, redirection choices, death life
   loss and Swords life gain. Tests must explicitly steal the creature and assert
@@ -2879,7 +2879,9 @@ land type"; both are convention tests that fire on a first try.
   a second full suite when all other cases and production are unchanged.
 - Printed translations may be older than Oracle. A live abilities check caught
   missing activation cost and finite amount despite correct English metadata.
-  User approval is required before changing this display or its button labels.
+  The owner approved the existing full-Oracle fallback and generic button label;
+  no per-card shortened text was introduced. Future UI changes still require
+  an explicit proposal and approval.
 - Preserve the abilities dialog explicitly. Compact target selection is a
   separate surface; removing redundant target tools does not authorize removing
   the ability selection/confirmation flow.

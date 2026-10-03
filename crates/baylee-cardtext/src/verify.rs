@@ -1,7 +1,7 @@
 //! Whether the line in an Oracle line's position is the same ability.
 
 use crate::align::Aligned;
-use crate::text::{head, is_submultiset, sentences, symbols};
+use crate::text::{cost_colon, head, is_submultiset, sentences, symbols};
 
 /// What the cost symbols say about a line [`align`](crate::align) placed.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -46,7 +46,11 @@ pub fn verify(oracle: &str, aligned: &Aligned, line: usize) -> Verdict {
     if expected.is_empty() || expected == printed {
         return Verdict::Positional;
     }
-    if is_submultiset(&printed, &expected) {
+    // An old prose description without an activation cost is not evidence
+    // for a current activated ability, even though its empty symbol set is
+    // mathematically a subset. Leave it intact and let the caller use Oracle.
+    let missing_activation = cost_colon(target).is_some() && cost_colon(placed).is_none();
+    if !missing_activation && is_submultiset(&printed, &expected) {
         return Verdict::Subset;
     }
     let unique_in_oracle = want.iter().filter(|l| symbols(head(l)) == expected).count() == 1;
@@ -115,6 +119,24 @@ mod tests {
         assert_eq!(verify(oracle, &a, 0), Verdict::Subset);
         let a = align(oracle, "{G}, {T}: Bringe zurück.", "normal").unwrap();
         assert_eq!(verify(oracle, &a, 0), Verdict::Refused);
+    }
+
+    #[test]
+    fn historical_prose_without_the_activation_cost_uses_oracle() {
+        let oracle = "{0}: The next 1 damage is dealt to its owner instead.";
+        let historical =
+            "Der Besitzer kann Teile oder den ganzen Schaden auf sich selber umleiten.";
+        let aligned = align(oracle, historical, "normal").unwrap();
+        assert_eq!(verify(oracle, &aligned, 0), Verdict::Refused);
+        assert_eq!(localized(oracle, &aligned, 0), None);
+        assert_eq!(aligned.lines[0].as_deref(), Some(historical));
+        let current = align(
+            oracle,
+            "{0}: Der nächste 1 Schaden wird umgeleitet.",
+            "normal",
+        )
+        .unwrap();
+        assert_eq!(verify(oracle, &current, 0), Verdict::Positional);
     }
 
     #[test]

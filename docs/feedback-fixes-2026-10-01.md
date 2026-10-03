@@ -1751,3 +1751,41 @@ Representative other evidence prefixes are `alpha-self-shivan`,
 Root accepted the scoped QoL layouts. PI gameplay is accepted, but its visual
 acceptance remains open for the separately proposed text/button corrections.
 All agent-owned test clients were stopped after these captures.
+
+#### Approved PI display corrections — completed
+
+The owner approved the three concrete corrections while explicitly retaining
+complete, unchanged Scryfall/Oracle text and the abilities dialog. An aligned
+historical prose line without the current activation cost is no longer accepted
+solely because its empty symbol set is a subset. The existing compiled English
+Oracle fallback supplies the entire unchanged current ability sentence. No
+Oracle content, Scryfall cache data, card-specific summary or translation table
+was edited. The armed button now says “Fähigkeit aktivieren”; finite redirection
+says “Schaden umleiten → Du; noch 1”.
+
+Targeted validation: 55 Cardtext tests, one Core allocation test and 286 Native
+HUD tests passed, including a real PI sheet presenter asserting the complete
+Oracle sentence, retained dialog and short confirmation. Native/Cardtext
+all-target Clippy and final dev-control build passed. Logs use
+`/private/tmp/baylee-pi-display-*.log`. Root also confirmed the final Wasm check.
+
+Final live captures: `/private/tmp/alpha-pi-final-ability.png` and matching JSON
+show the entire Oracle sentence, `source=oracle`, the Mana-font zero and the
+short confirmation with no toolbar overflow. Root visually accepted this dialog.
+`/private/tmp/alpha-pi-final-effect-choice.png` and matching JSON show the corrected
+arrow wording, recipient and remaining amount. The test client was stopped.
+The three blocking PI display defects above are resolved; repeated damage
+context and the per-source versus total allocation maximum remain deferred
+ideas requiring a separate proposal and approval.
+
+Personal Incarnation final acceptance: Root inspected both final images and
+accepted the unchanged complete Oracle text, Manafont {0}, retained abilities
+dialog, short generic activation button and corrected redirection arrow. The
+card is now Implemented; all ten card tests, metadata validation and codegen
+check pass after the coverage change. Alpha: 269 Implemented, 17 Partial, four
+explicit exclusions. Latest Wasm check: `/private/tmp/baylee-pi-display-wasm.log`.
+Final screenshots/JSON are archived outside the repository under
+`/Users/viktor/.codex/visualizations/2026/10/01/01a0f916-864d-7873-9579-b5acbfcacb23/personal-qol-2026-10-03/`.
+
+The owner authorized periodic pushes; the earlier 50 local commits through
+`2d715115` have been pushed to origin/main.

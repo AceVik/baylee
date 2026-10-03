@@ -950,7 +950,7 @@ pub fn sync_ledge(
         .armed
         .as_ref()
         .filter(|_| !over)
-        .and_then(|a| super::overlay::armed_label(&duel, lang, &texts, a));
+        .and_then(|a| super::overlay::armed_label(&duel, lang, a));
     let sentence = revision
         .link_note
         .map(|note| (note.text(lang).to_string(), true))

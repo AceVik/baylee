@@ -14,11 +14,11 @@ remaining" claim was incorrect. This complete inventory supersedes those counts.
 
 ## Limited Edition Alpha
 
-290 distinct Oracle identities in `set_lea.rs`: **268 Implemented, 18 Partial,
+290 distinct Oracle identities in `set_lea.rs`: **269 Implemented, 17 Partial,
 4 explicitly excluded** by the existing owner scope in `data/unplayable.tsv`.
-Thus 268 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
+Thus 269 of 286 in-scope cards are marked Implemented; **Alpha is not complete**.
 Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
-Nether Shadow, Sunglasses of Urza, Sengir Vampire and Earthbind are
+Nether Shadow, Sunglasses of Urza, Sengir Vampire, Earthbind and Personal Incarnation are
 included in the Implemented count. Their dedicated
 behavioral tests replace the earlier cast-only evidence; milestone validation
 and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
@@ -42,7 +42,6 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | [Library of Leng](../crates/baylee-cards/src/cards/artifacts/mv_1/library_of_leng.rs) | discarding a card onto the top of the library instead of into the graveyard is not in the engine; you have no maximum hand size |
 | [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | text-changing effects (CR 612) are not in the engine |
-| [Personal Incarnation](../crates/baylee-cards/src/cards/creatures/mv_6/personal_incarnation.rs) | rules and live gameplay pass; final display corrections await owner confirmation |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | text-changing effects (CR 612) are not in the engine |
 | [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
@@ -157,7 +156,7 @@ limitation under current CR 800.4g. New source-choice concession tests establish
 fresh questions for a surviving chooser and continuation when no source remains;
 they do not establish general replacement of a departed non-cost decision maker.
 
-### Personal Incarnation — gameplay verified; display acceptance pending
+### Personal Incarnation — accepted
 
 Owner-only activation, finite next-one redirection and rounded-up owner life loss
 are implemented. Ten independent card tests include the real six-mana cast,
@@ -181,12 +180,16 @@ real Control Magic, owner activation still works; Bolt leaves damage2 and owner3
 Terror then puts the creature in its owner's graveyard and changes owner39→19,
 while the controller stays40. The abilities dialog remains.
 
-Coverage stays Partial until display acceptance: the old German print translation
-omits the current {0}/next-one Oracle clause, its long confirmation label overflows,
-and “umleiten auf Du” needs a grammar correction. The owner has been asked to
-approve current Oracle fallback, a short activation button, and an arrow before
-the recipient; no such edits have been made yet. Evidence is archived outside
-the repository in `personal-qol-2026-10-03` under the task's visualization archive.
+Personal Incarnation is now Implemented after the owner's display-fix approval
+and final live inspection. The abilities dialog retains the complete unchanged
+Oracle text and {0} Manafont symbol; the generic confirmation button says
+“Fähigkeit aktivieren”, and the redirection label uses an arrow before the player.
+No Scryfall/Oracle content file or per-card shortened text was introduced.
+Additional checks: 55 Cardtext, one Core and 286 native HUD tests, native Clippy
+and build, Wasm release check, all ten final card cases, metadata validation
+and table-codegen reproducibility pass. Final PNG/JSON evidence is archived
+outside the repository in `personal-qol-2026-10-03` under the task's visualization
+archive, including `alpha-pi-final-ability` and `alpha-pi-final-effect-choice`.
 
 ## Following sets
 

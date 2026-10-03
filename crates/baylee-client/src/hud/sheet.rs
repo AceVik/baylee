@@ -2350,6 +2350,68 @@ mod tests {
         );
     }
 
+    #[test]
+    fn personal_incarnation_keeps_full_oracle_in_its_dialog_and_a_short_confirmation() {
+        use baylee_client_core::test_support::ViewBuilder;
+        use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
+        let mut object = crate::registry_printed(1, 1, "Personal Incarnation");
+        object.owner = baylee_core::ids::PlayerId::new(0);
+        let id = object.id;
+        let card = object.rules.unwrap().card;
+        let historical = "Der Besitzer der Eigenen Inkarnation kann Teile oder den ganzen Schaden, den der Inkarnation zugefügt wird, auf sich selber umleiten.\nWenn die Eigene Inkarnation aus dem Spiel auf einem Friedhof landet, verliert ihr Besitzer die (aufgerundete) Hälfte seiner Lebenspunkte.";
+        let texts = crate::cardtext::CardTexts::filed(crate::cardtext::fixture::german(
+            "Personal Incarnation",
+            "Eigene Inkarnation",
+            Some(historical),
+        ));
+        let mut duel = Duel::default();
+        duel.receive_view(ViewBuilder::new(2).with_battlefield(1, [object]).build());
+        duel.receive_choice(Pending::Priority {
+            player: baylee_core::ids::PlayerId::new(0),
+            legal: Box::new(LegalActions {
+                abilities: vec![(id, 0)],
+                ..LegalActions::default()
+            }),
+        });
+        duel.ability_menu = Some(id);
+        duel.armed = Some(crate::Armed {
+            object: id,
+            deed: crate::Deed::Ability(PlayerAction::ActivateAbility {
+                source: id,
+                ability_index: 0,
+            }),
+        });
+        let opening = ability_opening(&duel, Lang::De, &texts).expect("the dialog remains open");
+        assert_eq!(opening.rows.len(), 1);
+        let sentence = opening.rows[0]
+            .blocks
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(baylee_client_core::card_face::TextBlock::text)
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            sentence,
+            baylee_cards::oracle::sentence(card, 0, 0).unwrap()
+        );
+        assert!(sentence.starts_with("{0}:"));
+        let words = crate::hud::overlay::armed_label(&duel, Lang::De, duel.armed.as_ref().unwrap())
+            .unwrap();
+        assert_eq!(words.text, "Fähigkeit aktivieren");
+        assert_eq!(words.cost, None);
+        assert_eq!(duel.ability_menu, Some(id));
+        let at = baylee_view::StackText {
+            face: 0,
+            line: 0,
+            of: 2,
+        };
+        assert_eq!(
+            crate::cardtext::said(Some(&texts), card, at).unwrap().1,
+            crate::cardtext::Said::Oracle
+        );
+    }
+
     /// A duel's window, measured off the running client.
     const WINDOW: Vec2 = Vec2::new(1728.0, 1052.0);
     /// A permanent on a duel's battlefield is about this many logical pixels
