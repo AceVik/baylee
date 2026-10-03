@@ -31,6 +31,7 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+pub(crate) mod granted;
 use baylee_client_core::Prompt;
 use baylee_client_core::abilitysheet;
 use baylee_client_core::card_face::TextBlock;
@@ -549,6 +550,8 @@ enum Source {
     /// The ways a card can be cast. There are never pips, nothing is armed,
     /// and a press answers.
     Cast,
+    /// A temporary player action, identified independently of its departed source.
+    Granted(baylee_core::ids::GrantedActionId),
 }
 
 /// One row of the sheet, whichever model opened it.
@@ -851,7 +854,7 @@ pub fn sync_ability_sheet(
     // pager is refused below for the same source.
     let page = match open.source {
         Source::Ability => abilitysheet::clamp(open.split.rows, duel.ability_page),
-        Source::Cast => 0,
+        Source::Cast | Source::Granted(_) => 0,
     };
     if revision.object == Some(object)
         && revision.source == Some(open.source)
@@ -1891,6 +1894,11 @@ fn spawn_row(
     // Inserted after the spawn rather than chosen inside the tuple, because a
     // tuple of components cannot hold an either-or.
     match source {
+        Source::Granted(id) => {
+            commands.entity(row).insert(crate::hud::MenuButton {
+                action: crate::hud::MenuAction::PickGranted(id),
+            });
+        }
         Source::Ability => {
             commands.entity(row).insert(crate::hud::AbilityButton {
                 index: option.answer,

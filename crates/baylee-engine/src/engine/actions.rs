@@ -148,6 +148,11 @@ impl<L: CardLookup> Engine<L> {
             return Ok(());
         }
         match (&self.pending, action) {
+            (Pending::Priority { player: p, .. }, PlayerAction::TakeGrantedAction { id })
+                if *p == player =>
+            {
+                self.start_granted_action(player, id)
+            }
             // Passing inside a CR 605.3a payment window says "I have made
             // what mana I am going to make", and must not reach the arm
             // below: a pass counted toward the priority round would, once
@@ -1749,6 +1754,15 @@ impl<L: CardLookup> Engine<L> {
         };
         let mut res = match window.suspended {
             PaymentContinuation::Tax(res) => *res,
+            PaymentContinuation::Activation(payment) => {
+                self.finish_activation_payment(window.player, *payment);
+                return;
+            }
+            PaymentContinuation::GrantedAction { id, .. } => {
+                self.state.take_granted_action(window.player, id);
+                self.after_action(window.player);
+                return;
+            }
             PaymentContinuation::Miracle {
                 wizard, version, ..
             } => {
@@ -1818,7 +1832,7 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Nothing known reaches this with a legal board. It is the net under
     /// every refusal `start_activation` has left on its way to the stack.
-    fn reverse_activation(&mut self, player: PlayerId) {
+    pub(super) fn reverse_activation(&mut self, player: PlayerId) {
         self.activation_cost_choices.clear();
         self.activation_x = None;
         self.activation_graveyard = None;

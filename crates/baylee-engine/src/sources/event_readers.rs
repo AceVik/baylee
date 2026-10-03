@@ -95,7 +95,11 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::RedirectNextDamage { target, amount, to } => {
             reads_target(*target) || reads_amount(*amount) || reads_player(*to)
         }
-        Effect::PreventNextDamage { target, amount, .. } => {
+        Effect::GrantSpecialActionUntilEndOfTurn {
+            effect: baylee_cards_dsl::SpecialActionEffect::PreventNextDamage { target, amount },
+            ..
+        }
+        | Effect::PreventNextDamage { target, amount, .. } => {
             reads_target(*target) || reads_amount(*amount)
         }
         Effect::AtEndOfCombat { about, .. } => reads_target(*about),

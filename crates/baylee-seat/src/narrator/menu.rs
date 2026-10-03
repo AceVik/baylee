@@ -1129,6 +1129,36 @@ impl Builder<'_, '_> {
         }
     }
 
+    fn granted_actions(&mut self, legal: &LegalActions) {
+        use baylee_cards_dsl::SpecialActionCost;
+        use baylee_engine::choice::GrantedActionKind;
+        for offer in &legal.granted_actions {
+            let cost = match offer.cost {
+                SpecialActionCost::Life(amount) => format!("pay {amount} life"),
+                SpecialActionCost::Mana(mana) => format!("pay {mana}"),
+            };
+            let effect = match offer.effect {
+                GrantedActionKind::AddMana { color, amount } => {
+                    format!("add {amount} {color:?} mana")
+                }
+                GrantedActionKind::PreventNextDamage { target, amount } => {
+                    let recipient = match target {
+                        baylee_core::ids::TargetRef::Object(source) => {
+                            self.table.named_target(source)
+                        }
+                        baylee_core::ids::TargetRef::Player(player) => self.table.player(player),
+                    };
+                    format!("prevent the next {amount} damage to {recipient}")
+                }
+            };
+            self.offer(
+                format!("Until end of turn — {cost}: {effect} (one use)"),
+                Act::Now(PlayerAction::TakeGrantedAction { id: offer.id }),
+                offer.ability.map(|a| a.card),
+            );
+        }
+    }
+
     fn priority(&mut self, legal: &LegalActions) {
         let table = self.table;
         let view = table.view;
@@ -1165,6 +1195,7 @@ impl Builder<'_, '_> {
                 ManaPayment::AnyAmount { .. } => self.optional_payment_sources(legal),
             }
         }
+        self.granted_actions(legal);
         self.plays(legal);
         if legal.can_pass {
             let label = if matches!(owed, Some(ManaPayment::AnyAmount { .. })) {

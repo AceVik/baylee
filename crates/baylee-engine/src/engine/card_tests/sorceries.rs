@@ -12499,29 +12499,17 @@ fn volcanic_eruption_deals_the_number_of_mountains_that_reached_a_graveyard() {
     );
 }
 
-/// Channel and Drain Power are `Coverage::Partial` with none of their text
-/// written: each is cast, resolves doing nothing, and goes to the graveyard.
+/// Drain Power is `Coverage::Partial` with none of its text written:
+/// it is cast, resolves doing nothing, and goes to the graveyard.
 #[test]
 fn partial_sorceries_with_no_text_written_resolve_doing_nothing() {
-    for (name, card, land) in [
-        (
-            "Channel",
-            card_index("d1b815d1-2848-40d4-a555-66822d1becbc"),
-            forest(),
-        ),
-        (
-            "Drain Power",
-            card_index("0669172d-396b-4f5a-9703-129c5c849b55"),
-            island(),
-        ),
-    ] {
-        still_partial(card);
-        assert_eq!(
-            cast_saying_nothing(card, land, 2),
-            Zone::Graveyard,
-            "{name}"
-        );
-    }
+    let card = card_index("0669172d-396b-4f5a-9703-129c5c849b55");
+    still_partial(card);
+    assert_eq!(
+        cast_saying_nothing(card, island(), 2),
+        Zone::Graveyard,
+        "Drain Power"
+    );
 }
 
 /// Fireball, its one-target half: "Fireball deals X damage … among any

@@ -1033,6 +1033,9 @@ pub struct GameState {
     /// (CR 615), in the order they were made; every one ends at the turn's
     /// cleanup (CR 514.2). See [`crate::prevention`].
     pub shields: crate::prevention::ShieldStore,
+    /// Temporary special actions created by resolving effects.
+    pub granted_actions: Vec<crate::granted::GrantedAction>,
+    pub(crate) next_granted_action: u64,
     /// Identity for the next simultaneous damage event.
     pub(crate) next_damage_batch: u64,
     /// Source incarnations before leaving a public rules zone. Pending
@@ -1146,6 +1149,8 @@ impl GameState {
             effects,
             replacement_rules,
             shields,
+            granted_actions,
+            next_granted_action,
             next_damage_batch,
             damage_sources,
             source_memory,
@@ -1230,6 +1235,11 @@ impl GameState {
             ("state.effects", format!("{effects:?}")),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
+            ("state.granted_actions", format!("{granted_actions:?}")),
+            (
+                "state.next_granted_action",
+                format!("{next_granted_action:?}"),
+            ),
             ("state.next_damage_batch", format!("{next_damage_batch:?}")),
             ("state.damage_sources", format!("{damage_sources:?}")),
             ("state.source_memory", format!("{source_memory:?}")),
@@ -1480,6 +1490,8 @@ impl GameState {
             effects: crate::effects::EffectTable::default(),
             replacement_rules: Vec::new(),
             shields: crate::prevention::ShieldStore::default(),
+            granted_actions: Vec::new(),
+            next_granted_action: 0,
             next_damage_batch: 0,
             damage_sources: Vec::new(),
             source_memory: crate::sources::SourceMemory::default(),
@@ -3613,6 +3625,8 @@ impl GameState {
             effects,
             replacement_rules,
             shields,
+            granted_actions,
+            next_granted_action,
             next_damage_batch,
             damage_sources,
             source_memory,
@@ -3635,6 +3649,8 @@ impl GameState {
         hash_effects(&mut h, effects);
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
+        granted_actions.hash(&mut h);
+        next_granted_action.hash(&mut h);
         next_damage_batch.hash(&mut h);
         source_memory.hash(&mut h);
         h.usize(damage_sources.len());
@@ -3902,6 +3918,7 @@ impl GameState {
         // Prevention shields are what damage will do next, so two states
         // that differ only in what is shielded are two states.
         hash_shields(&mut h, self, &position);
+        hash_granted_actions(&mut h, self, &position);
         hash_source_references(&mut h, self, &position);
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
@@ -4153,6 +4170,41 @@ fn hash_ability_tallies(state: &GameState, h: &mut Hasher, position: &impl Fn(Ob
         h.u8(age);
         h.u32(index);
         h.u32(n);
+    }
+}
+
+fn hash_granted_actions(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
+    state.granted_actions.len().hash(h);
+    for grant in &state.granted_actions {
+        h.u8(grant.player.get());
+        grant.offer.cost.hash(h);
+        grant.offer.timing.hash(h);
+        grant.offer.ability.hash(h);
+        // Source/recipient versions are rules identities, not UI labels.
+        h.u32(position(grant.offer.source.object));
+        h.u32(grant.offer.source.version);
+        match grant.offer.effect {
+            crate::choice::GrantedActionKind::AddMana { color, amount } => {
+                h.u8(0);
+                color.hash(h);
+                amount.hash(h);
+            }
+            crate::choice::GrantedActionKind::PreventNextDamage { target, amount } => {
+                h.u8(1);
+                amount.hash(h);
+                match target {
+                    baylee_core::ids::TargetRef::Player(player) => {
+                        h.u8(0);
+                        h.u8(player.get());
+                    }
+                    baylee_core::ids::TargetRef::Object(reference) => {
+                        h.u8(1);
+                        h.u32(position(reference.object));
+                        h.u32(reference.version);
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -61,6 +61,7 @@ pub mod depart;
 pub mod filterdialog;
 pub mod firewheel;
 pub mod gamelog;
+pub mod granted;
 pub mod i18n;
 pub mod images;
 pub mod interaction;

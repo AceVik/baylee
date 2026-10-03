@@ -144,7 +144,8 @@ use serde::{Deserialize, Serialize};
 /// Version 50 makes stack and retarget targets versioned and adds historical
 /// target descriptions in `PlayerView::target_objects`.
 /// Version 51 adds finite damage redirection to the damage-effect choices.
-pub const VIEW_VERSION: u32 = 51;
+/// Version 52 accompanies temporary special-action offers and answers.
+pub const VIEW_VERSION: u32 = 52;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -3562,7 +3563,7 @@ mod tests {
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
         // Damage decisions carry event identities, effect metadata, and allocations.
-        const RECORDED: (u32, u64) = (51, 13_544_715_380_931_103_875);
+        const RECORDED: (u32, u64) = (52, 13_544_715_380_931_103_875);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

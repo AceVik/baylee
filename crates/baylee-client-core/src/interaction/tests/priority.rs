@@ -15,6 +15,7 @@ fn priority_confirms_as_a_pass_and_exposes_the_legal_actions() {
         mana_abilities: vec![obj(3)],
         abilities: vec![(obj(4), 1)],
         suspendable: vec![],
+        granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
         player: me(),
@@ -36,6 +37,7 @@ fn playing_a_card_maps_to_the_right_action_and_refuses_illegal_ones() {
         mana_abilities: vec![],
         abilities: vec![],
         suspendable: vec![],
+        granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
         player: me(),
@@ -82,6 +84,7 @@ fn an_offered_ability_at_index_zero_beats_a_granted_mana_ability() {
             mana_abilities: vec![strand],
             abilities: vec![(strand, 0)],
             suspendable: vec![],
+            granted_actions: vec![],
         }),
     });
     assert_eq!(
@@ -110,6 +113,7 @@ fn index_zero_is_the_mana_shortcut_when_nothing_else_was_offered_there() {
             mana_abilities: vec![forest],
             abilities: vec![],
             suspendable: vec![],
+            granted_actions: vec![],
         }),
     });
     assert_eq!(
@@ -135,6 +139,7 @@ fn a_card_offered_as_both_a_land_and_a_spell_is_not_a_one_click_land() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            granted_actions: vec![],
         }),
     });
     assert!(i.plays_only_as_a_land(plains));
@@ -158,6 +163,7 @@ fn activating_an_ability_requires_it_to_have_been_offered() {
         mana_abilities: vec![obj(5)],
         abilities: vec![(obj(6), 2)],
         suspendable: vec![],
+        granted_actions: vec![],
     };
     let i = interaction(Pending::Priority {
         player: me(),

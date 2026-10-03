@@ -42,6 +42,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                     mana_abilities: vec![],
                     abilities: vec![],
                     suspendable: vec![],
+                    granted_actions: vec![],
                 }),
             },
             PlayerId::new(0),

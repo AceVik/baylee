@@ -265,6 +265,30 @@ impl<L: CardLookup> Engine<L> {
         false
     }
 
+    /// Payment opportunities update layers and mana triggers without priority.
+    /// Ordinary triggers and SBAs wait (CR 117.2e, 117.5, 605.4a).
+    fn advance_payment_window(&mut self) -> bool {
+        self.queue_new_triggers();
+        if self.resolve_triggered_mana_abilities() {
+            return true;
+        }
+        if self.state.journal.last_seq() != self.trigger_scan_seq {
+            return false;
+        }
+        let Some(window) = &self.mana_window else {
+            return false;
+        };
+        let player = window.player;
+        self.regrant_priority = None;
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(self.compute_legal(player)),
+        };
+        self.awaiting_answer = true;
+        true
+    }
+
+    #[allow(clippy::too_many_lines)] // Ordered rules machine: payment, SBA, triggers and priority must remain visible together.
     fn run_machine(&mut self) {
         // Nothing happens before turn 1, whatever the flag says: a
         // concession during the mulligans once cleared it and ran the game
@@ -356,6 +380,12 @@ impl<L: CardLookup> Engine<L> {
             // before it does any work, so the next pass finds no arrivals
             // and falls through.
             if wrote {
+                continue;
+            }
+            if self.mana_window.is_some() {
+                if self.advance_payment_window() {
+                    return;
+                }
                 continue;
             }
             // 1. Game over?
@@ -5727,6 +5757,7 @@ impl<L: CardLookup> Engine<L> {
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
+        self.state.granted_actions.clear();
         self.state.prune_damage_sources();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();

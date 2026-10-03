@@ -24,6 +24,7 @@ fn the_bar_says_whose_turn_it_is_over_the_same_two_buttons() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            granted_actions: vec![],
         }),
     });
     assert_eq!(
@@ -502,6 +503,7 @@ fn every_pending_variant_produces_a_prompt_without_panicking() {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                granted_actions: vec![],
             }),
         },
         attack_choice(vec![obj(1)], vec![seat(1)]),
@@ -683,6 +685,7 @@ fn a_payment_window_says_what_it_is_instead_of_your_move() {
             mana_abilities: vec![],
             abilities: vec![],
             suspendable: vec![],
+            granted_actions: vec![],
         }),
     });
     for turn in [Turn::Mine, Turn::Theirs] {

@@ -31,6 +31,7 @@ fn the_primary_key_plays_the_land_under_the_cursor() {
                     mana_abilities: vec![],
                     abilities: vec![],
                     suspendable: vec![],
+                    granted_actions: vec![],
                 }),
             },
             PlayerId::new(0),

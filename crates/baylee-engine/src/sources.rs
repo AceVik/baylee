@@ -600,6 +600,17 @@ impl GameState {
 
     pub(crate) fn prune_damage_sources(&mut self) {
         let mut retained = self.eligible_damage_sources();
+        // Presentation of a permission does not make its source eligible.
+        for grant in &self.granted_actions {
+            retained.insert(grant.offer.source);
+            if let crate::choice::GrantedActionKind::PreventNextDamage {
+                target: baylee_core::ids::TargetRef::Object(reference),
+                ..
+            } = grant.offer.effect
+            {
+                retained.insert(reference);
+            }
+        }
         // A referenced departed spell may itself refer to targets which are
         // copied by its surviving trigger. Retain this transitive closure.
         loop {

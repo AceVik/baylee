@@ -5,7 +5,7 @@ use baylee_engine::choice::{
 };
 use baylee_engine::event::DamageTarget;
 
-pub(crate) fn questions() -> [Pending; 4] {
+pub(crate) fn questions() -> [Pending; 5] {
     let player = PlayerId::new(0);
     let choice = DamageChoiceId { batch: 9, step: 4 };
     let damage = vec![DamagePartView {
@@ -69,5 +69,26 @@ pub(crate) fn questions() -> [Pending; 4] {
             total: u32::MAX,
         },
         redirected,
+        Pending::Priority {
+            player,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                granted_actions: vec![baylee_engine::choice::GrantedActionOffer {
+                    id: baylee_core::ids::GrantedActionId::new(99),
+                    source: baylee_core::ids::DamageSourceRef {
+                        object: ObjectId::new(8, 0),
+                        version: 2,
+                    },
+                    ability: None,
+                    timing: baylee_cards_dsl::SpecialActionTiming::ManaAbility,
+                    cost: baylee_cards_dsl::SpecialActionCost::Life(1),
+                    effect: baylee_engine::choice::GrantedActionKind::AddMana {
+                        color: baylee_core::mana::ManaColor::Colorless,
+                        amount: 1,
+                    },
+                }],
+                ..baylee_engine::choice::LegalActions::default()
+            }),
+        },
     ]
 }

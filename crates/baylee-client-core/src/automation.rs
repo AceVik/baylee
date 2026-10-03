@@ -750,6 +750,7 @@ fn nothing_to_do(legal: &LegalActions) -> bool {
         && legal.castable.is_empty()
         && legal.abilities.is_empty()
         && legal.suspendable.is_empty()
+        && legal.granted_actions.is_empty()
 }
 
 #[cfg(test)]
@@ -820,6 +821,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                granted_actions: vec![],
             }),
         }
     }
@@ -838,6 +840,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                granted_actions: vec![],
             }),
         }
     }
@@ -1615,6 +1618,7 @@ mod tests {
                 mana_abilities: vec![],
                 abilities: vec![],
                 suspendable: vec![],
+                granted_actions: vec![],
             }),
         };
         assert_eq!(
@@ -1650,6 +1654,7 @@ mod tests {
                 mana_abilities: vec![baylee_core::ids::ObjectId::new(1, 0)],
                 abilities: vec![],
                 suspendable: vec![],
+                granted_actions: vec![],
             }),
         };
         assert_eq!(

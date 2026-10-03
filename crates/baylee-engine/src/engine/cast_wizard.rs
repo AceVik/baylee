@@ -427,7 +427,7 @@ impl<L: CardLookup> Engine<L> {
                 casting::keyword_reduction(&self.state, &def.faces[0], player, card)
             });
         let restricted =
-            casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
+            casting::planning_pool(&self.state, player, casting::SpendFor::Spell(card), 0);
         let pool = restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
@@ -766,7 +766,7 @@ impl<L: CardLookup> Engine<L> {
         // Ally is offered in `LegalActions` and refused the moment it is
         // taken.
         let with_restricted =
-            casting::spendable_pool(&self.state, player, casting::SpendFor::Spell(card));
+            casting::planning_pool(&self.state, player, casting::SpendFor::Spell(card), 0);
         let pool = with_restricted
             .as_ref()
             .unwrap_or(&self.state.players[player.get() as usize].mana_pool);
@@ -1751,7 +1751,9 @@ impl<L: CardLookup> Engine<L> {
         let face = self.wizard_face(&wizard);
         let cost = wizard_total_cost(face, &wizard)
             .with_less_generic((wizard.delve_exiles.len() + wizard.convoke_taps.len()) as u32);
-        if (wizard.makes_mana_after_choices() || face.extra_target_cost > 0)
+        if (wizard.makes_mana_after_choices()
+            || face.extra_target_cost > 0
+            || self.state.granted_colorless_capacity(wizard.player) > 0)
             && !self.wizard_pool_can_pay(&wizard, cost)
         {
             let mut legal = self.compute_legal(wizard.player);
@@ -1933,6 +1935,9 @@ impl<L: CardLookup> Engine<L> {
         let face = self.wizard_face(wizard);
         let mut bound =
             casting::spendable_units(&self.state, wizard.player, spend_for(wizard, face))
+                .saturating_add(u32::from(
+                    self.state.granted_colorless_capacity(wizard.player),
+                ))
                 .saturating_add(casting::printed_reduction(
                     &self.state,
                     face,

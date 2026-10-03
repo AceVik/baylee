@@ -1789,3 +1789,11 @@ Final screenshots/JSON are archived outside the repository under
 
 The owner authorized periodic pushes; the earlier 50 local commits through
 `2d715115` have been pushed to origin/main.
+
+### Channel / Guardian Angel — approved temporary-action entry (2026-10-03)
+
+The owner explicitly approved the proposed compact entry with: **“Hört sich gut an, finde dafür auch ein passendes Icon”.** Scope: show **“Aktionen bis Zugende”** only while the engine offers a temporary action; use the existing ability-sheet rows and visual style, show the complete unchanged current Oracle, the actual cost and exact bound recipient, and require explicit selection plus one-action confirmation. Channel is reachable during its legal mana-payment windows; Guardian Angel is offered only at ordinary priority. Existing permanent abilities dialogs remain available and unchanged. No automatic life conversion or new target selection is introduced.
+
+Chosen icon: **hourglass, U+F254**, verified in the cmap of the already bundled `fa-solid-900.ttf`. This adds no asset or dependency. The shipped `assets/fonts/licenses/OFL-FontAwesome.txt` states: “In the Font Awesome Free download, the SIL OFL license applies to all icons packaged as web and desktop font files.” Existing font attribution and license remain intact; existing approved Mana-font treatment continues for mana/tap symbols. Oracle prose is taken whole from the existing current English fallback, never rewritten into a card-specific summary.
+
+Implementation uses stable granted-action IDs, exact offer equality when confirming, and the entitled target snapshot for historical recipients. Opening focuses the first entry but does not select or pay. Keyboard J opens the menu; normal directional/confirmation/Esc controls and pointer/touch buttons share the same draft. Test and live evidence pending the coordinated build lane.

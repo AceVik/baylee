@@ -4,7 +4,11 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
     let mut refers = false;
     Effect::walk(effects, &mut 0, &mut |effect| {
         refers |= match effect {
-            Effect::Exile { target, .. }
+            Effect::GrantSpecialActionUntilEndOfTurn {
+                effect: baylee_cards_dsl::SpecialActionEffect::PreventNextDamage { target, .. },
+                ..
+            }
+            | Effect::Exile { target, .. }
             | Effect::Blink { target, .. }
             | Effect::RedirectNextFromChosenSource { target, .. }
             | Effect::Destroy { target, .. }

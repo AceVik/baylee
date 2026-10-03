@@ -797,6 +797,24 @@ pub(crate) fn spendable_pool(
     Some(merged(pool, &admitted(state, player, what)))
 }
 
+/// Planning a payment may count optional life-to-mana actions. Their cost
+/// remains a separate explicit player action; actual payment never uses this pool.
+pub(crate) fn planning_pool(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+    reserved_life: u32,
+) -> Option<ManaPool> {
+    let mut merged = spendable_pool(state, player, what);
+    let amount = state.granted_colorless_after_life(player, reserved_life);
+    if amount > 0 {
+        let pool = merged
+            .get_or_insert_with(|| state.players[usize::from(player.get())].mana_pool.clone());
+        pool.add(ManaColor::Colorless, amount);
+    }
+    merged
+}
+
 /// Mana units this payment can spend, without counting the restricted
 /// entries a second time after merging them into the plain counters.
 pub(crate) fn spendable_units(state: &GameState, player: PlayerId, what: SpendFor) -> u32 {
@@ -1294,10 +1312,11 @@ pub(crate) fn can_cast_form(
     }
     // Restricted mana this spell may be paid with counts towards it; see
     // [`spendable_pool`].
-    let with_restricted = spendable_pool(
+    let with_restricted = planning_pool(
         state,
         player,
         form.map_or(SpendFor::Spell(card), |f| SpendFor::SpellAs(card, f)),
+        0,
     );
     let pool = with_restricted
         .as_ref()

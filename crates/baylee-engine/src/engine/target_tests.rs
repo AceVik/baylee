@@ -158,7 +158,8 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         // any board, so neither can pick a bystander.
         | PlayerAction::SetPriorityHold(_)
         | PlayerAction::SetAbilityYield { .. }
-        | PlayerAction::SetAbilityPolicy { .. } => Vec::new(),
+        | PlayerAction::SetAbilityPolicy { .. }
+        | PlayerAction::TakeGrantedAction { .. } => Vec::new(),
     }
 }
 

@@ -762,6 +762,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.offer_granted_actions(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
@@ -950,6 +951,9 @@ impl<L: CardLookup> Engine<L> {
     /// ability is looked up among the grants by its slot, the same way the
     /// offer numbers it.
     pub(crate) fn narrow_to_mana(&self, legal: &mut LegalActions) {
+        legal
+            .granted_actions
+            .retain(|offer| offer.timing == baylee_cards_dsl::SpecialActionTiming::ManaAbility);
         legal.lands.clear();
         legal.castable.clear();
         legal.suspendable.clear();
@@ -1128,12 +1132,7 @@ impl<L: CardLookup> Engine<L> {
                 parts: cost.parts,
             };
             self.state.can_pay_life(player, life)
-                && self.can_afford(
-                    player,
-                    source,
-                    &settled_cost,
-                    casting::SpendFor::Ability(source),
-                )
+                && self.can_plan_activation(player, source, &settled_cost, life)
         })
     }
 
@@ -1808,12 +1807,17 @@ impl<L: CardLookup> Engine<L> {
             // announced. So the question is the legality, which is where
             // this engine puts every other one.
             let upper =
-                casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source));
+                casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
+                    .saturating_add(u32::from(self.state.granted_colorless_capacity(player)));
             let max = casting::greatest_affordable(upper, |x| {
-                self.can_pay_mana(
+                self.can_plan_activation(
                     player,
-                    casting::SpendFor::Ability(source),
-                    &cost.mana.with_x(x),
+                    source,
+                    &Cost {
+                        mana: cost.mana.with_x(x),
+                        parts: cost.parts,
+                    },
+                    0,
                 )
             });
             self.pending_plan = Some(PlanKind::ChooseActivationX {
@@ -2012,7 +2016,7 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        if !self.can_afford(player, source, &cost, casting::SpendFor::Ability(source))
+        if !self.can_plan_activation(player, source, &cost, phyrexian_life)
             || !self.state.can_pay_life(player, phyrexian_life)
         {
             self.activation_cost_choices.clear();
@@ -2092,6 +2096,20 @@ impl<L: CardLookup> Engine<L> {
             };
             self.awaiting_answer = true;
             return Ok(());
+        }
+        if !self.can_pay_mana(
+            player,
+            casting::SpendFor::Ability(source),
+            &cost.mana.with_x(self.activation_x.unwrap_or(0)),
+        ) {
+            self.activation_target_players = chosen_players;
+            return self.open_activation_payment(
+                player,
+                source,
+                ability_index,
+                targets,
+                cost.mana.with_x(self.activation_x.unwrap_or(0)),
+            );
         }
         let answers = std::mem::take(&mut self.activation_cost_choices);
         // Taken rather than read, for `activation_cost_choices`' reason one

@@ -115,6 +115,11 @@ struct PaymentWindow {
 #[derive(Clone, Debug)]
 enum PaymentContinuation {
     Tax(Box<crate::resolve::Resolution>),
+    Activation(Box<granted::ActivationPayment>),
+    GrantedAction {
+        id: baylee_core::ids::GrantedActionId,
+        cost: baylee_core::mana::ManaCost,
+    },
     Pact(baylee_core::mana::ManaCost),
     /// Miracle's choices are complete; mana abilities may now pay them.
     Miracle {
@@ -134,6 +139,48 @@ enum PaymentContinuation {
         /// "If you do, you can't cast additional spells this turn."
         then_no_more_spells: bool,
     },
+}
+
+impl PaymentContinuation {
+    fn fingerprint(&self) -> u64 {
+        match self {
+            Self::Activation(payment) => payment.fingerprint(),
+            Self::Tax(r) => r
+                .subject
+                .fingerprint()
+                .wrapping_mul(31)
+                .wrapping_add(r.pc as u64)
+                .wrapping_add(u64::from(r.on_stack.slot()))
+                .wrapping_add(u64::from(r.controller.get())),
+            Self::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
+            Self::GrantedAction { id, cost } => id
+                .get()
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
+            Self::Miracle {
+                wizard,
+                version,
+                cost,
+            } => wizard
+                .miracle_payment_fingerprint()
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(*version))
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
+            Self::Cast {
+                card,
+                version,
+                cost,
+                then_no_more_spells,
+            } => u64::from(card.slot())
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(*version))
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(2)
+                .wrapping_add(u64::from(*then_no_more_spells)),
+        }
+    }
 }
 
 /// What an answer moves as it *arrives*, and what an activation writes on
@@ -855,9 +902,13 @@ impl<L: CardLookup> Engine<L> {
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
             PaymentContinuation::Pact(cost)
+            | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. } => {
                 Some((window.player, ManaPayment::Fixed(*cost)))
+            }
+            PaymentContinuation::Activation(payment) => {
+                Some((window.player, ManaPayment::Fixed(payment.cost)))
             }
             PaymentContinuation::Tax(resolution) => match resolution.awaiting {
                 Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. })
@@ -1063,38 +1114,9 @@ impl<L: CardLookup> Engine<L> {
         // taxes comparing equal, which is the divergence with the longest
         // fuse here: it breaks a replay rather than a test.
         if let Some(w) = &self.mana_window {
-            extra = extra.wrapping_mul(31).wrapping_add(match &w.suspended {
-                PaymentContinuation::Tax(r) => r
-                    .subject
-                    .fingerprint()
-                    .wrapping_mul(31)
-                    .wrapping_add(r.pc as u64)
-                    .wrapping_add(u64::from(r.on_stack.slot()))
-                    .wrapping_add(u64::from(r.controller.get())),
-                PaymentContinuation::Pact(cost) => crate::state::mana_cost_fingerprint(cost),
-                PaymentContinuation::Miracle {
-                    wizard,
-                    version,
-                    cost,
-                } => wizard
-                    .miracle_payment_fingerprint()
-                    .wrapping_mul(31)
-                    .wrapping_add(u64::from(*version))
-                    .wrapping_mul(31)
-                    .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
-                PaymentContinuation::Cast {
-                    card,
-                    version,
-                    cost,
-                    then_no_more_spells,
-                } => u64::from(card.slot())
-                    .wrapping_mul(31)
-                    .wrapping_add(u64::from(*version))
-                    .wrapping_mul(31)
-                    .wrapping_add(crate::state::mana_cost_fingerprint(cost))
-                    .wrapping_mul(2)
-                    .wrapping_add(u64::from(*then_no_more_spells)),
-            });
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(w.suspended.fingerprint());
         }
         // A cleanup step's check and its window close differently: nothing
         // performed ends the turn in the one, a round of passes begins
@@ -1510,7 +1532,8 @@ impl<L: CardLookup> Engine<L> {
     }
 
     fn library_announcement_open(&self) -> bool {
-        self.cast_wizard.is_some()
+        self.mana_window.is_some()
+            || self.cast_wizard.is_some()
             || matches!(
                 self.pending_plan,
                 Some(
@@ -1572,6 +1595,7 @@ pub use decision::DecisionContext;
 mod actions;
 pub(crate) mod cast_wizard;
 pub(crate) mod cost_wizard;
+mod granted;
 mod leave;
 mod mulligan;
 mod progress;
@@ -1798,3 +1822,6 @@ mod trigger_source_tests;
 
 #[cfg(test)]
 mod target_incarnation_tests;
+
+#[cfg(test)]
+mod granted_tests;

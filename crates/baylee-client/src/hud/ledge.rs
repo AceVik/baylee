@@ -1122,6 +1122,17 @@ pub fn sync_ledge(
                     }
                 }
                 Says::Command(action) => {
+                    if action == super::MenuAction::ToggleGrantedActions {
+                        let icon = commands
+                            .spawn((
+                                Text::new(super::glyph::HOURGLASS.to_string()),
+                                super::icon_tf(&fonts, 13.0),
+                                TextColor(palette::DIALOG_INK),
+                                Pickable::IGNORE,
+                            ))
+                            .id();
+                        commands.entity(button).add_child(icon);
+                    }
                     commands.entity(button).insert(super::MenuButton { action });
                 }
             }
@@ -1321,6 +1332,12 @@ fn answers_for(
                 ));
             }
             row.push(say(PromptAction::SkipTurn, Phrase::SkipTheTurn));
+            if !super::granted_offers(duel).is_empty() {
+                row.push((
+                    Says::Command(super::MenuAction::ToggleGrantedActions),
+                    Phrase::GrantedActions.text(lang).to_string(),
+                ));
+            }
             row
         }
         // Combat offers three answers and shows the middle one only once
@@ -1498,6 +1515,9 @@ fn keys_for(
             // key handler both go through `Duel::hold_action`, so the cap is
             // the truth about what the button does and not merely about what
             // else would do it.
+            Says::Command(super::MenuAction::ToggleGrantedActions) => {
+                Some(baylee_client_core::prefs::Action::GrantedActions)
+            }
             Says::Command(super::MenuAction::HoldForStack) => {
                 Some(baylee_client_core::prefs::Action::HoldForStack)
             }

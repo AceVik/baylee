@@ -347,6 +347,9 @@ pub fn options(
             );
         }
         Pending::Priority { legal, .. } => {
+            if !legal.granted_actions.is_empty() {
+                return Err(Unscored::Unsupported);
+            }
             if legal.can_pass {
                 out.push(Choice::Fixed(fixed::PASS));
             }
@@ -537,6 +540,9 @@ pub fn steps(
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }
     ) {
+        return Err(Unmatched::Unscored(Unscored::Unsupported));
+    }
+    if matches!(pending, Pending::Priority { legal, .. } if !legal.granted_actions.is_empty()) {
         return Err(Unmatched::Unscored(Unscored::Unsupported));
     }
     let single = |c: Choice| vec![c];
@@ -1090,6 +1096,9 @@ mod tests {
 /// Damage decisions have no model encoding yet. Call before building features
 /// or samples so their diagnostic kind IDs never reach an existing model.
 pub fn model_input<T>(pending: &Pending, build: impl FnOnce() -> T) -> Option<T> {
+    if matches!(pending, Pending::Priority { legal, .. } if !legal.granted_actions.is_empty()) {
+        return None;
+    }
     if matches!(
         pending,
         Pending::ChooseDamageSource { .. }

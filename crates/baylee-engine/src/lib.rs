@@ -66,6 +66,7 @@ pub mod effects;
 /// Replacement rules that multiply, CR 614: Doubling Season and its kin.
 pub mod replacement;
 
+pub mod granted;
 /// Prevention shields, CR 615: "prevent the next N damage", Fog.
 pub mod prevention;
 

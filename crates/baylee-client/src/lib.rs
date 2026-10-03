@@ -580,6 +580,8 @@ pub struct Duel {
     /// ability activates on the click that found it, because a menu of one is
     /// a menu that only ever wastes a tap.
     pub ability_menu: Option<ObjectId>,
+    /// Explicit temporary-action selection; life is never spent by opening it.
+    pub granted_menu: baylee_client_core::granted::Draft,
     /// The card whose *ways to be cast* the prompt bar is offering.
     ///
     /// [`ability_menu`](Self::ability_menu)'s sibling, on the same rule: only
@@ -1458,9 +1460,11 @@ fn add_present_systems(app: &mut App) {
                 // placer never reads — that one is about *where* the paper
                 // is, this one about how much of it has arrived.
                 (
+                    hud::sync_granted_sheet,
                     hud::sync_ability_sheet,
                     hud::zoom_the_sheet,
                     hud::place_ability_sheet,
+                    hud::focus_granted_sheet,
                 )
                     .chain()
                     .after(table::apply_camera_rig)

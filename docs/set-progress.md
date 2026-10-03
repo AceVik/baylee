@@ -32,10 +32,10 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 | --- | --- |
 | [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | an Aura that enchants a creature card in a graveyard and returns it is not in the engine |
 | [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
-| [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | paying life for {C} any time a mana ability could be activated is not in the engine |
+| [Channel](../crates/baylee-cards/src/cards/sorceries/mv_2/channel.rs) | temporary permission and explicit life payments implemented in the working tree; consumer integration, full regression and live client acceptance pending |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | making a player activate a mana ability of each land they control is not in the engine |
 | [False Orders](../crates/baylee-cards/src/cards/instants/mv_1/false_orders.rs) | removing a blocker from combat and having it block again is not in the engine |
-| [Guardian Angel](../crates/baylee-cards/src/cards/instants/mv_1/guardian_angel.rs) | paying {1} any time until end of turn for another shield is not in the engine; the first shield only |
+| [Guardian Angel](../crates/baylee-cards/src/cards/instants/mv_1/guardian_angel.rs) | reusable exact-recipient permission implemented in the working tree; final card tests, consumer integration and live client acceptance pending |
 | [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | casting a creature card face down for the mana spent on {X}, and turning it face up instead of dealing or being dealt damage, are not in the engine |
 | [Island Sanctuary](../crates/baylee-cards/src/cards/enchantments/mv_2/island_sanctuary.rs) | skipping a draw in exchange for an attack restriction until your next turn is not in the engine |
 | [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | destroying the enchanted land when it becomes tapped and moving the Aura to another land are not in the DSL; it only enchants a land |
@@ -455,3 +455,28 @@ client before its cards count as complete.
 | Layer-three text changes | Magical Hack, Sleight of Mind | Change eligible rules words, including relevant keyword text; preserve names and reminder text, spell-to-permanent continuity and indefinite duration. Verify both rules behavior and displayed ability text. |
 | Face-down casting and event replacement | Illusionary Mask | Track the actual colors/types of mana spent on X, legal hidden card selection, sorcery timing, and face-up replacement before assigning/dealing/receiving damage or tapping, without leaking hidden identity. |
 | Controlling another player while playing/resolving | Word of Command | Private hand selection, legal land or spell play, constrained land mana abilities and spending, inability to play, and control during the chosen spell's later resolution. |
+
+
+## Remaining Alpha completion batches — owner instruction 2026-10-03
+
+The owner requested completion of all remaining cards as one continuing task,
+with independent batches worked concurrently instead of a one-card queue.
+Current Channel/Guardian work must pass final native/live acceptance first.
+Do not promote a card merely because its shared primitive exists.
+
+| Shared work | Cards | Required acceptance focus |
+| --- | --- | --- |
+| Constrained mana and nested playing | Drain Power, Illusionary Mask, Word of Command | Per-land mana decisions and pool transfer; actual spent mana quantities/types, private face-down cast and all four reveal replacements; decision actor versus resource owner, entitled hand visibility, constrained land mana and controlled resolution. |
+| Resumable event replacement | Island Sanctuary, Library of Leng, Time Vault, Lich | Draw-step-only optional replacement and attack restriction duration; effect discard versus costs and hidden deck order; whole-turn skip including extra turns; all Lich clauses, non-token simultaneous sacrifices, insufficient sacrifice and independent loss conditions. |
+| Zone-aware Aura attachment | Animate Dead, Kudzu | Graveyard enchantment then exact returned incarnation, failed/protected attachment and linked sacrifice; tapped-land destruction and optional non-targeting relocation chosen by land controller. |
+| Combat partition/reassignment | Camouflage, Raging River, False Orders | Seeded pile assignment, empty piles/block capacity/multiplayer; side restrictions and later arrivals; legal timing, reblocking and blocked/unblocked status with actual combat damage. |
+| Semantic text and copy provenance | Magical Hack, Sleight of Mind, Vesuvan Doppelganger | Real land/color-word changes across relevant rules and type line without changing names/mana symbols; exact incarnation and permanent-spell continuity; recurring copyable upkeep ability, retained color/damage and no synthetic ETB. |
+
+Engine work uses Astra xhigh; independent card/test review uses Sol medium.
+Central state/DSL/resolution files have one owner; a second Engine worker owns
+the disjoint text/copy modules and supplies integration hooks. Cargo runs remain
+serialized while implementation, independent review and client inspection may
+proceed concurrently. Existing full Oracle text and abilities dialogs remain.
+Additional UI proposal (word mapping, creature piles, controlled-player context,
+and Mask private choice/payment detail) was sent to the owner; approval is
+pending. Existing UI approval is limited to the temporary-action entry.

@@ -1133,6 +1133,7 @@ dependencies = [
  "baylee-ai",
  "baylee-build",
  "baylee-cards",
+ "baylee-cards-dsl",
  "baylee-client-core",
  "baylee-core",
  "baylee-engine",

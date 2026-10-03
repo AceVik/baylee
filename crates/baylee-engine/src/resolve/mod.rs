@@ -4069,6 +4069,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::DealDamageEach { .. }
+        | Effect::GrantSpecialActionUntilEndOfTurn { .. }
         | Effect::RedirectNextDamage { .. }
         | Effect::LoseHalfLife { .. }
         | Effect::PreventNextDamage { .. }

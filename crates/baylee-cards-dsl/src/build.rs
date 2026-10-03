@@ -969,6 +969,7 @@ pub mod prelude {
         ALL_MANA_COLORS, ANY_COLOR_MANA, CardDef, CommanderRule, Coverage, EnterModifier, Escape,
         FaceDef, KeywordSet, PartnerKind,
     };
+    pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming};
     pub use crate::{
         activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
         modal_triggered, mode, spell, static_ability, triggered,

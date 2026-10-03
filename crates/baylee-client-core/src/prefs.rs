@@ -51,6 +51,8 @@ pub enum Action {
     Cancel,
     /// Act on the card under the cursor.
     ActivateCard,
+    /// Open temporary actions available until end of turn.
+    GrantedActions,
     /// Act on the whole card under the cursor: every permanent a merged card
     /// stands for, at once, where a choice takes more than one of them.
     ActivateGroup,
@@ -109,12 +111,13 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 32] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
         Self::Cancel,
         Self::ActivateCard,
+        Self::GrantedActions,
         Self::ActivateGroup,
         Self::CursorUp,
         Self::CursorDown,
@@ -156,6 +159,7 @@ impl Action {
             Self::ConfirmTargetBatch => Phrase::ActConfirmTargetBatch,
             Self::Cancel => Phrase::ActCancel,
             Self::ActivateCard => Phrase::ActActivateCard,
+            Self::GrantedActions => Phrase::GrantedActions,
             Self::ActivateGroup => Phrase::ActActivateGroup,
             Self::CursorLeft => Phrase::ActCursorLeft,
             Self::CursorRight => Phrase::ActCursorRight,
@@ -197,6 +201,7 @@ impl Action {
             | Self::Confirm
             | Self::ConfirmTargetBatch
             | Self::Cancel
+            | Self::GrantedActions
             | Self::ActivateCard
             | Self::ActivateGroup => Phrase::GroupAnswering,
             Self::CursorLeft
@@ -437,6 +442,7 @@ impl Keymap {
         bind(Action::ConfirmTargetBatch, vec![Chord::shift("Enter")]);
         bind(Action::Cancel, vec![Chord::key("Escape")]);
         bind(Action::ActivateCard, vec![Chord::key("KeyE")]);
+        bind(Action::GrantedActions, vec![Chord::key("KeyJ")]);
         bind(Action::ActivateGroup, vec![Chord::shift("KeyE")]);
         bind(Action::CursorLeft, vec![Chord::key("KeyA")]);
         bind(Action::CursorRight, vec![Chord::key("KeyD")]);
@@ -497,6 +503,7 @@ impl Keymap {
         map.bindings.remove(&Action::ActivateGroup);
         map.bindings.remove(&Action::Report);
         map.bindings.remove(&Action::ConfirmTargetBatch);
+        map.bindings.remove(&Action::GrantedActions);
         map
     }
 

@@ -67,6 +67,8 @@ id_type! {
     NameRef(u32);
     /// One exact damage-source choice; stale answers cannot choose again.
     SourceChoiceId(u64);
+    /// One temporary special action granted by a resolving effect.
+    GrantedActionId(u64);
 }
 
 /// One rules incarnation of an object (CR 400.7), including a remembered

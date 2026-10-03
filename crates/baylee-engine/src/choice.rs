@@ -19,10 +19,12 @@ use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 
 mod arrange;
 mod damage;
+mod granted;
 pub use arrange::{
     ArrangePile, ArrangePlace, ArrangePrompt, arrangement_fault, default_arrangement,
 };
 pub use damage::{DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView};
+pub use granted::{GrantedActionKind, GrantedActionOffer};
 
 /// One creature that may block, and the attackers it may be assigned to.
 ///
@@ -1456,6 +1458,9 @@ fn priority_fault(legal: &LegalActions, deed: &PlayerAction) -> Option<AnswerFau
             ability_index,
         } => legal.abilities.contains(&(*source, *ability_index)),
         PlayerAction::ActivateManaAbility { source } => legal.mana_abilities.contains(source),
+        PlayerAction::TakeGrantedAction { id } => {
+            legal.granted_actions.iter().any(|offer| offer.id == *id)
+        }
         PlayerAction::Suspend { card } => legal.suspendable.contains(card),
         _ => return Some(AnswerFault::WrongKind),
     };
@@ -1937,6 +1942,9 @@ pub const fn is_special_action(index: u32) -> bool {
 /// Everything a player may legally do with priority (precomputed).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct LegalActions {
+    /// Reusable special actions granted by resolved effects until cleanup.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub granted_actions: Vec<GrantedActionOffer>,
     /// Passing is always legal.
     pub can_pass: bool,
     /// Playable lands in hand.
@@ -2015,7 +2023,8 @@ impl LegalActions {
     /// no decision to make.
     #[must_use]
     pub fn nothing_but_passing(&self) -> bool {
-        self.lands.is_empty()
+        self.granted_actions.is_empty()
+            && self.lands.is_empty()
             && self.castable.is_empty()
             && self.abilities.is_empty()
             && self.suspendable.is_empty()
@@ -2032,7 +2041,12 @@ impl LegalActions {
     /// gave.
     #[must_use]
     pub fn has_mana_source(&self) -> bool {
-        !self.mana_abilities.is_empty() || !self.abilities.is_empty()
+        !self.mana_abilities.is_empty()
+            || !self.abilities.is_empty()
+            || self
+                .granted_actions
+                .iter()
+                .any(|offer| matches!(offer.effect, GrantedActionKind::AddMana { .. }))
     }
 }
 
@@ -2064,6 +2078,11 @@ pub enum PlayerAction {
         /// Pairs of stable part ID and prevention amount. Omitted parts
         /// receive zero; duplicate or unknown parts are refused.
         allocation: Vec<(u32, u32)>,
+    },
+    /// Take one effect-granted special action, paying its cost explicitly.
+    TakeGrantedAction {
+        /// The exact currently offered permission.
+        id: baylee_core::ids::GrantedActionId,
     },
     /// Keep the current hand (mulligan).
     MulliganKeep,

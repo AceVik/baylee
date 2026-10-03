@@ -968,6 +968,12 @@ pub fn keyboard(
     if number_keys(&mut typed, &mut duel) {
         return;
     }
+    if duel.granted_menu.open && sheet_digits(&mut typed, &mut duel) {
+        return;
+    }
+    if crate::hud::granted_keys(fired, &mut duel) {
+        return;
+    }
     if damage_keys(fired, &mut duel) {
         return;
     }
@@ -1735,7 +1741,9 @@ fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bo
     // `typed.read()` drains every key rather than the digits alone — so a
     // sheet that read here unconditionally would eat the letters a player is
     // typing into that box and open an ability with the digits.
-    if (duel.ability_menu.is_none() && duel.cast_menu.is_none()) || duel.browser.is_typing() {
+    if (duel.ability_menu.is_none() && duel.cast_menu.is_none() && !duel.granted_menu.open)
+        || duel.browser.is_typing()
+    {
         return false;
     }
     let pressed: Vec<char> = typed
@@ -1753,6 +1761,19 @@ fn sheet_digits(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> bo
     }
     let mut took = false;
     for digit in pressed {
+        if duel.granted_menu.open {
+            let index = digit
+                .to_digit(10)
+                .and_then(|n| n.checked_sub(1))
+                .map(|n| n as usize);
+            let id = index
+                .and_then(|index| crate::hud::granted_offers(duel).get(index))
+                .map(|o| o.id);
+            if let Some(id) = id {
+                crate::hud::granted_click(duel, MenuAction::PickGranted(id));
+            }
+            return true;
+        }
         if let Some(menu) = duel.cast_menu.as_ref() {
             let row = digit
                 .to_digit(10)
@@ -2941,6 +2962,9 @@ pub fn cast_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
 /// when nothing happened in between.
 pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     match action {
+        MenuAction::ToggleGrantedActions
+        | MenuAction::PickGranted(_)
+        | MenuAction::ConfirmGranted => crate::hud::granted_click(duel, action),
         MenuAction::SortHand(order) => {
             duel.hand_order = order;
             duel.hand_scroll = 0.0;

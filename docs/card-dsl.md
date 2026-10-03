@@ -3051,6 +3051,40 @@ choice targets. No matching permanent means no sacrifice question.
 `Effect::TapSelf` affects only the resolving source's original battlefield
 incarnation; an impossible tap does not stop subsequent sequence instructions.
 
+### Temporary special actions
+
+`Effect::GrantSpecialActionUntilEndOfTurn { timing, cost, effect }` creates a
+reusable permission owned by the resolving spell/ability's controller. It is
+neither an activated ability nor a spell and uses no stack (CR 116.2c, 405.6d).
+`SpecialActionTiming::Priority` includes priority under split second;
+`ManaAbility` additionally permits actual mana-payment opportunities.
+X and targets are announced first; their questions do not themselves grant a
+mana opportunity (CR 601.2b, 601.2g). Each use explicitly pays `Life(n)` or
+`Mana(cost)`; ordinary activation taxes and restrictions do not apply.
+
+`SpecialActionEffect::AddMana` produces fixed mana. Planning may count optional
+life-to-colorless payments when offering casts and activations, but never pays
+life automatically. A deferred payment stores its announcement, X, exact target
+references and any enclosing payment separately from nested mana abilities.
+Layers and triggered mana abilities update within the window; ordinary triggers
+and state-based actions wait until the enclosing operation finishes (CR 117.5,
+605.4a). Reaching zero life therefore does not interrupt that payment.
+
+`PreventNextDamage` binds an exact permanent incarnation or player when the
+permission resolves. Each use creates a separate finite shield. A recipient
+leaving does not cancel the permission, but later uses cannot protect a returned
+incarnation. Permissions expire during cleanup (CR 514.2) and on their player's
+concession. They retain entitled historical recipient projections without making
+mere presentation references eligible damage sources.
+
+The wire offers `LegalActions::granted_actions`, each with a never-reused
+`GrantedActionId`, source/provenance, timing, cost and already-bound result.
+`TakeGrantedAction { id }` validates against the current offer. No client selects
+new recipients or implicitly pays life. Numeric limitation: the existing mana
+pool represents at most 65,535 plain units of a color. Special-action production
+that would exceed that capacity is refused atomically, before charging life;
+this milestone does not claim an unbounded mana representation.
+
 ### Self effects and zone changes
 
 Resolution-time `Filter::This` and `TargetSpec::ThisObject` bind the exact

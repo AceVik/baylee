@@ -50,6 +50,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::GrantSpecialActionUntilEndOfTurn {
+            timing,
+            cost,
+            effect,
+        } => {
+            grant_action(state, res, timing, cost, effect);
+            None
+        }
         Effect::LoseHalfLife { player } => {
             for player in super::players_of(player, state, you, res) {
                 let life = state.players[usize::from(player.get())].life;
@@ -172,6 +180,60 @@ enum AfterDamage {
         recipient: DamageTarget,
         before_cap: i32,
     },
+}
+
+fn grant_action(
+    state: &mut GameState,
+    res: &Resolution,
+    timing: baylee_cards_dsl::SpecialActionTiming,
+    cost: baylee_cards_dsl::SpecialActionCost,
+    effect: baylee_cards_dsl::SpecialActionEffect,
+) {
+    use crate::choice::{GrantedActionKind, GrantedActionOffer};
+    use baylee_cards_dsl::SpecialActionEffect;
+    use baylee_core::ids::{DamageSourceRef, GrantedActionId, TargetRef};
+    let Some(source) = source_version(state, res)
+        .map(|version| DamageSourceRef {
+            object: res.source,
+            version,
+        })
+        .or_else(|| state.source_identity(res.source))
+    else {
+        return;
+    };
+    let kinds: Vec<_> = match effect {
+        SpecialActionEffect::AddMana { color, amount } => {
+            vec![GrantedActionKind::AddMana { color, amount }]
+        }
+        SpecialActionEffect::PreventNextDamage { target, amount } => {
+            let amount = amount2(&amount, state, res.controller, res);
+            recipients(state, res, res.controller, target)
+                .into_iter()
+                .filter_map(|recipient| {
+                    let target = match recipient {
+                        DamageTarget::Player(player) => TargetRef::Player(player),
+                        DamageTarget::Object(object) => {
+                            TargetRef::Object(state.source_identity(object)?)
+                        }
+                    };
+                    Some(GrantedActionKind::PreventNextDamage { target, amount })
+                })
+                .collect()
+        }
+    };
+    for effect in kinds {
+        state.grant_action(
+            res.controller,
+            GrantedActionOffer {
+                id: GrantedActionId::new(0),
+                source,
+                ability: resolving_ability(state, res),
+                timing,
+                cost,
+                effect,
+            },
+        );
+    }
 }
 
 fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {

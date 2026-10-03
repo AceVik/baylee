@@ -303,6 +303,15 @@ fn target_objects(
     pending: Option<&Pending>,
 ) -> Vec<baylee_view::DamageSourceView> {
     let mut targets = std::collections::BTreeSet::new();
+    for grant in state.granted_actions.iter().filter(|g| g.player == seat) {
+        if let baylee_engine::choice::GrantedActionKind::PreventNextDamage {
+            target: TargetRef::Object(reference),
+            ..
+        } = grant.offer.effect
+        {
+            targets.insert(reference);
+        }
+    }
     for &id in state.zones.list(ZoneLocation::Stack) {
         let Some(obj) = state.object(id) else {
             continue;
@@ -1284,6 +1293,73 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn permission_target_projection_preserves_historical_entitlement_without_source_eligibility() {
+        use baylee_core::ids::{DamageSourceRef, GrantedActionId};
+        use baylee_engine::choice::{GrantedActionKind, GrantedActionOffer};
+        use baylee_engine::object::Status;
+        use baylee_engine::zone::ZonePosition;
+        for hidden in [false, true] {
+            let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+            let viewer = PlayerId::new(1);
+            let target = state.zones.list(ZoneLocation::Battlefield)[0];
+            if hidden {
+                state
+                    .object_mut(target)
+                    .unwrap()
+                    .status
+                    .insert(Status::FACE_DOWN);
+            }
+            state.refresh_characteristics();
+            let reference = DamageSourceRef {
+                object: target,
+                version: state.object(target).unwrap().version,
+            };
+            state
+                .granted_actions
+                .push(baylee_engine::granted::GrantedAction {
+                    player: viewer,
+                    offer: GrantedActionOffer {
+                        id: GrantedActionId::new(0),
+                        source: reference,
+                        ability: None,
+                        timing: baylee_cards_dsl::SpecialActionTiming::Priority,
+                        cost: baylee_cards_dsl::SpecialActionCost::Mana(
+                            baylee_core::mana::ManaCost::ZERO,
+                        ),
+                        effect: GrantedActionKind::PreventNextDamage {
+                            target: TargetRef::Object(reference),
+                            amount: 1,
+                        },
+                    },
+                });
+            state
+                .move_object(
+                    target,
+                    ZoneLocation::Hand(PlayerId::new(0)),
+                    ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
+                )
+                .unwrap();
+            let view = player_view(&state, viewer, 1, None, &SeatContext::default(), &[]);
+            let old = view.target_object(reference).unwrap();
+            assert!(!old.is_current);
+            assert_eq!(old.card.is_some(), !hidden);
+            assert_eq!(old.rules.is_some(), !hidden);
+            assert!(old.referenced_by.is_empty());
+            assert!(view.damage_sources.is_empty());
+            let bystander = player_view(
+                &state,
+                PlayerId::new(0),
+                1,
+                None,
+                &SeatContext::default(),
+                &[],
+            );
+            assert!(bystander.target_object(reference).is_none());
+        }
+    }
+
     #[test]
     fn stack_target_projection_keeps_both_groups_and_historical_identity() {
         use baylee_core::ids::DamageSourceRef;

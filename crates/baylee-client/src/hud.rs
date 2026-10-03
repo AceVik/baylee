@@ -287,6 +287,8 @@ pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont
 
 // Font Awesome glyph codepoints used across the overlay (fa-solid-900).
 pub(crate) mod glyph {
+    /// Hourglass from the shipped Font Awesome Free cmap (until end of turn).
+    pub const HOURGLASS: char = '\u{f254}';
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -543,6 +545,12 @@ pub enum MenuAction {
     /// actions, because the button is in the same place either way and a
     /// player who pressed it to open will press it to close.
     ToggleGameMenu,
+    /// Open or dismiss the temporary-action sheet.
+    ToggleGrantedActions,
+    /// Select an exact temporary offer, without paying.
+    PickGranted(baylee_core::ids::GrantedActionId),
+    /// Confirm one selected temporary action.
+    ConfirmGranted,
     /// Open the game log, or shut it again (#262): the scroll on the tray,
     /// the cross on the panel's head, and `L`.
     ToggleLog,
@@ -2128,6 +2136,9 @@ pub(crate) mod rail;
 mod scroll;
 pub(crate) mod seatbar;
 mod sheet;
+pub(crate) use sheet::granted::{
+    focus_granted_sheet, granted_click, granted_keys, granted_offers, sync_granted_sheet,
+};
 mod slip;
 mod stack;
 pub(crate) mod suspended;

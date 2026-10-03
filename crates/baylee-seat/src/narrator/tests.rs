@@ -289,6 +289,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             mana_abilities: vec![id(21), id(22), id(23), id(30)],
             abilities: vec![(id(30), 0), (id(31), 0)],
             suspendable: Vec::new(),
+            granted_actions: vec![],
         }),
     }
 }
@@ -935,5 +936,46 @@ fn redirected_damage_menu_keeps_the_existing_exact_allocation_contract() {
     }))
     .unwrap();
     let action = wake.menu.resolve(&decision).unwrap().act.first();
+    assert_eq!(pending.answer_fault(&action), None);
+}
+
+#[test]
+fn temporary_actions_are_explicit_costed_offers_in_the_real_narrator() {
+    let (view, log) = board();
+    let pending = Pending::Priority {
+        player: ME,
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            granted_actions: vec![baylee_engine::choice::GrantedActionOffer {
+                id: baylee_core::ids::GrantedActionId::new(81),
+                source: baylee_core::ids::DamageSourceRef {
+                    object: id(21),
+                    version: 2,
+                },
+                ability: None,
+                timing: baylee_cards_dsl::SpecialActionTiming::ManaAbility,
+                cost: baylee_cards_dsl::SpecialActionCost::Life(1),
+                effect: baylee_engine::choice::GrantedActionKind::AddMana {
+                    color: baylee_core::mana::ManaColor::Colorless,
+                    amount: 1,
+                },
+            }],
+            ..LegalActions::default()
+        }),
+    };
+    let request = request(view, pending.clone(), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(wake.text.contains("pay 1 life"));
+    let decision = Decision::from_decide(
+        &serde_json::json!({"ask": format!("q{}",wake.menu.question),"pick":["a1"]}),
+    )
+    .unwrap();
+    let action = wake.menu.resolve(&decision).unwrap().act.first();
+    assert_eq!(
+        action,
+        PlayerAction::TakeGrantedAction {
+            id: baylee_core::ids::GrantedActionId::new(81)
+        }
+    );
     assert_eq!(pending.answer_fault(&action), None);
 }

@@ -2885,3 +2885,28 @@ land type"; both are convention tests that fire on a first try.
 - Preserve the abilities dialog explicitly. Compact target selection is a
   separate surface; removing redundant target tools does not authorize removing
   the ability selection/confirmation flow.
+
+
+### Temporary player actions — Channel / Guardian Angel
+
+- A resolving spell may grant a reusable special action after leaving the stack.
+  Preserve exact recipient references and source provenance independently; these
+  permissions are not activated abilities and do not use the stack.
+- Affordability may expose a legal cast using Channel, but life conversion must
+  remain an explicit action. Preserve announced X/targets and enclosing debts
+  across nested mana-ability payments. Defer ordinary triggers and state-based
+  actions until the enclosing operation completes, even at zero life.
+- Refuse the existing per-color u16 mana overflow atomically before taking life;
+  disclose this general numeric ceiling rather than claiming unlimited capacity.
+- Adding a keybinding must also exclude it from the historical keymap fixture
+  used to recognize shipped legacy preferences. Test the actual old JSON.
+- Full rules gate: 8,033 tests passed and one real legacy-keymap migration failed;
+  after its narrow correction all 22 preference tests passed. Native final gate:
+  1,267 passed, two existing ignores. A fixed expected settings action count also
+  needed updating; the production settings already iterated the complete list.
+- Reuse the bundled icon font and verify the glyph in its actual cmap. The
+  approved temporary-action entry uses Font Awesome U+F254 with the existing OFL.
+- For the remaining Alpha work, group cards by shared primitives, assign one owner
+  to central Engine files, and parallelize disjoint implementation/review/client
+  work. Serialize Cargo, not all work. Keep card flags Partial until independent
+  rule tests and required live acceptance are complete.

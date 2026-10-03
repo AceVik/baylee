@@ -705,6 +705,11 @@ impl HeuristicAgent {
             let (sources, last_tap) = paying
                 .as_ref()
                 .map_or((&plain[..], None), |(all, only)| (&all[..], Some(only)));
+            // An offer may include optional life-to-mana resources. Refuse a
+            // plan that only works by paying our last life, before announcing it.
+            if !crate::granted::viable_cast(view, legal, &cost, sources) {
+                continue;
+            }
             let action = if legal.castable.contains(&id)
                 && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
             {
@@ -1032,7 +1037,11 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
     }
     let seat = view.seat(view.seat)?;
     let sources = sources(view, legal);
-    let plan = manaplan::plan(&owed, &seat.mana_pool, &sources).or_else(|| {
+    let normal = manaplan::plan(&owed, &seat.mana_pool, &sources);
+    if normal.is_none() && matches!(view.owed, Some(ManaPayment::Fixed(_))) {
+        return crate::granted::pay_fixed(view, legal, &owed, &sources);
+    }
+    let plan = normal.or_else(|| {
         // Partial prevention still helps when the full amount is unreachable.
         if matches!(view.owed, Some(ManaPayment::AnyAmount { .. })) {
             let one_more = seat.mana_pool.total() - seat.mana_pool.restricted_total() + 1;

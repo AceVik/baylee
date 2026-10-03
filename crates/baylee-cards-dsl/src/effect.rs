@@ -1305,6 +1305,15 @@ pub enum Effect {
         /// Which permanents.
         filter: &'static Filter,
     },
+    /// Grant its controller a reusable special action until this turn's cleanup.
+    GrantSpecialActionUntilEndOfTurn {
+        /// Timing permission, independent of activated-ability restrictions.
+        timing: crate::SpecialActionTiming,
+        /// Cost paid separately for each use.
+        cost: crate::SpecialActionCost,
+        /// Immediate result; recipient references bind on resolution.
+        effect: crate::SpecialActionEffect,
+    },
     /// Redirect the next finite amount of damage from a creature this turn.
     /// The recipient creature and destination player are fixed on resolution.
     RedirectNextDamage {
@@ -3514,6 +3523,7 @@ impl Effect {
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
+            | Effect::GrantSpecialActionUntilEndOfTurn { .. }
             | Effect::RedirectNextDamage { .. }
             | Effect::LoseHalfLife { .. }
             | Effect::PreventNextDamage { .. }

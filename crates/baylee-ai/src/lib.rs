@@ -16,6 +16,7 @@ mod copying;
 mod damage;
 mod fight;
 mod filter;
+mod granted;
 mod held;
 pub mod intelligence;
 mod policy;
@@ -276,6 +277,12 @@ impl HeuristicAgent {
         //    below this one is about developing a board. An agent that
         //    played a land here would be answering a different question.
         if let Some(action) = policy::pay_owed(view, legal) {
+            return action;
+        }
+        if view.owed.is_some() && view.awaiting == Some(view.seat) {
+            return PlayerAction::PassPriority;
+        }
+        if let Some(action) = granted::protect(view, legal, |seat| self.hostile(seat, view.seat)) {
             return action;
         }
         // 0b. Spend nothing in this seat's own upkeep on an empty stack.
@@ -6933,6 +6940,104 @@ mod tests {
             PlayerAction::PassPriority,
             "this seat is not the one being asked for the payment"
         );
+    }
+
+    fn mana_permission() -> baylee_engine::choice::GrantedActionOffer {
+        use baylee_core::mana::ManaColor;
+        baylee_engine::choice::GrantedActionOffer {
+            id: baylee_core::ids::GrantedActionId::new(7),
+            source: baylee_core::ids::DamageSourceRef {
+                object: obj(77),
+                version: 1,
+            },
+            ability: None,
+            timing: baylee_cards_dsl::SpecialActionTiming::ManaAbility,
+            cost: baylee_cards_dsl::SpecialActionCost::Life(1),
+            effect: baylee_engine::choice::GrantedActionKind::AddMana {
+                color: ManaColor::Colorless,
+                amount: 1,
+            },
+        }
+    }
+
+    #[test]
+    fn granted_mana_pays_only_an_affordable_chosen_debt_and_stops() {
+        use baylee_core::mana::{ManaCost, ManaPayment};
+        use baylee_engine::choice::LegalActions;
+        let grant = mana_permission();
+        let legal = LegalActions {
+            can_pass: true,
+            granted_actions: vec![grant.clone()],
+            ..Default::default()
+        };
+        let mut v = view(0, &[20, 20], vec![]);
+        v.awaiting = Some(v.seat);
+        v.owed = Some(ManaPayment::Fixed(ManaCost::parse("{3}")));
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(legal.clone()),
+        };
+        for floating in 0..3 {
+            v.seats[0].mana_pool.colorless = floating;
+            assert_eq!(
+                agent().act(&v, &pending),
+                PlayerAction::TakeGrantedAction { id: grant.id }
+            );
+        }
+        v.seats[0].mana_pool.colorless = 3;
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+        v.seats[0].mana_pool.colorless = 0;
+        v.owed = Some(ManaPayment::Fixed(ManaCost::parse("{G}")));
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+        v.owed = Some(ManaPayment::Fixed(ManaCost::parse("{20}")));
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "never spend the last life for a generic debt"
+        );
+        v.owed = None;
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::PassPriority,
+            "no speculative life conversion"
+        );
+    }
+
+    #[test]
+    fn granted_shield_spends_one_spare_unit_against_a_visible_targeted_threat() {
+        use baylee_core::ids::TargetRef;
+        use baylee_core::mana::ManaCost;
+        use baylee_engine::choice::{GrantedActionKind, LegalActions};
+        let mut grant = mana_permission();
+        grant.timing = baylee_cards_dsl::SpecialActionTiming::Priority;
+        grant.cost = baylee_cards_dsl::SpecialActionCost::Mana(ManaCost::parse("{1}"));
+        grant.effect = GrantedActionKind::PreventNextDamage {
+            target: TargetRef::Player(PlayerId::new(0)),
+            amount: 1,
+        };
+        let legal = LegalActions {
+            can_pass: true,
+            granted_actions: vec![grant.clone()],
+            ..Default::default()
+        };
+        let mut v = view(0, &[20, 20], vec![]);
+        let mut bolt = stack_spell(2, "Lightning Bolt", PlayerId::new(1), obj(9));
+        bolt.targets = vec![TargetRef::Player(v.seat)];
+        v.stack.push(bolt);
+        v.seats[0].mana_pool.white = 1;
+        let pending = Pending::Priority {
+            player: v.seat,
+            legal: Box::new(legal),
+        };
+        assert_eq!(
+            agent().act(&v, &pending),
+            PlayerAction::TakeGrantedAction { id: grant.id }
+        );
+        v.seats[0].mana_pool.white = 0;
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
+        v.seats[0].mana_pool.white = 1;
+        v.stack[0].targets = vec![TargetRef::Player(PlayerId::new(1))];
+        assert_eq!(agent().act(&v, &pending), PlayerAction::PassPriority);
     }
 
     #[test]

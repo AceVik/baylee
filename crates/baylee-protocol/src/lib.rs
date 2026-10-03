@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 18 distinguishes finite damage redirection from prevention.
-pub const PROTOCOL_VERSION: u32 = 18;
+/// Version 19 carries temporary player special actions and their payment offers.
+pub const PROTOCOL_VERSION: u32 = 19;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -242,7 +242,8 @@ mod tests {
         // 16: exact incarnation source choices and their historical view projection.
         // 17: exact target incarnations and historical target projections.
         // 18: finite damage-redirection choices and allocation semantics.
-        assert_eq!(PROTOCOL_VERSION, 18);
+        // 19: temporary player special actions and payment-window offers.
+        assert_eq!(PROTOCOL_VERSION, 19);
     }
 
     #[test]
