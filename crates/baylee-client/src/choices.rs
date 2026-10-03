@@ -279,6 +279,129 @@ fn colour_pip(color: ManaColor) -> Pip {
     })
 }
 
+/// Localizes only the exact entitled source snapshot, never a newer object.
+fn source_label(
+    lang: Lang,
+    source: baylee_core::ids::DamageSourceRef,
+    names: FaceNames<'_>,
+    statics: Option<&GameStatic>,
+) -> String {
+    let Some(projected) = names
+        .view
+        .and_then(|view| view.damage_sources.iter().find(|s| s.source == source))
+    else {
+        return Phrase::SourceUnknown.text(lang).to_string();
+    };
+    let text = projected
+        .rules
+        .or_else(|| projected.card.map(Into::into))
+        .zip(names.texts)
+        .and_then(|(face, texts)| texts.face(face.card, face.face));
+    let name = baylee_client_core::card_face::shown_name(&projected.name, text.as_ref());
+    let mut label = compact_source_label(lang, projected, name, statics);
+    let context = source_stack_context(lang, projected, names, statics);
+    if !context.is_empty() {
+        label.push('\n');
+        label.push_str(&context);
+    }
+    label
+}
+
+/// The chooser gives identity and incarnation; concrete stack targets follow below.
+fn compact_source_label(
+    lang: Lang,
+    source: &baylee_view::DamageSourceView,
+    name: &str,
+    statics: Option<&GameStatic>,
+) -> String {
+    let name = if source.card.is_none() && source.rules.is_none() && source.token.is_none() {
+        match name {
+            "Unknown source" => Phrase::SourceUnknown.text(lang),
+            "Face-down" => Phrase::SourceFaceDown.text(lang),
+            other => other,
+        }
+    } else {
+        name
+    };
+    let identity = match (source.power, source.toughness) {
+        (Some(power), Some(toughness)) => format!("{name} ({power}/{toughness})"),
+        _ => name.to_string(),
+    };
+    let age = if source.is_current {
+        Phrase::SourceCurrent.text(lang).to_string()
+    } else {
+        format!(
+            "{} {}",
+            Phrase::SourceHistorical.text(lang),
+            source.source.version
+        )
+    };
+    format!(
+        "{identity} · {} · {age}",
+        seat_name(lang, statics, source.controller)
+    )
+}
+
+/// References come from the exact snapshot; only their public targets are named.
+fn source_stack_context(
+    lang: Lang,
+    source: &baylee_view::DamageSourceView,
+    names: FaceNames<'_>,
+    statics: Option<&GameStatic>,
+) -> String {
+    let Some(view) = names.view else {
+        return String::new();
+    };
+    source
+        .referenced_by
+        .iter()
+        .filter_map(|id| {
+            let entry = view.stack.iter().find(|entry| entry.id == *id)?;
+            let targets: Vec<_> = entry
+                .targets
+                .iter()
+                .map(|target| match *target {
+                    baylee_view::TargetRef::Player(player) => seat_name(lang, statics, player),
+                    baylee_view::TargetRef::Object(object) => view.object(object).map_or_else(
+                        || "?".to_string(),
+                        |target| {
+                            names.texts.map_or_else(
+                                || target.name.clone(),
+                                |texts| crate::face::name_of(target, view, texts),
+                            )
+                        },
+                    ),
+                })
+                .collect();
+            (!targets.is_empty())
+                .then(|| format!("{} → {}", Phrase::StackTitle.text(lang), targets.join(", ")))
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn source_options(
+    options: &[baylee_core::ids::DamageSourceRef],
+    lang: Lang,
+    statics: Option<&GameStatic>,
+    names: FaceNames<'_>,
+) -> Vec<ChoiceOption> {
+    options
+        .iter()
+        .enumerate()
+        .map(|(index, &source)| {
+            ChoiceOption::text(
+                index,
+                format!(
+                    "{}. {}",
+                    index + 1,
+                    source_label(lang, source, names, statics)
+                ),
+            )
+        })
+        .collect()
+}
+
 /// The rows of an indexed choice, or `None` when this prompt is not one.
 ///
 /// [`ChoiceOption::index`] is the answer, and a caller passes *that* to
@@ -297,6 +420,9 @@ pub fn options(
     names: FaceNames<'_>,
 ) -> Option<Vec<ChoiceOption>> {
     match prompt {
+        Prompt::ChooseDamageSource { options } => {
+            Some(source_options(options, lang, statics, names))
+        }
         Prompt::ChooseDamageEffect { damage, options } => Some(
             options
                 .iter()
@@ -1720,7 +1846,7 @@ pub(crate) fn damage_page(rows: &mut Vec<ChoiceOption>, page: usize, lang: Lang)
 }
 
 #[cfg(test)]
-mod damage_choice_tests {
+mod decision_id_tests {
     use super::*;
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{DamageEffectKind, DamageEffectOption, DamagePartView};
@@ -1772,5 +1898,121 @@ mod damage_choice_tests {
                 baylee_client_core::targeting::NEXT
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod source_choice_tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::{DamageSourceRef, PlayerId, SourceChoiceId};
+    use baylee_engine::choice::Pending;
+
+    #[test]
+    fn opening_a_source_choice_clears_the_previous_card_preview() {
+        let source = DamageSourceRef {
+            object: ObjectId::new(9, 0),
+            version: 1,
+        };
+        let pending = Pending::ChooseDamageSource {
+            player: PlayerId::new(0),
+            choice: SourceChoiceId::new(3),
+            options: vec![source],
+        };
+        let mut duel = crate::Duel {
+            view: Some(ViewBuilder::new(2).build()),
+            hovered: Some(source.object),
+            hovered_at: Some(crate::HoverSpot::Point(bevy::prelude::Vec2::ZERO)),
+            ..Default::default()
+        };
+        duel.receive_choice(pending.clone());
+        assert_eq!(duel.hovered, None);
+        assert!(duel.hovered_at.is_none());
+        // A re-sent identical question does not steal a newly requested preview.
+        duel.hovered = Some(source.object);
+        duel.receive_choice(pending);
+        assert_eq!(duel.hovered, Some(source.object));
+    }
+
+    #[test]
+    fn historical_rows_stay_distinct_and_never_preview_the_current_object() {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(1, vec![token(9, 1, "New secret identity", 8, 8)])
+            .build();
+        let old = baylee_view::DamageSourceView {
+            source: DamageSourceRef {
+                object: ObjectId::new(9, 0),
+                version: 2,
+            },
+            name: "Orcish Artillery".into(),
+            card: None,
+            rules: None,
+            token: None,
+            controller: PlayerId::new(1),
+            zone: baylee_view::LogZone::Battlefield,
+            is_current: false,
+            referenced_by: vec![ObjectId::new(10, 0)],
+            colors: baylee_core::color::ColorSet::default(),
+            types: baylee_core::types::TypeSet::default(),
+            power: Some(1),
+            toughness: Some(3),
+            keywords: 0,
+        };
+        let older = baylee_view::DamageSourceView {
+            source: DamageSourceRef {
+                version: 1,
+                ..old.source
+            },
+            ..old.clone()
+        };
+        let refs = vec![old.source, older.source];
+        let mut old = old;
+        old.referenced_by = vec![ObjectId::new(10, 0)];
+        let mut older = older;
+        older.referenced_by = vec![ObjectId::new(11, 0)];
+        let mut first = token(10, 1, "Ability", 0, 0);
+        first.targets = vec![baylee_view::TargetRef::Player(PlayerId::new(0))];
+        let mut second = token(11, 1, "Ability", 0, 0);
+        second.targets = vec![baylee_view::TargetRef::Object(ObjectId::new(12, 0))];
+        view.battlefield.push(token(12, 0, "Grizzly Bears", 2, 2));
+        view.stack = vec![first, second];
+        view.damage_sources = vec![old, older];
+        let pending = Pending::ChooseDamageSource {
+            player: view.seat,
+            choice: SourceChoiceId::new(3),
+            options: refs,
+        };
+        let i = Interaction::new(pending, view.seat);
+        let rows = options(
+            &i.prompt(),
+            Lang::De,
+            None,
+            "",
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows[0].label.starts_with("1. Orcish Artillery"));
+        assert!(
+            rows[0].label.contains("früheres Objekt 2")
+                && rows[1].label.contains("früheres Objekt 1")
+        );
+        assert!(rows.iter().all(|r| !r.label.contains("secret")));
+        assert!(rows[0].label.contains(&format!(
+            "Stapel → {}",
+            seat_name(Lang::De, None, PlayerId::new(0))
+        )));
+        assert!(rows[1].label.contains("Stapel → Grizzly Bears"));
+        assert!(!rows[0].label.contains("Grizzly Bears"));
+        let duel = crate::Duel {
+            view: Some(view),
+            interaction: Some(i),
+            ..Default::default()
+        };
+        assert_eq!(preview_object(&duel, 0), None);
+        assert_eq!(preview_object(&duel, 1), None);
     }
 }

@@ -213,6 +213,85 @@ fn graveyard_price(
 }
 
 /// Projects one object into its public form for `seat`.
+fn damage_sources(
+    state: &GameState,
+    seat: PlayerId,
+    pending: Option<&Pending>,
+) -> Vec<baylee_view::DamageSourceView> {
+    let Some(Pending::ChooseDamageSource {
+        player, options, ..
+    }) = pending
+    else {
+        return Vec::new();
+    };
+    if *player != seat {
+        return Vec::new();
+    }
+    options
+        .iter()
+        .filter_map(|&source| {
+            let obj = state.source_object(source)?;
+            let known = may_know_card(obj, seat)
+                && (!obj.zone.is_hidden_by_default()
+                    || (obj.zone == Zone::Hand && obj.owner == seat));
+            let chars = obj.characteristics();
+            Some(baylee_view::DamageSourceView {
+                source,
+                name: if known || !obj.zone.is_hidden_by_default() {
+                    public_name(state, obj, seat)
+                } else {
+                    "Unknown source".into()
+                },
+                card: obj.card.filter(|_| known).map(|c| CardIdentity {
+                    index: c.index,
+                    print: c.print,
+                    face: obj.face_index,
+                }),
+                rules: obj.printed_face().filter(|_| known).map(rules_face),
+                token: obj
+                    .token
+                    .filter(|_| known)
+                    .map(baylee_cards::tokens::token_id),
+                controller: obj.controller,
+                zone: match obj.zone {
+                    Zone::Battlefield => baylee_view::LogZone::Battlefield,
+                    Zone::Stack => baylee_view::LogZone::Stack,
+                    Zone::Graveyard => baylee_view::LogZone::Graveyard,
+                    Zone::Exile => baylee_view::LogZone::Exile,
+                    Zone::Command => baylee_view::LogZone::Command,
+                    Zone::Hand => baylee_view::LogZone::Hand,
+                    Zone::Library | Zone::OutsideGame => baylee_view::LogZone::Library,
+                },
+                is_current: state
+                    .object(source.object)
+                    .is_some_and(|o| o.version == source.version),
+                referenced_by: state.source_referenced_by(source),
+                colors: if known || !obj.zone.is_hidden_by_default() {
+                    chars.colors
+                } else {
+                    baylee_core::color::ColorSet::EMPTY
+                },
+                types: if known || !obj.zone.is_hidden_by_default() {
+                    chars.types
+                } else {
+                    baylee_core::types::TypeSet::EMPTY
+                },
+                power: (known || !obj.zone.is_hidden_by_default())
+                    .then_some(chars.power)
+                    .flatten(),
+                toughness: (known || !obj.zone.is_hidden_by_default())
+                    .then_some(chars.toughness)
+                    .flatten(),
+                keywords: if known || !obj.zone.is_hidden_by_default() {
+                    chars.keywords.bits()
+                } else {
+                    0
+                },
+            })
+        })
+        .collect()
+}
+
 fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<PublicObject> {
     let obj = state.object(id)?;
     let chars = obj.characteristics();
@@ -999,6 +1078,7 @@ pub fn player_view(
         command: per_seat_zone(state, ZoneLocation::Command, seat),
         combat: combat_view(state),
         looking_at: looking_at(state, seat, pending),
+        damage_sources: damage_sources(state, seat, pending),
         library_tops: state
             .players
             .iter()
@@ -1132,6 +1212,232 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn historical_source_projection_retains_a_ceased_tokens_registry_identity() {
+        use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+        use baylee_engine::object::{AbilityLoc, ObjectKind, Rider};
+        use baylee_engine::zone::ZonePosition;
+        let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+        let player = PlayerId::new(0);
+        let name = state.names.intern("Soldier");
+        let token = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        state.object_mut(token).unwrap().token = Some(&baylee_cards::tokens::SOLDIER_1_1_WHITE);
+        let source = DamageSourceRef {
+            object: token,
+            version: state.object(token).unwrap().version,
+        };
+        let ability = state.create_bare(
+            player,
+            ObjectKind::AbilityOnStack,
+            name,
+            ZoneLocation::Stack,
+        );
+        state.object_mut(ability).unwrap().ability = Some(AbilityLoc {
+            card: None,
+            source: token,
+            index: 0,
+        });
+        state
+            .object_mut(ability)
+            .unwrap()
+            .riders
+            .push(Rider::AbilitySourceVersion(source.version));
+        state
+            .move_object(
+                token,
+                ZoneLocation::Graveyard(player),
+                ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
+            .unwrap();
+        state.zones.remove(token, ZoneLocation::Graveyard(player));
+        state.arena.remove(token);
+        let options = baylee_engine::prevention::source_options(
+            &mut state,
+            &baylee_cards_dsl::Filter::Any,
+            player,
+            ability,
+        );
+        let pending = Pending::ChooseDamageSource {
+            player,
+            choice: SourceChoiceId::new(10),
+            options,
+        };
+        let row = damage_sources(&state, player, Some(&pending))
+            .into_iter()
+            .find(|r| r.source == source)
+            .unwrap();
+        assert!(!row.is_current);
+        assert!(row.card.is_none());
+        assert_eq!(row.name, "Soldier");
+        assert_eq!(
+            row.token,
+            Some(baylee_cards::tokens::token_id(
+                &baylee_cards::tokens::SOLDIER_1_1_WHITE
+            ))
+        );
+    }
+
+    #[test]
+    fn historical_source_projection_uses_its_own_visibility_not_the_returned_cards_identity() {
+        use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+        use baylee_engine::object::{AbilityLoc, ObjectKind, Rider, Status};
+        use baylee_engine::zone::ZonePosition;
+        for originally_face_down in [false, true] {
+            let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+            let controller = PlayerId::new(0);
+            let viewer = PlayerId::new(1);
+            let id = state.zones.list(ZoneLocation::Battlefield)[0];
+            if originally_face_down {
+                state
+                    .object_mut(id)
+                    .unwrap()
+                    .status
+                    .insert(Status::FACE_DOWN);
+            }
+            state.refresh_characteristics();
+            let source = DamageSourceRef {
+                object: id,
+                version: state.object(id).unwrap().version,
+            };
+            let name = state.names.intern("historical source ability");
+            let ability = state.create_bare(
+                controller,
+                ObjectKind::AbilityOnStack,
+                name,
+                ZoneLocation::Stack,
+            );
+            let obj = state.object_mut(ability).unwrap();
+            obj.ability = Some(AbilityLoc {
+                card: Some(island()),
+                source: id,
+                index: 0,
+            });
+            obj.riders.push(Rider::AbilitySourceVersion(source.version));
+            state
+                .move_object(
+                    id,
+                    ZoneLocation::Hand(controller),
+                    ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
+                )
+                .unwrap();
+            // The next incarnation has the opposite face-down status. Its
+            // visibility must never decide what this historical row reveals.
+            if !originally_face_down {
+                state
+                    .object_mut(id)
+                    .unwrap()
+                    .status
+                    .insert(Status::FACE_DOWN);
+            }
+            let options = baylee_engine::prevention::source_options(
+                &mut state,
+                &baylee_cards_dsl::Filter::Any,
+                viewer,
+                ability,
+            );
+            assert!(options.contains(&source));
+            let pending = Pending::ChooseDamageSource {
+                player: viewer,
+                choice: SourceChoiceId::new(4),
+                options,
+            };
+            let rows = damage_sources(&state, viewer, Some(&pending));
+            let row = rows.iter().find(|row| row.source == source).unwrap();
+            assert!(!row.is_current);
+            assert_eq!(row.zone, baylee_view::LogZone::Battlefield);
+            assert_eq!(row.card.is_none(), originally_face_down);
+            assert_eq!(row.rules.is_none(), originally_face_down);
+            assert_eq!(row.name == "Face-down", originally_face_down);
+            assert_eq!(row.referenced_by, vec![ability]);
+            assert!(damage_sources(&state, controller, Some(&pending)).is_empty());
+        }
+    }
+
+    #[test]
+    fn historical_source_alone_entitles_a_new_seat_to_its_print_and_copied_rules() {
+        use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+        use baylee_engine::object::{AbilityLoc, ObjectKind, PrintedFace, Rider};
+        use baylee_engine::zone::ZonePosition;
+        let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+        let player = PlayerId::new(1);
+        let source_id = state.zones.list(ZoneLocation::Battlefield)[0];
+        let source = DamageSourceRef {
+            object: source_id,
+            version: state.object(source_id).unwrap().version,
+        };
+        let identity = state.object(source_id).unwrap().card.unwrap();
+        let copied = teferi_time_raveler();
+        state
+            .object_mut(source_id)
+            .unwrap()
+            .take_abilities(baylee_engine::object::AbilityList {
+                abilities: &[],
+                printed: PrintedFace::new(copied, 0),
+                token: None,
+            });
+        let name = state.names.intern("source ability");
+        let ability = state.create_bare(
+            PlayerId::new(0),
+            ObjectKind::AbilityOnStack,
+            name,
+            ZoneLocation::Stack,
+        );
+        state.object_mut(ability).unwrap().ability = Some(AbilityLoc {
+            card: None,
+            source: source_id,
+            index: 0,
+        });
+        state
+            .object_mut(ability)
+            .unwrap()
+            .riders
+            .push(Rider::AbilitySourceVersion(source.version));
+        state
+            .move_object(
+                source_id,
+                ZoneLocation::Hand(PlayerId::new(0)),
+                ZonePosition::Top,
+                baylee_engine::event::Cause::Effect,
+            )
+            .unwrap();
+        let options = baylee_engine::prevention::source_options(
+            &mut state,
+            &baylee_cards_dsl::Filter::Any,
+            player,
+            ability,
+        );
+        let pending = Pending::ChooseDamageSource {
+            player,
+            choice: SourceChoiceId::new(9),
+            options,
+        };
+        let mut view = player_view(
+            &state,
+            player,
+            1,
+            Some(&pending),
+            &SeatContext::default(),
+            &[],
+        );
+        view.battlefield.clear();
+        view.stack.clear();
+        view.hand.clear();
+        view.damage_sources.retain(|row| row.source == source);
+        assert_eq!(view.prints().collect::<Vec<_>>(), vec![identity.print]);
+        assert!(view.cards().any(|card| card == identity.index));
+        assert!(view.cards().any(|card| card == copied));
+        let wire = serde_json::to_string(&view).unwrap();
+        let decoded: baylee_view::PlayerView = serde_json::from_str(&wire).unwrap();
+        assert_eq!(decoded.damage_sources, view.damage_sources);
+    }
+
     use super::*;
     use baylee_cards::by_oracle_id;
     use baylee_core::ids::{CardIndex, PrintRef};

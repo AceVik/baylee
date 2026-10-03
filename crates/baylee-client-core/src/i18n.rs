@@ -1580,6 +1580,28 @@ messages! {
         en: "How much mana will you pay? ({0}–{1}; prevent up to {2} damage)",
         de: "Wie viel Mana zahlen? ({0}–{1}; bis zu {2} Schaden verhindern)",
     },
+    /// One non-targeted, exact source selection.
+    ChooseDamageSource { en: "Choose a damage source", de: "Wähle eine Schadensquelle" },
+    /// Movement from the stack in the event log.
+    LogFromStack { en: "from the stack", de: "vom Stapel" },
+    /// Movement onto the stack in the event log.
+    LogIntoStack { en: "onto the stack", de: "auf den Stapel" },
+    /// The hand zone in a source description.
+    SourceHand { en: "hand", de: "Hand" },
+    /// The library zone in a source description.
+    SourceLibrary { en: "library", de: "Bibliothek" },
+    /// Incarnation still present in the game.
+    SourceCurrent { en: "current", de: "aktuell" },
+    /// Remembered incarnation that has left its zone.
+    SourceHistorical { en: "earlier incarnation", de: "früheres Objekt" },
+    /// Secondary exact-incarnation label for otherwise similar rows.
+    SourceVersion { en: "incarnation {0}", de: "Objektversion {0}" },
+    /// Publicly visible spell/ability reference count.
+    SourceReferences { en: "{0} on the stack", de: "{0} auf dem Stapel" },
+    /// Generic public label for a face-down source.
+    SourceFaceDown { en: "Face-down source", de: "Verdeckte Quelle" },
+    /// No entitled identity is available for the offered source.
+    SourceUnknown { en: "Unknown source", de: "Unbekannte Quelle" },
     /// Damage decision: `DamageCombat`.
     DamageCombat { en: "combat damage", de: "Kampfschaden" },
     /// Damage decision: `DamageNoncombat`.

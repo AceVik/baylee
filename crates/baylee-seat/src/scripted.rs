@@ -171,6 +171,12 @@ pub fn least_answer(
         |n: usize, from: &[baylee_core::ids::ObjectId]| from.iter().copied().take(n).collect();
     let hand: Vec<_> = view.hand.iter().map(|card| card.id).collect();
     Some(match pending {
+        Pending::ChooseDamageSource {
+            choice, options, ..
+        } => PlayerAction::ChooseDamageSource {
+            choice: *choice,
+            source: *options.first()?,
+        },
         Pending::ChooseDamageEffect {
             choice, options, ..
         } => PlayerAction::ChooseDamageEffect {
@@ -264,6 +270,7 @@ pub fn least_answer(
 #[must_use]
 pub const fn kind(pending: &Pending) -> &'static str {
     match pending {
+        Pending::ChooseDamageSource { .. } => "ChooseDamageSource",
         Pending::ChooseDamageEffect { .. } => "ChooseDamageEffect",
         Pending::AllocatePrevention { .. } => "AllocatePrevention",
         Pending::Mulligan { .. } => "Mulligan",

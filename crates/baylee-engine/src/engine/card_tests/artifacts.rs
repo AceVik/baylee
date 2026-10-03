@@ -70,18 +70,26 @@ fn forcefield_lets_one_of_an_unblocked_creatures_damage_through() {
     );
     tap_all_mana(&mut engine, p1);
     activate(&mut engine, p1, forcefield(), 0);
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: giant,
+        version: engine.state().object(giant).expect("source exists").version,
+    };
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+    let Pending::ChooseDamageSource {
+        options, choice, ..
+    } = engine.pending().clone()
+    else {
         unreachable!("the pass waited for exactly this")
     };
-    assert_eq!(options, vec![giant], "the unblocked attacker");
+    assert_eq!(options, vec![selected], "the unblocked attacker");
     engine
         .apply(
             p1,
-            PlayerAction::ChooseObjects {
-                objects: vec![giant],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .expect("off the list");
@@ -19447,24 +19455,44 @@ fn choose_monolith_source(
     source: ObjectId,
 ) -> Vec<ObjectId> {
     pass_until(engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
     };
     assert_eq!(player, seat, "the ability's controller chooses the source");
+    let chosen = options
+        .iter()
+        .copied()
+        .find(|candidate| {
+            candidate.object == source
+                && candidate.version
+                    == engine
+                        .state()
+                        .object(source)
+                        .expect("the named source exists")
+                        .version
+        })
+        .expect("the current source incarnation is offered");
     engine
         .apply(
             seat,
-            PlayerAction::ChooseObjects {
-                objects: vec![source],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: chosen,
             },
         )
         .expect("a legal source to choose");
     options
+        .into_iter()
+        .map(|candidate| candidate.object)
+        .collect()
 }
 
 /// Jade Monolith's activated ability is targeted, naming `target creature`

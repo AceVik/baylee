@@ -1366,7 +1366,7 @@ fn spawn_stack_entry(
     ));
     if full {
         name.insert((
-            Text::new(title),
+            Text::new(title.clone()),
             bevy::text::LineHeight::Px(STACK_NAME_LINE),
             // A cap in pixels rather than a claim about the pool: a printing
             // this client has never seen gets two lines and a clean edge
@@ -1379,11 +1379,30 @@ fn spawn_stack_entry(
         ));
     } else {
         name.insert((
-            Text::new(fit(&title, room, size)),
+            Text::default(),
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
         ));
     }
     let name = name.id();
+    if !full {
+        for piece in queued_heading_spans(&title, room, size) {
+            let font = if piece.mark {
+                crate::manaui::mana_tf(fonts, size * STACK_MARK)
+            } else {
+                super::tf_serif(fonts, size, 400)
+            };
+            let span = commands
+                .spawn((
+                    TextSpan::new(piece.text),
+                    font,
+                    TextColor(ink),
+                    Arriving::ink(key, ink.alpha()),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(name).add_child(span);
+        }
+    }
     commands.entity(body).add_child(name);
 
     // What kind of thing this is, and whose — on the top row only. An ability
@@ -1960,6 +1979,25 @@ pub(super) fn stack_sentence(
     })
 }
 
+/// One-line heading: preserve plain-name truncation and render symbols before budgeting.
+fn queued_heading_spans(title: &str, room: f32, size: f32) -> Vec<Piece> {
+    if manapip::inline(title)
+        .iter()
+        .any(|piece| matches!(piece, manapip::Inline::Mark(_)))
+    {
+        spans_of(
+            &[TextBlock::Rules(title.to_string())],
+            Some(budget(room, size)),
+        )
+    } else {
+        vec![Piece {
+            text: fit(title, room, size),
+            mark: false,
+            reminder: false,
+        }]
+    }
+}
+
 /// What a **queued** ability row is headed, which is not its source's name.
 ///
 /// A queued row answers "what else is coming", and for an ability the
@@ -1976,9 +2014,8 @@ pub(super) fn stack_sentence(
 ///
 /// Reminder text is dropped. It is parenthetical by definition (CR 207.2)
 /// and this is one line — the reminder would be the half a player does not
-/// need, taking the room from the half they do. Mana marks go in as their
-/// printed source (`{T}`) rather than as glyphs, because a queued row is a
-/// single `Text` and not the span chain a full row builds.
+/// need, taking the room from the half they do. Symbol source stays intact
+/// here; the heading renderer splits it into Manafont spans before budgeting.
 ///
 /// [`None`] whenever the sentence is not *known*, and the caller then draws
 /// the name as before: the host sends no line index for some abilities (a
@@ -2235,6 +2272,53 @@ pub(super) fn cut_words(text: &str, budget: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generic_cost_in_a_stack_sentence_uses_the_mana_font_entity() {
+        let assets = Assets::<Font>::default();
+        let fonts = UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: assets.reserve_handle(),
+        };
+        let mut app = App::new();
+        let row = spawn_stack_sentence(
+            &mut app.world_mut().commands(),
+            &fonts,
+            StackKey::Panel,
+            vec![TextBlock::Rules("{1}: Verhindere diesen Schaden.".into())],
+            300.0,
+        );
+        app.world_mut().flush();
+        let first = app.world().get::<Children>(row).unwrap()[0];
+        assert_eq!(app.world().get::<TextSpan>(first).unwrap().0, "\u{e606}");
+        assert_eq!(
+            app.world().get::<TextFont>(first).unwrap().font,
+            bevy::text::FontSource::Handle(fonts.mana)
+        );
+    }
+
+    #[test]
+    fn queued_heading_keeps_mana_and_tap_as_glyph_spans_before_truncation() {
+        let spans = queued_heading_spans("{2}{R}, {T}: Deal 2 damage to any target.", 180.0, 13.0);
+        assert_eq!(spans.iter().filter(|s| s.mark).count(), 3);
+        assert!(
+            spans
+                .iter()
+                .all(|s| !s.text.contains('{') && !s.text.contains('}'))
+        );
+        assert!(spans.iter().map(|s| s.text.chars().count()).sum::<usize>() <= budget(180.0, 13.0));
+        assert_eq!(
+            queued_heading_spans("Æther Vial", 180.0, 13.0)[0].text,
+            "Æther Vial"
+        );
+    }
 
     /// A name that fits is left exactly as printed — the common case, and the
     /// one where a stray ellipsis would be a lie about the card.

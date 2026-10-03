@@ -7,9 +7,9 @@
 use crate::event::DamageTarget;
 use crate::object::ObjectKind;
 use crate::state::GameState;
-use crate::zone::{Zone, ZoneLocation};
+use crate::zone::Zone;
 use baylee_cards_dsl::Filter;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
 
 mod store;
 pub use store::{ShieldOrigin, ShieldStore};
@@ -88,8 +88,16 @@ impl ChosenSource {
         source.id == self.id
             && (source.version == self.version
                 || (self.was_spell
-                    && source.kind == ObjectKind::Permanent
-                    && source.version == self.version + 1))
+                    && state.is_resolved_source(
+                        DamageSourceRef {
+                            object: self.id,
+                            version: self.version,
+                        },
+                        DamageSourceRef {
+                            object: source.id,
+                            version: source.version,
+                        },
+                    )))
             && crate::eval::matches_projected(
                 self.filter,
                 state,
@@ -103,26 +111,14 @@ impl ChosenSource {
     #[must_use]
     pub fn new(
         state: &GameState,
-        chosen: ObjectId,
+        chosen: DamageSourceRef,
         filter: &'static Filter,
         you: PlayerId,
         this: ObjectId,
     ) -> Option<Self> {
-        let obj = state.object_or_departed(chosen)?;
-        let obj = if matches!(obj.zone, Zone::Battlefield | Zone::Stack) {
-            obj
-        } else {
-            // A departed source named by a waiting ability is the object
-            // as it last existed, not the card now in its new zone.
-            state
-                .damage_sources
-                .iter()
-                .rev()
-                .find(|was| was.id == chosen)
-                .unwrap_or(obj)
-        };
+        let obj = state.source_object(chosen)?;
         Some(Self {
-            id: chosen,
+            id: chosen.object,
             version: obj.version,
             was_spell: obj.zone == Zone::Stack && obj.kind == ObjectKind::Spell,
             filter,
@@ -132,64 +128,15 @@ impl ChosenSource {
     }
 }
 
-/// What a player may choose as "a source of your choice" matching
-/// `filter` (CR 609.7a): a permanent, a spell on the stack, and the source
-/// of an ability on the stack even where that source has since gone (its
-/// last known characteristics answer `filter` then).
-///
-/// Not offered: an object only a waiting replacement or prevention effect
-/// or a delayed trigger refers to, a face-up object in the command zone,
-/// and a token that has ceased to exist — none of which a card in the pool
-/// deals damage from today.
+/// Every currently eligible exact source matching the filter (CR 609.7a).
 #[must_use]
 pub fn source_options(
-    state: &GameState,
+    state: &mut GameState,
     filter: &'static Filter,
     you: PlayerId,
     this: ObjectId,
-) -> Vec<ObjectId> {
-    let mut out: Vec<ObjectId> = state
-        .battlefield_seen()
-        .filter(|id| {
-            state
-                .object(*id)
-                .is_some_and(|o| crate::eval::matches(filter, state, o, you, this))
-        })
-        .collect();
-    for &id in state.zones.list(ZoneLocation::Stack) {
-        let Some(obj) = state.object(id) else {
-            continue;
-        };
-        match obj.kind {
-            ObjectKind::Spell => {
-                if crate::eval::matches(filter, state, obj, you, this) {
-                    out.push(id);
-                }
-            }
-            ObjectKind::AbilityOnStack => {
-                let Some(from) = obj.ability.as_ref().map(|loc| loc.source) else {
-                    continue;
-                };
-                let Some(source) = state.object(from) else {
-                    continue;
-                };
-                let fits = if matches!(source.zone, Zone::Battlefield | Zone::Stack) {
-                    crate::eval::matches(filter, state, source, you, this)
-                } else {
-                    state.last_known_characteristics(from).is_some_and(|was| {
-                        crate::eval::matches_projected(filter, state, source, was, you, this)
-                    })
-                };
-                if fits {
-                    out.push(from);
-                }
-            }
-            _ => {}
-        }
-    }
-    out.sort();
-    out.dedup();
-    out
+) -> Vec<DamageSourceRef> {
+    crate::sources::options(state, filter, you, this)
 }
 
 /// One prevention shield.

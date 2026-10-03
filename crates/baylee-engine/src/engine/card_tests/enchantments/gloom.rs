@@ -166,11 +166,28 @@ fn gloom_taxes_white_enchantment_activations_and_stops_when_it_leaves() {
     activate(&mut e, p, circle, 0);
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
     pass_until(&mut e, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
+    let Pending::ChooseDamageSource {
+        choice, options, ..
+    } = e.pending().clone()
+    else {
+        unreachable!("source prompt")
+    };
     let red = on_battlefield(&e, PlayerId::new(1), orcish_artillery()).unwrap();
-    e.apply(p, PlayerAction::ChooseObjects { objects: vec![red] })
-        .unwrap();
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: red,
+        version: e.state().object(red).expect("source exists").version,
+    };
+    assert!(options.contains(&selected));
+    e.apply(
+        p,
+        PlayerAction::ChooseDamageSource {
+            choice,
+            source: selected,
+        },
+    )
+    .unwrap();
     pass_until(&mut e, stack_is_empty);
     pass_until(&mut e, |e| at_rest(e, p));
     let taxer = on_battlefield(&e, p, gloom()).unwrap();

@@ -121,6 +121,14 @@ fn circle_of_protection_prevents_a_pinger_killed_in_response() {
             },
         )
         .expect("any target, and a player is one");
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: artillery,
+        version: engine
+            .state()
+            .object(artillery)
+            .expect("source exists")
+            .version,
+    };
     bury(&mut engine, &[artillery]);
     assert_eq!(
         in_graveyard(&engine, p1, orcish_artillery()),
@@ -134,10 +142,13 @@ fn circle_of_protection_prevents_a_pinger_killed_in_response() {
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, circle_of_protection_red(), 0);
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
@@ -145,14 +156,15 @@ fn circle_of_protection_prevents_a_pinger_killed_in_response() {
     assert_eq!(player, p0);
     assert_eq!(
         options,
-        vec![artillery],
+        vec![selected],
         "the only red source: the pinger in the graveyard its ability names"
     );
     engine
         .apply(
             p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![artillery],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .expect("off the list");
@@ -19630,22 +19642,30 @@ fn circle_of_protection_blue_prevents_damage_from_a_chosen_blue_attacker() {
     );
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, cop, 0);
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: strix,
+        version: engine.state().object(strix).expect("source exists").version,
+    };
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
     };
     assert_eq!(player, p0);
-    assert_eq!(options, vec![strix], "the only blue source on the board");
+    assert_eq!(options, vec![selected], "the only blue source on the board");
     engine
         .apply(
             p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![strix],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .expect("off the list");
@@ -19691,19 +19711,36 @@ fn circle_of_protection_green_prevents_damage_from_a_chosen_green_attacker() {
     );
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, cop, 0);
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: elf,
+        version: engine.state().object(elf).expect("source exists").version,
+    };
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
     };
     assert_eq!(player, p0);
-    assert_eq!(options, vec![elf], "the only green source on the board");
+    assert_eq!(
+        options,
+        vec![selected],
+        "the only green source on the board"
+    );
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .apply(
+            p0,
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
+            },
+        )
         .expect("off the list");
 
     pass_until(&mut engine, |e| {
@@ -19746,11 +19783,22 @@ fn circle_of_protection_white_prevents_damage_from_a_chosen_white_attacker() {
     );
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, cop, 0);
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: cleric,
+        version: engine
+            .state()
+            .object(cleric)
+            .expect("source exists")
+            .version,
+    };
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
@@ -19760,14 +19808,15 @@ fn circle_of_protection_white_prevents_damage_from_a_chosen_white_attacker() {
     // it is also a legal (if useless) choice of "white source"; the Cleric
     // is the one that matters.
     assert!(
-        options.contains(&cleric),
+        options.contains(&selected),
         "the Cleric is an offered white source: {options:?}"
     );
     engine
         .apply(
             p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![cleric],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .expect("off the list");
@@ -23201,11 +23250,22 @@ fn circle_of_protection_black_prevents_a_chosen_black_attacker_and_only_once() {
     );
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, cop, 0);
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: goblin,
+        version: engine
+            .state()
+            .object(goblin)
+            .expect("source exists")
+            .version,
+    };
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("the pass waited for exactly this")
@@ -23213,14 +23273,15 @@ fn circle_of_protection_black_prevents_a_chosen_black_attacker_and_only_once() {
     assert_eq!(player, p0);
     assert_eq!(
         options,
-        vec![goblin],
+        vec![selected],
         "a black source of your choice: the Goblin, never the green Elves"
     );
     engine
         .apply(
             p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![goblin],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .expect("off the list");

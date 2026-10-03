@@ -143,7 +143,7 @@ struct Line {
 /// is already in every string below.
 #[derive(Resource, Default, Clone, PartialEq, Debug)]
 pub struct DrawerRevision {
-    damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
+    decision_id: Option<baylee_client_core::interaction::DecisionId>,
     /// The hint and combat's two lines, in the order they are drawn.
     lines: Vec<Line>,
     /// The value of the number being chosen, when one is.
@@ -346,7 +346,7 @@ pub fn sync_drawer(
             &revision.rows,
             revision.picked,
             &revision.previews,
-            revision.damage_choice,
+            revision.decision_id,
         );
         commands.entity(panel).add_child(rows);
     }
@@ -609,10 +609,10 @@ fn reading(
         target_filters(duel, lang)
     };
     DrawerRevision {
-        damage_choice: duel
+        decision_id: duel
             .interaction
             .as_ref()
-            .and_then(baylee_client_core::Interaction::damage_choice),
+            .and_then(baylee_client_core::Interaction::decision_id),
         lines,
         number,
         filter,
@@ -711,7 +711,7 @@ fn arrow(commands: &mut Commands, fonts: &UiFonts, delta: i32, glyph: &str) -> E
     commands
         .spawn((
             PromptButton {
-                damage_choice: None,
+                decision_id: None,
                 action: PromptAction::Step(delta),
             },
             Node {
@@ -781,7 +781,7 @@ fn chooser(
     rows: &[crate::choices::ChoiceOption],
     picked: Option<usize>,
     previews: &[(usize, ObjectId)],
-    damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
+    decision_id: Option<baylee_client_core::interaction::DecisionId>,
 ) -> Entity {
     let row = commands
         .spawn((
@@ -814,7 +814,7 @@ fn chooser(
         let button = commands
             .spawn((
                 ChoiceButton {
-                    damage_choice,
+                    decision_id,
                     index: option.index,
                 },
                 Node {
@@ -1098,7 +1098,7 @@ fn damage_paging(duel: &Duel, lang: Lang, rows: &mut Vec<crate::choices::ChoiceO
     if duel
         .interaction
         .as_ref()
-        .is_some_and(|i| i.damage_choice().is_some())
+        .is_some_and(|i| i.decision_id().is_some())
     {
         crate::choices::damage_page(rows, duel.target_page, lang);
     }

@@ -469,7 +469,8 @@ pub fn options(
         Pending::ChoosePlayer { options, .. } => {
             out.extend(options.iter().map(|p| Choice::Player(*p)));
         }
-        Pending::ChooseDamageEffect { .. }
+        Pending::ChooseDamageSource { .. }
+        | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
@@ -532,7 +533,9 @@ pub fn steps(
 ) -> Result<Vec<Step>, Unmatched> {
     if matches!(
         pending,
-        Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
+        Pending::ChooseDamageSource { .. }
+            | Pending::ChooseDamageEffect { .. }
+            | Pending::AllocatePrevention { .. }
     ) {
         return Err(Unmatched::Unscored(Unscored::Unsupported));
     }
@@ -790,7 +793,8 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
             Choice::Player(p) => PlayerAction::ChoosePlayer(p),
             _ => return Err(Unmatched::Shape),
         },
-        Pending::ChooseDamageEffect { .. }
+        Pending::ChooseDamageSource { .. }
+        | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
         | Pending::ChooseCardName { .. }
@@ -1088,7 +1092,9 @@ mod tests {
 pub fn model_input<T>(pending: &Pending, build: impl FnOnce() -> T) -> Option<T> {
     if matches!(
         pending,
-        Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
+        Pending::ChooseDamageSource { .. }
+            | Pending::ChooseDamageEffect { .. }
+            | Pending::AllocatePrevention { .. }
     ) {
         None
     } else {

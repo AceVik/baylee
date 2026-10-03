@@ -1453,11 +1453,12 @@ fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(i) = duel
         .interaction
         .as_mut()
-        .filter(|i| i.damage_choice().is_some())
+        .filter(|i| i.decision_id().is_some())
     else {
         return false;
     };
     let count = match i.prompt() {
+        Prompt::ChooseDamageSource { options } => options.len(),
         Prompt::ChooseDamageEffect { options, .. } => options.len(),
         Prompt::AllocatePrevention { damage, .. } => damage.len(),
         _ => 0,
@@ -2683,9 +2684,10 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if let Some(i) = duel
         .interaction
         .as_ref()
-        .filter(|i| i.damage_choice().is_some())
+        .filter(|i| i.decision_id().is_some())
     {
         let count = match i.prompt() {
+            Prompt::ChooseDamageSource { options } => options.len(),
             Prompt::ChooseDamageEffect { options, .. } => options.len(),
             Prompt::AllocatePrevention { damage, .. } => damage.len(),
             _ => 0,
@@ -2764,7 +2766,9 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         }
         if matches!(
             i.prompt(),
-            Prompt::ChooseDamageEffect { .. } | Prompt::AllocatePrevention { .. }
+            Prompt::ChooseDamageSource { .. }
+                | Prompt::ChooseDamageEffect { .. }
+                | Prompt::AllocatePrevention { .. }
         ) {
             return None;
         }
@@ -3406,12 +3410,7 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &choice_buttons, &parents) {
-            if button.damage_choice
-                != duel
-                    .interaction
-                    .as_ref()
-                    .and_then(Interaction::damage_choice)
-            {
+            if button.decision_id != duel.interaction.as_ref().and_then(Interaction::decision_id) {
                 continue;
             }
             pick_choice(&mut duel, button.index);
@@ -3421,11 +3420,9 @@ pub fn pointer(
             continue;
         }
         if let Some(button) = find_in_lineage(e, &prompt_buttons, &parents) {
-            if !button.matches_damage_choice(
-                duel.interaction
-                    .as_ref()
-                    .and_then(Interaction::damage_choice),
-            ) {
+            if !button
+                .matches_decision_id(duel.interaction.as_ref().and_then(Interaction::decision_id))
+            {
                 continue;
             }
             let action = match button.action {

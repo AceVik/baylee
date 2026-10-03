@@ -2120,6 +2120,7 @@ impl<L: CardLookup> Engine<L> {
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
         let mut sacrificed = wizard.sacrifices.iter();
         let mut sacrificed_mana_value = None;
+        let mut sacrificed_object = None;
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in face.mandatory_additional_costs {
             graveyard_batch.before_part(&mut self.state, part);
@@ -2148,6 +2149,7 @@ impl<L: CardLookup> Engine<L> {
                             "a sacrifice the cast never asked about",
                         ));
                     };
+                    sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
                     sacrificed_mana_value = self
                         .state
                         .object(chosen)
@@ -2347,6 +2349,7 @@ impl<L: CardLookup> Engine<L> {
         {
             obj.paid = Some(Box::new(crate::object::PaidRecord {
                 sacrificed_mana_value,
+                sacrificed: sacrificed_object,
                 mana_spent,
                 colors_spent,
                 tapped: None,

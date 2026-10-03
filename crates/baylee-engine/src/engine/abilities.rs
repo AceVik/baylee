@@ -1563,6 +1563,7 @@ impl<L: CardLookup> Engine<L> {
             self.state
                 .zones
                 .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+            self.state.capture_linked_references(id, effects);
             self.state.journal.record(GameEvent::AbilityTriggered {
                 object: id,
                 source,
@@ -2078,6 +2079,7 @@ impl<L: CardLookup> Engine<L> {
         let x = self.activation_x.take().unwrap_or(0);
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
+        let activated_source_version = self.state.object(source).map(|o| o.version);
         let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
@@ -2162,6 +2164,14 @@ impl<L: CardLookup> Engine<L> {
             }
         } else {
             let ability = self.push_ability_to_stack(player, source, ability_index, targets);
+            if let Some(version) = activated_source_version
+                && let Some(obj) = self.state.object_mut(ability)
+            {
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::AbilitySourceVersion(_)));
+                obj.riders
+                    .push(crate::object::Rider::AbilitySourceVersion(version));
+            }
             // The second instance's answer, taken so that it belongs to this
             // activation and to no other.
             if let Some(second) = self.activation_second_targets.take()
@@ -2724,6 +2734,7 @@ impl<L: CardLookup> Engine<L> {
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes.
                     if matches!(part, CostPart::Sacrifice(_)) {
+                        paid.sacrificed = self.state.object(card).map(|o| (card, o.version));
                         paid.sacrificed_mana_value = self
                             .state
                             .object(card)

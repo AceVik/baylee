@@ -140,7 +140,8 @@ use serde::{Deserialize, Serialize};
 /// amount in [`PlayerView::owed`].
 /// Version 48 accompanies explicit damage replacement ordering and
 /// simultaneous prevention allocation decisions in the choice protocol.
-pub const VIEW_VERSION: u32 = 48;
+/// Version 49 adds exact, entitled descriptions of damage-source incarnations.
+pub const VIEW_VERSION: u32 = 49;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -537,6 +538,40 @@ impl GameStatic {
 }
 
 // ------------------------------------------------------------------- objects
+
+/// An offered damage source, described as the exact rules incarnation that
+/// was offered. Names and card identities obey the viewing seat's entitlement.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct DamageSourceView {
+    /// Exact object and incarnation selected by the source-choice action.
+    pub source: baylee_core::ids::DamageSourceRef,
+    /// Projected or historical public name, including copy and token names.
+    pub name: String,
+    /// Entitled backing card identity; never a later hidden incarnation.
+    pub card: Option<CardIdentity>,
+    /// Entitled printed rules face, if this source has one.
+    pub rules: Option<RulesFace>,
+    /// Registry token identity, if applicable.
+    pub token: Option<u16>,
+    /// Controller of the source in the described incarnation.
+    pub controller: PlayerId,
+    /// Zone of the described incarnation, not a later card's present zone.
+    pub zone: LogZone,
+    /// True when this exact incarnation still exists in the game.
+    pub is_current: bool,
+    /// Stack objects referring to this exact incarnation.
+    pub referenced_by: Vec<ObjectId>,
+    /// Projected source colors.
+    pub colors: ColorSet,
+    /// Projected card types.
+    pub types: TypeSet,
+    /// Projected power, when defined.
+    pub power: Option<i16>,
+    /// Projected toughness, when defined.
+    pub toughness: Option<i16>,
+    /// Projected keyword bitset, as on public objects.
+    pub keywords: u128,
+}
 
 /// Identity of the card backing an object, when the viewing seat may know it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -1468,6 +1503,10 @@ impl CombatView {
 /// diff two snapshots itself without the host having to be correct about it.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
+    /// Entitled descriptions for this seat's offered damage-source
+    /// incarnations. Historical entries never describe a later incarnation.
+    #[serde(default)]
+    pub damage_sources: Vec<DamageSourceView>,
     /// Source and printed effect of this seat's current target decision.
     #[serde(default)]
     pub targeting: Option<TargetingContext>,
@@ -1743,7 +1782,15 @@ impl PlayerView {
                 .chain(granted)
                 .map(|r| r.card)
         });
-        self.identities().map(|card| card.index).chain(printed_on)
+        self.identities()
+            .map(|card| card.index)
+            .chain(printed_on)
+            .chain(
+                self.damage_sources
+                    .iter()
+                    .filter_map(|source| source.rules)
+                    .map(|rules| rules.card),
+            )
     }
 
     /// Every card identity this view shows, zone by zone: the walk
@@ -1762,6 +1809,7 @@ impl PlayerView {
             .map(|o| o.card)
             .chain(public)
             .chain(commanders)
+            .chain(self.damage_sources.iter().filter_map(|source| source.card))
     }
 
     /// Every object in a zone this seat can see into, hand excluded (a hand
@@ -1973,6 +2021,8 @@ pub enum LogZone {
     Graveyard,
     /// Exile.
     Exile,
+    /// The stack.
+    Stack,
     /// The command zone.
     Command,
 }
@@ -2494,6 +2544,7 @@ mod tests {
             command: vec![vec![]; seats as usize],
             combat: CombatView::default(),
             looking_at: Vec::new(),
+            damage_sources: Vec::new(),
             library_tops: Vec::new(),
             owed: None,
             targeting: None,
@@ -3325,16 +3376,7 @@ mod tests {
                 | ManaColor::Colorless => {}
             }
         }
-        let costs: Vec<ManaCost> = ["", "{2}{U}{U}", "{X}{R}", "{2}{W/U}{B/P}", "{16}{G}"]
-            .iter()
-            .map(|text| ManaCost::try_parse(text).expect("a cost the notation spells"))
-            .collect();
-        for cost in &costs {
-            let back: ManaCost =
-                serde_json::from_value(serde_json::to_value(cost).expect("serializes"))
-                    .expect("and reads back");
-            assert_eq!(&back, cost, "a cost survives the wire");
-        }
+        let costs = mana_cost_samples();
         let mut subtypes_set = SubtypeSet::default();
         for id in [
             subtypes::creature::ALLY,
@@ -3355,6 +3397,13 @@ mod tests {
                 ])),
             ),
             ("CardIndex", json(serde_json::json!(CardIndex::new(4096)))),
+            (
+                "DamageSourceRef",
+                json(serde_json::json!(baylee_core::ids::DamageSourceRef {
+                    object: ObjectId::new(12, 3),
+                    version: 70_001
+                })),
+            ),
             (
                 "ColorSet",
                 json(serde_json::json!([
@@ -3395,6 +3444,20 @@ mod tests {
                 ])),
             ),
         ]
+    }
+
+    fn mana_cost_samples() -> Vec<ManaCost> {
+        let costs: Vec<ManaCost> = ["", "{2}{U}{U}", "{X}{R}", "{2}{W/U}{B/P}", "{16}{G}"]
+            .iter()
+            .map(|text| ManaCost::try_parse(text).expect("a cost the notation spells"))
+            .collect();
+        for cost in &costs {
+            let back: ManaCost =
+                serde_json::from_value(serde_json::to_value(cost).expect("serializes"))
+                    .expect("and reads back");
+            assert_eq!(&back, cost, "a cost survives the wire");
+        }
+        costs
     }
 
     fn payment_samples() -> [ManaPayment; 2] {
@@ -3469,7 +3532,7 @@ mod tests {
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
         // Damage decisions carry event identities, effect metadata, and allocations.
-        const RECORDED: (u32, u64) = (48, 11_772_928_919_686_085_005);
+        const RECORDED: (u32, u64) = (49, 14_231_168_485_211_629_441);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

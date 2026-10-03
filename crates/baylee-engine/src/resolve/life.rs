@@ -106,13 +106,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 all_but,
                 gain_life,
             });
-            Some(Pending::ChooseCards {
+            Some(Pending::ChooseDamageSource {
                 player: you,
+                choice: state.next_source_choice(),
                 options,
-                min: 1,
-                max: 1,
-                prompt: ChoicePrompt::Generic,
-                total: None,
             })
         }
         // Jade Monolith: the creature is the target (still legal, or this
@@ -130,13 +127,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             res.awaiting = Some(AwaitingOp::RedirectFromChosenSource {
                 protects: Shielded::Object(id, version),
             });
-            Some(Pending::ChooseCards {
+            Some(Pending::ChooseDamageSource {
                 player: you,
+                choice: state.next_source_choice(),
                 options,
-                min: 1,
-                max: 1,
-                prompt: ChoicePrompt::Generic,
-                total: None,
             })
         }
         _ => unreachable!("not a life/damage effect"),
@@ -293,9 +287,7 @@ fn assignment(
     recipient: DamageTarget,
     amount: u32,
 ) -> Assignment {
-    let version = if Some(source) == res.event_object {
-        event_object_identity(state, res).map(|(version, _)| version)
-    } else if source == res.source {
+    let version = if source == res.source {
         source_version(state, res)
     } else {
         None
@@ -442,7 +434,15 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                         .map(|(_, p)| *p)
                 })
                 .unwrap_or(0);
-            for_spec(source, u32::try_from(power).unwrap_or(0), target)
+            // The event object may share the source's arena handle but be
+            // its new incarnation after death (CR 400.7e). This instruction
+            // explicitly names that object; ordinary DealDamage names the
+            // ability's source instead (CR 113.7a).
+            let mut assignments = for_spec(source, u32::try_from(power).unwrap_or(0), target);
+            for assignment in &mut assignments {
+                assignment.source_version = identity.map(|(version, _)| version);
+            }
+            assignments
         }
         Effect::DealDamageToTargetController { amount } => res
             .targets

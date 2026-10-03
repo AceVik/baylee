@@ -284,6 +284,8 @@ pub enum DelayedAction {
         cost: baylee_core::mana::ManaCost,
         /// The permanent to sacrifice when not paid.
         card: ObjectId,
+        /// Exact incarnation when this delayed ability was created.
+        version: u32,
     },
     /// Add mana (Mana Drain's next-main-phase mana).
     AddMana {
@@ -319,6 +321,8 @@ pub enum DelayedAction {
     ReturnToBattlefield {
         /// The card in exile.
         card: ObjectId,
+        /// Exact incarnation when this delayed ability was created.
+        version: u32,
     },
     /// Offer the cast of a discovered card (CR 701.57a) to the player who
     /// discovered it, without paying its mana cost; a card that cannot be
@@ -337,6 +341,8 @@ pub enum DelayedAction {
     Trigger {
         /// The source of the ability that created it.
         source: ObjectId,
+        /// Exact incarnation when this delayed ability was created.
+        source_version: u32,
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
     },
@@ -346,6 +352,8 @@ pub enum DelayedAction {
     TriggerAbout {
         /// The source of the ability that created it.
         source: ObjectId,
+        /// Exact incarnation when this delayed ability was created.
+        source_version: u32,
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
         /// The object "that creature" names.
@@ -1031,6 +1039,8 @@ pub struct GameState {
     /// abilities and chosen-source shields can still name those incarnations
     /// after a second zone change; the ordinary last-move LKI cannot.
     pub(crate) damage_sources: Vec<GameObject>,
+    /// Exact references retained by live rules objects.
+    pub(crate) source_memory: crate::sources::SourceMemory,
     /// The effect generation the characteristic caches were computed at.
     pub characteristics_generation: u64,
     /// Scratch list reused by [`GameState::refresh_characteristics`].
@@ -1138,6 +1148,7 @@ impl GameState {
             shields,
             next_damage_batch,
             damage_sources,
+            source_memory,
             characteristics_generation,
             projection_ids,
             projected_cross_zone,
@@ -1221,6 +1232,7 @@ impl GameState {
             ("state.shields", format!("{shields:?}")),
             ("state.next_damage_batch", format!("{next_damage_batch:?}")),
             ("state.damage_sources", format!("{damage_sources:?}")),
+            ("state.source_memory", format!("{source_memory:?}")),
             (
                 "state.characteristics_generation",
                 format!("{characteristics_generation:?}"),
@@ -1470,6 +1482,7 @@ impl GameState {
             shields: crate::prevention::ShieldStore::default(),
             next_damage_batch: 0,
             damage_sources: Vec::new(),
+            source_memory: crate::sources::SourceMemory::default(),
             characteristics_generation: u64::MAX,
             projection_ids: Vec::new(),
             projected_cross_zone: false,
@@ -2790,15 +2803,6 @@ impl GameState {
     /// again only on a departure from the battlefield, so each describes the
     /// last such departure and no earlier one.
     fn record_last_known(&mut self, id: ObjectId, from_zone: Zone) {
-        if matches!(from_zone, Zone::Battlefield | Zone::Stack)
-            && let Some(object) = self.object(id)
-            && !self
-                .damage_sources
-                .iter()
-                .any(|old| old.id == id && old.version == object.version)
-        {
-            self.damage_sources.push(object.clone());
-        }
         self.ltb_mana_values.retain(|(other, _)| *other != id);
         self.ltb_controllers.retain(|(other, _)| *other != id);
         self.ltb_powers.retain(|(other, _)| *other != id);
@@ -3044,6 +3048,8 @@ impl GameState {
             });
         }
         let departure = departure.or_else(|| self.departure_snapshot(id));
+        self.remember_damage_source(id);
+        let previous_source = self.source_identity(id);
         self.zones.remove(id, from_loc);
         self.timestamp += 1;
         let ts = self.timestamp;
@@ -3353,6 +3359,9 @@ impl GameState {
         if from_zone == Zone::Battlefield {
             self.return_what_departed_hosts_held();
         }
+        if let Some(previous) = previous_source {
+            self.source_moved(previous);
+        }
         Ok(id)
     }
 
@@ -3610,6 +3619,7 @@ impl GameState {
             shields,
             next_damage_batch,
             damage_sources,
+            source_memory,
             characteristics_generation,
             // Scratch, always left empty.
             projection_ids: _,
@@ -3630,6 +3640,7 @@ impl GameState {
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
         next_damage_batch.hash(&mut h);
+        source_memory.hash(&mut h);
         h.usize(damage_sources.len());
         for source in damage_sources {
             hash_object(&mut h, source);
@@ -3905,6 +3916,7 @@ impl GameState {
         // Prevention shields are what damage will do next, so two states
         // that differ only in what is shielded are two states.
         hash_shields(&mut h, self, &position);
+        hash_source_references(&mut h, self, &position);
         // A land already cleaned by this incarnation is not eligible again,
         // even if the visible board and counter totals are identical.
         self.counter_links.hash(&mut h);
@@ -4031,10 +4043,84 @@ fn hash_chosen_source(
         source.version,
     ));
     h.boolean(source.was_spell);
+    h.boolean(state.object(source.id).is_some_and(|current| {
+        state.is_resolved_source(
+            baylee_core::ids::DamageSourceRef {
+                object: source.id,
+                version: source.version,
+            },
+            baylee_core::ids::DamageSourceRef {
+                object: current.id,
+                version: current.version,
+            },
+        )
+    }));
     filter_hash(h, source.filter);
     h.u8(source.you.get());
     h.u32(position(source.this));
     hash_damage_source(h, state, source.id, source.version);
+}
+
+// Exact referenced identities affect future choices even when every visible
+// permanent is identical. Canonical ordinal labels keep absolute generations
+// and monotonically increasing choice IDs out of loop equivalence.
+fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -> u32) {
+    let mut rows: Vec<_> = state
+        .source_memory
+        .stack
+        .iter()
+        .filter(|(holder, _)| {
+            state
+                .object(holder.object)
+                .is_some_and(|o| o.version == holder.version && o.zone == Zone::Stack)
+        })
+        .flat_map(|(holder, refs)| {
+            refs.iter()
+                .map(move |(slot, reference)| (position(holder.object), *slot, *reference))
+        })
+        .collect();
+    rows.sort_unstable_by_key(|(holder, slot, _)| (*holder, *slot));
+    let mut identities = Vec::new();
+    h.usize(rows.len());
+    for (holder, slot, reference) in rows {
+        h.u32(holder);
+        slot.hash(h);
+        let label = identities
+            .iter()
+            .position(|r| *r == reference)
+            .unwrap_or_else(|| {
+                identities.push(reference);
+                identities.len() - 1
+            });
+        h.usize(label);
+        h.u32(position(reference.object));
+        h.u8(moves_since(
+            state.object(reference.object),
+            reference.version,
+        ));
+        hash_damage_source(h, state, reference.object, reference.version);
+        if let Some(source) = state.source_object(reference)
+            && source.kind == ObjectKind::Spell
+        {
+            // A surviving copy trigger observes these announcement decisions
+            // even after the original spell has left the stack.
+            h.u32(source.x_value);
+            source.kicked.hash(h);
+            source.replicated.hash(h);
+            source.mode_index.hash(h);
+            source.modes.hash(h);
+            h.u8(source.face_index);
+        }
+        if let Some(shares) = state.source_memory.divisions.get(&reference) {
+            h.usize(shares.len());
+            for (target, amount) in shares {
+                h.u32(position(*target));
+                h.u32(*amount);
+            }
+        } else {
+            h.usize(0);
+        }
+    }
 }
 
 fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: u32) {
@@ -4250,6 +4336,11 @@ fn hash_object_situation(
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     // And which creature station tapped: its power is what the counters
     // will be.
+    let sacrificed = obj.paid.as_ref().and_then(|p| p.sacrificed);
+    h.option_u32(sacrificed.map(|(id, _)| position(id)));
+    if let Some((id, version)) = sacrificed {
+        hash_damage_source(h, state, id, version);
+    }
     let tapped = obj.paid.as_ref().and_then(|p| p.tapped);
     h.option_u32(tapped.map(|(id, _)| position(id)));
     h.option_u32(tapped.map(|(_, version)| version));

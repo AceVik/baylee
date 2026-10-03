@@ -69,17 +69,67 @@ with different lifelink outcomes and correct draft reset at a new choice ID. Ind
 coverage flags still do not establish complete Alpha acceptance while the
 separate source-selection blocker remains.
 
-### Separate source-selection blocker
+### Exact source selection — accepted
 
-The damage audit also identified a pre-existing source-menu limitation: source
-selection carries only `ObjectId`, so it cannot distinguish an earlier source
-incarnation whose ability is still on the stack from the returned permanent.
-For example, Orcish Artillery leaves and returns while its damage ability waits;
-Circle of Protection, Forcefield, Reverse Damage and Jade Monolith need the
-correct source identity. The new damage work respects a supplied source version,
-but the generic source-choice menu still needs a versioned contract. This is a
-separate full-Alpha acceptance blocker, documented in `docs/engine-internals.md`;
-it must not disappear behind an individual card's Implemented flag.
+Source decisions now carry `DamageSourceRef` (object plus zone-change version)
+and a stable `SourceChoiceId`. Current and earlier incarnations are distinct;
+eligibility comes from live stack, shield, replacement and delayed references,
+or the public permanent/spell/command-zone rules, not from every saved snapshot.
+Copies, retargeted reference slots, paid sacrifices, linked exile cards and
+actual permanent-spell resolution preserve the relevant exact identity.
+Historical projections keep entitled card/rules identities separate from the
+current object and feed the view's print/catalog iterators. Death triggers preserve
+the battlefield source separately from the new-zone event object; only actual
+effect references make that event object eligible. Granted triggers, simultaneous
+deaths, repeated entries and copies have dedicated regressions. View49/Protocol16
+describe the new contract.
+
+Thirteen independent real-card scenarios cover the five Circles, Forcefield,
+Reverse Damage, Jade Monolith, Sacrifice, Endless Sands and Omnath, including three
+incarnations with distinct outcomes. Additional tests cover delayed cleanup,
+source-choice concession/replay, ceased tokens, privacy, copy/retarget context
+and archived divided damage. The final broad gate, after the death-trigger and
+printed-symbol fixes, passes **7,954 tests**, with ten existing skips; Clippy and
+all 2,955 card metadata validations pass. Engine fuzz Clippy and both footprint
+checks pass; GameObject remains 312 bytes.
+Logs: `/private/tmp/baylee-source-rules-final-gate.log` and
+`/private/tmp/baylee-source-wasm-final-check.log`. Final native tests pass
+1,235 cases with two existing ignores; native dev-control Clippy/build and Wasm
+release checks also pass. Live screenshot acceptance passes at 960 logical
+pixels: current source yields 34/38 life, historical source 37/38, with correct
+keyboard selection and reset on a new decision. Root inspected the final source,
+Abilities, reset and result screenshots; evidence is in the feedback log.
+
+### Separate target-incarnation gap
+
+The read-only source audit also found an untargeted self-effect risk: Shivan
+Dragon's `PumpFilter(Filter::This)` binds a bare source id and may pump a new
+incarnation after a blink. This still needs a behavioral regression and a shared
+self-effect audit; the fixed counter and damage paths do not establish that all
+self-effects respect versions.
+
+The existing `target_legality` implementation in Engine `progress.rs` explicitly
+documents issue #117: ordinary targets are bare ObjectIds, so a target that leaves
+and returns can be treated as legal despite being a new object. The exact-source
+work now retains target-slot versions, but source-menu correctness alone does
+not prove that ordinary target revalidation uses them. This known shared rules
+gap must be tested and addressed before claiming complete Alpha acceptance.
+Keep its outcome separate from the source-selection milestone.
+The follow-up must cover retarget identity (`Retarget.was`/`Aim`) and duplicate
+choices as well as first/second target groups, partial fizzle and copied spells.
+A resolution-time version predicate alone would not finish that work.
+The agreed next milestone keeps exact pairs when compacting surviving target
+groups, stages retarget choices by exact object/player identity, and avoids
+labeling an old target through its newer hidden incarnation. Independent cases
+must include Bolt/blink fizzle, partially legal Fireball, both groups of a fight,
+Fork preserving an old illegal target versus explicitly selecting the returned
+one, and atomic duplicate/swap handling. No #117 production change is included
+in the source-selection milestone.
+
+The multiplayer departure code also has an existing general substitute-chooser
+limitation under current CR 800.4g. New source-choice concession tests establish
+fresh questions for a surviving chooser and continuation when no source remains;
+they do not establish general replacement of a departed non-cost decision maker.
 
 ## Following sets
 
@@ -317,3 +367,29 @@ Damage client acceptance is complete on the final rebuilt binary: both Reverse
 Damage orders and both finite-shield allocations pass live, with no errors.
 Root reviewed final screenshots; detailed evidence is in the feedback log.
 The source-incarnation selection design remains the next separate engine job.
+
+Damage milestone committed as `81409297`. The source-selection extension is
+now in progress with Astra xhigh; it is not accepted yet. Sol medium authors
+independent real-card regressions, and Astra high owns client integration and
+the display audit. Protocol16 is reserved for the new exact-source contract.
+
+### Remaining-card acceptance queue
+
+The following is an implementation queue, not additional coverage. It was
+checked against the fresh October 2 Oracle payloads. Each batch still needs an
+independent behavioral review and any new interaction must be exercised in the
+client before its cards count as complete.
+
+| Shared work | Cards | Essential acceptance beyond the ordinary successful case |
+| --- | --- | --- |
+| Owner-only activation and finite redirection | Personal Incarnation | The owner can activate after control changes; the controller cannot if not the owner. Redirect only the next one damage per shield, preserve source identity, and calculate the owner's rounded-up half-life at death-trigger resolution. Fresh rulings confirm negative life totals stay unchanged and exile alone does not trigger life loss. |
+| Reusable player permissions and payment windows | Channel, Guardian Angel | Channel works in mana-ability windows including payment; Guardian Angel uses instant timing. Preserve duration, legal payment, target incarnation and repeated use, including after the original spell leaves the stack. |
+| Mana activation during resolution | Drain Power | Each land's controller chooses a legal mana ability where possible; tapped lands and abilities with extra costs are handled correctly. Transfer all unspent mana after the activations. |
+| Attachment and linked-object transitions | Animate Dead, Kudzu | Graveyard enchant legality, intervening condition, return/reattach and delayed sacrifice for Animate Dead; destruction failure, land-controller choice, non-target attachment and source loss for Kudzu. |
+| Copiable exceptions and recurring copy trigger | Vesuvan Doppelganger | Retain color through successive copies, carry the granted upkeep ability into copiable values, allow declining, check targets again, and handle a second copier copying the Doppelganger. |
+| Draw/discard/turn replacement choices | Island Sanctuary, Library of Leng, Time Vault | Distinguish draw step from other draws, effect-caused discard from costs, and a skipped turn from an untap step. Test multiple eligible events, optional refusal, duration and interaction with other replacements. |
+| Combat reassignment and pile choices | False Orders, Raging River, Camouflage | Multiplayer defending seats, legal blocking restrictions, formerly blocked status, extra-block capacity, empty piles and deterministic seeded random assignment; expose choices clearly in the client. |
+| Life and damage replacement/trigger composition | Lich | Entry life loss, nonpositive-life loss exception, replacement draws, nontoken sacrifices after damage, insufficient permanents and the graveyard trigger all have distinct behavior. |
+| Layer-three text changes | Magical Hack, Sleight of Mind | Change eligible rules words, including relevant keyword text; preserve names and reminder text, spell-to-permanent continuity and indefinite duration. Verify both rules behavior and displayed ability text. |
+| Face-down casting and event replacement | Illusionary Mask | Track the actual colors/types of mana spent on X, legal hidden card selection, sorcery timing, and face-up replacement before assigning/dealing/receiving damage or tapping, without leaking hidden identity. |
+| Controlling another player while playing/resolving | Word of Command | Private hand selection, legal land or spell play, constrained land mana abilities and spending, inability to play, and control during the chosen spell's later resolution. |

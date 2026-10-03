@@ -5,7 +5,7 @@ use baylee_engine::choice::{
 };
 use baylee_engine::event::DamageTarget;
 
-pub(crate) fn questions() -> [Pending; 2] {
+pub(crate) fn questions() -> [Pending; 3] {
     let player = PlayerId::new(0);
     let choice = DamageChoiceId { batch: 9, step: 4 };
     let damage = vec![DamagePartView {
@@ -27,6 +27,14 @@ pub(crate) fn questions() -> [Pending; 2] {
         parts: vec![77],
     };
     [
+        Pending::ChooseDamageSource {
+            player,
+            choice: baylee_core::ids::SourceChoiceId::new(9),
+            options: vec![baylee_core::ids::DamageSourceRef {
+                object: ObjectId::new(8, 0),
+                version: 2,
+            }],
+        },
         Pending::ChooseDamageEffect {
             player,
             choice,

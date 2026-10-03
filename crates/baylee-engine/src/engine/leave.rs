@@ -147,6 +147,27 @@ impl<L: CardLookup> Engine<L> {
     /// A choice of cards keeps what is left and asks for no more than that:
     /// a player can't choose what is impossible (CR 608.2d).
     pub(super) fn forget_the_departed(&mut self, exiled: &[ObjectId]) -> bool {
+        if let Pending::ChooseDamageSource { player, .. } = self.pending {
+            let filter = match self.resolution.as_ref().and_then(|r| r.awaiting.as_ref()) {
+                Some(AwaitingOp::ShieldFromChosenSource { sources, .. }) => *sources,
+                _ => &baylee_cards_dsl::Filter::Any,
+            };
+            let source = self.resolution.as_ref().expect("source resolution").source;
+            let options =
+                crate::prevention::source_options(&mut self.state, filter, player, source);
+            if options.is_empty() {
+                let mut res = self.resolution.take().expect("source resolution");
+                let flow = resolve::resume_source(&mut self.state, &mut res, None);
+                self.go_on_with(res, flow);
+            } else {
+                self.pending = Pending::ChooseDamageSource {
+                    player,
+                    options,
+                    choice: self.state.next_source_choice(),
+                };
+            }
+            return true;
+        }
         let state = &self.state;
         let here = |id: &ObjectId| state.object(*id).is_some() && !exiled.contains(id);
         let playing = |p: &PlayerId| !state.players[usize::from(p.get())].has_lost();
@@ -328,6 +349,9 @@ impl<L: CardLookup> Engine<L> {
             }
             (Pending::YesNo { .. }, _) => resolve::resume_yes_no(state, &mut res, false),
             (Pending::ChooseCards { .. }, _) => resolve::resume(state, &mut res, &[]),
+            (Pending::ChooseDamageSource { .. }, _) => {
+                resolve::resume_source(state, &mut res, None)
+            }
             (Pending::ChooseTargets { .. }, _) => {
                 resolve::resume_targets(state, &mut res, &[], &[])
             }

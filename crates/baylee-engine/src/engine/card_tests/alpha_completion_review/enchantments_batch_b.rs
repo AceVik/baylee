@@ -433,13 +433,25 @@ fn power_leak_independent_reverse_damage_requires_a_prevention_order_choice() {
         });
         cast_from_hand(&mut engine, p1, reverse);
         pass_until(&mut engine, |e| {
-            matches!(e.pending(), Pending::ChooseCards { .. })
+            matches!(e.pending(), Pending::ChooseDamageSource { .. })
         });
+        let Pending::ChooseDamageSource {
+            choice, options, ..
+        } = engine.pending().clone()
+        else {
+            unreachable!("source prompt")
+        };
+        let selected = baylee_core::ids::DamageSourceRef {
+            object: aura,
+            version: engine.state().object(aura).expect("source exists").version,
+        };
+        assert!(options.contains(&selected));
         engine
             .apply(
                 p1,
-                PlayerAction::ChooseObjects {
-                    objects: vec![aura],
+                PlayerAction::ChooseDamageSource {
+                    choice,
+                    source: selected,
                 },
             )
             .unwrap();

@@ -623,6 +623,7 @@ impl Writer<'_> {
             (LogZone::Battlefield, false) => Phrase::LogFromBattlefield,
             (LogZone::Exile, false) => Phrase::LogFromExile,
             (LogZone::Command, false) => Phrase::LogFromCommand,
+            (LogZone::Stack, false) => Phrase::LogFromStack,
             (LogZone::Library, true) if yours => Phrase::LogIntoLibraryYou,
             (LogZone::Library, true) => Phrase::LogIntoLibrary,
             (LogZone::Hand, true) if yours => Phrase::LogIntoHandYou,
@@ -632,6 +633,7 @@ impl Writer<'_> {
             (LogZone::Battlefield, true) => Phrase::LogIntoBattlefield,
             (LogZone::Exile, true) => Phrase::LogIntoExile,
             (LogZone::Command, true) => Phrase::LogIntoCommand,
+            (LogZone::Stack, true) => Phrase::LogIntoStack,
         };
         self.phrase(phrase, &[self.seat(owner)])
     }
@@ -2031,6 +2033,7 @@ mod tests {
             LogZone::Graveyard,
             LogZone::Exile,
             LogZone::Command,
+            LogZone::Stack,
         ];
         for from in zones {
             for to in zones {

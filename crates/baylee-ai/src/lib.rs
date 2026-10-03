@@ -345,7 +345,8 @@ impl HeuristicAgent {
     ) -> PlayerAction {
         let player = view.seat;
         match pending {
-            ref pending @ (Pending::ChooseDamageEffect { .. }
+            ref pending @ (Pending::ChooseDamageSource { .. }
+            | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }) => {
                 damage::answer(view, pending, &|other| self.hostile(player, other))
                     .unwrap_or(PlayerAction::PassPriority)
@@ -860,6 +861,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
+        | Pending::ChooseDamageSource { player, .. }
         | Pending::ChooseDamageEffect { player, .. }
         | Pending::AllocatePrevention { player, .. }
         | Pending::ChooseNumber { player, .. }
@@ -5162,6 +5164,7 @@ mod tests {
             })
             .collect();
         PlayerView {
+            damage_sources: Vec::new(),
             seq: 7,
             seat: PlayerId::new(seat),
             turn: 3,

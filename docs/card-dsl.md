@@ -1612,6 +1612,37 @@ damage … all but 1 of that damage", and `gain_life` is Reverse Damage's
 what may be chosen and what the source must still be when it deals the
 damage. All of them last until the turn's cleanup; `docs/engine-internals.md`
 §"Prevention shields" says how they are spent.
+Source decisions use `Pending::ChooseDamageSource` and
+`PlayerAction::ChooseDamageSource`, with a fresh `SourceChoiceId` and exact
+`DamageSourceRef { object, version }` pairs. A plain object selection cannot
+answer this question. The source list follows CR 609.7a: current permanents,
+stack spells, face-up command-zone objects, and exact objects referred to by
+live stack objects, waiting prevention/replacement effects, or delayed
+triggers. Stack references include both target groups, event objects actually
+read by the instructions, sacrificed/tapped cost objects and the linked cards
+that the ability's instructions name. Remembering an event internally does
+not itself make the resulting card a source choice: Omnath's death trigger
+refers to its departed battlefield source, while undying's return instruction
+also refers to the new graveyard card. Ordinary and granted triggers capture
+the source's event-time incarnation, separately from the event object;
+look-back triggers use that source's own departure, including simultaneous
+deaths. `DealDamage` acts as this source, whereas
+`EventObjectDealsDamageEqualToPower` explicitly acts as the event object even
+when the two incarnations share an arena handle. Copies retain these references
+and the original incarnation's divided-damage announcement; changed targets receive new
+references, and retained targets carry theirs when object slots compact.
+Historical snapshots survive cleanup while such a
+reference remains live, including ceased tokens. A selected permanent spell
+extends to its resulting permanent only through a recorded successful
+resolution, never merely because the same handle moved to the battlefield.
+
+`PlayerView.damage_sources` describes the exact offered incarnations. A
+historical row uses that incarnation's visibility and printed rules, so a
+later hidden or face-down incarnation cannot reveal or erase its identity.
+Concession by another player refreshes a surviving chooser's offer and nonce;
+stale answers leave state unchanged. The engine's separate substitute-chooser
+gap for a departed chooser (CR 800.4g) is not closed by this source API.
+
 Its redirection sibling is `RedirectNextFromChosenSource { target }`, Jade
 Monolith's "the next time a source of your choice would deal damage to
 target creature this turn, that source deals that damage to you instead":

@@ -77,12 +77,14 @@ pub fn repair_braces(text: &str) -> Cow<'_, str> {
     }
 }
 
-/// Repairs old printed runs such as `BBB` only when the Oracle accounts for
-/// exactly those missing mana symbols. A single letter, a mixed word, a run
-/// inside a word/braces, or more than one candidate is deliberately left alone.
+/// Repairs old printed mana only with matching Oracle evidence: a leading
+/// generic activation cost such as `1:` must match `{1}:` on the same line,
+/// and a run such as `BBB` must account for exactly the missing symbols.
+/// Ordinary numbers, single letters, mixed words, runs inside words/braces,
+/// and ambiguous repeated run candidates are deliberately left alone.
 #[must_use]
 pub fn repair_printed_symbols<'a>(oracle: &str, printed: &'a str) -> Cow<'a, str> {
-    let repaired = repair_braces(printed);
+    let repaired = repair_generic_activation_costs(oracle, repair_braces(printed));
     let mut missing = symbols(oracle);
     for symbol in symbols(&repaired) {
         let Some(at) = missing.iter().position(|known| *known == symbol) else {
@@ -126,6 +128,46 @@ pub fn repair_printed_symbols<'a>(oracle: &str, printed: &'a str) -> Cow<'a, str
     }
     out.push_str(&repaired[end..]);
     Cow::Owned(out)
+}
+
+/// Only a matching line-leading Oracle `{N}:` can repair a printed `N:`.
+/// Equal nonblank line counts keep unrelated sentences from being paired.
+fn repair_generic_activation_costs<'a>(oracle: &str, printed: Cow<'a, str>) -> Cow<'a, str> {
+    let oracle: Vec<_> = sentences(oracle).collect();
+    if oracle.len() != sentence_count(&printed) {
+        return printed;
+    }
+    let mut at = 0;
+    let mut changed = false;
+    let mut out = String::with_capacity(printed.len());
+    for line in printed.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            out.push_str(line);
+            continue;
+        }
+        let reference = oracle[at];
+        at += 1;
+        let Some((cost, _)) = trimmed.split_once(':') else {
+            out.push_str(line);
+            continue;
+        };
+        if cost.is_empty()
+            || !cost.bytes().all(|b| b.is_ascii_digit())
+            || !reference.starts_with(&format!("{{{cost}}}:"))
+        {
+            out.push_str(line);
+            continue;
+        }
+        let start = line.len() - line.trim_start().len();
+        changed = true;
+        out.push_str(&line[..start]);
+        out.push('{');
+        out.push_str(cost);
+        out.push('}');
+        out.push_str(&line[start + cost.len()..]);
+    }
+    if changed { Cow::Owned(out) } else { printed }
 }
 
 /// `{(}w/b)}` or `{(w/b)}` at the start of `at`, as `{W/B}` and its length.
@@ -360,6 +402,44 @@ mod tests {
         assert_eq!(
             repair_printed_symbols(oracle, "{T}: {BBB}."),
             "{T}: {B}{B}{B}."
+        );
+    }
+
+    #[test]
+    fn generic_activation_repair_requires_matching_oracle_line_and_cost() {
+        assert_eq!(
+            repair_printed_symbols("{1}: Prevent damage.", "1: Verhindere 1 Schaden."),
+            "{1}: Verhindere 1 Schaden."
+        );
+        assert_eq!(
+            repair_printed_symbols(
+                "{1}: Prevent.\n{2}: Draw.",
+                "1: Verhindere.\n2: Ziehe 2 Karten."
+            ),
+            "{1}: Verhindere.\n{2}: Ziehe 2 Karten."
+        );
+        for printed in [
+            "2: Verhindere.",
+            "Zahle 1: verhindere.",
+            "1 Schaden.",
+            "1: Eins.\n2: Zwei.",
+        ] {
+            assert_eq!(repair_printed_symbols("{1}: Prevent.", printed), printed);
+        }
+        for oracle in [
+            "Pay {1}.",
+            "{1}{R}: Prevent.",
+            "{1}, {T}: Prevent.",
+            "{2}: Prevent.",
+        ] {
+            assert_eq!(
+                repair_printed_symbols(oracle, "1: Verhindere."),
+                "1: Verhindere."
+            );
+        }
+        assert_eq!(
+            repair_printed_symbols("{2}: Draw.\n{1}: Prevent.", "1: Eins.\n2: Zwei."),
+            "1: Eins.\n2: Zwei."
         );
     }
 

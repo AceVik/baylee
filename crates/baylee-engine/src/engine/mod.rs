@@ -1758,3 +1758,9 @@ mod variable_payment_tests;
 
 #[cfg(test)]
 mod damage_resume_tests;
+
+#[cfg(test)]
+mod source_resume_tests;
+
+#[cfg(test)]
+mod trigger_source_tests;

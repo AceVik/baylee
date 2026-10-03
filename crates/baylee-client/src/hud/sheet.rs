@@ -1898,7 +1898,7 @@ fn spawn_row(
         }
         Source::Cast => {
             commands.entity(row).insert(crate::hud::ChoiceButton {
-                damage_choice: None,
+                decision_id: None,
                 index: option.answer,
             });
         }

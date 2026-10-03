@@ -958,6 +958,8 @@ pub struct PaidRecord {
     /// last existed on the battlefield (CR 608.2h) — "the sacrificed
     /// creature's mana value". `None` when nothing was sacrificed.
     pub sacrificed_mana_value: Option<u32>,
+    /// Exact creature sacrificed to pay this object's cost.
+    pub sacrificed: Option<(ObjectId, u32)>,
     /// How much mana was spent on the cost (CR 601.2h) — "the amount of mana
     /// spent to cast this spell" (Memory Deluge).
     pub mana_spent: u32,

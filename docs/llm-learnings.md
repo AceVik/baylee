@@ -2742,7 +2742,7 @@ land type"; both are convention tests that fire on a first try.
   have regression tests and were verified in the rebuilt client's screenshots.
 
 
-### Damage ordering integration — ongoing acceptance
+### Damage ordering integration — accepted in 81409297
 
 - Choosing the prevention order is not enough: simultaneous sources need a
   true limited-shield allocation. Real deathtouch/lifelink combat proves that
@@ -2765,3 +2765,43 @@ land type"; both are convention tests that fire on a first try.
   appears immediately and disappears for a new question. A headless Bevy test
   exercises the actual sync system with an unchanged view; a pure reducer test
   would not catch this missed redraw.
+
+### Exact source choices — accepted
+
+- A version increment alone does not prove that a permanent spell resolved.
+  Record the actual resolution transition and test the real casting path;
+  a unit test that directly marks the transition cannot catch a missing hook.
+- Historical sources are a separate projection keyed by object and version.
+  Include entitled identities in print/catalog iterators, and never recover a
+  historical label or preview by looking up only the current ObjectId.
+- Copying a referenced old spell must preserve that spell's captured incarnation,
+  even if the same card is now a newer spell on the stack. Retargeting from an
+  object to a player can compact object-target slots; carry remaining historical
+  references with their targets instead of keeping the old numeric slot.
+- A distinguishing keyword in a regression fixture must already have working
+  engine semantics. The initial three-incarnation test used Infect, which this
+  engine explicitly does not support; use supported lifelink and retain distinct
+  behavioral outcomes rather than weakening the assertion to menu contents.
+
+- Capture a death trigger's source before the departure, independently of its
+  event object's new graveyard identity. Two real Omnath/Terror/Circle tests
+  exposed the default trigger builder capturing the new graveyard version:
+  a preselected battlefield shield failed, and a postdeath source menu omitted
+  the original source. Ordinary, granted and simultaneous departure paths need
+  explicit review; a green activated-ability blink test does not cover them.
+- A version number makes two historical sources technically distinct but does
+  not tell a player which ability each produced. Live source rows need the
+  public stack context, such as their different targets, without looking up a
+  newer object as the historical source.
+
+- Review expected outcomes against every real card in the fixture, not just the
+  card under test. The Personal Incarnation planning matrix initially credited
+  Swords to Plowshares life gain to the owner after theft; Swords explicitly
+  credits the controller. Keep stolen and unstolen outcomes separate so a test
+  does not encode the wrong rule.
+
+- A stored trigger event context is not automatically an object referred to by
+  the ability's instructions. Omnath's death damage refers to its old battlefield
+  source; undying explicitly refers to the new graveyard card to return it.
+  Source-menu eligibility must follow actual effect references while retaining
+  enough internal context for resolution.

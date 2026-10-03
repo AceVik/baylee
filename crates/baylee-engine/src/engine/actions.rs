@@ -110,6 +110,18 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if let PlayerAction::ChooseDamageSource { source, .. } = action {
+            let mut res = self.resolution.take().expect("source resolution suspended");
+            match resolve::resume_source(&mut self.state, &mut res, Some(source)) {
+                resolve::Flow::Wait(pending) => {
+                    self.resolution = Some(res);
+                    self.pending = pending;
+                    self.awaiting_answer = true;
+                }
+                resolve::Flow::Complete => self.finish_resolution(&res),
+            }
+            return Ok(());
+        }
         if matches!(
             self.pending,
             Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }

@@ -42,13 +42,29 @@ fn salve_target(engine: &mut Engine<RegistryLookup>, player: PlayerId, target: D
 fn reverse_source(engine: &mut Engine<RegistryLookup>, player: PlayerId, source: ObjectId) {
     cast_from_hand(engine, player, reverse());
     pass_until(engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
+    let Pending::ChooseDamageSource {
+        choice, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("source prompt")
+    };
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: source,
+        version: engine
+            .state()
+            .object(source)
+            .expect("source exists")
+            .version,
+    };
+    assert!(options.contains(&selected));
     engine
         .apply(
             player,
-            PlayerAction::ChooseObjects {
-                objects: vec![source],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .unwrap();
@@ -295,13 +311,25 @@ fn jade_monolith_redirection_transfers_the_effect_choice_to_the_new_recipient() 
     activate(&mut engine, p2, jade, 0);
     aim(&mut engine, vec![body], vec![]);
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
+    let Pending::ChooseDamageSource {
+        choice, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!("source prompt")
+    };
+    let selected = baylee_core::ids::DamageSourceRef {
+        object: bolt,
+        version: engine.state().object(bolt).expect("source exists").version,
+    };
+    assert!(options.contains(&selected));
     engine
         .apply(
             p2,
-            PlayerAction::ChooseObjects {
-                objects: vec![bolt],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: selected,
             },
         )
         .unwrap();

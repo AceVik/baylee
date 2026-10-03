@@ -79,6 +79,7 @@ impl ViewBuilder {
         let n = seats as usize;
         Self {
             view: PlayerView {
+                damage_sources: Vec::new(),
                 seq: 1,
                 seat: PlayerId::new(0),
                 turn: 3,

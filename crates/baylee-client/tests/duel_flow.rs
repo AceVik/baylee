@@ -67,6 +67,7 @@ question_vocabulary!(
     Arrange,
     ChooseDamageEffect,
     AllocatePrevention,
+    ChooseDamageSource,
     GameOver,
 );
 
@@ -580,6 +581,7 @@ impl Client {
             // that anybody could give one.
             Pending::ChooseColor { .. }
             | Pending::ChoosePlayer { .. }
+            | Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. } => {
                 let rows = baylee_client::choices::options(
                     &interaction.prompt(),
@@ -1391,7 +1393,11 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
 // These require overlapping shields or simultaneous sources. Their stable-ID
 // interaction paths have focused core/native tests and a live combat acceptance;
 // the deterministic spellbook scenarios below do not create those board states.
-const UNREACHED: &[&str] = &["ChooseDamageEffect", "AllocatePrevention"];
+const UNREACHED: &[&str] = &[
+    "ChooseDamageEffect",
+    "AllocatePrevention",
+    "ChooseDamageSource",
+];
 
 /// The one member of the vocabulary that is not a question.
 ///

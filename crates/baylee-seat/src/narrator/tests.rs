@@ -815,3 +815,36 @@ fn damage_allocation_is_explicit_bounded_and_rejects_stale_or_duplicate_answers(
     stale.ask = Some("q999999".into());
     assert!(wake.menu.resolve(&stale).is_err());
 }
+
+#[test]
+fn source_menu_preserves_incarnations_and_rejects_stale_answers() {
+    use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+    let (view, log) = board();
+    let old = DamageSourceRef {
+        object: id(21),
+        version: 2,
+    };
+    let current = DamageSourceRef { version: 4, ..old };
+    let pending = Pending::ChooseDamageSource {
+        player: ME,
+        choice: SourceChoiceId::new(73),
+        options: vec![old, current],
+    };
+    let request = request(view, pending.clone(), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(wake.text.contains("does not target"));
+    for source in [old, current] {
+        let key = format!("source73-{}-{}", source.object, source.version);
+        let mut decision = Decision::from_decide(
+            &serde_json::json!({"ask": format!("q{}", wake.menu.question), "pick": [key]}),
+        )
+        .unwrap();
+        let action = wake.menu.resolve(&decision).unwrap().act.first();
+        assert!(
+            matches!(action, PlayerAction::ChooseDamageSource { source: answered, .. } if answered == source)
+        );
+        assert_eq!(pending.answer_fault(&action), None);
+        decision.ask = Some("q999999".into());
+        assert!(wake.menu.resolve(&decision).is_err());
+    }
+}

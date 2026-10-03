@@ -590,18 +590,18 @@ pub struct PreviewResize;
 #[derive(Component)]
 pub struct PromptButton {
     /// Damage decision whose confirmation this button represents.
-    pub damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
+    pub decision_id: Option<baylee_client_core::interaction::DecisionId>,
     /// Which answer the button sends.
     pub action: PromptAction,
 }
 
 impl PromptButton {
     /// A stale confirmation must never answer a different damage decision.
-    pub fn matches_damage_choice(
+    pub fn matches_decision_id(
         &self,
-        current: Option<baylee_engine::choice::DamageChoiceId>,
+        current: Option<baylee_client_core::interaction::DecisionId>,
     ) -> bool {
-        self.action != PromptAction::Confirm || self.damage_choice == current
+        self.action != PromptAction::Confirm || self.decision_id == current
     }
 }
 
@@ -626,7 +626,7 @@ pub struct AbilityButton {
 #[derive(Component)]
 pub struct ChoiceButton {
     /// Exact damage decision represented by this rendered row.
-    pub damage_choice: Option<baylee_engine::choice::DamageChoiceId>,
+    pub decision_id: Option<baylee_client_core::interaction::DecisionId>,
     /// Position in the list [`crate::choices::options`] returns.
     pub index: usize,
 }
@@ -2196,19 +2196,40 @@ mod damage_confirmation_tests {
     use baylee_engine::choice::DamageChoiceId;
     #[test]
     fn stale_confirmation_cannot_answer_a_new_damage_question() {
-        let old = DamageChoiceId { batch: 9, step: 1 };
-        let new = DamageChoiceId { batch: 9, step: 2 };
+        let old = baylee_client_core::interaction::DecisionId::Damage(DamageChoiceId {
+            batch: 9,
+            step: 1,
+        });
+        let new = baylee_client_core::interaction::DecisionId::Damage(DamageChoiceId {
+            batch: 9,
+            step: 2,
+        });
         let button = PromptButton {
             action: PromptAction::Confirm,
-            damage_choice: Some(old),
+            decision_id: Some(old),
         };
-        assert!(button.matches_damage_choice(Some(old)));
-        assert!(!button.matches_damage_choice(Some(new)));
-        assert!(!button.matches_damage_choice(None));
+        assert!(button.matches_decision_id(Some(old)));
+        assert!(!button.matches_decision_id(Some(new)));
+        assert!(!button.matches_decision_id(None));
         let ordinary = PromptButton {
             action: PromptAction::Confirm,
-            damage_choice: None,
+            decision_id: None,
         };
-        assert!(!ordinary.matches_damage_choice(Some(new)));
+        assert!(!ordinary.matches_decision_id(Some(new)));
+        let source = baylee_client_core::interaction::DecisionId::Source(
+            baylee_core::ids::SourceChoiceId::new(9),
+        );
+        assert!(!button.matches_decision_id(Some(source)));
+        let source_button = PromptButton {
+            action: PromptAction::Confirm,
+            decision_id: Some(source),
+        };
+        assert!(source_button.matches_decision_id(Some(source)));
+        assert!(!source_button.matches_decision_id(Some(new)));
+        assert!(!source_button.matches_decision_id(Some(
+            baylee_client_core::interaction::DecisionId::Source(
+                baylee_core::ids::SourceChoiceId::new(10)
+            )
+        )));
     }
 }

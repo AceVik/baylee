@@ -171,7 +171,14 @@ fn shield_against(
     gain_life: bool,
     combat_only: bool,
 ) {
-    let chosen = ChosenSource::new(state, source, filter, P1, source).expect("on the board");
+    let chosen = ChosenSource::new(
+        state,
+        state.source_identity(source).unwrap(),
+        filter,
+        P1,
+        source,
+    )
+    .expect("on the board");
     state.shields.push(Shield {
         protects: Shielded::Player(P1),
         kind: ShieldKind::NextFrom {
@@ -366,7 +373,14 @@ fn choosing_the_fuller_shield_keeps_the_other() {
 /// damage to P1.
 fn redirect_shield(state: &mut GameState, creature: ObjectId, source: ObjectId) {
     let version = state.object(creature).expect("on the board").version;
-    let chosen = ChosenSource::new(state, source, &Filter::Any, P1, source).expect("there");
+    let chosen = ChosenSource::new(
+        state,
+        state.source_identity(source).unwrap(),
+        &Filter::Any,
+        P1,
+        source,
+    )
+    .expect("there");
     state.shields.push(Shield {
         protects: Shielded::Object(creature, version),
         kind: ShieldKind::RedirectNextFrom {

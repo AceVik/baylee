@@ -1142,7 +1142,10 @@ fn a_delayed_action_come_due_is_not_performed_for_a_player_who_has_left() {
     let card = engine.state().zones.list(ZoneLocation::Exile(seat(1)))[0];
     engine.delayed_queue.push_back((
         seat(0),
-        crate::state::DelayedAction::ReturnToBattlefield { card },
+        crate::state::DelayedAction::ReturnToBattlefield {
+            card,
+            version: engine.state().object(card).unwrap().version,
+        },
     ));
     sba::eliminate_player(
         &mut engine.state,

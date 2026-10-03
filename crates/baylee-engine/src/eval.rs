@@ -82,7 +82,9 @@ pub fn matches_projected(
         // 509.1h), which is the declare-blockers step's first act; from
         // there to the end of combat an attacker is one or the other.
         Filter::Unblocked => {
-            state.combat.is_attacking(obj.id)
+            state.object(obj.id).is_some_and(|current| {
+                current.version == obj.version && current.zone == Zone::Battlefield
+            }) && state.combat.is_attacking(obj.id)
                 && !state.combat.is_blocked(obj.id)
                 && matches!(
                     state.turn.step,

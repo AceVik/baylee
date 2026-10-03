@@ -608,33 +608,27 @@ the stack to the battlefield (`EffectTable::follow_into_permanent`), and no
 other move. A Lace cast at a creature spell makes a creature of the new
 colour.
 
-### The source on the stack has no version (CR 400.7)
-"An object that moves from one zone to another becomes a new object with no
-memory of, or relation to, its previous existence" (CR 400.7). An ability
-on the stack names its source by id alone (`Resolution.source`), and an id
-survives a move: the card that left and came back is at the same id, one
-version on. Two scenarios in the pool show it, both through Kenrith, the
-Returned King ("{4}{B}: Put target creature card from a graveyard onto the
-battlefield under its owner's control"), and both are **known defects**:
+### Source incarnations on the stack (CR 400.7)
 
-- **Scavenging Ghoul.** Its end-step trigger ("put a corpse counter on this
-  creature for each creature that died this turn") is on the stack; the
-  Ghoul dies in response and Kenrith returns it. `this_object(res)` answers
-  `res.source`, compares no version, and the counters land on the new Ghoul,
-  an object the ability has no relation to (`resolve::counters`,
-  `Effect::AddCounter`).
-- **Circle of Protection: Blue.** A Prodigal Sorcerer's ping is on the stack
-  and the Circle's controller has chosen the Sorcerer ("the next time a
-  blue source of your choice would deal damage to you this turn"). The
-  Sorcerer dies and Kenrith returns it before the ping resolves. The
-  damage comes from the id, now on the battlefield two versions on (v+2),
-  and `ChosenSource::deals` accepts there only the same version or the one
-  a chosen spell became: the shield misses damage from the very source
-  chosen. Left in the graveyard, the Sorcerer would have been read as it
-  last was and the damage prevented (CR 609.7a).
+Stack abilities and their resolutions retain the source's zone-change version.
+A card returning to the battlefield is a different source even when its arena
+id is unchanged. The former Scavenging Ghoul self-counter leak is guarded by
+`resolve::counters` checking the captured source version before adding counters;
+the exact Ghoul/Kenrith scenario is not yet a dedicated regression.
 
-The fix is a version on the stack object and on `Resolution.source`,
-compared where the source is read; it is engine-core work and not yet done.
+Damage uses the retained source incarnation and its last known characteristics.
+The former Circle of Protection failure after a pinger leaves and returns is
+covered by independent tests for all five Circles, including multiple historical
+incarnations. Choosing an earlier source is distinct from choosing the current
+permanent. Death triggers capture the source before departure, separately from
+their new-zone event object. Granted abilities test their recipient against that
+same historical incarnation. Explicit event-object damage is distinguished from
+ordinary source damage even when their arena ids match. Internal event context
+alone grants no source-choice eligibility: the ability must actually read it;
+copies retain that eligibility. Omnath and undying regressions cover both sides.
+These changes do not imply that every reference to another object is
+version-aware: ordinary target revalidation (#117), the Earthbend event-object
+case above, and the state-trigger suppression case below remain separate gaps.
 
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
@@ -768,12 +762,18 @@ about what was choosable. A change of targets (CR 115.7, `resolve::retarget`)
 asks the same function, so a redirected spell is offered only what the
 re-check would call legal (#247).
 
-Partial legality is handled and not merely survived: the legal subset is
-written back to the object once, before any `Resolution` is built, which is
-safe because a `TargetReq` carries one spec and nothing reads `targets` by
-index. What is not handled is the rule's own example — "for every instance of
-the word 'target'" needs two separate instances, and this DSL has no way to
-spell a second one.
+Partial legality writes the legal subset back before constructing a resolution.
+The DSL now supports two target groups and checks both groups. Ordinary target
+revalidation still compares bare object ids (#117): an object that leaves and
+returns can incorrectly remain legal. Exact target-slot references retained for
+source selection must also be used by legality, copies and target changes before
+that gap can be considered closed.
+
+Untargeted self-effects need a separate incarnation audit as well. For example,
+`PumpFilter { Filter::This }` still binds the bare source id in `bound_now`, so
+Shivan Dragon's pump may affect a returned Dragon. This is a read-only code
+finding, not yet a behavioral regression; the guards on AddCounter and damage
+must not be generalized to every self-effect.
 
 A spell leaves by `Engine::leave_stack_without_resolving` and not by
 `finalize_spell`: rebound (CR 702.88) and an Adventure (CR 715.3d) exile a
@@ -998,10 +998,15 @@ cleanup removes shields whose duration is this turn. Prevention bought while
 resolving an instruction stays inside that instruction's damage work: it
 follows redirected damage and cannot prevent damage from a later instruction.
 
-The current damage-source selection UI still names objects by `ObjectId`.
-It does not yet distinguish two independently selectable historical
-incarnations of the same card in a single source-choice menu. Damage work
-itself does distinguish those incarnations once the source is known.
+Damage-source selection uses `DamageSourceRef` (object plus zone-change
+version) and a stable `SourceChoiceId`. A current permanent and earlier
+incarnations referenced by stack abilities are independently selectable.
+`source_memory` retains exact stack, shield, delayed and linked references;
+an archived snapshot alone does not make a source eligible. A chosen permanent
+spell follows its recorded resolution into a permanent, not an assumed version
+increment. The chooser's historical view carries its own entitled identity and
+characteristics instead of looking up the current object. Ordinary target
+revalidation remains a separate known gap (#117).
 
 ### The monarch's abilities have no source (CR 724.2)
 

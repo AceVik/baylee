@@ -237,6 +237,7 @@ impl<L: CardLookup> Engine<L> {
         for step in 0..AUTO_ANSWER_LIMIT {
             self.run_machine();
             self.open_variable_mana_window();
+            self.state.capture_rule_references(&self.lookup);
             if !self.awaiting_answer {
                 return;
             }
@@ -981,7 +982,11 @@ impl<L: CardLookup> Engine<L> {
                 self.state.delayed.push(crate::state::DelayedTrigger {
                     controller,
                     when: crate::state::DelayedWhen::NextUpkeep,
-                    action: crate::state::DelayedAction::PayCostOrSacrifice { cost, card: id },
+                    action: crate::state::DelayedAction::PayCostOrSacrifice {
+                        cost,
+                        card: id,
+                        version: self.state.object(id).map_or(0, |o| o.version),
+                    },
                 });
             }
             // A Saga takes a lore counter as it enters (CR 714.3a), and
@@ -2375,6 +2380,20 @@ impl<L: CardLookup> Engine<L> {
             req.spec = trigger.bind_target(req.spec);
             req
         });
+        let graveyard_source = trigger.abilities.is_some_and(|list| {
+            matches!(
+                list.abilities.get(trigger.ability_index as usize),
+                Some(
+                    AbilityDef::Triggered {
+                        zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                        ..
+                    } | AbilityDef::ModalTriggered {
+                        zone: baylee_cards_dsl::TriggerZone::Graveyard,
+                        ..
+                    }
+                )
+            )
+        });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
             if let Some((version, power)) = trigger.event_object_identity {
@@ -2389,9 +2408,11 @@ impl<L: CardLookup> Engine<L> {
                 object
                     .riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
-                object
-                    .riders
-                    .push(crate::object::Rider::TriggerSourceVersion(version));
+                if graveyard_source {
+                    object
+                        .riders
+                        .push(crate::object::Rider::TriggerSourceVersion(version));
+                }
             }
             if let Some((controller, toughness)) = trigger.event_departure {
                 object
@@ -2974,6 +2995,7 @@ impl<L: CardLookup> Engine<L> {
                 self.state
                     .zones
                     .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+                self.state.capture_linked_references(id, synthetic);
                 self.state.journal.record(GameEvent::AbilityTriggered {
                     object: id,
                     source: t.source,
@@ -3051,10 +3073,19 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         }
         .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
-        let version = obj.riders.iter().find_map(|rider| match rider {
-            crate::object::Rider::TriggerSourceVersion(version) => Some(*version),
-            _ => None,
-        });
+        let version = obj
+            .riders
+            .iter()
+            .find_map(|rider| match rider {
+                crate::object::Rider::TriggerSourceVersion(version) => Some(*version),
+                _ => None,
+            })
+            .or_else(|| {
+                obj.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::AbilitySourceVersion(version) => Some(*version),
+                    _ => None,
+                })
+            });
         !crate::eval::intervening_if_for_incarnation(
             &self.state,
             condition,
@@ -3292,6 +3323,7 @@ impl<L: CardLookup> Engine<L> {
             // An ability ceases to exist rather than going anywhere
             // (CR 608.2n) — the same removal CR 603.4's arm above makes.
             self.state.zones.remove(top, ZoneLocation::Stack);
+            self.state.remember_damage_source(top);
             let _ = self.state.arena.remove(top);
             return;
         }
@@ -3332,6 +3364,7 @@ impl<L: CardLookup> Engine<L> {
             // As when an ability is countered: an ability on the stack
             // ceases to exist rather than going anywhere (CR 608.2n).
             self.state.zones.remove(top, ZoneLocation::Stack);
+            self.state.remember_damage_source(top);
             let _ = self.state.arena.remove(top);
             return;
         }
@@ -3876,6 +3909,7 @@ impl<L: CardLookup> Engine<L> {
             // that *never resolves* needs. Countering the last chapter left
             // the Saga on the battlefield for the rest of the game.
             self.state.zones.remove(res.on_stack, ZoneLocation::Stack);
+            self.state.remember_damage_source(res.on_stack);
             let _ = self.state.arena.remove(res.on_stack);
         } else {
             self.finalize_spell(res.on_stack);
@@ -3984,6 +4018,7 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         if is_permanent {
+            self.state.begin_permanent_resolution(spell);
             // Dash (CR 702.109a): "return the permanent this spell becomes to
             // its owner's hand at the beginning of the next end step" — a
             // delayed triggered ability that uses the stack (CR 603.7), and
@@ -3991,14 +4026,9 @@ impl<L: CardLookup> Engine<L> {
             if let Some(obj) = self.state.object(spell)
                 && obj.riders.contains(&crate::object::Rider::Dashed)
             {
-                self.state.delayed.push(crate::state::DelayedTrigger {
-                    controller: obj.controller,
-                    when: crate::state::DelayedWhen::NextEndStep,
-                    action: crate::state::DelayedAction::Trigger {
-                        source: spell,
-                        effects: &DASH_RETURN,
-                    },
-                });
+                let controller = obj.controller;
+                self.state
+                    .delay_for_resolved_permanent(spell, controller, &DASH_RETURN);
             }
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
@@ -4309,6 +4339,7 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .zones
             .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        self.state.capture_linked_references(id, synthetic);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source: t.source,
@@ -4844,11 +4875,11 @@ impl<L: CardLookup> Engine<L> {
             crate::state::DelayedAction::CastDiscovered { card, version } => {
                 self.offer_discovered(controller, card, version)
             }
-            crate::state::DelayedAction::ReturnToBattlefield { card } => {
+            crate::state::DelayedAction::ReturnToBattlefield { card, version } => {
                 if self
                     .state
                     .object(card)
-                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Exile && o.version == version)
                 {
                     // End-step blink returns (Eerie Interlude, Swift
                     // Spiral): under the OWNER's control.
@@ -4881,8 +4912,20 @@ impl<L: CardLookup> Engine<L> {
                 });
                 false
             }
-            crate::state::DelayedAction::PayCostOrSacrifice { cost, card } => {
-                self.demand_echo(cost, card)
+            crate::state::DelayedAction::PayCostOrSacrifice {
+                cost,
+                card,
+                version,
+            } => {
+                if self
+                    .state
+                    .object(card)
+                    .is_some_and(|o| o.version == version)
+                {
+                    self.demand_echo(cost, card)
+                } else {
+                    false
+                }
             }
             crate::state::DelayedAction::PayCostOrLose { cost } => self.demand_pact(cost),
             // A delayed triggered ability that uses the stack, come due at a
@@ -4895,14 +4938,18 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 effects,
             } => {
-                self.queue_delayed_trigger(controller, source, effects, None);
+                self.queue_delayed_trigger(controller, source, effects, None, Some(version));
                 if let Some(trigger) = self.trigger_queue.back_mut() {
                     trigger.counter_source_version = Some(version);
                 }
                 false
             }
-            crate::state::DelayedAction::Trigger { source, effects } => {
-                self.queue_delayed_trigger(controller, source, effects, None);
+            crate::state::DelayedAction::Trigger {
+                source,
+                source_version,
+                effects,
+            } => {
+                self.queue_delayed_trigger(controller, source, effects, None, Some(source_version));
                 false
             }
             // "That creature" while it is still that object (CR 603.7c):
@@ -4910,6 +4957,7 @@ impl<L: CardLookup> Engine<L> {
             // new object and the trigger is about nothing (CR 400.7).
             crate::state::DelayedAction::TriggerAbout {
                 source,
+                source_version,
                 effects,
                 object,
                 version,
@@ -4918,7 +4966,13 @@ impl<L: CardLookup> Engine<L> {
                     .state
                     .object(object)
                     .is_some_and(|o| o.version == version);
-                self.queue_delayed_trigger(controller, source, effects, still.then_some(object));
+                self.queue_delayed_trigger(
+                    controller,
+                    source,
+                    effects,
+                    still.then_some(object),
+                    Some(source_version),
+                );
                 false
             }
         }
@@ -4932,10 +4986,11 @@ impl<L: CardLookup> Engine<L> {
         source: ObjectId,
         effects: &'static [baylee_cards_dsl::Effect],
         event_object: Option<ObjectId>,
+        source_version: Option<u32>,
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
-                source_version: None,
+                source_version,
                 event_object_identity: None,
                 counter_source_version: None,
                 event_damage: None,
@@ -5640,7 +5695,7 @@ impl<L: CardLookup> Engine<L> {
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         // Every prevention shield says "this turn" (`crate::prevention`).
         self.state.shields.clear();
-        self.state.damage_sources.clear();
+        self.state.prune_damage_sources();
         for player in &mut self.state.players {
             player.mana_pool.expire_turn_retention();
         }
@@ -5866,7 +5921,7 @@ fn synthetic_target_req(spec: TargetSpec) -> TargetReq {
 static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
     condition: baylee_cards_dsl::Condition::DashCostPaid,
     then: &[Effect::ReturnToHand {
-        target: TargetSpec::ThisObject,
+        target: TargetSpec::EventObject,
     }],
     otherwise: &[],
 }];

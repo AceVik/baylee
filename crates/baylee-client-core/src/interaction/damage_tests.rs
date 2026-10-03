@@ -156,3 +156,37 @@ fn counter_allocation_does_not_promise_to_prevent_unpreventable_damage() {
             .contains("Markenentfernungen")
     );
 }
+
+#[test]
+fn source_choices_keep_exact_versions_and_reset_replaced_offers() {
+    use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+    let old = DamageSourceRef {
+        object: ObjectId::new(8, 0),
+        version: 2,
+    };
+    let current = DamageSourceRef { version: 4, ..old };
+    let offer = |id, options| Pending::ChooseDamageSource {
+        player: ME,
+        choice: SourceChoiceId::new(id),
+        options,
+    };
+    let pending = offer(10, vec![old, current]);
+    let mut i = Interaction::new(pending.clone(), ME);
+    assert!(!i.can_confirm());
+    assert!(!i.choose_index(2));
+    assert!(i.choose_index(0));
+    assert!(
+        matches!(i.confirm(), Some(PlayerAction::ChooseDamageSource { source, .. }) if source == old)
+    );
+    let kept = Interaction::new_keeping(pending.clone(), ME, Some(&i));
+    assert_eq!(kept.chosen_index(), Some(0));
+    for changed in [offer(11, vec![old, current]), offer(10, vec![current, old])] {
+        let fresh = Interaction::new_keeping(changed, ME, Some(&i));
+        assert!(!fresh.can_confirm());
+        assert_eq!(fresh.chosen_index(), None);
+    }
+    let mut changed_seat = Interaction::new_keeping(pending.clone(), PlayerId::new(1), Some(&i));
+    assert!(!changed_seat.choose_index(0));
+    assert!(changed_seat.confirm().is_none());
+    assert!(baylee_engine::choice::timeout_answer(&pending).is_none());
+}

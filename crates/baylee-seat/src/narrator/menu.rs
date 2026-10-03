@@ -837,6 +837,33 @@ impl Builder<'_, '_> {
     fn write(&mut self) {
         let pending = self.request.pending.clone();
         match &pending {
+            Pending::ChooseDamageSource {
+                choice, options, ..
+            } => {
+                self.line("QUESTION: Choose one exact damage source. This does not target it.");
+                for &source in options {
+                    self.option(
+                        format!(
+                            "source{}-{}-{}",
+                            choice.get(),
+                            source.object,
+                            source.version
+                        ),
+                        baylee_client_core::source_choice::label_named(
+                            baylee_client_core::Lang::En,
+                            source,
+                            Some(self.table.view),
+                            &|player| self.table.player(player),
+                        ),
+                        Act::Now(PlayerAction::ChooseDamageSource {
+                            choice: *choice,
+                            source,
+                        }),
+                    );
+                }
+                self.list_options();
+                self.answer("pick=[one source id]");
+            }
             Pending::ChooseDamageEffect {
                 choice,
                 damage,

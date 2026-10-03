@@ -272,6 +272,15 @@ const fn yes() -> bool {
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
+    /// Choose an exact incarnation as a damage source (CR 609.7a).
+    ChooseDamageSource {
+        /// Player creating the source-dependent effect.
+        player: PlayerId,
+        /// Identity of this exact offered choice.
+        choice: baylee_core::ids::SourceChoiceId,
+        /// Legal sources, including separately remembered incarnations.
+        options: Vec<baylee_core::ids::DamageSourceRef>,
+    },
     /// Choose which competing prevention or replacement modifies damage
     /// next (CR 616.1). This is not priority or a targeting decision.
     ChooseDamageEffect {
@@ -561,6 +570,7 @@ impl Pending {
     pub const fn asked(&self) -> Option<PlayerId> {
         match self {
             Self::Mulligan { player, .. }
+            | Self::ChooseDamageSource { player, .. }
             | Self::ChooseDamageEffect { player, .. }
             | Self::AllocatePrevention { player, .. }
             | Self::MulliganBottom { player, .. }
@@ -1122,6 +1132,7 @@ impl Pending {
     pub fn fit_to_options(&mut self) -> bool {
         match self {
             Self::ChooseDamageEffect { options, .. } => !options.is_empty(),
+            Self::ChooseDamageSource { options, .. } => !options.is_empty(),
             Self::AllocatePrevention { damage, total, .. } => {
                 damage
                     .iter()
@@ -1228,6 +1239,17 @@ impl Pending {
     pub fn answer_fault(&self, answer: &PlayerAction) -> Option<AnswerFault> {
         use PlayerAction as A;
         match (self, answer) {
+            (
+                Self::ChooseDamageSource {
+                    choice, options, ..
+                },
+                A::ChooseDamageSource {
+                    choice: answered,
+                    source,
+                },
+            ) => {
+                (choice != answered || !options.contains(source)).then_some(AnswerFault::NotOffered)
+            }
             (
                 Self::ChooseDamageEffect {
                     choice, options, ..
@@ -1360,6 +1382,7 @@ impl Pending {
             ) => arrangement_fault(cards, specs, piles).map(AnswerFault::Misarranged),
             (
                 Self::Mulligan { .. }
+                | Self::ChooseDamageSource { .. }
                 | Self::ChooseDamageEffect { .. }
                 | Self::AllocatePrevention { .. }
                 | Self::MulliganBottom { .. }
@@ -1620,6 +1643,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
             .declining_does_nothing()
             .then_some(PlayerAction::YesNo(false)),
         Pending::MulliganBottom { .. }
+        | Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
         | Pending::DiscardChoice { .. }
@@ -2025,6 +2049,13 @@ impl LegalActions {
 /// one, and a host can deduplicate a resent action after a reconnect.
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerAction {
+    /// Choose one exact damage-source incarnation from the pending offer.
+    ChooseDamageSource {
+        /// Identity of the source decision being answered.
+        choice: baylee_core::ids::SourceChoiceId,
+        /// Exact offered object and incarnation.
+        source: baylee_core::ids::DamageSourceRef,
+    },
     /// Apply one offered damage prevention/replacement effect.
     ChooseDamageEffect {
         /// The exact pending damage decision being answered.
@@ -2418,6 +2449,14 @@ mod choice_tests {
                 None,
             ),
             (
+                Pending::ChooseDamageSource {
+                    player: p,
+                    choice: baylee_core::ids::SourceChoiceId::new(0),
+                    options: Vec::new(),
+                },
+                None,
+            ),
+            (
                 Pending::ChooseDamageEffect {
                     player: p,
                     choice: DamageChoiceId { batch: 1, step: 1 },
@@ -2470,13 +2509,14 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 20 + 16;
+    const KINDS: usize = 20 + 17;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
     /// until it has a number, and then the table above is missing it.
     fn kind_of(pending: &Pending) -> usize {
         match pending {
+            Pending::ChooseDamageSource { .. } => 36,
             Pending::ChooseDamageEffect { .. } => 34,
             Pending::AllocatePrevention { .. } => 35,
             Pending::Mulligan { .. } => 0,

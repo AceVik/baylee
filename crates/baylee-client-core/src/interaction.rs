@@ -87,12 +87,26 @@ fn ordered_attackers(options: &[BlockOption]) -> Vec<ObjectId> {
     out
 }
 
+/// Identity of a versioned decision; unrelated dialog kinds never compare equal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecisionId {
+    /// Damage replacement ordering or allocation.
+    Damage(DamageChoiceId),
+    /// Exact source incarnation selection.
+    Source(baylee_core::ids::SourceChoiceId),
+}
+
 /// What the player is being asked, in renderer-friendly terms.
 // Not `PartialEq`: two of the variants carry engine types that are plain
 // data without an equality impl, and a prompt is displayed rather than
 // compared.
 #[derive(Clone, Debug)]
 pub enum Prompt {
+    /// Choose one exact source, without targeting it.
+    ChooseDamageSource {
+        /// Legal incarnations in their offered order.
+        options: Vec<baylee_core::ids::DamageSourceRef>,
+    },
     /// Select the next effect that modifies damage.
     ChooseDamageEffect {
         /// The simultaneous damage being modified.
@@ -355,6 +369,7 @@ impl Prompt {
     ) -> String {
         let name = |id: ObjectId| name(id).filter(|n| !n.trim().is_empty());
         match self {
+            Self::ChooseDamageSource { .. } => Phrase::ChooseDamageSource.text(lang).to_string(),
             Self::ChooseDamageEffect { .. } => Phrase::ChooseDamageEffect.text(lang).to_string(),
             Self::AllocatePrevention {
                 effect,
@@ -1080,6 +1095,10 @@ pub enum SelectionOutcome {
 /// Internal shape of the answer being assembled.
 #[derive(Clone, Debug)]
 enum Mode {
+    Source {
+        choice: baylee_core::ids::SourceChoiceId,
+        options: Vec<baylee_core::ids::DamageSourceRef>,
+    },
     DamageEffect {
         choice: DamageChoiceId,
         options: Vec<DamageEffectOption>,
@@ -1177,6 +1196,19 @@ enum Mode {
     GameOver,
 }
 
+impl Mode {
+    /// An object-only selection; player targets use their separate offer.
+    fn objects(options: &[ObjectId], min: usize, max: usize) -> Self {
+        Self::Objects {
+            options: options.to_vec(),
+            player_options: Vec::new(),
+            min,
+            max,
+            focus: 0,
+        }
+    }
+}
+
 /// One thing the question can be pointed at.
 ///
 /// A seat is a target like a permanent is ("any target", CR 115.4), and the
@@ -1259,6 +1291,22 @@ impl Interaction {
             *fresh = built.clone();
             next.choice_index = Some(built.focus());
         }
+        if let Some(old) = previous.filter(|p| p.seat == seat)
+            && let (
+                Mode::Source {
+                    choice: a,
+                    options: x,
+                },
+                Mode::Source {
+                    choice: b,
+                    options: y,
+                },
+            ) = (&next.mode, &old.mode)
+            && a == b
+            && x == y
+        {
+            next.choice_index = old.choice_index;
+        }
         next
     }
 
@@ -1275,6 +1323,12 @@ impl Interaction {
 
     fn own_mode(pending: &Pending) -> Mode {
         match pending {
+            Pending::ChooseDamageSource {
+                choice, options, ..
+            } => Mode::Source {
+                choice: *choice,
+                options: options.clone(),
+            },
             Pending::ChooseDamageEffect {
                 choice, options, ..
             } => Mode::DamageEffect {
@@ -1289,13 +1343,7 @@ impl Interaction {
             } => Mode::Prevention(crate::damage::Allocation::new(*choice, damage, *total)),
             Pending::Mulligan { .. } => Mode::Mulligan,
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
-                Mode::Objects {
-                    options: Vec::new(),
-                    player_options: Vec::new(),
-                    min: *count as usize,
-                    max: *count as usize,
-                    focus: 0,
-                }
+                Mode::objects(&[], *count as usize, *count as usize)
             }
             Pending::Priority { legal, .. } => Mode::Priority {
                 legal: legal.clone(),
@@ -1327,22 +1375,10 @@ impl Interaction {
                 pairs: obeying.clone(),
                 focus: 0,
             },
-            Pending::LegendChoice { options, .. } => Mode::Objects {
-                options: options.clone(),
-                player_options: Vec::new(),
-                min: 1,
-                max: 1,
-                focus: 0,
-            },
+            Pending::LegendChoice { options, .. } => Mode::objects(options, 1, 1),
             Pending::ChooseCards {
                 options, min, max, ..
-            } => Mode::Objects {
-                options: options.clone(),
-                player_options: Vec::new(),
-                min: *min as usize,
-                max: *max as usize,
-                focus: 0,
-            },
+            } => Mode::objects(options, *min as usize, *max as usize),
             Pending::ChooseTargets {
                 options,
                 player_options,
@@ -1410,6 +1446,9 @@ impl Interaction {
             };
         }
         match &self.pending {
+            Pending::ChooseDamageSource { options, .. } => Prompt::ChooseDamageSource {
+                options: options.clone(),
+            },
             Pending::ChooseDamageEffect {
                 damage, options, ..
             } => Prompt::ChooseDamageEffect {
@@ -2178,10 +2217,11 @@ impl Interaction {
 
     /// Identity used to reject clicks from a replaced damage dialog.
     #[must_use]
-    pub const fn damage_choice(&self) -> Option<DamageChoiceId> {
+    pub const fn decision_id(&self) -> Option<DecisionId> {
         match &self.pending {
             Pending::ChooseDamageEffect { choice, .. }
-            | Pending::AllocatePrevention { choice, .. } => Some(*choice),
+            | Pending::AllocatePrevention { choice, .. } => Some(DecisionId::Damage(*choice)),
+            Pending::ChooseDamageSource { choice, .. } => Some(DecisionId::Source(*choice)),
             _ => None,
         }
     }
@@ -2250,6 +2290,7 @@ impl Interaction {
         let count = match &self.mode {
             Mode::CastOption { count } => *count,
             Mode::DamageEffect { options, .. } => options.len(),
+            Mode::Source { options, .. } => options.len(),
             Mode::Color { options } => options.len(),
             Mode::Player { options } => options.len(),
             Mode::Subtype { options } => options.len(),
@@ -2313,6 +2354,7 @@ impl Interaction {
             Mode::Color { .. }
             | Mode::Player { .. }
             | Mode::CastOption { .. }
+            | Mode::Source { .. }
             | Mode::DamageEffect { .. }
             | Mode::Subtype { .. } => self.choice_index.is_some(),
             Mode::CardName { named } => named.is_some(),
@@ -2371,6 +2413,14 @@ impl Interaction {
             Mode::Blockers { pairs, .. } => Some(PlayerAction::DeclareBlockers {
                 blockers: pairs.clone(),
             }),
+            Mode::Source { choice, options } => {
+                options.get(self.choice_index?).copied().map(|source| {
+                    PlayerAction::ChooseDamageSource {
+                        choice: *choice,
+                        source,
+                    }
+                })
+            }
             Mode::Prevention(allocation) => allocation.answer(),
             Mode::DamageEffect { choice, options } => {
                 options
@@ -2529,6 +2579,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
+        | Pending::ChooseDamageSource { player, .. }
         | Pending::ChooseDamageEffect { player, .. }
         | Pending::AllocatePrevention { player, .. }
         | Pending::ChooseNumber { player, .. }

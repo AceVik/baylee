@@ -1078,6 +1078,31 @@ mod tests {
         assert!(!line.contains("BBB"));
     }
 
+    #[test]
+    fn legacy_generic_cost_is_repaired_in_cached_preview_and_stack_sentence() {
+        let card = fixture::card("Circle of Protection: Red");
+        let texts = CardTexts::filed(fixture::german(
+            "Circle of Protection: Red",
+            "Schutzkreis gegen Rot",
+            Some(
+                "1: Sobald eine rote Quelle, die du bestimmst, dir das nächste Mal in diesem Zug Schaden zufügen würde, verhindere diesen Schaden.",
+            ),
+        ));
+        let face = texts.face(card, 0).expect("cached face");
+        assert!(face.oracle_text.starts_with("{1}:"));
+        let line = texts
+            .localized(
+                card,
+                StackText {
+                    face: 0,
+                    line: 0,
+                    of: 1,
+                },
+            )
+            .expect("localized sentence");
+        assert!(line.starts_with("{1}:"));
+    }
+
     /// And where none has — no gateway, English, a card nobody translated —
     /// the card draws its own English, with words on it. Before the floor, an
     /// offline duel drew every face blank.

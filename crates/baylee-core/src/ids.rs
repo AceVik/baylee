@@ -65,6 +65,18 @@ id_type! {
     SubtypeId(u16);
     /// Interned name handle (rules identity for "cards named X", not display).
     NameRef(u32);
+    /// One exact damage-source choice; stale answers cannot choose again.
+    SourceChoiceId(u64);
+}
+
+/// One rules incarnation of an object (CR 400.7), including a remembered
+/// source referred to by a waiting spell, ability or effect.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+pub struct DamageSourceRef {
+    /// Stable arena handle, which can survive changes of zone.
+    pub object: ObjectId,
+    /// Incarnation at the time the rules reference was captured.
+    pub version: u32,
 }
 
 impl PrintRef {

@@ -76,6 +76,29 @@ pub(crate) fn answer(
     hostile: &dyn Fn(PlayerId) -> bool,
 ) -> Option<PlayerAction> {
     match pending {
+        Pending::ChooseDamageSource {
+            choice, options, ..
+        } => options
+            .iter()
+            .enumerate()
+            .max_by_key(|(index, source)| {
+                let score = view
+                    .damage_sources
+                    .iter()
+                    .find(|s| s.source == **source)
+                    .map_or((false, false, 0), |s| {
+                        (
+                            hostile(s.controller),
+                            !s.referenced_by.is_empty(),
+                            s.power.unwrap_or(0).max(0),
+                        )
+                    });
+                (score, std::cmp::Reverse(*index))
+            })
+            .map(|(_, &source)| PlayerAction::ChooseDamageSource {
+                choice: *choice,
+                source,
+            }),
         Pending::ChooseDamageEffect {
             choice,
             damage,
@@ -136,6 +159,54 @@ mod tests {
     use baylee_engine::choice::{
         DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView,
     };
+
+    #[test]
+    fn exact_source_ai_prefers_the_hostile_referenced_incarnation() {
+        use baylee_core::ids::{DamageSourceRef, SourceChoiceId};
+        let mut view = ViewBuilder::new(2).build();
+        let old = DamageSourceRef {
+            object: ObjectId::new(9, 0),
+            version: 2,
+        };
+        let current = DamageSourceRef { version: 4, ..old };
+        let historical = baylee_view::DamageSourceView {
+            source: old,
+            name: "Goblin".into(),
+            card: None,
+            rules: None,
+            token: Some(1),
+            controller: PlayerId::new(1),
+            zone: baylee_view::LogZone::Battlefield,
+            is_current: false,
+            referenced_by: vec![ObjectId::new(10, 0)],
+            colors: baylee_core::color::ColorSet::default(),
+            types: baylee_core::types::TypeSet::default(),
+            power: Some(1),
+            toughness: Some(1),
+            keywords: 0,
+        };
+        let live = baylee_view::DamageSourceView {
+            source: current,
+            is_current: true,
+            referenced_by: vec![],
+            power: Some(9),
+            ..historical.clone()
+        };
+        view.damage_sources = vec![live, historical];
+        let pending = Pending::ChooseDamageSource {
+            player: view.seat,
+            choice: SourceChoiceId::new(7),
+            options: vec![current, old],
+        };
+        let action = answer(&view, &pending, &|p| p != view.seat).unwrap();
+        assert!(matches!(action, PlayerAction::ChooseDamageSource { source, .. } if source == old));
+        assert_eq!(pending.answer_fault(&action), None);
+        view.damage_sources.clear();
+        assert_eq!(
+            pending.answer_fault(&answer(&view, &pending, &|_| true).unwrap()),
+            None
+        );
+    }
 
     #[test]
     fn uses_free_prevention_first_and_preserves_finite_shields() {

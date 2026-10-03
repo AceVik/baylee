@@ -21977,8 +21977,11 @@ fn reverse_damage_prevents_damage_from_the_chosen_source_and_gains_that_life() {
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
     engine.apply(p1, PlayerAction::PassPriority).unwrap();
 
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         panic!(
@@ -21987,17 +21990,20 @@ fn reverse_damage_prevents_damage_from_the_chosen_source_and_gains_that_life() {
         )
     };
     assert_eq!(player, p0);
+    let source = baylee_core::ids::DamageSourceRef {
+        object: bolt,
+        version: engine
+            .state()
+            .object(bolt)
+            .expect("Bolt is on the stack")
+            .version,
+    };
     assert!(
-        options.contains(&bolt),
+        options.contains(&source),
         "the Bolt, still on the stack, is a legal source to name: {options:?}"
     );
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![bolt],
-            },
-        )
+        .apply(p0, PlayerAction::ChooseDamageSource { choice, source })
         .expect("naming the Bolt");
 
     let before = life_of(&engine, p0);

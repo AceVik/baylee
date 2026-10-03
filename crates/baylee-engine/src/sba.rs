@@ -344,6 +344,7 @@ pub(crate) fn run_with_sagas(
         // it. Moved rather than cloned: `Arena::remove` hands the object
         // back, and the only reason it used to be thrown away is that nobody
         // had asked for it.
+        state.remember_damage_source(id);
         if let Some(gone) = state.arena.remove(id) {
             state.ceased.push(gone);
         }
@@ -840,6 +841,7 @@ pub fn eliminate_player(
         };
         let loc = ZoneLocation::of(zone, owner);
         state.zones.remove(id, loc);
+        state.remember_damage_source(id);
         let _ = state.arena.remove(id);
     }
     // They left without passing through `move_object`, which is what
@@ -932,6 +934,7 @@ pub fn exile_what_the_departed_control(state: &mut GameState) -> Vec<baylee_core
         .collect();
     for id in ceased {
         state.zones.remove(id, ZoneLocation::Stack);
+        state.remember_damage_source(id);
         let _ = state.arena.remove(id);
     }
     let exiled: Vec<_> = state

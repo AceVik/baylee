@@ -221,6 +221,8 @@ fn options(
 /// kept it: an object in `targets`, in its place, and a player in
 /// `target_players` or `chosen_player`, whichever held it.
 fn write(state: &mut GameState, retarget: &Retarget) {
+    state.capture_source_references();
+    let references = retarget_references(state, retarget);
     let previous = state
         .object(retarget.spell)
         .filter(|_| !retarget.copy)
@@ -266,6 +268,11 @@ fn write(state: &mut GameState, retarget: &Retarget) {
         }
     }
     obj.set_second(second, second_req);
+    for (second, index, reference) in references {
+        state.replace_target_reference(retarget.spell, second, index, reference);
+    }
+    state.capture_source_references();
+
     if let Some((_, shares)) = state
         .divided
         .iter_mut()
@@ -284,6 +291,40 @@ fn write(state: &mut GameState, retarget: &Retarget) {
         }
     }
     record_new_targets(state, retarget.spell, &previous, &previous_players);
+}
+
+/// Object slots compact when a target becomes a player. Carry the retained
+/// incarnation with its target rather than re-reading its newer zone object.
+fn retarget_references(
+    state: &GameState,
+    retarget: &Retarget,
+) -> Vec<(bool, u32, baylee_core::ids::DamageSourceRef)> {
+    let mut old_indices = [0_u32; 2];
+    let mut new_indices = [0_u32; 2];
+    let mut references = Vec::new();
+    for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
+        let group = usize::from(*group != 0);
+        let old = if matches!(was, Aim::Object(_)) {
+            let reference =
+                state.recorded_target_reference(retarget.spell, group != 0, old_indices[group]);
+            old_indices[group] += 1;
+            reference
+        } else {
+            None
+        };
+        if let Aim::Object(id) = now.unwrap_or(*was) {
+            let reference = if now.is_some() {
+                state.source_identity(id)
+            } else {
+                old
+            };
+            if let Some(reference) = reference {
+                references.push((group != 0, new_indices[group], reference));
+            }
+            new_indices[group] += 1;
+        }
+    }
+    references
 }
 
 /// The players a spell or ability on the stack targets: those "any target"
@@ -396,6 +437,63 @@ mod tests {
     use crate::event::GameEvent;
     use crate::object::ObjectKind;
     use crate::zone::ZoneLocation;
+
+    #[test]
+    fn replacing_an_object_with_a_player_keeps_later_historical_target_incarnations() {
+        let mut state =
+            GameState::from_preset(&preset(412, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let caster = PlayerId::new(0);
+        let name = state.names.intern("retarget source");
+        let spell = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let first = state.create_bare(
+            caster,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let kept = state.create_bare(
+            caster,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let kept_ref = state.source_identity(kept).unwrap();
+        state
+            .object_mut(spell)
+            .unwrap()
+            .targets
+            .extend([first, kept]);
+        state
+            .move_object(
+                kept,
+                ZoneLocation::Hand(caster),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                kept,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        write(
+            &mut state,
+            &Retarget {
+                spell,
+                change_to: None,
+                was: vec![(0, Aim::Object(first)), (0, Aim::Object(kept))],
+                now: vec![Some(Aim::Player(caster)), None],
+                copy: false,
+            },
+        );
+        assert_eq!(state.object(spell).unwrap().targets.as_slice(), &[kept]);
+        assert_eq!(state.recorded_stack_target(spell, 0), Some(kept_ref));
+        assert_eq!(state.recorded_stack_target(spell, 1), None);
+        assert_ne!(state.source_identity(kept), Some(kept_ref));
+    }
 
     #[test]
     fn target_acquisition_ignores_retained_targets_and_deduplicates_both_slots() {

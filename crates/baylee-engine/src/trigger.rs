@@ -38,7 +38,7 @@ pub struct PendingTrigger {
     pub counter_source_version: Option<u32>,
     /// Event object incarnation and power, retained for damage it deals later.
     pub event_object_identity: Option<(u32, i16)>,
-    /// Incarnation of a card whose ability triggered from its graveyard.
+    /// Source incarnation at the triggering event, including battlefield LKI.
     pub source_version: Option<u32>,
     /// Index into the source card's abilities.
     pub ability_index: u32,
@@ -235,7 +235,7 @@ fn collect_emblems(
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
-                                source_version: None,
+                                source_version: Some(obj.version),
                                 event_object_identity: event_object
                                     .and_then(|id| state.event_object_identity(id, entry.seq)),
                                 counter_source_version: None,
@@ -412,7 +412,7 @@ pub fn state_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
-                source_version: None,
+                source_version: Some(obj.version),
                 event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
@@ -462,7 +462,7 @@ fn replicate_triggers(
         };
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
-            source_version: None,
+            source_version: Some(spell.version),
             event_object_identity: None,
             counter_source_version: None,
             event_damage: None,
@@ -525,7 +525,12 @@ fn watch_triggers(
         let crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } = watch.when else {
             continue;
         };
-        let crate::state::DelayedAction::Trigger { source, effects } = watch.action else {
+        let crate::state::DelayedAction::Trigger {
+            source,
+            source_version,
+            effects,
+        } = watch.action
+        else {
             continue;
         };
         let left = events
@@ -544,7 +549,7 @@ fn watch_triggers(
             continue;
         }
         triggers.push(PendingTrigger {
-            source_version: None,
+            source_version: Some(source_version),
             event_object_identity: None,
             counter_source_version: None,
             event_damage: None,
@@ -971,7 +976,7 @@ fn cast_this_spell_triggers(
                 continue;
             }
             triggers.push(PendingTrigger {
-                source_version: None,
+                source_version: Some(spell.version),
                 event_object_identity: None,
                 counter_source_version: None,
                 event_mana: None,
@@ -1163,6 +1168,44 @@ fn targeted_by_opponent(
     }
 }
 
+/// The source and the event object are different identities. A death's event
+/// object is the card in its destination (CR 400.7e); the ability's source is
+/// the permanent immediately before departure (CR 113.7a, 603.10a).
+fn source_at_event<'a>(
+    state: &'a GameState,
+    current: &'a crate::object::GameObject,
+    events: &[crate::event::JournalEntry],
+    event: &crate::event::JournalEntry,
+    look_back: bool,
+) -> &'a crate::object::GameObject {
+    let subsequent_moves = events.iter().filter(|entry| {
+        entry.seq > event.seq
+            && matches!(entry.event, GameEvent::ZoneChanged { object, .. } if object == current.id)
+    }).count();
+    let version = current
+        .version
+        .wrapping_sub(u32::try_from(subsequent_moves).expect("zone changes fit version"));
+    let at_event = state
+        .source_object(baylee_core::ids::DamageSourceRef {
+            object: current.id,
+            version,
+        })
+        .unwrap_or(current);
+    if !look_back || at_event.zone == crate::zone::Zone::Battlefield {
+        return at_event;
+    }
+    // Simultaneous departures have separate journal rows. The source may
+    // precede another creature whose death it observes; use its own departure,
+    // never the victim's version or an unrelated later incarnation.
+    events.iter().rev().filter(|entry| entry.seq <= event.seq).find_map(|entry| {
+        if matches!(entry.event, GameEvent::ZoneChanged { object, from: crate::zone::Zone::Battlefield, .. } if object == current.id) {
+            entry.departure.as_ref().and_then(|departure| state.source_object(baylee_core::ids::DamageSourceRef { object: current.id, version: departure.version }))
+        } else {
+            None
+        }
+    }).unwrap_or(at_event)
+}
+
 /// Scans a set of objects for triggered abilities matching the events.
 /// `all_kinds` = every trigger kind (battlefield scan); `false` = only
 /// LTB/Dies (off-battlefield scan, CR 603.10).
@@ -1246,8 +1289,9 @@ fn collect_for_objects(
                         baylee_cards_dsl::TriggerEventKind::Any,
                         permanent,
                     ) {
+                        let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
-                            source_version: None,
+                            source_version: Some(source.version),
                             event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
@@ -1256,8 +1300,8 @@ fn collect_for_objects(
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
+                            controller: source.controller,
+                            timestamp: source.timestamp,
                             event_object: Some(permanent),
                             implicit_target: Some(permanent),
                             abilities: None,
@@ -1351,8 +1395,9 @@ fn collect_for_objects(
                             baylee_cards_dsl::TriggerEventKind::Any,
                             permanent,
                         ) {
+                            let source = source_at_event(state, obj, events, entry, true);
                             triggers.push(PendingTrigger {
-                                source_version: None,
+                                source_version: Some(source.version),
                                 event_object_identity: None,
                                 counter_source_version: None,
                                 event_mana: None,
@@ -1361,8 +1406,8 @@ fn collect_for_objects(
                                 event_damage: None,
                                 source: permanent,
                                 ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                                controller: obj.controller,
-                                timestamp: obj.timestamp,
+                                controller: source.controller,
+                                timestamp: source.timestamp,
                                 event_object: Some(permanent),
                                 implicit_target: Some(permanent),
                                 abilities: None,
@@ -1387,10 +1432,17 @@ fn collect_for_objects(
             else {
                 continue;
             };
-            if !crate::effects::applies_to(state, fx, obj) {
+            let look_back = matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_));
+            if !all_kinds && !look_back {
                 continue;
             }
             for entry in events {
+                let source = source_at_event(state, obj, events, entry, look_back);
+                // A grant belongs to its recipient's battlefield incarnation,
+                // not the new card in the graveyard (CR 603.10a).
+                if !crate::effects::applies_to(state, fx, source) {
+                    continue;
+                }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
                     hits(
                         trigger,
@@ -1398,15 +1450,15 @@ fn collect_for_objects(
                         events,
                         state,
                         permanent,
-                        obj.controller,
+                        source.controller,
                     )
                 });
                 if hit > 0 {
                     let event_object = event_object_for(trigger, &entry.event, permanent);
-                    let times = trigger_count(state, trigger, permanent, obj.controller) * hit;
+                    let times = trigger_count(state, trigger, permanent, source.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
-                            source_version: None,
+                            source_version: Some(source.version),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: None,
@@ -1419,8 +1471,8 @@ fn collect_for_objects(
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
+                            controller: source.controller,
+                            timestamp: source.timestamp,
                             event_object,
                             implicit_target: matches!(trigger, Trigger::Ward)
                                 .then_some(event_object)
@@ -1458,8 +1510,9 @@ fn collect_for_objects(
                         baylee_cards_dsl::TriggerEventKind::Any,
                         permanent,
                     ) {
+                        let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
-                            source_version: None,
+                            source_version: Some(source.version),
                             event_object_identity: None,
                             counter_source_version: None,
                             event_mana: None,
@@ -1468,8 +1521,8 @@ fn collect_for_objects(
                             event_damage: None,
                             source: permanent,
                             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
+                            controller: source.controller,
+                            timestamp: source.timestamp,
                             event_object: Some(target_obj),
                             implicit_target: Some(target_obj),
                             abilities: None,
@@ -1525,8 +1578,15 @@ fn collect_for_objects(
                     let event_object = event_object_for(trigger, &entry.event, permanent);
                     let event_damage = event_damage_of(trigger, &entry.event, events);
                     for _ in 0..times {
+                        let source = source_at_event(
+                            state,
+                            obj,
+                            events,
+                            entry,
+                            matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_)),
+                        );
                         triggers.push(PendingTrigger {
-                            source_version: None,
+                            source_version: Some(source.version),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: crate::resolve::linked_counters::uses_links(
@@ -1558,8 +1618,8 @@ fn collect_for_objects(
                             source: permanent,
                             ability_index: index as u32,
                             abilities: Some(list),
-                            controller: obj.controller,
-                            timestamp: obj.timestamp,
+                            controller: source.controller,
+                            timestamp: source.timestamp,
                             event_object,
                             implicit_target: matches!(trigger, Trigger::Ward)
                                 .then_some(event_object)
@@ -2106,7 +2166,9 @@ mod tests {
                 });
                 let triggers = collect(&state, &RegistryLookup, from);
                 let expected = match zone {
-                    ZoneLocation::Battlefield if active == them() => Some((2, 0, them(), None)),
+                    ZoneLocation::Battlefield if active == them() => {
+                        Some((2, 0, them(), Some(version)))
+                    }
                     ZoneLocation::Graveyard(_) if active == me() => {
                         Some((1, 1, me(), Some(version)))
                     }

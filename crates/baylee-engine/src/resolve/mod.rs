@@ -193,6 +193,11 @@ pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32>
             crate::object::Rider::AbilitySourceVersion(version) => Some(*version),
             _ => None,
         })
+        .or_else(|| {
+            state
+                .recorded_ability_source(res.on_stack)
+                .map(|r| r.version)
+        })
 }
 
 /// Attachment captured when a waiting ability's source left the battlefield.
@@ -2866,59 +2871,8 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 tokens::populate(state, res.controller, id);
             }
         }
-        AwaitingOp::ShieldFromChosenSource {
-            sources,
-            combat_only,
-            all_but,
-            gain_life,
-        } => {
-            let you = res.controller;
-            if let Some(source) = chosen.first().and_then(|&id| {
-                crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
-            }) {
-                let origin = crate::prevention::ShieldOrigin {
-                    source: res.source,
-                    ability: resolving_ability(state, res),
-                };
-                state.shields.push_from(
-                    crate::prevention::Shield {
-                        protects: crate::prevention::Shielded::Player(you),
-                        kind: crate::prevention::ShieldKind::NextFrom {
-                            source,
-                            all_but: u32::from(all_but),
-                            gain_life,
-                            combat_only,
-                        },
-                        controller: you,
-                    },
-                    Some(origin),
-                );
-            }
-        }
-        AwaitingOp::RedirectFromChosenSource { protects } => {
-            let you = res.controller;
-            if let Some(source) = chosen.first().and_then(|&id| {
-                crate::prevention::ChosenSource::new(
-                    state,
-                    id,
-                    &baylee_cards_dsl::Filter::Any,
-                    you,
-                    res.source,
-                )
-            }) {
-                let origin = crate::prevention::ShieldOrigin {
-                    source: res.source,
-                    ability: resolving_ability(state, res),
-                };
-                state.shields.push_from(
-                    crate::prevention::Shield {
-                        protects,
-                        kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
-                        controller: you,
-                    },
-                    Some(origin),
-                );
-            }
+        AwaitingOp::ShieldFromChosenSource { .. } | AwaitingOp::RedirectFromChosenSource { .. } => {
+            unreachable!("source decisions resume through resume_source")
         }
         AwaitingOp::GraveyardOrder { .. }
         | AwaitingOp::ReorderTopLibrary { .. }
@@ -2969,6 +2923,76 @@ pub fn resume(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]) 
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
+    }
+    finish_choice(state, res, since)
+}
+
+/// Resume the exact source decision; `None` skips an impossible departed-seat choice.
+///
+/// # Panics
+/// Panics unless the resolution is suspended at a source decision.
+pub fn resume_source(
+    state: &mut GameState,
+    res: &mut Resolution,
+    chosen: Option<baylee_core::ids::DamageSourceRef>,
+) -> Flow {
+    let since = state.journal.last_seq();
+    match res.awaiting.take().expect("source choice suspended") {
+        AwaitingOp::ShieldFromChosenSource {
+            sources,
+            combat_only,
+            all_but,
+            gain_life,
+        } => {
+            let you = res.controller;
+            if let Some(source) = chosen.and_then(|id| {
+                crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
+            }) {
+                let origin = crate::prevention::ShieldOrigin {
+                    source: res.source,
+                    ability: resolving_ability(state, res),
+                };
+                state.shields.push_from(
+                    crate::prevention::Shield {
+                        protects: crate::prevention::Shielded::Player(you),
+                        kind: crate::prevention::ShieldKind::NextFrom {
+                            source,
+                            all_but: u32::from(all_but),
+                            gain_life,
+                            combat_only,
+                        },
+                        controller: you,
+                    },
+                    Some(origin),
+                );
+            }
+        }
+        AwaitingOp::RedirectFromChosenSource { protects } => {
+            let you = res.controller;
+            if let Some(source) = chosen.and_then(|id| {
+                crate::prevention::ChosenSource::new(
+                    state,
+                    id,
+                    &baylee_cards_dsl::Filter::Any,
+                    you,
+                    res.source,
+                )
+            }) {
+                let origin = crate::prevention::ShieldOrigin {
+                    source: res.source,
+                    ability: resolving_ability(state, res),
+                };
+                state.shields.push_from(
+                    crate::prevention::Shield {
+                        protects,
+                        kind: crate::prevention::ShieldKind::RedirectNextFrom { source, to: you },
+                        controller: you,
+                    },
+                    Some(origin),
+                );
+            }
+        }
+        _ => unreachable!("not a source decision"),
     }
     finish_choice(state, res, since)
 }
@@ -3092,14 +3116,22 @@ fn copy_target_ability(
     if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
         state.synthetic_copies.push((original, id));
     }
+    let original = state
+        .source_identity(original)
+        .expect("original stack ability");
+    state.copy_source_references(original, id);
     copy_division(state, original, id);
     retarget::start_copy(state, res, id)
 }
 
 /// Damage distribution is an announcement decision, so it belongs to the
 /// copy too. Retargeting later moves each share with its corresponding slot.
-fn copy_division(state: &mut GameState, original: ObjectId, copy: ObjectId) {
-    if let Some((_, shares)) = state.divided.iter().find(|(id, _)| *id == original) {
+fn copy_division(
+    state: &mut GameState,
+    original: baylee_core::ids::DamageSourceRef,
+    copy: ObjectId,
+) {
+    if let Some(shares) = state.source_memory.divisions.get(&original) {
         state.divided.push((copy, shares.clone()));
     }
 }
@@ -3121,20 +3153,22 @@ fn copy_division(state: &mut GameState, original: ObjectId, copy: ObjectId) {
 /// end — and made copies count towards Storm of Saruman's "second spell each
 /// turn".
 ///
-/// The original need not still be on the stack. The spell-shaped fields
-/// survive its leaving (`GameState::move_object`), so a trigger whose spell
-/// was countered in response copies it as it last existed (CR 608.2h,
-/// 113.7a). Until this was one function the X, the mode, the face, the
+/// The original need not still be on the stack. Its exact spell incarnation
+/// is archived before it leaves (`GameState::move_object`), so a trigger whose
+/// spell was countered in response copies it as it last existed (CR 608.2h,
+/// 113.7a), even if the card has since been cast again. Until this was one
+/// function the X, the mode, the face, the
 /// kicker and the player targets were left behind: a copied Fireball was
 /// cast for X = 0 and a copied Lightning Bolt aimed at a player had no
 /// target at all.
 fn copy_spell(
     state: &mut GameState,
-    original: ObjectId,
+    original: baylee_core::ids::DamageSourceRef,
     you: PlayerId,
     mods: &[baylee_cards_dsl::CopyMod],
 ) -> Option<ObjectId> {
-    let from = state.object(original)?;
+    state.capture_source_references();
+    let from = state.source_object(original)?;
     let mut base = (*from.base).clone();
     let card = from.card;
     let targets = from.targets.clone();
@@ -3151,6 +3185,7 @@ fn copy_spell(
     let paid = from.paid.as_ref().map(|paid| {
         Box::new(crate::object::PaidRecord {
             sacrificed_mana_value: paid.sacrificed_mana_value,
+            sacrificed: paid.sacrificed,
             tapped: paid.tapped,
             ..crate::object::PaidRecord::default()
         })
@@ -3191,6 +3226,7 @@ fn copy_spell(
         obj.riders.push(crate::object::Rider::SpellCopy);
     }
     state.put_new_spell_on_stack(id);
+    state.copy_source_references(original, id);
     copy_division(state, original, id);
     Some(id)
 }
@@ -4266,12 +4302,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let action = match about.and_then(|t| state.object(t).map(|o| (t, o.version))) {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
                     source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
                     effects,
                     object,
                     version,
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
                     effects,
                 },
             };
@@ -4291,12 +4333,18 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
                     source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
                     effects,
                     object,
                     version,
                 },
                 None => crate::state::DelayedAction::Trigger {
                     source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
                     effects,
                 },
             };
@@ -4519,6 +4567,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                     },
                     action: crate::state::DelayedAction::Trigger {
                         source: res.source,
+                        source_version: source_version(state, res)
+                            .or_else(|| state.object(res.source).map(|o| o.version))
+                            .unwrap_or(0),
                         effects: EARTHBEND_RETURN,
                     },
                 });
@@ -5183,12 +5234,15 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::CopyTargetSpell { mods } => {
             let &original = res.targets.first()?;
-            let copy = copy_spell(state, original, you, mods)?;
+            let copy = copy_spell(state, state.source_identity(original)?, you, mods)?;
             retarget::start_copy(state, res, copy)
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
         Effect::CopyThisSpell => {
             let &original = res.targets.first()?;
+            let original = state
+                .recorded_stack_target(res.on_stack, 0)
+                .or_else(|| state.source_identity(original))?;
             let copy = copy_spell(state, original, you, &[])?;
             retarget::start_copy(state, res, copy)
         }
@@ -6680,6 +6734,78 @@ mod copied_decisions_tests {
     use crate::object::PaidRecord;
 
     #[test]
+    fn copying_a_departed_spell_uses_its_recorded_incarnation_and_target_references() {
+        let mut state =
+            GameState::from_preset(&preset(413, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let caster = PlayerId::new(0);
+        let name = state.names.intern("old spell copy");
+        let original = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+        let target = state.create_bare(
+            caster,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let replacement = state.create_bare(
+            caster,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let old_target = state.source_identity(target).unwrap();
+        let old_spell = state.source_identity(original).unwrap();
+        state.object_mut(original).unwrap().targets.push(target);
+        state.object_mut(original).unwrap().x_value = 7;
+        state.divided.push((original, vec![(target, 7)]));
+        state
+            .move_object(
+                target,
+                ZoneLocation::Hand(caster),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                target,
+                ZoneLocation::Battlefield,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                original,
+                ZoneLocation::Graveyard(caster),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                original,
+                ZoneLocation::Stack,
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state.object_mut(original).unwrap().targets = smallvec::smallvec![replacement];
+        state.object_mut(original).unwrap().x_value = 2;
+        assert!(!state.divided.iter().any(|(id, _)| *id == original));
+        state.divided.push((original, vec![(replacement, 2)]));
+        let copy = copy_spell(&mut state, old_spell, caster, &[]).unwrap();
+        assert_eq!(state.object(copy).unwrap().x_value, 7);
+        assert_eq!(state.object(copy).unwrap().targets.as_slice(), &[target]);
+        assert_eq!(state.recorded_stack_target(copy, 0), Some(old_target));
+        assert_ne!(state.source_identity(target), Some(old_target));
+        assert_ne!(state.source_identity(original), Some(old_spell));
+        assert_eq!(
+            state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
+            vec![(target, 7)]
+        );
+    }
+
+    #[test]
     fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_mana() {
         let mut state =
             GameState::from_preset(&preset(411, &[]), &SyntheticLookup::new(vec![])).unwrap();
@@ -6694,12 +6820,14 @@ mod copied_decisions_tests {
         );
         state.object_mut(original).unwrap().paid = Some(Box::new(PaidRecord {
             sacrificed_mana_value: Some(3),
+            sacrificed: Some((target, 0)),
             mana_spent: 5,
             colors_spent: ColorSet::ALL,
             tapped: Some((target, 0)),
         }));
         state.divided.push((original, vec![(target, 4)]));
-        let copy = copy_spell(&mut state, original, PlayerId::new(1), &[]).unwrap();
+        let original_ref = state.source_identity(original).unwrap();
+        let copy = copy_spell(&mut state, original_ref, PlayerId::new(1), &[]).unwrap();
         let paid = state.object(copy).unwrap().paid.as_ref().unwrap();
         assert_eq!(paid.sacrificed_mana_value, Some(3));
         assert_eq!(paid.tapped, Some((target, 0)));

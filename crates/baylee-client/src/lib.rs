@@ -1037,7 +1037,20 @@ impl Duel {
         }
     }
 
+    /// A versioned source chooser has no current-object preview to inherit.
+    fn clear_hover_for_source_choice(&mut self, pending: &Pending) {
+        if let Pending::ChooseDamageSource { choice, .. } = pending
+            && self.interaction.as_ref().and_then(Interaction::decision_id)
+                != Some(baylee_client_core::interaction::DecisionId::Source(*choice))
+        {
+            self.hovered = None;
+            self.hovered_at = None;
+            self.hovered_log = None;
+        }
+    }
+
     pub(crate) fn receive_choice(&mut self, pending: Pending) {
+        self.clear_hover_for_source_choice(&pending);
         self.target_page = 0;
         self.target_filter = None;
         let seat = self.seat().unwrap_or(PlayerId::new(0));

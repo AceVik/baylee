@@ -1570,3 +1570,67 @@ with no Confirm until fully assigned. Final screenshots/JSON:
 `/private/tmp/alpha-damage-allocation-lifelink-only-result`. Root viewed the final
 allocation screenshot. Both live branches have no client error; the client
 process was stopped after acceptance.
+<!-- Source-choice work below is an in-progress checkpoint, not live acceptance. -->
+
+### Follow-up display audit — source choices and queued abilities
+
+The read-only audit found that queued (non-top) stack abilities still rendered
+their Oracle sentence as plain text, leaving mana and tap notation visible as
+raw codes. The top stack ability and the Abilities dialog already used the
+shared Mana-font span renderer. Astra high has connected the queued heading to
+that same renderer; tests and live screenshot acceptance are still pending.
+
+The new exact-source chooser must distinguish a current permanent from earlier
+incarnations with the same name. Labels use only the offered historical view;
+they must not resolve a historical ObjectId to a newer incarnation. Long German
+labels, stale confirmation, keyboard and mouse selection, hidden identities and
+the distinction between spell and battlefield source are part of acceptance.
+Source-only historical card/rules identities must also reach the view's print
+and catalog iterators, including for a newly attached client.
+
+
+First source-choice live iteration at 960 logical pixels exposed a usability
+problem: two historical Orcish Artillery rows were distinguished only by version
+numbers and identical stack-reference counts. Root inspected
+`/private/tmp/alpha-source-incarnations.png`; acceptance requires public stack
+target context (Grizzly Bears versus the opposing player), not only technical
+versions. Root also inspected `/private/tmp/alpha-source-two-abilities.png`:
+Tap glyphs are visible in both the top and queued ability rows. The source label
+improvement and final rebuilt screenshot run remain pending.
+
+
+The final rebuilt source screenshot
+`/private/tmp/alpha-source-final-incarnations.png` now shows different public
+stack targets and no inherited card preview. Root inspected it and requested a
+shorter first line to remove redundant zone/reference-count wording. The apparent
+plain generic digit in the stack quotation was traced to the intended inline
+Mana-font mark (U+E606), whose separate round pip background is omitted in quoted
+body text. The loaded CoP text already contains `{1}:`; a concrete span/font
+regression protects that path. Final compact labels and live outcomes follow.
+
+
+Root accepted the final compact source view and Abilities dialog screenshots.
+At 960 logical pixels, historical rows show identity and their different stack
+targets in two short lines; current sources omit redundant zone/count wording.
+The Abilities dialog shows the correct generic mana pip and confirmation, and
+both top and queued Artillery text uses the Tap glyph. The new source question
+no longer inherits the card preview. Accepted images and accompanying state are
+saved outside the repository at
+`/Users/viktor/.codex/visualizations/2026/10/01/01a0f916-864d-7873-9579-b5acbfcacb23/source-selection-2026-10-03/`:
+`alpha-source-final-incarnations.png` and `alpha-source-final-circle-ability.png`.
+Final native tests: 1,235 passed, two existing ignores; compact-label/source
+regressions and the actual Mana-font ECS span test also pass. Final native
+Clippy/build and Wasm release checks pass. Live outcomes and choice reset are
+the remaining acceptance step.
+
+
+Final live acceptance passes on the compact rebuilt client. Choosing the current
+Artillery (version 5) yields human/opponent life **34/38**; choosing its historical
+version 1 yields **37/38**. Both branches destroy the Bears, empty the stack and
+report no error. A second Circle decision changes choice 0 to choice 1, clears
+Confirm and hover, and ignores Space until a new selection. Keyboard navigation
+between both historical rows and confirmation also pass. Root inspected the
+reset and historical-result screenshots. All `alpha-source-final-*` screenshots
+and JSON evidence are saved in the external directory above. The display/source
+milestone is accepted; this does not close the separate target-incarnation gap
+or claim completion of the remaining Alpha cards.

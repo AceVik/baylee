@@ -78,6 +78,7 @@ mod damage;
 mod damage_history;
 mod graveyard_order;
 mod phasing;
+mod sources;
 
 // The L4 firing recorder, `BAYLEE_ABILITY_LOG` (this crate's tests only;
 // `docs/verification-hooks.md`).

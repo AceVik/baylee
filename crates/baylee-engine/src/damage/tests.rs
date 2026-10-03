@@ -93,8 +93,14 @@ fn prevention_life_results_wait_for_the_entire_simultaneous_event() {
     state.players[0].life = 2;
     let first = creature(&mut state, B, 5, 5);
     let second = creature(&mut state, B, 5, 5);
-    let chosen =
-        ChosenSource::new(&state, first, &baylee_cards_dsl::Filter::Any, A, first).unwrap();
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(first).unwrap(),
+        &baylee_cards_dsl::Filter::Any,
+        A,
+        first,
+    )
+    .unwrap();
     shield(
         &mut state,
         A,
@@ -145,7 +151,14 @@ fn old_and_returned_source_incarnations_keep_distinct_characteristics() {
     state.object_mut(source).unwrap().base_mut().keywords = KeywordSet::LIFELINK;
     state.refresh_characteristics();
     let old_version = state.object(source).unwrap().version;
-    let chosen = ChosenSource::new(&state, source, &RED, B, source).unwrap();
+    let chosen = ChosenSource::new(
+        &state,
+        state.source_identity(source).unwrap(),
+        &RED,
+        B,
+        source,
+    )
+    .unwrap();
     state
         .move_object(
             source,
@@ -201,8 +214,14 @@ fn competing_paid_and_life_prevention_permit_both_orders() {
     for paid_first in [true, false] {
         let mut state = state(2);
         let source = creature(&mut state, A, 2, 2);
-        let chosen =
-            ChosenSource::new(&state, source, &baylee_cards_dsl::Filter::Any, B, source).unwrap();
+        let chosen = ChosenSource::new(
+            &state,
+            state.source_identity(source).unwrap(),
+            &baylee_cards_dsl::Filter::Any,
+            B,
+            source,
+        )
+        .unwrap();
         shield(
             &mut state,
             B,

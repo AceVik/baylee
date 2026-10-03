@@ -595,6 +595,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     ZonePosition::Top,
                     Cause::Effect,
                 );
+                if let Some(version) = super::source_version(state, res)
+                    .or_else(|| state.object(res.source).map(|o| o.version))
+                {
+                    state.remember_link(
+                        target_id,
+                        baylee_core::ids::DamageSourceRef {
+                            object: res.source,
+                            version,
+                        },
+                    );
+                }
             }
             None
         }
@@ -726,7 +737,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 state.delayed.push(crate::state::DelayedTrigger {
                     controller: you,
                     when: crate::state::DelayedWhen::NextEndStep,
-                    action: crate::state::DelayedAction::ReturnToBattlefield { card: target },
+                    action: crate::state::DelayedAction::ReturnToBattlefield {
+                        card: target,
+                        version: state.object(target).map_or(0, |o| o.version),
+                    },
                 });
             }
             None

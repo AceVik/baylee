@@ -285,24 +285,36 @@ fn send(
 ) {
     activate(engine, THEM, monolith, Some(creature), None);
     walk(engine, &[], &[], |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseDamageSource { .. })
     });
-    let Pending::ChooseCards {
-        player, options, ..
+    let Pending::ChooseDamageSource {
+        player,
+        options,
+        choice,
+        ..
     } = engine.pending().clone()
     else {
         unreachable!("walked to it")
     };
     assert_eq!(player, THEM, "the ability's controller chooses the source");
+    let chosen = baylee_core::ids::DamageSourceRef {
+        object: source,
+        version: engine
+            .state()
+            .object(source)
+            .expect("source exists")
+            .version,
+    };
     assert!(
-        options.contains(&source),
+        options.contains(&chosen),
         "{source:?} is a source to choose"
     );
     engine
         .apply(
             THEM,
-            PlayerAction::ChooseObjects {
-                objects: vec![source],
+            PlayerAction::ChooseDamageSource {
+                choice,
+                source: chosen,
             },
         )
         .expect("off the list");

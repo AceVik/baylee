@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 15 adds explicit damage-effect ordering and prevention allocation choices.
-pub const PROTOCOL_VERSION: u32 = 15;
+/// Version 16 identifies chosen damage sources by their exact zone-change version.
+pub const PROTOCOL_VERSION: u32 = 16;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -239,7 +239,8 @@ mod tests {
         // 13: counter amounts and retargeting; older clients cannot decode these prompts.
         // 14: optional mana payments, opponent sacrifices and target counts beyond 255.
         // 15: damage-effect ordering and prevention allocation with stable choice identities.
-        assert_eq!(PROTOCOL_VERSION, 15);
+        // 16: exact incarnation source choices and their historical view projection.
+        assert_eq!(PROTOCOL_VERSION, 16);
     }
 
     #[test]

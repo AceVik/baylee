@@ -79,6 +79,7 @@ pub mod reconnect;
 pub mod rowscroll;
 pub mod seatbar;
 pub mod sky;
+pub mod source_choice;
 pub mod strike;
 pub mod tabletop;
 pub mod textbuf;
