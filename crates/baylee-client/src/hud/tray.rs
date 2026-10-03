@@ -2136,7 +2136,22 @@ fn spawn_footer(
     let words = dialog_label(
         commands,
         fonts,
-        Phrase::BrowseConfirm.text(lang),
+        if matches!(
+            it.pending(),
+            baylee_engine::choice::Pending::ChooseCards {
+                prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. },
+                ..
+            }
+        ) {
+            if it.selected().next().is_some() {
+                Phrase::ConfirmFaceDown
+            } else {
+                Phrase::DeclineCast
+            }
+        } else {
+            Phrase::BrowseConfirm
+        }
+        .text(lang),
         13.0,
         if ready {
             palette::DIALOG
@@ -2192,7 +2207,18 @@ fn spawn_footer(
         let out = dialog_label(
             commands,
             fonts,
-            Phrase::BrowseNone.text(lang),
+            if matches!(
+                it.pending(),
+                baylee_engine::choice::Pending::ChooseCards {
+                    prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. },
+                    ..
+                }
+            ) {
+                Phrase::DeclineCast
+            } else {
+                Phrase::BrowseNone
+            }
+            .text(lang),
             13.0,
             palette::DIALOG_SOFT,
         );

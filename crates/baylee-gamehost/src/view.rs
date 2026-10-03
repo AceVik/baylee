@@ -217,6 +217,7 @@ fn damage_sources(
     state: &GameState,
     seat: PlayerId,
     pending: Option<&Pending>,
+    ctx: &SeatContext,
 ) -> Vec<baylee_view::DamageSourceView> {
     let Some(Pending::ChooseDamageSource {
         player, options, ..
@@ -224,13 +225,25 @@ fn damage_sources(
     else {
         return Vec::new();
     };
-    if *player != seat {
+    if *player != seat && ctx.awaiting != Some(seat) {
         return Vec::new();
     }
     options
         .iter()
-        .filter_map(|&source| exact_object_view(state, seat, source))
+        .filter_map(|&source| {
+            exact_object_view_with_access(state, seat, source, ctx.controlled_players)
+        })
         .collect()
+}
+
+fn exact_object_view_with_access(
+    state: &GameState,
+    seat: PlayerId,
+    source: baylee_core::ids::DamageSourceRef,
+    controlled: SeatSet,
+) -> Option<baylee_view::DamageSourceView> {
+    let viewer = entitled_viewer(state.source_object(source)?, seat, controlled);
+    exact_object_view(state, viewer, source)
 }
 
 fn exact_object_view(
@@ -301,9 +314,14 @@ fn target_objects(
     state: &GameState,
     seat: PlayerId,
     pending: Option<&Pending>,
+    ctx: &SeatContext,
 ) -> Vec<baylee_view::DamageSourceView> {
     let mut targets = std::collections::BTreeSet::new();
-    for grant in state.granted_actions.iter().filter(|g| g.player == seat) {
+    for grant in state
+        .granted_actions
+        .iter()
+        .filter(|g| g.player == seat || ctx.controlled_players.contains(g.player))
+    {
         if let baylee_engine::choice::GrantedActionKind::PreventNextDamage {
             target: TargetRef::Object(reference),
             ..
@@ -340,13 +358,22 @@ fn target_objects(
             },
         ..
     }) = pending
-        && *player == seat
+        && (*player == seat || ctx.awaiting == Some(seat))
     {
         targets.insert(*reference);
     }
+    if let Some(Pending::ChooseNumber {
+        reason: baylee_engine::choice::NumberPrompt::TextReplacement { target, .. },
+        ..
+    }) = pending
+    {
+        targets.insert(*target);
+    }
     targets
         .into_iter()
-        .filter_map(|source| exact_object_view(state, seat, source))
+        .filter_map(|source| {
+            exact_object_view_with_access(state, seat, source, ctx.controlled_players)
+        })
         .collect()
 }
 
@@ -378,11 +405,49 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
         .collect()
 }
 
+fn word_changes(state: &GameState, id: ObjectId) -> Vec<baylee_view::WordChange> {
+    let Some(object) = state.object(id) else {
+        return Vec::new();
+    };
+    let source = baylee_core::ids::DamageSourceRef {
+        object: id,
+        version: object.version,
+    };
+    let map = state.text_changes.get(source);
+    let colors = baylee_core::color::Color::ALL
+        .iter()
+        .enumerate()
+        .filter_map(|(from, &color)| {
+            let to = map.color_word(color) as u8;
+            (usize::from(to) != from).then_some(baylee_view::WordChange {
+                basic_land_type: false,
+                from: u8::try_from(from).expect("five words"),
+                to,
+            })
+        });
+    let lands = baylee_engine::text_changes::BASIC_LAND_TYPES
+        .iter()
+        .enumerate()
+        .filter_map(|(from, &land)| {
+            let mapped = map.land_type(land);
+            let to = baylee_engine::text_changes::BASIC_LAND_TYPES
+                .iter()
+                .position(|&word| word == mapped)?;
+            (to != from).then_some(baylee_view::WordChange {
+                basic_land_type: true,
+                from: u8::try_from(from).expect("five words"),
+                to: u8::try_from(to).expect("five words"),
+            })
+        });
+    colors.chain(lands).collect()
+}
+
 fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<PublicObject> {
     let obj = state.object(id)?;
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
     Some(PublicObject {
+        word_changes: word_changes(state, id),
         id,
         card: obj.card.filter(|_| known).map(|c| CardIdentity {
             index: c.index,
@@ -568,12 +633,21 @@ fn grant_home(
         let index = baylee_cards::lines::grant_home(abilities, grant)?;
         Some((face, u32::try_from(index).ok()?))
     };
-    let own = grantor.printed_face().and_then(|face| {
-        found(
-            face,
-            grantor.printed_abilities(&crate::session::RegistryLookup),
-        )
-    });
+    let list = grantor.printed_ability_list(&crate::session::RegistryLookup);
+    let own = list
+        .abilities
+        .iter()
+        .enumerate()
+        .find_map(|(index, ability)| {
+            if !baylee_cards::lines::grants_in(ability, &mut 0)
+                .iter()
+                .any(|(_, found)| *found == grant)
+            {
+                return None;
+            }
+            let origin = list.origin(index);
+            Some((origin.origin?.printed()?, origin.index))
+        });
     own.or_else(|| {
         let card = grantor.card?.index;
         let def = baylee_cards::by_index(card)?;
@@ -708,26 +782,41 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
 /// trigger is resolving, but not whose, and not which of that permanent's
 /// abilities it is. The engine already tracks exactly that in
 /// `AbilityLoc`; this is where it reaches the client.
-fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
+pub(crate) fn stack_item(obj: &GameObject) -> Option<baylee_view::StackItem> {
     use baylee_view::StackItem;
     match obj.kind {
         ObjectKind::Spell => Some(StackItem::Spell),
-        ObjectKind::AbilityOnStack => obj.ability.map(|loc| StackItem::Ability {
-            token: obj
-                .own_origin
-                .and_then(baylee_engine::object::AbilityOrigin::token)
-                .map(|id| baylee_view::TokenAbility {
-                    token: id.get() - 1,
-                    index: loc.index,
+        ObjectKind::AbilityOnStack => obj.ability.map(|loc| {
+            let provenance = obj
+                .printed_ability_list(&crate::session::RegistryLookup)
+                .origin(loc.index as usize);
+            let printed = provenance
+                .origin
+                .and_then(baylee_engine::object::AbilityOrigin::printed);
+            StackItem::Ability {
+                token: provenance
+                    .origin
+                    .and_then(baylee_engine::object::AbilityOrigin::token)
+                    .map(|id| baylee_view::TokenAbility {
+                        token: id.get() - 1,
+                        index: provenance.index,
+                    }),
+                source: loc.source,
+                ability: provenance.ability_ref().or_else(|| {
+                    (!baylee_core::ids::AbilityRef::new(
+                        baylee_core::ids::CardIndex::new(0),
+                        loc.index,
+                    )
+                    .is_listed_ability())
+                    .then(|| {
+                        loc.card
+                            .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index))
+                    })
+                    .flatten()
                 }),
-            source: loc.source,
-            ability: loc
-                .card
-                .map(|card| baylee_core::ids::AbilityRef::new(card, loc.index)),
-            text: obj
-                .printed_face()
-                .and_then(|printed| stack_text(printed, loc.index)),
-            rules: obj.printed_face().map(rules_face),
+                text: printed.and_then(|printed| stack_text(printed, provenance.index)),
+                rules: printed.map(rules_face),
+            }
         }),
         _ => None,
     }
@@ -768,13 +857,35 @@ pub(crate) fn stack_text(printed: PrintedFace, index: u32) -> Option<baylee_view
     })
 }
 
+/// A controller may inspect what the controlled player can inspect (CR 720.4).
+fn entitled_viewer(obj: &GameObject, seat: PlayerId, controlled: SeatSet) -> PlayerId {
+    let holder = if obj.zone.is_hidden_by_default() {
+        obj.owner
+    } else {
+        obj.controller
+    };
+    if controlled.contains(holder) {
+        holder
+    } else {
+        seat
+    }
+}
+
 /// Collects a public zone into view objects.
-fn zone(state: &GameState, loc: ZoneLocation, seat: PlayerId) -> Vec<PublicObject> {
+fn zone(
+    state: &GameState,
+    loc: ZoneLocation,
+    seat: PlayerId,
+    controlled: SeatSet,
+) -> Vec<PublicObject> {
     state
         .zones
         .list(loc)
         .iter()
-        .filter_map(|id| public_object(state, *id, seat))
+        .filter_map(|&id| {
+            let viewer = entitled_viewer(state.object(id)?, seat, controlled);
+            public_object(state, id, viewer)
+        })
         .collect()
 }
 
@@ -783,11 +894,12 @@ fn per_seat_zone(
     state: &GameState,
     loc: fn(PlayerId) -> ZoneLocation,
     seat: PlayerId,
+    controlled: SeatSet,
 ) -> Vec<Vec<PublicObject>> {
     state
         .players
         .iter()
-        .map(|p| zone(state, loc(p.id), seat))
+        .map(|p| zone(state, loc(p.id), seat, controlled))
         .collect()
 }
 
@@ -800,10 +912,10 @@ fn per_seat_zone(
 fn mana_pool(state: &GameState, player: PlayerId) -> baylee_view::ManaPoolView {
     use baylee_core::mana::ManaColor;
     let pool = &state.players[player.get() as usize].mana_pool;
-    let mut restricted = [0u16; 6];
+    let mut restricted = [0u64; 6];
     for mana in pool.restricted() {
         let slot = &mut restricted[mana.color.index()];
-        *slot = slot.saturating_add(mana.amount);
+        *slot += u64::from(mana.amount);
     }
     baylee_view::ManaPoolView {
         spending: baylee_engine::casting::mana_spending(state, player),
@@ -867,21 +979,40 @@ const fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
 /// It is deliberately not a memory. The list is rebuilt from the outstanding
 /// choice on every view, so a card stops being visible the instant the choice
 /// is answered, and there is no place for one to linger.
-fn looking_at(state: &GameState, seat: PlayerId, pending: Option<&Pending>) -> Vec<PublicObject> {
+fn looking_at(
+    state: &GameState,
+    seat: PlayerId,
+    pending: Option<&Pending>,
+    ctx: &SeatContext,
+) -> Vec<PublicObject> {
     let Some(pending) = pending else {
         return Vec::new();
     };
-    if pending_player(pending) != Some(seat) {
+    if pending_player(pending) != Some(seat) && ctx.awaiting != Some(seat) {
         return Vec::new();
     }
     offered(pending)
         .into_iter()
         .filter(|id| {
-            state
-                .object(*id)
-                .is_some_and(|obj| !shown_elsewhere(obj, seat))
+            state.object(*id).is_some_and(|obj| {
+                !shown_elsewhere(obj, seat)
+                    || matches!(
+                        pending,
+                        Pending::ChooseCards {
+                            prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. }
+                                | baylee_engine::choice::ChoicePrompt::CommandCard,
+                            ..
+                        }
+                    )
+            })
         })
-        .filter_map(|id| public_object(state, id, seat))
+        .filter_map(|id| {
+            public_object(
+                state,
+                id,
+                entitled_viewer(state.object(id)?, seat, ctx.controlled_players),
+            )
+        })
         .collect()
 }
 
@@ -940,7 +1071,7 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
 ) -> Option<PlayerId> {
     let deciding = deciding(engine);
     if deciding.is_empty() {
-        engine.pending().asked()
+        engine.decision_actor()
     } else {
         deciding.contains(seat).then_some(seat)
     }
@@ -971,6 +1102,10 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
 /// the two that should go red when the next field arrives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SeatContext<'a> {
+    /// The resource owner of the current decision, even when another player answers.
+    pub decision_player: Option<PlayerId>,
+    /// Other players whose private information this viewer may inspect (CR 720.4).
+    pub controlled_players: SeatSet,
     /// Libraries whose changed top must stay hidden until announcement ends (CR 401.5).
     pub library_reveal_blocked: SeatSet,
     /// The seat the table is waiting for, as this seat's view tells it. Pass
@@ -1097,6 +1232,15 @@ pub fn player_view(
     let hand = own_hand(state, seat);
 
     PlayerView {
+        decision_player: ctx.decision_player,
+        controlled_hands: ctx
+            .controlled_players
+            .iter()
+            .map(|player| baylee_view::SharedHand {
+                player,
+                cards: own_hand(state, player),
+            })
+            .collect(),
         seq,
         seat,
         turn: state.turn.number,
@@ -1151,15 +1295,20 @@ pub fn player_view(
         hand_shared_with: SeatSet::new(),
         hand_requests: SeatSet::new(),
         hand_requested: SeatSet::new(),
-        battlefield: zone(state, ZoneLocation::Battlefield, seat),
-        stack: zone(state, ZoneLocation::Stack, seat),
-        graveyards: per_seat_zone(state, ZoneLocation::Graveyard, seat),
-        exile: per_seat_zone(state, ZoneLocation::Exile, seat),
-        command: per_seat_zone(state, ZoneLocation::Command, seat),
+        battlefield: zone(
+            state,
+            ZoneLocation::Battlefield,
+            seat,
+            ctx.controlled_players,
+        ),
+        stack: zone(state, ZoneLocation::Stack, seat, ctx.controlled_players),
+        graveyards: per_seat_zone(state, ZoneLocation::Graveyard, seat, ctx.controlled_players),
+        exile: per_seat_zone(state, ZoneLocation::Exile, seat, ctx.controlled_players),
+        command: per_seat_zone(state, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
-        looking_at: looking_at(state, seat, pending),
-        damage_sources: damage_sources(state, seat, pending),
-        target_objects: target_objects(state, seat, pending),
+        looking_at: looking_at(state, seat, pending, ctx),
+        damage_sources: damage_sources(state, seat, pending, ctx),
+        target_objects: target_objects(state, seat, pending, ctx),
         library_tops: state
             .players
             .iter()
@@ -1254,10 +1403,9 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     engine: &baylee_engine::engine::Engine<L>,
     seat: PlayerId,
 ) -> Option<baylee_view::TargetingContext> {
-    if !matches!(
-        engine.pending_for(seat),
-        Some(Pending::ChooseTargets { .. })
-    ) {
+    if engine.decision_actor() != Some(seat)
+        || !matches!(engine.pending(), Pending::ChooseTargets { .. })
+    {
         return None;
     }
     let context = engine.decision_context();
@@ -1265,6 +1413,14 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
     let mut source = public_object(engine.state(), id, seat)?;
     if let Some(printed) = context.printed {
         source.rules = Some(rules_face(printed));
+    }
+    if let Some(token) = context
+        .provenance
+        .and_then(|origin| origin.origin)
+        .and_then(baylee_engine::object::AbilityOrigin::token)
+    {
+        source.rules = None;
+        source.token = Some(token.get() - 1);
     }
     let text = source.rules.and_then(|rules| {
         let line = if let Some(mode) = context.mode {
@@ -1293,6 +1449,7 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 
 #[cfg(test)]
 mod tests {
+    mod controlled;
     #[test]
     fn permission_target_projection_preserves_historical_entitlement_without_source_eligibility() {
         use baylee_core::ids::{DamageSourceRef, GrantedActionId};
@@ -1376,7 +1533,7 @@ mod tests {
                 .object_mut(first)
                 .unwrap()
                 .take_abilities(baylee_engine::object::AbilityList {
-                    abilities: &[],
+                    abilities: baylee_engine::copiable_abilities::AbilityDefs::Static(&[]),
                     printed: PrintedFace::new(copied, 0),
                     token: None,
                 });
@@ -1521,7 +1678,7 @@ mod tests {
             choice: SourceChoiceId::new(10),
             options,
         };
-        let row = damage_sources(&state, player, Some(&pending))
+        let row = damage_sources(&state, player, Some(&pending), &SeatContext::default())
             .into_iter()
             .find(|r| r.source == source)
             .unwrap();
@@ -1601,7 +1758,7 @@ mod tests {
                 choice: SourceChoiceId::new(4),
                 options,
             };
-            let rows = damage_sources(&state, viewer, Some(&pending));
+            let rows = damage_sources(&state, viewer, Some(&pending), &SeatContext::default());
             let row = rows.iter().find(|row| row.source == source).unwrap();
             assert!(!row.is_current);
             assert_eq!(row.zone, baylee_view::LogZone::Battlefield);
@@ -1609,7 +1766,10 @@ mod tests {
             assert_eq!(row.rules.is_none(), originally_face_down);
             assert_eq!(row.name == "Face-down", originally_face_down);
             assert_eq!(row.referenced_by, vec![ability]);
-            assert!(damage_sources(&state, controller, Some(&pending)).is_empty());
+            assert!(
+                damage_sources(&state, controller, Some(&pending), &SeatContext::default())
+                    .is_empty()
+            );
         }
     }
 
@@ -1631,7 +1791,7 @@ mod tests {
             .object_mut(source_id)
             .unwrap()
             .take_abilities(baylee_engine::object::AbilityList {
-                abilities: &[],
+                abilities: baylee_engine::copiable_abilities::AbilityDefs::Static(&[]),
                 printed: PrintedFace::new(copied, 0),
                 token: None,
             });
@@ -2642,10 +2802,19 @@ mod tests {
         let ctx = SeatContext {
             awaiting: awaiting_for(engine, seat),
             deciding: deciding(engine),
+            decision_player: engine.pending().asked(),
+            controlled_players: engine.controlled_players(seat),
             library_reveal_blocked: engine.library_reveal_blocked(),
             ..SeatContext::default()
         };
-        player_view(engine.state(), seat, 1, engine.pending_for(seat), &ctx, &[])
+        player_view(
+            engine.state(),
+            seat,
+            1,
+            engine.information_pending_for(seat),
+            &ctx,
+            &[],
+        )
     }
 
     /// Before turn 1 every seat is asked its own mulligan at once (#257), so
@@ -3466,7 +3635,7 @@ mod tests {
             .expect("the Effigy is there")
             .take_abilities(baylee_engine::object::AbilityList {
                 token: None,
-                abilities: lantern.abilities_for_face(0),
+                abilities: lantern.abilities_for_face(0).into(),
                 printed: PrintedFace::new(chromatic_lantern(), 0),
             });
         let (clause, grant) = first_grant(machine_gods_effigy());
@@ -3999,6 +4168,82 @@ mod tests {
         obj
     }
 
+    #[test]
+    fn second_generation_copy_keeps_vesuvans_quote_and_a_tokens_original_index() {
+        use baylee_core::generated::index;
+        use baylee_engine::copiable_abilities::compose;
+        use baylee_engine::object::AbilityList;
+        let mut state = GameState::from_preset(&commander_preset(), &Registry).unwrap();
+        let definition = baylee_cards::by_index(index::VESUVAN_DOPPELGANGER).unwrap();
+        let own = AbilityList::from_static(
+            definition.abilities_for_face(0),
+            PrintedFace::new(definition.index, 0),
+            None,
+        );
+        let AbilityDef::CopyOnEnter { mods, .. } = own.abilities[0] else {
+            panic!("Vesuvan copy clause");
+        };
+        let token_id = baylee_cards::tokens::token_id(&baylee_cards::tokens::TREASURE);
+        let token = AbilityList::from_static(
+            baylee_cards::tokens::TREASURE.abilities,
+            None,
+            std::num::NonZeroU16::new(token_id + 1),
+        );
+        let first = compose(token, &own, 0, mods, None);
+        let second = compose(first, &AbilityList::NONE, 0, &[], None);
+        let quoted = stacked(&mut state, index::CLONE, 1, second.clone());
+        let Some(baylee_view::StackItem::Ability {
+            ability,
+            rules,
+            text,
+            token,
+            ..
+        }) = stack_item(&quoted)
+        else {
+            panic!("stack ability");
+        };
+        assert_eq!(
+            ability,
+            Some(baylee_core::ids::AbilityRef::new(
+                index::VESUVAN_DOPPELGANGER,
+                0
+            ))
+        );
+        assert_eq!(
+            rules,
+            Some(rules_face(
+                PrintedFace::new(index::VESUVAN_DOPPELGANGER, 0).unwrap()
+            ))
+        );
+        assert_eq!(
+            text,
+            stack_text(PrintedFace::new(index::VESUVAN_DOPPELGANGER, 0).unwrap(), 0)
+        );
+        assert_eq!(
+            token, None,
+            "the extra ability is quoted by Vesuvan, not printed on Treasure"
+        );
+        let inherited = stacked(&mut state, index::CLONE, 0, second);
+        let Some(baylee_view::StackItem::Ability {
+            ability,
+            rules,
+            token,
+            ..
+        }) = stack_item(&inherited)
+        else {
+            panic!("stack ability");
+        };
+        assert_eq!(ability, None);
+        assert_eq!(rules, None);
+        assert_eq!(
+            token,
+            Some(baylee_view::TokenAbility {
+                token: token_id,
+                index: 0
+            })
+        );
+    }
+
     /// A stack entry indexes the sentences of the face its ability was taken
     /// from. Sheoldred's back face is the only one in the pool that puts an
     /// ability on the stack; read against the face the source shows *now*,
@@ -4022,7 +4267,7 @@ mod tests {
             index,
             baylee_engine::object::AbilityList {
                 token: None,
-                abilities: sheoldred.abilities_for_face(1),
+                abilities: sheoldred.abilities_for_face(1).into(),
                 printed: Some(back),
             },
         );
@@ -4047,10 +4292,8 @@ mod tests {
         );
     }
 
-    /// A copy's ability on the stack names the card it copied, and indexes
-    /// that card's sentences — while the handle a standing answer is filed
-    /// under stays the card on the table. A list no card prints (a token's)
-    /// names nothing.
+    /// A copy's ability and standing-policy handle name the original printed
+    /// clause. Its source object independently preserves physical identity.
     #[test]
     fn a_copys_stack_entry_names_the_card_it_copied() {
         let engine = Engine::new(&commander_preset(), Registry).expect("game starts");
@@ -4072,7 +4315,7 @@ mod tests {
             index,
             baylee_engine::object::AbilityList {
                 token: None,
-                abilities: solemn.abilities_for_face(0),
+                abilities: solemn.abilities_for_face(0).into(),
                 printed: PrintedFace::new(solemn.index, 0),
             },
         );
@@ -4087,8 +4330,8 @@ mod tests {
         };
         assert_eq!(
             ability.map(|a| a.card),
-            Some(spark_double.index),
-            "the handle stays the card on the table, which a standing answer is filed under"
+            Some(solemn.index),
+            "the stable handle follows the original clause, not a composed runtime index"
         );
         assert_eq!(
             rules,
@@ -4113,7 +4356,7 @@ mod tests {
             0,
             baylee_engine::object::AbilityList {
                 token: None,
-                abilities: solemn.abilities_for_face(0),
+                abilities: solemn.abilities_for_face(0).into(),
                 printed: None,
             },
         );

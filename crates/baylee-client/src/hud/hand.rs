@@ -934,7 +934,7 @@ pub(super) fn preview_face(
     hovered: ObjectId,
     art: Option<ImageKey>,
 ) -> Option<CardFace> {
-    if let Some(card) = view.hand.iter().find(|c| c.id == hovered) {
+    if let Some(card) = baylee_client_core::decision::known_cards(view).find(|c| c.id == hovered) {
         return faces.hand(card, textures, art);
     }
     faces.object(view.object(hovered)?, textures, art)

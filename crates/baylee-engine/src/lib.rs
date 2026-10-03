@@ -9,8 +9,12 @@
 /// Dense, generational, O(1)-clone object storage.
 pub mod arena;
 
+/// Composable copiable ability definitions and their printed provenance.
+pub mod copiable_abilities;
 /// `GameObject`, `ObjectKind`, `Characteristics`, counters, status.
 pub mod object;
+/// Semantic text changes on exact rules incarnations.
+pub mod text_changes;
 
 /// Zones and their ordered storage; library order IS the data.
 pub mod zone;
@@ -91,3 +95,5 @@ mod ability_log;
 // modifiers, automation, dev mode, loop detection, scripted modifiers)
 // live in docs/mechanics-roadmap.md. They deliberately have no empty
 // module stubs here — a stub with a doc comment reads as shipped code.
+
+mod constrained_payment;

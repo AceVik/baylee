@@ -142,6 +142,9 @@ fn optional_payment_zero_partial_and_excess_only_prevent_the_named_event() {
             .unwrap();
         walk_until(&mut engine, |e| e.state.zones.stack_is_empty());
         assert_eq!(engine.state.players[0].life, life);
-        assert_eq!(engine.state.players[0].mana_pool.total(), 5 - paid);
+        assert_eq!(
+            engine.state.players[0].mana_pool.total(),
+            u64::from(5 - paid)
+        );
     }
 }

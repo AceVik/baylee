@@ -30,7 +30,7 @@ use baylee_view::{
     CardIdentity, LogAbility, LogEntry, LogEvent, LogFrom, LogObject, LogPlace, LogTarget, LogZone,
 };
 
-use crate::view::{counter, day_night, loss_cause, may_know_card, rules_face, stack_text};
+use crate::view::{counter, day_night, loss_cause, may_know_card};
 
 /// The longest run of lines a repeat is looked for in: a loop that blinks a
 /// creature is three lines long (its trigger, the exile, the return).
@@ -975,13 +975,19 @@ fn in_zone(state: &GameState, obj: &GameObject, zone: Zone, owner: PlayerId) -> 
 
 /// The ability `obj` is on the stack, as the view's stack entry names it.
 fn log_ability(obj: &GameObject) -> Option<LogAbility> {
-    let loc = obj.ability?;
+    let baylee_view::StackItem::Ability {
+        ability,
+        text,
+        rules,
+        ..
+    } = crate::view::stack_item(obj)?
+    else {
+        return None;
+    };
     Some(LogAbility {
-        ability: loc.card.map(|card| AbilityRef::new(card, loc.index)),
-        text: obj
-            .printed_face()
-            .and_then(|printed| stack_text(printed, loc.index)),
-        rules: obj.printed_face().map(rules_face),
+        ability,
+        text,
+        rules,
     })
 }
 

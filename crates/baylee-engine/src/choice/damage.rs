@@ -35,6 +35,11 @@ pub struct DamagePartView {
 /// What applying an offered damage replacement/prevention effect does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DamageEffectKind {
+    /// Turn the specified permanent face up, then continue the same damage event.
+    TurnFaceUp {
+        /// Exact permanent affected by the replacement.
+        object: baylee_core::ids::DamageSourceRef,
+    },
     /// Spend a finite shield; excess capacity remains for later damage.
     PreventNext {
         /// Shield capacity before applying this effect.

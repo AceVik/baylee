@@ -161,7 +161,7 @@ impl HandOrder {
 
     /// Reorder presentation cards and return contiguous category boundaries.
     pub fn apply(self, hand: &mut [HandCard], view: &PlayerView) -> Vec<HandGroup> {
-        let mut ordered: Vec<_> = view.hand.iter().collect();
+        let mut ordered: Vec<_> = baylee_client_core::decision::hand(view).iter().collect();
         if self != Self::Draw {
             ordered.sort_by(|a, b| {
                 let key = self
@@ -214,7 +214,10 @@ mod tests {
                 ("Ash", 1, 4),
             ])
             .build();
-        let drawn: Vec<_> = view.hand.iter().map(|h| h.id).collect();
+        let drawn: Vec<_> = baylee_client_core::decision::hand(&view)
+            .iter()
+            .map(|h| h.id)
+            .collect();
         let mut duel = crate::Duel {
             view: Some(view),
             hand_order: HandOrder::Mana,

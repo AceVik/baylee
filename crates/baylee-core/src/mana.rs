@@ -7,6 +7,7 @@
 use crate::color::{Color, ColorPair, ColorSet};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
+mod transfer;
 
 /// The mana decision a resolving operation has opened a payment window for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -911,10 +912,10 @@ pub struct RestrictedMana {
 /// A player's mana pool: six plain counters plus restricted mana.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub struct ManaPool {
-    plain: [u16; 6],
+    plain: [u32; 6],
     /// Subset of plain mana produced by snow sources (#158).
     #[serde(default)]
-    snow: [u16; 6],
+    snow: [u32; 6],
     restricted: Vec<RestrictedMana>,
     /// Subset of plain mana that carries a rider and restricts nothing
     /// (Path of Ancestry, #232), in the order it was made, each entry under
@@ -933,30 +934,61 @@ impl ManaPool {
     }
 
     /// Adds plain mana.
-    pub fn add(&mut self, color: ManaColor, amount: u16) {
+    pub fn add(&mut self, color: ManaColor, amount: u32) {
         self.plain[color.index()] = self.plain[color.index()].saturating_add(amount);
     }
 
+    /// Add the complete amount, or leave the pool unchanged when the amount
+    /// exceeds the representable counter. No mana is silently discarded.
+    pub fn try_add(&mut self, color: ManaColor, amount: u32) -> bool {
+        let Some(total) = self.plain[color.index()].checked_add(amount) else {
+            return false;
+        };
+        self.plain[color.index()] = total;
+        true
+    }
+
     /// Adds unrestricted mana produced by a snow source.
-    pub fn add_snow(&mut self, color: ManaColor, amount: u16) {
-        let added = amount.min(u16::MAX - self.available(color));
+    pub fn add_snow(&mut self, color: ManaColor, amount: u32) {
+        let added = amount.min(u32::MAX - self.available(color));
         self.add(color, added);
         self.snow[color.index()] += added;
     }
 
+    /// Add the complete snow-produced amount atomically, preserving both
+    /// the total and its snow subset when the counter cannot hold it.
+    pub fn try_add_snow(&mut self, color: ManaColor, amount: u32) -> bool {
+        let i = color.index();
+        let (Some(total), Some(snow)) = (
+            self.plain[i].checked_add(amount),
+            self.snow[i].checked_add(amount),
+        ) else {
+            return false;
+        };
+        self.plain[i] = total;
+        self.snow[i] = snow;
+        true
+    }
+
     /// Snow-produced mana of this color, already included in `available`.
     #[must_use]
-    pub fn snow_available(&self, color: ManaColor) -> u16 {
+    pub fn snow_available(&self, color: ManaColor) -> u32 {
         self.snow[color.index()]
     }
 
     /// Spends one mana specifically from a snow source.
     pub fn spend_snow(&mut self, color: ManaColor) -> bool {
-        if self.snow[color.index()] == 0 {
+        self.spend_snow_units(color, 1)
+    }
+
+    /// Spends an amount specifically from snow sources, atomically and
+    /// without iterating once per mana unit.
+    pub fn spend_snow_units(&mut self, color: ManaColor, amount: u32) -> bool {
+        if self.snow[color.index()] < amount {
             return false;
         }
-        self.snow[color.index()] -= 1;
-        self.plain[color.index()] -= 1;
+        self.snow[color.index()] -= amount;
+        self.plain[color.index()] -= amount;
         self.settle_ridden(color);
         true
     }
@@ -972,13 +1004,17 @@ impl ManaPool {
     pub fn add_ridden(&mut self, mana: RestrictedMana) {
         let before = self.available(mana.color);
         if mana.flags.contains(ManaFlags::SNOW) {
-            self.add_snow(mana.color, mana.amount);
+            self.add_snow(mana.color, u32::from(mana.amount));
         } else {
-            self.add(mana.color, mana.amount);
+            self.add(mana.color, u32::from(mana.amount));
         }
         let amount = self.available(mana.color) - before;
         if amount > 0 {
-            self.ridden.push(RestrictedMana { amount, ..mana });
+            self.ridden.push(RestrictedMana {
+                // The increase is bounded by the supplied u16 entry.
+                amount: amount as u16,
+                ..mana
+            });
         }
     }
 
@@ -1008,9 +1044,9 @@ impl ManaPool {
             self.ridden.remove(pos);
         }
         let i = part.color.index();
-        self.plain[i] -= taken;
+        self.plain[i] -= u32::from(taken);
         if part.flags.contains(ManaFlags::SNOW) {
-            self.snow[i] -= taken;
+            self.snow[i] -= u32::from(taken);
         } else {
             // A unit of snow mana counted beside it may have been the one
             // that went.
@@ -1029,10 +1065,11 @@ impl ManaPool {
         for entry in self.ridden.iter_mut().filter(|m| m.color == color) {
             let snow = entry.flags.contains(ManaFlags::SNOW);
             let fits = if snow { room.min(snow_room) } else { room };
-            entry.amount = entry.amount.min(fits);
-            room -= entry.amount;
+            // Bounded by the existing u16 amount, even with a wider pool.
+            entry.amount = u32::from(entry.amount).min(fits) as u16;
+            room -= u32::from(entry.amount);
             if snow {
-                snow_room -= entry.amount;
+                snow_room -= u32::from(entry.amount);
             }
         }
         self.ridden.retain(|m| m.amount > 0);
@@ -1040,12 +1077,12 @@ impl ManaPool {
 
     /// Available amount of a plain color.
     #[must_use]
-    pub fn available(&self, color: ManaColor) -> u16 {
+    pub fn available(&self, color: ManaColor) -> u32 {
         self.plain[color.index()]
     }
 
     /// Tries to spend plain mana; returns success.
-    pub fn spend(&mut self, color: ManaColor, amount: u16) -> bool {
+    pub fn spend(&mut self, color: ManaColor, amount: u32) -> bool {
         let slot = &mut self.plain[color.index()];
         if *slot >= amount {
             *slot -= amount;
@@ -1060,14 +1097,14 @@ impl ManaPool {
 
     /// Total mana currently in the pool.
     #[must_use]
-    pub fn total(&self) -> u32 {
-        let plain: u32 = self.plain.iter().map(|&n| u32::from(n)).sum();
+    pub fn total(&self) -> u64 {
+        let plain: u64 = self.plain.iter().map(|&n| u64::from(n)).sum();
         plain
             + self
                 .restricted
                 .iter()
-                .map(|r| u32::from(r.amount))
-                .sum::<u32>()
+                .map(|r| u64::from(r.amount))
+                .sum::<u64>()
     }
 
     /// Whether the pool is completely empty.
@@ -1102,9 +1139,9 @@ impl ManaPool {
         self.ridden
             .retain(|r| r.flags.contains(ManaFlags::NO_EMPTY));
         for r in &self.ridden {
-            self.plain[r.color.index()] += r.amount;
+            self.plain[r.color.index()] += u32::from(r.amount);
             if r.flags.contains(ManaFlags::SNOW) {
-                self.snow[r.color.index()] += r.amount;
+                self.snow[r.color.index()] += u32::from(r.amount);
             }
         }
         self.restricted

@@ -174,6 +174,11 @@ struct Door {
 }
 
 impl CardTexts {
+    /// Language used by separate UI annotations; Oracle content is unchanged.
+    pub(crate) fn display_language(&self) -> baylee_client_core::Lang {
+        baylee_client_core::Lang::of(&self.lang)
+    }
+
     /// The served text for one face of a card, if it has arrived.
     #[must_use]
     pub fn get(&self, card: CardIndex, face: u8) -> Option<CardText> {

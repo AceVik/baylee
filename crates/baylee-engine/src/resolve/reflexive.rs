@@ -52,6 +52,7 @@ pub(super) fn arm(
     let timestamp = state.object(res.source).map_or(0, |o| o.timestamp);
     for _ in 0..times {
         state.reflexive.push(PendingTrigger {
+            text: res.text,
             source_version: None,
             event_object_identity: None,
             counter_source_version: None,
@@ -192,6 +193,7 @@ mod tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         }

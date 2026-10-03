@@ -6,6 +6,7 @@
 //! record `(ObjectId, version)`; blinked permanents naturally invalidate
 //! old references.
 
+use crate::copiable_abilities::{AbilityBundle, AbilityDefs};
 use crate::zone::Zone;
 use baylee_cards_dsl::{CardDef, KeywordSet};
 use baylee_core::color::{Color, ColorSet};
@@ -198,18 +199,20 @@ impl AbilityOrigin {
     }
 }
 
-/// An ability list and its card-face or token provenance.
+/// An ability list and its primary card-face or token provenance.
+/// Composed lists retain each sentence's own origin in their bundle;
+/// [`AbilityList::origin`] resolves the origin of a runtime index.
 ///
 /// One value so the list and its provenance cannot come apart: every place the engine sets a
 /// list aside — a trigger waiting for the stack, an activation paying its
 /// cost, a copy that has just left the battlefield — sets this aside
 /// instead, and whatever it later writes onto an object carries both.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AbilityList {
     /// What the object can do.
-    pub abilities: &'static [baylee_cards_dsl::AbilityDef],
-    /// Where that is printed; `None` for a token's list and an emblem's,
-    /// which no card prints.
+    pub abilities: AbilityDefs,
+    /// The primary copied face; individual composed entries may differ.
+    /// `None` for a token's list and an emblem's, which no card prints.
     pub printed: Option<PrintedFace>,
     /// Registry token identity, encoded as id + 1 to occupy two bytes.
     pub token: Option<std::num::NonZeroU16>,
@@ -218,7 +221,7 @@ pub struct AbilityList {
 impl AbilityList {
     /// No abilities, printed nowhere — what an object that is gone has.
     pub const NONE: Self = Self {
-        abilities: &[],
+        abilities: AbilityDefs::EMPTY,
         printed: None,
         token: None,
     };
@@ -265,11 +268,12 @@ pub struct AbilityLoc {
 /// card resolves the wrong half of itself in silence.
 #[must_use]
 pub fn ability_target_req(
-    abilities: &[baylee_cards_dsl::AbilityDef],
+    abilities: impl Into<AbilityDefs>,
     index: u32,
     mode_index: Option<u8>,
 ) -> Option<baylee_cards_dsl::TargetReq> {
     use baylee_cards_dsl::AbilityDef;
+    let abilities = abilities.into();
     match abilities.get(index as usize)? {
         AbilityDef::Activated { targets, .. }
         | AbilityDef::ActivatedConditional { targets, .. }
@@ -734,6 +738,8 @@ impl Status {
 /// Typed payload attached to cards in exile (or similar) by effects.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Rider {
+    /// Face-down cast whose resolved permanent turns face up before tap/damage.
+    Masked,
     /// Incarnation of the graveyard card whose printed ability triggered.
     TriggerSourceVersion(u32),
     /// Source incarnation captured when its ability went on the stack.
@@ -911,6 +917,7 @@ impl Rider {
             // `move_object` ends these where the spell's object ends.
             | Self::Dashed
             | Self::Escaped
+            | Self::Masked
             // "That player" of a triggered ability on the stack, which is
             // never in exile.
             | Self::EventDeparture(..)
@@ -970,6 +977,15 @@ pub struct PaidRecord {
     /// and not a color (CR 106.1a, CR 106.1b), and a creature tapped for
     /// convoke is tapped rather than paying mana (CR 702.51a).
     pub colors_spent: baylee_core::color::ColorSet,
+    /// Actual quantities spent, in `ManaColor::ALL` order, including colorless.
+    /// Spending permissions do not change the types of the mana actually paid.
+    pub mana_types_spent: [u32; 6],
+    /// Exact paid units, retaining snow quality and any restriction/rider IDs.
+    pub mana_paid: baylee_core::mana::ManaPool,
+    /// The fixed part of an activation's mana cost, excluding its announced X.
+    pub fixed_mana_cost: baylee_core::mana::ManaCost,
+    /// Spending permissions that applied when this payment was made.
+    pub mana_spending: baylee_core::mana::ManaSpending,
     /// The permanent a `CostPart::TapOther` tapped, as the object it was
     /// then (id and version) — "the tapped creature" station counts the
     /// power of (CR 702.184a). `None` when the cost tapped nothing else.
@@ -1181,14 +1197,14 @@ pub struct GameObject {
     ///
     /// Stored rather than derived because the copiable values are fixed as
     /// the copy is made (CR 707.2b) and the original may leave; one field
-    /// rather than two because an emblem is never a copy and the extra
-    /// `Option<&[_]>` is 16 bytes on every object in every AI ply.
+    /// rather than two because an emblem is never a copy. A shared bundle
+    /// composes independent printed sentences and costs one pointer per object.
     ///
     /// A card-backed object gives it up at the next zone change, with
     /// [`GameObject::original_base`] and for the same reason — and at the
     /// cleanup step as well when [`GameObject::own_abilities_until_eot`]
     /// says the copy that wrote it was a temporary one.
-    pub own_abilities: Option<&'static [baylee_cards_dsl::AbilityDef]>,
+    pub own_abilities: Option<Arc<AbilityBundle>>,
     /// Whether [`GameObject::own_abilities`] was written by a copy that
     /// ends with the turn (Cursed Mirror), and so has to be given back at
     /// the cleanup step.
@@ -1468,7 +1484,7 @@ impl GameObject {
         if self.status.contains(Status::FACE_DOWN) {
             return None;
         }
-        if self.own_abilities.is_some() {
+        if self.own_abilities.is_some() && self.own_origin.is_some() {
             return self.own_origin.and_then(AbilityOrigin::token);
         }
         let id = lookup.token_id(self.token?)?;
@@ -1477,8 +1493,8 @@ impl GameObject {
 
     /// Makes `list` this object's own abilities, and its face with it.
     pub fn take_abilities(&mut self, list: AbilityList) {
-        self.own_abilities = Some(list.abilities);
         self.own_origin = AbilityOrigin::new(list.printed, list.token);
+        self.own_abilities = Some(list.into_bundle());
     }
 
     /// Gives up a list of the object's own, so the card underneath answers
@@ -1497,10 +1513,7 @@ impl GameObject {
     /// can do goes through here, so a new kind of card-less object is one
     /// arm of this match rather than a sweep through the engine.
     #[must_use]
-    pub fn abilities(
-        &self,
-        lookup: &impl crate::state::CardLookup,
-    ) -> &'static [baylee_cards_dsl::AbilityDef] {
+    pub fn abilities(&self, lookup: &impl crate::state::CardLookup) -> AbilityDefs {
         // "Loses all abilities" (CR 613.1f): nothing to activate, nothing to
         // trigger, nothing to register. What already left the object — an
         // ability on the stack (CR 113.7a) — reads `printed_abilities`.
@@ -1508,7 +1521,7 @@ impl GameObject {
         // A land set to a basic land type (CR 305.7) loses what its own text
         // gives it too; what it makes is its new type's, through CR 305.6.
         if c.abilities_lost.is_some() || c.rules_text_lost {
-            return &[];
+            return AbilityDefs::EMPTY;
         }
         self.printed_abilities(lookup)
     }
@@ -1523,28 +1536,29 @@ impl GameObject {
     /// in the layers before 6, which apply even once the ability is gone
     /// (CR 613.6; `Engine::sync_static_effects` keeps those).
     #[must_use]
-    pub fn printed_abilities(
-        &self,
-        lookup: &impl crate::state::CardLookup,
-    ) -> &'static [baylee_cards_dsl::AbilityDef] {
+    pub fn printed_abilities(&self, lookup: &impl crate::state::CardLookup) -> AbilityDefs {
         if self.status.contains(Status::FACE_DOWN) {
-            return crate::engine::disguise::WARD;
+            return if self.riders.contains(&Rider::Masked) {
+                AbilityDefs::EMPTY
+            } else {
+                AbilityDefs::Static(crate::engine::disguise::WARD)
+            };
         }
         // An emblem has no card, and a copy has one it must not answer with.
-        if let Some(abilities) = self.own_abilities {
-            return abilities;
+        if let Some(abilities) = &self.own_abilities {
+            return AbilityDefs::Shared(abilities.clone());
         }
         if let Some(card) = self.card {
-            return lookup.card(card.index).map_or(&[], |def| {
+            return AbilityDefs::Static(lookup.card(card.index).map_or(&[], |def| {
                 if self.doors.is_room() {
                     // A locked half has no rules text (CR 709.5).
                     def.door_abilities(self.doors.unlocked())
                 } else {
                     def.abilities_for_face(self.face_index as usize)
                 }
-            });
+            }));
         }
-        self.token.map_or(&[], |token| token.abilities)
+        AbilityDefs::Static(self.token.map_or(&[], |token| token.abilities))
     }
 
     /// Mutable access to the base, splitting the sharing if anyone else

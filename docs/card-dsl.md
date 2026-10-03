@@ -3080,10 +3080,13 @@ mere presentation references eligible damage sources.
 The wire offers `LegalActions::granted_actions`, each with a never-reused
 `GrantedActionId`, source/provenance, timing, cost and already-bound result.
 `TakeGrantedAction { id }` validates against the current offer. No client selects
-new recipients or implicitly pays life. Numeric limitation: the existing mana
-pool represents at most 65,535 plain units of a color. Special-action production
-that would exceed that capacity is refused atomically, before charging life;
-this milestone does not claim an unbounded mana representation.
+new recipients or implicitly pays life. Numeric limitation: plain and snow pool counters now use `u32`, with an exact
+`u64` total across colors. One recorded payment is bounded by `u32` total units;
+individual restricted/rider entries and the existing single mana-production
+instruction still use `u16` quantities. A capacity failure is technical, never a
+loss or draw: `Engine::apply` restores the full previous decision, including
+costs, journal and suspended frames. This is a finite representation, not an
+unbounded arithmetic claim.
 
 ### Self effects and zone changes
 
@@ -3117,3 +3120,68 @@ find its source's recorded public departure destination (Rancor in its graveyard
 That destination is an exact event reference, not the same card after another
 zone change. This exception is used by moving instructions and their semantic
 source references; it does not retarget self-pumps or change damage-source LKI.
+
+
+### Typed text changes and composed copy abilities
+
+`ChangeTextWord { kind }` offers `NumberPrompt::TextReplacement { kind, target }`
+for the exact object incarnation. The twenty valid answers are distinct ordered
+WUBRG pairs: `from = answer / 4`, and the remainder indexes the four words other
+than `from`. Basic land types use Plains, Island, Swamp, Mountain, Forest in the
+same order. Oracle strings remain unchanged; `PublicObject::word_changes` is a
+separate effective-word projection.
+
+`TextChangeMap` changes semantic color and basic-land-type words. Names, mana
+symbols, chosen values and color indicators are not words to replace. Resolution,
+stack-ability, trigger, death-observer and chosen-source contexts freeze the map;
+printed static abilities read their exact source's live map. Layer-six grants
+inherit their grantor's wording rather than the recipient's text changes. Token
+creation freezes literal and quoted wording into the token's copiable base.
+Defined delayed abilities likewise freeze the map when created; later changes
+to their source's text or zone cannot rewrite their stored instructions.
+
+`AbilityDefs` can hold a static slice or an `Arc<AbilityBundle>`. Every composed
+entry keeps its original clause provenance and copiable base wording, including
+runtime token P/T descriptors. Composition retains duplicates. `CopyMod::KeepColor`
+uses the copier's previous copiable color; `KeepResolvingAbility` keeps the actual
+quoted ability instance without constructing a recursively self-referential DSL
+constant. Temporary copy effects hold frozen characteristic snapshots, rather
+than consulting whatever the former copied target becomes later.
+
+### Constrained mana instructions and instructed casts
+
+`ActivateLandsAndTakeMana` opens an exact-incarnation list of controlled lands.
+`ChooseManaAbility` identifies both the instruction step and the selected source;
+a stale step or source is refused. Normal activation costs and nested color/X
+choices remain in force. A successfully activated listed land is used once.
+Unspent mana is transferred with its snow, spending restrictions and riders;
+self-transfer does not duplicate it. Special actions and nonland abilities do
+not satisfy the instruction.
+
+Illusionary Mask records the actual activation receipt, announced X, fixed cost
+and spending permissions. Candidate validation solves the creature's mana cost
+and the fixed activation cost jointly from that receipt, with the creature's
+share bounded by X. The view labels the receipt as total paid mana; it does not
+invent a unique partition when several valid partitions exist. The subsequent
+cast is a real face-down spell. Its event-driven reveal marker survives the
+Mask's departure and participates in competing damage replacements; tapping and
+combat-damage assignment also reveal it at the required event boundary.
+
+`ControlPlayerPlayCard` separates authenticated decision actor from resource
+owner. Only the active controller receives the controlled private hand, and
+only during the relevant play/resolution segment. Mana for the instructed play
+comes from the subject's existing pool and controlled lands. Newly produced
+units carry an obligation to be consumed by that play or allowed land mana
+activation costs. Alternative costs still use the subject's resources. A later
+spell-resolution segment restores the controller; intervening ordinary priority
+does not.
+
+**Open Word of Command integration limit:** the current offer checker proves
+some impossible generated-mana paths without rejecting unknown filter/sink
+paths. It is not a complete reachability solver for arbitrary chains of land
+mana abilities. Completion with an unconsumed obligation is refused atomically,
+so it cannot silently become free floating mana. Complete handling of those
+unknown chains and reversal of an entire invalid mana sequence remains required
+before marking this card complete. A rollback across published decisions must
+also preserve journal delivery and concessions; a card-only rollback is not
+sufficient.

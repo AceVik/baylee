@@ -57,7 +57,10 @@ fn add_mana(
     restriction: Option<ManaRestriction>,
 ) -> Option<Pending> {
     let you = res.controller;
-    let n = amount2(amount, state, you, res) as u16;
+    let Ok(n) = u16::try_from(amount2(amount, state, you, res)) else {
+        state.numeric_failure = Some("one mana-production instruction exceeds u16 units");
+        return None;
+    };
     if n == 0 {
         return None;
     }
@@ -136,11 +139,27 @@ pub(super) fn add_to(
     amount: u16,
     restriction: Option<ManaRestriction>,
 ) {
-    let snow = state.object(res.source).is_some_and(|o| {
-        o.characteristics()
-            .supertypes
-            .contains(baylee_core::types::SupertypeSet::SNOW)
-    });
+    let obligation_before =
+        (res.mana_ability && res.event_mana.is_none() && state.constrained_payment(you).is_some())
+            .then(|| state.players[usize::from(you.get())].mana_pool.clone());
+    let snow = state
+        .damage_source(res.source, super::source_version(state, res))
+        .is_some_and(|o| {
+            o.characteristics()
+                .supertypes
+                .contains(baylee_core::types::SupertypeSet::SNOW)
+        });
+    let ordinary = restriction.is_none_or(|restriction| !restriction.restricts);
+    if ordinary
+        && state.players[you.get() as usize]
+            .mana_pool
+            .available(color)
+            .checked_add(u32::from(amount))
+            .is_none()
+    {
+        state.numeric_failure = Some("mana production exceeds u32 per color");
+        return;
+    }
     if let Some(ManaRestriction {
         filter,
         rider,
@@ -179,11 +198,14 @@ pub(super) fn add_to(
     } else if snow {
         state.players[you.get() as usize]
             .mana_pool
-            .add_snow(color, amount);
+            .try_add_snow(color, u32::from(amount));
     } else {
         state.players[you.get() as usize]
             .mana_pool
-            .add(color, amount);
+            .try_add(color, u32::from(amount));
+    }
+    if let Some(before) = obligation_before {
+        state.note_constrained_production(you, &before);
     }
     state.journal.record(GameEvent::ManaProduced {
         player: you,

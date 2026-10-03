@@ -280,7 +280,7 @@ pub fn sync_pool(
         pool: duel
             .view
             .as_ref()
-            .and_then(|v| v.seat(v.seat))
+            .and_then(|v| v.seat(baylee_client_core::decision::resource_player(v)))
             .map(|s| baylee_client_core::manapool::row(&s.mana_pool))
             .unwrap_or_default(),
         lang: Some(lang),

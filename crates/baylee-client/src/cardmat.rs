@@ -993,6 +993,7 @@ pub(crate) mod tests {
         use baylee_core::ids::{ObjectId, PlayerId};
         use baylee_core::types::{SubtypeSet, SupertypeSet};
         baylee_view::PublicObject {
+            word_changes: Vec::new(),
             mana_value: 0,
             id: ObjectId::new(1, 0),
             // A card, and it matters: `card: None` is a *token*, and every

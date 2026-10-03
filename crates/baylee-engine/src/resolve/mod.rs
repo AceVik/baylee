@@ -133,6 +133,8 @@ pub struct Resolution {
     pub target_lki: Option<Vec<TargetLki>>,
     /// Exact subject followed only through this resolution's own public-zone moves.
     pub subject: SubjectContext,
+    /// Frozen effective words of this spell or ability.
+    pub text: crate::text_changes::TextChangeMap,
     /// Where the effects of the second targeting mode of a spell cast with
     /// several modes begin (CR 700.2a, `progress::modal_program`), counted
     /// as the ops of the program still to run there: at that point
@@ -152,6 +154,55 @@ pub struct Resolution {
     /// copiable values while it is there — so nothing would read a snapshot
     /// of the second.
     pub retarget_left: Option<usize>,
+}
+
+impl Resolution {
+    /// The full resumable program and captured operands, excluding the pending
+    /// operation whose payload is fingerprinted by its owning continuation.
+    pub(crate) fn program_fingerprint(&self) -> u64 {
+        let mut hash = crate::state::structural_fingerprint(&(
+            (
+                self.source,
+                self.on_stack,
+                self.controller,
+                &self.effects,
+                self.pc,
+            ),
+            (
+                &self.targets,
+                &self.second_targets,
+                self.x,
+                self.chosen_player,
+                self.target_players,
+            ),
+            (
+                self.event_object,
+                self.event_mana.map(crate::trigger::EventMana::key),
+                self.targeted,
+                self.mana_ability,
+                self.countered_source,
+                self.text,
+                self.retarget_left,
+            ),
+        ));
+        hash = hash
+            .wrapping_mul(31)
+            .wrapping_add(self.subject.fingerprint());
+        if let Some(targets) = &self.target_lki {
+            hash = hash.wrapping_mul(31).wrapping_add(1);
+            for target in targets {
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(&(
+                        target.id,
+                        target.version,
+                        target.controller,
+                        crate::state::characteristics_fingerprint(&target.chars),
+                    )));
+            }
+        }
+        hash
+    }
 }
 
 /// One target as it last existed where the resolution expected it.
@@ -282,6 +333,27 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Optional face-down cast from the resolving ability controller's hand.
+    MaskedCast,
+    /// The controller chooses a card before taking control of its player.
+    ControlledCard {
+        /// Player whose card will be played.
+        player: PlayerId,
+    },
+    /// Hand a mandatory sequence of land mana activations to the driver.
+    LandMana {
+        /// Player instructed to activate their lands.
+        player: PlayerId,
+        /// Receiver of the unspent mana afterward.
+        beneficiary: PlayerId,
+    },
+    /// A directed replacement of one printed color or basic-land-type word.
+    TextReplacement {
+        /// Exact target incarnation.
+        target: baylee_core::ids::DamageSourceRef,
+        /// Word family being replaced.
+        kind: baylee_cards_dsl::TextWordKind,
+    },
     /// Damage waiting for replacement ordering or simultaneous prevention.
     Damage(Box<life::DamageResolution>),
     /// Mana may be generated before choosing the amount to spend.
@@ -851,7 +923,8 @@ fn begin_search(state: &mut GameState, res: &mut Resolution, search: Search) -> 
         .iter()
         .filter(|id| {
             state.object(**id).is_some_and(|o| {
-                eval::matches(filter, state, o, searcher, res.source) && within(o, bound)
+                eval::matches_with_context(filter, state, o, searcher, res.rule_context())
+                    && within(o, bound)
             })
         })
         .copied()
@@ -953,9 +1026,9 @@ fn find_for(
     // search offers no more cards than it has finds.
     let mut find = *finds.get(at).or_else(|| finds.last())?;
     while let Some((filter, then)) = find.instead_if {
-        let matched = state
-            .object(card)
-            .is_some_and(|o| eval::matches(filter, state, o, receiver, res.source));
+        let matched = state.object(card).is_some_and(|o| {
+            eval::matches_with_context(filter, state, o, receiver, res.rule_context())
+        });
         if !matched {
             break;
         }
@@ -996,6 +1069,16 @@ fn target_chars<'a>(
     }
 }
 
+impl Resolution {
+    /// The exact text captured by this resolving spell or ability.
+    pub(crate) const fn rule_context(&self) -> crate::text_changes::RuleContext {
+        crate::text_changes::RuleContext {
+            source: self.source,
+            text: self.text,
+        }
+    }
+}
+
 /// Amount evaluation with target context ([`Amount::TargetPower`]).
 pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> u32 {
     match amount {
@@ -1003,7 +1086,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.source_power_lki)
             .map_or_else(
-                || eval::amount(amount, state, you, res.source, res.x),
+                || eval::amount_with_context(amount, state, you, res.rule_context(), res.x),
                 |p| p.max(0) as u32,
             ),
         Amount::EventLastToughness => state
@@ -1067,7 +1150,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::SaturatingSub { base, subtract } => {
             amount2(base, state, you, res).saturating_sub(*subtract)
         }
-        other => eval::amount(other, state, you, res.source, res.x),
+        other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
 
@@ -1099,12 +1182,31 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
 /// lock would have nowhere to put the seat, and no card asks for one: only
 /// `Effect::PumpFilter` passes `only`, and `Modifier::ModifyPT` always
 /// locks.
+#[cfg(test)]
 pub(super) fn bound_now(
     state: &GameState,
     filter: &'static baylee_cards_dsl::Filter,
     modifier: &baylee_cards_dsl::Modifier,
     you: PlayerId,
     this: ObjectId,
+    only: Option<&[PlayerId]>,
+) -> SmallVec<[crate::effects::EffectFilter; 4]> {
+    bound_now_with_context(
+        state,
+        filter,
+        modifier,
+        you,
+        eval::live_context(state, this),
+        only,
+    )
+}
+
+pub(super) fn bound_now_with_context(
+    state: &GameState,
+    filter: &'static baylee_cards_dsl::Filter,
+    modifier: &baylee_cards_dsl::Modifier,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
     only: Option<&[PlayerId]>,
 ) -> SmallVec<[crate::effects::EffectFilter; 4]> {
     if !crate::effects::locks_its_set(modifier) || crate::state::filter_reaches_other_zones(filter)
@@ -1122,7 +1224,7 @@ pub(super) fn bound_now(
         .filter(|id| {
             state.object(*id).is_some_and(|o| {
                 only.is_none_or(|seats| seats.contains(&o.controller))
-                    && eval::matches(filter, state, o, you, this)
+                    && eval::matches_with_context(filter, state, o, you, context)
             })
         })
         .map(|id| crate::effects::EffectFilter::object(state, id))
@@ -1244,6 +1346,7 @@ pub fn flatten(effects: &'static [Effect]) -> Vec<Effect> {
 
 /// What the resolution machine produced.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)] // The result moves a choice directly into the driver; boxing adds an allocation at every suspension.
 pub enum Flow {
     /// All operations are done.
     Complete,
@@ -1265,6 +1368,13 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
     // suspended choice, so this has to be the *first* entry and not any
     // entry, which is what the `Option` says.
     if res.target_lki.is_none() {
+        if !res.mana_ability {
+            let index = state
+                .object(res.on_stack)
+                .and_then(|object| object.ability)
+                .map_or(0, |loc| loc.index);
+            res.text = state.ability_text(res.on_stack, index);
+        }
         res.target_lki = Some(
             res.targets
                 .iter()
@@ -1280,6 +1390,9 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         );
     }
     while res.pc < res.effects.len() {
+        if state.numeric_failure.is_some() {
+            return Flow::Complete;
+        }
         // The second targeting mode of a spell cast with several begins
         // here: "target" means what that mode chose from now on.
         if res.retarget_left == Some(res.effects.len() - res.pc) {
@@ -1357,6 +1470,20 @@ pub fn resume_with_number(state: &mut GameState, res: &mut Resolution, number: u
 }
 
 fn resume_with_number_inner(state: &mut GameState, res: &mut Resolution, number: u32) -> Flow {
+    if let Some(AwaitingOp::TextReplacement { target, kind }) = res.awaiting {
+        if let Some(replacement) = crate::text_changes::TextReplacement::from_choice(kind, number)
+            && state
+                .object(target.object)
+                .is_some_and(|object| object.version == target.version)
+        {
+            state.text_changes.replace(target, replacement);
+            state.invalidate_projections();
+        }
+        res.awaiting = None;
+        res.pc += 1;
+        return run(state, res);
+    }
+
     if let Some(AwaitingOp::DamagePayment { player, amount }) = res.awaiting {
         res.awaiting = None;
         let cost = baylee_core::mana::ManaCost::from_symbol_generic(number);
@@ -2950,7 +3077,11 @@ fn resume_inner(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]
         | AwaitingOp::Surveil => {
             unreachable!("arrangements resume via resume_arranged")
         }
-        AwaitingOp::ControlRotation { .. }
+        AwaitingOp::MaskedCast
+        | AwaitingOp::ControlledCard { .. }
+        | AwaitingOp::LandMana { .. }
+        | AwaitingOp::TextReplacement { .. }
+        | AwaitingOp::ControlRotation { .. }
         | AwaitingOp::Damage(_)
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }
@@ -3026,7 +3157,13 @@ fn resume_source_inner(
         } => {
             let you = res.controller;
             if let Some(source) = chosen.and_then(|id| {
-                crate::prevention::ChosenSource::new(state, id, sources, you, res.source)
+                crate::prevention::ChosenSource::new_with_context(
+                    state,
+                    id,
+                    sources,
+                    you,
+                    res.rule_context(),
+                )
             }) {
                 let origin = crate::prevention::ShieldOrigin {
                     source: res.source,
@@ -3177,6 +3314,7 @@ fn copy_target_ability(
     if copy.target_req.is_none() && loc.index != baylee_core::ids::AbilityRef::SYNTHETIC {
         copy.target_req = copy
             .own_abilities
+            .as_ref()
             .and_then(|list| crate::object::ability_target_req(list, loc.index, copy.mode_index));
     }
     let timestamp = state.next_timestamp();
@@ -3246,6 +3384,7 @@ fn copy_spell(
     original: baylee_core::ids::DamageSourceRef,
     you: PlayerId,
     mods: &[baylee_cards_dsl::CopyMod],
+    text: crate::text_changes::TextChangeMap,
 ) -> Option<ObjectId> {
     state.capture_source_references();
     let from = state.source_object(original)?;
@@ -3272,7 +3411,7 @@ fn copy_spell(
         })
     });
     for m in mods {
-        tokens::apply_copy_mod(&mut base, m);
+        tokens::apply_copy_mod_with_text(&mut base, m, text);
     }
     let ts = state.next_timestamp();
     let id = state.arena.insert_with(|oid| {
@@ -3315,6 +3454,8 @@ fn copy_spell(
 /// Executes one operation; returns `Some(pending)` when it suspends.
 fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let before = subjects::before(state, res);
+    let next_effect = state.effects.hashed_parts().2;
+    let op = res.text.effect_immediate(op);
     let pending = match op {
         Effect::SearchLibrary { .. }
         | Effect::Scry { .. }
@@ -3344,6 +3485,26 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         _ => exec_immediate(state, res, op),
     };
     subjects::after(state, res, &before);
+    let created: Vec<_> = state
+        .effects
+        .iter()
+        .filter(|effect| {
+            effect.id.get() >= next_effect
+                && effect.origin == crate::effects::EffectOrigin::Resolution
+        })
+        .map(|effect| effect.id)
+        .collect();
+    for id in created {
+        if !state
+            .effect_text_overrides
+            .iter()
+            .any(|(known, _)| *known == id)
+        {
+            state
+                .effect_text_overrides
+                .push((id, crate::text_changes::TextOrigin::Frozen(res.text)));
+        }
+    }
     pending
 }
 
@@ -3466,7 +3627,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
         }
         Effect::ScryFor { player, amount } => {
             let player = players_of(player, state, you, res).first().copied()?;
-            let n = eval::amount(&amount, state, player, res.source, res.x) as usize;
+            let n = eval::amount_with_context(&amount, state, player, res.rule_context(), res.x)
+                as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(player))
@@ -3488,7 +3650,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Scry { amount } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let n =
+                eval::amount_with_context(&amount, state, you, res.rule_context(), res.x) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -3504,7 +3667,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             Some(look_question(you, looked, ArrangePlace::LibraryBottom))
         }
         Effect::Surveil { amount } => {
-            let n = eval::amount(&amount, state, you, res.source, res.x) as usize;
+            let n =
+                eval::amount_with_context(&amount, state, you, res.rule_context(), res.x) as usize;
             let looked: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -3551,7 +3715,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
                 .copied()
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
-                        eval::matches(filter, state, o, you, res.source) && within(o, bound)
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                            && within(o, bound)
                     })
                 })
                 .collect();
@@ -3707,7 +3872,8 @@ fn exec_choice(state: &mut GameState, res: &mut Resolution, op: Effect) -> Optio
             // relative to the ability, and a Karoo names its own controller
             // where a ward names the caster.
             let player = players_of(player, state, you, res).first().copied()?;
-            let options = cost_wizard::options(state, player, res.source, cost);
+            let options =
+                cost_wizard::options_with_context(state, player, res.rule_context(), cost);
             if options.is_empty() {
                 // No legal answer, so no question: a Karoo under a player
                 // with no other land to return sacrifices itself, and
@@ -3939,7 +4105,11 @@ pub fn resolving_ability(
         // under, and saying so is the whole point of the `Option`. It used
         // to answer with card index 0, so one "always say yes" would have
         // covered every such ability at once — and a real card besides.
-        return loc.card.map(|card| AbilityRef::new(card, loc.index));
+        return state
+            .printed_ability_list(obj.id)
+            .and_then(|list| list.entry(loc.index as usize))
+            .and_then(|entry| entry.provenance.ability_ref())
+            .or_else(|| loc.card.map(|card| AbilityRef::new(card, loc.index)));
     }
     // A spell resolving: what it does is its spell ability, which is not
     // an entry in the card's ability list.
@@ -4020,6 +4190,7 @@ fn run_nested_with(
         countered_source: res.countered_source,
         target_lki: None,
         subject: res.subject.clone(),
+        text: res.text,
         event_mana: res.event_mana,
         retarget_left: None,
     };
@@ -4055,6 +4226,141 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
     let you = res.controller;
     match op {
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
+        Effect::BecomeCopyOfTarget { mods } => {
+            let source = subjects::source(state, res)?;
+            if !subjects::is_current(state, source) {
+                return None;
+            }
+            let target = *res.targets.first()?;
+            let loc = state.object(res.on_stack).and_then(|object| object.ability);
+            let resolving = loc.and_then(|loc| {
+                state
+                    .printed_ability_list(res.on_stack)?
+                    .entry(loc.index as usize)
+            });
+            crate::copiable_abilities::apply_copy(
+                state,
+                crate::copiable_abilities::CopyApplication {
+                    source: source.object,
+                    target,
+                    mods,
+                    copy_index: loc.map_or(0, |loc| loc.index),
+                    until_eot: false,
+                    resolving,
+                    text: res.text,
+                },
+            );
+            None
+        }
+        Effect::ControlPlayerPlayCard { player } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let options = state.zones.list(ZoneLocation::Hand(player)).clone();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ControlledCard { player });
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: crate::choice::ChoicePrompt::CommandCard,
+                total: None,
+            })
+        }
+        Effect::CastFaceDownUsingSpentX => {
+            let options = state
+                .zones
+                .list(ZoneLocation::Hand(you))
+                .iter()
+                .copied()
+                .filter(|&card| {
+                    let Some(object) = state.object(card) else {
+                        return false;
+                    };
+                    if !object
+                        .characteristics()
+                        .types
+                        .contains(baylee_core::types::TypeSet::CREATURE)
+                    {
+                        return false;
+                    }
+                    let Some(paid) = state
+                        .object(res.on_stack)
+                        .and_then(|object| object.paid.as_ref())
+                    else {
+                        return object.characteristics().mana_cost.with_x(0)
+                            == baylee_core::mana::ManaCost::ZERO;
+                    };
+                    crate::mana_pay::paid_subset_can_pay(
+                        &paid.mana_paid,
+                        &object.characteristics().mana_cost.with_x(0),
+                        res.x.unwrap_or(0),
+                        &paid.fixed_mana_cost,
+                        paid.mana_spending,
+                    )
+                })
+                .collect();
+            res.awaiting = Some(AwaitingOp::MaskedCast);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 0,
+                max: 1,
+                prompt: crate::choice::ChoicePrompt::CastFaceDown {
+                    x: res.x.unwrap_or(0),
+                    paid: state
+                        .object(res.on_stack)
+                        .and_then(|object| object.paid.as_ref())
+                        .map_or([0; 6], |paid| paid.mana_types_spent),
+                    fixed_cost: state
+                        .object(res.on_stack)
+                        .and_then(|object| object.paid.as_ref())
+                        .map_or(baylee_core::mana::ManaCost::ZERO, |paid| {
+                            paid.fixed_mana_cost
+                        }),
+                },
+                total: None,
+            })
+        }
+        Effect::ActivateLandsAndTakeMana { player } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            res.awaiting = Some(AwaitingOp::LandMana {
+                player,
+                beneficiary: you,
+            });
+            Some(Pending::ChooseManaAbility {
+                player,
+                choice: crate::choice::ManaChoiceId {
+                    source: state.source_identity(res.on_stack)?,
+                    step: 0,
+                },
+                options: Vec::new(),
+            })
+        }
+        Effect::ChangeTextWord { kind } => {
+            let object = state.object(*res.targets.first()?)?;
+            res.awaiting = Some(AwaitingOp::TextReplacement {
+                target: baylee_core::ids::DamageSourceRef {
+                    object: object.id,
+                    version: object.version,
+                },
+                kind,
+            });
+            Some(Pending::ChooseNumber {
+                player: you,
+                min: 0,
+                max: 19,
+                reason: crate::choice::NumberPrompt::TextReplacement {
+                    kind,
+                    target: baylee_core::ids::DamageSourceRef {
+                        object: object.id,
+                        version: object.version,
+                    },
+                },
+            })
+        }
+
         Effect::GainLife { .. }
         | Effect::GainLifeFor { .. }
         | Effect::GainLifeDoubleX
@@ -4276,7 +4582,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .targets
                 .first()
                 .and_then(|&t| state.object(t))
-                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+                .is_some_and(|o| {
+                    eval::matches_with_context(filter, state, o, you, res.rule_context())
+                });
             if holds {
                 return run_nested(state, res, then);
             }
@@ -4288,7 +4596,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let holds = res
                 .event_object
                 .and_then(|t| state.object(t))
-                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+                .is_some_and(|o| {
+                    eval::matches_with_context(filter, state, o, you, res.rule_context())
+                });
             if holds {
                 return run_nested(state, res, then);
             }
@@ -4361,7 +4671,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 let Some(obj) = state.object(id) else {
                     continue;
                 };
-                if !eval::matches(filter, state, obj, you, res.source) {
+                if !eval::matches_with_context(filter, state, obj, you, res.rule_context()) {
                     continue;
                 }
                 let cmc = obj.characteristics().mana_value();
@@ -4415,6 +4725,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         .or_else(|| state.object(res.source).map(|o| o.version))
                         .unwrap_or(0),
                     effects,
+                    text: res.text,
                     object,
                     version,
                 },
@@ -4424,6 +4735,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         .or_else(|| state.object(res.source).map(|o| o.version))
                         .unwrap_or(0),
                     effects,
+                    text: res.text,
                 },
             };
             state.delayed.push(crate::state::DelayedTrigger {
@@ -4446,6 +4758,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         .or_else(|| state.object(res.source).map(|o| o.version))
                         .unwrap_or(0),
                     effects,
+                    text: res.text,
                     object,
                     version,
                 },
@@ -4455,6 +4768,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         .or_else(|| state.object(res.source).map(|o| o.version))
                         .unwrap_or(0),
                     effects,
+                    text: res.text,
                 },
             };
             state.delayed.push(crate::state::DelayedTrigger {
@@ -4559,7 +4873,12 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             then,
             otherwise,
         } => {
-            let branch = if crate::eval::condition_holds(state, you, res.source, condition) {
+            let branch = if crate::eval::condition_holds_with_context(
+                state,
+                you,
+                res.rule_context(),
+                condition,
+            ) {
                 then
             } else {
                 otherwise
@@ -4610,7 +4929,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 let this = this_to_affect(state, res)?;
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
-                bound_now(state, filter, &modifier, you, res.source, None)
+                bound_now_with_context(state, filter, &modifier, you, res.rule_context(), None)
             };
             let timestamp = state.next_timestamp();
             for filter in filters {
@@ -4680,6 +4999,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                             .or_else(|| state.object(res.source).map(|o| o.version))
                             .unwrap_or(0),
                         effects: EARTHBEND_RETURN,
+                        text: crate::text_changes::TextChangeMap::IDENTITY,
                     },
                 });
             }
@@ -4751,9 +5071,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 player: you,
                 cards: vec![top],
             });
-            let fits = state
-                .object(top)
-                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            let fits = state.object(top).is_some_and(|o| {
+                eval::matches_with_context(filter, state, o, you, res.rule_context())
+            });
             put_found(state, you, top, if fits { matched } else { otherwise });
             None
         }
@@ -4817,7 +5137,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                         matches!(
                             o.zone,
                             crate::zone::Zone::Graveyard | crate::zone::Zone::Exile
-                        ) && eval::matches(filter, state, o, you, res.source)
+                        ) && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
                 .collect();
@@ -4905,9 +5225,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .iter()
                 .copied()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             if buried.is_empty() {
@@ -4949,9 +5269,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .list(ZoneLocation::Library(you))
                 .last()
                 .copied()?;
-            let fits = state
-                .object(top)
-                .is_some_and(|o| eval::matches(filter, state, o, you, res.source));
+            let fits = state.object(top).is_some_and(|o| {
+                eval::matches_with_context(filter, state, o, you, res.rule_context())
+            });
             if !fits {
                 put_found(state, you, top, otherwise);
                 return None;
@@ -5127,7 +5447,8 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             for loc in [ZoneLocation::OutsideGame(you), ZoneLocation::Exile(you)] {
                 options.extend(state.zones.list(loc).iter().copied().filter(|id| {
                     state.object(*id).is_some_and(|o| {
-                        o.owner == you && eval::matches(filter, state, o, you, res.source)
+                        o.owner == you
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 }));
             }
@@ -5161,7 +5482,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 // No card prints an emblem's list.
                 obj.take_abilities(crate::object::AbilityList {
                     token: None,
-                    abilities,
+                    abilities: abilities.into(),
                     printed: None,
                 });
             }
@@ -5246,9 +5567,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             for id in all {
@@ -5266,7 +5587,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         seats.contains(&o.controller)
-                            && eval::matches(filter, state, o, you, res.source)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
                 .collect();
@@ -5289,9 +5610,9 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             for id in all {
@@ -5325,7 +5646,13 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             if let Some(src) = res.countered_source {
                 let applies = state.object(src).is_some_and(|o| {
                     o.zone == crate::zone::Zone::Battlefield
-                        && eval::matches(source_filter, state, o, you, res.source)
+                        && eval::matches_with_context(
+                            source_filter,
+                            state,
+                            o,
+                            you,
+                            res.rule_context(),
+                        )
                 });
                 if applies {
                     let ts = state.next_timestamp();
@@ -5346,7 +5673,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
         }
         Effect::CopyTargetSpell { mods } => {
             let &original = res.targets.first()?;
-            let copy = copy_spell(state, state.source_identity(original)?, you, mods)?;
+            let copy = copy_spell(state, state.source_identity(original)?, you, mods, res.text)?;
             retarget::start_copy(state, res, copy)
         }
         Effect::CopyTargetAbility => copy_target_ability(state, res, you),
@@ -5355,7 +5682,7 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
             let original = state
                 .recorded_stack_target(res.on_stack, 0)
                 .or_else(|| state.source_identity(original))?;
-            let copy = copy_spell(state, original, you, &[])?;
+            let copy = copy_spell(state, original, you, &[], res.text)?;
             retarget::start_copy(state, res, copy)
         }
         Effect::AttachSelf { .. } => {
@@ -5562,6 +5889,7 @@ mod host_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         };
@@ -5634,6 +5962,7 @@ mod toggle_tests {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
+                text: crate::text_changes::TextChangeMap::IDENTITY,
                 event_mana: None,
                 retarget_left: None,
             };
@@ -5701,6 +6030,7 @@ mod mana_short_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         };
@@ -5768,6 +6098,7 @@ mod no_regeneration_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         };
@@ -5824,9 +6155,43 @@ mod whole_zone_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         }
+    }
+
+    #[test]
+    fn suspended_program_hash_includes_remaining_instructions_and_captured_operands() {
+        let (state, source) = table();
+        let base = resolution(source, WHEEL, PlayerId::new(1));
+        let original = base.program_fingerprint();
+        assert_eq!(original, base.clone().program_fingerprint());
+        let mut altered = base.clone();
+        altered.effects = TWISTER.to_vec();
+        assert_ne!(original, altered.program_fingerprint());
+        altered = base.clone();
+        altered.second_targets.push(source);
+        assert_ne!(original, altered.program_fingerprint());
+        altered = base.clone();
+        altered.text.replace(crate::text_changes::TextReplacement {
+            kind: baylee_cards_dsl::TextWordKind::Color,
+            from: 0,
+            to: 1,
+        });
+        assert_ne!(original, altered.program_fingerprint());
+        altered = base;
+        let object = state.object(source).unwrap();
+        altered.target_lki = Some(vec![TargetLki {
+            id: source,
+            version: object.version,
+            controller: object.controller,
+            chars: object.characteristics().clone(),
+        }]);
+        let historical = altered.program_fingerprint();
+        assert_ne!(original, historical);
+        altered.target_lki.as_mut().unwrap()[0].version += 1;
+        assert_ne!(historical, altered.program_fingerprint());
     }
 
     /// Two cards in each player's hand and one in each graveyard.
@@ -6046,6 +6411,7 @@ mod price_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         };
@@ -6429,6 +6795,7 @@ mod created_for_the_departed_tests {
             chosen_player: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
@@ -6681,6 +7048,7 @@ mod counted_choice_tests {
             chosen_player: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             target_players: baylee_core::ids::SeatSet::new(),
             event_object: None,
             awaiting: None,
@@ -6765,6 +7133,7 @@ mod controller_of_target_tests {
             chosen_player: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),
@@ -6917,7 +7286,14 @@ mod copied_decisions_tests {
             original,
             vec![(state.source_identity(replacement).unwrap(), 2)],
         ));
-        let copy = copy_spell(&mut state, old_spell, caster, &[]).unwrap();
+        let copy = copy_spell(
+            &mut state,
+            old_spell,
+            caster,
+            &[],
+            crate::text_changes::TextChangeMap::IDENTITY,
+        )
+        .unwrap();
         assert_eq!(state.object(copy).unwrap().x_value, 7);
         assert_eq!(state.object(copy).unwrap().targets.as_slice(), &[target]);
         assert_eq!(state.recorded_stack_target(copy, 0), Some(old_target));
@@ -6949,11 +7325,19 @@ mod copied_decisions_tests {
             mana_spent: 5,
             colors_spent: ColorSet::ALL,
             tapped: Some((target, 0)),
+            ..PaidRecord::default()
         }));
         let target_ref = state.source_identity(target).unwrap();
         state.divided.push((original, vec![(target_ref, 4)]));
         let original_ref = state.source_identity(original).unwrap();
-        let copy = copy_spell(&mut state, original_ref, PlayerId::new(1), &[]).unwrap();
+        let copy = copy_spell(
+            &mut state,
+            original_ref,
+            PlayerId::new(1),
+            &[],
+            crate::text_changes::TextChangeMap::IDENTITY,
+        )
+        .unwrap();
         let paid = state.object(copy).unwrap().paid.as_ref().unwrap();
         assert_eq!(paid.sacrificed_mana_value, Some(3));
         assert_eq!(paid.tapped, Some((target, 0)));

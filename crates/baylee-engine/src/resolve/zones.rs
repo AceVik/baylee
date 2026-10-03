@@ -255,7 +255,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         (!opponents_only || state.is_opponent(o.controller, you))
-                            && eval::matches(filter, state, o, you, res.source)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
                 .collect();
@@ -290,9 +290,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             sba::destroy_all(state, &all, no_regen);
@@ -305,9 +305,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             for id in all {
@@ -396,9 +396,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .iter()
                 .copied()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .map(|id| (id, ZoneLocation::Hand(you)))
                 .collect();
@@ -512,9 +512,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .list(ZoneLocation::Hand(player))
                 .iter()
                 .filter(|id| {
-                    state
-                        .object(**id)
-                        .is_some_and(|o| eval::matches(filter, state, o, player, res.source))
+                    state.object(**id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, player, res.rule_context())
+                    })
                 })
                 .copied()
                 .collect();
@@ -848,9 +848,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let shielded: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| crate::eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        crate::eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             for id in shielded {
@@ -943,7 +943,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         o.status.contains(crate::object::Status::TAPPED)
-                            && crate::eval::matches(filter, state, o, you, res.source)
+                            && crate::eval::matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                you,
+                                res.rule_context(),
+                            )
                     })
                 })
                 .collect();
@@ -1009,9 +1015,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .iter()
                 .copied()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|obj| eval::matches(filter, state, obj, you, res.source))
+                    state.object(*id).is_some_and(|obj| {
+                        eval::matches_with_context(filter, state, obj, you, res.rule_context())
+                    })
                 })
                 .collect();
             // Reveal *all* the cards, including those that cannot be selected.
@@ -1161,9 +1167,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .iter()
                 .copied()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             for card in cards {
@@ -1535,6 +1541,7 @@ mod arrival_control_tests {
             chosen_player: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),

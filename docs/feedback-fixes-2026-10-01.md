@@ -1836,3 +1836,64 @@ localized historical recipient. Final captures use `alpha-channel-*-final960`,
 `alpha-channel-*-final1280` and `alpha-guardian-historical-final960` in the
 archive above. The agent-owned test client was stopped after capture; no
 additional UI changes remain in this approved scope.
+
+
+### Remaining Alpha dialogs — approved scope (2026-10-03)
+
+The owner explicitly approved all five explained proposals with **“Go!”**:
+separate old/new word selection for Magical Hack/Sleight of Mind with exact
+source preview and an explicit summary; a creature group editor for
+Camouflage/Raging River; mandatory exact land-mana choices for Drain Power;
+“You decide for …” context and entitled private hands for Word of Command;
+and Illusionary Mask's private eligible-creature selector with X, the actual
+payment receipt and explicit face-down cast or decline. Existing full unchanged
+Oracle text, abilities dialogs, keyboard, touch and mouse remain supported.
+The first six-card consumer batch is in progress. Combat group controls await
+the later stable engine contract. No broader UI redesign is authorized.
+
+Mask receipt detail: generic fixed activation costs do not identify one unique
+colored partition of the payment. The display therefore separates X, actual
+total payment and fixed costs; it never invents a colored X-only receipt.
+
+
+Initial consumer checkpoint: Client-Core compiles; four targeted tests cover
+ordered text-pair encoding, mandatory mana activation/step expiry, controlled
+resource ownership and a planner bounded by cost despite u32-sized pools.
+All four pass (`/private/tmp/baylee-alpha-six-core-tests.log`). Client-Core
+all-target Clippy with `--no-deps` passes
+(`/private/tmp/baylee-alpha-six-core-clippy-local3.log`). The combined
+Native/Seat/Train check is still blocked by the engine agent's AI migration
+errors (`/private/tmp/baylee-alpha-six-consumer-check2.log`); the dependency-wide
+Clippy also finds unfinished Engine lints. No Native build, screenshots or
+complete acceptance is claimed at this checkpoint. The Cargo lane was returned
+to the engine agent for those remaining changes.
+
+Bounded consumer follow-up: the combined Client-Core/Seat/Train/Native all-target
+check with `dev-control` now passes
+(`/private/tmp/baylee-alpha-six-consumer-check7.log`). The same owned crates pass
+all-target Clippy with `--no-deps`
+(`/private/tmp/baylee-alpha-six-consumer-clippy4.log`). Four actual native input
+regressions pass, including standard keyboard navigation, explicit word-pair
+confirmation, stale mandatory-mana choice reset, controlled-hand entitlement,
+and the separate Mask receipt/decline presentation
+(`/private/tmp/baylee-alpha-six-native-input-tests3.log`). Four Train tests cover
+the actual two converter entry points and legal house fallback before encoding
+(`/private/tmp/baylee-alpha-six-train-guard-tests.log`); three Seat word tests pass
+(`/private/tmp/baylee-alpha-six-seat-tests2.log`). Text and mandatory-mana cursor
+navigation now uses the existing bindings; it does not submit automatically.
+The native test link emits the existing macOS debug unwind-size warning.
+Cargo returned to the engine agent. Final app build, full acceptance and live
+960/1280 screenshots remain pending the stable Engine milestone; combat-group
+UI still awaits its contract. No coverage promotion or commit is claimed.
+
+
+### Explicit push checkpoint — six-card integration
+
+The owner requested “push und weiter”. This checkpoint preserves the current
+six-card rules/client integration without promoting any of those cards. Current
+accepted Alpha count remains 271/286. The six independently migrated legacy
+tests pass; broad rules/native/live acceptance remains pending. Word of Command
+still lacks complete multi-step mana-route/undo handling and its Channel
+special-action exception. Full NumericCapacity rollback is retained; measured
+priority-pass checkpoint overhead remains documented in docs/perf-baseline.md.
+The unlinked Aura preparation is intentionally outside this checkpoint.

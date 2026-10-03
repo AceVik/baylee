@@ -209,7 +209,7 @@ fn granted_overflow_wrong_seat_and_forged_identity_refuse_atomically() {
     }
     engine.state.players[0]
         .mana_pool
-        .add(ManaColor::Colorless, u16::MAX);
+        .add(ManaColor::Colorless, u32::MAX);
     engine.refresh_offer();
     let before = engine.fingerprint();
     assert!(
@@ -223,7 +223,7 @@ fn granted_overflow_wrong_seat_and_forged_identity_refuse_atomically() {
         engine.state.players[0]
             .mana_pool
             .available(ManaColor::Colorless),
-        u16::MAX
+        u32::MAX
     );
 }
 #[test]

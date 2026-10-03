@@ -439,7 +439,7 @@ fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
 ///
 /// Floating mana comes first so the preference order below reaches for it
 /// before it taps anything.
-fn units(pool: &ManaPoolView, sources: &[Source]) -> Vec<Unit> {
+fn units(pool: &ManaPoolView, sources: &[Source], limit: usize) -> Vec<Unit> {
     let mut units = Vec::new();
     for (color, count) in [
         (ManaColor::White, pool.white),
@@ -449,7 +449,7 @@ fn units(pool: &ManaPoolView, sources: &[Source]) -> Vec<Unit> {
         (ManaColor::Green, pool.green),
         (ManaColor::Colorless, pool.colorless),
     ] {
-        for _ in 0..count {
+        for _ in 0..usize::try_from(count).unwrap_or(usize::MAX).min(limit) {
             units.push(Unit {
                 colors: ColorMask::of(color),
                 from: None,
@@ -510,7 +510,7 @@ fn units(pool: &ManaPoolView, sources: &[Source]) -> Vec<Unit> {
 /// *and* the Tomb for `{2}`, where the Tomb alone pays it and costs the same
 /// two damage.
 fn assign(needs: &[ColorMask], pool: &ManaPoolView, sources: &[Source]) -> Option<Plan> {
-    let units = units(pool, sources);
+    let units = units(pool, sources, needs.len());
     if needs.len() > units.len() {
         return None;
     }
@@ -747,6 +747,24 @@ pub fn colors_of(set: ColorSet) -> Vec<ManaColor> {
 #[must_use]
 pub const fn mana_color(color: Color) -> ManaColor {
     ManaColor::from_color(color)
+}
+
+#[cfg(test)]
+mod large_pool_tests {
+    use super::*;
+    #[test]
+    fn pooled_units_are_bounded_by_the_cost_not_the_pool_size() {
+        let pool = ManaPoolView {
+            white: u32::MAX,
+            blue: u32::MAX,
+            black: u32::MAX,
+            red: u32::MAX,
+            green: u32::MAX,
+            colorless: u32::MAX,
+            ..ManaPoolView::default()
+        };
+        assert_eq!(units(&pool, &[], 2).len(), 12);
+    }
 }
 
 #[cfg(test)]

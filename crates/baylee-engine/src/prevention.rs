@@ -7,6 +7,7 @@
 use crate::event::DamageTarget;
 use crate::object::ObjectKind;
 use crate::state::GameState;
+use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::zone::Zone;
 use baylee_cards_dsl::Filter;
 use baylee_core::ids::{DamageSourceRef, ObjectId, PlayerId};
@@ -86,6 +87,8 @@ pub struct ChosenSource {
     pub you: PlayerId,
     /// The object whose ability made the shield, "this" to `filter`.
     pub this: ObjectId,
+    /// Literal words frozen when the creating spell or ability resolved.
+    pub text: TextChangeMap,
 }
 
 impl ChosenSource {
@@ -105,13 +108,16 @@ impl ChosenSource {
                             version: source.version,
                         },
                     )))
-            && crate::eval::matches_projected(
+            && crate::eval::matches_projected_with_context(
                 self.filter,
                 state,
                 source,
                 source.characteristics(),
                 self.you,
-                self.this,
+                RuleContext {
+                    source: self.this,
+                    text: self.text,
+                },
             )
     }
     /// `chosen` as it is now, picked by `you` for the ability of `this`.
@@ -123,6 +129,24 @@ impl ChosenSource {
         you: PlayerId,
         this: ObjectId,
     ) -> Option<Self> {
+        Self::new_with_context(
+            state,
+            chosen,
+            filter,
+            you,
+            crate::eval::live_context(state, this),
+        )
+    }
+
+    /// Capture a source criterion under the resolving instruction's wording.
+    #[must_use]
+    pub fn new_with_context(
+        state: &GameState,
+        chosen: DamageSourceRef,
+        filter: &'static Filter,
+        you: PlayerId,
+        context: RuleContext,
+    ) -> Option<Self> {
         let obj = state.source_object(chosen)?;
         Some(Self {
             id: chosen.object,
@@ -130,7 +154,8 @@ impl ChosenSource {
             was_spell: obj.zone == Zone::Stack && obj.kind == ObjectKind::Spell,
             filter,
             you,
-            this,
+            this: context.source,
+            text: context.text,
         })
     }
 }
@@ -144,6 +169,17 @@ pub fn source_options(
     this: ObjectId,
 ) -> Vec<DamageSourceRef> {
     crate::sources::options(state, filter, you, this)
+}
+
+/// Eligible exact sources under a captured source-selection criterion.
+#[must_use]
+pub fn source_options_with_context(
+    state: &mut GameState,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<DamageSourceRef> {
+    crate::sources::options_with_context(state, filter, you, context)
 }
 
 /// One prevention shield.

@@ -11,13 +11,14 @@ use crate::trigger::PendingTrigger;
 /// keeps its own event payload; only the explicit targets are shared.
 fn same(a: &PendingTrigger, b: &PendingTrigger) -> bool {
     a.source == b.source
+        && a.text == b.text
         && a.source_version == b.source_version
         && a.event_object_identity == b.event_object_identity
         && a.counter_source_version == b.counter_source_version
         && a.timestamp == b.timestamp
         && a.ability_index == b.ability_index
-        && a.abilities.map(|v| (v.printed, v.abilities))
-            == b.abilities.map(|v| (v.printed, v.abilities))
+        && a.abilities.as_ref().map(|v| (v.printed, &v.abilities))
+            == b.abilities.as_ref().map(|v| (v.printed, &v.abilities))
         && a.controller == b.controller
         && a.chosen_mode == b.chosen_mode
         && a.implicit_target == b.implicit_target
@@ -73,17 +74,18 @@ impl<L: CardLookup> Engine<L> {
     /// target gathered, once nobody is left to ask about. `plan` is what the
     /// answer returns to — a printed trigger's or a synthetic one's — given
     /// the question's state to carry.
-    pub(super) fn ask_next_opponent(
+    /// Every question uses the ability's captured wording.
+    pub(super) fn ask_next_opponent_with_context(
         &mut self,
         controller: PlayerId,
-        source: ObjectId,
+        context: crate::text_changes::RuleContext,
         mut asking: PerOpponent,
         plan: impl FnOnce(Box<PerOpponent>) -> PlanKind,
     ) -> Option<SmallVec<[ObjectId; 2]>> {
         while !asking.remaining.is_empty() {
             let opponent = asking.remaining.remove(0);
             let options: Vec<ObjectId> =
-                eval::target_options(&asking.spec, &self.state, controller, source)
+                eval::target_options_with_context(&asking.spec, &self.state, controller, context)
                     .into_iter()
                     .filter(|id| {
                         self.state
@@ -328,6 +330,10 @@ impl<L: CardLookup> Engine<L> {
         players: &[PlayerId],
         count: u32,
     ) -> Result<(), EngineError> {
+        if self.decision_actor() != Some(player) {
+            return Err(EngineError::MismatchedAction);
+        }
+        let subject = self.pending.asked();
         let available = self.target_batch_count();
         if count < 2 || count > available {
             return Err(EngineError::IllegalAction("target series changed"));
@@ -345,7 +351,7 @@ impl<L: CardLookup> Engine<L> {
                 break;
             }
             let valid = matches!(&self.pending, Pending::ChooseTargets { player: chooser, options, player_options, min, max, .. }
-                if *chooser == player
+                if Some(*chooser) == subject
                     && (u64::from(*min)..=u64::from(*max)).contains(&u64::try_from(objects.len() + players.len()).unwrap_or(u64::MAX))
                     && objects.iter().all(|o| options.contains(o))
                     && players.iter().all(|p| player_options.contains(p))
@@ -392,6 +398,118 @@ mod tests {
             .unwrap()
             .1
             .index
+    }
+
+    fn frozen_granted_targets(per_opponent: bool) -> (Engine<RegistryLookup>, [ObjectId; 2]) {
+        use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+        use crate::event::GameEvent;
+        use crate::text_changes::TextReplacement;
+        use baylee_cards_dsl::{
+            Duration, Effect, Filter, Layer, Modifier, PlayerRel, StepKind, TargetSpec,
+            TextWordKind, Trigger,
+        };
+        use baylee_core::color::{Color, ColorSet};
+        use baylee_core::ids::EffectId;
+
+        static GREEN: Filter = Filter::HasColor(ColorSet::of(Color::Green));
+        let player = PlayerId::new(0);
+        let mut engine = Duel::table(927, card("Forest"), 3)
+            .battlefield(0, &[card("Forest"), card("Llanowar Elves")])
+            .battlefield(1, &[card("Hill Giant"), card("Air Elemental")])
+            .battlefield(2, &[card("Hill Giant"), card("Air Elemental")])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, player);
+        let grantor = on_battlefield(&engine, player, card("Forest")).unwrap();
+        let recipient = on_battlefield(&engine, player, card("Llanowar Elves")).unwrap();
+        let red = [1, 2]
+            .map(|seat| on_battlefield(&engine, PlayerId::new(seat), card("Hill Giant")).unwrap());
+        for (source, color) in [(grantor, Color::Red), (recipient, Color::Blue)] {
+            let reference = engine.state.source_identity(source).unwrap();
+            assert!(engine.state.text_changes.replace(
+                reference,
+                TextReplacement {
+                    kind: TextWordKind::Color,
+                    from: Color::Green as u8,
+                    to: color as u8,
+                }
+            ));
+        }
+        engine.state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: Some(grantor),
+            controller: player,
+            origin: EffectOrigin::Static,
+            layer: Layer::Ability,
+            timestamp: 1,
+            duration: Duration::WhileSourceOnBattlefield,
+            filter: EffectFilter::object(&engine.state, recipient),
+            modifier: Modifier::GrantTriggered {
+                trigger: Trigger::StepBegin {
+                    step: StepKind::Upkeep,
+                    whose: PlayerRel::You,
+                },
+                effects: &[Effect::TapTarget],
+                target: Some(if per_opponent {
+                    TargetSpec::ObjectOfEachOpponent(&GREEN)
+                } else {
+                    TargetSpec::Object(&GREEN)
+                }),
+            },
+        });
+        let from = engine.state.journal.last_seq();
+        engine.state.journal.record(GameEvent::StepChanged {
+            phase: crate::turn::Phase::Beginning,
+            step: crate::turn::Step::Upkeep,
+        });
+        let captured = crate::trigger::collect(&engine.state, &engine.lookup, from);
+        assert_eq!(captured.len(), 1);
+        engine.trigger_queue.extend(captured);
+        engine.trigger_scan_seq = engine.state.journal.last_seq();
+        // Neither the recipient's blue wording nor the grantor's later
+        // change may replace the red target criterion already captured.
+        let reference = engine.state.source_identity(grantor).unwrap();
+        assert!(engine.state.text_changes.replace(
+            reference,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: Color::Red as u8,
+                to: Color::Blue as u8,
+            }
+        ));
+        engine.collect_triggers();
+        (engine, red)
+    }
+
+    #[test]
+    fn granted_trigger_target_offers_use_frozen_grantor_words() {
+        let (engine, red) = frozen_granted_targets(false);
+        let Pending::ChooseTargets { options, .. } = engine.pending() else {
+            panic!("the granted trigger asks for its target");
+        };
+        assert_eq!(options.as_slice(), &red);
+    }
+
+    #[test]
+    fn each_opponents_granted_targets_keep_the_same_frozen_words() {
+        let (mut engine, red) = frozen_granted_targets(true);
+        for target in red {
+            let Pending::ChooseTargets { options, .. } = engine.pending() else {
+                panic!("one frozen target question per opponent");
+            };
+            assert_eq!(options, &[target]);
+            engine
+                .apply(
+                    PlayerId::new(0),
+                    PlayerAction::ChooseObjects {
+                        objects: vec![target],
+                    },
+                )
+                .unwrap();
+        }
+        let stack = engine.state.zones.list(crate::zone::ZoneLocation::Stack);
+        let ability = engine.state.object(*stack.last().unwrap()).unwrap();
+        assert_eq!(ability.targets.as_slice(), &red);
     }
     // A real targeted ETB, then repeat its collected occurrence as trigger
     // multipliers do. Compare the shortcut with the ordinary answer door.

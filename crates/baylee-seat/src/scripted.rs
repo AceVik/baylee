@@ -169,8 +169,21 @@ pub fn least_answer(
     }
     let first =
         |n: usize, from: &[baylee_core::ids::ObjectId]| from.iter().copied().take(n).collect();
-    let hand: Vec<_> = view.hand.iter().map(|card| card.id).collect();
+    let hand: Vec<_> = baylee_client_core::decision::hand(view)
+        .iter()
+        .map(|card| card.id)
+        .collect();
     Some(match pending {
+        Pending::ChooseManaAbility {
+            choice, options, ..
+        } => {
+            let option = options.first()?;
+            PlayerAction::ChooseManaAbility {
+                choice: *choice,
+                source: option.source,
+                ability_index: option.ability_index,
+            }
+        }
         Pending::ChooseDamageSource {
             choice, options, ..
         } => PlayerAction::ChooseDamageSource {
@@ -189,22 +202,7 @@ pub fn least_answer(
             total,
             ..
         } => {
-            let mut remaining = *total;
-            let allocation = damage
-                .iter()
-                .map(|part| {
-                    let amount = part.amount.min(remaining);
-                    remaining -= amount;
-                    (part.id, amount)
-                })
-                .collect();
-            if remaining != 0 {
-                return None;
-            }
-            PlayerAction::AllocatePrevention {
-                choice: *choice,
-                allocation,
-            }
+            return least_allocation(*choice, damage, *total);
         }
         Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
             PlayerAction::ChooseObjects {
@@ -270,6 +268,7 @@ pub fn least_answer(
 #[must_use]
 pub const fn kind(pending: &Pending) -> &'static str {
     match pending {
+        Pending::ChooseManaAbility { .. } => "ChooseManaAbility",
         Pending::ChooseDamageSource { .. } => "ChooseDamageSource",
         Pending::ChooseDamageEffect { .. } => "ChooseDamageEffect",
         Pending::AllocatePrevention { .. } => "AllocatePrevention",
@@ -293,6 +292,22 @@ pub const fn kind(pending: &Pending) -> &'static str {
         Pending::ChoosePile { .. } => "ChoosePile",
         Pending::GameOver(_) => "GameOver",
     }
+}
+
+fn least_allocation(
+    choice: baylee_engine::choice::DamageChoiceId,
+    damage: &[baylee_engine::choice::DamagePartView],
+    mut remaining: u32,
+) -> Option<PlayerAction> {
+    let allocation = damage
+        .iter()
+        .map(|part| {
+            let amount = part.amount.min(remaining);
+            remaining -= amount;
+            (part.id, amount)
+        })
+        .collect();
+    (remaining == 0).then_some(PlayerAction::AllocatePrevention { choice, allocation })
 }
 
 #[cfg(test)]

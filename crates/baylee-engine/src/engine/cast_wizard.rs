@@ -22,6 +22,13 @@ use baylee_core::mana::ManaCost;
 /// resources, never this limit.
 pub(crate) const REPLICATE_CEILING: u32 = 50;
 
+const MASKED_FACE: baylee_cards_dsl::FaceDef = baylee_cards_dsl::FaceDef {
+    types: baylee_core::types::TypeSet::CREATURE,
+    power: Some(2),
+    toughness: Some(2),
+    ..baylee_cards_dsl::FaceDef::DEFAULT
+};
+
 /// Where the wizard currently is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum WizardStage {
@@ -105,6 +112,8 @@ pub(crate) struct CastWizard {
     pub options: Vec<CastModeDesc>,
     /// Whether this cast is free (rebound, suspend finish).
     pub free: bool,
+    /// This nested cast uses the costless, nameless 2/2 face.
+    pub masked: bool,
     /// An effect casting it as it resolves, paying its costs (CR 608.2g,
     /// Conduit of Worlds); `None` for every other cast.
     pub by_effect: Option<EffectCast>,
@@ -114,7 +123,7 @@ impl CastWizard {
     /// This cast makes mana after announcing X and targets (CR 601.2b, g).
     /// Effect casts currently make it before entering this wizard instead.
     fn makes_mana_after_choices(&self) -> bool {
-        self.option == Some(CastModeKind::Miracle)
+        self.option == Some(CastModeKind::Miracle) || self.masked || self.by_effect.is_some()
     }
 
     /// The answers held by a miracle payment window, for replay comparison.
@@ -262,7 +271,8 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::ChooseMode,
             options,
             free: false,
-            by_effect: None,
+            masked: false,
+            by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -270,6 +280,60 @@ impl<L: CardLookup> Engine<L> {
             wizard.stage = WizardStage::XValue;
         }
         self.cast_wizard = Some(wizard);
+        self.advance_cast_wizard()
+    }
+
+    /// A resolving instruction supplies the face-down alternative cost.
+    pub(super) fn start_masked_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), EngineError> {
+        let object = self
+            .state
+            .object(card)
+            .ok_or(EngineError::IllegalAction("card left hand"))?;
+        if object.zone != crate::zone::Zone::Hand || object.zone_owner != Some(player) {
+            return Err(EngineError::IllegalAction("card left hand"));
+        }
+        let projected = casting::SpellForm::Disguise.project(object);
+        if !casting::may_begin_casting(&self.state, player)
+            || casting::cast_is_forbidden(&self.state, player, &projected)
+        {
+            return Err(EngineError::IllegalAction("casting prohibited"));
+        }
+        let cost = ManaCost::ZERO.with_more_generic(casting::spell_increase(
+            &self.state,
+            player,
+            &projected,
+        ));
+        self.cast_wizard = Some(CastWizard {
+            card,
+            player,
+            option: Some(CastModeKind::Normal),
+            target_references: crate::sources::TargetReferences::default(),
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            target_players: baylee_core::ids::SeatSet::new(),
+            chosen_player: None,
+            x: 0,
+            kicked: false,
+            replicated: 0,
+            pitch: SmallVec::new(),
+            delve_exiles: SmallVec::new(),
+            escape_exiles: SmallVec::new(),
+            convoke_taps: SmallVec::new(),
+            sacrifices: SmallVec::new(),
+            stage: WizardStage::Done,
+            options: vec![CastModeDesc {
+                index: 0,
+                kind: CastModeKind::Normal,
+                cost,
+            }],
+            free: true,
+            masked: true,
+            by_effect: Some(EffectCast::Plain),
+        });
         self.advance_cast_wizard()
     }
 
@@ -374,6 +438,7 @@ impl<L: CardLookup> Engine<L> {
             stage: WizardStage::XValue,
             options,
             free: false,
+            masked: false,
             by_effect: None,
         })
     }
@@ -504,6 +569,7 @@ impl<L: CardLookup> Engine<L> {
             stage,
             options,
             free: true,
+            masked: false,
             by_effect: None,
         };
         let _ = &mut wizard;
@@ -574,6 +640,7 @@ impl<L: CardLookup> Engine<L> {
             },
             options,
             free: true,
+            masked: false,
             by_effect: None,
         };
         self.cast_wizard = Some(wizard);
@@ -629,6 +696,7 @@ impl<L: CardLookup> Engine<L> {
                 cost: self.front_spell_price(player, card, cost),
             }],
             free: false,
+            masked: false,
             by_effect: Some(if then_no_more_spells {
                 EffectCast::ThenNoMoreSpells
             } else {
@@ -760,6 +828,14 @@ impl<L: CardLookup> Engine<L> {
             .card(card_ref.index)
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
+        let commanded = self.commanded_card(card);
+        if commanded
+            && (casting::cast_is_forbidden(&self.state, player, obj)
+                || !casting::may_begin_casting(&self.state, player))
+        {
+            return Err(EngineError::IllegalAction("casting prohibited"));
+        }
+        let defer_mana = commanded && self.compute_legal(player).has_mana_source();
         // Restricted mana this spell may be paid with counts here for the
         // same reason the convoke count below does: this probe and
         // `casting::can_cast`'s have to be the same probe, or the Cavern's
@@ -809,12 +885,13 @@ impl<L: CardLookup> Engine<L> {
         // Mycosynth Lattice: every probe below asks whether the pool covers a
         // cost, and under the Lattice any mana answers any pip.
         let afford = |cost: &baylee_core::mana::ManaCost| {
-            casting::affordable(
-                &self.state,
-                player,
-                pool,
-                &price(*cost).with_less_generic(reduction),
-            )
+            defer_mana
+                || casting::affordable(
+                    &self.state,
+                    player,
+                    pool,
+                    &price(*cost).with_less_generic(reduction),
+                )
         };
         let mut options = Vec::new();
         // Disturb casts come from the graveyard: no normal-cost option.
@@ -943,7 +1020,9 @@ impl<L: CardLookup> Engine<L> {
         // option offered here that the offer does not know about is a mode a
         // player can pick and be refused for.
         if !modal_only
-            && casting::can_cast_form(&self.state, &self.lookup, player, card, None).is_ok()
+            && !face.types.contains(baylee_core::types::TypeSet::LAND)
+            && (commanded
+                || casting::can_cast_form(&self.state, &self.lookup, player, card, None).is_ok())
             && casting::has_a_printed_cost(&face.mana_cost)
             && afford(&normal_cost.with_x(0))
             && (face.kicked_targets.is_none()
@@ -1023,7 +1102,11 @@ impl<L: CardLookup> Engine<L> {
                 AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
             };
             let taxed = baylee_cards_dsl::Cost {
-                mana: price(alt.cost.mana),
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(alt.cost.mana)
+                },
                 ..alt.cost
             };
             // The spell's own payment, restricted mana included: `can_cast`
@@ -1047,7 +1130,11 @@ impl<L: CardLookup> Engine<L> {
         // 601.2f–h) — asked of the pool the way the alternatives above are.
         if let Some(dash) = face.dash {
             let taxed = baylee_cards_dsl::Cost {
-                mana: price(dash),
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(dash)
+                },
                 parts: &[],
             };
             if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card)) {
@@ -1071,7 +1158,8 @@ impl<L: CardLookup> Engine<L> {
                 && o.riders.contains(&crate::object::Rider::Adventure)
         });
         for (i, _) in casting::castable_back_faces(def, on_adventure) {
-            if casting::affordable(&self.state, player, pool, &back_price(i).with_x(0))
+            if (defer_mana
+                || casting::affordable(&self.state, player, pool, &back_price(i).with_x(0)))
                 && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, i)
             {
                 options.push(CastModeDesc {
@@ -1136,12 +1224,29 @@ impl<L: CardLookup> Engine<L> {
         // offered as the Adventure alone. Renumbered, because an option's
         // index is its place in this list.
         let front = obj.characteristics();
-        let front_now = casting::timing_allows(&self.state, player, front.types, front.keywords)
+        let front_now = (commanded
+            || casting::timing_allows(&self.state, player, front.types, front.keywords))
             && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
-            CastModeKind::Face(i) => casting::face_timing_allows(&self.state, player, card, def, i),
+            CastModeKind::PlayLandFace(_) => true,
+            CastModeKind::Face(i) => {
+                (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
+                    && casting::spell_condition_allows(&self.state, player, card, def, i)
+            }
             _ => front_now,
         });
+        if commanded
+            && self.state.turn.active == player
+            && casting::has_a_land_drop_left(&self.state, player)
+        {
+            for face in def.land_faces_from_hand() {
+                options.push(CastModeDesc {
+                    index: 0,
+                    kind: CastModeKind::PlayLandFace(face),
+                    cost: ManaCost::ZERO,
+                });
+            }
+        }
         for (i, option) in options.iter_mut().enumerate() {
             option.index = u8::try_from(i).unwrap_or(u8::MAX);
         }
@@ -1270,6 +1375,9 @@ impl<L: CardLookup> Engine<L> {
             obj.x_value = 0;
         }
         self.awaiting_answer = false;
+        if self.finish_nested_cast() {
+            return;
+        }
         // CR 601.2h reverses the *whole* casting, so the game returns to
         // the moment before it began — and that includes whose priority
         // it was. Nothing in the wizard path touches `passes` or
@@ -1300,6 +1408,21 @@ impl<L: CardLookup> Engine<L> {
         let Some(wizard) = self.cast_wizard.clone() else {
             return Ok(());
         };
+        if let Some(CastModeKind::PlayLandFace(face)) = wizard.option {
+            let def = self
+                .state
+                .object(wizard.card)
+                .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index))
+                .ok_or(EngineError::IllegalAction("unknown land"))?;
+            if face > 0 {
+                self.state.switch_face(wizard.card, def, face);
+            }
+            casting::play_land_by_effect(&mut self.state, wizard.player, wizard.card)?;
+            self.cast_wizard = None;
+            self.finish_nested_cast();
+            return Ok(());
+        }
         match wizard.stage {
             WizardStage::ChooseMode => {
                 self.pending = Pending::ChooseCastMode {
@@ -1754,7 +1877,7 @@ impl<L: CardLookup> Engine<L> {
         if (wizard.makes_mana_after_choices()
             || face.extra_target_cost > 0
             || self.state.granted_colorless_capacity(wizard.player) > 0)
-            && !self.wizard_pool_can_pay(&wizard, cost)
+            && (self.commanded_card(wizard.card) || !self.wizard_pool_can_pay(&wizard, cost))
         {
             let mut legal = self.compute_legal(wizard.player);
             self.narrow_to_mana(&mut legal);
@@ -1788,19 +1911,40 @@ impl<L: CardLookup> Engine<L> {
     /// Closing the mana opportunity tries the chosen cast once. A short
     /// payment leaves the card in its original zone and cannot reopen an offer.
     /// The captured version also protects casts from graveyard or exile.
-    pub(super) fn finish_miracle_payment(&mut self, wizard: &CastWizard, version: u32) {
-        if self
+    pub(super) fn finish_miracle_payment(
+        &mut self,
+        wizard: &CastWizard,
+        version: u32,
+    ) -> Result<(), EngineError> {
+        let current = self
             .state
             .object(wizard.card)
-            .is_some_and(|card| card.version == version)
-            && self.finish_cast(wizard).is_err()
-            && let Some(card) = self.state.object_mut(wizard.card)
-        {
-            card.x_value = 0;
+            .is_some_and(|card| card.version == version);
+        if !current || self.finish_cast(wizard).is_err() {
+            // A constrained activation cannot turn into freely floating mana
+            // merely by declining the selected spell. Keep the payment question
+            // and every obligation until a legal completion is submitted.
+            if self
+                .state
+                .constrained_payment(wizard.player)
+                .is_some_and(|payment| {
+                    payment.card.object == wizard.card && !payment.required.is_empty()
+                })
+            {
+                return Err(EngineError::IllegalAction("generated mana remains unspent"));
+            }
+            if let Some(card) = self.state.object_mut(wizard.card) {
+                card.x_value = 0;
+            }
+            self.finish_nested_cast();
         }
+        Ok(())
     }
 
     fn wizard_face(&self, wizard: &CastWizard) -> &'static baylee_cards_dsl::FaceDef {
+        if wizard.masked {
+            return &MASKED_FACE;
+        }
         let card = self
             .state
             .object(wizard.card)
@@ -1816,7 +1960,7 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(super) fn wizard_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
-        if matches!(wizard.option, Some(CastModeKind::Disguise)) {
+        if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
             return None;
         }
         let def = self
@@ -1859,6 +2003,9 @@ impl<L: CardLookup> Engine<L> {
     /// of chosen modes, the second of them that says "target" (Three Steps
     /// Ahead, CR 700.2c).
     pub(super) fn wizard_second_target_req(&self, wizard: &CastWizard) -> Option<TargetReq> {
+        if wizard.masked {
+            return None;
+        }
         let def = self
             .state
             .object(wizard.card)
@@ -1935,9 +2082,7 @@ impl<L: CardLookup> Engine<L> {
         let face = self.wizard_face(wizard);
         let mut bound =
             casting::spendable_units(&self.state, wizard.player, spend_for(wizard, face))
-                .saturating_add(u32::from(
-                    self.state.granted_colorless_capacity(wizard.player),
-                ))
+                .saturating_add(self.state.granted_colorless_capacity(wizard.player))
                 .saturating_add(casting::printed_reduction(
                     &self.state,
                     face,
@@ -2051,7 +2196,11 @@ impl<L: CardLookup> Engine<L> {
         // What the pool held of each color before the payment, restricted
         // units included: the colors it holds less of afterwards are the
         // colors spent (converge).
-        let held_before = units_by_color(&self.state.players[player.get() as usize].mana_pool);
+        let held_before = self.state.players[player.get() as usize].mana_pool.clone();
+        let mut paid_mana = crate::object::PaidRecord {
+            mana_spending: casting::mana_spending(&self.state, player),
+            ..Default::default()
+        };
         // A free cast pays nothing but what is added to it: a kicker, the
         // replicate cost, or the costs of the modes it chose (CR 118.9d).
         let owed = pays_mana(wizard) || total != ManaCost::ZERO;
@@ -2069,6 +2218,11 @@ impl<L: CardLookup> Engine<L> {
                 self.cast_wizard = None;
                 return Err(EngineError::IllegalAction("cannot pay the total cost"));
             };
+            casting::record_mana_payment(
+                &mut paid_mana,
+                &held_before,
+                &self.state.players[player.get() as usize].mana_pool,
+            );
             self.apply_spend_riders(player, wizard.card, &spent);
         }
         // The mana is paid, so the rest of the cost may now be spent.
@@ -2347,26 +2501,12 @@ impl<L: CardLookup> Engine<L> {
         // gives it up: the spell on the stack is the object that reads it.
         // A free cast spent no mana (CR 601.2h pays nothing it was not
         // asked for), whatever its printed cost says.
-        let mana_spent = if owed { total.cmc() } else { 0 };
-        let held_after = units_by_color(&self.state.players[player.get() as usize].mana_pool);
-        let colors_spent = baylee_core::color::Color::ALL
-            .into_iter()
-            .zip(held_before.into_iter().zip(held_after))
-            .filter(|(_, (before, after))| after < before)
-            .fold(baylee_core::color::ColorSet::EMPTY, |set, (color, _)| {
-                set.union(baylee_core::color::ColorSet::of(color))
-            });
-        if (mana_spent > 0 || sacrificed_mana_value.is_some())
+        if (paid_mana.mana_spent > 0 || sacrificed_mana_value.is_some())
             && let Some(obj) = self.state.object_mut(card)
         {
-            obj.paid = Some(Box::new(crate::object::PaidRecord {
-                sacrificed_mana_value,
-                sacrificed: sacrificed_object,
-                source_after_cost: None,
-                mana_spent,
-                colors_spent,
-                tapped: None,
-            }));
+            paid_mana.sacrificed_mana_value = sacrificed_mana_value;
+            paid_mana.sacrificed = sacrificed_object;
+            obj.paid = Some(Box::new(paid_mana));
         }
         if matches!(wizard.option, Some(CastModeKind::Prototype))
             && let Some(prototype) = face.prototype
@@ -2381,11 +2521,17 @@ impl<L: CardLookup> Engine<L> {
             base.toughness = Some(prototype.toughness);
             obj.cache.clear();
         }
-        if matches!(wizard.option, Some(CastModeKind::Disguise)) {
+        if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
             self.make_disguised(card);
+            if wizard.masked
+                && let Some(object) = self.state.object_mut(card)
+            {
+                object.riders.push(crate::object::Rider::Masked);
+            }
         }
         // Per-turn tracking for conditional triggers (Esper Sentinel).
-        if !matches!(wizard.option, Some(CastModeKind::Disguise))
+        if !wizard.masked
+            && !matches!(wizard.option, Some(CastModeKind::Disguise))
             && !face.types.contains(baylee_core::types::TypeSet::CREATURE)
             && let Some(v) = self
                 .state
@@ -2421,7 +2567,9 @@ impl<L: CardLookup> Engine<L> {
             player,
         });
         self.cast_wizard = None;
-        self.after_action(player);
+        if !self.finish_nested_cast() {
+            self.after_action(player);
+        }
         Ok(())
     }
 }
@@ -2546,21 +2694,6 @@ fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> M
     total
 }
 
-/// How many units of each color `pool` holds, plain and restricted alike,
-/// in [`baylee_core::color::Color::ALL`]'s order.
-fn units_by_color(pool: &baylee_core::mana::ManaPool) -> [u32; 5] {
-    baylee_core::color::Color::ALL.map(|color| {
-        let mana = baylee_core::mana::ManaColor::from_color(color);
-        u32::from(pool.available(mana))
-            + pool
-                .restricted()
-                .iter()
-                .filter(|r| r.color == mana)
-                .map(|r| u32::from(r.amount))
-                .sum::<u32>()
-    })
-}
-
 /// The `nth` of the chosen modes that says "target" (0 or 1), and what it
 /// asks for: a spell cast with several modes points each of up to two of
 /// them at something, as its first and second instance of the word
@@ -2588,6 +2721,9 @@ const fn pays_mana(wizard: &CastWizard) -> bool {
 /// question's bound, so the question never offers a count the payment
 /// would refuse over a Cavern of Souls' mana.
 fn spend_for(wizard: &CastWizard, face: &baylee_cards_dsl::FaceDef) -> casting::SpendFor {
+    if wizard.masked {
+        return casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Disguise);
+    }
     match wizard.option {
         Some(CastModeKind::Prototype) => casting::SpendFor::SpellAs(
             wizard.card,
@@ -3024,11 +3160,11 @@ mod restricted_x_tests {
             }
             let pool = &mut engine.state.players[0].mana_pool;
             if restricted {
-                pool.add(ManaColor::Black, u16::try_from(x + 1).unwrap());
+                pool.add(ManaColor::Black, x + 1);
                 pool.add(ManaColor::Red, 1);
             } else {
                 for color in ManaColor::ALL {
-                    pool.add(color, u16::MAX);
+                    pool.add(color, u32::from(u16::MAX));
                 }
             }
             engine.refresh_offer();

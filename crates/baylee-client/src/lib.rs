@@ -992,7 +992,9 @@ impl Duel {
             return None;
         };
         let legal = self.interaction.as_ref()?.legal_actions()?;
-        let pool = view.seat(view.seat)?.mana_pool;
+        let pool = view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool;
         baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
     }
 
@@ -1075,7 +1077,9 @@ impl Duel {
         }
         self.interaction = Some(Interaction::new_keeping(
             pending,
-            seat,
+            self.view
+                .as_ref()
+                .map_or(seat, baylee_client_core::decision::resource_player),
             self.interaction.as_ref(),
         ));
         self.refresh_owed_plan();
@@ -2331,7 +2335,10 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     // three [`reachable`] admits — a card in one set and not the other is a
     // card that lights up and then does nothing when it is clicked. The
     // graveyard's price is the flashback cost, for the reason given there.
-    let cost = if let Some(hand_card) = view.hand.iter().find(|c| c.id == card) {
+    let cost = if let Some(hand_card) = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|c| c.id == card)
+    {
         if baylee_cards::by_index(hand_card.card.index)
             .is_some_and(|def| def.faces[0].kicked_targets.is_some())
         {
@@ -2356,7 +2363,9 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     };
     let cost = cost
         .with_more_generic(legal.spell_increase(card, baylee_engine::choice::CastModeKind::Normal));
-    let pool = view.seat(view.seat)?.mana_pool;
+    let pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
 }
 
@@ -2370,9 +2379,13 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
 pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manaplan::Plan> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    let hand_card = view.hand.iter().find(|c| c.id == card)?;
+    let hand_card = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|c| c.id == card)?;
     let cost = suspend_cost(hand_card.card)?;
-    let pool = view.seat(view.seat)?.mana_pool;
+    let pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
 }
 
@@ -2709,6 +2722,11 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     let Some(view) = duel.view.as_ref() else {
         return std::collections::HashSet::new();
     };
+    // A controlled resolving instruction exposes its exact legal actions;
+    // ordinary timing/affordability must not invent additional plays.
+    if baylee_client_core::decision::resource_player(view) != view.seat {
+        return std::collections::HashSet::new();
+    }
     let Some(legal) = duel
         .interaction
         .as_ref()
@@ -2721,7 +2739,10 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     if sources.is_empty() {
         return std::collections::HashSet::new();
     }
-    let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|s| s.mana_pool)
+    else {
         return std::collections::HashSet::new();
     };
     let affordable = |id, cost: baylee_core::mana::ManaCost| {
@@ -2730,7 +2751,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         );
         baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
     };
-    view.hand
+    baylee_client_core::decision::hand(view)
         .iter()
         .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
         // Types off the view, because those are the *projected* ones; flash
@@ -2778,7 +2799,7 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // cast *of that commander*, which is why `CommanderView::casts` is
         // per commander and not per seat.
         .chain(
-            view.seat(view.seat)
+            view.seat(baylee_client_core::decision::resource_player(view))
                 .into_iter()
                 .flat_map(|seat| seat.commanders.iter())
                 .filter(|c| !legal.castable.contains(&c.object))
@@ -2881,10 +2902,13 @@ fn suspend_reach(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     if sources.is_empty() {
         return std::collections::HashSet::new();
     }
-    let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|s| s.mana_pool)
+    else {
         return std::collections::HashSet::new();
     };
-    view.hand
+    baylee_client_core::decision::hand(view)
         .iter()
         .filter(|card| !legal.suspendable.contains(&card.id))
         .filter(|card| {

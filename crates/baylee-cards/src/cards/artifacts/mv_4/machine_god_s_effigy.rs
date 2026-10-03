@@ -29,11 +29,7 @@ card!(
                 // "…and it has '{T}: Add {U}.'" (CR 707.9a). The copy takes
                 // away the printed one below (CR 707.2); this is the one the
                 // copy keeps.
-                CopyMod::Grant(&Modifier::GrantActivated {
-                    cost: Cost::TAP,
-                    effects: &[Effect::mana(ManaColor::Blue, 1)],
-                    mana_ability: true,
-                }),
+                CopyMod::GrantAbility(&mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])),
             ],
         },
         // Its own, for the Effigy that enters as itself.

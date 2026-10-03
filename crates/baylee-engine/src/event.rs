@@ -9,6 +9,7 @@ use crate::turn::{Phase, Step};
 use crate::zone::Zone;
 use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Why an event happened.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -515,16 +516,19 @@ pub struct JournalEntry {
 }
 
 /// The append-only event journal.
+///
+/// Checkpoints share immutable entries. Recording or undoing an event copies
+/// shared storage, so neither operation can change an earlier snapshot.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Journal {
-    entries: Vec<JournalEntry>,
+    entries: Arc<Vec<JournalEntry>>,
 }
 
 impl Journal {
     /// Appends an event, returning its sequence number.
     pub fn record(&mut self, event: GameEvent) -> u64 {
         let seq = self.entries.len() as u64 + 1;
-        self.entries.push(JournalEntry {
+        Arc::make_mut(&mut self.entries).push(JournalEntry {
             seq,
             event,
             departure: None,
@@ -539,7 +543,10 @@ impl Journal {
         departure: Option<Departure>,
     ) -> u64 {
         let seq = self.record(event);
-        self.entries.last_mut().expect("just recorded").departure = departure.map(Box::new);
+        Arc::make_mut(&mut self.entries)
+            .last_mut()
+            .expect("just recorded")
+            .departure = departure.map(Box::new);
         seq
     }
 
@@ -571,7 +578,9 @@ impl Journal {
     /// grows", for a payment that was canceled (CR 732.1) and so never
     /// happened ([`crate::state::GameState::roll_back`]).
     pub(crate) fn cancel_from(&mut self, len: usize) {
-        self.entries.truncate(len);
+        if len < self.entries.len() {
+            Arc::make_mut(&mut self.entries).truncate(len);
+        }
     }
 }
 
@@ -581,6 +590,30 @@ mod tests {
 
     fn started(seed: u64) -> GameEvent {
         GameEvent::GameStarted { seed, seats: 2 }
+    }
+
+    #[test]
+    fn a_checkpoint_preserves_entries_across_append_undo_and_serialization() {
+        let mut journal = Journal::default();
+        journal.record(started(1));
+        journal.record(started(2));
+        let saved = journal.clone();
+        assert!(Arc::ptr_eq(&journal.entries, &saved.entries));
+        let before = serde_json::to_value(&saved).unwrap();
+        journal.cancel_from(1);
+        journal.record(started(3));
+        assert_eq!(serde_json::to_value(&saved).unwrap(), before);
+        assert_eq!(journal.last_seq(), 2);
+        assert!(matches!(
+            journal.entries()[1].event,
+            GameEvent::GameStarted { seed: 3, .. }
+        ));
+        let restored: Journal = serde_json::from_value(before.clone()).unwrap();
+        assert_eq!(serde_json::to_value(restored).unwrap(), before);
+        journal = saved.clone();
+        journal.record(started(4));
+        assert_eq!(saved.len(), 2);
+        assert_eq!(journal.len(), 3);
     }
 
     /// A sequence number is how everything else addresses an entry — a

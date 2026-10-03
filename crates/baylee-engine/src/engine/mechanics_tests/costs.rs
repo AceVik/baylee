@@ -360,7 +360,7 @@ fn a_total_the_pool_cannot_pay_undoes_the_whole_cast() {
     };
     let announced = *max;
     assert_eq!(*min, 0);
-    assert!(announced + 1 > engine.state().players[0].mana_pool.total());
+    assert!(u64::from(announced) + 1 > engine.state().players[0].mana_pool.total());
     // The offered X plus the fixed {G} exceeds the pool, testing rollback.
     engine
         .apply(me(), PlayerAction::ChooseNumber(announced))

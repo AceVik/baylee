@@ -101,7 +101,7 @@ pub fn reachable_modes(
     legal: &LegalActions,
     card: ObjectId,
 ) -> Vec<ReachableMode> {
-    let Some(hand) = view.hand.iter().find(|c| c.id == card) else {
+    let Some(hand) = baylee_client_core::decision::known_cards(view).find(|c| c.id == card) else {
         return Vec::new();
     };
     let Some(def) = baylee_cards::by_index(hand.card.index) else {
@@ -117,7 +117,10 @@ pub fn reachable_modes(
     else {
         return Vec::new();
     };
-    let Some(pool) = view.seat(view.seat).map(|s| s.mana_pool) else {
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|s| s.mana_pool)
+    else {
         return Vec::new();
     };
     let sources = crate::manasources::sources(view, legal);
@@ -177,13 +180,15 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
         // `casting::controls_a_commander`, in the words a view has: a
         // commander handle follows its card through every zone (CR 400.7), so
         // the battlefield is asked rather than the handle believed.
-        AltCondition::CommanderControlled => view.seat(view.seat).is_some_and(|seat| {
-            seat.commanders.iter().any(|c| {
-                view.battlefield
-                    .iter()
-                    .any(|o| o.id == c.object && o.controller == view.seat)
-            })
-        }),
+        AltCondition::CommanderControlled => view
+            .seat(baylee_client_core::decision::resource_player(view))
+            .is_some_and(|seat| {
+                seat.commanders.iter().any(|c| {
+                    view.battlefield
+                        .iter()
+                        .any(|o| o.id == c.object && o.controller == view.seat)
+                })
+            }),
     }
 }
 

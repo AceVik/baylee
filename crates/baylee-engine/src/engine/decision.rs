@@ -16,6 +16,9 @@ pub struct DecisionContext<'a> {
     pub source: Option<ObjectId>,
     /// Captured printed rules, including copies and a chosen back face.
     pub printed: Option<crate::object::PrintedFace>,
+    /// Exact clause provenance within a composed list, including token text
+    /// and abilities supplied by a copy exception.
+    pub provenance: Option<crate::copiable_abilities::AbilityProvenance>,
     /// Printed ability and mode responsible for this decision.
     pub ability_index: Option<u32>,
     /// Selected modal branch, if any.
@@ -169,29 +172,39 @@ impl<L: CardLookup> Engine<L> {
             _ => None,
         };
         if let Some((source, index, mode)) = handle {
-            let captured = if matches!(self.pending_plan, Some(PlanKind::Trigger { .. })) {
-                self.trigger_queue.front().and_then(|t| t.abilities)
-            } else {
-                self.activating_abilities
+            let captured = match self.pending_plan {
+                Some(PlanKind::Trigger { .. }) => {
+                    self.trigger_queue.front().and_then(|t| t.abilities.clone())
+                }
+                Some(
+                    PlanKind::TriggerSecondTarget { on_stack }
+                    | PlanKind::DivideDamage { on_stack, .. },
+                ) => self
+                    .state
+                    .object(on_stack)
+                    .map(|object| object.printed_ability_list(&self.lookup)),
+                _ => self
+                    .activating_abilities
+                    .clone()
                     .filter(|(id, _)| *id == source)
-                    .map(|(_, list)| list)
+                    .map(|(_, list)| list),
             };
-            let abilities = captured.map(|list| list.abilities).or_else(|| {
+            let list = captured.or_else(|| {
                 self.state
                     .object(source)
-                    .map(|o| o.printed_abilities(&self.lookup))
+                    .map(|o| o.printed_ability_list(&self.lookup))
             });
+            let provenance = list.as_ref().map(|list| list.origin(index as usize));
             return DecisionContext {
                 source: Some(source),
-                printed: captured.and_then(|list| list.printed).or_else(|| {
-                    self.state
-                        .object(source)
-                        .and_then(crate::object::GameObject::printed_face)
-                }),
-                ability_index: Some(index),
+                printed: provenance
+                    .and_then(|origin| origin.origin)
+                    .and_then(crate::object::AbilityOrigin::printed),
+                provenance,
+                ability_index: Some(provenance.map_or(index, |origin| origin.index)),
                 mode,
-                effects: abilities
-                    .and_then(|a| a.get(index as usize))
+                effects: list
+                    .and_then(|list| list.abilities.get(index as usize))
                     .map_or(&[], |a| effects(a, mode)),
                 x: self.activation_x.unwrap_or(0),
                 second_instance: matches!(
@@ -207,10 +220,26 @@ impl<L: CardLookup> Engine<L> {
             .map_or_else(DecisionContext::default, |res| {
                 let stack = self.state.object(res.on_stack);
                 let mode = stack.and_then(|o| o.mode_index).map(usize::from);
+                let provenance = stack.and_then(|object| {
+                    let index = object.ability?.index;
+                    Some(
+                        object
+                            .printed_ability_list(&self.lookup)
+                            .origin(index as usize),
+                    )
+                });
                 DecisionContext {
                     source: Some(res.source),
-                    printed: stack.and_then(crate::object::GameObject::printed_face),
-                    ability_index: stack.and_then(|o| o.ability).map(|a| a.index),
+                    printed: provenance
+                        .and_then(|origin| origin.origin)
+                        .and_then(crate::object::AbilityOrigin::printed)
+                        .or_else(|| {
+                            stack
+                                .filter(|object| object.ability.is_none())
+                                .and_then(crate::object::GameObject::printed_face)
+                        }),
+                    provenance,
+                    ability_index: provenance.map(|origin| origin.index),
                     mode,
                     whole_spell: stack.is_some_and(|o| o.ability.is_none()) && mode.is_none(),
                     effects: res.effects.get(res.pc..).unwrap_or_default(),
@@ -246,6 +275,7 @@ impl<L: CardLookup> Engine<L> {
         };
         DecisionContext {
             source: Some(wizard.card),
+            provenance: None,
             printed: u8::try_from(face)
                 .ok()
                 .and_then(|face| crate::object::PrintedFace::new(def.index, face)),
@@ -296,5 +326,56 @@ impl<L: CardLookup> Engine<L> {
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod provenance_tests {
+    use super::*;
+    use crate::copiable_abilities::compose;
+    use crate::engine::testkit::{Duel, SEED};
+    use crate::object::{AbilityList, PrintedFace};
+    use baylee_core::generated::index;
+
+    #[test]
+    fn decision_uses_captured_clause_provenance_after_the_source_changes_again() {
+        let mut engine = Duel::new(SEED, index::FOREST)
+            .battlefield(0, &[index::LLANOWAR_ELVES])
+            .start();
+        let source = *engine
+            .state
+            .zones
+            .list(crate::zone::ZoneLocation::Battlefield)
+            .first()
+            .unwrap();
+        let effigy = baylee_cards::by_index(index::MACHINE_GOD_S_EFFIGY).unwrap();
+        let own = AbilityList::from_static(
+            effigy.abilities_for_face(0),
+            PrintedFace::new(effigy.index, 0),
+            None,
+        );
+        let AbilityDef::CopyOnEnter { mods, .. } = own.abilities[0] else {
+            panic!("copy clause");
+        };
+        let original = engine.state.printed_ability_list(source).unwrap();
+        let copied = compose(original, &own, 0, mods, None);
+        let captured_effects = effects(copied.abilities.get(1).unwrap(), None);
+        engine.activating_abilities = Some((source, copied));
+        engine.pending_plan = Some(PlanKind::ActivateAbility {
+            source,
+            ability_index: 1,
+        });
+        // The original body now answers with another list; the pending
+        // decision still belongs to the ability captured before its cost.
+        engine
+            .state
+            .object_mut(source)
+            .unwrap()
+            .take_abilities(AbilityList::NONE);
+        let context = engine.decision_context();
+        assert_eq!(context.printed, PrintedFace::new(effigy.index, 0));
+        assert_eq!(context.ability_index, Some(0));
+        assert_eq!(context.provenance.unwrap().copy_modifier, Some(2));
+        assert_eq!(context.effects, captured_effects);
     }
 }

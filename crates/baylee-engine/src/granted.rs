@@ -37,7 +37,7 @@ impl GameState {
             && self.players[usize::from(action.player.get())]
                 .mana_pool
                 .available(color)
-                .checked_add(amount)
+                .checked_add(u32::from(amount))
                 .is_none()
         {
             return false;
@@ -86,7 +86,7 @@ impl GameState {
             GrantedActionKind::AddMana { color, amount } => {
                 self.players[usize::from(player.get())]
                     .mana_pool
-                    .add(color, amount);
+                    .add(color, u32::from(amount));
                 self.journal.record(GameEvent::ManaProduced {
                     player,
                     color,
@@ -126,18 +126,18 @@ impl GameState {
 
     /// A conservative shared-resource bound for life-to-colorless permissions.
     /// Alternative grants do not each get to spend the same life again.
-    pub(crate) fn granted_colorless_capacity(&self, player: PlayerId) -> u16 {
+    pub(crate) fn granted_colorless_capacity(&self, player: PlayerId) -> u32 {
         self.granted_colorless_after_life(player, 0)
     }
 
-    pub(crate) fn granted_colorless_after_life(&self, player: PlayerId, reserved: u32) -> u16 {
+    pub(crate) fn granted_colorless_after_life(&self, player: PlayerId, reserved: u32) -> u32 {
         if self.has_left(player) {
             return 0;
         }
         let life = u32::try_from(self.life_payable(player))
             .unwrap_or(0)
             .saturating_sub(reserved);
-        let room = u16::MAX
+        let room = u32::MAX
             - self.players[usize::from(player.get())]
                 .mana_pool
                 .available(ManaColor::Colorless);
@@ -156,6 +156,6 @@ impl GameState {
             })
             .max()
             .unwrap_or(0)
-            .min(u32::from(room)) as u16
+            .min(room)
     }
 }

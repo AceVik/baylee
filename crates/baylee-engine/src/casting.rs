@@ -602,11 +602,65 @@ pub(crate) fn affordable(
 /// spending permissions. Spell and activation payments use [`pay_mana_for`].
 pub(crate) fn pay_mana(state: &mut GameState, player: PlayerId, cost: &ManaCost) -> bool {
     let spending = mana_spending(state, player);
+    if let Some(obligation) = state.constrained_payment(player) {
+        let real = &state.players[player.get() as usize].mana_pool;
+        let Some(free) = real.payment_receipt(&obligation.required) else {
+            return false;
+        };
+        let mut remainder = free.clone();
+        if !mana_pay::pay_with(&mut remainder, cost, spending) {
+            return false;
+        }
+        let Some(spent) = free.payment_receipt(&remainder) else {
+            return false;
+        };
+        let Some(after) = real.payment_receipt(&spent) else {
+            return false;
+        };
+        state.players[player.get() as usize].mana_pool = after;
+        return true;
+    }
     mana_pay::pay_with(
         &mut state.players[player.get() as usize].mana_pool,
         cost,
         spending,
     )
+}
+
+/// All actual mana units by type, with restricted units counted once.
+pub(crate) fn mana_units_by_type(pool: &ManaPool) -> [u64; 6] {
+    ManaColor::ALL.map(|color| {
+        u64::from(pool.available(color))
+            + pool
+                .restricted()
+                .iter()
+                .filter(|unit| unit.color == color)
+                .map(|unit| u64::from(unit.amount))
+                .sum::<u64>()
+    })
+}
+
+/// Record the actual types consumed by one successful mana payment.
+pub(crate) fn record_mana_payment(
+    paid: &mut crate::object::PaidRecord,
+    before: &ManaPool,
+    after: &ManaPool,
+) {
+    // Captured immediately around the payer; no other operation can produce
+    // mana or alter restrictions between these snapshots.
+    paid.mana_paid = before
+        .payment_receipt(after)
+        .expect("a successful payment only consumes existing mana");
+    // The payer checks the finite single-payment domain before committing.
+    paid.mana_types_spent = mana_units_by_type(&paid.mana_paid)
+        .map(|n| u32::try_from(n).expect("checked payment domain"));
+    paid.mana_spent = u32::try_from(paid.mana_paid.total()).expect("checked payment domain");
+    paid.colors_spent = baylee_core::color::Color::ALL
+        .into_iter()
+        .filter(|&color| paid.mana_types_spent[ManaColor::from_color(color).index()] > 0)
+        .fold(baylee_core::color::ColorSet::EMPTY, |set, color| {
+            set.union(baylee_core::color::ColorSet::of(color))
+        });
 }
 
 /// What a payment is for, which is what restricted mana asks (CR 106.6).
@@ -755,9 +809,9 @@ fn merged(pool: &ManaPool, entries: &[(RestrictedMana, ObjectId, SpendRider)]) -
     let mut merged = pool.clone();
     for (mana, ..) in entries {
         if mana.flags.contains(ManaFlags::SNOW) {
-            merged.add_snow(mana.color, mana.amount);
+            merged.add_snow(mana.color, u32::from(mana.amount));
         } else {
-            merged.add(mana.color, mana.amount);
+            merged.add(mana.color, u32::from(mana.amount));
         }
     }
     merged
@@ -822,10 +876,11 @@ pub(crate) fn spendable_units(state: &GameState, player: PlayerId, what: SpendFo
     let pool = merged
         .as_ref()
         .unwrap_or(&state.players[usize::from(player.get())].mana_pool);
-    ManaColor::ALL
+    let total: u64 = ManaColor::ALL
         .iter()
-        .map(|color| u32::from(pool.available(*color)))
-        .sum()
+        .map(|color| u64::from(pool.available(*color)))
+        .sum();
+    u32::try_from(total).unwrap_or(u32::MAX)
 }
 
 /// Greatest affordable value within a known finite bound. Increasing X
@@ -882,29 +937,58 @@ pub(crate) fn pay_mana_restricting_generic(
     cost: &ManaCost,
     restriction: Option<(ManaColor, u32)>,
 ) -> Option<SmallVec<[(RestrictedMana, ObjectId, SpendRider); 4]>> {
+    let obligation = state.constrained_payment(player).cloned();
+    let is_selected_spell = obligation.as_ref().is_some_and(|payment| match what {
+        SpendFor::Spell(card) | SpendFor::SpellAs(card, _) => {
+            payment.card.object == card && state.source_identity(card) == Some(payment.card)
+        }
+        _ => false,
+    });
     let spending = mana_spending(state, player);
-    let entries = admitted(state, player, what);
-    let riding = ridden_for(state, player, what);
+    let mut entries = admitted(state, player, what);
+    let mut riding = ridden_for(state, player, what);
+    if let Some(payment) = &obligation {
+        entries.sort_by_key(|(mana, ..)| {
+            !payment
+                .required
+                .restricted()
+                .iter()
+                .any(|unit| unit.restriction == mana.restriction)
+        });
+        riding.sort_by_key(|(mana, ..)| {
+            !payment
+                .required
+                .ridden()
+                .iter()
+                .any(|unit| unit.restriction == mana.restriction)
+        });
+    }
     let real = &state.players[player.get() as usize].mana_pool;
     let merged = merged(real, &entries);
-    let mut prefer = [0_u16; 6];
+    let mut prefer = [0_u32; 6];
     for (mana, ..) in entries.iter().chain(&riding) {
         let slot = &mut prefer[mana.color.index()];
-        *slot = slot.saturating_add(mana.amount);
+        *slot = slot.saturating_add(u32::from(mana.amount));
     }
-    let paid = mana_pay::payment_restricting_generic(&merged, cost, spending, prefer, restriction)?;
+    let Some(required) = obligation.as_ref().map_or(Some([0; 6]), |payment| {
+        crate::constrained_payment::amounts(&payment.required)
+    }) else {
+        state.numeric_failure = Some("generated-mana obligation exceeds u32 per color");
+        return None;
+    };
+    for i in 0..6 {
+        prefer[i] = prefer[i].max(required[i]);
+    }
+    let paid = mana_pay::payment_consuming(
+        &merged,
+        cost,
+        spending,
+        prefer,
+        restriction,
+        if is_selected_spell { required } else { [0; 6] },
+    )?;
 
-    // What the payment consumed, per colour, and how much of it was snow.
-    // Exact, because `spend` takes ordinary units before snow ones and
-    // `spend_snow` takes only snow ones.
-    let mut used_snow = [0_u16; 6];
-    let mut used_plain = [0_u16; 6];
-    for color in ManaColor::ALL {
-        let used = merged.available(color) - paid.available(color);
-        let snow = merged.snow_available(color) - paid.snow_available(color);
-        used_snow[color.index()] = snow;
-        used_plain[color.index()] = used - snow;
-    }
+    let (mut used_plain, mut used_snow) = consumed_mana(&merged, &paid, obligation.as_ref());
 
     // Restricted entries first, in pool order, each class charged apart.
     let mut pool = real.clone();
@@ -915,12 +999,13 @@ pub(crate) fn pay_mana_restricting_generic(
         } else {
             &mut used_plain[mana.color.index()]
         };
-        let k = mana.amount.min(*budget);
+        let k =
+            u16::try_from(u32::from(mana.amount).min(*budget)).expect("bounded by entry amount");
         if k == 0 {
             continue;
         }
         let taken = pool.take_restricted_units(mana.restriction.0, k)?;
-        *budget -= taken.amount;
+        *budget -= u32::from(taken.amount);
         spent.push((taken, source, rider));
     }
     // Then the rider units the spell sets off, out of the plain counters
@@ -931,12 +1016,13 @@ pub(crate) fn pay_mana_restricting_generic(
         } else {
             &mut used_plain[mana.color.index()]
         };
-        let k = mana.amount.min(*budget);
+        let k =
+            u16::try_from(u32::from(mana.amount).min(*budget)).expect("bounded by entry amount");
         if k == 0 {
             continue;
         }
         let taken = pool.take_ridden_units(mana.restriction.0, k)?;
-        *budget -= taken.amount;
+        *budget -= u32::from(taken.amount);
         spent.push((taken, source, rider));
     }
     // The rest off the plain counters. The solver paid from the real pool
@@ -947,14 +1033,70 @@ pub(crate) fn pay_mana_restricting_generic(
         if !pool.spend(color, used_plain[color.index()]) {
             return None;
         }
-        for _ in 0..used_snow[color.index()] {
-            if !pool.spend_snow(color) {
-                return None;
-            }
+        if !pool.spend_snow_units(color, used_snow[color.index()]) {
+            return None;
         }
     }
-    state.players[player.get() as usize].mana_pool = pool;
+    commit_mana_payment(state, player, pool, is_selected_spell, obligation.as_ref())?;
     Some(spent)
+}
+
+/// Validate the exact constrained receipt before publishing any pool debit.
+fn commit_mana_payment(
+    state: &mut GameState,
+    player: PlayerId,
+    pool: ManaPool,
+    is_selected_spell: bool,
+    obligation: Option<&crate::constrained_payment::ConstrainedPayment>,
+) -> Option<()> {
+    let before = state.players[player.get() as usize].mana_pool.clone();
+    if is_selected_spell && let Some(payment) = obligation {
+        let receipt = before.payment_receipt(&pool)?;
+        if payment.required.restricted().iter().any(|unit| {
+            receipt
+                .restricted()
+                .iter()
+                .filter(|spent| spent.restriction == unit.restriction)
+                .map(|spent| u32::from(spent.amount))
+                .sum::<u32>()
+                < u32::from(unit.amount)
+        }) {
+            return None;
+        }
+    }
+    if before.payment_receipt(&pool)?.total() > u64::from(u32::MAX) {
+        state.numeric_failure = Some("one recorded mana payment exceeds u32 total units");
+        return None;
+    }
+    state.players[player.get() as usize].mana_pool = pool;
+    state.note_constrained_payment(player, &before);
+    Some(())
+}
+
+fn consumed_mana(
+    merged: &ManaPool,
+    paid: &ManaPool,
+    obligation: Option<&crate::constrained_payment::ConstrainedPayment>,
+) -> ([u32; 6], [u32; 6]) {
+    // What the payment consumed, per colour, and how much of it was snow.
+    // Exact, because `spend` takes ordinary units before snow ones and
+    // `spend_snow` takes only snow ones.
+    let mut used_snow = [0_u32; 6];
+    let mut used_plain = [0_u32; 6];
+    for color in ManaColor::ALL {
+        let used = merged.available(color) - paid.available(color);
+        let mut snow = merged.snow_available(color) - paid.snow_available(color);
+        if let Some(payment) = obligation {
+            let wanted = u64::from(payment.required.snow_available(color))
+                + crate::constrained_payment::restricted_snow(&payment.required, color);
+            snow =
+                snow.max(u32::try_from(wanted.min(u64::from(used))).expect("bounded by used mana"));
+        }
+        used_snow[color.index()] = snow;
+        used_plain[color.index()] = used - snow;
+    }
+
+    (used_plain, used_snow)
 }
 
 /// Whether a face prints a mana cost at all (CR 202.1b).
@@ -1899,6 +2041,24 @@ pub fn play_land(
     player: PlayerId,
     card: ObjectId,
 ) -> Result<(), CastFailure> {
+    play_land_with_timing(state, player, card, false)
+}
+
+/// A resolving instruction waives priority/main-phase timing, not the turn or allowance.
+pub(crate) fn play_land_by_effect(
+    state: &mut GameState,
+    player: PlayerId,
+    card: ObjectId,
+) -> Result<(), CastFailure> {
+    play_land_with_timing(state, player, card, true)
+}
+
+fn play_land_with_timing(
+    state: &mut GameState,
+    player: PlayerId,
+    card: ObjectId,
+    by_effect: bool,
+) -> Result<(), CastFailure> {
     let obj = state.object(card).ok_or(CastFailure::NoSuchObject)?;
     if !land_card_open(state, player, card) {
         return Err(CastFailure::Legality(CastError::NotInHand));
@@ -1907,7 +2067,8 @@ pub fn play_land(
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
     let main_phase = matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain);
-    if !main_phase || state.turn.active != player || !state.zones.stack_is_empty() {
+    if state.turn.active != player || (!by_effect && (!main_phase || !state.zones.stack_is_empty()))
+    {
         return Err(CastFailure::Legality(CastError::BadTiming));
     }
     if !has_a_land_drop_left(state, player) {
@@ -2382,6 +2543,17 @@ pub fn add_intrinsic_mana(
     source: ObjectId,
     color: ManaColor,
 ) {
+    if state.players[player.get() as usize]
+        .mana_pool
+        .available(color)
+        == u32::MAX
+    {
+        state.numeric_failure = Some("mana production exceeds u32 per color");
+        return;
+    }
+    let obligation_before = state
+        .constrained_payment(player)
+        .map(|_| state.players[usize::from(player.get())].mana_pool.clone());
     state.set_tapped(source, true);
     state.journal.record(GameEvent::ObjectTapped {
         object: source,
@@ -2398,6 +2570,9 @@ pub fn add_intrinsic_mana(
             .add_snow(color, 1);
     } else {
         state.players[player.get() as usize].mana_pool.add(color, 1);
+    }
+    if let Some(before) = obligation_before {
+        state.note_constrained_production(player, &before);
     }
     state.journal.record(GameEvent::ManaProduced {
         player,

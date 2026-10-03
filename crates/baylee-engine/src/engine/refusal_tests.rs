@@ -136,6 +136,17 @@ fn offered(
 ) -> Vec<PlayerAction> {
     let mut out = Vec::new();
     match pending {
+        Pending::ChooseManaAbility {
+            choice, options, ..
+        } => out.extend(
+            options
+                .iter()
+                .map(|option| PlayerAction::ChooseManaAbility {
+                    choice: *choice,
+                    source: option.source,
+                    ability_index: option.ability_index,
+                }),
+        ),
         Pending::ChooseDamageSource {
             choice, options, ..
         } => out.extend(

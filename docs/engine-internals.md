@@ -17,6 +17,13 @@ name on the stack point at one allocation. **Every write goes through
 what keeps a `GameObject` at 272 bytes and `GameState::clone` — the AI's
 per-ply primitive — from copying the same 256 bytes a thousand times.
 
+Arena and event-journal snapshots share immutable vectors. Their mutating APIs
+perform copy-on-write, preserving exact slot order, generations and journal
+sequence numbers in each snapshot. This supports the full decision checkpoint
+used for technical numeric failures without eagerly cloning every library card
+on an otherwise read-only pass. It does not make a checkpoint free: the measured
+cost and remaining performance limitation are in `docs/perf-baseline.md`.
+
 ## Layers & continuous effects
 Computed characteristics are cached projections: printed/copiable base →
 apply matching `ContinuousEffect`s by layer (1 copy, 2 control, 3 text,

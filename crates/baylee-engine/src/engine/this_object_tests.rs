@@ -152,7 +152,8 @@ fn a_graveyard_return_names_only_the_incarnation_that_triggered() {
             .state
             .object_mut(source)
             .expect("source card")
-            .own_abilities = Some(RETURN);
+            .own_abilities =
+            Some(crate::object::AbilityList::from_static(RETURN, None, None).into_bundle());
         for step in 0..400 {
             if !engine.state.zones.list(ZoneLocation::Stack).is_empty() {
                 break;

@@ -216,7 +216,8 @@ fn consecrate_land_keeps_an_existing_aura_on_its_old_host_if_a_move_is_forbidden
         .unwrap()
         .object_mut(evil)
         .unwrap()
-        .own_abilities = Some(MOVE_AURA);
+        .own_abilities =
+        Some(crate::object::AbilityList::from_static(MOVE_AURA, None, None).into_bundle());
     e.refresh_offer();
     e.apply(
         P0,

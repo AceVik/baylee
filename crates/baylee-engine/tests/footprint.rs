@@ -1,8 +1,8 @@
 //! Memory-footprint regression guard.
 //!
-//! `GameState::clone` is the AI lookahead primitive: every ply copies the
-//! whole arena, so the size of one [`GameObject`] is multiplied by every
-//! object in the game and again by every node the search visits. A field
+//! `GameState::clone` is the AI lookahead primitive. Arena snapshots share
+//! storage until a write copies it, so an object-changing ply still multiplies
+//! the size of one [`GameObject`] by every object in the game. A field
 //! added carelessly here is not a few bytes — it is a measurable slowdown
 //! in every search the AI runs, and the number is invisible unless a test
 //! prints it.

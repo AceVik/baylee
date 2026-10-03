@@ -88,7 +88,7 @@ pub(super) struct ActivationPayment {
     graveyard: Option<PlayerId>,
     phyrexian: Vec<bool>,
     abilities: Option<(baylee_core::ids::ObjectId, crate::object::AbilityList)>,
-    previous: Option<Box<PaymentWindow>>,
+    pub(super) previous: Option<Box<PaymentWindow>>,
 }
 impl ActivationPayment {
     pub(super) fn fingerprint(&self) -> u64 {
@@ -108,7 +108,8 @@ impl ActivationPayment {
             self.graveyard,
             &self.phyrexian,
             self.abilities
-                .map(|(id, list)| (id, list.abilities, list.printed, list.token)),
+                .as_ref()
+                .map(|(id, list)| (id, &list.abilities, list.printed, list.token)),
         ));
         a.wrapping_mul(31)
             .wrapping_add(b)

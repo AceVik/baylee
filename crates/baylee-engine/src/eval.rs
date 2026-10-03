@@ -5,9 +5,27 @@
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
+use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{Amount, Condition, Filter, PlayerRel, TargetSpec, ZoneSel};
 use baylee_core::ids::{ObjectId, PlayerId};
+
+/// Printed rules use the live source's words; captured stack rules use an
+/// explicit [`RuleContext`] instead.
+#[must_use]
+pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
+    RuleContext {
+        source,
+        text: state
+            .object(source)
+            .map_or(TextChangeMap::IDENTITY, |object| {
+                state.text_changes.get(baylee_core::ids::DamageSourceRef {
+                    object: source,
+                    version: object.version,
+                })
+            }),
+    }
+}
 
 /// Evaluates a [`Filter`] against an object.
 #[must_use]
@@ -21,6 +39,18 @@ pub fn matches(
     matches_projected(filter, state, obj, obj.characteristics(), you, this)
 }
 
+/// Evaluate a filter with the words of a specific captured or granted ability.
+#[must_use]
+pub fn matches_with_context(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    matches_projected_with_context(filter, state, obj, obj.characteristics(), you, context)
+}
+
 /// Evaluates a [`Filter`] against an object whose characteristics are
 /// supplied separately.
 ///
@@ -28,7 +58,6 @@ pub fn matches(
 /// characteristics as modified by every *earlier* layer — a value that
 /// exists only mid-projection and is not yet in the object's cache.
 #[must_use]
-#[allow(clippy::too_many_lines)] // one arm per `Filter` variant, and no wildcard
 pub fn matches_projected(
     filter: &Filter,
     state: &GameState,
@@ -37,8 +66,24 @@ pub fn matches_projected(
     you: PlayerId,
     this: ObjectId,
 ) -> bool {
-    let matches = |f: &Filter| matches_projected(f, state, obj, chars, you, this);
-    match filter {
+    matches_projected_with_context(filter, state, obj, chars, you, live_context(state, this))
+}
+
+/// Projected matching with explicit rules text; recursion keeps that same
+/// snapshot even when the original source has changed or left the battlefield.
+#[must_use]
+#[allow(clippy::too_many_lines)] // One arm per Filter variant, with no wildcard.
+pub fn matches_projected_with_context(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    chars: &crate::object::Characteristics,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let this = context.source;
+    let matches = |f: &Filter| matches_projected_with_context(f, state, obj, chars, you, context);
+    match &context.text.filter_leaf(*filter) {
         Filter::Any => true,
         Filter::This => obj.id == this,
         Filter::Another => obj.id != this,
@@ -282,7 +327,7 @@ fn graveyard_options(
     rel: PlayerRel,
     state: &GameState,
     you: PlayerId,
-    this: ObjectId,
+    context: RuleContext,
 ) -> Vec<ObjectId> {
     let rel = if rel == PlayerRel::Chosen {
         PlayerRel::EachPlayer
@@ -302,7 +347,7 @@ fn graveyard_options(
                 .filter(|id| {
                     state
                         .object(**id)
-                        .is_some_and(|o| matches(filter, state, o, you, this))
+                        .is_some_and(|o| matches_with_context(filter, state, o, you, context))
                 })
                 .copied(),
         );
@@ -348,17 +393,30 @@ pub fn amount(
     this: ObjectId,
     x: Option<u32>,
 ) -> u32 {
+    amount_with_context(amount, state, you, live_context(state, this), x)
+}
+
+/// Evaluate an amount using the captured semantic text for its nested filters.
+#[must_use]
+pub fn amount_with_context(
+    amount: &Amount,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    x: Option<u32>,
+) -> u32 {
+    let this = context.source;
     match amount {
         Amount::Fixed(n) | Amount::NegXFixed(n) => *n,
         Amount::X | Amount::NegX => x.unwrap_or(0),
         // The magnitude, like every other arm here: the sign is
         // `Amount::is_negative`'s question and no caller of this reads one.
-        Amount::Negated(inner) => self::amount(inner, state, you, this, x),
+        Amount::Negated(inner) => self::amount_with_context(inner, state, you, context, x),
         Amount::Plus { base, offset } => {
-            self::amount(base, state, you, this, x).saturating_add(*offset)
+            self::amount_with_context(base, state, you, context, x).saturating_add(*offset)
         }
         Amount::SaturatingSub { base, subtract } => {
-            self::amount(base, state, you, this, x).saturating_sub(*subtract)
+            self::amount_with_context(base, state, you, context, x).saturating_sub(*subtract)
         }
         Amount::DoubleX => x.unwrap_or(0).saturating_mul(2),
         Amount::XPlusCommanderCasts => {
@@ -373,7 +431,7 @@ pub fn amount(
             let mut colors = baylee_core::color::ColorSet::EMPTY;
             for id in state.battlefield_seen() {
                 if let Some(obj) = state.object(id)
-                    && matches(filter, state, obj, you, this)
+                    && matches_with_context(filter, state, obj, you, context)
                 {
                     colors = colors.union(obj.characteristics().colors);
                 }
@@ -389,7 +447,7 @@ pub fn amount(
             let mut seen = baylee_core::types::SubtypeSet::EMPTY;
             for id in state.battlefield_seen() {
                 if let Some(obj) = state.object(id)
-                    && matches(filter, state, obj, you, this)
+                    && matches_with_context(filter, state, obj, you, context)
                 {
                     seen.union_with(obj.characteristics().subtypes);
                 }
@@ -435,7 +493,7 @@ pub fn amount(
             .get(you.get() as usize)
             .copied()
             .unwrap_or(0),
-        Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, this),
+        Amount::CountOf { filter, zone } => count_in_zone(filter, *zone, state, you, context),
     }
 }
 
@@ -445,7 +503,7 @@ fn count_in_zone(
     zone: ZoneSel,
     state: &GameState,
     you: PlayerId,
-    this: ObjectId,
+    context: RuleContext,
 ) -> u32 {
     let objects: Vec<ObjectId> = match zone {
         ZoneSel::Battlefield => state.battlefield_view(),
@@ -473,7 +531,7 @@ fn count_in_zone(
         .filter(|id| {
             state
                 .object(**id)
-                .is_some_and(|o| matches(filter, state, o, you, this))
+                .is_some_and(|o| matches_with_context(filter, state, o, you, context))
         })
         .count() as u32
 }
@@ -515,6 +573,19 @@ pub fn condition_holds(
     source: ObjectId,
     condition: Condition,
 ) -> bool {
+    condition_holds_with_context(state, you, live_context(state, source), condition)
+}
+
+/// Evaluate a condition using an ability's captured or grant-origin wording.
+#[must_use]
+#[allow(clippy::too_many_lines)] // One arm per Condition variant.
+pub fn condition_holds_with_context(
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+    condition: Condition,
+) -> bool {
+    let source = context.source;
     match condition {
         Condition::YourTurn => state.turn.active == you,
         // The announced X on the source, where `cast_wizard` writes it and
@@ -533,9 +604,19 @@ pub fn condition_holds(
             let count = state
                 .battlefield_seen()
                 .filter(|&id| {
-                    state
-                        .object(id)
-                        .is_some_and(|o| o.controller == you && matches(filter, state, o, you, id))
+                    state.object(id).is_some_and(|o| {
+                        o.controller == you
+                            && matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                you,
+                                RuleContext {
+                                    source: id,
+                                    ..context
+                                },
+                            )
+                    })
                 })
                 .count();
             count >= min as usize
@@ -548,9 +629,19 @@ pub fn condition_holds(
             let count = state
                 .battlefield_seen()
                 .filter(|&id| {
-                    state
-                        .object(id)
-                        .is_some_and(|o| o.controller == you && matches(filter, state, o, you, id))
+                    state.object(id).is_some_and(|o| {
+                        o.controller == you
+                            && matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                you,
+                                RuleContext {
+                                    source: id,
+                                    ..context
+                                },
+                            )
+                    })
                 })
                 .count();
             count <= max as usize
@@ -558,10 +649,10 @@ pub fn condition_holds(
         // The two walks above over the whole battlefield: nobody's side of
         // the table in particular.
         Condition::BattlefieldCount(filter, min) => {
-            battlefield_count(state, you, filter) >= min as usize
+            battlefield_count(state, you, filter, context) >= min as usize
         }
         Condition::BattlefieldCountAtMost(filter, max) => {
-            battlefield_count(state, you, filter) <= max as usize
+            battlefield_count(state, you, filter, context) <= max as usize
         }
         Condition::ControlDistinctNames(filter, min) => {
             // A phased-out land is treated as though it does not exist
@@ -569,7 +660,19 @@ pub fn condition_holds(
             let mut names: Vec<baylee_core::ids::NameRef> = state
                 .battlefield_seen()
                 .filter_map(|id| state.object(id))
-                .filter(|o| o.controller == you && matches(filter, state, o, you, o.id))
+                .filter(|o| {
+                    o.controller == you
+                        && matches_with_context(
+                            filter,
+                            state,
+                            o,
+                            you,
+                            RuleContext {
+                                source: o.id,
+                                ..context
+                            },
+                        )
+                })
                 .map(|o| o.characteristics().name)
                 .filter(|name| *name != crate::state::NAMELESS)
                 .collect();
@@ -589,7 +692,17 @@ pub fn condition_holds(
                     .battlefield_seen()
                     .filter(|&id| {
                         state.object(id).is_some_and(|o| {
-                            o.controller == them && matches(filter, state, o, you, id)
+                            o.controller == them
+                                && matches_with_context(
+                                    filter,
+                                    state,
+                                    o,
+                                    you,
+                                    RuleContext {
+                                        source: id,
+                                        ..context
+                                    },
+                                )
                         })
                     })
                     .count()
@@ -626,7 +739,9 @@ pub fn condition_holds(
                     cards[at + 1..]
                         .iter()
                         .filter_map(|id| state.object(*id))
-                        .filter(|o| o.is_card() && matches(filter, state, o, you, source))
+                        .filter(|o| {
+                            o.is_card() && matches_with_context(filter, state, o, you, context)
+                        })
                         .count()
                         >= usize::from(min)
                 })
@@ -658,8 +773,8 @@ pub fn condition_holds(
         // true of. Every other sentence here already fails the same way.
         Condition::Any(parts) => parts
             .iter()
-            .any(|part| condition_holds(state, you, source, *part)),
-        Condition::Not(part) => !condition_holds(state, you, source, *part),
+            .any(|part| condition_holds_with_context(state, you, context, *part)),
+        Condition::Not(part) => !condition_holds_with_context(state, you, context, *part),
         // Dash's return (CR 702.109a): the rider the cast wrote goes with
         // the permanent the spell became and is given up by every other
         // move (`GameState::move_object`), so a permanent that left the
@@ -676,22 +791,24 @@ pub fn condition_holds(
             .object(source)
             .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
-            .is_some_and(|o| matches(filter, state, o, you, source)),
+            .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::SourceMatches(filter) => state
             .object(source)
-            .is_some_and(|o| matches(filter, state, o, you, source)),
+            .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::DuringCombat => state.turn.phase == crate::turn::Phase::Combat,
         Condition::AttackedOrBlockedThisCombat => state
             .object(source)
             .is_some_and(|o| state.combat.participants.contains(&(source, o.version))),
-        Condition::All(all) => all.iter().all(|c| condition_holds(state, you, source, *c)),
+        Condition::All(all) => all
+            .iter()
+            .all(|c| condition_holds_with_context(state, you, context, *c)),
         Condition::OpponentsTurn => state.is_opponent(state.turn.active, you),
         Condition::DuringStep(kind) => state.turn.step.kind() == Some(kind),
         // CR 506.7: "before" a point of the turn is before that point's
         // place in it, whether or not the step itself happens (506.7e).
         Condition::BeforeStep(kind) => state.turn.position() < crate::turn::position_of(kind),
         Condition::CanSacrifice(filter) => {
-            !controlled_matching(state, you, filter, you, source).is_empty()
+            !controlled_matching_with_context(state, you, filter, you, context).is_empty()
         }
     }
 }
@@ -713,12 +830,24 @@ pub fn controlled_matching(
     you: PlayerId,
     source: ObjectId,
 ) -> Vec<ObjectId> {
+    controlled_matching_with_context(state, player, filter, you, live_context(state, source))
+}
+
+/// Candidates for a sacrifice or similar choice with captured rules text.
+#[must_use]
+pub fn controlled_matching_with_context(
+    state: &GameState,
+    player: PlayerId,
+    filter: &Filter,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<ObjectId> {
     state
         .battlefield_seen()
         .filter(|id| {
-            state
-                .object(*id)
-                .is_some_and(|o| o.controller == player && matches(filter, state, o, you, source))
+            state.object(*id).is_some_and(|o| {
+                o.controller == player && matches_with_context(filter, state, o, you, context)
+            })
         })
         .collect()
 }
@@ -729,13 +858,27 @@ pub fn controlled_matching(
 ///
 /// A phased-out permanent is treated as though it does not exist (CR
 /// 702.26b), so it is not on the battlefield this counts.
-fn battlefield_count(state: &GameState, you: PlayerId, filter: &Filter) -> usize {
+fn battlefield_count(
+    state: &GameState,
+    you: PlayerId,
+    filter: &Filter,
+    context: RuleContext,
+) -> usize {
     state
         .battlefield_seen()
         .filter(|id| {
-            state
-                .object(*id)
-                .is_some_and(|o| matches(filter, state, o, you, *id))
+            state.object(*id).is_some_and(|o| {
+                matches_with_context(
+                    filter,
+                    state,
+                    o,
+                    you,
+                    RuleContext {
+                        source: *id,
+                        ..context
+                    },
+                )
+            })
         })
         .count()
 }
@@ -848,7 +991,16 @@ pub fn protected_from(state: &GameState, object: ObjectId, source: ObjectId) -> 
             return false;
         };
         crate::effects::applies_to(state, fx, obj)
-            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+            && matches_with_context(
+                f,
+                state,
+                src,
+                fx.controller,
+                RuleContext {
+                    source: fx.source.unwrap_or(source),
+                    text: state.effect_text(fx),
+                },
+            )
     })
 }
 
@@ -868,7 +1020,16 @@ pub fn untargetable_by_source(state: &GameState, object: ObjectId, source: Objec
             return false;
         };
         crate::effects::applies_to(state, fx, obj)
-            && matches(f, state, src, fx.controller, fx.source.unwrap_or(source))
+            && matches_with_context(
+                f,
+                state,
+                src,
+                fx.controller,
+                RuleContext {
+                    source: fx.source.unwrap_or(source),
+                    text: state.effect_text(fx),
+                },
+            )
     })
 }
 
@@ -987,9 +1148,9 @@ fn graveyard_options_below(
     limit: u32,
     state: &GameState,
     you: PlayerId,
-    this: ObjectId,
+    context: RuleContext,
 ) -> Vec<ObjectId> {
-    graveyard_options(filter, rel, state, you, this)
+    graveyard_options(filter, rel, state, you, context)
         .into_iter()
         .filter(|id| {
             state
@@ -1004,16 +1165,17 @@ fn objects_of_a_player(
     spec: &TargetSpec,
     state: &GameState,
     you: PlayerId,
-    this: ObjectId,
+    context: RuleContext,
 ) -> Vec<ObjectId> {
     match *spec {
         // The object half of "target opponent or [filter]"; the opponents
         // come from `target_player_options`, offered beside it.
         TargetSpec::OpponentOrObject(filter) => {
-            target_options(&TargetSpec::Object(filter), state, you, this)
+            target_options_with_context(&TargetSpec::Object(filter), state, you, context)
         }
         TargetSpec::ObjectControlledBy(filter, player) => {
-            let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+            let mut all =
+                target_options_with_context(&TargetSpec::Object(filter), state, you, context);
             all.retain(|id| state.object(*id).is_some_and(|o| o.controller == player));
             all
         }
@@ -1029,9 +1191,9 @@ fn opponents_objects(
     filter: &'static baylee_cards_dsl::Filter,
     state: &GameState,
     you: PlayerId,
-    this: ObjectId,
+    context: RuleContext,
 ) -> Vec<ObjectId> {
-    let mut all = target_options(&TargetSpec::Object(filter), state, you, this);
+    let mut all = target_options_with_context(&TargetSpec::Object(filter), state, you, context);
     all.retain(|id| {
         state
             .object(*id)
@@ -1105,6 +1267,18 @@ pub fn target_options(
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<ObjectId> {
+    target_options_with_context(spec, state, you, live_context(state, this))
+}
+
+/// Legal target options using frozen ability text or a grant's original words.
+#[must_use]
+pub fn target_options_with_context(
+    spec: &TargetSpec,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<ObjectId> {
+    let this = context.source;
     let options = match spec {
         TargetSpec::Object(filter) => state
             .battlefield_view()
@@ -1112,15 +1286,15 @@ pub fn target_options(
             .filter(|id| {
                 state
                     .object(**id)
-                    .is_some_and(|o| matches(filter, state, o, you, this))
+                    .is_some_and(|o| matches_with_context(filter, state, o, you, context))
             })
             .copied()
             .collect(),
-        TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, this),
+        TargetSpec::ObjectOfEachOpponent(filter) => opponents_objects(filter, state, you, context),
         TargetSpec::OpponentOrObject(_)
         | TargetSpec::ObjectControlledBy(..)
         | TargetSpec::ObjectOfFirstTargetsPlayer(_)
-        | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, this),
+        | TargetSpec::ObjectOfEventPlayer(_) => objects_of_a_player(spec, state, you, context),
         TargetSpec::Spell(filter) => state
             .zones
             .list(ZoneLocation::Stack)
@@ -1131,17 +1305,17 @@ pub fn target_options(
                 // (`GameObject::can_be_countered`).
                 state.object(**id).is_some_and(|o| {
                     o.kind == crate::object::ObjectKind::Spell
-                        && matches(filter, state, o, you, this)
+                        && matches_with_context(filter, state, o, you, context)
                 })
             })
             .copied()
             .collect(),
         TargetSpec::CardInGraveyard(filter, rel) => {
-            graveyard_options(filter, *rel, state, you, this)
+            graveyard_options(filter, *rel, state, you, context)
         }
         TargetSpec::CardInGraveyardBelowEvent(..) => Vec::new(),
         TargetSpec::CardInGraveyardBelowValue(filter, rel, limit) => {
-            graveyard_options_below(filter, *rel, *limit, state, you, this)
+            graveyard_options_below(filter, *rel, *limit, state, you, context)
         }
         // "Target spell or permanent" (Venser, Shaper Savant; the laces):
         // the spells on the stack and the permanents on the battlefield, and
@@ -1162,7 +1336,7 @@ pub fn target_options(
                 .filter(|id| {
                     state
                         .object(**id)
-                        .is_some_and(|o| matches(filter, state, o, you, this))
+                        .is_some_and(|o| matches_with_context(filter, state, o, you, context))
                 })
                 .copied()
                 .collect();
@@ -1178,7 +1352,7 @@ pub fn target_options(
             .filter(|id| {
                 state.object(**id).is_some_and(|o| {
                     o.kind == crate::object::ObjectKind::AbilityOnStack
-                        && matches(filter, state, o, you, this)
+                        && matches_with_context(filter, state, o, you, context)
                 })
             })
             .copied()
@@ -1193,7 +1367,7 @@ pub fn target_options(
                         o.kind,
                         crate::object::ObjectKind::Spell
                             | crate::object::ObjectKind::AbilityOnStack
-                    ) && matches(filter, state, o, you, this)
+                    ) && matches_with_context(filter, state, o, you, context)
                 })
             })
             .copied()
@@ -1275,7 +1449,11 @@ pub fn stack_target_options(
     } else {
         obj.id
     };
-    let mut objects = target_options(spec, state, you, this);
+    let context = RuleContext {
+        source: this,
+        text: live_context(state, obj.id).text,
+    };
+    let mut objects = target_options_with_context(spec, state, you, context);
     objects.retain(|id| *id != obj.id);
     (objects, target_player_options(state, spec, you))
 }

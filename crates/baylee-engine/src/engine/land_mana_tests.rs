@@ -552,7 +552,7 @@ fn pressed(
     face: usize,
     route: Route,
     want: ManaColor,
-) -> Result<(Vec<(ManaColor, u16)>, bool), String> {
+) -> Result<(Vec<(ManaColor, u32)>, bool), String> {
     let seat = PlayerId::new(0);
     let (mut engine, land, _) = board(card, face)?;
     engine
@@ -594,9 +594,9 @@ fn disagreement(
     what: &str,
     promise: &SimpleMana,
     want: ManaColor,
-    made: &[(ManaColor, u16)],
+    made: &[(ManaColor, u32)],
 ) -> Option<String> {
-    let expected = vec![(want, u16::from(promise.amount))];
+    let expected = vec![(want, u32::from(promise.amount))];
     if made == expected {
         None
     } else {

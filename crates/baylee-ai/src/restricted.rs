@@ -68,7 +68,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
     if let Some(object) = view.object(id) {
         return Some(Cow::Borrowed(object));
     }
-    let held = view.hand.iter().find(|c| c.id == id)?;
+    let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == id)?;
     let face = crate::policy::face(held.card)?;
     let mut subtypes = SubtypeSet::EMPTY;
     for &subtype in face.subtypes {
@@ -79,8 +79,8 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         card: Some(held.card),
         rules: None,
         name: held.name.clone(),
-        controller: view.seat,
-        owner: view.seat,
+        controller: baylee_client_core::decision::resource_player(view),
+        owner: baylee_client_core::decision::resource_player(view),
         commander: held.commander,
         status: ObjectStatus::default(),
         types: face.types,
@@ -112,5 +112,6 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         board_mana: None,
         flashback: None,
         grants: Vec::new(),
+        word_changes: Vec::new(),
     }))
 }

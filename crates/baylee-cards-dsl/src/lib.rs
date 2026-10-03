@@ -15,7 +15,9 @@ pub mod filter;
 pub mod manaread;
 pub mod special;
 pub mod static_ability;
+pub mod text;
 pub use special::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming};
+pub use text::TextWordKind;
 
 /// All five mana colors (choice-mana abilities: Cavern of Souls, City
 /// of Brass, Moxen, …).

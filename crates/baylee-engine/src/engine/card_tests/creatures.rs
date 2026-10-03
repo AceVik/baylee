@@ -11874,7 +11874,7 @@ fn urza_builds_a_construct_that_counts_your_artifacts_and_taps_one_for_blue() {
     );
     assert_eq!(
         engine.state().players[0].mana_pool.total(),
-        u32::from(before) + 1,
+        u64::from(before) + 1,
         "one mana, off one tap, and nothing else came with it"
     );
     assert!(
@@ -94343,6 +94343,7 @@ fn phase_out_specialist(engine: &mut Engine<RegistryLookup>, specialist: ObjectI
         countered_source: None,
         target_lki: None,
         subject: crate::resolve::SubjectContext::default(),
+        text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
     };

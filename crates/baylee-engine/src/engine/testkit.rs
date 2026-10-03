@@ -1302,6 +1302,7 @@ pub enum Rest {
 #[allow(clippy::too_many_lines)] // one flat arm per question the engine asks
 pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAction), Rest> {
     Ok(match engine.pending().clone() {
+        Pending::ChooseManaAbility { .. } => return Err(Rest::Unanswered("ChooseManaAbility")),
         Pending::ChooseDamageSource { .. } => return Err(Rest::Unanswered("ChooseDamageSource")),
         Pending::ChooseDamageEffect { .. } => return Err(Rest::Unanswered("ChooseDamageEffect")),
         Pending::AllocatePrevention { .. } => return Err(Rest::Unanswered("AllocatePrevention")),
@@ -1339,7 +1340,7 @@ pub fn answer_one(engine: &Engine<RegistryLookup>) -> Result<(PlayerId, PlayerAc
             // instead of the card. Coretapper put one charge counter on
             // something while printing "two", and Gnottvold Slumbermound
             // made no Troll at all.
-            let source = engine.activating_abilities.map(|(id, _)| id);
+            let source = engine.activating_abilities.as_ref().map(|(id, _)| *id);
             let mut pool: Vec<_> = options
                 .iter()
                 .copied()

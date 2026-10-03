@@ -440,8 +440,8 @@ impl<L: CardLookup> Engine<L> {
             }
             // A token's abilities come from its definition rather than from a
             // card; everything below reads the same `AbilityDef`s either way.
-            let offered: &[AbilityDef] = if locked {
-                &[]
+            let offered = if locked {
+                crate::copiable_abilities::AbilityDefs::EMPTY
             } else {
                 obj.abilities(&self.lookup)
             };
@@ -470,8 +470,8 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *targets)
-                            || !self.ability_has_a_target(player, id, *second_targets)
+                        if !self.ability_has_a_target(player, id, i as u32, *targets)
+                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
                         {
                             continue;
                         }
@@ -505,11 +505,16 @@ impl<L: CardLookup> Engine<L> {
                         if self.activation_limit_spent(id, i as u32, *limit) {
                             continue;
                         }
-                        if !crate::eval::condition_holds(&self.state, player, id, *condition) {
+                        if !crate::eval::condition_holds_with_context(
+                            &self.state,
+                            player,
+                            self.ability_rule_context(id, i as u32),
+                            *condition,
+                        ) {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *targets)
-                            || !self.ability_has_a_target(player, id, *second_targets)
+                        if !self.ability_has_a_target(player, id, i as u32, *targets)
+                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
                         {
                             continue;
                         }
@@ -541,8 +546,8 @@ impl<L: CardLookup> Engine<L> {
                         if *cost < 0 && loyalty < (-*cost) as u16 {
                             continue;
                         }
-                        if !self.ability_has_a_target(player, id, *targets)
-                            || !self.ability_has_a_target(player, id, *second_targets)
+                        if !self.ability_has_a_target(player, id, i as u32, *targets)
+                            || !self.ability_has_a_target(player, id, i as u32, *second_targets)
                         {
                             continue;
                         }
@@ -687,8 +692,13 @@ impl<L: CardLookup> Engine<L> {
                             // with no creature and then refused with "no legal
                             // targets". The source is the card in hand, so a
                             // filter saying "another" still reads it right.
-                            if !self.ability_has_a_target(player, card, *targets)
-                                || !self.ability_has_a_target(player, card, *second_targets)
+                            if !self.ability_has_a_target(player, card, i as u32, *targets)
+                                || !self.ability_has_a_target(
+                                    player,
+                                    card,
+                                    i as u32,
+                                    *second_targets,
+                                )
                             {
                                 continue;
                             }
@@ -724,12 +734,21 @@ impl<L: CardLookup> Engine<L> {
                             if self.activation_limit_spent(card, i as u32, *limit) {
                                 continue;
                             }
-                            if !crate::eval::condition_holds(&self.state, player, card, *condition)
-                            {
+                            if !crate::eval::condition_holds_with_context(
+                                &self.state,
+                                player,
+                                self.ability_rule_context(card, i as u32),
+                                *condition,
+                            ) {
                                 continue;
                             }
-                            if !self.ability_has_a_target(player, card, *targets)
-                                || !self.ability_has_a_target(player, card, *second_targets)
+                            if !self.ability_has_a_target(player, card, i as u32, *targets)
+                                || !self.ability_has_a_target(
+                                    player,
+                                    card,
+                                    i as u32,
+                                    *second_targets,
+                                )
                             {
                                 continue;
                             }
@@ -766,6 +785,14 @@ impl<L: CardLookup> Engine<L> {
         self.narrow_under_chosen_names(&mut legal);
         self.narrow_under_split_second(&mut legal);
         self.narrow_to_mana_window(player, &mut legal);
+        if self.commanded_player() == Some(player) {
+            self.narrow_to_mana(&mut legal);
+            super::constrained_mana::ManaActivationScope::ControlledLands.narrow(
+                &self.state,
+                player,
+                &mut legal,
+            );
+        }
         // Planning hints obey every final lock too. They passed through the
         // same narrowing as actual offers, then leave the actionable list.
         legal
@@ -979,6 +1006,23 @@ impl<L: CardLookup> Engine<L> {
             .is_some_and(AbilityDef::is_mana_ability)
     }
 
+    /// Effective words captured for an activation, or live words before it starts.
+    fn ability_rule_context(
+        &self,
+        source: ObjectId,
+        index: u32,
+    ) -> crate::text_changes::RuleContext {
+        let text = self
+            .activating_abilities
+            .as_ref()
+            .filter(|(id, _)| *id == source)
+            .map_or_else(
+                || self.state.ability_text(source, index),
+                |(_, list)| list.base_text(index as usize),
+            );
+        crate::text_changes::RuleContext { source, text }
+    }
+
     /// Whether a targeting ability has anything legal to point at
     /// (CR 601.2c, applied to activations by CR 602.2b).
     ///
@@ -999,6 +1043,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: ObjectId,
+        ability_index: u32,
         targets: Option<baylee_cards_dsl::TargetReq>,
     ) -> bool {
         let Some(req) = targets else {
@@ -1017,7 +1062,13 @@ impl<L: CardLookup> Engine<L> {
         // player is always there to point at. `target_player_options`
         // answers empty for every object-only spec, which is what lets one
         // sum serve every spec; the cast wizard adds them the same way.
-        let objects = eval::target_options(&req.spec, &self.state, player, source).len();
+        let objects = eval::target_options_with_context(
+            &req.spec,
+            &self.state,
+            player,
+            self.ability_rule_context(source, ability_index),
+        )
+        .len();
         let players = eval::target_player_options(&self.state, &req.spec, player).len();
         objects + players >= wanted
     }
@@ -1497,6 +1548,7 @@ impl<L: CardLookup> Engine<L> {
         let granted = crate::effects::granted_activated(&self.state, source)
             .nth(slot as usize)
             .ok_or(EngineError::IllegalAction("no granted ability"))?;
+        let text = granted.text;
         let (cost, effects, mana_ability) = (
             self.activation_price(player, source, &granted.cost, None),
             granted.effects,
@@ -1534,6 +1586,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
+                text,
                 event_mana: None,
                 retarget_left: None,
             };
@@ -1574,6 +1627,9 @@ impl<L: CardLookup> Engine<L> {
                     base,
                 )
             });
+            if let Some(identity) = self.state.source_identity(id) {
+                self.state.text_changes.set(identity, text);
+            }
             self.synthetic_fx.insert(id, effects);
             self.state
                 .zones
@@ -1688,7 +1744,12 @@ impl<L: CardLookup> Engine<L> {
                     cost_reduction,
                     ..
                 } => {
-                    if !crate::eval::condition_holds(&self.state, player, source, *condition) {
+                    if !crate::eval::condition_holds_with_context(
+                        &self.state,
+                        player,
+                        self.ability_rule_context(source, ability_index),
+                        *condition,
+                    ) {
                         return Err(EngineError::IllegalAction("activation condition not met"));
                     }
                     (
@@ -1719,10 +1780,18 @@ impl<L: CardLookup> Engine<L> {
         });
         // Read before any cost is paid, because a cost may move the source
         // and a moved copy is no longer one — see `Engine::activating_abilities`.
-        self.activating_abilities = self
-            .state
-            .object(source)
-            .map(|o| (source, o.ability_list(&self.lookup)));
+        self.activating_abilities = self.state.object(source).map(|o| {
+            (
+                source,
+                o.ability_list(&self.lookup)
+                    .with_base_text(self.state.text_changes.get(
+                        baylee_core::ids::DamageSourceRef {
+                            object: source,
+                            version: o.version,
+                        },
+                    )),
+            )
+        });
         // Zone validation (battlefield abilities vs. hand abilities).
         let in_right_zone = match zone {
             ActivationZone::Battlefield => self
@@ -1808,7 +1877,7 @@ impl<L: CardLookup> Engine<L> {
             // this engine puts every other one.
             let upper =
                 casting::spendable_units(&self.state, player, casting::SpendFor::Ability(source))
-                    .saturating_add(u32::from(self.state.granted_colorless_capacity(player)));
+                    .saturating_add(self.state.granted_colorless_capacity(player));
             let max = casting::greatest_affordable(upper, |x| {
                 self.can_plan_activation(
                     player,
@@ -1858,9 +1927,14 @@ impl<L: CardLookup> Engine<L> {
                         // question is about.
                         source: self
                             .state
-                            .object(source)
-                            .and_then(|o| o.card)
-                            .map(|c| baylee_core::ids::AbilityRef::new(c.index, ability_index)),
+                            .printed_ability_list(source)
+                            .and_then(|list| list.entry(ability_index as usize))
+                            .and_then(|entry| entry.provenance.ability_ref())
+                            .or_else(|| {
+                                self.state.object(source).and_then(|o| o.card).map(|card| {
+                                    baylee_core::ids::AbilityRef::new(card.index, ability_index)
+                                })
+                            }),
                     };
                     self.awaiting_answer = true;
                     return Ok(());
@@ -1907,7 +1981,12 @@ impl<L: CardLookup> Engine<L> {
             // (CR 601.2c, by CR 602.2b). X is answered by now (CR 601.2b
             // comes first), so an X count is a number here.
             let (min, max) = req.bounds(self.activation_x.unwrap_or(0));
-            let mut options = eval::target_options(&req.spec, &self.state, player, source);
+            let mut options = eval::target_options_with_context(
+                &req.spec,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             // "Target cards from a single graveyard" (Unlicensed Hearse):
             // which graveyard is asked first, when more than one holds a
             // card to choose, and the targets are then that graveyard's.
@@ -1988,7 +2067,12 @@ impl<L: CardLookup> Engine<L> {
         if let Some(req) = second
             && self.activation_second_targets.is_none()
         {
-            let options = eval::target_options(&req.spec, &self.state, player, source);
+            let options = eval::target_options_with_context(
+                &req.spec,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() < req.min as usize {
                 self.activation_x = None;
                 return Err(EngineError::IllegalAction("no legal targets"));
@@ -2118,6 +2202,10 @@ impl<L: CardLookup> Engine<L> {
         self.activation_targets_answered = false;
         self.activation_phyrexian.clear();
         let activated_source_version = self.state.object(source).map(|o| o.version);
+        let activated_text = self.activating_abilities.as_ref().map_or(
+            self.state.ability_text(source, ability_index),
+            |(_, list)| list.base_text(ability_index as usize),
+        );
         let paid = self.pay_cost(player, source, &cost, &answers, x)?;
         // The life the Phyrexian symbols were paid with, beside the rest of
         // the cost (CR 601.2h; CR 119.4 was asked above).
@@ -2191,6 +2279,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: resolve::SubjectContext::after_cost(paid.source_after_cost),
+                text: activated_text,
                 event_mana: None,
                 retarget_left: None,
             };
@@ -2396,7 +2485,12 @@ impl<L: CardLookup> Engine<L> {
         targets: SmallVec<[ObjectId; 2]>,
     ) {
         if let Some(req) = self.loyalty_second_targets(source, ability_index) {
-            let options = eval::target_options(&req.spec, &self.state, player, source);
+            let options = eval::target_options_with_context(
+                &req.spec,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if !options.is_empty() && req.max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbilitySecondTargets {
                     source,
@@ -2473,7 +2567,13 @@ impl<L: CardLookup> Engine<L> {
             ) {
                 eval::target_player_options(&self.state, &req.spec, player).len()
             } else {
-                eval::target_options(&req.spec, &self.state, player, source).len()
+                eval::target_options_with_context(
+                    &req.spec,
+                    &self.state,
+                    player,
+                    self.ability_rule_context(source, ability_index),
+                )
+                .len()
             };
             if found < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
@@ -2518,7 +2618,12 @@ impl<L: CardLookup> Engine<L> {
                 self.awaiting_answer = true;
                 return Ok(());
             }
-            let options = eval::target_options(&req.spec, &self.state, player, source);
+            let options = eval::target_options_with_context(
+                &req.spec,
+                &self.state,
+                player,
+                self.ability_rule_context(source, ability_index),
+            );
             if options.len() < req.min as usize {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
@@ -2632,6 +2737,9 @@ impl<L: CardLookup> Engine<L> {
             // it before a restriction naming "abilities of creatures" reads
             // what it is. Nothing that admits an ability carries a rider, so
             // what was spent needs no second look.
+            let held_before = self.state.players[player.get() as usize].mana_pool.clone();
+            paid.fixed_mana_cost = cost.mana.with_x(0);
+            paid.mana_spending = casting::mana_spending(&self.state, player);
             casting::pay_mana_for(
                 &mut self.state,
                 player,
@@ -2639,6 +2747,11 @@ impl<L: CardLookup> Engine<L> {
                 &mana,
             )
             .ok_or(EngineError::IllegalAction("not enough mana"))?;
+            casting::record_mana_payment(
+                &mut paid,
+                &held_before,
+                &self.state.players[player.get() as usize].mana_pool,
+            );
         }
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in cost.parts {
@@ -2810,6 +2923,7 @@ impl<L: CardLookup> Engine<L> {
         }
         graveyard_batch.finish(&mut self.state);
         if let Some(before) = subject_before {
+            self.note_mana_activation(before);
             paid.source_after_cost = crate::resolve::subjects::public_successor(
                 &self.state,
                 before,
@@ -2886,11 +3000,18 @@ impl<L: CardLookup> Engine<L> {
                 .object(source)
                 .map_or(crate::object::AbilityList::NONE, |o| {
                     o.ability_list(&self.lookup)
+                        .with_base_text(self.state.text_changes.get(
+                            baylee_core::ids::DamageSourceRef {
+                                object: source,
+                                version: o.version,
+                            },
+                        ))
                 })
         });
-        let abilities = list.abilities;
+        let captured_text = list.base_text(ability_index as usize);
+        let abilities = list.abilities.clone();
         let source_version = self.state.object(source).map(|o| o.version);
-        let counter_version = crate::resolve::linked_counters::uses_links(abilities)
+        let counter_version = crate::resolve::linked_counters::uses_links(&abilities)
             .then(|| self.state.object(source).map_or(0, |o| o.version));
         // CR 107.3m: an object's **own** enters-the-battlefield triggered
         // ability that refers to X uses the X chosen for the spell that
@@ -2947,6 +3068,9 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .zones
             .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        if let Some(reference) = self.state.source_identity(id) {
+            self.state.text_changes.set(reference, captured_text);
+        }
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,

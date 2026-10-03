@@ -177,6 +177,14 @@ pub fn subtypes(subtypes: baylee_core::types::SubtypeSet) -> String {
 #[must_use]
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
+        ChoicePrompt::CommandCard => "Choose the card the affected player must play".into(),
+        ChoicePrompt::CastFaceDown {
+            x,
+            paid,
+            fixed_cost,
+        } => format!(
+            "Choose a creature to cast face down, or choose none to decline. X = {x}; actual total mana paid (white, blue, black, red, green, colorless): {paid:?}; fixed activation cost: {fixed_cost}"
+        ),
         ChoicePrompt::SearchLibrary => "Search your library: choose the cards to find".into(),
         ChoicePrompt::PutBackOnTop => "Choose the cards to put back on top of your library".into(),
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),
@@ -253,6 +261,21 @@ pub fn count(n: usize, noun: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mask_receipt_distinguishes_total_payment_from_x_and_fixed_cost() {
+        let text = choice_prompt(ChoicePrompt::CastFaceDown {
+            x: 3,
+            paid: [1, 0, 0, 2, 0, 0],
+            fixed_cost: baylee_core::mana::ManaCost::default(),
+        });
+        assert!(text.contains("X = 3"));
+        assert!(text.contains("actual total mana paid"));
+        assert!(text.contains("[1, 0, 0, 2, 0, 0]"));
+        assert!(text.contains("fixed activation cost"));
+        assert!(text.contains("choose none to decline"));
+        assert!(choice_prompt(ChoicePrompt::CommandCard).contains("affected player"));
+    }
 
     /// The pool's keywords all have a name here: a card that prints one the
     /// table lacks would reach a model as "another keyword".

@@ -103,9 +103,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let objects: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
-                    state
-                        .object(*id)
-                        .is_some_and(|o| eval::matches(filter, state, o, you, res.source))
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
                 })
                 .collect();
             // Per object, not once for the sweep: "a permanent you control"
@@ -125,7 +125,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .battlefield_seen()
                 .filter_map(|id| {
                     let o = state.object(id)?;
-                    eval::matches(filter, state, o, you, res.source)
+                    eval::matches_with_context(filter, state, o, you, res.rule_context())
                         .then(|| (id, o.counters.get(kind)))
                 })
                 .filter(|(_, n)| *n > 0)
@@ -201,7 +201,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
-                super::bound_now(state, filter, &modifier, you, res.source, None)
+                super::bound_now_with_context(
+                    state,
+                    filter,
+                    &modifier,
+                    you,
+                    res.rule_context(),
+                    None,
+                )
             };
             for filter in filters {
                 state.effects.register(crate::effects::ContinuousEffect {
@@ -246,12 +253,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 }
                 smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
             } else {
-                super::bound_now(
+                super::bound_now_with_context(
                     state,
                     filter,
                     &baylee_cards_dsl::Modifier::ModifyPT(p, t),
                     you,
-                    res.source,
+                    res.rule_context(),
                     seats.as_deref(),
                 )
             };
@@ -368,6 +375,7 @@ mod pump_tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         }

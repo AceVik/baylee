@@ -2499,6 +2499,7 @@ fn check_optional_clauses_are_offered(
         "ReorderTopLibrary",
         "SearchTakeover",
         "SpendManaAs",
+        "GrantSpecialActionUntilEndOfTurn",
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
         "ExtraLandDrops",
@@ -6969,6 +6970,29 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_temporary_special_action_is_an_optional_offer() {
+        let payload = serde_json::json!({
+            "oracle_text": "Until end of turn, you may pay 1 life any time you could activate a mana ability."
+        });
+        let mut tally = super::PrintingTally::default();
+        let mut problems = 0;
+        for (name, expected) in [("Channel", 0), ("Guardian Angel", 0), ("Fog", 1)] {
+            let def = baylee_cards::decks::by_name(name)
+                .and_then(baylee_cards::by_index)
+                .expect("fixture is registered");
+            super::check_optional_clauses_are_offered(
+                "fixture",
+                def,
+                &payload,
+                &mut tally,
+                &mut problems,
+            );
+            assert_eq!(problems, expected, "{name}");
+        }
+        assert_eq!(tally.optional_clauses, 3);
+    }
+
     #[test]
     fn a_mana_spending_permission_needs_no_separate_may_question() {
         let payload = serde_json::json!({

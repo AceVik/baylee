@@ -89,8 +89,7 @@ const CAST_FACE: usize = 0;
 /// trigger.
 fn cast_card(names: FaceNames<'_>, object: ObjectId) -> Option<CardIndex> {
     let view = names.view?;
-    view.hand
-        .iter()
+    baylee_client_core::decision::known_cards(view)
         .find(|c| c.id == object)
         .map(|c| c.card)
         .or_else(|| view.object(object).and_then(|o| o.card))
@@ -428,6 +427,62 @@ fn source_options(
         .collect()
 }
 
+fn color_options(options: &[baylee_core::mana::ManaColor]) -> Vec<ChoiceOption> {
+    options
+        .iter()
+        .enumerate()
+        .map(|(i, c)| ChoiceOption {
+            index: i,
+            label: String::new(),
+            pip: Some(colour_pip(*c)),
+            cost: None,
+        })
+        .collect()
+}
+
+fn mana_options(
+    options: &[baylee_engine::choice::ManaAbilityChoice],
+    lang: Lang,
+    names: FaceNames<'_>,
+) -> Vec<ChoiceOption> {
+    options
+        .iter()
+        .enumerate()
+        .map(|(index, option)| {
+            let name = names
+                .of(option.source.object, 0)
+                .unwrap_or_else(|| Phrase::SourceUnknown.text(lang).to_string());
+            let cost = names
+                .view
+                .map(|view| crate::abilities::required_mana_label(lang, view, *option))
+                .unwrap_or_default();
+            ChoiceOption::text(index, format!("{name} — {cost}"))
+        })
+        .collect()
+}
+
+fn text_options(draft: &baylee_client_core::text_choice::Draft, lang: Lang) -> Vec<ChoiceOption> {
+    let words = baylee_client_core::text_choice::words(draft.kind, lang);
+    (0..10)
+        .map(|index| {
+            let (phrase, chosen) = if index < 5 {
+                (Phrase::TextOldWord, draft.from)
+            } else {
+                (Phrase::TextNewWord, draft.to)
+            };
+            let mark = if chosen.map(usize::from) == Some(index % 5) {
+                "✓ "
+            } else {
+                ""
+            };
+            ChoiceOption::text(
+                index,
+                format!("{mark}{}: {}", phrase.text(lang), words[index % 5]),
+            )
+        })
+        .collect()
+}
+
 /// The rows of an indexed choice, or `None` when this prompt is not one.
 ///
 /// [`ChoiceOption::index`] is the answer, and a caller passes *that* to
@@ -446,6 +501,8 @@ pub fn options(
     names: FaceNames<'_>,
 ) -> Option<Vec<ChoiceOption>> {
     match prompt {
+        Prompt::TextReplacement { draft } => Some(text_options(draft, lang)),
+        Prompt::ChooseManaAbility { options, .. } => Some(mana_options(options, lang, names)),
         Prompt::ChooseDamageSource { options } => {
             Some(source_options(options, lang, statics, names))
         }
@@ -469,18 +526,7 @@ pub fn options(
         } => Some(prevention_options(
             effect, damage, amounts, lang, statics, names,
         )),
-        Prompt::ChooseColor { options } => Some(
-            options
-                .iter()
-                .enumerate()
-                .map(|(i, c)| ChoiceOption {
-                    index: i,
-                    label: String::new(),
-                    pip: Some(colour_pip(*c)),
-                    cost: None,
-                })
-                .collect(),
-        ),
+        Prompt::ChooseColor { options } => Some(color_options(options)),
         Prompt::ChoosePlayer { options } => Some(
             options
                 .iter()
@@ -756,6 +802,70 @@ pub(crate) fn target_question(
     texts: &crate::cardtext::CardTexts,
     statics: Option<&GameStatic>,
 ) -> Vec<String> {
+    let mut lines = base_target_question(interaction, view, lang, texts, statics);
+    let subject = baylee_client_core::decision::resource_player(view);
+    if subject != view.seat {
+        lines.insert(
+            0,
+            Phrase::DecidingFor.fill(lang, &[&seat_name(lang, statics, subject)]),
+        );
+    }
+    lines
+}
+
+fn base_target_question(
+    interaction: &baylee_client_core::Interaction,
+    view: &baylee_view::PlayerView,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    statics: Option<&GameStatic>,
+) -> Vec<String> {
+    if let baylee_engine::choice::Pending::ChooseCards {
+        prompt:
+            baylee_engine::choice::ChoicePrompt::CastFaceDown {
+                paid, fixed_cost, ..
+            },
+        ..
+    } = interaction.pending()
+    {
+        let symbols = ["{W}", "{U}", "{B}", "{R}", "{G}", "{C}"];
+        let receipt = paid
+            .iter()
+            .zip(symbols)
+            .filter(|(n, _)| **n > 0)
+            .map(|(n, symbol)| format!("{n} × {symbol}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return vec![Phrase::MaskReceipt.fill(
+            lang,
+            &[
+                if receipt.is_empty() { "0" } else { &receipt },
+                &fixed_cost.to_string(),
+            ],
+        )];
+    }
+    if let baylee_engine::choice::Pending::ChooseNumber {
+        reason: baylee_engine::choice::NumberPrompt::TextReplacement { target, .. },
+        ..
+    } = interaction.pending()
+    {
+        let label = target_label(
+            lang,
+            baylee_view::TargetRef::Object(*target),
+            FaceNames {
+                view: Some(view),
+                texts: Some(texts),
+            },
+            statics,
+        );
+        let mut lines = vec![label];
+        if let Some(rules) = view.target_object(*target).and_then(|o| o.rules)
+            && let Some(text) = crate::cardtext::english(rules.card, usize::from(rules.face))
+        {
+            lines.push(text.oracle_text);
+        }
+        return lines;
+    }
     if let baylee_engine::choice::Pending::ChooseTargets {
         reason: baylee_engine::choice::TargetPrompt::Retarget { current, index, of },
         ..
@@ -837,6 +947,22 @@ pub(crate) fn preview_object(
         return None;
     }
     let interaction = duel.interaction.as_ref()?;
+    if let baylee_engine::choice::Pending::ChooseNumber {
+        reason: baylee_engine::choice::NumberPrompt::TextReplacement { target, .. },
+        ..
+    } = interaction.pending()
+    {
+        return duel
+            .view
+            .as_ref()?
+            .target_object(*target)
+            .filter(|o| o.is_current)
+            .map(|o| o.source.object);
+    }
+    if let baylee_engine::choice::Pending::ChooseManaAbility { options, .. } = interaction.pending()
+    {
+        return options.get(index).map(|o| o.source.object);
+    }
     match targeting::options(interaction.pending()).get(index) {
         Some(Target::Object(id)) => return Some(*id),
         Some(Target::Player(_)) => return None,

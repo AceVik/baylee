@@ -90,6 +90,15 @@ fn ordered_attackers(options: &[BlockOption]) -> Vec<ObjectId> {
 /// Identity of a versioned decision; unrelated dialog kinds never compare equal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecisionId {
+    /// One mandatory resolving mana activation.
+    Mana(baylee_engine::choice::ManaChoiceId),
+    /// Exact affected incarnation and offered vocabulary.
+    Text {
+        /// The object whose words change.
+        target: baylee_core::ids::DamageSourceRef,
+        /// Offered family of words.
+        kind: baylee_cards_dsl::TextWordKind,
+    },
     /// Damage replacement ordering or allocation.
     Damage(DamageChoiceId),
     /// Exact source incarnation selection.
@@ -111,6 +120,18 @@ pub enum DecisionId {
 // compared.
 #[derive(Clone, Debug)]
 pub enum Prompt {
+    /// The old and replacement word are separate, explicit selections.
+    TextReplacement {
+        /// Current two-word draft.
+        draft: crate::text_choice::Draft,
+    },
+    /// Choose one exact legal mana ability; this instruction cannot be passed.
+    ChooseManaAbility {
+        /// Number of activations already processed by this instruction.
+        processed: u64,
+        /// Legal source incarnations and ability indices.
+        options: Vec<baylee_engine::choice::ManaAbilityChoice>,
+    },
     /// Choose one exact source, without targeting it.
     ChooseDamageSource {
         /// Legal incarnations in their offered order.
@@ -392,14 +413,15 @@ impl Prompt {
     ) -> String {
         let name = |id: ObjectId| name(id).filter(|n| !n.trim().is_empty());
         match self {
-            Self::ChooseDamageSource { .. } => Phrase::ChooseDamageSource.text(lang).to_string(),
-            Self::ChooseDamageEffect { .. } => Phrase::ChooseDamageEffect.text(lang).to_string(),
-            Self::AllocatePrevention {
-                effect,
-                total,
-                amounts,
+            Self::TextReplacement { .. }
+            | Self::ChooseManaAbility { .. }
+            | Self::ChooseDamageSource { .. }
+            | Self::ChooseDamageEffect { .. }
+            | Self::AllocatePrevention { .. }
+            | Self::ChooseCards {
+                reason: ChoicePrompt::CastFaceDown { .. } | ChoicePrompt::CommandCard,
                 ..
-            } => crate::damage::allocation_headline(lang, effect, *total, amounts),
+            } => self.resolution_headline(lang),
             Self::Waiting { on: Some(p) } => waiting_line(lang, statics, *p),
             Self::Waiting { on: None } => Phrase::JustWaiting.text(lang).to_string(),
             // One seat by name, as any other wait; several by count, because
@@ -820,6 +842,8 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         ChoicePrompt::LookAtHand
         | ChoicePrompt::Delve
         | ChoicePrompt::OneOfType { .. }
+        | ChoicePrompt::CastFaceDown { .. }
+        | ChoicePrompt::CommandCard
         | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
     }
 }
@@ -946,6 +970,9 @@ fn number_line(
         );
     }
     match reason {
+        NumberPrompt::TextReplacement { .. } => {
+            Phrase::ChooseTextReplacement.text(lang).to_string()
+        }
         NumberPrompt::Counters { target, kind } => {
             let label = counter_label(kind, lang);
             name(target).map_or_else(
@@ -1118,6 +1145,7 @@ pub enum SelectionOutcome {
 /// Internal shape of the answer being assembled.
 #[derive(Clone, Debug)]
 enum Mode {
+    TextReplacement(crate::text_choice::Draft),
     Source {
         choice: baylee_core::ids::SourceChoiceId,
         options: Vec<baylee_core::ids::DamageSourceRef>,
@@ -1330,6 +1358,14 @@ impl Interaction {
         {
             next.choice_index = old.choice_index;
         }
+        if let Some(old) =
+            previous.filter(|old| old.seat == seat && old.decision_id() == next.decision_id())
+            && let (Mode::TextReplacement(fresh), Mode::TextReplacement(built)) =
+                (&mut next.mode, &old.mode)
+        {
+            *fresh = built.clone();
+            next.choice_index = old.choice_index;
+        }
         next
     }
 
@@ -1346,6 +1382,9 @@ impl Interaction {
 
     fn own_mode(pending: &Pending) -> Mode {
         match pending {
+            Pending::ChooseManaAbility { options, .. } => Mode::CastOption {
+                count: options.len(),
+            },
             Pending::ChooseDamageSource {
                 choice, options, ..
             } => Mode::Source {
@@ -1422,6 +1461,10 @@ impl Interaction {
             Pending::ChoosePlayer { options, .. } => Mode::Player {
                 options: options.clone(),
             },
+            Pending::ChooseNumber {
+                reason: NumberPrompt::TextReplacement { kind, .. },
+                ..
+            } => Mode::TextReplacement(crate::text_choice::Draft::new(*kind)),
             Pending::ChooseNumber { min, max, .. } => Mode::Number {
                 min: *min,
                 max: *max,
@@ -1461,14 +1504,20 @@ impl Interaction {
     #[must_use]
     pub fn prompt(&self) -> Prompt {
         if !self.is_mine() {
-            return match &self.pending {
-                Pending::GameOver(_) => Prompt::GameOver,
-                other => Prompt::Waiting {
-                    on: pending_player(other),
-                },
+            return self.waiting_prompt();
+        }
+        if let Mode::TextReplacement(draft) = &self.mode {
+            return Prompt::TextReplacement {
+                draft: draft.clone(),
             };
         }
         match &self.pending {
+            Pending::ChooseManaAbility {
+                options, choice, ..
+            } => Prompt::ChooseManaAbility {
+                processed: choice.step,
+                options: options.clone(),
+            },
             Pending::ChooseDamageSource { options, .. } => Prompt::ChooseDamageSource {
                 options: options.clone(),
             },
@@ -1483,14 +1532,7 @@ impl Interaction {
                 damage,
                 total,
                 ..
-            } => Prompt::AllocatePrevention {
-                effect: effect.clone(),
-                damage: damage.clone(),
-                total: *total,
-                amounts: self
-                    .allocation()
-                    .map_or_else(Vec::new, |a| a.amounts().to_vec()),
-            },
+            } => self.prevention_prompt(effect, damage, *total),
             Pending::Mulligan {
                 taken,
                 next_is_free,
@@ -2142,6 +2184,7 @@ impl Interaction {
         self.picks.clear();
         self.choice_index = None;
         match &mut self.mode {
+            Mode::TextReplacement(draft) => *draft = crate::text_choice::Draft::new(draft.kind),
             Mode::Attackers { pairs, focus, .. } => {
                 pairs.clear();
                 *focus = 0;
@@ -2242,6 +2285,14 @@ impl Interaction {
     #[must_use]
     pub const fn decision_id(&self) -> Option<DecisionId> {
         match &self.pending {
+            Pending::ChooseManaAbility { choice, .. } => Some(DecisionId::Mana(*choice)),
+            Pending::ChooseNumber {
+                reason: NumberPrompt::TextReplacement { target, kind },
+                ..
+            } => Some(DecisionId::Text {
+                target: *target,
+                kind: *kind,
+            }),
             Pending::ChooseDamageEffect { choice, .. }
             | Pending::AllocatePrevention { choice, .. } => Some(DecisionId::Damage(*choice)),
             Pending::ChooseDamageSource { choice, .. } => Some(DecisionId::Source(*choice)),
@@ -2311,6 +2362,13 @@ impl Interaction {
     ///
     /// Returns `false` when the index is not one the engine offered.
     pub fn choose_index(&mut self, index: usize) -> bool {
+        if let Mode::TextReplacement(draft) = &mut self.mode {
+            if !draft.select(index) {
+                return false;
+            }
+            self.choice_index = Some(index);
+            return true;
+        }
         if let Mode::Prevention(allocation) = &mut self.mode {
             if !allocation.select(index) {
                 return false;
@@ -2388,6 +2446,7 @@ impl Interaction {
             | Mode::Source { .. }
             | Mode::DamageEffect { .. }
             | Mode::Subtype { .. } => self.choice_index.is_some(),
+            Mode::TextReplacement(draft) => draft.answer().is_some(),
             Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
         };
@@ -2422,6 +2481,7 @@ impl Interaction {
     /// the question's bounds.
     fn answer(&self) -> Option<PlayerAction> {
         match &self.mode {
+            Mode::TextReplacement(draft) => draft.answer(),
             Mode::Objects { min, .. } if self.picks.len() >= *min => {
                 let objects: Vec<ObjectId> = self.selected().collect();
                 let players: Vec<PlayerId> = self.selected_players().collect();
@@ -2473,6 +2533,18 @@ impl Interaction {
                 .map(PlayerAction::ChoosePlayer),
             Mode::CastOption { count } => {
                 let index = self.choice_index?;
+                if let Pending::ChooseManaAbility {
+                    choice, options, ..
+                } = &self.pending
+                {
+                    return options
+                        .get(index)
+                        .map(|option| PlayerAction::ChooseManaAbility {
+                            choice: *choice,
+                            source: option.source,
+                            ability_index: option.ability_index,
+                        });
+                }
                 (index < *count).then_some(PlayerAction::ChooseMode(index))
             }
             Mode::Subtype { options } => options
@@ -2610,6 +2682,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseSubtype { player, .. }
         | Pending::ChooseCardName { player }
         | Pending::ChooseColor { player, .. }
+        | Pending::ChooseManaAbility { player, .. }
         | Pending::ChooseDamageSource { player, .. }
         | Pending::ChooseDamageEffect { player, .. }
         | Pending::AllocatePrevention { player, .. }
@@ -2628,3 +2701,65 @@ mod tests;
 
 #[cfg(test)]
 mod damage_tests;
+
+impl Prompt {
+    fn resolution_headline(&self, lang: Lang) -> String {
+        match self {
+            Self::TextReplacement { draft } => {
+                let words = crate::text_choice::words(draft.kind, lang);
+                Phrase::TextReplacementSummary.fill(
+                    lang,
+                    &[
+                        draft.from.map_or("…", |i| words[usize::from(i)]),
+                        draft.to.map_or("…", |i| words[usize::from(i)]),
+                    ],
+                )
+            }
+            Self::ChooseManaAbility { .. } => Phrase::ChooseRequiredMana.text(lang).to_string(),
+            Self::ChooseDamageSource { .. } => Phrase::ChooseDamageSource.text(lang).to_string(),
+            Self::ChooseDamageEffect { .. } => Phrase::ChooseDamageEffect.text(lang).to_string(),
+            Self::AllocatePrevention {
+                effect,
+                total,
+                amounts,
+                ..
+            } => crate::damage::allocation_headline(lang, effect, *total, amounts),
+            Self::ChooseCards {
+                reason: ChoicePrompt::CastFaceDown { x, .. },
+                ..
+            } => Phrase::MaskChoose.fill(lang, &[&x.to_string()]),
+            Self::ChooseCards {
+                reason: ChoicePrompt::CommandCard,
+                ..
+            } => Phrase::CommandChoose.text(lang).to_string(),
+            _ => unreachable!("only resolution prompts use this formatter"),
+        }
+    }
+}
+
+impl Interaction {
+    fn waiting_prompt(&self) -> Prompt {
+        match &self.pending {
+            Pending::GameOver(_) => Prompt::GameOver,
+            other => Prompt::Waiting {
+                on: pending_player(other),
+            },
+        }
+    }
+
+    fn prevention_prompt(
+        &self,
+        effect: &DamageEffectOption,
+        damage: &[DamagePartView],
+        total: u32,
+    ) -> Prompt {
+        Prompt::AllocatePrevention {
+            effect: effect.clone(),
+            damage: damage.to_vec(),
+            total,
+            amounts: self
+                .allocation()
+                .map_or_else(Vec::new, |a| a.amounts().to_vec()),
+        }
+    }
+}

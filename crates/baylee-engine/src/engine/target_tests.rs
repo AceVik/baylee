@@ -159,6 +159,7 @@ fn named(action: &PlayerAction) -> Vec<ObjectId> {
         | PlayerAction::SetPriorityHold(_)
         | PlayerAction::SetAbilityYield { .. }
         | PlayerAction::SetAbilityPolicy { .. }
+        | PlayerAction::ChooseManaAbility { .. }
         | PlayerAction::TakeGrantedAction { .. } => Vec::new(),
     }
 }

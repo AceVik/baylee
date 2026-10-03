@@ -14,7 +14,7 @@ fn lions() -> CardIndex {
 fn add_mana(e: &mut Engine<RegistryLookup>, p: PlayerId, color: ManaColor, n: u16) {
     e.dev_state_mut(p).unwrap().players[p.get() as usize]
         .mana_pool
-        .add(color, n);
+        .add(color, u32::from(n));
     e.refresh_offer();
 }
 

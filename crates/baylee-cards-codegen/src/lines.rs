@@ -376,6 +376,10 @@ fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cost> {
         AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
             mods.iter().find_map(|m| match m {
                 CopyMod::Grant(modifier) => cost(modifier),
+                CopyMod::GrantAbility(
+                    AbilityDef::Activated { cost, .. }
+                    | AbilityDef::ActivatedConditional { cost, .. },
+                ) => Some(*cost),
                 _ => None,
             })
         }
@@ -1441,6 +1445,31 @@ mod tests {
             vec![None, Some(1)],
             "a grant of `{{1}}, {{T}}` is not the one quoted here"
         );
+    }
+
+    #[test]
+    fn a_copy_exception_keeps_its_quoted_activated_cost_provenance() {
+        use baylee_cards_dsl::{CopyMod, Cost, TargetSpec, mana_ability};
+        use baylee_core::mana::{ManaColor, ManaCost};
+        const MANA: [Effect; 1] = [Effect::mana(ManaColor::Blue, 1)];
+        const GRANT: AbilityDef = mana_ability!(&MANA);
+        const DEARER: AbilityDef = mana_ability!(
+            Cost {
+                mana: ManaCost::parse("{1}"),
+                ..Cost::TAP
+            },
+            &MANA
+        );
+        let text = "You may have this artifact enter as a copy of any creature on the battlefield, except it has \"{T}: Add {U}.\"\n{T}: Add {U}.";
+        let copy = |mods| AbilityDef::CopyOnEnter {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            mods,
+        };
+        let matching = copy(&[CopyMod::GrantAbility(&GRANT)]);
+        assert_eq!(ability_shape(&matching), LineShape::Grant);
+        assert_eq!(map(&[matching, GRANT], text).lines, vec![Some(0), Some(1)]);
+        let wrong_cost = copy(&[CopyMod::GrantAbility(&DEARER)]);
+        assert_eq!(map(&[wrong_cost, GRANT], text).lines, vec![None, Some(1)]);
     }
 
     /// A keyword line is a sentence too, and which *kind* of keyword it is

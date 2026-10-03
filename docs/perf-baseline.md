@@ -459,3 +459,33 @@ existing four-byte provenance slot (card face or token id). The footprint test
 still measures `GameObject = 312 B`, `GameState = 1912 B`; neither budget was
 raised. A separate two-byte field would round the object to 320 B and was
 replaced with the packed representation before committing.
+
+## 2026-10-03 — atomic decision checkpoints (Alpha integration)
+
+`Engine::apply` now restores the entire last published decision when a numeric
+capacity failure occurs after costs or automatic effects have run. The snapshot
+includes the driver, journal, random state and nested mana obligations. This has
+an observable cost; it is not covered by the older priority-pass timings above.
+
+Same-machine `--quick` measurements of `engine/priority_pass_x4`:
+
+| Current integration variant | Estimate |
+|---|---:|
+| Eager arena and journal snapshot | 47.65 µs |
+| Copy-on-write arena | 28.51 µs |
+| Copy-on-write arena and journal (retained implementation) | 27.52 µs |
+| Same code with checkpoint temporarily disabled, measurement only | 5.98 µs |
+
+The disabled-checkpoint control was restored immediately after the measurement;
+it does **not** satisfy atomic refusal and is not an alternative production path.
+The retained version still costs about 21.5 µs more across four passes in this
+fixture. These short runs identify the tradeoff, not a statistically established
+performance bound. `state/clone` with shared arena/journal measured 4.97 µs.
+
+Arena and journal clones share immutable vectors. Their first actual mutation
+copies the vector; subsequent writes within the same decision do not. Failed
+lookups and no-op journal truncation do not force a copy. Hashes and serialized
+journal contents remain structural; allocation identity is never rules state.
+The clone-isolation, journal round-trip and numeric-refusal regressions cover
+append, removal, rollback and replay. Larger mutable boards and long journals
+still require measurement before claiming this overhead is acceptable there.

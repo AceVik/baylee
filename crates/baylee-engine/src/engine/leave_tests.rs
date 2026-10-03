@@ -1067,7 +1067,7 @@ fn a_departed_players_mana_drain_adds_nothing() {
     engine.apply(seat(0), PlayerAction::Concede).unwrap();
     pass_until(&mut engine, |e| e.state().turn.step == Step::Main);
     assert_eq!(engine.state().turn.number, 1);
-    let pools: Vec<u32> = engine
+    let pools: Vec<u64> = engine
         .state()
         .players
         .iter()
@@ -1178,7 +1178,7 @@ fn delayed_mana_goes_to_its_controller() {
     ));
 
     assert!(!engine.process_delayed());
-    let pools: Vec<u32> = engine
+    let pools: Vec<u64> = engine
         .state()
         .players
         .iter()

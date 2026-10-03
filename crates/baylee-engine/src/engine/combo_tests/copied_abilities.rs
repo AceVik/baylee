@@ -622,26 +622,19 @@ fn a_sakashima_copying_my_own_legend_keeps_the_legend_rule_off() {
         "and its legendary supertype with it"
     );
 
-    // And the mechanism, stated rather than left to the outcome. The copy no
-    // longer *has* the printed static — `own_abilities` is the legend's list
-    // now, which is CR 707.2a — while the continuous effect that static asks
-    // for is in the table all the same, put there by
-    // `CopyMod::KeepOtherAbilities` rather than left over from a scan that
-    // ran before the copy did. Those are two different questions and they
-    // are asked separately, because for years the second was true for the
-    // wrong reason and the first could not tell.
+    // KeepOtherAbilities now retains the original static in the copiable
+    // ability list, so later copies inherit the same legend-rule exception.
     let copied_abilities = engine
         .state()
         .object(sakashima)
         .expect("the copy")
         .abilities(&RegistryLookup);
     assert!(
-        !copied_abilities.iter().any(|a| matches!(
+        copied_abilities.iter().any(|a| matches!(
             a,
             AbilityDef::Static(sa) if matches!(sa.modifier, baylee_cards_dsl::Modifier::LegendRuleOff)
         )),
-        "the copy took the legend's abilities, so its own printed static is \
-         not among them"
+        "the copy exception retains the original legend-rule static"
     );
     assert!(
         engine.state().effects.iter().any(|fx| {
@@ -1040,12 +1033,8 @@ fn phantasmal_image() -> baylee_core::ids::CardIndex {
 /// the copy's (CR 707.9a), and it outlives the copy taking away every ability
 /// printed beside the clause (CR 707.2).
 ///
-/// Machine God's Effigy wrote its quoted ability as a sibling of the copy
-/// ability, where the copy overwrote it: a copy of an Elf tapped for {G} and
-/// never for {U}, on a card claiming `Coverage::Implemented`. Carried inside
-/// the clause as a `CopyMod::Grant`, the copy is offered both — the Elf's at
-/// its own index and the Effigy's at the grant slot, where every ability a
-/// continuous effect hands a permanent is offered.
+/// The exception is a copiable ability beside the Elf's mana ability,
+/// rather than an external continuous-effect grant.
 #[test]
 fn a_copy_keeps_the_ability_its_exception_grants() {
     let p0 = PlayerId::new(0);
@@ -1084,10 +1073,8 @@ fn a_copy_keeps_the_ability_its_exception_grants() {
         panic!("expected priority, got {:?}", engine.pending())
     };
     assert!(
-        legal
-            .abilities
-            .contains(&(effigy, crate::choice::GRANTED_ABILITY)),
-        "the {{U}} the copy clause names is offered at the grant slot: {:?}",
+        legal.abilities.contains(&(effigy, 1)),
+        "the {{U}} the copy clause names is offered at its copiable ability index: {:?}",
         legal.abilities
     );
     assert!(
@@ -1101,7 +1088,7 @@ fn a_copy_keeps_the_ability_its_exception_grants() {
             p0,
             PlayerAction::ActivateAbility {
                 source: effigy,
-                ability_index: crate::choice::GRANTED_ABILITY,
+                ability_index: 1,
             },
         )
         .expect("a noncreature artifact taps the turn it arrives (CR 302.6)");

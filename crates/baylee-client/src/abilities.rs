@@ -508,7 +508,13 @@ pub fn mana_for(
         .into_iter()
         .filter(|s| s.id != source)
         .collect();
-    baylee_client_core::manaplan::plan(cost, &view.seat(view.seat)?.mana_pool, &sources)
+    baylee_client_core::manaplan::plan(
+        cost,
+        &view
+            .seat(baylee_client_core::decision::resource_player(view))?
+            .mana_pool,
+        &sources,
+    )
 }
 
 /// A permanent's **mana** rows become one row per colour, at the head of the
@@ -1266,6 +1272,29 @@ fn mana_choice(lang: Lang, colors: &[ManaColor], amount: u8) -> String {
             let head = rest.iter().map(|c| pip(*c)).collect::<Vec<_>>().join(", ");
             Phrase::OrLast.fill(lang, &[&head, pip(*last)])
         }
+    }
+}
+
+/// Label an exact mandatory mana offer through the existing ability formatter.
+pub(crate) fn required_mana_label(
+    lang: Lang,
+    view: &PlayerView,
+    option: baylee_engine::choice::ManaAbilityChoice,
+) -> String {
+    let Some(index) = option.ability_index else {
+        return "{T}".to_string();
+    };
+    let cost = match crate::manasources::ability_at(view, option.source.object, index) {
+        Some(
+            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
+        ) => cost_key_of(cost).unwrap_or_default(),
+        _ => String::new(),
+    };
+    let effect = printed_label(lang, view, option.source.object, index);
+    if cost.is_empty() || cost == effect {
+        effect
+    } else {
+        format!("{cost}: {effect}")
     }
 }
 

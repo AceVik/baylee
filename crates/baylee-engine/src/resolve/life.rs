@@ -125,7 +125,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             all_but,
             gain_life,
         } => {
-            let options = crate::prevention::source_options(state, sources, you, res.source);
+            let options = crate::prevention::source_options_with_context(
+                state,
+                sources,
+                you,
+                res.rule_context(),
+            );
             if options.is_empty() {
                 return None;
             }
@@ -552,7 +557,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                         o.characteristics()
                             .types
                             .intersects(TypeSet::CREATURE.union(TypeSet::PLANESWALKER))
-                            && eval::matches(filter, state, o, you, res.source)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
                     })
                 })
                 .map(|id| assignment(state, res, res.source, DamageTarget::Object(id), n))
@@ -1261,6 +1266,7 @@ mod tests {
             chosen_player: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
             target_players: baylee_core::ids::SeatSet::new(),

@@ -63,6 +63,7 @@ pub fn project_current_targets(view: &mut PlayerView) {
 #[must_use]
 pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) -> PublicObject {
     PublicObject {
+        word_changes: Vec::new(),
         mana_value: 0,
         id: ObjectId::new(slot, 0),
         card: None,
@@ -126,6 +127,8 @@ impl ViewBuilder {
         let n = seats as usize;
         Self {
             view: PlayerView {
+                decision_player: None,
+                controlled_hands: Vec::new(),
                 damage_sources: Vec::new(),
                 target_objects: Vec::new(),
                 seq: 1,

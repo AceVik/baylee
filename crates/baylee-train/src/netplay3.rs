@@ -380,9 +380,9 @@ impl NetPlayer3 {
         let mut value = f32::NAN;
         self.asked += 1;
         loop {
-            let Some(enc) =
-                crate::policy::model_input(pending, || encode(view, pending, &picked, table))
-            else {
+            let Some(enc) = crate::policy::model_input_for_view(view, pending, || {
+                encode(view, pending, &picked, table)
+            }) else {
                 return Ok(None);
             };
             let offered = options(&enc, view, pending, &picked);

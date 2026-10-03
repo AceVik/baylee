@@ -34,6 +34,7 @@
 //! what it meant, and a name the parent happens to define itself would
 //! silently shadow the glob. An import says which module is meant, once.
 
+mod alpha_choices;
 mod arming;
 mod combat;
 mod dialog_keys;

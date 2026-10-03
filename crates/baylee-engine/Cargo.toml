@@ -20,7 +20,7 @@ baylee-cards-dsl.workspace = true
 rustc-hash.workspace = true
 xxhash-rust.workspace = true
 smallvec.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["rc"] }
 thiserror.workspace = true
 rand_chacha.workspace = true
 rand_core.workspace = true

@@ -20,11 +20,13 @@ use baylee_core::ids::{AbilityRef, ObjectId, PlayerId};
 mod arrange;
 mod damage;
 mod granted;
+mod mana;
 pub use arrange::{
     ArrangePile, ArrangePlace, ArrangePrompt, arrangement_fault, default_arrangement,
 };
 pub use damage::{DamageChoiceId, DamageEffectKind, DamageEffectOption, DamagePartView};
 pub use granted::{GrantedActionKind, GrantedActionOffer};
+pub use mana::{ManaAbilityChoice, ManaChoiceId};
 
 /// One creature that may block, and the attackers it may be assigned to.
 ///
@@ -274,6 +276,15 @@ const fn yes() -> bool {
 /// What the game is currently waiting for.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Pending {
+    /// A resolving instruction requires another mana ability to be activated.
+    ChooseManaAbility {
+        /// Player whose lands and resources are used.
+        player: PlayerId,
+        /// Exact instruction step.
+        choice: ManaChoiceId,
+        /// Legal activations; declining is not an answer.
+        options: Vec<ManaAbilityChoice>,
+    },
     /// Choose an exact incarnation as a damage source (CR 609.7a).
     ChooseDamageSource {
         /// Player creating the source-dependent effect.
@@ -572,6 +583,7 @@ impl Pending {
     pub const fn asked(&self) -> Option<PlayerId> {
         match self {
             Self::Mulligan { player, .. }
+            | Self::ChooseManaAbility { player, .. }
             | Self::ChooseDamageSource { player, .. }
             | Self::ChooseDamageEffect { player, .. }
             | Self::AllocatePrevention { player, .. }
@@ -658,6 +670,17 @@ pub enum CastModeKind {
 /// Why a [`Pending::ChooseCards`] is presented (UI hint).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum ChoicePrompt {
+    /// Optional creature from hand, cast face down under the resolving effect.
+    CastFaceDown {
+        /// Announced X; only this much of the paid mana can justify the card.
+        x: u32,
+        /// Actual activation payment, in WUBRG/colorless order.
+        paid: [u32; 6],
+        /// Fixed activation cost that the same receipt must also cover.
+        fixed_cost: baylee_core::mana::ManaCost,
+    },
+    /// Choose the card a controlled player must play if able.
+    CommandCard,
     /// Choose a permanent that this player sacrifices; the chooser may be
     /// an opponent, and the choice does not target the permanent.
     SacrificeFor {
@@ -849,6 +872,13 @@ pub enum ChoicePrompt {
     Clone, Copy, PartialEq, Eq, Hash, Debug, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum NumberPrompt {
+    /// The twenty distinct ordered pairs in a five-word vocabulary.
+    TextReplacement {
+        /// Printed color words or basic land type words.
+        kind: baylee_cards_dsl::TextWordKind,
+        /// Exact target whose rules words are being changed.
+        target: baylee_core::ids::DamageSourceRef,
+    },
     /// Spend any chosen amount of floating mana to prevent damage.
     ManaPayment {
         /// Damage this payment can prevent; overpayment is legal.
@@ -1128,6 +1158,7 @@ impl Pending {
     pub fn fit_to_options(&mut self) -> bool {
         match self {
             Self::ChooseDamageEffect { options, .. } => !options.is_empty(),
+            Self::ChooseManaAbility { options, .. } => !options.is_empty(),
             Self::ChooseDamageSource { options, .. } => !options.is_empty(),
             Self::AllocatePrevention { damage, total, .. } => {
                 damage
@@ -1235,6 +1266,21 @@ impl Pending {
     pub fn answer_fault(&self, answer: &PlayerAction) -> Option<AnswerFault> {
         use PlayerAction as A;
         match (self, answer) {
+            (
+                Self::ChooseManaAbility {
+                    choice, options, ..
+                },
+                A::ChooseManaAbility {
+                    choice: answered,
+                    source,
+                    ability_index,
+                },
+            ) => (choice != answered
+                || !options.contains(&ManaAbilityChoice {
+                    source: *source,
+                    ability_index: *ability_index,
+                }))
+            .then_some(AnswerFault::NotOffered),
             (
                 Self::ChooseDamageSource {
                     choice, options, ..
@@ -1378,6 +1424,7 @@ impl Pending {
             ) => arrangement_fault(cards, specs, piles).map(AnswerFault::Misarranged),
             (
                 Self::Mulligan { .. }
+                | Self::ChooseManaAbility { .. }
                 | Self::ChooseDamageSource { .. }
                 | Self::ChooseDamageEffect { .. }
                 | Self::AllocatePrevention { .. }
@@ -1642,6 +1689,7 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
             .declining_does_nothing()
             .then_some(PlayerAction::YesNo(false)),
         Pending::MulliganBottom { .. }
+        | Pending::ChooseManaAbility { .. }
         | Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
@@ -2057,6 +2105,15 @@ impl LegalActions {
 /// one, and a host can deduplicate a resent action after a reconnect.
 #[derive(Clone, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerAction {
+    /// Activate one exact offered land mana ability during an instruction.
+    ChooseManaAbility {
+        /// The instruction step being answered.
+        choice: ManaChoiceId,
+        /// Exact source incarnation.
+        source: baylee_core::ids::DamageSourceRef,
+        /// Printed/granted ability index, or intrinsic mana when absent.
+        ability_index: Option<u32>,
+    },
     /// Choose one exact damage-source incarnation from the pending offer.
     ChooseDamageSource {
         /// Identity of the source decision being answered.
@@ -2530,6 +2587,7 @@ mod choice_tests {
     fn kind_of(pending: &Pending) -> usize {
         match pending {
             Pending::ChooseDamageSource { .. } => 36,
+            Pending::ChooseManaAbility { .. } => 37,
             Pending::ChooseDamageEffect { .. } => 34,
             Pending::AllocatePrevention { .. } => 35,
             Pending::Mulligan { .. } => 0,

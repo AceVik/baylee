@@ -19,8 +19,8 @@ pub struct CounterLink {
     lands: Vec<(ObjectId, u32, bool)>,
 }
 
-pub(crate) fn uses_links(abilities: &[AbilityDef]) -> bool {
-    abilities.iter().any(|ability| match ability {
+pub(crate) fn uses_links(abilities: impl Into<crate::copiable_abilities::AbilityDefs>) -> bool {
+    abilities.into().iter().any(|ability| match ability {
         AbilityDef::ActivatedConditional { effects, .. }
         | AbilityDef::Activated { effects, .. }
         | AbilityDef::Triggered { effects, .. } => effects.iter().any(|e| {

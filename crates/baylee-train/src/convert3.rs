@@ -324,7 +324,9 @@ mod tests {
 
 /// Model preparation gate used by the replay converter before any sample exists.
 fn encode_decision(view: &PlayerView, pending: &Pending, table: &Table<'_>) -> Option<Encoded> {
-    policy::model_input(pending, || encode(view, pending, &Picked::default(), table))
+    policy::model_input_for_view(view, pending, || {
+        encode(view, pending, &Picked::default(), table)
+    })
 }
 
 #[cfg(test)]
@@ -337,6 +339,13 @@ mod damage_conversion_tests {
             teams: &[],
             deck: &[],
         };
+        let mut controlled = view.clone();
+        controlled.decision_player = Some(baylee_core::ids::PlayerId::new(1));
+        let ordinary = baylee_engine::choice::Pending::ChooseColor {
+            player: baylee_core::ids::PlayerId::new(1),
+            options: vec![baylee_core::mana::ManaColor::Red],
+        };
+        assert!(encode_decision(&controlled, &ordinary, &table).is_none());
         for pending in crate::damage_fixture::questions() {
             assert!(encode_decision(&view, &pending, &table).is_none());
         }

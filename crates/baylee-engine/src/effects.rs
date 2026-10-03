@@ -329,6 +329,14 @@ impl EffectTable {
         self.effects.iter()
     }
 
+    /// Whether an identity is still registered, including a phased-out effect.
+    pub(crate) fn contains(&self, id: EffectId) -> bool {
+        self.effects
+            .iter()
+            .chain(&self.parked)
+            .any(|effect| effect.id == id)
+    }
+
     /// All active effects as a slice, so callers can address them by index.
     ///
     /// `layers::LayerPlan` orders indices rather than references: a plan
@@ -353,18 +361,6 @@ impl EffectTable {
             .iter()
             .chain(&self.parked)
             .any(|fx| fx.source == Some(source) && fx.modifier == modifier)
-    }
-
-    /// Removes the effect `source`'s static ability with `modifier`
-    /// registered: a conditional static whose condition stopped holding
-    /// (a station symbol's, CR 721.2a). Only that origin, so an effect a
-    /// resolution of the same permanent made is left alone.
-    pub(crate) fn remove_static(&mut self, source: ObjectId, modifier: Modifier) {
-        self.remove_where(|fx| {
-            fx.origin == EffectOrigin::Static
-                && fx.source == Some(source)
-                && fx.modifier == modifier
-        });
     }
 
     /// Points every static ability's "you" at whoever controls its source
@@ -509,6 +505,7 @@ pub fn granted_activated_among<'a>(
             effects,
             mana_ability: *mana_ability,
             source: fx.source,
+            text: state.effect_text(fx),
         })
     })
 }
@@ -557,12 +554,15 @@ pub fn applies_to(
                 obj.zone,
                 crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
             ) || crate::state::filter_reaches_other_zones(filter))
-                && crate::eval::matches(
+                && crate::eval::matches_with_context(
                     filter,
                     state,
                     obj,
                     fx.controller,
-                    fx.source.unwrap_or(obj.id),
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                    },
                 )
         }
     }
@@ -605,7 +605,30 @@ pub(crate) fn sync_granted_statics(state: &mut crate::state::GameState) {
     });
     for effect in wanted {
         if !state.effects.iter().any(|existing| same(existing, &effect)) {
-            state.effects.register(effect);
+            let EffectOrigin::GrantedStatic(grant_id) = effect.origin else {
+                continue;
+            };
+            let text = state
+                .effect_text_overrides
+                .iter()
+                .find(|(id, _)| *id == grant_id)
+                .map(|(_, origin)| *origin)
+                .or_else(|| {
+                    state
+                        .effects
+                        .iter()
+                        .find(|fx| fx.id == grant_id)
+                        .and_then(|grant| {
+                            grant
+                                .source
+                                .and_then(|source| state.source_identity(source))
+                        })
+                        .map(crate::text_changes::TextOrigin::Live)
+                });
+            let id = state.effects.register(effect);
+            if let Some(text) = text {
+                state.effect_text_overrides.push((id, text));
+            }
         }
     }
 }
@@ -627,6 +650,8 @@ pub struct GrantedAbility {
     /// somewhere the viewer cannot see; the view decides that, not this.
     /// `None` for an effect with no source (an emblem's, a rule's).
     pub source: Option<ObjectId>,
+    /// Current words of the granting effect, never the recipient's text.
+    pub text: crate::text_changes::TextChangeMap,
 }
 
 #[cfg(test)]

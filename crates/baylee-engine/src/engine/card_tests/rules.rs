@@ -1457,7 +1457,7 @@ fn a_condition_inside_an_effect_list_picks_the_branch_the_board_earns() {
         card_index("5b5bf1fa-6502-4790-b66b-f0f8504ebc7c")
     }
     let p0 = PlayerId::new(0);
-    let cast = |seed: u64, graveyard: usize| -> u16 {
+    let cast = |seed: u64, graveyard: usize| -> u32 {
         let mut engine = Duel::new(seed, swamp())
             .hand(0, &[ritual()])
             .battlefield(0, &[swamp(), swamp()])

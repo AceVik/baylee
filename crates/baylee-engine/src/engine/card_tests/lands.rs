@@ -3387,7 +3387,7 @@ fn one_counted_land(
     let after = engine.state().players[0].mana_pool.available(color);
     assert_eq!(
         after - before,
-        want,
+        u32::from(want),
         "the count is the land's own filter, and nothing else on the board"
     );
 }
@@ -11653,7 +11653,7 @@ fn urza_s_tower_taps_for_colorless_mana() {
 #[test]
 fn the_urza_lands_make_seven_together_and_one_each_without_the_third_type() {
     let p0 = PlayerId::new(0);
-    let made = |board: &[CardIndex]| -> Vec<(CardIndex, u32)> {
+    let made = |board: &[CardIndex]| -> Vec<(CardIndex, u64)> {
         let mut engine = Duel::new(122, forest()).battlefield(0, board).start();
         keep_mulligans(&mut engine);
         reach_main_phase(&mut engine, p0);
@@ -11671,7 +11671,7 @@ fn the_urza_lands_make_seven_together_and_one_each_without_the_third_type() {
             tap_mana_where(&mut engine, p0, |x| x == id);
             let pool = &engine.state().players[0].mana_pool;
             assert_eq!(
-                u32::from(pool.available(ManaColor::Colorless)),
+                u64::from(pool.available(ManaColor::Colorless)),
                 pool.total(),
                 "colorless only"
             );
@@ -67955,7 +67955,7 @@ fn encroaching_wastes_taps_for_colorless_and_sells_itself_to_kill_a_nonbasic_lan
         "and it is colourless, which the green the Forests left behind is not"
     );
     assert_eq!(
-        u32::from(pool.available(ManaColor::Green)),
+        u64::from(pool.available(ManaColor::Green)),
         floating,
         "the green the {{4}} did not eat is untouched"
     );

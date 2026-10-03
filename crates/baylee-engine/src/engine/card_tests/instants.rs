@@ -20572,7 +20572,7 @@ fn heliods_intervention_over_an_x_it_cannot_pay_is_taken_and_reversed() {
         match engine.pending().clone() {
             Pending::ChooseNumber { player, max, .. } => {
                 assert!(
-                    max > floating.saturating_sub(2),
+                    u64::from(max) > floating.saturating_sub(2),
                     "the offered X plus fixed {{W}}{{W}} must exceed the pool: {max} over {floating}"
                 );
                 engine
@@ -21687,30 +21687,10 @@ fn cryptic_command_counters_a_spell_and_bounces_a_permanent() {
     assert_eq!(library_size(&engine, p0), library, "no card drawn");
 }
 
-/// Word of Command, Magical Hack, Sleight of Mind, Camouflage and False
-/// Orders are `Coverage::Partial` with none of their text written: each is
-/// cast, resolves doing nothing, and goes to the graveyard.
+/// Camouflage and False Orders remain partial with no implemented effect.
 #[test]
 fn partial_instants_with_no_text_written_resolve_doing_nothing() {
     for (name, card, land, lands) in [
-        (
-            "Word of Command",
-            card_index("e8ad3a77-b293-4d69-b080-27ca9f95d443"),
-            swamp(),
-            2,
-        ),
-        (
-            "Magical Hack",
-            card_index("cba229fa-9035-405b-b091-3798898a37ee"),
-            island(),
-            1,
-        ),
-        (
-            "Sleight of Mind",
-            card_index("99dba614-40d3-41c1-a3b2-edc8777b010f"),
-            island(),
-            1,
-        ),
         (
             "Camouflage",
             card_index("9cf44db4-627a-4197-9588-6da72e41f03d"),

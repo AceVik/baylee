@@ -47,6 +47,7 @@ macro_rules! question_vocabulary {
 }
 
 question_vocabulary!(
+    ChooseManaAbility,
     Mulligan,
     MulliganBottom,
     Priority,
@@ -580,6 +581,7 @@ impl Client {
             // test was proving that the *engine* accepts an answer, not
             // that anybody could give one.
             Pending::ChooseColor { .. }
+            | Pending::ChooseManaAbility { .. }
             | Pending::ChoosePlayer { .. }
             | Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. } => {
@@ -1394,6 +1396,9 @@ fn can_reach(view: &PlayerView, interaction: &Interaction, id: baylee_core::ids:
 // interaction paths have focused core/native tests and a live combat acceptance;
 // the deterministic spellbook scenarios below do not create those board states.
 const UNREACHED: &[&str] = &[
+    // Drain Power's resolving activation loop has focused native input tests;
+    // none of this file's spellbook scenarios casts it.
+    "ChooseManaAbility",
     "ChooseDamageEffect",
     "AllocatePrevention",
     "ChooseDamageSource",

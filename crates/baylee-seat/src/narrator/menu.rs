@@ -836,7 +836,40 @@ impl Builder<'_, '_> {
     #[allow(clippy::too_many_lines)] // one arm per question, and no `_`
     fn write(&mut self) {
         let pending = self.request.pending.clone();
+        let resource = baylee_client_core::decision::resource_player(self.table.view);
+        if resource != self.table.view.seat {
+            self.line(format!(
+                "You decide for {}. That player's resources are used.",
+                self.table.player(resource)
+            ));
+        }
         match &pending {
+            Pending::ChooseManaAbility {
+                choice,
+                options,
+                player,
+            } => {
+                self.line(format!(
+                    "QUESTION: {} must activate a land mana ability. No pass is legal.",
+                    self.table.player(*player)
+                ));
+                for (index, option) in options.iter().enumerate() {
+                    self.option(
+                        format!("mana{index}"),
+                        option.ability_index.map_or_else(
+                            || format!("Tap {} for mana", self.table.named(option.source.object)),
+                            |index| self.ability_label(option.source.object, index),
+                        ),
+                        Act::Now(PlayerAction::ChooseManaAbility {
+                            choice: *choice,
+                            source: option.source,
+                            ability_index: option.ability_index,
+                        }),
+                    );
+                }
+                self.list_options();
+                self.answer("pick=[one mana ability id]");
+            }
             Pending::ChooseDamageSource {
                 choice, options, ..
             } => {
@@ -1168,7 +1201,7 @@ impl Builder<'_, '_> {
         }
         self.line(intro);
         let pool = view
-            .seat(view.seat)
+            .seat(baylee_client_core::decision::resource_player(view))
             .map(|s| s.mana_pool)
             .unwrap_or_default();
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
@@ -1816,6 +1849,26 @@ impl Builder<'_, '_> {
     fn number(&mut self, min: u32, max: u32, reason: &NumberPrompt) {
         let table = self.table;
         let question = match reason {
+            NumberPrompt::TextReplacement { kind, target } => {
+                let words =
+                    baylee_client_core::text_choice::words(*kind, baylee_client_core::Lang::En);
+                let pairs = (0..20)
+                    .filter_map(|n| {
+                        let pair =
+                            baylee_engine::text_changes::TextReplacement::from_choice(*kind, n)?;
+                        Some(format!(
+                            "{n}: {} → {}",
+                            words[usize::from(pair.from)],
+                            words[usize::from(pair.to)]
+                        ))
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                format!(
+                    "Change words on {}. Choose one ordered pair: {pairs}",
+                    table.named_target(*target)
+                )
+            }
             NumberPrompt::Counters { target, kind } => format!(
                 "How many {} on {}?",
                 baylee_client_core::interaction::counter_label(

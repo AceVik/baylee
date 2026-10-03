@@ -327,8 +327,8 @@ fn same_side(teams: &[Option<u8>], a: PlayerId, b: PlayerId) -> bool {
 }
 
 /// The mana in the seat's pool.
-fn pool(view: &PlayerView) -> u32 {
-    view.seat(view.seat)
+fn pool(view: &PlayerView) -> u64 {
+    view.seat(baylee_client_core::decision::resource_player(view))
         .map_or(0, |seat| seat.mana_pool.total())
 }
 
@@ -379,7 +379,10 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     if sources.is_empty() {
         return Vec::new();
     }
-    let Some(pool) = view.seat(view.seat).map(|seat| seat.mana_pool) else {
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|seat| seat.mana_pool)
+    else {
         return Vec::new();
     };
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
@@ -426,7 +429,7 @@ fn commanders(
     legal: &LegalActions,
     payable: &dyn Fn(ManaCost) -> Option<Plan>,
 ) -> Vec<Reach> {
-    let Some(seat) = view.seat(view.seat) else {
+    let Some(seat) = view.seat(baylee_client_core::decision::resource_player(view)) else {
         return Vec::new();
     };
     let zone = view.command.get(usize::from(view.seat.get()));

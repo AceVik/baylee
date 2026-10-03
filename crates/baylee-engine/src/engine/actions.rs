@@ -110,6 +110,14 @@ impl<L: CardLookup> Engine<L> {
         if let Some(fault) = self.pending.answer_fault(&action) {
             return Err(fault.into());
         }
+        if let PlayerAction::ChooseManaAbility {
+            source,
+            ability_index,
+            ..
+        } = action
+        {
+            return self.answer_land_mana(player, source, ability_index);
+        }
         if let PlayerAction::ChooseDamageSource { source, .. } = action {
             let mut res = self.resolution.take().expect("source resolution suspended");
             match resolve::resume_source(&mut self.state, &mut res, Some(source)) {
@@ -166,8 +174,7 @@ impl<L: CardLookup> Engine<L> {
                         .as_ref()
                         .is_some_and(|w| w.player == player) =>
             {
-                self.close_mana_window();
-                Ok(())
+                self.close_mana_window()
             }
             (Pending::Priority { player: p, .. }, PlayerAction::PassPriority) if *p == player => {
                 self.passes += 1;
@@ -360,6 +367,7 @@ impl<L: CardLookup> Engine<L> {
                         Some(
                             resolve::AwaitingOp::Counters { .. }
                                 | resolve::AwaitingOp::DamagePayment { .. }
+                                | resolve::AwaitingOp::TextReplacement { .. }
                         )
                     )
                 }) {
@@ -784,9 +792,16 @@ impl<L: CardLookup> Engine<L> {
                                 asking.gathered.extend(targets);
                                 let controller =
                                     self.trigger_queue.front().map_or(player, |t| t.controller);
-                                match self.ask_next_opponent(
+                                let context = self.trigger_queue.front().map_or_else(
+                                    || crate::eval::live_context(&self.state, source),
+                                    |trigger| crate::text_changes::RuleContext {
+                                        source,
+                                        text: trigger.text,
+                                    },
+                                );
+                                match self.ask_next_opponent_with_context(
                                     controller,
-                                    source,
+                                    context,
                                     *asking,
                                     |asking| PlanKind::Trigger {
                                         source,
@@ -919,9 +934,12 @@ impl<L: CardLookup> Engine<L> {
                             Some(mut asking) => {
                                 asking.gathered.extend(targets);
                                 let plan_t = trigger.clone();
-                                match self.ask_next_opponent(
+                                match self.ask_next_opponent_with_context(
                                     trigger.controller,
-                                    trigger.source,
+                                    crate::text_changes::RuleContext {
+                                        source: trigger.source,
+                                        text: trigger.text,
+                                    },
                                     *asking,
                                     |asking| PlanKind::SyntheticTriggerTarget {
                                         trigger: plan_t,
@@ -1403,6 +1421,9 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseCards { player: p, .. }, PlayerAction::ChooseObjects { objects })
                 if *p == player =>
             {
+                if let Some(result) = self.answer_effect_play(player, &objects) {
+                    return result;
+                }
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self
                     .cast_wizard
@@ -1571,6 +1592,9 @@ impl<L: CardLookup> Engine<L> {
                 if !colors.is_empty() {
                     if !casting::pay_intrinsic_mana_price(&mut self.state, player, source) {
                         return Err(EngineError::IllegalAction("cannot pay mana ability cost"));
+                    }
+                    if let Some(reference) = self.state.source_identity(source) {
+                        self.note_mana_activation(reference);
                     }
                     // CR 305.6 gives the land one mana ability per basic
                     // type, so a land with several is a question. It is
@@ -1742,7 +1766,7 @@ impl<L: CardLookup> Engine<L> {
     /// window they leave short pays nothing and takes the effect's other
     /// branch, which is the same outcome as declining and is what the card
     /// prints.
-    fn close_mana_window(&mut self) {
+    fn close_mana_window(&mut self) -> Result<(), EngineError> {
         // Total rather than asserted. The only caller is the pass arm, which
         // has already matched on this window standing open, and a window with
         // no resolution in it is now unrepresentable — so there is nothing
@@ -1750,30 +1774,36 @@ impl<L: CardLookup> Engine<L> {
         // decoration: it is what caught #167, where a mana ability that asked
         // a colour had taken the slot this resolution was waiting in.
         let Some(window) = self.mana_window.take() else {
-            return;
+            return Ok(());
         };
         let mut res = match window.suspended {
+            PaymentContinuation::LandMana(work) => {
+                self.mana_window = Some(PaymentWindow {
+                    player: window.player,
+                    suspended: PaymentContinuation::LandMana(work),
+                });
+                return Ok(());
+            }
             PaymentContinuation::Tax(res) => *res,
             PaymentContinuation::Activation(payment) => {
                 self.finish_activation_payment(window.player, *payment);
-                return;
+                return Ok(());
             }
             PaymentContinuation::GrantedAction { id, .. } => {
                 self.state.take_granted_action(window.player, id);
                 self.after_action(window.player);
-                return;
+                return Ok(());
             }
             PaymentContinuation::Miracle {
                 wizard, version, ..
             } => {
-                self.finish_miracle_payment(&wizard, version);
-                return;
+                return self.finish_miracle_payment(&wizard, version);
             }
             PaymentContinuation::Pact(cost) => {
                 if !casting::pay_mana(&mut self.state, window.player, &cost) {
                     let _ = sba::lose_by_effect(&mut self.state, window.player);
                 }
-                return;
+                return Ok(());
             }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
@@ -1785,7 +1815,7 @@ impl<L: CardLookup> Engine<L> {
                 then_no_more_spells,
             } => {
                 let _ = self.start_paid_cast(window.player, card, version, then_no_more_spells);
-                return;
+                return Ok(());
             }
         };
         let paid = self.can_settle_tax(&res);
@@ -1801,7 +1831,7 @@ impl<L: CardLookup> Engine<L> {
             };
             self.resolution = Some(res);
             self.awaiting_answer = true;
-            return;
+            return Ok(());
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Wait(pending) => {
@@ -1813,6 +1843,7 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
+        Ok(())
     }
 
     /// Where an activation goes when the step its answer re-entered

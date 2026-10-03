@@ -230,6 +230,7 @@ mod tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             retarget_left: None,
         };
         (state, res)

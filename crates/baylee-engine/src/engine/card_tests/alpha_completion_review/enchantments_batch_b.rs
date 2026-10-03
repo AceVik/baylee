@@ -109,7 +109,10 @@ fn power_leak_independent_zero_one_and_two_payments_prevent_only_paid_damage() {
         leak_payment_window(&mut engine, p1);
         tap_all_mana(&mut engine, p1);
         pay_leak(&mut engine, p1, amount);
-        assert_eq!(engine.state().players[1].mana_pool.total(), 3 - amount);
+        assert_eq!(
+            engine.state().players[1].mana_pool.total(),
+            u64::from(3 - amount)
+        );
         assert_eq!(
             engine.state().players[1].life,
             18 + i32::try_from(amount).unwrap()
@@ -366,7 +369,10 @@ fn power_leak_independent_paid_prevention_tracks_its_damage_through_redirection(
             2 - paid
         );
         assert_eq!(engine.state().players[1].life, 20);
-        assert_eq!(engine.state().players[1].mana_pool.total(), 3 - paid);
+        assert_eq!(
+            engine.state().players[1].mana_pool.total(),
+            u64::from(3 - paid)
+        );
     }
 }
 

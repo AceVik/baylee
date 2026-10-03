@@ -29,11 +29,10 @@ card!(
             target: TargetSpec::Object(&Filter::CREATURE),
             mods: &[
                 CopyMod::AddSubtype(creature::ILLUSION),
-                CopyMod::Grant(&Modifier::GrantTriggered {
-                    trigger: Trigger::BecomesTarget,
-                    effects: &[Effect::SacrificeSelf],
-                    target: None,
-                }),
+                CopyMod::GrantAbility(&triggered!(
+                    Trigger::BecomesTarget,
+                    &[Effect::SacrificeSelf],
+                )),
             ],
         },
     ],

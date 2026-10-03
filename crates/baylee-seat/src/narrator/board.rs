@@ -134,6 +134,13 @@ pub(super) fn board(table: &Table<'_>, out: &mut String) {
         let title = format!("{} hand (shown to you)", table.whose(shared.player));
         hand(table, &capitalised(&title), &shared.cards, out);
     }
+    for controlled in &view.controlled_hands {
+        let title = format!(
+            "{} hand (you decide for this player)",
+            table.whose(controlled.player)
+        );
+        hand(table, &capitalised(&title), &controlled.cards, out);
+    }
     zones(table, out);
     combat(table, out);
 }

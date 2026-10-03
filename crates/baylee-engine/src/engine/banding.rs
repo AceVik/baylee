@@ -146,10 +146,18 @@ impl<L: CardLookup> Engine<L> {
     /// (CR 510.1, 510.2), so no answer can meet a board it was not given.
     pub(super) fn ask_combat_division(&mut self) -> bool {
         let first_strike_step = match self.state.turn.step {
-            Step::DeclareBlockers => self.any_first_or_double_striker(),
+            Step::DeclareBlockers => self
+                .state
+                .combat
+                .prepared_first_strike()
+                .unwrap_or_else(|| self.any_first_or_double_striker()),
             Step::CombatDamageFirst => false,
             _ => return false,
         };
+        if crate::combat::prepare_damage_step(&mut self.state, first_strike_step) {
+            self.sync_static_effects();
+            self.state.refresh_characteristics();
+        }
         let Some(owed) = crate::combat::divisions_owed(&self.state, first_strike_step)
             .into_iter()
             .next()

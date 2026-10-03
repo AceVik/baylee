@@ -5,7 +5,7 @@ use baylee_engine::choice::{
 };
 use baylee_engine::event::DamageTarget;
 
-pub(crate) fn questions() -> [Pending; 5] {
+pub(crate) fn questions() -> [Pending; 9] {
     let player = PlayerId::new(0);
     let choice = DamageChoiceId { batch: 9, step: 4 };
     let damage = vec![DamagePartView {
@@ -46,7 +46,12 @@ pub(crate) fn questions() -> [Pending; 5] {
         },
         total: u32::MAX,
     };
+    let [mask, command, text, mana] = resolving_questions(player);
     [
+        mask,
+        command,
+        text,
+        mana,
         Pending::ChooseDamageSource {
             player,
             choice: baylee_core::ids::SourceChoiceId::new(9),
@@ -89,6 +94,60 @@ pub(crate) fn questions() -> [Pending; 5] {
                 }],
                 ..baylee_engine::choice::LegalActions::default()
             }),
+        },
+    ]
+}
+
+fn resolving_questions(player: PlayerId) -> [Pending; 4] {
+    [
+        Pending::ChooseCards {
+            player,
+            options: vec![ObjectId::new(9, 0)],
+            min: 0,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown {
+                x: 3,
+                paid: [1, 0, 0, 2, 0, 0],
+                fixed_cost: baylee_core::mana::ManaCost::default(),
+            },
+            total: None,
+        },
+        Pending::ChooseCards {
+            player,
+            options: vec![ObjectId::new(9, 0)],
+            min: 1,
+            max: 1,
+            prompt: baylee_engine::choice::ChoicePrompt::CommandCard,
+            total: None,
+        },
+        Pending::ChooseNumber {
+            player,
+            min: 0,
+            max: 19,
+            reason: baylee_engine::choice::NumberPrompt::TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::Color,
+                target: baylee_core::ids::DamageSourceRef {
+                    object: ObjectId::new(9, 0),
+                    version: 1,
+                },
+            },
+        },
+        Pending::ChooseManaAbility {
+            player,
+            choice: baylee_engine::choice::ManaChoiceId {
+                source: baylee_core::ids::DamageSourceRef {
+                    object: ObjectId::new(8, 0),
+                    version: 2,
+                },
+                step: 3,
+            },
+            options: vec![baylee_engine::choice::ManaAbilityChoice {
+                source: baylee_core::ids::DamageSourceRef {
+                    object: ObjectId::new(9, 0),
+                    version: 1,
+                },
+                ability_index: None,
+            }],
         },
     ]
 }

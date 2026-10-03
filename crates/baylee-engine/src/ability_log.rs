@@ -232,11 +232,25 @@ fn fired_from(lookup: &impl CardLookup, face: Option<PrintedFace>, index: u32, k
 /// The list an object's abilities come from and the face it is printed on:
 /// what `GameObject::printed_abilities` answers and what
 /// `GameObject::printed_face` names beside it.
-fn printed(
-    obj: &GameObject,
+fn printed(obj: &GameObject, lookup: &impl CardLookup) -> crate::object::AbilityList {
+    obj.printed_ability_list(lookup)
+}
+
+fn fired_ability(
     lookup: &impl CardLookup,
-) -> (&'static [AbilityDef], Option<PrintedFace>) {
-    (obj.printed_abilities(lookup), obj.printed_face())
+    list: &crate::object::AbilityList,
+    index: u32,
+    kind: Kind,
+) {
+    let origin = list.origin(index as usize);
+    fired_from(
+        lookup,
+        origin
+            .origin
+            .and_then(crate::object::AbilityOrigin::printed),
+        origin.index,
+        kind,
+    );
 }
 
 // --- spells, activated and triggered abilities --------------------------------
@@ -261,26 +275,27 @@ pub(crate) fn resolved(state: &GameState, lookup: &impl CardLookup, on_stack: Ob
             return;
         }
         // The list captured as it was put on the stack, else its source's.
-        let (list, face) = if obj.own_abilities.is_some() {
+        let list = if obj.own_abilities.is_some() {
             printed(obj, lookup)
         } else if let Some(source) = state.object(loc.source) {
             printed(source, lookup)
         } else {
             return;
         };
-        if let Some(kind) = list.get(loc.index as usize).and_then(Kind::of)
+        if let Some(kind) = list.abilities.get(loc.index as usize).and_then(Kind::of)
             && kind != Kind::Spell
         {
-            fired_from(lookup, face, loc.index, kind);
+            fired_ability(lookup, &list, loc.index, kind);
         }
         return;
     }
-    let (list, face) = printed(obj, lookup);
+    let list = printed(obj, lookup);
     if list
+        .abilities
         .iter()
         .any(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
     {
-        fired_from(lookup, face, AbilityRef::SPELL, Kind::Spell);
+        fired_from(lookup, list.printed, AbilityRef::SPELL, Kind::Spell);
     }
 }
 
@@ -330,9 +345,17 @@ fn mana_resolved(
     if !enabled() {
         return;
     }
-    let Some(face) = state.object(source).and_then(GameObject::printed_face) else {
+    let Some(object) = state.object(source) else {
         return;
     };
+    let origin = object.printed_ability_list(lookup).origin(index as usize);
+    let Some(face) = origin
+        .origin
+        .and_then(crate::object::AbilityOrigin::printed)
+    else {
+        return;
+    };
+    let index = origin.index;
     if produced {
         fired_from(lookup, Some(face), index, kind);
     } else {
@@ -372,8 +395,8 @@ pub(crate) fn intrinsic_mana(
     let Some(obj) = state.object(source) else {
         return;
     };
-    let (list, face) = (obj.abilities(lookup), obj.printed_face());
-    let entry = position(list, |a| match a {
+    let list = obj.ability_list(lookup);
+    let entry = position(&list.abilities, |a| match a {
         AbilityDef::Activated {
             mana_ability: true,
             cost,
@@ -387,7 +410,7 @@ pub(crate) fn intrinsic_mana(
         _ => false,
     });
     if let Some(entry) = entry {
-        fired_from(lookup, face, entry, Kind::Mana);
+        fired_ability(lookup, &list, entry, Kind::Mana);
     }
 }
 
@@ -424,8 +447,12 @@ fn static_key(fx: &ContinuousEffect) -> Option<StaticKey> {
 }
 
 /// The position of the first entry of `list` that `wanted` accepts.
-fn position(list: &[AbilityDef], wanted: impl Fn(&AbilityDef) -> bool) -> Option<u32> {
-    list.iter()
+fn position(
+    list: impl Into<crate::copiable_abilities::AbilityDefs>,
+    wanted: impl Fn(&AbilityDef) -> bool,
+) -> Option<u32> {
+    list.into()
+        .iter()
         .position(wanted)
         .and_then(|at| u32::try_from(at).ok())
 }
@@ -451,15 +478,15 @@ pub(crate) fn note_sources(state: &GameState, lookup: &impl CardLookup) {
             let is_it = |a: &AbilityDef| {
                 matches!(a, AbilityDef::Static(sa) if sa.modifier == fx.modifier && sa.layer == fx.layer)
             };
-            // The object's list, else its own card's: a copier keeps the
-            // statics it printed beside the copied text (CR 707.9a,
-            // `keep_own_statics`), and those are no longer in the list it
-            // answers with.
-            let (list, face) = printed(obj, lookup);
-            let found = position(list, is_it).map(|at| (face, at)).or_else(|| {
-                let card = obj.card?;
-                let own = lookup.card(card.index)?.abilities_for_face(obj.face_index as usize);
-                position(own, is_it).map(|at| (PrintedFace::new(card.index, obj.face_index), at))
+            let list = printed(obj, lookup);
+            let index = state.effect_text_overrides.iter().find_map(|(id, origin)| {
+                if *id != fx.id { return None; }
+                let crate::text_changes::TextOrigin::Ability { source, index, .. } = origin else { return None; };
+                (source.object == obj.id && list.abilities.get(*index as usize).is_some_and(is_it)).then_some(*index)
+            }).or_else(|| position(&list.abilities, is_it));
+            let found = index.map(|index| {
+                let origin = list.origin(index as usize);
+                (origin.origin.and_then(crate::object::AbilityOrigin::printed), origin.index)
             });
             if let Some((Some(face), at)) = found
                 && from_pool(lookup, face.card())
@@ -478,9 +505,10 @@ pub(crate) fn note_sources(state: &GameState, lookup: &impl CardLookup) {
             let Some(obj) = state.object(entry.source) else {
                 continue;
             };
-            let (list, face) = (obj.abilities(lookup), obj.printed_face());
-            let at = position(list, |a| matches!(a, AbilityDef::Replacement(r) if *r == entry.rule));
-            if let (Some(at), Some(face)) = (at, face)
+            let list = obj.ability_list(lookup);
+            let origin = position(&list.abilities, |a| matches!(a, AbilityDef::Replacement(r) if *r == entry.rule))
+                .map(|index| list.origin(index as usize));
+            if let Some((at, face)) = origin.and_then(|origin| Some((origin.index, origin.origin?.printed()?)))
                 && from_pool(lookup, face.card())
             {
                 sources.rules.push((entry.source, entry.rule, face.card(), at));
@@ -535,14 +563,14 @@ pub(crate) fn copied_on_entry(state: &GameState, lookup: &impl CardLookup, copie
     let Some(obj) = state.object(copier) else {
         return;
     };
-    let (list, face) = printed(obj, lookup);
-    let at = position(list, |a| {
+    let list = printed(obj, lookup);
+    let at = position(&list.abilities, |a| {
         matches!(
             a,
             AbilityDef::CopyOnEnter { .. } | AbilityDef::CopyOnEnterUntilEot { .. }
         )
     });
     if let Some(at) = at {
-        fired_from(lookup, face, at, Kind::Replacement);
+        fired_ability(lookup, &list, at, Kind::Replacement);
     }
 }

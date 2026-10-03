@@ -42,7 +42,10 @@ fn clockwork_beast_independent_full_seven_and_zero_x_do_not_add_counters_and_foe
         engine.apply(player, PlayerAction::ChooseNumber(x)).unwrap();
         pass_until(&mut engine, stack_is_empty);
         assert_eq!(beast_counters(&engine, beast), 7);
-        assert_eq!(engine.state().players[0].mana_pool.total(), 4 - x);
+        assert_eq!(
+            engine.state().players[0].mana_pool.total(),
+            u64::from(4 - x)
+        );
         assert!(
             engine
                 .state()

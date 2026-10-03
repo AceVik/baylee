@@ -17182,15 +17182,9 @@ fn machine_gods_effigy_enters_as_noncreature_artifact_copy_and_taps_for_blue() {
         "it is not a creature"
     );
 
-    // The copy's rules text is the Elf's, so index 0 is the Elf's {T}: Add
-    // {G} and the card's own printed {U} is gone (CR 707.2). The {U} is the
-    // one the copy clause gives it (CR 707.9a), offered at the grant slot.
-    activate(
-        &mut engine,
-        p0,
-        machine_god_s_effigy(),
-        crate::choice::GRANTED_ABILITY,
-    );
+    // The copy retains the Elf's mana ability at index 0 and its copiable
+    // exception adds the blue mana ability at index 1.
+    activate(&mut engine, p0, machine_god_s_effigy(), 1);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -17989,16 +17983,33 @@ fn pithing_needle_returned_to_hand_forgets_its_name_and_asks_again() {
     );
 }
 
-/// Illusionary Mask remains partial: it casts but implements no rules text.
+/// Mask casts as an artifact and offers its sorcery-speed X ability.
 #[test]
-fn illusionary_mask_remains_partial_and_sits_doing_nothing() {
+fn illusionary_mask_casts_and_offers_its_x_ability() {
     let card = card_index("05ac866d-0405-4d25-986a-c10fcfc097e6");
-    let def = baylee_cards::by_index(card).expect("in the pool");
-    assert!(matches!(
-        def.coverage,
-        baylee_cards_dsl::Coverage::Partial(_)
-    ));
-    assert_eq!(cast_saying_nothing(card, forest(), 2), Zone::Battlefield);
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest()])
+        .hand(0, &[card])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, card);
+    pass_until(&mut engine, stack_is_empty);
+    let mask = on_battlefield(&engine, p0, card).expect("Mask resolved");
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    assert!(legal.abilities.contains(&(mask, 0)));
+    assert!(
+        engine
+            .state()
+            .object(mask)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::ARTIFACT)
+    );
 }
 
 /// Library of Leng — "You have no maximum hand size." (Its discard
@@ -20526,7 +20537,7 @@ fn alpha_eval_gauntlets_stack_and_stop_after_disenchant() {
                 .mana_pool
                 .available(ManaColor::Red)
                 - before,
-            u16::try_from(3 - removed).unwrap(),
+            u32::try_from(3 - removed).unwrap(),
             "one extra per surviving Gauntlet"
         );
         let Some(owner) = [p1, p0].get(removed).copied() else {

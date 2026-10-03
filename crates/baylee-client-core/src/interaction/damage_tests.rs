@@ -228,3 +228,39 @@ fn redirection_allocates_unpreventable_damage_with_exact_ids_and_remaining_amoun
         }
     );
 }
+
+#[test]
+fn mandatory_mana_is_never_a_pass_and_a_new_step_drops_the_draft() {
+    use baylee_core::ids::DamageSourceRef;
+    use baylee_engine::choice::{ManaAbilityChoice, ManaChoiceId};
+    let source = DamageSourceRef {
+        object: ObjectId::new(8, 0),
+        version: 2,
+    };
+    let choice = ManaChoiceId { source, step: 5 };
+    let pending = Pending::ChooseManaAbility {
+        player: ME,
+        choice,
+        options: vec![ManaAbilityChoice {
+            source,
+            ability_index: Some(1),
+        }],
+    };
+    let mut interaction = Interaction::new(pending.clone(), ME);
+    assert!(!interaction.can_confirm());
+    assert!(interaction.confirm().is_none());
+    interaction.choose_index(0);
+    assert_eq!(
+        interaction.confirm(),
+        Some(PlayerAction::ChooseManaAbility {
+            choice,
+            source,
+            ability_index: Some(1)
+        })
+    );
+    let mut next = pending;
+    if let Pending::ChooseManaAbility { choice, .. } = &mut next {
+        choice.step += 1;
+    }
+    assert!(!Interaction::new_keeping(next, ME, Some(&interaction)).can_confirm());
+}

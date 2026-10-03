@@ -12,6 +12,7 @@
 mod activate;
 mod board;
 pub mod combat;
+mod constrained;
 mod copying;
 mod damage;
 mod fight;
@@ -352,6 +353,9 @@ impl HeuristicAgent {
     ) -> PlayerAction {
         let player = view.seat;
         match pending {
+            Pending::ChooseManaAbility {
+                choice, options, ..
+            } => constrained::mana_choice(choice, &options).unwrap_or(PlayerAction::PassPriority),
             ref pending @ (Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }) => {
@@ -597,6 +601,9 @@ impl HeuristicAgent {
             Pending::ChooseNumber {
                 min, max, reason, ..
             } => PlayerAction::ChooseNumber(match reason {
+                baylee_engine::choice::NumberPrompt::TextReplacement { kind, target } => {
+                    constrained::text_word(view, kind, target).clamp(min, max)
+                }
                 // The cost was already paid. Evaluate the offered counters,
                 // without trying to buy X again from the remaining mana pool.
                 baylee_engine::choice::NumberPrompt::Counters { target, kind } => {
@@ -737,8 +744,7 @@ impl HeuristicAgent {
 
 /// The `n` costliest cards in the seat's own hand.
 fn costliest(view: &PlayerView, n: usize) -> Vec<ObjectId> {
-    let mut hand: Vec<(u32, ObjectId)> = view
-        .hand
+    let mut hand: Vec<(u32, ObjectId)> = baylee_client_core::decision::hand(view)
         .iter()
         .map(|card| (card.mana_value, card.id))
         .collect();
@@ -856,7 +862,8 @@ pub fn only_makes_mana(view: &PlayerView, object: ObjectId, index: u32) -> bool 
 #[must_use]
 pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
     match pending {
-        Pending::Mulligan { player, .. }
+        Pending::ChooseManaAbility { player, .. }
+        | Pending::Mulligan { player, .. }
         | Pending::MulliganBottom { player, .. }
         | Pending::Priority { player, .. }
         | Pending::ChooseAttackers { player, .. }
@@ -893,6 +900,7 @@ mod tests {
         CombatView, CounterEntry, CounterKind, ObjectStatus, PlayerView, PublicObject, SeatView,
     };
 
+    mod constrained_tests;
     /// `worth`'s takes and declines, on this module's boards: a child of
     /// it, so the helpers below serve both.
     mod worth_tests;
@@ -5091,6 +5099,7 @@ mod tests {
             board_mana: None,
             flashback: None,
             grants: Vec::new(),
+            word_changes: Vec::new(),
         }
     }
 
@@ -5218,6 +5227,8 @@ mod tests {
             seats,
             hand: vec![],
             shared_hands: vec![],
+            controlled_hands: vec![],
+            decision_player: None,
             hand_shared_with: SeatSet::new(),
             hand_requests: SeatSet::new(),
             hand_requested: SeatSet::new(),

@@ -9,6 +9,7 @@
 use crate::eval;
 use crate::event::GameEvent;
 use crate::state::{CardLookup, GameState};
+use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::zone::{Zone, ZoneLocation};
 use baylee_cards_dsl::{AbilityDef, Condition, PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
@@ -47,6 +48,8 @@ pub struct PendingTrigger {
     /// this trigger is stacked. Synthetic keyword triggers carry their own
     /// effects instead and leave this `None`.
     pub abilities: Option<crate::object::AbilityList>,
+    /// Frozen words of this trigger, independent of later source text changes.
+    pub text: TextChangeMap,
     /// Controller of the trigger.
     pub controller: PlayerId,
     /// Timestamp of the source (stable same-controller ordering).
@@ -99,6 +102,50 @@ pub struct PendingTrigger {
     /// `TargetReq` is read through it, and the shared tail records
     /// `once_per_turn` and stacks it.
     pub chosen_mode: Option<u8>,
+}
+
+fn object_text(state: &GameState, object: &crate::object::GameObject) -> TextChangeMap {
+    state.text_changes.get(baylee_core::ids::DamageSourceRef {
+        object: object.id,
+        version: object.version,
+    })
+}
+
+fn ability_context(
+    state: &GameState,
+    object: &crate::object::GameObject,
+    list: &crate::object::AbilityList,
+    index: usize,
+) -> RuleContext {
+    RuleContext {
+        source: object.id,
+        text: list.base_text(index).then(object_text(state, object)),
+    }
+}
+
+fn condition_matches(
+    state: &GameState,
+    condition: Option<Condition>,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    condition
+        .is_none_or(|condition| eval::condition_holds_with_context(state, you, context, condition))
+}
+
+fn freeze_trigger(state: &GameState, trigger: &mut PendingTrigger) {
+    if let Some(list) = &mut trigger.abilities {
+        let live = trigger
+            .source_version
+            .map_or(TextChangeMap::IDENTITY, |version| {
+                state.text_changes.get(baylee_core::ids::DamageSourceRef {
+                    object: trigger.source,
+                    version,
+                })
+            });
+        *list = list.clone().with_base_text(live);
+        trigger.text = list.base_text(trigger.ability_index as usize);
+    }
 }
 
 /// What every triggered ability says about *whether* it fires, whatever
@@ -173,8 +220,8 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
     watch_triggers(state, events, &mut triggers);
     replicate_triggers(state, events, &mut triggers);
     collect_departed(state, lookup, events, &mut triggers);
-    crate::damage_history::collect(state, lookup, from_seq, &mut triggers);
     for trigger in &mut triggers {
+        freeze_trigger(state, trigger);
         trigger.event_mana_value = trigger.event_mana_value.or_else(|| {
             trigger.event_object.and_then(|id| {
                 state
@@ -185,6 +232,8 @@ pub fn collect(state: &GameState, lookup: &impl CardLookup, from_seq: u64) -> Ve
             })
         });
     }
+    // Death observers froze their words at the death, before this collection.
+    crate::damage_history::collect(state, lookup, from_seq, &mut triggers);
     // APNAP, then a stable timestamp order within each player's triggers.
     let active = state.turn.active;
     triggers.sort_by_key(|t| {
@@ -212,7 +261,7 @@ fn collect_emblems(
             else {
                 continue;
             };
-            let Some(abilities) = obj.own_abilities else {
+            let Some(abilities) = obj.own_abilities.as_ref() else {
                 continue;
             };
             for (index, ability) in abilities.iter().enumerate() {
@@ -223,18 +272,28 @@ fn collect_emblems(
                     continue;
                 }
                 let trigger = firing.trigger;
+                let list = obj.ability_list(lookup);
+                let context = ability_context(state, obj, &list, index);
                 // CR 603.4's first check, as in the battlefield loop below.
-                if !eval::intervening_if(state, firing.condition, obj.controller, emblem) {
+                if !condition_matches(state, firing.condition, obj.controller, context) {
                     continue;
                 }
                 for entry in events {
-                    let hit = hits(trigger, &entry.event, events, state, emblem, obj.controller);
+                    let hit = hits_with_context(
+                        trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        context,
+                        obj.controller,
+                    );
                     if hit > 0 {
                         let times = trigger_count(state, trigger, emblem, obj.controller) * hit;
                         let event_object = event_object_for(trigger, &entry.event, emblem);
                         let event_damage = event_damage_of(trigger, &entry.event, events);
                         for _ in 0..times {
                             triggers.push(PendingTrigger {
+                                text: TextChangeMap::IDENTITY,
                                 source_version: Some(obj.version),
                                 event_object_identity: event_object
                                     .and_then(|id| state.event_object_identity(id, entry.seq)),
@@ -318,24 +377,33 @@ fn graveyard_triggers(
                 let Some(firing) = triggered_parts(ability) else {
                     continue;
                 };
+                let context = ability_context(state, object, &list, index);
                 if firing.zone != TriggerZone::Graveyard
-                    || !eval::intervening_if(state, firing.condition, owner, source)
+                    || !condition_matches(state, firing.condition, owner, context)
                 {
                     continue;
                 }
                 for entry in events {
-                    let hit = hits(firing.trigger, &entry.event, events, state, source, owner);
+                    let hit = hits_with_context(
+                        firing.trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        context,
+                        owner,
+                    );
                     // These replacements describe triggered abilities of
                     // permanents (CR 109.2). A graveyard card is not one,
                     // even though its last controller is still stored.
                     for _ in 0..hit {
                         triggers.push(PendingTrigger {
                             source,
+                            text: TextChangeMap::IDENTITY,
                             source_version: Some(object.version),
                             event_object_identity: None,
                             counter_source_version: None,
                             ability_index: index as u32,
-                            abilities: Some(list),
+                            abilities: Some(list.clone()),
                             controller: owner,
                             timestamp: object.timestamp,
                             event_object: event_object_for(firing.trigger, &entry.event, source),
@@ -404,14 +472,16 @@ pub fn state_triggers(
             let Trigger::State(condition) = firing.trigger else {
                 continue;
             };
+            let context = ability_context(state, obj, &list, index);
             let index = index as u32;
             if in_flight(permanent, index)
-                || !eval::condition_holds(state, obj.controller, permanent, **condition)
-                || !eval::intervening_if(state, firing.condition, obj.controller, permanent)
+                || !eval::condition_holds_with_context(state, obj.controller, context, **condition)
+                || !condition_matches(state, firing.condition, obj.controller, context)
             {
                 continue;
             }
             triggers.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
                 source_version: Some(obj.version),
                 event_object_identity: None,
                 counter_source_version: None,
@@ -421,7 +491,7 @@ pub fn state_triggers(
                 event_damage: None,
                 source: permanent,
                 ability_index: index,
-                abilities: Some(list),
+                abilities: Some(list.clone()),
                 controller: obj.controller,
                 timestamp: obj.timestamp,
                 event_object: None,
@@ -432,6 +502,9 @@ pub fn state_triggers(
                 chosen_mode: None,
             });
         }
+    }
+    for trigger in &mut triggers {
+        freeze_trigger(state, trigger);
     }
     triggers
 }
@@ -462,6 +535,7 @@ fn replicate_triggers(
         };
         let copies = usize::from(spell.replicated).min(REPLICATE_COPIES.len());
         triggers.push(PendingTrigger {
+            text: TextChangeMap::IDENTITY,
             source_version: Some(spell.version),
             event_object_identity: None,
             counter_source_version: None,
@@ -529,6 +603,7 @@ fn watch_triggers(
             source,
             source_version,
             effects,
+            text,
         } = watch.action
         else {
             continue;
@@ -549,6 +624,7 @@ fn watch_triggers(
             continue;
         }
         triggers.push(PendingTrigger {
+            text,
             source_version: Some(source_version),
             event_object_identity: None,
             counter_source_version: None,
@@ -713,6 +789,7 @@ fn monarch_triggers(
         return;
     };
     let inherent = |effects, event_object| PendingTrigger {
+        text: TextChangeMap::IDENTITY,
         source_version: None,
         event_object_identity: None,
         counter_source_version: None,
@@ -972,10 +1049,12 @@ fn cast_this_spell_triggers(
             {
                 continue;
             }
-            if !eval::intervening_if(state, firing.condition, player, object) {
+            let context = ability_context(state, spell, &list, index);
+            if !condition_matches(state, firing.condition, player, context) {
                 continue;
             }
             triggers.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
                 event_object_identity: None,
                 counter_source_version: None,
@@ -984,7 +1063,7 @@ fn cast_this_spell_triggers(
                 event_departure: None,
                 source: object,
                 ability_index: index as u32,
-                abilities: Some(list),
+                abilities: Some(list.clone()),
                 controller: player,
                 timestamp: spell.timestamp,
                 event_object: Some(object),
@@ -1011,6 +1090,7 @@ fn cast_this_spell_triggers(
 /// the step's first card and no other, so "draw three" that opens the step
 /// fires it twice. That is a subtraction, which is why the count of
 /// happenings is taken here rather than multiplied in by the callers.
+#[cfg(test)]
 fn hits(
     trigger: &Trigger,
     event: &GameEvent,
@@ -1019,11 +1099,29 @@ fn hits(
     source: ObjectId,
     you: PlayerId,
 ) -> u32 {
+    hits_with_context(
+        trigger,
+        event,
+        batch,
+        state,
+        eval::live_context(state, source),
+        you,
+    )
+}
+
+fn hits_with_context(
+    trigger: &Trigger,
+    event: &GameEvent,
+    batch: &[crate::event::JournalEntry],
+    state: &GameState,
+    context: RuleContext,
+    you: PlayerId,
+) -> u32 {
     match trigger {
         Trigger::TargetedByOpponent {
             filter,
             you: counts_you,
-        } => targeted_by_opponent(event, state, filter, *counts_you, source, you) * repeats(event),
+        } => targeted_by_opponent(event, state, filter, *counts_you, context, you) * repeats(event),
         Trigger::DrawsExceptFirst(rel) => match event {
             GameEvent::CardsDrawn {
                 player,
@@ -1046,7 +1144,7 @@ fn hits(
             }
             _ => 0,
         },
-        _ => u32::from(matches(trigger, event, batch, state, source, you)) * repeats(event),
+        _ => u32::from(matches(trigger, event, batch, state, context, you)) * repeats(event),
     }
 }
 
@@ -1092,13 +1190,13 @@ fn departed_matches(
     state: &GameState,
     object: ObjectId,
     you: PlayerId,
-    source: ObjectId,
+    context: RuleContext,
 ) -> bool {
     let Some(o) = state.object_or_departed(object) else {
         return false;
     };
     let Some(was) = state.last_known_characteristics(object) else {
-        return eval::matches(filter, state, o, you, source);
+        return eval::matches_with_context(filter, state, o, you, context);
     };
     let mut as_it_was = o.clone();
     as_it_was.counters = state
@@ -1107,7 +1205,7 @@ fn departed_matches(
         .find(|(id, _)| *id == object)
         .map(|(_, counters)| counters.clone())
         .unwrap_or_default();
-    eval::matches_projected(filter, state, &as_it_was, was, you, source)
+    eval::matches_projected_with_context(filter, state, &as_it_was, was, you, context)
 }
 
 /// [`Trigger::TargetedByOpponent`]'s count: the fitting targets an
@@ -1123,12 +1221,13 @@ fn targeted_by_opponent(
     state: &GameState,
     filter: &baylee_cards_dsl::Filter,
     counts_you: bool,
-    source: ObjectId,
+    context: RuleContext,
     you: PlayerId,
 ) -> u32 {
     let fits = |target: ObjectId| {
         state.object(target).is_some_and(|o| {
-            o.zone == Zone::Battlefield && eval::matches(filter, state, o, you, source)
+            o.zone == Zone::Battlefield
+                && eval::matches_with_context(filter, state, o, you, context)
         })
     };
     match *event {
@@ -1264,13 +1363,13 @@ fn collect_for_objects(
                 .ltb_abilities
                 .iter()
                 .find(|(id, _)| *id == permanent)
-                .map(|(_, list)| *list)
+                .map(|(_, list)| list.clone())
         };
         // Not `obj.card`: a token has none, and bailing out here is how every
         // token on the battlefield used to be invisible to triggers —
         // including its own.
         let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
-        let abilities = list.abilities;
+        let abilities = list.abilities.clone();
         // Prowess (engine-level keyword trigger, CR 702.108).
         if obj
             .characteristics()
@@ -1294,6 +1393,7 @@ fn collect_for_objects(
                     ) {
                         let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
+                            text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             event_object_identity: None,
                             counter_source_version: None,
@@ -1400,6 +1500,7 @@ fn collect_for_objects(
                         ) {
                             let source = source_at_event(state, obj, events, entry, true);
                             triggers.push(PendingTrigger {
+                                text: TextChangeMap::IDENTITY,
                                 source_version: Some(source.version),
                                 event_object_identity: None,
                                 counter_source_version: None,
@@ -1435,6 +1536,11 @@ fn collect_for_objects(
             else {
                 continue;
             };
+            let text = state.effect_text(fx);
+            let context = RuleContext {
+                source: permanent,
+                text,
+            };
             let look_back = matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_));
             if !all_kinds && !look_back {
                 continue;
@@ -1447,12 +1553,12 @@ fn collect_for_objects(
                     continue;
                 }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
-                    hits(
+                    hits_with_context(
                         trigger,
                         &entry.event,
                         events,
                         state,
-                        permanent,
+                        context,
                         source.controller,
                     )
                 });
@@ -1461,6 +1567,7 @@ fn collect_for_objects(
                     let times = trigger_count(state, trigger, permanent, source.controller) * hit;
                     for _ in 0..times {
                         triggers.push(PendingTrigger {
+                            text,
                             source_version: Some(source.version),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
@@ -1493,7 +1600,7 @@ fn collect_for_objects(
         }
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
-        for ability in abilities {
+        for ability in &abilities {
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
@@ -1515,6 +1622,7 @@ fn collect_for_objects(
                     ) {
                         let source = source_at_event(state, obj, events, entry, false);
                         triggers.push(PendingTrigger {
+                            text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             event_object_identity: None,
                             counter_source_version: None,
@@ -1562,18 +1670,26 @@ fn collect_for_objects(
             // Before `trigger_count`, so a trigger multiplier has nothing
             // to double — Panharmonicon doubles a trigger, not a
             // non-trigger.
-            if !eval::intervening_if(state, firing.condition, obj.controller, permanent) {
-                continue;
-            }
             for entry in events {
+                let source = source_at_event(
+                    state,
+                    obj,
+                    events,
+                    entry,
+                    matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_)),
+                );
+                let context = ability_context(state, source, &list, index);
+                if !condition_matches(state, firing.condition, source.controller, context) {
+                    continue;
+                }
                 let hit = departure_hit(trigger, entry, permanent).unwrap_or_else(|| {
-                    hits(
+                    hits_with_context(
                         trigger,
                         &entry.event,
                         events,
                         state,
-                        permanent,
-                        obj.controller,
+                        context,
+                        source.controller,
                     )
                 });
                 if hit > 0 {
@@ -1589,11 +1705,12 @@ fn collect_for_objects(
                             matches!(trigger, Trigger::Dies(_) | Trigger::LeavesBattlefield(_)),
                         );
                         triggers.push(PendingTrigger {
+                            text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             event_object_identity: event_object
                                 .and_then(|id| state.event_object_identity(id, entry.seq)),
                             counter_source_version: crate::resolve::linked_counters::uses_links(
-                                abilities,
+                                &abilities,
                             )
                             .then(|| {
                                 // A source may return during the resolution that killed it,
@@ -1620,7 +1737,7 @@ fn collect_for_objects(
                             event_damage,
                             source: permanent,
                             ability_index: index as u32,
-                            abilities: Some(list),
+                            abilities: Some(list.clone()),
                             controller: source.controller,
                             timestamp: source.timestamp,
                             event_object,
@@ -1772,9 +1889,10 @@ fn matches(
     event: &GameEvent,
     batch: &[crate::event::JournalEntry],
     state: &GameState,
-    source: ObjectId,
+    context: RuleContext,
     you: PlayerId,
 ) -> bool {
+    let source = context.source;
     match (trigger, event) {
         // CR 701.27e for the second: the ability is read off the face the
         // permanent shows right after it turned over, which is the face that
@@ -1796,7 +1914,7 @@ fn matches(
             },
         ) => state
             .object(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         // The three leaves-the-battlefield triggers look back (CR 603.10a).
         (
             Trigger::LeavesBattlefield(filter),
@@ -1823,7 +1941,7 @@ fn matches(
                 to: Zone::Graveyard,
                 ..
             },
-        ) => departed_matches(filter, state, *object, you, source),
+        ) => departed_matches(filter, state, *object, you, context),
         (
             Trigger::DealsCombatDamageToPlayer(filter),
             GameEvent::DamageDealt {
@@ -1834,7 +1952,7 @@ fn matches(
             },
         ) => state
             .object(*damage_source)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (
             Trigger::DealsCombatDamageToOpponent(filter),
             GameEvent::DamageDealt {
@@ -1847,7 +1965,7 @@ fn matches(
             state.is_opponent(*player, you)
                 && state
                     .object(*damage_source)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         (
             Trigger::DealsDamageToOpponent(filter),
@@ -1862,7 +1980,7 @@ fn matches(
                 && state.is_opponent(*player, you)
                 && state
                     .object(*damage_source)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         (
             Trigger::DealtDamage(filter),
@@ -1882,7 +2000,7 @@ fn matches(
                     ))
                 && state
                     .object(*dealt)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         // The player's side of the arm above: once for a step's combat
         // damage to that player, once for every other damage event.
@@ -1926,17 +2044,17 @@ fn matches(
                 && first_mana_of_a_tap(event, batch, *tapped)
                 && state
                     .object(*tapped)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         // Any permanent the filter matches: City of Brass's `Filter::This`
         // is its source, Lifetap's is a Forest an opponent controls, and
         // Psychic Venom's the land it enchants.
         (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
             .object(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (Trigger::SpellCast(filter), GameEvent::SpellCast { object, .. }) => state
             .object(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (Trigger::NthSpellCast { n, filter }, GameEvent::SpellCast { object, player }) => {
             // The per-turn counter is bumped before the event is journalled,
             // so it already includes the spell this event is about: the nth
@@ -1951,7 +2069,7 @@ fn matches(
             count == u32::from(*n)
                 && state
                     .object(*object)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)
@@ -1972,7 +2090,7 @@ fn matches(
         },
         (Trigger::Attacks(filter), GameEvent::BecameAttacker { object, .. }) => state
             .object(*object)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source)),
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         // CR 509.3b and 509.3d: one event per blocker–attacker pair, so the
         // ability triggers once for each creature this one blocks and once
         // for each creature that blocks it. The filter is asked of the other
@@ -1994,7 +2112,7 @@ fn matches(
             };
             state
                 .object(other)
-                .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         (Trigger::AttacksAlone(filter), GameEvent::BecameAttacker { object, .. }) => {
             batch
@@ -2004,7 +2122,7 @@ fn matches(
                 == 1
                 && state
                     .object(*object)
-                    .is_some_and(|o| eval::matches(filter, state, o, you, source))
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
         (Trigger::FirstNoncreatureSpellCast(rel), GameEvent::SpellCast { object, player }) => {
             let player_matches = match rel {
@@ -2150,7 +2268,9 @@ mod tests {
                     )
                     .unwrap();
                 let object = state.object_mut(card).expect("card");
-                object.own_abilities = Some(ABILITIES);
+                object.take_abilities(crate::object::AbilityList::from_static(
+                    ABILITIES, None, None,
+                ));
                 object.set_controller(them());
                 let version = object.version;
                 rule(
@@ -2741,5 +2861,108 @@ mod tests {
             0,
             "a suppressor stops prowess as well"
         );
+    }
+    #[test]
+    fn printed_and_granted_triggers_freeze_their_own_word_context() {
+        use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+        use crate::object::AbilityList;
+        use crate::text_changes::TextReplacement;
+        use baylee_cards_dsl::{Duration, Effect, Layer, Modifier, TextWordKind};
+        use baylee_core::color::{Color, ColorSet};
+        use baylee_core::ids::EffectId;
+        static GREEN: Filter = Filter::HasColor(ColorSet::of(Color::Green));
+        static EFFECTS: &[Effect] = &[Effect::gain_life(1)];
+        static PRINTED: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+            Trigger::SpellCast(&GREEN),
+            EFFECTS,
+        )];
+        let mut state = state();
+        let recipient = permanent(&mut state, me(), "Recipient");
+        let grantor = permanent(&mut state, me(), "Grantor");
+        state
+            .object_mut(recipient)
+            .unwrap()
+            .take_abilities(AbilityList::from_static(PRINTED, None, None));
+        let recipient_id = state.source_identity(recipient).unwrap();
+        let grantor_id = state.source_identity(grantor).unwrap();
+        state.text_changes.replace(
+            recipient_id,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 4,
+                to: 3,
+            },
+        );
+        state.text_changes.replace(
+            grantor_id,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 4,
+                to: 1,
+            },
+        );
+        state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: Some(grantor),
+            controller: me(),
+            origin: EffectOrigin::Static,
+            layer: Layer::Ability,
+            timestamp: 1,
+            duration: Duration::WhileSourceOnBattlefield,
+            filter: EffectFilter::object(&state, recipient),
+            modifier: Modifier::GrantTriggered {
+                trigger: Trigger::SpellCast(&GREEN),
+                effects: EFFECTS,
+                target: None,
+            },
+        });
+        let from = state.journal.len() as u64;
+        for color in [Color::Blue, Color::Red] {
+            let name = state.names.intern("Spell");
+            let spell = state.create_bare(me(), ObjectKind::Spell, name, ZoneLocation::Stack);
+            state.object_mut(spell).unwrap().base_mut().colors = ColorSet::of(color);
+            state.journal.record(GameEvent::SpellCast {
+                object: spell,
+                player: me(),
+            });
+        }
+        let triggers = collect(&state, &RegistryLookup, from);
+        assert_eq!(
+            triggers.len(),
+            2,
+            "one printed red listener and one granted blue listener"
+        );
+        let printed = triggers
+            .iter()
+            .find(|trigger| trigger.synthetic_effects.is_none())
+            .unwrap();
+        let granted = triggers
+            .iter()
+            .find(|trigger| trigger.synthetic_effects.is_some())
+            .unwrap();
+        assert_eq!(printed.text.color_word(Color::Green), Color::Red);
+        assert_eq!(granted.text.color_word(Color::Green), Color::Blue);
+        assert_eq!(
+            printed.abilities.as_ref().unwrap().base_text(0),
+            printed.text
+        );
+        state.text_changes.replace(
+            recipient_id,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 3,
+                to: 0,
+            },
+        );
+        state.text_changes.replace(
+            grantor_id,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 1,
+                to: 0,
+            },
+        );
+        assert_eq!(printed.text.color_word(Color::Green), Color::Red);
+        assert_eq!(granted.text.color_word(Color::Green), Color::Blue);
     }
 }

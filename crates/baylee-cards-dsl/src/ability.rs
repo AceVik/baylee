@@ -884,6 +884,13 @@ pub enum CopyMod {
     /// Sets the colors ("except it's black"), replacing the copied ones
     /// (CR 707.9b).
     SetColor(baylee_core::color::ColorSet),
+    /// Keep the copier's color rather than taking the copied object's color.
+    KeepColor,
+    /// Add this ability to the copy's copiable values, including duplicates.
+    GrantAbility(&'static AbilityDef),
+    /// Preserve the ability currently resolving as an additional copiable
+    /// ability. This represents "it has this ability" without a cyclic AST.
+    KeepResolvingAbility,
     /// "…with no mana cost" (embalm, eternalize): the copy has no mana
     /// cost, so its mana value is 0 (CR 202.3a).
     NoManaCost,

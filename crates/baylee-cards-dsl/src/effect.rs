@@ -896,6 +896,21 @@ pub enum ExileUntil {
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Choose an affordable creature using the actual X-payment receipt,
+    /// then optionally cast it face down with an event-driven reveal replacement.
+    CastFaceDownUsingSpentX,
+    /// Choose a card in another player's hand, control their play of it,
+    /// and control that player again while the chosen spell resolves.
+    ControlPlayerPlayCard {
+        /// Player whose hand and resources are used.
+        player: PlayerRel,
+    },
+    /// Instruct a player to activate one mana ability of each land they control,
+    /// then move all their unspent mana to this effect's controller.
+    ActivateLandsAndTakeMana {
+        /// Player activating lands and transferring mana.
+        player: PlayerRel,
+    },
     /// Divide the amount evenly, rounded down, among the targets still
     /// legal when the spell resolves. Zero targets deal no damage.
     DealDamageEvenly {
@@ -2527,6 +2542,16 @@ pub enum Effect {
     /// then keep or change each of its targets, one at a time
     /// (CR 707.10c), as `ChooseNewTargets` asks.
     CopyThisSpell,
+    /// The exact source permanent becomes a copy of the first target.
+    BecomeCopyOfTarget {
+        /// Exceptions that join the resulting copiable values.
+        mods: &'static [crate::ability::CopyMod],
+    },
+    /// Replace one eligible rules word with another on the first target.
+    ChangeTextWord {
+        /// The word family; both distinct words are chosen on resolution.
+        kind: crate::TextWordKind,
+    },
     /// Attach the source (equipment/aura) to a target permanent.
     AttachSelf {
         /// To what.
@@ -3636,6 +3661,11 @@ impl Effect {
             | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
             | Effect::CopyTargetAbility
+            | Effect::CastFaceDownUsingSpentX
+            | Effect::ActivateLandsAndTakeMana { .. }
+            | Effect::ControlPlayerPlayCard { .. }
+            | Effect::BecomeCopyOfTarget { .. }
+            | Effect::ChangeTextWord { .. }
             | Effect::CopyThisSpell
             | Effect::AttachSelf { .. }
             | Effect::ReorderTopLibrary { .. }

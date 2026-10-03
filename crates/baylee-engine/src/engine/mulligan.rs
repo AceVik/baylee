@@ -107,8 +107,20 @@ impl<L: CardLookup> Engine<L> {
     pub fn pending_for(&self, seat: PlayerId) -> Option<&Pending> {
         match &self.mulligans {
             Some(window) => window.get(seat.get() as usize)?.question.as_ref(),
-            None => (self.pending.asked() == Some(seat)).then_some(&self.pending),
+            None => (self.decision_actor() == Some(seat)).then_some(&self.pending),
         }
+    }
+
+    /// Private information from a choice remains visible to its resource
+    /// player and to the actor controlling that player. This does not confer
+    /// authority to answer; hosts use `pending_for` for answer packets.
+    #[must_use]
+    pub fn information_pending_for(&self, seat: PlayerId) -> Option<&Pending> {
+        if self.mulligans.is_some() {
+            return self.pending_for(seat);
+        }
+        (self.pending.asked() == Some(seat) || self.decision_actor() == Some(seat))
+            .then_some(&self.pending)
     }
 
     /// Every seat being asked a question right now: all that have not yet
@@ -121,7 +133,7 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .filter_map(|seat| seat.question.as_ref()?.asked())
                 .collect(),
-            None => self.pending.asked().into_iter().collect(),
+            None => self.decision_actor().into_iter().collect(),
         }
     }
 

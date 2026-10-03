@@ -33,6 +33,7 @@ pub(crate) struct Assignment {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum EffectKey {
+    FaceUp(baylee_core::ids::DamageSourceRef),
     Shield(u64),
     Continuous(EffectId),
     Paid,
@@ -432,7 +433,7 @@ impl DamageWork {
                     }
                 }
             }
-            EffectKey::Continuous(_) => unreachable!("finite prevention"),
+            EffectKey::Continuous(_) | EffectKey::FaceUp(_) => unreachable!("finite prevention"),
         }
     }
 
@@ -487,6 +488,29 @@ impl DamageWork {
     }
 
     fn apply_effect(&mut self, state: &mut GameState, candidate: &Candidate) {
+        if let DamageEffectKind::TurnFaceUp { object } = candidate.option.kind {
+            if state
+                .object(object.object)
+                .is_some_and(|current| current.version == object.version)
+            {
+                state.reveal_masked(object.object);
+            }
+            state.refresh_characteristics();
+            for part in &mut self.parts {
+                if candidate.option.parts.contains(&part.view.id) {
+                    part.applied.push(candidate.key);
+                }
+                if part.view.source == object.object
+                    && part.source_version == Some(object.version)
+                    && let Some(source) = state.object(object.object)
+                {
+                    part.keywords = source.characteristics().keywords;
+                    part.controller = source.controller;
+                }
+            }
+            return;
+        }
+
         let mut prevented = 0_u32;
         let mut used = false;
         for part in &mut self.parts {
@@ -505,6 +529,7 @@ impl DamageWork {
                     part.applied.push(candidate.key);
                     used = true;
                 }
+                DamageEffectKind::TurnFaceUp { .. } => unreachable!("face-up handled first"),
                 DamageEffectKind::RemoveCounter { .. } => unreachable!("allocated counters"),
                 DamageEffectKind::PreventFromSource { all_but, .. } => {
                     let n = if preventable {

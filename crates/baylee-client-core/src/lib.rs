@@ -133,3 +133,9 @@ pub mod targeting;
 
 /// All players' publicly suspended cards and countdowns.
 pub mod suspended;
+
+/// Explicit old/new word choices for resolving text changes.
+pub mod text_choice;
+
+/// Separate decision actor, resource owner and entitled private hands.
+pub mod decision;

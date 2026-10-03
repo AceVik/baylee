@@ -72,7 +72,7 @@ fn cease(
     assert!(state.arena.remove(object).is_some());
 }
 
-fn pool(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u32 {
+fn pool(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u64 {
     engine.state().players[seat.get() as usize]
         .mana_pool
         .total()

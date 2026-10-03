@@ -24,24 +24,21 @@ card!(
         // The upkeep trigger exists only inside the quotation marks: the card
         // prints no ability of its own beside the copy clause, and one
         // written there would be overwritten by the copy (CR 707.2). The
-        // clause's "if this creature isn't a token" (CR 603.4) needs no
-        // condition here, because the grant is on this permanent alone and a
-        // token copy of it does not inherit it — the limit
-        // `CopyMod::Grant` names, landing on the side the printed condition
-        // lands on.
+        // quoted trigger is copiable too (CR 707.9a). Its intervening-if
+        // condition is checked both when it triggers and when it resolves.
         AbilityDef::CopyOnEnter {
             target: TargetSpec::Object(&Filter::CREATURE),
-            mods: &[CopyMod::Grant(&Modifier::GrantTriggered {
-                trigger: Trigger::StepBegin {
+            mods: &[CopyMod::GrantAbility(&triggered!(
+                Trigger::StepBegin {
                     step: StepKind::Upkeep,
                     whose: PlayerRel::You,
                 },
-                effects: &[Effect::CreateTokenCopyOf {
+                &[Effect::CreateTokenCopyOf {
                     target: None,
                     kicked_bonus: 0,
                 }],
-                target: None,
-            })],
+                condition = Some(Condition::SourceMatches(&Filter::Not(&Filter::IsToken))),
+            ))],
         },
     ],
 );

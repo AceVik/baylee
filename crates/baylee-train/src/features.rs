@@ -202,7 +202,7 @@ pub const GLOB_HEAD: [&str; 12] = [
 pub const GLOB_WIDTH: usize = GLOB_HEAD.len() + SEATS * SEAT_COLS.len();
 
 /// Question kinds, as `pending_kind` numbers them.
-pub const PENDING_KINDS: [&str; 22] = [
+pub const PENDING_KINDS: [&str; 23] = [
     "mulligan",
     "mulligan_bottom",
     "priority",
@@ -225,6 +225,7 @@ pub const PENDING_KINDS: [&str; 22] = [
     "choose_damage_effect",
     "allocate_prevention",
     "choose_damage_source",
+    "choose_mana_ability",
 ];
 
 /// The question's kind and how many answers it has, counting a multi-pick
@@ -233,6 +234,7 @@ pub const PENDING_KINDS: [&str; 22] = [
 pub fn question(pending: &Pending, hand: usize) -> (i16, u32) {
     let n = |v: usize| u32::try_from(v).unwrap_or(u32::MAX);
     match pending {
+        Pending::ChooseManaAbility { options, .. } => (22, n(options.len())),
         Pending::ChooseDamageSource { options, .. } => (21, n(options.len())),
         Pending::ChooseDamageEffect { options, .. } => (19, n(options.len())),
         Pending::AllocatePrevention { damage, .. } => (20, n(damage.len())),
@@ -290,6 +292,8 @@ pub fn seat_view(
         seq,
         Some(pending),
         &SeatContext {
+            decision_player: pending.asked(),
+            controlled_players: engine.controlled_players(seat),
             awaiting: awaiting_for(engine, seat),
             deciding: deciding(engine),
             held: engine.automation(seat).hold.suppresses(),

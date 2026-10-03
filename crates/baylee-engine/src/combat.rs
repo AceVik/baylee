@@ -112,6 +112,10 @@ pub struct CombatState {
     /// Incarnations declared as attackers or blockers during this combat.
     /// Removal from combat does not erase that history.
     pub participants: Vec<(ObjectId, u32)>,
+    /// Identities that had first or double strike as the first damage step began.
+    first_strikers: Option<Vec<(ObjectId, u32)>>,
+    /// Damage-step participants fixed before replacement effects reveal creatures.
+    prepared_damage: Option<(bool, Vec<(ObjectId, u32)>)>,
     /// Declared attackers, in declaration order.
     attackers: Vec<AttackerInfo>,
     /// The same creatures as `attackers`, sorted, each with what it
@@ -133,10 +137,17 @@ impl std::hash::Hash for CombatState {
         self.blockers.hash(state);
         self.divisions.hash(state);
         self.participants.hash(state);
+        self.first_strikers.hash(state);
+        self.prepared_damage.hash(state);
     }
 }
 
 impl CombatState {
+    /// Whether the pending damage step is the first-strike step.
+    pub(crate) fn prepared_first_strike(&self) -> Option<bool> {
+        self.prepared_damage.as_ref().map(|(first, _)| *first)
+    }
+
     /// Whether combat is underway.
     #[must_use]
     pub fn is_active(&self) -> bool {
@@ -1034,12 +1045,89 @@ fn strikes_now(state: &GameState, creature: ObjectId, first_strike_step: bool) -
     let Some(obj) = state.object(creature) else {
         return false;
     };
+    if let Some((first, eligible)) = &state.combat.prepared_damage {
+        return *first == first_strike_step && eligible.contains(&(creature, obj.version));
+    }
     let kw = obj.characteristics().keywords;
     if first_strike_step {
         kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
     } else {
-        !kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
+        kw.contains(K::DOUBLE_STRIKE)
+            || state
+                .combat
+                .first_strikers
+                .as_ref()
+                .is_none_or(|first| !first.contains(&(creature, obj.version)))
     }
+}
+
+/// CR 510.4 fixes the strike-step participants before assignments. Revealing
+/// a creature during assignment cannot create another damage step or remove
+/// its already-required assignment. Returns whether any permanent turned up.
+pub(crate) fn prepare_damage_step(state: &mut GameState, first: bool) -> bool {
+    if state.combat.prepared_damage.is_some() {
+        return false;
+    }
+    let mut creatures: Vec<_> = state
+        .combat
+        .attackers()
+        .iter()
+        .map(|a| a.creature)
+        .chain(blocking_creatures(state))
+        .collect();
+    creatures.sort_unstable();
+    creatures.dedup();
+    let eligible: Vec<_> = creatures
+        .iter()
+        .copied()
+        .filter(|&id| strikes_now(state, id, first))
+        .filter_map(|id| state.object(id).map(|object| (id, object.version)))
+        .collect();
+    if first {
+        state.combat.first_strikers = Some(eligible.clone());
+    }
+    state.combat.prepared_damage = Some((first, eligible));
+    // Preview only establishes which sources would assign nonzero damage;
+    // it neither spends existing divisions nor applies damage/prevention.
+    let mut assignments = Vec::new();
+    for attacker in state.combat.attackers() {
+        if strikes_now(state, attacker.creature, first) {
+            assign_attacker_damage(
+                state,
+                attacker.creature,
+                attacker.defending,
+                attacker.blocked,
+                &mut assignments,
+            );
+        }
+    }
+    for blocker in blocking_creatures(state) {
+        if strikes_now(state, blocker, first) {
+            for (attacker, amount) in shares(
+                state,
+                blocker,
+                &live_blocked(state, blocker),
+                power_of(state, blocker),
+            ) {
+                assign(
+                    &mut assignments,
+                    blocker,
+                    DamageTarget::Object(attacker),
+                    amount,
+                );
+            }
+        }
+    }
+    let mut changed = false;
+    for assignment in assignments {
+        if assignment.amount > 0 {
+            changed |= state.reveal_masked(assignment.source);
+        }
+    }
+    if changed {
+        state.refresh_characteristics();
+    }
+    changed
 }
 
 /// How much damage from `source` is lethal to `target` right now
@@ -1238,6 +1326,7 @@ pub(crate) fn collect_combat_damage(
     state: &mut GameState,
     first_strike_step: bool,
 ) -> Vec<crate::damage::Assignment> {
+    prepare_damage_step(state, first_strike_step);
     let mut assignments = Vec::new();
     for info in state.combat.attackers() {
         if strikes_now(state, info.creature, first_strike_step) {
@@ -1265,6 +1354,7 @@ pub(crate) fn collect_combat_damage(
         }
     }
     state.combat.divisions.clear();
+    state.combat.prepared_damage = None;
     assignments
 }
 
@@ -2092,6 +2182,45 @@ mod tests {
         );
     }
 
+    #[test]
+    fn assignment_reveal_cannot_retroactively_grant_an_extra_strike() {
+        use crate::object::{Rider, Status};
+        let mut state = empty_state();
+        let first = creature(&mut state, P0, 1, 1, KeywordSet::FIRST_STRIKE);
+        let masked = creature(&mut state, P0, 5, 5, KeywordSet::DOUBLE_STRIKE);
+        let object = state.object_mut(masked).unwrap();
+        object.original_base = Some(std::sync::Arc::clone(&object.base));
+        let base = object.base_mut();
+        base.power = Some(2);
+        base.toughness = Some(2);
+        base.keywords = KeywordSet::EMPTY;
+        object.status.insert(Status::FACE_DOWN);
+        object.riders.push(Rider::Masked);
+        attack(&mut state, first, P1);
+        attack(&mut state, masked, P1);
+        deal_combat_damage(&mut state, true);
+        assert_eq!(state.players[1].life, 19);
+        assert!(
+            state
+                .object(masked)
+                .unwrap()
+                .status
+                .contains(Status::FACE_DOWN)
+        );
+        deal_combat_damage(&mut state, false);
+        assert_eq!(
+            state.players[1].life, 14,
+            "revealed power assigns once in the already-required regular step"
+        );
+        assert!(
+            !state
+                .object(masked)
+                .unwrap()
+                .status
+                .contains(Status::FACE_DOWN)
+        );
+    }
+
     /// The control: a plain first striker must *not* strike twice, which
     /// is the only thing that makes the test above about double strike
     /// rather than about the step machinery.
@@ -2568,6 +2697,7 @@ mod tests {
             countered_source: None,
             target_lki: None,
             subject: crate::resolve::SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
             event_mana: None,
             retarget_left: None,
         };

@@ -3,6 +3,7 @@
 
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
+use crate::text_changes::TextChangeMap;
 
 /// Executes one token-creation effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
@@ -22,7 +23,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // the controller it had as it last existed on the
                 // battlefield (CR 608.2h), not the field on the exiled card.
                 let controller = state.last_known_controller(target_id).unwrap_or(you);
-                create_tokens(state, controller, token, None, 1);
+                create_tokens_with_text(state, controller, token, None, 1, res.text);
             }
             None
         }
@@ -55,7 +56,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // choice — and amass has nowhere to ask it. Doubling it here
             // would silently pick for the player; leaving it is a known
             // undercount, and the honest one until the choice exists.
-            let target_id = army.unwrap_or_else(|| create_token(state, you, token, None));
+            let target_id =
+                army.unwrap_or_else(|| create_token_with_text(state, you, token, None, res.text));
             // CR 701.47a: the Army becomes the named type in addition to its
             // other types, whether it was just created or was already there.
             // Written into the base rather than registered as a continuous
@@ -145,7 +147,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             {
                 let mut modified = (*base).clone();
                 for m in mods {
-                    apply_copy_mod(&mut modified, m);
+                    apply_copy_mod_with_text(&mut modified, m, res.text);
                 }
                 let made =
                     create_token_copies(state, you, original, &std::sync::Arc::new(modified), 1);
@@ -171,7 +173,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             if let Some(base) = crate::layers::copiable_values(state, res.source) {
                 let mut modified = (*base).clone();
                 for m in mods {
-                    apply_copy_mod(&mut modified, m);
+                    apply_copy_mod_with_text(&mut modified, m, res.text);
                 }
                 create_token_copies(state, you, res.source, &std::sync::Arc::new(modified), 1);
             }
@@ -189,7 +191,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 // every copy gets.
                 let mut modified = (*base).clone();
                 for m in mods {
-                    apply_copy_mod(&mut modified, m);
+                    apply_copy_mod_with_text(&mut modified, m, res.text);
                 }
                 create_token_copies(state, you, equipped, &std::sync::Arc::new(modified), count);
             }
@@ -197,7 +199,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::CreateTokenN { token, amount } => {
             let count = amount2(&amount, state, you, res);
-            create_tokens(state, you, token, None, count);
+            create_tokens_with_text(state, you, token, None, count, res.text);
             None
         }
         Effect::CreateTokenPtPerCount {
@@ -209,9 +211,22 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // One effect per token: `EffectFilter::ObjectIs` names exactly
             // one object, so a doubled token that shared its twin's effect
             // would be the printed 0/0 the definition leaves behind.
-            for id in create_tokens(state, you, token, None, 1) {
+            for id in create_tokens_with_text(state, you, token, None, 1, res.text) {
+                let modifier = baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t };
+                let list = state
+                    .printed_ability_list(id)
+                    .expect("new token has its rules");
+                let index = list.abilities.len() + list.runtime_statics().len();
+                let list = list.with_runtime_static(crate::copiable_abilities::RuntimeStatic {
+                    modifier,
+                    base_text: res.text,
+                });
+                state
+                    .object_mut(id)
+                    .expect("new token exists")
+                    .take_abilities(list);
                 let ts = state.next_timestamp();
-                state.effects.register(crate::effects::ContinuousEffect {
+                let effect = state.effects.register(crate::effects::ContinuousEffect {
                     id: baylee_core::ids::EffectId::new(0),
                     source: Some(id),
                     controller: you,
@@ -220,13 +235,21 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     timestamp: ts,
                     duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
                     filter: crate::effects::EffectFilter::object(state, id),
-                    modifier: baylee_cards_dsl::Modifier::ModifyPTPerCount { filter, p, t },
+                    modifier,
                 });
+                state.effect_text_overrides.push((
+                    effect,
+                    crate::text_changes::TextOrigin::Ability {
+                        source: state.source_identity(id).expect("new token identity"),
+                        index: u32::try_from(index).expect("ability index fits u32"),
+                        base: res.text,
+                    },
+                ));
             }
             None
         }
         Effect::CreateToken { token } => {
-            create_tokens(state, res.controller, token, None, 1);
+            create_tokens_with_text(state, res.controller, token, None, 1, res.text);
             None
         }
         Effect::CreateTokenFromLinked { token } => {
@@ -251,7 +274,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 }
             }
             if let Some(owner) = owner {
-                create_tokens(state, owner, token, Some(cmc as i16), 1);
+                create_tokens_with_text(state, owner, token, Some(cmc as i16), 1, res.text);
             }
             None
         }
@@ -259,52 +282,19 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
-/// Applies a copy modification to a token's base characteristics.
-pub(super) fn apply_copy_mod(base: &mut Characteristics, m: &baylee_cards_dsl::CopyMod) {
-    match m {
-        baylee_cards_dsl::CopyMod::AddType(t) => {
-            base.types = base.types.union(*t);
-        }
-        baylee_cards_dsl::CopyMod::RemoveType(t) => {
-            base.types = base.types.difference(*t);
-        }
-        baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
-            base.supertypes = base.supertypes.difference(*s);
-        }
-        baylee_cards_dsl::CopyMod::AddSubtype(s) => {
-            base.subtypes.insert(*s);
-        }
-        baylee_cards_dsl::CopyMod::AddKeyword(k) => {
-            base.keywords = base.keywords.union(*k);
-        }
-        baylee_cards_dsl::CopyMod::SetPT(p, t) => {
-            base.power = Some(*p);
-            base.toughness = Some(*t);
-        }
-        baylee_cards_dsl::CopyMod::SetColor(c) => {
-            base.colors = *c;
-        }
-        baylee_cards_dsl::CopyMod::NoManaCost => {
-            base.mana_cost = baylee_core::mana::ManaCost::ZERO;
-        }
-        // These are about the object rather than about the characteristics
-        // this function is handed. A counter is put on the permanent as it
-        // enters (CR 614.1c), which `progress::apply_copy_choice` does for
-        // the doors that copy a permanent; no token or spell-copy door puts
-        // one, and no card in the pool makes a token copy that enters with a
-        // counter (Littjara Mirrorlake stays Partial for it). An ability is
-        // not a `Characteristics` field at all — `progress::apply_copy_choice`
-        // keeps the copier's statics by registering them as the copy's own
-        // continuous effects, and this token door reaches no effect table.
-        // A granted ability (`CopyMod::Grant`, CR 707.9a) is the same case:
-        // a token or spell copy made "except it has …" would lose it here,
-        // and nothing in the pool is one.
-        baylee_cards_dsl::CopyMod::AddCounter(_, _)
-        | baylee_cards_dsl::CopyMod::AddCounterIf(_, _, _)
-        | baylee_cards_dsl::CopyMod::AddCounterX(_)
-        | baylee_cards_dsl::CopyMod::KeepOtherAbilities
-        | baylee_cards_dsl::CopyMod::Grant(_) => {}
-    }
+/// Maps literal words in a copy exception, leaving copied values unchanged.
+pub(super) fn apply_copy_mod_with_text(
+    base: &mut Characteristics,
+    modifier: &baylee_cards_dsl::CopyMod,
+    text: TextChangeMap,
+) {
+    let previous = base.clone();
+    crate::copiable_abilities::apply_characteristic_exceptions_with_text(
+        base,
+        &previous,
+        std::slice::from_ref(modifier),
+        text,
+    );
 }
 
 /// The door every token-creating effect goes through, and the only place
@@ -332,6 +322,24 @@ pub(super) fn create_tokens(
     size: Option<i16>,
     count: u32,
 ) -> Vec<ObjectId> {
+    create_tokens_with_text(
+        state,
+        controller,
+        token,
+        size,
+        count,
+        TextChangeMap::IDENTITY,
+    )
+}
+
+fn create_tokens_with_text(
+    state: &mut GameState,
+    controller: PlayerId,
+    token: &'static baylee_cards_dsl::TokenDef,
+    size: Option<i16>,
+    count: u32,
+    text: TextChangeMap,
+) -> Vec<ObjectId> {
     // The player a token is created under owns it (CR 111.2), and nothing
     // is created for a player who has left the game (CR 800.4b, 800.4d).
     if state.has_left(controller) {
@@ -339,7 +347,7 @@ pub(super) fn create_tokens(
     }
     let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
     (0..count)
-        .map(|_| create_token(state, controller, token, size))
+        .map(|_| create_token_with_text(state, controller, token, size, text))
         .collect()
 }
 
@@ -360,9 +368,8 @@ pub(super) fn create_tokens(
 /// `original` is read for all three places those can live: a copy of a
 /// Treasure keeps the definition, a copy of a copy keeps the list that copy
 /// was given, and a copy of a card names the face whose printed abilities it
-/// still owes — [`GameState::pending_copied_faces`], because a face's
-/// abilities are behind the card registry and this crate has no lookup for
-/// it.
+/// carries. The state's immutable rules cache supplies the current face's
+/// definitions before any of the new objects is created.
 /// Creates the copy of `token` that populate chose (CR 701.36a), from its
 /// copiable values (CR 707.2).
 pub(super) fn populate(state: &mut GameState, you: PlayerId, token: ObjectId) {
@@ -382,15 +389,11 @@ pub(super) fn create_token_copies(
     if state.has_left(controller) {
         return Vec::new();
     }
-    let (own, token, face) = state.object(original).map_or((None, None, None), |o| {
+    let own = state.printed_ability_list(original);
+    let (token, face) = state.object(original).map_or((None, None), |object| {
         (
-            o.own_abilities.map(|abilities| crate::object::AbilityList {
-                token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
-                abilities,
-                printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
-            }),
-            o.token,
-            o.card.map(|c| (c.index, o.face_index)),
+            object.token,
+            object.card.map(|card| (card.index, object.face_index)),
         )
     });
     let count = count.saturating_mul(crate::replacement::token_multiplier(state, controller));
@@ -402,8 +405,8 @@ pub(super) fn create_token_copies(
                     GameObject::new_bare(oid, controller, ObjectKind::Permanent, base.clone());
                 obj.timestamp = ts;
                 obj.controlled_since = ts;
-                if let Some(own) = own {
-                    obj.take_abilities(own);
+                if let Some(own) = &own {
+                    obj.take_abilities(own.clone());
                 }
                 obj.token = token;
                 obj
@@ -464,15 +467,24 @@ fn arrive(state: &mut GameState, id: ObjectId) {
     });
 }
 
-fn create_token(
+fn create_token_with_text(
     state: &mut GameState,
     controller: PlayerId,
     token: &'static baylee_cards_dsl::TokenDef,
     size: Option<i16>,
+    text: TextChangeMap,
 ) -> ObjectId {
     // Every Zombie of the same kind shares one printed face: the board this
     // has to survive is thousands of them.
-    let base = state.token_base(token, size);
+    let mut base = state.token_base(token, size);
+    if text != TextChangeMap::IDENTITY {
+        let changed = std::sync::Arc::make_mut(&mut base);
+        changed.colors = text.color_words(changed.colors);
+        changed.subtypes = text.land_types(changed.subtypes);
+        changed.keywords = text.keywords(changed.keywords);
+    }
+    let rules =
+        crate::object::AbilityList::from_static(token.abilities, None, None).with_base_text(text);
     let ts = state.next_timestamp();
     let id = state.arena.insert_with(|id| {
         let mut obj = GameObject::new_bare(id, controller, ObjectKind::Permanent, base);
@@ -483,6 +495,9 @@ fn create_token(
         // record of which token this is once the characteristics are copied
         // out of it.
         obj.token = Some(token);
+        if text != TextChangeMap::IDENTITY {
+            obj.take_abilities(rules);
+        }
         obj
     });
     arrive(state, id);
@@ -493,6 +508,7 @@ fn create_token(
 mod tests {
     use super::*;
     use crate::state::{CardLookup, ReplacementEntry};
+    use crate::text_changes::TextChangeMap;
     use baylee_cards_dsl::{Filter, ReplacementRule};
     use baylee_core::ids::CardIndex;
     use baylee_core::preset::{
@@ -764,6 +780,7 @@ mod tests {
             targeted: true,
             mana_ability: false,
             countered_source: None,
+            text: TextChangeMap::IDENTITY,
         };
         assert!(matches!(run(state, &mut res), Flow::Complete));
         state.refresh_characteristics();
@@ -859,6 +876,158 @@ mod tests {
             state.zones.list(ZoneLocation::Battlefield)[..],
             [forest],
             "the Forest alone"
+        );
+    }
+
+    #[test]
+    fn per_count_token_records_its_ability_for_copying_and_later_text_changes() {
+        use crate::text_changes::TextReplacement;
+        use baylee_cards_dsl::TextWordKind;
+        use baylee_core::color::{Color, ColorSet};
+        static GREEN: Filter = Filter::HasColor(ColorSet::of(Color::Green));
+        let mut state = state();
+        let green = create_tokens(
+            &mut state,
+            me(),
+            &baylee_cards::tokens::BOAR_2_2_GREEN,
+            None,
+            1,
+        )[0];
+        // The token's characteristic is a value. The green word in its
+        // quoted static ability remains text and can change afterwards.
+        resolve(
+            &mut state,
+            &[],
+            vec![Effect::CreateTokenPtPerCount {
+                token: &baylee_cards::tokens::CONSTRUCT_ARTIFACT_0_0,
+                filter: &GREEN,
+                p: 1,
+                t: 1,
+            }],
+        );
+        let construct = state
+            .battlefield_seen()
+            .find(|id| {
+                state
+                    .printed_ability_list(*id)
+                    .is_some_and(|rules| !rules.runtime_statics().is_empty())
+            })
+            .unwrap();
+        assert_eq!(
+            state.object(construct).unwrap().characteristics().power,
+            Some(1)
+        );
+        let identity = state.source_identity(construct).unwrap();
+        state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 4,
+                to: 1,
+            },
+        );
+        state.invalidate_projections();
+        state.refresh_characteristics();
+        assert_eq!(
+            state.object(construct).unwrap().characteristics().power,
+            Some(0)
+        );
+        assert_eq!(
+            state.object(green).unwrap().characteristics().colors,
+            ColorSet::of(Color::Green)
+        );
+        let base = crate::layers::copiable_values(&state, construct).unwrap();
+        let first = create_token_copies(&mut state, me(), construct, &base, 1)[0];
+        let second = create_token_copies(&mut state, me(), first, &base, 1)[0];
+        let rules = state.printed_ability_list(second).unwrap();
+        assert_eq!(rules.runtime_statics().len(), 1);
+        assert_eq!(
+            rules.runtime_statics()[0].base_text,
+            TextChangeMap::IDENTITY,
+            "later Sleight on the original token is not copiable"
+        );
+    }
+
+    #[test]
+    fn token_instruction_words_are_copiable_but_later_text_changes_are_not() {
+        use crate::text_changes::{RuleContext, TextReplacement};
+        use baylee_cards_dsl::{AbilityDef, CopyMod, TextWordKind, TokenDef};
+        use baylee_core::color::{Color, ColorSet};
+        use baylee_core::mana::ManaColor;
+        use baylee_core::types::TypeSet;
+        static TOKEN: TokenDef = TokenDef {
+            name: "Green token",
+            colors: ColorSet::of(Color::Green),
+            types: TypeSet::CREATURE,
+            power: Some(1),
+            toughness: Some(1),
+            abilities: &[baylee_cards_dsl::mana_ability!(&[Effect::mana(
+                ManaColor::Green,
+                1
+            )])],
+            ..TokenDef::DEFAULT
+        };
+        let mut state = state();
+        let mut text = TextChangeMap::IDENTITY;
+        text.replace(TextReplacement {
+            kind: TextWordKind::Color,
+            from: 4,
+            to: 1,
+        });
+        let made = create_tokens_with_text(&mut state, me(), &TOKEN, None, 1, text)[0];
+        let base = crate::layers::copiable_values(&state, made).unwrap();
+        assert_eq!(base.colors, ColorSet::of(Color::Blue));
+        assert_eq!(state.names.get(base.name), "Green token");
+        let rules = state.printed_ability_list(made).unwrap();
+        let AbilityDef::Activated { effects, .. } = rules.abilities[0] else {
+            panic!("mana ability")
+        };
+        assert_eq!(
+            effects,
+            &[Effect::mana(ManaColor::Green, 1)],
+            "a green mana symbol is not the color word green"
+        );
+        assert!(crate::eval::matches_with_context(
+            &Filter::HasColor(ColorSet::of(Color::Green)),
+            &state,
+            state.object(made).unwrap(),
+            me(),
+            RuleContext {
+                source: made,
+                text: rules.base_text(0)
+            },
+        ));
+        let identity = state.source_identity(made).unwrap();
+        state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: 1,
+                to: 3,
+            },
+        );
+        let copy = create_token_copies(&mut state, me(), made, &base, 1)[0];
+        let copied_rules = state.printed_ability_list(copy).unwrap();
+        assert_eq!(
+            copied_rules.base_text(0).color_word(Color::Green),
+            Color::Blue
+        );
+        assert_eq!(
+            state.object(copy).unwrap().base.colors,
+            ColorSet::of(Color::Blue)
+        );
+        let mut exception = (*base).clone();
+        apply_copy_mod_with_text(
+            &mut exception,
+            &CopyMod::SetColor(ColorSet::of(Color::Green)),
+            text,
+        );
+        assert_eq!(exception.colors, ColorSet::of(Color::Blue));
+        apply_copy_mod_with_text(&mut exception, &CopyMod::KeepColor, text);
+        assert_eq!(
+            exception.colors,
+            ColorSet::of(Color::Blue),
+            "a retained color is a value"
         );
     }
 }

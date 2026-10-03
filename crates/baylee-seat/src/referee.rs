@@ -93,6 +93,7 @@ pub fn check(pending: &Pending, answer: &PlayerAction) -> Result<(), Foul> {
 #[must_use]
 pub fn offers_nothing(pending: &Pending) -> bool {
     match pending {
+        Pending::ChooseManaAbility { options, .. } => options.is_empty(),
         Pending::ChooseDamageSource { options, .. } => options.is_empty(),
         Pending::ChooseDamageEffect { options, .. } => options.is_empty(),
         Pending::AllocatePrevention { damage, total, .. } => {
@@ -384,6 +385,7 @@ mod tests {
             Pending::ChoosePile { .. } => 17,
             Pending::GameOver(_) => 18,
             Pending::ChooseDamageSource { .. } => 21,
+            Pending::ChooseManaAbility { .. } => 22,
             Pending::ChooseDamageEffect { .. } => 19,
             Pending::AllocatePrevention { .. } => 20,
         }

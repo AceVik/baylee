@@ -280,3 +280,116 @@ fn a_whelp_that_left_and_came_back_is_not_sacrificed() {
         "the Whelp that came back is a new object and stays"
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)] // Follows one definition through hashing, a later text change and both source lifetimes.
+fn defined_delayed_trigger_freezes_color_words_across_source_changes() {
+    use crate::object::AbilityList;
+    use crate::state::DelayedAction;
+    use crate::text_changes::{TextChangeMap, TextReplacement};
+    use baylee_cards_dsl::{Amount, Effect, Filter, TextWordKind, ZoneSel};
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::generated::index;
+
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::activated!(
+        Cost::TAP,
+        &[Effect::AtNextEndStep {
+            effects: &[Effect::GainLife {
+                amount: Amount::CountOf {
+                    filter: &Filter::HasColor(ColorSet::of(Color::Green)),
+                    zone: ZoneSel::Battlefield,
+                },
+            }],
+        }]
+    )];
+    let player = PlayerId::new(0);
+    for leave in [false, true] {
+        let mut engine = Duel::new(185, forest())
+            .battlefield(
+                0,
+                &[
+                    forest(),
+                    index::HILL_GIANT,
+                    index::AIR_ELEMENTAL,
+                    index::AIR_ELEMENTAL,
+                ],
+            )
+            .start();
+        keep_mulligans(&mut engine);
+        assert!(walk_to_own_main(&mut engine, player));
+        let source = on_battlefield(&engine, player, forest()).unwrap();
+        let identity = engine.state.source_identity(source).unwrap();
+        engine
+            .state
+            .object_mut(source)
+            .unwrap()
+            .take_abilities(AbilityList::from_static(ABILITIES, None, None));
+        assert!(engine.state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: Color::Green as u8,
+                to: Color::Red as u8,
+            }
+        ));
+        engine.state.invalidate_projections();
+        engine
+            .apply(
+                player,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(engine.state.delayed.len(), 1);
+        let mut unchanged_words = engine.state.clone();
+        let (DelayedAction::Trigger { text, .. } | DelayedAction::TriggerAbout { text, .. }) =
+            &mut unchanged_words.delayed[0].action
+        else {
+            panic!("defined delayed ability");
+        };
+        *text = TextChangeMap::IDENTITY;
+        assert_ne!(
+            engine.state.snapshot_hash(),
+            unchanged_words.snapshot_hash(),
+            "the delayed definition's words are deterministic state"
+        );
+
+        // Its printed green word now means blue, after the delayed ability
+        // was defined using red. Removing the source must not erase that text.
+        assert!(engine.state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: TextWordKind::Color,
+                from: Color::Red as u8,
+                to: Color::Blue as u8,
+            }
+        ));
+        if leave {
+            engine
+                .state
+                .move_object(
+                    source,
+                    ZoneLocation::Graveyard(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+        }
+        engine.state.invalidate_projections();
+        let life = engine.state.players[0].life;
+        pass_until(&mut engine, at_end_step);
+        assert!(
+            !stack_is_empty(&engine),
+            "the delayed ability still uses the stack"
+        );
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state.players[0].life,
+            life + 1,
+            "counts the one red permanent, not two blue or zero green; left={leave}"
+        );
+    }
+}

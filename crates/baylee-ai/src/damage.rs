@@ -39,6 +39,7 @@ fn score(
         left -= share;
         let weight = value(view, part.recipient, hostile);
         let benefit = match effect.kind {
+            DamageEffectKind::TurnFaceUp { .. } => 0,
             DamageEffectKind::Redirect { to } | DamageEffectKind::RedirectNext { to, .. } => {
                 i64::try_from(share).unwrap_or(i64::MAX / 256) * (weight - value(view, to, hostile))
             }

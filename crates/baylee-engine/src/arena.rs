@@ -8,10 +8,12 @@
 //! beyond any real match, and removed slots hold no value, so the
 //! footprint stays proportional to objects ever created.
 //!
-//! Clone is a flat `Vec` copy (AI lookahead). Iteration is slot-ordered —
-//! always deterministic.
+//! Clones share immutable slots; the first write copies the slot vector.
+//! Decision checkpoints and AI lookahead avoid copying unchanged object
+//! storage. Iteration remains slot-ordered.
 
 use baylee_core::ids::ObjectId;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 struct Slot<T> {
@@ -22,7 +24,7 @@ struct Slot<T> {
 /// A dense arena with generational handles.
 #[derive(Clone, Debug)]
 pub struct Arena<T> {
-    slots: Vec<Slot<T>>,
+    slots: Arc<Vec<Slot<T>>>,
     len: usize,
 }
 
@@ -37,7 +39,7 @@ impl<T> Arena<T> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            slots: Vec::new(),
+            slots: Arc::new(Vec::new()),
             len: 0,
         }
     }
@@ -46,7 +48,7 @@ impl<T> Arena<T> {
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            slots: Vec::with_capacity(capacity),
+            slots: Arc::new(Vec::with_capacity(capacity)),
             len: 0,
         }
     }
@@ -68,15 +70,19 @@ impl<T> Arena<T> {
     /// # Panics
     /// When more than [`ObjectId::MAX_SLOT`] objects are created in one
     /// game.
-    pub fn insert_with(&mut self, f: impl FnOnce(ObjectId) -> T) -> ObjectId {
+    pub fn insert_with(&mut self, f: impl FnOnce(ObjectId) -> T) -> ObjectId
+    where
+        T: Clone,
+    {
         let slot = self.slots.len() as u32;
         assert!(slot <= ObjectId::MAX_SLOT, "arena slot overflow");
-        self.slots.push(Slot {
+        let slots = Arc::make_mut(&mut self.slots);
+        slots.push(Slot {
             generation: 0,
             value: None,
         });
         let id = ObjectId::new(slot, 0);
-        let s = &mut self.slots[id.slot() as usize];
+        let s = &mut slots[id.slot() as usize];
         debug_assert!(s.value.is_none());
         s.value = Some(f(id));
         self.len += 1;
@@ -84,7 +90,10 @@ impl<T> Arena<T> {
     }
 
     /// Inserts a value.
-    pub fn insert(&mut self, value: T) -> ObjectId {
+    pub fn insert(&mut self, value: T) -> ObjectId
+    where
+        T: Clone,
+    {
         self.insert_with(|_| value)
     }
 
@@ -101,8 +110,12 @@ impl<T> Arena<T> {
 
     /// Looks up a live entry mutably.
     #[must_use]
-    pub fn get_mut(&mut self, id: ObjectId) -> Option<&mut T> {
-        let s = self.slots.get_mut(id.slot() as usize)?;
+    pub fn get_mut(&mut self, id: ObjectId) -> Option<&mut T>
+    where
+        T: Clone,
+    {
+        self.get(id)?;
+        let s = Arc::make_mut(&mut self.slots).get_mut(id.slot() as usize)?;
         if s.generation == id.generation() {
             s.value.as_mut()
         } else {
@@ -113,8 +126,12 @@ impl<T> Arena<T> {
     /// Removes a live entry, invalidating its handle. The slot is NOT
     /// recycled (see the module docs) — the generation bump is belt and
     /// braces for the snapshot hash.
-    pub fn remove(&mut self, id: ObjectId) -> Option<T> {
-        let s = self.slots.get_mut(id.slot() as usize)?;
+    pub fn remove(&mut self, id: ObjectId) -> Option<T>
+    where
+        T: Clone,
+    {
+        self.get(id)?;
+        let s = Arc::make_mut(&mut self.slots).get_mut(id.slot() as usize)?;
         if s.generation != id.generation() {
             return None;
         }
@@ -135,8 +152,13 @@ impl<T> Arena<T> {
 
     /// Iterates all live values mutably (no ids — bulk maintenance only,
     /// e.g. clearing damage at cleanup).
-    pub fn iter_mut_all(&mut self) -> impl Iterator<Item = &mut T> {
-        self.slots.iter_mut().filter_map(|s| s.value.as_mut())
+    pub fn iter_mut_all(&mut self) -> impl Iterator<Item = &mut T>
+    where
+        T: Clone,
+    {
+        Arc::make_mut(&mut self.slots)
+            .iter_mut()
+            .filter_map(|s| s.value.as_mut())
     }
 
     /// Raw slot triples `(slot, generation, value)` in slot order — the
@@ -152,6 +174,35 @@ impl<T> Arena<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn snapshots_isolate_each_mutation_without_copying_read_only_slots() {
+        let mut original = Arena::new();
+        let first = original.insert(7);
+        let second = original.insert(11);
+        let snapshot = original.clone();
+        assert!(Arc::ptr_eq(&original.slots, &snapshot.slots));
+        assert!(original.get_mut(ObjectId::new(99, 0)).is_none());
+        assert!(original.remove(ObjectId::new(99, 0)).is_none());
+        assert!(Arc::ptr_eq(&original.slots, &snapshot.slots));
+
+        *original.get_mut(first).unwrap() = 13;
+        assert_eq!(snapshot.get(first), Some(&7));
+        assert!(!Arc::ptr_eq(&original.slots, &snapshot.slots));
+        let mut removed = snapshot.clone();
+        assert_eq!(removed.remove(second), Some(11));
+        assert_eq!(snapshot.get(second), Some(&11));
+        let mut inserted = snapshot.clone();
+        let third = inserted.insert(17);
+        assert!(snapshot.get(third).is_none());
+        let mut bulk = snapshot.clone();
+        for value in bulk.iter_mut_all() {
+            *value += 1;
+        }
+        assert_eq!(bulk.get(first), Some(&8));
+        assert_eq!(snapshot.get(first), Some(&7));
+        assert_eq!(snapshot.len(), 2);
+    }
 
     #[test]
     fn insert_get_remove() {

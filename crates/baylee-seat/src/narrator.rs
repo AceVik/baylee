@@ -247,6 +247,7 @@ impl Narrator {
             .hand
             .iter()
             .chain(view.shared_hands.iter().flat_map(|h| &h.cards))
+            .chain(view.controlled_hands.iter().flat_map(|h| &h.cards))
         {
             faces.push(RulesFace::from(card.card));
         }
@@ -466,6 +467,7 @@ impl<'a> Table<'a> {
             .hand
             .iter()
             .chain(self.view.shared_hands.iter().flat_map(|h| &h.cards))
+            .chain(self.view.controlled_hands.iter().flat_map(|h| &h.cards))
             .find(|card| card.id == id)
             .map(|card| card.name.clone())
     }

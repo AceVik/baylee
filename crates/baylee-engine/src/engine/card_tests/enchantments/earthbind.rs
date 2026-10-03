@@ -255,7 +255,8 @@ fn earthbind_old_trigger_does_not_grant_an_ability_to_a_returned_aura() {
         .unwrap()
         .object_mut(aura)
         .unwrap()
-        .own_abilities = Some(&[]);
+        .own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
     pass_until(&mut e, stack_is_empty);
     assert_eq!(damage(&e, aura), vec![(host, 2)]);
     assert!(flying(&e, host));

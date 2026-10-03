@@ -11,8 +11,8 @@
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
-/// Version 19 carries temporary player special actions and their payment offers.
-pub const PROTOCOL_VERSION: u32 = 19;
+/// Version 20 carries semantic text choices, constrained mana and controlled decisions.
+pub const PROTOCOL_VERSION: u32 = 20;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -243,7 +243,8 @@ mod tests {
         // 17: exact target incarnations and historical target projections.
         // 18: finite damage-redirection choices and allocation semantics.
         // 19: temporary player special actions and payment-window offers.
-        assert_eq!(PROTOCOL_VERSION, 19);
+        // 20: semantic text choices, constrained mana and controlled decisions.
+        assert_eq!(PROTOCOL_VERSION, 20);
     }
 
     #[test]

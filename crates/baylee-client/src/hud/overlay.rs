@@ -4396,7 +4396,7 @@ mod tests {
     /// The sentence is a parameter because the pool's tests all need to be
     /// able to rebuild the shelf *without* touching the pool, which is the
     /// premise the retained strip exists to survive.
-    fn pool_of(green: u16, prompt: &str) -> Duel {
+    fn pool_of(green: u32, prompt: &str) -> Duel {
         let mut duel = duel_watching();
         duel.last_error = Some(baylee_client_core::i18n::Refusal::Verbatim(
             prompt.to_string(),

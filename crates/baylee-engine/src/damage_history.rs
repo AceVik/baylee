@@ -6,6 +6,7 @@ use baylee_core::ids::ObjectId;
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::GameObject;
 use crate::state::{CardLookup, GameState};
+use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::trigger::PendingTrigger;
 use crate::zone::Zone;
 
@@ -22,7 +23,8 @@ pub(crate) struct DamageRecord {
 #[derive(Clone, Debug)]
 pub(crate) struct DamageObserver {
     pub object: GameObject,
-    pub grants: Vec<Modifier>,
+    pub grants: Vec<(Modifier, TextChangeMap)>,
+    pub text: TextChangeMap,
     pub times: u32,
 }
 
@@ -153,11 +155,15 @@ impl GameState {
                             }
                         ) && crate::effects::applies_to(self, fx, object)
                     })
-                    .map(|fx| fx.modifier)
+                    .map(|fx| (fx.modifier, self.effect_text(fx)))
                     .collect();
                 Some(DamageObserver {
                     object: object.clone(),
                     grants,
+                    text: self.text_changes.get(baylee_core::ids::DamageSourceRef {
+                        object: object.id,
+                        version: object.version,
+                    }),
                     times: crate::trigger::times_triggered(
                         self,
                         baylee_cards_dsl::TriggerEventKind::Any,
@@ -184,7 +190,7 @@ pub(crate) fn collect(
     for death in state.damage_deaths.iter().filter(|d| d.seq > from_seq) {
         for observer in &death.sources {
             let source = &observer.object;
-            let list = source.ability_list(lookup);
+            let list = source.ability_list(lookup).with_base_text(observer.text);
             for (index, ability) in list.abilities.iter().enumerate() {
                 let (AbilityDef::Triggered {
                     trigger,
@@ -203,19 +209,31 @@ pub(crate) fn collect(
                 else {
                     continue;
                 };
+                let context = RuleContext {
+                    source: source.id,
+                    text: list.base_text(index),
+                };
                 if *zone != TriggerZone::Battlefield
-                    || !crate::eval::intervening_if(state, *condition, source.controller, source.id)
-                    || !matches_death(trigger, state, death, source)
+                    || condition.is_some_and(|condition| {
+                        !crate::eval::condition_holds_with_context(
+                            state,
+                            source.controller,
+                            context,
+                            condition,
+                        )
+                    })
+                    || !matches_death(trigger, state, death, source, context)
                 {
                     continue;
                 }
                 let mut pending = pending(death, source);
                 pending.ability_index = index as u32;
-                pending.abilities = Some(list);
+                pending.abilities = Some(list.clone());
+                pending.text = context.text;
                 pending.once_per_turn = *once_per_turn;
                 out.extend(std::iter::repeat_n(pending, observer.times as usize));
             }
-            for grant in &observer.grants {
+            for (grant, text) in &observer.grants {
                 let Modifier::GrantTriggered {
                     trigger,
                     effects,
@@ -224,9 +242,14 @@ pub(crate) fn collect(
                 else {
                     continue;
                 };
-                if matches_death(trigger, state, death, source) {
+                let context = RuleContext {
+                    source: source.id,
+                    text: *text,
+                };
+                if matches_death(trigger, state, death, source, context) {
                     let mut pending = pending(death, source);
                     pending.synthetic_effects = Some(effects);
+                    pending.text = *text;
                     pending.synthetic_target = *target;
                     out.extend(std::iter::repeat_n(pending, observer.times as usize));
                 }
@@ -240,17 +263,19 @@ fn matches_death(
     state: &GameState,
     death: &DamageDeath,
     source: &GameObject,
+    context: RuleContext,
 ) -> bool {
     let Trigger::DiesAfterDamageByThis(filter) = trigger else {
         return false;
     };
-    crate::eval::matches(filter, state, &death.victim, source.controller, source.id)
+    crate::eval::matches_with_context(filter, state, &death.victim, source.controller, context)
 }
 
 fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
     PendingTrigger {
         source: source.id,
         source_version: Some(source.version),
+        text: crate::text_changes::TextChangeMap::IDENTITY,
         event_object_identity: Some((
             death.victim.version,
             death.victim.characteristics().power.unwrap_or(0),

@@ -659,7 +659,7 @@ fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
         assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
         assert_eq!(
             engine.state.players[0].mana_pool.total(),
-            u32::from(make_mana)
+            u64::from(make_mana)
         );
         assert!(matches!(engine.pending(), Pending::Priority { .. }));
         assert!(engine.state.extra_turns.is_empty());

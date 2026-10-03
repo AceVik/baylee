@@ -477,9 +477,12 @@ Central state/DSL/resolution files have one owner; a second Engine worker owns
 the disjoint text/copy modules and supplies integration hooks. Cargo runs remain
 serialized while implementation, independent review and client inspection may
 proceed concurrently. Existing full Oracle text and abilities dialogs remain.
-Additional UI proposal (word mapping, creature piles, controlled-player context,
-and Mask private choice/payment detail) was sent to the owner; approval is
-pending. Existing UI approval is limited to the temporary-action entry.
+After the owner requested a detailed description, five UI additions were
+explained: word replacement, creature groups, mandatory land-mana choices,
+controlled-player context and private Mask selection/payment details. The owner
+explicitly approved these with “Go!”. Client implementation may proceed within
+that scope; full Oracle text, existing abilities dialogs and explicit choices
+remain required. Further visual or interaction changes require a fresh proposal.
 
 
 ### Channel / Guardian Angel acceptance

@@ -1177,8 +1177,7 @@ impl BoardModel {
         // the pointer was not the card that got clicked. Sorting was carrying
         // information that `playable`/`reachable` already carry as light, and
         // it was the one that could move a card out from under a click.
-        let hand: Vec<HandCard> = view
-            .hand
+        let hand: Vec<HandCard> = crate::decision::hand(view)
             .iter()
             .map(|h| HandCard {
                 id: h.id,

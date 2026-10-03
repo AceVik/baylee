@@ -153,6 +153,7 @@ fn resolve_now(
         countered_source: None,
         target_lki: None,
         subject: crate::resolve::SubjectContext::default(),
+        text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
     };

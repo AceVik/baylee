@@ -407,8 +407,19 @@ pub fn options(
             out.extend(options.iter().map(|id| Choice::Entity(*id, verb::PICK)));
         }
         Pending::ChooseCards {
-            options, min, max, ..
+            options,
+            min,
+            max,
+            prompt,
+            ..
         } => {
+            if matches!(
+                prompt,
+                baylee_engine::choice::ChoicePrompt::CastFaceDown { .. }
+                    | baylee_engine::choice::ChoicePrompt::CommandCard
+            ) {
+                return Err(Unscored::Unsupported);
+            }
             if picked.count >= usize::from(*min) {
                 out.push(Choice::Fixed(fixed::DONE));
             }
@@ -464,7 +475,12 @@ pub fn options(
         } => {
             // A share of combat damage (CR 510.1c) reads as an X to an
             // encoder that does not see `reason`; the house answers it.
-            if *max > MAX_NUMBER || matches!(reason, NumberPrompt::CombatDamage { .. }) {
+            if *max > MAX_NUMBER
+                || matches!(
+                    reason,
+                    NumberPrompt::CombatDamage { .. } | NumberPrompt::TextReplacement { .. }
+                )
+            {
                 return Err(Unscored::Unsupported);
             }
             out.extend((*min..=*max).map(Choice::Number));
@@ -472,7 +488,8 @@ pub fn options(
         Pending::ChoosePlayer { options, .. } => {
             out.extend(options.iter().map(|p| Choice::Player(*p)));
         }
-        Pending::ChooseDamageSource { .. }
+        Pending::ChooseManaAbility { .. }
+        | Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
@@ -536,13 +553,27 @@ pub fn steps(
 ) -> Result<Vec<Step>, Unmatched> {
     if matches!(
         pending,
-        Pending::ChooseDamageSource { .. }
+        Pending::ChooseManaAbility { .. }
+            | Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }
     ) {
         return Err(Unmatched::Unscored(Unscored::Unsupported));
     }
     if matches!(pending, Pending::Priority { legal, .. } if !legal.granted_actions.is_empty()) {
+        return Err(Unmatched::Unscored(Unscored::Unsupported));
+    }
+    if matches!(
+        pending,
+        Pending::ChooseNumber {
+            reason: NumberPrompt::TextReplacement { .. },
+            ..
+        } | Pending::ChooseCards {
+            prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. }
+                | baylee_engine::choice::ChoicePrompt::CommandCard,
+            ..
+        }
+    ) {
         return Err(Unmatched::Unscored(Unscored::Unsupported));
     }
     let single = |c: Choice| vec![c];
@@ -799,7 +830,8 @@ pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unm
             Choice::Player(p) => PlayerAction::ChoosePlayer(p),
             _ => return Err(Unmatched::Shape),
         },
-        Pending::ChooseDamageSource { .. }
+        Pending::ChooseManaAbility { .. }
+        | Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. }
         | Pending::Arrange { .. }
@@ -1093,15 +1125,44 @@ mod tests {
     }
 }
 
+/// Skip player-control decisions before encoding another player's resources.
+pub fn model_input_for_view<T>(
+    view: &baylee_view::PlayerView,
+    pending: &Pending,
+    build: impl FnOnce() -> T,
+) -> Option<T> {
+    if view
+        .decision_player
+        .is_some_and(|player| player != view.seat)
+    {
+        return None;
+    }
+    model_input(pending, build)
+}
+
 /// Damage decisions have no model encoding yet. Call before building features
 /// or samples so their diagnostic kind IDs never reach an existing model.
 pub fn model_input<T>(pending: &Pending, build: impl FnOnce() -> T) -> Option<T> {
+    if matches!(
+        pending,
+        Pending::ChooseNumber {
+            reason: NumberPrompt::TextReplacement { .. },
+            ..
+        } | Pending::ChooseCards {
+            prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. }
+                | baylee_engine::choice::ChoicePrompt::CommandCard,
+            ..
+        }
+    ) {
+        return None;
+    }
     if matches!(pending, Pending::Priority { legal, .. } if !legal.granted_actions.is_empty()) {
         return None;
     }
     if matches!(
         pending,
-        Pending::ChooseDamageSource { .. }
+        Pending::ChooseManaAbility { .. }
+            | Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }
     ) {

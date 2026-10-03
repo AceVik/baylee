@@ -14,7 +14,7 @@ pub(crate) fn pay_fixed(
     cost: &ManaCost,
     sources: &[Source],
 ) -> Option<PlayerAction> {
-    let seat = view.seat(view.seat)?;
+    let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
     let (grant, pool) = planned_pool(view, legal)?;
     let plan = manaplan::plan(cost, &pool, sources)?;
     if let Some(step) = plan.steps.first() {
@@ -38,7 +38,7 @@ pub(crate) fn planned_pool(
     view: &PlayerView,
     legal: &LegalActions,
 ) -> Option<(baylee_core::ids::GrantedActionId, ManaPoolView)> {
-    let seat = view.seat(view.seat)?;
+    let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
     let life = u32::try_from(seat.life.saturating_sub(1)).unwrap_or(0);
     legal
         .granted_actions
@@ -60,8 +60,8 @@ pub(crate) fn planned_pool(
             let mut pool = seat.mana_pool;
             let extra = (life / cost)
                 .saturating_mul(u32::from(amount))
-                .min(u32::from(u16::MAX - pool.colorless));
-            pool.colorless += u16::try_from(extra).ok()?;
+                .min(u32::MAX - pool.colorless);
+            pool.colorless += extra;
             Some((grant.id, pool))
         })
         .max_by_key(|(_, pool)| pool.colorless)
@@ -75,7 +75,9 @@ pub(crate) fn protect(
     legal: &LegalActions,
     hostile: impl Fn(PlayerId) -> bool,
 ) -> Option<PlayerAction> {
-    let pool = &view.seat(view.seat)?.mana_pool;
+    let pool = &view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
     if pool.total().saturating_sub(pool.restricted_total()) != 1 {
         return None;
     }
@@ -122,7 +124,7 @@ pub(crate) fn viable_cast(
     {
         return true;
     }
-    let Some(seat) = view.seat(view.seat) else {
+    let Some(seat) = view.seat(baylee_client_core::decision::resource_player(view)) else {
         return false;
     };
     manaplan::plan(cost, &seat.mana_pool, sources).is_some()

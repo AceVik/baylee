@@ -106,7 +106,7 @@ fn a_mimic_that_copied_a_wizard_comes_home_a_mimic() {
     );
     assert!(
         matches!(
-            obj.abilities(&RegistryLookup).first(),
+            obj.abilities(&RegistryLookup).get(0),
             Some(AbilityDef::CopyOnEnter { .. })
         ),
         "cast again it must still be able to enter as a copy"

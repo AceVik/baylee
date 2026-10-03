@@ -23,7 +23,7 @@ fn upkeep(e: &mut Engine<RegistryLookup>, p: PlayerId) {
 fn mana(e: &mut Engine<RegistryLookup>, n: u16) {
     e.dev_state_mut(p0()).unwrap().players[0]
         .mana_pool
-        .add(ManaColor::Colorless, n);
+        .add(ManaColor::Colorless, u32::from(n));
     e.refresh_offer();
 }
 fn choose(e: &mut Engine<RegistryLookup>, id: ObjectId) {

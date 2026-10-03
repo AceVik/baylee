@@ -21,7 +21,7 @@ fn setup(board: &[CardIndex], hand: &[CardIndex]) -> Engine<RegistryLookup> {
 fn add_mana(e: &mut Engine<RegistryLookup>, player: PlayerId, color: ManaColor, n: u16) {
     e.dev_state_mut(player).unwrap().players[usize::from(player.get())]
         .mana_pool
-        .add(color, n);
+        .add(color, u32::from(n));
     e.refresh_offer();
 }
 

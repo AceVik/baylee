@@ -55,7 +55,10 @@ fn fitted(
     proposal: &PlayerAction,
     hostile: &dyn Fn(PlayerId) -> bool,
 ) -> Option<PlayerAction> {
-    let hand: Vec<ObjectId> = view.hand.iter().map(|card| card.id).collect();
+    let hand: Vec<ObjectId> = baylee_client_core::decision::hand(view)
+        .iter()
+        .map(|card| card.id)
+        .collect();
     match (pending, proposal) {
         (
             Pending::ChooseTargets {
@@ -137,6 +140,9 @@ fn least(
         objects: Vec::new(),
     };
     match pending {
+        Pending::ChooseManaAbility {
+            choice, options, ..
+        } => crate::constrained::mana_choice(*choice, options),
         Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. } => crate::damage::answer(view, pending, hostile),

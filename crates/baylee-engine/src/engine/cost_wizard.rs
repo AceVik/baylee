@@ -133,6 +133,17 @@ pub(crate) fn options(
     source: ObjectId,
     part: &CostPart,
 ) -> Vec<ObjectId> {
+    options_with_context(state, player, eval::live_context(state, source), part)
+}
+
+/// Cost choices under the words captured by a resolving ability.
+pub(crate) fn options_with_context(
+    state: &GameState,
+    player: PlayerId,
+    context: crate::text_changes::RuleContext,
+    part: &CostPart,
+) -> Vec<ObjectId> {
+    let source = context.source;
     // Crew (CR 702.122a): "other untapped creatures you control". Every
     // word is the rule's, so none of them is a filter the card carries.
     if matches!(part, CostPart::Crew(_)) {
@@ -182,7 +193,7 @@ pub(crate) fn options(
             state.object(**id).is_some_and(|o| {
                 (!controlled || o.controller == player)
                     && (!untapped || !o.status.contains(Status::TAPPED))
-                    && eval::matches(filter, state, o, player, source)
+                    && eval::matches_with_context(filter, state, o, player, context)
             })
         })
         .copied()
@@ -626,5 +637,47 @@ mod tests {
             options(&state, me(), source, &CostPart::TapSelf).is_empty(),
             "and the board has nothing to offer for it"
         );
+    }
+    #[test]
+    fn a_resolving_sacrifice_cost_keeps_its_captured_land_word() {
+        use crate::text_changes::{RuleContext, TextReplacement};
+        use baylee_core::generated::subtypes::land;
+        let mut state = state();
+        let source = creature(&mut state, me(), ZoneLocation::Battlefield, "Source");
+        let mut lands = Vec::new();
+        for (name, subtype) in [("Island", land::ISLAND), ("Mountain", land::MOUNTAIN)] {
+            let id = creature(&mut state, me(), ZoneLocation::Battlefield, name);
+            let base = state.object_mut(id).unwrap().base_mut();
+            base.types = TypeSet::LAND;
+            base.subtypes.insert(subtype);
+            lands.push(id);
+        }
+        let identity = state.source_identity(source).unwrap();
+        state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::BasicLandType,
+                from: 4,
+                to: 1,
+            },
+        );
+        let context = RuleContext {
+            source,
+            text: state.text_changes.get(identity),
+        };
+        state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::BasicLandType,
+                from: 1,
+                to: 3,
+            },
+        );
+        let cost = CostPart::Sacrifice(&Filter::HasSubtype(land::FOREST));
+        assert_eq!(
+            options_with_context(&state, me(), context, &cost),
+            vec![lands[0]]
+        );
+        assert_eq!(options(&state, me(), source, &cost), vec![lands[1]]);
     }
 }

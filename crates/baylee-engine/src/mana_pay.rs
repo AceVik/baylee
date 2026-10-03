@@ -76,7 +76,7 @@ pub fn payment_preferring(
     pool: &ManaPool,
     cost: &ManaCost,
     wild: bool,
-    prefer: [u16; 6],
+    prefer: [u32; 6],
 ) -> Option<ManaPool> {
     payment_with(
         pool,
@@ -97,7 +97,7 @@ pub fn payment_with(
     pool: &ManaPool,
     cost: &ManaCost,
     spending: ManaSpending,
-    prefer: [u16; 6],
+    prefer: [u32; 6],
 ) -> Option<ManaPool> {
     payment_restricting_generic(pool, cost, spending, prefer, None)
 }
@@ -109,13 +109,40 @@ pub fn payment_restricting_generic(
     pool: &ManaPool,
     cost: &ManaCost,
     spending: ManaSpending,
-    prefer: [u16; 6],
+    prefer: [u32; 6],
     restriction: Option<(ManaColor, u32)>,
 ) -> Option<ManaPool> {
+    payment_consuming(pool, cost, spending, prefer, restriction, [0; 6])
+}
+
+/// Solve while consuming at least `required` actual units of each mana type.
+/// Those units may pay any part of the cost that permits their actual type.
+/// A failed assignment backtracks across flexible symbols; generic amounts
+/// are charged in six bounded steps, regardless of their magnitude.
+#[must_use]
+pub fn payment_consuming(
+    pool: &ManaPool,
+    cost: &ManaCost,
+    spending: ManaSpending,
+    prefer: [u32; 6],
+    restriction: Option<(ManaColor, u32)>,
+    required: [u32; 6],
+) -> Option<ManaPool> {
+    let consumption = Consumption {
+        original: ManaColor::ALL.map(|color| pool.available(color)),
+        required,
+    };
+    if required
+        .iter()
+        .zip(consumption.original)
+        .any(|(&need, available)| need > available)
+    {
+        return None;
+    }
     let mut reserved = pool.clone();
     let mut remaining = *cost;
     if let Some((color, amount)) = restriction {
-        if amount > cost.generic_total() || !reserved.spend(color, u16::try_from(amount).ok()?) {
+        if amount > cost.generic_total() || !reserved.spend(color, amount) {
             return None;
         }
         remaining = cost.with_less_generic(amount);
@@ -131,18 +158,42 @@ pub fn payment_restricting_generic(
         ManaSymbol::Colorless | ManaSymbol::Snow => (0, 0),
         _ => (0, 1),
     });
-    assign(reserved, &symbols, 0, prefer, spending)
+    assign(reserved, &symbols, 0, prefer, spending, &consumption)
+}
+
+struct Consumption {
+    original: [u32; 6],
+    required: [u32; 6],
+}
+
+impl Consumption {
+    fn pay_generic(&self, pool: &mut ManaPool, mut amount: u32, mut prefer: [u32; 6]) -> bool {
+        for color in ManaColor::ALL {
+            let i = color.index();
+            let already = self.original[i] - pool.available(color);
+            let remaining = self.required[i].saturating_sub(already);
+            let Some(left) = amount.checked_sub(remaining) else {
+                return false;
+            };
+            if !pool.spend(color, remaining) {
+                return false;
+            }
+            amount = left;
+            prefer[i] = prefer[i].saturating_sub(remaining);
+        }
+        pay_any(pool, amount, prefer)
+    }
 }
 
 /// `prefer` with one unit of `color` spent.
-fn spent(mut prefer: [u16; 6], color: ManaColor) -> [u16; 6] {
+fn spent(mut prefer: [u32; 6], color: ManaColor) -> [u32; 6] {
     prefer[color.index()] = prefer[color.index()].saturating_sub(1);
     prefer
 }
 
 /// `options` with the colours that still have preferred units first, each
 /// half in its given order.
-fn preferred_first(options: &[ManaColor], prefer: [u16; 6]) -> SmallVec<[ManaColor; 6]> {
+fn preferred_first(options: &[ManaColor], prefer: [u32; 6]) -> SmallVec<[ManaColor; 6]> {
     let wanted = |c: &&ManaColor| prefer[c.index()] > 0;
     options
         .iter()
@@ -158,8 +209,9 @@ fn assign(
     mut pool: ManaPool,
     symbols: &[ManaSymbol],
     generic: u32,
-    prefer: [u16; 6],
+    prefer: [u32; 6],
     spending: ManaSpending,
+    consumption: &Consumption,
 ) -> Option<ManaPool> {
     // Reject an undersized pool before exploring equivalent color choices.
     // A two-or-color pip needs at least one mana; deferred generic fallback
@@ -171,15 +223,17 @@ fn assign(
             _ => 1,
         })
     });
-    let available: u32 = ManaColor::ALL
+    let available: u64 = ManaColor::ALL
         .into_iter()
-        .map(|c| u32::from(pool.available(c)))
+        .map(|c| u64::from(pool.available(c)))
         .sum();
-    if minimum > available {
+    if u64::from(minimum) > available {
         return None;
     }
     let Some((symbol, rest)) = symbols.split_first() else {
-        return pay_any(&mut pool, generic, prefer).then_some(pool);
+        return consumption
+            .pay_generic(&mut pool, generic, prefer)
+            .then_some(pool);
     };
     let colors: &[ManaColor] = match *symbol {
         ManaSymbol::White => &[ManaColor::White],
@@ -192,7 +246,14 @@ fn assign(
             for color in preferred_first(&ManaColor::ALL, prefer) {
                 let mut trial = pool.clone();
                 if trial.spend_snow(color)
-                    && let Some(paid) = assign(trial, rest, generic, spent(prefer, color), spending)
+                    && let Some(paid) = assign(
+                        trial,
+                        rest,
+                        generic,
+                        spent(prefer, color),
+                        spending,
+                        consumption,
+                    )
                 {
                     return Some(paid);
                 }
@@ -205,10 +266,17 @@ fn assign(
             ManaColor::from_color(p.second()),
         ],
         ManaSymbol::Generic(n) => {
-            return assign(pool, rest, generic.saturating_add(n), prefer, spending);
+            return assign(
+                pool,
+                rest,
+                generic.saturating_add(n),
+                prefer,
+                spending,
+                consumption,
+            );
         }
         ManaSymbol::Variable(_) | ManaSymbol::HalfGeneric | ManaSymbol::Infinite => {
-            return assign(pool, rest, generic, prefer, spending);
+            return assign(pool, rest, generic, prefer, spending, consumption);
         }
     };
     // Literal colors first preserves the ordinary payer's choices. Added
@@ -226,13 +294,27 @@ fn assign(
     for color in preferred_first(&options, prefer) {
         let mut trial = pool.clone();
         if trial.spend(color, 1)
-            && let Some(paid) = assign(trial, rest, generic, spent(prefer, color), spending)
+            && let Some(paid) = assign(
+                trial,
+                rest,
+                generic,
+                spent(prefer, color),
+                spending,
+                consumption,
+            )
         {
             return Some(paid);
         }
     }
     if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
-        return assign(pool, rest, generic.saturating_add(2), prefer, spending);
+        return assign(
+            pool,
+            rest,
+            generic.saturating_add(2),
+            prefer,
+            spending,
+            consumption,
+        );
     }
     None
 }
@@ -242,29 +324,289 @@ fn assign(
 /// It succeeds exactly when the pool holds `n` units in all, whatever the
 /// preference: the first pass only decides which units the second pass
 /// does not have to find.
-fn pay_any(pool: &mut ManaPool, n: u32, prefer: [u16; 6]) -> bool {
+fn pay_any(pool: &mut ManaPool, n: u32, prefer: [u32; 6]) -> bool {
     let mut remaining = n;
     for color in ManaColor::ALL {
         let take = pool
             .available(color)
             .min(prefer[color.index()])
-            .min(u16::try_from(remaining).unwrap_or(u16::MAX));
+            .min(remaining);
         pool.spend(color, take);
-        remaining -= u32::from(take);
+        remaining -= take;
     }
     for color in ManaColor::ALL {
-        let take = pool
-            .available(color)
-            .min(u16::try_from(remaining).unwrap_or(u16::MAX));
+        let take = pool.available(color).min(remaining);
         pool.spend(color, take);
-        remaining -= u32::from(take);
+        remaining -= take;
     }
     remaining == 0
+}
+
+/// Whether one subset of an actual payment can pay `subset` while the
+/// remaining units can pay the fixed component. The subset is read as its
+/// actual mana types; spending permissions of the original payment apply
+/// only to the fixed component. No choice loops over a generic amount.
+#[must_use]
+pub(crate) fn paid_subset_can_pay(
+    paid: &ManaPool,
+    subset: &ManaCost,
+    limit: u32,
+    fixed: &ManaCost,
+    fixed_spending: ManaSpending,
+) -> bool {
+    let mut symbols: Vec<_> = subset
+        .symbols()
+        .map(|symbol| (symbol, true))
+        .chain(fixed.symbols().map(|symbol| (symbol, false)))
+        .collect();
+    symbols.sort_by_key(|(symbol, _)| matches!(symbol, ManaSymbol::Generic(_)));
+    split_assign(paid.clone(), &symbols, [0; 2], limit, fixed_spending)
+}
+
+fn split_assign(
+    pool: ManaPool,
+    symbols: &[(ManaSymbol, bool)],
+    generic: [u32; 2],
+    limit: u32,
+    fixed_spending: ManaSpending,
+) -> bool {
+    if generic[0] > limit {
+        return false;
+    }
+    let Some((&(symbol, subset), rest)) = symbols.split_first() else {
+        let available: u64 = ManaColor::ALL
+            .into_iter()
+            .map(|color| u64::from(pool.available(color)))
+            .sum();
+        return available >= u64::from(generic[0]) + u64::from(generic[1]);
+    };
+    let index = usize::from(!subset);
+    let mut generic = generic;
+    match symbol {
+        ManaSymbol::Generic(n) => {
+            generic[index] = generic[index].saturating_add(n);
+            return split_assign(pool, rest, generic, limit, fixed_spending);
+        }
+        ManaSymbol::Variable(_) => return split_assign(pool, rest, generic, limit, fixed_spending),
+        ManaSymbol::HalfGeneric | ManaSymbol::Infinite => return false,
+        _ => {}
+    }
+    let next_limit = if subset {
+        let Some(n) = limit.checked_sub(1) else {
+            return false;
+        };
+        n
+    } else {
+        limit
+    };
+    let accepts = |actual: ManaColor| {
+        let spending = if subset {
+            ManaSpending::EXACT
+        } else {
+            fixed_spending
+        };
+        match symbol {
+            ManaSymbol::Snow => true,
+            ManaSymbol::Colorless => actual == ManaColor::Colorless,
+            ManaSymbol::White => spending.permits(actual, ManaColor::White),
+            ManaSymbol::Blue => spending.permits(actual, ManaColor::Blue),
+            ManaSymbol::Black => spending.permits(actual, ManaColor::Black),
+            ManaSymbol::Red => spending.permits(actual, ManaColor::Red),
+            ManaSymbol::Green => spending.permits(actual, ManaColor::Green),
+            ManaSymbol::Phyrexian(color) | ManaSymbol::TwoOrColor(color) => {
+                spending.permits(actual, ManaColor::from_color(color))
+            }
+            ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
+                spending.permits(actual, ManaColor::from_color(pair.first()))
+                    || spending.permits(actual, ManaColor::from_color(pair.second()))
+            }
+            _ => false,
+        }
+    };
+    for color in ManaColor::ALL {
+        if !accepts(color) {
+            continue;
+        }
+        let mut next = pool.clone();
+        let spent = if symbol == ManaSymbol::Snow {
+            next.spend_snow(color)
+        } else {
+            next.spend(color, 1)
+        };
+        if spent && split_assign(next, rest, generic, next_limit, fixed_spending) {
+            return true;
+        }
+    }
+    if matches!(symbol, ManaSymbol::TwoOrColor(_)) {
+        generic[index] = generic[index].saturating_add(2);
+        return split_assign(pool, rest, generic, limit, fixed_spending);
+    }
+    false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mandatory_mana_consumption_backtracks_and_precedes_optional_preferences() {
+        let mut pool = ManaPool::new();
+        pool.add(ManaColor::White, 1);
+        pool.add(ManaColor::Blue, 100_000);
+        let mut required = [0; 6];
+        required[ManaColor::Blue.index()] = 1;
+        let mut prefer = [0; 6];
+        prefer[ManaColor::White.index()] = 1;
+        let paid = payment_consuming(
+            &pool,
+            &ManaCost::parse("{W/U}"),
+            ManaSpending::EXACT,
+            prefer,
+            None,
+            required,
+        )
+        .unwrap();
+        assert_eq!(
+            paid.available(ManaColor::White),
+            1,
+            "failed white branch backtracks to blue"
+        );
+        assert_eq!(paid.available(ManaColor::Blue), 99_999);
+        required[ManaColor::Blue.index()] = 90_000;
+        let paid = payment_consuming(
+            &pool,
+            &ManaCost::parse("{90000}"),
+            ManaSpending::EXACT,
+            prefer,
+            None,
+            required,
+        )
+        .unwrap();
+        assert_eq!(
+            paid.available(ManaColor::White),
+            1,
+            "required blue precedes preferred white"
+        );
+        assert_eq!(paid.available(ManaColor::Blue), 10_000);
+        assert!(
+            payment_consuming(
+                &pool,
+                &ManaCost::parse("{89999}"),
+                ManaSpending::EXACT,
+                prefer,
+                None,
+                required
+            )
+            .is_none()
+        );
+        assert_eq!(
+            pool.available(ManaColor::Blue),
+            100_000,
+            "failed searches are transactional"
+        );
+    }
+
+    #[test]
+    fn a_large_generic_payment_and_its_restricted_part_use_full_width() {
+        let mut pool = ManaPool::new();
+        pool.add(ManaColor::Blue, 160_000);
+        pool.add(ManaColor::Red, 2);
+        let mut preferred = [0; 6];
+        preferred[ManaColor::Blue.index()] = 100_000;
+        let paid = payment_restricting_generic(
+            &pool,
+            &ManaCost::parse("{140000}{R}"),
+            ManaSpending::EXACT,
+            preferred,
+            Some((ManaColor::Blue, 90_000)),
+        )
+        .expect("large type-constrained generic payment fits");
+        assert_eq!(paid.available(ManaColor::Blue), 20_000);
+        assert_eq!(paid.available(ManaColor::Red), 1);
+        let receipt = pool.payment_receipt(&paid).unwrap();
+        assert_eq!(receipt.total(), 140_001);
+        assert!(paid_subset_can_pay(
+            &receipt,
+            &ManaCost::parse("{140000}"),
+            140_000,
+            &ManaCost::parse("{R}"),
+            ManaSpending::EXACT,
+        ));
+    }
+
+    #[test]
+    fn full_width_pool_totals_do_not_overflow_solver_bounds() {
+        let mut pool = ManaPool::new();
+        pool.add(ManaColor::Blue, u32::MAX);
+        pool.add(ManaColor::Green, u32::MAX);
+        let paid = payment(&pool, &ManaCost::from_symbol_generic(u32::MAX)).unwrap();
+        assert_eq!(paid.total(), u64::from(u32::MAX));
+        assert!(paid_subset_can_pay(
+            &pool,
+            &ManaCost::from_symbol_generic(u32::MAX),
+            u32::MAX,
+            &ManaCost::from_symbol_generic(u32::MAX),
+            ManaSpending::EXACT,
+        ));
+    }
+
+    #[test]
+    fn paid_subset_reserves_fixed_colored_costs_and_actual_types() {
+        let paid = pool_of(&[(ManaColor::Green, 1), (ManaColor::Colorless, 1)]);
+        assert!(!paid_subset_can_pay(
+            &paid,
+            &ManaCost::parse("{G}"),
+            1,
+            &ManaCost::parse("{G}"),
+            ManaSpending::EXACT
+        ));
+        assert!(paid_subset_can_pay(
+            &paid,
+            &ManaCost::parse("{1}"),
+            1,
+            &ManaCost::parse("{G}"),
+            ManaSpending::EXACT
+        ));
+        assert!(!paid_subset_can_pay(
+            &paid,
+            &ManaCost::parse("{2}"),
+            1,
+            &ManaCost::ZERO,
+            ManaSpending::EXACT
+        ));
+        assert!(!paid_subset_can_pay(
+            &paid,
+            &ManaCost::parse("{U}"),
+            1,
+            &ManaCost::ZERO,
+            ManaSpending::ANY_COLOR
+        ));
+        let paid = pool_of(&[(ManaColor::Green, 1), (ManaColor::Blue, 1)]);
+        assert!(paid_subset_can_pay(
+            &paid,
+            &ManaCost::parse("{G/U}"),
+            1,
+            &ManaCost::parse("{G}"),
+            ManaSpending::EXACT
+        ));
+        let mut snow = ManaPool::new();
+        snow.add_snow(ManaColor::Green, 1);
+        snow.add(ManaColor::Colorless, 1);
+        assert!(paid_subset_can_pay(
+            &snow,
+            &ManaCost::parse("{S}"),
+            1,
+            &ManaCost::parse("{1}"),
+            ManaSpending::EXACT
+        ));
+        assert!(!paid_subset_can_pay(
+            &snow,
+            &ManaCost::parse("{S}"),
+            1,
+            &ManaCost::parse("{G}"),
+            ManaSpending::EXACT
+        ));
+    }
 
     fn white_as_red() -> ManaSpending {
         let mut spending = ManaSpending::EXACT;
@@ -479,7 +821,7 @@ mod tests {
     }
 
     /// A pool with the named colours, written the way a test reads.
-    fn pool_of(counts: &[(ManaColor, u16)]) -> ManaPool {
+    fn pool_of(counts: &[(ManaColor, u32)]) -> ManaPool {
         let mut pool = ManaPool::new();
         for &(color, n) in counts {
             pool.add(color, n);
@@ -491,7 +833,7 @@ mod tests {
     /// rather than only how much did — two pools of one mana are not the
     /// same pool, and a payment that spends the wrong colour passes every
     /// `total()` check.
-    fn remaining(pool: &ManaPool) -> Vec<(ManaColor, u16)> {
+    fn remaining(pool: &ManaPool) -> Vec<(ManaColor, u32)> {
         ManaColor::ALL
             .iter()
             .filter_map(|&c| match pool.available(c) {
@@ -702,14 +1044,14 @@ mod tests {
                         let possible = can_pay(&pool, cost);
                         for wanted in colors {
                             for n in 0..=pool.available(wanted) {
-                                let mut prefer = [0_u16; 6];
+                                let mut prefer = [0_u32; 6];
                                 prefer[wanted.index()] = n;
                                 let paid = payment_preferring(&pool, cost, false, prefer);
                                 assert_eq!(paid.is_some(), possible, "{cost} from {pool:?}");
                                 if let Some(paid) = paid {
                                     assert_eq!(
                                         pool.total() - paid.total(),
-                                        cost.cmc(),
+                                        u64::from(cost.cmc()),
                                         "{cost} from {pool:?} preferring {prefer:?}",
                                     );
                                 }

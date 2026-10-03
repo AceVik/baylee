@@ -119,7 +119,25 @@ pub fn of_object(
         .and_then(|(def, c)| def.faces.get(c.face as usize));
     let cost = printed.map(|f| &f.mana_cost);
     let text = card_of(object, view).and_then(|(card, face)| texts.face(card, face));
-    CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref())
+    let mut face = CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref());
+    let lang = texts.display_language();
+    for change in &object.word_changes {
+        let kind = if change.basic_land_type {
+            baylee_cards_dsl::TextWordKind::BasicLandType
+        } else {
+            baylee_cards_dsl::TextWordKind::Color
+        };
+        let words = baylee_client_core::text_choice::words(kind, lang);
+        if let (Some(from), Some(to)) = (
+            words.get(usize::from(change.from)),
+            words.get(usize::from(change.to)),
+        ) {
+            face.body.push(TextBlock::Rules(
+                Phrase::TextReplacementSummary.fill(lang, &[from, to]),
+            ));
+        }
+    }
+    face
 }
 
 /// The three type bitsets a registry face was printed with.
@@ -182,9 +200,7 @@ pub fn face_name(
     view: &baylee_view::PlayerView,
     texts: Option<&crate::cardtext::CardTexts>,
 ) -> Option<String> {
-    let card = view
-        .hand
-        .iter()
+    let card = baylee_client_core::decision::known_cards(view)
         .find(|c| c.id == object)
         .map(|c| c.card.index)
         .or_else(|| {

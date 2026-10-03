@@ -78,6 +78,7 @@ fn delayed_reference_retains_a_departed_source_across_cleanup_and_expires_with_t
             source,
             source_version: was.version,
             effects: &[],
+            text: crate::text_changes::TextChangeMap::IDENTITY,
         },
     });
     move_to(&mut state, source, ZoneLocation::Graveyard(P));
@@ -334,4 +335,128 @@ fn event_context_requires_an_actual_reader_and_copy_preserves_that_entitlement()
             if reads { vec![copy] } else { vec![] }
         );
     }
+}
+
+#[test]
+fn a_chosen_source_criterion_freezes_words_but_rechecks_the_damage_sources_color() {
+    use crate::text_changes::{RuleContext, TextReplacement};
+    use baylee_core::color::{Color, ColorSet};
+    static RED: Filter = Filter::HasColor(ColorSet::of(Color::Red));
+    let mut state = game();
+    let circle = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    let dealer = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    let untouched = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    state.object_mut(dealer).unwrap().base_mut().colors = ColorSet::of(Color::Blue);
+    state.object_mut(untouched).unwrap().base_mut().colors = ColorSet::of(Color::Red);
+    let circle_identity = state.source_identity(circle).unwrap();
+    let dealer_identity = state.source_identity(dealer).unwrap();
+    state.text_changes.replace(
+        circle_identity,
+        TextReplacement {
+            kind: baylee_cards_dsl::TextWordKind::Color,
+            from: 3,
+            to: 1,
+        },
+    );
+    let context = RuleContext {
+        source: circle,
+        text: state.text_changes.get(circle_identity),
+    };
+    assert_eq!(
+        options_with_context(&mut state, &RED, P, context),
+        vec![dealer_identity]
+    );
+    let chosen = ChosenSource::new_with_context(&state, dealer_identity, &RED, P, context).unwrap();
+    state.text_changes.replace(
+        circle_identity,
+        TextReplacement {
+            kind: baylee_cards_dsl::TextWordKind::Color,
+            from: 1,
+            to: 4,
+        },
+    );
+    assert!(
+        chosen.deals_as(&state, state.object(dealer).unwrap()),
+        "the resolved shield still waits for blue"
+    );
+    state.object_mut(dealer).unwrap().base_mut().colors = ColorSet::of(Color::Red);
+    assert!(
+        !chosen.deals_as(&state, state.object(dealer).unwrap()),
+        "the chosen source must still match at damage time"
+    );
+    state.object_mut(dealer).unwrap().base_mut().colors = ColorSet::of(Color::Blue);
+    assert!(
+        chosen.deals_as(&state, state.object(dealer).unwrap()),
+        "a nonmatching event did not consume the criterion"
+    );
+}
+
+#[test]
+fn wording_and_copy_metadata_keep_phased_readers_and_release_retired_incarnations() {
+    use crate::effects::{ContinuousEffect, EffectOrigin};
+    use crate::text_changes::{TextChangeMap, TextOrigin, TextReplacement};
+    use baylee_cards_dsl::{Duration, KeywordSet, Layer, TextWordKind};
+    use baylee_core::color::Color;
+    use baylee_core::ids::EffectId;
+    let mut state = game();
+    let source = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    let old = state.source_identity(source).unwrap();
+    state.text_changes.replace(
+        old,
+        TextReplacement {
+            kind: TextWordKind::Color,
+            from: 0,
+            to: 1,
+        },
+    );
+    let target = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
+    let filter = EffectFilter::object(&state, target);
+    let effect = state.effects.register(ContinuousEffect {
+        id: EffectId::new(0),
+        source: Some(target),
+        controller: P,
+        origin: EffectOrigin::Static,
+        layer: Layer::Ability,
+        timestamp: 1,
+        duration: Duration::Indefinitely,
+        filter,
+        modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+    });
+    state
+        .effect_text_overrides
+        .push((effect, TextOrigin::Live(old)));
+    state.copy_snapshots.push((
+        effect,
+        std::sync::Arc::clone(&state.object(target).unwrap().base),
+    ));
+    move_to(&mut state, source, ZoneLocation::Graveyard(P));
+    move_to(&mut state, source, ZoneLocation::Hand(P));
+    state.effects.follow_phasing(|id| id == target);
+    assert!(state.effects.iter().next().is_none());
+    state.prune_damage_sources();
+    assert_eq!(
+        state.text_changes.get(old).color_word(Color::White),
+        Color::Blue
+    );
+    assert_eq!(state.copy_snapshots.len(), 1);
+    assert!(
+        !offered(&mut state).contains(&old),
+        "wording provenance alone is not source eligibility"
+    );
+    state.effects.follow_phasing(|_| false);
+    let registered = state.effects.iter().next().unwrap();
+    assert_eq!(
+        state.effect_text(registered).color_word(Color::White),
+        Color::Blue
+    );
+    state.effects.remove_where(|entry| entry.id == effect);
+    state.prune_damage_sources();
+    assert!(state.copy_snapshots.is_empty());
+    assert!(state.effect_text_overrides.is_empty());
+    // The most recent departure still supports look-back trigger collection.
+    // A later departure replaces that bounded record with another incarnation.
+    move_to(&mut state, source, ZoneLocation::Battlefield);
+    move_to(&mut state, source, ZoneLocation::Graveyard(P));
+    state.prune_damage_sources();
+    assert_eq!(state.text_changes.get(old), TextChangeMap::IDENTITY);
 }

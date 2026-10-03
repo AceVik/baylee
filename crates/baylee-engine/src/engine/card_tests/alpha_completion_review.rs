@@ -103,3 +103,7 @@ mod personal_incarnation_review;
 
 mod channel_review;
 mod guardian_angel_review;
+
+mod text_copy_review;
+
+mod constrained_casting_review;

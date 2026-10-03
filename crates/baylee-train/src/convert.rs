@@ -439,7 +439,7 @@ mod tests {
 
 /// Model preparation gate used by the replay converter before any sample exists.
 fn encode_decision(view: &PlayerView, pending: &Pending) -> Option<Encoded> {
-    policy::model_input(pending, || encode(view, pending, &Picked::default()))
+    policy::model_input_for_view(view, pending, || encode(view, pending, &Picked::default()))
 }
 
 #[cfg(test)]
@@ -448,6 +448,13 @@ mod damage_conversion_tests {
     #[test]
     fn damage_decisions_never_produce_converter_features_or_samples() {
         let view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let mut controlled = view.clone();
+        controlled.decision_player = Some(baylee_core::ids::PlayerId::new(1));
+        let ordinary = baylee_engine::choice::Pending::ChooseColor {
+            player: baylee_core::ids::PlayerId::new(1),
+            options: vec![baylee_core::mana::ManaColor::Red],
+        };
+        assert!(encode_decision(&controlled, &ordinary).is_none());
         for pending in crate::damage_fixture::questions() {
             assert!(encode_decision(&view, &pending).is_none());
         }

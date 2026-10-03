@@ -656,3 +656,50 @@ fn redirection_existing_shields_and_standing_effects_follow_damageable_types() {
         }
     }
 }
+
+#[test]
+fn a_masked_damage_source_competes_at_its_recipient_and_only_reveals_if_damage_remains() {
+    use crate::object::{Rider, Status};
+    for reveal_first in [false, true] {
+        let mut state = state(2);
+        let source = creature(&mut state, A, 5, 5);
+        let object = state.object_mut(source).unwrap();
+        object.original_base = Some(std::sync::Arc::clone(&object.base));
+        object.base_mut().power = Some(2);
+        object.base_mut().toughness = Some(2);
+        object.status.insert(Status::FACE_DOWN);
+        object.riders.push(Rider::Masked);
+        shield(&mut state, B, ShieldKind::Next(3));
+        let mut work = DamageWork::new(
+            &mut state,
+            vec![assigned(source, DamageTarget::Player(B), 3)],
+        );
+        let pending = work.advance(&mut state).unwrap();
+        assert_eq!(
+            pending.asked(),
+            Some(B),
+            "the damaged player chooses, not the source controller"
+        );
+        let action = choose(&pending, |kind| {
+            if reveal_first {
+                matches!(kind, DamageEffectKind::TurnFaceUp { .. })
+            } else {
+                matches!(kind, DamageEffectKind::PreventNext { .. })
+            }
+        });
+        assert!(work.answer(&mut state, &action).is_none());
+        assert_eq!(state.players[1].life, 20);
+        assert_eq!(
+            state
+                .object(source)
+                .unwrap()
+                .status
+                .contains(Status::FACE_DOWN),
+            !reveal_first
+        );
+        assert_eq!(
+            state.object(source).unwrap().characteristics().power,
+            Some(if reveal_first { 5 } else { 2 })
+        );
+    }
+}

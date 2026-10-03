@@ -1486,7 +1486,8 @@ fn a_copy_s_non_mana_ability_leaves_a_payment_window() {
         .card(gnomes)
         .expect("Bottle Gnomes")
         .abilities_for_face(0);
-    engine.state.object_mut(copy).unwrap().own_abilities = Some(copied);
+    engine.state.object_mut(copy).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(copied, None, None).into_bundle());
 
     assert!(
         engine

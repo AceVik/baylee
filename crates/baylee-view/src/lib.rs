@@ -145,7 +145,9 @@ use serde::{Deserialize, Serialize};
 /// target descriptions in `PlayerView::target_objects`.
 /// Version 51 adds finite damage redirection to the damage-effect choices.
 /// Version 52 accompanies temporary special-action offers and answers.
-pub const VIEW_VERSION: u32 = 52;
+/// Version 53 distinguishes the answering actor from the resource player,
+/// projects hands inspected through control, and widens mana counters.
+pub const VIEW_VERSION: u32 = 53;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -735,6 +737,9 @@ pub struct StackText {
 /// power 4, and a clone of Serra Angel arrives with Serra Angel's name.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PublicObject {
+    /// Effective typed word substitutions, separate from the unchanged Oracle.
+    #[serde(default)]
+    pub word_changes: Vec<WordChange>,
     /// Engine object handle; stable while the object stays in its zone.
     pub id: ObjectId,
     /// Backing card, when the viewing seat is entitled to know it. `None` for
@@ -1213,17 +1218,17 @@ pub struct ManaPoolView {
     #[serde(default)]
     pub spending: baylee_core::mana::ManaSpending,
     /// White mana.
-    pub white: u16,
+    pub white: u32,
     /// Blue mana.
-    pub blue: u16,
+    pub blue: u32,
     /// Black mana.
-    pub black: u16,
+    pub black: u32,
     /// Red mana.
-    pub red: u16,
+    pub red: u32,
     /// Green mana.
-    pub green: u16,
+    pub green: u32,
     /// Colorless mana.
-    pub colorless: u16,
+    pub colorless: u32,
     /// Mana that may only be spent on certain spells (Cavern of Souls), by
     /// colour — indexed the way [`baylee_core::mana::ManaColor::index`]
     /// indexes, so `restricted[ManaColor::White.index()]` is restricted white
@@ -1236,29 +1241,29 @@ pub struct ManaPoolView {
     /// taps had produced what. *What* the restriction permits stays an engine
     /// question, answered when the payment is attempted; which colour is under
     /// it is a fact the player chose a moment ago and is owed back.
-    pub restricted: [u16; 6],
+    pub restricted: [u64; 6],
 }
 
 impl ManaPoolView {
     /// Everything in the pool, restricted mana included.
     #[must_use]
-    pub const fn total(&self) -> u32 {
-        self.white as u32
-            + self.blue as u32
-            + self.black as u32
-            + self.red as u32
-            + self.green as u32
-            + self.colorless as u32
+    pub const fn total(&self) -> u64 {
+        self.white as u64
+            + self.blue as u64
+            + self.black as u64
+            + self.red as u64
+            + self.green as u64
+            + self.colorless as u64
             + self.restricted_total()
     }
 
     /// Just the restricted mana, whatever colour it is under.
     #[must_use]
-    pub const fn restricted_total(&self) -> u32 {
+    pub const fn restricted_total(&self) -> u64 {
         let mut sum = 0;
         let mut i = 0;
         while i < self.restricted.len() {
-            sum += self.restricted[i] as u32;
+            sum += self.restricted[i];
             i += 1;
         }
         sum
@@ -1490,6 +1495,17 @@ impl CombatView {
     }
 }
 
+/// One effective substitution in a printed five-word vocabulary.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct WordChange {
+    /// True for basic land types; false for color words.
+    pub basic_land_type: bool,
+    /// Original WUBRG word index.
+    pub from: u8,
+    /// Current WUBRG word index.
+    pub to: u8,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -1501,6 +1517,14 @@ impl CombatView {
 /// diff two snapshots itself without the host having to be correct about it.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
+    /// The player whose choices and resources the actor in `awaiting` controls.
+    /// This may differ from the viewing seat under CR 720.
+    #[serde(default)]
+    pub decision_player: Option<PlayerId>,
+    /// Hands inspected through current control of another player (CR 720.4).
+    /// Separate from voluntary team sharing; rebuilt for every decision.
+    #[serde(default)]
+    pub controlled_hands: Vec<SharedHand>,
     /// Entitled descriptions for this seat's offered damage-source
     /// incarnations. Historical entries never describe a later incarnation.
     #[serde(default)]
@@ -1816,7 +1840,11 @@ impl PlayerView {
             .flat_map(|s| s.commanders.iter())
             .filter_map(|c| c.card);
         let public = self.public_objects().filter_map(|o| o.card);
-        let shown = self.shared_hands.iter().flat_map(|h| &h.cards);
+        let shown = self
+            .shared_hands
+            .iter()
+            .chain(&self.controlled_hands)
+            .flat_map(|h| &h.cards);
         self.hand
             .iter()
             .chain(shown)
@@ -2516,6 +2544,7 @@ mod tests {
             board_mana: None,
             flashback: None,
             grants: Vec::new(),
+            word_changes: Vec::new(),
         }
     }
 
@@ -2553,6 +2582,8 @@ mod tests {
                 .collect(),
             hand: vec![],
             shared_hands: vec![],
+            controlled_hands: vec![],
+            decision_player: None,
             hand_shared_with: SeatSet::new(),
             hand_requests: SeatSet::new(),
             hand_requested: SeatSet::new(),
@@ -3563,7 +3594,7 @@ mod tests {
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
         // Damage decisions carry event identities, effect metadata, and allocations.
-        const RECORDED: (u32, u64) = (52, 13_544_715_380_931_103_875);
+        const RECORDED: (u32, u64) = (53, 4_354_895_895_119_980_516);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

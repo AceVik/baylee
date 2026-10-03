@@ -422,6 +422,15 @@ impl GameState {
     }
 
     pub(crate) fn copy_source_references(&mut self, original: DamageSourceRef, copy: ObjectId) {
+        if self
+            .source_object(original)
+            .is_some_and(|object| object.kind == crate::object::ObjectKind::AbilityOnStack)
+            && let Some(reference) = self.source_identity(copy)
+        {
+            self.text_changes
+                .set(reference, self.text_changes.get(original));
+        }
+
         self.capture_source_references();
         let Some(to) = self.source_identity(copy) else {
             return;
@@ -504,6 +513,9 @@ impl GameState {
                     source: previous.object,
                     source_version: previous.version,
                     effects,
+                    // Dash defines this return instruction; its keyword
+                    // rules contain no replaceable color or land words.
+                    text: crate::text_changes::TextChangeMap::IDENTITY,
                     object: permanent.object,
                     version: permanent.version,
                 },
@@ -518,6 +530,7 @@ impl GameState {
                 .is_some_and(|o| o.zone == Zone::Battlefield)
         {
             self.source_memory.resolved.insert(spell, permanent);
+            self.text_changes.carry(spell, permanent);
         }
     }
 
@@ -641,7 +654,7 @@ impl GameState {
             .retain(|holder, _| self.source_memory.stack.contains_key(holder));
         self.source_memory
             .effects
-            .retain(|id, _| self.effects.iter().any(|e| e.id == *id));
+            .retain(|id, _| self.effects.contains(*id));
         self.source_memory
             .resolved
             .retain(|spell, _| retained.contains(spell));
@@ -649,6 +662,34 @@ impl GameState {
             self.arena
                 .get(card.object)
                 .is_some_and(|o| o.zone == Zone::Exile && o.version == card.version)
+        });
+        self.effect_text_overrides
+            .retain(|(id, _)| self.effects.contains(*id));
+        self.copy_snapshots
+            .retain(|(id, _)| self.effects.contains(*id));
+        // Wording provenance is a reader, not damage-source eligibility.
+        // Keep departures until trigger collection has frozen their text.
+        for (_, origin) in &self.effect_text_overrides {
+            match origin {
+                crate::text_changes::TextOrigin::Live(source)
+                | crate::text_changes::TextOrigin::Ability { source, .. } => {
+                    retained.insert(*source);
+                }
+                crate::text_changes::TextOrigin::Frozen(_) => {}
+            }
+        }
+        retained.extend(
+            self.ltb_versions
+                .iter()
+                .map(|&(object, version)| DamageSourceRef { object, version }),
+        );
+        retained.extend(self.ceased.iter().map(identity));
+        self.text_changes.retain(|reference| {
+            retained.contains(&reference)
+                || self
+                    .arena
+                    .get(reference.object)
+                    .is_some_and(|object| object.version == reference.version)
         });
     }
 }
@@ -740,12 +781,28 @@ pub(crate) fn options(
     you: PlayerId,
     this: ObjectId,
 ) -> Vec<DamageSourceRef> {
+    options_with_context(state, filter, you, crate::eval::live_context(state, this))
+}
+
+pub(crate) fn options_with_context(
+    state: &mut GameState,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+) -> Vec<DamageSourceRef> {
     state
         .eligible_damage_sources()
         .into_iter()
         .filter(|&source| {
             state.source_object(source).is_some_and(|obj| {
-                crate::eval::matches_projected(filter, state, obj, obj.characteristics(), you, this)
+                crate::eval::matches_projected_with_context(
+                    filter,
+                    state,
+                    obj,
+                    obj.characteristics(),
+                    you,
+                    context,
+                )
             })
         })
         .collect()

@@ -42,7 +42,6 @@ use super::testkit::{
 use super::*;
 use baylee_cards_dsl::AbilityDef;
 use baylee_core::ids::{CardIndex, ObjectId};
-use baylee_core::mana::ManaColor;
 
 /// The ten cards `DB$ Investigate` wrote, by oracle id and name.
 ///
@@ -98,7 +97,7 @@ fn investigate_index(card: CardIndex, name: &str) -> u32 {
 /// Only `legal.mana_abilities`, which is the CR 305.6 shortcut and therefore
 /// the basics: the room's own printed `{T}: Add …` is in `legal.abilities`,
 /// and tapping it would spend the `{T}` the ability under test charges.
-fn float_the_basics(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> u16 {
+fn float_the_basics(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> u64 {
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("expected priority, got {:?}", engine.pending())
     };
@@ -111,9 +110,9 @@ fn float_the_basics(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> u16 
 }
 
 /// Every mana in `seat`'s pool, colour blind.
-fn floating(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u16 {
+fn floating(engine: &Engine<RegistryLookup>, seat: PlayerId) -> u64 {
     let pool = &engine.state().players[seat.get() as usize].mana_pool;
-    ManaColor::ALL.iter().map(|c| pool.available(*c)).sum()
+    pool.total()
 }
 
 /// Every token `seat` controls on the battlefield.

@@ -152,8 +152,9 @@ impl LayerPlan {
 /// — projects to exactly its base, and skipping those is what keeps a
 /// refresh proportional to the board rather than to the decks.
 #[must_use]
-pub fn needs_projection(plan: &LayerPlan, obj: &GameObject) -> bool {
+pub fn needs_projection(state: &GameState, plan: &LayerPlan, obj: &GameObject) -> bool {
     !plan.is_empty()
+        || eval::live_context(state, obj.id).text != crate::text_changes::TextChangeMap::IDENTITY
         || !obj.counters.is_empty()
         || obj.base.keywords.contains(KeywordSet::CHANGELING)
         || obj.riders.contains(&crate::object::Rider::Dashed)
@@ -190,6 +191,13 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
     let mut animations: SmallVec<[u32; 4]> = SmallVec::new();
     let all = state.effects.as_slice();
     for layer in LAYERS {
+        if layer == Layer::Text {
+            // Text changes affect the type line and printed/copied keywords
+            // here, before type-setting effects and later ability grants.
+            let text = eval::live_context(state, obj.id).text;
+            c.subtypes = text.land_types(c.subtypes);
+            c.keywords = text.keywords(c.keywords);
+        }
         let dynamic_types = layer == Layer::Type && plan.conditional_animation;
         let mut remaining: SmallVec<[u32; 16]> = if dynamic_types {
             plan.layer(layer).into()
@@ -239,7 +247,15 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
                 toughness_plus,
             }) = state.off_battlefield_pt_cda(obj)
         {
-            let n = pt_count(state, obj, &c, controller, count, &mut read_board);
+            let n = pt_count(
+                state,
+                obj,
+                &c,
+                controller,
+                count,
+                eval::live_context(state, obj.id),
+                &mut read_board,
+            );
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(toughness_plus)));
         }
@@ -321,16 +337,8 @@ const MAX_COPY_DEPTH: u8 = 8;
 /// which every caller already had to answer for — a copy effect whose
 /// target has left the battlefield changes nothing.
 ///
-/// Two things it gets wrong, and they are one thing. `Modifier::BecomeCopyOf`
-/// carries an `ObjectId` and this dereferences it at projection time, so the
-/// copy is re-derived from whatever the target is *now* rather than from
-/// what it was when the copy was made. A Mirror that became an Elf and
-/// whose Elf then died reverts to being an artifact, and a copy of that
-/// Mirror misses the "except it has haste" the Mirror's own copy effect
-/// granted — CR 707.9a makes an except clause copiable, and the mods are
-/// registered as their own effects in layers 4 and 6 where nothing marks
-/// them as part of a copy. Both want the same change: the effect should
-/// carry a snapshot, not an id.
+/// Temporary copies carry a snapshot including their copy exceptions.
+/// The original object changing or leaving cannot alter that snapshot.
 ///
 /// One caller that stayed on `base`: `CopyTargetSpell` copies a spell, and
 /// nothing registers a copy effect on a stack object, so the two answers
@@ -370,9 +378,13 @@ fn copiable_values_at(state: &GameState, id: ObjectId, depth: u8) -> Option<Arc<
             continue;
         }
         if let Modifier::BecomeCopyOf(target) = fx.modifier {
-            // A target that is gone leaves the copy as it was, which is what
-            // the arm in `apply` did when it read the object directly.
-            out = copiable_values_at(state, target, depth + 1).or(out);
+            out = state
+                .copy_snapshots
+                .iter()
+                .find(|(id, _)| *id == fx.id)
+                .map(|(_, values)| values.clone())
+                .or_else(|| copiable_values_at(state, target, depth + 1))
+                .or(out);
         }
     }
     Some(out.unwrap_or_else(|| obj.base.clone()))
@@ -386,13 +398,16 @@ fn applies(
 ) -> bool {
     match &fx.filter {
         EffectFilter::ObjectIs(..) => fx.filter.names(obj),
-        EffectFilter::Dsl(filter) => eval::matches_projected(
+        EffectFilter::Dsl(filter) => eval::matches_projected_with_context(
             filter,
             state,
             obj,
             projected,
             fx.controller,
-            fx.source.unwrap_or(obj.id),
+            crate::text_changes::RuleContext {
+                source: fx.source.unwrap_or(obj.id),
+                text: state.effect_text(fx),
+            },
         ),
     }
 }
@@ -772,18 +787,17 @@ fn count_controlled(
     controller: Option<PlayerId>,
     you: PlayerId,
     filter: &baylee_cards_dsl::Filter,
-    read_board: &mut bool,
+    context: crate::text_changes::RuleContext,
 ) -> usize {
-    *read_board = true;
     state
         .battlefield_seen()
         .filter_map(|id| state.object(id))
         .filter(|o| {
             controller.is_none_or(|p| o.controller == p)
                 && if o.id == obj.id {
-                    crate::eval::matches_projected(filter, state, o, c, you, o.id)
+                    crate::eval::matches_projected_with_context(filter, state, o, c, you, context)
                 } else {
-                    crate::eval::matches(filter, state, o, you, o.id)
+                    crate::eval::matches_with_context(filter, state, o, you, context)
                 }
         })
         .count()
@@ -792,27 +806,28 @@ fn count_controlled(
 /// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
 /// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
 /// permanents `YouControl` counts. Either count reads other objects, so
-/// both set `read_board` ([`count_controlled`]).
+/// both set `read_board`.
 fn pt_count(
     state: &GameState,
     obj: &GameObject,
     c: &Characteristics,
     you: PlayerId,
     count: baylee_cards_dsl::PtCount,
+    context: crate::text_changes::RuleContext,
     read_board: &mut bool,
 ) -> i16 {
     *read_board = true;
     let n = match count {
         baylee_cards_dsl::PtCount::YouControl(filter) => {
-            count_controlled(state, obj, c, Some(you), you, filter, read_board)
+            count_controlled(state, obj, c, Some(you), you, filter, context)
         }
         baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
-            count_controlled(state, obj, c, None, you, filter, read_board)
+            count_controlled(state, obj, c, None, you, filter, context)
         }
         baylee_cards_dsl::PtCount::DefendingPlayerControls(filter) => {
             match defending_player_of(state, obj.id) {
                 Some(defending) => {
-                    count_controlled(state, obj, c, Some(defending), you, filter, read_board)
+                    count_controlled(state, obj, c, Some(defending), you, filter, context)
                 }
                 None => 0,
             }
@@ -910,7 +925,11 @@ fn apply(
     read_board: &mut bool,
     layer: Layer,
 ) {
-    match &fx.modifier {
+    let context = crate::text_changes::RuleContext {
+        source: fx.source.unwrap_or(obj.id),
+        text: state.effect_text(fx),
+    };
+    match &context.text.modifier(fx.modifier) {
         Modifier::AnimateNoncreatureArtifact => {
             if layer == Layer::Type {
                 c.types = c.types.union(TypeSet::ARTIFACT).union(TypeSet::CREATURE);
@@ -938,7 +957,9 @@ fn apply(
             // else. It used to be `target.characteristics()` — the whole
             // projection — so a Mirror copying a creature that was holding
             // a +1/+1 counter came down a 2/2.
-            if let Some(values) = copiable_values(state, *id) {
+            if let Some(values) = state.copy_snapshots.iter().find(|(id, _)| *id == fx.id)
+                .map(|(_, values)| values.clone())
+                .or_else(|| copiable_values(state, *id)) {
                 *c = (*values).clone();
             }
         }
@@ -948,12 +969,13 @@ fn apply(
         } => {
             // CR 604.3 and 613.4a: it defines the number, whatever the card
             // printed as its `*`, before anything in 7b–7e reads it.
-            let n = pt_count(state, obj, c, fx.controller, *count, read_board);
+            let n = pt_count(state, obj, c, fx.controller, *count, context, read_board);
             c.power = Some(n);
             c.toughness = Some(n.saturating_add(i16::from(*toughness_plus)));
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
-            let count = count_controlled(state, obj, c, Some(fx.controller), fx.controller, filter, read_board);
+            *read_board = true;
+            let count = count_controlled(state, obj, c, Some(fx.controller), fx.controller, filter, context);
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));
@@ -964,7 +986,7 @@ fn apply(
         }
         Modifier::ModifyPTHalfCount(count) => {
             // Half the count, rounded down for power and up for toughness.
-            let n = pt_count(state, obj, c, fx.controller, *count, read_board).max(0);
+            let n = pt_count(state, obj, c, fx.controller, *count, context, read_board).max(0);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(n / 2);
             }
@@ -980,7 +1002,7 @@ fn apply(
                 .filter_map(|id| state.object(*id))
                 // "Card" in the graveyard, as `card_types_in_all_graveyards`.
                 .filter(|o| o.is_card())
-                .filter(|o| crate::eval::matches(filter, state, o, fx.controller, obj.id))
+                .filter(|o| crate::eval::matches_with_context(filter, state, o, fx.controller, context))
                 .count();
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
@@ -1132,7 +1154,7 @@ fn apply(
         // new controller's lands.
         Modifier::SetPTToCount(count) => {
             if c.types.contains(baylee_core::types::TypeSet::CREATURE) {
-                let n = pt_count(state, obj, c, *controller, *count, read_board);
+                let n = pt_count(state, obj, c, *controller, *count, context, read_board);
                 c.power = Some(n);
                 c.toughness = Some(n);
             }
@@ -1872,7 +1894,7 @@ mod tests {
         let plan = LayerPlan::build(&state.effects);
         assert!(plan.is_empty());
         assert!(
-            !needs_projection(&plan, state.object(bear).expect("in play")),
+            !needs_projection(&state, &plan, state.object(bear).expect("in play")),
             "an empty table over a bare creature is nothing to compute"
         );
 
@@ -1884,7 +1906,7 @@ mod tests {
             1,
         );
         assert!(
-            needs_projection(&plan, state.object(bear).expect("in play")),
+            needs_projection(&state, &plan, state.object(bear).expect("in play")),
             "a counter is a reason of its own — the table says nothing about it"
         );
 
@@ -1893,10 +1915,171 @@ mod tests {
         state.object_mut(bear).expect("in play").base_mut().keywords = KeywordSet::CHANGELING;
         assert!(
             needs_projection(
+                &state,
                 &LayerPlan::build(&state.effects),
                 state.object(bear).expect("in play")
             ),
             "and so is changeling, which is a mask rather than an effect"
+        );
+    }
+
+    #[test]
+    fn text_changes_type_line_before_type_effects_and_preserves_copiable_values() {
+        use crate::text_changes::TextReplacement;
+        use baylee_cards_dsl::TextWordKind;
+        use baylee_core::generated::subtypes::land;
+        let mut state = fresh();
+        let id = permanent(&mut state, "Forest", TypeSet::LAND, None);
+        let original_name = state.object(id).unwrap().base.name;
+        state.object_mut(id).unwrap().base_mut().subtypes = SubtypeSet::from_slice(&[land::FOREST]);
+        let identity = baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: state.object(id).unwrap().version,
+        };
+        assert!(state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: TextWordKind::BasicLandType,
+                from: 4,
+                to: 1
+            }
+        ));
+        state.invalidate_projections();
+        state.refresh_characteristics();
+        let changed = state.object(id).unwrap().characteristics();
+        assert_eq!(changed.subtypes, SubtypeSet::from_slice(&[land::ISLAND]));
+        assert_eq!(changed.name, original_name);
+        assert_eq!(
+            crate::casting::intrinsic_mana_colors(&state, id),
+            vec![baylee_core::mana::ManaColor::Blue]
+        );
+        assert_eq!(
+            copiable_values(&state, id).unwrap().subtypes,
+            SubtypeSet::from_slice(&[land::FOREST])
+        );
+        register(&mut state, 4, Modifier::SetLandType(land::SWAMP));
+        state.refresh_characteristics();
+        assert_eq!(
+            state.object(id).unwrap().characteristics().subtypes,
+            SubtypeSet::from_slice(&[land::SWAMP])
+        );
+        assert_eq!(
+            crate::casting::intrinsic_mana_colors(&state, id),
+            vec![baylee_core::mana::ManaColor::Black]
+        );
+    }
+
+    #[test]
+    fn printed_landwalk_changes_while_later_granted_landwalk_does_not() {
+        use crate::text_changes::TextReplacement;
+        let mut state = fresh();
+        let id = permanent(&mut state, "Walker", TypeSet::CREATURE, Some((2, 2)));
+        state.object_mut(id).unwrap().base_mut().keywords = KeywordSet::FORESTWALK;
+        let identity = baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: state.object(id).unwrap().version,
+        };
+        assert!(state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::BasicLandType,
+                from: 4,
+                to: 1
+            }
+        ));
+        register(&mut state, 4, Modifier::AddKeyword(KeywordSet::FORESTWALK));
+        state.refresh_characteristics();
+        let keywords = state.object(id).unwrap().characteristics().keywords;
+        assert!(keywords.contains(KeywordSet::ISLANDWALK));
+        assert!(keywords.contains(KeywordSet::FORESTWALK));
+    }
+
+    #[test]
+    fn text_filter_snapshot_uses_the_ability_words_after_source_changes_again() {
+        use crate::text_changes::{RuleContext, TextReplacement};
+        use baylee_core::color::{Color, ColorSet};
+        static FILTER: Filter = Filter::And(&[
+            Filter::CREATURE,
+            Filter::HasColor(ColorSet::of(Color::Black)),
+        ]);
+        let mut state = fresh();
+        let source = permanent(&mut state, "Text source", TypeSet::CREATURE, Some((2, 2)));
+        let target = permanent(&mut state, "Blue target", TypeSet::CREATURE, Some((2, 2)));
+        state.object_mut(target).unwrap().base_mut().colors = ColorSet::of(Color::Blue);
+        let identity = baylee_core::ids::DamageSourceRef {
+            object: source,
+            version: state.object(source).unwrap().version,
+        };
+        assert!(state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::Color,
+                from: 2,
+                to: 1
+            }
+        ));
+        let captured = RuleContext {
+            source,
+            text: state.text_changes.get(identity),
+        };
+        assert!(state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::Color,
+                from: 1,
+                to: 4
+            }
+        ));
+        let object = state.object(target).unwrap();
+        assert!(eval::matches_with_context(
+            &FILTER,
+            &state,
+            object,
+            me(),
+            captured
+        ));
+        assert!(!eval::matches(&FILTER, &state, object, me(), source));
+    }
+    #[test]
+    fn text_changes_do_not_rewrite_a_dynamically_chosen_land_type() {
+        use crate::text_changes::{TextOrigin, TextReplacement};
+        use baylee_core::generated::subtypes::land;
+        let mut state = fresh();
+        let source = permanent(&mut state, "Choice source", TypeSet::ARTIFACT, None);
+        let target = permanent(&mut state, "Chosen land", TypeSet::LAND, None);
+        state.object_mut(source).unwrap().chosen_subtype = Some(land::FOREST);
+        let identity = state.source_identity(source).unwrap();
+        assert!(state.text_changes.replace(
+            identity,
+            TextReplacement {
+                kind: baylee_cards_dsl::TextWordKind::BasicLandType,
+                from: 4,
+                to: 1,
+            }
+        ));
+        let effect = state.effects.register(ContinuousEffect {
+            id: EffectId::new(0),
+            source: Some(source),
+            controller: me(),
+            origin: crate::effects::EffectOrigin::Static,
+            layer: Layer::Type,
+            timestamp: 1,
+            duration: Duration::WhileSourceOnBattlefield,
+            filter: EffectFilter::object(&state, target),
+            modifier: Modifier::SetLandTypeToChosen,
+        });
+        state
+            .effect_text_overrides
+            .push((effect, TextOrigin::Live(identity)));
+        state.refresh_characteristics();
+        assert_eq!(
+            state.object(target).unwrap().characteristics().subtypes,
+            SubtypeSet::from_slice(&[land::FOREST]),
+            "the chosen value is not the word Forest in the ability's text"
+        );
+        assert_eq!(
+            crate::casting::intrinsic_mana_colors(&state, target),
+            vec![baylee_core::mana::ManaColor::Green]
         );
     }
 }

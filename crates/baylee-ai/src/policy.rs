@@ -2,6 +2,7 @@
 //! scouting summary may adjust values without supplying actionable hidden ids.
 
 use baylee_cards_dsl::{AbilityDef, Effect, FaceDef, Filter, KeywordSet, ManaSource};
+use baylee_client_core::decision::{hand, known_cards, resource_player};
 use baylee_client_core::manaplan::{self, Source, Tap};
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment};
@@ -48,8 +49,7 @@ pub(crate) fn plays_as_land(card: CardIdentity) -> bool {
 }
 
 fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
-    view.hand
-        .iter()
+    known_cards(view)
         .find(|c| c.id == id)
         .map(|c| c.card)
         .or_else(|| view.object(id).and_then(|o| o.card))
@@ -63,7 +63,7 @@ fn identity(view: &PlayerView, id: ObjectId) -> Option<CardIdentity> {
 /// for. The graveyard was that card: Snapcaster Mage gave Opt flashback, and
 /// Opt stayed where it was beside an untapped Island (#242).
 fn own_casts(view: &PlayerView) -> impl Iterator<Item = ObjectId> + '_ {
-    view.hand
+    hand(view)
         .iter()
         .map(|c| c.id)
         .chain(
@@ -156,7 +156,7 @@ impl HeuristicAgent {
         max: u32,
         context: &baylee_engine::engine::DecisionContext<'_>,
     ) -> u32 {
-        let Some(seat) = view.seat(view.seat) else {
+        let Some(seat) = view.seat(resource_player(view)) else {
             return min;
         };
         if context.life_x {
@@ -177,13 +177,22 @@ impl HeuristicAgent {
         } else {
             Vec::new()
         };
-        (min..=max.min(context.x_targets.unwrap_or(max)))
-            .rev()
-            .find(|&x| {
-                manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
-                    && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
-            })
-            .unwrap_or(min)
+        // X menus may span the full u32 domain while mana is made later.
+        // Affordability and the safe draw bound are monotone: find the greatest
+        // affordable answer in at most 32 probes, never one probe per mana.
+        let mut lower = min;
+        let mut upper = max.min(context.x_targets.unwrap_or(max));
+        while lower < upper {
+            let x = lower + (upper - lower).div_ceil(2);
+            if manaplan::plan(&cost.with_x(x), &seat.mana_pool, &sources).is_some()
+                && crate::tactics::meaning(context.effects, x).draws(view) < seat.library_count
+            {
+                lower = x;
+            } else {
+                upper = x - 1;
+            }
+        }
+        lower
     }
 
     fn life_sweep_value(&self, view: &PlayerView, x: u32) -> i64 {
@@ -262,7 +271,7 @@ impl HeuristicAgent {
         if self.profile.mulligan_skill == 0 {
             return crate::costliest(view, count);
         }
-        let mut hand: Vec<_> = view.hand.iter().collect();
+        let mut hand: Vec<_> = hand(view).iter().collect();
         let mut lands = hand.iter().filter(|c| plays_as_land(c.card)).count();
         let mut result = Vec::with_capacity(count);
         for _ in 0..count.min(hand.len()) {
@@ -285,6 +294,23 @@ impl HeuristicAgent {
             result.push(card.id);
         }
         result
+    }
+
+    fn best_offered_cards(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        max: u8,
+    ) -> Vec<ObjectId> {
+        let mut ranked = options.to_vec();
+        if self.profile.mulligan_skill >= 2 {
+            let value = Self::card_value(view);
+            ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
+        } else {
+            ranked.sort_unstable();
+        }
+        ranked.truncate(usize::from(max));
+        ranked
     }
 
     pub(crate) fn select_cards(
@@ -311,16 +337,13 @@ impl HeuristicAgent {
         // card, and one left goes to the bottom of the library. The best of
         // them when this profile reads cards, the first otherwise — never
         // the `min` of zero.
-        if let ChoicePrompt::OneOfType { .. } = prompt {
-            let mut ranked = options.to_vec();
-            if self.profile.mulligan_skill >= 2 {
-                let value = Self::card_value(view);
-                ranked.sort_by_key(|id| (std::cmp::Reverse(value(id)), *id));
-            } else {
-                ranked.sort_unstable();
-            }
-            ranked.truncate(usize::from(max));
-            return Some(ranked);
+        if matches!(
+            prompt,
+            ChoicePrompt::OneOfType { .. }
+                | ChoicePrompt::CastFaceDown { .. }
+                | ChoicePrompt::CommandCard
+        ) {
+            return Some(self.best_offered_cards(view, options, max));
         }
         // A price paid with permanents is paid with the ones worth least on
         // this board, by the measure that priced the activation
@@ -538,7 +561,7 @@ impl HeuristicAgent {
                             .count() as u32
                     })
                     .sum();
-                let floating = view.seat(view.seat).map_or(0, |s| {
+                let floating = view.seat(resource_player(view)).map_or(0, |s| {
                     baylee_client_core::manapool::plain(&s.mana_pool, color)
                 });
                 (
@@ -559,12 +582,14 @@ impl HeuristicAgent {
         may_pay: &impl Fn(ObjectId) -> bool,
     ) -> Option<ManaColor> {
         let sources = remaining_sources(view);
-        let seat = view.seat(view.seat)?;
+        let seat = view.seat(resource_player(view))?;
         let mut best = None;
         for &color in options {
             // The prompt does not carry an amount. One unit is a conservative
             // estimate; variable or multi-mana production may do better.
-            let pool = one_more(seat.mana_pool, color);
+            let Some(pool) = one_more(seat.mana_pool, color) else {
+                continue;
+            };
             for id in own_casts(view) {
                 if !may_pay(id) {
                     continue;
@@ -644,7 +669,7 @@ impl HeuristicAgent {
         view: &PlayerView,
         legal: &LegalActions,
     ) -> Option<PlayerAction> {
-        let seat = view.seat(view.seat)?;
+        let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
         let plain = usable(plain);
@@ -654,7 +679,7 @@ impl HeuristicAgent {
                 view.phase,
                 baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
             );
-        let available = pool.total() + plain.iter().map(|s| u32::from(s.amount)).sum::<u32>();
+        let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
         for id in own_casts(view).chain(legal.castable.iter().copied()) {
@@ -684,14 +709,21 @@ impl HeuristicAgent {
             }
             // What the reserve leaves to spend on this spell.
             let budget = if main && !instant {
-                available.saturating_sub(reserve)
+                available.saturating_sub(u64::from(reserve))
             } else {
                 available
             };
             let printed = spell_cost(view, id, f).with_more_generic(
                 legal.spell_increase(id, baylee_engine::choice::CastModeKind::Normal),
             );
-            let (cost, floats_first) = aim(view, card, f, printed, &plain, budget);
+            let (cost, floats_first) = aim(
+                view,
+                card,
+                f,
+                printed,
+                &plain,
+                u32::try_from(budget).unwrap_or(u32::MAX),
+            );
             if stillborn(f, &printed, &cost) {
                 continue;
             }
@@ -738,7 +770,7 @@ impl HeuristicAgent {
             let spent = cost
                 .cmc()
                 .saturating_sub(last_tap.map_or(0, |r| u32::from(r.amount)));
-            if main && !instant && available.saturating_sub(spent) < reserve {
+            if main && !instant && available.saturating_sub(u64::from(spent)) < u64::from(reserve) {
                 continue;
             }
             if best.as_ref().is_none_or(|(value, _)| score > *value) {
@@ -835,7 +867,9 @@ impl HeuristicAgent {
                 })))
             })
         {
-            let life = view.seat(view.seat).map_or(0, |s| s.life.saturating_sub(1));
+            let life = view
+                .seat(resource_player(view))
+                .map_or(0, |s| s.life.saturating_sub(1));
             let useful = view
                 .battlefield
                 .iter()
@@ -1035,7 +1069,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
     if view.awaiting != Some(view.seat) {
         return None;
     }
-    let seat = view.seat(view.seat)?;
+    let seat = view.seat(resource_player(view))?;
     let sources = sources(view, legal);
     let normal = manaplan::plan(&owed, &seat.mana_pool, &sources);
     if normal.is_none() && matches!(view.owed, Some(ManaPayment::Fixed(_))) {
@@ -1046,7 +1080,7 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
         if matches!(view.owed, Some(ManaPayment::AnyAmount { .. })) {
             let one_more = seat.mana_pool.total() - seat.mana_pool.restricted_total() + 1;
             manaplan::plan(
-                &ManaCost::from_symbol_generic(one_more),
+                &ManaCost::from_symbol_generic(u32::try_from(one_more).ok()?),
                 &seat.mana_pool,
                 &sources,
             )
@@ -1087,13 +1121,14 @@ fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
     let ManaPayment::Fixed(owed) = view.owed.filter(|_| view.awaiting == Some(view.seat))? else {
         return None;
     };
-    let seat = view.seat(view.seat)?;
+    let seat = view.seat(resource_player(view))?;
     let sources = remaining_sources(view);
     let keeps: Vec<ManaColor> = options
         .iter()
         .copied()
         .filter(|&color| {
-            manaplan::plan(&owed, &one_more(seat.mana_pool, color), &sources).is_some()
+            one_more(seat.mana_pool, color)
+                .is_some_and(|pool| manaplan::plan(&owed, &pool, &sources).is_some())
         })
         .collect();
     if keeps.len() == options.len() {
@@ -1109,16 +1144,20 @@ fn owed_color(view: &PlayerView, options: &[ManaColor]) -> Option<ManaColor> {
 }
 
 /// `pool` with one more mana of `color` floating in it.
-fn one_more(mut pool: baylee_view::ManaPoolView, color: ManaColor) -> baylee_view::ManaPoolView {
-    match color {
-        ManaColor::White => pool.white += 1,
-        ManaColor::Blue => pool.blue += 1,
-        ManaColor::Black => pool.black += 1,
-        ManaColor::Red => pool.red += 1,
-        ManaColor::Green => pool.green += 1,
-        ManaColor::Colorless => pool.colorless += 1,
-    }
-    pool
+fn one_more(
+    mut pool: baylee_view::ManaPoolView,
+    color: ManaColor,
+) -> Option<baylee_view::ManaPoolView> {
+    let amount = match color {
+        ManaColor::White => &mut pool.white,
+        ManaColor::Blue => &mut pool.blue,
+        ManaColor::Black => &mut pool.black,
+        ManaColor::Red => &mut pool.red,
+        ManaColor::Green => &mut pool.green,
+        ManaColor::Colorless => &mut pool.colorless,
+    };
+    *amount = amount.checked_add(1)?;
+    Some(pool)
 }
 
 /// Whether an ability charges anything beyond tapping the permanent.
@@ -1362,12 +1401,12 @@ fn aim(
     sources: &[Source],
     budget: u32,
 ) -> (baylee_core::mana::ManaCost, bool) {
-    let Some(pool) = view.seat(view.seat).map(|s| &s.mana_pool) else {
+    let Some(pool) = view.seat(resource_player(view)).map(|s| &s.mana_pool) else {
         return (cost, false);
     };
     if cost.has_variable() {
-        let available = pool.total() + sources.iter().map(|s| u32::from(s.amount)).sum::<u32>();
-        let x = (1..=available.min(50))
+        let available = pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
+        let x = (1..=u32::try_from(available).unwrap_or(u32::MAX).min(50))
             .rev()
             .find_map(|x| {
                 let cost = cost.with_x(x);
@@ -1458,7 +1497,7 @@ fn kicked_price(
     if extra.is_empty() || extra.iter().any(|c| !c.parts.is_empty()) {
         return None;
     }
-    let library = view.seat(view.seat)?.library_count;
+    let library = view.seat(resource_player(view))?.library_count;
     let draws: u32 = effects
         .iter()
         .map(|effect| match effect {
@@ -1502,8 +1541,11 @@ pub(crate) fn kicks(
     view: &PlayerView,
     context: &baylee_engine::engine::DecisionContext<'_>,
 ) -> bool {
-    let (Some(id), Some(cost), Some(seat)) = (context.source, context.cost, view.seat(view.seat))
-    else {
+    let (Some(id), Some(cost), Some(seat)) = (
+        context.source,
+        context.cost,
+        view.seat(resource_player(view)),
+    ) else {
         return false;
     };
     identity(view, id)
@@ -1558,7 +1600,7 @@ pub(crate) fn convoke_taps(
 /// A waterbend face's question comes only once the waterbend was paid
 /// (#229), so its cost is part of the total here.
 fn taps_needed(view: &PlayerView, context: &DecisionContext<'_>, max: usize) -> Option<usize> {
-    let pool = &view.seat(view.seat)?.mana_pool;
+    let pool = &view.seat(resource_player(view))?.mana_pool;
     let mut total = context.cost?.with_x(context.x);
     if let Some(face) = context
         .source
@@ -1649,7 +1691,7 @@ pub(crate) fn pays_tax(
 /// is asked at moments — choosing a target, answering a tax — where no offer
 /// exists yet.
 pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> bool {
-    view.seat(view.seat).is_some_and(|seat| {
+    view.seat(resource_player(view)).is_some_and(|seat| {
         manaplan::plan(cost, &seat.mana_pool, &remaining_sources(view)).is_some()
     })
 }
@@ -1676,7 +1718,7 @@ pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCo
 /// have been under its control since the turn began.
 fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
     let mut estimate = LegalActions::default();
-    for object in view.battlefield_of(view.seat) {
+    for object in view.battlefield_of(resource_player(view)) {
         if object
             .status
             .contains(baylee_view::ObjectStatus::PHASED_OUT)
@@ -1753,6 +1795,19 @@ pub(crate) fn reach_total(
 mod tests {
     use super::{mix, priced};
     use baylee_cards_dsl::{Cost, CostPart};
+
+    #[test]
+    fn color_planning_does_not_overflow_a_full_pool_counter() {
+        use baylee_core::mana::ManaColor;
+        let pool = baylee_view::ManaPoolView {
+            blue: u32::MAX,
+            ..Default::default()
+        };
+        assert!(super::one_more(pool, ManaColor::Blue).is_none());
+        let after = super::one_more(pool, ManaColor::Red).unwrap();
+        assert_eq!(after.blue, u32::MAX);
+        assert_eq!(after.red, 1);
+    }
 
     /// **A land on the back of a card is still a land the engine offers.**
     ///

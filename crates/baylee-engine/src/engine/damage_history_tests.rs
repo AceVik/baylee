@@ -67,6 +67,7 @@ fn execute(
         countered_source: None,
         target_lki: None,
         subject: crate::resolve::SubjectContext::default(),
+        text: crate::text_changes::TextChangeMap::IDENTITY,
         event_mana: None,
         retarget_left: None,
     };
@@ -192,17 +193,28 @@ fn damage_history_is_about_the_creature_at_death_not_at_damage() {
 fn damage_history_remembers_abilities_at_death_even_if_both_objects_change_later() {
     let (mut e, source, victim) = setup();
     let from = e.state.journal.last_seq();
-    e.state.object_mut(source).unwrap().own_abilities = Some(&[]);
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
     damage(&mut e, source, victim, 1);
-    e.state.object_mut(source).unwrap().own_abilities = Some(DEATH);
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(DEATH, None, None).into_bundle());
     crate::sba::put_into_graveyard(&mut e.state, victim);
     // A creature can leave its graveyard during the same resolution, and
     // the damage source can stop being a copy before the trigger is scanned.
     move_to(&mut e, victim, ZoneLocation::Exile(P1));
-    e.state.object_mut(source).unwrap().own_abilities = Some(&[]);
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
     let found = deaths(&e, from, source);
     assert_eq!(found.len(), 1);
-    assert_eq!(found[0].abilities.unwrap().abilities, DEATH);
+    assert!(
+        found[0]
+            .abilities
+            .as_ref()
+            .unwrap()
+            .abilities
+            .iter()
+            .eq(DEATH.iter())
+    );
 }
 
 #[test]
@@ -210,7 +222,8 @@ fn damage_history_does_not_trigger_when_the_ability_was_removed_before_death() {
     let (mut e, source, victim) = setup();
     let from = e.state.journal.last_seq();
     damage(&mut e, source, victim, 1);
-    e.state.object_mut(source).unwrap().own_abilities = Some(&[]);
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
     crate::sba::put_into_graveyard(&mut e.state, victim);
     assert!(deaths(&e, from, source).is_empty());
 }
@@ -317,7 +330,8 @@ fn damage_history_hashes_live_history_and_ignores_stale_history_for_loops() {
 #[test]
 fn damage_history_granted_trigger_retains_source_identity() {
     let (mut e, source, victim) = setup();
-    e.state.object_mut(source).unwrap().own_abilities = Some(&[]);
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
     e.state.effects.register(crate::effects::ContinuousEffect {
         id: baylee_core::ids::EffectId::new(0),
         source: Some(source),
@@ -356,14 +370,16 @@ fn event_dealer_uses_original_incarnation_and_departure_power_after_blink() {
         let (mut e, source, victim) = setup();
         // An observer's ETB instruction makes the entering creature deal
         // damage; the damage source is the event object, not the observer.
-        e.state.object_mut(victim).unwrap().own_abilities = Some(EVENT_DAMAGE);
+        e.state.object_mut(victim).unwrap().own_abilities =
+            Some(crate::object::AbilityList::from_static(EVENT_DAMAGE, None, None).into_bundle());
         let from = e.state.journal.last_seq();
         blink(&mut e, source);
         let found = crate::trigger::collect(&e.state, &e.lookup, from);
         let t = found.into_iter().find(|t| t.source == victim).unwrap();
         let stack = e.push_ability_to_stack(P1, victim, 0, smallvec::smallvec![victim]);
         e.bind_top_trigger(&t);
-        e.state.object_mut(victim).unwrap().own_abilities = Some(&[]);
+        e.state.object_mut(victim).unwrap().own_abilities =
+            Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
         e.state.object_mut(source).unwrap().base_mut().power = Some(3);
         e.state.invalidate_projections();
         e.state.refresh_characteristics();

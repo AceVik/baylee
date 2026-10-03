@@ -459,7 +459,7 @@ pub fn activate(duel: &mut Duel, object: ObjectId, whole: bool) -> Answer {
 /// Explain a refused hand-card gesture using facts visible to this seat.
 fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     let view = duel.view.as_ref()?;
-    let card = view.hand.iter().find(|card| card.id == object)?;
+    let card = baylee_client_core::decision::known_cards(view).find(|card| card.id == object)?;
     if crate::targeting::provably_targetless(view, card.card) {
         return Some(Phrase::CardHasNoTarget);
     }
@@ -1463,7 +1463,7 @@ fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> boo
     touched
 }
 
-/// Damage dialogs own cursor navigation; the numeric editor owns their digits.
+/// Explicit resolving dialogs own cursor navigation; numeric editors own digits.
 fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(i) = duel.interaction.as_mut().filter(|i| {
         matches!(
@@ -1471,12 +1471,16 @@ fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
             Some(
                 baylee_client_core::interaction::DecisionId::Damage(_)
                     | baylee_client_core::interaction::DecisionId::Source(_)
+                    | baylee_client_core::interaction::DecisionId::Mana(_)
+                    | baylee_client_core::interaction::DecisionId::Text { .. }
             )
         )
     }) else {
         return false;
     };
     let count = match i.prompt() {
+        Prompt::TextReplacement { .. } => 10,
+        Prompt::ChooseManaAbility { options, .. } => options.len(),
         Prompt::ChooseDamageSource { options } => options.len(),
         Prompt::ChooseDamageEffect { options, .. } => options.len(),
         Prompt::AllocatePrevention { damage, .. } => damage.len(),
@@ -2782,7 +2786,9 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
         }
         if matches!(
             i.prompt(),
-            Prompt::ChooseDamageSource { .. }
+            Prompt::TextReplacement { .. }
+                | Prompt::ChooseManaAbility { .. }
+                | Prompt::ChooseDamageSource { .. }
                 | Prompt::ChooseDamageEffect { .. }
                 | Prompt::AllocatePrevention { .. }
         ) {
@@ -2807,6 +2813,8 @@ fn page_damage_choice(duel: &mut Duel, index: usize) -> bool {
         )
     }) {
         let count = match i.prompt() {
+            Prompt::TextReplacement { .. } => 10,
+            Prompt::ChooseManaAbility { options, .. } => options.len(),
             Prompt::ChooseDamageSource { options } => options.len(),
             Prompt::ChooseDamageEffect { options, .. } => options.len(),
             Prompt::AllocatePrevention { damage, .. } => damage.len(),

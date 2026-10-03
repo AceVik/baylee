@@ -406,7 +406,7 @@ fn a_coloured_tax_is_paid_in_its_colour_and_not_in_another() {
         );
         assert_eq!(
             engine.state().players[0].mana_pool.total(),
-            u32::from(!kept),
+            u64::from(!kept),
             "the blue paid; the red paid nothing and stayed"
         );
     }

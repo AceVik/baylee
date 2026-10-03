@@ -95,11 +95,12 @@ fn channel_review_repeated_priority_payments_are_immediate_and_expire() {
         pay(&mut engine, action);
         assert_eq!(engine.state().players[0].life, 20 - expected);
         assert_eq!(
-            i32::from(
+            i32::try_from(
                 engine.state().players[0]
                     .mana_pool
                     .available(ManaColor::Colorless)
-            ),
+            )
+            .unwrap(),
             expected
         );
         assert!(matches!(engine.pending(), Pending::Priority { player, .. } if *player == USER));

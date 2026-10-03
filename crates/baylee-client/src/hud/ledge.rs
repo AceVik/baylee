@@ -1383,6 +1383,22 @@ fn answers_for(
 
 /// Retarget identity and instructions live in the wrapping drawer above the shelf.
 fn shelf_headline(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardTexts) -> Option<String> {
+    let headline = base_shelf_headline(duel, lang, texts)?;
+    if let Some(view) = duel.view.as_ref() {
+        let subject = baylee_client_core::decision::resource_player(view);
+        if subject != view.seat {
+            let who = baylee_client_core::i18n::seat_name(lang, duel.statics.as_ref(), subject);
+            return Some(Phrase::DecidingFor.fill(lang, &[&who]));
+        }
+    }
+    Some(headline)
+}
+
+fn base_shelf_headline(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+) -> Option<String> {
     if !super::granted_offers(duel).is_empty()
         && duel
             .view

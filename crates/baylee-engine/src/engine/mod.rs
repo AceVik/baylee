@@ -27,6 +27,9 @@ use std::collections::VecDeque;
 /// Engine API errors.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
+    /// The action exceeds the finite numeric representation; no state was changed.
+    #[error("numeric capacity exceeded: {0}")]
+    NumericCapacity(&'static str),
     /// The game already ended.
     #[error("game is over")]
     GameOver,
@@ -114,6 +117,7 @@ struct PaymentWindow {
 /// Kept outside the active resolution so a mana ability can ask a question.
 #[derive(Clone, Debug)]
 enum PaymentContinuation {
+    LandMana(Box<constrained_mana::LandManaWork>),
     Tax(Box<crate::resolve::Resolution>),
     Activation(Box<granted::ActivationPayment>),
     GrantedAction {
@@ -144,6 +148,7 @@ enum PaymentContinuation {
 impl PaymentContinuation {
     fn fingerprint(&self) -> u64 {
         match self {
+            Self::LandMana(work) => work.fingerprint(),
             Self::Activation(payment) => payment.fingerprint(),
             Self::Tax(r) => r
                 .subject
@@ -181,35 +186,6 @@ impl PaymentContinuation {
                 .wrapping_add(u64::from(*then_no_more_spells)),
         }
     }
-}
-
-/// What an answer moves as it *arrives*, and what an activation writes on
-/// its way to a refusal: the fields [`Engine::apply`] puts back when it
-/// refuses.
-///
-/// The watch for endless loops and its two latches move before anything can
-/// tell whether the answer will be taken. The activation family is the
-/// checklist's scratch space (CR 602.2b, 601.2b–h): `start_activation` fills
-/// it a step at a time and checks the next step after filling the last, so a
-/// press refused at its second target has already read its ability list and
-/// marked its first target answered. Put back here rather than cleared at
-/// each of those refusals, because a list of places to clear is one that
-/// misses the next refusal someone adds.
-struct Held {
-    action_loops: crate::loops::LoopWatch,
-    breaking_loop: bool,
-    awaiting_answer: bool,
-    activation_target_players: Vec<PlayerId>,
-    activation_cost_choices: Vec<ObjectId>,
-    activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
-    /// Incarnations fixed at target announcement, before cost payment.
-    activation_target_references: crate::sources::TargetReferences,
-    activation_targets_answered: bool,
-    activation_x: Option<u32>,
-    activation_graveyard: Option<PlayerId>,
-    activation_phyrexian: Vec<bool>,
-    activating_abilities: Option<(ObjectId, crate::object::AbilityList)>,
-    loyalty_player_choice: Option<PlayerId>,
 }
 
 /// Every field of an [`Engine`], one entry each, in declaration order
@@ -290,6 +266,8 @@ pub struct Engine<L: CardLookup> {
     awaiting_answer: bool,
     /// A suspended effect resolution (choice continuation).
     resolution: Option<Resolution>,
+    effect_plays: Vec<effect_play::EffectPlay>,
+    player_control: player_control::PlayerControl,
     /// A combat damage step suspended before any damage results or SBAs.
     combat_damage: Option<crate::damage::DamageWork>,
     /// A player making mana to meet a payment an effect has asked of them
@@ -814,6 +792,8 @@ impl<L: CardLookup> Engine<L> {
             loyalty_used_this_turn: Vec::new(),
             awaiting_answer: true,
             resolution: None,
+            effect_plays: Vec::new(),
+            player_control: player_control::PlayerControl::default(),
             combat_damage: None,
             mana_window: None,
             trigger_scan_seq,
@@ -901,6 +881,7 @@ impl<L: CardLookup> Engine<L> {
         use baylee_core::mana::ManaPayment;
         let window = self.mana_window.as_ref()?;
         match &window.suspended {
+            PaymentContinuation::LandMana(_) => None,
             PaymentContinuation::Pact(cost)
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
@@ -925,6 +906,20 @@ impl<L: CardLookup> Engine<L> {
                 _ => None,
             },
         }
+    }
+
+    /// Seat authorized to answer the current decision.
+    #[must_use]
+    pub fn decision_actor(&self) -> Option<PlayerId> {
+        self.pending
+            .asked()
+            .map(|player| self.controlled_actor(player))
+    }
+
+    /// Whether a viewer may inspect this player's private information.
+    #[must_use]
+    pub fn may_inspect_private(&self, viewer: PlayerId, owner: PlayerId) -> bool {
+        viewer == owner || self.controlled_actor(owner) == viewer
     }
 
     /// Mutable state access for a seat that may rewrite the board.
@@ -1028,6 +1023,9 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         for trigger in &self.trigger_queue {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&trigger.text));
             if let Some((version, power)) = trigger.event_object_identity {
                 extra = extra.wrapping_mul(31).wrapping_add(u64::from(version) + 1);
                 extra = extra.wrapping_mul(31).wrapping_add(u64::from(power as u16));
@@ -1060,8 +1058,17 @@ impl<L: CardLookup> Engine<L> {
         if let Some(work) = &self.combat_damage {
             extra = extra.wrapping_mul(31).wrapping_add(work.fingerprint());
         }
+        extra = extra
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.player_control));
+        for parent in &self.effect_plays {
+            extra = extra.wrapping_mul(31).wrapping_add(parent.fingerprint());
+        }
         if let Some(r) = &self.resolution {
             extra = extra.wrapping_mul(31).wrapping_add(r.subject.fingerprint());
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&r.text));
             if let Some(resolve::AwaitingOp::Damage(damage)) = &r.awaiting {
                 extra = extra.wrapping_mul(31).wrapping_add(damage.fingerprint());
             }
@@ -1209,6 +1216,8 @@ impl<L: CardLookup> Engine<L> {
             loyalty_used_this_turn,
             awaiting_answer,
             resolution,
+            effect_plays,
+            player_control,
             combat_damage,
             mana_window,
             trigger_scan_seq,
@@ -1260,6 +1269,8 @@ impl<L: CardLookup> Engine<L> {
             ),
             ("awaiting_answer", format!("{awaiting_answer:?}")),
             ("resolution", format!("{resolution:?}")),
+            ("effect_plays", format!("{effect_plays:?}")),
+            ("player_control", format!("{player_control:?}")),
             ("combat_damage", format!("{combat_damage:?}")),
             ("mana_window", format!("{mana_window:?}")),
             ("trigger_scan_seq", format!("{trigger_scan_seq:?}")),
@@ -1320,71 +1331,32 @@ impl<L: CardLookup> Engine<L> {
     /// answer is put to a question it was not given for. That is what a
     /// refused miracle did to r001's games 1581, 3288 and 3554.
     ///
-    /// The part of that promise this function keeps itself is [`Held`]: the
-    /// few fields that move before anything can tell whether the answer will
-    /// be taken, put back when it is not. Everything else validates before
-    /// it changes anything (`refusal_tests` holds every field to it).
+    /// A complete driver checkpoint also covers a technical capacity failure
+    /// discovered while costs or nested effects resolve. Refusal restores the
+    /// last published decision, including its journal and resource obligations.
     ///
     /// # Errors
     /// [`EngineError`] on mismatched/illegal actions.
     pub fn apply(&mut self, player: PlayerId, action: PlayerAction) -> Result<(), EngineError> {
-        let held = self.hold();
+        let checkpoint = checkpoint::Checkpoint::capture(self);
         let result = self.take_answer(player, action);
+        let result = self
+            .state
+            .numeric_failure
+            .map_or(result, |reason| Err(EngineError::NumericCapacity(reason)));
+        let result = if result.is_ok() && self.commanded_payment_dead_end() {
+            Err(EngineError::IllegalAction(
+                "generated mana has no permitted consumer",
+            ))
+        } else {
+            result
+        };
         if result.is_err() {
-            self.put_back(held);
+            checkpoint.restore(self);
         } else {
             self.settle_question();
         }
         result
-    }
-
-    fn hold(&self) -> Held {
-        Held {
-            action_loops: self.action_loops.clone(),
-            breaking_loop: self.breaking_loop,
-            awaiting_answer: self.awaiting_answer,
-            activation_target_players: self.activation_target_players.clone(),
-            activation_cost_choices: self.activation_cost_choices.clone(),
-            activation_second_targets: self.activation_second_targets.clone(),
-            activation_target_references: self.activation_target_references.clone(),
-            activation_targets_answered: self.activation_targets_answered,
-            activation_x: self.activation_x,
-            activation_graveyard: self.activation_graveyard,
-            activation_phyrexian: self.activation_phyrexian.clone(),
-            activating_abilities: self.activating_abilities,
-            loyalty_player_choice: self.loyalty_player_choice,
-        }
-    }
-
-    fn put_back(&mut self, held: Held) {
-        let Held {
-            action_loops,
-            breaking_loop,
-            awaiting_answer,
-            activation_target_players,
-            activation_cost_choices,
-            activation_second_targets,
-            activation_target_references,
-            activation_targets_answered,
-            activation_x,
-            activation_graveyard,
-            activation_phyrexian,
-            activating_abilities,
-            loyalty_player_choice,
-        } = held;
-        self.action_loops = action_loops;
-        self.breaking_loop = breaking_loop;
-        self.awaiting_answer = awaiting_answer;
-        self.activation_target_players = activation_target_players;
-        self.activation_cost_choices = activation_cost_choices;
-        self.activation_second_targets = activation_second_targets;
-        self.activation_target_references = activation_target_references;
-        self.activation_targets_answered = activation_targets_answered;
-        self.activation_x = activation_x;
-        self.activation_graveyard = activation_graveyard;
-        self.activation_phyrexian = activation_phyrexian;
-        self.activating_abilities = activating_abilities;
-        self.loyalty_player_choice = loyalty_player_choice;
     }
 
     /// Holds the question about to be handed out to the promise that it has
@@ -1481,6 +1453,10 @@ impl<L: CardLookup> Engine<L> {
         if let PlayerAction::OfferDraw = action {
             return self.offer_draw(player);
         }
+        if self.decision_actor() != Some(player) {
+            return Err(EngineError::MismatchedAction);
+        }
+        let player = self.pending.asked().ok_or(EngineError::MismatchedAction)?;
         let answered_priority =
             matches!(self.pending, Pending::Priority { player: holder, .. } if holder == player);
         let old_tops = self.library_action_tops.clone();
@@ -1594,10 +1570,18 @@ mod targeting;
 pub use decision::DecisionContext;
 mod actions;
 pub(crate) mod cast_wizard;
+mod checkpoint;
+#[cfg(test)]
+mod checkpoint_tests;
+mod constrained_mana;
 pub(crate) mod cost_wizard;
+mod effect_play;
 mod granted;
 mod leave;
 mod mulligan;
+mod player_control;
+#[cfg(test)]
+mod player_control_tests;
 mod progress;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]

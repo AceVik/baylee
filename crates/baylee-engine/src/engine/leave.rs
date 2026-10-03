@@ -77,7 +77,8 @@ impl<L: CardLookup> Engine<L> {
         match self.pending {
             Pending::Priority { .. } => self.mana_window.is_some(),
             _ => {
-                self.cast_wizard.is_some()
+                self.mana_window.is_some()
+                    || self.cast_wizard.is_some()
                     || self.pending_plan.is_some()
                     || self.resolution.is_some()
                     || self.combat_damage.is_some()
@@ -277,10 +278,21 @@ impl<L: CardLookup> Engine<L> {
         // the meantime goes with them (#167 put it in the resolution slot).
         if let Some(window) = self.mana_window.take() {
             self.resolution = None;
-            let super::PaymentContinuation::Tax(res) = window.suspended else {
-                self.awaiting_answer = false;
-                self.run_until_choice();
-                return;
+            let res = match window.suspended {
+                super::PaymentContinuation::Tax(res) => res,
+                super::PaymentContinuation::LandMana(mut work) => {
+                    work.resolution.awaiting = None;
+                    work.resolution.pc += 1;
+                    let flow = resolve::run(&mut self.state, &mut work.resolution);
+                    self.go_on_with(work.resolution, flow);
+                    return;
+                }
+                _ => {
+                    self.awaiting_answer = false;
+                    self.finish_nested_cast();
+                    self.run_until_choice();
+                    return;
+                }
             };
             let mut res = *res;
             let flow = resolve::resume_tax_choice(&mut self.state, &mut res, false);
@@ -325,6 +337,9 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         self.awaiting_answer = false;
+        if their_own {
+            self.finish_nested_cast();
+        }
         self.run_until_choice();
     }
 

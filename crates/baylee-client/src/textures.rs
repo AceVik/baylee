@@ -620,7 +620,7 @@ pub fn drive_preloads(
         // empty, so a queue built there and never rebuilt holds nothing a
         // player will be looking at a minute later. `want` makes the repeat
         // free.
-        for h in &view.hand {
+        for h in baylee_client_core::decision::known_cards(view) {
             preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Small));
         }
         for cmds in &view.command {
@@ -657,7 +657,7 @@ pub fn drive_preloads(
         // 1.3 MB each would spend the whole mobile budget on a convenience and
         // then thrash it. Hovering a permanent still fetches on the spot; it
         // is one image, and the face it falls back to meanwhile is correct.
-        for h in &view.hand {
+        for h in baylee_client_core::decision::known_cards(view) {
             preload.want(ImageKey::new(h.card.print, h.card.face, ArtSize::Normal));
         }
         if let Some(cmds) = view.command.get(view.seat.get() as usize) {

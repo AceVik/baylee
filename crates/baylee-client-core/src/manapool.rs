@@ -36,7 +36,7 @@ pub struct Floating {
     /// Always drawn as a numeral beside the pip, never as a count of repeated
     /// pips: colour alone must not carry meaning, and six discs in a row is a
     /// number the player has to count.
-    pub count: u16,
+    pub count: u64,
     /// Whether this mana may only be spent on certain spells (CR 106.6).
     ///
     /// The view does not say *what* it may be spent on — that is a rules
@@ -76,7 +76,7 @@ pub fn row(pool: &ManaPoolView) -> Vec<Floating> {
             out.push(Floating {
                 color,
                 pip: symbol(color),
-                count,
+                count: u64::from(count),
                 restricted: false,
             });
         }
@@ -97,7 +97,7 @@ pub fn row(pool: &ManaPoolView) -> Vec<Floating> {
 
 /// The unrestricted mana of one colour.
 #[must_use]
-pub fn plain(pool: &ManaPoolView, color: ManaColor) -> u16 {
+pub fn plain(pool: &ManaPoolView, color: ManaColor) -> u32 {
     match color {
         ManaColor::White => pool.white,
         ManaColor::Blue => pool.blue,

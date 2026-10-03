@@ -1578,6 +1578,32 @@ messages! {
         en: "You owe mana. Activate mana abilities to pay, or pass.",
         de: "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe.",
     },
+    /// Private optional creature cast from a resolving Mask ability.
+    MaskChoose { en: "Choose a creature to cast face down (X = {0}), or decline", de: "Wähle eine Kreatur zum verdeckten Wirken (X = {0}), oder lehne ab" },
+    /// Actual receipt with fixed costs shown separately; no invented partition.
+    MaskReceipt { en: "Actual mana payment: {0}; fixed activation costs: {1}", de: "Tatsächliche Manazahlung: {0}; feste Aktivierungskosten: {1}" },
+    /// The controlled player's mandatory playable-card choice.
+    CommandChoose { en: "Choose the card this player must play if able", de: "Wähle die Karte, die dieser Spieler nach Möglichkeit spielen muss" },
+    /// An optional face-down cast's explicit confirmation.
+    ConfirmFaceDown { en: "Cast face down", de: "Verdeckt wirken" },
+    /// Explicitly decline an optional resolving cast.
+    DeclineCast { en: "Decline casting", de: "Nicht wirken" },
+    /// A text change asks two separate words.
+    ChooseTextReplacement { en: "Choose the old word and its replacement", de: "Wähle das bisherige und das neue Wort" },
+    /// Current explicit text-change draft, without rewriting Oracle.
+    TextReplacementSummary { en: "Word change: {0} → {1}", de: "Wortänderung: {0} → {1}" },
+    /// First vocabulary column.
+    TextOldWord { en: "Old word", de: "Bisheriges Wort" },
+    /// Second vocabulary column.
+    TextNewWord { en: "New word", de: "Neues Wort" },
+    /// Mandatory mana activation during a resolving instruction.
+    ChooseRequiredMana { en: "Choose a land mana ability", de: "Wähle eine Manafähigkeit eines Landes" },
+    /// Mandatory instruction progress, separate from the compact headline.
+    RequiredManaProgress { en: "Required — {0} activations completed", de: "Verpflichtend — {0} Aktivierungen ausgeführt" },
+    /// Decision controller differs from the resource owner.
+    DecidingFor { en: "You decide for {0}", de: "Du entscheidest für {0}" },
+    /// A replacement effect turns the affected face-down creature face up.
+    DamageTurnFaceUp { en: "Turn face up before damage", de: "Vor dem Schaden aufdecken" },
     /// Compact fixed-payment guidance when temporary actions share the answer row.
     GrantedPaymentHint { en: "Produce mana or pass.", de: "Mana erzeugen oder passen." },
     /// Mana may be generated before choosing an optional amount to prevent damage.

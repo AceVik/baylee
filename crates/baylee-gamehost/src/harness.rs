@@ -305,6 +305,8 @@ pub fn play_report<L: CardLookup>(
             Some(&pending),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(&engine, player),
+                decision_player: engine.pending().asked(),
+                controlled_players: engine.controlled_players(player),
                 deciding: crate::view::deciding(&engine),
                 held: engine.automation(player).hold.suppresses(),
                 owed: crate::view::owed_payment(&engine),
@@ -1070,6 +1072,8 @@ mod tests {
                 Some(&pending),
                 &crate::view::SeatContext {
                     awaiting: crate::view::awaiting_for(&engine, player),
+                    decision_player: engine.pending().asked(),
+                    controlled_players: engine.controlled_players(player),
                     deciding: crate::view::deciding(&engine),
                     held: engine.automation(player).hold.suppresses(),
                     owed: crate::view::owed_payment(&engine),

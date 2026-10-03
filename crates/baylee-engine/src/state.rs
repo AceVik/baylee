@@ -345,6 +345,8 @@ pub enum DelayedAction {
         source_version: u32,
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
+        /// Wording frozen when the delayed ability was created.
+        text: crate::text_changes::TextChangeMap,
     },
     /// [`Self::Trigger`] about one object (`Effect::AtNextEndStep`): its
     /// event object is `object` while that is still the object it was at
@@ -356,6 +358,8 @@ pub enum DelayedAction {
         source_version: u32,
         /// What it does.
         effects: &'static [baylee_cards_dsl::Effect],
+        /// Wording frozen when the delayed ability was created.
+        text: crate::text_changes::TextChangeMap,
         /// The object "that creature" names.
         object: ObjectId,
         /// Its identity when this was created.
@@ -663,6 +667,8 @@ pub enum StateError {
 /// state for the AI copies a pointer rather than the map.
 #[derive(Clone, Debug, Default)]
 pub struct BaseCache {
+    /// Immutable definitions already admitted through the registry seam.
+    rules: FxHashMap<CardIndex, &'static CardDef>,
     /// Printed card faces, keyed by card. Only the front face is interned:
     /// [`GameState::switch_face`] rebuilds from the definition and is rare.
     cards: FxHashMap<CardIndex, Arc<Characteristics>>,
@@ -674,6 +680,12 @@ pub struct BaseCache {
     /// The definition is a `&'static`, so its address is its identity —
     /// two token kinds that share a name do not share a face.
     tokens: FxHashMap<(usize, Option<i16>), Arc<Characteristics>>,
+}
+
+impl CardLookup for BaseCache {
+    fn card(&self, index: CardIndex) -> Option<&'static CardDef> {
+        self.rules.get(&index).copied()
+    }
 }
 
 /// One of a seat's commanders (CR 903.3), and what it has cost so far.
@@ -1027,6 +1039,16 @@ pub struct GameState {
     pub timestamp: u64,
     /// Registered continuous effects (anthems, type changes, pumps).
     pub effects: crate::effects::EffectTable,
+    /// Typed text substitutions on exact spell/permanent/ability incarnations.
+    pub text_changes: crate::text_changes::TextChanges,
+    /// A technical failure, consumed and rolled back at the Engine boundary.
+    pub(crate) numeric_failure: Option<&'static str>,
+    /// Exact mana obligations of nested controlled card plays.
+    pub(crate) constrained_payments: Vec<crate::constrained_payment::ConstrainedPayment>,
+    /// Frozen copiable characteristics of temporary copy effects.
+    pub copy_snapshots: Vec<(baylee_core::ids::EffectId, Arc<Characteristics>)>,
+    /// Text provenance that differs from an effect's ordinary source.
+    pub effect_text_overrides: Vec<(baylee_core::ids::EffectId, crate::text_changes::TextOrigin)>,
     /// Registered replacement rules (Doubling Season, Panharmonicon, …).
     pub replacement_rules: Vec<ReplacementEntry>,
     /// Prevention shields resolved spells and abilities left behind
@@ -1147,6 +1169,11 @@ impl GameState {
             bases,
             timestamp,
             effects,
+            text_changes,
+            effect_text_overrides,
+            copy_snapshots,
+            numeric_failure,
+            constrained_payments,
             replacement_rules,
             shields,
             granted_actions,
@@ -1233,6 +1260,17 @@ impl GameState {
             ("state.bases", heavy(bases)),
             ("state.timestamp", format!("{timestamp:?}")),
             ("state.effects", format!("{effects:?}")),
+            ("state.text_changes", format!("{text_changes:?}")),
+            (
+                "state.effect_text_overrides",
+                format!("{effect_text_overrides:?}"),
+            ),
+            ("state.numeric_failure", format!("{numeric_failure:?}")),
+            (
+                "state.constrained_payments",
+                format!("{constrained_payments:?}"),
+            ),
+            ("state.copy_snapshots", format!("{copy_snapshots:?}")),
             ("state.replacement_rules", format!("{replacement_rules:?}")),
             ("state.shields", format!("{shields:?}")),
             ("state.granted_actions", format!("{granted_actions:?}")),
@@ -1488,6 +1526,11 @@ impl GameState {
             bases: Arc::default(),
             timestamp: 0,
             effects: crate::effects::EffectTable::default(),
+            text_changes: crate::text_changes::TextChanges::default(),
+            effect_text_overrides: Vec::new(),
+            copy_snapshots: Vec::new(),
+            numeric_failure: None,
+            constrained_payments: Vec::new(),
             replacement_rules: Vec::new(),
             shields: crate::prevention::ShieldStore::default(),
             granted_actions: Vec::new(),
@@ -1632,10 +1675,11 @@ impl GameState {
     ///
     /// Front face only: an MDFC that turns over goes through
     /// [`GameState::switch_face`], which builds a face of its own.
-    fn card_base(&mut self, def: &CardDef, index: CardIndex) -> Arc<Characteristics> {
+    fn card_base(&mut self, def: &'static CardDef, index: CardIndex) -> Arc<Characteristics> {
         if let Some(base) = self.bases.cards.get(&index) {
             return Arc::clone(base);
         }
+        Arc::make_mut(&mut self.bases).rules.insert(index, def);
         let name = self.names.intern(def.name());
         let base = Arc::new(Characteristics::from_face(def, 0, name));
         Arc::make_mut(&mut self.bases)
@@ -2154,6 +2198,13 @@ impl GameState {
     /// needs in order to record an event only for a permanent that was
     /// tapped.
     pub fn set_tapped(&mut self, id: ObjectId, tapped: bool) -> bool {
+        if tapped
+            && self
+                .object(id)
+                .is_some_and(|o| !o.status.contains(crate::object::Status::TAPPED))
+        {
+            self.reveal_masked(id);
+        }
         let Some(obj) = self.object_mut(id) else {
             return false;
         };
@@ -2167,6 +2218,32 @@ impl GameState {
             obj.status.remove(crate::object::Status::TAPPED);
         }
         self.board_state_changed();
+        true
+    }
+
+    /// Whether this incarnation still awaits its event-driven face-up replacement.
+    #[must_use]
+    pub(crate) fn awaits_masked_reveal(&self, id: ObjectId) -> bool {
+        self.object(id).is_some_and(|object| {
+            object.zone == Zone::Battlefield
+                && object.status.contains(crate::object::Status::FACE_DOWN)
+                && object.riders.contains(&crate::object::Rider::Masked)
+        })
+    }
+
+    /// Turn the same permanent face up; this is not a zone change or entry.
+    pub(crate) fn reveal_masked(&mut self, id: ObjectId) -> bool {
+        if !self.awaits_masked_reveal(id) {
+            return false;
+        }
+        let object = self.object_mut(id).expect("checked permanent");
+        object.status.remove(crate::object::Status::FACE_DOWN);
+        if let Some(original) = object.original_base.take() {
+            object.base = original;
+        }
+        object.cache.clear();
+        self.invalidate_projections();
+        self.journal.record(GameEvent::TurnedFaceUp { object: id });
         true
     }
 
@@ -2380,7 +2457,9 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
-            if crate::layers::needs_projection(plan, obj) || self.defines_pt_off_battlefield(obj) {
+            if crate::layers::needs_projection(self, plan, obj)
+                || self.defines_pt_off_battlefield(obj)
+            {
                 let projection = crate::layers::recompute_with(self, obj, plan);
                 if projection.read_board {
                     readers.push(id);
@@ -2484,6 +2563,32 @@ impl GameState {
     #[must_use]
     pub fn has_left(&self, player: PlayerId) -> bool {
         self.players[usize::from(player.get())].has_lost()
+    }
+
+    /// Effective words of one ability, including token-defined quoted text.
+    #[must_use]
+    pub fn ability_text(&self, id: ObjectId, index: u32) -> crate::text_changes::TextChangeMap {
+        let Some(object) = self.object(id) else {
+            return crate::text_changes::TextChangeMap::IDENTITY;
+        };
+        let changed = self.text_changes.get(baylee_core::ids::DamageSourceRef {
+            object: id,
+            version: object.version,
+        });
+        if object.kind == ObjectKind::AbilityOnStack {
+            return changed;
+        }
+        object
+            .printed_ability_list(self.bases.as_ref())
+            .base_text(index as usize)
+            .then(changed)
+    }
+
+    /// The current copiable rules of an admitted object, without a second registry.
+    #[must_use]
+    pub fn printed_ability_list(&self, id: ObjectId) -> Option<crate::object::AbilityList> {
+        self.object(id)
+            .map(|object| object.printed_ability_list(self.bases.as_ref()))
     }
 
     /// Object access.
@@ -2853,11 +2958,13 @@ impl GameState {
         }
         // What the object could *do*.
         let departing = self.object(id).and_then(|o| {
-            o.own_abilities.map(|abilities| crate::object::AbilityList {
-                abilities,
-                printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
-                token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
-            })
+            o.own_abilities
+                .as_ref()
+                .map(|abilities| crate::object::AbilityList {
+                    abilities: abilities.into(),
+                    printed: o.own_origin.and_then(crate::object::AbilityOrigin::printed),
+                    token: o.own_origin.and_then(crate::object::AbilityOrigin::token),
+                })
         });
         if from_zone == Zone::Battlefield {
             self.ltb_versions.retain(|(other, _)| *other != id);
@@ -3169,7 +3276,9 @@ impl GameState {
                 obj.riders.retain(|r| {
                     !matches!(
                         r,
-                        crate::object::Rider::Dashed | crate::object::Rider::Escaped
+                        crate::object::Rider::Dashed
+                            | crate::object::Rider::Escaped
+                            | crate::object::Rider::Masked
                     )
                 });
             }
@@ -3525,6 +3634,30 @@ impl GameState {
         drawn
     }
 
+    /// The semantic wording applicable to this continuous effect's definition.
+    /// Layer-six grants follow their grantor, never the receiving object's text.
+    #[must_use]
+    pub fn effect_text(
+        &self,
+        effect: &crate::effects::ContinuousEffect,
+    ) -> crate::text_changes::TextChangeMap {
+        if let Some((_, origin)) = self
+            .effect_text_overrides
+            .iter()
+            .find(|(id, _)| *id == effect.id)
+        {
+            return origin.resolve(&self.text_changes);
+        }
+        if effect.origin == crate::effects::EffectOrigin::Static
+            && let Some(source) = effect
+                .source
+                .and_then(|source| self.source_identity(source))
+        {
+            return self.text_changes.get(source);
+        }
+        crate::text_changes::TextChangeMap::IDENTITY
+    }
+
     /// How many cards `player` may draw this turn, or `None` for no limit.
     ///
     /// The **lowest** limit wins rather than the newest or the sum, because
@@ -3623,6 +3756,11 @@ impl GameState {
             bases: _,
             timestamp,
             effects,
+            text_changes,
+            effect_text_overrides,
+            copy_snapshots,
+            numeric_failure,
+            constrained_payments,
             replacement_rules,
             shields,
             granted_actions,
@@ -3647,6 +3785,15 @@ impl GameState {
         graveyard_order.hash(&mut h);
         sba_legend_decisions.hash(&mut h);
         hash_effects(&mut h, effects);
+        text_changes.hash(&mut h);
+        effect_text_overrides.hash(&mut h);
+        numeric_failure.hash(&mut h);
+        constrained_payments.hash(&mut h);
+        h.usize(copy_snapshots.len());
+        for (id, characteristics) in copy_snapshots {
+            id.hash(&mut h);
+            hash_characteristics(&mut h, characteristics);
+        }
         replacement_rules.hash(&mut h);
         shields.hash(&mut h);
         granted_actions.hash(&mut h);
@@ -3676,6 +3823,7 @@ impl GameState {
                 hash_object(&mut h, &observer.object);
                 hash_characteristics(&mut h, observer.object.characteristics());
                 observer.grants.hash(&mut h);
+                observer.text.hash(&mut h);
                 observer.times.hash(&mut h);
             }
         }
@@ -3724,7 +3872,7 @@ impl GameState {
         h.usize(ltb_abilities.len());
         for (object, list) in ltb_abilities {
             object.hash(&mut h);
-            hash_ability_list(&mut h, list.abilities, list.printed);
+            hash_ability_list(&mut h, &list.abilities, list.printed);
             list.token.hash(&mut h);
         }
         ltb_attachments.hash(&mut h);
@@ -3837,8 +3985,8 @@ impl GameState {
             h.i8(p.hand_modifier);
             h.boolean(p.has_lost());
             for color in ManaColor::ALL {
-                h.u16(p.mana_pool.available(color));
-                h.u16(p.mana_pool.snow_available(color));
+                h.u32(p.mana_pool.available(color));
+                h.u32(p.mana_pool.snow_available(color));
             }
             // The commander tax belongs here even though nothing else that
             // only grows does. It is rules-visible — a player can see what
@@ -4064,6 +4212,7 @@ fn hash_chosen_source(
         )
     }));
     filter_hash(h, source.filter);
+    source.text.hash(h);
     h.u8(source.you.get());
     h.u32(position(source.this));
     hash_damage_source(h, state, source.id, source.version);
@@ -4405,6 +4554,12 @@ fn hash_object_situation(
     h.option_u32(obj.paid.as_ref().and_then(|p| p.sacrificed_mana_value));
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
+    for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {
+        h.u32(amount);
+    }
+    h.u64(obj.paid.as_ref().map_or(0, |paid| {
+        structural_fingerprint(&(&paid.mana_paid, paid.fixed_mana_cost, paid.mana_spending))
+    }));
     // And which creature station tapped: its power is what the counters
     // will be.
     let followed = obj.paid.as_ref().and_then(|p| p.source_after_cost);
@@ -4526,17 +4681,11 @@ fn hash_unordered<T>(
 /// [`AbilityList`]: crate::object::AbilityList
 fn hash_ability_list(
     h: &mut Hasher,
-    abilities: &[baylee_cards_dsl::AbilityDef],
+    abilities: impl Into<crate::copiable_abilities::AbilityDefs>,
     printed: Option<PrintedFace>,
 ) {
-    h.usize(abilities.len());
-    if let Some(face) = printed {
-        h.u8(1);
-        face.hash(h);
-    } else {
-        h.u8(0);
-        abilities.hash(h);
-    }
+    printed.hash(h);
+    abilities.into().hash(h);
 }
 
 fn hash_effects(h: &mut Hasher, table: &crate::effects::EffectTable) {
@@ -4631,6 +4780,13 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     // seat's objects have left the game the reason is the only trace of
     // which one fired.
     h.u8(loss_byte(*loss));
+}
+
+/// Canonical characteristics hash for a held resolution's target snapshot.
+pub(crate) fn characteristics_fingerprint(characteristics: &Characteristics) -> u64 {
+    let mut hash = Hasher::new();
+    hash_characteristics(&mut hash, characteristics);
+    hash.finish()
 }
 
 fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
@@ -4831,6 +4987,7 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 amount.hash(h);
             }
             Rider::Escaped => h.u8(16),
+            Rider::Masked => h.u8(41),
             Rider::ChosenOpponent(p) => {
                 h.u8(17);
                 h.u8(p.get());
@@ -5899,6 +6056,7 @@ mod tests {
                     id,
                     version: version + 1,
                     was_spell: false,
+                    text: crate::text_changes::TextChangeMap::IDENTITY,
                     filter,
                     you: PlayerId::new(0),
                     this: id,
@@ -6157,7 +6315,8 @@ mod tests {
             }),
             ("face_index", |s, id| fixture_object(s, id).face_index = 1),
             ("own_abilities", |s, id| {
-                fixture_object(s, id).own_abilities = Some(&[]);
+                fixture_object(s, id).own_abilities =
+                    Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
             }),
             ("own_abilities_until_eot", |s, id| {
                 fixture_object(s, id).own_abilities_until_eot = true;
@@ -6238,13 +6397,15 @@ mod tests {
     #[test]
     fn a_list_no_card_prints_is_hashed_by_what_it_says() {
         let (mut state, id) = hash_fixture();
-        fixture_object(&mut state, id).own_abilities = Some(&[]);
+        fixture_object(&mut state, id).own_abilities =
+            Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
         let empty = state.snapshot_hash();
         let said = baylee_cards::by_index(force_of_will())
             .expect("the registry has Force of Will")
             .abilities;
         assert!(!said.is_empty(), "the list has to say something to differ");
-        fixture_object(&mut state, id).own_abilities = Some(said);
+        fixture_object(&mut state, id).own_abilities =
+            Some(crate::object::AbilityList::from_static(said, None, None).into_bundle());
         assert_ne!(
             state.snapshot_hash(),
             empty,

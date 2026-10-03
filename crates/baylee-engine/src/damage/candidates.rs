@@ -15,6 +15,7 @@ impl DamageWork {
             if part.view.amount == 0 || !part.recipient_exists(state) {
                 continue;
             }
+            masked_candidates(state, part, &mut out);
             for (id, shield, origin) in state.shields.identified() {
                 if !shield.protects.covers(state, part.view.recipient) {
                     continue;
@@ -116,13 +117,16 @@ impl DamageWork {
                     else {
                         continue;
                     };
-                    if !crate::eval::matches_projected(
+                    if !crate::eval::matches_projected_with_context(
                         filter,
                         state,
                         source,
                         source.characteristics(),
                         fx.controller,
-                        fx.source.unwrap_or(object.id),
+                        crate::text_changes::RuleContext {
+                            source: fx.source.unwrap_or(object.id),
+                            text: state.effect_text(fx),
+                        },
                     ) {
                         continue;
                     }
@@ -177,13 +181,16 @@ impl DamageWork {
                         continue;
                     };
                     let this = fx.source.unwrap_or(part.view.source);
-                    let fits = crate::eval::matches_projected(
+                    let fits = crate::eval::matches_projected_with_context(
                         filter,
                         state,
                         source,
                         source.characteristics(),
                         player,
-                        this,
+                        crate::text_changes::RuleContext {
+                            source: this,
+                            text: state.effect_text(fx),
+                        },
                     );
                     if !fits {
                         continue;
@@ -258,5 +265,41 @@ impl Part {
                 o.zone == Zone::Battlefield && self.recipient_version == Some(o.version)
             }),
         }
+    }
+}
+
+fn masked_candidates(state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
+    let source = state
+        .object(part.view.source)
+        .filter(|object| part.source_version == Some(object.version))
+        .map(|object| object.id);
+    let recipient = match part.view.recipient {
+        DamageTarget::Object(id) => Some(id),
+        DamageTarget::Player(_) => None,
+    };
+    for object in source
+        .into_iter()
+        .chain(recipient.filter(|id| Some(*id) != source))
+    {
+        if !state.awaits_masked_reveal(object) {
+            continue;
+        }
+        let reference = state
+            .source_identity(object)
+            .expect("present masked permanent");
+        add(
+            out,
+            part,
+            EffectKey::FaceUp(reference),
+            Kind::TurnFaceUp { object: reference },
+            Some(ShieldOrigin {
+                source: object,
+                ability: None,
+            }),
+            state
+                .object(object)
+                .expect("present masked permanent")
+                .controller,
+        );
     }
 }

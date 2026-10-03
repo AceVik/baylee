@@ -146,13 +146,20 @@ impl<L: CardLookup> Engine<L> {
         // policy that answered (#234): its ability, the stack object asked
         // about, and the answer.
         type ByPolicy = Option<(AbilityRef, Option<ObjectId>, PolicyAnswer)>;
+        if self.decision_actor() != self.pending.asked() {
+            return false;
+        }
         let answer: Option<(PlayerId, PlayerAction, ByPolicy)> = match &self.pending {
             Pending::Priority { player, legal } => {
                 let settings = self.automation(*player);
                 let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
                 let top_ability = top.and_then(|id| self.state.object(id)).and_then(|obj| {
                     let loc = obj.ability?;
-                    loc.card.map(|card| AbilityRef::new(card, loc.index))
+                    self.state
+                        .printed_ability_list(obj.id)
+                        .and_then(|list| list.entry(loc.index as usize))
+                        .and_then(|entry| entry.provenance.ability_ref())
+                        .or_else(|| loc.card.map(|card| AbilityRef::new(card, loc.index)))
                 });
                 let by_hold = match settings.hold {
                     PriorityHold::PassWhenNothingToDo => legal.nothing_but_passing(),
@@ -236,6 +243,12 @@ impl<L: CardLookup> Engine<L> {
         const AUTO_ANSWER_LIMIT: u32 = 4096;
         for step in 0..AUTO_ANSWER_LIMIT {
             self.run_machine();
+            if self.state.numeric_failure.is_some() {
+                return;
+            }
+            if self.open_land_mana_window() {
+                continue;
+            }
             self.open_variable_mana_window();
             self.state.capture_rule_references(&self.lookup);
             if !self.awaiting_answer {
@@ -278,6 +291,9 @@ impl<L: CardLookup> Engine<L> {
         let Some(window) = &self.mana_window else {
             return false;
         };
+        if matches!(window.suspended, super::PaymentContinuation::LandMana(_)) {
+            return self.advance_land_mana();
+        }
         let player = window.player;
         self.regrant_priority = None;
         self.pending = Pending::Priority {
@@ -301,6 +317,9 @@ impl<L: CardLookup> Engine<L> {
         // loop without a player being able to stop it (see `crate::loops`).
         let mut watch = crate::loops::LoopWatch::default();
         while !self.advance_combat_damage() {
+            if self.state.numeric_failure.is_some() {
+                return;
+            }
             if let Some(pending) = crate::graveyard_order::pending(&mut self.state) {
                 self.pending = pending;
                 self.awaiting_answer = true;
@@ -312,6 +331,7 @@ impl<L: CardLookup> Engine<L> {
             {
                 return;
             }
+            self.prune_player_control();
             // 0. A token copy's rules text (CR 707.2), before anything asks
             //    what a permanent can do.
             self.settle_copied_rules_text();
@@ -1625,407 +1645,46 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 
-    /// Applies the clone-on-enter choice: the permanent's copiable base is
-    /// replaced by the target's base, with the card's modifications. For
-    /// `CopyOnEnterUntilEot` (Cursed Mirror), that half is a layer-1
-    /// continuous effect with `UntilEndOfTurn` duration instead.
-    ///
-    /// Only that half differs. Both branches write the copied abilities onto
-    /// the object, because nothing about an ability is layer-projected, and
-    /// the temporary branch flags the write so
-    /// [`Self::cleanup_ends_the_turns_effects`] knows to take it back.
-    ///
-    /// One thing neither branch does on its own: a permanent with a
-    /// *printed* static ability that becomes a copy keeps that static
-    /// registered, because `sync_static_effects` registered it at step 0a of
-    /// the pass this runs in at 0b, and only a departure un-registers one.
-    ///
-    /// That was for a long time an accident with a card standing on it.
-    /// **Sakashima of a Thousand Faces** prints exactly such a static — "the
-    /// legend rule doesn't apply to permanents you control" — and says
-    /// "…except it has Sakashima's other abilities", which no [`CopyMod`]
-    /// could express. The clause that could not be said and the effect that
-    /// was never un-registered cancelled out, and the card was right for a
-    /// reason that had nothing to do with what it prints.
-    ///
-    /// [`CopyMod::KeepOtherAbilities`] says it now, and
-    /// [`Self::keep_own_statics`] pays it — so the outcome is the same and
-    /// arrives by rule. The accident is gone from the spell door outright:
-    /// CR 614.12a moved that choice in front of the permanent's arrival, so
-    /// there is no 0a pass between the two for a static to be registered in.
-    /// It survives only at the doors that copy *after* arrival —
-    /// reanimation, a search to the battlefield, a token copy — where it is
-    /// still reachable by a card that does **not** carry the mod, and
-    /// `combo_tests::no_card_becomes_a_copy_carrying_a_printed_static_unnoticed`
-    /// is what holds the pool to none.
-    ///
-    /// What is kept is the first half of CR 707.9a and not the second: the
-    /// statics apply, and they do not join the copy's *copiable* values, so
-    /// a second clone copying this one does not get them. The reason is a
-    /// type — see [`CopyMod::KeepOtherAbilities`], which carries it.
-    ///
-    /// [`CopyMod`]: baylee_cards_dsl::CopyMod
-    /// [`CopyMod::KeepOtherAbilities`]: baylee_cards_dsl::CopyMod::KeepOtherAbilities
-    #[allow(clippy::too_many_lines)]
+    /// Apply an entry copy through the same snapshot transaction as a
+    /// resolving copy ability (CR 707.2, 707.9).
     pub(crate) fn apply_copy_choice(&mut self, id: ObjectId, target: ObjectId) {
         #[cfg(test)]
         crate::ability_log::copied_on_entry(&self.state, &self.lookup, id);
-        // The copier's own printed list is read *here* and not where it is
-        // used, because both branches below overwrite `own_abilities` with
-        // the copied one — after which `abilities` answers with the
-        // target's text and the copier's own is no longer reachable from
-        // the object at all.
-        let (mods, until_eot, own_printed): (
-            Vec<baylee_cards_dsl::CopyMod>,
-            bool,
-            &'static [AbilityDef],
-        ) = {
-            let Some(obj) = self.state.object(id) else {
-                return;
-            };
-            let own = obj.printed_abilities(&self.lookup);
-            let (mods, until_eot) = own
+        let Some(own) = self.state.printed_ability_list(id) else {
+            return;
+        };
+        let Some((index, mods, until_eot)) =
+            own.abilities
                 .iter()
-                .find_map(|a| match a {
-                    AbilityDef::CopyOnEnter { mods, .. } => Some((mods.to_vec(), false)),
-                    AbilityDef::CopyOnEnterUntilEot { mods, .. } => Some((mods.to_vec(), true)),
+                .enumerate()
+                .find_map(|(index, ability)| match ability {
+                    AbilityDef::CopyOnEnter { mods, .. } => Some((index, *mods, false)),
+                    AbilityDef::CopyOnEnterUntilEot { mods, .. } => Some((index, *mods, true)),
                     _ => None,
                 })
-                .unwrap_or_default();
-            (mods, until_eot, own)
-        };
-        let keeps_its_own = mods
-            .iter()
-            .any(|m| matches!(m, baylee_cards_dsl::CopyMod::KeepOtherAbilities));
-        // What the permanent became, for a counter that asks ("…if it's a
-        // creature"): the copied values (CR 707.2) with this copy's own type
-        // changes (CR 707.9b). Read here, before either branch, because the
-        // two carry those changes in different places — the base, or effects
-        // of their own that end with the turn — and the answer is the same.
-        let became = mods.iter().fold(
-            crate::layers::copiable_values(&self.state, target)
-                .map_or(baylee_core::types::TypeSet::EMPTY, |values| values.types),
-            |types, m| match m {
-                baylee_cards_dsl::CopyMod::AddType(t) => types.union(*t),
-                baylee_cards_dsl::CopyMod::RemoveType(t) => types.difference(*t),
-                _ => types,
-            },
-        );
-        if until_eot {
-            // Temporary copy: layer-1 effect + mods as their own effects.
-            let controller = self
-                .state
-                .object(id)
-                .map_or(PlayerId::new(0), |o| o.controller);
-            let ts = self.state.next_timestamp();
-            self.state
-                .effects
-                .register(crate::effects::ContinuousEffect {
-                    id: baylee_core::ids::EffectId::new(0),
-                    source: Some(id),
-                    controller,
-                    origin: crate::effects::EffectOrigin::Resolution,
-                    layer: baylee_cards_dsl::Layer::Copy,
-                    timestamp: ts,
-                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                    filter: crate::effects::EffectFilter::object(&self.state, id),
-                    modifier: baylee_cards_dsl::Modifier::BecomeCopyOf(target),
-                });
-            // Abilities are copiable values too (CR 707.2), and the effect
-            // above cannot carry them: `Modifier::BecomeCopyOf` assigns the
-            // target's `characteristics()`, and abilities are not among them
-            // — `Characteristics` has no field for a rules text, so nothing
-            // about an ability is layer-projected. A Mirror that became a
-            // Llanowar Elf was a 1/1 Elf Druid that still tapped for {R}.
-            //
-            // Read through `abilities` rather than off the target's card, for
-            // the reason the permanent branch below does: a target that is
-            // itself a copy answers with what it has become, which is what a
-            // copy of it takes.
-            let copied = self
-                .state
-                .object(target)
-                .map(|o| o.printed_ability_list(&self.lookup));
-            if let Some(copied) = copied
-                && let Some(obj) = self.state.object_mut(id)
-            {
-                obj.take_abilities(copied);
-                // Unlike every other writer of that field. This copy ends
-                // with the turn, and the field it writes is the one half of
-                // the copy that cannot expire on its own.
-                obj.own_abilities_until_eot = true;
-            }
-            if keeps_its_own {
-                self.keep_own_statics(id, own_printed);
-            }
-            for m in mods {
-                let (layer, modifier) = match m {
-                    baylee_cards_dsl::CopyMod::AddKeyword(k) => (
-                        baylee_cards_dsl::Layer::Ability,
-                        baylee_cards_dsl::Modifier::AddKeyword(k),
-                    ),
-                    baylee_cards_dsl::CopyMod::AddType(t) => (
-                        baylee_cards_dsl::Layer::Type,
-                        baylee_cards_dsl::Modifier::AddType(t),
-                    ),
-                    baylee_cards_dsl::CopyMod::RemoveType(t) => (
-                        baylee_cards_dsl::Layer::Type,
-                        baylee_cards_dsl::Modifier::RemoveType(t),
-                    ),
-                    baylee_cards_dsl::CopyMod::AddSubtype(s) => (
-                        baylee_cards_dsl::Layer::Type,
-                        baylee_cards_dsl::Modifier::AddSubtype(s),
-                    ),
-                    // CR 707.9a: the ability the clause names, on the layer
-                    // its modifier derives (CR 613.1f for a grant), ending
-                    // with the turn like the rest of this copy.
-                    baylee_cards_dsl::CopyMod::Grant(modifier) => (modifier.layer(), *modifier),
-                    baylee_cards_dsl::CopyMod::SetPT(p, t) => (
-                        baylee_cards_dsl::Layer::PtSet,
-                        baylee_cards_dsl::Modifier::SetPT(p, t),
-                    ),
-                    baylee_cards_dsl::CopyMod::SetColor(c) => (
-                        baylee_cards_dsl::Layer::Color,
-                        baylee_cards_dsl::Modifier::SetColor(c),
-                    ),
-                    baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
-                        // "…except it enters with an additional counter on
-                        // it" is a replacement effect (CR 614.1c), and a
-                        // counter-doubling replacement applies to what
-                        // another replacement effect places (CR 614.16) —
-                        // the same reading that already sends a
-                        // planeswalker's starting loyalty through this
-                        // door. It carries the journal entry and the
-                        // invalidation too, the latter being what a copy
-                        // arriving with counters needs (CR 613.4c), since
-                        // nothing in the effect table moved to say so.
-                        crate::replacement::put_counters(&mut self.state, id, kind, n);
-                        continue;
-                    }
-                    baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
-                        if became.intersects(types) {
-                            crate::replacement::put_counters(&mut self.state, id, kind, n);
-                        }
-                        continue;
-                    }
-                    baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
-                        let x = self.state.object(id).map_or(0, |o| o.x_value);
-                        let n = u16::try_from(x).unwrap_or(u16::MAX);
-                        if n > 0 {
-                            crate::replacement::put_counters(&mut self.state, id, kind, n);
-                        }
-                        continue;
-                    }
-                    // Two different reasons for one empty arm. There is no
-                    // `Modifier` that takes a supertype away; and keeping
-                    // the copier's own abilities is not a modification of
-                    // what was copied at all but an addition beside it
-                    // (CR 707.9a), already paid above and before this loop,
-                    // while the copier's own list is still reachable.
-                    // And no `Modifier` sets a mana cost: "with no mana
-                    // cost" is printed on token copies (embalm, eternalize)
-                    // and on no copy that lasts until end of turn.
-                    baylee_cards_dsl::CopyMod::RemoveSupertype(_)
-                    | baylee_cards_dsl::CopyMod::KeepOtherAbilities
-                    | baylee_cards_dsl::CopyMod::NoManaCost => continue,
-                };
-                let ts = self.state.next_timestamp();
-                self.state
-                    .effects
-                    .register(crate::effects::ContinuousEffect {
-                        id: baylee_core::ids::EffectId::new(0),
-                        source: Some(id),
-                        controller,
-                        origin: crate::effects::EffectOrigin::Static,
-                        layer,
-                        timestamp: ts,
-                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
-                        filter: crate::effects::EffectFilter::object(&self.state, id),
-                        modifier,
-                    });
-            }
-            return;
-        }
-        // The target's copiable values rather than its `base`, because the
-        // two disagree exactly when the target is *itself* a temporary copy:
-        // a Cursed Mirror that became a Llanowar Elf has an artifact's base
-        // and an Elf's copiable values, and the Mimic's own ruling says a
-        // Mimic copying it "enters the battlefield as whatever the chosen
-        // creature copied". The abilities beside it already read through
-        // `abilities`, which follows `own_abilities` and so has always
-        // answered with what the target became — the two halves of one
-        // object were being read from two different places.
-        let Some(target_base) = crate::layers::copiable_values(&self.state, target) else {
-            return;
-        };
-        let Some(target_abilities) = self
-            .state
-            .object(target)
-            .map(|o| o.printed_ability_list(&self.lookup))
         else {
             return;
         };
-        {
-            let obj = self.state.object_mut(id).expect("copy target exists");
-            // Kept so the copy can stop being one. A copy lasts as long as
-            // the object does (CR 707.2a), and the object ends at the next
-            // zone change (CR 400.7), which is where this is spent.
-            if obj.original_base.is_none() {
-                obj.original_base = Some(obj.base.clone());
-            }
-            obj.base = target_base;
-            // Abilities are copiable values too (CR 707.2), and `base` holds
-            // only characteristics — a copy that took the base alone arrived
-            // with the right name and P/T and no rules text at all.
-            obj.take_abilities(target_abilities);
-        }
-        if keeps_its_own {
-            self.keep_own_statics(id, own_printed);
-        }
-        for m in mods {
-            let obj = self.state.object_mut(id).expect("copy target exists");
-            match m {
-                baylee_cards_dsl::CopyMod::AddType(t) => {
-                    let b = obj.base_mut();
-                    b.types = b.types.union(t);
-                }
-                baylee_cards_dsl::CopyMod::RemoveType(t) => {
-                    let b = obj.base_mut();
-                    b.types = b.types.difference(t);
-                }
-                baylee_cards_dsl::CopyMod::RemoveSupertype(s) => {
-                    let b = obj.base_mut();
-                    b.supertypes = b.supertypes.difference(s);
-                }
-                baylee_cards_dsl::CopyMod::AddSubtype(s) => {
-                    obj.base_mut().subtypes.insert(s);
-                }
-                baylee_cards_dsl::CopyMod::AddKeyword(k) => {
-                    let b = obj.base_mut();
-                    b.keywords = b.keywords.union(k);
-                }
-                baylee_cards_dsl::CopyMod::SetPT(p, t) => {
-                    let b = obj.base_mut();
-                    b.power = Some(p);
-                    b.toughness = Some(t);
-                }
-                baylee_cards_dsl::CopyMod::SetColor(c) => {
-                    obj.base_mut().colors = c;
-                }
-                baylee_cards_dsl::CopyMod::NoManaCost => {
-                    obj.base_mut().mana_cost = baylee_core::mana::ManaCost::ZERO;
-                }
-                baylee_cards_dsl::CopyMod::AddCounter(kind, n) => {
-                    // The same door as the temporary branch above, for the
-                    // same reason (CR 614.1c, CR 614.16).
-                    crate::replacement::put_counters(&mut self.state, id, kind, n);
-                }
-                // The arm a card in the pool reaches: Spark Double enters
-                // with a +1/+1 counter if it became a creature and a loyalty
-                // counter if it became a planeswalker, and under a Doubling
-                // Season with two of each it takes.
-                baylee_cards_dsl::CopyMod::AddCounterIf(types, kind, n) => {
-                    if became.intersects(types) {
-                        crate::replacement::put_counters(&mut self.state, id, kind, n);
-                    }
-                }
-                // CR 107.3m: the X announced for the spell that became it.
-                baylee_cards_dsl::CopyMod::AddCounterX(kind) => {
-                    let n = u16::try_from(obj.x_value).unwrap_or(u16::MAX);
-                    if n > 0 {
-                        crate::replacement::put_counters(&mut self.state, id, kind, n);
-                    }
-                }
-                // Paid before this loop, for the reason the temporary
-                // branch's twin gives.
-                baylee_cards_dsl::CopyMod::KeepOtherAbilities => {}
-                // CR 707.9a: "…except it has '…'". Registered the way the
-                // copier's kept statics are (`keep_own_statics`) — its
-                // timestamp, for as long as it stays on the battlefield —
-                // because the copy has already taken away every ability the
-                // card printed beside this clause (CR 707.2).
-                baylee_cards_dsl::CopyMod::Grant(modifier) => {
-                    let (controller, timestamp) = (obj.controller, obj.timestamp);
-                    let filter = crate::effects::EffectFilter::object(&self.state, id);
-                    self.state
-                        .effects
-                        .register(crate::effects::ContinuousEffect {
-                            id: baylee_core::ids::EffectId::new(0),
-                            source: Some(id),
-                            controller,
-                            origin: crate::effects::EffectOrigin::Static,
-                            layer: modifier.layer(),
-                            timestamp,
-                            duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                            filter,
-                            modifier: *modifier,
-                        });
-                }
-            }
-        }
-        self.state.invalidate_projections();
-    }
-
-    /// CR 707.9a: the copier keeps its own printed statics beside what it
-    /// copied — "except it has Sakashima's other abilities".
-    ///
-    /// What it writes is the effect [`Self::sync_static_effects`] would have
-    /// built, field for field, at the one moment the copier's own list is
-    /// still reachable: once `own_abilities` holds the copied text, the
-    /// printed one is gone from the object. So `has_source_ability` keeps
-    /// that scan from registering a second copy of any of these, and the
-    /// departure sweep at the top of it takes them away again — this
-    /// function adds a moment, not a mechanism.
-    ///
-    /// The copy ability itself is excluded by the filter rather than by a
-    /// test for it: it is not an [`AbilityDef::Static`], so "other" falls
-    /// out of "static" for every card that can reach this. What does *not*
-    /// fall out is a triggered or activated other ability, which has no
-    /// continuous effect to live in and would be lost in silence —
-    /// `combo_tests::every_copy_that_keeps_its_own_abilities_keeps_only_statics`
-    /// is the bound that stops one arriving unnoticed.
-    fn keep_own_statics(&mut self, id: ObjectId, printed: &'static [AbilityDef]) {
-        let Some(obj) = self.state.object(id) else {
-            return;
-        };
-        let (controller, timestamp) = (obj.controller, obj.timestamp);
-        let mut to_register = Vec::new();
-        for ability in printed {
-            let AbilityDef::Static(sa) = ability else {
-                continue;
-            };
-            if self.state.effects.has_source_ability(id, sa.modifier) {
-                continue;
-            }
-            // A static that exists only under a condition is kept only while
-            // it holds now. Afterwards nothing asks again, because
-            // `sync_static_effects` reads the copied list: a copier whose
-            // own statics include a station symbol keeps it as it stood
-            // when the copy began.
-            if let Some(condition) = sa.condition
-                && !crate::eval::condition_holds(&self.state, controller, id, condition)
-            {
-                continue;
-            }
-            to_register.push(crate::effects::ContinuousEffect {
-                id: baylee_core::ids::EffectId::new(0),
-                source: Some(id),
-                controller,
-                origin: crate::effects::EffectOrigin::Static,
-                layer: sa.layer,
-                timestamp,
-                duration: baylee_cards_dsl::Duration::WhileSourceOnBattlefield,
-                filter: crate::effects::EffectFilter::Dsl(&sa.filter),
-                modifier: sa.modifier,
-            });
-        }
-        for fx in to_register {
-            self.state.effects.register(fx);
-        }
+        let text = own
+            .base_text(index)
+            .then(crate::eval::live_context(&self.state, id).text);
+        crate::copiable_abilities::apply_copy(
+            &mut self.state,
+            crate::copiable_abilities::CopyApplication {
+                source: id,
+                target,
+                mods,
+                copy_index: u32::try_from(index).expect("ability index fits"),
+                until_eot,
+                resolving: None,
+                text,
+            },
+        );
     }
 
     /// Keeps the effect table in sync with the battlefield: registers
     /// static abilities of permanents, drops effects whose source left.
+    #[allow(clippy::too_many_lines)] // Phasing, lapsed rules and provenance-aware registration form one sync pass.
     pub(crate) fn sync_static_effects(&mut self) {
         use baylee_cards_dsl::Duration;
         // A phased-out permanent's statics apply to nothing (CR 702.26b):
@@ -2063,6 +1722,39 @@ impl<L: CardLookup> Engine<L> {
             matches!(fx.duration, Duration::WhileSourceOnBattlefield)
                 && fx.source.is_some_and(|s| gone.contains(&s))
         });
+        // A blink can leave the same arena object on the battlefield with
+        // a new rules identity. Its former printed/copied static must end
+        // before the replacement registration affects the projection.
+        let stale: Vec<_> = self
+            .state
+            .effects
+            .iter()
+            .filter_map(|effect| {
+                if effect.origin != crate::effects::EffectOrigin::Static
+                    || effect.duration != Duration::WhileSourceOnBattlefield
+                {
+                    return None;
+                }
+                let (_, origin) = self
+                    .state
+                    .effect_text_overrides
+                    .iter()
+                    .find(|(id, _)| *id == effect.id)?;
+                let reference = match *origin {
+                    crate::text_changes::TextOrigin::Live(source)
+                    | crate::text_changes::TextOrigin::Ability { source, .. } => source,
+                    crate::text_changes::TextOrigin::Frozen(_) => return None,
+                };
+                // A gained static may instead quote a different grantor: that
+                // identity cannot be compared with the recipient's incarnation.
+                (effect.source == Some(reference.object)
+                    && self.state.source_identity(reference.object) != Some(reference))
+                .then_some(effect.id)
+            })
+            .collect();
+        self.state
+            .effects
+            .remove_where(|effect| stale.contains(&effect.id));
         end_control_durations(&mut self.state);
         forget_effects_on_moved_objects(&mut self.state);
         // Collect statics of permanents not yet registered (then apply,
@@ -2098,9 +1790,7 @@ impl<L: CardLookup> Engine<L> {
         // permanent enters already a copy — there is no pass on which this
         // scan sees it as itself. That is the half of the ordering the spell
         // door stopped needing, and the reason a permanent's own printed
-        // statics have to be kept deliberately now
-        // ([`Self::keep_own_statics`]) rather than by being registered
-        // before the copy caught up.
+        // statics are composed into the copiable ability list before entry.
         //
         // For the doors that are left, nothing happens in between, which is
         // the part worth knowing and is not luck. `check_copy_on_enter`
@@ -2147,45 +1837,151 @@ impl<L: CardLookup> Engine<L> {
             };
             let lost = obj.characteristics().abilities_lost.is_some();
             let text_lost = obj.characteristics().rules_text_lost;
-            for ability in obj.printed_abilities(&self.lookup) {
+            let list = obj.printed_ability_list(&self.lookup);
+            for (index, ability) in list.abilities.iter().enumerate() {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
-                let registered = self.state.effects.has_source_ability(id, sa.modifier);
+                let identity = baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: obj.version,
+                };
+                let origin = crate::text_changes::TextOrigin::Ability {
+                    source: identity,
+                    index: index as u32,
+                    base: list.base_text(index),
+                };
+                let context = crate::text_changes::RuleContext {
+                    source: id,
+                    text: origin.resolve(&self.state.text_changes),
+                };
+                let registered = self
+                    .state
+                    .effects
+                    .iter()
+                    .find(|fx| {
+                        fx.source == Some(id)
+                            && fx.origin == crate::effects::EffectOrigin::Static
+                            && fx.modifier == sa.modifier
+                            && self
+                                .state
+                                .effect_text_overrides
+                                .iter()
+                                .find(|(effect, _)| *effect == fx.id)
+                                .is_none_or(|(_, text)| *text == origin)
+                    })
+                    .map(|fx| fx.id);
                 let gone_with_the_ability = (lost && !outlives_its_ability(sa.layer))
                     || (text_lost && !outlives_its_rules_text(sa.layer));
                 if gone_with_the_ability
                     || sa.condition.is_some_and(|condition| {
-                        !crate::eval::condition_holds(&self.state, obj.controller, id, condition)
+                        !crate::eval::condition_holds_with_context(
+                            &self.state,
+                            obj.controller,
+                            context,
+                            condition,
+                        )
                     })
                 {
-                    if registered {
-                        lapsed.push((id, sa.modifier));
+                    if let Some(effect) = registered {
+                        lapsed.push(effect);
                     }
                     continue;
                 }
-                if registered {
+                if let Some(effect) = registered {
+                    // Adopt legacy registrations without an origin sidecar.
+                    if !self
+                        .state
+                        .effect_text_overrides
+                        .iter()
+                        .any(|(id, _)| *id == effect)
+                    {
+                        to_register.push((None, effect, Some(origin)));
+                    }
                     continue;
                 }
-                to_register.push(crate::effects::ContinuousEffect {
-                    id: baylee_core::ids::EffectId::new(0),
-                    source: Some(id),
-                    controller: obj.controller,
-                    origin: crate::effects::EffectOrigin::Static,
-                    layer: sa.layer,
-                    timestamp: obj.timestamp,
-                    duration: Duration::WhileSourceOnBattlefield,
-                    filter: crate::effects::EffectFilter::Dsl(&sa.filter),
-                    modifier: sa.modifier,
-                });
+                to_register.push((
+                    Some(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(id),
+                        controller: obj.controller,
+                        origin: crate::effects::EffectOrigin::Static,
+                        layer: sa.layer,
+                        timestamp: obj.timestamp,
+                        duration: Duration::WhileSourceOnBattlefield,
+                        filter: crate::effects::EffectFilter::Dsl(&sa.filter),
+                        modifier: sa.modifier,
+                    }),
+                    baylee_core::ids::EffectId::new(0),
+                    Some(origin),
+                ));
+            }
+            for (offset, ability) in list.runtime_statics().iter().enumerate() {
+                let layer = ability.modifier.layer();
+                let origin = crate::text_changes::TextOrigin::Ability {
+                    source: baylee_core::ids::DamageSourceRef {
+                        object: id,
+                        version: obj.version,
+                    },
+                    index: u32::try_from(list.abilities.len() + offset)
+                        .expect("ability index fits u32"),
+                    base: ability.base_text,
+                };
+                let registered = self
+                    .state
+                    .effects
+                    .iter()
+                    .find(|fx| {
+                        fx.source == Some(id)
+                            && fx.origin == crate::effects::EffectOrigin::Static
+                            && fx.modifier == ability.modifier
+                            && self
+                                .state
+                                .effect_text_overrides
+                                .iter()
+                                .any(|(effect, text)| *effect == fx.id && *text == origin)
+                    })
+                    .map(|fx| fx.id);
+                if (lost && !outlives_its_ability(layer))
+                    || (text_lost && !outlives_its_rules_text(layer))
+                {
+                    if let Some(effect) = registered {
+                        lapsed.push(effect);
+                    }
+                    continue;
+                }
+                if registered.is_none() {
+                    to_register.push((
+                        Some(crate::effects::ContinuousEffect {
+                            id: baylee_core::ids::EffectId::new(0),
+                            source: Some(id),
+                            controller: obj.controller,
+                            origin: crate::effects::EffectOrigin::Static,
+                            layer,
+                            timestamp: obj.timestamp,
+                            duration: Duration::WhileSourceOnBattlefield,
+                            filter: crate::effects::EffectFilter::object(&self.state, id),
+                            modifier: ability.modifier,
+                        }),
+                        baylee_core::ids::EffectId::new(0),
+                        Some(origin),
+                    ));
+                }
             }
         }
-        for (source, modifier) in lapsed {
-            self.state.effects.remove_static(source, modifier);
-        }
-        to_register.extend(emblem_statics(&self.state));
-        for fx in to_register {
-            self.state.effects.register(fx);
+        self.state
+            .effects
+            .remove_where(|effect| lapsed.contains(&effect.id));
+        to_register.extend(
+            emblem_statics(&self.state)
+                .into_iter()
+                .map(|effect| (Some(effect), baylee_core::ids::EffectId::new(0), None)),
+        );
+        for (effect, existing, origin) in to_register {
+            let id = effect.map_or(existing, |effect| self.state.effects.register(effect));
+            if let Some(origin) = origin {
+                self.state.effect_text_overrides.push((id, origin));
+            }
         }
         crate::effects::sync_granted_statics(&mut self.state);
         self.sync_replacement_rules();
@@ -2375,14 +2171,16 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn trigger_abilities(
         &self,
         t: &crate::trigger::PendingTrigger,
-    ) -> &'static [baylee_cards_dsl::AbilityDef] {
-        t.abilities.map_or_else(
+    ) -> crate::copiable_abilities::AbilityDefs {
+        t.abilities.as_ref().map_or_else(
             || {
                 self.state
                     .object(t.source)
-                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
             },
-            |list| list.abilities,
+            |list| list.abilities.clone(),
         )
     }
 
@@ -2396,7 +2194,7 @@ impl<L: CardLookup> Engine<L> {
     /// source stopped being a copy on the way to the graveyard — the hazard
     /// the capture's own comment names, met by the one case that meets it.
     pub(crate) fn hand_over_trigger_abilities(&mut self, t: &crate::trigger::PendingTrigger) {
-        if let Some(abilities) = t.abilities {
+        if let Some(abilities) = t.abilities.clone() {
             self.activating_abilities = Some((t.source, abilities));
         }
     }
@@ -2406,11 +2204,14 @@ impl<L: CardLookup> Engine<L> {
         let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied() else {
             return;
         };
+        if let Some(reference) = self.state.source_identity(top) {
+            self.state.text_changes.set(reference, trigger.text);
+        }
         let bound = self.stack_target_req(top).map(|mut req| {
             req.spec = trigger.bind_target(req.spec);
             req
         });
-        let graveyard_source = trigger.abilities.is_some_and(|list| {
+        let graveyard_source = trigger.abilities.as_ref().is_some_and(|list| {
             matches!(
                 list.abilities.get(trigger.ability_index as usize),
                 Some(
@@ -2500,11 +2301,14 @@ impl<L: CardLookup> Engine<L> {
         if matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject) {
             return t.event_object.is_some();
         }
-        let objects = eval::target_options(
+        let objects = eval::target_options_with_context(
             &t.bind_target(req.spec),
             &self.state,
             t.controller,
-            t.source,
+            crate::text_changes::RuleContext {
+                source: t.source,
+                text: t.text,
+            },
         )
         .len();
         let players = eval::target_player_options(&self.state, &req.spec, t.controller).len();
@@ -2566,6 +2370,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
+                text: crate::text_changes::TextChangeMap::IDENTITY,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]
@@ -2815,11 +2620,14 @@ impl<L: CardLookup> Engine<L> {
                     }
                     continue;
                 }
-                let options = eval::target_options(
+                let options = eval::target_options_with_context(
                     &t.bind_target(req.spec),
                     &self.state,
                     t.controller,
-                    t.source,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                    },
                 );
                 // A trigger may point at a player as readily as a spell does
                 // ("it deals 1 damage to target opponent"), and "any target"
@@ -2867,14 +2675,20 @@ impl<L: CardLookup> Engine<L> {
                     };
                     let (source, ability_index, mode) = (t.source, t.ability_index, t.chosen_mode);
                     if self
-                        .ask_next_opponent(t.controller, t.source, first, |asking| {
-                            PlanKind::Trigger {
+                        .ask_next_opponent_with_context(
+                            t.controller,
+                            crate::text_changes::RuleContext {
+                                source: t.source,
+                                text: t.text,
+                            },
+                            first,
+                            |asking| PlanKind::Trigger {
                                 source,
                                 ability_index,
                                 mode,
                                 per_opponent: Some(asking),
-                            }
-                        })
+                            },
+                        )
                         .is_none()
                     {
                         return;
@@ -2939,13 +2753,18 @@ impl<L: CardLookup> Engine<L> {
                         remaining: self.opponents_in_turn_order(t.controller),
                     };
                     let plan_t = t.clone();
-                    let gathered =
-                        self.ask_next_opponent(t.controller, t.source, first, |asking| {
-                            PlanKind::SyntheticTriggerTarget {
-                                trigger: plan_t,
-                                per_opponent: Some(asking),
-                            }
-                        });
+                    let gathered = self.ask_next_opponent_with_context(
+                        t.controller,
+                        crate::text_changes::RuleContext {
+                            source: t.source,
+                            text: t.text,
+                        },
+                        first,
+                        |asking| PlanKind::SyntheticTriggerTarget {
+                            trigger: plan_t,
+                            per_opponent: Some(asking),
+                        },
+                    );
                     match gathered {
                         None => return,
                         Some(all) => {
@@ -2954,8 +2773,15 @@ impl<L: CardLookup> Engine<L> {
                         }
                     }
                 }
-                let options =
-                    eval::target_options(&t.bind_target(spec), &self.state, t.controller, t.source);
+                let options = eval::target_options_with_context(
+                    &t.bind_target(spec),
+                    &self.state,
+                    t.controller,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                    },
+                );
                 if options.is_empty() {
                     // No legal target, so the trigger is removed (CR 603.3d)
                     // — and it is *already* removed: the pop above took this
@@ -3005,7 +2831,7 @@ impl<L: CardLookup> Engine<L> {
                 // a granted trigger's event object is whatever set it off.
                 let targets: SmallVec<[ObjectId; 2]> = t.implicit_target.into_iter().collect();
                 let id = self.state.arena.insert_with(|id| {
-                    let mut obj = GameObject::new_ability_on_stack(
+                    GameObject::new_ability_on_stack(
                         id,
                         t.controller,
                         AbilityLoc {
@@ -3015,40 +2841,13 @@ impl<L: CardLookup> Engine<L> {
                         },
                         targets,
                         base,
-                    );
-                    // The event object is usually carried *twice*, and the
-                    // two halves are read by different things. As the
-                    // implicit target it is what prowess pumps and what ward
-                    // counters; as `event_object` it is what
-                    // `TargetSpec::EventObject` resolves through
-                    // (`resolve::zones::spec_object`). Only the non-synthetic
-                    // branch below wrote the second one, so a synthetic effect
-                    // list naming the event object read `None` and did
-                    // nothing — undying and persist put a trigger on the stack
-                    // that resolved into silence.
-                    obj.event_object = t.event_object;
-                    if let Some((version, power)) = t.event_object_identity {
-                        obj.riders
-                            .push(crate::object::Rider::EventObjectIdentity(version, power));
-                    }
-                    if let Some((p, toughness)) = t.event_departure {
-                        obj.riders
-                            .push(crate::object::Rider::EventDeparture(p, toughness));
-                    }
-                    if let Some(version) = t.source_version {
-                        obj.riders
-                            .push(crate::object::Rider::AbilitySourceVersion(version));
-                    }
-                    if let Some(version) = t.counter_source_version {
-                        obj.riders
-                            .push(crate::object::Rider::CounterSourceVersion(version));
-                    }
-                    obj
+                    )
                 });
                 self.synthetic_fx.insert(id, synthetic);
                 self.state
                     .zones
                     .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+                self.bind_top_trigger(&t);
                 self.state.capture_linked_references(id, synthetic);
                 self.state.journal.record(GameEvent::AbilityTriggered {
                     object: id,
@@ -3114,11 +2913,16 @@ impl<L: CardLookup> Engine<L> {
         if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
             return false;
         }
-        let abilities = obj.own_abilities.unwrap_or_else(|| {
-            self.state
-                .object(loc.source)
-                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
-        });
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
         let condition = match abilities.get(loc.index as usize) {
             Some(
                 AbilityDef::Triggered { condition, .. }
@@ -3180,11 +2984,16 @@ impl<L: CardLookup> Engine<L> {
             // exiled in response, from exile to hand.
             return obj.target_req;
         }
-        let abilities = obj.own_abilities.unwrap_or_else(|| {
-            self.state
-                .object(loc.source)
-                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
-        });
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
         crate::object::ability_target_req(abilities, loc.index, obj.mode_index)
     }
 
@@ -3197,11 +3006,16 @@ impl<L: CardLookup> Engine<L> {
         if obj.kind != ObjectKind::AbilityOnStack || loc.index == AbilityRef::SYNTHETIC {
             return None;
         }
-        let abilities = obj.own_abilities.unwrap_or_else(|| {
-            self.state
-                .object(loc.source)
-                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
-        });
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
         let AbilityDef::Triggered { effects, .. } = abilities.get(loc.index as usize)? else {
             return None;
         };
@@ -3231,11 +3045,16 @@ impl<L: CardLookup> Engine<L> {
         if loc.index == AbilityRef::SYNTHETIC {
             return None;
         }
-        let abilities = obj.own_abilities.unwrap_or_else(|| {
-            self.state
-                .object(loc.source)
-                .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
-        });
+        let abilities = obj.own_abilities.as_ref().map_or_else(
+            || {
+                self.state
+                    .object(loc.source)
+                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                        o.printed_abilities(&self.lookup)
+                    })
+            },
+            crate::copiable_abilities::AbilityDefs::from,
+        );
         match abilities.get(loc.index as usize)? {
             AbilityDef::Activated { second_targets, .. }
             | AbilityDef::ActivatedConditional { second_targets, .. }
@@ -3479,6 +3298,7 @@ impl<L: CardLookup> Engine<L> {
             }
             TargetLegality::NotAsked => {}
         }
+        self.begin_controlled_resolution(top);
         self.state
             .journal
             .record(GameEvent::StackObjectResolved { object: top });
@@ -3505,11 +3325,16 @@ impl<L: CardLookup> Engine<L> {
             // because the two have been separate objects since it was put
             // there (CR 113.7a): the source may have died, changed face, or
             // stopped being a copy in the meantime.
-            let abilities = obj.own_abilities.unwrap_or_else(|| {
-                self.state
-                    .object(loc.source)
-                    .map_or(&[][..], |o| o.printed_abilities(&self.lookup))
-            });
+            let abilities = obj.own_abilities.as_ref().map_or_else(
+                || {
+                    self.state
+                        .object(loc.source)
+                        .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                            o.printed_abilities(&self.lookup)
+                        })
+                },
+                crate::copiable_abilities::AbilityDefs::from,
+            );
             let effects = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 // Synthetic keyword trigger (prowess, ward): effects live
                 // in the side map, resolved below.
@@ -3593,6 +3418,7 @@ impl<L: CardLookup> Engine<L> {
                     countered_source: None,
                     target_lki: None,
                     subject: crate::resolve::SubjectContext::default(),
+                    text: crate::text_changes::TextChangeMap::IDENTITY,
                     event_mana: None,
                     retarget_left: None,
                 };
@@ -3628,6 +3454,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
+                text: crate::text_changes::TextChangeMap::IDENTITY,
                 event_mana: None,
                 retarget_left: None,
             };
@@ -3683,6 +3510,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default(),
+                text: crate::text_changes::TextChangeMap::IDENTITY,
                 retarget_left,
                 event_mana: None,
             };
@@ -3793,7 +3621,7 @@ impl<L: CardLookup> Engine<L> {
                 .card(card)
                 .map(|def| crate::object::AbilityList {
                     token: None,
-                    abilities: def.abilities_for_face(face as usize),
+                    abilities: def.abilities_for_face(face as usize).into(),
                     printed: crate::object::PrintedFace::new(card, face),
                 });
             if let Some(obj) = self.state.object_mut(id)
@@ -3977,6 +3805,7 @@ impl<L: CardLookup> Engine<L> {
             self.finalize_spell(res.on_stack);
         }
         self.apply_pending_face_changes();
+        self.end_controlled_resolution(res.on_stack);
     }
 
     /// CR 707.10: a copy of a permanent spell stops being a copy of a spell
@@ -4371,36 +4200,16 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 base,
             );
-            // Same as the sibling site: the chosen targets are one handle and
-            // the event object is another.
-            obj.event_object = t.event_object;
-            if let Some((version, power)) = t.event_object_identity {
-                obj.riders
-                    .push(crate::object::Rider::EventObjectIdentity(version, power));
-            }
-            if let Some((p, toughness)) = t.event_departure {
-                obj.riders
-                    .push(crate::object::Rider::EventDeparture(p, toughness));
-            }
-            if let Some(version) = t.source_version {
-                obj.riders
-                    .push(crate::object::Rider::AbilitySourceVersion(version));
-            }
-            if let Some(version) = t.counter_source_version {
-                obj.riders
-                    .push(crate::object::Rider::CounterSourceVersion(version));
-            }
             // What the targets were chosen against. CR 608.2b re-checks
             // them against it at resolution, as it does a spell's.
-            obj.target_req = t
-                .synthetic_target
-                .map(|spec| synthetic_target_req(t.bind_target(spec)));
+            obj.target_req = t.synthetic_target.map(synthetic_target_req);
             obj
         });
         self.synthetic_fx.insert(id, synthetic);
         self.state
             .zones
             .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        self.bind_top_trigger(t);
         self.state.capture_linked_references(id, synthetic);
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
@@ -4633,6 +4442,7 @@ impl<L: CardLookup> Engine<L> {
         for ability_index in &hits {
             self.trigger_queue
                 .push_back(crate::trigger::PendingTrigger {
+                    text: crate::text_changes::TextChangeMap::IDENTITY,
                     source_version: None,
                     event_object_identity: None,
                     counter_source_version: None,
@@ -4963,9 +4773,13 @@ impl<L: CardLookup> Engine<L> {
             // Mana Drain's "add": its controller's pool, whose first main
             // phase it waits for.
             crate::state::DelayedAction::AddMana { color, amount } => {
-                self.state.players[controller.get() as usize]
+                if !self.state.players[controller.get() as usize]
                     .mana_pool
-                    .add(color, amount);
+                    .try_add(color, u32::from(amount))
+                {
+                    self.state.numeric_failure = Some("delayed mana exceeds u32 per color");
+                    return false;
+                }
                 self.state.journal.record(GameEvent::ManaProduced {
                     player: controller,
                     color,
@@ -5000,7 +4814,14 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 effects,
             } => {
-                self.queue_delayed_trigger(controller, source, effects, None, Some(version));
+                self.queue_delayed_trigger(
+                    controller,
+                    source,
+                    effects,
+                    None,
+                    Some(version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
                 if let Some(trigger) = self.trigger_queue.back_mut() {
                     trigger.counter_source_version = Some(version);
                 }
@@ -5010,8 +4831,16 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 source_version,
                 effects,
+                text,
             } => {
-                self.queue_delayed_trigger(controller, source, effects, None, Some(source_version));
+                self.queue_delayed_trigger(
+                    controller,
+                    source,
+                    effects,
+                    None,
+                    Some(source_version),
+                    text,
+                );
                 false
             }
             // "That creature" while it is still that object (CR 603.7c):
@@ -5021,6 +4850,7 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 source_version,
                 effects,
+                text,
                 object,
                 version,
             } => {
@@ -5034,6 +4864,7 @@ impl<L: CardLookup> Engine<L> {
                     effects,
                     still.then_some(object),
                     Some(source_version),
+                    text,
                 );
                 false
             }
@@ -5049,9 +4880,11 @@ impl<L: CardLookup> Engine<L> {
         effects: &'static [baylee_cards_dsl::Effect],
         event_object: Option<ObjectId>,
         source_version: Option<u32>,
+        text: crate::text_changes::TextChangeMap,
     ) {
         self.trigger_queue
             .push_back(crate::trigger::PendingTrigger {
+                text,
                 source_version,
                 event_object_identity: None,
                 counter_source_version: None,
@@ -5284,7 +5117,12 @@ impl<L: CardLookup> Engine<L> {
             }
             (_, Step::DeclareBlockers) => {
                 // Deal combat damage on entering the damage step(s).
-                if self.any_first_or_double_striker() {
+                if self
+                    .state
+                    .combat
+                    .prepared_first_strike()
+                    .unwrap_or_else(|| self.any_first_or_double_striker())
+                {
                     self.deal_combat_damage(true);
                     (Phase::Combat, Step::CombatDamageFirst)
                 } else {
@@ -5888,10 +5726,10 @@ fn emblem_statics(state: &crate::state::GameState) -> Vec<crate::effects::Contin
             if obj.kind != crate::object::ObjectKind::Emblem {
                 continue;
             }
-            let Some(abilities) = obj.own_abilities else {
+            let Some(abilities) = obj.own_abilities.as_ref() else {
                 continue;
             };
-            for ability in abilities {
+            for ability in crate::copiable_abilities::AbilityDefs::from(abilities) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };

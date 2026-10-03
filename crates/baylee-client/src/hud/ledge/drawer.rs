@@ -488,6 +488,52 @@ fn choice_rows(
         .unwrap_or_default()
 }
 
+fn resolving_lines(
+    duel: &Duel,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    lines: &mut Vec<Line>,
+) {
+    if let (Some(i), Some(view)) = (duel.interaction.as_ref(), duel.view.as_ref())
+        && matches!(i.prompt(), Prompt::TextReplacement { .. })
+    {
+        lines.extend(
+            crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref())
+                .into_iter()
+                .map(|text| Line {
+                    text,
+                    size: LINE_PT,
+                    ink: palette::DOCK_INK,
+                }),
+        );
+    }
+    {
+        if let Some(Prompt::ChooseManaAbility { processed, .. }) = duel
+            .interaction
+            .as_ref()
+            .map(baylee_client_core::Interaction::prompt)
+        {
+            lines.push(Line {
+                text: Phrase::RequiredManaProgress.fill(lang, &[&processed.to_string()]),
+                size: HINT_PT,
+                ink: palette::DOCK_INK,
+            });
+        }
+        if duel
+            .view
+            .as_ref()
+            .is_some_and(|v| baylee_client_core::decision::resource_player(v) != v.seat)
+            && let Some(text) = super::base_shelf_headline(duel, lang, texts)
+        {
+            lines.push(Line {
+                text,
+                size: LINE_PT,
+                ink: palette::DOCK_INK,
+            });
+        }
+    }
+}
+
 /// What the drawer would draw right now.
 ///
 /// Separate from the drawing for the reason every revision in this client is:
@@ -549,6 +595,9 @@ fn reading(
         });
     }
 
+    if !waiting && !elsewhere {
+        resolving_lines(duel, lang, texts, &mut lines);
+    }
     combat_lines(duel, lang, texts, waiting, &mut lines);
 
     prevention_line(duel, lang, texts, waiting, &mut lines);
