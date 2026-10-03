@@ -1032,6 +1032,21 @@ fn dialog_text(
     dialog_line(commands, fonts, text, size, ink, tf)
 }
 
+/// Question prose wraps inside the sheet and uses the shared Mana-font spans.
+fn target_context_line(commands: &mut Commands, fonts: &UiFonts, text: &str) -> Entity {
+    let line = crate::manaui::spawn_rich(commands, fonts, text, 11.0, palette::DIALOG_INK);
+    commands
+        .entity(line)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.width = percent(100);
+            node.min_width = px(0);
+            node.max_width = percent(100);
+            node.flex_shrink = 0.0;
+        });
+    line
+}
+
 /// The size the filter box's own text is set at, in one place because the
 /// caret's height is derived from it.
 const FILTER_TEXT: f32 = 11.5;
@@ -1724,13 +1739,11 @@ pub(super) fn spawn_tray(
     // that row holds: a panel floating over the cards would be a second
     // window, and this is a mode of the field above it.
     commands.entity(head).add_child(title_row);
-    if answering.is_some() {
-        for text in crate::choices::target_explanation(view, lang, faces.texts) {
-            let line = dialog_text(commands, fonts, &text, 11.0, palette::DIALOG_INK);
-            commands.entity(line).insert(Node {
-                max_width: percent(100),
-                ..default()
-            });
+    if let Some(answering) = answering {
+        for text in
+            crate::choices::target_question(answering, view, lang, faces.texts, Some(statics))
+        {
+            let line = target_context_line(commands, fonts, &text);
             commands.entity(head).add_child(line);
         }
     }

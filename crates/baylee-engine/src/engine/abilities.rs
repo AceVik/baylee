@@ -2179,6 +2179,9 @@ impl<L: CardLookup> Engine<L> {
             {
                 obj.set_second(second, None);
             }
+            self.state
+                .bind_target_references(ability, &self.activation_target_references);
+            self.activation_target_references = crate::sources::TargetReferences::default();
             // The number this activation announced, carried on the ability
             // the way a spell carries its own X (CR 601.2b). No card in the
             // pool prints a counter-X cost on an ability that uses the stack
@@ -2276,6 +2279,9 @@ impl<L: CardLookup> Engine<L> {
         self.state
             .zones
             .insert(id, ZoneLocation::Stack, ZonePosition::Top, false);
+        self.state
+            .bind_target_references(id, &self.activation_target_references);
+        self.activation_target_references = crate::sources::TargetReferences::default();
         self.state.journal.record(GameEvent::AbilityTriggered {
             object: id,
             source,

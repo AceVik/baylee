@@ -1006,7 +1006,7 @@ fn retarget_explains_when_an_empty_answer_preserves_the_existing_target() {
             min,
             max: 1,
             reason: TargetPrompt::Retarget {
-                current: baylee_engine::choice::TargetRef::Object(obj(9)),
+                current: crate::test_support::target(obj(9)),
                 index: 1,
                 of: 3,
             },
@@ -1018,8 +1018,14 @@ fn retarget_explains_when_an_empty_answer_preserves_the_existing_target() {
                 Phrase::ChooseNewTarget
             };
             assert_eq!(
-                i.prompt()
-                    .headline_naming(lang, Turn::Mine, None, false, &|_| Some("Goblin".into())),
+                i.prompt().headline_naming_targets(
+                    lang,
+                    Turn::Mine,
+                    None,
+                    false,
+                    &|_| None,
+                    &|_| Some("Goblin".into())
+                ),
                 format!(
                     "{} {}",
                     if lang == Lang::En {
@@ -1173,7 +1179,7 @@ fn large_target_counts_survive_selection_and_the_display_boundary() {
         min: 0,
         max: 1,
         reason: TargetPrompt::Retarget {
-            current: baylee_engine::choice::TargetRef::Object(obj(2)),
+            current: crate::test_support::target(obj(2)),
             index: 69_999,
             of: 70_000,
         },
@@ -1183,5 +1189,50 @@ fn large_target_counts_survive_selection_and_the_display_boundary() {
             .prompt()
             .headline(Lang::En, Turn::Mine, None, false)
             .starts_with("Target 70000 of 70000:")
+    );
+}
+
+#[test]
+fn retarget_identity_and_names_include_the_original_incarnation() {
+    let question = |version| Pending::ChooseTargets {
+        player: me(),
+        options: vec![obj(9)],
+        player_options: vec![],
+        min: 0,
+        max: 1,
+        reason: TargetPrompt::Retarget {
+            current: baylee_engine::choice::TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                object: obj(9),
+                version,
+            }),
+            index: 0,
+            of: 1,
+        },
+    };
+    let mut first = interaction(question(1));
+    let name = first.prompt().headline_naming_targets(
+        Lang::En,
+        Turn::Mine,
+        None,
+        false,
+        &|_| panic!("current-object names must not label historical targets"),
+        &|source| {
+            assert_eq!(source.version, 1);
+            Some("Old Bears (earlier incarnation)".into())
+        },
+    );
+    assert!(name.contains("Old Bears (earlier incarnation)"));
+    let missing = first
+        .prompt()
+        .headline_naming(Lang::En, Turn::Mine, None, false, &|_| {
+            Some("New secret identity".into())
+        });
+    assert!(!missing.contains("secret"));
+    first.toggle(obj(9));
+    let next = Interaction::new_keeping(question(3), me(), Some(&first));
+    assert_ne!(first.decision_id(), next.decision_id());
+    assert_eq!(
+        next.confirm(),
+        Some(PlayerAction::ChooseObjects { objects: vec![] })
     );
 }

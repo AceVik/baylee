@@ -2805,3 +2805,33 @@ land type"; both are convention tests that fire on a first try.
   source; undying explicitly refers to the new graveyard card to return it.
   Source-menu eligibility must follow actual effect references while retaining
   enough internal context for resolution.
+
+### Exact targets — accepted
+
+- An unchanged illegal target and a newly selected returned incarnation can
+  share one arena id but remain distinct legal target choices. Retarget duplicate
+  checks and fixed divided-damage shares must use the exact pair or target slot,
+  not the arena id alone. The independent real-card matrix includes both Fork /
+  Fireball and Fury / Vantress Visions to distinguish recomputed even damage
+  from fixed shares.
+- Bind chosen target versions before announcement costs or mana abilities can
+  move them. Capturing only at resolution or the first later zone change leaves
+  a gap in the casting procedure.
+- Historical target descriptions belong to their own entitled projection.
+  Drawing a target arrow to the current object, or assigning its current feature
+  row in a trained policy, silently conflates two rules objects even when the
+  action validator itself is exact.
+
+- A capture call immediately before target legality can silently recreate a
+  missing announced reference from the current object. Remove that late fallback
+  and test the actual resolution path with a missing reference: only the original
+  announcement/stack-publication binding can establish a legal target.
+- View projection must preserve the first/second group flag at every reader.
+  A copied first-group flag in the second-target iterator can display the first
+  creature twice even when Engine legality handles both groups correctly.
+
+- Know the rollback helper's scope before using it in a hash test. Engine's
+  internal Held checkpoint does not save CastWizard. Restoring an intentionally
+  mutated wizard through Held produced a false failure; save/restore that wizard
+  explicitly, then separately exercise a real refused input without changing the
+  expected hash or announced references.

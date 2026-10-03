@@ -141,7 +141,9 @@ use serde::{Deserialize, Serialize};
 /// Version 48 accompanies explicit damage replacement ordering and
 /// simultaneous prevention allocation decisions in the choice protocol.
 /// Version 49 adds exact, entitled descriptions of damage-source incarnations.
-pub const VIEW_VERSION: u32 = 49;
+/// Version 50 makes stack and retarget targets versioned and adds historical
+/// target descriptions in `PlayerView::target_objects`.
+pub const VIEW_VERSION: u32 = 50;
 
 // ---------------------------------------------------------------- turn shape
 
@@ -403,14 +405,8 @@ impl ObjectStatus {
 
 // ------------------------------------------------------------------- targets
 
-/// What a spell or ability on the stack points at.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum TargetRef {
-    /// An object on the battlefield, in a graveyard, or on the stack.
-    Object(ObjectId),
-    /// A player.
-    Player(PlayerId),
-}
+/// Exact target identities shared with engine choices.
+pub use baylee_core::ids::TargetRef;
 
 // -------------------------------------------------------------------- prints
 
@@ -1507,6 +1503,10 @@ pub struct PlayerView {
     /// incarnations. Historical entries never describe a later incarnation.
     #[serde(default)]
     pub damage_sources: Vec<DamageSourceView>,
+    /// Exact current or historical objects referred to as stack/retarget targets.
+    /// These rows describe targets, not eligibility for a damage-source choice.
+    #[serde(default)]
+    pub target_objects: Vec<DamageSourceView>,
     /// Source and printed effect of this seat's current target decision.
     #[serde(default)]
     pub targeting: Option<TargetingContext>,
@@ -1733,6 +1733,17 @@ pub struct TargetingContext {
 }
 
 impl PlayerView {
+    /// Describe exactly this target; never substitute a newer object at its handle.
+    #[must_use]
+    pub fn target_object(
+        &self,
+        target: baylee_core::ids::DamageSourceRef,
+    ) -> Option<&DamageSourceView> {
+        self.target_objects
+            .iter()
+            .find(|object| object.source == target)
+    }
+
     /// Every printing this view actually shows.
     ///
     /// What a host uses to decide which print table entries a seat has earned:
@@ -1788,6 +1799,7 @@ impl PlayerView {
             .chain(
                 self.damage_sources
                     .iter()
+                    .chain(&self.target_objects)
                     .filter_map(|source| source.rules)
                     .map(|rules| rules.card),
             )
@@ -1809,7 +1821,12 @@ impl PlayerView {
             .map(|o| o.card)
             .chain(public)
             .chain(commanders)
-            .chain(self.damage_sources.iter().filter_map(|source| source.card))
+            .chain(
+                self.damage_sources
+                    .iter()
+                    .chain(&self.target_objects)
+                    .filter_map(|source| source.card),
+            )
     }
 
     /// Every object in a zone this seat can see into, hand excluded (a hand
@@ -2545,6 +2562,7 @@ mod tests {
             combat: CombatView::default(),
             looking_at: Vec::new(),
             damage_sources: Vec::new(),
+            target_objects: Vec::new(),
             library_tops: Vec::new(),
             owed: None,
             targeting: None,
@@ -3351,6 +3369,7 @@ mod tests {
     /// the three subtypes sampled. Every variant of an enum the view carries
     /// is sampled, and the `match` beside each list stops the build on a new
     /// one until it is added.
+    #[allow(clippy::too_many_lines)] // One sample table pins every external wire type.
     fn core_samples() -> Vec<(&'static str, String)> {
         use baylee_core::color::Color;
         use baylee_core::generated::subtypes;
@@ -3397,6 +3416,16 @@ mod tests {
                 ])),
             ),
             ("CardIndex", json(serde_json::json!(CardIndex::new(4096)))),
+            (
+                "TargetRef",
+                json(serde_json::json!([
+                    TargetRef::Object(baylee_core::ids::DamageSourceRef {
+                        object: ObjectId::new(7, 2),
+                        version: 3
+                    }),
+                    TargetRef::Player(PlayerId::new(1)),
+                ])),
+            ),
             (
                 "DamageSourceRef",
                 json(serde_json::json!(baylee_core::ids::DamageSourceRef {
@@ -3532,7 +3561,7 @@ mod tests {
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
         // Damage decisions carry event identities, effect metadata, and allocations.
-        const RECORDED: (u32, u64) = (49, 14_231_168_485_211_629_441);
+        const RECORDED: (u32, u64) = (50, 13_544_715_380_931_103_875);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

@@ -956,7 +956,7 @@ pub struct GameState {
     /// ends. Off the object because no other object has one, and
     /// `tests/footprint.rs` holds `GameObject` to its size. Nothing copies a
     /// triggered ability, so no copy has to carry one (CR 115.7f).
-    pub divided: Vec<(ObjectId, Vec<(ObjectId, u32)>)>,
+    pub divided: Vec<(ObjectId, Vec<(baylee_core::ids::DamageSourceRef, u32)>)>,
     /// Copies of synthetic abilities made by the resolution in progress, as
     /// `(original, copy)` (CR 707.10).
     ///
@@ -4114,7 +4114,8 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
         if let Some(shares) = state.source_memory.divisions.get(&reference) {
             h.usize(shares.len());
             for (target, amount) in shares {
-                h.u32(position(*target));
+                h.u32(position(target.object));
+                h.u8(moves_since(state.object(target.object), target.version));
                 h.u32(*amount);
             }
         } else {

@@ -848,3 +848,44 @@ fn source_menu_preserves_incarnations_and_rejects_stale_answers() {
         assert!(wake.menu.resolve(&decision).is_err());
     }
 }
+
+#[test]
+fn retarget_question_names_the_historical_target_separately_from_the_returned_card() {
+    let original = token(9, 0, "Original Bears", 2, 2);
+    let mut old = baylee_client_core::test_support::target_snapshot(
+        &original,
+        baylee_view::LogZone::Battlefield,
+    );
+    old.is_current = false;
+    let exact = baylee_view::TargetRef::Object(old.source);
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![token(9, 0, "Returned creature", 4, 4)])
+        .build();
+    view.target_objects = vec![old];
+    let (_, log) = board();
+    let request = request(
+        view,
+        Pending::ChooseTargets {
+            player: ME,
+            options: vec![id(9)],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Retarget {
+                current: exact,
+                index: 0,
+                of: 1,
+            },
+        },
+        log,
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let question = wake
+        .text
+        .lines()
+        .find(|line| line.starts_with("QUESTION: Target"))
+        .expect("retarget question");
+    assert!(question.contains("Original Bears") && question.contains("earlier incarnation"));
+    assert!(!question.contains("Returned creature"));
+    assert!(question.contains("Choose no targets to keep this target"));
+}

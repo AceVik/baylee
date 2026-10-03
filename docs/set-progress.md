@@ -100,31 +100,45 @@ pixels: current source yields 34/38 life, historical source 37/38, with correct
 keyboard selection and reset on a new decision. Root inspected the final source,
 Abilities, reset and result screenshots; evidence is in the feedback log.
 
-### Separate target-incarnation gap
+### Exact target incarnations — accepted; self-effects next
 
 The read-only source audit also found an untargeted self-effect risk: Shivan
 Dragon's `PumpFilter(Filter::This)` binds a bare source id and may pump a new
 incarnation after a blink. This still needs a behavioral regression and a shared
 self-effect audit; the fixed counter and damage paths do not establish that all
-self-effects respect versions.
+self-effects respect versions. The same pump route serves Frozen Shade (0/1),
+Granite Gargoyle (2/2) and Dragon Whelp (2/3). The independent next-test matrix
+covers old activation → real Ephemerate → returned base stats, multiple old plus
+one new activation, and ordinary pump/cleanup. Broader self-shield/regeneration,
+sacrifice and untap readers need separate review; preserve explicit same-effect
+zone-change exceptions such as Enduring Vitality. These are read-only findings,
+not runtime-verified fixes or additional Implemented claims.
 
-The existing `target_legality` implementation in Engine `progress.rs` explicitly
-documents issue #117: ordinary targets are bare ObjectIds, so a target that leaves
-and returns can be treated as legal despite being a new object. The exact-source
-work now retains target-slot versions, but source-menu correctness alone does
-not prove that ordinary target revalidation uses them. This known shared rules
-gap must be tested and addressed before claiming complete Alpha acceptance.
-Keep its outcome separate from the source-selection milestone.
-The follow-up must cover retarget identity (`Retarget.was`/`Aim`) and duplicate
-choices as well as first/second target groups, partial fizzle and copied spells.
-A resolution-time version predicate alone would not finish that work.
-The agreed next milestone keeps exact pairs when compacting surviving target
-groups, stages retarget choices by exact object/player identity, and avoids
-labeling an old target through its newer hidden incarnation. Independent cases
-must include Bolt/blink fizzle, partially legal Fireball, both groups of a fight,
-Fork preserving an old illegal target versus explicitly selecting the returned
-one, and atomic duplicate/swap handling. No #117 production change is included
-in the source-selection milestone.
+Issue #117's Engine implementation now captures exact target incarnations before
+announcement costs, checks both groups at resolution without substituting a
+current incarnation for a missing reference, and narrows a resolution copy while
+preserving the original announcement. Retargeting, duplicates, Ward events and
+fixed divided-damage shares distinguish old and current versions at the same
+arena id. Action replay and refusal preserve these bindings.
+
+View50/Protocol17 carry exact `TargetRef` and separate historical target
+projections; original names and privacy do not come from a newer card. The
+independent seven real-card tests pass, including Bolt/Ephemerate, partially
+legal Fireball, both Khalni Ambush groups, Fork keeping versus changing an old
+target, atomic swaps, and Fury/Vantress Visions with distinct fixed shares.
+Twelve focused Engine tests, targeted retarget/Ward/trigger tests, View shape,
+Gamehost projection, actual footprint tests and Engine/fuzz Clippy pass.
+GameObject remains 312 bytes. Consumer/native compilation passes, as do 1,239 native tests and 32 focused
+consumer tests. The final broad Rules gate passes **7,972 tests**, ten existing
+skips, Clippy and all 2,955 metadata validations
+(`/private/tmp/baylee-target-rules-gate.log`). Live review found remaining text
+wrapping and retarget-context layout defects; fixes, focused native regressions,
+Clippy and rebuild now pass, as does the final Wasm release check. Both live
+Keep/Change outcomes pass. Root accepted the final wrapped browser and compact
+retarget screenshots: no clipped Oracle text, stale casting context or footer
+collision. Keeping the old target leaves the returned Bears alive; choosing the
+new incarnation destroys it. Both finish with an empty stack, life 40/40 and no
+client error. The preceding source-selection milestone is `c6422ff1`.
 
 The multiplayer departure code also has an existing general substitute-chooser
 limitation under current CR 800.4g. New source-choice concession tests establish

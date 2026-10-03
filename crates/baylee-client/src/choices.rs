@@ -342,6 +342,47 @@ fn compact_source_label(
     )
 }
 
+/// Names an exact public target without falling back to a newer object identity.
+pub(crate) fn target_label(
+    lang: Lang,
+    target: baylee_view::TargetRef,
+    names: FaceNames<'_>,
+    statics: Option<&GameStatic>,
+) -> String {
+    let source = match target {
+        baylee_view::TargetRef::Object(source) => source,
+        baylee_view::TargetRef::Player(player) => return seat_name(lang, statics, player),
+    };
+    let Some(projected) = names.view.and_then(|view| view.target_object(source)) else {
+        return Phrase::PreviousTarget.text(lang).to_string();
+    };
+    let text = projected
+        .rules
+        .or_else(|| projected.card.map(Into::into))
+        .zip(names.texts)
+        .and_then(|(face, texts)| texts.face(face.card, face.face));
+    let name = baylee_client_core::card_face::shown_name(&projected.name, text.as_ref());
+    let name = if projected.card.is_none() && projected.rules.is_none() && projected.token.is_none()
+    {
+        match name {
+            "Unknown source" => Phrase::SourceUnknown.text(lang),
+            "Face-down" => Phrase::SourceFaceDown.text(lang),
+            other => other,
+        }
+    } else {
+        name
+    };
+    if projected.is_current {
+        name.to_string()
+    } else {
+        format!(
+            "{name} · {} {}",
+            Phrase::SourceHistorical.text(lang),
+            source.version
+        )
+    }
+}
+
 /// References come from the exact snapshot; only their public targets are named.
 fn source_stack_context(
     lang: Lang,
@@ -360,18 +401,7 @@ fn source_stack_context(
             let targets: Vec<_> = entry
                 .targets
                 .iter()
-                .map(|target| match *target {
-                    baylee_view::TargetRef::Player(player) => seat_name(lang, statics, player),
-                    baylee_view::TargetRef::Object(object) => view.object(object).map_or_else(
-                        || "?".to_string(),
-                        |target| {
-                            names.texts.map_or_else(
-                                || target.name.clone(),
-                                |texts| crate::face::name_of(target, view, texts),
-                            )
-                        },
-                    ),
-                })
+                .map(|target| target_label(lang, *target, names, statics))
                 .collect();
             (!targets.is_empty())
                 .then(|| format!("{} → {}", Phrase::StackTitle.text(lang), targets.join(", ")))
@@ -723,6 +753,42 @@ fn cast_label(
 }
 
 /// The same source and effect explanation on the table and in a zone chooser.
+pub(crate) fn target_question(
+    interaction: &baylee_client_core::Interaction,
+    view: &baylee_view::PlayerView,
+    lang: Lang,
+    texts: &crate::cardtext::CardTexts,
+    statics: Option<&GameStatic>,
+) -> Vec<String> {
+    if matches!(
+        interaction.pending(),
+        baylee_engine::choice::Pending::ChooseTargets {
+            reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+            ..
+        }
+    ) {
+        return vec![interaction.prompt().headline_naming_targets(
+            lang,
+            baylee_client_core::Turn::of(view.active, view.seat),
+            statics,
+            false,
+            &|_| None,
+            &|source| {
+                Some(target_label(
+                    lang,
+                    baylee_view::TargetRef::Object(source),
+                    FaceNames {
+                        view: Some(view),
+                        texts: Some(texts),
+                    },
+                    statics,
+                ))
+            },
+        )];
+    }
+    target_explanation(view, lang, texts)
+}
+
 pub(crate) fn target_explanation(
     view: &baylee_view::PlayerView,
     lang: Lang,
@@ -1973,9 +2039,12 @@ mod source_choice_tests {
         let mut first = token(10, 1, "Ability", 0, 0);
         first.targets = vec![baylee_view::TargetRef::Player(PlayerId::new(0))];
         let mut second = token(11, 1, "Ability", 0, 0);
-        second.targets = vec![baylee_view::TargetRef::Object(ObjectId::new(12, 0))];
+        second.targets = vec![baylee_client_core::test_support::target(ObjectId::new(
+            12, 0,
+        ))];
         view.battlefield.push(token(12, 0, "Grizzly Bears", 2, 2));
         view.stack = vec![first, second];
+        baylee_client_core::test_support::project_current_targets(&mut view);
         view.damage_sources = vec![old, older];
         let pending = Pending::ChooseDamageSource {
             player: view.seat,
@@ -2014,5 +2083,68 @@ mod source_choice_tests {
         };
         assert_eq!(preview_object(&duel, 0), None);
         assert_eq!(preview_object(&duel, 1), None);
+    }
+}
+
+#[cfg(test)]
+mod exact_target_tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, target_snapshot, token};
+    use baylee_core::ids::{DamageSourceRef, PlayerId};
+    use baylee_engine::choice::{Pending, TargetPrompt};
+
+    #[test]
+    fn historical_target_label_and_confirm_never_use_the_returned_incarnation() {
+        let original = token(9, 0, "Original Bears", 2, 2);
+        let mut historical = target_snapshot(&original, baylee_view::LogZone::Battlefield);
+        historical.is_current = false;
+        let source = historical.source;
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(9, 0, "Returned card", 4, 4)])
+            .build();
+        view.target_objects = vec![historical];
+        let label = target_label(
+            Lang::De,
+            baylee_view::TargetRef::Object(source),
+            FaceNames {
+                view: Some(&view),
+                texts: None,
+            },
+            None,
+        );
+        assert!(label.contains("Original Bears") && label.contains("früheres Objekt 1"));
+        assert!(!label.contains("Returned"));
+        let question = |version| Pending::ChooseTargets {
+            player: PlayerId::new(0),
+            options: vec![source.object],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: TargetPrompt::Retarget {
+                current: baylee_view::TargetRef::Object(DamageSourceRef { version, ..source }),
+                index: 0,
+                of: 1,
+            },
+        };
+        let old = Interaction::new(question(1), view.seat);
+        let fresh = Interaction::new(question(3), view.seat);
+        let button = crate::hud::PromptButton {
+            action: baylee_client_core::ledge::PromptAction::Confirm,
+            decision_id: old.decision_id(),
+        };
+        assert!(!button.matches_decision_id(fresh.decision_id()));
+        view.target_objects.clear();
+        assert_eq!(
+            target_label(
+                Lang::De,
+                baylee_view::TargetRef::Object(source),
+                FaceNames {
+                    view: Some(&view),
+                    texts: None
+                },
+                None
+            ),
+            Phrase::PreviousTarget.text(Lang::De)
+        );
     }
 }

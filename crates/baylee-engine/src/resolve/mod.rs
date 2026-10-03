@@ -6756,7 +6756,7 @@ mod copied_decisions_tests {
         let old_spell = state.source_identity(original).unwrap();
         state.object_mut(original).unwrap().targets.push(target);
         state.object_mut(original).unwrap().x_value = 7;
-        state.divided.push((original, vec![(target, 7)]));
+        state.divided.push((original, vec![(old_target, 7)]));
         state
             .move_object(
                 target,
@@ -6792,7 +6792,10 @@ mod copied_decisions_tests {
         state.object_mut(original).unwrap().targets = smallvec::smallvec![replacement];
         state.object_mut(original).unwrap().x_value = 2;
         assert!(!state.divided.iter().any(|(id, _)| *id == original));
-        state.divided.push((original, vec![(replacement, 2)]));
+        state.divided.push((
+            original,
+            vec![(state.source_identity(replacement).unwrap(), 2)],
+        ));
         let copy = copy_spell(&mut state, old_spell, caster, &[]).unwrap();
         assert_eq!(state.object(copy).unwrap().x_value, 7);
         assert_eq!(state.object(copy).unwrap().targets.as_slice(), &[target]);
@@ -6801,7 +6804,7 @@ mod copied_decisions_tests {
         assert_ne!(state.source_identity(original), Some(old_spell));
         assert_eq!(
             state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
-            vec![(target, 7)]
+            vec![(old_target, 7)]
         );
     }
 
@@ -6825,7 +6828,8 @@ mod copied_decisions_tests {
             colors_spent: ColorSet::ALL,
             tapped: Some((target, 0)),
         }));
-        state.divided.push((original, vec![(target, 4)]));
+        let target_ref = state.source_identity(target).unwrap();
+        state.divided.push((original, vec![(target_ref, 4)]));
         let original_ref = state.source_identity(original).unwrap();
         let copy = copy_spell(&mut state, original_ref, PlayerId::new(1), &[]).unwrap();
         let paid = state.object(copy).unwrap().paid.as_ref().unwrap();
@@ -6835,7 +6839,7 @@ mod copied_decisions_tests {
         assert_eq!(paid.colors_spent, ColorSet::EMPTY);
         assert_eq!(
             state.divided.iter().find(|(id, _)| *id == copy).unwrap().1,
-            vec![(target, 4)]
+            vec![(target_ref, 4)]
         );
     }
 }

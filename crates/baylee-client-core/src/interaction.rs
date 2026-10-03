@@ -94,6 +94,15 @@ pub enum DecisionId {
     Damage(DamageChoiceId),
     /// Exact source incarnation selection.
     Source(baylee_core::ids::SourceChoiceId),
+    /// Retargeting context, including the original exact object version.
+    Retarget {
+        /// Existing target that an empty answer preserves.
+        current: baylee_core::ids::TargetRef,
+        /// Target position, zero-based.
+        index: u32,
+        /// Total targets in the copied spell or ability.
+        of: u32,
+    },
 }
 
 /// What the player is being asked, in renderer-friendly terms.
@@ -367,6 +376,20 @@ impl Prompt {
         owing: bool,
         name: &dyn Fn(ObjectId) -> Option<String>,
     ) -> String {
+        self.headline_naming_targets(lang, turn, statics, owing, name, &|_| None)
+    }
+
+    /// Names historical retargets only through an exact-incarnation callback.
+    #[must_use]
+    pub fn headline_naming_targets(
+        &self,
+        lang: Lang,
+        turn: Turn,
+        statics: Option<&GameStatic>,
+        owing: bool,
+        name: &dyn Fn(ObjectId) -> Option<String>,
+        target_name: &dyn Fn(baylee_core::ids::DamageSourceRef) -> Option<String>,
+    ) -> String {
         let name = |id: ObjectId| name(id).filter(|n| !n.trim().is_empty());
         match self {
             Self::ChooseDamageSource { .. } => Phrase::ChooseDamageSource.text(lang).to_string(),
@@ -464,7 +487,7 @@ impl Prompt {
                 cards_line(lang, *reason, *min, *max, statics, &name)
             }
             Self::ChooseTargets { reason, min, max } => {
-                targets_line(lang, *reason, *min, *max, statics, &name)
+                targets_line(lang, *reason, *min, *max, statics, target_name)
             }
             // "Choose a basic land type" offers the five (CR 205.3i) and
             // nothing else; every other subtype question names creatures.
@@ -854,7 +877,7 @@ fn targets_line(
     min: u32,
     max: u32,
     statics: Option<&GameStatic>,
-    name: &dyn Fn(ObjectId) -> Option<String>,
+    name: &dyn Fn(baylee_core::ids::DamageSourceRef) -> Option<String>,
 ) -> String {
     match reason {
         TargetPrompt::Convoke => Phrase::TapToHelpPay.text(lang).to_string(),
@@ -2215,13 +2238,21 @@ impl Interaction {
         }
     }
 
-    /// Identity used to reject clicks from a replaced damage dialog.
+    /// Identity used to reject clicks from a replaced versioned decision.
     #[must_use]
     pub const fn decision_id(&self) -> Option<DecisionId> {
         match &self.pending {
             Pending::ChooseDamageEffect { choice, .. }
             | Pending::AllocatePrevention { choice, .. } => Some(DecisionId::Damage(*choice)),
             Pending::ChooseDamageSource { choice, .. } => Some(DecisionId::Source(*choice)),
+            Pending::ChooseTargets {
+                reason: TargetPrompt::Retarget { current, index, of },
+                ..
+            } => Some(DecisionId::Retarget {
+                current: *current,
+                index: *index,
+                of: *of,
+            }),
             _ => None,
         }
     }

@@ -447,7 +447,7 @@ fn a_targeted_permanent_is_pulled_out_of_its_group() {
     let victim = objs[2].id;
     let mut bolt = token(50, 1, "Lightning Bolt", 0, 0);
     bolt.types = TypeSet::INSTANT;
-    bolt.targets = vec![TargetRef::Object(victim)];
+    bolt.targets = vec![crate::test_support::target(victim)];
     let view = ViewBuilder::new(2)
         .with_battlefield(0, objs)
         .with_stack(vec![bolt])

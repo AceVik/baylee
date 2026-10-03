@@ -477,6 +477,26 @@ impl<'a> Table<'a> {
             .map_or_else(|| tag(id), |name| format!("{name} {}", tag(id)))
     }
 
+    /// Names only the entitled exact target snapshot, never a newer incarnation.
+    pub fn named_target(&self, source: baylee_core::ids::DamageSourceRef) -> String {
+        self.view.target_object(source).map_or_else(
+            || "an earlier target whose identity is unavailable".to_string(),
+            |target| {
+                let state = if target.is_current {
+                    "current"
+                } else {
+                    "earlier incarnation"
+                };
+                format!(
+                    "{} {} ({state}, version {})",
+                    target.name,
+                    tag(source.object),
+                    source.version
+                )
+            },
+        )
+    }
+
     /// Whether the view shows an object with this handle now.
     pub fn visible(&self, id: ObjectId) -> bool {
         self.name(id).is_some()

@@ -268,8 +268,12 @@ fn individual(view: &PlayerView) -> BTreeSet<ObjectId> {
             out.insert(o.id);
         }
         for t in &o.targets {
-            if let TargetRef::Object(id) = t {
-                out.insert(*id);
+            if let TargetRef::Object(source) = t
+                && view
+                    .target_object(*source)
+                    .is_some_and(|target| target.is_current)
+            {
+                out.insert(source.object);
             }
         }
     }
@@ -629,7 +633,12 @@ pub fn encode(view: &PlayerView, pending: &Pending, picked: &Picked, table: &Tab
                 }
                 for t in &o.targets {
                     match t {
-                        TargetRef::Object(target) if r[27] < 0 => r[27] = row_of(*target),
+                        TargetRef::Object(target) if r[27] < 0 => {
+                            r[27] = view
+                                .target_object(*target)
+                                .filter(|target| target.is_current)
+                                .map_or(-1, |target| row_of(target.source.object));
+                        }
                         TargetRef::Player(p) if r[28] < 0 => r[28] = rel(seat, *p, seats),
                         _ => {}
                     }
@@ -1090,5 +1099,52 @@ mod tests {
         assert_eq!(values.len(), ids.len() * crate::cardwalk::WIDTH);
         let cards = baylee_cards::all().count();
         assert_eq!(ids.len(), cards + baylee_cards::tokens::ALL.len());
+    }
+}
+
+#[cfg(test)]
+mod exact_target_tests {
+    use super::*;
+    use baylee_client_core::test_support::{ViewBuilder, target, token};
+
+    #[test]
+    fn both_encoders_do_not_link_historical_targets_to_returned_rows() {
+        let mut spell = token(2, 1, "Spell", 0, 0);
+        spell.stack_item = Some(StackItem::Spell);
+        spell.targets = vec![target(ObjectId::new(1, 0))];
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![token(1, 0, "Returned creature", 3, 3)])
+            .with_stack(vec![spell])
+            .build();
+        let pending = Pending::ChooseTargets {
+            player: view.seat,
+            options: vec![ObjectId::new(1, 0)],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: baylee_engine::choice::TargetPrompt::Targets,
+        };
+        for current in [true, false] {
+            view.target_objects
+                .iter_mut()
+                .find(|t| t.source.object == ObjectId::new(1, 0))
+                .unwrap()
+                .is_current = current;
+            let v2 = crate::features::encode(&view, &pending, &Picked::default());
+            let v3 = encode(&view, &pending, &Picked::default(), &Table::default());
+            let links = [
+                v2.rows
+                    .iter()
+                    .find(|r| r[0] == zone::STACK)
+                    .expect("v2 stack row")[27],
+                v3.rows
+                    .iter()
+                    .find(|r| r[0] == zone::STACK)
+                    .expect("v3 stack row")[27],
+            ];
+            for link in links {
+                assert_eq!(link >= 0, current);
+            }
+        }
     }
 }

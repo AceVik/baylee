@@ -70,6 +70,8 @@ pub(crate) struct CastWizard {
     pub player: PlayerId,
     /// Chosen cast option.
     pub option: Option<CastModeKind>,
+    /// Exact announced identities, preserved across all later cost payments.
+    pub target_references: crate::sources::TargetReferences,
     /// Chosen targets.
     pub targets: SmallVec<[ObjectId; 2]>,
     /// Targets chosen for the second instance of the word, kept apart for
@@ -244,6 +246,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: None,
+            target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -350,6 +353,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Miracle),
+            target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -479,6 +483,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option,
+            target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -547,6 +552,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: if single { option } else { None },
+            target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -603,6 +609,7 @@ impl<L: CardLookup> Engine<L> {
             card,
             player,
             option: Some(CastModeKind::Normal),
+            target_references: crate::sources::TargetReferences::default(),
             targets: SmallVec::new(),
             second_targets: SmallVec::new(),
             target_players: baylee_core::ids::SeatSet::new(),
@@ -2401,6 +2408,8 @@ impl<L: CardLookup> Engine<L> {
         {
             *v = true;
         }
+        self.state
+            .bind_target_references(card, &wizard.target_references);
         self.state.journal.record(GameEvent::SpellCast {
             object: card,
             player,

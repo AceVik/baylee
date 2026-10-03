@@ -846,12 +846,23 @@ impl Duel {
         {
             return Some(baylee_client_core::interaction::payment_line(lang, payment));
         }
-        Some(prompt.headline_naming(
+        Some(prompt.headline_naming_targets(
             lang,
             turn,
             self.statics.as_ref(),
             self.view.as_ref().is_some_and(|v| v.owed.is_some()),
             &name,
+            &|source| {
+                Some(crate::choices::target_label(
+                    lang,
+                    baylee_view::TargetRef::Object(source),
+                    crate::choices::FaceNames {
+                        view: self.view.as_ref(),
+                        texts: Some(texts),
+                    },
+                    self.statics.as_ref(),
+                ))
+            },
         ))
     }
 

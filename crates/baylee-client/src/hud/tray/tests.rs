@@ -625,3 +625,43 @@ fn a_row_is_lit_by_the_offer_the_table_draws() {
     assert_eq!(tint(taps), Some(palette::REACHABLE), "this client's indigo");
     assert_eq!(tint(dark), None);
 }
+
+#[test]
+fn target_context_wraps_and_keeps_mana_symbols_in_the_mana_font() {
+    let mut app = App::new();
+    let mut assets = Assets::<Font>::default();
+    let mana = assets.add(Font::from_bytes(
+        include_bytes!("../../../assets/fonts/mana.ttf").to_vec(),
+    ));
+    let fonts = UiFonts {
+        text: Handle::default(),
+        medium: Handle::default(),
+        bold: Handle::default(),
+        italic: Handle::default(),
+        medium_italic: Handle::default(),
+        serif: Handle::default(),
+        serif_italic: Handle::default(),
+        icons: Handle::default(),
+        mana: mana.clone(),
+    };
+    let line = target_context_line(
+        &mut app.world_mut().commands(),
+        &fonts,
+        "Eine sehr lange Zielerklärung: Bezahle {1}{R} und {T}, um die Fähigkeit zu aktivieren.",
+    );
+    app.world_mut().flush();
+    let node = app.world().get::<Node>(line).unwrap();
+    assert_eq!(node.width, percent(100));
+    assert_eq!(node.flex_wrap, bevy::ui::FlexWrap::Wrap);
+    let mut texts = app.world_mut().query::<(&Text, &TextFont, &TextLayout)>();
+    let mut marks = 0;
+    for (text, font, layout) in texts.iter(app.world()) {
+        assert!(!text.0.contains('{'));
+        if font.font == bevy::text::FontSource::Handle(mana.clone()) {
+            marks += 1;
+        } else {
+            assert_ne!(layout.linebreak, bevy::text::LineBreak::NoWrap);
+        }
+    }
+    assert_eq!(marks, 3);
+}

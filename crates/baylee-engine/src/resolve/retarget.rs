@@ -103,18 +103,46 @@ fn begin(
     change_to: Option<&'static Filter>,
     copy: bool,
 ) -> Option<Pending> {
+    state.capture_source_references();
     let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
     let req = obj.target_req?;
     let was: Vec<(u8, Aim)> = obj
         .targets
         .iter()
-        .map(|&id| (0, Aim::Object(id)))
+        .enumerate()
+        .map(|(index, _)| {
+            (
+                0,
+                Aim::Object(
+                    state
+                        .recorded_target_reference(
+                            spell,
+                            false,
+                            u32::try_from(index).expect("target slot"),
+                        )
+                        .expect("announced target"),
+                ),
+            )
+        })
         .chain(
             eval::targeted_players(obj, &req.spec)
                 .iter()
                 .map(|p| (0, Aim::Player(p))),
         )
-        .chain(obj.second_targets().iter().map(|&id| (1, Aim::Object(id))))
+        .chain(obj.second_targets().iter().enumerate().map(|(index, _)| {
+            (
+                1,
+                Aim::Object(
+                    state
+                        .recorded_target_reference(
+                            spell,
+                            true,
+                            u32::try_from(index).expect("target slot"),
+                        )
+                        .expect("announced second target"),
+                ),
+            )
+        }))
         .collect();
     if change_to.is_some() && was.len() != 1 {
         return None;
@@ -142,7 +170,7 @@ pub(super) fn answer(
 ) -> Option<Pending> {
     let pick = objects
         .first()
-        .map(|&id| Aim::Object(id))
+        .map(|&id| Aim::Object(state.source_identity(id).expect("offered target exists")))
         .or_else(|| players.first().map(|&p| Aim::Player(p)));
     retarget.now.push(pick);
     ask(state, res, retarget)
@@ -198,7 +226,11 @@ fn options(
     let req = requirement(obj, retarget.was[slot].0)?;
     let (mut objects, mut players) = eval::stack_target_options(state, obj, &req.spec);
     objects.retain(|id| {
-        Aim::Object(*id) != retarget.was[slot].1 && can_finish(state, retarget, Aim::Object(*id))
+        let Some(reference) = state.source_identity(*id) else {
+            return false;
+        };
+        Aim::Object(reference) != retarget.was[slot].1
+            && can_finish(state, retarget, Aim::Object(reference))
     });
     players.retain(|p| {
         Aim::Player(*p) != retarget.was[slot].1 && can_finish(state, retarget, Aim::Player(*p))
@@ -222,17 +254,19 @@ fn options(
 /// `target_players` or `chosen_player`, whichever held it.
 fn write(state: &mut GameState, retarget: &Retarget) {
     state.capture_source_references();
-    let references = retarget_references(state, retarget);
-    let previous = state
-        .object(retarget.spell)
-        .filter(|_| !retarget.copy)
-        .map_or_else(Vec::new, |obj| {
-            obj.targets
-                .iter()
-                .chain(obj.second_targets())
-                .copied()
-                .collect()
-        });
+    let references = retarget_references(retarget);
+    let previous: Vec<_> = if retarget.copy {
+        Vec::new()
+    } else {
+        retarget
+            .was
+            .iter()
+            .filter_map(|(_, target)| match target {
+                Aim::Object(reference) => Some(*reference),
+                Aim::Player(_) => None,
+            })
+            .collect()
+    };
     let previous_players = state
         .object(retarget.spell)
         .filter(|_| !retarget.copy)
@@ -253,7 +287,7 @@ fn write(state: &mut GameState, retarget: &Retarget) {
     for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
         let aim = now.unwrap_or(*was);
         match (*group, aim) {
-            (0, Aim::Object(id)) => obj.targets.push(id),
+            (0, Aim::Object(reference)) => obj.targets.push(reference.object),
             (0, Aim::Player(player)) => {
                 if first_req.is_some_and(|req| {
                     matches!(req.spec, TargetSpec::AnyPlayer | TargetSpec::AnyOpponent)
@@ -263,15 +297,20 @@ fn write(state: &mut GameState, retarget: &Retarget) {
                     obj.target_players.insert(player);
                 }
             }
-            (_, Aim::Object(id)) => second.push(id),
+            (_, Aim::Object(reference)) => second.push(reference.object),
             (_, Aim::Player(_)) => unreachable!("second target groups contain objects"),
         }
     }
     obj.set_second(second, second_req);
-    for (second, index, reference) in references {
-        state.replace_target_reference(retarget.spell, second, index, reference);
+    let mut targets = crate::sources::TargetReferences::default();
+    for (second, _, reference) in references {
+        if second {
+            targets.second.push(reference);
+        } else {
+            targets.first.push(reference);
+        }
     }
-    state.capture_source_references();
+    state.bind_target_references(retarget.spell, &targets);
 
     if let Some((_, shares)) = state
         .divided
@@ -290,37 +329,19 @@ fn write(state: &mut GameState, retarget: &Retarget) {
             }
         }
     }
+    state.capture_source_references();
     record_new_targets(state, retarget.spell, &previous, &previous_players);
 }
 
 /// Object slots compact when a target becomes a player. Carry the retained
 /// incarnation with its target rather than re-reading its newer zone object.
-fn retarget_references(
-    state: &GameState,
-    retarget: &Retarget,
-) -> Vec<(bool, u32, baylee_core::ids::DamageSourceRef)> {
-    let mut old_indices = [0_u32; 2];
+fn retarget_references(retarget: &Retarget) -> Vec<(bool, u32, baylee_core::ids::DamageSourceRef)> {
     let mut new_indices = [0_u32; 2];
     let mut references = Vec::new();
     for ((group, was), now) in retarget.was.iter().zip(&retarget.now) {
         let group = usize::from(*group != 0);
-        let old = if matches!(was, Aim::Object(_)) {
-            let reference =
-                state.recorded_target_reference(retarget.spell, group != 0, old_indices[group]);
-            old_indices[group] += 1;
-            reference
-        } else {
-            None
-        };
-        if let Aim::Object(id) = now.unwrap_or(*was) {
-            let reference = if now.is_some() {
-                state.source_identity(id)
-            } else {
-                old
-            };
-            if let Some(reference) = reference {
-                references.push((group != 0, new_indices[group], reference));
-            }
+        if let Aim::Object(reference) = now.unwrap_or(*was) {
+            references.push((group != 0, new_indices[group], reference));
             new_indices[group] += 1;
         }
     }
@@ -369,7 +390,7 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
     let (objects, players) = eval::stack_target_options(state, obj, &req.spec);
     let mut available: Vec<Aim> = objects
         .into_iter()
-        .map(Aim::Object)
+        .filter_map(|id| state.source_identity(id).map(Aim::Object))
         .chain(players.into_iter().map(Aim::Player))
         .filter(|aim| *aim != candidate && !used.contains(aim))
         .collect();
@@ -392,7 +413,7 @@ fn can_finish(state: &GameState, retarget: &Retarget, candidate: Aim) -> bool {
 pub(super) fn record_new_targets(
     state: &mut GameState,
     spell: ObjectId,
-    previous: &[ObjectId],
+    previous: &[baylee_core::ids::DamageSourceRef],
     previous_players: &[PlayerId],
 ) {
     let Some(obj) = state.object(spell) else {
@@ -403,19 +424,31 @@ pub(super) fn record_new_targets(
         .into_iter()
         .filter(|p| !previous_players.contains(p))
         .collect();
-    let mut targets: Vec<_> = obj
-        .targets
-        .iter()
-        .chain(obj.second_targets())
-        .copied()
-        .filter(|id| !previous.contains(id))
-        .collect();
+    let mut targets = Vec::new();
+    for second in [false, true] {
+        let ids = if second {
+            obj.second_targets()
+        } else {
+            &obj.targets
+        };
+        for index in 0..ids.len() {
+            if let Some(reference) = state.recorded_target_reference(
+                spell,
+                second,
+                u32::try_from(index).expect("target slot"),
+            ) && !previous.contains(&reference)
+                && state.source_identity(reference.object) == Some(reference)
+            {
+                targets.push(reference);
+            }
+        }
+    }
     targets.sort_unstable();
     targets.dedup();
     for target in targets {
         state.journal.record(crate::event::GameEvent::BecameTarget {
             object: spell,
-            target,
+            target: target.object,
             controller,
         });
     }
@@ -458,6 +491,7 @@ mod tests {
             ZoneLocation::Battlefield,
         );
         let kept_ref = state.source_identity(kept).unwrap();
+        let first_ref = state.source_identity(first).unwrap();
         state
             .object_mut(spell)
             .unwrap()
@@ -484,7 +518,7 @@ mod tests {
             &Retarget {
                 spell,
                 change_to: None,
-                was: vec![(0, Aim::Object(first)), (0, Aim::Object(kept))],
+                was: vec![(0, Aim::Object(first_ref)), (0, Aim::Object(kept_ref))],
                 now: vec![Some(Aim::Player(caster)), None],
                 copy: false,
             },
@@ -502,19 +536,32 @@ mod tests {
         let player = PlayerId::new(1);
         let name = state.names.intern("copy");
         let spell = state.create_bare(player, ObjectKind::Spell, name, ZoneLocation::Stack);
-        let first = ObjectId::new(100, 0);
-        let second = ObjectId::new(101, 0);
+        let first = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let second = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let first_ref = state.source_identity(first).unwrap();
+        let second_ref = state.source_identity(second).unwrap();
         let obj = state.object_mut(spell).unwrap();
         obj.targets.extend([first, second]);
         obj.set_second(smallvec::smallvec![second], None);
+        state.capture_source_references();
         let start = state.journal.len();
-        record_new_targets(&mut state, spell, &[second, first], &[]);
+        record_new_targets(&mut state, spell, &[second_ref, first_ref], &[]);
         assert_eq!(
             state.journal.len(),
             start,
             "keeping or reordering targets is not acquiring them"
         );
-        record_new_targets(&mut state, spell, &[first], &[]);
+        record_new_targets(&mut state, spell, &[first_ref], &[]);
         assert_eq!(
             state.journal.entries()[start..]
                 .iter()
@@ -594,25 +641,27 @@ mod tests {
         let obj = state.object_mut(spell).unwrap();
         obj.target_req = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE)));
         obj.targets.extend([a, b]);
+        let a_ref = state.source_identity(a).unwrap();
+        let b_ref = state.source_identity(b).unwrap();
         let mut choice = Retarget {
             spell,
             change_to: None,
-            was: vec![(0, Aim::Object(a)), (0, Aim::Object(b))],
+            was: vec![(0, Aim::Object(a_ref)), (0, Aim::Object(b_ref))],
             now: vec![],
             copy: true,
         };
         assert!(
-            can_finish(&state, &choice, Aim::Object(b)),
+            can_finish(&state, &choice, Aim::Object(b_ref)),
             "the complete swap is legal"
         );
-        choice.now.push(Some(Aim::Object(b)));
+        choice.now.push(Some(Aim::Object(b_ref)));
         assert!(
-            !can_finish(&state, &choice, Aim::Object(b)),
+            !can_finish(&state, &choice, Aim::Object(b_ref)),
             "the second target cannot retain a duplicate"
         );
-        assert!(can_finish(&state, &choice, Aim::Object(a)));
-        choice.now.push(Some(Aim::Object(a)));
-        state.divided.push((spell, vec![(a, 3), (b, 1)]));
+        assert!(can_finish(&state, &choice, Aim::Object(a_ref)));
+        choice.now.push(Some(Aim::Object(a_ref)));
+        state.divided.push((spell, vec![(a_ref, 3), (b_ref, 1)]));
         write(&mut state, &choice);
         assert_eq!(
             state.object(spell).unwrap().targets.as_slice(),
@@ -621,18 +670,97 @@ mod tests {
         );
         assert_eq!(
             state.divided[0].1,
-            vec![(b, 3), (a, 1)],
+            vec![(b_ref, 3), (a_ref, 1)],
             "each fixed damage share moves with its slot"
         );
         choice.now.clear();
         state.object_mut(a).unwrap().base_mut().types = baylee_core::types::TypeSet::ARTIFACT;
         assert!(
-            !can_finish(&state, &choice, Aim::Object(b)),
+            !can_finish(&state, &choice, Aim::Object(b_ref)),
             "a swap may not make a newly chosen target illegal"
         );
         assert!(
-            can_finish(&state, &choice, Aim::Object(a)),
+            can_finish(&state, &choice, Aim::Object(a_ref)),
             "the existing illegal target can remain unchanged"
+        );
+    }
+    #[test]
+    fn target_events_distinguish_kept_old_incarnation_from_the_returned_creature() {
+        let mut state =
+            GameState::from_preset(&preset(503, &[]), &SyntheticLookup::new(vec![])).unwrap();
+        let player = PlayerId::new(0);
+        let name = state.names.intern("target event probe");
+        let target = state.create_bare(
+            player,
+            ObjectKind::Permanent,
+            name,
+            ZoneLocation::Battlefield,
+        );
+        let original = state.source_identity(target).unwrap();
+        let spell = state.create_bare(player, ObjectKind::Spell, name, ZoneLocation::Stack);
+        state.object_mut(spell).unwrap().targets.push(target);
+        state
+            .move_object(
+                target,
+                ZoneLocation::Hand(player),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                target,
+                ZoneLocation::Battlefield,
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        let current = state.source_identity(target).unwrap();
+        let start = state.journal.len();
+        write(
+            &mut state,
+            &Retarget {
+                spell,
+                change_to: None,
+                was: vec![(0, Aim::Object(original))],
+                now: vec![None],
+                copy: true,
+            },
+        );
+        assert_eq!(
+            state.journal.len(),
+            start,
+            "copying an illegal old target cannot trigger the returned creature's ward"
+        );
+        write(
+            &mut state,
+            &Retarget {
+                spell,
+                change_to: None,
+                was: vec![(0, Aim::Object(original))],
+                now: vec![Some(Aim::Object(current))],
+                copy: false,
+            },
+        );
+        assert_eq!(state.journal.entries()[start..].iter().filter(|entry| matches!(entry.event, GameEvent::BecameTarget { target: id, .. } if id == target)).count(), 1);
+        assert_eq!(
+            state.recorded_target_reference(spell, false, 0),
+            Some(current)
+        );
+        write(
+            &mut state,
+            &Retarget {
+                spell,
+                change_to: None,
+                was: vec![(0, Aim::Object(current))],
+                now: vec![Some(Aim::Player(player))],
+                copy: false,
+            },
+        );
+        assert_eq!(state.recorded_target_reference(spell, false, 0), None);
+        assert!(
+            !state.source_referenced_by(current).contains(&spell),
+            "compaction drops obsolete object references"
         );
     }
 }

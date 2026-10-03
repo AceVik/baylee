@@ -904,14 +904,8 @@ pub enum NumberPrompt {
     },
 }
 
-/// One existing target, carried without card identity or other hidden data.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
-pub enum TargetRef {
-    /// An object target.
-    Object(ObjectId),
-    /// A player target.
-    Player(PlayerId),
-}
+/// One exact existing target, without hidden card identity.
+pub use baylee_core::ids::TargetRef;
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).
 ///

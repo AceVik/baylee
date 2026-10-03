@@ -949,7 +949,9 @@ fn target_reading(
     let Pending::ChooseTargets {
         min,
         max,
-        reason: baylee_engine::choice::TargetPrompt::Targets,
+        reason:
+            baylee_engine::choice::TargetPrompt::Targets
+            | baylee_engine::choice::TargetPrompt::Retarget { .. },
         ..
     } = i.pending()
     else {
@@ -965,13 +967,20 @@ fn target_reading(
             ink: palette::DOCK_INK,
         });
     };
-    if let Some(context) = &view.targeting {
-        for line in crate::choices::target_explanation(view, lang, texts) {
-            say(line);
-        }
-        if context.second {
-            say(Phrase::TargetingSecond.text(lang).to_string());
-        }
+    for line in crate::choices::target_question(i, view, lang, texts, duel.statics.as_ref()) {
+        say(line);
+    }
+    if let Some(context) = &view.targeting
+        && matches!(
+            i.pending(),
+            Pending::ChooseTargets {
+                reason: baylee_engine::choice::TargetPrompt::Targets,
+                ..
+            }
+        )
+        && context.second
+    {
+        say(Phrase::TargetingSecond.text(lang).to_string());
     }
     let options = targeting::options(i.pending());
     let label = |target: Target| match target {
@@ -1095,11 +1104,15 @@ fn prevention_line(
     }
 }
 fn damage_paging(duel: &Duel, lang: Lang, rows: &mut Vec<crate::choices::ChoiceOption>) {
-    if duel
-        .interaction
-        .as_ref()
-        .is_some_and(|i| i.decision_id().is_some())
-    {
+    if duel.interaction.as_ref().is_some_and(|i| {
+        matches!(
+            i.decision_id(),
+            Some(
+                baylee_client_core::interaction::DecisionId::Damage(_)
+                    | baylee_client_core::interaction::DecisionId::Source(_)
+            )
+        )
+    }) {
         crate::choices::damage_page(rows, duel.target_page, lang);
     }
 }
@@ -1172,6 +1185,47 @@ mod targeting_tests {
         assert!(
             matches!(duel.interaction.as_ref().unwrap().confirm(), Some(PlayerAction::ChooseObjects { objects }) if objects == vec![ObjectId::new(16, 0)])
         );
+    }
+
+    #[test]
+    fn versioned_retarget_keeps_target_pagination_and_draft_selection() {
+        let mut duel = choices();
+        let mut pending = duel.interaction.as_ref().unwrap().pending().clone();
+        if let Pending::ChooseTargets { reason, .. } = &mut pending {
+            *reason = TargetPrompt::Retarget {
+                current: baylee_client_core::test_support::target(ObjectId::new(10, 0)),
+                index: 0,
+                of: 1,
+            };
+        }
+        duel.view.as_mut().unwrap().targeting = Some(baylee_view::TargetingContext {
+            source: token(100, 0, "Stale Fork context", 0, 0),
+            text: None,
+            whole_spell: true,
+            second: true,
+            batch_count: 1,
+        });
+        duel.receive_choice(pending);
+        let (lines, mut rows) = read(&duel);
+        assert!(lines.iter().any(|l| l.text.contains("Target 1 of 1: Bear")));
+        assert!(lines.iter().all(|l| !l.text.contains("Stale Fork context")));
+        assert!(
+            lines
+                .iter()
+                .all(|l| l.text != Phrase::TargetingSecond.text(Lang::En))
+        );
+        damage_paging(&duel, Lang::En, &mut rows);
+        assert_eq!(rows.len(), targeting::PAGE_SIZE + 1);
+        crate::input::pick_choice(&mut duel, targeting::NEXT);
+        assert_eq!(duel.target_page, 1);
+        crate::input::pick_choice(&mut duel, 8);
+        assert!(
+            duel.interaction
+                .as_ref()
+                .unwrap()
+                .is_selected(ObjectId::new(16, 0))
+        );
+        assert!(duel.outbox.is_empty());
     }
 
     #[test]

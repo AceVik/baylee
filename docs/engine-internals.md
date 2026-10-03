@@ -627,8 +627,9 @@ ordinary source damage even when their arena ids match. Internal event context
 alone grants no source-choice eligibility: the ability must actually read it;
 copies retain that eligibility. Omnath and undying regressions cover both sides.
 These changes do not imply that every reference to another object is
-version-aware: ordinary target revalidation (#117), the Earthbend event-object
-case above, and the state-trigger suppression case below remain separate gaps.
+version-aware: the Earthbend event-object case above and the state-trigger
+suppression case below remain separate gaps. Exact target revalidation (#117)
+is described below.
 
 ### A triggered mana ability resolves as it triggers (CR 605.4a)
 "Whenever you tap a creature for mana, add an additional {G}" is a mana
@@ -762,12 +763,19 @@ about what was choosable. A change of targets (CR 115.7, `resolve::retarget`)
 asks the same function, so a redirected spell is offered only what the
 re-check would call legal (#247).
 
-Partial legality writes the legal subset back before constructing a resolution.
-The DSL now supports two target groups and checks both groups. Ordinary target
-revalidation still compares bare object ids (#117): an object that leaves and
-returns can incorrectly remain legal. Exact target-slot references retained for
-source selection must also be used by legality, copies and target changes before
-that gap can be considered closed.
+Target slots bind object and zone-change version when announced, before costs
+can move them (#117). Both groups are checked against those exact references and
+current legality. A missing reference is illegal; resolution does not invent one
+from the current object. Partial legality narrows a local resolution copy while
+the original announcement remains available to later copies.
+
+Retargeting compares exact pairs, including when an old illegal target and a
+newly chosen returned incarnation share one arena id. Fixed divided damage keeps
+its shares paired to those identities; even division recomputes over the legal
+resolution targets. New-target events and Ward use the same distinction.
+Historical target projections carry their own entitled identity and do not
+link a target arrow to a newer object. Integration acceptance is tracked in
+`docs/set-progress.md`.
 
 Untargeted self-effects need a separate incarnation audit as well. For example,
 `PumpFilter { Filter::This }` still binds the bare source id in `bound_now`, so
@@ -1005,8 +1013,8 @@ incarnations referenced by stack abilities are independently selectable.
 an archived snapshot alone does not make a source eligible. A chosen permanent
 spell follows its recorded resolution into a permanent, not an assumed version
 increment. The chooser's historical view carries its own entitled identity and
-characteristics instead of looking up the current object. Ordinary target
-revalidation remains a separate known gap (#117).
+characteristics instead of looking up the current object. Target revalidation
+uses the separate exact-target contract described above (#117).
 
 ### The monarch's abilities have no source (CR 724.2)
 

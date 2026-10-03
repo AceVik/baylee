@@ -377,7 +377,7 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
             .targets
             .iter()
             .map(|target| match *target {
-                TargetRef::Object(id) => table.named(id),
+                TargetRef::Object(source) => table.named_target(source),
                 TargetRef::Player(p) => table.player(p),
             })
             .collect();

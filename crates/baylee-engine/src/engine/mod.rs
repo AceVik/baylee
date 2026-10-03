@@ -155,6 +155,8 @@ struct Held {
     activation_target_players: Vec<PlayerId>,
     activation_cost_choices: Vec<ObjectId>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    /// Incarnations fixed at target announcement, before cost payment.
+    activation_target_references: crate::sources::TargetReferences,
     activation_targets_answered: bool,
     activation_x: Option<u32>,
     activation_graveyard: Option<PlayerId>,
@@ -308,6 +310,8 @@ pub struct Engine<L: CardLookup> {
     /// taken where the ability reaches the stack, so an activation refused
     /// in between cannot hand it to the next one.
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
+    /// Incarnations fixed at target announcement, before cost payment.
+    activation_target_references: crate::sources::TargetReferences,
     /// Whether a pending activation's **first** "target" question has its
     /// answer, which may be none at all for an "up to" (CR 115.6).
     ///
@@ -772,6 +776,7 @@ impl<L: CardLookup> Engine<L> {
             loyalty_player_choice: None,
             activation_target_players: Vec::new(),
             activation_second_targets: None,
+            activation_target_references: crate::sources::TargetReferences::default(),
             activation_targets_answered: false,
             activation_cost_choices: Vec::new(),
             activation_x: None,
@@ -941,6 +946,17 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        for references in self
+            .cast_wizard
+            .as_ref()
+            .map(|w| &w.target_references)
+            .into_iter()
+            .chain(std::iter::once(&self.activation_target_references))
+        {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(references.fingerprint());
+        }
         for entry in self
             .state
             .journal
@@ -1175,6 +1191,7 @@ impl<L: CardLookup> Engine<L> {
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
+            activation_target_references,
             activation_targets_answered,
             activation_x,
             activation_graveyard,
@@ -1238,6 +1255,10 @@ impl<L: CardLookup> Engine<L> {
                 format!("{activation_second_targets:?}"),
             ),
             (
+                "activation_target_references",
+                format!("{activation_target_references:?}"),
+            ),
+            (
                 "activation_targets_answered",
                 format!("{activation_targets_answered:?}"),
             ),
@@ -1298,6 +1319,7 @@ impl<L: CardLookup> Engine<L> {
             activation_target_players: self.activation_target_players.clone(),
             activation_cost_choices: self.activation_cost_choices.clone(),
             activation_second_targets: self.activation_second_targets.clone(),
+            activation_target_references: self.activation_target_references.clone(),
             activation_targets_answered: self.activation_targets_answered,
             activation_x: self.activation_x,
             activation_graveyard: self.activation_graveyard,
@@ -1315,6 +1337,7 @@ impl<L: CardLookup> Engine<L> {
             activation_target_players,
             activation_cost_choices,
             activation_second_targets,
+            activation_target_references,
             activation_targets_answered,
             activation_x,
             activation_graveyard,
@@ -1328,6 +1351,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_target_players = activation_target_players;
         self.activation_cost_choices = activation_cost_choices;
         self.activation_second_targets = activation_second_targets;
+        self.activation_target_references = activation_target_references;
         self.activation_targets_answered = activation_targets_answered;
         self.activation_x = activation_x;
         self.activation_graveyard = activation_graveyard;
@@ -1764,3 +1788,6 @@ mod source_resume_tests;
 
 #[cfg(test)]
 mod trigger_source_tests;
+
+#[cfg(test)]
+mod target_incarnation_tests;

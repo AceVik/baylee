@@ -871,6 +871,8 @@ pub enum StackKind {
 pub struct StackTarget {
     /// The handle the engine named.
     pub what: TargetRef,
+    /// Only this exact incarnation may point at a card currently on the table.
+    pub is_current: bool,
     /// The object's display name, or `None` when the target is a player:
     /// seat names live in `GameStatic`, which this model does not carry.
     pub name: Option<String>,
@@ -892,8 +894,8 @@ impl StackTarget {
     #[must_use]
     pub fn object(&self) -> Option<ObjectId> {
         match self.what {
-            TargetRef::Object(id) => Some(id),
-            TargetRef::Player(_) => None,
+            TargetRef::Object(source) if self.is_current => Some(source.object),
+            TargetRef::Object(_) | TargetRef::Player(_) => None,
         }
     }
 }
@@ -1663,15 +1665,19 @@ fn fanned(object: &PublicObject) -> FannedCard {
 }
 
 /// Resolves a target handle into something drawable.
-fn stack_target(view: &PlayerView, what: TargetRef, reg: Registry<'_>) -> StackTarget {
+fn stack_target(view: &PlayerView, what: TargetRef, _reg: Registry<'_>) -> StackTarget {
     let object = match what {
-        TargetRef::Object(id) => view.object(id),
+        TargetRef::Object(source) => view.target_object(source),
         TargetRef::Player(_) => None,
     };
     StackTarget {
         what,
+        is_current: object.is_some_and(|o| o.is_current),
         name: object.map(|o| o.name.clone()),
-        art: object.and_then(|o| art_of(o, ArtSize::Small, reg)),
+        art: object.and_then(|o| {
+            o.card
+                .map(|c| ImageKey::new(c.print, c.face, ArtSize::Small))
+        }),
     }
 }
 
@@ -1695,8 +1701,12 @@ fn individual_objects(view: &PlayerView) -> HashMap<ObjectId, Individual> {
     }
     for item in &view.stack {
         for target in &item.targets {
-            if let TargetRef::Object(id) = target {
-                map.entry(*id).or_insert(Individual::Targeted);
+            if let TargetRef::Object(source) = target
+                && view
+                    .target_object(*source)
+                    .is_some_and(|target| target.is_current)
+            {
+                map.entry(source.object).or_insert(Individual::Targeted);
             }
         }
     }

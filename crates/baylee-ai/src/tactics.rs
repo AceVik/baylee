@@ -609,8 +609,10 @@ impl HeuristicAgent {
         o.targets
             .iter()
             .map(|t| match t {
-                baylee_view::TargetRef::Object(id) => view
-                    .object(*id)
+                baylee_view::TargetRef::Object(source) => view
+                    .target_object(*source)
+                    .filter(|target| target.is_current)
+                    .and_then(|target| view.object(target.source.object))
                     .filter(|t| !self.hostile(t.controller, view.seat))
                     .map_or(0, material),
                 baylee_view::TargetRef::Player(p) => {

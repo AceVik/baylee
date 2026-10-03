@@ -1450,11 +1450,15 @@ fn number_keys(typed: &mut MessageReader<KeyboardInput>, duel: &mut Duel) -> boo
 
 /// Damage dialogs own cursor navigation; the numeric editor owns their digits.
 fn damage_keys(fired: Fired, duel: &mut Duel) -> bool {
-    let Some(i) = duel
-        .interaction
-        .as_mut()
-        .filter(|i| i.decision_id().is_some())
-    else {
+    let Some(i) = duel.interaction.as_mut().filter(|i| {
+        matches!(
+            i.decision_id(),
+            Some(
+                baylee_client_core::interaction::DecisionId::Damage(_)
+                    | baylee_client_core::interaction::DecisionId::Source(_)
+            )
+        )
+    }) else {
         return false;
     };
     let count = match i.prompt() {
@@ -2681,26 +2685,8 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if pick_attack_choice(duel, index) {
         return;
     }
-    if let Some(i) = duel
-        .interaction
-        .as_ref()
-        .filter(|i| i.decision_id().is_some())
-    {
-        let count = match i.prompt() {
-            Prompt::ChooseDamageSource { options } => options.len(),
-            Prompt::ChooseDamageEffect { options, .. } => options.len(),
-            Prompt::AllocatePrevention { damage, .. } => damage.len(),
-            _ => 0,
-        };
-        if index == baylee_client_core::targeting::PREVIOUS {
-            duel.target_page = duel.target_page.saturating_sub(1);
-            return;
-        }
-        if index == baylee_client_core::targeting::NEXT {
-            duel.target_page = (duel.target_page + 1)
-                .min(count.saturating_sub(1) / crate::choices::DAMAGE_PAGE_SIZE);
-            return;
-        }
+    if page_damage_choice(duel, index) {
+        return;
     }
     if let Some(i) = duel.interaction.as_mut()
         && matches!(
@@ -2777,6 +2763,36 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
     if let Some(action) = action {
         duel.submit(action);
     }
+}
+
+/// Damage and source dialogs page independently of ordinary target rows.
+fn page_damage_choice(duel: &mut Duel, index: usize) -> bool {
+    if let Some(i) = duel.interaction.as_ref().filter(|i| {
+        matches!(
+            i.decision_id(),
+            Some(
+                baylee_client_core::interaction::DecisionId::Damage(_)
+                    | baylee_client_core::interaction::DecisionId::Source(_)
+            )
+        )
+    }) {
+        let count = match i.prompt() {
+            Prompt::ChooseDamageSource { options } => options.len(),
+            Prompt::ChooseDamageEffect { options, .. } => options.len(),
+            Prompt::AllocatePrevention { damage, .. } => damage.len(),
+            _ => 0,
+        };
+        if index == baylee_client_core::targeting::PREVIOUS {
+            duel.target_page = duel.target_page.saturating_sub(1);
+            return true;
+        }
+        if index == baylee_client_core::targeting::NEXT {
+            duel.target_page = (duel.target_page + 1)
+                .min(count.saturating_sub(1) / crate::choices::DAMAGE_PAGE_SIZE);
+            return true;
+        }
+    }
+    false
 }
 
 /// Combat rows edit a draft; the ordinary confirmation remains the only send.

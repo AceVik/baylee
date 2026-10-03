@@ -570,7 +570,12 @@ pub fn encode(view: &PlayerView, pending: &Pending, picked: &crate::policy::Pick
                 }
                 for t in &o.targets {
                     match t {
-                        TargetRef::Object(target) if r[27] < 0 => r[27] = row_of(*target),
+                        TargetRef::Object(target) if r[27] < 0 => {
+                            r[27] = view
+                                .target_object(*target)
+                                .filter(|target| target.is_current)
+                                .map_or(-1, |target| row_of(target.source.object));
+                        }
                         TargetRef::Player(p) if r[28] < 0 => r[28] = rel(seat, *p, seats),
                         _ => {}
                     }

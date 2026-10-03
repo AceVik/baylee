@@ -589,14 +589,14 @@ pub struct PreviewResize;
 /// An answer button under the prompt headline.
 #[derive(Component)]
 pub struct PromptButton {
-    /// Damage decision whose confirmation this button represents.
+    /// Exact decision context whose confirmation this button represents.
     pub decision_id: Option<baylee_client_core::interaction::DecisionId>,
     /// Which answer the button sends.
     pub action: PromptAction,
 }
 
 impl PromptButton {
-    /// A stale confirmation must never answer a different damage decision.
+    /// A stale confirmation must never answer a different decision context.
     pub fn matches_decision_id(
         &self,
         current: Option<baylee_client_core::interaction::DecisionId>,

@@ -935,7 +935,7 @@ fn targeting(
             object, controller, ..
         } => state
             .object(object)
-            .filter(|o| o.targets_object(target))
+            .filter(|_| state.targets_current_object(object, target))
             .map(|_| (object, controller)),
         _ => None,
     }
@@ -1159,7 +1159,10 @@ fn targeted_by_opponent(
                 .collect();
             targets.sort_unstable();
             targets.dedup();
-            let objects = targets.into_iter().filter(|t| fits(*t)).count();
+            let objects = targets
+                .into_iter()
+                .filter(|t| state.targets_current_object(object, *t) && fits(*t))
+                .count();
             let player =
                 counts_you && (obj.target_players.contains(you) || obj.chosen_player == Some(you));
             u32::try_from(objects).unwrap_or(u32::MAX) + u32::from(player)

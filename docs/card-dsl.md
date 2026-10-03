@@ -1643,6 +1643,23 @@ Concession by another player refreshes a surviving chooser's offer and nonce;
 stale answers leave state unchanged. The engine's separate substitute-chooser
 gap for a departed chooser (CR 800.4g) is not closed by this source API.
 
+Target announcement also binds each object slot to an exact incarnation
+(CR 400.7, 601.2c and 608.2b), before casting or activation costs can move it.
+The two target groups remain independent. Resolution filters an instruction
+image without rewriting the original announcement, so copies keep illegal
+original targets unless explicitly retargeted. Retargeting compares exact
+pairs: an old and a returned incarnation sharing one arena handle are distinct
+objects. Divided damage stays attached to the exact target's announced share;
+an illegal share is never transferred to a returned creature. New-target and
+ward events likewise distinguish those incarnations.
+
+`TargetRef::Object(DamageSourceRef)` is shared by Core, Engine and View.
+`PublicObject.targets` and `TargetPrompt::Retarget.current` use these pairs;
+`PlayerView.target_objects` supplies the exact historical name, print and rules
+with the same privacy rules as source choices. It is separate from the offered
+`damage_sources` list. New target answers still select currently offered object
+IDs; retaining an old target is the explicit empty retarget answer.
+
 Its redirection sibling is `RedirectNextFromChosenSource { target }`, Jade
 Monolith's "the next time a source of your choice would deal damage to
 target creature this turn, that source deals that damage to you instead":

@@ -588,7 +588,16 @@ impl HeuristicAgent {
     fn doomed(&self, view: &PlayerView, o: &PublicObject) -> bool {
         let me = view.seat;
         let targeted = view.stack.iter().any(|s| {
-            self.hostile(s.controller, me) && s.targets.contains(&TargetRef::Object(o.id))
+            self.hostile(s.controller, me)
+                && s.targets.iter().any(|target| match target {
+                    TargetRef::Object(source) => {
+                        source.object == o.id
+                            && view
+                                .target_object(*source)
+                                .is_some_and(|target| target.is_current)
+                    }
+                    TargetRef::Player(_) => false,
+                })
         });
         if targeted {
             return true;

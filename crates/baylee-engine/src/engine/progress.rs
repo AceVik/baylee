@@ -3201,12 +3201,8 @@ impl<L: CardLookup> Engine<L> {
     /// Each instance is re-checked by [`Self::instance_legality`], which
     /// says how; this is where the instances are put back together.
     ///
-    /// **What this cannot see.** `GameObject::targets` holds a bare
-    /// `ObjectId`, and a creature blinked in response really is back on the
-    /// battlefield — so it enumerates as legal although CR 400.7 makes it a
-    /// new object. No zone test can catch that; only the `(ObjectId,
-    /// version)` pair `object.rs`'s own header prescribes can, which is #117
-    /// and is the same defect one layer over.
+    /// CR 400.7: each announced slot names an incarnation, not the arena
+    /// handle of a card which may since have left and returned.
     fn target_legality(&self, on_stack: ObjectId) -> TargetLegality {
         let Some(obj) = self.state.object(on_stack) else {
             return TargetLegality::NotAsked;
@@ -3293,8 +3289,18 @@ impl<L: CardLookup> Engine<L> {
             eval::stack_target_options(&self.state, obj, &req.spec);
         let objects: SmallVec<[ObjectId; 2]> = chosen
             .iter()
-            .copied()
-            .filter(|id| legal_objects.contains(id))
+            .enumerate()
+            .filter_map(|(index, &id)| {
+                let announced = self.state.recorded_target_reference(
+                    obj.id,
+                    !players,
+                    u32::try_from(index).expect("target slot"),
+                );
+                (legal_objects.contains(&id)
+                    && announced.is_some()
+                    && announced == self.state.source_identity(id))
+                .then_some(id)
+            })
             .collect();
         let mut kept = SeatSet::new();
         for player in chosen_players.iter() {
@@ -3373,6 +3379,7 @@ impl<L: CardLookup> Engine<L> {
         // resolve. Before the spell/ability split below, because an Aura is
         // a targeted *permanent* spell and a check inside either branch
         // would miss one of them.
+        let mut resolution_object = self.state.object(top).expect("stack object exists").clone();
         match self.target_legality(top) {
             TargetLegality::AllIllegal => {
                 self.state
@@ -3382,10 +3389,9 @@ impl<L: CardLookup> Engine<L> {
                 return;
             }
             // "…won't do anything to an illegal target" (CR 608.2b): the
-            // rest of it still happens. Narrowed once, here, rather than in
-            // each of the four `Resolution`s built below — all four read
-            // `obj.targets.clone()`, so the one write is what keeps them
-            // from disagreeing.
+            // rest of it still happens. Narrow a local resolution image,
+            // preserving the original announcement for copies and history.
+            // Every resolution constructor below reads this same image.
             //
             // Safe to narrow because a `TargetReq` carries **one** spec: the
             // positions in `targets` are a set and not a tuple, and nothing
@@ -3399,23 +3405,22 @@ impl<L: CardLookup> Engine<L> {
                 players,
                 second,
             } => {
-                if let Some(obj) = self.state.object_mut(top) {
-                    if obj.targets.len() != objects.len() {
-                        obj.targets = objects;
-                    }
-                    if obj.second_targets().len() != second.len() {
-                        let req = obj.second_target_req();
-                        obj.set_second(second, req);
-                    }
-                    if obj.target_players != players {
-                        obj.target_players = players;
-                        // `chosen_player` is the same choice written twice
-                        // and `resolve::players_of` reads *it* for
-                        // `PlayerRel::Chosen`. Left behind, a player who
-                        // gained hexproof in response would still be dealt
-                        // to by the half of the spell that reads the scalar.
-                        obj.chosen_player = obj.chosen_player.filter(|p| players.contains(*p));
-                    }
+                let obj = &mut resolution_object;
+                if obj.targets.len() != objects.len() {
+                    obj.targets = objects;
+                }
+                if obj.second_targets().len() != second.len() {
+                    let req = obj.second_target_req();
+                    obj.set_second(second, req);
+                }
+                if obj.target_players != players {
+                    obj.target_players = players;
+                    // `chosen_player` is the same choice written twice
+                    // and `resolve::players_of` reads *it* for
+                    // `PlayerRel::Chosen`. Left behind, a player who
+                    // gained hexproof in response would still be dealt
+                    // to by the half of the spell that reads the scalar.
+                    obj.chosen_player = obj.chosen_player.filter(|p| players.contains(*p));
                 }
             }
             TargetLegality::NotAsked => {}
@@ -3437,7 +3442,7 @@ impl<L: CardLookup> Engine<L> {
                     .per_turn
                     .note_resolution(loc.source, version, loc.index);
             }
-            let obj = self.state.object(top).expect("stack object exists");
+            let obj = &resolution_object;
             let loc = obj.ability.expect("ability object has a location");
             // The list `loc.index` points into, captured when the ability was
             // put on the stack — a card face, an emblem's stored list, a
@@ -3603,7 +3608,7 @@ impl<L: CardLookup> Engine<L> {
             })
             .or_else(|| self.modal_program(top));
         if let Some((program, targeted, retarget_left)) = spell_fx {
-            let obj = self.state.object(top).expect("stack object exists");
+            let obj = &resolution_object;
             let mut res = Resolution {
                 source: top,
                 on_stack: top,

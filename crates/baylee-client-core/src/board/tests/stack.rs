@@ -162,3 +162,31 @@ fn a_targeted_player_has_no_card_to_draw() {
     assert_eq!(target.name, None);
     assert_eq!(target.art, None);
 }
+
+#[test]
+fn historical_target_keeps_its_name_but_never_points_at_a_returned_object() {
+    let mut view = bolt_at_bears();
+    let old = view
+        .target_objects
+        .iter_mut()
+        .find(|t| t.source.object == ObjectId::new(1, 0))
+        .unwrap();
+    old.is_current = false;
+    old.name = "Original Bears".into();
+    let returned = view
+        .battlefield
+        .iter_mut()
+        .find(|o| o.id == ObjectId::new(1, 0))
+        .unwrap();
+    returned.name = "New concealed identity".into();
+    let board = model(&view);
+    let target = &board.stack[0].targets[0];
+    assert_eq!(target.name.as_deref(), Some("Original Bears"));
+    assert_eq!(target.object(), None);
+    assert!(!target.is_current);
+    assert!(!individual_objects(&view).contains_key(&ObjectId::new(1, 0)));
+    view.target_objects.clear();
+    let missing = model(&view);
+    assert_eq!(missing.stack[0].targets[0].name, None);
+    assert_eq!(missing.stack[0].targets[0].object(), None);
+}

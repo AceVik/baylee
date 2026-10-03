@@ -115,7 +115,13 @@ fn ceased_source_and_stack_target_references_are_exact_and_copyable() {
     assert!(offered(&mut state).contains(&was));
     assert!(offered(&mut state).contains(&old_target));
     assert_eq!(state.source_referenced_by(old_target), vec![copy]);
-    state.replace_target_reference(copy, false, 0, state.source_identity(target).unwrap());
+    state.bind_target_references(
+        copy,
+        &TargetReferences {
+            first: vec![state.source_identity(target).unwrap()],
+            second: Vec::new(),
+        },
+    );
     state.prune_damage_sources();
     assert!(!offered(&mut state).contains(&old_target));
     assert!(offered(&mut state).contains(&state.source_identity(target).unwrap()));
@@ -129,7 +135,9 @@ fn loop_signature_distinguishes_the_departed_spell_decisions_a_live_trigger_can_
     let target = object(&mut state, ZoneLocation::Battlefield, ObjectKind::Permanent);
     state.object_mut(spell).unwrap().targets.push(target);
     state.object_mut(spell).unwrap().x_value = 3;
-    state.divided.push((spell, vec![(target, 3)]));
+    state
+        .divided
+        .push((spell, vec![(state.source_identity(target).unwrap(), 3)]));
     refers(&mut state, reference);
     move_to(&mut state, spell, ZoneLocation::Graveyard(P));
     state.prune_damage_sources();

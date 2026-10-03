@@ -79,6 +79,15 @@ pub struct DamageSourceRef {
     pub version: u32,
 }
 
+/// An exact rules target, retaining an object's incarnation through zone changes.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+pub enum TargetRef {
+    /// The particular object chosen, rather than a later object at its handle.
+    Object(DamageSourceRef),
+    /// A player whose identity does not change between zones.
+    Player(PlayerId),
+}
+
 impl PrintRef {
     /// The printing a game's table does not have.
     ///

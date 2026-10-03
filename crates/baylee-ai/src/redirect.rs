@@ -88,7 +88,9 @@ fn resolving_about<'v>(
     let &TargetRef::Object(spell) = resolving.targets.first()? else {
         return None;
     };
-    view.stack.iter().find(|o| o.id == spell)
+    view.target_object(spell)
+        .filter(|target| target.is_current)?;
+    view.stack.iter().find(|o| o.id == spell.object)
 }
 
 /// Whether a spell hurts what it is aimed at.
@@ -156,7 +158,10 @@ impl HeuristicAgent {
             .filter(|o| harmful(stack_meaning(o, 0)))
             .flat_map(|o| &o.targets)
             .filter_map(|t| match t {
-                TargetRef::Object(id) => Some(*id),
+                TargetRef::Object(source) => view
+                    .target_object(*source)
+                    .filter(|target| target.is_current)
+                    .map(|target| target.source.object),
                 TargetRef::Player(_) => None,
             })
             .collect();

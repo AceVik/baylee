@@ -1326,6 +1326,7 @@ mod tests {
             .build();
         let mut view = view;
         view.battlefield[0] = crate::cardtext::fixture::showing(view.battlefield[0].clone(), stone);
+        baylee_client_core::test_support::project_current_targets(&mut view);
         let mut texts = CardTexts::filed(entry(oracle_id, "Gedankenstein"));
         texts.lang = "de".to_string();
 

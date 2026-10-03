@@ -1840,7 +1840,7 @@ fn spawn_stack_target(
     } else {
         (STACK_QUEUED_TARGET_W, STACK_QUEUED_TARGET_H)
     };
-    if target.art.is_some() {
+    if target.art.is_some() && target.is_current {
         return spawn_stack_card(
             commands,
             lang,
@@ -1865,12 +1865,15 @@ fn spawn_stack_target(
         Some(player) => (Some(glyph::HEART), statics.seat_name(player).to_string()),
         None => (
             None,
-            target
-                .object()
-                .and_then(|id| view.object(id))
-                .map(|o| crate::face::name_of(o, view, faces.texts))
-                .or_else(|| target.name.clone())
-                .unwrap_or_else(|| "?".into()),
+            crate::choices::target_label(
+                lang,
+                target.what,
+                crate::choices::FaceNames {
+                    view: Some(view),
+                    texts: Some(faces.texts),
+                },
+                Some(statics),
+            ),
         ),
     };
     let size = if full { 12.0 } else { 11.0 };

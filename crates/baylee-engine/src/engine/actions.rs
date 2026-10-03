@@ -543,6 +543,7 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_x = None;
                 self.activation_phyrexian.clear();
                 self.activation_second_targets = None;
+                self.activation_target_references = crate::sources::TargetReferences::default();
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
@@ -625,9 +626,11 @@ impl<L: CardLookup> Engine<L> {
                     } else if wizard.stage == cast_wizard::WizardStage::SecondTargets {
                         // The second instance of "target" is objects only in
                         // every shape that prints one, so no seat is kept.
+                        wizard.target_references.second = self.state.capture_target_group(&objects);
                         wizard.second_targets = objects.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::PitchChoice;
                     } else {
+                        wizard.target_references.first = self.state.capture_target_group(&objects);
                         wizard.targets = objects.into_iter().collect();
                         wizard.target_players = players.into_iter().collect();
                         wizard.stage = cast_wizard::WizardStage::SecondTargets;
@@ -686,6 +689,8 @@ impl<L: CardLookup> Engine<L> {
                         targets: first,
                         target_players,
                     } => {
+                        self.activation_target_references.second =
+                            self.state.capture_target_group(&targets);
                         let second = targets.into_iter().collect();
                         if self.loyalty_second_targets(source, ability_index).is_some() {
                             self.finish_loyalty_activation(
@@ -710,6 +715,8 @@ impl<L: CardLookup> Engine<L> {
                         source,
                         ability_index,
                     } => {
+                        self.activation_target_references.first =
+                            self.state.capture_target_group(&targets);
                         // Loyalty abilities complete via their own finish path
                         // (no guard, no re-payment). Asked of the same list
                         // `start_activation` asked when it chose that path,
@@ -1817,6 +1824,7 @@ impl<L: CardLookup> Engine<L> {
         self.activation_graveyard = None;
         self.activation_phyrexian.clear();
         self.activation_second_targets = None;
+        self.activation_target_references = crate::sources::TargetReferences::default();
         self.activation_targets_answered = false;
         self.activation_target_players.clear();
         self.pending_plan = None;

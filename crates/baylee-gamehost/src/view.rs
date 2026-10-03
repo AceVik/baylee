@@ -229,66 +229,143 @@ fn damage_sources(
     }
     options
         .iter()
-        .filter_map(|&source| {
-            let obj = state.source_object(source)?;
-            let known = may_know_card(obj, seat)
-                && (!obj.zone.is_hidden_by_default()
-                    || (obj.zone == Zone::Hand && obj.owner == seat));
-            let chars = obj.characteristics();
-            Some(baylee_view::DamageSourceView {
-                source,
-                name: if known || !obj.zone.is_hidden_by_default() {
-                    public_name(state, obj, seat)
-                } else {
-                    "Unknown source".into()
-                },
-                card: obj.card.filter(|_| known).map(|c| CardIdentity {
-                    index: c.index,
-                    print: c.print,
-                    face: obj.face_index,
-                }),
-                rules: obj.printed_face().filter(|_| known).map(rules_face),
-                token: obj
-                    .token
-                    .filter(|_| known)
-                    .map(baylee_cards::tokens::token_id),
-                controller: obj.controller,
-                zone: match obj.zone {
-                    Zone::Battlefield => baylee_view::LogZone::Battlefield,
-                    Zone::Stack => baylee_view::LogZone::Stack,
-                    Zone::Graveyard => baylee_view::LogZone::Graveyard,
-                    Zone::Exile => baylee_view::LogZone::Exile,
-                    Zone::Command => baylee_view::LogZone::Command,
-                    Zone::Hand => baylee_view::LogZone::Hand,
-                    Zone::Library | Zone::OutsideGame => baylee_view::LogZone::Library,
-                },
-                is_current: state
-                    .object(source.object)
-                    .is_some_and(|o| o.version == source.version),
-                referenced_by: state.source_referenced_by(source),
-                colors: if known || !obj.zone.is_hidden_by_default() {
-                    chars.colors
-                } else {
-                    baylee_core::color::ColorSet::EMPTY
-                },
-                types: if known || !obj.zone.is_hidden_by_default() {
-                    chars.types
-                } else {
-                    baylee_core::types::TypeSet::EMPTY
-                },
-                power: (known || !obj.zone.is_hidden_by_default())
-                    .then_some(chars.power)
-                    .flatten(),
-                toughness: (known || !obj.zone.is_hidden_by_default())
-                    .then_some(chars.toughness)
-                    .flatten(),
-                keywords: if known || !obj.zone.is_hidden_by_default() {
-                    chars.keywords.bits()
-                } else {
-                    0
-                },
-            })
+        .filter_map(|&source| exact_object_view(state, seat, source))
+        .collect()
+}
+
+fn exact_object_view(
+    state: &GameState,
+    seat: PlayerId,
+    source: baylee_core::ids::DamageSourceRef,
+) -> Option<baylee_view::DamageSourceView> {
+    let obj = state.source_object(source)?;
+    let known = may_know_card(obj, seat)
+        && (!obj.zone.is_hidden_by_default() || (obj.zone == Zone::Hand && obj.owner == seat));
+    let chars = obj.characteristics();
+    Some(baylee_view::DamageSourceView {
+        source,
+        name: if known || !obj.zone.is_hidden_by_default() {
+            public_name(state, obj, seat)
+        } else {
+            "Unknown source".into()
+        },
+        card: obj.card.filter(|_| known).map(|c| CardIdentity {
+            index: c.index,
+            print: c.print,
+            face: obj.face_index,
+        }),
+        rules: obj.printed_face().filter(|_| known).map(rules_face),
+        token: obj
+            .token
+            .filter(|_| known)
+            .map(baylee_cards::tokens::token_id),
+        controller: obj.controller,
+        zone: match obj.zone {
+            Zone::Battlefield => baylee_view::LogZone::Battlefield,
+            Zone::Stack => baylee_view::LogZone::Stack,
+            Zone::Graveyard => baylee_view::LogZone::Graveyard,
+            Zone::Exile => baylee_view::LogZone::Exile,
+            Zone::Command => baylee_view::LogZone::Command,
+            Zone::Hand => baylee_view::LogZone::Hand,
+            Zone::Library | Zone::OutsideGame => baylee_view::LogZone::Library,
+        },
+        is_current: state
+            .object(source.object)
+            .is_some_and(|o| o.version == source.version),
+        referenced_by: state.source_referenced_by(source),
+        colors: if known || !obj.zone.is_hidden_by_default() {
+            chars.colors
+        } else {
+            baylee_core::color::ColorSet::EMPTY
+        },
+        types: if known || !obj.zone.is_hidden_by_default() {
+            chars.types
+        } else {
+            baylee_core::types::TypeSet::EMPTY
+        },
+        power: (known || !obj.zone.is_hidden_by_default())
+            .then_some(chars.power)
+            .flatten(),
+        toughness: (known || !obj.zone.is_hidden_by_default())
+            .then_some(chars.toughness)
+            .flatten(),
+        keywords: if known || !obj.zone.is_hidden_by_default() {
+            chars.keywords.bits()
+        } else {
+            0
+        },
+    })
+}
+
+fn target_objects(
+    state: &GameState,
+    seat: PlayerId,
+    pending: Option<&Pending>,
+) -> Vec<baylee_view::DamageSourceView> {
+    let mut targets = std::collections::BTreeSet::new();
+    for &id in state.zones.list(ZoneLocation::Stack) {
+        let Some(obj) = state.object(id) else {
+            continue;
+        };
+        for (second, len) in [
+            (false, obj.targets.len()),
+            (true, obj.second_targets().len()),
+        ] {
+            for index in 0..len {
+                if let Some(reference) = state.recorded_target_reference(
+                    id,
+                    second,
+                    u32::try_from(index).expect("target slot"),
+                ) {
+                    targets.insert(reference);
+                }
+            }
+        }
+    }
+    if let Some(Pending::ChooseTargets {
+        player,
+        reason:
+            baylee_engine::choice::TargetPrompt::Retarget {
+                current: TargetRef::Object(reference),
+                ..
+            },
+        ..
+    }) = pending
+        && *player == seat
+    {
+        targets.insert(*reference);
+    }
+    targets
+        .into_iter()
+        .filter_map(|source| exact_object_view(state, seat, source))
+        .collect()
+}
+
+fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
+    let id = obj.id;
+    obj.targets
+        .iter()
+        .enumerate()
+        .filter_map(|(index, _)| {
+            state
+                .recorded_target_reference(id, false, u32::try_from(index).expect("target slot"))
+                .map(TargetRef::Object)
         })
+        .chain(obj.target_players.iter().map(TargetRef::Player))
+        .chain(
+            obj.second_targets()
+                .iter()
+                .enumerate()
+                .filter_map(|(index, _)| {
+                    state
+                        .recorded_target_reference(
+                            id,
+                            true,
+                            u32::try_from(index).expect("target slot"),
+                        )
+                        .map(TargetRef::Object)
+                }),
+        )
         .collect()
 }
 
@@ -385,13 +462,7 @@ fn public_object(state: &GameState, id: ObjectId, seat: PlayerId) -> Option<Publ
         // spell points at. Which instance each came from is the engine's
         // business at resolution and nobody's on the table, so the list
         // stays one field and the view keeps its version.
-        targets: obj
-            .targets
-            .iter()
-            .map(|t| TargetRef::Object(*t))
-            .chain(obj.target_players.iter().map(TargetRef::Player))
-            .chain(obj.second_targets().iter().map(|t| TargetRef::Object(*t)))
-            .collect(),
+        targets: object_targets(state, obj),
         stack_item: stack_item(obj),
         // Permanents only, because the engine's answer is about a creature
         // *on the battlefield* and a creature card in hand would otherwise
@@ -1079,6 +1150,7 @@ pub fn player_view(
         combat: combat_view(state),
         looking_at: looking_at(state, seat, pending),
         damage_sources: damage_sources(state, seat, pending),
+        target_objects: target_objects(state, seat, pending),
         library_tops: state
             .players
             .iter()
@@ -1212,6 +1284,111 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn stack_target_projection_keeps_both_groups_and_historical_identity() {
+        use baylee_core::ids::DamageSourceRef;
+        use baylee_engine::object::{ObjectKind, PrintedFace, Status};
+        use baylee_engine::zone::ZonePosition;
+        for hidden in [false, true] {
+            let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+            let viewer = PlayerId::new(1);
+            let first = state.zones.list(ZoneLocation::Battlefield)[0];
+            let second = state.zones.list(ZoneLocation::Battlefield)[1];
+            let identity = state.object(first).unwrap().card.unwrap();
+            let copied = teferi_time_raveler();
+            state
+                .object_mut(first)
+                .unwrap()
+                .take_abilities(baylee_engine::object::AbilityList {
+                    abilities: &[],
+                    printed: PrintedFace::new(copied, 0),
+                    token: None,
+                });
+            if hidden {
+                state
+                    .object_mut(first)
+                    .unwrap()
+                    .status
+                    .insert(Status::FACE_DOWN);
+            }
+            state.refresh_characteristics();
+            let first_ref = DamageSourceRef {
+                object: first,
+                version: state.object(first).unwrap().version,
+            };
+            let second_ref = DamageSourceRef {
+                object: second,
+                version: state.object(second).unwrap().version,
+            };
+            let name = state.names.intern("two target groups");
+            let spell = state.create_bare(
+                PlayerId::new(0),
+                ObjectKind::Spell,
+                name,
+                ZoneLocation::Stack,
+            );
+            let obj = state.object_mut(spell).unwrap();
+            obj.targets.push(first);
+            obj.set_second([second].into_iter().collect(), None);
+            state
+                .move_object(
+                    first,
+                    ZoneLocation::Hand(PlayerId::new(0)),
+                    ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
+                )
+                .unwrap();
+            state
+                .move_object(
+                    first,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    baylee_engine::event::Cause::Effect,
+                )
+                .unwrap();
+            // The returned object's public identity must never reveal an old
+            // face-down target; an old face-up target keeps its known print.
+            state
+                .object_mut(first)
+                .unwrap()
+                .status
+                .remove(Status::FACE_DOWN);
+            let mut view = player_view(&state, viewer, 1, None, &SeatContext::default(), &[]);
+            assert_eq!(
+                view.stack[0].targets,
+                vec![TargetRef::Object(first_ref), TargetRef::Object(second_ref)]
+            );
+            let old = view.target_object(first_ref).unwrap();
+            assert!(!old.is_current);
+            assert_eq!(old.card.is_some(), !hidden);
+            assert_eq!(old.rules.is_some(), !hidden);
+            assert!(view.target_object(second_ref).unwrap().is_current);
+            assert!(
+                view.target_object(DamageSourceRef {
+                    object: first,
+                    version: state.object(first).unwrap().version
+                })
+                .is_none()
+            );
+            view.battlefield.clear();
+            view.stack.clear();
+            view.hand.clear();
+            view.damage_sources.clear();
+            view.target_objects.retain(|row| row.source == first_ref);
+            if hidden {
+                assert_eq!(view.prints().count(), 0);
+                assert_eq!(view.cards().count(), 0);
+            } else {
+                assert_eq!(view.prints().collect::<Vec<_>>(), vec![identity.print]);
+                assert!(view.cards().any(|card| card == identity.index));
+                assert!(view.cards().any(|card| card == copied));
+            }
+            let decoded: baylee_view::PlayerView =
+                serde_json::from_str(&serde_json::to_string(&view).unwrap()).unwrap();
+            assert_eq!(decoded.target_objects, view.target_objects);
+        }
+    }
+
     #[test]
     fn historical_source_projection_retains_a_ceased_tokens_registry_identity() {
         use baylee_core::ids::{DamageSourceRef, SourceChoiceId};

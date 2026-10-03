@@ -12,6 +12,53 @@ use baylee_view::{
     ObjectStatus, Phase, PlayerView, PrintEntry, PublicObject, SeatIdentity, SeatView, Step,
 };
 
+/// An exact target in the default fixture incarnation.
+#[must_use]
+pub fn target(object: ObjectId) -> baylee_view::TargetRef {
+    baylee_view::TargetRef::Object(baylee_core::ids::DamageSourceRef { object, version: 1 })
+}
+
+/// An entitled current target snapshot for a public fixture object.
+#[must_use]
+pub fn target_snapshot(
+    object: &PublicObject,
+    zone: baylee_view::LogZone,
+) -> baylee_view::DamageSourceView {
+    baylee_view::DamageSourceView {
+        source: baylee_core::ids::DamageSourceRef {
+            object: object.id,
+            version: 1,
+        },
+        name: object.name.clone(),
+        card: object.card,
+        rules: object.rules,
+        token: object.token,
+        controller: object.controller,
+        zone,
+        is_current: true,
+        referenced_by: Vec::new(),
+        colors: object.colors,
+        types: object.types,
+        power: object.power,
+        toughness: object.toughness,
+        keywords: object.keywords,
+    }
+}
+
+/// Projects currently visible fixture objects; tests can replace these with older snapshots.
+pub fn project_current_targets(view: &mut PlayerView) {
+    view.target_objects = view
+        .battlefield
+        .iter()
+        .map(|o| target_snapshot(o, baylee_view::LogZone::Battlefield))
+        .chain(
+            view.stack
+                .iter()
+                .map(|o| target_snapshot(o, baylee_view::LogZone::Stack)),
+        )
+        .collect();
+}
+
 /// A bare creature token controlled by `controller`.
 #[must_use]
 pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) -> PublicObject {
@@ -80,6 +127,7 @@ impl ViewBuilder {
         Self {
             view: PlayerView {
                 damage_sources: Vec::new(),
+                target_objects: Vec::new(),
                 seq: 1,
                 seat: PlayerId::new(0),
                 turn: 3,
@@ -243,7 +291,8 @@ impl ViewBuilder {
 
     /// Finishes the view.
     #[must_use]
-    pub fn build(self) -> PlayerView {
+    pub fn build(mut self) -> PlayerView {
+        project_current_targets(&mut self.view);
         self.view
     }
 }

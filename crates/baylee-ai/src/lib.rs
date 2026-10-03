@@ -2824,6 +2824,7 @@ mod tests {
             rules: None,
         });
         v.stack = vec![friendly, enemy];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         let pending = Pending::Priority {
             player: v.seat,
             legal: Box::new(baylee_engine::choice::LegalActions {
@@ -3651,6 +3652,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_historical_target_does_not_threaten_a_returned_permanent() {
+        let mut v = view(0, &[20, 20], vec![permanent(obj(9), PlayerId::new(0), 4)]);
+        let spell = stack_spell(2, "Lightning Bolt", PlayerId::new(1), obj(9));
+        assert!(agent().aimed_at_this_seat(&v, &spell) > 0);
+        v.target_objects
+            .iter_mut()
+            .find(|target| target.source.object == obj(9))
+            .unwrap()
+            .is_current = false;
+        assert_eq!(agent().aimed_at_this_seat(&v, &spell), 0);
+    }
+
     /// A counter names the spell aimed at this seat, player or permanent,
     /// over one of the same cost aimed at nobody of this seat's (#226). The
     /// view's `targets` is what tells them apart: both are hostile, both cost
@@ -3694,14 +3708,14 @@ mod tests {
                 "the Bolt at this seat",
             ),
             (
-                baylee_view::TargetRef::Object(obj(9)),
+                baylee_client_core::test_support::target(obj(9)),
                 obj(2),
                 "the Bolt at this seat's creature",
             ),
             // Saving an opponent's creature is worth nothing: a tie, and the
             // first listed is named.
             (
-                baylee_view::TargetRef::Object(obj(8)),
+                baylee_client_core::test_support::target(obj(8)),
                 obj(1),
                 "not the Bolt at an opponent's creature",
             ),
@@ -3712,6 +3726,7 @@ mod tests {
                 spell(1, "Ancestral Recall", baylee_view::TargetRef::Player(them)),
                 spell(2, "Lightning Bolt", aimed),
             ];
+            baylee_client_core::test_support::project_current_targets(&mut v);
             assert_eq!(
                 agent().act_with_context(&v, &pending, &counterspell),
                 PlayerAction::ChooseTargets {
@@ -3790,7 +3805,7 @@ mod tests {
         o.power = None;
         o.toughness = None;
         o.stack_item = Some(baylee_view::StackItem::Spell);
-        o.targets = vec![baylee_view::TargetRef::Object(at)];
+        o.targets = vec![baylee_client_core::test_support::target(at)];
         o
     }
 
@@ -3862,6 +3877,7 @@ mod tests {
         gift.targets = vec![baylee_view::TargetRef::Player(me)];
         let card = hand_card(4, "Misdirection").card;
         v.stack = vec![paths[0].clone(), paths[1].clone(), gift];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         assert!(
             agent().spell_score(&v, card) < 0,
             "nothing of this seat's is under attack from an opponent"
@@ -3871,6 +3887,7 @@ mod tests {
                 .iter()
                 .filter_map(|&i| paths.iter().find(|p| p.id == obj(i)).cloned())
                 .collect();
+            baylee_client_core::test_support::project_current_targets(&mut v);
             assert!(agent().spell_score(&v, card) > 0, "listed {order:?}");
             for (context, card) in [(&misdirection, "Misdirection"), (&specimen, "the Specimen")] {
                 assert_eq!(
@@ -3881,6 +3898,7 @@ mod tests {
             }
         }
         v.stack = vec![paths[2].clone(), stack_spell(4, "Misdirection", me, obj(3))];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         assert_eq!(
             agent().act_with_context(&v, &ask(vec![obj(8), obj(7)]), &misdirection),
             named(obj(7)),
@@ -3944,6 +3962,7 @@ mod tests {
         brainstorm.targets.clear();
         let path = stack_spell(6, "Path to Exile", me, obj(7));
         v.stack = vec![brainstorm.clone(), path.clone()];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         assert_eq!(
             agent().act_with_context(&v, &ask(vec![obj(1), obj(6)]), &dualcaster),
             named(obj(6)),
@@ -3958,9 +3977,10 @@ mod tests {
             text: None,
             rules: None,
         });
-        trigger.targets = vec![baylee_view::TargetRef::Object(obj(6))];
+        trigger.targets = vec![baylee_client_core::test_support::target(obj(6))];
         let copy = stack_spell(3, "Path to Exile", me, obj(7));
         v.stack = vec![brainstorm, path, trigger, copy];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         assert_eq!(
             agent().act_with_context(&v, &ask(vec![obj(9), obj(7), obj(8)]), &dualcaster),
             named(obj(8)),
@@ -4009,9 +4029,10 @@ mod tests {
             text: None,
             rules: None,
         });
-        trigger.targets = vec![baylee_view::TargetRef::Object(obj(6))];
+        trigger.targets = vec![baylee_client_core::test_support::target(obj(6))];
         let copy = stack_spell(8, "Lose Focus", me, obj(2));
         v.stack = vec![first, second, focus, trigger, copy];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         assert_eq!(
             agent().act_with_context(&v, &ask(vec![obj(6), obj(1)]), &replicate),
             named(obj(1)),
@@ -5165,6 +5186,15 @@ mod tests {
             .collect();
         PlayerView {
             damage_sources: Vec::new(),
+            target_objects: battlefield
+                .iter()
+                .map(|o| {
+                    baylee_client_core::test_support::target_snapshot(
+                        o,
+                        baylee_view::LogZone::Battlefield,
+                    )
+                })
+                .collect(),
             seq: 7,
             seat: PlayerId::new(seat),
             turn: 3,
@@ -5736,7 +5766,7 @@ mod tests {
             "Lightning Bolt",
             TypeSet::INSTANT,
         );
-        bolt.targets = vec![baylee_view::TargetRef::Object(obj(1))];
+        bolt.targets = vec![baylee_client_core::test_support::target(obj(1))];
         v.stack.push(bolt);
 
         assert_eq!(
@@ -6273,6 +6303,7 @@ mod tests {
             vec![island(20), island(21), permanent(obj(9), me, 5)],
         );
         v.stack = vec![stack_spell(2, "Path to Exile", them, obj(9))];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         v.hand = vec![hand_card(1, "Lose Focus")];
         v.seats[0].mana_pool.blue = 2;
         let pending = |lands: Vec<ObjectId>| Pending::Priority {
@@ -6434,6 +6465,7 @@ mod tests {
             "Sheoldred's Edict",
             TypeSet::INSTANT,
         )];
+        baylee_client_core::test_support::project_current_targets(&mut v);
         v
     }
 
@@ -6529,6 +6561,7 @@ mod tests {
                 "Farewell",
                 TypeSet::SORCERY,
             )];
+            baylee_client_core::test_support::project_current_targets(&mut v);
             let answer = agent().act(
                 &v,
                 &Pending::ChooseCastMode {
@@ -6586,6 +6619,7 @@ mod tests {
                 "Final Showdown",
                 TypeSet::INSTANT,
             )];
+            baylee_client_core::test_support::project_current_targets(&mut v);
             let answer = agent().act(
                 &v,
                 &Pending::ChooseCastMode {
@@ -6644,6 +6678,7 @@ mod tests {
                 "Cryptic Command",
                 TypeSet::INSTANT,
             )];
+            baylee_client_core::test_support::project_current_targets(&mut v);
             let answer = agent().act(
                 &v,
                 &Pending::ChooseCastMode {

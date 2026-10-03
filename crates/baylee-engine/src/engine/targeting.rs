@@ -231,7 +231,23 @@ impl<L: CardLookup> Engine<L> {
         let asked = shares.len();
         if asked + 1 >= targets.len() {
             shares.push(left);
-            let division = targets.iter().copied().zip(shares).collect();
+            self.state.capture_source_references();
+            let division = shares
+                .into_iter()
+                .enumerate()
+                .map(|(index, share)| {
+                    (
+                        self.state
+                            .recorded_target_reference(
+                                on_stack,
+                                false,
+                                u32::try_from(index).expect("target slot"),
+                            )
+                            .expect("announced target"),
+                        share,
+                    )
+                })
+                .collect();
             self.state.divided.push((on_stack, division));
             return false;
         }

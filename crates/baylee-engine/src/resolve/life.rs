@@ -360,7 +360,9 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .filter_map(|id| {
                     shares
                         .iter()
-                        .find(|(target, _)| target == id)
+                        .find(|(target, _)| {
+                            target.object == *id && state.source_identity(*id) == Some(*target)
+                        })
                         .map(|(_, n)| {
                             assignment(state, res, res.source, DamageTarget::Object(*id), *n)
                         })

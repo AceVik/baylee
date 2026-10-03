@@ -65,7 +65,7 @@ fn bolt_at_bears() -> PlayerView {
     bolt.power = None;
     bolt.toughness = None;
     bolt.stack_item = Some(StackItem::Spell);
-    bolt.targets = vec![TargetRef::Object(ObjectId::new(1, 0))];
+    bolt.targets = vec![crate::test_support::target(ObjectId::new(1, 0))];
     ViewBuilder::new(2)
         .with_battlefield(1, [bears])
         .with_stack(vec![bolt])

@@ -28,12 +28,40 @@ pub(crate) enum Slot {
     Linked(u32),
 }
 
+/// Targets announced before any payment can change their incarnations.
+#[derive(Clone, Debug, Default, Hash)]
+pub(crate) struct TargetReferences {
+    pub(crate) first: Vec<DamageSourceRef>,
+    pub(crate) second: Vec<DamageSourceRef>,
+}
+
+impl TargetReferences {
+    pub(crate) fn fingerprint(&self) -> u64 {
+        let mut hash = 0_u64;
+        for group in [&self.first, &self.second] {
+            hash = hash.wrapping_mul(31).wrapping_add(group.len() as u64);
+            for reference in group {
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(reference.object.slot()));
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(reference.object.generation()));
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(reference.version));
+            }
+        }
+        hash
+    }
+}
+
 #[derive(Clone, Debug, Default, Hash)]
 pub(crate) struct SourceMemory {
     pub(crate) next_choice: u64,
     pub(crate) stack: BTreeMap<DamageSourceRef, BTreeMap<Slot, DamageSourceRef>>,
     /// Announcement decisions survive with the exact spell/ability being copied.
-    pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(ObjectId, u32)>>,
+    pub(crate) divisions: BTreeMap<DamageSourceRef, Vec<(DamageSourceRef, u32)>>,
     effects: BTreeMap<EffectId, DamageSourceRef>,
     event_readers: BTreeSet<DamageSourceRef>,
     /// Written only by a successful permanent-spell resolution.
@@ -310,7 +338,9 @@ impl GameState {
         self.recorded_target_reference(holder, false, index)
     }
 
-    pub(crate) fn recorded_target_reference(
+    /// Exact object announced for one slot of a stack object's target group.
+    #[must_use]
+    pub fn recorded_target_reference(
         &self,
         holder: ObjectId,
         second: bool,
@@ -327,6 +357,19 @@ impl GameState {
             .copied()
     }
 
+    pub(crate) fn targets_current_object(&self, holder: ObjectId, target: ObjectId) -> bool {
+        let Some(current) = self.source_identity(target) else {
+            return false;
+        };
+        self.source_identity(holder)
+            .and_then(|holder| self.source_memory.stack.get(&holder))
+            .is_some_and(|refs| {
+                refs.iter().any(|(slot, reference)| {
+                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *reference == current
+                })
+            })
+    }
+
     pub(crate) fn copy_source_references(&mut self, original: DamageSourceRef, copy: ObjectId) {
         self.capture_source_references();
         let Some(to) = self.source_identity(copy) else {
@@ -340,26 +383,32 @@ impl GameState {
         }
     }
 
-    pub(crate) fn replace_target_reference(
-        &mut self,
-        spell: ObjectId,
-        second: bool,
-        index: u32,
-        target: DamageSourceRef,
-    ) {
-        let Some(holder) = self.source_identity(spell) else {
+    pub(crate) fn capture_target_group(&self, objects: &[ObjectId]) -> Vec<DamageSourceRef> {
+        objects
+            .iter()
+            .map(|&id| self.source_identity(id).expect("offered target exists"))
+            .collect()
+    }
+
+    pub(crate) fn bind_target_references(&mut self, holder: ObjectId, targets: &TargetReferences) {
+        let Some(holder) = self.source_identity(holder) else {
             return;
         };
-        let slot = if second {
-            Slot::Second(index)
-        } else {
-            Slot::Target(index)
-        };
-        self.source_memory
-            .stack
-            .entry(holder)
-            .or_default()
-            .insert(slot, target);
+        let refs = self.source_memory.stack.entry(holder).or_default();
+        refs.retain(|slot, _| !matches!(slot, Slot::Target(_) | Slot::Second(_)));
+        for (group, objects) in [(false, &targets.first), (true, &targets.second)] {
+            for (index, &reference) in objects.iter().enumerate() {
+                let index = u32::try_from(index).expect("target slot");
+                refs.insert(
+                    if group {
+                        Slot::Second(index)
+                    } else {
+                        Slot::Target(index)
+                    },
+                    reference,
+                );
+            }
+        }
     }
 
     pub(crate) fn begin_permanent_resolution(&mut self, id: ObjectId) {

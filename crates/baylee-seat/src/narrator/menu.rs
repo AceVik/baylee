@@ -1517,7 +1517,7 @@ impl Builder<'_, '_> {
         match reason {
             TargetPrompt::Retarget { current, index, of } => {
                 let current = match current {
-                    baylee_engine::choice::TargetRef::Object(id) => table.named(id),
+                    baylee_engine::choice::TargetRef::Object(source) => table.named_target(source),
                     baylee_engine::choice::TargetRef::Player(id) => table.player(id),
                 };
                 let keep = if min == 0 { " Choose no targets to keep this target." } else { "" };

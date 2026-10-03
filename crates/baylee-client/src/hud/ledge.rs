@@ -831,7 +831,7 @@ pub fn sync_ledge(
     let over = duel.ending().is_some();
     let waiting = !duel.is_my_turn_to_act();
     let elsewhere = duel.browser.answers_here(duel.interaction.as_ref());
-    let prompt = duel.headline(lang, &texts);
+    let prompt = shelf_headline(&duel, lang, &texts);
     #[allow(clippy::cast_possible_truncation)]
     let window_w = windows.single().map_or(1200, |w| w.width() as i32);
     let next = LedgeRevision {
@@ -1361,6 +1361,23 @@ fn answers_for(
             confirmation_row(duel, lang)
         }
         _ => Vec::new(),
+    }
+}
+
+/// Retarget identity and instructions live in the wrapping drawer above the shelf.
+fn shelf_headline(duel: &Duel, lang: Lang, texts: &crate::cardtext::CardTexts) -> Option<String> {
+    if duel.interaction.as_ref().is_some_and(|i| {
+        matches!(
+            i.pending(),
+            baylee_engine::choice::Pending::ChooseTargets {
+                reason: baylee_engine::choice::TargetPrompt::Retarget { .. },
+                ..
+            }
+        )
+    }) {
+        Some(Phrase::ChooseNewTarget.text(lang).to_string())
+    } else {
+        duel.headline(lang, texts)
     }
 }
 
@@ -2262,6 +2279,92 @@ mod tests {
             vec![Some(baylee_client_core::interaction::DecisionId::Source(
                 SourceChoiceId::new(2)
             ))]
+        );
+    }
+
+    #[test]
+    fn retarget_confirmation_rebuilds_when_only_the_original_version_changes() {
+        use baylee_core::ids::{DamageSourceRef, ObjectId, TargetRef};
+        use baylee_engine::choice::{Pending, TargetPrompt};
+        let view = baylee_client_core::test_support::ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                [baylee_client_core::test_support::token(9, 0, "Bear", 2, 2)],
+            )
+            .build();
+        let me = view.seat;
+        let offer = |version| Pending::ChooseTargets {
+            player: me,
+            options: vec![ObjectId::new(9, 0)],
+            player_options: vec![],
+            min: 0,
+            max: 1,
+            reason: TargetPrompt::Retarget {
+                current: TargetRef::Object(DamageSourceRef {
+                    object: ObjectId::new(9, 0),
+                    version,
+                }),
+                index: 0,
+                of: 1,
+            },
+        };
+        let mut app = App::new();
+        app.insert_resource(Duel {
+            view: Some(view),
+            interaction: Some(baylee_client_core::Interaction::new(offer(1), me)),
+            ..Duel::default()
+        });
+        app.insert_resource(UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        });
+        app.init_resource::<LedgeRevision>()
+            .init_resource::<LedgeLayout>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::cardtext::CardTexts>()
+            .add_systems(Update, sync_ledge);
+        app.world_mut().spawn((LedgeShelf, Node::default()));
+        app.update();
+        let duel = app.world().resource::<Duel>();
+        let text = shelf_headline(duel, Lang::De, &crate::cardtext::CardTexts::default()).unwrap();
+        assert_eq!(text, Phrase::ChooseNewTarget.text(Lang::De));
+        let answers = answers_for(duel, Lang::De, false, false, false);
+        let caps = keys_for(
+            app.world().resource::<crate::prefs::Prefs>(),
+            &answers,
+            false,
+            false,
+        );
+        let width = mid_width(Some(&text), Clock::None, &answers, &caps);
+        assert!(
+            width + tools_reserved(960) + RIGHT_RESERVED < 960.0,
+            "Retarget question and confirmation must fit beside both toolbars: {width}"
+        );
+        let old = damage_confirm_ids(&mut app);
+        assert_eq!(old.len(), 1);
+        app.world_mut()
+            .resource_mut::<Duel>()
+            .receive_choice(offer(3));
+        app.update();
+        let new = damage_confirm_ids(&mut app);
+        assert_eq!(new.len(), 1);
+        assert_ne!(old, new);
+        assert_eq!(
+            new[0],
+            app.world()
+                .resource::<Duel>()
+                .interaction
+                .as_ref()
+                .unwrap()
+                .decision_id()
         );
     }
 

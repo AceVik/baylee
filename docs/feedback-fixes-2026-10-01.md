@@ -1634,3 +1634,37 @@ reset and historical-result screenshots. All `alpha-source-final-*` screenshots
 and JSON evidence are saved in the external directory above. The display/source
 milestone is accepted; this does not close the separate target-incarnation gap
 or claim completion of the remaining Alpha cards.
+
+### Exact target views and target-change display (#117) — accepted
+
+Historical stack targets now have their own exact projection. Labels and
+confirmation identities include the incarnation; historical targets do not
+produce an arrow or highlight on a newer object with the same arena id. Native
+regressions exposed a real missing Retarget branch in the target-reading/paging
+path; it now uses the ordinary target UI, preserving its eight-row navigation.
+Two accompanying test fixtures were corrected rather than changing production
+semantics: an offered object needed a real battlefield location, and a replaced
+card identity needed its fixture target snapshot kept consistent.
+
+Consumer all-target compilation and 32 focused Core/AI/Seat/Train tests pass.
+Native all-target tests pass **1,239 cases**, with two existing ignores. The
+final broad Rules gate passes 7,972 tests with ten existing skips; Clippy,
+metadata validation, final native build and Wasm release check pass.
+
+
+Root inspected `/private/tmp/alpha-target-final-historical-stack.png`: the old
+Grizzly Bears target is explicitly historical, with no target highlight on the
+returned creature. Two live layout defects were found and corrected:
+Fork's long German explanation overflows the stack-selection browser
+(`/private/tmp/alpha-target-fork-stack-browser.png`), and the retarget shelf
+incorrectly reuses the casting Fork explanation while its long footer collides
+with Keep and toolbar controls (`alpha-target-final-retarget-question.png`).
+The retarget question now uses its own compact original-target context and short
+footer; browser explanation text has bounded wrapping width. Root inspected the
+final browser-wrap and retarget-compact images and accepted the layouts.
+Live Keep leaves the returned Bears alive; Change destroys it. Both finish at
+life 40/40 with an empty stack and no client error. The final Change was repeated
+on the rebuilt layout binary. Version-stale confirmation is covered by actual
+native sync/input tests, not claimed as a manually reproduced live scenario.
+Final PNG/JSON evidence is archived outside the repository under
+`/Users/viktor/.codex/visualizations/2026/10/01/01a0f916-864d-7873-9579-b5acbfcacb23/target-selection-2026-10-03/`.
