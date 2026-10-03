@@ -1077,6 +1077,21 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
     }
 }
 
+/// Resource owner of this view's question. Simultaneous opening decisions
+/// belong to each asked seat; afterwards the one global question may be
+/// answered by a different player controlling its resource owner.
+#[must_use]
+pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
+    engine: &baylee_engine::engine::Engine<L>,
+    seat: PlayerId,
+) -> Option<PlayerId> {
+    if deciding(engine).is_empty() {
+        engine.pending().asked()
+    } else {
+        engine.pending_for(seat).and_then(Pending::asked)
+    }
+}
+
 /// What a per-seat view needs that the [`GameState`] cannot supply.
 ///
 /// Four facts live on the `Engine` and not in the state it hands out — who
@@ -2802,7 +2817,7 @@ mod tests {
         let ctx = SeatContext {
             awaiting: awaiting_for(engine, seat),
             deciding: deciding(engine),
-            decision_player: engine.pending().asked(),
+            decision_player: decision_player_for(engine, seat),
             controlled_players: engine.controlled_players(seat),
             library_reveal_blocked: engine.library_reveal_blocked(),
             ..SeatContext::default()
@@ -3603,15 +3618,11 @@ mod tests {
         assert_eq!(grants_seen(&engine, them, islands[1]), named_only);
     }
 
-    /// #212. A copy's own grant is read off the card it physically is.
-    ///
-    /// Machine God's Effigy enters as a copy of an artifact "except it has
-    /// `{T}: Add {U}`". That clause is printed on the Effigy, while every
-    /// ability the permanent has is the copied card's. So the grant's
-    /// sentence is the Effigy's even though the permanent's own `rules` is
-    /// the copied Lantern's: the two fields are separate for exactly this.
+    /// A copiable exception keeps its original printed clause as provenance.
     #[test]
     fn a_copys_own_grant_is_read_off_the_card_it_is() {
+        use baylee_engine::copiable_abilities::compose;
+        use baylee_engine::object::AbilityList;
         let card = |card| DeckEntry {
             card,
             print: PrintRef::new(0),
@@ -3621,56 +3632,68 @@ mod tests {
         preset.seats[0].starting_battlefield = vec![card(machine_gods_effigy())];
         let mut engine = Engine::new(&preset, Registry).expect("game starts");
         settle(&mut engine, None);
-
         let effigy = lying_in(
             engine.state(),
             ZoneLocation::Battlefield,
             Some(machine_gods_effigy()),
         );
-        let lantern = baylee_cards::by_index(chromatic_lantern()).expect("in the pool");
+        let lantern = baylee_cards::by_index(chromatic_lantern()).unwrap();
+        let definition = baylee_cards::by_index(machine_gods_effigy()).unwrap();
+        let own = AbilityList::from_static(
+            definition.abilities_for_face(0),
+            PrintedFace::new(definition.index, 0),
+            None,
+        );
+        let target = AbilityList::from_static(
+            lantern.abilities_for_face(0),
+            PrintedFace::new(lantern.index, 0),
+            None,
+        );
+        let AbilityDef::CopyOnEnter { mods, .. } = own.abilities[0] else {
+            panic!("copy clause");
+        };
+        let blue_index = u32::try_from(target.abilities.len()).unwrap();
+        let copied = compose(target, &own, 0, mods, None);
         engine
             .dev_state_mut(me)
-            .expect("the test preset grants dev commands")
+            .unwrap()
             .object_mut(effigy)
-            .expect("the Effigy is there")
-            .take_abilities(baylee_engine::object::AbilityList {
-                token: None,
-                abilities: lantern.abilities_for_face(0).into(),
-                printed: PrintedFace::new(chromatic_lantern(), 0),
-            });
-        let (clause, grant) = first_grant(machine_gods_effigy());
-        grant_from(&mut engine, effigy, effigy, grant, 1_000);
-
+            .unwrap()
+            .take_abilities(copied.clone());
         let view = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
-        let copy = view
-            .battlefield
-            .iter()
-            .find(|o| o.id == effigy)
-            .expect("the Effigy");
+        let copy = view.battlefield.iter().find(|o| o.id == effigy).unwrap();
         assert_eq!(
             copy.rules,
             Some(baylee_view::RulesFace {
                 card: chromatic_lantern(),
-                face: 0,
-            }),
-            "the copy's abilities are the Lantern's"
+                face: 0
+            })
         );
-        let line = baylee_cards::lines::ability_line(machine_gods_effigy(), 0, clause)
-            .expect("the copy clause has a line");
+        assert!(
+            copy.grants.is_empty(),
+            "the copied blue ability is not an external modifier grant"
+        );
+        let mut state = engine.state().clone();
+        let quoted = stacked(&mut state, machine_gods_effigy(), blue_index, copied);
+        let Some(baylee_view::StackItem::Ability {
+            ability,
+            rules,
+            text,
+            ..
+        }) = stack_item(&quoted)
+        else {
+            panic!("blue ability");
+        };
         assert_eq!(
-            copy.grants,
-            vec![baylee_view::GrantSource {
-                source: Some(effigy),
-                rules: Some(baylee_view::RulesFace {
-                    card: machine_gods_effigy(),
-                    face: 0,
-                }),
-                text: Some(baylee_view::StackText {
-                    face: 0,
-                    line: line.line,
-                    of: line.of,
-                }),
-            }]
+            ability,
+            Some(baylee_core::ids::AbilityRef::new(machine_gods_effigy(), 0))
+        );
+        let face = PrintedFace::new(machine_gods_effigy(), 0).unwrap();
+        assert_eq!(rules, Some(rules_face(face)));
+        assert_eq!(
+            text,
+            stack_text(face, 0),
+            "the quoted ability names Effigy's clause, not Lantern's"
         );
     }
 

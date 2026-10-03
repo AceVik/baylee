@@ -483,10 +483,20 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
         }
         AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
             for m in *mods {
-                if let CopyMod::Grant(modifier) = m
-                    && let Some((effects, stack)) = granted_list(modifier)
-                {
-                    lists.push((effects, stack, Door::Copy));
+                match m {
+                    CopyMod::Grant(modifier) => {
+                        if let Some((effects, stack)) = granted_list(modifier) {
+                            lists.push((effects, stack, Door::Copy));
+                        }
+                    }
+                    CopyMod::GrantAbility(granted) => {
+                        lists.extend(
+                            resolving_lists(granted)
+                                .into_iter()
+                                .map(|(effects, stack, _)| (effects, stack, Door::Copy)),
+                        );
+                    }
+                    _ => {}
                 }
             }
         }
@@ -514,6 +524,35 @@ fn resolving_lists(ability: &AbilityDef) -> Vec<(&'static [Effect], bool, Door)>
         i += 1;
     }
     lists
+}
+
+/// Copiable exception abilities, including those within resolving copy effects.
+fn copiable_grants(ability: &AbilityDef) -> Vec<&'static AbilityDef> {
+    use crate::dsl::ability::CopyMod;
+    let mut found = Vec::new();
+    let mut read = |mods: &'static [CopyMod]| {
+        found.extend(mods.iter().filter_map(|m| match m {
+            CopyMod::GrantAbility(granted) => Some(*granted),
+            _ => None,
+        }));
+    };
+    if let AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } =
+        ability
+    {
+        read(mods);
+    }
+    for (effects, ..) in resolving_lists(ability) {
+        let mut seen = 0;
+        Effect::walk(effects, &mut seen, &mut |effect| match effect {
+            Effect::CreateTokenCopyOfTarget { mods, .. }
+            | Effect::CreateTokenCopyOfSource { mods }
+            | Effect::CreateTokenCopyOfEquipped { mods, .. }
+            | Effect::CopyTargetSpell { mods }
+            | Effect::BecomeCopyOfTarget { mods } => read(mods),
+            _ => {}
+        });
+    }
+    found
 }
 
 /// How many damage divisions (`Effect::DealDamageDivided`) a list holds,
@@ -2223,6 +2262,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn copiable_exception_walk_reports_invalid_mana_abilities() {
+        static BAD: AbilityDef = AbilityDef::Activated {
+            cost: crate::dsl::cost::Cost::FREE,
+            effects: &[
+                Effect::SacrificeSelf,
+                Effect::Reflexive {
+                    when: ReflexiveEvent::SacrificedThis,
+                    effects: &[Effect::GainLife {
+                        amount: crate::dsl::effect::Amount::Fixed(1),
+                    }],
+                    target: None,
+                },
+            ],
+            targets: None,
+            second_targets: None,
+            mana_ability: true,
+            zone: crate::dsl::ability::ActivationZone::Battlefield,
+            timing: crate::dsl::ability::ActivationTiming::InstantSpeed,
+            limit: crate::dsl::ability::ActivationLimit::Unlimited,
+            cost_reduction: None,
+        };
+        static MODS: [crate::dsl::ability::CopyMod; 1] =
+            [crate::dsl::ability::CopyMod::GrantAbility(&BAD)];
+        let copy = AbilityDef::CopyOnEnter {
+            target: TargetSpec::Object(&Filter::CREATURE),
+            mods: &MODS,
+        };
+        let granted = copiable_grants(&copy);
+        assert_eq!(granted.len(), 1);
+        assert!(mana_ability_fault(granted[0]).is_some());
+        assert!(
+            resolving_lists(&copy)
+                .into_iter()
+                .any(|(effects, stack, _)| reflexive_fault_in(effects, stack).is_some())
+        );
+        assert!(
+            resolving_lists(&copy)
+                .iter()
+                .any(|(_, stack, door)| !stack && matches!(door, Door::Copy))
+        );
+    }
+
     /// A reflexive trigger's target belongs to the reflexive trigger.
     ///
     /// [`branches`] cuts a trailing reflexive off the list it ends and makes
@@ -2306,6 +2388,13 @@ mod tests {
         for def in crate::all() {
             let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
             for ability in def.abilities.iter().chain(faces) {
+                // Copiable exceptions are real abilities, not modifier grants.
+                for granted in copiable_grants(ability) {
+                    by_copy += 1;
+                    if let Some(fault) = mana_ability_fault(granted) {
+                        wrong.push(format!("{} grants an ability that {fault}", def.name()));
+                    }
+                }
                 // The three doors are `lines::grants_in`'s, the walk the view
                 // finds a grant's sentence with, so a grant this holds to
                 // CR 605.1 is one a player can be shown the source of.

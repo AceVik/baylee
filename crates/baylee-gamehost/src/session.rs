@@ -848,7 +848,7 @@ impl Session {
             self.engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
-                decision_player: self.engine.pending().asked(),
+                decision_player: crate::view::decision_player_for(&self.engine, seat),
                 controlled_players: self.engine.controlled_players(seat),
                 deciding: self.deciding(),
                 held: self.engine.automation(seat).hold.suppresses(),
@@ -1403,7 +1403,7 @@ impl Session {
             Some(pending),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(&self.engine, player),
-                decision_player: self.engine.pending().asked(),
+                decision_player: pending.asked(),
                 controlled_players: self.engine.controlled_players(player),
                 deciding: self.deciding(),
                 held: self.engine.automation(player).hold.suppresses(),
@@ -1513,7 +1513,7 @@ impl Session {
             self.engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting,
-                decision_player: self.engine.pending().asked(),
+                decision_player: crate::view::decision_player_for(&self.engine, seat),
                 controlled_players: self.engine.controlled_players(seat),
                 deciding: self.deciding(),
                 held: self.engine.automation(seat).hold.suppresses(),
@@ -3632,6 +3632,58 @@ pub(crate) mod tests {
             matches!(resumed.as_slice(), [(1, Pending::Mulligan { player, .. })] if *player == me),
             "{resumed:?}"
         );
+    }
+
+    #[test]
+    fn simultaneous_mulligan_views_use_the_answering_seats_own_resources() {
+        let (zero, one) = (PlayerId::new(0), PlayerId::new(1));
+        let mut session = Session::new(&two_humans()).expect("session builds");
+        for _ in 0..2 {
+            session.act(one, PlayerAction::MulliganTake).unwrap();
+        }
+        let routed = session.act(one, PlayerAction::MulliganKeep).unwrap();
+        assert_eq!(session.pending().asked(), Some(zero));
+        let Some(Pending::MulliganBottom { count, .. }) = session.engine.pending_for(one) else {
+            panic!("the second seat owes a bottom choice");
+        };
+        let count = usize::from(*count);
+        assert!(count > 0);
+        let (question, agent_view) = session.view_for(one).unwrap();
+        let reasked = routed_view(
+            &session
+                .reask(one)
+                .into_iter()
+                .map(|env| (one, env))
+                .collect::<Vec<_>>(),
+            one,
+        );
+        for view in [
+            routed_view(&routed, one),
+            seat_view(&session, one),
+            reasked,
+            agent_view,
+        ] {
+            assert_eq!(view.awaiting, Some(one));
+            assert_eq!(view.decision_player, Some(one));
+            assert_eq!(view.hand.len(), 7);
+            assert!(view.controlled_hands.is_empty());
+        }
+        assert_eq!(question.asked(), Some(one));
+        let action = session.house_action(one).unwrap();
+        let PlayerAction::ChooseObjects { objects } = &action else {
+            panic!("the house must bottom cards");
+        };
+        assert_eq!(objects.len(), count);
+        assert!(objects.iter().all(|id| {
+            session
+                .state()
+                .zones
+                .list(ZoneLocation::Hand(one))
+                .contains(id)
+        }));
+        session.act(one, action).unwrap();
+        assert!(session.engine.pending_for(one).is_none());
+        assert_eq!(session.pending().asked(), Some(zero));
     }
 
     /// An AI chair keeps while a human is still deciding: nobody waits on
