@@ -24,7 +24,6 @@ impl Dialect for Agy {
             "--output-format",
             "stream-json",
             "--disable-slash-commands",
-            "--dangerously-skip-permissions",
         ]
         .into_iter()
         .map(OsString::from)
