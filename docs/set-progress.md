@@ -1,4 +1,4 @@
-# Set progress — 2026-10-03
+# Set progress — 2026-10-04
 
 ## Scope and evidence
 
@@ -31,21 +31,81 @@ Attorney (ante). These are explicit scope exclusions, never counted as implement
 
 | Card | Remaining implementation or acceptance work |
 | --- | --- |
-| [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | an Aura that enchants a creature card in a graveyard and returns it is not in the engine |
+| [Animate Dead](../crates/baylee-cards/src/cards/enchantments/auras/mv_2/animate_dead.rs) | Aura reanimation, restricted attachment and the leave sacrifice are implemented and regression-tested; final live acceptance is pending |
 | [Camouflage](../crates/baylee-cards/src/cards/instants/mv_1/camouflage.rs) | defending players putting their creatures into piles assigned to attackers at random, instead of declaring blockers, is not in the engine |
 | [Drain Power](../crates/baylee-cards/src/cards/sorceries/mv_2/drain_power.rs) | forced land activations and exact mana transfer are implemented; final live acceptance is pending |
 | [False Orders](../crates/baylee-cards/src/cards/instants/mv_1/false_orders.rs) | removing a blocker from combat and having it block again is not in the engine |
 | [Illusionary Mask](../crates/baylee-cards/src/cards/artifacts/mv_2/illusionary_mask.rs) | spent-mana casting and face-up replacement events are implemented; final selector and live acceptance are pending |
 | [Island Sanctuary](../crates/baylee-cards/src/cards/enchantments/mv_2/island_sanctuary.rs) | skipping a draw in exchange for an attack restriction until your next turn is not in the engine |
-| [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | destroying the enchanted land when it becomes tapped and moving the Aura to another land are not in the DSL; it only enchants a land |
+| [Kudzu](../crates/baylee-cards/src/cards/enchantments/auras/mv_3/kudzu.rs) | tap-triggered destruction and controller-selected Aura relocation are implemented and regression-tested; final live acceptance is pending |
 | [Library of Leng](../crates/baylee-cards/src/cards/artifacts/mv_1/library_of_leng.rs) | discarding a card onto the top of the library instead of into the graveyard is not in the engine; you have no maximum hand size |
-| [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | not losing the game at 0 life, life gain as draws and damage as sacrifices are not in the engine |
+| [Lich](../crates/baylee-cards/src/cards/enchantments/mv_4/lich.rs) | zero-life protection, life-gain draws, damage sacrifices and leave-game loss are implemented and regression-tested; final live acceptance is pending |
 | [Magical Hack](../crates/baylee-cards/src/cards/instants/mv_1/magical_hack.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
 | [Raging River](../crates/baylee-cards/src/cards/enchantments/mv_2/raging_river.rs) | Left and right piles that restrict blockers |
 | [Sleight of Mind](../crates/baylee-cards/src/cards/instants/mv_1/sleight_of_mind.rs) | semantic text changes are implemented and independently tested; final batch acceptance is pending |
-| [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn |
-| [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | copiable upkeep behavior is implemented and independently tested; full Oracle visibility in the live stack dialog still needs correction |
-| [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | player-control segments are implemented; multi-step constrained mana feasibility and illegal-cast reversal remain incomplete |
+| [Time Vault](../crates/baylee-cards/src/cards/artifacts/mv_2/time_vault.rs) | turn-skip untapping and the extra-turn ability are implemented and regression-tested; Client/AI/Seat consumers are integrated, final live acceptance is pending |
+| [Vesuvan Doppelganger](../crates/baylee-cards/src/cards/creatures/mv_5/vesuvan_doppelganger.rs) | copiable upkeep behavior and the full Oracle stack-dialog fallback are implemented and regression-tested; final live acceptance is pending |
+| [Word of Command](../crates/baylee-cards/src/cards/instants/mv_2/word_of_command.rs) | player-control segments and constrained cast feasibility/reversal have regression coverage; final batch acceptance is pending |
+
+### Interrupted-session takeover — 2026-10-04
+
+The owner requested complete Alpha acceptance, not only persistence of the
+interrupted milestone. Engine implementation and review are reserved for Astra
+at medium or higher, or Claude Opus 5.5 at high or higher. Client integration,
+live acceptance and the final Git milestone remain separate responsibilities.
+
+The inherited intrinsic-mana migration had a missing client match arm, old
+codegen expectations, unmigrated handwritten duals and verification readers.
+Those integration gaps were repaired, with explicit client tests for changed
+land colours and missing/wrong-index host projections. The all-card ability
+sentence gate also exposed six library-moving mana abilities; its reader now
+agrees with the current non-mana classification, and the generated line table
+was regenerated normally. The 30 sentence-reader tests and the complete native
+sentence-assignment test pass. A subsequent full Workspace run was stopped by
+the 300-second execution limit during Gamehost tests; it is not a completed
+Workspace gate. Logs are in `scratchpad/junie-alpha-*.log`.
+
+No card is promoted solely on these integration checks. The accepted Alpha
+count above remains unchanged until the remaining rules and live checks pass.
+
+#### Native Engine checkpoints and Client integration
+
+The owner's native `engine` session confirms Claude Opus 5.5/high and owns rules
+implementation. Shared handoff/status/inbox files under `scratchpad/` coordinate
+explicit source and Cargo pauses; there are no further automated continuations
+of another session. Milestone 1 validates inherited Time Vault, Aura-binding and
+constrained-cast work and completes Animate Dead. Milestone 2 completes Lich.
+Each checkpoint regenerates the tables through two regular xtask passes.
+
+Time Vault's new yes/no is wired through Client Core, AI and Seat: the question
+names the whole-turn cost, cannot be automated, is answerable only by the correct
+seat, and the narrator binds a reply to its question. The conservative house AI
+declines this turn trade without declining free optional effects.
+
+Live Sleight acceptance exposed a mixed-target browser that covered a legal
+battlefield answer while displaying only its off-board alternatives. Its
+reproducer failed before the fix. The browser now uses its existing obscured-
+battlefield path for `ChooseTargets` as well as `ChooseCards`; mandatory/private
+sheet ownership remains unchanged. Tests require exactly the offered rows,
+forbid duplicate rows and check reset to an off-board-only question. All 54
+browser tests pass.
+
+Checkpoint 2 gates pass for Cards (130 tests), Client Core (1210), Client (1194
+unit tests plus integration targets), AI (220), Seat, Codegen and all Gamehost
+targets (209 active unit tests plus integration targets). Existing ignored tests
+are unchanged; none were added or bypassed. Workspace Clippy with `-D warnings`,
+the formatting check and the `dev-control` Client build pass. The first combined
+240-second run spent 130 seconds compiling and ended before two Gamehost tests;
+the subsequent complete isolated Gamehost run passes in 70.20 seconds of unit
+test execution. The earlier full Workspace timeout is still not a complete
+Workspace gate; the final current-source gate remains due.
+
+Milestone-1 live evidence confirms Mask's zero/two-blue receipts and actual
+face-down cast, Doppelganger's full upkeep Oracle and second blue copy, Hack's
+actual Island-to-Mountain red production and Drain Power's exact mixed-colour
+transfer including an already-tapped land counterexample. These observations
+do not certify later source changes; see
+`scratchpad/junie-alpha-milestone1-live.md` for the bounded evidence.
 
 ## Damage rules extension
 

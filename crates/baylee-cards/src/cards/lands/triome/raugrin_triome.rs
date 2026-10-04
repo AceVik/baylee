@@ -25,11 +25,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::Red, Color::White]),
     coverage = Coverage::Implemented,
     abilities = &[
-        mana_ability!(&[Effect::mana_choice(&[
-            ManaColor::Blue,
-            ManaColor::Red,
-            ManaColor::White,
-        ])]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         activated!(
             cost!("{3}", DiscardSelf),
             &[Effect::draw(1)],

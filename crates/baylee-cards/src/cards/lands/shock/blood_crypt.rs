@@ -19,8 +19,5 @@ card!(
         subtypes = &[subtypes::land::SWAMP, subtypes::land::MOUNTAIN],
         enter_modifiers = &[EnterModifier::TappedOrPayLife(2)],
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_choice(&[
-        ManaColor::Black,
-        ManaColor::Red
-    ])]),],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()]),],
 );

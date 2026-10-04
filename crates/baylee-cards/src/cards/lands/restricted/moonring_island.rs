@@ -23,7 +23,7 @@ card!(
     coverage = Coverage::Partial(
         "no Effect variant for \"look at the top card of target player's library\""
     ),
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Blue, 1)])],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );
 
 // NOT SUPPORTED: "{U}, {T}: Look at the top card of target player's library.

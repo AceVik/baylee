@@ -32,7 +32,7 @@ card!(
         subtypes = &[subtypes::land::FOREST],
     ),],
     abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         mana_ability!(&[
             Effect::mana_choice(&[ManaColor::White, ManaColor::Black]),
             Effect::DealDamage {

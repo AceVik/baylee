@@ -24,8 +24,5 @@ card!(
             at_least: 8
         }],
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_choice(&[
-        ManaColor::Green,
-        ManaColor::Blue
-    ])]),],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()]),],
 );

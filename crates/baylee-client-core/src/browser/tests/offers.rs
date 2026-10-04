@@ -1,4 +1,4 @@
-//! The panel is the complement of what the table and the hand bar already make clickable, and this is where that line is held: every id a pending choice offers is drawn on exactly one of the two and never on both, a choice confined to the board leaves the sheet shut, a choice whose options the engine leaves implicit lights nothing up, and watching another seat choose offers this seat nothing. `Browser::wanted` and `RowStanding::selectable` are the two predicates under test. Where the sheet then stands, which tab it shows and how its rows are ordered are three other files.
+//! The panel makes offered answers reachable when the table cannot: mixed choices repeat obscured battlefield answers in the sheet, other ordinary offers are disjoint, a choice confined to the board leaves the sheet shut, a choice whose options the engine leaves implicit lights nothing up, and watching another seat choose offers this seat nothing. `Browser::wanted` and `RowStanding::selectable` are the two predicates under test. Where the sheet then stands, which tab it shows and how its rows are ordered are three other files.
 
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
@@ -39,8 +39,9 @@ fn a_library_search_is_shown_where_the_board_cannot_show_it() {
 
 /// The invariant the whole module exists for: an id the engine offered
 /// is an id somebody draws. `BoardModel` covers the table and the hand,
-/// `Browser` covers everything else, and the two are disjoint by
-/// construction for these ordinary browser and targeting questions.
+/// `Browser` covers everything else. A mixed choice additionally repeats its
+/// obscured battlefield answers in the mandatory sheet; every other offered
+/// object belongs to exactly one of those two surfaces.
 #[test]
 fn every_offered_object_is_drawn_somewhere() {
     let view = ViewBuilder::new(2)
@@ -83,6 +84,14 @@ fn every_offered_object_is_drawn_somewhere() {
         let mut b = Browser::new();
         b.follow(&view, Some(&it));
         let rows = b.rows(&view, Some(&it), Names::projected());
+        assert_eq!(
+            rows.len(),
+            rows.iter()
+                .map(|row| row.id)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            "the sheet must not repeat an offered object"
+        );
         for id in it.selectable() {
             let on_table = table.contains(id);
             let in_tray = rows.iter().any(|r| r.id == *id && r.standing.selectable);
@@ -90,9 +99,16 @@ fn every_offered_object_is_drawn_somewhere() {
                 on_table || in_tray,
                 "{pending:?} offers {id:?} and nothing draws it"
             );
-            assert!(
-                !(on_table && in_tray),
-                "{id:?} is drawn twice — the two models are meant to be disjoint"
+            let shared_battlefield_answer = b.for_choice()
+                && matches!(
+                    pending,
+                    Pending::ChooseCards { .. } | Pending::ChooseTargets { .. }
+                )
+                && view.battlefield.iter().any(|object| object.id == *id);
+            assert_eq!(
+                on_table && in_tray,
+                shared_battlefield_answer,
+                "{id:?}: only obscured battlefield answers must appear on both surfaces"
             );
         }
     }

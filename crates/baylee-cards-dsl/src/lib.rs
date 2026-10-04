@@ -520,6 +520,11 @@ pub enum EnterModifier {
     },
     /// "You may pay N life; if you don't, this enters tapped" (shocklands).
     TappedOrPayLife(u16),
+    /// "As this enters, you lose life equal to your life total" (Lich). A
+    /// replacement on the way in (CR 614.12), so it has happened before the
+    /// permanent's static abilities are first asked anything. A total of 0
+    /// or less loses nothing: life can't be lost in a negative amount.
+    LoseLifeEqualToLife,
     /// "As this enters, you may reveal a matching card from your **hand**.
     /// If you don't, this enters tapped" (the Lorwyn reveal lands and the
     /// Shadows/M21 snarls).

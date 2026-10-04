@@ -18,5 +18,5 @@ card!(
     )],
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Implemented,
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::White, 1)])],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );

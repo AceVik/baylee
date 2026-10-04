@@ -87,6 +87,15 @@ fn bench_setup(c: &mut Criterion) {
 fn bench_clone(c: &mut Criterion) {
     let state = GameState::from_preset(&preset(42), &RegistryLookup).unwrap();
     c.bench_function("state/clone", |b| b.iter(|| state.clone()));
+    let mut spare = state.clone();
+    c.bench_function("state/clone_from", |b| {
+        b.iter(|| {
+            spare.clone_from(&state);
+            std::hint::black_box(&spare);
+        });
+    });
+    c.bench_function("state/names_clone", |b| b.iter(|| state.names.clone()));
+    c.bench_function("state/zones_clone", |b| b.iter(|| state.zones.clone()));
 }
 
 fn bench_snapshot_hash(c: &mut Criterion) {

@@ -151,6 +151,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
+        | Modifier::NoLossForZeroLife { .. }
+        | Modifier::LifeGainDrawsInstead { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented
@@ -968,6 +970,12 @@ mod tests {
             Modifier::CantLoseLife {
                 who: PlayerRel::EachPlayer,
             },
+            Modifier::NoLossForZeroLife {
+                who: PlayerRel::You,
+            },
+            Modifier::LifeGainDrawsInstead {
+                who: PlayerRel::You,
+            },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::CombatDamageCantBePrevented,
@@ -1042,7 +1050,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            78,
+            80,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1093,8 +1101,8 @@ mod tests {
     }
 
     /// The counts, so that a change which flips a modifier from one side to
-    /// the other is a failure and not a quiet re-balancing: thirty-two
-    /// modifiers lock the objects they found, forty-five do not.
+    /// the other is a failure and not a quiet re-balancing: thirty-three
+    /// modifiers lock the objects they found, forty-seven do not.
     ///
     /// The second number is counted off the list and not written as
     /// `39 - locking`, which is what it said until a modifier was added: a
@@ -1102,10 +1110,10 @@ mod tests {
     /// check against a reference that moves, and it kept reporting
     /// seventeen while the list held eighteen.
     #[test]
-    fn thirty_three_modifiers_lock_a_set_and_forty_five_do_not() {
+    fn thirty_three_modifiers_lock_a_set_and_forty_seven_do_not() {
         let all = every_modifier();
         let locking = all.iter().filter(|m| locks_its_set(m)).count();
-        assert_eq!((locking, all.len() - locking), (33, 45));
+        assert_eq!((locking, all.len() - locking), (33, 47));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
@@ -1237,12 +1245,16 @@ mod tests {
     /// skipping one is safe.
     #[test]
     fn granted_abilities_come_out_in_registration_order() {
+        const MANA: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::mana(
+            baylee_core::mana::ManaColor::Green,
+            1,
+        )];
         let mut state = state();
         let bear = permanent(&mut state, "Bear");
         let other = permanent(&mut state, "Other");
         let grant = |mana_ability| Modifier::GrantActivated {
             cost: baylee_cards_dsl::Cost::TAP,
-            effects: &[],
+            effects: if mana_ability { MANA } else { &[] },
             mana_ability,
         };
         // Reaches the Bear, then one that does not, then the Bear again.

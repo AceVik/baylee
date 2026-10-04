@@ -32,7 +32,7 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Blue, 1)]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         triggered!(
             Trigger::EntersBattlefield(&Filter::And(&[Filter::This, Filter::Untapped])),
             &[Effect::GraveyardToTop {

@@ -34,7 +34,7 @@ use crate::effects::{ContinuousEffect, EffectOrigin};
 use crate::object::{GameObject, PrintedFace};
 use crate::state::{CardLookup, GameState, ReplacementEntry};
 use crate::zone::Zone;
-use baylee_cards_dsl::{AbilityDef, Cost, Modifier, ReplacementRule};
+use baylee_cards_dsl::{AbilityDef, Modifier, ReplacementRule};
 use baylee_core::ids::{AbilityRef, CardIndex, EffectId, ObjectId};
 use baylee_core::mana::ManaColor;
 use std::cell::RefCell;
@@ -396,18 +396,9 @@ pub(crate) fn intrinsic_mana(
         return;
     };
     let list = obj.ability_list(lookup);
-    let entry = position(&list.abilities, |a| match a {
-        AbilityDef::Activated {
-            mana_ability: true,
-            cost,
-            effects,
-            ..
-        } => {
-            *cost == Cost::TAP
-                && baylee_cards_dsl::mana_made(cost, effects)
-                    .is_some_and(|(made, _)| made.colors.contains(&color))
-        }
-        _ => false,
+    let colors = crate::casting::intrinsic_mana_colors(state, source);
+    let entry = position(&list.abilities, |a| {
+        a.is_intrinsic_mana_ability() && colors.contains(&color)
     });
     if let Some(entry) = entry {
         fired_ability(lookup, &list, entry, Kind::Mana);

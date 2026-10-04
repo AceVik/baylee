@@ -937,9 +937,10 @@ fn mana_symbol_colors(effect: &Effect) -> ColorSet {
                 .iter()
                 .filter_map(|mana| color_of(*mana))
                 .fold(ColorSet::EMPTY, |set, color| set.union(ColorSet::of(color))),
-            ManaSource::Chosen | ManaSource::CommanderIdentity | ManaSource::LandColor { .. } => {
-                ColorSet::EMPTY
-            }
+            ManaSource::IntrinsicBasicLandTypes
+            | ManaSource::Chosen
+            | ManaSource::CommanderIdentity
+            | ManaSource::LandColor { .. } => ColorSet::EMPTY,
         },
         // A conditional resolves its branches, so a symbol inside one is
         // still printed on the card. The recursion is [`swept_filters`]'
@@ -1717,6 +1718,8 @@ mod tests {
                 for modifier in printed.into_iter().chain(granted) {
                     let (Modifier::DrawLimitPerTurn { who, .. }
                     | Modifier::CantLoseLife { who }
+                    | Modifier::NoLossForZeroLife { who }
+                    | Modifier::LifeGainDrawsInstead { who }
                     | Modifier::SkipUntapStep { who }
                     | Modifier::UntapAtMost { who, .. }) = modifier
                     else {
@@ -3400,6 +3403,7 @@ mod tests {
             | EnterModifier::TappedUnlessOpponents { .. }
             | EnterModifier::TappedUnlessSomeoneAtOrBelow { .. }
             | EnterModifier::Prepared
+            | EnterModifier::LoseLifeEqualToLife
             | EnterModifier::WithCounters { .. } => false,
         };
         let mut offenders = Vec::new();

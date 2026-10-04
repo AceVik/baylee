@@ -513,3 +513,96 @@ fn copy_migration_review_copy_artifact_inherits_effigys_added_blue_mana_ability(
     assert!(is_tapped(&engine, copy));
     assert!(!is_tapped(&engine, effigy));
 }
+
+/// A real Urza Construct's defining ability survives two generations of copies.
+#[test]
+fn vesuvan_review_construct_then_clone_preserve_dynamic_artifact_count() {
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(); 14])
+        .hand(
+            0,
+            &[
+                index::URZA_LORD_HIGH_ARTIFICER,
+                index::VESUVAN_DOPPELGANGER,
+                index::CLONE,
+                sol_ring(),
+            ],
+        )
+        .battlefield(1, &[plains(), plains(), sol_ring()])
+        .hand(1, &[index::DISENCHANT])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, USER);
+    tap_all_mana(&mut engine, USER);
+    cast_with_floating(&mut engine, USER, index::URZA_LORD_HIGH_ARTIFICER);
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && e.state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .iter()
+                .any(|id| {
+                    let object = e.state().object(*id).unwrap();
+                    object.controller == USER && object.token.is_some()
+                })
+    });
+    let construct = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .find(|id| {
+            let object = engine.state().object(**id).unwrap();
+            object.controller == USER && object.token.is_some()
+        })
+        .expect("Urza's actual enters trigger created its Construct");
+    assert_eq!(pt(&engine, construct), (1, 1), "only your artifacts count");
+
+    let vesuvan = enter_copy(&mut engine, index::VESUVAN_DOPPELGANGER, construct);
+    for object in [construct, vesuvan] {
+        assert_eq!(pt(&engine, object), (2, 2));
+    }
+    let clone = enter_copy(&mut engine, index::CLONE, vesuvan);
+    for object in [construct, vesuvan, clone] {
+        assert_eq!(
+            pt(&engine, object),
+            (3, 3),
+            "each artifact copy counts itself"
+        );
+        assert!(
+            engine
+                .state()
+                .object(object)
+                .unwrap()
+                .characteristics()
+                .types
+                .contains(TypeSet::ARTIFACT.union(TypeSet::CREATURE))
+        );
+    }
+    cast_with_floating(&mut engine, USER, sol_ring());
+    pass_until(&mut engine, stack_is_empty);
+    for object in [construct, vesuvan, clone] {
+        assert_eq!(
+            pt(&engine, object),
+            (4, 4),
+            "copied ability remains dynamic"
+        );
+    }
+    let ring = on_battlefield(&engine, USER, sol_ring()).unwrap();
+    priority(&mut engine, OTHER);
+    cast_from_hand(&mut engine, OTHER, index::DISENCHANT);
+    aim(&mut engine, vec![ring], vec![]);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, USER, sol_ring()).is_some());
+    for object in [construct, vesuvan, clone] {
+        assert_eq!(
+            pt(&engine, object),
+            (3, 3),
+            "removing an artifact reduces every copy"
+        );
+        assert_eq!(
+            engine.state().object(object).unwrap().zone,
+            Zone::Battlefield
+        );
+    }
+}

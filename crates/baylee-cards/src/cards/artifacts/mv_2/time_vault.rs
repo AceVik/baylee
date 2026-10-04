@@ -4,8 +4,8 @@
 //! Oracle: If you would begin your turn while this artifact is tapped, you may skip that turn instead. If you do, untap this artifact.
 //! Oracle: {T}: Take an extra turn after this one.
 //! Set: VMA #287 — Vintage Masters | Scryfall ID: c367ffc1-8084-45a1-87d5-22183604d1cb | Oracle ID: 99d4d99d-cf56-45aa-aa39-a250695612f2
-// PARTIAL — skipping a turn to untap it is not in the engine; it enters
-// tapped, does not untap and takes an extra turn.
+// PARTIAL — every clause is implemented and engine-tested; final live
+// acceptance of the skip offer is pending.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -14,7 +14,7 @@ card!(
     oracle_id = "99d4d99d-cf56-45aa-aa39-a250695612f2",
     scryfall_id = "c367ffc1-8084-45a1-87d5-22183604d1cb",
     coverage = Coverage::Partial(
-        "skipping a turn to untap it is not in the engine; it enters tapped, does not untap and takes an extra turn"
+        "every clause is implemented and engine-tested; final live acceptance of the skip offer is pending"
     ),
     faces = &[face!(
         name = "Time Vault",
@@ -25,7 +25,7 @@ card!(
     abilities = &[
         static_ability!(Filter::This, Modifier::DoesNotUntap),
         activated!(Cost::TAP, &[Effect::TakeExtraTurn]),
-        // NOT SUPPORTED: If you would begin your turn while this artifact is tapped, you
-        // may skip that turn instead. If you do, untap this artifact.
+        // Listed after the activation so the activation keeps its index.
+        AbilityDef::Replacement(ReplacementRule::SkipTurnToUntapSelf),
     ],
 );

@@ -489,3 +489,20 @@ journal contents remain structural; allocation identity is never rules state.
 The clone-isolation, journal round-trip and numeric-refusal regressions cover
 append, removal, rollback and replay. Larger mutable boards and long journals
 still require measurement before claiming this overhead is acceptable there.
+
+
+A later controlled follow-up tried retaining one checkpoint and refreshing its
+buffers with field-complete `clone_from` implementations. All atomic-refusal,
+nested target-batch and replay checks passed, but the actual priority path was
+**32.50 µs**, versus **30.46 µs** for fresh complete snapshots measured immediately
+afterward in the same client-running environment. The attempt was removed; it
+is not a retained optimization. The earlier 27.52 µs run is not a simultaneous
+control for this comparison.
+
+The diagnostic state-only measurements were 5.20 µs for a fresh clone and
+4.25 µs for the experimental refresh; names and zones alone were 0.27 µs and
+0.32 µs. Reusing some allocations did not improve the measured engine path.
+`basics` now exposes separate clone-from, names and zones measurements for
+further investigation. The production path still takes and restores a complete
+checkpoint, with the retained arena/journal copy-on-write storage above; no
+numeric-capacity threshold or rollback omission was introduced.

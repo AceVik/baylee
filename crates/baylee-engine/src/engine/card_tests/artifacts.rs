@@ -6,6 +6,7 @@ use super::*;
 
 mod cyclopean_tomb;
 mod sunglasses_of_urza;
+mod time_vault;
 
 fn forcefield() -> CardIndex {
     card_index("bd6823fb-a696-4e6d-9c5e-3b55dfe03730")
@@ -18076,43 +18077,6 @@ fn library_of_leng_leaves_no_maximum_hand_size() {
     assert!(held > 7, "more than seven in hand: {held}");
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(hand(&engine), held, "nothing discarded at cleanup");
-}
-
-/// Time Vault, its written half: it enters tapped and doesn't untap during
-/// the untap step, and "{T}: Take an extra turn after this one." (Skipping a
-/// turn to untap it is not written.) Cast, it is tapped; untapped by the
-/// harness, its ability gives p0 the next turn too.
-#[test]
-fn time_vault_enters_tapped_and_takes_an_extra_turn() {
-    let p0 = PlayerId::new(0);
-    let vault_card = card_index("99d4d99d-cf56-45aa-aa39-a250695612f2");
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest()])
-        .hand(0, &[vault_card])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-    cast_from_hand(&mut engine, p0, vault_card);
-    pass_until(&mut engine, stack_is_empty);
-    let vault = on_battlefield(&engine, p0, vault_card).expect("it resolved");
-    assert!(is_tapped(&engine, vault), "it enters tapped");
-
-    engine
-        .dev_state_mut(p0)
-        .expect("the harness may set boards up")
-        .object_mut(vault)
-        .expect("seated")
-        .status
-        .remove(Status::TAPPED);
-    engine.refresh_offer();
-    activate(&mut engine, p0, vault_card, 1);
-    pass_until(&mut engine, stack_is_empty);
-    let turn = engine.state().turn.number;
-    pass_until(&mut engine, |e| {
-        e.state().turn.number == turn + 1 && e.state().turn.step == crate::turn::Step::Main
-    });
-    assert_eq!(engine.state().turn.active, p0, "the extra turn is p0's");
-    assert!(is_tapped(&engine, vault), "and it did not untap");
 }
 
 // ---------------------------------------------------------------------------

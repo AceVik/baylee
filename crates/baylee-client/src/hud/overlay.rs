@@ -456,8 +456,16 @@ pub fn sync_overlay(
         .as_ref()
         .and_then(baylee_client_core::Interaction::chosen_index);
 
-    let stack_scroll = tree.stack_scroll.iter().next().cloned().unwrap_or_default();
-    let stack_window = super::stack::window_start(stack_scroll.y);
+    let top = duel
+        .board
+        .as_ref()
+        .and_then(|board| board.stack.first())
+        .map(|item| item.id);
+    let (stack_scroll, full_height) = tree.stack_scroll.iter().next().map_or_else(
+        || (ScrollPosition::default(), super::stack::STACK_FULL_HEIGHT),
+        |(scroll, node, body)| (scroll.clone(), body.full_height(node, top)),
+    );
+    let stack_window = super::stack::window_start(stack_scroll.y, full_height);
     if revision.seq == seq
         && revision.lang == Some(lang)
         && revision.stack_selected == duel.stack_selected
@@ -1386,6 +1394,7 @@ pub fn sync_overlay(
             duel.stack_selected,
             &prefs.all().ability_orders,
             stack_scroll,
+            full_height,
             lang,
             board,
             view,
@@ -4766,6 +4775,41 @@ mod tests {
         );
         crate::rebuild_board(&mut duel);
         (duel, texts)
+    }
+
+    #[test]
+    fn copied_oracle_row_grows_inside_the_existing_scroll_viewport() {
+        let (mut duel, texts) = hovering_the_stack(false);
+        let card = crate::cardtext::fixture::card("Vesuvan Doppelganger");
+        let mut view = duel.view.clone().unwrap();
+        view.stack[0].stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(7, 0),
+            ability: Some(baylee_core::ids::AbilityRef { card, index: 0 }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
+            text: None,
+            token: None,
+        });
+        duel.receive_view(view);
+        crate::rebuild_board(&mut duel);
+        let mut app = overlay_with(duel, texts);
+        let mut rows = app
+            .world_mut()
+            .query_filtered::<&Node, With<super::super::StackRowCard>>();
+        let row = rows.single(app.world()).unwrap();
+        assert_eq!(
+            row.height,
+            Val::Auto,
+            "the complete Oracle determines row height"
+        );
+        assert_eq!(row.min_height, px(stack::STACK_FULL_HEIGHT));
+        assert_eq!(row.max_height, Val::Auto, "no second clipping ceiling");
+        let mut bodies = app
+            .world_mut()
+            .query_filtered::<&Node, With<stack::StackBody>>();
+        assert_eq!(
+            bodies.single(app.world()).unwrap().overflow,
+            Overflow::scroll_y()
+        );
     }
 
     #[test]

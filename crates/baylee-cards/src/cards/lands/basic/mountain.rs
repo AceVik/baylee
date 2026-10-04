@@ -18,5 +18,5 @@ card!(
         supertypes = SupertypeSet::BASIC,
         subtypes = &[subtypes::land::MOUNTAIN],
     ),],
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()]),],
 );

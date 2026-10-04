@@ -600,7 +600,9 @@ impl GameState {
             }
         }
         for delayed in &self.delayed {
-            if let DelayedWhen::DiesOrIsExiled { card, version, .. } = delayed.when {
+            if let DelayedWhen::DiesOrIsExiled { card, version, .. }
+            | DelayedWhen::LeavesBattlefield { card, version, .. } = delayed.when
+            {
                 out.insert(DamageSourceRef {
                     object: card,
                     version,

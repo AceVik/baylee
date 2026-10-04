@@ -402,6 +402,17 @@ impl<L: CardLookup> Engine<L> {
             if wrote {
                 continue;
             }
+            // 0c. An Aura's return finishes once the card it returned has
+            //     entered: its as-it-enters choices made (a Clone's copy) and
+            //     its statics registered at 0a, so the attachment asks the
+            //     creature it actually became, and before any state-based
+            //     action or trigger looks at the board.
+            if !self.state.reanimation_finishes.is_empty() {
+                for finish in std::mem::take(&mut self.state.reanimation_finishes) {
+                    crate::aura_bindings::finish_reanimation(&mut self.state, finish);
+                }
+                continue;
+            }
             if self.mana_window.is_some() {
                 if self.advance_payment_window() {
                     return;
@@ -584,10 +595,10 @@ impl<L: CardLookup> Engine<L> {
                 // The check put nothing on the stack and performed nothing
                 // (`cleanup_check_acted`), so no player gets priority and
                 // the step ends (CR 704.3, last sentence).
-                Cleanup::Checking if self.state.zones.stack_is_empty() => {
-                    self.end_cleanup();
-                    false
-                }
+                Cleanup::Checking if self.state.zones.stack_is_empty() => self.end_cleanup(),
+                // A turn was skipped (CR 614.10): the one after it would
+                // begin now, and is offered to its own skips first.
+                Cleanup::Ended { after } => self.begin_next_turn(after),
                 // A triggered ability is on the stack, or a state-based
                 // action was performed: the active player gets priority, and
                 // the step is a priority step from here (CR 514.3a).
@@ -1206,6 +1217,18 @@ impl<L: CardLookup> Engine<L> {
                         if n > 0 {
                             let n = u16::try_from(n).unwrap_or(u16::MAX);
                             crate::replacement::put_counters(&mut self.state, id, *kind, n);
+                            changed = true;
+                        }
+                    }
+                    EnterModifier::LoseLifeEqualToLife => {
+                        let life = self
+                            .state
+                            .players
+                            .get(controller.get() as usize)
+                            .map_or(0, |p| p.life);
+                        if life > 0 {
+                            self.state
+                                .change_life(controller, -life, crate::event::Cause::Effect);
                             changed = true;
                         }
                     }
@@ -2225,9 +2248,30 @@ impl<L: CardLookup> Engine<L> {
                 )
             )
         });
+        // An instruction about the event's exact incarnation ("destroy it",
+        // Kudzu) remembers which object that was as the trigger goes on the
+        // stack, so one that has left the battlefield since is a new object
+        // it does not touch (CR 400.7).
+        let identity = trigger.event_object_identity.or_else(|| {
+            let event = trigger.event_object?;
+            let needs = self
+                .trigger_abilities(trigger)
+                .get(trigger.ability_index as usize)
+                .is_some_and(|ability| match ability {
+                    AbilityDef::Triggered { effects, .. } => effects.iter().any(|effect| {
+                        matches!(
+                            effect,
+                            baylee_cards_dsl::Effect::DestroyEventThenMayReattach { .. }
+                        )
+                    }),
+                    _ => false,
+                });
+            let object = self.state.object(event).filter(|_| needs)?;
+            Some((object.version, object.characteristics().power.unwrap_or(0)))
+        });
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
-            if let Some((version, power)) = trigger.event_object_identity {
+            if let Some((version, power)) = identity {
                 object
                     .riders
                     .push(crate::object::Rider::EventObjectIdentity(version, power));
@@ -2440,7 +2484,8 @@ impl<L: CardLookup> Engine<L> {
         self.state.delayed = delayed
             .into_iter()
             .filter(|d| match d.when {
-                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. } => {
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
+                | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. } => {
                     self.state.object(card).is_some_and(|o| {
                         o.zone == crate::zone::Zone::Battlefield && o.version == version
                     })
@@ -4018,12 +4063,19 @@ impl<L: CardLookup> Engine<L> {
             }
         });
         if !first_turn {
+            // Turn order goes on from the last turn that ended or was
+            // skipped (CR 614.10).
+            let after = match self.cleanup {
+                Cleanup::Ended { after } => after,
+                _ => self.state.turn.active,
+            };
+            self.cleanup = Cleanup::Due;
             // Extra turns (CR 500.7) preempt the normal successor.
             let next = self
                 .state
                 .extra_turns
                 .pop_front()
-                .unwrap_or_else(|| self.next_alive_after(self.state.turn.active));
+                .unwrap_or_else(|| self.next_alive_after(after));
             self.state.turn.active = next;
             self.state.turn.number += 1;
         }
@@ -4069,6 +4121,94 @@ impl<L: CardLookup> Engine<L> {
             number: self.state.turn.number,
             active,
         });
+        // What a skipped turn left to do is "the first thing that happens
+        // during the next step, phase, or turn to actually occur"
+        // (CR 614.10b): this one. A permanent that has since left the
+        // battlefield is a new object (CR 400.7) and is not untapped.
+        for (id, version) in std::mem::take(&mut self.state.skip_followups) {
+            if self
+                .state
+                .object(id)
+                .is_some_and(|o| o.version == version && o.zone == Zone::Battlefield)
+                && self.state.set_tapped(id, false)
+            {
+                // Journaled like every effect's untap, so "whenever ...
+                // becomes untapped" sees it (`resolve::untap`).
+                self.state.journal.record(GameEvent::ObjectUntapped {
+                    object: id,
+                    cause: crate::event::Cause::Effect,
+                });
+            }
+        }
+    }
+
+    /// The turn after `after`'s would begin: an extra turn if one is queued
+    /// (CR 500.7), else the next player's. "An effect that causes a player
+    /// to skip an event, step, phase, or turn is a replacement effect"
+    /// (CR 614.10), so the player whose turn it would be is first offered
+    /// every skip they control; only then does it begin. Returns `true`
+    /// when a question was asked.
+    pub(crate) fn begin_next_turn(&mut self, after: PlayerId) -> bool {
+        self.cleanup = Cleanup::Ended { after };
+        let next = self
+            .state
+            .extra_turns
+            .front()
+            .copied()
+            .unwrap_or_else(|| self.next_alive_after(after));
+        if self.offer_turn_skip(next, Vec::new()) {
+            return true;
+        }
+        self.begin_turn(false);
+        false
+    }
+
+    /// Asks `player` about the first skip replacement they control that
+    /// applies to the turn they would begin and that they have not
+    /// declined for it: a tapped permanent with
+    /// `ReplacementRule::SkipTurnToUntapSelf` (Time Vault). Each one gets a
+    /// single opportunity at the event (CR 614.5), so `declined` carries
+    /// those already answered no. Returns `false` when none is left.
+    pub(crate) fn offer_turn_skip(&mut self, player: PlayerId, declined: Vec<ObjectId>) -> bool {
+        use baylee_cards_dsl::{AbilityDef, ReplacementRule};
+        if self.state.players[usize::from(player.get())].has_lost() {
+            return false;
+        }
+        let state = &self.state;
+        let Some(source) = state
+            .replacement_rules
+            .iter()
+            .filter(|r| r.rule == ReplacementRule::SkipTurnToUntapSelf && r.controller == player)
+            .map(|r| r.source)
+            .filter(|s| !declined.contains(s))
+            .find(|s| {
+                state.object(*s).is_some_and(|o| {
+                    o.zone == Zone::Battlefield
+                        && o.controller == player
+                        && o.status.contains(Status::TAPPED)
+                        && !o.status.contains(Status::PHASED_OUT)
+                })
+            })
+        else {
+            return false;
+        };
+        let ability = state.printed_ability_list(source).and_then(|list| {
+            let index = list.abilities.iter().position(|a| {
+                matches!(
+                    a,
+                    AbilityDef::Replacement(ReplacementRule::SkipTurnToUntapSelf)
+                )
+            })?;
+            list.entry(index)?.provenance.ability_ref()
+        });
+        self.pending_plan = Some(PlanKind::SkipTurn { source, declined });
+        self.pending = Pending::YesNo {
+            player,
+            prompt: crate::choice::YesNoPrompt::SkipTurn { source },
+            source: ability,
+        };
+        self.awaiting_answer = true;
+        true
     }
 
     /// Queues delayed actions (suspend finishes, pact payments) when the
@@ -5664,13 +5804,13 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The cleanup step ends without anyone having had priority in it, and
-    /// with it the turn.
-    pub(crate) fn end_cleanup(&mut self) {
-        self.cleanup = Cleanup::Due;
+    /// with it the turn. Returns `true` when the next turn's player is
+    /// asked whether to skip it.
+    pub(crate) fn end_cleanup(&mut self) -> bool {
         self.state.combat = crate::combat::CombatState::default();
         self.state.board_state_changed();
         self.combat_declared = CombatDeclared::None;
-        self.begin_turn(false);
+        self.begin_next_turn(self.state.turn.active)
     }
 }
 

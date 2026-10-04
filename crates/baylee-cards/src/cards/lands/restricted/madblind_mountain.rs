@@ -30,5 +30,5 @@ card!(
     // (SearchLibrary shuffles only as part of a search), so the ability comes
     // off the card rather than being offered as one that spends {R} and does
     // nothing.
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );

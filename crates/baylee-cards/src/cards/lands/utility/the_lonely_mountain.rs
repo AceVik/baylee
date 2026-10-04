@@ -27,7 +27,7 @@ card!(
          Equipment you control (CostReduction carries only NotStartingPlayer); the 2/2 \
          red Dwarf token exists"
     ),
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Red, 1)])],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );
 
 // NOT SUPPORTED: "{4}{R}, {T}: Create a 2/2 red Dwarf creature token. This

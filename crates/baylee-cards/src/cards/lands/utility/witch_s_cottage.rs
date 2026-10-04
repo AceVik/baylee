@@ -30,7 +30,7 @@ card!(
     ),],
     coverage = Coverage::Implemented,
     abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Black, 1)]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         triggered!(
             Trigger::ETB,
             &[Effect::MayDo {

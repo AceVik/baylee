@@ -98,6 +98,26 @@ enum Cleanup {
     /// ability, so the step gives priority like any other. When the stack is
     /// empty and every player has passed, another cleanup step begins.
     Open,
+    /// The step and its turn have ended, and the next turn has not begun:
+    /// it would follow `after`'s turn, and a skip effect is being offered
+    /// (CR 614.10) before it begins. A skipped turn leaves the order where
+    /// that player's turn would have left it.
+    Ended {
+        /// The player whose turn, taken or skipped, the next one follows.
+        after: PlayerId,
+    },
+}
+
+impl Cleanup {
+    /// The cleanup stage as one number for [`Engine::snapshot_hash`].
+    fn key(self) -> u64 {
+        match self {
+            Self::Due => 0,
+            Self::Checking => 1,
+            Self::Open => 2,
+            Self::Ended { after } => 3 + u64::from(after.get()),
+        }
+    }
 }
 
 /// A CR 605.3a payment window and the operation waiting for its mana.
@@ -625,6 +645,15 @@ enum PlanKind {
         /// The commander card, in a graveyard or in exile.
         card: ObjectId,
     },
+    /// A turn that would begin, offered to one of its player's skip
+    /// replacements (`ReplacementRule::SkipTurnToUntapSelf`, CR 614.10).
+    SkipTurn {
+        /// The tapped permanent asked about.
+        source: ObjectId,
+        /// Those already declined for this same turn: each replacement gets
+        /// one opportunity at the event (CR 614.5).
+        declined: Vec<ObjectId>,
+    },
     /// Target choice for a synthetic trigger (granted triggered ability).
     SyntheticTriggerTarget {
         /// The queued trigger.
@@ -1128,7 +1157,7 @@ impl<L: CardLookup> Engine<L> {
         // A cleanup step's check and its window close differently: nothing
         // performed ends the turn in the one, a round of passes begins
         // another cleanup step in the other (CR 514.3a).
-        extra = extra.wrapping_mul(31).wrapping_add(self.cleanup as u64);
+        extra = extra.wrapping_mul(31).wrapping_add(self.cleanup.key());
         // Automation decides which decisions the engine takes on a seat's
         // behalf, and how many loops it has already broken decides whether
         // the next one is broken or drawn. Two engines that differ in

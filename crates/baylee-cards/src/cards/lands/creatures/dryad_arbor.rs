@@ -19,5 +19,5 @@ card!(
         power = Some(1),
         toughness = Some(1),
     ),],
-    abilities = &[mana_ability!(&[Effect::mana(ManaColor::Green, 1)])],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );

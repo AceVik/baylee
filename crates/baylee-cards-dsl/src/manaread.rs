@@ -135,7 +135,8 @@ pub fn mana_made(cost: &Cost, effects: &[Effect]) -> Option<(SimpleMana, bool)> 
         // the board at all but of the *object*: two Thriving Moors side by
         // side are two different answers, so even a caller holding the whole
         // game has to name which permanent it is asking about.
-        ManaSource::CommanderIdentity
+        ManaSource::IntrinsicBasicLandTypes
+        | ManaSource::CommanderIdentity
         | ManaSource::LandColor { .. }
         | ManaSource::Chosen
         | ManaSource::ChosenOr(_) => return None,

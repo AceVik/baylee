@@ -1897,3 +1897,80 @@ still lacks complete multi-step mana-route/undo handling and its Channel
 special-action exception. Full NumericCapacity rollback is retained; measured
 priority-pass checkpoint overhead remains documented in docs/perf-baseline.md.
 The unlinked Aura preparation is intentionally outside this checkpoint.
+
+### Six-card native and live acceptance — 2026-10-03
+
+The full native dev-control test run passed 1,272 tests (two existing skips),
+followed by all-target Clippy and a dev-control build. Logs are
+`/private/tmp/baylee-six-native-final-{tests,clippy,build}.log`.
+The build retains the existing macOS debug unwind-size linker warning.
+
+Live checks confirm Hack changes a Forest's intrinsic output to blue while its
+original Oracle remains intact, with a separate active word-change annotation;
+Sleight changes White Knight's protection from black to red, after which Terror
+legally destroys it. Vesuvan enters as a blue 1/1 Elf, can decline its upkeep
+change, and can accept a subsequent 2/2 Bears copy while remaining blue. Mask's
+UU payment offers Storm Crow and excludes Grizzly Bears, casts a face-down 2/2,
+and reveals the 1/2 flying Crow upon attacking. Word's limited basic check shows
+`awaiting=0`, `decision_player=1`, the entitled opponent hand, and the opponent's
+Forests funding that opponent's Bears. This is not complete Word rules acceptance.
+
+Two defects found in the already-approved interfaces are being repaired narrowly:
+Mask's own-hand offer must keep the private receipt/explicit cast-or-decline
+browser open; Drain's intrinsic land row must include its current mana output,
+including text-changed land types. Regression tests exercise actual view/choice
+receipt and exact intrinsic labels. No Oracle wording or assets are changed.
+
+Additional finding, accepted by the coordinating agent as restoration of the
+already-approved complete Oracle display: Vesuvan's gained upkeep ability has a valid
+exact ability provenance but no standalone generated sentence. The current stack
+presenter displays only the copied creature name, leaving the optional question
+unexplained. The narrow fix uses that ability's complete unchanged Oracle fallback,
+without inventing a summary or borrowing the copied creature's text. A copied-ability presenter regression also checks that unknown ability provenance
+does not substitute a different face. Before-fix screenshot:
+`/private/tmp/alpha-vesuvan-upkeep-1280.png`.
+
+The three bounded corrections passed 35 native presenter/input/stack tests and
+all 53 browser tests, followed by all-target dev-control Clippy and one final
+app build. Logs: `/private/tmp/baylee-six-ui-fixes-tests3.log`,
+`/private/tmp/baylee-six-ui-fixes-browser-tests.log`,
+`/private/tmp/baylee-six-ui-fixes-clippy.log`, and
+`/private/tmp/baylee-six-ui-fixes-build.log`. The stack regression first failed
+when checking only face-local abilities; using the existing effective
+`abilities_for_face` accessor fixed the exact copied-Vesuvan case. No generated
+card data or Oracle text was edited. Final visual evidence follows below.
+
+Final live evidence (PNG plus same-named JSON under `/private/tmp`):
+`alpha-mask-receipt-final960` and `alpha-mask-selected-final1280` show the legal
+Crow-only offer, X=2, actual UU receipt, fixed cost0 and explicit cast/decline.
+`alpha-mask-declined-final` keeps the Crow in hand with no face-down permanent.
+`alpha-drain-mandatory-final960` shows tap/output glyphs, mandatory land offers
+and processed count; the subsequent dual-land question uses the existing color
+chooser. `alpha-drain-self-result-final` remains turn1/Main with exactly G2+C2
+and an empty stack. `alpha-drain-opponent-result-final1280` remains turn1/Main
+with B1+R1+G1+C2, opponent pool empty, all three opponent lands tapped and the
+opponent Sol Ring untapped. Both have no client error. Equivalent intrinsic and
+printed Forest offers remain distinct engine offers; the client does not guess
+which exact ability to discard. This small redundant-offer finding was reported
+to the engine owner, not silently changed in presentation.
+
+Root's image review found two final presentation details within the same approved
+scope: an empty Mask selection drew duplicate “Nicht wirken” controls, and the
+correct Vesuvan Oracle was still shortened before the relevant upkeep clause.
+The Mask footer now keeps one decline without selection and separate cast/decline
+with a selection. Only a validated full-source-Oracle fallback bypasses the
+ordinary four-line sentence budget, using the existing scrolling stack body.
+The actual footer and generated TextSpan regressions cover these distinctions;
+final verification for this last pair is recorded after the coordinated build.
+
+Last-pair verification: 48 targeted native stack/tray/input tests passed, followed
+by clean all-target dev-control Clippy and the rebuilt app. Logs:
+`/private/tmp/baylee-six-final2-native.log`,
+`/private/tmp/baylee-six-final2-clippy2.log`,
+`/private/tmp/baylee-six-final2-build.log`.
+During the coordinated wait, the requested test-only migration for the current
+library-moving mana rule also passed eight legacy cases and all three independent
+Chromatic Sphere cases (`baylee-six-final2-legacy605.log`,
+`baylee-six-final2-sphere.log`). Their files remain with the Engine owner.
+The change was verified against the official [Hobbit update bulletin](https://www.magic.wizards.com/en/news/announcements/the-hobbit-update-bulletin),
+not inferred from the older mana-ability rule.

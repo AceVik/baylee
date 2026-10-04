@@ -97,3 +97,6 @@ mod ability_log;
 // module stubs here — a stub with a doc comment reads as shipped code.
 
 mod constrained_payment;
+
+/// Aura attachment legality and the relationships effects bind to Auras.
+mod aura_bindings;

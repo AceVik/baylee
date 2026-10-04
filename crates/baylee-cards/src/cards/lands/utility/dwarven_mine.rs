@@ -33,7 +33,7 @@ card!(
         }],
     ),],
     abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Red, 1)]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         triggered!(
             Trigger::EntersBattlefield(&TRIGGER2),
             &[Effect::CreateToken {

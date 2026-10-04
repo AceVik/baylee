@@ -1902,6 +1902,17 @@ impl<L: CardLookup> Engine<L> {
                     legal: Box::new(legal),
                 };
                 self.awaiting_answer = true;
+                // A commanded card is played only "if able" (Word of
+                // Command). A price its player's lands cannot pay at all is
+                // a casting that cannot comply with CR 601.2g-h: it is
+                // reversed (CR 732.1) before anything is tapped, and the
+                // card stays where it was.
+                if self.commanded_payment_feasible() == Some(false) {
+                    self.mana_window = None;
+                    return Err(EngineError::IllegalAction(
+                        "the commanded card cannot be paid",
+                    ));
+                }
                 return Ok(());
             }
         }

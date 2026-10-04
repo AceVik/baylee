@@ -134,7 +134,8 @@ pub(crate) fn run_with_sagas(
         if has_lost {
             continue;
         }
-        let reason = if life <= 0 {
+        // Lich lifts this one loss and no other (CR 704.5a).
+        let reason = if life <= 0 && !state.no_loss_for_zero_life(p) {
             Some(LossReason::Life)
         } else if poison >= 10 {
             Some(LossReason::Poison)
@@ -519,6 +520,23 @@ fn attachment_sbas(
                 .contains(baylee_core::generated::subtypes::artifact::FORTIFICATION);
             if obj.attached_to.is_some() && !fortification {
                 unattaching.push(id);
+            }
+            continue;
+        }
+        // Animate Dead's two enchant abilities name a card in a graveyard and
+        // then the one creature it returned; both are tied to this Aura
+        // incarnation, so the shared attachment rule answers them (CR 303.4c).
+        if is_aura
+            && let Some(
+                bound @ (crate::aura_bindings::EnchantRestriction::GraveyardCard(..)
+                | crate::aura_bindings::EnchantRestriction::ReturnedBy(_)),
+            ) = crate::aura_bindings::restriction(state, obj)
+        {
+            let legal = obj
+                .attached_to
+                .is_some_and(|host| crate::aura_bindings::can_enchant(state, id, host, bound));
+            if !legal {
+                falling_off.push(id);
             }
             continue;
         }

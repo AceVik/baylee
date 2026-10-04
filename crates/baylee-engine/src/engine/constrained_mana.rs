@@ -32,8 +32,10 @@ impl ManaActivationScope {
             }
     }
 
-    /// Apply only to an offer already narrowed to mana abilities. Special
-    /// actions are not mana abilities of a land, even when they make mana.
+    /// Apply only to an offer already narrowed to a mana-payment opportunity.
+    /// A land-only activation restriction does not restrict special actions
+    /// allowed whenever mana abilities could be activated (CR 116.2c/605.3a).
+    /// An instruction to activate listed lands grants no special-action timing.
     pub(super) fn narrow(&self, state: &GameState, player: PlayerId, legal: &mut LegalActions) {
         legal
             .mana_abilities
@@ -44,7 +46,10 @@ impl ManaActivationScope {
         legal
             .unpaid_abilities
             .retain(|&(source, _, _)| self.admits(state, player, source));
-        legal.granted_actions.clear();
+        legal.granted_actions.retain(|offer| {
+            matches!(self, Self::ControlledLands)
+                && offer.timing == baylee_cards_dsl::SpecialActionTiming::ManaAbility
+        });
     }
 }
 
@@ -211,6 +216,26 @@ impl<L: crate::state::CardLookup> super::Engine<L> {
                     .iter()
                     .map(|&(source, index)| (source, Some(index))),
             )
+            .filter(|&(source, ability_index)| {
+                !ability_index.is_some_and(|index| {
+                    legal.mana_abilities.contains(&source)
+                        && !crate::casting::intrinsic_mana_choices(
+                            &self.state,
+                            &self.lookup,
+                            player,
+                            source,
+                        )
+                        .is_empty()
+                        && self.state.object(source).is_some_and(|object| {
+                            object
+                                .abilities(&self.lookup)
+                                .get(index as usize)
+                                .is_some_and(
+                                    baylee_cards_dsl::AbilityDef::is_intrinsic_mana_ability,
+                                )
+                        })
+                })
+            })
             .filter_map(|(source, ability_index)| {
                 self.state
                     .source_identity(source)

@@ -25,11 +25,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White, Color::Black, Color::Green]),
     coverage = Coverage::Implemented,
     abilities = &[
-        mana_ability!(&[Effect::mana_choice(&[
-            ManaColor::White,
-            ManaColor::Black,
-            ManaColor::Green,
-        ])]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         // Cycling {3} (hand-zone ability: discard to draw).
         activated!(
             cost!("{3}", DiscardSelf),

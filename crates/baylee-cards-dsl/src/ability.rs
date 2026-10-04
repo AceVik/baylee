@@ -813,6 +813,16 @@ impl AbilityDef {
         }
     }
 
+    /// Whether this entry represents the intrinsic CR 305.6 mana ability.
+    /// Printed mana symbols deliberately do not qualify, even if identical.
+    #[must_use]
+    pub fn is_intrinsic_mana_ability(&self) -> bool {
+        matches!(self, Self::Activated { effects, .. }
+        if matches!(*effects, [crate::Effect::AddMana {
+            source: crate::ManaSource::IntrinsicBasicLandTypes, ..
+        }]))
+    }
+
     /// Whether this is a mana ability, which the stack never sees (CR 605.1).
     ///
     /// One reading for every caller, because two would disagree: an ability

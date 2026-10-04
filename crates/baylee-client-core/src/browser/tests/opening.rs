@@ -288,3 +288,65 @@ fn the_tray_button_does_not_take_a_question_off_the_screen() {
     assert!(b.is_open(), "the question was taken off the screen");
     assert!(b.answers_here(Some(&it)), "and its keys stopped working");
 }
+
+#[test]
+fn a_mixed_target_sheet_keeps_its_obscured_battlefield_answer_reachable() {
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(
+            0,
+            vec![
+                printed(9, 0, "White Knight", 2),
+                printed(11, 0, "Grizzly Bears", 2),
+            ],
+        )
+        .build();
+    view.stack = vec![printed(20, 1, "Solitude", 5)];
+    let it = Interaction::new(
+        Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(9), obj(20)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        },
+        me(),
+    );
+    let mut browser = Browser::new();
+    browser.follow(&view, Some(&it));
+    assert!(browser.is_open());
+    assert!(!browser.may_be_put_away());
+    assert!(browser.answers_here(Some(&it)));
+    assert_eq!(browser.locked(), None);
+    assert!(browser.zones(&view).contains(&BrowseZone::Battlefield));
+    let rows = browser.rows(&view, Some(&it), Names::projected());
+    assert_eq!(rows.len(), 2);
+    assert!(
+        rows.iter()
+            .any(|row| row.id == obj(9) && row.standing.selectable)
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row.id == obj(20) && row.standing.selectable)
+    );
+    assert!(!rows.iter().any(|row| row.id == obj(11)));
+
+    let only_stack = Interaction::new(
+        Pending::ChooseTargets {
+            player: me(),
+            options: vec![obj(20)],
+            player_options: vec![],
+            min: 1,
+            max: 1,
+            reason: TargetPrompt::Targets,
+        },
+        me(),
+    );
+    browser.follow(&view, Some(&only_stack));
+    assert_eq!(browser.locked(), Some(BrowseZone::Stack));
+    assert!(!browser.zones(&view).contains(&BrowseZone::Battlefield));
+    assert!(!browser.may_be_put_away());
+    let rows = browser.rows(&view, Some(&only_stack), Names::projected());
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, obj(20));
+}

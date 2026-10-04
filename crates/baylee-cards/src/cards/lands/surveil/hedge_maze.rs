@@ -21,7 +21,7 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     abilities = &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Green, ManaColor::Blue])]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         triggered!(Trigger::ETB, &[Effect::surveil(1)]),
     ],
 );

@@ -1771,18 +1771,9 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "move it to the command zone".into(),
             "leave it where it is".into(),
         ),
-        YesNoPrompt::CommanderReplace { card, to_library } => (
-            format!(
-                "Your commander {} is about to go to your {}. Put it into the command zone instead?",
-                table.named(*card),
-                if *to_library { "library" } else { "hand" }
-            ),
-            "put it into the command zone".into(),
-            format!(
-                "let it go to your {}",
-                if *to_library { "library" } else { "hand" }
-            ),
-        ),
+        YesNoPrompt::CommanderReplace { card, to_library } => {
+            commander_replace_words(table, *card, *to_library)
+        }
         YesNoPrompt::CastWithoutPaying { card } => (
             format!("Cast {} without paying its mana cost?", table.named(*card)),
             "cast it".into(),
@@ -1814,8 +1805,29 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "cast it".into(),
             "put it into your hand".into(),
         ),
+        YesNoPrompt::SkipTurn { source } => (
+            format!("Skip this turn to untap {}?", table.named(*source)),
+            "skip this turn; untap it when the next turn begins".into(),
+            "take this turn; leave it tapped".into(),
+        ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn commander_replace_words(
+    table: &Table<'_>,
+    card: ObjectId,
+    to_library: bool,
+) -> (String, String, String) {
+    let destination = if to_library { "library" } else { "hand" };
+    (
+        format!(
+            "Your commander {} is about to go to your {destination}. Put it into the command zone instead?",
+            table.named(card)
+        ),
+        "put it into the command zone".into(),
+        format!("let it go to your {destination}"),
+    )
 }
 
 impl Builder<'_, '_> {

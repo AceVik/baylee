@@ -2202,8 +2202,16 @@ fn spawn_footer(
         commands.entity(foot).add_child(batch);
     }
 
-    // Inspection has no alternative answer to cancel into.
-    if min == 0 && max > 0 {
+    // Inspection has no alternative answer. An empty Mask selection already
+    // labels the primary action "Do not cast", so a second decline duplicates it.
+    let primary_declines = matches!(
+        it.pending(),
+        baylee_engine::choice::Pending::ChooseCards {
+            prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. },
+            ..
+        }
+    ) && it.selected().next().is_none();
+    if min == 0 && max > 0 && !primary_declines {
         let out = dialog_label(
             commands,
             fonts,

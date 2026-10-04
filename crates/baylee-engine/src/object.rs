@@ -514,7 +514,8 @@ impl Characteristics {
                     // very field of the other lands, so claiming all five
                     // here would let a lone Pool tap for any color and would
                     // make two Pools promise each other the rainbow.
-                    baylee_cards_dsl::ManaSource::LandColor { .. } => {}
+                    baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
+                    | baylee_cards_dsl::ManaSource::LandColor { .. } => {}
                     // The chosen colour is on the *object* and this is a
                     // reading of the card, so there is nothing to put here.
                     // Only Reflecting Pool and Exotic Orchard read this

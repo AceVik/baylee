@@ -699,8 +699,11 @@ impl HeuristicAgent {
                 YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
                 // A draw is declined because the house AI has no match score
                 // to protect, so accepting would only ever be a game given
-                // away.
-                YesNoPrompt::DrawOffer { .. } => PlayerAction::YesNo(false),
+                // away. Untapping at the price of a whole turn needs a
+                // turn-trade evaluator, not the free optional-effect default.
+                YesNoPrompt::DrawOffer { .. } | YesNoPrompt::SkipTurn { .. } => {
+                    PlayerAction::YesNo(false)
+                }
                 // Both yes, for reasons that happen to agree. An optional
                 // effect is written on a card this seat chose to play, so
                 // taking it is the default. And a commander goes home
@@ -924,6 +927,33 @@ mod tests {
             colors: face.mana_cost.colors(),
             types: face.types,
             commander: false,
+        }
+    }
+
+    #[test]
+    fn a_turn_trade_is_declined_without_declining_free_optional_effects() {
+        let mut vault = carded(
+            permanent(obj(7), PlayerId::new(0), 0),
+            "Time Vault",
+            TypeSet::ARTIFACT,
+        );
+        vault.status = ObjectStatus::TAPPED;
+        let v = view(0, &[20, 20], vec![vault]);
+        for profile in [AIProfile::STEADY, AIProfile::SHARP, AIProfile::EXPERT] {
+            let agent = HeuristicAgent::new(profile);
+            let offer = |prompt| Pending::YesNo {
+                player: v.seat,
+                prompt,
+                source: None,
+            };
+            assert_eq!(
+                agent.act(&v, &offer(YesNoPrompt::SkipTurn { source: obj(7) })),
+                PlayerAction::YesNo(false)
+            );
+            assert_eq!(
+                agent.act(&v, &offer(YesNoPrompt::MayDo)),
+                PlayerAction::YesNo(true)
+            );
         }
     }
 

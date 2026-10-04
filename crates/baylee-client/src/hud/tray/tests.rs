@@ -312,6 +312,49 @@ fn a_zone_tab_carries_its_count_as_an_aside() {
     );
 }
 
+/// Builds one footer and reports `(confirm is a control, cancel is drawn)`.
+fn choice_footer_controls(it: &baylee_client_core::Interaction) -> (bool, bool) {
+    let mut app = App::new();
+    let fonts = UiFonts {
+        text: Handle::default(),
+        medium: Handle::default(),
+        bold: Handle::default(),
+        italic: Handle::default(),
+        medium_italic: Handle::default(),
+        serif: Handle::default(),
+        serif_italic: Handle::default(),
+        icons: Handle::default(),
+        mana: Handle::default(),
+    };
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    let foot = {
+        let mut commands = Commands::new(&mut queue, app.world());
+        spawn_footer(
+            &mut commands,
+            &fonts,
+            Lang::En,
+            Some(it),
+            &baylee_client_core::test_support::ViewBuilder::new(2).build(),
+        )
+        .expect("a question has one")
+    };
+    queue.apply(app.world_mut());
+    let kids: Vec<_> = app
+        .world()
+        .entity(foot)
+        .get::<Children>()
+        .expect("a footer has buttons")
+        .iter()
+        .collect();
+    let lit = kids
+        .iter()
+        .any(|e| app.world().entity(*e).contains::<PromptButton>());
+    let out = kids
+        .iter()
+        .any(|e| app.world().entity(*e).contains::<TrayNone>());
+    (lit, out)
+}
+
 /// The footer is exactly what the question allows, and nothing more.
 ///
 /// Three claims, one per state, and they are the whole of §6's footer.
@@ -345,64 +388,47 @@ fn the_footer_offers_only_what_the_question_allows() {
         it
     }
 
-    /// Builds one footer and reports `(confirm is a control, cancel is drawn)`.
-    fn footer_of(it: &baylee_client_core::Interaction) -> (bool, bool) {
-        let mut app = App::new();
-        let fonts = UiFonts {
-            text: Handle::default(),
-            medium: Handle::default(),
-            bold: Handle::default(),
-            italic: Handle::default(),
-            medium_italic: Handle::default(),
-            serif: Handle::default(),
-            serif_italic: Handle::default(),
-            icons: Handle::default(),
-            mana: Handle::default(),
-        };
-        let mut queue = bevy::ecs::world::CommandQueue::default();
-        let foot = {
-            let mut commands = Commands::new(&mut queue, app.world());
-            spawn_footer(
-                &mut commands,
-                &fonts,
-                Lang::En,
-                Some(it),
-                &baylee_client_core::test_support::ViewBuilder::new(2).build(),
-            )
-            .expect("a question has one")
-        };
-        queue.apply(app.world_mut());
-        let kids: Vec<_> = app
-            .world()
-            .entity(foot)
-            .get::<Children>()
-            .expect("a footer has buttons")
-            .iter()
-            .collect();
-        let lit = kids
-            .iter()
-            .any(|e| app.world().entity(*e).contains::<PromptButton>());
-        let out = kids
-            .iter()
-            .any(|e| app.world().entity(*e).contains::<TrayNone>());
-        (lit, out)
-    }
-
     assert_eq!(
-        footer_of(&asked(1, &[])),
+        choice_footer_controls(&asked(1, &[])),
         (false, false),
         "an incomplete answer offered a Confirm, or a way out that does \
          not exist"
     );
     assert_eq!(
-        footer_of(&asked(1, &[1])),
+        choice_footer_controls(&asked(1, &[1])),
         (true, false),
         "a complete answer could not be sent"
     );
     assert_eq!(
-        footer_of(&asked(0, &[])),
+        choice_footer_controls(&asked(0, &[])),
         (true, true),
         "a question that takes an empty answer drew no way out"
+    );
+    let mut mask = baylee_client_core::Interaction::new(
+        Pending::ChooseCards {
+            player: PlayerId::new(0),
+            options: vec![ObjectId::new(1, 0)],
+            min: 0,
+            max: 1,
+            prompt: ChoicePrompt::CastFaceDown {
+                x: 2,
+                paid: [0, 2, 0, 0, 0, 0],
+                fixed_cost: baylee_core::mana::ManaCost::default(),
+            },
+            total: None,
+        },
+        PlayerId::new(0),
+    );
+    assert_eq!(
+        choice_footer_controls(&mask),
+        (true, false),
+        "one explicit decline without a selected card"
+    );
+    mask.toggle(ObjectId::new(1, 0));
+    assert_eq!(
+        choice_footer_controls(&mask),
+        (true, true),
+        "cast selected card or explicitly decline"
     );
     let inspect = baylee_client_core::Interaction::new(
         Pending::ChooseCards {
@@ -416,7 +442,7 @@ fn the_footer_offers_only_what_the_question_allows() {
         PlayerId::new(0),
     );
     assert_eq!(
-        footer_of(&inspect),
+        choice_footer_controls(&inspect),
         (true, false),
         "inspection has one acknowledgement, no duplicate cancel"
     );

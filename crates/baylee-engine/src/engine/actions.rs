@@ -982,6 +982,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
                         unreachable!("miracle and discover plans are answered via YesNo")
                     }
+                    PlanKind::SkipTurn { .. } => {
+                        unreachable!("turn skips are answered via YesNo")
+                    }
                     PlanKind::DivideDamage { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
                     }
@@ -1333,6 +1336,41 @@ impl<L: CardLookup> Engine<L> {
                             ZonePosition::Top,
                             Cause::StateBased,
                         )?;
+                    }
+                    return Ok(());
+                }
+                // A turn that would begin, offered to a skip (CR 614.10).
+                if matches!(self.pending_plan, Some(PlanKind::SkipTurn { .. })) {
+                    let Some(PlanKind::SkipTurn {
+                        source,
+                        mut declined,
+                    }) = self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
+                    let super::Cleanup::Ended { after } = self.cleanup else {
+                        unreachable!("a skip is offered only between two turns")
+                    };
+                    if answer {
+                        // "Instead of doing [something], do nothing": the
+                        // turn is gone, an extra one spent like any other,
+                        // and the order goes on from where it would have
+                        // left it. The untap waits for the next turn that
+                        // actually occurs (CR 614.10b).
+                        let skipped = self
+                            .state
+                            .extra_turns
+                            .pop_front()
+                            .unwrap_or_else(|| self.next_alive_after(after));
+                        if let Some(version) = self.state.object(source).map(|o| o.version) {
+                            self.state.skip_followups.push((source, version));
+                        }
+                        self.cleanup = super::Cleanup::Ended { after: skipped };
+                        return Ok(());
+                    }
+                    declined.push(source);
+                    if !self.offer_turn_skip(player, declined) {
+                        self.begin_turn(false);
                     }
                     return Ok(());
                 }
@@ -1767,6 +1805,15 @@ impl<L: CardLookup> Engine<L> {
     /// branch, which is the same outcome as declining and is what the card
     /// prints.
     fn close_mana_window(&mut self) -> Result<(), EngineError> {
+        // "The player plays that card if able" (Word of Command): while the
+        // commanded card's price can still be paid and the pool does not
+        // pay it yet, closing the window gives up a card the player is able
+        // to play — an illegal attempt (CR 732.1), refused.
+        if self.commanded_payment_feasible() == Some(true) && !self.commanded_pool_completes() {
+            return Err(EngineError::IllegalAction(
+                "the commanded card can still be paid",
+            ));
+        }
         // Total rather than asserted. The only caller is the pass arm, which
         // has already matched on this window standing open, and a window with
         // no resolution in it is now unrepresentable — so there is nothing

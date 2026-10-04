@@ -56,23 +56,10 @@ pub(crate) fn intrinsic_mana_ability(type_line: &str) -> Option<String> {
     if !left.split_whitespace().any(|w| w == "Land") {
         return None;
     }
-    let basics: Vec<&str> = right
+    right
         .split_whitespace()
-        .filter_map(|w| {
-            BASIC_TYPES
-                .iter()
-                .find(|(name, _)| *name == w)
-                .map(|(_, color)| *color)
-        })
-        .collect();
-    match basics.len() {
-        0 => None,
-        1 => Some(format!("mana_ability!(&[Effect::mana({}, 1)])", basics[0])),
-        _ => Some(format!(
-            "mana_ability!(&[Effect::mana_choice(&[{}])])",
-            basics.join(", ")
-        )),
-    }
+        .any(|word| BASIC_TYPES.iter().any(|(name, _)| *name == word))
+        .then(|| "mana_ability!(&[Effect::intrinsic_mana()])".to_owned())
 }
 
 fn symbol_color(sym: &str) -> Option<&'static str> {
@@ -976,7 +963,7 @@ mod tests {
         let body = read("Land \u{2014} Mountain Forest", "({T}: Add {R} or {G}.)");
         assert_eq!(
             body.abilities,
-            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::Green])])"]
+            ["mana_ability!(&[Effect::intrinsic_mana()])"]
         );
         assert!(body.enter_modifiers.is_empty());
     }
@@ -986,7 +973,19 @@ mod tests {
         let body = read("Basic Land \u{2014} Mountain", "({T}: Add {R}.)");
         assert_eq!(
             body.abilities,
-            ["mana_ability!(&[Effect::mana(ManaColor::Red, 1)])"]
+            ["mana_ability!(&[Effect::intrinsic_mana()])"]
+        );
+    }
+
+    #[test]
+    fn intrinsic_and_printed_mana_keep_distinct_provenance() {
+        let body = read("Land \u{2014} Island", "{T}: Add {G}.");
+        assert_eq!(
+            body.abilities,
+            [
+                "mana_ability!(&[Effect::intrinsic_mana()])",
+                "mana_ability!(&[Effect::mana(ManaColor::Green, 1)])",
+            ]
         );
     }
 
@@ -1082,7 +1081,10 @@ mod tests {
         );
         assert_eq!(body.enter_modifiers, ["EnterModifier::Tapped"]);
         assert_eq!(body.abilities.len(), 2);
-        assert!(body.abilities[0].contains("mana_choice"));
+        assert_eq!(
+            body.abilities[0],
+            "mana_ability!(&[Effect::intrinsic_mana()])"
+        );
         assert!(body.abilities[1].contains("zone = ActivationZone::Hand"));
     }
 
@@ -1778,7 +1780,7 @@ mod tests {
         assert!(body.statics.is_empty(), "{}", body.statics);
         assert_eq!(
             body.abilities,
-            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Blue, ManaColor::Black])])"]
+            ["mana_ability!(&[Effect::intrinsic_mana()])"]
         );
     }
 

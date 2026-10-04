@@ -2146,6 +2146,11 @@ messages! {
         en: "You discovered this card. Cast it without paying its mana cost? (No puts it into your hand.)",
         de: "Du hast diese Karte entdeckt. Ohne ihre Manakosten zu bezahlen wirken? (Nein nimmt sie auf deine Hand.)",
     },
+    /// A turn replacement with an explicit turn cost, not a free optional effect.
+    SkipTurnToUntap {
+        en: "Skip this turn to untap this permanent?",
+        de: "Diesen Zug überspringen, um diese bleibende Karte zu enttappen?",
+    },
     /// Yes or no?
     YesOrNo { en: "Yes or no?", de: "Ja oder nein?" },
     /// Offer a draw

@@ -195,7 +195,11 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
             // Text changes affect the type line and printed/copied keywords
             // here, before type-setting effects and later ability grants.
             let text = eval::live_context(state, obj.id).text;
+            let old_types = c.subtypes;
             c.subtypes = text.land_types(c.subtypes);
+            if c.subtypes != old_types {
+                update_intrinsic_mana_summary(state, obj, &mut c, old_types);
+            }
             c.keywords = text.keywords(c.keywords);
         }
         let dynamic_types = layer == Layer::Type && plan.conditional_animation;
@@ -275,6 +279,82 @@ pub fn recompute_with(state: &GameState, obj: &GameObject, plan: &LayerPlan) -> 
         characteristics: c,
         controller,
         read_board,
+    }
+}
+
+/// Replace only the type-derived portion of the production summary. A printed
+/// mana symbol can name the same color and is unaffected by CR 612 text changes.
+fn update_intrinsic_mana_summary(
+    state: &GameState,
+    obj: &GameObject,
+    current: &mut Characteristics,
+    old_types: baylee_core::types::SubtypeSet,
+) {
+    use baylee_cards_dsl::{AbilityDef, Effect, ManaSource};
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::generated::subtypes::land;
+    use baylee_core::mana::ManaColor;
+    let mut printed = ColorSet::EMPTY;
+    let mut keep = |color| {
+        let color = match color {
+            ManaColor::White => Color::White,
+            ManaColor::Blue => Color::Blue,
+            ManaColor::Black => Color::Black,
+            ManaColor::Red => Color::Red,
+            ManaColor::Green => Color::Green,
+            ManaColor::Colorless => return,
+        };
+        printed = printed.union(ColorSet::of(color));
+    };
+    if let Some(list) = state.printed_ability_list(obj.id) {
+        for ability in list
+            .abilities
+            .iter()
+            .filter(|ability| ability.is_mana_ability())
+        {
+            let (AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }) = ability
+            else {
+                continue;
+            };
+            for effect in *effects {
+                if let Effect::AddMana { source, .. } = effect {
+                    match source {
+                        ManaSource::Fixed(color) => keep(*color),
+                        ManaSource::Choice(colors) | ManaSource::ChosenOr(colors) => {
+                            for color in *colors {
+                                keep(*color);
+                            }
+                        }
+                        ManaSource::CommanderIdentity => {
+                            for color in ManaColor::ALL {
+                                keep(color);
+                            }
+                        }
+                        ManaSource::IntrinsicBasicLandTypes
+                        | ManaSource::LandColor { .. }
+                        | ManaSource::Chosen => {}
+                    }
+                }
+            }
+        }
+    }
+    for subtype in [
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
+    ] {
+        let color = basic_land_color(subtype);
+        if old_types.contains(subtype) {
+            current.produced_colors = current
+                .produced_colors
+                .difference(color.difference(printed));
+        }
+        if current.subtypes.contains(subtype) {
+            current.produced_colors = current.produced_colors.union(color);
+        }
     }
 }
 
@@ -1090,6 +1170,8 @@ fn apply(
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
         | Modifier::CantLoseLife { .. }
+        | Modifier::NoLossForZeroLife { .. }
+        | Modifier::LifeGainDrawsInstead { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented

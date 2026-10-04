@@ -1063,6 +1063,15 @@ pub enum YesNoPrompt {
         /// The discovered card, in exile.
         card: baylee_core::ids::ObjectId,
     },
+    /// "If you would begin your turn while this artifact is tapped, you may
+    /// skip that turn instead" (Time Vault, CR 614.10), asked of the player
+    /// whose turn would begin, before it begins: yes skips the turn and
+    /// untaps `source` as the next turn that occurs begins (CR 614.10b), no
+    /// takes the turn.
+    SkipTurn {
+        /// The tapped permanent whose replacement effect is offered.
+        source: baylee_core::ids::ObjectId,
+    },
     /// Generic yes/no (optional effects).
     Generic,
 }
@@ -1120,6 +1129,7 @@ impl YesNoPrompt {
             | Self::CastPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
+            | Self::SkipTurn { .. }
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
@@ -2393,6 +2403,11 @@ mod choice_tests {
             ),
             (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
             (yes_no(YesNoPrompt::MayDo), no.clone()),
+            // No takes the turn as it would have been taken.
+            (
+                yes_no(YesNoPrompt::SkipTurn { source: object() }),
+                no.clone(),
+            ),
             (yes_no(YesNoPrompt::Generic), no),
             (yes_no(YesNoPrompt::CommanderZone { card: object() }), None),
             // Declining a pact's payment loses the game, so nobody's clock
@@ -2579,17 +2594,17 @@ mod choice_tests {
     }
 
     /// How many kinds [`kind_of`] tells apart.
-    const KINDS: usize = 20 + 17;
+    const KINDS: usize = 20 + 18;
 
     /// Which kind of question this is, numbered without gaps. No wildcard
     /// arm: a new `Pending` variant or yes/no prompt does not compile here
     /// until it has a number, and then the table above is missing it.
     fn kind_of(pending: &Pending) -> usize {
         match pending {
-            Pending::ChooseDamageSource { .. } => 36,
-            Pending::ChooseManaAbility { .. } => 37,
-            Pending::ChooseDamageEffect { .. } => 34,
-            Pending::AllocatePrevention { .. } => 35,
+            Pending::ChooseDamageSource { .. } => 37,
+            Pending::ChooseManaAbility { .. } => 38,
+            Pending::ChooseDamageEffect { .. } => 35,
+            Pending::AllocatePrevention { .. } => 36,
             Pending::Mulligan { .. } => 0,
             Pending::MulliganBottom { .. } => 1,
             Pending::Priority { .. } => 2,
@@ -2625,9 +2640,10 @@ mod choice_tests {
                     YesNoPrompt::CastWithoutPaying { .. } => 13,
                     YesNoPrompt::CastPaying { .. } => 14,
                     YesNoPrompt::PayMana { .. } => 15,
+                    YesNoPrompt::SkipTurn { .. } => 16,
                 }
             }
-            Pending::ChoosePile { .. } => 17 + 16,
+            Pending::ChoosePile { .. } => 17 + 17,
         }
     }
 
@@ -2846,12 +2862,14 @@ mod choice_tests {
                 | YesNoPrompt::CommanderReplace { .. }
                 | YesNoPrompt::TopOfLibrary { .. }
                 | YesNoPrompt::Discover { .. }
+                | YesNoPrompt::SkipTurn { .. }
                 | YesNoPrompt::Generic => false,
             }
         }
         for prompt in [
             YesNoPrompt::MayDo,
             YesNoPrompt::Generic,
+            YesNoPrompt::SkipTurn { source: object() },
             YesNoPrompt::Kicker,
             YesNoPrompt::PayLifeOrEnterTapped { amount: 1 },
             YesNoPrompt::PayTax { mana: 2 },

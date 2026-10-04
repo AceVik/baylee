@@ -414,6 +414,9 @@ pub enum ZoneSel {
 /// no way to be said.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ManaSource {
+    /// CR 305.6 abilities supplied by the source's current basic land types.
+    /// This provenance is distinct from printed mana symbols.
+    IntrinsicBasicLandTypes,
     /// One named color, or colorless.
     Fixed(ManaColor),
     /// A choice among the listed colors, made on resolution.
@@ -1421,6 +1424,48 @@ pub enum Effect {
         /// long as no shield existed.
         no_regen: bool,
     },
+    /// "Destroy it. That land's controller may attach this Aura to a land of
+    /// their choice" (Kudzu, on "when enchanted land becomes tapped").
+    ///
+    /// The trigger's event object is destroyed if it is still the object
+    /// that became tapped (CR 400.7). Then its controller — the one it had
+    /// (CR 608.2h) — may choose a permanent matching `to` that the source
+    /// Aura can enchant, and the Aura is attached to it. The choice is not a
+    /// target: shroud and hexproof do not stop it, and "If an effect
+    /// attempts to attach an Aura on the battlefield to an object or player
+    /// it can't legally enchant, the Aura doesn't move" (CR 303.4j).
+    DestroyEventThenMayReattach {
+        /// What the Aura may be moved to.
+        to: &'static Filter,
+    },
+    /// "That creature's controller sacrifices it": the event object of a
+    /// delayed trigger, while it is still the object it was (CR 400.7,
+    /// 603.7c), is sacrificed by whoever controls it then (Animate Dead's
+    /// leave trigger).
+    SacrificeEvent,
+    /// "Sacrifice that many nontoken permanents. If you can't, you lose the
+    /// game" (Lich). The controller sacrifices `amount` permanents matching
+    /// the filter at once, their choice. Holding fewer, they sacrifice all of
+    /// them and lose the game (CR 104.3e), unless an effect says they can't.
+    SacrificeAmountOrLose {
+        /// What may be sacrificed.
+        filter: &'static Filter,
+        /// How many must be.
+        amount: Amount,
+    },
+    /// "You lose the game" (CR 104.3e; Lich's leave trigger). Not stopped by
+    /// a life total above 0, only by an effect saying the player can't lose.
+    LoseGame,
+    /// Animate Dead's enter trigger: "if it's on the battlefield, it loses
+    /// 'enchant creature card in a graveyard' and gains 'enchant creature
+    /// put onto the battlefield with this Aura.' Return enchanted creature
+    /// card to the battlefield under your control and attach this Aura to
+    /// it. When this Aura leaves the battlefield, that creature's
+    /// controller sacrifices it." The enchant change is made first and
+    /// holds even when the card cannot return (CR 303.4c); the attachment
+    /// is made once the card has entered, so replacement and copy choices
+    /// as it enters come first.
+    ReanimateEnchanted,
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
@@ -3214,6 +3259,17 @@ impl Effect {
         }
     }
 
+    /// One mana from the source's current basic land types (CR 305.6).
+    #[must_use]
+    pub const fn intrinsic_mana() -> Self {
+        Self::AddMana {
+            source: ManaSource::IntrinsicBasicLandTypes,
+            amount: Amount::Fixed(1),
+            combination: false,
+            restriction: None,
+        }
+    }
+
     /// `Add {G} or {U}.` — one mana, colour chosen on resolution.
     #[must_use]
     pub const fn mana_choice(colors: &'static [ManaColor]) -> Self {
@@ -3557,6 +3613,11 @@ impl Effect {
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
+            | Effect::DestroyEventThenMayReattach { .. }
+            | Effect::SacrificeEvent
+            | Effect::SacrificeAmountOrLose { .. }
+            | Effect::LoseGame
+            | Effect::ReanimateEnchanted
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback

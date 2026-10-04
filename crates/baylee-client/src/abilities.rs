@@ -1282,7 +1282,13 @@ pub(crate) fn required_mana_label(
     option: baylee_engine::choice::ManaAbilityChoice,
 ) -> String {
     let Some(index) = option.ability_index else {
-        return "{T}".to_string();
+        return view
+            .object(option.source.object)
+            .and_then(|object| baylee_client_core::manaplan::basic_land_color(&object.subtypes))
+            .map_or_else(
+                || "{T}".to_string(),
+                |color| format!("{{T}}: {}", Phrase::TapFor.fill(lang, &[pip(color)])),
+            );
     };
     let cost = match crate::manasources::ability_at(view, option.source.object, index) {
         Some(
@@ -1305,6 +1311,32 @@ mod tests {
     use baylee_client_core::test_support::{ViewBuilder, token};
     use baylee_core::ids::PlayerId;
     use baylee_engine::choice::{GRANTED_ABILITY, LegalActions, PREPARED_CAST, Pending};
+
+    #[test]
+    fn required_intrinsic_mana_names_current_output_with_mana_symbols() {
+        use baylee_core::generated::subtypes::land;
+        let mut forest = baylee_client_core::test_support::printed(9, 0, "Forest", 1);
+        // A Hack-changed Forest taps for blue: do not infer its printed name.
+        forest.subtypes = baylee_core::types::SubtypeSet::default();
+        forest.subtypes.insert(land::ISLAND);
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![forest])
+            .build();
+        let label = required_mana_label(
+            Lang::De,
+            &view,
+            baylee_engine::choice::ManaAbilityChoice {
+                source: baylee_core::ids::DamageSourceRef {
+                    object: ObjectId::new(9, 0),
+                    version: 1,
+                },
+                ability_index: None,
+            },
+        );
+        assert!(label.contains("{T}"));
+        assert!(label.contains("{U}"));
+        assert!(!label.contains("{G}"));
+    }
 
     #[test]
     fn an_effigy_copying_harabaz_keeps_its_variable_mana_as_a_written_choice() {

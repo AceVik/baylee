@@ -864,3 +864,128 @@ fn mask_review_noncombat_prevention_order_controls_whether_recipient_turns_face_
         assert_eq!(engine.state().players[1].life, 20);
     }
 }
+
+fn word_channel_fixture() -> (Engine<RegistryLookup>, baylee_core::ids::GrantedActionId) {
+    use crate::choice::GrantedActionKind;
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp()])
+        .hand(0, &[index::WORD_OF_COMMAND])
+        .battlefield(1, &[forest(), forest(), plains()])
+        .hand(
+            1,
+            &[index::CHANNEL, index::GUARDIAN_ANGEL, index::JUGGERNAUT],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, USER);
+    reach_their_main_phase(&mut engine, OTHER);
+    tap_card(&mut engine, OTHER, forest());
+    tap_card(&mut engine, OTHER, forest());
+    cast_with_floating(&mut engine, OTHER, index::CHANNEL);
+    pass_until(&mut engine, stack_is_empty);
+    priority(&mut engine, OTHER);
+    tap_card(&mut engine, OTHER, plains());
+    cast_with_floating(&mut engine, OTHER, index::GUARDIAN_ANGEL);
+    engine.apply(OTHER, PlayerAction::ChooseNumber(0)).unwrap();
+    aim(&mut engine, vec![], vec![OTHER]);
+    pass_until(&mut engine, stack_is_empty);
+    priority(&mut engine, OTHER);
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    let guardian = legal
+        .granted_actions
+        .iter()
+        .find(|offer| matches!(offer.effect, GrantedActionKind::PreventNextDamage { .. }))
+        .expect("Guardian is available at ordinary priority")
+        .id;
+    assert_eq!(engine.state().players[1].mana_pool.total(), 0);
+
+    (engine, guardian)
+}
+
+#[test]
+fn word_review_channel_special_action_pays_commanded_spell_and_keeps_surplus() {
+    use crate::choice::GrantedActionKind;
+    let (mut engine, guardian) = word_channel_fixture();
+    let juggernaut = word_select(&mut engine, index::JUGGERNAUT);
+    assert_eq!(
+        engine.payment_window().map(|(player, _)| player),
+        Some(OTHER)
+    );
+    assert_eq!(engine.decision_actor(), Some(USER));
+    let Pending::Priority { player, legal } = engine.pending() else {
+        panic!("payment");
+    };
+    assert_eq!(*player, OTHER);
+    assert!(
+        !legal
+            .granted_actions
+            .iter()
+            .any(|offer| offer.id == guardian)
+    );
+    let before = engine.fingerprint();
+    assert!(
+        engine
+            .apply(USER, PlayerAction::TakeGrantedAction { id: guardian })
+            .is_err()
+    );
+    assert_eq!(
+        engine.fingerprint(),
+        before,
+        "priority-only action refuses atomically"
+    );
+    for paid in 1..=5 {
+        let Pending::Priority { legal, .. } = engine.pending() else {
+            panic!("payment");
+        };
+        let channel = legal
+            .granted_actions
+            .iter()
+            .find(|offer| {
+                matches!(
+                    offer.effect,
+                    GrantedActionKind::AddMana {
+                        color: ManaColor::Colorless,
+                        amount: 1
+                    }
+                )
+            })
+            .expect("Channel's mana-timed special action remains available")
+            .id;
+        engine
+            .apply(USER, PlayerAction::TakeGrantedAction { id: channel })
+            .unwrap();
+        assert_eq!(engine.state().players[1].life, 20 - paid);
+        assert_eq!(engine.state().players[0].life, 20);
+        assert_eq!(
+            engine.payment_window().map(|(player, _)| player),
+            Some(OTHER)
+        );
+    }
+    engine.apply(USER, PlayerAction::PassPriority).unwrap();
+    assert_eq!(engine.state().object(juggernaut).unwrap().zone, Zone::Stack);
+    assert!(in_graveyard(&engine, USER, index::WORD_OF_COMMAND).is_some());
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "Channel units are not bound land-ability production"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(juggernaut).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert_eq!(engine.state().object(juggernaut).unwrap().controller, OTHER);
+    assert_eq!(pt(&engine, juggernaut), (5, 3));
+    assert_eq!(engine.state().players[1].life, 15);
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1
+    );
+}

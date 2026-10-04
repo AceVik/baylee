@@ -446,6 +446,11 @@ impl<L: CardLookup> Engine<L> {
                 obj.abilities(&self.lookup)
             };
             for (i, ability) in offered.iter().enumerate() {
+                if ability.is_intrinsic_mana_ability()
+                    && casting::intrinsic_mana_colors(&self.state, id).is_empty()
+                {
+                    continue;
+                }
                 match ability {
                     AbilityDef::Activated {
                         cost,
@@ -1708,11 +1713,16 @@ impl<L: CardLookup> Engine<L> {
             // copying Werefox Bodyguard was offered the sacrifice ability
             // at index 1 and refused it with "no such ability", because
             // Glasspool Mimic's printed list is one entry long.
-            match obj
+            let ability = obj
                 .abilities(&self.lookup)
                 .get(ability_index as usize)
-                .ok_or(EngineError::IllegalAction("no such ability"))?
+                .ok_or(EngineError::IllegalAction("no such ability"))?;
+            if ability.is_intrinsic_mana_ability()
+                && casting::intrinsic_mana_colors(&self.state, source).is_empty()
             {
+                return Err(EngineError::IllegalAction("no basic land mana ability"));
+            }
+            match ability {
                 AbilityDef::Activated {
                     cost,
                     effects,

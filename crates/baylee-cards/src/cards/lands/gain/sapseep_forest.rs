@@ -25,7 +25,7 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     abilities = &[
-        mana_ability!(&[Effect::mana(ManaColor::Green, 1)]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         activated!(
             cost!("{G}", TapSelf),
             &[Effect::gain_life(1)],

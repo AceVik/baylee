@@ -2146,50 +2146,24 @@ pub fn intrinsic_mana_colors(state: &GameState, source: ObjectId) -> Vec<ManaCol
     .collect()
 }
 
-/// The colors the CR 305.6 shortcut may still offer for this land: its basic
-/// types, less whatever its own card already prints a mana ability for.
-///
-/// **The subtraction is the whole of it.** The ten original duals print a
-/// `Add {R} or {G}` ability that codegen wrote off the very same type line
-/// this rule reads — one ability, rendered twice — so a shortcut that
-/// ignored the card would offer Taiga two ways to tap and `land_mana_tests`
-/// would say so, ten times over. What the subtraction keeps is the half the
-/// card *cannot* print: a basic Forest under Urborg, Tomb of Yawgmoth is a
-/// Forest Swamp, prints nothing at all, and needs the rule for both colours;
-/// Taiga under the same Urborg needs it for the black alone, beside the
-/// printed ability that still makes its red and green. Three mana abilities
-/// on one land is what CR 305.6 actually says, and this is the only reader
-/// that can count them.
-///
-/// Read through [`baylee_cards_dsl::mana_made`] and not `simple_mana`,
-/// because a restricted printed ability is still a printed one: what is
-/// being asked is "does the card already say this colour", not "may a
-/// planner spend it".
+/// Colors available through the unindexed intrinsic shortcut. A multi-type
+/// land with an explicit intrinsic entry uses that entry's color choice; a
+/// printed fixed-symbol ability never removes a type-derived alternative.
 #[must_use]
 pub fn intrinsic_mana_offer(
     state: &GameState,
     lookup: &impl crate::state::CardLookup,
     source: ObjectId,
 ) -> Vec<ManaColor> {
-    let mut colors = intrinsic_mana_colors(state, source);
-    if colors.len() < 2 {
-        // One basic type is the case this shortcut has always served, and no
-        // land in the pool prints an ability duplicating its single type —
-        // leaving it alone keeps every existing offer byte for byte.
-        return colors;
-    }
-    let Some(obj) = state.object(source) else {
+    let colors = intrinsic_mana_colors(state, source);
+    if colors.len() > 1
+        && state.object(source).is_some_and(|obj| {
+            obj.abilities(lookup)
+                .iter()
+                .any(baylee_cards_dsl::AbilityDef::is_intrinsic_mana_ability)
+        })
+    {
         return Vec::new();
-    };
-    for ability in obj.abilities(lookup) {
-        let (baylee_cards_dsl::AbilityDef::Activated { cost, effects, .. }
-        | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, effects, .. }) = ability
-        else {
-            continue;
-        };
-        if let Some((made, _restricted)) = baylee_cards_dsl::mana_made(cost, effects) {
-            colors.retain(|c| !made.colors.contains(c));
-        }
     }
     colors
 }

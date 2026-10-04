@@ -1477,7 +1477,7 @@ mod tests {
         let dual = transcode_card(&script, "Land \u{2014} Swamp Forest", &cats, None).unwrap();
         assert_eq!(
             dual.abilities,
-            ["mana_ability!(&[Effect::mana_choice(&[ManaColor::Black, ManaColor::Green])])"]
+            ["mana_ability!(&[Effect::intrinsic_mana()])"]
         );
         assert_eq!(
             dual.notes.first().map(String::as_str),
@@ -1490,7 +1490,7 @@ mod tests {
         let single = transcode_card(&script, "Land \u{2014} Mountain", &cats, None).unwrap();
         assert_eq!(
             single.abilities,
-            ["mana_ability!(&[Effect::mana(ManaColor::Red, 1)])"]
+            ["mana_ability!(&[Effect::intrinsic_mana()])"]
         );
 
         // And nothing is invented for a land that prints no basic type, or

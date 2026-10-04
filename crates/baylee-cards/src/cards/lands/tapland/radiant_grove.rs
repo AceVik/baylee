@@ -19,8 +19,5 @@ card!(
         subtypes = &[subtypes::land::FOREST, subtypes::land::PLAINS],
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_choice(&[
-        ManaColor::Green,
-        ManaColor::White
-    ])]),],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()]),],
 );

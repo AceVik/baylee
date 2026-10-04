@@ -21,7 +21,7 @@ card!(
         enter_modifiers = &[EnterModifier::Tapped],
     ),],
     abilities = &[
-        mana_ability!(&[Effect::mana_choice(&[ManaColor::Red, ManaColor::White])]),
+        mana_ability!(&[Effect::intrinsic_mana()]),
         activated!(
             cost!("{2}", DiscardSelf),
             &[Effect::draw(1)],

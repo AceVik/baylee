@@ -842,6 +842,33 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
 }
 
 #[test]
+fn skipping_a_turn_names_the_cost_and_only_the_turn_owner_may_answer() {
+    let owner = PlayerId::new(1);
+    let question = YesNoPrompt::SkipTurn { source: obj(7) };
+    let pending = Pending::YesNo {
+        player: owner,
+        prompt: question,
+        source: None,
+    };
+    let pending: Pending = serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+    let mine = Interaction::new(pending.clone(), owner);
+    assert_eq!(mine.answer_yes_no(true), Some(PlayerAction::YesNo(true)));
+    assert_eq!(mine.answer_yes_no(false), Some(PlayerAction::YesNo(false)));
+    let other = Interaction::new(pending, PlayerId::new(0));
+    assert_eq!(other.answer_yes_no(true), None);
+    assert_eq!(other.answer_yes_no(false), None);
+    assert_eq!(
+        mine.prompt().headline(Lang::En, Turn::Mine, None, false),
+        "Skip this turn to untap this permanent?"
+    );
+    assert_eq!(
+        mine.prompt().headline(Lang::De, Turn::Mine, None, false),
+        "Diesen Zug überspringen, um diese bleibende Karte zu enttappen?"
+    );
+    assert!(!question.automatable());
+}
+
+#[test]
 fn pact_question_names_the_colored_cost_and_warns_about_losing() {
     let i = interaction(Pending::YesNo {
         player: me(),

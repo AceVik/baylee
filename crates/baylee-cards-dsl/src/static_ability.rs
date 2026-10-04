@@ -237,6 +237,21 @@ pub enum Modifier {
         /// Who can't lose life, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
+    /// "You don't lose the game for having 0 or less life" (Lich). Only the
+    /// state-based loss of CR 704.5a is lifted: poison, an empty draw and an
+    /// effect that says the player loses still take them out.
+    NoLossForZeroLife {
+        /// Who keeps playing at 0 or less life, relative to the effect's
+        /// controller.
+        who: crate::effect::PlayerRel,
+    },
+    /// "If you would gain life, draw that many cards instead" (Lich): a
+    /// replacement of the gain (CR 614.1a). However many such effects apply,
+    /// the gain is replaced once, so it is one draw per life (CR 614.5).
+    LifeGainDrawsInstead {
+        /// Whose gains are replaced, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// Prevent all combat damage that would be dealt TO the affected object
     /// (Maze of Ith). Combat's damage doors ask it and an effect's do not:
     /// an effect's damage to the object is dealt.
@@ -740,6 +755,8 @@ impl Modifier {
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
             | Self::CantLoseLife { .. }
+            | Self::NoLossForZeroLife { .. }
+            | Self::LifeGainDrawsInstead { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
             | Self::CombatDamageCantBePrevented
@@ -903,6 +920,16 @@ pub enum ReplacementRule {
         /// Which event kind is suppressed.
         event: crate::ability::TriggerEventKind,
     },
+    /// "If you would begin your turn while this artifact is tapped, you may
+    /// skip that turn instead. If you do, untap this artifact" (Time Vault).
+    ///
+    /// "An effect that causes a player to skip an event, step, phase, or
+    /// turn is a replacement effect" (CR 614.10), so it is asked as the turn
+    /// would begin, of the source's controller, and only for that player's
+    /// own turn. The untap is the "another action" of CR 614.10b: "That
+    /// action is considered to be the first thing that happens during the
+    /// next step, phase, or turn to actually occur."
+    SkipTurnToUntapSelf,
 }
 
 #[cfg(test)]
@@ -1096,6 +1123,12 @@ mod tests {
             Modifier::PlayersCantLose,
             Modifier::CantLoseLife {
                 who: crate::effect::PlayerRel::EachPlayer,
+            },
+            Modifier::NoLossForZeroLife {
+                who: crate::effect::PlayerRel::You,
+            },
+            Modifier::LifeGainDrawsInstead {
+                who: crate::effect::PlayerRel::You,
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,

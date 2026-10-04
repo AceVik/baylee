@@ -61,7 +61,21 @@ impl Default for StackFold {
     }
 }
 #[derive(Component)]
-pub struct StackBody;
+pub struct StackBody {
+    top: Option<ObjectId>,
+    rows: usize,
+}
+impl StackBody {
+    /// Recover the measured full-row height, including when it is a spacer.
+    pub(super) fn full_height(&self, node: &ComputedNode, top: Option<ObjectId>) -> f32 {
+        if self.top != top {
+            return STACK_FULL_HEIGHT;
+        }
+        (node.content_size().y * node.inverse_scale_factor()
+            - self.rows.saturating_sub(1) as f32 * STACK_ROW_HEIGHT)
+            .max(STACK_FULL_HEIGHT)
+    }
+}
 #[derive(Component)]
 pub struct StackViewport;
 #[derive(Component)]
@@ -159,21 +173,21 @@ const STACK_PANEL_W: f32 = 352.0;
 
 /// Bounded visible rows, including overscan for smooth scrolling.
 const STACK_COMPACT_ROWS: usize = 16;
-const STACK_FULL_HEIGHT: f32 = 164.0;
+pub(super) const STACK_FULL_HEIGHT: f32 = 164.0;
 const STACK_ROW_HEIGHT: f32 = 82.0;
 
 /// First rendered queued row, including a small overscan above the viewport.
-pub(super) fn window_start(scroll: f32) -> usize {
-    (((scroll - STACK_FULL_HEIGHT).max(0.0) / STACK_ROW_HEIGHT) as usize).saturating_sub(2)
+pub(super) fn window_start(scroll: f32, full_height: f32) -> usize {
+    (((scroll - full_height).max(0.0) / STACK_ROW_HEIGHT) as usize).saturating_sub(2)
 }
 
-fn rows_height(start: usize, end: usize) -> f32 {
+fn rows_height(start: usize, end: usize, full_height: f32) -> f32 {
     if end <= start {
         return 0.0;
     }
     (end - start) as f32 * STACK_ROW_HEIGHT
         + if start == 0 {
-            STACK_FULL_HEIGHT - STACK_ROW_HEIGHT
+            full_height - STACK_ROW_HEIGHT
         } else {
             0.0
         }
@@ -725,6 +739,7 @@ pub(super) fn spawn_stack_panel(
     selected: Option<ObjectId>,
     orders: &[baylee_client_core::automation::AbilityOrder],
     scroll: ScrollPosition,
+    full_height: f32,
     lang: Lang,
     board: &baylee_client_core::BoardModel,
     view: &PlayerView,
@@ -881,11 +896,14 @@ pub(super) fn spawn_stack_panel(
         .id();
     commands.entity(head).add_child(toggle);
     spawn_controls(commands, panel, selected, orders, lang, view, fonts);
-    let start = window_start(scroll.y).min(board.stack.len().saturating_sub(1));
+    let start = window_start(scroll.y, full_height).min(board.stack.len().saturating_sub(1));
     let end = (start + STACK_COMPACT_ROWS).min(board.stack.len());
     let body = commands
         .spawn((
-            StackBody,
+            StackBody {
+                top: board.stack.first().map(|item| item.id),
+                rows: board.stack.len(),
+            },
             Scrolls,
             Node {
                 flex_direction: FlexDirection::Column,
@@ -928,7 +946,7 @@ pub(super) fn spawn_stack_panel(
     commands.entity(panel).add_child(viewport);
 
     if start > 0 {
-        let gap = spacer(commands, rows_height(0, start));
+        let gap = spacer(commands, rows_height(0, start, full_height));
         commands.entity(body).add_child(gap);
     }
     for item in &board.stack[start..end] {
@@ -951,7 +969,7 @@ pub(super) fn spawn_stack_panel(
     }
 
     if end < board.stack.len() {
-        let gap = spacer(commands, rows_height(end, board.stack.len()));
+        let gap = spacer(commands, rows_height(end, board.stack.len(), full_height));
         commands.entity(body).add_child(gap);
     }
     panel
@@ -1179,6 +1197,18 @@ fn spawn_controls(
     }
 }
 
+fn stack_entry_height(full: bool, complete: bool) -> Val {
+    if full && complete {
+        Val::Auto
+    } else {
+        px(if full {
+            STACK_FULL_HEIGHT
+        } else {
+            STACK_ROW_HEIGHT
+        })
+    }
+}
+
 /// One row of the stack panel: the object, what it is, and what it points at.
 ///
 /// `full` is the top of the stack — the sentence the panel is about. Every
@@ -1244,7 +1274,8 @@ fn spawn_stack_entry(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
-                height: px(if full {
+                height: stack_entry_height(full, full_oracle_fallback(item)),
+                min_height: px(if full {
                     STACK_FULL_HEIGHT
                 } else {
                     STACK_ROW_HEIGHT
@@ -1471,7 +1502,14 @@ fn spawn_stack_entry(
         // six sentences stacked under one another would be a wall of text
         // where the size ramp used to carry the order.
         if let Some(blocks) = stack_sentence(item, faces) {
-            let line = spawn_stack_sentence(commands, fonts, key, blocks, room);
+            let line = spawn_stack_sentence(
+                commands,
+                fonts,
+                key,
+                blocks,
+                room,
+                full_oracle_fallback(item),
+            );
             commands.entity(body).add_child(line);
         }
     }
@@ -1505,6 +1543,7 @@ fn spawn_stack_sentence(
     key: StackKey,
     blocks: Vec<TextBlock>,
     room: f32,
+    complete: bool,
 ) -> Entity {
     use baylee_client_core::abilitysheet;
 
@@ -1542,7 +1581,9 @@ fn spawn_stack_sentence(
             STACK_SENTENCE_PT * STACK_INITIAL * crate::manaui::BADGE_SPAN + STACK_INITIAL_GAP
         });
     let room = budget(prose * STACK_SENTENCE_LINES, STACK_SENTENCE_PT);
-    for piece in spans_of(&blocks, Some(room)) {
+    // The validated source-Oracle fallback must remain completely accessible
+    // in the existing scrolling stack body; its relevant clause may be last.
+    for piece in spans_of(&blocks, (!complete).then_some(room)) {
         let ink = if piece.reminder {
             palette::MUTED
         } else {
@@ -1970,16 +2011,56 @@ pub(super) fn stack_sentence(
     if let Some(token) = token {
         return crate::cardtext::token_sentence(token.token, token.index);
     }
-    let (card, text) = (rules?.card, text?);
-    crate::cardtext::sentence(Some(faces.texts), card, text).or_else(|| {
-        let own = baylee_cards::lines::ability_line(card, usize::from(text.face), ability?.index)?;
-        let at = baylee_view::StackText {
-            face: text.face,
-            line: own.line,
-            of: own.of,
-        };
-        crate::cardtext::sentence(Some(faces.texts), card, at)
-    })
+    let rules = rules?;
+    let card = rules.card;
+    text.and_then(|at| crate::cardtext::sentence(Some(faces.texts), card, at))
+        .or_else(|| {
+            let ability = ability.filter(|ability| ability.card == card)?;
+            let face = usize::from(rules.face);
+            if let Some(own) = baylee_cards::lines::ability_line(card, face, ability.index) {
+                return crate::cardtext::sentence(
+                    Some(faces.texts),
+                    card,
+                    baylee_view::StackText {
+                        face: rules.face,
+                        line: own.line,
+                        of: own.of,
+                    },
+                );
+            }
+            // Embedded grants (Vesuvan's upkeep ability) have no standalone
+            // sentence. Preserve the complete source Oracle, never the face
+            // the permanent currently copies or an invented short version.
+            baylee_cards::by_index(card)?
+                .abilities_for_face(face)
+                .get(usize::try_from(ability.index).ok()?)?;
+            Some(baylee_client_core::card_face::split_blocks(
+                baylee_cards::oracle::face(card, face)?,
+            ))
+        })
+}
+
+/// Only validated embedded abilities use a complete source Oracle fallback.
+fn full_oracle_fallback(item: &baylee_client_core::board::StackItem) -> bool {
+    let baylee_client_core::board::StackKind::Ability {
+        rules: Some(rules),
+        ability: Some(ability),
+        token: None,
+        ..
+    } = item.kind
+    else {
+        return false;
+    };
+    ability.card == rules.card
+        && baylee_cards::lines::ability_line(rules.card, usize::from(rules.face), ability.index)
+            .is_none()
+        && baylee_cards::by_index(rules.card).is_some_and(|card| {
+            usize::try_from(ability.index).is_ok_and(|index| {
+                card.abilities_for_face(usize::from(rules.face))
+                    .get(index)
+                    .is_some()
+            })
+        })
 }
 
 /// One-line heading: preserve plain-name truncation and render symbols before budgeting.
@@ -2297,6 +2378,7 @@ mod tests {
             StackKey::Panel,
             vec![TextBlock::Rules("{1}: Verhindere diesen Schaden.".into())],
             300.0,
+            false,
         );
         app.world_mut().flush();
         let first = app.world().get::<Children>(row).unwrap()[0];
@@ -2543,6 +2625,107 @@ mod tests {
                 "a full row is headed by its name"
             );
         }
+    }
+
+    #[test]
+    fn expanded_oracle_height_keeps_virtual_queue_offsets_correct() {
+        let top = Some(ObjectId::new(30, 0));
+        let body = StackBody { top, rows: 20 };
+        let node = ComputedNode {
+            content_size: Vec2::new(704.0, (900.0 + 19.0 * STACK_ROW_HEIGHT) * 2.0),
+            inverse_scale_factor: 0.5,
+            ..default()
+        };
+        let height = body.full_height(&node, top);
+        assert!((height - 900.0).abs() < f32::EPSILON);
+        assert_eq!(
+            window_start(800.0, height),
+            0,
+            "scrolling Oracle cannot discard its row"
+        );
+        assert!((rows_height(0, 3, height) - 1064.0).abs() < f32::EPSILON);
+        assert!((body.full_height(&node, None) - STACK_FULL_HEIGHT).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn copied_vesuvan_upkeep_uses_complete_source_oracle_without_a_mapped_line() {
+        use baylee_client_core::board::Openings;
+        use baylee_client_core::test_support::{ViewBuilder, printed};
+        let card = crate::cardtext::fixture::card("Vesuvan Doppelganger");
+        let mut trigger = printed(30, 0, "Llanowar Elves", 1);
+        trigger.rules = Some(baylee_view::RulesFace {
+            card: crate::cardtext::fixture::card("Llanowar Elves"),
+            face: 0,
+        });
+        trigger.stack_item = Some(baylee_view::StackItem::Ability {
+            source: ObjectId::new(7, 0),
+            ability: Some(baylee_core::ids::AbilityRef { card, index: 0 }),
+            rules: Some(baylee_view::RulesFace { card, face: 0 }),
+            text: None,
+            token: None,
+        });
+        let view = ViewBuilder::new(2).with_stack(vec![trigger]).build();
+        let board = baylee_client_core::BoardModel::from_view(
+            &view,
+            Openings::none(),
+            &[],
+            crate::cardart::registry(),
+        );
+        let texts = crate::cardtext::CardTexts::default();
+        let mode = crate::face::FaceMode::default();
+        let settings = crate::settings::ClientSettings::default();
+        let faces = FaceCtx {
+            texts: &texts,
+            mode: &mode,
+            settings: &settings,
+            view: Some(&view),
+            widths: crate::face::Widths::of(None),
+        };
+        let expected = baylee_client_core::card_face::split_blocks(
+            baylee_cards::oracle::face(card, 0).unwrap(),
+        );
+        assert_eq!(
+            stack_sentence(&board.stack[0], &faces),
+            Some(expected.clone())
+        );
+        assert!(full_oracle_fallback(&board.stack[0]));
+        let fonts = UiFonts {
+            text: Handle::default(),
+            medium: Handle::default(),
+            bold: Handle::default(),
+            italic: Handle::default(),
+            medium_italic: Handle::default(),
+            serif: Handle::default(),
+            serif_italic: Handle::default(),
+            icons: Handle::default(),
+            mana: Handle::default(),
+        };
+        let mut app = App::new();
+        let row = spawn_stack_sentence(
+            &mut app.world_mut().commands(),
+            &fonts,
+            StackKey::Panel,
+            expected,
+            200.0,
+            full_oracle_fallback(&board.stack[0]),
+        );
+        app.world_mut().flush();
+        let visible: String = app
+            .world()
+            .get::<Children>(row)
+            .unwrap()
+            .iter()
+            .filter_map(|child| app.world().get::<TextSpan>(child))
+            .map(|span| span.0.as_str())
+            .collect();
+        assert!(visible.contains("At the beginning of your upkeep"));
+        assert!(visible.contains("and it has this ability."));
+        assert!(!visible.contains('…'));
+        let mut unknown = board.stack[0].clone();
+        if let baylee_client_core::board::StackKind::Ability { ability, .. } = &mut unknown.kind {
+            *ability = None;
+        }
+        assert!(stack_sentence(&unknown, &faces).is_none());
     }
 
     #[test]

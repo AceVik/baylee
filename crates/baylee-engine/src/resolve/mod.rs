@@ -335,6 +335,13 @@ static ONTO_BATTLEFIELD_TAPPED: &[baylee_cards_dsl::effect::Find] =
 pub enum AwaitingOp {
     /// Optional face-down cast from the resolving ability controller's hand.
     MaskedCast,
+    /// An untargeted, optional new host for an Aura on the battlefield
+    /// (`Effect::DestroyEventThenMayReattach`): none chosen leaves it where
+    /// it is.
+    AttachAura {
+        /// The exact Aura incarnation the choice is about.
+        aura: baylee_core::ids::DamageSourceRef,
+    },
     /// The controller chooses a card before taking control of its player.
     ControlledCard {
         /// Player whose card will be played.
@@ -676,6 +683,9 @@ pub enum AwaitingOp {
         /// Players still to choose.
         remaining: Vec<PlayerId>,
     },
+    /// After `SacrificeAmountOrLose`: sacrifice every chosen permanent in
+    /// one event (Lich).
+    SacrificeAllChosen,
     /// After `ReturnChosenToHand`: put the chosen permanent into its
     /// owner's hand, then ask the next remaining player.
     ReturnChosen {
@@ -2988,6 +2998,7 @@ fn resume_inner(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]
                 );
             }
         }
+        AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen),
         AwaitingOp::ReturnChosen { filter, remaining } => {
             if let Some(&returned) = chosen.first() {
                 // CR 400.3: its owner's hand, whoever was controlling it.
@@ -3046,6 +3057,9 @@ fn resume_inner(state: &mut GameState, res: &mut Resolution, chosen: &[ObjectId]
             for &id in chosen {
                 untap(state, id);
             }
+        }
+        AwaitingOp::AttachAura { aura } => {
+            crate::aura_bindings::resume_attach(state, aura, chosen);
         }
         // The chosen permanent is what `then` is about, so it runs as a
         // list of its own with the choice as its object — `Filter::This`
@@ -4217,6 +4231,70 @@ fn run_nested(
     run_nested_with(state, res, flatten(branch), targets)
 }
 
+/// Sacrifices `victims` as one event: every departure is read before any of
+/// them leaves, so a creature and the Aura on it go together and each
+/// leave trigger sees the board as it was (Lich's rulings).
+fn sacrifice_together(state: &mut GameState, victims: &[ObjectId]) {
+    let departures: Vec<_> = victims
+        .iter()
+        .map(|&id| state.departure_snapshot(id))
+        .collect();
+    for (&victim, departure) in victims.iter().zip(departures) {
+        let Some(owner) = state
+            .object(victim)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .map(|o| o.owner)
+        else {
+            continue;
+        };
+        if let Some(obj) = state.object_mut(victim) {
+            obj.kind = ObjectKind::Card;
+        }
+        let _ = state.move_object_with_departure(
+            victim,
+            ZoneLocation::Graveyard(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+            departure,
+        );
+    }
+}
+
+/// "Sacrifice that many … If you can't, you lose the game": `amount`
+/// matching permanents are chosen by their controller and sacrificed
+/// together. Holding no more than that, there is nothing to choose, and
+/// holding fewer, the player loses as well (CR 104.3e).
+fn sacrifice_amount_or_lose(
+    state: &mut GameState,
+    res: &mut Resolution,
+    filter: &'static baylee_cards_dsl::Filter,
+    amount: &Amount,
+) -> Option<Pending> {
+    let you = res.controller;
+    let n = amount2(amount, state, you, res) as usize;
+    if n == 0 {
+        return None;
+    }
+    let options = chosen::options(state, you, filter, you, res.source);
+    if options.len() > n {
+        let n = u8::try_from(n).unwrap_or(u8::MAX);
+        res.awaiting = Some(AwaitingOp::SacrificeAllChosen);
+        return Some(Pending::ChooseCards {
+            player: you,
+            options,
+            min: n,
+            max: n,
+            prompt: ChoicePrompt::Generic,
+            total: None,
+        });
+    }
+    sacrifice_together(state, &options);
+    if options.len() < n {
+        let _ = sba::lose_by_effect(state, you);
+    }
+    None
+}
+
 /// Operations that complete immediately. This is only the dispatcher:
 /// effect families live in their own modules (life/damage, zones, mana,
 /// counters/P-T, tokens); control, draw, conditions, and the misc tail
@@ -4226,6 +4304,26 @@ fn exec_immediate(state: &mut GameState, res: &mut Resolution, op: Effect) -> Op
     let you = res.controller;
     match op {
         Effect::Sequence(_) => unreachable!("sequences are flattened"),
+        Effect::DestroyEventThenMayReattach { to } => {
+            crate::aura_bindings::destroy_event_and_offer(state, res, to)
+        }
+        Effect::SacrificeEvent => {
+            crate::aura_bindings::sacrifice_event(state, res);
+            None
+        }
+        Effect::SacrificeAmountOrLose { filter, amount } => {
+            sacrifice_amount_or_lose(state, res, filter, &amount)
+        }
+        Effect::LoseGame => {
+            let _ = sba::lose_by_effect(state, you);
+            None
+        }
+        Effect::ReanimateEnchanted => {
+            if let Some(finish) = crate::aura_bindings::begin_reanimation(state, res, false) {
+                state.reanimation_finishes.push(finish);
+            }
+            None
+        }
         Effect::BecomeCopyOfTarget { mods } => {
             let source = subjects::source(state, res)?;
             if !subjects::is_current(state, source) {

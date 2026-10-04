@@ -13,10 +13,9 @@
 
 use super::testkit::card_index;
 use crate::ability_log::{self, Kind, json_str};
-use baylee_cards_dsl::{AbilityDef, CardDef, Cost, FaceDef, ReplacementRule};
+use baylee_cards_dsl::{AbilityDef, CardDef, FaceDef, ReplacementRule};
 use baylee_core::generated::subtypes::land;
 use baylee_core::ids::AbilityRef;
-use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -263,8 +262,7 @@ const fn variant(ability: &AbilityDef) -> &'static str {
 }
 
 /// Whether `ability`, printed on `face`, is the mana ability CR 305.6 gives a
-/// land for its basic land types: `{T}`, and every colour it makes is one of
-/// those types' colours.
+/// land for its basic land types, distinct from explicitly printed symbols.
 ///
 /// The engine taps a land for its basic land types through that rule
 /// (`casting::intrinsic_mana_offer`) whether the entry is there or not, so
@@ -276,31 +274,16 @@ fn intrinsic(face: Option<&FaceDef>, ability: &AbilityDef) -> bool {
     let Some(face) = face.filter(|f| f.types.contains(TypeSet::LAND)) else {
         return false;
     };
-    let basic: Vec<ManaColor> = [
-        (land::PLAINS, ManaColor::White),
-        (land::ISLAND, ManaColor::Blue),
-        (land::SWAMP, ManaColor::Black),
-        (land::MOUNTAIN, ManaColor::Red),
-        (land::FOREST, ManaColor::Green),
+    [
+        land::PLAINS,
+        land::ISLAND,
+        land::SWAMP,
+        land::MOUNTAIN,
+        land::FOREST,
     ]
     .into_iter()
-    .filter(|(subtype, _)| face.subtypes.contains(subtype))
-    .map(|(_, color)| color)
-    .collect();
-    match ability {
-        AbilityDef::Activated {
-            mana_ability: true,
-            cost,
-            effects,
-            ..
-        } => {
-            *cost == Cost::TAP
-                && baylee_cards_dsl::mana_made(cost, effects).is_some_and(|(made, _)| {
-                    !made.colors.is_empty() && made.colors.iter().all(|c| basic.contains(c))
-                })
-        }
-        _ => false,
-    }
+    .any(|subtype| face.subtypes.contains(&subtype))
+        && ability.is_intrinsic_mana_ability()
 }
 
 /// One entry of a card's row.

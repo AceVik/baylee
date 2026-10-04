@@ -230,6 +230,19 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "When this Aura leaves the battlefield" (Animate Dead): the next time
+    /// `card`, as the object it was at `version`, leaves the battlefield for
+    /// any zone. Read off the journal like [`Self::DiesOrIsExiled`], after
+    /// `after` only (CR 603.7a), and once (CR 603.7b); a leaves-the-
+    /// battlefield ability looks back in time (CR 603.10a).
+    LeavesBattlefield {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 /// What a delayed trigger does.
@@ -750,6 +763,22 @@ pub struct GameState {
     /// Queued extra turns (CR 500.7); the front player takes the next
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
+    /// Permanents a skipped turn left to untap (Time Vault). "Some effects
+    /// cause a player to skip a step, phase, or turn, then take another
+    /// action. That action is considered to be the first thing that happens
+    /// during the next step, phase, or turn to actually occur" (CR 614.10b),
+    /// so they wait here until a turn begins rather than untapping between
+    /// turns. Each is the object and its version when the turn was skipped
+    /// (CR 400.7): one that has left the battlefield since is not untapped.
+    pub skip_followups: Vec<(ObjectId, u32)>,
+    /// Auras whose enchant ability an effect has changed (Animate Dead):
+    /// each binds one Aura incarnation and, once the card it returned has
+    /// entered, that creature's incarnation (CR 303.4c, 400.7).
+    pub(crate) reanimated_auras: Vec<crate::aura_bindings::ReanimatedAura>,
+    /// Returns an Aura made that still owe their attachment: made once the
+    /// returned card has entered, with its as-it-enters choices and statics
+    /// in place, and before any state-based action looks at the board.
+    pub(crate) reanimation_finishes: Vec<crate::aura_bindings::ReanimationFinish>,
     /// Restriction-id → (source, spell filter, spend rider) for
     /// restricted mana in players' pools (Cavern, Path of Ancestry).
     pub restriction_info: rustc_hash::FxHashMap<
@@ -1140,6 +1169,9 @@ impl GameState {
             damage_deaths,
             pending_miracle,
             extra_turns,
+            skip_followups,
+            reanimated_auras,
+            reanimation_finishes,
             restriction_info,
             next_restriction_id,
             commander_casts,
@@ -1216,6 +1248,12 @@ impl GameState {
             ("state.damage_deaths", format!("{damage_deaths:?}")),
             ("state.pending_miracle", format!("{pending_miracle:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
+            ("state.skip_followups", format!("{skip_followups:?}")),
+            ("state.reanimated_auras", format!("{reanimated_auras:?}")),
+            (
+                "state.reanimation_finishes",
+                format!("{reanimation_finishes:?}"),
+            ),
             ("state.restriction_info", format!("{restrictions:?}")),
             (
                 "state.next_restriction_id",
@@ -1425,6 +1463,33 @@ impl GameState {
         })
     }
 
+    /// Whether an effect says `player` doesn't lose the game for having 0 or
+    /// less life (`Modifier::NoLossForZeroLife`, Lich). Each effect's `who`
+    /// is read from its own controller, so a Lich that changes hands takes
+    /// the exception with it.
+    #[must_use]
+    pub fn no_loss_for_zero_life(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::NoLossForZeroLife { who } = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+        })
+    }
+
+    /// Whether `player`'s life gains are replaced by draws
+    /// (`Modifier::LifeGainDrawsInstead`, Lich), read as
+    /// [`Self::cant_lose_life`] reads its own.
+    #[must_use]
+    pub fn life_gain_draws_instead(&self, player: PlayerId) -> bool {
+        self.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::LifeGainDrawsInstead { who } = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+        })
+    }
+
     /// Whether an effect has `player` skip their untap steps
     /// (`Modifier::SkipUntapStep`, Stasis). Each effect's `who` is read from
     /// its own controller, as [`Self::cant_lose_life`] reads its own.
@@ -1497,6 +1562,9 @@ impl GameState {
             damage_deaths: Vec::new(),
             pending_miracle: std::collections::VecDeque::new(),
             extra_turns: std::collections::VecDeque::new(),
+            skip_followups: Vec::new(),
+            reanimated_auras: Vec::new(),
+            reanimation_finishes: Vec::new(),
             restriction_info: rustc_hash::FxHashMap::default(),
             next_restriction_id: 1,
             commander_casts: vec![0; preset.seats.len()],
@@ -2119,6 +2187,13 @@ impl GameState {
         // (CR 608.2m), but the departed seat's retained information must
         // remain what it was immediately before leaving (CR 800.4i).
         if self.has_left(player) || (by < 0 && self.cant_lose_life(player)) {
+            return;
+        }
+        // Lich: the gain is replaced by that many draws (CR 614.1a), so no
+        // life changes and no gain is recorded for a gain trigger to read.
+        // One replacement however many effects say it (CR 614.5).
+        if by > 0 && self.life_gain_draws_instead(player) {
+            self.draw_cards(player, usize::try_from(by).unwrap_or(0));
             return;
         }
         let seat = player.get() as usize;
@@ -3716,6 +3791,9 @@ impl GameState {
             damage_deaths,
             pending_miracle,
             extra_turns,
+            skip_followups,
+            reanimated_auras,
+            reanimation_finishes,
             restriction_info,
             next_restriction_id,
             commander_casts,
@@ -3829,6 +3907,9 @@ impl GameState {
         }
         pending_miracle.hash(&mut h);
         extra_turns.hash(&mut h);
+        skip_followups.hash(&mut h);
+        reanimated_auras.hash(&mut h);
+        reanimation_finishes.hash(&mut h);
         rng.hash(&mut h);
         // The interner's order is the game's history, and every object
         // hashes the `NameRef` it carries; the count keeps apart two
@@ -6188,6 +6269,30 @@ mod tests {
             }),
             ("extra_turns", |s, _| {
                 s.extra_turns.push_back(PlayerId::new(1));
+            }),
+            ("skip_followups", |s, id| s.skip_followups.push((id, 0))),
+            ("reanimated_auras", |s, id| {
+                s.reanimated_auras
+                    .push(crate::aura_bindings::ReanimatedAura {
+                        aura: baylee_core::ids::DamageSourceRef {
+                            object: id,
+                            version: 0,
+                        },
+                        returned: None,
+                    });
+            }),
+            ("reanimation_finishes", |s, id| {
+                let reference = baylee_core::ids::DamageSourceRef {
+                    object: id,
+                    version: 0,
+                };
+                s.reanimation_finishes
+                    .push(crate::aura_bindings::ReanimationFinish {
+                        aura: reference,
+                        returned: reference,
+                        controller: PlayerId::new(0),
+                        text: crate::text_changes::TextChangeMap::IDENTITY,
+                    });
             }),
             ("restriction_info", |s, id| {
                 s.restriction_info

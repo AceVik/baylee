@@ -6,11 +6,13 @@ use super::*;
 use baylee_cards_dsl::counters;
 
 mod animate_artifact;
+mod aura_bindings;
 mod consecrate_land;
 mod creature_bond;
 mod earthbind;
 mod earthbind_independent;
 mod gloom;
+mod lich;
 
 fn circle_of_protection_red() -> CardIndex {
     card_index("df2738fe-9cd1-4347-8808-105fcfde1190")
@@ -11198,26 +11200,34 @@ fn blanket_of_night_makes_a_forest_a_swamp_on_both_sides_of_the_table() {
     };
     assert_eq!(player, p0);
     assert!(
-        legal.mana_abilities.contains(&mine),
-        "an added basic land type is the CR 305.6 shortcut, so the Forest is \
-         offered without a printed ability to name: {:?}",
+        !legal.mana_abilities.contains(&mine),
+        "the intrinsic entry already offers both basic types: {:?}",
         legal.mana_abilities
     );
 
-    // **Two abilities and not one question**, which is CR 305.6 read
-    // literally: the Forest has one mana ability per basic type, and its
-    // green one is printed on the card (a basic land prints what the rule
-    // gives it). So the shortcut is left with the type the Blanket added and
-    // nothing else, and pressing it needs no colour question at all — the
-    // green stays where it was, on `legal.abilities` at index 0.
+    // The intrinsic entry groups the two basic types into a colour choice,
+    // preserving the Forest's green beside the Swamp the Blanket added.
     assert!(
         legal.abilities.contains(&(mine, 0)),
-        "the printed green ability is still on offer beside it: {:?}",
+        "the intrinsic entry is offered by index: {:?}",
         legal.abilities
     );
     engine
-        .apply(p0, PlayerAction::ActivateManaAbility { source: mine })
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: mine,
+                ability_index: 0,
+            },
+        )
         .expect("the tap the offer named is the one it pays");
+    let Pending::ChooseColor { options, .. } = engine.pending() else {
+        panic!("the two basic types ask which colour")
+    };
+    assert_eq!(options, &[ManaColor::Black, ManaColor::Green]);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("the added Swamp's colour is offered");
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -11241,8 +11251,21 @@ fn blanket_of_night_makes_a_forest_a_swamp_on_both_sides_of_the_table() {
     };
     assert_eq!(player, p1);
     engine
-        .apply(p1, PlayerAction::ActivateManaAbility { source: theirs })
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: theirs,
+                ability_index: 0,
+            },
+        )
         .expect("their Forest is offered the same tap");
+    let Pending::ChooseColor { options, .. } = engine.pending() else {
+        panic!("the opponent's Forest asks the same colour question")
+    };
+    assert_eq!(options, &[ManaColor::Black, ManaColor::Green]);
+    engine
+        .apply(p1, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("the opponent's added Swamp colour is offered");
     assert_eq!(
         engine.state().players[1]
             .mana_pool
@@ -19166,18 +19189,12 @@ fn white_ward_protects_from_white_and_stays_attached() {
     );
 }
 
-/// Lich, Raging River and Island Sanctuary are `Coverage::Partial` with none
-/// of their text written: each is cast and sits on the battlefield doing
-/// nothing — Lich takes no life as it enters.
+/// Raging River and Island Sanctuary are `Coverage::Partial` with none of
+/// their text written: each is cast and sits on the battlefield doing
+/// nothing. Lich is played in `enchantments::lich`.
 #[test]
 fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
     for (name, card, land, lands) in [
-        (
-            "Lich",
-            card_index("5b7515f2-7a5a-4e2a-9784-6cbacd768172"),
-            swamp(),
-            4,
-        ),
         (
             "Raging River",
             card_index("a2310312-6e1e-4e34-a351-9aef499a810f"),
@@ -19200,16 +19217,27 @@ fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
     }
 }
 
-/// Animate Dead is `Coverage::Partial` with none of its text written, its
-/// "enchant creature card in a graveyard" included: cast, it enchants
-/// nothing and is put into its owner's graveyard (CR 704.5m).
+/// Animate Dead's "enchant creature card in a graveyard" is its spell's
+/// target (CR 303.4a): with no creature card in any graveyard it has no
+/// legal target and cannot be cast at all (CR 601.2c). Its return is played
+/// in `enchantments::aura_bindings`.
 #[test]
-fn animate_dead_with_nothing_written_enchants_nothing() {
+fn animate_dead_without_a_graveyard_creature_cannot_be_cast() {
+    let p0 = PlayerId::new(0);
     let animate_dead = card_index("c0d8fef4-65f4-4769-982d-b397d2b7e977");
-    still_partial(animate_dead);
-    assert_eq!(
-        cast_saying_nothing(animate_dead, swamp(), 2),
-        Zone::Graveyard
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp()])
+        .hand(0, &[animate_dead])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let spell = in_hand(&engine, p0, animate_dead).expect("the card is in hand");
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("main-phase priority");
+    };
+    assert!(
+        !legal.castable.contains(&spell),
+        "no creature card to enchant"
     );
 }
 

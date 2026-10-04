@@ -596,17 +596,38 @@ fn watch_triggers(
     triggers: &mut Vec<PendingTrigger>,
 ) {
     for watch in &state.delayed {
-        let crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } = watch.when else {
-            continue;
+        // "When that land dies or is put into exile" watches two
+        // destinations; "when this Aura leaves the battlefield" every one.
+        let (card, after, any_zone) = match watch.when {
+            crate::state::DelayedWhen::DiesOrIsExiled { card, after, .. } => (card, after, false),
+            crate::state::DelayedWhen::LeavesBattlefield { card, after, .. } => (card, after, true),
+            _ => continue,
         };
-        let crate::state::DelayedAction::Trigger {
-            source,
-            source_version,
-            effects,
-            text,
-        } = watch.action
-        else {
-            continue;
+        // A watch about another object ("that creature's controller
+        // sacrifices it") carries that object as its event object, as the
+        // incarnation it was (CR 603.7c, 400.7).
+        let (source, source_version, effects, text, about) = match watch.action {
+            crate::state::DelayedAction::Trigger {
+                source,
+                source_version,
+                effects,
+                text,
+            } => (source, source_version, effects, text, None),
+            crate::state::DelayedAction::TriggerAbout {
+                source,
+                source_version,
+                effects,
+                text,
+                object,
+                version,
+            } => (
+                source,
+                source_version,
+                effects,
+                text,
+                Some((object, version)),
+            ),
+            _ => continue,
         };
         let left = events
             .iter()
@@ -620,13 +641,31 @@ fn watch_triggers(
                 } if object == card => Some(to),
                 _ => None,
             });
-        if !matches!(left, Some(Zone::Graveyard | Zone::Exile)) {
+        let fires = if any_zone {
+            left.is_some()
+        } else {
+            matches!(left, Some(Zone::Graveyard | Zone::Exile))
+        };
+        if !fires {
             continue;
         }
+        let (event_object, event_object_identity) = match about {
+            Some((object, version)) => (
+                Some(object),
+                Some((
+                    version,
+                    state
+                        .object(object)
+                        .and_then(|o| o.characteristics().power)
+                        .unwrap_or(0),
+                )),
+            ),
+            None => (Some(card), None),
+        };
         triggers.push(PendingTrigger {
             text,
             source_version: Some(source_version),
-            event_object_identity: None,
+            event_object_identity,
             counter_source_version: None,
             event_damage: None,
             event_mana: None,
@@ -637,7 +676,7 @@ fn watch_triggers(
             abilities: None,
             controller: watch.controller,
             timestamp: state.object(source).map_or(0, |o| o.timestamp),
-            event_object: Some(card),
+            event_object,
             implicit_target: None,
             synthetic_effects: Some(effects),
             once_per_turn: false,

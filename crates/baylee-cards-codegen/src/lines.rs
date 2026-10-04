@@ -223,7 +223,16 @@ pub fn line_shape(line: &str) -> LineShape {
     let makes = |s: &str| s.starts_with("add ") && (s.contains('{') || s.contains("mana"));
     let adds_first = makes(&lower_body);
     let adds_later = !lower_body.contains("target") && lower_body.split(". ").skip(1).any(makes);
-    if adds_first || adds_later {
+    // Drawing and milling move cards out of the library, so adding mana
+    // beside them does not make this a mana ability (CR 605.1a). Read words
+    // rather than card names or one particular "Draw a card" sentence.
+    // A delayed trigger is a separate ability, just as in `mana_rule`.
+    let moves_library = lower_body
+        .split(". ")
+        .take_while(|clause| !clause.starts_with("when") && !clause.starts_with("at "))
+        .flat_map(|clause| clause.split(|c: char| !c.is_ascii_alphabetic()))
+        .any(|word| matches!(word, "draw" | "draws" | "mill" | "mills"));
+    if (adds_first || adds_later) && !moves_library {
         return LineShape::Mana;
     }
     // A loyalty cost is the whole of what precedes the colon, and the minus
@@ -346,8 +355,29 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
         A::Triggered { .. } | A::ModalTriggered { .. } | A::Echo { .. } | A::Ward { .. } => {
             LineShape::Triggered
         }
-        A::Activated { mana_ability, .. } | A::ActivatedConditional { mana_ability, .. } => {
-            if *mana_ability {
+        A::Activated {
+            cost,
+            effects,
+            targets,
+            second_targets,
+            mana_ability,
+            ..
+        }
+        | A::ActivatedConditional {
+            cost,
+            effects,
+            targets,
+            second_targets,
+            mana_ability,
+            ..
+        } => {
+            if *mana_ability
+                && baylee_cards_dsl::mana_rule::activated_mana_ability(
+                    cost,
+                    effects,
+                    targets.is_some() || second_targets.is_some(),
+                )
+            {
                 LineShape::Mana
             } else {
                 LineShape::Activated
@@ -520,7 +550,8 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
             // either, and neither does "one mana of the chosen color".
             // `ChosenOr` prints the {W} beside it, but the line as a whole
             // is still half unprintable, so it is let through with them.
-            ManaSource::CommanderIdentity
+            ManaSource::IntrinsicBasicLandTypes
+            | ManaSource::CommanderIdentity
             | ManaSource::LandColor { .. }
             | ManaSource::Chosen
             | ManaSource::ChosenOr(_) => return true,
@@ -1225,6 +1256,114 @@ mod tests {
             LineShape::Mana,
             "Primal Wellspring: the \"target\" is the delayed trigger's"
         );
+    }
+
+    #[test]
+    fn mana_with_draw_or_mill_is_activated_and_keeps_its_printed_sentence() {
+        use baylee_cards_dsl::{Cost, PlayerRel, activated, cost, mana_ability};
+        use baylee_core::mana::ManaColor;
+        const DRAW: &[Effect] = &[Effect::mana_of_any_color(), Effect::draw(1)];
+        const BUNDLE_DRAW: &[Effect] = &[
+            Effect::mana(ManaColor::Blue, 1),
+            Effect::mana(ManaColor::Black, 1),
+            Effect::draw(1),
+        ];
+        const OPTIONAL_DRAW: &[Effect] = &[
+            Effect::mana_of_any_color(),
+            Effect::MayDo {
+                effects: &[Effect::draw(1)],
+            },
+        ];
+        const MILL: &[Effect] = &[
+            Effect::mana(ManaColor::Blue, 1),
+            Effect::Mill {
+                amount: Amount::Fixed(2),
+                target: PlayerRel::You,
+            },
+        ];
+        for (ability, text) in [
+            (
+                activated!(cost!("{1}", TapSelf, SacrificeSelf), DRAW),
+                "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card. (Activate only as an instant.)",
+            ),
+            (
+                activated!(cost!("{2}", TapSelf, SacrificeSelf), BUNDLE_DRAW),
+                "{2}, {T}, Sacrifice this artifact: Add {U}{B}. Draw a card.",
+            ),
+            (activated!(Cost::TAP, MILL), "{T}: Add {U}. Mill two cards."),
+            (
+                activated!(Cost::TAP, DRAW),
+                "{T}: Draw a card. Add one mana of any color.",
+            ),
+            (
+                mana_ability!(Cost::TAP, DRAW),
+                "{T}: Add one mana of any color. Its controller draws a card.",
+            ),
+            (
+                mana_ability!(
+                    Cost::TAP,
+                    OPTIONAL_DRAW,
+                    condition = Some(baylee_cards_dsl::Condition::ControlCount(
+                        &Filter::ARTIFACT,
+                        3
+                    ))
+                ),
+                "{T}: Add one mana of any color. You may draw a card. Activate only if you control three or more artifacts.",
+            ),
+        ] {
+            assert_eq!(line_shape(text), LineShape::Activated, "{text}");
+            assert_eq!(ability_shape(&ability), LineShape::Activated, "{text}");
+            let found = map(&[ability], text);
+            assert_eq!(found.lines, [Some(0)], "{text}");
+            assert!(found.in_order, "{text}");
+            assert_eq!(found.ambiguous, 0, "{text}");
+        }
+    }
+
+    #[test]
+    fn mana_without_library_movement_stays_mana_on_both_sides() {
+        use baylee_cards_dsl::{PlayerRel, TargetSpec, mana_ability};
+        use baylee_core::mana::ManaColor;
+        const PURE: &[Effect] = &[Effect::mana(ManaColor::Colorless, 2)];
+        const DAMAGE: &[Effect] = &[
+            Effect::mana(ManaColor::Colorless, 2),
+            Effect::DealDamage {
+                amount: Amount::Fixed(2),
+                target: TargetSpec::Player(PlayerRel::You),
+            },
+        ];
+        const DELAYED_DRAW: &[Effect] = &[
+            Effect::mana(ManaColor::Colorless, 2),
+            Effect::AtNextEndStep {
+                effects: &[Effect::draw(1)],
+            },
+        ];
+        const SCRY_SHUFFLE: &[Effect] = &[
+            Effect::mana(ManaColor::Colorless, 2),
+            Effect::Scry {
+                amount: Amount::Fixed(1),
+            },
+            Effect::ShuffleLibrary {
+                who: PlayerRel::You,
+            },
+        ];
+        for (effects, text) in [
+            (PURE, "{T}: Add {C}{C}."),
+            (DAMAGE, "{T}: Add {C}{C}. This land deals 2 damage to you."),
+            (
+                DELAYED_DRAW,
+                "{T}: Add {C}{C}. At the beginning of the next end step, draw a card.",
+            ),
+            (
+                SCRY_SHUFFLE,
+                "{T}: Add {C}{C}. Scry 1. Shuffle your library.",
+            ),
+        ] {
+            let ability = mana_ability!(effects);
+            assert_eq!(line_shape(text), LineShape::Mana, "{text}");
+            assert_eq!(ability_shape(&ability), LineShape::Mana, "{text}");
+            assert_eq!(map(&[ability], text).lines, [Some(0)], "{text}");
+        }
     }
 
     /// "… add {B} instead" prints two outputs and the ability makes one;

@@ -5725,6 +5725,7 @@ fn a_gingerbread_cabin_counts_forests_and_not_lands() {
 /// All five are played because each names its own `CardIndex`, and a cycle
 /// is exactly where one file quietly gets a neighbour's number.
 #[test]
+#[allow(clippy::too_many_lines)] // five lands, three boards and both colours each
 fn a_turbulent_land_counts_the_lands_across_the_table() {
     const TURBULENT: &[(&str, &str, [ManaColor; 2])] = &[
         (
@@ -5823,7 +5824,12 @@ fn a_turbulent_land_counts_the_lands_across_the_table() {
             };
             assert_eq!(
                 options.as_slice(),
-                colors.as_slice(),
+                ManaColor::ALL
+                    .iter()
+                    .copied()
+                    .filter(|color| colors.contains(color))
+                    .collect::<Vec<_>>()
+                    .as_slice(),
                 "{name}: offered the wrong colours"
             );
             engine

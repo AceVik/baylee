@@ -17,8 +17,5 @@ card!(
         types = TypeSet::LAND,
         subtypes = &[subtypes::land::ISLAND, subtypes::land::MOUNTAIN],
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_choice(&[
-        ManaColor::Blue,
-        ManaColor::Red
-    ])]),],
+    abilities = &[mana_ability!(&[Effect::intrinsic_mana()]),],
 );

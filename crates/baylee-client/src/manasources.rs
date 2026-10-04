@@ -402,10 +402,11 @@ pub(crate) fn produced_colors(
     match source {
         baylee_cards_dsl::ManaSource::Fixed(color) => Some(vec![color]),
         baylee_cards_dsl::ManaSource::Choice(colors) => Some(colors.to_vec()),
-        // All four are the host's to answer, and the chosen colour is the
+        // All five are the host's to answer, and the chosen colour is the
         // one the client could not have derived with the whole board in
         // front of it: the answer is on the object, printed on no card.
-        baylee_cards_dsl::ManaSource::CommanderIdentity
+        baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
+        | baylee_cards_dsl::ManaSource::CommanderIdentity
         | baylee_cards_dsl::ManaSource::LandColor { .. }
         | baylee_cards_dsl::ManaSource::Chosen
         | baylee_cards_dsl::ManaSource::ChosenOr(_) => {
@@ -709,6 +710,48 @@ mod tests {
     use baylee_core::ids::ObjectId;
     use baylee_core::mana::ManaColor;
     use baylee_engine::choice::GRANTED_ABILITY;
+
+    #[test]
+    fn intrinsic_mana_reads_hacked_land_colors_from_the_host() {
+        let mut land = card(7, 0, "Tropical Island");
+        let id = land.id;
+        land.subtypes = baylee_core::types::SubtypeSet::from_slice(&[
+            baylee_core::generated::subtypes::land::ISLAND,
+        ]);
+        land.board_mana = Some(projected(&[ManaColor::Blue], 0));
+        let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
+        let legal = LegalActions {
+            abilities: vec![(id, 0)],
+            ..LegalActions::default()
+        };
+
+        let sources = sources(&view, &legal);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].colors, vec![ManaColor::Blue]);
+        assert_eq!(sources[0].tap, Tap::Ability(0));
+        assert_eq!(sources[0].amount, 1);
+        let offers = offers(&view, &legal, id);
+        assert_eq!(offers.len(), 1);
+        assert_eq!(offers[0].colors, vec![ManaColor::Blue]);
+        assert!(duplicates_intrinsic(&view, id, 0));
+    }
+
+    #[test]
+    fn intrinsic_mana_refuses_missing_or_mismatched_projection() {
+        for projection in [None, Some(projected(&[ManaColor::Green], 1))] {
+            let mut land = card(7, 0, "Tropical Island");
+            let id = land.id;
+            land.board_mana = projection;
+            let view = ViewBuilder::new(2).with_battlefield(0, [land]).build();
+            let legal = LegalActions {
+                abilities: vec![(id, 0)],
+                ..LegalActions::default()
+            };
+
+            assert!(sources(&view, &legal).is_empty());
+            assert!(offers(&view, &legal, id).is_empty());
+        }
+    }
 
     /// A land under a Chromatic Lantern, as the seat is shown it: a Mountain
     /// with an ability that is on no card, and the engine offering it.

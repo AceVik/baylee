@@ -109,3 +109,7 @@ mod text_copy_review;
 mod constrained_casting_review;
 
 mod chromatic_sphere_review;
+
+mod hack_intrinsic_review;
+
+mod word_of_command_feasibility;

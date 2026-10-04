@@ -184,6 +184,22 @@ fn promised(
                 if cost.parts != [CostPart::TapSelf] {
                     return Err(Unreadable::Cost);
                 }
+                if def.abilities_for_face(index)[i].is_intrinsic_mana_ability() {
+                    let colors: Vec<ManaColor> = [
+                        (land::PLAINS, ManaColor::White),
+                        (land::ISLAND, ManaColor::Blue),
+                        (land::SWAMP, ManaColor::Black),
+                        (land::MOUNTAIN, ManaColor::Red),
+                        (land::FOREST, ManaColor::Green),
+                    ]
+                    .into_iter()
+                    .filter(|(subtype, _)| face.subtypes.contains(subtype))
+                    .map(|(_, color)| color)
+                    .collect();
+                    return (!colors.is_empty() && face.types.contains(TypeSet::LAND))
+                        .then_some(SimpleMana { colors, amount: 1 })
+                        .ok_or(Unreadable::Reading);
+                }
                 baylee_cards_dsl::simple_mana(cost, effects).ok_or(Unreadable::Reading)
             }
             AbilityDef::ActivatedConditional { .. } => Err(Unreadable::Conditional),

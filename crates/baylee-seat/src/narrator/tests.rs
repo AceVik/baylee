@@ -729,6 +729,51 @@ fn a_kicker_question_names_the_cost_and_what_an_unpaid_one_does() {
 }
 
 #[test]
+fn a_turn_trade_names_the_permanent_and_both_consequences() {
+    use baylee_engine::choice::YesNoPrompt;
+    let (mut view, log) = board();
+    view.battlefield.push(tapped(card(70, "Time Vault")));
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::SkipTurn { source: id(70) },
+        source: None,
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    assert!(
+        wake.text
+            .contains("Skip this turn to untap Time Vault #70?")
+    );
+    assert!(
+        wake.text
+            .contains("Yes: skip this turn; untap it when the next turn begins")
+    );
+    assert!(wake.text.contains("No: take this turn; leave it tapped"));
+    let decide = |pick: &[&str]| Decision {
+        ask: Some(format!("q{}", wake.menu.question)),
+        pick: pick.iter().map(ToString::to_string).collect(),
+        ..Decision::default()
+    };
+    assert_eq!(
+        wake.menu.resolve(&decide(&["y"])).unwrap().act,
+        Act::Now(PlayerAction::YesNo(true))
+    );
+    assert_eq!(
+        wake.menu.resolve(&decide(&["n"])).unwrap().act,
+        Act::Now(PlayerAction::YesNo(false))
+    );
+    assert!(wake.menu.resolve(&decide(&["y", "n"])).is_err());
+    assert!(
+        wake.menu
+            .resolve(&Decision {
+                ask: Some("stale-question".into()),
+                ..decide(&["y"])
+            })
+            .is_err()
+    );
+}
+
+#[test]
 fn the_log_is_told_once_and_a_gap_is_said() {
     let (view, log) = board();
     let pending = priority(&view);

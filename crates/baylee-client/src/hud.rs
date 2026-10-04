@@ -2019,7 +2019,15 @@ pub struct CardMotion<'w> {
 /// are despawned, and the shelf is passed over.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct OverlayTree<'w, 's> {
-    pub(crate) stack_scroll: Query<'w, 's, &'static ScrollPosition, With<stack::StackBody>>,
+    pub(crate) stack_scroll: Query<
+        'w,
+        's,
+        (
+            &'static ScrollPosition,
+            &'static ComputedNode,
+            &'static stack::StackBody,
+        ),
+    >,
 
     /// The root, and whatever hangs off it.
     pub(crate) root: Query<'w, 's, (Entity, Option<&'static Children>), With<HudRoot>>,

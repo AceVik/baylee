@@ -6,6 +6,60 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-04 — Native Engine lane and stable integration checkpoints
+
+The owner means a native Junie session when specifying Opus 5.5/high, not an
+external Claude CLI or a capability tier that merely sounds equivalent. The
+native `engine` session confirms the selected model through JetBrains AI.
+Coordinate existing sessions through shared project handoff/status/inbox files,
+with an immediate acknowledgement, exact interface handoffs and explicit Cargo
+and source pauses. Never start another writer against an open owner session.
+
+The first two checkpoints review the inherited Time Vault/Aura/constrained-cast
+work and finish Animate Dead and Lich. New turn-trade decisions need consumers
+outside the Engine too: explicit human cost wording, question-bound narrator
+answers, a no-automation rule and a conservative AI policy distinct from a free
+optional effect. Two normal table codegen passes and behavioral tests are a
+gate; changing coverage is a separate acceptance decision.
+
+Live Sleight exposed a browser hiding a legal battlefield target behind a pinned
+off-board target sheet. Reproduce it before fixing it. Reuse the existing mixed
+card-choice path for target choices rather than unlocking private/mandatory
+sheets. Require exactly the offered rows, no duplicate rows, exclusion of an
+unoffered permanent and reset back to a stack-only offer; all 54 Browser tests
+then pass. A second battlefield representation is intentional only where the
+sheet obscures that answer, not an excuse for arbitrary duplicate objects.
+
+Do not diagnose a combined timeout as a deadlock without measured evidence.
+Checkpoint 2 spent 130 seconds compiling before its tests; all Gamehost unit
+tests pass when isolated, with 70.20 seconds test execution. Preserve the two
+existing ignored long-run tests and test coverage; do not sample crash recovery
+or remove durable syncs to squeeze the full Workspace gate into a short timeout.
+
+## 2026-10-04 — Resume semantic migrations across every reader
+
+An interrupted intrinsic-mana migration compiled in the Engine but not in the
+client. Follow the provenance through the DSL, handwritten dual lands, codegen,
+host projections, client planning and verification recorder. A fixed printed
+mana symbol and mana granted by a current basic land type are different inputs;
+tests must preserve that distinction rather than infer it from matching colours.
+The independent land-mana test reader derives intrinsic expectations from the
+face's basic types, not from the production mana evaluator. Existing dual tests
+still exercise each colour, exactly one mana and the paid tap cost.
+
+Library-moving mana abilities also need the sentence mapper to agree with the
+Engine's current classification. Chromatic Sphere and the five Eggs exposed a
+mapping gap after Draw/Mill became non-mana: pure mana and mana plus damage are
+counterexamples, not exceptions to weaken the all-card mapping check. Regenerate
+the line table through `xtask codegen`, never edit its generated rows.
+
+The owner reserves subsequent Engine work for Astra at medium or higher, or
+Claude Opus 5.5 at high or higher. Local Qwen is limited to the non-Engine lane.
+For a bounded UI checklist, LM Studio's native `/api/v1/chat` with
+`reasoning: "off"` returned useful output; the OpenAI-compatible request spent
+its entire token budget on reasoning and returned an empty answer. A generated
+checklist is a proposal, not evidence that the UI was tested.
+
 ## 2026-10-02 — Sengir Vampire: damage history is not marked damage
 
 A death after damage reads a historical relationship, not the victim's marked

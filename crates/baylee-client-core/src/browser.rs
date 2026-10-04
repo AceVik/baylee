@@ -723,7 +723,7 @@ enum Opening {
 /// The panel's own state — what the player has said about it, nothing more.
 #[derive(Clone, Default, Debug)]
 pub struct Browser {
-    /// A mixed card-choice sheet must not hide the offered battlefield answers.
+    /// A mixed choice sheet must not hide the offered battlefield answers.
     obscured_battlefield: bool,
     open: Opening,
     /// Which zones are ticked, and **empty means every one of them**.
@@ -1368,6 +1368,7 @@ impl Browser {
             matches!(
                 it.pending(),
                 baylee_engine::choice::Pending::ChooseCards { .. }
+                    | baylee_engine::choice::Pending::ChooseTargets { .. }
             ) && Self::wanted(view, it)
                 && view
                     .battlefield
@@ -1407,7 +1408,7 @@ impl Browser {
     /// pile it *also* offers, because the tabs would then be claiming the
     /// permanent is not an answer.
     fn sole_zone(view: &PlayerView, interaction: &Interaction) -> Option<BrowseZone> {
-        if Self::about_the_shown(view, interaction) {
+        if Self::private_cast_choice(interaction) || Self::about_the_shown(view, interaction) {
             return Some(BrowseZone::Looking);
         }
         let mut only = None;
@@ -1484,12 +1485,25 @@ impl Browser {
         if interaction.is_ordering() {
             return true;
         }
-        if Self::about_the_shown(view, interaction) {
+        if Self::private_cast_choice(interaction) || Self::about_the_shown(view, interaction) {
             return true;
         }
         interaction.selectable().iter().any(|id| {
             !view.battlefield.iter().any(|o| o.id == *id) && !view.hand.iter().any(|h| h.id == *id)
         })
+    }
+
+    /// Private cast offers need their receipt and explicit cast/decline controls,
+    /// even when the eligible cards are already visible in the local hand.
+    fn private_cast_choice(interaction: &Interaction) -> bool {
+        matches!(
+            interaction.pending(),
+            baylee_engine::choice::Pending::ChooseCards {
+                prompt: baylee_engine::choice::ChoicePrompt::CastFaceDown { .. }
+                    | baylee_engine::choice::ChoicePrompt::CommandCard,
+                ..
+            }
+        )
     }
 
     /// Whether the question is about the cards the seat is being shown

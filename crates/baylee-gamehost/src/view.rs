@@ -756,7 +756,8 @@ fn board_mana(state: &GameState, id: ObjectId) -> Option<baylee_view::BoardMana>
             // and would cost the wire a colour list each.
             if !matches!(
                 source,
-                baylee_cards_dsl::ManaSource::CommanderIdentity
+                baylee_cards_dsl::ManaSource::IntrinsicBasicLandTypes
+                    | baylee_cards_dsl::ManaSource::CommanderIdentity
                     | baylee_cards_dsl::ManaSource::LandColor { .. }
                     | baylee_cards_dsl::ManaSource::Chosen
                     | baylee_cards_dsl::ManaSource::ChosenOr(_)
@@ -4653,14 +4654,17 @@ mod tests {
         assert_eq!(stone.colors, vec![ManaColor::White, ManaColor::Green]);
     }
 
-    /// A Forest carries none, and that is the economy of the field: what a
-    /// card can answer on its own stays on the card, so the wire pays a
-    /// colour list only for the four permanents that need one.
+    /// Intrinsic mana follows current land types rather than printed symbols,
+    /// so even an unchanged basic land carries the host's current answer.
     #[test]
     fn a_forest_needs_no_projection() {
         let (_, view) = board(&[forest(), plains()], &[]);
-        assert!(projection(&view, "Forest").is_none());
-        assert!(projection(&view, "Plains").is_none());
+        let forest = projection(&view, "Forest").expect("intrinsic Forest mana is projected");
+        assert_eq!(forest.index, 0);
+        assert_eq!(forest.colors, vec![ManaColor::Green]);
+        let plains = projection(&view, "Plains").expect("intrinsic Plains mana is projected");
+        assert_eq!(plains.index, 0);
+        assert_eq!(plains.colors, vec![ManaColor::White]);
     }
 
     /// The second board-dependent source, folded into the same field so that
