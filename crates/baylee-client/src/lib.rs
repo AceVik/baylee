@@ -1346,7 +1346,8 @@ pub struct DuelPlugin {
 /// it is drawn once at full strength before its arrival is ever applied.
 #[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 fn add_present_systems(app: &mut App) {
-    app.init_resource::<hud::StackFold>()
+    app.init_resource::<hud::AiLogState>()
+        .init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
@@ -1543,6 +1544,7 @@ fn add_present_systems(app: &mut App) {
                     hud::grow_the_log.after(hud::sync_log),
                     hud::follow_the_log.after(hud::sync_log),
                     hud::hover_log_links.after(hud::sync_log),
+                    hud::update_ai_log,
                 ),
                 // The tray's doors stand in the shelf's row but not in its
                 // layout, so they need nothing the shelf worked out — but

@@ -19,6 +19,7 @@
 use super::*;
 
 pub(super) mod drawer;
+pub(super) mod ai_log;
 pub(super) mod log;
 pub(super) mod menu;
 pub(super) mod players;

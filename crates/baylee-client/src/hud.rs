@@ -2137,6 +2137,8 @@ pub(crate) mod chosen_type;
 mod finish;
 mod hand;
 mod ledge;
+pub(crate) use ledge::ai_log::{AiLogState, update_ai_log};
+
 mod motion;
 mod overlay;
 mod preview_keys;
