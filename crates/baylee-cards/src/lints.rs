@@ -1720,6 +1720,7 @@ mod tests {
                     | Modifier::CantLoseLife { who }
                     | Modifier::NoLossForZeroLife { who }
                     | Modifier::LifeGainDrawsInstead { who }
+                    | Modifier::CantBeAttackedExceptBy { who, .. }
                     | Modifier::SkipUntapStep { who }
                     | Modifier::UntapAtMost { who, .. }) = modifier
                     else {

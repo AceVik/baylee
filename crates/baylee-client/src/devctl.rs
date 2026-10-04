@@ -1227,6 +1227,33 @@ struct Believed<'w, 's> {
             &'static bevy::ui::UiGlobalTransform,
         ),
     >,
+    tray_cards: Query<
+        'w,
+        's,
+        (
+            &'static crate::hud::TrayCard,
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+    >,
+    tray_filters: Query<
+        'w,
+        's,
+        (
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::TrayFilter>,
+    >,
+    tray_none: Query<
+        'w,
+        's,
+        (
+            &'static bevy::ui::ComputedNode,
+            &'static bevy::ui::UiGlobalTransform,
+        ),
+        With<crate::hud::TrayNone>,
+    >,
     /// Everything a player can press that is not an answer: the concession,
     /// the draw offer, the armed card's two halves and "resolve the stack".
     ///
@@ -1515,7 +1542,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"outbox\":{outbox},\"mana_run\":{mana_run},\"ability_menu\":{menu},\
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
-         \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"shelves\":{shelves},\
+         \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
@@ -1532,6 +1559,7 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         lobby_controls = lobby_controls_json(believed),
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),
+        browser = browser_json(duel),
         shelves = shelves_json(
             shelves,
             duel.view.as_ref().is_some_and(|v| v.day_night.is_some())
@@ -1727,6 +1755,16 @@ fn cards_json(believed: &Believed, duel: &Duel, window: Vec2) -> String {
     format!("[{}]", rows.join(","))
 }
 
+fn browser_json(duel: &Duel) -> serde_json::Value {
+    serde_json::json!({
+        "open": duel.browser.is_open(),
+        "typing": duel.browser.is_typing(),
+        "filter": duel.browser.filter(),
+        "for_choice": duel.browser.for_choice(),
+        "dismissible": duel.browser.may_be_put_away(),
+    })
+}
+
 /// Where the answers are: the shelf's buttons, the two choosers, and
 /// everything that acts on the game without answering it.
 ///
@@ -1788,6 +1826,33 @@ fn buttons_json(believed: &Believed) -> String {
         push(
             "menu",
             format!("{:?}", button.action),
+            node,
+            place.translation,
+            String::new(),
+        );
+    }
+    for (card, node, place) in &believed.tray_cards {
+        push(
+            "browser-card",
+            card.object.slot().to_string(),
+            node,
+            place.translation,
+            format!(",\"object\":{}", card.object.slot()),
+        );
+    }
+    for (node, place) in &believed.tray_filters {
+        push(
+            "browser-control",
+            "Filter".into(),
+            node,
+            place.translation,
+            String::new(),
+        );
+    }
+    for (node, place) in &believed.tray_none {
+        push(
+            "browser-control",
+            "Decline".into(),
             node,
             place.translation,
             String::new(),
@@ -2041,6 +2106,47 @@ fn shelves_json(shelves: Option<&crate::hud::Shelves>, designated: bool) -> Stri
 mod tests {
     use super::*;
     use bevy::ecs::message::Messages;
+
+    #[test]
+    fn the_snapshot_names_browser_rows_and_their_controls() {
+        let (mut app, tx) = harness();
+        let mut duel = Duel::default();
+        assert!(duel.browser.toggle_by_hand());
+        app.insert_resource(duel);
+        app.world_mut().spawn((
+            crate::hud::TrayCard {
+                object: baylee_core::ids::ObjectId::new(9, 0),
+            },
+            ComputedNode::default(),
+            UiGlobalTransform::default(),
+        ));
+        app.world_mut().spawn((
+            crate::hud::TrayFilter,
+            ComputedNode::default(),
+            UiGlobalTransform::default(),
+        ));
+        let answers = ask(&tx, "/state", "{}");
+        app.update();
+        let snapshot: serde_json::Value =
+            serde_json::from_str(&answers.try_recv().unwrap()).unwrap();
+        assert_eq!(snapshot["browser"]["open"], true);
+        assert_eq!(snapshot["browser"]["typing"], false);
+        assert_eq!(snapshot["browser"]["filter"], "");
+        let buttons = snapshot["buttons"].as_array().unwrap();
+        let row = buttons
+            .iter()
+            .find(|row| row["kind"] == "browser-card")
+            .unwrap();
+        assert_eq!(row["object"], 9);
+        assert_eq!(row["label"], "9");
+        assert_eq!(row["at_x"], 0.0);
+        assert_eq!(row["at_y"], 0.0);
+        assert!(
+            buttons
+                .iter()
+                .any(|row| { row["kind"] == "browser-control" && row["label"] == "Filter" })
+        );
+    }
 
     /// A key named either way round says the same thing.
     ///

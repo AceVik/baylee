@@ -8031,6 +8031,21 @@ pressed. A pointer harness needs a button's position the way a keyboard one
 needs its action, and reading it back beats measuring it off a screenshot for
 the same reason `cards` does.
 
+Browser rows join that same measured list as `kind: "browser-card"`, with the
+object slot in `object` and `label`; the search field and decline control use
+`kind: "browser-control"` with `Filter` and `Decline` labels. Their centres and
+sizes come from the actual computed UI nodes in logical pixels, not from a
+second layout model. A mixed battlefield/stack target sheet can cover the table
+card, so using that card's `cards` coordinates would click the sheet instead.
+Read the current row coordinates, narrow the list through the measured filter
+when needed, and answer with its actual Confirm button.
+
+`browser` reports `open`, `typing`, `filter`, `for_choice` and `dismissible` from
+the panel's own model. It distinguishes a key intercepted by text entry from
+one reaching the choice; a photograph of the same pinned sheet cannot. Both
+these diagnostic additions exist only with the `dev-control` feature and its
+loopback runtime opt-in, not in a shipped Client build.
+
 An ability row also says what it reads: `words` (the whole sentence the row
 draws, cost and all, or the one-line name of a row the card prints nothing
 for; `null` for neither), `head` (the cost column as drawn) and `source`,

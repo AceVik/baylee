@@ -12,6 +12,7 @@ mod creature_bond;
 mod earthbind;
 mod earthbind_independent;
 mod gloom;
+mod island_sanctuary;
 mod lich;
 
 fn circle_of_protection_red() -> CardIndex {
@@ -19189,32 +19190,18 @@ fn white_ward_protects_from_white_and_stays_attached() {
     );
 }
 
-/// Raging River and Island Sanctuary are `Coverage::Partial` with none of
-/// their text written: each is cast and sits on the battlefield doing
-/// nothing. Lich is played in `enchantments::lich`.
+/// Raging River is `Coverage::Partial` with none of its text written: it is
+/// cast and sits on the battlefield doing nothing. Lich and Island Sanctuary
+/// are played in `enchantments::lich` and `enchantments::island_sanctuary`.
 #[test]
 fn partial_enchantments_with_no_text_written_sit_doing_nothing() {
-    for (name, card, land, lands) in [
-        (
-            "Raging River",
-            card_index("a2310312-6e1e-4e34-a351-9aef499a810f"),
-            mountain(),
-            2,
-        ),
-        (
-            "Island Sanctuary",
-            card_index("7d1769d0-d942-45b3-a31c-2bbe45e68661"),
-            plains(),
-            2,
-        ),
-    ] {
-        still_partial(card);
-        assert_eq!(
-            cast_saying_nothing(card, land, lands),
-            Zone::Battlefield,
-            "{name}"
-        );
-    }
+    let raging_river = card_index("a2310312-6e1e-4e34-a351-9aef499a810f");
+    still_partial(raging_river);
+    assert_eq!(
+        cast_saying_nothing(raging_river, mountain(), 2),
+        Zone::Battlefield,
+        "Raging River"
+    );
 }
 
 /// Animate Dead's "enchant creature card in a graveyard" is its spell's

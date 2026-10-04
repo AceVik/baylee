@@ -982,8 +982,8 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::Miracle { .. } | PlanKind::Discovered { .. } => {
                         unreachable!("miracle and discover plans are answered via YesNo")
                     }
-                    PlanKind::SkipTurn { .. } => {
-                        unreachable!("turn skips are answered via YesNo")
+                    PlanKind::SkipTurn { .. } | PlanKind::SkipDraw { .. } => {
+                        unreachable!("turn and draw skips are answered via YesNo")
                     }
                     PlanKind::DivideDamage { .. } => {
                         unreachable!("division plans are answered via ChooseNumber")
@@ -1371,6 +1371,25 @@ impl<L: CardLookup> Engine<L> {
                     declined.push(source);
                     if !self.offer_turn_skip(player, declined) {
                         self.begin_turn(false);
+                    }
+                    return Ok(());
+                }
+                // The draw step's draw, offered to a skip (Island Sanctuary).
+                if matches!(self.pending_plan, Some(PlanKind::SkipDraw { .. })) {
+                    let Some(PlanKind::SkipDraw {
+                        source,
+                        mut declined,
+                    }) = self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
+                    if answer {
+                        self.restrict_attacks_after_skipped_draw(player, source);
+                        return Ok(());
+                    }
+                    declined.push(source);
+                    if !self.offer_draw_skip(player, declined) {
+                        self.state.draw_cards(player, 1);
                     }
                     return Ok(());
                 }

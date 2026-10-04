@@ -36,6 +36,12 @@ tests pass when isolated, with 70.20 seconds test execution. Preserve the two
 existing ignored long-run tests and test coverage; do not sample crash recovery
 or remove durable syncs to squeeze the full Workspace gate into a short timeout.
 
+When a modal offers the same object as the table, the table's coordinates are
+not the modal row's coordinates. Expose the real row/control computed bounds
+and text-entry state through the feature-gated loopback diagnostic; test its
+actual pump/JSON response and preserve release-build exclusion. Repeatedly
+guessing keys while a search field has focus is not a live acceptance proof.
+
 ## 2026-10-04 — Resume semantic migrations across every reader
 
 An interrupted intrinsic-mana migration compiled in the Engine but not in the

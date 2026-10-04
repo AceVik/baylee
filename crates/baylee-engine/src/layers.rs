@@ -1172,6 +1172,7 @@ fn apply(
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
+        | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
         | Modifier::CombatDamageCantBePrevented

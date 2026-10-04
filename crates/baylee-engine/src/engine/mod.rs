@@ -654,6 +654,14 @@ enum PlanKind {
         /// one opportunity at the event (CR 614.5).
         declined: Vec<ObjectId>,
     },
+    /// The draw step's draw, offered to one of the active player's skip
+    /// replacements (`ReplacementRule::MaySkipDrawStepDraw`, CR 614.10).
+    SkipDraw {
+        /// The permanent whose replacement is offered.
+        source: ObjectId,
+        /// Those already declined for this draw (CR 614.5).
+        declined: Vec<ObjectId>,
+    },
     /// Target choice for a synthetic trigger (granted triggered ability).
     SyntheticTriggerTarget {
         /// The queued trigger.

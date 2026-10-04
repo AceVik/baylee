@@ -462,6 +462,7 @@ pub fn blocking_player(state: &GameState, defender: Defender) -> Option<PlayerId
 pub struct AttackRules<'a> {
     state: &'a GameState,
     unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
+    except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
 }
 
@@ -471,10 +472,12 @@ impl<'a> AttackRules<'a> {
     pub fn new(state: &'a GameState) -> Self {
         use baylee_cards_dsl::Modifier;
         let mut unless_defender_controls = Vec::new();
+        let mut except_by = Vec::new();
         let mut requirements = Vec::new();
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
                 _ => {}
             }
@@ -482,6 +485,7 @@ impl<'a> AttackRules<'a> {
         Self {
             state,
             unless_defender_controls,
+            except_by,
             requirements,
         }
     }
@@ -503,13 +507,37 @@ impl<'a> AttackRules<'a> {
     /// the pair. Asked of a creature [`can_attack`] already allows.
     #[must_use]
     pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
-        if self.unless_defender_controls.is_empty() {
+        if self.unless_defender_controls.is_empty() && self.except_by.is_empty() {
             return true;
         }
         let state = self.state;
         let Some(obj) = state.object(creature) else {
             return false;
         };
+        // "You can't be attacked except by …" protects the player, and a
+        // planeswalker they control is a defender of its own (CR 506.3).
+        if let Defender::Player(attacked) = defender
+            && !self.except_by.iter().all(|fx| {
+                let baylee_cards_dsl::Modifier::CantBeAttackedExceptBy { who, by } = fx.modifier
+                else {
+                    return true;
+                };
+                !crate::eval::players(who, state, fx.controller)
+                    .is_some_and(|p| p.contains(&attacked))
+                    || crate::eval::matches(
+                        by,
+                        state,
+                        obj,
+                        fx.controller,
+                        fx.source.unwrap_or(creature),
+                    )
+            })
+        {
+            return false;
+        }
+        if self.unless_defender_controls.is_empty() {
+            return true;
+        }
         let Some(defending) = defending_player(state, defender) else {
             return false;
         };

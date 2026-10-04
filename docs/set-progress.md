@@ -107,6 +107,16 @@ transfer including an already-tapped land counterexample. These observations
 do not certify later source changes; see
 `scratchpad/junie-alpha-milestone1-live.md` for the bounded evidence.
 
+Checkpoint 3 wires Island Sanctuary's own draw-step draw and attack restriction,
+but its additional draw-step draws remain a known completion blocker; coverage
+stays Partial. Its two table-generation passes and Cards/Client Core/AI/Seat
+gates pass. The coordinator added read-only browser row/control coordinates and
+panel state to the feature-gated loopback diagnostic, with all 19 diagnostic
+tests, feature-enabled Clippy, format check and the Client build passing. This
+allows actual mixed-target selection without guessed screenshot coordinates.
+Time Vault's milestone-2 live No path is confirmed: the next own turn occurs and
+the Vault remains tapped; its Yes/live extra-turn path is still pending.
+
 ## Damage rules extension
 
 The original fixed prevention order is replaced by resumable damage work shared

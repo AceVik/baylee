@@ -252,6 +252,16 @@ pub enum Modifier {
         /// Whose gains are replaced, relative to the effect's controller.
         who: crate::effect::PlayerRel,
     },
+    /// "You can't be attacked except by creatures with …" (Island
+    /// Sanctuary): a restriction on declaring attackers (CR 508.1c) that
+    /// shuts out every creature not matching `by` from attacking these
+    /// players. Planeswalkers they control are still attacked as before.
+    CantBeAttackedExceptBy {
+        /// Who can't be attacked, relative to the effect's controller.
+        who: crate::effect::PlayerRel,
+        /// The creatures that still may.
+        by: &'static Filter,
+    },
     /// Prevent all combat damage that would be dealt TO the affected object
     /// (Maze of Ith). Combat's damage doors ask it and an effect's do not:
     /// an effect's damage to the object is dealt.
@@ -757,6 +767,7 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
+            | Self::CantBeAttackedExceptBy { .. }
             | Self::PreventDamageToIt
             | Self::PreventDamageFromIt
             | Self::CombatDamageCantBePrevented
@@ -930,6 +941,13 @@ pub enum ReplacementRule {
     /// action is considered to be the first thing that happens during the
     /// next step, phase, or turn to actually occur."
     SkipTurnToUntapSelf,
+    /// "If you would draw a card during your draw step, instead you may skip
+    /// that draw. If you do, until your next turn, you can't be attacked
+    /// except by creatures with flying and/or islandwalk" (Island
+    /// Sanctuary). Offered to the source's controller as the draw step's
+    /// draw would be made (CR 504.1, CR 614.10); one skip is the whole
+    /// effect, and the restriction outlives the source.
+    MaySkipDrawStepDraw,
 }
 
 #[cfg(test)]
@@ -1129,6 +1147,10 @@ mod tests {
             },
             Modifier::LifeGainDrawsInstead {
                 who: crate::effect::PlayerRel::You,
+            },
+            Modifier::CantBeAttackedExceptBy {
+                who: crate::effect::PlayerRel::You,
+                by: &Filter::CREATURE,
             },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
