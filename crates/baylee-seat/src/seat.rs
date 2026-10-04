@@ -443,6 +443,7 @@ impl SeatCore {
         match result {
             Ok(answer) => {
                 self.failures = 0;
+                self.wake.apply_stops(answer.stops.as_deref(), answer.hold.as_ref());
                 self.stats.model_ms = self.stats.model_ms.saturating_add(
                     u64::try_from(answer.model_time.as_millis()).unwrap_or(u64::MAX),
                 );

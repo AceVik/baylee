@@ -187,6 +187,10 @@ pub struct Answer {
     /// Anything the mind wants in the transcript beside the answer: a
     /// sentence of reasoning, a provider's usage. Never sent to the table.
     pub note: Option<String>,
+    /// The phases or steps the model wants to be woken in.
+    pub stops: Option<Box<crate::narrator::Stops>>,
+    /// "`until_my_turn`"
+    pub hold: Option<String>,
 }
 
 impl Answer {
@@ -197,6 +201,8 @@ impl Answer {
             action,
             model_time: Duration::ZERO,
             note: None,
+            stops: None,
+            hold: None,
         }
     }
 

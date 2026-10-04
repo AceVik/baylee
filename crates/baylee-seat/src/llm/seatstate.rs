@@ -55,6 +55,8 @@ pub(crate) struct Seat {
     /// next priority shows whether the cast happened ([`Seat::undone`]).
     pub(crate) casting: Option<ObjectId>,
     pub(crate) transcript: Transcript,
+    pub(crate) stops: Option<narrator::Stops>,
+    pub(crate) hold: Option<String>,
 }
 
 impl Seat {
@@ -81,6 +83,8 @@ impl Seat {
             asked: 0,
             casting: None,
             transcript,
+            stops: None,
+            hold: None,
         }
     }
 
@@ -111,10 +115,14 @@ impl Seat {
         let (action, label) = self.follow(request)?;
         self.last_by_model = false;
         let note = json!({"plan": label}).to_string();
+        let stops = self.stops.clone();
+        let hold = self.hold.clone();
         Some(Answer {
             action,
             model_time: Duration::ZERO,
             note: Some(note),
+            stops: stops.map(Box::new),
+            hold,
         })
     }
 
@@ -133,6 +141,25 @@ impl Seat {
         }
         told.extend(self.notes.iter().cloned());
         told
+    }
+
+    pub(crate) fn stops_summary(&self) -> Option<String> {
+        let mut s = String::new();
+        if let Some(stops) = &self.stops {
+            s.push_str("stops: mine [");
+            s.push_str(&stops.mine.join(", "));
+            s.push_str("], theirs [");
+            s.push_str(&stops.theirs.join(", "));
+            s.push(']');
+        }
+        if let Some(hold) = &self.hold {
+            if !s.is_empty() {
+                s.push_str(" · ");
+            }
+            s.push_str("hold: ");
+            s.push_str(hold);
+        }
+        if s.is_empty() { None } else { Some(s) }
     }
 
     /// Keeps what the model answered, `resolved` against its question and
@@ -156,6 +183,17 @@ impl Seat {
             }
         }
         self.hint.clone_from(&resolved.hint);
+        if let Some(stops) = resolved.stops {
+            self.stops = Some(stops);
+        }
+        if resolved.hold.is_some() {
+            self.hold = resolved.hold;
+        } else {
+            // "hold" expires when the seat gets a chance to act on it (a new turn),
+            // or when they send a new answer without it. If the user explicitly sends an answer,
+            // the hold should be dropped. But wait, `hold: "until_my_turn"` is a one-off instruction.
+            self.hold = None;
+        }
         match resolved.act {
             Act::Now(action) => {
                 self.plan = None;

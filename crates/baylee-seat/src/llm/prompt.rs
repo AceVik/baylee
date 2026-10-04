@@ -31,6 +31,8 @@ An option that says \"(taps ...)\" taps those sources for you and then casts; yo
 yourself. When you cast a spell or activate an ability that will ask for targets, you may add \
 then={\"targets\": [ids]} to name them at once; if they are not legal then, you are asked.
 Add say: one short sentence for the people watching, about your plan. Keep it to the game.
+To change when you are asked, add stops: {\"mine\": [\"main1\", \"main2\", \"attackers\"], \"theirs\": [\"upkeep\", \"attackers\", \"end_step\"]}.
+To pass until your next turn (unless they act), add hold: \"until_my_turn\".
 If the table refuses an answer, the tool result says why: answer the same question again.
 Call concede instead only when you are certain to lose and want the game to end.
 
@@ -111,7 +113,20 @@ pub fn decide_schema() -> Value {
                 "properties": {"targets": ids},
                 "description": "Targets for the spell or ability this pick casts or activates."
             },
-            "say": {"type": "string", "description": "One short sentence for the people watching."}
+            "say": {"type": "string", "description": "One short sentence for the people watching."},
+            "stops": {
+                "type": "object",
+                "properties": {
+                    "mine": {"type": "array", "items": {"type": "string"}},
+                    "theirs": {"type": "array", "items": {"type": "string"}}
+                },
+                "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"])."
+            },
+            "hold": {
+                "type": "string",
+                "enum": ["until_my_turn"],
+                "description": "Pass until your next turn, unless they put something on the stack."
+            }
         },
         "required": ["ask"]
     })

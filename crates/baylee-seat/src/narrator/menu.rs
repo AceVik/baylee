@@ -150,6 +150,10 @@ pub struct Resolved {
     pub label: String,
     /// Targets for the question that follows, when the model named them.
     pub hint: Option<Hint>,
+    /// The phases or steps the model wants to be woken in.
+    pub stops: Option<Stops>,
+    /// "`until_my_turn`"
+    pub hold: Option<String>,
 }
 
 /// A model's answer, read from a `decide` or `concede` call, or from a JSON
@@ -180,8 +184,21 @@ pub struct Decision {
     pub then_targets: Vec<String>,
     /// One sentence for the person watching.
     pub say: Option<String>,
+    /// The phases or steps the model wants to be woken in on its turns and theirs.
+    pub stops: Option<Stops>,
+    /// "`until_my_turn`"
+    pub hold: Option<String>,
     /// A concession, with its reason.
     pub concede: Option<String>,
+}
+
+/// The phases or steps the model wants to be woken in.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Stops {
+    /// On its own turns.
+    pub mine: Vec<String>,
+    /// On the other side's turns.
+    pub theirs: Vec<String>,
 }
 
 impl Decision {
@@ -229,6 +246,11 @@ impl Decision {
                 .map(list)
                 .unwrap_or_default(),
             say: text("say"),
+            stops: map.get("stops").and_then(Value::as_object).map(|s| Stops {
+                mine: s.get("mine").map(list).unwrap_or_default(),
+                theirs: s.get("theirs").map(list).unwrap_or_default(),
+            }),
+            hold: text("hold"),
             concede: None,
         })
     }
@@ -319,6 +341,8 @@ impl Menu {
                 act: Act::Now(PlayerAction::Concede),
                 label: "concede the game".into(),
                 hint: None,
+                stops: None,
+                hold: None,
             });
         }
         match &self.ask {
@@ -377,7 +401,11 @@ impl Menu {
             }
             Ask::Arrange { cards, piles } => Self::arrange(decision, cards, piles),
             Ask::Nothing => Err("this question takes no answer".into()),
-        }
+        }.map(|mut resolved| {
+            resolved.stops.clone_from(&decision.stops);
+            resolved.hold.clone_from(&decision.hold);
+            resolved
+        })
     }
 
     fn pick(&self, decision: &Decision) -> Result<Resolved, String> {
@@ -408,6 +436,8 @@ impl Menu {
             act: choice.act.clone(),
             label: format!("{} {}", choice.id, choice.label),
             hint,
+            stops: None,
+            hold: None,
         })
     }
 
@@ -632,6 +662,8 @@ fn now(action: PlayerAction, label: String) -> Resolved {
         act: Act::Now(action),
         label,
         hint: None,
+        stops: None,
+        hold: None,
     }
 }
 

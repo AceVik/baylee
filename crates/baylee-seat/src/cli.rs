@@ -646,6 +646,7 @@ impl CliMind {
     /// late answer noted, the plan or the hint followed, the budget and the
     /// cooldown checked, the message told, and a process started for a
     /// new conversation. `Err` is the answer when nothing is sent.
+    #[allow(clippy::result_large_err)]
     fn start(
         &self,
         seat: &Arc<Mutex<CliSeat>>,
@@ -679,7 +680,8 @@ impl CliMind {
         if fresh {
             narrator.forget_cards();
         }
-        let wake = narrator.wake(request, &told);
+        let stops_summary = state.seat.stops_summary();
+        let wake = narrator.wake(request, &told, stops_summary.as_deref());
         let text = if fresh {
             format!("{}\n\n{}", narrator::prefix(&request.context), wake.text)
         } else {
@@ -838,10 +840,14 @@ impl CliMind {
             "tokens": usage,
             "ms": u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
         });
+        let stops = state.seat.stops.clone();
+        let hold = state.seat.hold.clone();
         Ok(Answer {
             action,
             model_time: took,
             note: Some(note.to_string()),
+            stops: stops.map(Box::new),
+            hold,
         })
     }
 
