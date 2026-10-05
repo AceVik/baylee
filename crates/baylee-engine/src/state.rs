@@ -5033,6 +5033,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(25);
                 version.hash(h);
             }
+            Rider::SourceAuraSuccessor(version) => {
+                h.u8(60);
+                version.hash(h);
+            }
             Rider::AttachmentHostLeft => h.u8(24),
             Rider::Rebound => h.u8(2),
             Rider::Adventure => h.u8(3),
@@ -5259,6 +5263,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::CmcExactlyX => h.u8(41),
         F::MatchesChosenTypeOfSource => h.u8(20),
         F::AttachedToBySource => h.u8(25),
+        F::AttachedToSource => h.u8(49),
         F::IsAttached => h.u8(38),
         F::SharesSubtypeWithCommander => h.u8(27),
         F::ToughnessAtMost(n) => {

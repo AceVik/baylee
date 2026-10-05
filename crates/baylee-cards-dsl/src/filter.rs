@@ -153,6 +153,11 @@ pub enum Filter {
     /// The object the SOURCE is attached to (equipment/auras): matches the
     /// creature the source is attached to.
     AttachedToBySource,
+    /// Is attached to the SOURCE (CR 303.4b, 301.5b): the Auras, Equipment
+    /// and Fortifications on it, whoever controls them — Rabid Wombat's
+    /// "for each Aura attached to it". The other direction from
+    /// [`Self::AttachedToBySource`].
+    AttachedToSource,
     /// Is attached to an object or player — the object itself, not what it
     /// holds on to (that is [`Self::AttachedToBySource`], read from the other
     /// end).

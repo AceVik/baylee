@@ -748,6 +748,12 @@ pub enum Rider {
     TriggerSourceVersion(u32),
     /// Source incarnation captured when its ability went on the stack.
     AbilitySourceVersion(u32),
+    /// The graveyard incarnation of an Aura whose ability triggered on its
+    /// host leaving the battlefield, where the Aura went at the same time or
+    /// by a state-based action (CR 400.7f): the object "this card" still
+    /// finds (Puppet Master). Recorded as the trigger is put on the stack,
+    /// before anything else can have moved the Aura.
+    SourceAuraSuccessor(u32),
     /// The attachment the ability's source had when it left or phased out.
     /// Paired with `SourceAttachmentVersion`: separate eight-byte riders
     /// preserve the full identity without growing every object's inline list.
@@ -904,6 +910,7 @@ impl Rider {
             // About the stack or the battlefield, not exile.
             Self::EventObjectIdentity(..)
             | Self::AbilitySourceVersion(_)
+            | Self::SourceAuraSuccessor(_)
             | Self::SourceAttachmentLki(..)
             | Self::SourceAttachmentVersion(_)
             | Self::AttachmentHostLeft

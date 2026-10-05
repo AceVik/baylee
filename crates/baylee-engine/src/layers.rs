@@ -793,6 +793,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::AttackedThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
+        | Filter::AttachedToSource
         | Filter::IsAttached
         | Filter::CmcAtMost(_)
         | Filter::CmcAtMostX
@@ -858,6 +859,18 @@ fn basic_land_color(subtype: baylee_core::ids::SubtypeId) -> baylee_core::color:
     .into_iter()
     .find(|(basic, _)| *basic == subtype)
     .map_or(ColorSet::EMPTY, |(_, color)| ColorSet::of(color))
+}
+
+/// Whether a count's filter picks its objects by what they are attached to
+/// (`Filter::AttachedToSource`, alone or in an `And`), which no control
+/// clause scopes.
+fn counts_by_attachment(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    match filter {
+        Filter::AttachedToSource => true,
+        Filter::And(parts) => parts.iter().any(counts_by_attachment),
+        _ => false,
+    }
 }
 
 fn count_controlled(
@@ -1055,7 +1068,11 @@ fn apply(
         }
         Modifier::ModifyPTPerCount { filter, p, t } => {
             *read_board = true;
-            let count = count_controlled(state, obj, c, Some(fx.controller), fx.controller, filter, context);
+            // "For each Aura attached to it" counts by attachment, not by
+            // control (CR 303.4e: an Aura's controller is separate from the
+            // enchanted object's), so such a filter counts every permanent.
+            let whose = (!counts_by_attachment(filter)).then_some(fx.controller);
+            let count = count_controlled(state, obj, c, whose, fx.controller, filter, context);
             let count = i16::try_from(count).unwrap_or(i16::MAX);
             if let Some(pow) = &mut c.power {
                 *pow = pow.saturating_add(count.saturating_mul(*p));

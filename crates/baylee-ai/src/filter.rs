@@ -26,6 +26,8 @@
 //!   wearing as it left the battlefield (CR 603.10a). The second half exists
 //!   only in the engine, and answering from the first half alone would be
 //!   right until the moment the rule is about.
+//! - [`Filter::AttachedToSource`] is the same question from the other end,
+//!   and is refused with it so the two directions cannot answer differently.
 //! - [`Filter::SharesSubtypeWithCommander`] asks about every commander a seat
 //!   has, wherever it is. The view shows the command zone and the
 //!   battlefield; a commander in a hidden zone is a count. Answering from the
@@ -220,6 +222,7 @@ impl HeuristicAgent {
             Filter::HasManaAbility
             | Filter::MatchesChosenTypeOfSource
             | Filter::AttachedToBySource
+            | Filter::AttachedToSource
             | Filter::CmcAtMostX
             | Filter::CmcExactlyX
             | Filter::CmcAtMostColorsSpent

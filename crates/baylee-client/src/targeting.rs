@@ -407,6 +407,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::MatchesChosenTypeOfSource
         | Filter::SharesSubtypeWithCommander
         | Filter::AttachedToBySource
+        | Filter::AttachedToSource
         | Filter::HasKeyword(_)
         | Filter::CmcAtMostX
         | Filter::CmcExactlyX

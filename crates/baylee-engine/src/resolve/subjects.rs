@@ -73,6 +73,24 @@ pub(super) fn moving_source(state: &GameState, res: &Resolution) -> Option<Damag
                 .own_departure_successor(res.on_stack)
                 .filter(|reference| reference.object == res.source && is_current(state, *reference))
         })
+        .or_else(|| aura_successor(state, res).filter(|reference| is_current(state, *reference)))
+}
+
+/// The Aura's graveyard incarnation its departure trigger recorded
+/// (`Rider::SourceAuraSuccessor`, CR 400.7f).
+fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
+    let version = state
+        .object(res.on_stack)?
+        .riders
+        .iter()
+        .find_map(|r| match r {
+            crate::object::Rider::SourceAuraSuccessor(v) => Some(*v),
+            _ => None,
+        })?;
+    Some(DamageSourceRef {
+        object: res.source,
+        version,
+    })
 }
 
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {

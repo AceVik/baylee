@@ -220,7 +220,6 @@ fn puppet_master_returns_the_creature_and_stays_put_when_not_paid() {
 }
 
 #[test]
-#[ignore = "defect: Puppet Master stays in the graveyard after {U}{U}{U} is paid (the 'return this card' clause does nothing)"]
 fn puppet_master_returns_itself_when_uuu_is_paid() {
     let e = puppet_master_game(true, 3050);
     assert!(in_hand(&e, P0, ids::barbary_apes()).is_some());

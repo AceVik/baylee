@@ -188,6 +188,9 @@ pub fn matches_projected_with_context(
                     .iter()
                     .any(|(host, worn)| *host == obj.id && worn.contains(&this))
         }
+        // CR 303.4b: what the source enchants, equips or fortifies is what
+        // the object is attached to, read from the attachment's side.
+        Filter::AttachedToSource => obj.attached_to == Some(this),
         Filter::IsAttached => obj.attached_to.is_some(),
         Filter::SharesSubtypeWithCommander => {
             // Eight `AND`s per commander, not one probe per subtype id.

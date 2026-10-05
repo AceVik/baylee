@@ -2227,6 +2227,36 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// The Aura's graveyard incarnation a departure trigger of its host
+    /// finds, if any.
+    ///
+    /// CR 400.7f: an ability that triggers on its enchanted permanent
+    /// leaving finds the Aura in its owner's graveyard when the Aura went
+    /// there at the same time or by a state-based action. Nothing else
+    /// has happened between the event and this moment, so an Aura the
+    /// host was wearing as it left, now in its owner's graveyard one
+    /// move after the incarnation that triggered, is that object.
+    fn aura_successor(&self, trigger: &crate::trigger::PendingTrigger) -> Option<u32> {
+        trigger
+            .event_departure
+            .and(trigger.event_object)
+            .filter(|host| *host != trigger.source)
+            .filter(|host| {
+                self.state
+                    .ltb_attachments
+                    .iter()
+                    .any(|(left, worn)| left == host && worn.contains(&trigger.source))
+            })
+            .and_then(|_| {
+                let old = trigger.source_version?;
+                let aura = self.state.object(trigger.source)?;
+                (aura.zone == crate::zone::Zone::Graveyard
+                    && aura.zone_owner == Some(aura.owner)
+                    && old.checked_add(1) == Some(aura.version))
+                .then_some(aura.version)
+            })
+    }
+
     /// Preserve event context independently of the source and event object.
     pub(crate) fn bind_top_trigger(&mut self, trigger: &crate::trigger::PendingTrigger) {
         let Some(top) = self.state.zones.list(ZoneLocation::Stack).last().copied() else {
@@ -2274,6 +2304,7 @@ impl<L: CardLookup> Engine<L> {
             let object = self.state.object(event).filter(|_| needs)?;
             Some((object.version, object.characteristics().power.unwrap_or(0)))
         });
+        let aura_successor = self.aura_successor(trigger);
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
             if let Some((version, power)) = identity {
@@ -2298,6 +2329,11 @@ impl<L: CardLookup> Engine<L> {
                 object
                     .riders
                     .push(crate::object::Rider::EventDeparture(controller, toughness));
+            }
+            if let Some(version) = aura_successor {
+                object
+                    .riders
+                    .push(crate::object::Rider::SourceAuraSuccessor(version));
             }
             if let Some(version) = trigger.counter_source_version {
                 object

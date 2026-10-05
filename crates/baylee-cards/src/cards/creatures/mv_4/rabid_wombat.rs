@@ -2,8 +2,7 @@
 //! Oracle: Vigilance
 //! Oracle: This creature gets +2/+2 for each Aura attached to it.
 //! Set: ME1 #126 — Masters Edition | Scryfall ID: 604d52c5-ceab-40fd-936e-bab859c4333e | Oracle ID: c886eeb5-f86f-48c8-9adb-af13015972b1
-// NOT SUPPORTED: the +2/+2 per Aura counts what the Wombat is attached to, so an Aura on it adds nothing.
-// Otherwise implemented — vigilance, and +2/+2 for each Aura attached to it (layer 7c
+// IMPLEMENTED — vigilance, and +2/+2 for each Aura attached to it (layer 7c
 // `Modifier::ModifyPTPerCount` over Auras attached to this creature).
 
 use baylee_cards_dsl::prelude::*;
@@ -15,9 +14,7 @@ card!(
     scryfall_id = "604d52c5-ceab-40fd-936e-bab859c4333e",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Partial(
-        "the +2/+2 per Aura counts what the Wombat is attached to, so an Aura on it adds nothing"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rabid Wombat",
         mana_cost = mana!("{2}{G}{G}"),
@@ -31,7 +28,7 @@ card!(
         Modifier::ModifyPTPerCount {
             filter: &Filter::And(&[
                 Filter::HasSubtype(subtypes::enchantment::AURA),
-                Filter::AttachedToBySource,
+                Filter::AttachedToSource,
             ]),
             p: 2,
             t: 2,

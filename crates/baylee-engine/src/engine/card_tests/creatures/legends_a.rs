@@ -834,18 +834,30 @@ fn rabid_wombat_attacks_without_tapping() {
 }
 
 /// Rabid Wombat: "This creature gets +2/+2 for each Aura attached to it."
+///
+/// Each Aura counts whoever controls it (CR 303.4e: an Aura's controller is
+/// separate from the enchanted creature's): the second Seeker is the
+/// opponent's, cast on their own turn, and the Wombat is 4/5 after it.
 #[test]
-#[ignore = "defect: Rabid Wombat's count filter is AttachedToBySource (what the Wombat itself is attached to), so an Aura on it adds nothing"]
 fn rabid_wombat_grows_with_each_aura() {
-    let mut e = game(1611, &[ids::rabid_wombat()], &[], &[ids::seeker()], &[]);
-    let wombat = obj(&e, P0, ids::rabid_wombat());
-    float(
-        &mut e,
-        P0,
-        &[(ManaColor::Colorless, 2), (ManaColor::White, 2)],
+    let mut e = game(
+        1611,
+        &[ids::rabid_wombat()],
+        &[],
+        &[ids::seeker()],
+        &[ids::seeker()],
     );
+    let wombat = obj(&e, P0, ids::rabid_wombat());
+    assert_eq!(pt(&e, wombat), (0, 1), "no Aura");
+    let seeker = [(ManaColor::Colorless, 2), (ManaColor::White, 2)];
+    float(&mut e, P0, &seeker);
     cast_at(&mut e, P0, ids::seeker(), &[wombat], &[]);
     assert_eq!(pt(&e, wombat), (2, 3), "one Aura");
+
+    reach_their_main_phase(&mut e, P1);
+    float(&mut e, P1, &seeker);
+    cast_at(&mut e, P1, ids::seeker(), &[wombat], &[]);
+    assert_eq!(pt(&e, wombat), (4, 5), "the opponent's Aura counts too");
 }
 
 /// The Kobolds cost nothing and arrive 0/1.
