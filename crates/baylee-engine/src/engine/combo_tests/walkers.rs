@@ -422,3 +422,121 @@ fn karns_plus_one_takes_an_animated_equipment_off_its_creature() {
         "and still granting"
     );
 }
+
+/// Whether `seat` holds priority now with Demonic Tutor among what it may
+/// cast, after tapping every land it has for mana.
+fn tutor_castable_now(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool {
+    tap_all_mana(engine, seat);
+    let Pending::Priority { player, legal } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert_eq!(player, seat);
+    in_hand(engine, seat, demonic_tutor()).is_some_and(|card| legal.castable.contains(&card))
+}
+
+/// Teferi, Time Raveler's `+1`: "Until your next turn, you may cast sorcery
+/// spells as though they had flash."
+///
+/// Demonic Tutor is offered and cast on the opponent's turn, which is the
+/// sentence, and the permission is gone once Teferi's controller's next
+/// turn begins. The engine already did this (owner report, 05.10.): what
+/// failed was the client, which cannot see the permission in the view.
+#[test]
+fn teferis_plus_one_lets_a_sorcery_be_cast_on_the_opponents_turn_until_his_next() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(98, forest())
+        .battlefield(0, &[teferi_time_raveler(), swamp(), swamp()])
+        .hand(0, &[demonic_tutor(), demonic_tutor()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let teferi = on_battlefield(&engine, p0, teferi_time_raveler()).expect("Teferi");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: teferi,
+                ability_index: 1,
+            },
+        )
+        .expect("the +1 is offered");
+    pass_until(&mut engine, stack_is_clear);
+
+    // The opponent's upkeep, with p0 holding priority.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        tutor_castable_now(&mut engine, p0),
+        "the +1 gives the Tutor flash on the opponent's turn"
+    );
+    let tutor = in_hand(&engine, p0, demonic_tutor()).expect("a Tutor in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: tutor })
+        .expect("cast at instant speed");
+    assert!(on_stack(&engine, demonic_tutor()).is_some());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .expect("the Tutor resolves and finds a card");
+
+    // p0's next turn: the permission has ended.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.phase == crate::turn::Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        !engine
+            .state()
+            .effects
+            .iter()
+            .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)),
+        "until your next turn ends as that turn begins"
+    );
+}
+
+/// The `+1` on Teferi's controller's own turn, with a spell on the stack:
+/// a sorcery is offered over it, which without the `+1` it never is.
+#[test]
+fn teferis_plus_one_lets_a_sorcery_be_cast_over_a_spell_on_your_own_turn() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(99, forest())
+        .battlefield(0, &[teferi_time_raveler(), swamp(), swamp(), forest()])
+        .hand(0, &[demonic_tutor(), llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let teferi = on_battlefield(&engine, p0, teferi_time_raveler()).expect("Teferi");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: teferi,
+                ability_index: 1,
+            },
+        )
+        .expect("the +1 is offered");
+    pass_until(&mut engine, stack_is_clear);
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    assert!(on_stack(&engine, llanowar_elves()).is_some());
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    let tutor = in_hand(&engine, p0, demonic_tutor()).expect("the Tutor");
+    assert!(
+        legal.castable.contains(&tutor),
+        "a sorcery over a non-empty stack, as though it had flash"
+    );
+}
