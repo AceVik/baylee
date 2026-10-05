@@ -3564,6 +3564,8 @@ impl<L: CardLookup> Engine<L> {
                 retarget_left,
                 event_mana: None,
             };
+            #[cfg(test)]
+            crate::ability_log::resolving(&self.state, &self.lookup, top);
             match resolve::run(&mut self.state, &mut res) {
                 resolve::Flow::Complete => self.finish_resolution(&res),
                 resolve::Flow::Wait(pending) => {
@@ -5491,8 +5493,16 @@ impl<L: CardLookup> Engine<L> {
                     && obj.status.contains(Status::TAPPED)
                     && !self.keeps_tapped(*id)
                     && self.state.effects.iter().any(|fx| {
-                        matches!(fx.modifier, baylee_cards_dsl::Modifier::MayChooseNotToUntap)
-                            && crate::effects::applies_to(&self.state, fx, obj)
+                        let applies =
+                            matches!(fx.modifier, baylee_cards_dsl::Modifier::MayChooseNotToUntap)
+                                && crate::effects::applies_to(&self.state, fx, obj);
+                        // Read here and never by the projection, so this is
+                        // where the static is applied: the recorder's door.
+                        #[cfg(test)]
+                        if applies {
+                            crate::ability_log::static_applied(fx);
+                        }
+                        applies
                     })
             })
             .collect()

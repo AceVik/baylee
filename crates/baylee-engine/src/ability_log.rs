@@ -20,7 +20,7 @@
 //! | `activated`   | an activated or loyalty ability finished resolving off the stack   | `Engine::finish_resolution`    |
 //! | `triggered`   | a triggered, modal-triggered or chapter ability finished resolving, or a triggered mana ability produced its mana | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 //! | `mana`        | a mana ability's cost was paid and it produced its mana            | `start_activation`, the CR 305.6 taps |
-//! | `static`      | the projection applied a static ability's effect to an object      | `layers::recompute_with`       |
+//! | `static`      | the projection (or, for "may choose not to untap", the untap step) applied a static ability's effect to an object | `layers::recompute_with`, `untap_optional` |
 //! | `replacement` | a replacement rule changed an event, or a clone entered as a copy  | `replacement.rs`, `trigger.rs`, `apply_copy_choice` |
 //!
 //! Only abilities printed on a card of the compiled pool are logged, under
@@ -255,6 +255,45 @@ fn fired_ability(
 
 // --- spells, activated and triggered abilities --------------------------------
 
+thread_local! {
+    /// Spells that began to resolve, with the line each would log, read as
+    /// it began: a spell whose own effect moves it off the stack (Temporal
+    /// Mastery's "Exile Temporal Mastery") is no longer there to be read
+    /// when its resolution finishes.
+    static RESOLVING: RefCell<Vec<(ObjectId, Option<PrintedFace>)>> = const { RefCell::new(Vec::new()) };
+}
+
+/// A spell on top of the stack begins to resolve: what it would log is
+/// read now, for [`resolved`] to log if the spell has left the stack by the
+/// time it finishes. Only a resolution that finishes logs it; one CR 608.2b
+/// removes never reaches here.
+pub(crate) fn resolving(state: &GameState, lookup: &impl CardLookup, on_stack: ObjectId) {
+    if !enabled() {
+        return;
+    }
+    let Some(obj) = state.object(on_stack) else {
+        return;
+    };
+    if obj.zone != Zone::Stack || obj.ability.is_some() {
+        return;
+    }
+    let face = spell_face(obj, lookup);
+    RESOLVING.with_borrow_mut(|resolving| {
+        resolving.retain(|(id, _)| *id != on_stack);
+        resolving.push((on_stack, face));
+    });
+}
+
+/// The face a resolving spell credits, when its list has a spell ability.
+fn spell_face(obj: &GameObject, lookup: &impl CardLookup) -> Option<PrintedFace> {
+    let list = printed(obj, lookup);
+    list.abilities
+        .iter()
+        .any(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
+        .then_some(list.printed)
+        .flatten()
+}
+
 /// A spell or an ability on the stack has finished resolving: the first line
 /// of `Engine::finish_resolution`, and the door a spell with no spell
 /// effects of its own (an Aura) leaves the stack by.
@@ -262,12 +301,18 @@ pub(crate) fn resolved(state: &GameState, lookup: &impl CardLookup, on_stack: Ob
     if !enabled() {
         return;
     }
-    let Some(obj) = state.object(on_stack) else {
+    let began = RESOLVING.with_borrow_mut(|resolving| {
+        let at = resolving.iter().position(|(id, _)| *id == on_stack)?;
+        Some(resolving.remove(at).1)
+    });
+    let on_the_stack = state.object(on_stack).filter(|obj| obj.zone == Zone::Stack);
+    let Some(obj) = on_the_stack else {
+        // Gone during its own resolution: the line read as it began.
+        if let Some(face) = began {
+            fired_from(lookup, face, AbilityRef::SPELL, Kind::Spell);
+        }
         return;
     };
-    if obj.zone != Zone::Stack {
-        return;
-    }
     if let Some(loc) = obj.ability {
         // Reserved indices are synthesised abilities (prowess, ward, a
         // granted one, a reflexive trigger): no entry of any list.
@@ -289,14 +334,12 @@ pub(crate) fn resolved(state: &GameState, lookup: &impl CardLookup, on_stack: Ob
         }
         return;
     }
-    let list = printed(obj, lookup);
-    if list
-        .abilities
-        .iter()
-        .any(|a| matches!(a, AbilityDef::Spell { .. } | AbilityDef::ModalSpell { .. }))
-    {
-        fired_from(lookup, list.printed, AbilityRef::SPELL, Kind::Spell);
-    }
+    fired_from(
+        lookup,
+        spell_face(obj, lookup),
+        AbilityRef::SPELL,
+        Kind::Spell,
+    );
 }
 
 // --- mana abilities ------------------------------------------------------------
@@ -411,15 +454,18 @@ pub(crate) fn intrinsic_mana(
 /// came from, noted where the engine has a card lookup and read where it
 /// has none (the projection, the replacement readers).
 ///
-/// Per thread, because a test's games run on its thread, and keyed by as
-/// much of the effect as it carries, so that two games on one thread cannot
-/// lend each other a card.
+/// Per thread, because a test's games run on its thread. Keyed by the
+/// effect's id, source and modifier and **not** its timestamp: attaching an
+/// Equipment gives its grant a new timestamp (CR 613.7e) and keeps the
+/// effect, and a key with the timestamp in it no longer found the note made
+/// before the attach. Two games on one thread cannot lend each other a card
+/// because a note is rewritten, not skipped, when the key is seen again.
 struct Sources {
     statics: Vec<(StaticKey, CardIndex, u32)>,
     rules: Vec<(ObjectId, ReplacementRule, CardIndex, u32)>,
 }
 
-type StaticKey = (EffectId, ObjectId, u64, Modifier);
+type StaticKey = (EffectId, ObjectId, Modifier);
 
 thread_local! {
     static SOURCES: RefCell<Sources> = const {
@@ -434,7 +480,7 @@ fn static_key(fx: &ContinuousEffect) -> Option<StaticKey> {
     (fx.origin == EffectOrigin::Static)
         .then_some(fx.source)
         .flatten()
-        .map(|source| (fx.id, source, fx.timestamp, fx.modifier))
+        .map(|source| (fx.id, source, fx.modifier))
 }
 
 /// The position of the first entry of `list` that `wanted` accepts.
@@ -460,9 +506,7 @@ pub(crate) fn note_sources(state: &GameState, lookup: &impl CardLookup) {
             let Some(key) = static_key(fx) else {
                 continue;
             };
-            if sources.statics.iter().any(|(k, ..)| *k == key) {
-                continue;
-            }
+            sources.statics.retain(|(k, ..)| *k != key);
             let Some(obj) = state.object(key.1) else {
                 continue;
             };

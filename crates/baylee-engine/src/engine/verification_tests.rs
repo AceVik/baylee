@@ -412,3 +412,64 @@ fn pool_inventory() {
             .unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));
     }
 }
+
+const TEMPORAL_MASTERY: &str = "5c58b8e6-c572-461e-893e-a8c05f20ba17";
+const WARHAMMER: &str = "dba35ac5-7ad3-488a-a006-6b9a1d54eea5";
+const BOTTOMLESS_VAULT: &str = "e43413e4-be17-49af-978a-26210d05f52a";
+const MASTERY_TEST: &str =
+    "engine::card_tests::sorceries::temporal_mastery_takes_an_extra_turn_and_exiles_itself";
+const WARHAMMER_TEST: &str = "engine::card_tests::artifacts::loxodon_warhammer_pumps_and_arms_the_creature_it_holds_and_no_other";
+const SILOS_TEST: &str =
+    "engine::card_tests::lands::a_storage_land_banks_a_counter_only_on_the_upkeeps_it_spent_tapped";
+
+/// Three doors the recorder used to miss (TODO.md, "Verification-hook
+/// findings"): a spell that exiles itself as it resolves left the stack
+/// before `resolved` looked for it there (Temporal Mastery); an Equipment's
+/// grant was noted under the timestamp it had before the attach gave it a
+/// new one (Loxodon Warhammer's two statics); and "you may choose not to
+/// untap" is read at the untap step, never by the projection (Bottomless Vault).
+#[test]
+fn the_recorder_logs_a_self_exiling_spell_an_attached_grant_and_an_untap_static() {
+    let dir = scratch("ability-log-doors");
+    let dir_text = dir.to_str().expect("a UTF-8 temp dir");
+    let tests = [MASTERY_TEST, WARHAMMER_TEST, SILOS_TEST];
+    let (code, out) = run_child(&tests, &[(ability_log::VAR, Some(dir_text))]);
+    assert_eq!(
+        code,
+        Some(0),
+        "the three tests pass with the recorder on:\n{out}"
+    );
+    assert!(out.contains("3 passed"), "and all three ran:\n{out}");
+    let expected = [
+        (
+            MASTERY_TEST,
+            line(
+                MASTERY_TEST,
+                TEMPORAL_MASTERY,
+                AbilityRef::SPELL,
+                Kind::Spell,
+            ),
+        ),
+        (
+            WARHAMMER_TEST,
+            line(WARHAMMER_TEST, WARHAMMER, 1, Kind::Static),
+        ),
+        (
+            WARHAMMER_TEST,
+            line(WARHAMMER_TEST, WARHAMMER, 2, Kind::Static),
+        ),
+        (
+            SILOS_TEST,
+            line(SILOS_TEST, BOTTOMLESS_VAULT, 0, Kind::Static),
+        ),
+    ];
+    for (test, want) in &expected {
+        let lines = read_lines(&dir, test);
+        assert!(
+            lines.contains(want),
+            "{test} fired {want}, and its file says:\n{}",
+            lines.join("\n")
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

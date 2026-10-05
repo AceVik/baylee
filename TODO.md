@@ -42,32 +42,20 @@ ok-game / issues).
     id through `card_index(…)`, as the rest of the suite does. Mutant
     `16563:0` killed.
 
+## Phyrexian mana on spells (owner report)
+
+Done (2026-10-05, `c41/engine-phyrexian-recorder`): a spell's Phyrexian
+symbol can be paid with 2 life (offer and cast wizard; activations already
+could). Tests: `card_tests::instants::mental_misstep_*`. Open: the house AI
+does not yet seek a Phyrexian cast it lacks the colour for.
+
 ## Verification-hook findings (L4 recorder)
 
-Recorder bugs, not card bugs: each card's tests assert the right behaviour and
-pass, yet the ability never appears in the `BAYLEE_ABILITY_LOG` evidence and so
-the card cannot reach L4. Left unfixed as instructed.
-
-1. **Spells that exile themselves during resolution never log as fired.**
-   `ability_log::resolved` (`crates/baylee-engine/src/ability_log.rs`) returns
-   early when the resolved object has left the stack (`obj.zone != Zone::Stack`);
-   `Effect::ExileSource` moves the card before `Engine::finish_resolution`
-   runs, and `finalize_spell` returns early on the same test. Affected:
-   Temporal Mastery, Eldritch Evolution, Spirit Water Revival ("abilities no
-   test fired: 0 Spell").
-2. **Equipment grant statics never log on attach.** `static_key` includes
-   `fx.timestamp`, and attaching re-timestamps the Equipment: in the Basilisk
-   Collar test `note_sources` recorded the effect at timestamp 258, the layer
-   projection applied it at 259, and the later note at 259 came after the
-   projection was already cached, so no credited application ever ran.
-   Affected: Fireshrieker, Loxodon Warhammer (two statics), Neurok Hoversail,
-   Slagwurm Armor, Vulshok Battlegear, Skullclamp, Vulshok Morningstar,
-   No-Dachi (two statics), Shuko, Basilisk Collar.
-3. **Non-characteristic statics are never applied through the layers.**
-   `Modifier::MayChooseNotToUntap` is read directly at the untap step
-   (`progress.rs`), not in `layers::recompute_with`, so `static_applied` never
-   fires for it. Affected: Dwarven Hold, Hollow Trees, Icatian Store,
-   Sand Silos.
+Done (2026-10-05, `c41/engine-phyrexian-recorder`): the three recorder bugs
+are fixed in `ability_log.rs` — a self-exiling spell logs from what it read as
+it began to resolve; static notes are keyed without the timestamp an attach
+changes; `MayChooseNotToUntap` logs where the untap step reads it. Test:
+`verification_tests::the_recorder_logs_a_self_exiling_spell_an_attached_grant_and_an_untap_static`.
 
 L4's mechanics half ("no untested mechanic") additionally needs `--coverage`
 (a `cargo llvm-cov` export), which is not installed on this machine; `xtask

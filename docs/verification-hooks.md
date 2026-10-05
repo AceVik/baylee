@@ -85,11 +85,11 @@ with or without it.
 
 | `kind`        | fired when | where |
 |---------------|------------|-------|
-| `spell`       | a spell whose card lists an `AbilityDef::Spell` or `ModalSpell` finished resolving, by either door a resolving spell leaves the stack through | `Engine::finish_resolution`, and `resolve_stack_top` before `finalize_spell` (a spell with no effects to run) |
+| `spell`       | a spell whose card lists an `AbilityDef::Spell` or `ModalSpell` finished resolving, by either door a resolving spell leaves the stack through, including a spell whose own effect moved it off the stack (Temporal Mastery exiles itself; what it logs is read as it begins to resolve, `ability_log::resolving`) | `Engine::finish_resolution`, and `resolve_stack_top` before `finalize_spell` (a spell with no effects to run) |
 | `activated`   | an `Activated`, `ActivatedConditional` or `Loyalty` ability that is not a mana ability finished resolving off the stack | `Engine::finish_resolution` |
 | `triggered`   | a `Triggered`, `ModalTriggered` or `SagaChapter` ability finished resolving; a triggered mana ability (CR 605.1b, Badgermole Cub's "add an additional {G}") produced its mana off the stack | `Engine::finish_resolution`, `resolve_triggered_mana_abilities` |
 | `mana`        | a mana ability (`mana_ability: true`) had its cost paid and produced its mana, including after the colour question it may ask; a land tapped for mana through CR 305.6 credits its printed `{T}: Add …` entry for that colour | `start_activation`'s mana branch, `mana_finished`, the two CR 305.6 taps in `actions.rs` |
-| `static`      | the layer projection applied that `AbilityDef::Static`'s effect to some object | `layers::recompute_with` |
+| `static`      | the layer projection applied that `AbilityDef::Static`'s effect to some object, or, for a static read outside the layers, the rule that reads it found it applying (`MayChooseNotToUntap` at the untap step). An Equipment's grant is the same static after the attach re-timestamps it | `layers::recompute_with`, `untap_optional` |
 | `replacement` | an `AbilityDef::Replacement`'s rule changed an event (every `ReplacementRule`: exile instead of a graveyard, both doublers, trigger multiplier, trigger suppression), or a `CopyOnEnter` / `CopyOnEnterUntilEot` permanent entered as a copy | `replacement.rs`, `trigger.rs`, `apply_copy_choice` |
 
 Not fired: an ability put on the stack that never resolved (countered, or
