@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+mod legends;
+
 /// A creature cast after a board-wide debuff resolved is not on its list.
 ///
 /// CR 611.2c: a continuous effect created by a resolving spell or ability
@@ -13444,6 +13446,38 @@ fn spirit_water_revival_paid_shuffles_the_graveyard_in_and_draws_seven() {
 
 fn ancestral_vision_card() -> CardIndex {
     card_index("9728dec9-d482-4c7a-8cdc-44d010dc878d")
+}
+
+/// A card whose mana cost does not carry its colour has it from its colour
+/// indicator (CR 202.2e), in every zone: Profane Tutor (black), Ancestral
+/// Vision (blue), Pact of Negation (blue, cost {0}) and Dryad Arbor (green)
+/// were colourless in hand until the field was written on their faces.
+#[test]
+fn cards_coloured_beyond_their_cost_have_that_colour_in_hand() {
+    use baylee_core::color::{Color, ColorSet};
+    let p0 = PlayerId::new(0);
+    let rows = [
+        (profane_tutor(), Color::Black),
+        (ancestral_vision_card(), Color::Blue),
+        (
+            card_index("f3e213a4-ba5a-468a-93b3-c0a34e1bd725"),
+            Color::Blue,
+        ),
+        (
+            card_index("e996cd67-739c-40f4-b276-0042acf26c71"),
+            Color::Green,
+        ),
+    ];
+    let hand: Vec<CardIndex> = rows.iter().map(|(card, _)| *card).collect();
+    let engine = Duel::new(4402, island()).hand(0, &hand).start();
+    for (card, color) in rows {
+        let id = in_hand(&engine, p0, card).expect("in hand");
+        assert_eq!(
+            engine.state().object(id).unwrap().characteristics().colors,
+            ColorSet::from_slice(&[color]),
+            "{card:?}"
+        );
+    }
 }
 
 fn temporal_mastery_card() -> CardIndex {

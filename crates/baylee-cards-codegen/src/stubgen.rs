@@ -8,6 +8,7 @@ use crate::catalog::SubtypeCatalogs;
 use crate::error::CodegenError;
 use crate::ledger::{IndexLedger, LedgerEntry};
 use crate::scryfall::{ScryfallCard, ScryfallFace};
+use baylee_core::color::Color;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 use heck::ToSnakeCase;
@@ -188,6 +189,8 @@ struct FaceData {
     power: Option<String>,
     toughness: Option<String>,
     loyalty: Option<String>,
+    /// Scryfall's colors for this face, when it gives them.
+    colors: Option<Vec<String>>,
 }
 
 impl FaceData {
@@ -200,6 +203,7 @@ impl FaceData {
             power: card.power.clone(),
             toughness: card.toughness.clone(),
             loyalty: card.loyalty.clone(),
+            colors: card.colors.clone(),
         }
     }
 
@@ -212,6 +216,7 @@ impl FaceData {
             power: face.power.clone(),
             toughness: face.toughness.clone(),
             loyalty: face.loyalty.clone(),
+            colors: face.colors.clone(),
         }
     }
 }
@@ -391,6 +396,49 @@ fn color_identity_expr(identity: Option<&Vec<String>>) -> String {
     format!("ColorSet::from_slice(&[{}])", colors.join(", "))
 }
 
+/// The color indicator a face needs (CR 202.2e): every color Scryfall
+/// gives the face that its mana cost does not.
+///
+/// Derived rather than read, because the payload cache keeps only the
+/// fields [`ScryfallCard`] names and Scryfall's own `color_indicator` was
+/// never one of them. The difference is the same set on every card that
+/// has an indicator, and it also covers the ones whose color the printed
+/// card states another way: the {0} Kobolds from Legends are red (the
+/// engine reads a face's color as its cost's colors plus this field, so
+/// without it they were colorless), and so are Dryad Arbor, Ancestral
+/// Vision and Pact of Negation. A devoid card's colors are fewer than its
+/// cost's, and nothing is written for it.
+fn color_indicator_expr(card_name: &str, f: &FaceData) -> Result<String, CodegenError> {
+    let Some(colors) = &f.colors else {
+        return Ok(String::new());
+    };
+    let cost = if f.mana_cost.is_empty() {
+        ManaCost::ZERO
+    } else {
+        ManaCost::try_parse(&f.mana_cost).map_err(|reason| CodegenError::Mana {
+            card: card_name.to_string(),
+            cost: f.mana_cost.clone(),
+            reason,
+        })?
+    };
+    let from_cost = cost.colors();
+    let extra: Vec<String> = colors
+        .iter()
+        .filter(|letter| {
+            let mut chars = letter.chars();
+            match (chars.next(), chars.next()) {
+                (Some(c), None) => Color::from_symbol(c).is_some_and(|c| !from_cost.contains(c)),
+                _ => false,
+            }
+        })
+        .cloned()
+        .collect();
+    if extra.is_empty() {
+        return Ok(String::new());
+    }
+    Ok(color_identity_expr(Some(&extra)))
+}
+
 fn commander_rule(faces: &[FaceData]) -> &'static str {
     let type_line = faces.first().map_or("", |f| f.type_line.as_str());
     let oracle = faces
@@ -514,6 +562,12 @@ fn render_face(
         "loyalty",
         &loyalty_expr(f.loyalty.as_deref()),
         "None",
+    );
+    push_field(
+        &mut fields,
+        "color_indicator",
+        &color_indicator_expr(card_name, f)?,
+        "ColorSet::EMPTY",
     );
     if !enter_modifiers.is_empty() {
         fields.push(format!(
@@ -1325,6 +1379,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            colors: None,
             image_uris: None,
         };
         let front = back("Land", None);
@@ -1450,6 +1505,43 @@ mod tests {
         assert!(text.contains("supertypes = SupertypeSet::LEGENDARY,"));
         assert!(text.contains("color_identity = ColorSet::from_slice(&[Color::White]),"));
         assert!(text.contains("commander = CommanderRule::Legendary,"));
+    }
+
+    /// A face colored by something other than its cost gets the colors its
+    /// cost lacks as a color indicator (CR 202.2e), and a face whose cost
+    /// already says everything gets none.
+    ///
+    /// Crimson Kobolds is the card: {0}, red, and colorless in the engine
+    /// while this field was never written.
+    #[test]
+    fn a_face_colored_beyond_its_cost_gets_a_color_indicator() {
+        let cats = SubtypeCatalogs::default();
+        let render = |cost: &str, colors: &[&str]| {
+            let mut card = bare_card("Something", "Creature");
+            card.mana_cost = Some(cost.to_string());
+            card.colors = Some(colors.iter().map(|c| (*c).to_string()).collect());
+            render_stub(
+                &card,
+                &row(1, "SOMETHING"),
+                &IndexLedger::default(),
+                &cats,
+                None,
+                None,
+                &LandCycles::default(),
+            )
+            .unwrap()
+            .1
+        };
+        let kobold = render("{0}", &["R"]);
+        assert!(
+            kobold.contains("color_indicator = ColorSet::from_slice(&[Color::Red]),"),
+            "{kobold}"
+        );
+        let bear = render("{1}{G}", &["G"]);
+        assert!(!bear.contains("color_indicator"), "{bear}");
+        // Devoid: fewer colors than the cost, so nothing to add.
+        let devoid = render("{1}{C}{B}", &[]);
+        assert!(!devoid.contains("color_indicator"), "{devoid}");
     }
 
     /// A land the *script* reader writes still taps for what its type line

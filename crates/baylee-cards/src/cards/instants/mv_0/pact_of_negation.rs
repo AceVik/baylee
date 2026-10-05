@@ -16,6 +16,7 @@ card!(
         // different card (CR 202.1b). See `casting::has_a_printed_cost`.
         mana_cost = mana!("{0}"),
         types = TypeSet::INSTANT,
+        color_indicator = ColorSet::from_slice(&[Color::Blue]),
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,

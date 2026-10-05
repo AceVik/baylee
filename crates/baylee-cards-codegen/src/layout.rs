@@ -511,6 +511,7 @@ mod tests {
             power: None,
             toughness: None,
             loyalty: None,
+            colors: None,
             image_uris: None,
         }
     }

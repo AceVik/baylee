@@ -10,7 +10,11 @@ card!(
     index = index::ANCESTRAL_VISION,
     oracle_id = "9728dec9-d482-4c7a-8cdc-44d010dc878d",
     scryfall_id = "9ec075ba-db56-4dcf-b1dc-fe6270b7ab36",
-    faces = &[face!(name = "Ancestral Vision", types = TypeSet::SORCERY,)],
+    faces = &[face!(
+        name = "Ancestral Vision",
+        types = TypeSet::SORCERY,
+        color_indicator = ColorSet::from_slice(&[Color::Blue]),
+    )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Implemented,
     abilities = &[

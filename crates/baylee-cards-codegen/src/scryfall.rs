@@ -104,6 +104,11 @@ pub struct ScryfallFace {
     pub toughness: Option<String>,
     /// Loyalty.
     pub loyalty: Option<String>,
+    /// This face's colors, where Scryfall gives them per face (a
+    /// transforming or modal double-faced card); absent on split and
+    /// Adventure faces, whose colors are the card's.
+    #[serde(default)]
+    pub colors: Option<Vec<String>>,
     /// Art for this face alone, when the printing has a face on each side.
     ///
     /// Present on both faces of a `transform` or `modal_dfc` printing and on

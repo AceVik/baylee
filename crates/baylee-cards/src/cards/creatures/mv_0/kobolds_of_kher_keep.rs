@@ -18,5 +18,6 @@ card!(
         subtypes = &[subtypes::creature::KOBOLD],
         power = Some(0),
         toughness = Some(1),
+        color_indicator = ColorSet::from_slice(&[Color::Red]),
     ),],
 );
