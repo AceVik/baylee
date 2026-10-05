@@ -10,7 +10,11 @@ card!(
     index = index::PROFANE_TUTOR,
     oracle_id = "27a1f42c-0b86-4609-9609-1fa9cab7e7c9",
     scryfall_id = "2afc6f7d-ab59-4d64-bd11-6bd0fd4bfcd2",
-    faces = &[face!(name = "Profane Tutor", types = TypeSet::SORCERY,)],
+    faces = &[face!(
+        name = "Profane Tutor",
+        types = TypeSet::SORCERY,
+        color_indicator = ColorSet::from_slice(&[Color::Black]),
+    )],
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Implemented,
     abilities = &[

@@ -39,6 +39,10 @@ pub(in crate::engine::card_tests) fn crookshank_kobolds() -> CardIndex {
     card_index("61023b48-0433-4993-9534-308c08cef07e")
 }
 
+pub(in crate::engine::card_tests) fn kobolds_of_kher_keep() -> CardIndex {
+    card_index("badf0669-9f65-44e3-bf91-6c57ac2fecff")
+}
+
 pub(in crate::engine::card_tests) fn aisling_leprechaun() -> CardIndex {
     card_index("5456f00c-0bef-4c14-902f-f5c14475f284")
 }

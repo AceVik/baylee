@@ -18,6 +18,7 @@ card!(
         subtypes = &[subtypes::land::FOREST, subtypes::creature::DRYAD],
         power = Some(1),
         toughness = Some(1),
+        color_indicator = ColorSet::from_slice(&[Color::Green]),
     ),],
     abilities = &[mana_ability!(&[Effect::intrinsic_mana()])],
 );

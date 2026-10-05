@@ -351,5 +351,39 @@ Nothing in this batch was demoted by testing because testing has not run.
 `" attacking "`, `PlayerMayPayCostOr`, the event-reader census's
 `IfEventObjectMatches`) are in the two sections above.
 
+### Demoted by testing, engine work needed (2026-10-05, `c41/leg-card-fixes`)
+
+The Kobolds' colour was a reader defect and is fixed (codegen writes a
+colour indicator for colours Scryfall gives beyond the cost; also Kobolds of
+Kher Keep, and by hand Profane Tutor, Ancestral Vision, Pact of Negation,
+Dryad Arbor). Two stay `Partial` with `#[ignore = "defect: …"]` tests:
+
+- **Rabid Wombat** (`creatures/mv_4/rabid_wombat.rs`, test
+  `legends_a::rabid_wombat_grows_with_each_aura`): no `Filter` matches "an
+  object attached to the source". `AttachedToBySource` is the other
+  direction (the object the source is attached to) and `IsAttached` asks no
+  question about the source. Needs (1) a variant, e.g.
+  `Filter::AttachedToSource`, with an `eval.rs` arm
+  `obj.attached_to == Some(this)` (`this` is the Wombat when
+  `layers.rs` `Modifier::ModifyPTPerCount` counts), and (2) a count that is
+  not limited to the source's controller: `ModifyPTPerCount` goes through
+  `count_controlled(.., Some(fx.controller), ..)`, so an opponent's Aura on
+  the Wombat would still be missed. Ramses Overdark ("an enchanted
+  creature") is a second consumer of the same filter, read from the host's
+  side.
+- **Puppet Master** (`enchantments/auras/mv_3/puppet_master.rs`, test
+  `enchantments::legends::puppet_master_returns_itself_when_uuu_is_paid`):
+  `ReturnToHand { ThisObject }` → `zones::moving_objects` →
+  `subjects::moving_source`: `is_current` fails because the Aura went to
+  the graveyard by CR 704.5m in the same SBA pass that killed the creature
+  (new version), and `own_departure_successor` returns `None` because the
+  trigger's `event_object` is the creature, not the Aura. CR 400.7f is the
+  rule: an ability that triggers on the enchanted permanent leaving can find
+  each Aura enchanting it in its owner's graveyard when it went there at the
+  same time or by 704.5m. Fix shape: let `moving_source` (or a new implicit
+  spec) follow the source to its graveyard successor when
+  `state.ltb_attachments` records it on the departed host the trigger is
+  about.
+
 ## Issues
 

@@ -279,15 +279,19 @@ fn the_plain_bodies_cost_what_they_print_and_arrive_the_size_they_print() {
     }
 }
 
-/// Crimson Kobolds and Crookshank Kobolds are red creatures: Scryfall lists
-/// their colour as red although the printed cost {0} is colourless (the
-/// frame carries the colour). They cost nothing and arrive 0/1.
+/// Crimson Kobolds, Crookshank Kobolds and Kobolds of Kher Keep are red
+/// creatures: Scryfall lists their colour as red although the printed cost
+/// {0} is colourless, so codegen writes the difference as a colour
+/// indicator (CR 202.2e). They cost nothing and arrive 0/1.
 #[test]
-#[ignore = "defect: Crimson/Crookshank Kobolds arrive colourless; Scryfall colours are R (no colour indicator on the card)"]
 fn the_kobolds_are_red() {
-    for (n, card) in [ids::crimson_kobolds(), ids::crookshank_kobolds()]
-        .into_iter()
-        .enumerate()
+    for (n, card) in [
+        ids::crimson_kobolds(),
+        ids::crookshank_kobolds(),
+        ids::kobolds_of_kher_keep(),
+    ]
+    .into_iter()
+    .enumerate()
     {
         let mut e = game(990 + n as u64, &[], &[], &[card], &[]);
         cast_with_floating(&mut e, P0, card);
