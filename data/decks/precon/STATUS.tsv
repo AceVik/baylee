@@ -470,7 +470,7 @@ ISD/repel-the-dark	ISD	Intro Pack	2011-09-30	Repel the Dark	60	no
 ISD/spectral-legions	ISD	Intro Pack	2011-09-30	Spectral Legions	60	no
 ITP/kazz-s-first-deck	ITP	Intro Pack	1996-12-31	Kazz's First Deck	30	no
 ITP/kazz-s-second-deck	ITP	Intro Pack	1996-12-31	Kazz's Second Deck	30	no
-ITP/zakk-s-first-deck	ITP	Intro Pack	1996-12-31	Zakk's First Deck	30	no
+ITP/zakk-s-first-deck	ITP	Intro Pack	1996-12-31	Zakk's First Deck	30	yes
 ITP/zakk-s-second-deck	ITP	Intro Pack	1996-12-31	Zakk's Second Deck	30	no
 JOU/fates-foreseen	JOU	Intro Pack	2014-05-02	Fates Foreseen	60	no
 JOU/mortals-of-myth	JOU	Intro Pack	2014-05-02	Mortals of Myth	60	no
@@ -817,7 +817,7 @@ PAST/beast-master	PAST	Shandalar Enemy Deck	1997-04-01	Beast Master	62	no
 PAST/centaur-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Centaur Shaman	64	no
 PAST/centaur-warchief	PAST	Shandalar Enemy Deck	1997-04-01	Centaur Warchief	64	no
 PAST/cleric	PAST	Shandalar Enemy Deck	1997-04-01	Cleric	62	no
-PAST/conjurer	PAST	Shandalar Enemy Deck	1997-04-01	Conjurer	67	no
+PAST/conjurer	PAST	Shandalar Enemy Deck	1997-04-01	Conjurer	67	yes
 PAST/crag-hydra	PAST	Shandalar Enemy Deck	1997-04-01	Crag Hydra	61	no
 PAST/crusader	PAST	Shandalar Enemy Deck	1997-04-01	Crusader	72	no
 PAST/dracur	PAST	Shandalar Enemy Deck	1997-04-01	Dracur	67	no
@@ -825,12 +825,12 @@ PAST/druid	PAST	Shandalar Enemy Deck	1997-04-01	Druid	65	no
 PAST/elementalist	PAST	Shandalar Enemy Deck	1997-04-01	Elementalist	66	no
 PAST/elvish-magi	PAST	Shandalar Enemy Deck	1997-04-01	Elvish Magi	65	no
 PAST/enchantress	PAST	Shandalar Enemy Deck	1997-04-01	Enchantress	68	no
-PAST/forest-dragon	PAST	Shandalar Enemy Deck	1997-04-01	Forest Dragon	69	no
-PAST/fungus-master	PAST	Shandalar Enemy Deck	1997-04-01	Fungus Master	64	no
+PAST/forest-dragon	PAST	Shandalar Enemy Deck	1997-04-01	Forest Dragon	69	yes
+PAST/fungus-master	PAST	Shandalar Enemy Deck	1997-04-01	Fungus Master	64	yes
 PAST/goblin-warlord	PAST	Shandalar Enemy Deck	1997-04-01	Goblin Warlord	64	no
 PAST/great-druid	PAST	Shandalar Enemy Deck	1997-04-01	Great Druid	66	yes
 PAST/guardian-of-the-tusk	PAST	Shandalar Enemy Deck	1997-04-01	Guardian of the Tusk	60	no
-PAST/high-priest	PAST	Shandalar Enemy Deck	1997-04-01	High Priest	61	no
+PAST/high-priest	PAST	Shandalar Enemy Deck	1997-04-01	High Priest	61	yes
 PAST/kiska-ra	PAST	Shandalar Enemy Deck	1997-04-01	Kiska-Ra	66	no
 PAST/kzzy-n-the-dragon-lord	PAST	Shandalar Enemy Deck	1997-04-01	Kzzy'n - The Dragon Lord	64	no
 PAST/lord-of-fate	PAST	Shandalar Enemy Deck	1997-04-01	Lord of Fate	69	no
@@ -851,9 +851,9 @@ PAST/seer	PAST	Shandalar Enemy Deck	1997-04-01	Seer	60	no
 PAST/shapeshifter	PAST	Shandalar Enemy Deck	1997-04-01	Shapeshifter	62	no
 PAST/sorcerer	PAST	Shandalar Enemy Deck	1997-04-01	Sorcerer	65	no
 PAST/sorceress	PAST	Shandalar Enemy Deck	1997-04-01	Sorceress	64	no
-PAST/summoner	PAST	Shandalar Enemy Deck	1997-04-01	Summoner	63	no
+PAST/summoner	PAST	Shandalar Enemy Deck	1997-04-01	Summoner	63	yes
 PAST/thought-invoker	PAST	Shandalar Enemy Deck	1997-04-01	Thought Invoker	62	no
-PAST/troll-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Troll Shaman	67	no
+PAST/troll-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Troll Shaman	67	yes
 PAST/undead-knight	PAST	Shandalar Enemy Deck	1997-04-01	Undead Knight	72	no
 PAST/vampire-lord	PAST	Shandalar Enemy Deck	1997-04-01	Vampire Lord	66	no
 PAST/war-mage	PAST	Shandalar Enemy Deck	1997-04-01	War Mage	62	no
@@ -971,7 +971,7 @@ ROE/levelers-scorn	ROE	Intro Pack	2010-04-23	Levelers Scorn	41	no
 ROE/totem-power	ROE	Intro Pack	2010-04-23	Totem Power	41	no
 RQS/kazz-s-first-deck	RQS	Intro Pack	1996-06-10	Kazz's First Deck	30	no
 RQS/kazz-s-second-deck	RQS	Intro Pack	1996-06-10	Kazz's Second Deck	26	no
-RQS/zakk-s-first-deck	RQS	Intro Pack	1996-06-10	Zakk's First Deck	30	no
+RQS/zakk-s-first-deck	RQS	Intro Pack	1996-06-10	Zakk's First Deck	30	yes
 RQS/zakk-s-second-deck	RQS	Intro Pack	1996-06-10	Zakk's Second Deck	26	no
 RTR/azorius-advance	RTR	Intro Pack	2012-10-05	Azorius Advance	60	no
 RTR/creep-and-conquer	RTR	Event Deck	2012-10-26	Creep and Conquer	75	no
