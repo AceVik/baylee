@@ -246,6 +246,7 @@ fn vampire_bats_pump_at_most_twice_a_turn() {
 /// D'Avenant Archer ({T}: 1), Crimson Manticore ({R},{T}: 1), Tor Wauki
 /// ({T}: 2), Lady Caleria ({T}: 3).
 #[test]
+#[allow(clippy::type_complexity)]
 fn the_combat_pingers_hit_an_attacker_or_blocker_for_their_amount() {
     let rows: [(CardIndex, Vec<(ManaColor, u32)>, u16); 4] = [
         (ids::d_avenant_archer(), vec![], 1),

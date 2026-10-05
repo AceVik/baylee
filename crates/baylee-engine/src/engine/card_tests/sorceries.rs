@@ -3,6 +3,8 @@
 #[allow(clippy::wildcard_imports)] // this module's own vocabulary
 use super::*;
 
+mod legends;
+
 /// A creature cast after a board-wide debuff resolved is not on its list.
 ///
 /// CR 611.2c: a continuous effect created by a resolving spell or ability

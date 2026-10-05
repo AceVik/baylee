@@ -1,7 +1,5 @@
 //! Oracle ids of the Arabian Nights, Antiquities and Legends cards the 45c5bbd7 pass added.
 
-#![allow(dead_code)]
-
 use crate::engine::testkit::card_index;
 use baylee_core::ids::CardIndex;
 

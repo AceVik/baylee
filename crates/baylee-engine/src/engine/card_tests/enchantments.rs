@@ -13,6 +13,7 @@ mod earthbind;
 mod earthbind_independent;
 mod gloom;
 mod island_sanctuary;
+mod legends;
 mod lich;
 
 fn circle_of_protection_red() -> CardIndex {

@@ -4,6 +4,8 @@
 use super::*;
 use baylee_core::color::{Color, ColorSet};
 
+mod legends;
+
 /// Counterspell: the classic — p0's creature spell never arrives.
 #[test]
 fn counterspell_counters_a_creature_spell() {

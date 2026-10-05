@@ -76,6 +76,7 @@ fn targets_offered(
 /// The vanilla and nearly vanilla bodies: cast for exactly the printed cost,
 /// they arrive with the printed colours, legendary status and size.
 #[test]
+#[allow(clippy::too_many_lines, clippy::type_complexity)]
 fn the_plain_bodies_cost_what_they_print_and_arrive_the_size_they_print() {
     use Color::{Black, Blue, Green, Red, White};
     let rows: &[(CardIndex, &[(ManaColor, u32)], i16, i16, bool, &[Color])] = &[

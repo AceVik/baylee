@@ -220,7 +220,7 @@ pub(super) fn declare(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) ->
         PlayerAction::DeclareAttackers {
             attackers: attackers
                 .iter()
-                .map(|a| (*a, Defender::Player(P1)))
+                .map(|a| (*a, Defender::Player(if player == P0 { P1 } else { P0 })))
                 .collect(),
         },
     )
@@ -250,8 +250,11 @@ pub(super) fn attack(e: &mut Engine<RegistryLookup>, attackers: &[ObjectId]) -> 
 /// Declares the given blocks (blocker, attacker) and nothing else.
 #[track_caller]
 pub(super) fn block(e: &mut Engine<RegistryLookup>, pairs: &[(ObjectId, ObjectId)]) {
+    let Pending::ChooseBlockers { player, .. } = e.pending().clone() else {
+        panic!("no block question: {:?}", e.pending());
+    };
     e.apply(
-        P1,
+        player,
         PlayerAction::DeclareBlockers {
             blockers: pairs.to_vec(),
         },
@@ -328,4 +331,76 @@ pub(super) fn drive(e: &mut Engine<RegistryLookup>, pick: &[ObjectId], yes: bool
         }
     }
     panic!("still asking: {:?}", e.pending());
+}
+
+/// Casts `card` from hand off floating mana, answering the mode (`mode`, if
+/// the spell is modal), X (`x`) and targets the announcement asks for, and
+/// stops with the spell on the stack and priority back with the caster.
+#[track_caller]
+pub(super) fn announce(
+    e: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    mode: usize,
+    x: u32,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) {
+    cast_with_floating(e, seat, card);
+    for _ in 0..8 {
+        match e.pending().clone() {
+            Pending::ChooseCastMode {
+                player, options, ..
+            } => {
+                let o = options
+                    .iter()
+                    .find(|o| matches!(o.kind, crate::choice::CastModeKind::Mode(m) if m == mode))
+                    .unwrap_or_else(|| panic!("no mode {mode} in {options:?}"));
+                e.apply(player, PlayerAction::ChooseMode(usize::from(o.index)))
+                    .unwrap();
+            }
+            Pending::ChooseNumber { player, .. } => {
+                e.apply(player, PlayerAction::ChooseNumber(x)).unwrap();
+            }
+            Pending::ChooseTargets { .. } => aim(e, objects, players),
+            Pending::ChoosePlayer { player, .. } => {
+                e.apply(player, PlayerAction::ChoosePlayer(players[0]))
+                    .unwrap();
+            }
+            _ => return,
+        }
+    }
+    panic!("announcement never finished: {:?}", e.pending());
+}
+
+/// `announce`, then let it resolve.
+#[track_caller]
+pub(super) fn cast_modal(
+    e: &mut Engine<RegistryLookup>,
+    seat: PlayerId,
+    card: CardIndex,
+    mode: usize,
+    x: u32,
+    objects: &[ObjectId],
+    players: &[PlayerId],
+) {
+    announce(e, seat, card, mode, x, objects, players);
+    settle(e);
+}
+
+/// Whether `card` in `seat`'s hand is on the castable list right now.
+pub(super) fn castable(e: &Engine<RegistryLookup>, seat: PlayerId, card: CardIndex) -> bool {
+    let Some(id) = in_hand(e, seat, card) else {
+        return false;
+    };
+    matches!(e.pending(), Pending::Priority { player, legal } if *player == seat && legal.castable.contains(&id))
+}
+
+/// The current priority holder passes once.
+#[track_caller]
+pub(super) fn pass_once(e: &mut Engine<RegistryLookup>) {
+    let Pending::Priority { player, .. } = e.pending().clone() else {
+        panic!("priority expected, got {:?}", e.pending());
+    };
+    e.apply(player, PlayerAction::PassPriority).unwrap();
 }
