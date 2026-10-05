@@ -803,6 +803,52 @@ pub static BEAST_3_3_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 5/5 colorless artifact Djinn with flying.
+pub static DJINN_ARTIFACT_5_5_FLYING: TokenDef = TokenDef {
+    name: "Djinn",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::DJINN],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 4/4 red Bird with flying.
+pub static BIRD_4_4_RED_FLYING: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(4),
+    toughness: Some(4),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white red green Sand Warrior.
+pub static SAND_WARRIOR_1_1_WHITE_RED_GREEN: TokenDef = TokenDef {
+    name: "Sand Warrior",
+    colors: ColorSet::from_slice(&[Color::White, Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SAND, creature::WARRIOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/4 red green legendary Stangg Twin.
+pub static STANGG_TWIN_LEGENDARY_3_4_RED_GREEN: TokenDef = TokenDef {
+    name: "Stangg Twin",
+    colors: ColorSet::from_slice(&[Color::Red, Color::Green]),
+    types: TypeSet::CREATURE,
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::HUMAN, creature::WARRIOR],
+    power: Some(3),
+    toughness: Some(4),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -888,6 +934,10 @@ pub static ALL: &[&TokenDef] = &[
     &BEAST_3_3_GREEN,
     &tokens::ELEMENTAL_X_X_GREEN_WHITE,
     &tokens::GOBLIN_SHAMAN_2_2_RED,
+    &DJINN_ARTIFACT_5_5_FLYING,
+    &BIRD_4_4_RED_FLYING,
+    &SAND_WARRIOR_1_1_WHITE_RED_GREEN,
+    &STANGG_TWIN_LEGENDARY_3_4_RED_GREEN,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -960,4 +1010,8 @@ pub static GENERATED: &[&TokenDef] = &[
     &SPIRIT_3_3_WHITE_FLYING,
     &WOLF_2_2_GREEN,
     &BEAST_3_3_GREEN,
+    &DJINN_ARTIFACT_5_5_FLYING,
+    &BIRD_4_4_RED_FLYING,
+    &SAND_WARRIOR_1_1_WHITE_RED_GREEN,
+    &STANGG_TWIN_LEGENDARY_3_4_RED_GREEN,
 ];

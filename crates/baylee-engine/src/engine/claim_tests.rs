@@ -339,6 +339,7 @@ const CONDITIONS: &[&str] = &[
     " choose ",
     " chooses ",
     " x ",
+    " attacking ",
     " at the beginning ",
 ];
 

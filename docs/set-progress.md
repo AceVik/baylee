@@ -571,3 +571,94 @@ full Oracle, Manafont symbols, hourglass, historical recipient and corrected
 
 The general existing per-color u16 mana-pool ceiling remains: overflow refuses
 atomically before charging life. This is not a claim of unlimited numeric mana.
+
+## Arabian Nights — owner-ordered pass without engine changes (2026-10-05)
+
+The owner directed the next set in release order to be implemented fully with
+**no engine changes**: a card whose clause needs engine or DSL work is marked
+`Coverage::Partial` and the missing piece is recorded in `TODO.md`
+("Arabian Nights — engine gaps"). Shahrazad (subgame) and Jeweled Bird (ante)
+joined `data/unplayable.tsv` and are never built.
+
+State of the set's 77 Oracle identities: **41 Implemented, 34 Partial, 2
+excluded**. The transcoder wrote 10 (Dandân, Fishliver Oil, Hasran Ogress,
+Hurr Jackal, Junún Efreet, Khabál Ghoul, Kird Ape, Repentant Blacksmith,
+Sandstorm, War Elephant); 11 were hand-implemented (Aladdin, Army of Allah,
+Brass Man, Ebony Horse, Erg Raiders, Island Fish Jasconius, Metamorphosis,
+Piety, Rukh Egg, Sorceress Queen, Unstable Mutation); the 34 Partial cards
+each carry their exact reason in the file and are listed in `TODO.md`.
+Two cards already in the pool were among them (Diamond Valley, Island of
+Wak-Wak) and Desert kept its pre-existing Partial.
+
+Gates for this pass: `codegen --check` green, `xtask validate` green (3,007
+cards conform), the engine library suite green (4,780 passed, 2 ignored), the
+workspace suite green except `baylee-catalog`'s PostgreSQL-backed search tests
+(no `DATABASE_URL` on this machine), clippy `-D warnings` and `cargo fmt`
+clean. One tool finding — `claim_tests` reading the auto-transcribed Sandstorm
+as an unconditional promise — was fixed with one vocabulary word (`" attacking
+"` in `CONDITIONS`); no rules behaviour changed.
+
+A follow-up pass then wrote **35 rules-derived tests** for the 21
+`Implemented` cards (from the Scryfall payloads and rulings saved under
+`scratchpad/arn-tests/`, never from the implementation): every test names its
+card through `card_index(...)`, every loggable ability fires in the suite,
+the 17 permanents leave the battlefield clean under `BAYLEE_LEAVE_LOG`, and
+every listed ability mutant was run individually and killed. The engine suite
+is green at 4,815 passed. The cards therefore stand at L3 with the firing and
+leave halves of L4 green; the formal L4/L5 stamp still needs an
+`--coverage` (`cargo llvm-cov`) export, which is not installed on this
+machine (owner's call). The 31 `Partial` cards have no tests.
+
+## Antiquities — same protocol, next set (2026-10-05)
+
+Owner-ordered continuation with no engine changes, same as Arabian Nights.
+State of the set's 85 Oracle identities: **52 Implemented, 32 Partial, 1
+excluded** (Bronze Tablet, ante, in `data/unplayable.tsv`). The transcoder
+wrote 14; 16 were hand-implemented; 32 are Partial with their exact reason in
+the file and the grouped engine work in `TODO.md` ("Antiquities — engine
+gaps"). One card was demoted during testing: **The Rack** printed "3 minus
+the number of cards in their hand" but the DSL can only spell count minus a
+constant, and the hand implementation had mirrored Black Vise; its ability is
+off the card and the missing amount is recorded.
+
+Gates: `codegen --check` green, `xtask validate` green (3,069 cards conform),
+engine library suite green at 4,857 passed (2 ignored), workspace suite green
+except `baylee-catalog`'s PostgreSQL-backed search tests (no `DATABASE_URL`),
+clippy `-D warnings` and `cargo fmt` clean. One tool finding: `validate`'s
+`OFFERS_A_CHOICE` list lacked `PlayerMayPayCostOr`, a false positive on
+Yawgmoth Demon, fixed with one line in `xtask/src/main.rs`.
+
+A rules-derived test pass then wrote 42 tests for the newly Implemented cards
+(from the Scryfall payloads and rulings under `scratchpad/atq-tests/`), each
+with a `card_index(...)` helper; every loggable ability fires, all 47
+permanents leave the battlefield clean under `BAYLEE_LEAVE_LOG`, and every
+listed ability mutant was killed. It was this pass that caught The Rack. As
+with Arabian Nights, the formal L4/L5 stamp still needs the `--coverage`
+export (`cargo llvm-cov` is not installed); the 32 Partial cards have no
+tests.
+
+## Legends — third set, 24 batches (2026-10-05)
+
+310 Oracle identities: **167 Implemented, 141 Partial, 2 excluded** (ante:
+Rebirth, Tempest Efreet). 64 cards came out of the transcoder; 189 stubs were
+hand-worked in three waves of eight parallel agents under the same no-engine
+contract, each Partial carrying its own `// NOT SUPPORTED` reason. The engine
+work this exposed is grouped in `TODO.md` ("Legends — engine gaps"); rampage,
+one-sided block triggers and source-filtered prevention are the big recurring
+families.
+
+Gates: `codegen --check` green, `xtask validate` green (3,322 cards conform),
+engine library suite green at 4,857 passed (2 ignored), `baylee-cards` lints
+green (one fix: Cocoon's `Coverage::Partial` reason spelled `Custom(` inside
+a string literal, which the counter-id lint reads as code), workspace suite
+green except `baylee-catalog`'s PostgreSQL-backed tests, clippy `-D warnings`
+and `cargo fmt` clean. One engine test-list fix: the event-reader census in
+`this_object_tests.rs` did not know `IfEventObjectMatches`, which
+`resolve/mod.rs` and `sources/event_readers.rs` both read — one spelling
+added.
+
+**The rules-derived test pass for Legends' 167 Implemented cards has not run
+yet**: the 121 newly Implemented cards sit at L2 (validate-clean, no engine
+test names them yet) and the 46 inherited ones keep their prior level. The
+ARN (21) and ATQ (30) passes are the template. Nothing in this set was
+demoted by testing because testing has not run.

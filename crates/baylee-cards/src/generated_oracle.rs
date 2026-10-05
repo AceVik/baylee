@@ -836,156 +836,363 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Volcanic Island
     &["({T}: Add {U} or {R}.)"],
-    &[],
-    &[],
-    &[],
+    // Abu Ja'far
+    &[
+        "When this creature dies, destroy all creatures blocking or blocked by it. They can't be regenerated.",
+    ],
+    // Aladdin
+    &["{1}{R}{R}, {T}: Gain control of target artifact for as long as you control this creature."],
+    // Aladdin's Lamp
+    &[
+        "{X}, {T}: The next time you would draw a card this turn, instead look at the top X cards of your library, put all but one of them on the bottom of your library in a random order, then draw a card. X can't be 0.",
+    ],
     // Aladdin's Ring
     &["{8}, {T}: This artifact deals 4 damage to any target."],
     // Ali Baba
     &["{R}: Tap target Wall."],
-    &[],
-    &[],
+    // Ali from Cairo
+    &["Damage that would reduce your life total to less than 1 reduces it to 1 instead."],
+    // Army of Allah
+    &["Attacking creatures get +2/+0 until end of turn."],
     // Bazaar of Baghdad
     &["{T}: Draw two cards, then discard three cards."],
     // Bird Maiden
     &["Flying"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bottle of Suleiman
+    &[
+        "{1}, Sacrifice this artifact: Flip a coin. If you win the flip, create a 5/5 colorless Djinn artifact creature token with flying. If you lose the flip, this artifact deals 5 damage to you.",
+    ],
+    // Brass Man
+    &[
+        "This creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {1}. If you do, untap this creature.",
+    ],
+    // Camel
+    &[
+        "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nAs long as this creature is attacking, prevent all damage Deserts would deal to this creature and to creatures banded with this creature.",
+    ],
+    // City in a Bottle
+    &[
+        "Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers sacrifice them.\nPlayers can't cast spells or play lands with a name originally printed in the Arabian Nights expansion.",
+    ],
     // City of Brass
     &[
         "Whenever this land becomes tapped, it deals 1 damage to you.\n{T}: Add one mana of any color.",
     ],
-    &[],
-    &[],
+    // Cuombajj Witches
+    &[
+        "{T}: This creature deals 1 damage to any target and 1 damage to any target of an opponent's choice.",
+    ],
+    // Cyclone
+    &[
+        "At the beginning of your upkeep, put a wind counter on this enchantment, then sacrifice this enchantment unless you pay {G} for each wind counter on it. If you pay, this enchantment deals damage equal to the number of wind counters on it to each creature and each player.",
+    ],
     // Dancing Scimitar
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
-    &[],
+    // Dandân
+    &[
+        "This creature can't attack unless defending player controls an Island.\nWhen you control no Islands, sacrifice this creature.",
+    ],
     // Desert
     &[
         "{T}: Add {C}.\n{T}: This land deals 1 damage to target attacking creature. Activate only during the end of combat step.",
     ],
-    &[],
+    // Desert Nomads
+    &["Desertwalk\nPrevent all damage that would be dealt to this creature by Deserts."],
     // Desert Twister
     &["Destroy target permanent."],
     // Diamond Valley
     &["{T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness."],
-    &[],
-    &[],
-    &[],
+    // Drop of Honey
+    &[
+        "At the beginning of your upkeep, destroy the creature with the least power. It can't be regenerated. If two or more creatures are tied for least power, you choose one of them.\nWhen there are no creatures on the battlefield, sacrifice this enchantment.",
+    ],
+    // Ebony Horse
+    &[
+        "{2}, {T}: Untap target attacking creature you control. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+    ],
+    // El-Hajjâj
+    &["Whenever this creature deals damage, you gain that much life."],
     // Elephant Graveyard
     &["{T}: Add {C}.\n{T}: Regenerate target Elephant."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Erg Raiders
+    &[
+        "At the beginning of your end step, if this creature didn't attack this turn, it deals 2 damage to you unless it came under your control this turn.",
+    ],
+    // Erhnam Djinn
+    &[
+        "At the beginning of your upkeep, target non-Wall creature an opponent controls gains forestwalk until your next upkeep. (It can't be blocked as long as defending player controls a Forest.)",
+    ],
+    // Eye for an Eye
+    &[
+        "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.",
+    ],
+    // Fishliver Oil
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature has islandwalk. (It can't be blocked as long as defending player controls an Island.)",
+    ],
     // Flying Carpet
     &["{2}, {T}: Target creature gains flying until end of turn."],
     // Flying Men
     &["Flying"],
-    &[],
+    // Ghazbán Ogre
+    &[
+        "At the beginning of your upkeep, if a player has more life than each other player, the player with the most life gains control of this creature.",
+    ],
     // Giant Tortoise
     &["This creature gets +0/+3 as long as it's untapped."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Guardian Beast
+    &[
+        "As long as this creature is untapped, noncreature artifacts you control can't be enchanted, they have indestructible, and other players can't gain control of them. This effect doesn't remove Auras already attached to those artifacts.",
+    ],
+    // Hasran Ogress
+    &["Whenever this creature attacks, it deals 3 damage to you unless you pay {2}."],
+    // Hurr Jackal
+    &["{T}: Target creature can't be regenerated this turn."],
+    // Ifh-Bíff Efreet
+    &[
+        "Flying\n{G}: This creature deals 1 damage to each creature with flying and each player. Any player may activate this ability.",
+    ],
+    // Island Fish Jasconius
+    &[
+        "This creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {U}{U}{U}. If you do, untap this creature.\nThis creature can't attack unless defending player controls an Island.\nWhen you control no Islands, sacrifice this creature.",
+    ],
     // Island of Wak-Wak
     &["{T}: Target creature with flying has base power 0 until end of turn."],
-    &[],
+    // Jandor's Ring
+    &["{2}, {T}, Discard the last card you drew this turn: Draw a card."],
     // Jandor's Saddlebags
     &["{3}, {T}: Untap target creature."],
     &[],
-    &[],
-    &[],
+    // Jihad
+    &[
+        "As this enchantment enters, choose a color and an opponent.\nWhite creatures get +2/+1 as long as the chosen player controls a nontoken permanent of the chosen color.\nWhen the chosen player controls no nontoken permanents of the chosen color, sacrifice this enchantment.",
+    ],
+    // Junún Efreet
+    &["Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {B}{B}."],
     // Juzám Djinn
     &["At the beginning of your upkeep, this creature deals 1 damage to you."],
-    &[],
+    // Khabál Ghoul
+    &[
+        "At the beginning of each end step, put a +1/+1 counter on this creature for each creature that died this turn.",
+    ],
     // King Suleiman
     &["{T}: Destroy target Djinn or Efreet."],
-    &[],
+    // Kird Ape
+    &["This creature gets +1/+2 as long as you control a Forest."],
     // Library of Alexandria
     &["{T}: Add {C}.\n{T}: Draw a card. Activate only if you have exactly seven cards in hand."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Magnetic Mountain
+    &[
+        "Blue creatures don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player may choose any number of tapped blue creatures they control and pay {4} for each creature chosen this way. If the player does, untap those creatures.",
+    ],
+    // Merchant Ship
+    &[
+        "This creature can't attack unless defending player controls an Island.\nWhenever this creature attacks and isn't blocked, you gain 2 life.\nWhen you control no Islands, sacrifice this creature.",
+    ],
+    // Metamorphosis
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nAdd X mana of any one color, where X is 1 plus the sacrificed creature's mana value. Spend this mana only to cast creature spells.",
+    ],
+    // Mijae Djinn
+    &[
+        "Whenever this creature attacks, flip a coin. If you lose the flip, remove this creature from combat and tap it.",
+    ],
     // Moorish Cavalry
     &["Trample"],
-    &[],
+    // Nafs Asp
+    &[
+        "Whenever this creature deals damage to a player, that player loses 1 life at the beginning of their next draw step unless they pay {1} before that draw step.",
+    ],
     // Oasis
     &["{T}: Prevent the next 1 damage that would be dealt to target creature this turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Old Man of the Sea
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that creature's power remains less than or equal to this creature's power.",
+    ],
+    // Oubliette
+    &[
+        "When this enchantment enters, target creature phases out until this enchantment leaves the battlefield. Tap that creature as it phases in this way. (Auras and Equipment phase out with it. While permanents are phased out, they're treated as though they don't exist.)",
+    ],
+    // Piety
+    &["Blocking creatures get +0/+3 until end of turn."],
+    // Pyramids
+    &[
+        "{2}: Choose one —\n• Destroy target Aura attached to a land.\n• The next time target land would be destroyed this turn, remove all damage marked on it instead.",
+    ],
+    // Repentant Blacksmith
+    &["Protection from red"],
+    // Ring of Ma'rûf
+    &[
+        "{5}, {T}, Exile this artifact: The next time you would draw a card this turn, instead put a card you own from outside the game into your hand.",
+    ],
+    // Rukh Egg
+    &[
+        "When this creature dies, create a 4/4 red Bird creature token with flying at the beginning of the next end step.",
+    ],
+    // Sandals of Abdallah
+    &[
+        "{2}, {T}: Target creature gains islandwalk until end of turn. When that creature dies this turn, destroy this artifact. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)",
+    ],
+    // Sandstorm
+    &["Sandstorm deals 1 damage to each attacking creature."],
+    // Serendib Djinn
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice a land. If you sacrifice an Island this way, this creature deals 3 damage to you.\nWhen you control no lands, sacrifice this creature.",
+    ],
     // Serendib Efreet
     &["Flying\nAt the beginning of your upkeep, this creature deals 1 damage to you."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Sindbad
+    &["{T}: Draw a card and reveal it. If it isn't a land card, discard it."],
+    // Singing Tree
+    &["{T}: Target attacking creature has base power 0 until end of turn."],
+    // Sorceress Queen
+    &[
+        "{T}: Target creature other than this creature has base power and toughness 0/2 until end of turn.",
+    ],
     // Stone-Throwing Devils
     &["First strike"],
-    &[],
-    &[],
+    // Unstable Mutation
+    &[
+        "Enchant creature\nEnchanted creature gets +3/+3.\nAt the beginning of the upkeep of enchanted creature's controller, put a -1/-1 counter on that creature.",
+    ],
+    // War Elephant
+    &[
+        "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    ],
     // Wyluli Wolf
     &["{T}: Target creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ydwen Efreet
+    &[
+        "Whenever this creature blocks, flip a coin. If you lose the flip, remove this creature from combat and it can't block this turn. Creatures it was blocking that had become blocked by only this creature this combat become unblocked.",
+    ],
+    // Amulet of Kroog
+    &["{2}, {T}: Prevent the next 1 damage that would be dealt to any target this turn."],
+    // Argivian Archaeologist
+    &["{W}{W}, {T}: Return target artifact card from your graveyard to your hand."],
+    // Argivian Blacksmith
+    &["{T}: Prevent the next 2 damage that would be dealt to target artifact creature this turn."],
+    // Argothian Pixies
+    &[
+        "This creature can't be blocked by artifact creatures.\nPrevent all damage that would be dealt to this creature by artifact creatures.",
+    ],
+    // Argothian Treefolk
+    &["Prevent all damage that would be dealt to this creature by artifact sources."],
+    // Armageddon Clock
+    &[
+        "At the beginning of your upkeep, put a doom counter on this artifact.\nAt the beginning of your draw step, this artifact deals damage equal to the number of doom counters on it to each player.\n{4}: Remove a doom counter from this artifact. Any player may activate this ability but only during any upkeep step.",
+    ],
     // Artifact Blast
     &["Counter target artifact spell."],
-    &[],
-    &[],
+    // Artifact Possession
+    &[
+        "Enchant artifact\nWhenever enchanted artifact becomes tapped or a player activates an ability of enchanted artifact without {T} in its activation cost, this Aura deals 2 damage to that artifact's controller.",
+    ],
+    // Artifact Ward
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by artifact creatures.\nPrevent all damage that would be dealt to enchanted creature by artifact sources.\nEnchanted creature can't be the target of abilities from artifact sources.",
+    ],
     // Ashnod's Altar
     &["Sacrifice a creature: Add {C}{C}."],
-    &[],
-    &[],
+    // Ashnod's Battle Gear
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{2}, {T}: Target creature you control gets +2/-2 for as long as this artifact remains tapped.",
+    ],
+    // Ashnod's Transmogrant
+    &[
+        "{T}, Sacrifice this artifact: Put a +1/+1 counter on target nonartifact creature. That creature becomes an artifact in addition to its other types.",
+    ],
     // Atog
     &["Sacrifice an artifact: This creature gets +2/+2 until end of turn."],
+    // Battering Ram
+    &[
+        "At the beginning of combat on your turn, this creature gains banding until end of combat. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's blocking.)\nWhenever this creature becomes blocked by a Wall, destroy that Wall at end of combat.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
+    // Candelabra of Tawnos
+    &["{X}, {T}: Untap X target lands."],
+    // Circle of Protection: Artifacts
+    &[
+        "{2}: The next time an artifact source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Citanul Druid
     &["Whenever an opponent casts an artifact spell, put a +1/+1 counter on this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Clay Statue
+    &["{2}: Regenerate this creature."],
+    // Clockwork Avian
+    &[
+        "Flying\nThis creature enters with four +1/+0 counters on it.\nAt end of combat, if this creature attacked or blocked this combat, remove a +1/+0 counter from it.\n{X}, {T}: Put up to X +1/+0 counters on this creature. This ability can't cause the total number of +1/+0 counters on this creature to be greater than four. Activate only during your upkeep.",
+    ],
+    // Colossus of Sardia
+    &[
+        "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature doesn't untap during your untap step.\n{9}: Untap this creature. Activate only during your upkeep.",
+    ],
+    // Coral Helm
+    &["{3}, Discard a card at random: Target creature gets +2/+2 until end of turn."],
+    // Crumble
+    &[
+        "Destroy target artifact. It can't be regenerated. That artifact's controller gains life equal to its mana value.",
+    ],
+    // Cursed Rack
+    &[
+        "As this artifact enters, choose an opponent.\nThe chosen player's maximum hand size is four.",
+    ],
+    // Damping Field
+    &["Players can't untap more than one artifact during their untap steps."],
+    // Detonate
+    &[
+        "Destroy target artifact with mana value X. It can't be regenerated. Detonate deals X damage to that artifact's controller.",
+    ],
+    // Drafna's Restoration
+    &[
+        "Put any number of target artifact cards from target player's graveyard on top of their library in any order.",
+    ],
     // Dragon Engine
     &["{2}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dwarven Weaponsmith
+    &[
+        "{T}, Sacrifice an artifact: Put a +1/+1 counter on target creature. Activate only during your upkeep.",
+    ],
+    // Energy Flux
+    &[
+        "All artifacts have \"At the beginning of your upkeep, sacrifice this artifact unless you pay {2}.\"",
+    ],
+    // Feldon's Cane
+    &["{T}, Exile this artifact: Shuffle your graveyard into your library."],
+    // Gaea's Avenger
+    &[
+        "Gaea's Avenger's power and toughness are each equal to 1 plus the number of artifacts your opponents control.",
+    ],
+    // Gate to Phyrexia
+    &[
+        "Sacrifice a creature: Destroy target artifact. Activate only during your upkeep and only once each turn.",
+    ],
+    // Goblin Artisans
+    &[
+        "{T}: Flip a coin. If you win the flip, draw a card. If you lose the flip, counter target artifact spell you control that isn't the target of an ability from another creature named Goblin Artisans.",
+    ],
+    // Golgothian Sylex
+    &[
+        "{1}, {T}: Each nontoken permanent with a name originally printed in the Antiquities expansion is sacrificed by its controller.",
+    ],
+    // Grapeshot Catapult
+    &["{T}: This creature deals 1 damage to target creature with flying."],
+    // Haunting Wind
+    &[
+        "Whenever an artifact becomes tapped or a player activates an artifact's ability without {T} in its activation cost, this enchantment deals 1 damage to that artifact's controller.",
+    ],
+    // Hurkyl's Recall
+    &["Return all artifacts target player owns to their hand."],
+    // Ivory Tower
+    &[
+        "At the beginning of your upkeep, you gain X life, where X is the number of cards in your hand minus 4.",
+    ],
+    // Jalum Tome
+    &["{2}, {T}: Draw a card, then discard a card."],
+    // Martyrs of Korlis
+    &[
+        "As long as this creature is untapped, all damage that would be dealt to you by artifacts is dealt to this creature instead.",
+    ],
     // Mightstone
     &["Attacking creatures get +1/+0."],
     // Millstone
@@ -994,51 +1201,114 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{1}: This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land.\n{T}: Target Assembly-Worker creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Mishra's War Machine
+    &[
+        "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nAt the beginning of your upkeep, this creature deals 3 damage to you unless you discard a card. If it deals damage to you this way, tap it.",
+    ],
     // Mishra's Workshop
     &["{T}: Add {C}{C}{C}. Spend this mana only to cast artifact spells."],
     // Obelisk of Undoing
     &["{6}, {T}: Return target permanent you both own and control to your hand."],
-    &[],
+    // Onulet
+    &["When this creature dies, you gain 2 life."],
     // Orcish Mechanics
     &["{T}, Sacrifice an artifact: This creature deals 2 damage to any target."],
     // Ornithopter
     &["Flying"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Phyrexian Gremlins
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: Tap target artifact. It doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
+    // Power Artifact
+    &[
+        "Enchant artifact\nEnchanted artifact's activated abilities cost {2} less to activate. This effect can't reduce the mana in that cost to less than one mana.",
+    ],
+    // Powerleech
+    &[
+        "Whenever an artifact an opponent controls becomes tapped or an opponent activates an artifact's ability without {T} in its activation cost, you gain 1 life.",
+    ],
+    // Priest of Yawgmoth
+    &[
+        "{T}, Sacrifice an artifact: Add an amount of {B} equal to the sacrificed artifact's mana value.",
+    ],
+    // Primal Clay
+    &[
+        "As this creature enters, it becomes your choice of a 3/3 artifact creature, a 2/2 artifact creature with flying, or a 1/6 Wall artifact creature with defender in addition to its other types. (A creature with defender can't attack.)",
+    ],
+    // Rakalite
+    &[
+        "{2}: Prevent the next 1 damage that would be dealt to any target this turn. Return this artifact to its owner's hand at the beginning of the next end step.",
+    ],
+    // Reconstruction
+    &["Return target artifact card from your graveyard to your hand."],
+    // Reverse Polarity
+    &["You gain X life, where X is twice the damage dealt to you so far this turn by artifacts."],
+    // Rocket Launcher
+    &[
+        "{2}: This artifact deals 1 damage to any target. Destroy this artifact at the beginning of the next end step. Activate only if you've controlled this artifact continuously since the beginning of your most recent turn.",
+    ],
     // Sage of Lat-Nam
     &["{T}, Sacrifice an artifact: Draw a card."],
-    &[],
-    &[],
+    // Shapeshifter
+    &[
+        "As this creature enters, choose a number between 0 and 7.\nAt the beginning of your upkeep, you may choose a number between 0 and 7.\nShapeshifter's power is equal to the last chosen number and its toughness is equal to 7 minus that number.",
+    ],
+    // Shatterstorm
+    &["Destroy all artifacts. They can't be regenerated."],
     // Staff of Zegon
     &["{3}, {T}: Target creature gets -2/-0 until end of turn."],
     // Strip Mine
     &["{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target land."],
     // Su-Chi
     &["When this creature dies, add {C}{C}{C}{C}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tablet of Epityr
+    &[
+        "Whenever an artifact you control is put into a graveyard from the battlefield, you may pay {1}. If you do, you gain 1 life.",
+    ],
+    // Tawnos's Coffin
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Exile target creature and all Auras attached to it. Note the number and kind of counters that were on that creature. When this artifact leaves the battlefield or becomes untapped, return that exiled card to the battlefield under its owner's control tapped with the noted number and kind of counters on it. If you do, return the other exiled cards to the battlefield under their owner's control attached to that permanent.",
+    ],
+    // Tawnos's Wand
+    &["{2}, {T}: Target creature with power 2 or less can't be blocked this turn."],
+    // Tawnos's Weaponry
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{2}, {T}: Target creature gets +1/+1 for as long as this artifact remains tapped.",
+    ],
+    // Tetravus
+    &[
+        "Flying\nThis creature enters with three +1/+1 counters on it.\nAt the beginning of your upkeep, you may remove any number of +1/+1 counters from this creature. If you do, create that many 1/1 colorless Tetravite artifact creature tokens. They each have flying and \"This token can't be enchanted.\"\nAt the beginning of your upkeep, you may exile any number of tokens created with this creature. If you do, put that many +1/+1 counters on this creature.",
+    ],
+    // The Rack
+    &[
+        "As this artifact enters, choose an opponent.\nAt the beginning of the chosen player's upkeep, this artifact deals X damage to that player, where X is 3 minus the number of cards in their hand.",
+    ],
+    // Titania's Song
+    &[
+        "Each noncreature artifact loses all abilities and becomes an artifact creature with power and toughness each equal to its mana value. If this enchantment leaves the battlefield, this effect continues until end of turn.",
+    ],
+    // Transmute Artifact
+    &[
+        "Sacrifice an artifact. If you do, search your library for an artifact card. If that card's mana value is less than or equal to the sacrificed artifact's mana value, put it onto the battlefield. If it's greater, you may pay {X}, where X is the difference. If you do, put it onto the battlefield. If you don't, put it into its owner's graveyard. Then shuffle.",
+    ],
+    // Triskelion
+    &[
+        "This creature enters with three +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+    ],
+    // Urza's Avenger
+    &[
+        "{0}: This creature gets -1/-1 and gains your choice of banding, flying, first strike, or trample until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    ],
+    // Urza's Chalice
+    &["Whenever a player casts an artifact spell, you may pay {1}. If you do, you gain 1 life."],
     // Urza's Mine
     &[
         "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead.",
     ],
-    &[],
+    // Urza's Miter
+    &[
+        "Whenever an artifact you control is put into a graveyard from the battlefield, if it wasn't sacrificed, you may pay {3}. If you do, draw a card.",
+    ],
     // Urza's Power Plant
     &["{T}: Add {C}. If you control an Urza's Mine and an Urza's Tower, add {C}{C} instead."],
     // Urza's Tower
@@ -1049,358 +1319,878 @@ pub static ORACLE: &[&[&str]] = &[
     &["Defender (This creature can't attack.)\nFirst strike"],
     // Weakstone
     &["Attacking creatures get -1/-0."],
-    &[],
-    &[],
+    // Xenic Poltergeist
+    &[
+        "{T}: Until your next upkeep, target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value.",
+    ],
+    // Yawgmoth Demon
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nFirst strike (This creature deals combat damage before creatures without first strike.)\nAt the beginning of your upkeep, you may sacrifice an artifact. If you don't, tap this creature and it deals 2 damage to you.",
+    ],
     // Yotian Soldier
     &["Vigilance"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Abomination
+    &[
+        "Whenever this creature blocks or becomes blocked by a green or white creature, destroy that creature at end of combat.",
+    ],
+    // Acid Rain
+    &["Destroy all Forests."],
+    // Active Volcano
+    &[
+        "Choose one —\n• Destroy target blue permanent.\n• Return target Island to its owner's hand.",
+    ],
+    // Adun Oakenshield
+    &["{B}{R}{G}, {T}: Return target creature card from your graveyard to your hand."],
     // Adventurers' Guildhouse
     &[
         "Green legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aerathi Berserker
+    &[
+        "Rampage 3 (Whenever this creature becomes blocked, it gets +3/+3 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Aisling Leprechaun
+    &[
+        "Whenever this creature blocks or becomes blocked by a creature, that creature becomes green. (This effect lasts indefinitely.)",
+    ],
+    // Akron Legionnaire
+    &[
+        "Except for creatures named Akron Legionnaire and artifact creatures, creatures you control can't attack.",
+    ],
+    // Al-abara's Carpet
+    &[
+        "{5}, {T}: Prevent all damage that would be dealt to you this turn by attacking creatures without flying.",
+    ],
+    // Alabaster Potion
+    &[
+        "Choose one —\n• Target player gains X life.\n• Prevent the next X damage that would be dealt to any target this turn.",
+    ],
+    // Alchor's Tomb
+    &[
+        "{2}, {T}: Target permanent you control becomes the color of your choice. (This effect lasts indefinitely.)",
+    ],
+    // All Hallow's Eve
+    &[
+        "Exile All Hallow's Eve with two scream counters on it.\nAt the beginning of your upkeep, if this card is exiled with a scream counter on it, remove a scream counter from it. If there are no more scream counters on it, put it into your graveyard and each player returns all creature cards from their graveyard to the battlefield.",
+    ],
+    // Amrou Kithkin
+    &["This creature can't be blocked by creatures with power 3 or greater."],
+    // Angelic Voices
+    &["Creatures you control get +1/+1 as long as you control no nonartifact, nonwhite creatures."],
+    // Angus Mackenzie
+    &[
+        "{G}{W}{U}, {T}: Prevent all combat damage that would be dealt this turn. Activate only before the combat damage step.",
+    ],
+    // Anti-Magic Aura
+    &[
+        "Enchant creature\nEnchanted creature can't be the target of spells and can't be enchanted by other Auras.",
+    ],
+    // Arboria
+    &[
+        "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.",
+    ],
+    // Arcades Sabboth
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice Arcades Sabboth unless you pay {G}{W}{U}.\nEach untapped creature you control gets +0/+2 as long as it's not attacking.\n{W}: Arcades Sabboth gets +0/+1 until end of turn.",
+    ],
+    // Arena of the Ancients
+    &[
+        "Legendary creatures don't untap during their controllers' untap steps.\nWhen this artifact enters, tap all legendary creatures.",
+    ],
+    // Avoid Fate
+    &["Counter target instant or Aura spell that targets a permanent you control."],
+    // Axelrod Gunnarson
+    &[
+        "Trample\nWhenever a creature dealt damage by Axelrod Gunnarson this turn dies, you gain 1 life and Axelrod Gunnarson deals 1 damage to target player or planeswalker.",
+    ],
+    // Ayesha Tanaka
+    &[
+        "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{T}: Counter target activated ability from an artifact source unless that ability's controller pays {W}. (Mana abilities can't be targeted.)",
+    ],
     // Azure Drake
     &["Flying"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Backdraft
+    &[
+        "Choose a player who cast one or more sorcery spells this turn. Backdraft deals damage to that player equal to half the damage dealt by one of those sorcery spells this turn, rounded down.",
+    ],
+    // Backfire
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to you, this Aura deals that much damage to that creature's controller.",
+    ],
+    // Barbary Apes
+    &[""],
+    // Barktooth Warbeard
+    &[""],
+    // Bartel Runeaxe
+    &["Vigilance\nBartel Runeaxe can't be the target of Aura spells."],
+    // Beasts of Bogardan
+    &[
+        "Protection from red\nThis creature gets +1/+1 as long as an opponent controls a nontoken white permanent.",
+    ],
+    // Black Mana Battery
+    &[
+        "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {B}, then add an additional {B} for each charge counter removed this way.",
+    ],
+    // Blazing Effigy
+    &[
+        "When this creature dies, it deals X damage to target creature, where X is 3 plus the amount of damage dealt to this creature this turn by other sources named Blazing Effigy.",
+    ],
+    // Blight
+    &["Enchant land\nWhen enchanted land becomes tapped, destroy it."],
     // Blood Lust
     &[
         "If target creature has toughness 5 or greater, it gets +4/-4 until end of turn. Otherwise, it gets +4/-X until end of turn, where X is its toughness minus 1.",
     ],
-    &[],
+    // Blue Mana Battery
+    &[
+        "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {U}, then add an additional {U} for each charge counter removed this way.",
+    ],
     // Boomerang
     &["Return target permanent to its owner's hand."],
     // Boris Devilboon
     &["{2}{B}{R}, {T}: Create a 1/1 black and red Demon creature token named Minor Demon."],
-    &[],
-    &[],
+    // Brine Hag
+    &[
+        "When this creature dies, the base power and toughness of each creature that dealt damage to it this turn become 0/2. (This effect lasts indefinitely.)",
+    ],
+    // Bronze Horse
+    &[
+        "Trample\nAs long as you control another creature, prevent all damage that would be dealt to this creature by spells that target it.",
+    ],
     // Carrion Ants
     &["{1}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Cat Warriors
+    &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Cathedral of Serra
     &[
         "White legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Caverns of Despair
+    &[
+        "No more than two creatures can attack each combat.\nNo more than two creatures can block each combat.",
+    ],
+    // Chain Lightning
+    &[
+        "Chain Lightning deals 3 damage to any target. Then that player or that permanent's controller may pay {R}{R}. If the player does, they may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chains of Mephistopheles
+    &[
+        "If a player would draw a card except the first one they draw in each of their draw steps, that player discards a card instead. If the player discards a card this way, they draw a card. If the player doesn't discard a card this way, they mill a card.",
+    ],
+    // Chromium
+    &[
+        "Flying\nRampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nAt the beginning of your upkeep, sacrifice Chromium unless you pay {W}{U}{B}.",
+    ],
+    // Cleanse
+    &["Destroy all black creatures."],
+    // Clergy of the Holy Nimbus
+    &[
+        "If this creature would be destroyed, regenerate it.\n{1}: This creature can't be regenerated this turn. Only your opponents may activate this ability.",
+    ],
+    // Cocoon
+    &[
+        "Enchant creature you control\nWhen this Aura enters, tap enchanted creature and put three pupa counters on this Aura.\nEnchanted creature doesn't untap during your untap step if this Aura has a pupa counter on it.\nAt the beginning of your upkeep, remove a pupa counter from this Aura. If you can't, sacrifice it, put a +1/+1 counter on enchanted creature, and that creature gains flying.",
+    ],
     // Concordant Crossroads
     &["All creatures have haste."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cosmic Horror
+    &[
+        "First strike\nAt the beginning of your upkeep, destroy this creature unless you pay {3}{B}{B}{B}. If this creature is destroyed this way, it deals 7 damage to you.",
+    ],
+    // Craw Giant
+    &[
+        "Trample\nRampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Crevasse
+    &["Creatures with mountainwalk can be blocked as though they didn't have mountainwalk."],
+    // Crimson Kobolds
+    &[""],
+    // Crimson Manticore
+    &["Flying\n{R}, {T}: This creature deals 1 damage to target attacking or blocking creature."],
+    // Crookshank Kobolds
+    &[""],
+    // Cyclopean Mummy
+    &["When this creature dies, exile it."],
+    // D'Avenant Archer
+    &["{T}: This creature deals 1 damage to target attacking or blocking creature."],
+    // Dakkon Blackblade
+    &["Dakkon Blackblade's power and toughness are each equal to the number of lands you control."],
+    // Darkness
+    &["Prevent all combat damage that would be dealt this turn."],
+    // Deadfall
+    &["Creatures with forestwalk can be blocked as though they didn't have forestwalk."],
+    // Demonic Torment
+    &[
+        "Enchant creature\nEnchanted creature can't attack.\nPrevent all combat damage that would be dealt by enchanted creature.",
+    ],
+    // Devouring Deep
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
+    ],
+    // Disharmony
+    &[
+        "Cast this spell only during combat before blockers are declared.\nUntap target attacking creature and remove it from combat. Gain control of that creature until end of turn.",
+    ],
+    // Divine Intervention
+    &[
+        "This enchantment enters with two intervention counters on it.\nAt the beginning of your upkeep, remove an intervention counter from this enchantment.\nWhen you remove the last intervention counter from this enchantment, the game is a draw.",
+    ],
+    // Divine Offering
+    &["Destroy target artifact. You gain life equal to its mana value."],
     // Divine Transformation
     &["Enchant creature\nEnchanted creature gets +3/+3."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dream Coat
+    &[
+        "Enchant creature\n{0}: Enchanted creature becomes the color or colors of your choice. Activate only once each turn.",
+    ],
+    // Durkwood Boars
+    &[""],
+    // Dwarven Song
+    &["One or more target creatures become red until end of turn."],
+    // Elder Land Wurm
+    &["Defender, trample\nWhen this creature blocks, it loses defender."],
+    // Elder Spawn
+    &[
+        "At the beginning of your upkeep, unless you sacrifice an Island, sacrifice this creature and it deals 6 damage to you.\nThis creature can't be blocked by red creatures.",
+    ],
+    // Elven Riders
+    &["This creature can't be blocked except by Walls and/or creatures with flying."],
     // Emerald Dragonfly
     &["Flying\n{G}{G}: This creature gains first strike until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Enchanted Being
+    &["Prevent all combat damage that would be dealt to this creature by enchanted creatures."],
+    // Enchantment Alteration
+    &["Attach target Aura attached to a creature or land to another permanent of that type."],
+    // Energy Tap
+    &[
+        "Tap target untapped creature you control. If you do, add an amount of {C} equal to that creature's mana value.",
+    ],
+    // Equinox
+    &[
+        "Enchant land\nEnchanted land has \"{T}: Counter target spell if it would destroy a land you control.\"",
+    ],
     // Eternal Warrior
     &["Enchant creature\nEnchanted creature has vigilance."],
-    &[],
-    &[],
+    // Eureka
+    &[
+        "Starting with you, each player may put a permanent card from their hand onto the battlefield. Repeat this process until no one puts a card onto the battlefield.",
+    ],
+    // Evil Eye of Orms-by-Gore
+    &[
+        "Non-Eye creatures you control can't attack.\nThis creature can't be blocked except by Walls.",
+    ],
     // Fallen Angel
     &["Flying\nSacrifice a creature: This creature gets +2/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Falling Star
+    &[
+        "Flip Falling Star onto the playing area from a height of at least one foot. Falling Star deals 3 damage to each creature it lands on. Tap all creatures dealt damage by Falling Star. If Falling Star doesn't turn completely over at least once during the flip, it has no effect.",
+    ],
+    // Feint
+    &[
+        "Tap all creatures blocking target attacking creature. Prevent all combat damage that would be dealt this turn by that creature and each creature blocking it.",
+    ],
+    // Field of Dreams
+    &["Players play with the top card of their libraries revealed."],
     // Fire Sprites
     &["Flying\n{G}, {T}: Add {R}."],
-    &[],
+    // Firestorm Phoenix
+    &[
+        "Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in their hand and can't play it.",
+    ],
     // Flash Counter
     &["Counter target instant spell."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Flash Flood
+    &[
+        "Choose one —\n• Destroy target red permanent.\n• Return target Mountain to its owner's hand.",
+    ],
+    // Floral Spuzzem
+    &[
+        "Whenever this creature attacks and isn't blocked, you may destroy target artifact defending player controls. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Force Spike
+    &["Counter target spell unless its controller pays {1}."],
+    // Forethought Amulet
+    &[
+        "At the beginning of your upkeep, sacrifice this artifact unless you pay {3}.\nIf an instant or sorcery source would deal 3 or more damage to you, it deals 2 damage to you instead.",
+    ],
+    // Fortified Area
+    &[
+        "Wall creatures you control get +1/+0 and have banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    ],
+    // Frost Giant
+    &[
+        "Rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Gabriel Angelfire
+    &[
+        "At the beginning of your upkeep, choose flying, first strike, trample, or rampage 3. Gabriel Angelfire gains that ability until your next upkeep. (Whenever a creature with rampage 3 becomes blocked, it gets +3/+3 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Gaseous Form
+    &[
+        "Enchant creature\nPrevent all combat damage that would be dealt to and dealt by enchanted creature.",
+    ],
+    // Gauntlets of Chaos
+    &[
+        "{5}, Sacrifice this artifact: Exchange control of target artifact, creature, or land you control and target permanent an opponent controls that shares one of those types with it. If those permanents are exchanged this way, destroy all Auras attached to them.",
+    ],
     // Ghosts of the Damned
     &["{T}: Target creature gets -1/-0 until end of turn."],
-    &[],
+    // Giant Slug
+    &[
+        "{5}: At the beginning of your next upkeep, choose a basic land type. This creature gains landwalk of the chosen type until the end of that turn. (It can't be blocked as long as defending player controls a land of that type.)",
+    ],
     // Giant Strength
     &["Enchant creature\nEnchanted creature gets +2/+2."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Giant Turtle
+    &["This creature can't attack if it attacked during your last turn."],
+    // Glyph of Delusion
+    &[
+        "Put X glyph counters on target creature that target Wall blocked this turn, where X is the power of that blocked creature. The creature gains \"This creature doesn't untap during your untap step if it has a glyph counter on it\" and \"At the beginning of your upkeep, remove a glyph counter from this creature.\"",
+    ],
+    // Glyph of Destruction
+    &[
+        "Target blocking Wall you control gets +10/+0 until end of combat. Prevent all damage that would be dealt to it this turn. Destroy it at the beginning of the next end step.",
+    ],
+    // Glyph of Doom
+    &[
+        "Choose target Wall creature. At this turn's next end of combat, destroy all creatures that were blocked by that creature this turn.",
+    ],
+    // Glyph of Life
+    &[
+        "Choose target Wall creature. Whenever that creature is dealt damage by an attacking creature this turn, you gain that much life.",
+    ],
+    // Glyph of Reincarnation
+    &[
+        "Cast this spell only after combat.\nDestroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, put a creature card from the graveyard of the player who controlled that creature the last time it became blocked by that Wall onto the battlefield under its owner's control.",
+    ],
+    // Gosta Dirk
+    &[
+        "First strike\nCreatures with islandwalk can be blocked as though they didn't have islandwalk.",
+    ],
     // Gravity Sphere
     &["All creatures lose flying."],
     // Great Defender
     &["Target creature gets +0/+X until end of turn, where X is its mana value."],
-    &[],
-    &[],
+    // Great Wall
+    &["Creatures with plainswalk can be blocked as though they didn't have plainswalk."],
+    // Greater Realm of Preservation
+    &[
+        "{1}{W}: The next time a black or red source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Greed
     &["{B}, Pay 2 life: Draw a card."],
-    &[],
-    &[],
-    &[],
+    // Green Mana Battery
+    &[
+        "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {G}, then add an additional {G} for each charge counter removed this way.",
+    ],
+    // Gwendlyn Di Corci
+    &["{T}: Target player discards a card at random. Activate only during your turn."],
+    // Halfdane
+    &[
+        "At the beginning of your upkeep, Halfdane's base power and toughness become equal to the power and toughness of target creature other than Halfdane until the end of your next upkeep.",
+    ],
     // Hammerheim
     &["{T}: Add {R}.\n{T}: Target creature loses all landwalk abilities until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hazezon Tamar
+    &[
+        "When Hazezon enters, create X 1/1 Sand Warrior creature tokens that are red, green, and white at the beginning of your next upkeep, where X is the number of lands you control at that time.\nWhen Hazezon leaves the battlefield, exile all Sand Warriors.",
+    ],
+    // Headless Horseman
+    &[""],
+    // Heaven's Gate
+    &["One or more target creatures become white until end of turn."],
+    // Hell Swarm
+    &["All creatures get -1/-0 until end of turn."],
+    // Hell's Caretaker
+    &[
+        "{T}, Sacrifice a creature: Return target creature card from your graveyard to the battlefield. Activate only during your upkeep.",
+    ],
+    // Hellfire
+    &[
+        "Destroy all nonblack creatures. Hellfire deals X plus 3 damage to you, where X is the number of creatures that died this way.",
+    ],
+    // Holy Day
+    &["Prevent all combat damage that would be dealt this turn."],
+    // Horn of Deafening
+    &["{2}, {T}: Prevent all combat damage that would be dealt by target creature this turn."],
     // Hornet Cobra
     &["First strike"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Horror of Horrors
+    &[
+        "Sacrifice a Swamp: Regenerate target black creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
+    // Hunding Gjornersen
+    &[
+        "Rampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Hyperion Blacksmith
+    &["{T}: You may tap or untap target artifact an opponent controls."],
+    // Ichneumon Druid
+    &[
+        "Whenever an opponent casts an instant spell other than the first instant spell that player casts each turn, this creature deals 4 damage to that player.",
+    ],
     // Immolation
     &["Enchant creature\nEnchanted creature gets +2/-2."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Imprison
+    &[
+        "Enchant creature\nWhenever a player activates an ability of enchanted creature with {T} in its activation cost that isn't a mana ability, you may pay {1}. If you do, counter that ability. If you don't, destroy this Aura.\nWhenever enchanted creature attacks or blocks, you may pay {1}. If you do, tap the creature, remove it from combat, and creatures it was blocking that had become blocked by only that creature this combat become unblocked. If you don't, destroy this Aura.",
+    ],
+    // In the Eye of Chaos
+    &[
+        "Whenever a player casts an instant spell, counter it unless that player pays {X}, where X is its mana value.",
+    ],
+    // Indestructible Aura
+    &["Prevent all damage that would be dealt to target creature this turn."],
+    // Infernal Medusa
+    &[
+        "Whenever this creature blocks a creature, destroy that creature at end of combat.\nWhenever this creature becomes blocked by a non-Wall creature, destroy that creature at end of combat.",
+    ],
+    // Infinite Authority
+    &[
+        "Enchant creature\nWhenever enchanted creature blocks or becomes blocked by a creature with toughness 3 or less, destroy the other creature at end of combat. At the beginning of the next end step, if that creature was destroyed this way, put a +1/+1 counter on the first creature.",
+    ],
+    // Invoke Prejudice
+    &[
+        "Whenever an opponent casts a creature spell that doesn't share a color with a creature you control, counter that spell unless that player pays {X}, where X is its mana value.",
+    ],
+    // Ivory Guardians
+    &[
+        "Protection from red\nCreatures named Ivory Guardians get +1/+1 as long as an opponent controls a nontoken red permanent.",
+    ],
+    // Jacques le Vert
+    &["Green creatures you control get +0/+2."],
+    // Jasmine Boreal
+    &[""],
+    // Jedit Ojanen
+    &[""],
+    // Jerrard of the Closed Fist
+    &[""],
+    // Johan
+    &[
+        "At the beginning of combat on your turn, you may have Johan gain \"Johan can't attack\" until end of combat. If you do, attacking doesn't cause creatures you control to tap this combat if Johan is untapped.",
+    ],
+    // Jovial Evil
+    &[
+        "Jovial Evil deals X damage to target opponent, where X is twice the number of white creatures that player controls.",
+    ],
+    // Juxtapose
+    &[
+        "You and target player exchange control of the creature you each control with the greatest mana value. Then exchange control of artifacts the same way. If two or more permanents a player controls are tied for greatest, their controller chooses one of them.",
+    ],
     // Karakas
     &["{T}: Add {W}.\n{T}: Return target legendary creature to its owner's hand."],
-    &[],
-    &[],
-    &[],
+    // Kasimir the Lone Wolf
+    &[""],
+    // Keepers of the Faith
+    &[""],
+    // Kei Takahashi
+    &["{T}: Prevent the next 2 damage that would be dealt to target creature this turn."],
     // Killer Bees
     &["Flying\n{G}: This creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
+    // Kismet
+    &["Artifacts, creatures, and lands your opponents control enter tapped."],
+    // Knowledge Vault
+    &[
+        "{2}, {T}: Exile the top card of your library face down.\n{0}: Sacrifice this artifact. If you do, discard your hand, then put all cards exiled with this artifact into their owner's hand.\nWhen this artifact leaves the battlefield, put all cards exiled with it into their owner's graveyard.",
+    ],
     // Kobold Drill Sergeant
     &["Other Kobold creatures you control get +0/+1 and have trample."],
     // Kobold Overlord
     &["First strike\nOther Kobold creatures you control have first strike."],
     // Kobold Taskmaster
     &["Other Kobold creatures you control get +1/+0."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Kobolds of Kher Keep
+    &[""],
+    // Kry Shield
+    &[
+        "{2}, {T}: Prevent all damage that would be dealt this turn by target creature you control. That creature gets +0/+X until end of turn, where X is its mana value.",
+    ],
+    // Lady Caleria
+    &["{T}: Lady Caleria deals 3 damage to target attacking or blocking creature."],
+    // Lady Evangela
+    &["{W}{B}, {T}: Prevent all combat damage that would be dealt by target creature this turn."],
+    // Lady Orca
+    &[""],
+    // Land Equilibrium
+    &[
+        "If an opponent who controls at least as many lands as you do would put a land onto the battlefield, that player instead puts that land onto the battlefield then sacrifices a land of their choice.",
+    ],
+    // Land Tax
+    &[
+        "At the beginning of your upkeep, if an opponent controls more lands than you, you may search your library for up to three basic land cards, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Land's Edge
+    &[
+        "Discard a card: If the discarded card was a land card, this enchantment deals 2 damage to target player or planeswalker. Any player may activate this ability.",
+    ],
+    // Lesser Werewolf
+    &[
+        "{B}: If this creature's power is 1 or more, it gets -1/-0 until end of turn and put a -0/-1 counter on target creature blocking or blocked by this creature. Activate only during the declare blockers step.",
+    ],
+    // Life Chisel
+    &[
+        "Sacrifice a creature: You gain life equal to the sacrificed creature's toughness. Activate only during your upkeep.",
+    ],
+    // Life Matrix
+    &[
+        "{4}, {T}: Put a matrix counter on target creature and that creature gains \"Remove a matrix counter from this creature: Regenerate this creature.\" Activate only during your upkeep.",
+    ],
+    // Lifeblood
+    &["Whenever a Mountain an opponent controls becomes tapped, you gain 1 life."],
     // Living Plane
     &["All lands are 1/1 creatures that are still lands."],
-    &[],
-    &[],
-    &[],
+    // Livonya Silone
+    &[
+        "First strike; legendary landwalk (This creature can't be blocked as long as defending player controls a legendary land.)",
+    ],
+    // Lord Magnus
+    &[
+        "First strike\nCreatures with plainswalk can be blocked as though they didn't have plainswalk.\nCreatures with forestwalk can be blocked as though they didn't have forestwalk.",
+    ],
+    // Lost Soul
+    &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
     // Mana Drain
     &[
         "Counter target spell. At the beginning of your next main phase, add an amount of {C} equal to that spell's mana value.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mana Matrix
+    &["Instant and enchantment spells you cast cost {2} less to cast."],
+    // Marble Priest
+    &[
+        "All Walls able to block this creature do so.\nPrevent all combat damage that would be dealt to this creature by Walls.",
+    ],
+    // Marhault Elsdragon
+    &[
+        "Rampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Master of the Hunt
+    &[
+        "{2}{G}{G}: Create a 1/1 green Wolf creature token named Wolves of the Hunt. It has \"bands with other creatures named Wolves of the Hunt.\" (Any creatures named Wolves of the Hunt can attack in a band as long as at least one has \"bands with other creatures named Wolves of the Hunt.\" Bands are blocked as a group. If at least two creatures named Wolves of the Hunt you control, one of which has \"bands with other creatures named Wolves of the Hunt,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    ],
+    // Mirror Universe
+    &[
+        "{T}, Sacrifice this artifact: Exchange life totals with target opponent. Activate only during your upkeep.",
+    ],
+    // Moat
+    &["Creatures without flying can't attack."],
+    // Mold Demon
+    &["When this creature enters, sacrifice it unless you sacrifice two Swamps."],
+    // Moss Monster
+    &[""],
     // Mountain Stronghold
     &[
         "Red legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mountain Yeti
+    &[
+        "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)\nProtection from white",
+    ],
+    // Nebuchadnezzar
+    &[
+        "{X}, {T}: Choose a card name. Target opponent reveals X cards at random from their hand. Then that player discards all cards with that name revealed this way. Activate only during your turn.",
+    ],
+    // Nether Void
+    &["Whenever a player casts a spell, counter it unless that player pays {3}."],
+    // Nicol Bolas
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice Nicol Bolas unless you pay {U}{B}{R}.\nWhenever Nicol Bolas deals damage to an opponent, that player discards their hand.",
+    ],
+    // North Star
+    &[
+        "{4}, {T}: For one spell this turn, you may spend mana as though it were mana of any type to pay that spell's mana cost. (Additional costs are still paid normally.)",
+    ],
+    // Nova Pentacle
+    &[
+        "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead.",
+    ],
+    // Osai Vultures
+    &[
+        "Flying\nAt the beginning of each end step, if a creature died this turn, put a carrion counter on this creature.\nRemove two carrion counters from this creature: This creature gets +1/+1 until end of turn.",
+    ],
+    // Palladia-Mors
+    &[
+        "Flying, trample\nAt the beginning of your upkeep, sacrifice Palladia-Mors unless you pay {R}{G}{W}.",
+    ],
+    // Part Water
+    &[
+        "X target creatures gain islandwalk until end of turn. (They can't be blocked as long as defending player controls an Island.)",
+    ],
     // Pavel Maliki
     &["{B}{R}: Pavel Maliki gets +1/+0 until end of turn."],
     // Pendelhaven
     &["{T}: Add {G}.\n{T}: Target 1/1 creature gets +1/+2 until end of turn."],
-    &[],
-    &[],
+    // Petra Sphinx
+    &[
+        "{T}: Target player chooses a card name, then reveals the top card of their library. If that card has the chosen name, that player puts it into their hand. If it doesn't, the player puts it into their graveyard.",
+    ],
+    // Pit Scorpion
+    &[
+        "Whenever this creature deals damage to a player, that player gets a poison counter. (A player with ten or more poison counters loses the game.)",
+    ],
     // Pixie Queen
     &["Flying\n{G}{G}{G}, {T}: Target creature gains flying until end of turn."],
-    &[],
+    // Planar Gate
+    &["Creature spells you cast cost {2} less to cast."],
     // Pradesh Gypsies
     &["{1}{G}, {T}: Target creature gets -2/-0 until end of turn."],
-    &[],
-    &[],
+    // Presence of the Master
+    &["Whenever a player casts an enchantment spell, counter it."],
+    // Primordial Ooze
+    &[
+        "This creature attacks each combat if able.\nAt the beginning of your upkeep, put a +1/+1 counter on this creature. Then you may pay {X}, where X is the number of +1/+1 counters on it. If you don't, tap this creature and it deals X damage to you.",
+    ],
     // Princess Lucrezia
     &["{T}: Add {U}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Psionic Entity
+    &["{T}: This creature deals 2 damage to any target and 3 damage to itself."],
+    // Psychic Purge
+    &[
+        "Psychic Purge deals 1 damage to any target.\nWhen a spell or ability an opponent controls causes you to discard this card, that player loses 5 life.",
+    ],
+    // Puppet Master
+    &[
+        "Enchant creature\nWhen enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.",
+    ],
+    // Pyrotechnics
+    &["Pyrotechnics deals 4 damage divided as you choose among any number of targets."],
+    // Quagmire
+    &["Creatures with swampwalk can be blocked as though they didn't have swampwalk."],
+    // Quarum Trench Gnomes
+    &[
+        "{T}: If target Plains is tapped for mana, it produces colorless mana instead of white mana. (This effect lasts indefinitely.)",
+    ],
+    // Rabid Wombat
+    &["Vigilance\nThis creature gets +2/+2 for each Aura attached to it."],
+    // Radjan Spirit
+    &["{T}: Target creature loses flying until end of turn."],
+    // Raging Bull
+    &[""],
+    // Ragnar
+    &["{G}{W}{U}, {T}: Regenerate target creature."],
     // Ramirez DePietro
     &["First strike"],
+    // Ramses Overdark
+    &["{T}: Destroy target enchanted creature."],
+    // Rapid Fire
+    &[
+        "Cast this spell only before blockers are declared.\nTarget creature gains first strike until end of turn. If it doesn't have rampage, that creature gains rampage 2 until end of turn. (Whenever the creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Rasputin Dreamweaver
+    &[
+        "Rasputin enters with seven dream counters on it.\nRemove a dream counter from Rasputin: Add {C}.\nRemove a dream counter from Rasputin: Prevent the next 1 damage that would be dealt to Rasputin this turn.\nAt the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it.\nRasputin can't have more than seven dream counters on it.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Recall
+    &[
+        "Discard X cards, then return a card from your graveyard to your hand for each card discarded this way. Exile Recall.",
+    ],
+    // Red Mana Battery
+    &[
+        "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {R}, then add an additional {R} for each charge counter removed this way.",
+    ],
+    // Reincarnation
+    &[
+        "Choose target creature. When that creature dies this turn, return a creature card from its owner's graveyard to the battlefield under the control of that creature's owner.",
+    ],
     // Relic Barrier
     &["{T}: Tap target artifact."],
-    &[],
-    &[],
+    // Relic Bind
+    &[
+        "Enchant artifact an opponent controls\nWhenever enchanted artifact becomes tapped, choose one —\n• This Aura deals 1 damage to target player or planeswalker.\n• Target player gains 1 life.",
+    ],
+    // Remove Enchantments
+    &[
+        "Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.",
+    ],
     // Remove Soul
     &["Counter target creature spell."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Reset
+    &[
+        "Cast this spell only during an opponent's turn after their upkeep step.\nUntap all lands you control.",
+    ],
+    // Revelation
+    &["Players play with their hands revealed."],
+    // Reverberation
+    &[
+        "All damage that would be dealt this turn by target sorcery spell is dealt to that spell's controller instead.",
+    ],
+    // Righteous Avengers
+    &["Plainswalk (This creature can't be blocked as long as defending player controls a Plains.)"],
+    // Ring of Immortals
+    &["{3}, {T}: Counter target instant or Aura spell that targets a permanent you control."],
     // Riven Turnbull
     &["{T}: Add {B}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rohgahh of Kher Keep
+    &[
+        "At the beginning of your upkeep, you may pay {R}{R}{R}. If you don't, tap Rohgahh and all creatures named Kobolds of Kher Keep, then an opponent gains control of them.\nCreatures you control named Kobolds of Kher Keep get +2/+2.",
+    ],
+    // Rubinia Soulsinger
+    &[
+        "You may choose not to untap Rubinia Soulsinger during your untap step.\n{T}: Gain control of target creature for as long as you control Rubinia Soulsinger and Rubinia Soulsinger remains tapped.",
+    ],
+    // Rust
+    &[
+        "Counter target activated ability from an artifact source. (Mana abilities can't be targeted.)",
+    ],
+    // Sea Kings' Blessing
+    &["One or more target creatures become blue until end of turn."],
     // Seafarer's Quay
     &[
         "Blue legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Seeker
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked except by artifact creatures and/or white creatures.",
+    ],
+    // Segovian Leviathan
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
+    ],
+    // Sentinel
+    &[
+        "{0}: This creature's base toughness becomes equal to 1 plus the power of target creature blocking or blocked by this creature. (This effect lasts indefinitely.)",
+    ],
+    // Serpent Generator
+    &[
+        "{4}, {T}: Create a 1/1 colorless Snake artifact creature token. It has \"Whenever this creature deals damage to a player, that player gets a poison counter.\" (A player with ten or more poison counters loses the game.)",
+    ],
+    // Shelkin Brownie
+    &["{T}: Target creature loses all \"bands with other\" abilities until end of turn."],
+    // Shield Wall
+    &["Creatures you control get +0/+2 until end of turn."],
+    // Shimian Night Stalker
+    &[
+        "{B}, {T}: All damage that would be dealt to you this turn by target attacking creature is dealt to this creature instead.",
+    ],
+    // Silhouette
+    &[
+        "Choose target creature. If a spell or ability that targets that creature would cause a source to deal damage to that creature this turn, prevent that damage.",
+    ],
+    // Sir Shandlar of Eberyn
+    &[""],
+    // Sivitri Scarzam
+    &[""],
+    // Sol'kanar the Swamp King
+    &[
+        "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nWhenever a player casts a black spell, you gain 1 life.",
+    ],
     // Spectral Cloak
     &[
         "Enchant creature\nEnchanted creature has shroud as long as it's untapped. (It can't be the target of spells or abilities.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spinal Villain
+    &["{T}: Destroy target blue creature."],
+    // Spirit Link
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nWhenever enchanted creature deals damage, you gain that much life.",
+    ],
+    // Spirit Shackle
+    &["Enchant creature\nWhenever enchanted creature becomes tapped, put a -0/-2 counter on it."],
+    // Spiritual Sanctuary
+    &[
+        "At the beginning of each player's upkeep, if that player controls a Plains, they gain 1 life.",
+    ],
+    // Stangg
+    &[
+        "When Stangg enters, create Stangg Twin, a legendary 3/4 red and green Human Warrior creature token. Exile that token when Stangg leaves the battlefield. Sacrifice Stangg when that token leaves the battlefield.",
+    ],
+    // Storm Seeker
+    &[
+        "Storm Seeker deals damage to target player equal to the number of cards in that player's hand.",
+    ],
+    // Storm World
+    &[
+        "At the beginning of each player's upkeep, this enchantment deals X damage to that player, where X is 4 minus the number of cards in their hand.",
+    ],
+    // Subdue
+    &[
+        "Prevent all combat damage that would be dealt by target creature this turn. That creature gets +0/+X until end of turn, where X is its mana value.",
+    ],
     // Sunastian Falconer
     &["{T}: Add {C}{C}."],
-    &[],
+    // Sword of the Ages
+    &[
+        "This artifact enters tapped.\n{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is the total power of the creatures sacrificed this way, then exile this artifact and those creature cards.",
+    ],
     // Sylvan Library
     &[
         "At the beginning of your draw step, you may draw two additional cards. If you do, choose two cards in your hand drawn this turn. For each of those cards, pay 4 life or put the card on top of your library.",
     ],
+    // Sylvan Paradise
+    &["One or more target creatures become green until end of turn."],
+    // Syphon Soul
+    &[
+        "Syphon Soul deals 2 damage to each other player. You gain life equal to the damage dealt this way.",
+    ],
+    // Takklemaggot
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, put a -0/-1 counter on that creature.\nWhen enchanted creature dies, that creature's controller chooses a creature that this card could enchant. If the player does, return this card to the battlefield under your control attached to that creature. If they don't, return this card to the battlefield under your control as a non-Aura enchantment. It loses \"enchant creature\" and gains \"At the beginning of that player's upkeep, this enchantment deals 1 damage to that player.\"",
+    ],
+    // Telekinesis
+    &[
+        "Tap target creature. Prevent all combat damage that would be dealt by that creature this turn. It doesn't untap during its controller's next two untap steps.",
+    ],
+    // Teleport
+    &[
+        "Cast this spell only during the declare attackers step.\nTarget creature can't be blocked this turn.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tetsuo Umezawa
+    &[
+        "Tetsuo Umezawa can't be the target of Aura spells.\n{U}{B}{B}{R}, {T}: Destroy target tapped or blocking creature.",
+    ],
+    // The Abyss
+    &[
+        "At the beginning of each player's upkeep, destroy target nonartifact creature that player controls of their choice. It can't be regenerated.",
+    ],
+    // The Brute
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+0.\n{R}{R}{R}: Regenerate enchanted creature.",
+    ],
+    // The Lady of the Mountain
+    &[""],
     // The Tabernacle at Pendrell Vale
     &[
         "All creatures have \"At the beginning of your upkeep, destroy this creature unless you pay {1}.\"",
     ],
-    &[],
+    // The Wretched
+    &[
+        "At end of combat, gain control of all creatures blocking this creature for as long as you control this creature.",
+    ],
     // Thunder Spirit
     &["Flying, first strike"],
-    &[],
-    &[],
+    // Time Elemental
+    &[
+        "When this creature attacks or blocks, at end of combat, sacrifice it and it deals 5 damage to you.\n{2}{U}{U}, {T}: Return target permanent that isn't enchanted to its owner's hand.",
+    ],
+    // Tobias Andrion
+    &[""],
     // Tolaria
     &[
         "{T}: Add {U}.\n{T}: Target creature loses banding and all \"bands with other\" abilities until end of turn. Activate only during any upkeep step.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tor Wauki
+    &["{T}: Tor Wauki deals 2 damage to target attacking or blocking creature."],
+    // Torsten Von Ursus
+    &[""],
+    // Touch of Darkness
+    &["One or more target creatures become black until end of turn."],
+    // Transmutation
+    &["Switch target creature's power and toughness until end of turn."],
+    // Triassic Egg
+    &[
+        "{3}, {T}: Put a hatchling counter on this artifact.\nSacrifice this artifact: Choose one. Activate only if there are two or more hatchling counters on this artifact.\n• You may put a creature card from your hand onto the battlefield.\n• Return target creature card from your graveyard to the battlefield.",
+    ],
     // Tuknir Deathlock
     &["Flying\n{R}{G}, {T}: Target creature gets +2/+2 until end of turn."],
     // Tundra Wolves
     &["First strike (This creature deals combat damage before creatures without first strike.)"],
-    &[],
-    &[],
-    &[],
+    // Typhoon
+    &["Typhoon deals damage to each opponent equal to the number of Islands that player controls."],
+    // Undertow
+    &["Creatures with islandwalk can be blocked as though they didn't have islandwalk."],
+    // Underworld Dreams
+    &["Whenever an opponent draws a card, this enchantment deals 1 damage to that player."],
     // Unholy Citadel
     &[
         "Black legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
@@ -1409,35 +2199,98 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Search your library for a basic land card, put that card onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Ur-Drago
+    &[
+        "First strike\nCreatures with swampwalk can be blocked as though they didn't have swampwalk.",
+    ],
     // Urborg
     &["{T}: Add {B}.\n{T}: Target creature loses first strike or swampwalk until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vaevictis Asmadi
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice Vaevictis Asmadi unless you pay {B}{R}{G}.\n{B}: Vaevictis Asmadi gets +1/+0 until end of turn.\n{R}: Vaevictis Asmadi gets +1/+0 until end of turn.\n{G}: Vaevictis Asmadi gets +1/+0 until end of turn.",
+    ],
+    // Vampire Bats
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
+    ],
+    // Venarian Gold
+    &[
+        "Enchant creature\nWhen this Aura enters, tap enchanted creature and put X sleep counters on it.\nEnchanted creature doesn't untap during its controller's untap step if it has a sleep counter on it.\nAt the beginning of the upkeep of enchanted creature's controller, remove a sleep counter from that creature.",
+    ],
+    // Visions
+    &[
+        "Look at the top five cards of target player's library. You may then have that player shuffle that library.",
+    ],
+    // Voodoo Doll
+    &[
+        "At the beginning of your upkeep, put a pin counter on this artifact.\nAt the beginning of your end step, if this artifact is untapped, destroy this artifact and it deals damage to you equal to the number of pin counters on it.\n{X}{X}, {T}: This artifact deals damage equal to the number of pin counters on it to any target. X is the number of pin counters on this artifact.",
+    ],
+    // Walking Dead
+    &["{B}: Regenerate this creature."],
+    // Wall of Caltrops
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, this creature gains banding until end of turn. (If any creatures with banding you control are blocking a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by.)",
+    ],
+    // Wall of Dust
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, that creature can't attack during its controller's next turn.",
+    ],
     // Wall of Earth
     &["Defender (This creature can't attack.)"],
     // Wall of Heat
     &["Defender (This creature can't attack.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Wall of Light
+    &["Defender (This creature can't attack.)\nProtection from black"],
+    // Wall of Opposition
+    &["Defender (This creature can't attack.)\n{1}: This creature gets +1/+0 until end of turn."],
+    // Wall of Putrid Flesh
+    &[
+        "Defender (This creature can't attack.)\nProtection from white\nPrevent all damage that would be dealt to this creature by enchanted creatures.",
+    ],
+    // Wall of Shadows
+    &[
+        "Defender (This creature can't attack.)\nPrevent all damage that would be dealt to this creature by creatures it's blocking.\nThis creature can't be the target of spells that can target only Walls or of abilities that can target only Walls.",
+    ],
+    // Wall of Tombstones
+    &[
+        "Defender (This creature can't attack.)\nAt the beginning of your upkeep, this creature's base toughness becomes equal to 1 plus the number of creature cards in your graveyard. (This effect lasts indefinitely.)",
+    ],
+    // Wall of Vapor
+    &[
+        "Defender (This creature can't attack.)\nPrevent all damage that would be dealt to this creature by creatures it's blocking.",
+    ],
+    // Wall of Wonder
+    &[
+        "Defender (This creature can't attack.)\n{2}{U}{U}: This creature gets +4/-4 until end of turn and can attack this turn as though it didn't have defender.",
+    ],
+    // Whirling Dervish
+    &[
+        "Protection from black\nAt the beginning of each end step, if this creature dealt damage to an opponent this turn, put a +1/+1 counter on it.",
+    ],
+    // White Mana Battery
+    &[
+        "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {W}, then add an additional {W} for each charge counter removed this way.",
+    ],
+    // Willow Satyr
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: Gain control of target legendary creature for as long as you control this creature and this creature remains tapped.",
+    ],
+    // Winds of Change
+    &[
+        "Each player shuffles the cards from their hand into their library, then draws that many cards.",
+    ],
+    // Winter Blast
+    &[
+        "Tap X target creatures. Winter Blast deals 2 damage to each of those creatures with flying.",
+    ],
+    // Wolverine Pack
+    &[
+        "Rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Wood Elemental
+    &[
+        "As this creature enters, sacrifice any number of untapped Forests.\nWood Elemental's power and toughness are each equal to the number of Forests sacrificed as it entered.",
+    ],
     // Xira Arien
     &["Flying\n{B}{R}{G}, {T}: Target player draws a card."],
     // Zephyr Falcon

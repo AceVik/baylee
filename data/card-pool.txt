@@ -2839,3 +2839,384 @@ Zombie Master
 # Limited Edition Beta and Unlimited: Beta added two cards to Alpha,
 # Volcanic Island (above, with the other lands) and the fifth Circle.
 Circle of Protection: Black
+
+# Arabian Nights — the next set in release order after Alpha/Beta/Unlimited.
+# Shahrazad (subgame) and Jeweled Bird (ante) are in data/unplayable.tsv and
+# are never built. Clause the current engine cannot express is left out with
+# `Coverage::Partial` and the required engine work recorded in TODO.md.
+Abu Ja'far
+Aladdin
+Aladdin's Lamp
+Ali from Cairo
+Army of Allah
+Bottle of Suleiman
+Brass Man
+Camel
+City in a Bottle
+Cuombajj Witches
+Cyclone
+Dandân
+Desert Nomads
+Drop of Honey
+Ebony Horse
+El-Hajjâj
+Erg Raiders
+Erhnam Djinn
+Eye for an Eye
+Fishliver Oil
+Ghazbán Ogre
+Guardian Beast
+Hasran Ogress
+Hurr Jackal
+Ifh-Bíff Efreet
+Island Fish Jasconius
+Jandor's Ring
+Jihad
+Junún Efreet
+Khabál Ghoul
+Kird Ape
+Magnetic Mountain
+Merchant Ship
+Metamorphosis
+Mijae Djinn
+Nafs Asp
+Old Man of the Sea
+Oubliette
+Piety
+Pyramids
+Repentant Blacksmith
+Ring of Ma'rûf
+Rukh Egg
+Sandals of Abdallah
+Sandstorm
+Serendib Djinn
+Sindbad
+Singing Tree
+Sorceress Queen
+Unstable Mutation
+War Elephant
+Ydwen Efreet
+
+# Antiquities — the next set in release order. Bronze Tablet (ante) is in
+# data/unplayable.tsv and is never built. Clause the current engine cannot
+# express is left out with `Coverage::Partial` and the engine work in TODO.md.
+Amulet of Kroog
+Argivian Archaeologist
+Argivian Blacksmith
+Argothian Pixies
+Argothian Treefolk
+Armageddon Clock
+Artifact Possession
+Artifact Ward
+Ashnod's Battle Gear
+Ashnod's Transmogrant
+Battering Ram
+Candelabra of Tawnos
+Circle of Protection: Artifacts
+Clay Statue
+Clockwork Avian
+Colossus of Sardia
+Coral Helm
+Crumble
+Cursed Rack
+Damping Field
+Detonate
+Drafna's Restoration
+Dwarven Weaponsmith
+Energy Flux
+Feldon's Cane
+Gaea's Avenger
+Gate to Phyrexia
+Goblin Artisans
+Golgothian Sylex
+Grapeshot Catapult
+Haunting Wind
+Hurkyl's Recall
+Ivory Tower
+Jalum Tome
+Martyrs of Korlis
+Mishra's War Machine
+Onulet
+Phyrexian Gremlins
+Power Artifact
+Powerleech
+Priest of Yawgmoth
+Primal Clay
+Rakalite
+Reconstruction
+Reverse Polarity
+Rocket Launcher
+Shapeshifter
+Shatterstorm
+Tablet of Epityr
+Tawnos's Coffin
+Tawnos's Wand
+Tawnos's Weaponry
+Tetravus
+The Rack
+Titania's Song
+Transmute Artifact
+Triskelion
+Urza's Avenger
+Urza's Chalice
+Urza's Miter
+Xenic Poltergeist
+Yawgmoth Demon
+
+# Legends — the next set in release order. Rebirth and Tempest Efreet
+# (ante) are in data/unplayable.tsv and are never built. Clause the current
+# engine cannot express is left out with `Coverage::Partial` and the engine
+# work recorded in TODO.md.
+Abomination
+Acid Rain
+Active Volcano
+Adun Oakenshield
+Aerathi Berserker
+Aisling Leprechaun
+Akron Legionnaire
+Al-abara's Carpet
+Alabaster Potion
+Alchor's Tomb
+All Hallow's Eve
+Amrou Kithkin
+Angelic Voices
+Angus Mackenzie
+Anti-Magic Aura
+Arboria
+Arcades Sabboth
+Arena of the Ancients
+Avoid Fate
+Axelrod Gunnarson
+Ayesha Tanaka
+Backdraft
+Backfire
+Barbary Apes
+Barktooth Warbeard
+Bartel Runeaxe
+Beasts of Bogardan
+Black Mana Battery
+Blazing Effigy
+Blight
+Blue Mana Battery
+Brine Hag
+Bronze Horse
+Cat Warriors
+Caverns of Despair
+Chain Lightning
+Chains of Mephistopheles
+Chromium
+Cleanse
+Clergy of the Holy Nimbus
+Cocoon
+Cosmic Horror
+Craw Giant
+Crevasse
+Crimson Kobolds
+Crimson Manticore
+Crookshank Kobolds
+Cyclopean Mummy
+D'Avenant Archer
+Dakkon Blackblade
+Darkness
+Deadfall
+Demonic Torment
+Devouring Deep
+Disharmony
+Divine Intervention
+Divine Offering
+Dream Coat
+Durkwood Boars
+Dwarven Song
+Elder Land Wurm
+Elder Spawn
+Elven Riders
+Enchanted Being
+Enchantment Alteration
+Energy Tap
+Equinox
+Eureka
+Evil Eye of Orms-by-Gore
+Falling Star
+Feint
+Field of Dreams
+Firestorm Phoenix
+Flash Flood
+Floral Spuzzem
+Force Spike
+Forethought Amulet
+Fortified Area
+Frost Giant
+Gabriel Angelfire
+Gaseous Form
+Gauntlets of Chaos
+Giant Slug
+Giant Turtle
+Glyph of Delusion
+Glyph of Destruction
+Glyph of Doom
+Glyph of Life
+Glyph of Reincarnation
+Gosta Dirk
+Great Wall
+Greater Realm of Preservation
+Green Mana Battery
+Gwendlyn Di Corci
+Halfdane
+Hazezon Tamar
+Headless Horseman
+Heaven's Gate
+Hell Swarm
+Hell's Caretaker
+Hellfire
+Holy Day
+Horn of Deafening
+Horror of Horrors
+Hunding Gjornersen
+Hyperion Blacksmith
+Ichneumon Druid
+Imprison
+In the Eye of Chaos
+Indestructible Aura
+Infernal Medusa
+Infinite Authority
+Invoke Prejudice
+Ivory Guardians
+Jacques le Vert
+Jasmine Boreal
+Jedit Ojanen
+Jerrard of the Closed Fist
+Johan
+Jovial Evil
+Juxtapose
+Kasimir the Lone Wolf
+Keepers of the Faith
+Kei Takahashi
+Kismet
+Knowledge Vault
+Kobolds of Kher Keep
+Kry Shield
+Lady Caleria
+Lady Evangela
+Lady Orca
+Land Equilibrium
+Land Tax
+Land's Edge
+Lesser Werewolf
+Life Chisel
+Life Matrix
+Lifeblood
+Livonya Silone
+Lord Magnus
+Lost Soul
+Mana Matrix
+Marble Priest
+Marhault Elsdragon
+Master of the Hunt
+Mirror Universe
+Moat
+Mold Demon
+Moss Monster
+Mountain Yeti
+Nebuchadnezzar
+Nether Void
+Nicol Bolas
+North Star
+Nova Pentacle
+Osai Vultures
+Palladia-Mors
+Part Water
+Petra Sphinx
+Pit Scorpion
+Planar Gate
+Presence of the Master
+Primordial Ooze
+Psionic Entity
+Psychic Purge
+Puppet Master
+Pyrotechnics
+Quagmire
+Quarum Trench Gnomes
+Rabid Wombat
+Radjan Spirit
+Raging Bull
+Ragnar
+Ramses Overdark
+Rapid Fire
+Rasputin Dreamweaver
+Recall
+Red Mana Battery
+Reincarnation
+Relic Bind
+Remove Enchantments
+Reset
+Revelation
+Reverberation
+Righteous Avengers
+Ring of Immortals
+Rohgahh of Kher Keep
+Rubinia Soulsinger
+Rust
+Sea Kings' Blessing
+Seeker
+Segovian Leviathan
+Sentinel
+Serpent Generator
+Shelkin Brownie
+Shield Wall
+Shimian Night Stalker
+Silhouette
+Sir Shandlar of Eberyn
+Sivitri Scarzam
+Sol'kanar the Swamp King
+Spinal Villain
+Spirit Link
+Spirit Shackle
+Spiritual Sanctuary
+Stangg
+Storm Seeker
+Storm World
+Subdue
+Sword of the Ages
+Sylvan Paradise
+Syphon Soul
+Takklemaggot
+Telekinesis
+Teleport
+Tetsuo Umezawa
+The Abyss
+The Brute
+The Lady of the Mountain
+The Wretched
+Time Elemental
+Tobias Andrion
+Tor Wauki
+Torsten Von Ursus
+Touch of Darkness
+Transmutation
+Triassic Egg
+Typhoon
+Undertow
+Underworld Dreams
+Ur-Drago
+Vaevictis Asmadi
+Vampire Bats
+Venarian Gold
+Visions
+Voodoo Doll
+Walking Dead
+Wall of Caltrops
+Wall of Dust
+Wall of Light
+Wall of Opposition
+Wall of Putrid Flesh
+Wall of Shadows
+Wall of Tombstones
+Wall of Vapor
+Wall of Wonder
+Whirling Dervish
+White Mana Battery
+Willow Satyr
+Winds of Change
+Winter Blast
+Wolverine Pack
+Wood Elemental

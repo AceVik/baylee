@@ -25698,3 +25698,463 @@ fn banishing_stroke_puts_its_target_on_the_bottom_of_its_owners_library() {
     assert!(!is_elves(bottom_candidates[1]), "and not on top");
     assert!(in_graveyard(&engine, p0, banishing_stroke()).is_some());
 }
+
+// oracle_id = "7bb41690-f8ec-462a-ba29-be453eb86fca"
+fn sandstorm() -> CardIndex {
+    card_index("7bb41690-f8ec-462a-ba29-be453eb86fca")
+}
+
+/// Sandstorm — {G} instant: "Sandstorm deals 1 damage to each attacking
+/// creature."
+///
+/// The board walks into a real combat, because "attacking" is a state the
+/// declaration creates (CR 508.1): p1 attacks with a 1/1 and a 1/3 and p0
+/// answers in the declare attackers step, at their own priority window after
+/// the declaration (CR 508.2), with no blocker yet declared. The 1/1 dies
+/// (CR 704.5g); the 1/3 survives with the point marked; p0's untapped 2/2 —
+/// a creature that could have blocked but is not attacking — takes nothing.
+///
+/// The journal is read beside the board, because marked damage alone cannot
+/// tell two events of one from one event of two: exactly two `DamageDealt`
+/// events leave the spell, one at each attacker, and neither is combat
+/// damage nor points at the defender.
+#[test]
+fn sandstorm_deals_one_damage_to_each_attacking_creature_and_not_the_defender() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), grizzly_bears()])
+        .hand(0, &[sandstorm()])
+        .battlefield(1, &[llanowar_elves(), canopy_spider()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p1), "p1 reaches its own main");
+
+    let elf = on_battlefield(&engine, p1, llanowar_elves()).expect("the 1/1 attacker");
+    let spider = on_battlefield(&engine, p1, canopy_spider()).expect("the 1/3 attacker");
+    let defender = on_battlefield(&engine, p0, grizzly_bears()).expect("p0's creature");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(elf, Defender::Player(p0)), (spider, Defender::Player(p0))],
+            },
+        )
+        .expect("both creatures attack p0");
+
+    // The active player's priority after the declaration is passed; the
+    // defending player's own window is where an instant answers a declared
+    // attack, with both creatures attacking and no block declared.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest is untapped");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("a Forest pays {G}");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "one green floats for the spell and nothing else is on the board for it"
+    );
+
+    let before = engine.journal().entries().len();
+    let storm = in_hand(&engine, p0, sandstorm()).expect("Sandstorm is in hand");
+    cast_with_floating(&mut engine, p0, sandstorm());
+    pass_until(&mut engine, stack_is_empty);
+
+    let events = damage_events(&engine, before);
+    assert_eq!(
+        events.len(),
+        2,
+        "one event per attacking creature: {events:?}"
+    );
+    for (target, label) in [(elf, "the attacking 1/1"), (spider, "the attacking 1/3")] {
+        assert!(
+            events.contains(&(storm, crate::event::DamageTarget::Object(target), 1, false)),
+            "{label} was dealt exactly the one non-combat damage: {events:?}"
+        );
+    }
+    assert!(
+        !events
+            .iter()
+            .any(|(_, target, _, _)| *target == crate::event::DamageTarget::Object(defender)),
+        "the defender is not attacking, and no event reaches it: {events:?}"
+    );
+
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the 1/1 took 1 damage and died (CR 704.5g)"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(spider)
+            .expect("the 1/3 survived")
+            .damage,
+        1,
+        "the 1/3 survives with the single point marked"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(defender)
+            .expect("p0's creature is still there")
+            .damage,
+        0,
+        "the defending creature was never dealt anything"
+    );
+    assert_eq!(
+        pt(&engine, defender),
+        (2, 2),
+        "and is otherwise untouched: \"each attacking creature\" is a set and \
+         not the whole board"
+    );
+}
+
+// oracle_id = "3483946d-8645-4c22-b0ba-a65a44456324"
+fn army_of_allah() -> CardIndex {
+    card_index("3483946d-8645-4c22-b0ba-a65a44456324")
+}
+
+/// Army of Allah — {1}{W}{W} instant: "Attacking creatures get +2/+0 until
+/// end of turn."
+///
+/// Two of p0's creatures and one of p1's stand on the board, and only the
+/// one declared as an attacker is pumped: the Elf at home and the opponent's
+/// Ogre are creatures and neither carries the bonus, so what the card reads
+/// is "attacking" (CR 508.1) and not "creatures".
+///
+/// The bonus is read at three moments. It is not there before the spell
+/// resolves; it is there after combat has ended and the pumped creature is
+/// no longer attacking — the set a resolving spell's continuous effect
+/// affects is fixed as the effect begins (CR 611.2c), so the +2/+0 lasts
+/// the turn and not merely the attack; and it is gone by p0's next turn,
+/// which is where "until end of turn" ends (CR 514.2).
+#[test]
+fn army_of_allah_pumps_only_attacking_creatures_until_the_turn_ends() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                grizzly_bears(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[army_of_allah()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let attacker = on_battlefield(&engine, p0, grizzly_bears()).expect("the attacker-to-be");
+    let home = on_battlefield(&engine, p0, llanowar_elves()).expect("the creature at home");
+    let theirs = on_battlefield(&engine, p1, gray_ogre()).expect("the opponent's creature");
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p1))],
+            },
+        )
+        .expect("the Bears attack");
+    assert_eq!(
+        pt(&engine, attacker),
+        (2, 2),
+        "a printed 2/2 before the pump: the spell is what this test is waiting on"
+    );
+
+    // The active player holds priority after the declaration, and the three
+    // Plains pay {1}{W}{W} out of the declare attackers step. The Elf is kept
+    // untapped so the creature at home is never one of the sources this cast
+    // spent.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Plains, three white, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, army_of_allah());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, attacker), (4, 2), "the attacker has the +2/+0");
+    assert_eq!(pt(&engine, home), (1, 1), "the Elf is not attacking");
+    assert_eq!(pt(&engine, theirs), (2, 2), "nor is the opponent's Ogre");
+
+    // Combat ends and the pumped creature stops attacking. The bonus is
+    // still there: the resolving spell fixed the set it affects (CR 611.2c)
+    // and the duration, not the attack, is what holds it.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert_eq!(
+        pt(&engine, attacker),
+        (4, 2),
+        "the +2/+0 outlasts the combat it was cast in"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "the pumped Bear went through unblocked for its 4 power"
+    );
+
+    assert!(walk_to_own_main(&mut engine, p0), "p0's next turn");
+    assert_eq!(
+        pt(&engine, attacker),
+        (2, 2),
+        "\"until end of turn\" ended at cleanup (CR 514.2)"
+    );
+    assert_eq!(
+        pt(&engine, home),
+        (1, 1),
+        "and the Elf never changed at all"
+    );
+}
+
+// oracle_id = "0c017406-7fc3-4701-93ec-ddb02044c12a"
+fn piety() -> CardIndex {
+    card_index("0c017406-7fc3-4701-93ec-ddb02044c12a")
+}
+
+/// Piety — {2}{W} instant: "Blocking creatures get +0/+3 until end of turn."
+///
+/// The block is real, because "blocking" is a state only the declaration
+/// creates (CR 509.1g): p1's Ogre attacks, p0 declares the Bear as its
+/// blocker, and only then is Piety cast. The Elf beside the Bear is a
+/// creature p0 controls that is not blocking, and the Ogre is an attacking
+/// creature, so neither gains the three toughness.
+///
+/// The bonus is measured through the damage that follows — the 2/2 Bear
+/// blocks a 2/2 and lives through two points it could not have survived
+/// printed — and through p0's next turn, where the same Bear is a printed
+/// 2/2 again. CR 611.2c fixes the pumped set as Piety resolves; CR 514.2
+/// ends it at cleanup.
+#[test]
+fn piety_pumps_only_blocking_creatures_until_the_turn_ends() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                grizzly_bears(),
+                llanowar_elves(),
+            ],
+        )
+        .hand(0, &[piety()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p1), "p1's turn to attack");
+
+    let ogre = on_battlefield(&engine, p1, gray_ogre()).expect("the attacker");
+    let blocker = on_battlefield(&engine, p0, grizzly_bears()).expect("the blocker-to-be");
+    let home = on_battlefield(&engine, p0, llanowar_elves()).expect("p0's other creature");
+
+    let blocks = attack_and_collect_blocks(&mut engine, ogre, p0);
+    assert!(
+        blocks
+            .iter()
+            .any(|o| o.blocker == blocker && o.attackers.contains(&ogre)),
+        "the Bear is offered as a blocker for the Ogre: {blocks:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(blocker, ogre)],
+            },
+        )
+        .expect("the Bear blocks the Ogre");
+
+    // After blocks are declared the active player gets priority first
+    // (CR 509.2); pass it and act on p0's own window, with the block made
+    // and combat damage still ahead.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    assert_eq!(
+        pt(&engine, blocker),
+        (2, 2),
+        "a printed 2/2 before the pump"
+    );
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        3,
+        "three Plains pay {{2}}{{W}}, and the Elf contributed nothing"
+    );
+    cast_with_floating(&mut engine, p0, piety());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(pt(&engine, blocker), (2, 5), "the blocking Bear is +0/+3");
+    assert_eq!(pt(&engine, home), (1, 1), "the Elf is not blocking");
+    assert_eq!(
+        pt(&engine, ogre),
+        (2, 2),
+        "and the attacking Ogre gains nothing"
+    );
+
+    // Through combat damage: the Ogre's two points are lethal to a printed
+    // 2/2, so the Bear being alive is the toughness Piety added, and the
+    // bonus is still on it after the combat that made it a blocker.
+    pass_until(&mut engine, |e| {
+        matches!(e.state().turn.phase, Phase::SecondMain)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    assert!(
+        on_battlefield(&engine, p0, grizzly_bears()).is_some(),
+        "the Bear blocked a 2/2 and survived the two damage (CR 704.5g)"
+    );
+    assert_eq!(
+        pt(&engine, blocker),
+        (2, 5),
+        "the +0/+3 outlasts the combat it was cast in (CR 611.2c)"
+    );
+
+    assert!(walk_to_own_main(&mut engine, p0), "p0's next turn");
+    assert_eq!(
+        pt(&engine, blocker),
+        (2, 2),
+        "\"until end of turn\" ended at cleanup (CR 514.2)"
+    );
+}
+
+fn crumble() -> CardIndex {
+    card_index("8d6e39b0-a190-40a0-a8e1-ee82f477376f")
+}
+
+/// Living Wall: an artifact creature of mana value 4 whose own `{1}` ability
+/// can raise the shield every "it can't be regenerated" test has to ignore.
+fn living_wall() -> CardIndex {
+    card_index("4844312c-3c9d-4ca1-986d-4ad35e68454e")
+}
+
+/// Crumble — {G} — "Destroy target artifact. It can't be regenerated. That
+/// artifact's controller gains life equal to its mana value."
+///
+/// A shield bought from the Living Wall's own `{1}` ability is standing when
+/// the spell resolves, and "can't be regenerated" is why it is not applied
+/// (CR 701.19c): the Wall goes to its owner's graveyard anyway. The life
+/// follows *that artifact's* controller (CR 608.2h — the destroy ahead of it
+/// in the same sentence has already moved the Wall), so p1 gains its mana
+/// value, four, and p0 gains nothing. The Pendant beside the spell is a
+/// legal target that was not named and never moves.
+#[test]
+fn crumble_destroys_through_a_shield_and_its_controller_gains_its_mana_value() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), darksteel_pendant()])
+        .battlefield(1, &[living_wall(), forest()])
+        .hand(0, &[crumble()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p1, living_wall()).expect("their Wall is out");
+    let pendant = on_battlefield(&engine, p0, darksteel_pendant()).expect("my Pendant is out");
+
+    // p1 shields the Wall before the spell, which is the board a "can't be
+    // regenerated" clause is printed for.
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: their_forest,
+            },
+        )
+        .unwrap();
+    activate(&mut engine, p1, living_wall(), 0);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        engine
+            .state()
+            .object(wall)
+            .expect("the Wall is still there")
+            .regeneration_shields,
+        1,
+        "one shield, standing over the Wall"
+    );
+
+    cast_from_hand(&mut engine, p0, crumble());
+    let menu = aim_at(&mut engine, p0, wall);
+    assert!(
+        menu.contains(&wall) && menu.contains(&pendant),
+        "\"target artifact\" is any artifact, on either side of the table: {menu:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, living_wall()).is_none(),
+        "\"It can't be regenerated\": the shield did not save the Wall"
+    );
+    assert!(in_graveyard(&engine, p1, living_wall()).is_some());
+    assert_eq!(
+        engine.state().players[1].life,
+        24,
+        "\"That artifact's controller gains life equal to its mana value\": four"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the caster is not that controller"
+    );
+    assert!(
+        on_battlefield(&engine, p0, darksteel_pendant()).is_some(),
+        "the artifact the spell did not name never moved"
+    );
+}
+
+/// The same sentence against Scryfall's 2004 ruling: "If the target artifact
+/// becomes illegal before resolution, the player does not gain any life."
+/// The second Crumble resolves first and destroys the Wall; the first then
+/// has no legal target (CR 608.2b), so it neither destroys nor gains — four
+/// life once, not eight.
+#[test]
+fn crumble_gains_nothing_when_its_target_is_gone_by_resolution() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[living_wall(), forest(), forest()])
+        .hand(0, &[crumble(), crumble()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p0, living_wall()).expect("the Wall is out");
+    cast_from_hand(&mut engine, p0, crumble());
+    aim_at(&mut engine, p0, wall);
+    cast_with_floating(&mut engine, p0, crumble());
+    aim_at(&mut engine, p0, wall);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_graveyard(&engine, p0, living_wall()).is_some(),
+        "the second Crumble destroyed the Wall"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        24,
+        "only the resolution that still had a target gained its mana value: \
+         the fizzled copy added nothing"
+    );
+}

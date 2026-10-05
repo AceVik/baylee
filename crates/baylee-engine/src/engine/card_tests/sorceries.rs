@@ -13871,3 +13871,486 @@ fn balance_private_keep_decisions_participate_in_snapshot_hashes() {
     );
     assert_ne!(left.snapshot_hash(), right.snapshot_hash());
 }
+
+// oracle_id = "7140d726-0136-43af-84b5-85005a66a186"
+fn metamorphosis() -> CardIndex {
+    card_index("7140d726-0136-43af-84b5-85005a66a186")
+}
+
+/// Metamorphosis — {G} sorcery: "As an additional cost to cast this spell,
+/// sacrifice a creature. Add X mana of any one color, where X is 1 plus the
+/// sacrificed creature's mana value. Spend this mana only to cast creature
+/// spells."
+///
+/// The sacrificed creature is Canopy Spider, mana value two, so X is three —
+/// one more than the creature's own mana value, the sentence's arithmetic
+/// and not the printed `{1}{G}` (CR 202.3 for the value being read off the
+/// permanent as it last existed, CR 608.2h).
+///
+/// The question is exactly one creature: every creature p0 controls is on
+/// its menu, and naming two of them is refused, which is the official ruling
+/// ("You must sacrifice exactly one creature to cast this spell; you cannot
+/// cast it without sacrificing a creature, and you cannot sacrifice
+/// additional creatures").
+///
+/// The mana is one entry of one chosen colour and no other — "any one
+/// color" is one pick for the whole amount — and it is filed as restricted
+/// mana rather than in the plain counters, which is the engine's form of
+/// "Spend this mana only to cast creature spells".
+#[test]
+#[allow(clippy::too_many_lines)] // one cast, the cost paid, the colour chosen, the pool read
+fn metamorphosis_sacrifices_exactly_one_creature_for_its_mana_value_plus_one() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), canopy_spider(), llanowar_elves()])
+        .hand(0, &[metamorphosis()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let spider = on_battlefield(&engine, p0, canopy_spider()).expect("the sacrifice");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the creature left behind");
+
+    // The Forest and only the Forest pays {G}: the Elf is a legal sacrifice
+    // and must not be spent as a mana source before the cost asks for it.
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("a Forest pays {G}");
+    engine
+        .apply(
+            p0,
+            PlayerAction::CastSpell {
+                card: in_hand(&engine, p0, metamorphosis()).expect("the sorcery is in hand"),
+            },
+        )
+        .expect("one Forest pays {G}");
+
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the additional cost is asked at cast, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0);
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "\"sacrifice a creature\" is exactly one"
+    );
+    assert!(
+        options.contains(&spider) && options.contains(&elf),
+        "both of p0's creatures may pay it: {options:?}"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![spider, elf],
+                },
+            )
+            .is_err(),
+        "you cannot sacrifice additional creatures"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![spider],
+            },
+        )
+        .expect("exactly one creature is a legal payment");
+
+    // The mana arrives as the spell resolves, so the one colour is chosen
+    // then, and the choice covers the whole amount.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
+        unreachable!("the walk stops on exactly this")
+    };
+    assert_eq!(player, p0, "the caster picks the colour");
+    assert_eq!(options.len(), 5, "\"any one color\" is every colour");
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
+        .expect("black is one of the five");
+    pass_until(&mut engine, stack_is_empty);
+
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(
+        pool.total(),
+        3,
+        "1 plus Canopy Spider's mana value of 2, and no other mana anywhere"
+    );
+    assert_eq!(
+        pool.available(ManaColor::Black),
+        0,
+        "the mana is restricted to creature spells (\"Spend this mana only to \
+         cast creature spells\") and plain counters hold none of it"
+    );
+    assert_eq!(
+        pool.restricted().len(),
+        1,
+        "one pick for the whole amount: not three entries and not five colours"
+    );
+    let entry = pool.restricted()[0];
+    assert_eq!(
+        (entry.color, entry.amount),
+        (ManaColor::Black, 3),
+        "three black mana, exactly {{X}} where X is 1 + 2"
+    );
+    for color in ManaColor::ALL {
+        assert_eq!(
+            pool.available(color),
+            0,
+            "no plain counter of {color:?} was touched"
+        );
+    }
+
+    assert!(
+        in_graveyard(&engine, p0, canopy_spider()).is_some(),
+        "the sacrificed creature is in its owner's graveyard"
+    );
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "the creature that did not pay is still on the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, metamorphosis()).is_some(),
+        "the resolved sorcery went to its owner's graveyard"
+    );
+    assert!(
+        is_tapped(&engine, land),
+        "the Forest's {{G}} paid the spell"
+    );
+}
+
+/// The other half of the additional cost: with no creature on the board the
+/// cost cannot be paid, so the spell cannot be cast. The mana is floating
+/// when the offer is read, so "not castable" is the missing creature and not
+/// an unaffordable `{G}`.
+#[test]
+fn metamorphosis_is_not_offered_without_a_creature_to_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest()])
+        .hand(0, &[metamorphosis()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let land = on_battlefield(&engine, p0, forest()).expect("the Forest");
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: land })
+        .expect("a Forest pays {G}");
+    let spell = in_hand(&engine, p0, metamorphosis()).expect("the sorcery is in hand");
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.castable.contains(&spell),
+        "with {{G}} floating and no creature to sacrifice the additional cost \
+         has no legal payment, so the spell is not offered: {:?}",
+        legal.castable
+    );
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: spell })
+            .is_err(),
+        "naming it anyway is refused"
+    );
+}
+
+fn detonate() -> CardIndex {
+    card_index("daa90a75-c600-41bd-9311-ec21cf51480b")
+}
+
+/// Living Wall: an artifact creature of mana value 4 whose own `{1}` ability
+/// can raise the shield every "it can't be regenerated" test has to ignore.
+fn living_wall() -> CardIndex {
+    card_index("4844312c-3c9d-4ca1-986d-4ad35e68454e")
+}
+
+/// Detonate — {X}{R} — "Destroy target artifact with mana value X. It can't
+/// be regenerated. Detonate deals X damage to that artifact's controller."
+///
+/// X is four, and the board holds one artifact of mana value four — their
+/// Living Wall — beside two that are not (a one-drop Sol Ring and a two-drop
+/// Pendant), so the menu is `Filter::CmcExactlyX` read whole: the wrong mana
+/// value is not merely unaffordable, it is not a target. The Wall shields
+/// itself in response and still dies (CR 701.19c), and the four damage goes
+/// to *its* controller rather than the spell's — the two life totals are what
+/// tell those apart (CR 608.2h, last known controller).
+#[test]
+fn detonate_kills_a_mana_value_x_artifact_through_a_shield_and_burns_its_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                quiet_artifact(),
+                darksteel_pendant(),
+            ],
+        )
+        .battlefield(1, &[living_wall(), forest()])
+        .hand(0, &[detonate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p1, living_wall()).expect("their Wall is out");
+    let ring = on_battlefield(&engine, p0, quiet_artifact()).expect("my Sol Ring is out");
+    let pendant = on_battlefield(&engine, p0, darksteel_pendant()).expect("my Pendant is out");
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    let their_forest = on_battlefield(&engine, p1, forest()).expect("their Forest is out");
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateManaAbility {
+                source: their_forest,
+            },
+        )
+        .unwrap();
+    activate(&mut engine, p1, living_wall(), 0);
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert_eq!(
+        engine
+            .state()
+            .object(wall)
+            .expect("the Wall is still there")
+            .regeneration_shields,
+        1,
+        "one shield, standing over the Wall"
+    );
+
+    cast_from_hand(&mut engine, p0, detonate());
+    let Pending::ChooseNumber {
+        player, min, max, ..
+    } = engine.pending().clone()
+    else {
+        panic!("\"{{X}}{{R}}\" asks for X, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0, "the caster announces X");
+    assert!(
+        min <= 4 && 4 <= max,
+        "X = 4 is one of the offers: {min}..={max}"
+    );
+    engine
+        .apply(p0, PlayerAction::ChooseNumber(4))
+        .expect("the value the question itself enumerated");
+
+    let menu = aim_at(&mut engine, p0, wall);
+    assert_eq!(
+        menu,
+        vec![wall],
+        "\"target artifact with mana value X\": only the four is on the menu, \
+         not the one or the two: {menu:?}"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p1, living_wall()).is_none(),
+        "\"It can't be regenerated\": the shield did not save the Wall"
+    );
+    assert!(in_graveyard(&engine, p1, living_wall()).is_some());
+    assert!(
+        engine.state().object(ring).map(|o| o.zone) == Some(Zone::Battlefield),
+        "the mana value one artifact was never a target"
+    );
+    assert!(
+        engine.state().object(pendant).map(|o| o.zone) == Some(Zone::Battlefield),
+        "nor the mana value two one"
+    );
+    assert_eq!(
+        engine.state().players[1].life,
+        16,
+        "\"X damage to that artifact's controller\": four to p1"
+    );
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "and the caster takes none of its own Detonate"
+    );
+}
+
+fn reconstruction() -> CardIndex {
+    card_index("ad8fb78b-5ca5-4ef1-8c68-ee57d1e32fec")
+}
+
+/// Reconstruction — {U} — "Return target artifact card from your graveyard
+/// to your hand."
+///
+/// The menu is the card. It holds the artifact card in the caster's own
+/// graveyard; it does not hold the creature card beside it (the artifact
+/// filter) and does not hold the artifact in the opponent's graveyard
+/// (CR 400.3 — a graveyard is its owner's, and the card says "your"). The
+/// named card arrives in hand and leaves no card behind, while the two
+/// witnesses stay in the graveyards they were in.
+#[test]
+fn reconstruction_returns_your_own_artifact_card_from_among_the_graveyards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island()])
+        .hand(0, &[reconstruction(), quiet_artifact(), quiet_creature()])
+        .hand(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mine = hand_to_graveyard(&mut engine, p0, quiet_artifact());
+    let elf = hand_to_graveyard(&mut engine, p0, quiet_creature());
+    let theirs = hand_to_graveyard(&mut engine, p1, quiet_artifact());
+
+    cast_from_hand(&mut engine, p0, reconstruction());
+    let Pending::ChooseTargets {
+        player,
+        options,
+        min,
+        max,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "\"target artifact card from your graveyard\" is a target, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(player, p0, "the caster chooses");
+    assert_eq!((min, max), (1, 1), "one card");
+    assert!(
+        options.contains(&mine),
+        "my artifact card is on the menu: {options:?}"
+    );
+    assert!(
+        !options.contains(&elf),
+        "a creature card is no artifact: {options:?}"
+    );
+    assert!(
+        !options.contains(&theirs),
+        "\"your graveyard\", not theirs: {options:?}"
+    );
+    assert_eq!(
+        options.len(),
+        1,
+        "and the artifact card is the whole menu: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mine],
+            },
+        )
+        .expect("the card the question offered is the one that is named");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        in_hand(&engine, p0, quiet_artifact()).is_some(),
+        "the artifact card is back in its owner's hand"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_artifact()).is_none(),
+        "and no longer in the graveyard"
+    );
+    assert!(
+        in_graveyard(&engine, p0, quiet_creature()).is_some(),
+        "the creature card was not a legal target and stayed"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "and the opponent's artifact card never moved"
+    );
+}
+
+fn shatterstorm() -> CardIndex {
+    card_index("96ce2403-4607-440a-92ae-80aceb458c5d")
+}
+
+/// Shatterstorm — {2}{R}{R} — "Destroy all artifacts. They can't be
+/// regenerated."
+///
+/// Every artifact on both sides of the table leaves, and the Living Wall's
+/// standing shield is not applied (CR 701.19c) — the Wall is an artifact
+/// *creature*, which is the type the word "artifacts" has to catch on its
+/// own. The creatures and lands beside them are untouched witnesses that the
+/// sweep read the type rather than the class of permanent.
+#[test]
+fn shatterstorm_destroys_every_artifact_through_a_shield_and_spares_the_rest() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(
+            0,
+            &[
+                living_wall(),
+                quiet_artifact(),
+                llanowar_elves(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
+        )
+        .battlefield(1, &[quiet_artifact(), rib_cage_spider()])
+        .hand(0, &[shatterstorm()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let wall = on_battlefield(&engine, p0, living_wall()).expect("the Wall is out");
+    let lands = all_on_battlefield(&engine, p0, mountain());
+    assert_eq!(lands.len(), 5, "five Mountains are seated");
+
+    // The Wall buys its own shield first, and the sweep ignores it.
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: lands[0] })
+        .unwrap();
+    raise_a_shield(&mut engine, p0, wall, 0);
+
+    cast_from_hand(&mut engine, p0, shatterstorm());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, living_wall()).is_none(),
+        "the shielded artifact creature died"
+    );
+    assert!(in_graveyard(&engine, p0, living_wall()).is_some());
+    assert!(
+        on_battlefield(&engine, p0, quiet_artifact()).is_none(),
+        "so did the artifact beside it"
+    );
+    assert!(in_graveyard(&engine, p0, quiet_artifact()).is_some());
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "and the one across the table"
+    );
+    assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some());
+
+    assert!(
+        on_battlefield(&engine, p0, llanowar_elves()).is_some(),
+        "a creature that is no artifact stands"
+    );
+    assert!(
+        on_battlefield(&engine, p1, rib_cage_spider()).is_some(),
+        "on both sides of the table"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p0, mountain()).len(),
+        5,
+        "and so do the lands"
+    );
+}

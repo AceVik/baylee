@@ -6,6 +6,131 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-05 — Legends: 189 stubs, three waves, and where the pace breaks
+
+Legends is the first set where the pipeline's cost is visible: 253 names
+added, 64 transcoded, 189 stubs — three waves of eight parallel agents, ~24
+task packages. It worked, in the sense that all 253 cards are finished
+(167 Implemented / 141 Partial / 2 excluded), but the per-card reading does
+not scale to "every set until 2021" at this cadence: Legends alone took as
+much orchestration as ARN and ATQ combined, and its 167 Implemented cards
+still owe the rules-derived test pass (another three waves). The lever is not
+more agents per wave — eight already saturate a person's ability to read the
+reports — it is making the *reader* refuse fewer scripts (each new scriptgen
+rule retires many stubs at once; `xtask transcode-report` and
+`xtask reach-list` rank which rule buys the most cards) and letting the
+Partial route absorb the rest without hand work.
+
+Operational notes from this run: batches of eight by `scratchpad/leg-worklist.tsv`
+kept prompts tiny and reports comparable; asking for one line per card plus at
+most two lines of uncertainty kept the 24 reports readable. Three checker
+first-contacts showed up: ``Coverage::Partial`` strings are scanned as code by
+the counter-id lint (a reason that spells `Custom(` trips it — reword the
+string, do not whitelist the file), the event-reader census needed the
+`IfEventObjectMatches` spelling, and the rampage family is still entirely
+unimplemented, so ten cards stop at the same missing keyword. The pattern to
+expect from here: old sets are keyword-heavy (rampage, bands-with-other,
+landwalk variants) while the reader is effect-heavy, so Partial rates will
+run high until those keyword families land.
+
+## 2026-10-05 — Antiquities, the same pipeline one set on
+
+The second set run reproduced the first cleanly: 62 names added at once
+(`scryfall-cache`, `codegen` twice, `validate`), 14 came out transcoded, and
+48 stubs went to seven parallel `general` agents by file with the same
+"no engine lane, Partial + `// NOT SUPPORTED`" contract. 17 hand cards landed
+Implemented and 31 Partial before testing; the tests then demoted one of
+them, which is the interesting part.
+
+The rules-derived test pass is what catches a fully plausible wrong card.
+**The Rack** reads "X is 3 minus the number of cards in their hand", the
+corpus script spells it `NMinus.3`, and the hand implementer wrote
+`SaturatingSub { base: CountOf(hand), subtract: 3 }` — Black Vise's shape,
+the reverse. Sixteen card agents had `cargo check`, clippy, `validate` and the
+pool sweeps all green, and none of them could have noticed: nothing checks
+the *arithmetic direction* of an amount. The test agent, told to assert the
+oracle text and report disagreements, produced the failing test that named
+it. The lesson is not "read the script more carefully" but that the
+rules-derived tests are the only rung that reads the sentence instead of the
+structure, so run them before calling a set done — and when they fail,
+demote the card to Partial rather than shipping the wrong direction.
+
+Two smaller notes. `validate`'s `OFFERS_A_CHOICE` list is a string list that
+predated `PlayerMayPayCostOr`, so a correct `you may sacrifice` trigger read
+as "never asks"; one word fixed it, but a checker keyed on variant names will
+keep drifting behind the DSL and a `matches!`-style reader would not.
+And The Rack's helper test had to be deleted with the demotion: a red test
+kept "as evidence" blocks every later run, so a demoted card's test comes off
+with the ability and the gap goes to TODO.md instead.
+
+## 2026-10-05 — Rules-derived tests, one card at a time, mutants as the bar
+
+The follow-up to the Arabian Nights pass: 35 tests for the 21 `Implemented`
+cards. The owner's rule was "not tests by code but by Scryfall rules": the
+agents fetched the card payload and rulings from the Scryfall API into
+`scratchpad/arn-tests/`, asserted the **oracle text** (journal, zones, P/T,
+keywords), and read the implementation only to know which fixtures drive the
+engine. Three agents in parallel by *file* (creatures, artifacts +
+enchantments, instants + sorceries) — never two writers in one file — and a
+fourth wave for the second half of `creatures.rs`. Each card also had to pass
+the mutation bar: `BAYLEE_MUTATE=<card>:<ability index>` run against the
+card's own tests, exit 101 required for every listed ability (a surviving
+mutant meant a weak test, not a pass). Agents wrote local helpers next to
+their tests, including the `card_index("<oracle id>")` literal, which is also
+what the ladder reads; one agent initially used the Scryfall *printing* id and
+caught itself after `card_index` returned nothing — give both ids in the task
+or say explicitly which one the helper takes.
+
+What to keep: the rules-first wording ("if code and rules disagree, the test
+asserts the rules and you report the mismatch") produced zero false
+green tests and no agent touched card or engine code; the per-ability mutant
+list came free from the firing inventory, so a card with four abilities
+(Jasconius) had four mutants in its prompt. The side benefit is a proper L4
+leave check: `BAYLEE_LEAVE_LOG=<dir> cargo test -p baylee-engine --lib --
+--ignored leave_probe_sweep` runs in ~21s and showed all 17 permanent cards
+leaving clean. The formal L4/L5 stamps still want the llvm-cov mechanics
+export; without it the ladder reads "L4 needs --coverage" while every other
+half is green.
+
+## 2026-10-05 — Arabian Nights in seven parallel card agents, no engine lane
+
+The owner ordered the next set (Arabian Nights) implemented fully with no
+engine changes: every clause the current vocabulary cannot express becomes
+`Coverage::Partial` plus a `// NOT SUPPORTED` block naming the missing piece,
+and the gap goes to `TODO.md`. That turns the usual "stop and flag the card"
+into a complete written answer for every card and is what made parallel
+delegation safe: nobody had to wait on an engine decision.
+
+What worked: 52 names added at once (`scryfall-cache` bulk, `codegen` twice,
+`validate`), then the 10 reader-writable cards came out finished for free.
+The 43 remaining stubs were split into seven packages of six or seven cards,
+one `general` agent each, all running in parallel. Each agent adopted its
+stubs first (`xtask codegen --adopt-stub <name>`) so a later codegen could
+not clobber a hand edit, read the corpus script plus `docs/card-dsl.md`, and
+verified only `cargo check -p baylee-cards`; the central pass then ran
+`validate`, `codegen --check`, the engine suite and clippy once. Compile
+errors from a neighbour agent's in-flight file did not occur because each
+file is written in one shot, but the prompts told every agent to ignore
+errors outside its own list anyway.
+
+What the split bought: every agent independently verified that the DSL
+variant it reached for exists (for example `Trigger::Dies`, `Effect::destroy_all_no_regen`)
+rather than inventing one, and the Partial reasons came back with the exact
+missing vocabulary (`DelayedWhen::DiesOrIsExiled` without a writer, no coin
+flip, no power-only base setter). Eleven of 43 stubs became Implemented this
+way; 32 are Partial with a written reason, which is the deliverable the
+owner asked for.
+
+What the batch taught the tools: exactly the §E8 prediction held — the only
+non-card change was `claim_tests`, which read the auto-transcribed Sandstorm
+("deals 1 damage to each attacking creature") as an unconditional promise on
+a probe board with no attackers. One word (`" attacking "` in `CONDITIONS`)
+made the condition word real, as the module's own doc demands: a word too
+many costs a claim, a word too few costs a card falsely reported. The
+seven-agent design also leaves per-card behaviour tests unpaid (the owner
+forbade engine-crate changes), so these cards sit below L3 until a later
+lane writes them.
+
 ## 2026-10-04 — Native Engine lane and stable integration checkpoints
 
 The owner means a native Junie session when specifying Opus 5.5/high, not an

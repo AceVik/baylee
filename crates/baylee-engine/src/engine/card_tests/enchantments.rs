@@ -23816,3 +23816,535 @@ fn mana_flare_stops_after_its_source_is_destroyed() {
         1
     );
 }
+
+// oracle_id = "75457fe5-4ab6-42c4-98e5-8ed6e8bf122c"
+fn fishliver_oil() -> CardIndex {
+    card_index("75457fe5-4ab6-42c4-98e5-8ed6e8bf122c")
+}
+
+/// Fishliver Oil prints two sentences: "Enchant creature (Target a creature
+/// as you cast this. This card enters attached to that creature.)" and
+/// "Enchanted creature has islandwalk."
+///
+/// The grant is a `Filter::AttachedToBySource` static, so the board is built
+/// to tell the host from every other creature that might get it by mistake:
+/// a second Elf under the same seat and one across the table. The keyword is
+/// then read through its rules meaning (CR 702.14c) rather than as a label —
+/// the defending player controls an Island, so the host cannot be blocked
+/// and the declare-blockers offer holds no pairing against it. That last
+/// half is what a card that merely listed "islandwalk" without the combat
+/// rule would lose.
+#[test]
+fn fishliver_oil_grants_islandwalk_to_its_host_and_only_its_host() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), llanowar_elves(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves(), island()])
+        .hand(0, &[fishliver_oil()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+
+    let elves = all_on_battlefield(&engine, p0, llanowar_elves());
+    assert_eq!(elves.len(), 2, "the host and the Elf that must stay bare");
+    let (host, bystander) = (elves[0], elves[1]);
+    let theirs = on_battlefield(&engine, p1, llanowar_elves()).expect("their Elf is out");
+    assert!(
+        !keywords(&engine, host).contains(KeywordSet::ISLANDWALK),
+        "nothing is enchanted yet"
+    );
+
+    // {1}{U} off the two Islands, with both Elves kept back: the host has to
+    // be untapped to attack later.
+    tap_all_mana_but(&mut engine, p0, Some(llanowar_elves()));
+    cast_with_floating(&mut engine, p0, fishliver_oil());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .expect("the Elf is a legal host");
+    pass_until(&mut engine, stack_is_empty);
+
+    let oil = on_battlefield(&engine, p0, fishliver_oil()).expect("the Aura resolved");
+    assert_eq!(
+        engine
+            .state()
+            .object(oil)
+            .expect("the Aura is an object")
+            .attached_to,
+        Some(host),
+        "the Aura enters attached to the creature it was cast on"
+    );
+    assert!(
+        keywords(&engine, host).contains(KeywordSet::ISLANDWALK),
+        "enchanted creature has islandwalk"
+    );
+    assert!(
+        !keywords(&engine, bystander).contains(KeywordSet::ISLANDWALK),
+        "the static reaches the creature it is attached to and no other: \
+         {bystander:?} is a creature under the same seat and stayed bare"
+    );
+    assert!(
+        !keywords(&engine, theirs).contains(KeywordSet::ISLANDWALK),
+        "nor across the table"
+    );
+
+    // CR 702.14c: the defending player controls an Island, so the host cannot
+    // be blocked and the offer the engine publishes names no blocker for it.
+    let blocks = attack_and_collect_blocks(&mut engine, host, p1);
+    assert!(
+        blocks
+            .iter()
+            .all(|option| !option.attackers.contains(&host)),
+        "the defending player controls an Island, so islandwalk leaves no \
+         legal block against the host: {blocks:?}"
+    );
+}
+
+// oracle_id = "278b237e-9699-43eb-a03e-0b68eccc08b3"
+fn unstable_mutation() -> CardIndex {
+    card_index("278b237e-9699-43eb-a03e-0b68eccc08b3")
+}
+
+/// Unstable Mutation prints three sentences: "Enchant creature", "Enchanted
+/// creature gets +3/+3", and "At the beginning of the upkeep of enchanted
+/// creature's controller, put a -1/-1 counter on that creature."
+///
+/// The pump is read on the host and on an Elf beside it, so the static is
+/// shown to reach the creature the Aura holds and no other. The trigger is
+/// then walked to on its controller's own upkeep and read as a counter
+/// (CR 122.1) beside the projected body, so the +3/+3 and the -1/-1 are two
+/// separate facts rather than a net +2/+2. Disenchant removes the Aura, and
+/// what is left is the distinguishing half of the card's official ruling:
+/// the +3/+3 belongs to the continuous effect and goes away with its source
+/// (CR 611.3, 613.4c), while the counter is a marker on the permanent and
+/// stays (CR 122.1).
+#[test]
+fn unstable_mutation_pumps_the_host_counts_it_down_at_upkeep_and_leaves_the_counters() {
+    let p0 = PlayerId::new(0);
+    let disenchant = card_index("a7e97fa9-4b72-4548-b854-5be5f18a6f1a");
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[island(), plains(), plains(), gray_ogre(), llanowar_elves()],
+        )
+        .hand(0, &[unstable_mutation(), disenchant])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let host = on_battlefield(&engine, p0, gray_ogre()).expect("the Ogre is out");
+    let bystander = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elf is out");
+    assert_eq!(pt(&engine, host), (2, 2), "a printed 2/2 before the Aura");
+    assert_eq!(pt(&engine, bystander), (1, 1), "and a printed 1/1");
+
+    cast_from_hand(&mut engine, p0, unstable_mutation());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![host],
+            },
+        )
+        .expect("the Ogre is a legal host");
+    pass_until(&mut engine, stack_is_empty);
+    let mutation = on_battlefield(&engine, p0, unstable_mutation()).expect("the Aura resolved");
+    assert_eq!(
+        engine
+            .state()
+            .object(mutation)
+            .expect("the Aura is an object")
+            .attached_to,
+        Some(host),
+        "the Aura enters attached to the creature it was cast on"
+    );
+    assert_eq!(pt(&engine, host), (5, 5), "enchanted creature gets +3/+3");
+    assert_eq!(
+        pt(&engine, bystander),
+        (1, 1),
+        "and the static reaches the host and no other creature"
+    );
+
+    // The trigger belongs to the upkeep of the enchanted creature's
+    // controller, so p0's own next upkeep — one turn cycle away.
+    pass_until(&mut engine, |e| {
+        counters_on(e, host, CounterKind::M1M1) >= 1
+    });
+    assert_eq!(
+        counters_on(&engine, host, CounterKind::M1M1),
+        1,
+        "\"put a -1/-1 counter on that creature\""
+    );
+    assert_eq!(
+        counters_on(&engine, bystander, CounterKind::M1M1),
+        0,
+        "and on that creature, not on creatures in general"
+    );
+    assert_eq!(
+        pt(&engine, host),
+        (4, 4),
+        "a 2/2 with +3/+3 and one -1/-1 is a 4/4, so the counter is real and \
+         the pump is still standing"
+    );
+
+    // Back in p0's first main, the real removal spell: the +3/+3 is the
+    // Aura's continuous effect and ends with it, the counter is on the
+    // permanent and does not.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain && at_rest(e, p0)
+    });
+    cast_from_hand(&mut engine, p0, disenchant);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mutation],
+            },
+        )
+        .expect("the Aura is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, p0, unstable_mutation()).is_none(),
+        "the Aura is off the battlefield"
+    );
+    assert!(
+        in_graveyard(&engine, p0, unstable_mutation()).is_some(),
+        "and in its owner's graveyard"
+    );
+    assert_eq!(
+        pt(&engine, host),
+        (1, 1),
+        "the +3/+3 went away with the Aura"
+    );
+    assert_eq!(
+        counters_on(&engine, host, CounterKind::M1M1),
+        1,
+        "the -1/-1 counter stayed: \"The -1/-1 counters stay even if the Aura \
+         is removed\""
+    );
+}
+
+fn energy_flux() -> CardIndex {
+    card_index("7a756cd1-29a8-4edf-bb74-fbb5b4020022")
+}
+
+/// Energy Flux — {2}{U} — "All artifacts have 'At the beginning of your
+/// upkeep, sacrifice this artifact unless you pay {2}.'"
+///
+/// The granted trigger belongs to the *artifact's* controller, not to Energy
+/// Flux's (CR 113.7, CR 201.5b): p1's Sol Ring is asked about during p1's
+/// upkeep and p0's Pendant during p0's, and each decline sends only that
+/// artifact to its owner's graveyard while Energy Flux itself stays. One
+/// artifact per side is the whole proof — a trigger collected once, for
+/// Energy Flux's own controller, would ask p0 twice and never p1.
+#[test]
+fn energy_flux_taxes_each_artifacts_controller_in_their_own_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), darksteel_pendant()])
+        .hand(0, &[energy_flux()])
+        .battlefield(1, &[quiet_artifact(), island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, energy_flux());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, energy_flux()).is_some() && stack_is_empty(e)
+    });
+
+    // p1's turn comes first, so the first tax is the Sol Ring's controller's.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert_eq!(engine.state().turn.active, p1, "p1's own upkeep");
+    assert_eq!(player, p1, "\"your upkeep\" is the artifact's controller's");
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayTax { mana: 2 },
+        "\"unless you pay {{2}}\""
+    );
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "declining sacrifices the artifact the trigger was granted to"
+    );
+    assert!(
+        on_battlefield(&engine, p0, energy_flux()).is_some(),
+        "and never Energy Flux itself"
+    );
+
+    // The next tax is p0's own artifact's, two turns later.
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 2 },
+                player,
+                ..
+            } if *player == p0
+        )
+    });
+    assert_eq!(engine.state().turn.active, p0, "p0's own upkeep");
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    assert!(
+        in_graveyard(&engine, p0, darksteel_pendant()).is_some(),
+        "the artifact under Energy Flux's controller is taxed too"
+    );
+}
+
+/// The other answer the printed sentence offers: paying {2} keeps the
+/// artifact. The two comes out of the controller's own pool, made on the spot
+/// because the payment asked for it (CR 605.3a), and the third Island is the
+/// change that says exactly two were spent.
+#[test]
+fn energy_flux_lets_an_artifact_pay_two_and_stay() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island(), island(), darksteel_pendant()])
+        .hand(0, &[energy_flux()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, energy_flux());
+    pass_until(&mut engine, |e| {
+        on_battlefield(e, p0, energy_flux()).is_some() && stack_is_empty(e)
+    });
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 2 },
+                player,
+                ..
+            } if *player == p0
+        )
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    assert!(
+        on_battlefield(&engine, p0, darksteel_pendant()).is_some(),
+        "paying {{2}} keeps the artifact on the battlefield"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        1,
+        "three Islands made three blue and the trigger spent exactly two"
+    );
+}
+
+fn gate_to_phyrexia() -> CardIndex {
+    card_index("bbb005de-bbba-458e-87c1-912a004e80da")
+}
+
+/// Gate to Phyrexia — {B}{B} — "Sacrifice a creature: Destroy target
+/// artifact. Activate only during your upkeep and only once each turn."
+///
+/// Three restrictions on one line, each read in its own window. The main
+/// phase and the opponent's upkeep refuse it (CR 602.5d — both "your" and
+/// "upkeep" are the card's words); the first activation names its target
+/// before its sacrifice (CR 601.2c then 601.2h) and spares the creature it
+/// did not name; the same-turn second is refused with a creature and an
+/// artifact still standing, so the refusal is `PerTurn(1)` and not an empty
+/// menu; and a later upkeep offers it again.
+#[allow(clippy::too_many_lines)] // four windows on one printed sentence
+#[test]
+fn gate_to_phyrexia_activates_only_in_its_controllers_upkeep_and_once_a_turn() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[gate_to_phyrexia(), llanowar_elves(), rib_cage_spider()],
+        )
+        .battlefield(1, &[quiet_artifact(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let gate = on_battlefield(&engine, p0, gate_to_phyrexia()).expect("the Gate is seated");
+    let elf = on_battlefield(&engine, p0, llanowar_elves()).expect("the Elves are seated");
+    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("the Spider is seated");
+    let artifacts = all_on_battlefield(&engine, p1, quiet_artifact());
+    assert_eq!(artifacts.len(), 2, "two artifacts are seated");
+
+    // Main phase: the card says upkeep, and the engine refuses it by address.
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(gate, 0)),
+        "\"Activate only during your upkeep\": not in the main phase"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: gate,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    // The next upkeep is p0's own.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        priority_offer(&engine).abilities.contains(&(gate, 0)),
+        "offered in its controller's own upkeep"
+    );
+
+    activate(&mut engine, p0, gate_to_phyrexia(), 0);
+    let menu = aim_at(&mut engine, p0, artifacts[0]);
+    assert!(
+        menu.contains(&artifacts[0]) && menu.contains(&artifacts[1]),
+        "\"target artifact\" names no controller: both are on the menu"
+    );
+    assert!(
+        !menu.contains(&gate),
+        "the Gate is an enchantment and no artifact: {menu:?}"
+    );
+
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "the sacrifice cost asks which creature, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(prompt, crate::choice::ChoicePrompt::CostSacrifice);
+    assert_eq!((min, max), (1, 1), "one creature, no more and no fewer");
+    assert!(
+        options.contains(&elf) && options.contains(&spider),
+        "your own creatures are the menu: {options:?}"
+    );
+    assert_eq!(options.len(), 2, "and nothing across the table");
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![elf] })
+        .expect("the creature the question offered pays the cost");
+    pass_until(&mut engine, |e| at_rest(e, p0));
+
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "the sacrifice cost was paid"
+    );
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_some(),
+        "the creature the cost did not name stays"
+    );
+    assert!(
+        in_graveyard(&engine, p1, quiet_artifact()).is_some(),
+        "the named artifact was destroyed"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p1, quiet_artifact()).len(),
+        1,
+        "and only the named one"
+    );
+
+    // Once each turn: a creature and an artifact are both still there, so
+    // the empty offer is `PerTurn(1)` and not an unpayable cost.
+    assert!(
+        on_battlefield(&engine, p0, rib_cage_spider()).is_some()
+            && all_on_battlefield(&engine, p1, quiet_artifact()).len() == 1,
+        "the second activation has a creature to spend and an artifact to aim at"
+    );
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(gate, 0)),
+        "\"only once each turn\": refused in the same upkeep"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: gate,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the limit is the engine's rule, not only the offer's"
+    );
+
+    // "Your upkeep" is the controller's: the opponent's is not a window.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(gate, 0)),
+        "not offered in the opponent's upkeep"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: gate,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the window is the engine's rule, not only the offer's"
+    );
+
+    // A new turn resets `PerTurn(1)`: the ability works again.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    assert!(
+        priority_offer(&engine).abilities.contains(&(gate, 0)),
+        "a later turn offers it again"
+    );
+    activate(&mut engine, p0, gate_to_phyrexia(), 0);
+    aim_at(&mut engine, p0, artifacts[1]);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("the sacrifice cost asks again, got {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&spider),
+        "the Spider is the only creature left to spend: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![spider],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| at_rest(e, p0));
+    assert!(in_graveyard(&engine, p0, rib_cage_spider()).is_some());
+    assert!(
+        on_battlefield(&engine, p1, quiet_artifact()).is_none(),
+        "the last artifact is gone"
+    );
+    assert!(in_graveyard(&engine, p1, quiet_artifact()).is_some());
+}

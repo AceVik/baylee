@@ -5,13 +5,32 @@ use crate::{
 };
 use baylee_core::ids::CardIndex;
 const P0: PlayerId = PlayerId::new(0);
+
+/// The pool card `name` names, by the oracle id the ledger knows it by.
+///
+/// The file used to scan `baylee_cards::generated::ALL` by printed name, a
+/// lookup the verification ladder cannot see: it reads test code for an
+/// oracle-id literal or a ledger constant, and Scrap Trawler sat at "no
+/// engine test names it" while this file played it in five tests. The ids
+/// below are the same ones `card_index` deals everywhere else.
 fn card(name: &str) -> CardIndex {
-    baylee_cards::generated::ALL
-        .iter()
-        .find(|(_, c)| c.name() == name)
-        .unwrap_or_else(|| panic!("missing card {name}"))
-        .1
-        .index
+    match name {
+        "Darksteel Pendant" => card_index("431838a8-f020-4e4e-a6f4-2d4ca27c56df"),
+        "Forest" => card_index("b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6"),
+        "Island" => card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373"),
+        "Krark-Clan Ironworks" => card_index("68e1f7e0-a9b3-437f-8086-0c0cb85f2880"),
+        "Llanowar Elves" => card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3"),
+        "Lotus Petal" => card_index("32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5"),
+        "Machine God's Effigy" => card_index("64ebdd6f-acde-4aab-a86b-2798bad5f70c"),
+        "Mind Stone" => card_index("c97361b5-af16-4a7b-af85-a429dbaf4ad2"),
+        "Ornithopter" => card_index("a3a98bc9-caa0-49b7-951c-fe4e4f54e4ba"),
+        "Scrap Trawler" => card_index("164f3f85-21fc-40b7-9871-4f303ba98428"),
+        "Sol Ring" => card_index("6ad8011d-3471-4369-9d68-b264cc027487"),
+        "Sun Titan" => card_index("b2e950fb-cb7e-40a0-a311-5bbdd0477b29"),
+        "Swamp" => card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68"),
+        "Toxic Deluge" => card_index("afaef788-34d1-460b-b884-9d7ae6ddeb18"),
+        other => panic!("missing card {other}"),
+    }
 }
 fn move_to_graveyard(e: &mut Engine<RegistryLookup>, id: ObjectId, player: PlayerId) {
     e.state

@@ -408,6 +408,10 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // Stone Giant's delayed "destroy that creature": `Destroy` reads
         // its spec through `spec_objects`, which asks `spec_object`.
         "Destroy { target: EventObject",
+        // Puppet Master's "If that card is returned to its owner's hand this
+        // way": the effect reads the triggering object through
+        // `sources::event_readers` (`resolve/mod.rs`).
+        "IfEventObjectMatches",
         // Dragon Whelp's delayed "sacrifice this creature": `spec_object`.
         "SacrificeObject { target: EventObject",
         // Cockatrice's delayed trigger remembers the block's other creature:

@@ -78307,6 +78307,115 @@ fn ally_encampment_returns_an_ally_to_hand() {
     assert!(in_graveyard(&engine, p0, camp).is_some(), "sacrificed");
 }
 
+fn oasis() -> CardIndex {
+    card_index("4533ce78-0594-4195-96fb-46cbadd0db69")
+}
+
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+/// Oasis — "{T}: Prevent the next 1 damage that would be dealt to target
+/// creature this turn."
+///
+/// The shield is worth exactly one point (CR 615.1): a Hill Giant (3/3)
+/// eats a Lightning Bolt for 2 and lives, and the journal's `DamageDealt`
+/// carries the after-prevention amount. The unshielded Giant one table over
+/// takes all 3 and dies, so the survival above cannot pass on a Bolt that
+/// never dealt anything.
+#[test]
+fn oasis_prevents_the_next_point_of_damage_to_a_creature_and_no_more() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[oasis(), hill_giant(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let giant = on_battlefield(&engine, p0, hill_giant()).expect("the Giant is seated");
+
+    activate(&mut engine, p0, oasis(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the shield's target, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&giant), "the seated Giant may be shielded");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![giant],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let before = engine.journal().entries().len();
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![giant],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        engine.journal().entries()[before..]
+            .iter()
+            .any(|e| matches!(
+                e.event,
+                crate::event::GameEvent::DamageDealt {
+                    target: crate::event::DamageTarget::Object(hit),
+                    amount: 2,
+                    ..
+                } if hit == giant
+            )),
+        "the Bolt's 3 damage, 1 of it prevented, is journalled as 2"
+    );
+    assert!(
+        on_battlefield(&engine, p0, hill_giant()).is_some(),
+        "2 marked on a 3/3 is not lethal"
+    );
+
+    // Unshielded: all 3 are marked and the Giant dies.
+    let mut bare = Duel::new(SEED, mountain())
+        .battlefield(0, &[hill_giant(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut bare);
+    reach_main_phase(&mut bare, p0);
+    let giant = on_battlefield(&bare, p0, hill_giant()).expect("the Giant is seated");
+    let before = bare.journal().entries().len();
+    cast_from_hand(&mut bare, p0, lightning_bolt());
+    bare.apply(
+        p0,
+        PlayerAction::ChooseTargets {
+            objects: vec![giant],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut bare, stack_is_empty);
+    assert!(
+        bare.journal().entries()[before..].iter().any(|e| matches!(
+            e.event,
+            crate::event::GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(hit),
+                amount: 3,
+                ..
+            } if hit == giant
+        )),
+        "unshielded, the journalled amount is the Bolt's own 3"
+    );
+    assert!(
+        in_graveyard(&bare, p0, hill_giant()).is_some(),
+        "3 is lethal on a 3/3"
+    );
+}
+
 /// Rivendell: "{1}{U}, {T}: Scry 2. Activate only if you control a legendary
 /// creature." Without one it is not offered; with Jin it asks for two cards.
 #[test]
@@ -78342,6 +78451,27 @@ fn rivendell_scries_two_only_while_a_legendary_creature_is_controlled() {
     assert_eq!(player, p0);
     assert_eq!(cards.len(), 2, "scry 2 looks at two cards");
     assert_eq!(piles, scry_piles(2));
+
+    // Answering the question is what finishes the ability (CR 701.18a), so
+    // the test walks the choice through instead of stopping at the prompt:
+    // one card is bottomed, the other stays on top, and the ability reaches
+    // the firing log that had never seen it resolve.
+    let (top, second) = (cards[0], cards[1]);
+    engine
+        .apply(p0, look_answer(&cards, &[second]))
+        .expect("one card bottomed, the other kept");
+    pass_until(&mut engine, stack_is_empty);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0)).clone();
+    assert_eq!(
+        library.first().copied(),
+        Some(second),
+        "the bottomed card is the library's last"
+    );
+    assert_eq!(
+        library.last().copied(),
+        Some(top),
+        "the kept card is the new top"
+    );
 }
 
 /// Heap Gate: "{1}, {T}, Tap an untapped Gate you control: Create a Treasure

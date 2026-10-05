@@ -2482,6 +2482,7 @@ fn check_optional_clauses_are_offered(
         "MayDo",
         "min: 0",
         "PayLifeOrEnterTapped",
+        "PlayerMayPayCostOr",
         "PlayerMayPayOr",
         "PlayerMayPayThen",
         "PlayerMayPayManaOr",
