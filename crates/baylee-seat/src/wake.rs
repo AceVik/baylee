@@ -296,7 +296,7 @@ impl WakeFilter {
             phase: view.phase,
             step: view.step,
             opposing_stack,
-            offering,
+            offering, owing: view.owed.is_some(),
         };
         match automation::auto_answer(pending, at, &self.orders, &self.rules, None) {
             AutoAnswer::Pass => standing(PlayerAction::PassPriority, Standing::QuietWindow),

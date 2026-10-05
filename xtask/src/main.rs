@@ -5482,7 +5482,7 @@ fn seat_bridge(
     dev_deck: &str,
     index: usize,
 ) -> std::io::Result<std::process::Child> {
-    let decks = ["Allytifact", "Victory"];
+    let decks = ["Schwarzrand", "Euro-Highlander", "Allytifact", "Victory", "Weltenbaum"];
     let available: Vec<&str> = decks.into_iter().filter(|&d| d != dev_deck).collect();
     // Since there are only 2 decks total, if available has 1, just use that.
     // We alternate if there are multiple.
