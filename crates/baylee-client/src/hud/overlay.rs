@@ -2982,6 +2982,7 @@ mod tests {
                 With<ledge::players::PlayersStrip>,
                 With<ledge::menu::MenuPanel>,
                 With<ledge::log::LogPanel>,
+                With<ledge::ai_log::AiLogPanel>,
             )>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };

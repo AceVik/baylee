@@ -1581,11 +1581,11 @@ messages! {
     /// Pay what a payment window still owes with the lands the client picked,
     /// then settle it: the prompt's confirm button while mana is owed and
     /// the pool does not cover it yet.
-    PayRemainder { en: "Pay the rest (tap {0})", de: "Rest bezahlen ({0} tappen)" },
+    PayRemainder { en: "Pay (tap {0})", de: "Zahlen ({0} tappen)" },
     /// Pass a payment window without paying it.
-    DeclinePayment { en: "Don't pay", de: "Nicht bezahlen" },
+    DeclinePayment { en: "Don't pay", de: "Nicht zahlen" },
     /// Settle a payment window the pool already covers.
-    PayNow { en: "Pay", de: "Bezahlen" },
+    PayNow { en: "Pay", de: "Zahlen" },
     /// The AI log's heading line for one entry: whose mind it is.
     AiSaidHead { en: "{0} thinks", de: "{0} denkt" },
     /// What the model thought before it answered.

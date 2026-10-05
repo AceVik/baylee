@@ -1349,11 +1349,18 @@ pub fn player_view(
                 ) && state.is_opponent(fx.controller, seat)
             })
             .and_then(|fx| fx.source),
-        sorceries_have_flash: state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
-                && fx.controller == seat
-        }),
+        sorceries_have_flash: sorceries_have_flash(state, seat),
     }
+}
+
+/// Teferi, Time Raveler's +1 for `seat`: its sorceries may be cast as though
+/// they had flash. The same reading `casting::timing_allows` makes, an
+/// effect the seat controls; an opponent's +1 is not this seat's.
+fn sorceries_have_flash(state: &GameState, seat: PlayerId) -> bool {
+    state.effects.iter().any(|fx| {
+        matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
+            && fx.controller == seat
+    })
 }
 
 /// Reads the house rules' spelling of *no limit* into the view's.

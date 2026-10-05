@@ -253,7 +253,9 @@ fn a_window_the_pool_already_pays_is_settled_without_a_tap() {
     duel.receive_view(view);
     assert!(duel.paying());
     assert!(
-        duel.owed_plan.as_ref().is_some_and(|p| p.is_empty()),
+        duel.owed_plan
+            .as_ref()
+            .is_some_and(baylee_client_core::manaplan::Plan::is_empty),
         "the plan is for the remainder, and nothing remains"
     );
     assert!(!duel.pay_owed(), "nothing to tap: the confirm passes");

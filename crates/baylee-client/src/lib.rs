@@ -743,6 +743,11 @@ pub struct Duel {
     /// Whether a teammate's AI mind has said anything this game: the AI
     /// log's door stands in the tray only from then on.
     pub ai_log_heard: bool,
+    /// What a teammate's AI mind said and the AI log has not drawn yet:
+    /// filled by `poll_host`, drained by `hud::update_ai_log`. A queue on
+    /// the duel rather than a Bevy message, so every harness that runs
+    /// `poll_host` runs it without registering anything.
+    pub ai_said: Vec<baylee_protocol::v1::AiLog>,
     /// The tap that has been made and not sent — see [`Armed`].
     ///
     /// Deliberately *not* cleared when a choice arrives: `pump` hands the
@@ -1394,8 +1399,7 @@ pub struct DuelPlugin {
 /// it is drawn once at full strength before its arrival is ever applied.
 #[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 fn add_present_systems(app: &mut App) {
-    app.add_message::<hud::AiLogEvent>()
-        .init_resource::<hud::StackFold>()
+    app.init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
@@ -1917,7 +1921,6 @@ fn poll_host(
     mut next: ResMut<NextState<DuelPhase>>,
     mut reports: MessageWriter<DuelReport>,
     mut journey: Option<ResMut<arrival::Journey>>,
-    mut ai_log_events: MessageWriter<hud::AiLogEvent>,
     time: Option<Res<Time<Real>>>,
 ) {
     let Some(mut host) = host else {
@@ -1971,7 +1974,7 @@ fn poll_host(
             HostMessage::Curtain => duel.curtain_up = true,
             HostMessage::AiLog(ai_log) => {
                 duel.ai_log_heard = true;
-                ai_log_events.write(hud::AiLogEvent { log: ai_log });
+                duel.ai_said.push(ai_log);
             }
 
             HostMessage::Preparing {

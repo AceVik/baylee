@@ -1260,6 +1260,33 @@ fn combat_row(duel: &Duel, lang: Lang, commit: Phrase) -> Vec<(Says, String)> {
     row
 }
 
+/// The answers to a payment window (CR 605.3a): pay, don't, and the granted
+/// actions that could make the mana.
+fn payment_row(duel: &Duel, lang: Lang) -> Vec<(Says, String)> {
+    let say = |action, phrase: Phrase| (Says::Answer(action), phrase.text(lang).to_string());
+    // With no plan (nothing this client can tap pays it, or a
+    // granted action has to make the mana first) "Pay" is the plain
+    // pass, and the engine settles with whatever is floating.
+    let mut row = vec![match duel.owed_plan.as_ref() {
+        Some(plan) if !plan.is_empty() => (
+            Says::Answer(PromptAction::Confirm),
+            Phrase::PayRemainder.fill(lang, &[&plan.taps().to_string()]),
+        ),
+        _ => say(PromptAction::Confirm, Phrase::PayNow),
+    }];
+    row.push((
+        Says::Command(super::MenuAction::DeclinePayment),
+        Phrase::DeclinePayment.text(lang).to_string(),
+    ));
+    if !super::granted_offers(duel).is_empty() {
+        row.push((
+            Says::Command(super::MenuAction::ToggleGrantedActions),
+            Phrase::GrantedActions.text(lang).to_string(),
+        ));
+    }
+    row
+}
+
 fn answers_for(
     duel: &Duel,
     lang: Lang,
@@ -1329,22 +1356,7 @@ fn answers_for(
         // (`Duel::pay_owed`), and the other passes it unpaid. Lands can
         // still be tapped one by one before either; the plan is for what is
         // left.
-        Some(Pending::Priority { .. }) if duel.paying() => {
-            let mut row = Vec::new();
-            match duel.owed_plan.as_ref() {
-                Some(plan) if !plan.is_empty() => row.push((
-                    Says::Answer(PromptAction::Confirm),
-                    Phrase::PayRemainder.fill(lang, &[&plan.taps().to_string()]),
-                )),
-                Some(_) => row.push(say(PromptAction::Confirm, Phrase::PayNow)),
-                None => {}
-            }
-            row.push((
-                Says::Command(super::MenuAction::DeclinePayment),
-                Phrase::DeclinePayment.text(lang).to_string(),
-            ));
-            row
-        }
+        Some(Pending::Priority { .. }) if duel.paying() => payment_row(duel, lang),
         Some(Pending::Priority { .. }) => {
             let mut row = vec![say(PromptAction::Confirm, Phrase::PassPriority)];
             if duel.can_hold_for_stack() {
@@ -2250,10 +2262,13 @@ mod tests {
                 answers.iter().any(|(says, _)| *says
                     == Says::Command(super::super::MenuAction::ToggleGrantedActions))
             );
+            // A payment window is paid or declined; skipping the turn is no
+            // answer to it (no standing order passes one).
             assert!(
                 answers
                     .iter()
-                    .any(|(says, _)| *says == Says::Answer(PromptAction::SkipTurn))
+                    .any(|(says, _)| *says
+                        == Says::Command(super::super::MenuAction::DeclinePayment))
             );
             let caps = keys_for(&prefs, &answers, false, false);
             let caps_w = caps.iter().flatten().map(|c| cap_width(c) + CAP_GAP).sum();

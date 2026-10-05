@@ -613,7 +613,6 @@ fn the_agent_follows_no_redirect_and_leaves_this_machine_only_over_tls() {
 
 /// Past the game's budget, every question is the house's, without a call.
 #[tokio::test]
-#[ignore]
 async fn past_the_budget_the_house_finishes() {
     let (base, provider) = stand_in().await;
     provider.script(Scripted::ok(claude(&[(
@@ -699,7 +698,6 @@ fn a_dollar_budget_is_held_only_with_a_price() {
 /// A price given for a model is the one its dollars are counted at, and
 /// past its dollar budget the house finishes.
 #[tokio::test]
-#[ignore]
 async fn a_given_price_is_counted_and_its_budget_held() {
     let (base, provider) = stand_in().await;
     provider.script(Scripted::ok(claude(&[(
@@ -1079,7 +1077,6 @@ fn a_spec_names_a_provider_and_a_model() {
 /// cap, an answer held to the schema; a price or a dollar budget is
 /// refused, and it has no credentials.
 #[test]
-#[ignore]
 fn a_cli_has_no_price_and_counts_its_calls() {
     let spec = Spec::parse("cli:claude:opus").unwrap().unwrap();
     let mut settings = Settings::new(&spec);
@@ -1128,7 +1125,6 @@ fn a_cli_has_no_price_and_counts_its_calls() {
 /// the most it can cost before it is sent, and one that could pass the
 /// game's budget is not sent at all.
 #[tokio::test]
-#[ignore]
 async fn under_a_hard_limit_no_call_is_sent_that_could_pass_the_budget() {
     let (base, provider) = stand_in().await;
     // A reply of 16,000 tokens at $10 a million is $0.16 on its own.

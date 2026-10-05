@@ -138,6 +138,7 @@ pub struct TrayZones;
 /// for [`super::pool`]'s reason: the strip changes on the browser's clock and
 /// the shelf changes on the question's, and one counter would have to lie
 /// about one of them.
+#[allow(clippy::struct_excessive_bools)] // independent facts about five doors, not states of one machine
 #[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct StripRevision {
     /// Whether the sheet is up. The button says which way it points.

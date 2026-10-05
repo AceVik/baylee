@@ -6,8 +6,8 @@ item names who it is for.
 ## Engine lane (baylee-engine; not touched on this branch)
 
 1. **Miracle: a declined or short payment window does not give the mana
-   back.** The client now pays a miracle's window in one press ("Pay the
-   rest" taps what is owed, then passes) or declines it ("Don't pay").
+   back.** The client now pays a miracle's window in one press ("Pay (tap
+   N)" taps what is owed, then passes) or declines it ("Don't pay").
    Declining, or passing short, ends in
    `crates/baylee-engine/src/engine/cast_wizard.rs:1925`
    (`finish_miracle_payment`): `finish_cast` fails, `finish_nested_cast`
@@ -69,7 +69,7 @@ item names who it is for.
 
 8. **The remaining cost is not drawn as a remainder.** In a payment window
    the pool strip shows the owed total beside the floating pips, and the
-   pay button says how many lands are left to tap ("Pay the rest (tap
+   pay button says how many lands are left to tap ("Pay (tap
    N)"); the plan is for the remainder, so hand-tapped mana is counted.
    A pip row of what is still owed (owed minus pool, with hybrid and
    restricted mana) is not written.
