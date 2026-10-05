@@ -321,6 +321,12 @@ pub enum RunEnd {
     /// pip is pressed, and `asking` answers the engine's `ChooseColor` on the
     /// very next frame.
     Float,
+    /// Settle a payment window (CR 605.3a, `PlayerView::owed`): once the
+    /// taps are made, pass, which is what pays it — a miracle is cast, a tax
+    /// paid. The pass is sent only after the last tap, so the engine hears
+    /// "pay" with the mana already floating; a run that stops early leaves
+    /// the window open and the player to finish it.
+    Settle,
 }
 
 /// The client's own question: which of several ways to cast one card.
@@ -1001,6 +1007,43 @@ impl Duel {
             .seat(baylee_client_core::decision::resource_player(view))?
             .mana_pool;
         baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+    }
+
+    /// Whether this seat is in a payment window it owes a fixed amount in
+    /// (CR 605.3a): a miracle's cost, a tax, a pact, a "you may cast it".
+    #[must_use]
+    pub fn paying(&self) -> bool {
+        self.view.as_ref().is_some_and(|v| {
+            v.awaiting == Some(v.seat)
+                && matches!(v.owed, Some(baylee_core::mana::ManaPayment::Fixed(_)))
+        })
+    }
+
+    /// Pays what a payment window still owes: taps the owed plan's lands,
+    /// then passes, which settles it ([`RunEnd::Settle`]). The confirm key
+    /// and the shelf's pay button both come here.
+    ///
+    /// The plan is for the **remainder**: it is worked out against the pool
+    /// (`manaplan::plan` spends the pool first), so lands the player tapped
+    /// by hand are already counted and only the rest is tapped. With nothing
+    /// left to tap, or nothing that could pay, it is a plain pass — the
+    /// first pays, the second declines, which is the engine's to say.
+    ///
+    /// Returns whether a run was started; `false` means the caller sends the
+    /// pass itself.
+    pub fn pay_owed(&mut self) -> bool {
+        if !self.paying() || self.mana_run.is_some() {
+            return false;
+        }
+        let Some(plan) = self.owed_plan.clone().filter(|p| !p.is_empty()) else {
+            return false;
+        };
+        let Some(first) = plan.steps.first().map(|s| s.source) else {
+            return false;
+        };
+        self.mana_run = Some(ManaRun::new(plan, first, RunEnd::Settle));
+        advance_mana_run(self);
+        true
     }
 
     /// What this client is proposing, if anything.
@@ -2061,7 +2104,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 offering: !duel.reachable.is_empty()
                     || !duel.suspend_reach.is_empty()
                     || !duel.ability_reach.is_empty(),
-                owing: view.owed.is_some(),
+                owing: view.owed.is_some() && view.awaiting == Some(view.seat),
             },
             prefs.orders(),
             prefs.auto(),
@@ -2222,6 +2265,20 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     // nothing to check either: the mana is in the pool, which
                     // is a thing the player can see and spend.
                     Some((_, RunEnd::Float)) => {}
+                    // Still a payment window this seat owes in: settle it.
+                    // Anything else and the window was closed under the run,
+                    // which is the game moving on, not a pass to send.
+                    Some((_, RunEnd::Settle))
+                        if legal.can_pass
+                            && duel.view.as_ref().is_some_and(|v| {
+                                v.owed.is_some() && v.awaiting == Some(v.seat)
+                            }) =>
+                    {
+                        action = Some(PlayerAction::PassPriority);
+                    }
+                    Some((_, RunEnd::Settle)) => {
+                        abort = Some(Phrase::PlanQuestionChanged);
+                    }
                     Some((_, RunEnd::Cast)) => {
                         abort = Some(Phrase::PlanSpellRefused);
                     }

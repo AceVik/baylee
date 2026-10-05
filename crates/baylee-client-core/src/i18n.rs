@@ -1581,7 +1581,9 @@ messages! {
     /// Pay what a payment window still owes with the lands the client picked,
     /// then settle it: the prompt's confirm button while mana is owed and
     /// the pool does not cover it yet.
-    PayRemainder { en: "Pay the rest", de: "Rest bezahlen" },
+    PayRemainder { en: "Pay the rest (tap {0})", de: "Rest bezahlen ({0} tappen)" },
+    /// Pass a payment window without paying it.
+    DeclinePayment { en: "Don't pay", de: "Nicht bezahlen" },
     /// Settle a payment window the pool already covers.
     PayNow { en: "Pay", de: "Bezahlen" },
     /// The AI log's heading line for one entry: whose mind it is.

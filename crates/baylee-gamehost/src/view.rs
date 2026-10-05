@@ -2506,6 +2506,10 @@ mod tests {
             theirs.sorcery_lock, None,
             "and its own controller is not held by it"
         );
+        assert!(
+            !locked.sorceries_have_flash && !theirs.sorceries_have_flash,
+            "the static is the lock, not the +1: nobody's sorceries have flash"
+        );
     }
 
     /// The whole point of `PrintRef`: two copies of the *same* card in one

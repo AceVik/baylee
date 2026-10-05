@@ -556,6 +556,9 @@ pub enum MenuAction {
     ToggleLog,
     /// Open the AI log, or shut it again.
     ToggleAiLog,
+    /// Decline a payment window: pass it without paying. The pay button is
+    /// the prompt's confirm ([`crate::Duel::pay_owed`]).
+    DeclinePayment,
     /// Open the report form (#309), from the game menu.
     Report,
     /// Leave the game (sends the engine's own concession).

@@ -84,6 +84,30 @@ mod tests {
         ViewBuilder::new(2).build()
     }
 
+    /// Teferi, Time Raveler's +1 (`PlayerView::sorceries_have_flash`): this
+    /// seat's sorceries are lit on somebody else's turn, as the engine's
+    /// `casting::timing_allows` casts them — and only sorceries: a creature
+    /// is not one. An opponent's lock still wins, as it does engine-side.
+    #[test]
+    fn teferis_plus_one_lights_sorceries_at_instant_speed_and_nothing_else() {
+        let mut view = open();
+        view.active = PlayerId::new(1);
+        assert!(!allows(&view, TypeSet::SORCERY, false), "without the +1");
+
+        view.sorceries_have_flash = true;
+        assert!(allows(&view, TypeSet::SORCERY, false), "with it");
+        assert!(
+            !allows(&view, TypeSet::CREATURE, false),
+            "it says sorceries, and a creature is not one"
+        );
+
+        view.sorcery_lock = Some(ObjectId::new(7, 0));
+        assert!(
+            !allows(&view, TypeSet::SORCERY, false),
+            "an opponent's Teferi pulls it back to sorcery speed"
+        );
+    }
+
     #[test]
     fn a_seats_own_empty_main_phase_is_a_sorcery_window() {
         assert!(sorcery_window(&open()));

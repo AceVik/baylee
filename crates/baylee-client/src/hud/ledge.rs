@@ -1324,6 +1324,27 @@ fn answers_for(
         // and a client-side autopilot that never reaches the wire at all. They
         // look alike on purpose; what they have in common is that each of them
         // is a way of saying "not now".
+        // A payment window (CR 605.3a) is answered "pay" or "don't": the
+        // confirm taps whatever is still owed and settles it
+        // (`Duel::pay_owed`), and the other passes it unpaid. Lands can
+        // still be tapped one by one before either; the plan is for what is
+        // left.
+        Some(Pending::Priority { .. }) if duel.paying() => {
+            let mut row = Vec::new();
+            match duel.owed_plan.as_ref() {
+                Some(plan) if !plan.is_empty() => row.push((
+                    Says::Answer(PromptAction::Confirm),
+                    Phrase::PayRemainder.fill(lang, &[&plan.taps().to_string()]),
+                )),
+                Some(_) => row.push(say(PromptAction::Confirm, Phrase::PayNow)),
+                None => {}
+            }
+            row.push((
+                Says::Command(super::MenuAction::DeclinePayment),
+                Phrase::DeclinePayment.text(lang).to_string(),
+            ));
+            row
+        }
         Some(Pending::Priority { .. }) => {
             let mut row = vec![say(PromptAction::Confirm, Phrase::PassPriority)];
             if duel.can_hold_for_stack() {

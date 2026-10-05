@@ -840,16 +840,14 @@ pub fn fire_armed(duel: &mut Duel) {
         // costs one line to do the right thing if something ever does, and
         // the run itself re-checks the tap against the current
         // `LegalActions` exactly as the two above do.
+        // A settle is never armed either (`Duel::pay_owed` starts it on the
+        // press); should anything arm one, it runs the same way.
         Deed::Run {
             plan,
-            then: crate::RunEnd::Float,
+            then: then @ (crate::RunEnd::Float | crate::RunEnd::Settle),
         } => {
             duel.last_error = None;
-            duel.mana_run = Some(crate::ManaRun::new(
-                plan,
-                armed.object,
-                crate::RunEnd::Float,
-            ));
+            duel.mana_run = Some(crate::ManaRun::new(plan, armed.object, then));
         }
     }
 }
@@ -3053,6 +3051,12 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // started, since the shelf was drawn turns this press into a promise
         // to do nothing or into a cancellation, and neither is what the cap
         // says.
+        // Declining a payment: the window's own pass, sent without a tap.
+        MenuAction::DeclinePayment => {
+            if duel.paying() && duel.mana_run.is_none() {
+                duel.submit(PlayerAction::PassPriority);
+            }
+        }
         MenuAction::HoldForStack => {
             if duel.can_hold_for_stack()
                 && let Some(action) = duel.hold_action(false)
@@ -3513,6 +3517,9 @@ pub fn pointer(
                     .interaction
                     .as_ref()
                     .and_then(|i| i.answer_mulligan(false)),
+                // In a payment window confirm pays: the lands still owed
+                // are tapped and the window settled after the last tap.
+                PromptAction::Confirm if duel.pay_owed() => None,
                 PromptAction::Confirm => {
                     let answer = committed_answer(&duel);
                     if answer.is_none() {
