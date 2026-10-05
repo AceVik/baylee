@@ -325,6 +325,7 @@ fn a_permanent_copying_a_token_wears_the_token() {
             named: &named,
             token_name: &token_name,
             token_face: &|o| (o.name == "Soldier").then_some(SOLDIER),
+            card_face: None,
             utility_land: &|_| false,
         },
     );
@@ -379,6 +380,7 @@ fn a_token_is_not_a_copy_of_the_twin_that_shares_its_name() {
             named: &named,
             token_name: &token_name,
             token_face: &|o| (o.name == "Shapeshifter").then_some(ONE_ONE),
+            card_face: None,
             utility_land: &|_| false,
         },
     );

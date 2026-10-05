@@ -1350,6 +1350,9 @@ impl Wears {
     }
 }
 
+/// A lookup from an object's projected body to what it wears.
+pub type BodyLookup = dyn Fn(&PublicObject) -> Option<Wears>;
+
 /// The compiled card registry, as much of it as a board needs.
 ///
 /// The seam a copy is drawn through. A permanent that has become a copy keeps
@@ -1373,6 +1376,12 @@ pub struct Registry<'a> {
     pub token_name: &'a dyn Fn(u16) -> Option<&'static str>,
     /// Disambiguate token copies using their copiable body, not only a name.
     pub token_face: &'a dyn Fn(&PublicObject) -> Option<u16>,
+    /// The card an object wears, judged by its body as well as its name:
+    /// where a card and a token share a name (Antiquities' Shapeshifter and
+    /// the Shapeshifter tokens), the name alone cannot say which is meant.
+    /// `None` reads [`Self::named`]'s card answer, for registries whose names
+    /// never collide.
+    pub card_face: Option<&'a BodyLookup>,
     /// Whether a land with these rules is one its player uses for more than
     /// mana: the land row's right-hand section ([`Section`]).
     pub utility_land: &'a dyn Fn(RulesFace) -> bool,
@@ -1409,6 +1418,7 @@ impl Registry<'_> {
             named: &NAMED,
             token_name: &TOKEN_NAME,
             token_face: &|_| None,
+            card_face: None,
             utility_land: &UTILITY_LAND,
         }
     }
@@ -1424,6 +1434,7 @@ impl Registry<'_> {
             named,
             token_name: &TOKEN_NAME,
             token_face: &|_| None,
+            card_face: None,
             utility_land: &UTILITY_LAND,
         }
     }
@@ -1450,9 +1461,13 @@ impl Registry<'_> {
 /// and is the only thing it was ever going to be drawn from.
 #[must_use]
 pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
+    let card = || match reg.card_face {
+        Some(card_face) => card_face(obj),
+        None => (reg.named)(&obj.name),
+    };
     let projected = (reg.token_face)(obj)
         .map(Wears::Token)
-        .or_else(|| (reg.named)(&obj.name).filter(|face| matches!(face, Wears::Card(..))));
+        .or_else(|| card().filter(|face| matches!(face, Wears::Card(..))));
     match obj.token {
         Some(mine) if (reg.token_name)(mine) == Some(obj.name.as_str()) => None,
         Some(_) => projected,

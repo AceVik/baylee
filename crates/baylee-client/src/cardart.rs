@@ -79,11 +79,38 @@ pub fn wearing(name: &str) -> Option<(CardIndex, u8)> {
 /// is what a player means — a token is named for what it *is* and a card for
 /// what it is *called*, so a card printed "Soldier" is a Soldier in a way a
 /// Soldier chit is not.
+///
+/// A name a token is printed with answers the token, even where a card
+/// shares it (Antiquities' Shapeshifter and the Shapeshifter tokens): a name
+/// alone cannot tell them apart, and the board asks [`card_by_body`] for the
+/// card, which can.
 #[must_use]
 pub fn named(name: &str) -> Option<Wears> {
-    wearing(name)
-        .map(|(index, face)| Wears::Card(index, face))
-        .or_else(|| crate::tokenart::wearing(name).map(Wears::Token))
+    crate::tokenart::wearing(name)
+        .map(Wears::Token)
+        .or_else(|| wearing(name).map(|(index, face)| Wears::Card(index, face)))
+}
+
+/// The card `object` wears, by its projected name, when its body says it is
+/// that card.
+///
+/// Most names are a card's alone and the name is enough, pumped or painted.
+/// Where a token shares the name, the card is taken only when the object's
+/// card types are the card face's printed ones: a blue 2/2 Shapeshifter
+/// creature is the token's body (or nothing), an artifact creature named
+/// Shapeshifter is the Antiquities card.
+#[must_use]
+pub fn card_by_body(object: &baylee_view::PublicObject) -> Option<Wears> {
+    let (index, face) = wearing(&object.name)?;
+    if crate::tokenart::wearing(&object.name).is_some() {
+        let printed = baylee_cards::by_index(index)?
+            .faces
+            .get(usize::from(face))?;
+        if printed.types != object.types {
+            return None;
+        }
+    }
+    Some(Wears::Card(index, face))
 }
 
 /// Whether a land is one its player uses for more than mana (#263): the
@@ -143,6 +170,7 @@ pub fn registry() -> Registry<'static> {
         named: &NAMED,
         token_name: &TOKEN_NAME,
         token_face: &crate::tokenart::matching_body,
+        card_face: Some(&card_by_body),
         utility_land: &UTILITY_LAND,
     }
 }
@@ -311,5 +339,26 @@ mod tests {
         copy.base_power = Some(1);
         copy.base_toughness = Some(1);
         assert_ne!(board::worn(&copy, registry()), Some(Wears::Token(id)));
+    }
+
+    /// Antiquities' Shapeshifter shares its name with the Shapeshifter
+    /// tokens. A copy of the card (its printed types) wears the card; a body
+    /// that is no card's and no token's wears nothing, rather than the card
+    /// the name happens to find first.
+    #[test]
+    fn a_copy_of_the_shapeshifter_card_wears_the_card_and_not_the_token() {
+        use baylee_client_core::{board, test_support::printed};
+        let (index, face) = wearing("Shapeshifter").expect("Antiquities' Shapeshifter");
+        let card = baylee_cards::by_index(index).expect("the registry's own index");
+        let mut copy = printed(1, 0, "Shapeshifter", 3);
+        copy.types = card.faces[usize::from(face)].types;
+        copy.colors = baylee_core::color::ColorSet::EMPTY;
+        assert_eq!(
+            board::worn(&copy, registry()),
+            Some(Wears::Card(index, face)),
+            "the card's body wears the card"
+        );
+        copy.types = baylee_core::types::TypeSet::CREATURE;
+        assert_eq!(board::worn(&copy, registry()), None, "neither body");
     }
 }
