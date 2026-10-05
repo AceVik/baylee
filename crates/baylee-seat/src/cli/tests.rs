@@ -867,7 +867,9 @@ fn a_key_is_a_marker_at_a_words_start_with_enough_key_characters() {
     assert!(shaped_like_a_key("curl -H x-api-key:abc"));
     // Inside a word is no start; after a path or space is.
     assert!(!shaped_like_a_key(&format!("task-{}", run(20))));
-    assert!(!shaped_like_a_key(&format!("my_ghp_{}", run(20))));
+    // A provider's long marker counts glued to a word too: twenty key
+    // characters after `ghp_` are a token wherever they stand.
+    assert!(shaped_like_a_key(&format!("my_ghp_{}", run(20))));
     assert!(shaped_like_a_key(&format!("/x/sk-{}", run(16))));
     assert!(
         shaped_like_a_key(&format!("é sk-{}", run(16))),
@@ -1050,7 +1052,10 @@ fn agy_dialect_args_and_events() {
     assert!(args.contains(&"stream-json".to_string()));
     assert!(args.contains(&"--model".to_string()));
     assert!(args.contains(&"gemini-3.8-flash-high".to_string()));
-    assert!(args.contains(&"--dangerously-skip-permissions".to_string()));
+    // The model plays through stdin and stdout only: it is never handed
+    // permission to run tools (ad6c379a dropped the flag; the test had not
+    // followed).
+    assert!(!args.iter().any(|a| a.contains("dangerously")));
 
     // Stdin lines: first line includes system prompt, subsequent does not.
     let line1 = Agy.stdin_line("THE GAME\nYou are P1 at a table");

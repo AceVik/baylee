@@ -670,10 +670,9 @@ impl CliMind {
         }
         state.seat.asked += 1;
         let turn = request.view.turn;
-        let fresh = state
-            .session
-            .as_ref()
-            .is_none_or(|session| session.sent.div_ceil(3) > self.settings.conversation_tokens);
+        let fresh = state.session.as_ref().is_none_or(|session| {
+            session.turn != turn || session.sent.div_ceil(3) > self.settings.conversation_tokens
+        });
         let mut told = state.seat.told(fresh);
         if fresh && state.lost == Some(turn) {
             told.insert(0, LOST.into());

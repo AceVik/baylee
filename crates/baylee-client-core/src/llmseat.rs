@@ -1237,36 +1237,46 @@ pub fn blank_key_shapes(text: &str) -> String {
     out
 }
 
-/// Whether `text` holds anything shaped like a key: an API key's `sk-` or a
-/// GitHub token's prefix where a word starts, with as many key characters
-/// after it as such a key has, or an authorization header's words.
+/// Whether `text` holds anything shaped like a key: a marker with as many
+/// key characters after it as such a key has, or an authorization header's
+/// words.
 ///
-/// A marker glued to a lowercase word before it (`desk-tools-collection`,
-/// `task-…`, `my_ghp_…`: a lowercase letter, `_`, `-` or `.` before it) is
-/// part of that word and no key, so a path such as
-/// `/opt/desk-tools-collection/bin` is none. Anything else before it starts
-/// a word: the text's start, a space, `/`, `=`, an uppercase letter, a
-/// non-ASCII character, and a digit, since a model id ends in one and a key
-/// pasted after it (`claude-sonnet-5-5sk-ant-…`) starts where its marker
-/// does. A key glued to a lowercase word is missed.
+/// Two kinds of marker. The **generic** ones (`sk-`, `Bearer `, `x-api-key`)
+/// are short and common inside words, so they count only where a word
+/// starts: glued to a lowercase word before it (`desk-tools-collection`,
+/// `risk-free`: a lowercase letter, `_`, `-` or `.` before it) they are part
+/// of that word and no key. Anything else before one starts a word: the
+/// text's start, a space, `/`, `=`, an uppercase letter, a non-ASCII
+/// character, and a digit, since a model id ends in one and a key pasted
+/// after it (`claude-sonnet-5-5sk-…`) starts where its marker does.
+///
+/// The **provider-specific** ones (`sk-ant-`, `sk-proj-`, GitHub's `ghp_`,
+/// `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`) are long and followed by at
+/// least twenty key characters, which no word is, so they count wherever
+/// they stand: a key pasted onto a model id (`sonnetsk-ant-…`) is still one,
+/// while `task-ant-hill` is too short after its marker to be.
 ///
 /// The one definition: the settings file and panel refuse by it, and the
 /// seat bridge refuses to start a CLI whose environment holds such a value.
 #[must_use]
 pub fn shaped_like_a_key(text: &str) -> bool {
-    const MARKERS: [(&str, usize); 10] = [
-        ("sk-", 16),
-        ("ghp_", 20),
-        ("gho_", 20),
-        ("ghu_", 20),
-        ("ghs_", 20),
-        ("ghr_", 20),
-        ("github_pat_", 20),
-        ("Bearer ", 1),
-        ("bearer ", 1),
-        ("x-api-key", 0),
+    /// Marker, key characters it needs after it, and whether it must start
+    /// a word.
+    const MARKERS: [(&str, usize, bool); 12] = [
+        ("sk-", 16, true),
+        ("sk-ant-", 20, false),
+        ("sk-proj-", 20, false),
+        ("ghp_", 20, false),
+        ("gho_", 20, false),
+        ("ghu_", 20, false),
+        ("ghs_", 20, false),
+        ("ghr_", 20, false),
+        ("github_pat_", 20, false),
+        ("Bearer ", 1, true),
+        ("bearer ", 1, true),
+        ("x-api-key", 0, true),
     ];
-    MARKERS.iter().any(|(marker, least)| {
+    MARKERS.iter().any(|(marker, least, word)| {
         text.match_indices(marker).any(|(at, _)| {
             let starts_a_word = text[..at]
                 .chars()
@@ -1276,7 +1286,7 @@ pub fn shaped_like_a_key(text: &str) -> bool {
                 .chars()
                 .take_while(|c| key_char(*c))
                 .count();
-            starts_a_word && run >= *least
+            (starts_a_word || !word) && run >= *least
         })
     })
 }

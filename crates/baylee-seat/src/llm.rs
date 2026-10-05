@@ -632,15 +632,57 @@ impl Tally {
     /// tally remembers that it is. Under a hard limit the calls still out
     /// and those whose bill is unknown count at their worst; a call cap
     /// counts the calls made and those out.
-    pub(crate) fn spent_under(&mut self, _settings: &Settings) -> Option<String> {
-        // Budget limit disabled per user request
-        None
+    pub(crate) fn spent_under(&mut self, settings: &Settings) -> Option<String> {
+        let (tokens, usd) = if settings.hard_limit {
+            (self.spend_tokens(), self.spend_usd().unwrap_or(0.0))
+        } else {
+            (self.usage.total(), self.usd.unwrap_or(0.0))
+        };
+        let why = if tokens >= settings.spend_tokens {
+            format!(
+                "the game's budget of {} tokens is spent",
+                settings.spend_tokens
+            )
+        } else if let Some(budget) = settings.spend_usd
+            && usd >= budget
+        {
+            format!("the game's budget of ${budget:.2} is spent (${usd:.2})")
+        } else if let Some(cap) = settings.spend_calls
+            && self.calls.saturating_add(self.out) >= cap
+        {
+            format!("the game's budget of {cap} calls is spent")
+        } else {
+            return None;
+        };
+        self.spent = true;
+        Some(why)
     }
 
     /// Holds `worst` for a call about to be sent, unless it could pass the
     /// game's hard limit ([`Settings::hard_limit`]); then the sentence why.
-    pub(crate) fn hold(&mut self, worst: Worst, _settings: &Settings) -> Result<(), String> {
-        // Budget limit disabled per user request
+    pub(crate) fn hold(&mut self, worst: Worst, settings: &Settings) -> Result<(), String> {
+        if settings.hard_limit {
+            if self.spend_tokens().saturating_add(worst.tokens) > settings.spend_tokens {
+                return Err(format!(
+                    "the game's budget of {} tokens cannot hold another call, which may take \
+                     up to {}",
+                    settings.spend_tokens, worst.tokens
+                ));
+            }
+            if let (Some(budget), Some(usd)) = (settings.spend_usd, worst.usd)
+                && self.spend_usd().unwrap_or(0.0) + usd > budget
+            {
+                return Err(format!(
+                    "the game's budget of ${budget:.2} cannot hold another call, which may cost \
+                     up to ${usd:.2}"
+                ));
+            }
+        }
+        if let Some(cap) = settings.spend_calls
+            && self.calls.saturating_add(self.out) >= cap
+        {
+            return Err(format!("the game's budget of {cap} calls is spent"));
+        }
         self.held.add(worst);
         self.out += 1;
         Ok(())
