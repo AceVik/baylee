@@ -75,6 +75,7 @@ impl Show {
                 by,
                 action,
                 note: said,
+                thinking: _,
                 ..
             } => self.answered(*by, action, said.as_deref()),
             Event::Refused { by, reason, .. } => {

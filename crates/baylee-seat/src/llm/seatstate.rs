@@ -121,6 +121,7 @@ impl Seat {
             action,
             model_time: Duration::ZERO,
             note: Some(note),
+            thinking: None,
             stops: stops.map(Box::new),
             hold,
         })

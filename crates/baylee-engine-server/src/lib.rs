@@ -766,6 +766,18 @@ impl EngineRunner {
                 },
             )],
             Some(v1::envelope::Msg::SeatReady(_)) => self.seat_ready(player),
+            Some(v1::envelope::Msg::AiLog(ai_log)) => {
+                let mut out = Vec::new();
+                for &target_seat in &self.attached {
+                    out.push(seat_frame(
+                        target_seat,
+                        &Envelope {
+                            msg: Some(v1::envelope::Msg::AiLog(ai_log.clone())),
+                        },
+                    ));
+                }
+                out
+            }
             // Dropped rather than refused before the curtain is up (#256): no
             // seat has been asked anything, so a correct client has nothing
             // to answer, and a refusal would reach it as a failure.

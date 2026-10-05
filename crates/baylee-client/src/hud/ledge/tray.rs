@@ -101,7 +101,7 @@ const TRAY_BTN: f32 = menu::BURGER;
 
 /// How much of the shelf's right end the row takes, with the gap that parts
 /// it from the burger: what the right column reserves for it.
-pub(super) const WIDTH: f32 = 2.0 * TRAY_BTN + 2.0 * TRAY_GAP;
+pub(super) const WIDTH: f32 = 3.0 * TRAY_BTN + 3.0 * TRAY_GAP;
 
 /// The icon in a tray button.
 const TRAY_ICON_PT: f32 = 12.0;
@@ -147,6 +147,8 @@ pub struct StripRevision {
     /// Whether the game log's panel is up (#262). Its button says so the
     /// way the zones button does.
     log: bool,
+    /// Whether the ai log's panel is up.
+    ai_log: bool,
 }
 
 /// Where the row stands: in the shelf's button row, directly left of the
@@ -241,6 +243,7 @@ pub fn sync_tray_strip(
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
         log: duel.log_open,
+        ai_log: duel.ai_log_open,
     };
     // The counter alone is not enough, and the reason is the same one
     // `sync_tray`'s `drawn` records: the overlay can take this node away and
@@ -258,12 +261,46 @@ pub fn sync_tray_strip(
             commands.entity(*kid).despawn();
         }
     }
-    // The log's scroll first, so the zones stay the strip's right end: the
-    // sheet is put away into that button, and `zones_button_centre` counts
-    // it from the right margin.
+    // The ai log's scroll first, then the log's scroll, then the zones.
+    let ai_log = ai_log_button(&mut commands, &fonts, next.ai_log);
     let log = log_button(&mut commands, &fonts, next.log);
     let zones = zone_button(&mut commands, &fonts, next.open, next.free);
-    commands.entity(strip).add_children(&[log, zones]);
+    commands.entity(strip).add_children(&[ai_log, log, zones]);
+}
+
+/// The AI log's door.
+fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
+    let ground = if open {
+        palette::DIALOG_LIT
+    } else {
+        palette::DIALOG
+    };
+    commands
+        .spawn((
+            Node {
+                width: px(TRAY_BTN),
+                height: px(TRAY_BTN),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(palette::DIALOG_LINE),
+            Button,
+            Feel::new(ground),
+            MenuButton {
+                action: MenuAction::ToggleAiLog,
+            },
+            children![(
+                Text::new(glyph::HOUSE.to_string()),
+                icon_tf(fonts, TRAY_ICON_PT),
+                TextColor(FREE_INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
 }
 
 /// The game log's door (#262): a scroll, beside the zones.
@@ -511,17 +548,17 @@ mod tests {
             .collect();
         assert_eq!(
             kids.len(),
-            2,
-            "the strip holds the log's door and the zones"
+            3,
+            "the strip holds the ai log's door, the log's door, and the zones"
         );
         assert!(
             app.world()
-                .get::<MenuButton>(kids[0])
+                .get::<MenuButton>(kids[1])
                 .is_some_and(|b| b.action == MenuAction::ToggleLog),
-            "the first button is not the log's"
+            "the second button is not the log's"
         );
         assert!(
-            app.world().get::<TrayZones>(kids[1]).is_some(),
+            app.world().get::<TrayZones>(kids[2]).is_some(),
             "the zones are not the strip's right end"
         );
     }

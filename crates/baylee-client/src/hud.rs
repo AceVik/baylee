@@ -554,6 +554,8 @@ pub enum MenuAction {
     /// Open the game log, or shut it again (#262): the scroll on the tray,
     /// the cross on the panel's head, and `L`.
     ToggleLog,
+    /// Open the AI log, or shut it again.
+    ToggleAiLog,
     /// Open the report form (#309), from the game menu.
     Report,
     /// Leave the game (sends the engine's own concession).
@@ -2080,6 +2082,7 @@ pub struct OverlayTree<'w, 's> {
     /// the player holds it open, and its lines are appended rather than
     /// rebuilt, which a sweep on every pointer move would undo.
     pub(crate) log: Query<'w, 's, Entity, With<ledge::log::LogPanel>>,
+    pub(crate) ai_log: Query<'w, 's, Entity, With<ledge::ai_log::AiLogPanel>>,
     /// The drawer's **panel**, as a box rather than as an entity — and the one
     /// field here that is not about surviving the sweep.
     ///
@@ -2137,7 +2140,7 @@ pub(crate) mod chosen_type;
 mod finish;
 mod hand;
 mod ledge;
-pub(crate) use ledge::ai_log::{AiLogState, update_ai_log};
+pub(crate) use ledge::ai_log::{AiLogEvent, update_ai_log};
 
 mod motion;
 mod overlay;

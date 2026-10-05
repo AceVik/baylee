@@ -602,7 +602,7 @@ impl CliMind {
                         return Err(error);
                     }
                 };
-            let (value, usage) = match reply {
+            let (value, usage, said) = match reply {
                 Reply::Outcome(Outcome::Answer {
                     value,
                     text: said,
@@ -610,7 +610,7 @@ impl CliMind {
                 }) => {
                     self.cooled();
                     Self::record(&seat, request, &text, Some((&value, &said, usage)), None);
-                    (value, usage)
+                    (value, usage, said)
                 }
                 Reply::Outcome(Outcome::RateLimited { why, lifts_in }) => {
                     self.cool(lifts_in);
@@ -622,7 +622,7 @@ impl CliMind {
                 Reply::Gone(gone) => return Err(self.gone(&seat, request.view.turn, gone).await),
             };
             match read(value.as_ref(), &prepared.menu) {
-                Ok(read) => return Self::commit(&seat, request, prepared, read, usage, sent),
+                Ok(read) => return Self::commit(&seat, request, prepared, read, usage, sent, said.clone()),
                 Err(why) => {
                     let again = request
                         .budget
@@ -824,6 +824,7 @@ impl CliMind {
         (resolved, say): (narrator::Resolved, Option<String>),
         usage: Option<Usage>,
         sent: Instant,
+        thinking: String,
     ) -> Result<Answer, MindError> {
         let mut state = lock(seat);
         if state.seat.asked != prepared.asked {
@@ -846,6 +847,7 @@ impl CliMind {
             action,
             model_time: took,
             note: Some(note.to_string()),
+            thinking: Some(thinking),
             stops: stops.map(Box::new),
             hold,
         })

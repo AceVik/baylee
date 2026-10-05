@@ -585,6 +585,7 @@ pub fn sync_overlay(
                 && !tree.players.contains(*child)
                 && !tree.menu.contains(*child)
                 && !tree.log.contains(*child)
+                && !tree.ai_log.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -650,7 +651,7 @@ pub fn sync_overlay(
         // its own: its lines are appended as they arrive, and a panel swept
         // with the tree would write every line again on each pointer move.
         let log = ledge::log::spawn_log_panel(&mut commands);
-        let ai_log = ledge::ai_log::spawn(&mut commands);
+        let ai_log = ledge::ai_log::spawn(&mut commands, &fonts);
         commands.entity(root).add_child(ai_log);
         commands.entity(root).add_child(log);
         root

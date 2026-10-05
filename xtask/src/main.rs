@@ -531,8 +531,8 @@ enum Cmd {
         /// `BAYLEE_SEAT_CONFIG` names; `docs/llm-seat.md`) under its daily
         /// and monthly caps. A model the bridge has no price for sits down
         /// here only as a profile that states its price or `game_tokens`.
-        #[arg(long, value_name = "MIND")]
-        bridge: Option<String>,
+        #[arg(long = "bridge", value_name = "MIND")]
+        bridges: Vec<String>,
     },
     /// Make the key release archives are signed with, or show its public half.
     ///
@@ -641,7 +641,7 @@ fn main() -> anyhow::Result<()> {
             deck,
             teams,
             play,
-            bridge,
+            bridges,
         } => dev_table(
             &root,
             &gateway,
@@ -650,7 +650,7 @@ fn main() -> anyhow::Result<()> {
                 ai: &ai,
                 deck: &deck,
                 teams: &teams,
-                bridge: bridge.as_deref(),
+                bridges: &bridges,
             },
             play,
         ),
@@ -5222,12 +5222,12 @@ fn arrange_room(
     seats: usize,
     ai: &str,
     teams: &[u8],
-    bridge_chair: Option<usize>,
+    bridge_chairs: &[usize],
     before_start: impl FnOnce() -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     // Use the room path for duels too: the one-tap "ai" mode starts
     // immediately with the default profile, before --ai can be applied.
-    for seat in (1..seats).filter(|seat| Some(*seat) != bridge_chair) {
+    for seat in (1..seats).filter(|seat| !bridge_chairs.contains(seat)) {
         let url = format!("{gateway}/lobby/games/{game_id}/seats/{seat}");
         let (status, body) = post(
             agent,
@@ -5293,8 +5293,8 @@ struct TableSpec<'a> {
     deck: &'a str,
     /// Sides, in seat order; empty for none.
     teams: &'a [u8],
-    /// The mind a bridge in chair 1 plays, if one sits there.
-    bridge: Option<&'a str>,
+    /// The minds the bridges play.
+    bridges: &'a [String],
 }
 
 impl TableSpec<'_> {
@@ -5329,7 +5329,7 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
         ai,
         deck: deck_name,
         teams,
-        bridge,
+        bridges,
     } = *spec;
     let agent = ureq::Agent::new_with_defaults();
 
@@ -5391,10 +5391,8 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
     let game_id = field(&body, "game_id")?;
     let seat_token = field(&body, "seat_token")?;
 
-    // The bridge is its own process, as it would be on anybody's machine:
-    // it signs in as a guest, takes chair 1 and says ready, and the table
-    // starts once it has.
-    let mut bridge_process = None;
+    let mut bridge_processes = Vec::new();
+    let bridge_chairs: Vec<usize> = (1..=bridges.len()).collect();
     arrange_room(
         &agent,
         gateway,
@@ -5403,29 +5401,33 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
         seats,
         ai,
         teams,
-        bridge.map(|_| BRIDGE_CHAIR),
+        &bridge_chairs,
         || {
-            let Some(mind) = bridge else {
-                return Ok(());
-            };
-            let child =
-                bridge_process.insert(seat_bridge(root, gateway, &game_id, mind, deck_name)?);
-            wait_for_bridge(&agent, gateway, &token, &game_id, child)
+            for (i, mind) in bridges.iter().enumerate() {
+                let child = seat_bridge(root, gateway, &game_id, mind, deck_name, i)?;
+                bridge_processes.push(child);
+            }
+            if !bridge_processes.is_empty() {
+                wait_for_bridge(&agent, gateway, &token, &game_id, bridge_processes.last_mut().unwrap())
+            } else {
+                Ok(())
+            }
         },
     )?;
 
-    let opponents = seats - 1 - usize::from(bridge.is_some());
+    let opponents = seats - 1 - bridges.len();
     println!("table ready: {seats} chairs, {opponents} × {ai} AI, playing {deck_name}");
-    if let Some(mind) = bridge {
+    for (i, mind) in bridges.iter().enumerate() {
         println!(
-            "chair {BRIDGE_CHAIR}: a bridge playing {mind}; transcripts in {BRIDGE_TRANSCRIPTS}/"
+            "chair {}: a bridge playing {mind}; transcripts in {BRIDGE_TRANSCRIPTS}/",
+            i + 1
         );
     }
     if !teams.is_empty() {
         let sides: Vec<String> = teams.iter().map(ToString::to_string).collect();
         println!("sides, in seat order: {}", sides.join(", "));
     }
-    seat_the_player(root, gateway, &game_id, &seat_token, play, bridge_process)
+    seat_the_player(root, gateway, &game_id, &seat_token, play, bridge_processes)
 }
 
 /// Prints the dev seat's ticket, or launches the client on it; a bridge at
@@ -5436,16 +5438,16 @@ fn seat_the_player(
     game_id: &str,
     seat_token: &str,
     play: bool,
-    bridge_process: Option<std::process::Child>,
+    mut bridge_processes: Vec<std::process::Child>,
 ) -> anyhow::Result<()> {
     if !play {
         println!(
             "\nBAYLEE_GATEWAY={gateway} \\\n  BAYLEE_GAME={game_id} \\\n  BAYLEE_SEAT_TOKEN={seat_token} \\\n  cargo run -p baylee-client"
         );
         // The bridge plays on in this terminal until the game is over.
-        if let Some(mut child) = bridge_process {
+        for child in &mut bridge_processes {
             let status = child.wait()?;
-            anyhow::ensure!(status.success(), "the bridge exited with {status}");
+            anyhow::ensure!(status.success(), "a bridge exited with {status}");
         }
         return Ok(());
     }
@@ -5458,7 +5460,7 @@ fn seat_the_player(
         .status();
     // A client that closed leaves nobody for the bridge to play but the
     // house standing in: it goes too.
-    if let Some(mut child) = bridge_process {
+    for child in &mut bridge_processes {
         let _ = child.kill();
         let _ = child.wait();
     }
@@ -5478,16 +5480,23 @@ fn seat_bridge(
     game_id: &str,
     mind: &str,
     dev_deck: &str,
+    index: usize,
 ) -> std::io::Result<std::process::Child> {
-    let theirs = if dev_deck == "Victory" {
-        "Allytifact"
+    let decks = ["Allytifact", "Victory"];
+    let available: Vec<&str> = decks.into_iter().filter(|&d| d != dev_deck).collect();
+    // Since there are only 2 decks total, if available has 1, just use that.
+    // We alternate if there are multiple.
+    let theirs = if available.is_empty() {
+        decks[index % decks.len()]
     } else {
-        "Victory"
+        available[index % available.len()]
     };
+    
     std::process::Command::new("cargo")
         .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
         .args(bridge_mind(mind))
         .args(["--gateway", gateway, "--acceptance", theirs])
+        .args(["--think-secs", "300"])
         .arg("--transcripts")
         .arg(root.join(BRIDGE_TRANSCRIPTS))
         .current_dir(root)

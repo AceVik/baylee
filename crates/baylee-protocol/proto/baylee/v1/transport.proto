@@ -434,6 +434,19 @@ message Envelope {
     // decodes either as an envelope with no message and passes over it.
     FlushRecord flush_record = 31;
     RecordFlushed record_flushed = 32;
+    // AI log passed from baylee-seat to all clients.
+    AiLog ai_log = 33;
+
   }
 
+}
+
+// An AI thought or event passed from baylee-seat.
+message AiLog {
+  string event = 1;
+  string kind = 2;
+  string note = 3;
+  string reason = 4;
+  string json = 5;
+  string thinking = 6;
 }

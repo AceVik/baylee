@@ -1741,6 +1741,10 @@ pub struct PlayerView {
     /// card to flash when the offer is withheld is this one. `None` is the
     /// ordinary case and means nothing is holding this seat back.
     pub sorcery_lock: Option<ObjectId>,
+    /// Whether this seat's sorceries can be cast as though they had flash.
+    /// Added to support Teferi, Time Raveler's +1 ability correctly.
+    #[serde(default)]
+    pub sorceries_have_flash: bool,
 }
 
 /// Authoritative context, sent only to the seat choosing targets.

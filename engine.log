@@ -1,0 +1,15 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on shared package cache
+   Compiling baylee-cards-dsl v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-cards-dsl)
+   Compiling baylee-protocol v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-protocol)
+   Compiling baylee-build v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-build)
+   Compiling baylee-engine v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-engine)
+   Compiling baylee-cards v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-cards)
+   Compiling baylee-client-core v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-client-core)
+   Compiling baylee-ai v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-ai)
+   Compiling baylee-gamehost v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-gamehost)
+   Compiling baylee-engine-server v0.1.0-beta.4 (/Users/viktor/Projects/baylee-play/crates/baylee-engine-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.70s
+     Running `target/debug/baylee-engine-server`

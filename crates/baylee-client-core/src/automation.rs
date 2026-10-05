@@ -649,6 +649,9 @@ pub struct Situation {
     /// two indigo sets — a spell whose lands could be tapped for it, and a
     /// card that could be suspended the same way.
     pub offering: bool,
+    /// Whether the seat currently owes a mana payment (e.g., during Miracle).
+    /// If so, the automation must not auto-pass priority.
+    pub owing: bool,
 }
 
 /// The standing-order decision: given the pending choice, where the game
@@ -689,7 +692,7 @@ pub fn auto_answer(
         // hand full of spells and a board full of untapped lands, which is
         // the commonest board there is.
         Pending::Priority { legal, .. }
-            if rules.pass_when_nothing_to_do && !at.offering && nothing_to_do(legal) =>
+            if rules.pass_when_nothing_to_do && !at.offering && !at.owing && nothing_to_do(legal) =>
         {
             AutoAnswer::Pass
         }
@@ -798,7 +801,8 @@ mod tests {
             phase,
             step,
             opposing_stack: false,
-            offering: false,
+            offering: false, owing: false,
+            owing: false,
         }
     }
 

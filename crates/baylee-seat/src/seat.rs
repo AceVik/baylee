@@ -1023,6 +1023,7 @@ impl SeatCore {
                     model_ms: answer
                         .map(|a| u64::try_from(a.model_time.as_millis()).unwrap_or(u64::MAX)),
                     note: answer.and_then(|a| a.note.clone()),
+                    thinking: answer.and_then(|a| a.thinking.clone()),
                 },
             );
         }
@@ -1060,14 +1061,37 @@ impl SeatCore {
         steps
     }
 
-    fn note(&mut self, question: u64, event: Event) {
+    fn note(&mut self, question: u64, event: Event) -> Option<Step> {
         let view = self.memory.view();
         self.notes.push(Note {
             question,
             seq: self.memory.last_seq(),
             turn: view.map_or(0, |v| v.turn),
-            event,
+            event: event.clone(),
         });
+        
+        let (kind, note_str, reason, thinking) = match &event {
+            Event::Asked { kind: k, .. } => (format!("{:?}", k), String::new(), String::new(), String::new()),
+            Event::Answered { note: n, thinking: t, .. } => (String::new(), n.clone().unwrap_or_default(), String::new(), t.clone().unwrap_or_default()),
+            Event::Refused { reason: r, .. } => (String::new(), String::new(), r.clone(), String::new()),
+            _ => return None,
+        };
+        let event_type = match event {
+            Event::Asked { .. } => "asked",
+            Event::Answered { .. } => "answered",
+            Event::Refused { .. } => "refused",
+            _ => return None,
+        };
+        Some(Step::Send(Envelope {
+            msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
+                event: event_type.to_string(),
+                kind,
+                note: note_str,
+                reason,
+                json: String::new(),
+                thinking,
+            })),
+        }))
     }
 }
 

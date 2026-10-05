@@ -732,6 +732,8 @@ pub struct Duel {
     /// it, and it stays up while the game goes on under it, because a log is
     /// read beside the table and not instead of it.
     pub log_open: bool,
+    /// Whether the AI log's panel is open.
+    pub ai_log_open: bool,
     /// The tap that has been made and not sent — see [`Armed`].
     ///
     /// Deliberately *not* cleared when a choice arrives: `pump` hands the
@@ -1346,7 +1348,7 @@ pub struct DuelPlugin {
 /// it is drawn once at full strength before its arrival is ever applied.
 #[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 fn add_present_systems(app: &mut App) {
-    app.init_resource::<hud::AiLogState>()
+    app.add_message::<hud::AiLogEvent>()
         .init_resource::<hud::StackFold>()
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
@@ -1869,6 +1871,8 @@ fn poll_host(
     mut next: ResMut<NextState<DuelPhase>>,
     mut reports: MessageWriter<DuelReport>,
     mut journey: Option<ResMut<arrival::Journey>>,
+    mut ai_log_events: MessageWriter<hud::AiLogEvent>,
+
     time: Option<Res<Time<Real>>>,
 ) {
     let Some(mut host) = host else {
@@ -1920,6 +1924,8 @@ fn poll_host(
                 }
             }
             HostMessage::Curtain => duel.curtain_up = true,
+            HostMessage::AiLog(ai_log) => { ai_log_events.write(hud::AiLogEvent { log: ai_log }); },
+
             HostMessage::Preparing {
                 ready,
                 total,
@@ -2050,6 +2056,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 offering: !duel.reachable.is_empty()
                     || !duel.suspend_reach.is_empty()
                     || !duel.ability_reach.is_empty(),
+                owing: view.owed.is_some(),
             },
             prefs.orders(),
             prefs.auto(),
