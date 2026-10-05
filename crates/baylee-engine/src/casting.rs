@@ -589,13 +589,53 @@ fn x_bounded(
 }
 
 /// Whether `player` can spend `pool` to cover `cost` under current permissions.
+///
+/// A Phyrexian symbol is payable with its mana or with 2 life (CR 107.4f),
+/// so a cost holding any counts as covered when some way of settling them
+/// leaves mana the pool covers and life the player can pay (CR 119.4).
+/// That is [`phyrexian_affordable`] with nothing settled yet: the cast
+/// wizard's Phyrexian question asks the same reader with its answers so
+/// far, so the offer and the question cannot disagree.
 pub(crate) fn affordable(
     state: &GameState,
     player: PlayerId,
     pool: &ManaPool,
     cost: &ManaCost,
 ) -> bool {
-    mana_pay::can_pay_with(pool, cost, mana_spending(state, player))
+    phyrexian_affordable(state, player, pool, cost, &[])
+}
+
+/// [`affordable`] with the first `settled.len()` Phyrexian symbols already
+/// announced (`true` = 2 life, CR 601.2b) and every way of announcing the
+/// rest tried. A cost with no Phyrexian symbol is the pool's question alone.
+pub(crate) fn phyrexian_affordable(
+    state: &GameState,
+    player: PlayerId,
+    pool: &ManaPool,
+    cost: &ManaCost,
+    settled: &[bool],
+) -> bool {
+    let spending = mana_spending(state, player);
+    let symbols = cost.phyrexian_count();
+    let fixed = u32::try_from(settled.len()).unwrap_or(u32::MAX);
+    // Eight symbols is 256 ways; no card prints more than four. Past that
+    // only the mana is tried, which under-offers and never over-offers.
+    if symbols == 0 || symbols > 8 {
+        return fixed == 0 && mana_pay::can_pay_with(pool, cost, spending);
+    }
+    if fixed > symbols {
+        return false;
+    }
+    let base = settled
+        .iter()
+        .enumerate()
+        .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i));
+    (0..(1u32 << (symbols - fixed))).any(|rest| {
+        let mask = base | (rest << fixed);
+        let life = 2 * i32::try_from(mask.count_ones()).unwrap_or(i32::MAX);
+        state.can_pay_life(player, life)
+            && mana_pay::can_pay_with(pool, &cost.with_phyrexian_settled(mask), spending)
+    })
 }
 
 /// Pays a cost that admits no restricted mana, under this player's current

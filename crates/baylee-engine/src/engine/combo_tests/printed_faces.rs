@@ -64,6 +64,9 @@ fn a_copy_and_both_of_its_triggers_name_the_card_they_copied() {
     reach_main_phase(&mut engine, p0);
 
     cast_from_hand(&mut engine, p0, phyrexian_metamorph());
+    // Mana and life both pay the {U/P} here, so the caster is asked
+    // (CR 601.2b); it is paid with its mana, as this test was written for.
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });

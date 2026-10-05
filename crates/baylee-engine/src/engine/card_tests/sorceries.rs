@@ -856,6 +856,9 @@ fn gitaxian_probe_asks_for_any_player_and_replaces_itself() {
             Pending::ChooseCastMode { player, .. } => {
                 engine.apply(player, PlayerAction::ChooseMode(0)).unwrap();
             }
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
             Pending::ChoosePlayer { .. } => break,
             other => panic!("expected the spell's target question, got {other:?}"),
         }

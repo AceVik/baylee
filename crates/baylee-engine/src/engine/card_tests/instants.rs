@@ -1517,6 +1517,9 @@ fn a_two_mana_spell_is_no_target_and_the_one_mana_spell_behind_it_is_countered()
     engine
         .apply(p1, PlayerAction::CastSpell { card: misstep })
         .unwrap();
+    // Mana and life both pay the {U/P} here, so the caster is asked
+    // (CR 601.2b); it is paid with its mana, as this test was written for.
+    engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("expected a target choice, got {:?}", engine.pending())
     };
@@ -26157,4 +26160,121 @@ fn crumble_gains_nothing_when_its_target_is_gone_by_resolution() {
         "only the resolution that still had a target gained its mana value: \
          the fizzled copy added nothing"
     );
+}
+
+/// p0 at `life`, with Llanowar Elves on the stack (paid by a Forest) and
+/// Mental Misstep in hand; `islands` Islands are tapped into the pool too.
+/// Returns the engine at p0's priority with the Elves on the stack.
+fn misstep_board(life: i32, islands: usize) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut lands = vec![forest()];
+    lands.extend(std::iter::repeat_n(island(), islands));
+    let mut engine = Duel::new(41, forest())
+        .battlefield(0, &lands)
+        .hand(0, &[llanowar_elves(), mental_misstep()])
+        .life(0, life)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, llanowar_elves());
+    assert!(on_stack(&engine, llanowar_elves()).is_some());
+    engine
+}
+
+fn misstep_is_offered(engine: &Engine<RegistryLookup>) -> bool {
+    let p0 = PlayerId::new(0);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("expected priority, got {:?}", engine.pending())
+    };
+    in_hand(engine, p0, mental_misstep()).is_some_and(|card| legal.castable.contains(&card))
+}
+
+fn aim_misstep_at_the_elves(engine: &mut Engine<RegistryLookup>) {
+    let p0 = PlayerId::new(0);
+    let elves = on_stack(engine, llanowar_elves()).expect("the Elves are on the stack");
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected the target question, got {:?}", engine.pending())
+    };
+    assert!(options.contains(&elves));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .unwrap();
+}
+
+/// Mental Misstep — `{U/P}`: "({U/P} can be paid with either {U} or 2
+/// life.) Counter target spell with mana value 1."
+///
+/// With no blue mana at all, the Phyrexian symbol is paid with 2 life
+/// (CR 107.4f): the spell is offered, nothing is asked (only one answer
+/// pays), the caster drops from 20 to 18, and the Elves are countered.
+/// Before the fix a spell's Phyrexian symbol could be paid only with its
+/// colour, so the offer left the Misstep out.
+#[test]
+fn mental_misstep_is_paid_with_two_life_when_no_blue_mana_is_there() {
+    let p0 = PlayerId::new(0);
+    let mut engine = misstep_board(20, 0);
+    assert!(misstep_is_offered(&engine), "two life pays for {{U/P}}");
+    cast_with_floating(&mut engine, p0, mental_misstep());
+    aim_misstep_at_the_elves(&mut engine);
+    assert_eq!(
+        engine.state().players[0].life,
+        18,
+        "2 life paid the {{U/P}}"
+    );
+    assert!(on_stack(&engine, mental_misstep()).is_some());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_none());
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+}
+
+/// CR 119.4: life can be paid only up to the life total. At 1 life with no
+/// blue mana the Misstep cannot be paid, so it is not offered; at exactly 2
+/// it is, and the payment takes the caster to 0.
+#[test]
+fn mental_misstep_needs_two_life_to_pay_its_phyrexian_symbol_with_life() {
+    let p0 = PlayerId::new(0);
+    let engine = misstep_board(1, 0);
+    assert!(!misstep_is_offered(&engine), "1 life cannot pay 2");
+
+    let mut engine = misstep_board(2, 0);
+    assert!(misstep_is_offered(&engine));
+    cast_with_floating(&mut engine, p0, mental_misstep());
+    aim_misstep_at_the_elves(&mut engine);
+    assert_eq!(engine.state().players[0].life, 0);
+}
+
+/// With blue mana floating and life to spare both answers pay, so the
+/// caster is asked (CR 601.2b announces it): yes keeps the Island's mana in
+/// the pool and costs 2 life, no spends the mana and keeps the life.
+#[test]
+fn mental_misstep_asks_life_or_mana_when_both_can_pay() {
+    let p0 = PlayerId::new(0);
+    for pay_life in [true, false] {
+        let mut engine = misstep_board(20, 1);
+        assert!(misstep_is_offered(&engine));
+        cast_with_floating(&mut engine, p0, mental_misstep());
+        let Pending::YesNo { prompt, source, .. } = engine.pending().clone() else {
+            panic!(
+                "expected the Phyrexian question, got {:?}",
+                engine.pending()
+            )
+        };
+        assert_eq!(prompt, crate::choice::YesNoPrompt::PayLife { amount: 2 });
+        assert_eq!(source.map(|s| s.card), Some(mental_misstep()));
+        engine.apply(p0, PlayerAction::YesNo(pay_life)).unwrap();
+        aim_misstep_at_the_elves(&mut engine);
+        let blue = engine.state().players[0]
+            .mana_pool
+            .available(baylee_core::mana::ManaColor::Blue);
+        if pay_life {
+            assert_eq!((engine.state().players[0].life, blue), (18, 1));
+        } else {
+            assert_eq!((engine.state().players[0].life, blue), (20, 0));
+        }
+    }
 }

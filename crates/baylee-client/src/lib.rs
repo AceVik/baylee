@@ -2751,9 +2751,23 @@ fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         );
         baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
     };
+    // A Phyrexian symbol the floating pool cannot pay in mana makes the
+    // engine offer the card for 2 life (CR 107.4f), and a click on it would
+    // then charge the life without a word. Where lands could pay the mana it
+    // stays reachable, so the click taps them first and the engine asks
+    // which way to pay (`manaplan` rule 2: life is the player's decision).
+    let life_only = |card: &baylee_view::HandObject| {
+        manasources::hand_cost(card).is_some_and(|cost| {
+            cost.phyrexian_count() > 0
+                && baylee_client_core::manaplan::plan(&cost, &pool, &[]).is_none()
+        })
+    };
     baylee_client_core::decision::hand(view)
         .iter()
-        .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
+        .filter(|card| {
+            (!legal.castable.contains(&card.id) || life_only(card))
+                && !legal.lands.contains(&card.id)
+        })
         // Types off the view, because those are the *projected* ones; flash
         // off the printed card, because a `HandObject` carries no keywords.
         .filter(|card| baylee_client_core::timing::allows(view, card.types, has_flash(card.card)))

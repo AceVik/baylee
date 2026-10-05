@@ -4,9 +4,10 @@
 //! over hybrid, two-or-color and snow choices. Payment is transactional.
 //! Phyrexian life is decided above this module and never here: an
 //! activation settles each symbol first (`ManaCost::with_phyrexian_settled`,
-//! asked by `Engine::start_activation`), so what reaches this module is mana;
-//! a spell's cast wizard does not offer the life yet, so a spell's Phyrexian
-//! symbol is paid with its colour.
+//! asked by `Engine::start_activation`) and a spell's cast wizard does the
+//! same at the head of its X stage (`Engine::ask_phyrexian`), so what
+//! reaches this module is mana; an unsettled Phyrexian symbol is paid with
+//! its colour.
 
 use baylee_core::mana::{ManaColor, ManaCost, ManaPool, ManaSpending, ManaSymbol};
 use smallvec::SmallVec;

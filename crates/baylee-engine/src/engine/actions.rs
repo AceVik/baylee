@@ -1442,6 +1442,20 @@ impl<L: CardLookup> Engine<L> {
                     }
                     return Ok(());
                 }
+                // Wizard path: a Phyrexian symbol, asked at the head of the
+                // X stage. Yes is 2 life, no its mana (CR 107.4f); nothing is
+                // paid yet, and the stage asks its next question.
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::XValue)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.phyrexian.push(answer);
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
                 // Wizard path: kicker yes/no.
                 if self
                     .cast_wizard

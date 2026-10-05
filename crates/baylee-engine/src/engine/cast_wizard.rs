@@ -106,6 +106,12 @@ pub(crate) struct CastWizard {
     /// Permanents chosen to pay the additional cost's sacrifices, one per
     /// asking part in the order the face prints them.
     pub sacrifices: SmallVec<[ObjectId; 1]>,
+    /// How each Phyrexian symbol of the chosen option's cost is paid, in the
+    /// cost's own order: `true` is 2 life, `false` its mana (CR 107.4f),
+    /// announced with the other costs (CR 601.2b) and charged as the cost
+    /// is paid (CR 601.2h). Asked at the head of the `XValue` stage, so
+    /// the X bound reads the settled cost.
+    pub phyrexian: SmallVec<[bool; 4]>,
     /// Current stage.
     pub stage: WizardStage,
     /// Options computed at start (kept for the Done stage).
@@ -162,7 +168,20 @@ impl CastWizard {
             .target_players
             .iter()
             .fold(0, |bits, p| bits | (1_u64 << p.get()));
-        hash.wrapping_mul(65_537).wrapping_add(seats)
+        // The Phyrexian answers, with their count so `[]` and `[false]`
+        // differ: each `true` is 2 life owed.
+        let phyrexian = self
+            .phyrexian
+            .iter()
+            .take(32)
+            .enumerate()
+            .fold(self.phyrexian.len() as u64, |bits, (i, life)| {
+                bits | (u64::from(*life) << (i + 8))
+            });
+        hash.wrapping_mul(65_537)
+            .wrapping_add(seats)
+            .wrapping_mul(31)
+            .wrapping_add(phyrexian)
     }
 }
 
@@ -268,6 +287,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             stage: WizardStage::ChooseMode,
             options,
             free: false,
@@ -324,6 +344,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             stage: WizardStage::Done,
             options: vec![CastModeDesc {
                 index: 0,
@@ -430,6 +451,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             // A miracle cost is paid "rather than its mana cost" (CR 702.94a),
             // which makes it an alternative cost, and an alternative cost
             // with an {X} in it announces X like any other (CR 107.3a) —
@@ -561,6 +583,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             // Straight past `XValue`, and deliberately: a spell cast paying
             // neither its mana cost nor an alternative cost with X in it has
             // exactly one legal X, which is 0 (CR 107.3b). A mode chosen
@@ -631,6 +654,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             // `XValue` asks nothing of a free wizard (CR 107.3b); from there
             // on it is every other cast.
             stage: if single {
@@ -689,6 +713,7 @@ impl<L: CardLookup> Engine<L> {
             escape_exiles: SmallVec::new(),
             convoke_taps: SmallVec::new(),
             sacrifices: SmallVec::new(),
+            phyrexian: SmallVec::new(),
             stage: WizardStage::XValue,
             options: vec![CastModeDesc {
                 index: 0,
@@ -1434,6 +1459,9 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             WizardStage::XValue => {
+                if let Some(asked) = self.ask_phyrexian(&wizard) {
+                    return asked;
+                }
                 // The chosen option's *printed* cost, and deliberately not
                 // `wizard_cost`: that one substitutes the chosen X into the
                 // cost, and the chosen X at this stage is still the zero the
@@ -1866,6 +1894,87 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// The Phyrexian question of the chosen option's cost, one symbol at a
+    /// time: CR 601.2b has the player announce, for each, whether they pay
+    /// 2 life or its coloured mana. Asked only where both answers still
+    /// leave a way to pay; where one does, it is taken without asking, and
+    /// where neither does the cast is refused. `None` once every symbol is
+    /// answered, or for a cast that pays no mana cost. The reader is
+    /// `casting::phyrexian_affordable`, the one the offer asked.
+    fn ask_phyrexian(&mut self, wizard: &CastWizard) -> Option<Result<(), EngineError>> {
+        if wizard.free {
+            return None;
+        }
+        let symbols =
+            usize::try_from(chosen_option_cost(wizard).phyrexian_count()).unwrap_or(usize::MAX);
+        if symbols == 0 || symbols > 8 || wizard.phyrexian.len() >= symbols {
+            return None;
+        }
+        let face = self.wizard_face(wizard);
+        let deferred = wizard.makes_mana_after_choices();
+        // The price with every Phyrexian symbol still as printed, at its
+        // lowest (X 0, no kicker yet), so the question never refuses an
+        // answer some later choice could pay.
+        let mut unsettled = wizard.clone();
+        unsettled.phyrexian.clear();
+        let price = wizard_total_cost(face, &unsettled);
+        let spendable =
+            casting::spendable_pool(&self.state, wizard.player, spend_for(wizard, face));
+        let pool = spendable
+            .as_ref()
+            .unwrap_or(&self.state.players[usize::from(wizard.player.get())].mana_pool);
+        let open = |settled: &[bool]| {
+            let life =
+                2 * i32::try_from(settled.iter().filter(|l| **l).count()).unwrap_or(i32::MAX);
+            self.state.can_pay_life(wizard.player, life)
+                && (deferred
+                    || casting::phyrexian_affordable(
+                        &self.state,
+                        wizard.player,
+                        pool,
+                        &price,
+                        settled,
+                    ))
+        };
+        let mut answers = wizard.phyrexian.clone();
+        let mut ask = false;
+        while answers.len() < symbols {
+            let mut with_life = answers.clone();
+            with_life.push(true);
+            let mut with_mana = answers.clone();
+            with_mana.push(false);
+            match (open(&with_life), open(&with_mana)) {
+                (true, true) => {
+                    ask = true;
+                    break;
+                }
+                (true, false) => answers.push(true),
+                (false, true) => answers.push(false),
+                (false, false) => {
+                    self.cast_wizard = None;
+                    return Some(Err(EngineError::IllegalAction("cannot pay the cost")));
+                }
+            }
+        }
+        let mut wizard = wizard.clone();
+        wizard.phyrexian = answers;
+        if ask {
+            let card = self.state.object(wizard.card).and_then(|o| o.card);
+            self.pending = Pending::YesNo {
+                player: wizard.player,
+                prompt: YesNoPrompt::PayLife { amount: 2 },
+                source: card.map(|c| {
+                    baylee_core::ids::AbilityRef::new(c.index, baylee_core::ids::AbilityRef::SPELL)
+                }),
+            };
+            self.cast_wizard = Some(wizard);
+            self.awaiting_answer = true;
+            return Some(Ok(()));
+        }
+        self.cast_wizard = Some(wizard);
+        Some(self.advance_cast_wizard())
+    }
+
     /// Opens the mana opportunity after choices fix the price (CR 601.2g).
     /// A miracle cannot float mana before its offer; a per-target increase
     /// likewise cannot be known until targets are chosen. Keep the wizard
@@ -2236,7 +2345,12 @@ impl<L: CardLookup> Engine<L> {
             );
             self.apply_spend_riders(player, wizard.card, &spent);
         }
-        // The mana is paid, so the rest of the cost may now be spent.
+        // The mana is paid, so the rest of the cost may now be spent: the
+        // Phyrexian symbols announced as life first (CR 107.4f, 119.4).
+        let owed_life = phyrexian_life(wizard);
+        if owed_life > 0 {
+            self.state.change_life(player, -owed_life, Cause::Cost);
+        }
         for &card in wizard.delve_exiles.iter().chain(&wizard.escape_exiles) {
             let _ = self.state.move_object(
                 card,
@@ -2667,8 +2781,35 @@ static SCRY_TWO: [baylee_cards_dsl::Effect; 1] = [baylee_cards_dsl::Effect::Scry
     amount: baylee_cards_dsl::Amount::Fixed(2),
 }];
 
+///
+/// Its Phyrexian symbols are settled once the cast has answered for them
+/// (`CastWizard::phyrexian`); before that they stand as printed, which the
+/// payment reads as their mana.
 fn wizard_cost(wizard: &CastWizard) -> ManaCost {
-    chosen_option_cost(wizard).with_x(wizard.x)
+    let printed = chosen_option_cost(wizard);
+    let printed = if wizard.phyrexian.is_empty() {
+        printed
+    } else {
+        printed.with_phyrexian_settled(phyrexian_life_mask(wizard))
+    };
+    printed.with_x(wizard.x)
+}
+
+/// The Phyrexian answers as the mask `ManaCost::with_phyrexian_settled`
+/// reads: bit `n` set is the `n`-th symbol paid with 2 life.
+fn phyrexian_life_mask(wizard: &CastWizard) -> u32 {
+    wizard
+        .phyrexian
+        .iter()
+        .take(32)
+        .enumerate()
+        .fold(0u32, |mask, (i, life)| mask | (u32::from(*life) << i))
+}
+
+/// The life the cast's Phyrexian answers owe: 2 for each paid with life
+/// (CR 107.4f).
+fn phyrexian_life(wizard: &CastWizard) -> i32 {
+    2 * i32::try_from(phyrexian_life_mask(wizard).count_ones()).unwrap_or(i32::MAX)
 }
 
 /// The whole mana cost this cast is about to pay: the chosen option with X

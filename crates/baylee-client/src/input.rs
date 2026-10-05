@@ -307,20 +307,10 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         duel.cast_menu = Some(menu);
         return Answer::Took;
     }
-    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
-        // A land plays on the click. See `one_click_land` below for the line
-        // that lets it and for what stays on the far side of that line.
-        if duel
-            .interaction
-            .as_ref()
-            .is_some_and(|i| i.plays_only_as_a_land(object))
-        {
-            duel.submit(action);
-        } else {
-            arm(duel, object, Deed::Play);
-        }
-        return Answer::Took;
-    }
+    // Reachable before castable: a card is both only when the engine offers
+    // it for Phyrexian life alone and lands could pay the mana instead
+    // (`reachable` in lib.rs), and then the lands are tapped first so the
+    // engine asks how to pay rather than taking the life.
     if duel.reachable.contains(&object)
         && let Some(plan) = crate::mana_for(duel, object)
     {
@@ -333,6 +323,20 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
                 then: crate::RunEnd::Cast,
             },
         );
+        return Answer::Took;
+    }
+    if let Some(action) = duel.interaction.as_ref().and_then(|i| i.play_card(object)) {
+        // A land plays on the click. See `one_click_land` below for the line
+        // that lets it and for what stays on the far side of that line.
+        if duel
+            .interaction
+            .as_ref()
+            .is_some_and(|i| i.plays_only_as_a_land(object))
+        {
+            duel.submit(action);
+        } else {
+            arm(duel, object, Deed::Play);
+        }
         return Answer::Took;
     }
     // Suspending is the fourth thing a card in hand can do, and it was the
