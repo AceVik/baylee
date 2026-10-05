@@ -5,6 +5,7 @@
 use super::*;
 
 mod cyclopean_tomb;
+mod legends;
 mod sunglasses_of_urza;
 mod time_vault;
 

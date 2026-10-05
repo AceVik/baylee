@@ -28,6 +28,8 @@ mod creatures;
 mod enchantments;
 mod instants;
 mod lands;
+mod legends_ids;
+mod legends_kit;
 mod planeswalkers;
 mod rules;
 mod sorceries;

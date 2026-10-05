@@ -5,6 +5,8 @@
 use super::*;
 use crate::choice::ChoicePrompt;
 
+mod legends_a;
+mod legends_b;
 mod nether_shadow;
 mod sengir_vampire;
 
