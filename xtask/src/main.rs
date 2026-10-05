@@ -5174,33 +5174,160 @@ fn field(body: &str, name: &str) -> anyhow::Result<String> {
         .ok_or_else(|| anyhow::anyhow!("no `{name}` in {body}"))
 }
 
-/// The acceptance file's deck, as the `POST /decks` body wants it.
-fn acceptance_deck(root: &Path, name: &str) -> anyhow::Result<serde_json::Value> {
-    let text = fs::read_to_string(root.join("data/acceptance-decks.txt"))?;
-    let rows = acceptance::parse_decks(&text).map_err(|e| anyhow::anyhow!("{e}"))?;
+/// The owner's play decks, which only a dev table reads: Moxfield rows with
+/// their printings, and cards the pool may not have. Kept out of
+/// `data/acceptance-decks.txt`, the suite `validate` holds the pool to.
+const DEV_DECKS: &str = "data/dev-decks.txt";
+
+/// A deck a dev table can play, from the acceptance file or the dev decks.
+struct TableDeck {
+    /// The `POST /decks` body.
+    body: serde_json::Value,
+    /// Whether it came from the acceptance file, which `baylee-seat
+    /// --acceptance` also reads.
+    acceptance: bool,
+    /// Cards the pool does not have, left out of the deck.
+    missing: Vec<String>,
+    /// Cards in the deck the pool has but does not play in full.
+    unfinished: Vec<String>,
+}
+
+impl TableDeck {
+    /// Says, without failing, what of the deck the table will not play as
+    /// printed.
+    fn report(&self, name: &str) {
+        if !self.missing.is_empty() {
+            println!(
+                "deck {name}: {} card(s) not in the pool, left out: {}",
+                self.missing.len(),
+                self.missing.join(", ")
+            );
+        }
+        if !self.unfinished.is_empty() {
+            println!(
+                "deck {name}: {} card(s) not fully implemented: {}",
+                self.unfinished.len(),
+                self.unfinished.join(", ")
+            );
+        }
+    }
+
+    /// The deck as Baylee text (`docs/deck-format.md`), for a bridge's
+    /// `--deck`.
+    fn text(&self) -> String {
+        let rows = |key: &str| -> Vec<String> {
+            self.body[key]
+                .as_array()
+                .map(|rows| {
+                    rows.iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(ToString::to_string)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        // The bridge reads the rows by name alone: a printing is the
+        // gateway's business, so the file names each card plainly.
+        let plain = |row: &str| match baylee_core::deckrow::parse(row) {
+            Ok(parsed) => format!("{} {}", parsed.count, parsed.name),
+            Err(_) => row.to_string(),
+        };
+        let mut out = format!(
+            "# baylee deck export v1\n# name: {}\n",
+            self.body["name"].as_str().unwrap_or("Deck")
+        );
+        if let Some(commander) = self.body["commander"].as_str() {
+            out += &["CMD: 1 ", commander, "\n"].concat();
+        }
+        for row in rows("cards") {
+            out += &plain(&row);
+            out.push('\n');
+        }
+        for row in rows("sideboard") {
+            out += &["SB: ", &plain(&row), "\n"].concat();
+        }
+        out
+    }
+}
+
+/// Every deck name a dev table can play: the acceptance decks, then the
+/// dev decks.
+fn table_deck_names(root: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    for file in ["data/acceptance-decks.txt", DEV_DECKS] {
+        let Ok(text) = fs::read_to_string(root.join(file)) else {
+            continue;
+        };
+        for name in baylee_cards::decks::acceptance_names(&text) {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    names
+}
+
+/// The deck `name`, as the `POST /decks` body wants it, from the acceptance
+/// file or else the dev decks.
+///
+/// A row's printing is kept (the gateway reads it); a card the pool does not
+/// have is left out and named in [`TableDeck::missing`], so a dev deck still
+/// sits down with what it can play.
+fn table_deck(root: &Path, name: &str) -> anyhow::Result<TableDeck> {
+    let mut found = None;
+    for (file, acceptance) in [("data/acceptance-decks.txt", true), (DEV_DECKS, false)] {
+        let Ok(text) = fs::read_to_string(root.join(file)) else {
+            continue;
+        };
+        let rows = acceptance::parse_decks(&text).map_err(|e| anyhow::anyhow!("{file}: {e}"))?;
+        let rows: Vec<_> = rows.into_iter().filter(|r| r.deck == name).collect();
+        if !rows.is_empty() {
+            found = Some((rows, acceptance));
+            break;
+        }
+    }
+    let Some((rows, acceptance)) = found else {
+        let known = table_deck_names(root).join(", ");
+        anyhow::bail!("no deck called `{name}` (there are: {known})");
+    };
     let mut main = Vec::new();
     let mut side = Vec::new();
     // `POST /decks` takes one commander by name, and takes it *beside* the
-    // rows — `LoadedDeck` seats a leader that has no row of its own. This used
-    // to drop the row entirely, under a comment saying the engine did not run
-    // the format; it has since, and the dev table was the one seat at a
-    // commander table playing without a commander.
+    // rows — `LoadedDeck` seats a leader that has no row of its own.
     let mut commander = None;
-    for row in rows.iter().filter(|r| r.deck == name) {
+    let mut missing = Vec::new();
+    let mut unfinished = Vec::new();
+    for row in &rows {
         let line = format!("{} {}", row.count, row.name);
+        let parsed = baylee_core::deckrow::parse(&line)
+            .map_err(|e| anyhow::anyhow!("deck {name}: `{line}`: {e:?}"))?;
+        let Some(index) = baylee_cards::decks::by_name(&parsed.name) else {
+            missing.push(parsed.name);
+            continue;
+        };
+        if baylee_cards::by_index(index)
+            .is_some_and(|def| !matches!(def.coverage, baylee_cards::dsl::Coverage::Implemented))
+        {
+            unfinished.push(parsed.name.clone());
+        }
         match row.zone {
             acceptance::Zone::Main => main.push(line),
             acceptance::Zone::Sideboard => side.push(line),
-            acceptance::Zone::Commander => commander = Some(row.name.clone()),
+            acceptance::Zone::Commander => commander = Some(parsed.name),
         }
     }
-    anyhow::ensure!(!main.is_empty(), "no deck called `{name}` in the file");
-    Ok(serde_json::json!({
-        "name": name,
-        "cards": main,
-        "sideboard": side,
-        "commander": commander,
-    }))
+    anyhow::ensure!(!main.is_empty(), "deck {name} has no card the pool plays");
+    Ok(TableDeck {
+        body: serde_json::json!({
+            "name": name,
+            "cards": main,
+            "sideboard": side,
+            "commander": commander,
+        }),
+        acceptance,
+        missing,
+        unfinished,
+    })
 }
 
 /// Arranges a room's chairs and starts it.
@@ -5354,11 +5481,14 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
 
     // A deck. The account survives between runs, so one is usually already
     // stored — and it is *rewritten* rather than reused, because
-    // `data/acceptance-decks.txt` is what a dev table is supposed to be
+    // the deck file (`data/acceptance-decks.txt` or `data/dev-decks.txt`) is
+    // what a dev table is supposed to be
     // playing. A deck saved by an older build simply stayed as it was, which
     // is how seat 0 kept sitting down at a commander table with no commander
     // for a while after the file had one.
-    let body = acceptance_deck(root, deck_name)?;
+    let deck = table_deck(root, deck_name)?;
+    deck.report(deck_name);
+    let body = deck.body;
     let decks: serde_json::Value =
         serde_json::from_str(&get(&agent, &format!("{gateway}/decks"), &token)?)?;
     let existing = decks.as_array().and_then(|list| {
@@ -5476,8 +5606,9 @@ fn seat_the_player(
     Ok(())
 }
 
-/// Starts `baylee-seat join` on the room, playing `mind` with the acceptance
-/// deck the dev account did not bring.
+/// Starts `baylee-seat join` on the room, playing `mind` with a deck the dev
+/// account did not bring: an acceptance deck by name, or a dev deck written
+/// out as a file the bridge reads (`--deck`).
 fn seat_bridge(
     root: &Path,
     gateway: &str,
@@ -5485,26 +5616,38 @@ fn seat_bridge(
     mind: &str,
     dev_deck: &str,
     index: usize,
-) -> std::io::Result<std::process::Child> {
+) -> anyhow::Result<std::process::Child> {
     let decks = ["Schwarzrand", "Euro-Highlander", "Allytifact", "Weltenbaum"];
     let available: Vec<&str> = decks.into_iter().filter(|&d| d != dev_deck).collect();
-    // The bridges take the acceptance decks the dev account did not bring,
-    // one after another.
+    // The bridges take the decks the dev account did not bring, one after
+    // another.
     let theirs = if available.is_empty() {
         decks[index % decks.len()]
     } else {
         available[index % available.len()]
     };
-
-    std::process::Command::new("cargo")
+    let deck = table_deck(root, theirs)?;
+    deck.report(theirs);
+    let mut command = std::process::Command::new("cargo");
+    command
         .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
         .args(bridge_mind(mind))
-        .args(["--gateway", gateway, "--acceptance", theirs])
+        .args(["--gateway", gateway]);
+    if deck.acceptance {
+        command.args(["--acceptance", theirs]);
+    } else {
+        let dir = root.join("target/dev-decks");
+        fs::create_dir_all(&dir)?;
+        let path = dir.join(format!("{theirs}.txt"));
+        fs::write(&path, deck.text())?;
+        command.arg("--deck").arg(path);
+    }
+    Ok(command
         .args(["--think-secs", "300"])
         .arg("--transcripts")
         .arg(root.join(BRIDGE_TRANSCRIPTS))
         .current_dir(root)
-        .spawn()
+        .spawn()?)
 }
 
 /// What tells a bridge its mind: `--profile <name>` for `profile:<name>`,
@@ -6990,6 +7133,51 @@ fn cross_read(root: &Path, scripts_dir: &Path, samples: usize) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
+    /// Every deck a dev table names is found in one of the two files; the
+    /// owner's play decks sit down with what the pool has, their printings
+    /// stripped in the file a bridge reads, and the acceptance decks lose
+    /// nothing.
+    #[test]
+    fn a_dev_table_finds_decks_in_both_files() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask lives in <workspace>/xtask");
+        let names = super::table_deck_names(root);
+        for name in [
+            "Allytifact",
+            "Victory",
+            "Euro-Highlander",
+            "Schwarzrand",
+            "Weltenbaum",
+        ] {
+            assert!(names.iter().any(|n| n == name), "{name} in {names:?}");
+            let deck = super::table_deck(root, name).unwrap();
+            let acceptance = name == "Allytifact" || name == "Victory";
+            assert_eq!(deck.acceptance, acceptance, "{name}");
+            if acceptance {
+                assert!(deck.missing.is_empty(), "{name}: {:?}", deck.missing);
+            }
+            let text = deck.text();
+            assert!(
+                !text.contains(" [de]") && !text.contains(" (IKO) "),
+                "{name}"
+            );
+            // The file a bridge gets is read whole, as `baylee-seat --deck`
+            // reads it.
+            let Ok(baylee_deckio::Import::Read { read, .. }) = baylee_deckio::import(&text) else {
+                panic!("{name}: the bridge's file does not read as a deck");
+            };
+            assert!(read.skipped.is_empty(), "{name}: {:?}", read.skipped);
+            let stored = read.document.stored();
+            assert_eq!(stored.name.as_deref(), Some(name));
+            assert_eq!(
+                !stored.commanders.is_empty(),
+                deck.body["commander"].is_string()
+            );
+        }
+        assert!(super::table_deck(root, "Nope").is_err());
+    }
+
     #[test]
     fn a_temporary_special_action_is_an_optional_offer() {
         let payload = serde_json::json!({
