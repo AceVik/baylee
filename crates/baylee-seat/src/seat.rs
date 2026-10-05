@@ -443,7 +443,8 @@ impl SeatCore {
         match result {
             Ok(answer) => {
                 self.failures = 0;
-                self.wake.apply_stops(answer.stops.as_deref(), answer.hold.as_ref());
+                self.wake
+                    .apply_stops(answer.stops.as_deref(), answer.hold.as_ref());
                 self.stats.model_ms = self.stats.model_ms.saturating_add(
                     u64::try_from(answer.model_time.as_millis()).unwrap_or(u64::MAX),
                 );
@@ -1014,6 +1015,15 @@ impl SeatCore {
             By::House => self.stats.answered.house += 1,
             By::Least => self.stats.answered.least += 1,
         }
+        let mut steps = Vec::new();
+        if by == By::Mind
+            && let Some(said) = self.reasoning(
+                answer.and_then(|a| a.note.as_deref()),
+                answer.and_then(|a| a.thinking.as_deref()),
+            )
+        {
+            steps.push(said);
+        }
         if by != By::Standing {
             self.note(
                 question,
@@ -1027,13 +1037,14 @@ impl SeatCore {
                 },
             );
         }
-        vec![Step::Answer {
+        steps.push(Step::Answer {
             question,
             envelope: action_envelope(self.context.as_deref(), &action),
             action,
             by,
             paced,
-        }]
+        });
+        steps
     }
 
     fn game_over(&mut self, result: GameResult) -> Vec<Step> {
@@ -1061,37 +1072,47 @@ impl SeatCore {
         steps
     }
 
-    fn note(&mut self, question: u64, event: Event) -> Option<Step> {
+    fn note(&mut self, question: u64, event: Event) {
         let view = self.memory.view();
         self.notes.push(Note {
             question,
             seq: self.memory.last_seq(),
             turn: view.map_or(0, |v| v.turn),
-            event: event.clone(),
+            event,
         });
-        
-        let (kind, note_str, reason, thinking) = match &event {
-            Event::Asked { kind: k, .. } => (format!("{:?}", k), String::new(), String::new(), String::new()),
-            Event::Answered { note: n, thinking: t, .. } => (String::new(), n.clone().unwrap_or_default(), String::new(), t.clone().unwrap_or_default()),
-            Event::Refused { reason: r, .. } => (String::new(), String::new(), r.clone(), String::new()),
-            _ => return None,
-        };
-        let event_type = match event {
-            Event::Asked { .. } => "asked",
-            Event::Answered { .. } => "answered",
-            Event::Refused { .. } => "refused",
-            _ => return None,
-        };
-        Some(Step::Send(Envelope {
-            msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
-                event: event_type.to_string(),
-                kind,
-                note: note_str,
-                reason,
-                json: String::new(),
-                thinking,
-            })),
-        }))
+    }
+
+    /// What the mind said beside an answer, for the teammates the table
+    /// shows this seat's hand to (`v1::AiLog`), or `None` when there is
+    /// nobody it could go to.
+    ///
+    /// A model's reasoning reads its whole view out loud — its hand, what it
+    /// scried — so it is never for the other side. The engine decides who
+    /// receives it, from the hand-sharing it already keeps (`docs/protocol.md`
+    /// §"An AI seat's reasoning"); the bridge only declines to send a frame
+    /// no seat could receive, which a seat on no team, or alone on its team,
+    /// is. Each one counts against the socket's rate like any frame.
+    fn reasoning(&self, note: Option<&str>, thinking: Option<&str>) -> Option<Step> {
+        if note.is_none() && thinking.is_none() {
+            return None;
+        }
+        let context = self.context.as_ref()?;
+        let me = usize::from(context.seat.get());
+        let team = context.teams.get(me).copied().flatten()?;
+        let mates = context
+            .teams
+            .iter()
+            .enumerate()
+            .any(|(seat, side)| seat != me && *side == Some(team));
+        mates.then(|| {
+            Step::Send(Envelope {
+                msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
+                    seat: 0,
+                    note: note.unwrap_or_default().to_owned(),
+                    thinking: thinking.unwrap_or_default().to_owned(),
+                })),
+            })
+        })
     }
 }
 

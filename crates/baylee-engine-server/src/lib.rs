@@ -766,18 +766,7 @@ impl EngineRunner {
                 },
             )],
             Some(v1::envelope::Msg::SeatReady(_)) => self.seat_ready(player),
-            Some(v1::envelope::Msg::AiLog(ai_log)) => {
-                let mut out = Vec::new();
-                for &target_seat in &self.attached {
-                    out.push(seat_frame(
-                        target_seat,
-                        &Envelope {
-                            msg: Some(v1::envelope::Msg::AiLog(ai_log.clone())),
-                        },
-                    ));
-                }
-                out
-            }
+            Some(v1::envelope::Msg::AiLog(ai_log)) => self.reasoning(player, ai_log),
             // Dropped rather than refused before the curtain is up (#256): no
             // seat has been asked anything, so a correct client has nothing
             // to answer, and a refusal would reach it as a failure.
@@ -837,6 +826,32 @@ impl EngineRunner {
             }
             _ => Vec::new(),
         }
+    }
+
+    /// Forwards what a seat's mind said (`v1::AiLog`) to the seats that may
+    /// read it, and drops it for every other.
+    ///
+    /// A model's reasoning reads its whole view out loud, so it goes exactly
+    /// where the sender's hand goes: to a teammate the table is showing that
+    /// hand to ([`Session::shows_hand`], CLAUDE.md "Hidden information and
+    /// seats"), never to the other side, never back to the sender, and to no
+    /// seat without a socket. The sender is stamped here, so a seat cannot
+    /// speak in another's name; nothing else in it is read. Not a move in the
+    /// game: no journal, no clock, no pump.
+    fn reasoning(&self, from: PlayerId, mut said: v1::AiLog) -> Vec<Envelope> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        said.seat = u32::from(from.get());
+        let envelope = Envelope {
+            msg: Some(v1::envelope::Msg::AiLog(said)),
+        };
+        self.attached
+            .iter()
+            .copied()
+            .filter(|&seat| seat != from.get() && session.shows_hand(from, PlayerId::new(seat)))
+            .map(|seat| seat_frame(seat, &envelope))
+            .collect()
     }
 
     /// Applies one action and routes everything it produced.
@@ -2709,5 +2724,74 @@ mod tests {
         let house: baylee_core::ids::SeatSet = [PlayerId::new(2)].into_iter().collect();
         let refused = set(&mut runner, 0, SeatSetting::ShareHand(house));
         assert_eq!(said(&refused), [(0, "error")]);
+    }
+
+    /// What a seat's mind said, wrapped the way its socket sends it.
+    fn reasoning_from(runner: &mut EngineRunner, seat: u32, claimed: u32) -> Vec<Envelope> {
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
+                note: r#"{"chose":"a1 Pass"}"#.to_string(),
+                thinking: "my hand is two Islands and a Counterspell".to_string(),
+                seat: claimed,
+            })),
+        };
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            &[],
+        )
+    }
+
+    /// Every `AiLog` in `out`: the seat it goes to, and the seat it names.
+    fn reasonings(out: &[Envelope]) -> Vec<(u32, u32)> {
+        frames(out)
+            .into_iter()
+            .filter_map(|(to, msg)| match msg {
+                v1::envelope::Msg::AiLog(said) => Some((to, said.seat)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A seat's reasoning is hidden information (CLAUDE.md "Hidden
+    /// information and seats"): it reads the seat's hand out loud. So it goes
+    /// where the hand goes and nowhere else — not to an opponent with a
+    /// socket, not to a teammate the hand is not shown to, not back to the
+    /// sender — and it names the seat that really sent it, whatever the
+    /// sender wrote.
+    #[test]
+    fn a_seats_reasoning_reaches_only_the_teammates_its_hand_is_shown_to() {
+        let mut preset = partners();
+        // The other side gets a socket too, so "not to an opponent" is a
+        // seat that could have been sent it.
+        preset.seats[2].controller = baylee_core::preset::SeatController::Open;
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &preset);
+        for seat in 0..3 {
+            sit(&mut runner, seat);
+        }
+
+        let hidden = reasoning_from(&mut runner, 0, 0);
+        assert_eq!(
+            reasonings(&hidden),
+            [],
+            "nobody is shown seat 0's hand, so nobody reads its mind"
+        );
+
+        let partner: baylee_core::ids::SeatSet = [PlayerId::new(1)].into_iter().collect();
+        set(&mut runner, 0, SeatSetting::ShareHand(partner));
+        let shared = reasoning_from(&mut runner, 0, 2);
+        assert_eq!(
+            reasonings(&shared),
+            [(1, 0)],
+            "the teammate shown the hand, alone, told it is seat 0's"
+        );
+
+        let opponent = reasoning_from(&mut runner, 2, 2);
+        assert_eq!(reasonings(&opponent), [], "a seat alone on its side");
     }
 }

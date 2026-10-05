@@ -1,20 +1,35 @@
-use bevy::prelude::*;
+//! The AI log: what a teammate's AI mind said beside its answers.
+//!
+//! The engine forwards a seat's reasoning (`v1::AiLog`) only to a teammate
+//! the table shows that seat's hand to (`docs/protocol.md` §"An AI seat's
+//! reasoning"), so whatever arrives here this seat was entitled to. The lines
+//! are worked out in `baylee_client_core::aisaid`; this draws them, in a
+//! panel beside the game log that opens from its own door in the tray. The
+//! door stands only once something has been said ([`Duel::ai_log_heard`]),
+//! so a table without an AI teammate shows no door to an empty panel.
+
 use super::*;
+use baylee_client_core::aisaid::{self, Kind};
 use baylee_protocol::v1;
 
 const LOG_PAD: f32 = 10.0;
-pub(in crate::hud) const LOG_H: f32 = 420.0;
+const LOG_H: f32 = 420.0;
+const LINE_PT: f32 = 13.0;
 
+/// The panel.
 #[derive(Component)]
 pub struct AiLogPanel;
 
+/// One reasoning the host passed on, for [`update_ai_log`] to draw.
 #[derive(Message, Clone)]
 pub struct AiLogEvent {
+    /// What arrived.
     pub log: v1::AiLog,
 }
 
-pub(in crate::hud) fn spawn(commands: &mut Commands, fonts: &Res<UiFonts>) -> Entity {
-    let id = commands
+/// Spawns the panel, hidden; [`update_ai_log`] shows it while it is open.
+pub(in crate::hud) fn spawn(commands: &mut Commands) -> Entity {
+    commands
         .spawn((
             AiLogPanel,
             Node {
@@ -36,89 +51,62 @@ pub(in crate::hud) fn spawn(commands: &mut Commands, fonts: &Res<UiFonts>) -> En
             Visibility::Hidden,
             bevy::ui::ScrollPosition::default(),
         ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("--- AI LOG START ---".to_string()),
-                super::tf(fonts, 14.0),
-                TextColor(Color::WHITE),
-                Node {
-                    margin: UiRect::all(px(4.0)),
-                    ..default()
-                },
-            ));
-        })
-        .id();
-    id
+        .id()
 }
 
+/// The ink a line is drawn in.
+fn ink(kind: Kind) -> Color {
+    match kind {
+        Kind::Head => palette::DIALOG_INK,
+        Kind::Thinking | Kind::Cost => palette::DIALOG_SOFT,
+        Kind::Chose | Kind::Say => palette::LEDGE_SOFT,
+    }
+}
+
+/// Shows or hides the panel, and appends each reasoning that arrived.
 pub fn update_ai_log(
     mut commands: Commands,
-    mut panel_query: Query<(Entity, &mut Visibility), With<AiLogPanel>>,
+    mut panels: Query<(Entity, &mut Visibility), With<AiLogPanel>>,
     fonts: Res<UiFonts>,
+    settings: Res<crate::settings::ClientSettings>,
     mut events: MessageReader<AiLogEvent>,
     duel: Res<Duel>,
 ) {
-    let mut new_lines = Vec::new();
-    for event in events.read() {
-        let ai_log = &event.log;
-        if ai_log.event == "asked" {
-            new_lines.push((Color::Srgba(bevy::color::palettes::css::ORANGE), format!("Prompt: {}", ai_log.kind)));
-        } else if ai_log.event == "answered" {
-            if !ai_log.thinking.is_empty() {
-                new_lines.push((Color::Srgba(bevy::color::palettes::css::GRAY), format!("Thinking:\n{}", ai_log.thinking)));
-            }
-            let note = &ai_log.note;
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(note) {
-                let chose = parsed.get("chose").and_then(|v| v.as_str()).unwrap_or("?");
-                let say = parsed.get("say").and_then(|v| v.as_str()).unwrap_or("");
-                let tokens = parsed.get("tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-                let ms = parsed.get("ms").and_then(|v| v.as_u64()).unwrap_or(0);
-                let time_sec = ms as f32 / 1000.0;
-                
-                new_lines.push((Color::Srgba(bevy::color::palettes::css::LIGHT_BLUE), format!("Action: {}", chose)));
-                if !say.is_empty() {
-                    new_lines.push((Color::WHITE, format!("\"{}\"", say)));
-                }
-                new_lines.push((Color::Srgba(bevy::color::palettes::css::DARK_GRAY), format!("({} tokens, {:.1}s)", tokens, time_sec)));
-            } else {
-                let note_trimmed = if note.len() > 100 { format!("{}...", &note[..100]) } else { note.to_string() };
-                new_lines.push((Color::Srgba(bevy::color::palettes::css::LIGHT_BLUE), format!("Answered: {}", note_trimmed)));
-            }
-        } else if ai_log.event == "refused" {
-            new_lines.push((Color::Srgba(bevy::color::palettes::css::RED), format!("Refused: {}", ai_log.reason)));
+    let lang = Lang::of(&settings.lang);
+    let lines: Vec<aisaid::Line> = events
+        .read()
+        .flat_map(|event| {
+            let seat = u8::try_from(event.log.seat).unwrap_or(u8::MAX);
+            let who = baylee_client_core::i18n::seat_name(
+                lang,
+                duel.statics.as_ref(),
+                PlayerId::new(seat),
+            );
+            aisaid::lines(lang, &who, &event.log.note, &event.log.thinking)
+        })
+        .collect();
+    let shown = if duel.ai_log_open {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for (panel, mut seen) in &mut panels {
+        if *seen != shown {
+            *seen = shown;
         }
-    }
-    
-    let mut count = 0;
-    for (panel, mut vis) in panel_query.iter_mut() {
-        count += 1;
-        let new_vis = if duel.ai_log_open {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
-        if *vis != new_vis {
-            println!("AiLogPanel visibility changed to: {:?}", new_vis);
-            *vis = new_vis;
-        }
-
-        for (color, text) in new_lines.iter() {
-            let row = commands.spawn((
-                Text::new(text.clone()),
-                super::tf(&fonts, 14.0),
-                TextColor(*color),
-                Node {
-                    margin: UiRect::all(px(4.0)),
-                    ..default()
-                },
-            )).id();
+        for line in &lines {
+            let row = commands
+                .spawn((
+                    Text::new(line.text.clone()),
+                    tf(&fonts, LINE_PT),
+                    TextColor(ink(line.kind)),
+                    Node {
+                        margin: UiRect::all(px(4.0)),
+                        ..default()
+                    },
+                ))
+                .id();
             commands.entity(panel).add_child(row);
         }
     }
-    
-    if count == 0 && duel.ai_log_open {
-        println!("WARNING: AiLog is open, but No AiLogPanel found!");
-    }
-
-
 }

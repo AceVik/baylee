@@ -401,7 +401,8 @@ impl Menu {
             }
             Ask::Arrange { cards, piles } => Self::arrange(decision, cards, piles),
             Ask::Nothing => Err("this question takes no answer".into()),
-        }.map(|mut resolved| {
+        }
+        .map(|mut resolved| {
             resolved.stops.clone_from(&decision.stops);
             resolved.hold.clone_from(&decision.hold);
             resolved

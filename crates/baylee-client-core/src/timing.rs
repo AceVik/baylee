@@ -66,7 +66,10 @@ pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
     if view.sorcery_lock.is_some() {
         return sorcery_window(view);
     }
-    types.contains(TypeSet::INSTANT) || flash || sorcery_window(view) || (view.sorceries_have_flash && types.contains(TypeSet::SORCERY))
+    types.contains(TypeSet::INSTANT)
+        || flash
+        || sorcery_window(view)
+        || (view.sorceries_have_flash && types.contains(TypeSet::SORCERY))
 }
 
 #[cfg(test)]

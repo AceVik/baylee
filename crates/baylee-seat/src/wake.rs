@@ -177,8 +177,14 @@ impl WakeFilter {
                         continue;
                     }
                     let keep = match side {
-                        RailSide::Mine => stops.mine.iter().any(|s| s.eq_ignore_ascii_case(row_id(row))),
-                        RailSide::Theirs => stops.theirs.iter().any(|s| s.eq_ignore_ascii_case(row_id(row))),
+                        RailSide::Mine => stops
+                            .mine
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
+                        RailSide::Theirs => stops
+                            .theirs
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
                     };
                     if !keep {
                         orders.toggle(side, row);
@@ -296,7 +302,8 @@ impl WakeFilter {
             phase: view.phase,
             step: view.step,
             opposing_stack,
-            offering, owing: view.owed.is_some(),
+            offering,
+            owing: view.owed.is_some(),
         };
         match automation::auto_answer(pending, at, &self.orders, &self.rules, None) {
             AutoAnswer::Pass => standing(PlayerAction::PassPriority, Standing::QuietWindow),

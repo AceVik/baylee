@@ -622,7 +622,9 @@ impl CliMind {
                 Reply::Gone(gone) => return Err(self.gone(&seat, request.view.turn, gone).await),
             };
             match read(value.as_ref(), &prepared.menu) {
-                Ok(read) => return Self::commit(&seat, request, prepared, read, usage, sent, said.clone()),
+                Ok(read) => {
+                    return Self::commit(&seat, request, prepared, read, usage, sent, said.clone());
+                }
                 Err(why) => {
                     let again = request
                         .budget

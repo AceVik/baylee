@@ -714,7 +714,9 @@ fn a_kicker_question_names_the_cost_and_what_an_unpaid_one_does() {
             entries: Vec::new(),
         },
     );
-    let text = Narrator::new(&request.context).wake(&request, &[], None).text;
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
     assert!(
         text.contains(
             "The spell: Spirit Water Revival: \"As an additional cost to cast this spell, you \
@@ -739,7 +741,7 @@ fn a_turn_trade_names_the_permanent_and_both_consequences() {
         source: None,
     };
     let request = request(view, pending, log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(
         wake.text
             .contains("Skip this turn to untap Time Vault #70?")

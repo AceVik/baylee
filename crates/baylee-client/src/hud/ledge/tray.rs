@@ -147,7 +147,10 @@ pub struct StripRevision {
     /// Whether the game log's panel is up (#262). Its button says so the
     /// way the zones button does.
     log: bool,
-    /// Whether the ai log's panel is up.
+    /// Whether the AI log's door stands at all: only once a teammate's AI
+    /// mind has said something ([`Duel::ai_log_heard`]).
+    ai_heard: bool,
+    /// Whether the AI log's panel is up.
     ai_log: bool,
 }
 
@@ -243,6 +246,7 @@ pub fn sync_tray_strip(
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
         log: duel.log_open,
+        ai_heard: duel.ai_log_heard,
         ai_log: duel.ai_log_open,
     };
     // The counter alone is not enough, and the reason is the same one
@@ -261,14 +265,20 @@ pub fn sync_tray_strip(
             commands.entity(*kid).despawn();
         }
     }
-    // The ai log's scroll first, then the log's scroll, then the zones.
-    let ai_log = ai_log_button(&mut commands, &fonts, next.ai_log);
-    let log = log_button(&mut commands, &fonts, next.log);
-    let zones = zone_button(&mut commands, &fonts, next.open, next.free);
-    commands.entity(strip).add_children(&[ai_log, log, zones]);
+    // The log's scroll first, so the zones stay the strip's right end: the
+    // sheet is put away into that button, and `zones_button_centre` counts
+    // it from the right margin. The AI log's door, when it stands, goes
+    // left of the scroll; `WIDTH` keeps room for it either way.
+    let mut doors = Vec::with_capacity(3);
+    if next.ai_heard {
+        doors.push(ai_log_button(&mut commands, &fonts, next.ai_log));
+    }
+    doors.push(log_button(&mut commands, &fonts, next.log));
+    doors.push(zone_button(&mut commands, &fonts, next.open, next.free));
+    commands.entity(strip).add_children(&doors);
 }
 
-/// The AI log's door.
+/// The AI log's door: what a teammate's AI mind said.
 fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
@@ -548,14 +558,38 @@ mod tests {
             .collect();
         assert_eq!(
             kids.len(),
-            3,
-            "the strip holds the ai log's door, the log's door, and the zones"
+            2,
+            "the strip holds the log's door and the zones"
         );
         assert!(
             app.world()
-                .get::<MenuButton>(kids[1])
+                .get::<MenuButton>(kids[0])
                 .is_some_and(|b| b.action == MenuAction::ToggleLog),
-            "the second button is not the log's"
+            "the first button is not the log's"
+        );
+        assert!(
+            app.world().get::<TrayZones>(kids[1]).is_some(),
+            "the zones are not the strip's right end"
+        );
+
+        // A teammate's AI mind has spoken: its door stands left of the
+        // scroll, and the zones are still the right end.
+        app.world_mut().resource_mut::<Duel>().ai_log_heard = true;
+        app.update();
+        let kids: Vec<Entity> = app
+            .world()
+            .get::<Children>(strip)
+            .expect("the strip was filled")
+            .iter()
+            .collect();
+        let actions: Vec<Option<MenuAction>> = kids
+            .iter()
+            .map(|kid| app.world().get::<MenuButton>(*kid).map(|b| b.action))
+            .collect();
+        assert_eq!(
+            actions[..2],
+            [Some(MenuAction::ToggleAiLog), Some(MenuAction::ToggleLog)],
+            "the AI log's door, then the log's"
         );
         assert!(
             app.world().get::<TrayZones>(kids[2]).is_some(),

@@ -692,7 +692,10 @@ pub fn auto_answer(
         // hand full of spells and a board full of untapped lands, which is
         // the commonest board there is.
         Pending::Priority { legal, .. }
-            if rules.pass_when_nothing_to_do && !at.offering && !at.owing && nothing_to_do(legal) =>
+            if rules.pass_when_nothing_to_do
+                && !at.offering
+                && !at.owing
+                && nothing_to_do(legal) =>
         {
             AutoAnswer::Pass
         }
@@ -801,7 +804,7 @@ mod tests {
             phase,
             step,
             opposing_stack: false,
-            offering: false, owing: false,
+            offering: false,
             owing: false,
         }
     }

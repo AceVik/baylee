@@ -37,6 +37,7 @@
 
 pub mod abilitysheet;
 pub mod airborne;
+pub mod aisaid;
 pub mod annotations;
 pub mod arrange;
 pub mod atmosphere;

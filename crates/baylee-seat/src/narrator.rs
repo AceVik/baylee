@@ -141,7 +141,12 @@ impl Narrator {
     /// Tells `request` as one message. `notes` are the mind's own lines
     /// (a late answer, a plan that stopped), said under the header.
     #[must_use]
-    pub fn wake(&mut self, request: &Request, notes: &[String], stops_summary: Option<&str>) -> Wake {
+    pub fn wake(
+        &mut self,
+        request: &Request,
+        notes: &[String],
+        stops_summary: Option<&str>,
+    ) -> Wake {
         let table = Table::new(&request.view, &request.context);
         let mut text = String::new();
         let headline = table.headline(request);

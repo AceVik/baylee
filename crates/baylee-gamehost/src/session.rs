@@ -618,7 +618,12 @@ impl Session {
     }
 
     /// Whether `owner`'s hand is shown to `viewer` right now.
-    fn shows_hand(&self, owner: PlayerId, viewer: PlayerId) -> bool {
+    ///
+    /// Public because it is also who may read what `owner`'s mind said
+    /// (`v1::AiLog`): the engine-server forwards a seat's reasoning only
+    /// where this holds, so it reaches no seat the hand would not.
+    #[must_use]
+    pub fn shows_hand(&self, owner: PlayerId, viewer: PlayerId) -> bool {
         self.seated(owner)
             && self.teammates(owner).contains(viewer)
             && self.may_be_shown(viewer)

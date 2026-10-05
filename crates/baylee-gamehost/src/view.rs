@@ -1349,15 +1349,10 @@ pub fn player_view(
                 ) && state.is_opponent(fx.controller, seat)
             })
             .and_then(|fx| fx.source),
-        sorceries_have_flash: state
-            .effects
-            .iter()
-            .any(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::SorceriesHaveFlash
-                ) && fx.controller == seat
-            }),
+        sorceries_have_flash: state.effects.iter().any(|fx| {
+            matches!(fx.modifier, baylee_cards_dsl::Modifier::SorceriesHaveFlash)
+                && fx.controller == seat
+        }),
     }
 }
 

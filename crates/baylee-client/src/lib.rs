@@ -734,6 +734,9 @@ pub struct Duel {
     pub log_open: bool,
     /// Whether the AI log's panel is open.
     pub ai_log_open: bool,
+    /// Whether a teammate's AI mind has said anything this game: the AI
+    /// log's door stands in the tray only from then on.
+    pub ai_log_heard: bool,
     /// The tap that has been made and not sent — see [`Armed`].
     ///
     /// Deliberately *not* cleared when a choice arrives: `pump` hands the
@@ -1872,7 +1875,6 @@ fn poll_host(
     mut reports: MessageWriter<DuelReport>,
     mut journey: Option<ResMut<arrival::Journey>>,
     mut ai_log_events: MessageWriter<hud::AiLogEvent>,
-
     time: Option<Res<Time<Real>>>,
 ) {
     let Some(mut host) = host else {
@@ -1924,7 +1926,10 @@ fn poll_host(
                 }
             }
             HostMessage::Curtain => duel.curtain_up = true,
-            HostMessage::AiLog(ai_log) => { ai_log_events.write(hud::AiLogEvent { log: ai_log }); },
+            HostMessage::AiLog(ai_log) => {
+                duel.ai_log_heard = true;
+                ai_log_events.write(hud::AiLogEvent { log: ai_log });
+            }
 
             HostMessage::Preparing {
                 ready,

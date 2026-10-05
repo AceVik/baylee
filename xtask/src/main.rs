@@ -5407,11 +5407,17 @@ fn dev_table(root: &Path, gateway: &str, spec: &TableSpec<'_>, play: bool) -> an
                 let child = seat_bridge(root, gateway, &game_id, mind, deck_name, i)?;
                 bridge_processes.push(child);
             }
-            if !bridge_processes.is_empty() {
-                wait_for_bridge(&agent, gateway, &token, &game_id, bridge_processes.last_mut().unwrap())
-            } else {
-                Ok(())
+            if bridge_processes.is_empty() {
+                return Ok(());
             }
+            wait_for_bridges(
+                &agent,
+                gateway,
+                &token,
+                &game_id,
+                &bridge_chairs,
+                &mut bridge_processes,
+            )
         },
     )?;
 
@@ -5469,9 +5475,6 @@ fn seat_the_player(
     Ok(())
 }
 
-/// The chair a dev table's bridge takes.
-const BRIDGE_CHAIR: usize = 1;
-
 /// Starts `baylee-seat join` on the room, playing `mind` with the acceptance
 /// deck the dev account did not bring.
 fn seat_bridge(
@@ -5484,14 +5487,14 @@ fn seat_bridge(
 ) -> std::io::Result<std::process::Child> {
     let decks = ["Schwarzrand", "Euro-Highlander", "Allytifact", "Weltenbaum"];
     let available: Vec<&str> = decks.into_iter().filter(|&d| d != dev_deck).collect();
-    // Since there are only 2 decks total, if available has 1, just use that.
-    // We alternate if there are multiple.
+    // The bridges take the acceptance decks the dev account did not bring,
+    // one after another.
     let theirs = if available.is_empty() {
         decks[index % decks.len()]
     } else {
         available[index % available.len()]
     };
-    
+
     std::process::Command::new("cargo")
         .args(["run", "-q", "-p", "baylee-seat", "--", "join", game_id])
         .args(bridge_mind(mind))
@@ -5522,27 +5525,34 @@ const BRIDGE_TRANSCRIPTS: &str = "target/seat-transcripts";
 /// build it on a cold target.
 const BRIDGE_PATIENCE: std::time::Duration = std::time::Duration::from_mins(15);
 
-/// Waits until the bridge has taken its chair and said ready, as the room's
-/// listing shows it to the host.
-fn wait_for_bridge(
+/// Waits until every bridge has taken a chair and said ready, as the room's
+/// listing shows it to the host. The bridges race for the open chairs, so
+/// which one sits where is theirs to settle; what is waited for is that all
+/// of `chairs` are taken and ready.
+fn wait_for_bridges(
     agent: &ureq::Agent,
     gateway: &str,
     token: &str,
     game_id: &str,
-    child: &mut std::process::Child,
+    chairs: &[usize],
+    children: &mut [std::process::Child],
 ) -> anyhow::Result<()> {
     let deadline = std::time::Instant::now() + BRIDGE_PATIENCE;
     loop {
-        if let Some(status) = child.try_wait()? {
-            anyhow::bail!("the bridge exited with {status} before it sat down");
+        for child in children.iter_mut() {
+            if let Some(status) = child.try_wait()? {
+                anyhow::bail!("a bridge exited with {status} before it sat down");
+            }
         }
         let body = get(agent, &format!("{gateway}/lobby/games?q={game_id}"), token)?;
         let listing: serde_json::Value = serde_json::from_str(&body)?;
         let seated = listing["games"].as_array().is_some_and(|games| {
             games.iter().filter(|g| g["id"] == game_id).any(|g| {
                 g["seats"].as_array().is_some_and(|seats| {
-                    seats.iter().any(|s| {
-                        s["seat"] == BRIDGE_CHAIR && s["taken"] == true && s["ready"] == true
+                    chairs.iter().all(|chair| {
+                        seats.iter().any(|s| {
+                            s["seat"] == *chair && s["taken"] == true && s["ready"] == true
+                        })
                     })
                 })
             })
@@ -5552,7 +5562,7 @@ fn wait_for_bridge(
         }
         anyhow::ensure!(
             std::time::Instant::now() < deadline,
-            "the bridge did not sit down within {BRIDGE_PATIENCE:?}"
+            "the bridges did not sit down within {BRIDGE_PATIENCE:?}"
         );
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
@@ -7405,7 +7415,7 @@ mod tests {
             2,
             "expert",
             &[],
-            None,
+            &[],
             || Ok(()),
         )
         .unwrap();
@@ -7445,7 +7455,7 @@ mod tests {
             3,
             "expert",
             &[],
-            Some(1),
+            &[1],
             || {
                 requests_before_start.set(Some(()));
                 Ok(())
@@ -7486,7 +7496,7 @@ mod tests {
             3,
             "expert",
             &[],
-            Some(1),
+            &[1],
             || Err(anyhow::anyhow!("the bridge did not sit down")),
         )
         .expect_err("no start without the bridge");

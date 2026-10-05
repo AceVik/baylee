@@ -177,6 +177,7 @@ impl ViewBuilder {
                 owed: None,
                 targeting: None,
                 sorcery_lock: None,
+                sorceries_have_flash: false,
             },
         }
     }

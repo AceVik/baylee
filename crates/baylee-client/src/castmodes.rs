@@ -143,7 +143,7 @@ pub fn reachable_modes(
     {
         offer(CastModeKind::Normal, face.mana_cost);
     }
-    
+
     if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
         .abilities_for_face(0)
         .iter()

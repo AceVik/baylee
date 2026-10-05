@@ -2993,10 +2993,7 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // and the renderer reads it rather than owning it.
         MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
         MenuAction::ToggleLog => duel.log_open = !duel.log_open,
-        MenuAction::ToggleAiLog => {
-            duel.ai_log_open = !duel.ai_log_open;
-            println!("ToggleAiLog clicked, ai_log_open: {}", duel.ai_log_open);
-        }
+        MenuAction::ToggleAiLog => duel.ai_log_open = !duel.ai_log_open,
         MenuAction::Report => duel.report_asked = true,
         // Two presses, because there is no undo behind this one. The panel
         // stays open between them — nothing here closes it — which is the
