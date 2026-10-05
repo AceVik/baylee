@@ -434,6 +434,27 @@ message Envelope {
     // decodes either as an envelope with no message and passes over it.
     FlushRecord flush_record = 31;
     RecordFlushed record_flushed = 32;
+    // Seat → engine → seat: what an AI seat's mind
+    // said beside an answer. The engine forwards it only to the sender's
+    // teammates that are shown the sender's hand (docs/protocol.md §"An AI
+    // seat's reasoning"); it never reaches the other side.
+    AiLog ai_log = 33;
   }
 
+}
+
+// What an AI seat's mind said beside an answer. A model's reasoning reads
+// its whole view out loud, so it is hidden information: the engine forwards
+// it to a seat only while the table shows that seat the sender's hand, and
+// drops it otherwise.
+message AiLog {
+  reserved 1, 2, 4, 5;
+  reserved "event", "kind", "reason", "json";
+  // The note the mind wrote beside its answer (JSON: chose, say, tokens, ms).
+  string note = 3;
+  // The model's reasoning, when it gave one.
+  string thinking = 6;
+  // The seat that said it. Written by the engine on the way out; whatever a
+  // sender puts here is overwritten.
+  uint32 seat = 7;
 }

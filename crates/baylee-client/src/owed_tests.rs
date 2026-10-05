@@ -204,3 +204,70 @@ fn the_plan_survives_either_edge_arriving_last() {
     duel.receive_view(view);
     assert!(duel.owed_plan.is_some(), "pending then view");
 }
+
+/// "Pay" in a payment window taps what is still owed and only then settles
+/// it: the engine hears the tap first and the pass after the mana is up, so
+/// a miracle is cast with its cost floating and not passed away short.
+#[test]
+fn paying_taps_what_is_owed_and_then_settles_the_window() {
+    let mut duel = seat_with_two_forests(Some(ManaCost::parse("{1}")));
+    assert!(duel.paying(), "a window owing {{1}} is a payment window");
+    assert!(duel.pay_owed(), "a plan stood, so paying starts a run");
+    let first = duel.take_outbox();
+    assert!(
+        matches!(first.as_slice(), [PlayerAction::ActivateManaAbility { .. }]),
+        "the tap goes first, alone: {first:?}"
+    );
+
+    // The engine answers: the Forest's mana floats, the window is still open.
+    let mut view = duel.view.clone().expect("the view");
+    view.seats[0].mana_pool.green = 1;
+    duel.receive_view(view);
+    duel.receive_choice(Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::new(LegalActions {
+            can_pass: true,
+            ..LegalActions::default()
+        }),
+    });
+    crate::advance_mana_run(&mut duel);
+    assert_eq!(
+        duel.take_outbox(),
+        [PlayerAction::PassPriority],
+        "with the mana up, the window is settled"
+    );
+    assert!(duel.mana_run.is_none(), "and the run is over");
+}
+
+/// Mana the player tapped by hand counts: with the pool already paying,
+/// there is nothing left to tap, so paying is the plain pass, and nothing
+/// the player floated is tapped for twice.
+#[test]
+fn a_window_the_pool_already_pays_is_settled_without_a_tap() {
+    let mut duel = seat_with_two_forests(None);
+    let mut view = duel.view.clone().expect("the view");
+    view.owed = Some(baylee_core::mana::ManaPayment::Fixed(ManaCost::parse(
+        "{1}",
+    )));
+    view.seats[0].mana_pool.green = 1;
+    duel.receive_view(view);
+    assert!(duel.paying());
+    assert!(
+        duel.owed_plan
+            .as_ref()
+            .is_some_and(baylee_client_core::manaplan::Plan::is_empty),
+        "the plan is for the remainder, and nothing remains"
+    );
+    assert!(!duel.pay_owed(), "nothing to tap: the confirm passes");
+    assert!(duel.take_outbox().is_empty());
+}
+
+/// Paying is only for the window: a quiet window over the same lands starts
+/// no run, and its confirm is the ordinary pass.
+#[test]
+fn outside_a_payment_window_paying_does_nothing() {
+    let mut duel = seat_with_two_forests(None);
+    assert!(!duel.paying());
+    assert!(!duel.pay_owed());
+    assert!(duel.mana_run.is_none() && duel.take_outbox().is_empty());
+}

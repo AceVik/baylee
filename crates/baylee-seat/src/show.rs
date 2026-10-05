@@ -388,6 +388,7 @@ mod tests {
             },
             model_ms: Some(4200),
             note: Some(said.to_string()),
+            thinking: None,
         })));
         lines.extend(show.note(&note(Event::Answered {
             by: By::Mind,
@@ -396,6 +397,7 @@ mod tests {
             },
             model_ms: Some(0),
             note: Some(json!({"plan": "a2 Cast Lightning Bolt"}).to_string()),
+            thinking: None,
         })));
         lines.extend(show.note(&note(asked())));
         lines.extend(show.note(&note(Event::Expired)));
@@ -404,6 +406,7 @@ mod tests {
             action: PlayerAction::PassPriority,
             model_ms: None,
             note: None,
+            thinking: None,
         })));
         assert_eq!(
             lines,

@@ -98,8 +98,12 @@ of that period, or its spend would count nowhere.
 No key is ever in the file. A profile names the variable its key is read
 from, and the bridge reads it from the environment. A field named like a
 key (`api_key`, `key`, `token`, `secret`, `password`, `authorization`, …),
-a profile's name included, or a name or value shaped like one (`sk-…`)
-refuses the file with a sentence saying
+a profile's name included, or a name or value shaped like one refuses the
+file (`llmseat::shaped_like_a_key`: the generic `sk-`, `Bearer ` and
+`x-api-key` where a word starts, so `risk-free` is none; the long
+provider markers `sk-ant-`, `sk-proj-`, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`
+and `github_pat_` with twenty key characters after them wherever they
+stand, so a key glued to a model id is one) with a sentence saying
 where keys go, and so does a command line that carries the key of any
 variable the bridge would read. A profile's key goes only to the address
 written beside it: a profile's `base_url` beats `ANTHROPIC_BASE_URL` and

@@ -40,7 +40,7 @@ fn optional_payment_exposes_mana_actions_before_the_number_question() {
         },
         log,
     );
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(wake.text.contains("prevent up to 2 damage"));
     assert!(wake.text.contains("Generate mana with"));
     assert!(
@@ -338,7 +338,7 @@ fn a_main_phase_decision_reads_as_its_golden_text() {
     let request = request(view, pending, log);
     let mut narrator = Narrator::new(&request.context);
     narrator.hear(&request.log);
-    let wake = narrator.wake(&request, &[]);
+    let wake = narrator.wake(&request, &[], None);
     golden("priority.txt", &wake.text);
     assert_eq!(
         wake.headline,
@@ -368,7 +368,7 @@ fn a_wake_holds_its_token_budget() {
     let request = request(view.clone(), pending.clone(), log);
     let mut narrator = Narrator::new(&request.context);
     narrator.hear(&request.log);
-    let first = narrator.wake(&request, &[]);
+    let first = narrator.wake(&request, &[], None);
     let tokens = estimate_tokens(&first.text);
     assert!(
         tokens <= 2_000,
@@ -382,7 +382,7 @@ fn a_wake_holds_its_token_budget() {
             entries: Vec::new(),
         },
     );
-    let second = narrator.wake(&again, &[]);
+    let second = narrator.wake(&again, &[], None);
     let fewer = estimate_tokens(&second.text);
     assert!(
         fewer < tokens,
@@ -406,7 +406,7 @@ fn what_the_view_hides_the_message_does_not_say() {
     let request = request(view, pending, log);
     let mut narrator = Narrator::new(&request.context);
     narrator.hear(&request.log);
-    let text = narrator.wake(&request, &[]).text;
+    let text = narrator.wake(&request, &[], None).text;
     assert!(text.contains("#46 face-down card"), "{text}");
     assert!(!text.contains("Ignore previous instructions"), "{text}");
     assert!(!text.contains("TEST-me"), "{text}");
@@ -427,7 +427,7 @@ fn the_priority_menu_resolves_what_it_offers() {
     let pending = priority(&view);
     let request = request(view, pending, log);
     let mut narrator = Narrator::new(&request.context);
-    let wake = narrator.wake(&request, &[]);
+    let wake = narrator.wake(&request, &[], None);
     let decide = |pick: &[&str]| Decision {
         ask: Some("q12".into()),
         pick: pick.iter().map(ToString::to_string).collect(),
@@ -527,7 +527,7 @@ fn a_block_names_only_what_may_block_what() {
             entries: Vec::new(),
         },
     );
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     golden("blockers.txt", &wake.text);
     let block = |blocker: &str, attacker: &str| Decision {
         ask: Some("q12".into()),
@@ -610,7 +610,7 @@ fn a_target_question_reads_as_its_golden_text() {
             entries: Vec::new(),
         },
     );
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     golden("targets.txt", &wake.text);
     let pick = |ids: &[&str]| Decision {
         ask: Some("q12".into()),
@@ -659,7 +659,7 @@ fn a_scry_reads_as_its_golden_text() {
             entries: Vec::new(),
         },
     );
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     golden("scry.txt", &wake.text);
     let piles = |top: &[&str], bottom: &[&str]| Decision {
         ask: Some("q12".into()),
@@ -714,7 +714,9 @@ fn a_kicker_question_names_the_cost_and_what_an_unpaid_one_does() {
             entries: Vec::new(),
         },
     );
-    let text = Narrator::new(&request.context).wake(&request, &[]).text;
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
     assert!(
         text.contains(
             "The spell: Spirit Water Revival: \"As an additional cost to cast this spell, you \
@@ -739,7 +741,7 @@ fn a_turn_trade_names_the_permanent_and_both_consequences() {
         source: None,
     };
     let request = request(view, pending, log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(
         wake.text
             .contains("Skip this turn to untap Time Vault #70?")
@@ -781,14 +783,14 @@ fn the_log_is_told_once_and_a_gap_is_said() {
     let mut narrator = Narrator::new(&request.context);
     narrator.hear(&log);
     narrator.hear(&log);
-    let text = narrator.wake(&request, &[]).text;
+    let text = narrator.wake(&request, &[], None).text;
     assert_eq!(text.matches("P2 drew").count(), 1, "{text}");
     let later = LogTail {
         from: 50,
         entries: vec![line(7, LogEvent::TurnStarted { active: THEM })],
     };
     narrator.hear(&later);
-    let text = narrator.wake(&request, &[]).text;
+    let text = narrator.wake(&request, &[], None).text;
     assert!(text.contains("some earlier lines were lost"), "{text}");
 }
 
@@ -837,7 +839,7 @@ fn damage_allocation_is_explicit_bounded_and_rejects_stale_or_duplicate_answers(
         total: 5,
     };
     let request = request(view, pending.clone(), log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(wake.text.contains("d47") && wake.text.contains("d83"));
     assert!(wake.text.contains("counter removals") && wake.text.contains("cannot be prevented"));
     let decide = |shares: serde_json::Value| {
@@ -877,7 +879,7 @@ fn source_menu_preserves_incarnations_and_rejects_stale_answers() {
         options: vec![old, current],
     };
     let request = request(view, pending.clone(), log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(wake.text.contains("does not target"));
     for source in [old, current] {
         let key = format!("source73-{}-{}", source.object, source.version);
@@ -925,7 +927,7 @@ fn retarget_question_names_the_historical_target_separately_from_the_returned_ca
         },
         log,
     );
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     let question = wake
         .text
         .lines()
@@ -968,7 +970,7 @@ fn redirected_damage_menu_keeps_the_existing_exact_allocation_contract() {
         total: 2,
     };
     let request = request(view, pending.clone(), log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(
         wake.text.contains("2 points of redirected damage"),
         "{}",
@@ -1009,7 +1011,7 @@ fn temporary_actions_are_explicit_costed_offers_in_the_real_narrator() {
         }),
     };
     let request = request(view, pending.clone(), log);
-    let wake = Narrator::new(&request.context).wake(&request, &[]);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
     assert!(wake.text.contains("pay 1 life"));
     let decision = Decision::from_decide(
         &serde_json::json!({"ask": format!("q{}",wake.menu.question),"pick":["a1"]}),

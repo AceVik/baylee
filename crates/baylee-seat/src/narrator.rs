@@ -44,7 +44,7 @@ mod board;
 mod menu;
 mod words;
 
-pub use menu::{Act, Decision, Hint, Menu, Resolved, tap};
+pub use menu::{Act, Decision, Hint, Menu, Resolved, Stops, tap};
 pub use words::{KEYWORDS, color_name};
 
 use crate::mind::{GameContext, Request};
@@ -141,11 +141,16 @@ impl Narrator {
     /// Tells `request` as one message. `notes` are the mind's own lines
     /// (a late answer, a plan that stopped), said under the header.
     #[must_use]
-    pub fn wake(&mut self, request: &Request, notes: &[String]) -> Wake {
+    pub fn wake(
+        &mut self,
+        request: &Request,
+        notes: &[String],
+        stops_summary: Option<&str>,
+    ) -> Wake {
         let table = Table::new(&request.view, &request.context);
         let mut text = String::new();
         let headline = table.headline(request);
-        let _ = writeln!(text, "{}", table.header(request));
+        let _ = writeln!(text, "{}", table.header(request, stops_summary));
         for note in notes {
             let _ = writeln!(text, "{note}");
         }
@@ -543,18 +548,23 @@ impl<'a> Table<'a> {
         )
     }
 
-    fn header(&self, request: &Request) -> String {
+    fn header(&self, request: &Request, stops_summary: Option<&str>) -> String {
         let secs = request.budget.as_secs();
         let clock = self.view.decision_remaining_ms.map_or_else(
             || "no table clock".to_string(),
             |ms| format!("table clock {} s", ms / 1000),
         );
-        format!(
+        let mut text = format!(
             "DECISION q{} · {} · {} · answer within {secs} s ({clock})",
             request.question,
             self.turn(),
             words::step_name(self.view.phase, self.view.step),
-        )
+        );
+        if let Some(stops) = stops_summary {
+            text.push_str(" · ");
+            text.push_str(stops);
+        }
+        text
     }
 
     fn headline(&self, request: &Request) -> String {

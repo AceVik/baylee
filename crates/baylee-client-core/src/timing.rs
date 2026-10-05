@@ -19,16 +19,12 @@
 //! `{2}{U}` static puts an opponent's every spell back to sorcery speed, and
 //! **the view carries it** — `PlayerView::sorcery_lock`, the permanent
 //! itself, since `VIEW_VERSION` 18 — so [`allows`] asks for it rather than
-//! guessing. His +1, which gives its controller's sorceries flash, is read
-//! off `GameState` by the engine and is projected nowhere.
+//! guessing. His +1, which gives its controller's sorceries flash, is also
+//! read off `GameState` by the engine and projected via `sorceries_have_flash`.
 //!
-//! What is left is therefore one effect and not two, and this module stays
-//! *conservative in the direction that costs the player nothing they cannot
-//! get back*: with sorceries-have-flash running, a sorcery simply is not lit
-//! until its mana is floating, and the player taps the lands themselves. The
-//! opposite mistake is the one that spends a turn, which is what the lock
-//! used to cost before it was read — the instant was lit, the click armed a
-//! mana run, the lands tapped, and the engine refused the cast.
+//! Because the view now carries both, the client correctly lights up sorceries
+//! at instant speed when the +1 is active, avoiding the frustration of having
+//! to manually float mana for the engine to allow the cast.
 
 use baylee_core::types::TypeSet;
 use baylee_view::{Phase, PlayerView};
@@ -53,7 +49,7 @@ pub fn sorcery_window(view: &PlayerView) -> bool {
 /// view has no reason to grow a field for something the client already has
 /// the card for.
 ///
-/// # The one exception, and why it swallows the other two
+/// # The locks and the exceptions
 ///
 /// [`PlayerView::sorcery_lock`] is Teferi, Time Raveler's static: this seat
 /// may cast a spell only when it could cast a sorcery. So it does not merely
@@ -63,21 +59,17 @@ pub fn sorcery_window(view: &PlayerView) -> bool {
 /// card may be cast as though it were an instant (CR 702.8a), and the lock
 /// has just said that an instant may not be cast either.
 ///
-/// The module header above names this effect as the thing a view could not
-/// see, and it is the one sentence there that is now out of date: the engine
-/// reads the static off its own effect table and the view has carried the
-/// permanent since `VIEW_VERSION` 18. Until this read it, the field was
-/// carried by the wire, asserted in gamehost tests, read by `baylee-ai` — and
-/// by nothing in the client, which is exactly the "declared but never wired"
-/// shape. What it cost is the expensive direction of this module's own
-/// trade: the instant was lit, the click armed a mana run, the lands tapped,
-/// and the engine refused the cast with the mana gone.
+/// Conversely, [`PlayerView::sorceries_have_flash`] is Teferi's +1 ability,
+/// which allows its controller to cast sorceries as though they had flash.
 #[must_use]
 pub fn allows(view: &PlayerView, types: TypeSet, flash: bool) -> bool {
     if view.sorcery_lock.is_some() {
         return sorcery_window(view);
     }
-    types.contains(TypeSet::INSTANT) || flash || sorcery_window(view)
+    types.contains(TypeSet::INSTANT)
+        || flash
+        || sorcery_window(view)
+        || (view.sorceries_have_flash && types.contains(TypeSet::SORCERY))
 }
 
 #[cfg(test)]
@@ -90,6 +82,30 @@ mod tests {
     /// A seat in its own first main phase with nothing on the stack.
     fn open() -> PlayerView {
         ViewBuilder::new(2).build()
+    }
+
+    /// Teferi, Time Raveler's +1 (`PlayerView::sorceries_have_flash`): this
+    /// seat's sorceries are lit on somebody else's turn, as the engine's
+    /// `casting::timing_allows` casts them — and only sorceries: a creature
+    /// is not one. An opponent's lock still wins, as it does engine-side.
+    #[test]
+    fn teferis_plus_one_lights_sorceries_at_instant_speed_and_nothing_else() {
+        let mut view = open();
+        view.active = PlayerId::new(1);
+        assert!(!allows(&view, TypeSet::SORCERY, false), "without the +1");
+
+        view.sorceries_have_flash = true;
+        assert!(allows(&view, TypeSet::SORCERY, false), "with it");
+        assert!(
+            !allows(&view, TypeSet::CREATURE, false),
+            "it says sorceries, and a creature is not one"
+        );
+
+        view.sorcery_lock = Some(ObjectId::new(7, 0));
+        assert!(
+            !allows(&view, TypeSet::SORCERY, false),
+            "an opponent's Teferi pulls it back to sorcery speed"
+        );
     }
 
     #[test]

@@ -803,9 +803,9 @@ fn the_environment_refuses_a_forbidden_name_or_value_without_showing_it() {
     let launch = launch_with(&path_only).unwrap();
     assert!(launch.env(Path::new("/sk-0123456789abcdefghij")).is_err());
 
-    let mut gemini = settings();
-    gemini.model = "gemini:pro".into();
-    let why = Launch::new(&gemini, Some("/bin/sh"), &path_only).unwrap_err();
+    let mut unsupported = settings();
+    unsupported.model = "codex:pro".into();
+    let why = Launch::new(&unsupported, Some("/bin/sh"), &path_only).unwrap_err();
     assert!(why.contains("not a CLI this build plays"), "{why}");
 }
 
@@ -867,7 +867,9 @@ fn a_key_is_a_marker_at_a_words_start_with_enough_key_characters() {
     assert!(shaped_like_a_key("curl -H x-api-key:abc"));
     // Inside a word is no start; after a path or space is.
     assert!(!shaped_like_a_key(&format!("task-{}", run(20))));
-    assert!(!shaped_like_a_key(&format!("my_ghp_{}", run(20))));
+    // A provider's long marker counts glued to a word too: twenty key
+    // characters after `ghp_` are a token wherever they stand.
+    assert!(shaped_like_a_key(&format!("my_ghp_{}", run(20))));
     assert!(shaped_like_a_key(&format!("/x/sk-{}", run(16))));
     assert!(
         shaped_like_a_key(&format!("é sk-{}", run(16))),
@@ -1023,4 +1025,104 @@ fn the_first_lockout_reason_stays() {
     let empty = Mutex::new(None);
     lock_out(&empty, Some(&seats), "again");
     assert_eq!(lock(&empty).as_deref(), Some("again"));
+}
+
+/// The Agy dialect: arguments, stdin format, event parsing, and probes.
+#[test]
+fn agy_dialect_args_and_events() {
+    use super::agy::Agy;
+
+    assert_eq!(Agy.tool(), CliTool::Agy);
+    assert_eq!(Agy.passed_env(), &[] as &[&str]);
+    assert_eq!(Agy.fixed_env(), &[] as &[(&str, &str)]);
+    assert!(Agy.probe_ok(b"1.2.15\n"));
+    assert!(!Agy.probe_ok(b""));
+
+    let settings = Settings::new(
+        &Spec::parse("cli:agy:gemini-3.8-flash-high")
+            .unwrap()
+            .unwrap(),
+    );
+    let args: Vec<String> = Agy
+        .args(&settings, Some("gemini-3.8-flash-high"), "system")
+        .into_iter()
+        .map(|a| a.to_str().unwrap().to_string())
+        .collect();
+    assert!(args.contains(&"--input-format".to_string()));
+    assert!(args.contains(&"stream-json".to_string()));
+    assert!(args.contains(&"--model".to_string()));
+    assert!(args.contains(&"gemini-3.8-flash-high".to_string()));
+    // The model plays through stdin and stdout only: it is never handed
+    // permission to run tools (ad6c379a dropped the flag; the test had not
+    // followed).
+    assert!(!args.iter().any(|a| a.contains("dangerously")));
+
+    // Stdin lines: first line includes system prompt, subsequent does not.
+    let line1 = Agy.stdin_line("THE GAME\nYou are P1 at a table");
+    let val1: Value = serde_json::from_str(&line1).unwrap();
+    assert_eq!(val1["event"], "user");
+    assert!(
+        val1["message"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("You are playing a game of Magic")
+    );
+    assert!(
+        val1["message"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("THE GAME\nYou are P1")
+    );
+
+    let line2 = Agy.stdin_line("q2: choose option a1");
+    let val2: Value = serde_json::from_str(&line2).unwrap();
+    assert_eq!(val2["event"], "user");
+    assert_eq!(val2["message"]["content"], "q2: choose option a1");
+
+    // Event parsing: init
+    let mut trouble = None;
+    let init_line = json!({
+        "event": "init",
+        "init": {
+            "model": "gemini-3.8-flash-high",
+            "tools": ["finish", "run_command"]
+        }
+    })
+    .to_string();
+    let ev1 = Agy.read_event(&init_line, &mut trouble);
+    assert!(matches!(ev1, Event::Started(_)));
+
+    // Event parsing: successful result
+    let result_line = json!({
+        "event": "result",
+        "result": {
+            "status": "SUCCESS",
+            "response": "{\"ask\":\"q1\",\"pick\":[\"a1\"]}",
+            "structured_output": {"ask": "q1", "pick": ["a1"]},
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 20,
+                "cache_read_tokens": 50
+            }
+        }
+    })
+    .to_string();
+    let ev2 = Agy.read_event(&result_line, &mut trouble);
+    let Event::Reply(Outcome::Answer { value, usage, .. }) = ev2 else {
+        panic!("expected answer");
+    };
+    assert_eq!(value.unwrap()["ask"], "q1");
+    assert_eq!(usage.unwrap().input, 100);
+
+    // Event parsing: rate limited
+    let rate_limit_line = json!({
+        "event": "result",
+        "result": {
+            "status": "ERROR",
+            "error": "RESOURCE_EXHAUSTED: quota exceeded"
+        }
+    })
+    .to_string();
+    let ev3 = Agy.read_event(&rate_limit_line, &mut trouble);
+    assert!(matches!(ev3, Event::Reply(Outcome::RateLimited { .. })));
 }

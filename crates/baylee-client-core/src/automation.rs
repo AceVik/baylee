@@ -649,6 +649,10 @@ pub struct Situation {
     /// two indigo sets — a spell whose lands could be tapped for it, and a
     /// card that could be suspended the same way.
     pub offering: bool,
+    /// Whether this window is a payment window the local seat is asked to
+    /// pay in (`PlayerView::owed` while it is awaited): a miracle's cost, a
+    /// tax, a pact. No standing order passes one.
+    pub owing: bool,
 }
 
 /// The standing-order decision: given the pending choice, where the game
@@ -688,6 +692,14 @@ pub fn auto_answer(
         // this client would tap lands *for*. Without it the rule fired on a
         // hand full of spells and a board full of untapped lands, which is
         // the commonest board there is.
+        //
+        // A payment window (CR 605.3a, `PlayerView::owed`) is never passed
+        // for the player, by this rule or any below: passing it settles the
+        // payment, and a miracle or a tax left short is a spell lost. Its
+        // lands are offered and nothing else is, so every rule here reads it
+        // as a quiet window — a red draw step and `skip_opponent_turns` alike,
+        // which is exactly where a miracle is revealed.
+        Pending::Priority { .. } if at.owing => AutoAnswer::None,
         Pending::Priority { legal, .. }
             if rules.pass_when_nothing_to_do && !at.offering && nothing_to_do(legal) =>
         {
@@ -799,6 +811,7 @@ mod tests {
             step,
             opposing_stack: false,
             offering: false,
+            owing: false,
         }
     }
 
@@ -1812,6 +1825,51 @@ mod tests {
             ),
             AutoAnswer::None,
             "but a spell the lands could be tapped for is something to do"
+        );
+    }
+
+    /// A payment window is never passed for the player (a miracle revealed
+    /// in a red draw step on an opponent's turn is the case that lost the
+    /// spell): not by `pass_when_nothing_to_do`, whose shape it has, not by
+    /// a red row, not by `skip_opponent_turns`, not by the autopilot.
+    #[test]
+    fn a_payment_window_is_never_passed_for_the_player() {
+        let rules = AutoRules {
+            pass_when_nothing_to_do: true,
+            skip_opponent_turns: true,
+            ..AutoRules::default()
+        };
+        let mut orders = PhaseOrders::default();
+        orders.toggle(RailSide::Theirs, RailRow::Draw);
+        let draw = Situation {
+            owing: true,
+            ..at(true, false, Phase::Beginning, Step::Draw)
+        };
+        let pilot = AutoPilot::ToNextTurn { from_turn: 1 };
+        for (pending, pilot) in [
+            (nothing_pending(), None),
+            (priority_pending(), None),
+            (priority_pending(), Some(&pilot)),
+        ] {
+            assert_eq!(
+                auto_answer(&pending, draw, &orders, &rules, pilot),
+                AutoAnswer::None,
+                "a payment window was passed away"
+            );
+        }
+        // The control: the same windows owing nothing are passed.
+        assert_eq!(
+            auto_answer(
+                &priority_pending(),
+                Situation {
+                    owing: false,
+                    ..draw
+                },
+                &orders,
+                &rules,
+                None
+            ),
+            AutoAnswer::Pass
         );
     }
 }

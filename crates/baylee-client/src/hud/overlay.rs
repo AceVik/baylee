@@ -585,6 +585,7 @@ pub fn sync_overlay(
                 && !tree.players.contains(*child)
                 && !tree.menu.contains(*child)
                 && !tree.log.contains(*child)
+                && !tree.ai_log.contains(*child)
             {
                 commands.entity(*child).despawn();
             }
@@ -650,6 +651,8 @@ pub fn sync_overlay(
         // its own: its lines are appended as they arrive, and a panel swept
         // with the tree would write every line again on each pointer move.
         let log = ledge::log::spawn_log_panel(&mut commands);
+        let ai_log = ledge::ai_log::spawn(&mut commands);
+        commands.entity(root).add_child(ai_log);
         commands.entity(root).add_child(log);
         root
     };
@@ -1511,7 +1514,9 @@ pub(super) fn armed_label(duel: &Duel, lang: Lang, armed: &crate::Armed) -> Opti
                 // whole of "the card taps once the mana has been chosen". So
                 // there is no row to draw here, and no price to quote either
                 // — the mana *is* the point, and it costs a tap.
-                crate::RunEnd::Float | crate::RunEnd::Ability(_) => None,
+                // A settle is never armed either: `Duel::pay_owed` runs it on
+                // the press that asks for it.
+                crate::RunEnd::Float | crate::RunEnd::Ability(_) | crate::RunEnd::Settle => None,
             };
             offered
                 .filter(|(offered, _)| offered.contains(&armed.object))
@@ -2977,6 +2982,7 @@ mod tests {
                 With<ledge::players::PlayersStrip>,
                 With<ledge::menu::MenuPanel>,
                 With<ledge::log::LogPanel>,
+                With<ledge::ai_log::AiLogPanel>,
             )>>();
             q.iter(app.world()).collect::<Vec<_>>()
         };

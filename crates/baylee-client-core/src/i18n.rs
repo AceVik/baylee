@@ -1578,6 +1578,22 @@ messages! {
         en: "You owe mana. Activate mana abilities to pay, or pass.",
         de: "Du schuldest Mana. Nutze Manafähigkeiten zum Bezahlen, oder passe.",
     },
+    /// Pay what a payment window still owes with the lands the client picked,
+    /// then settle it: the prompt's confirm button while mana is owed and
+    /// the pool does not cover it yet.
+    PayRemainder { en: "Pay (tap {0})", de: "Zahlen ({0} tappen)" },
+    /// Pass a payment window without paying it.
+    DeclinePayment { en: "Don't pay", de: "Nicht zahlen" },
+    /// Settle a payment window the pool already covers.
+    PayNow { en: "Pay", de: "Zahlen" },
+    /// The AI log's heading line for one entry: whose mind it is.
+    AiSaidHead { en: "{0} thinks", de: "{0} denkt" },
+    /// What the model thought before it answered.
+    AiSaidThinking { en: "Reasoning: {0}", de: "Überlegung: {0}" },
+    /// The answer the model chose.
+    AiSaidChose { en: "Chose: {0}", de: "Wahl: {0}" },
+    /// What the answer cost.
+    AiSaidCost { en: "{0} tokens, {1} s", de: "{0} Tokens, {1} s" },
     /// Private optional creature cast from a resolving Mask ability.
     MaskChoose { en: "Choose a creature to cast face down (X = {0}), or decline", de: "Wähle eine Kreatur zum verdeckten Wirken (X = {0}), oder lehne ab" },
     /// Actual receipt with fixed costs shown separately; no invented partition.

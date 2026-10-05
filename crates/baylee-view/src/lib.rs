@@ -1741,6 +1741,10 @@ pub struct PlayerView {
     /// card to flash when the offer is withheld is this one. `None` is the
     /// ordinary case and means nothing is holding this seat back.
     pub sorcery_lock: Option<ObjectId>,
+    /// Whether this seat's sorceries can be cast as though they had flash.
+    /// Added to support Teferi, Time Raveler's +1 ability correctly.
+    #[serde(default)]
+    pub sorceries_have_flash: bool,
 }
 
 /// Authoritative context, sent only to the seat choosing targets.
@@ -2600,6 +2604,7 @@ mod tests {
             owed: None,
             targeting: None,
             sorcery_lock: None,
+            sorceries_have_flash: false,
         }
     }
 
@@ -3594,7 +3599,9 @@ mod tests {
     #[test]
     fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
         // Damage decisions carry event identities, effect metadata, and allocations.
-        const RECORDED: (u32, u64) = (53, 4_354_895_895_119_980_516);
+        // `PlayerView::sorceries_have_flash` is additive and defaulted: an
+        // older client skips it and stays conservative, so 53 still names it.
+        const RECORDED: (u32, u64) = (53, 6_263_270_473_425_543_018);
 
         let samples = core_samples();
         let sampled: std::collections::BTreeSet<String> =

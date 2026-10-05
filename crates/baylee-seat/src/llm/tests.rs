@@ -854,7 +854,7 @@ async fn a_cast_the_table_took_back_is_said() {
         }
         request(view, pending, log)
     };
-    let wake = Narrator::new(&bolt().context).wake(&bolt(), &[]);
+    let wake = Narrator::new(&bolt().context).wake(&bolt(), &[], None);
     let option = wake
         .text
         .lines()

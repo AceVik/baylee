@@ -513,7 +513,7 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                 }
                 HostMessage::Failed(why) => panic!("the host refused: {why}"),
                 HostMessage::Curtain => duel.curtain_up = true,
-                HostMessage::Preparing { .. } => {}
+                HostMessage::Preparing { .. } | HostMessage::AiLog(_) => {}
             }
         }
         match duel.interaction.as_ref().map(Interaction::pending) {

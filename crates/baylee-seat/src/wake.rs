@@ -135,6 +135,7 @@ pub struct WakeFilter {
     /// Where the seat's last answer was an activation, while its pool holds
     /// mana: the moment the seat is paying for something.
     paying: Option<(u32, Phase, Step)>,
+    hold_until_my_turn: bool,
 }
 
 impl Default for WakeFilter {
@@ -161,6 +162,41 @@ impl WakeFilter {
             orders,
             rules: AutoRules::default(),
             paying: None,
+            hold_until_my_turn: false,
+        }
+    }
+
+    /// Updates the filter with the model's chosen stops and hold instruction.
+    pub fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>, hold: Option<&String>) {
+        if let Some(stops) = stops {
+            let mut orders = PhaseOrders::default();
+            orders.set_to(RailPreset::EveryStep);
+            for side in RailSide::BOTH {
+                for row in RAIL_ROWS {
+                    if !row.grants_priority() {
+                        continue;
+                    }
+                    let keep = match side {
+                        RailSide::Mine => stops
+                            .mine
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
+                        RailSide::Theirs => stops
+                            .theirs
+                            .iter()
+                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
+                    };
+                    if !keep {
+                        orders.toggle(side, row);
+                    }
+                }
+            }
+            self.orders = orders;
+        }
+        if let Some(hold) = hold
+            && hold == "until_my_turn"
+        {
+            self.hold_until_my_turn = true;
         }
     }
 
@@ -182,6 +218,9 @@ impl WakeFilter {
             // Not this seat's question: nothing to answer, and nothing the
             // orders may answer for anybody else.
             return Verdict::Wake(Why::NotAsked);
+        }
+        if self.hold_until_my_turn && same_side(teams, view.active, view.seat) {
+            self.hold_until_my_turn = false;
         }
         let paying = self.paying.take();
         let here = Some((view.turn, view.phase, view.step));
@@ -254,6 +293,9 @@ impl WakeFilter {
         if view.step == Step::Cleanup {
             return Verdict::Wake(Why::Cleanup);
         }
+        if self.hold_until_my_turn {
+            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
+        }
         let at = Situation {
             mine: true,
             active_is_mine: same_side(teams, view.active, view.seat),
@@ -261,6 +303,7 @@ impl WakeFilter {
             step: view.step,
             opposing_stack,
             offering,
+            owing: view.owed.is_some(),
         };
         match automation::auto_answer(pending, at, &self.orders, &self.rules, None) {
             AutoAnswer::Pass => standing(PlayerAction::PassPriority, Standing::QuietWindow),
@@ -503,3 +546,20 @@ pub fn flash(card: baylee_view::CardIdentity) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+fn row_id(row: RailRow) -> &'static str {
+    match row {
+        RailRow::Untap => "untap",
+        RailRow::Upkeep => "upkeep",
+        RailRow::Draw => "draw",
+        RailRow::Main1 => "main1",
+        RailRow::CombatBegin => "combat_begin",
+        RailRow::Attackers => "attackers",
+        RailRow::Blockers => "blockers",
+        RailRow::Damage => "damage",
+        RailRow::CombatEnd => "combat_end",
+        RailRow::Main2 => "main2",
+        RailRow::EndStep => "end_step",
+        RailRow::Cleanup => "cleanup",
+    }
+}

@@ -37,6 +37,10 @@ pub enum HostMessage {
     /// why the client holds its outbox until then. It never comes down again
     /// in the same game.
     Curtain,
+    /// What a teammate's AI mind said beside an answer: the engine sends it
+    /// only to a seat shown that teammate's hand (`docs/protocol.md` §"An AI
+    /// seat's reasoning").
+    AiLog(baylee_protocol::v1::AiLog),
     /// Human preparation progress and departure relative to receipt, clock corrected.
     Preparing {
         /// Prepared human seats.
@@ -173,6 +177,7 @@ pub(crate) fn host_message(envelope: Envelope) -> Option<HostMessage> {
         }
         v1::envelope::Msg::Error(err) => HostMessage::Failed(err.message),
         v1::envelope::Msg::Curtain(_) => HostMessage::Curtain,
+        v1::envelope::Msg::AiLog(ai_log) => HostMessage::AiLog(ai_log),
         _ => return None,
     })
 }

@@ -1173,6 +1173,38 @@ chair rules, the decline, the no-op and "moves nothing in the game" are in
 `session.rs`, and the frame before and after the curtain is in
 `baylee-engine-server`.
 
+## An AI seat's reasoning
+
+A seat bridge (`baylee-seat`, `docs/llm-seat.md`) may send `AiLog { note,
+thinking }` beside an answer its mind made: the note it wrote (the answer it
+chose, what it said, tokens and time) and the model's reasoning. A model
+reasons over its whole view out loud, so this is hidden information, and it
+goes exactly where the sender's hand goes:
+
+- **Only to a teammate shown the hand.** The engine-server forwards it to an
+  attached seat only while `Session::shows_hand(sender, seat)` holds (same
+  team, the sender sharing its hand with that seat, both still in a game
+  that is going, the receiver not a house-AI chair). Never to the other
+  side, never back to the sender, never to a seat without a socket, and
+  never into the game log, a view or a record.
+- **The engine names the sender.** `AiLog.seat` is overwritten with the seat
+  the frame came from, so a socket cannot speak in another seat's name.
+- **The bridge sends only what someone could read.** It sends `AiLog` only
+  for an answer its mind made, and only when its seat has a teammate at
+  all; each one counts against the seat socket's rate like any frame.
+- **Not a move.** No journal, hash, clock or pump; it is heard before the
+  curtain as after.
+
+The client shows it in the AI log panel (`hud/ledge/ai_log.rs`, lines from
+`client-core::aisaid`), whose door stands in the tray once something has
+arrived. A residual: a teammate shown the hand also reads what else the model
+mentions — a card it scried, say. Hand sharing is the closest entitlement the
+table has; a stricter rule would be its own setting.
+
+`PROTOCOL_VERSION` does not move, as it did not for `FlushRecord` (#323): an
+older engine drops a seat message it does not know (`seat_frame`'s `_` arm),
+and an older client decodes an envelope with no message and passes over it.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who

@@ -1029,6 +1029,7 @@ impl ApiMind {
     /// What is done before the model is asked: the log heard, a refusal or
     /// a late answer noted, the plan or the hint followed, the budget
     /// checked, the message told. `Err` is the answer when no call is made.
+    #[allow(clippy::result_large_err)]
     fn start(
         &self,
         seat: &Mutex<SeatState>,
@@ -1293,6 +1294,7 @@ struct Prepared {
 
 impl SeatState {
     /// Tells the decision and builds the conversation that asks it.
+    #[allow(clippy::result_large_err)]
     fn prepare(&mut self, request: &Request, settings: &Settings, api: Api) -> Prepared {
         let long = || {
             serde_json::to_string(&self.messages).map_or(0, |text| narrator::estimate_tokens(&text))
@@ -1304,7 +1306,8 @@ impl SeatState {
         if fresh {
             narrator.forget_cards();
         }
-        let wake = narrator.wake(request, &told);
+        let stops_summary = self.seat.stops_summary();
+        let wake = narrator.wake(request, &told, stops_summary.as_deref());
         let prefix = fresh.then(|| narrator::prefix(&request.context));
         let (mut messages, results) = if fresh {
             let start = match api {
@@ -1367,10 +1370,15 @@ impl SeatState {
             "tokens": reply.usage,
             "ms": u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
         });
+        let stops = self.seat.stops.clone();
+        let hold = self.seat.hold.clone();
         Answer {
             action,
             model_time: took,
             note: Some(note.to_string()),
+            thinking: None,
+            stops: stops.map(Box::new),
+            hold,
         }
     }
 

@@ -63,7 +63,7 @@ use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 ///
 /// A column of sentences, and wide enough that a line naming two cards
 /// mostly fits on one row. A narrow window gets less: see [`log_size`].
-const LOG_W: f32 = 360.0;
+pub(in crate::hud) const LOG_W: f32 = 360.0;
 
 /// How tall the panel is, at most.
 const LOG_H: f32 = 420.0;

@@ -71,6 +71,8 @@ pub enum Event {
         model_ms: Option<u64>,
         /// What the mind wrote beside it.
         note: Option<String>,
+        /// The model's thinking/reasoning.
+        thinking: Option<String>,
     },
     /// An answer was refused.
     Refused {

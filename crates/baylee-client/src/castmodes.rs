@@ -46,9 +46,13 @@
 //! # And what it does not reach
 //!
 //! From hand this reads normal, alternative, prototype and disguise costs,
-//! plus legal land faces. Modal spell effects and nonland back faces stay
-//! with the engine's own chooser because their legality needs the game state.
-//! Miracle is not a choice a hand click makes.
+//! legal land faces, and the modes of a "choose one" spell one of whose
+//! modes has a cost of its own (overload: Cyclonic Rift's `{1}{U}` against
+//! its overloaded `{6}{U}`), each mode a way at its own price. Other modal
+//! spells and nonland back faces stay with the engine's own chooser because
+//! their legality needs the game state. Miracle is not a choice a hand click
+//! makes: the engine asks it as the card is drawn, and its cost is paid in a
+//! payment window (`Duel::pay_owed`).
 //!
 //! Nothing here reads convoke, delve or a printed cost reduction either —
 //! the same three [`crate::mana_for`] and [`crate::reachable`] already do not
@@ -131,14 +135,42 @@ pub fn reachable_modes(
             out.push(ReachableMode { kind, cost, plan });
         }
     };
+    let face_index = usize::from(hand.card.face);
+    let modal_only = baylee_engine::casting::modes_are_the_only_way(def, face_index);
+
     // CR 202.1b: a face with no printed cost has no printed way to be cast,
     // which is the rule `casting::has_a_printed_cost` states engine-side and
     // the one that keeps a suspend-only card off this list.
-    if face.mana_cost.symbols().next().is_some()
+    if !modal_only
+        && face.mana_cost.symbols().next().is_some()
         && (face.kicked_targets.is_none()
             || !crate::targeting::ordinary_targetless(view, hand.card))
     {
         offer(CastModeKind::Normal, face.mana_cost);
+    }
+
+    // "Choose one" with a mode that costs something else (overload, CR
+    // 702.96a): each mode is a way with its own price, so the choice comes
+    // before the floating like any alternative cost. A mode whose targets
+    // this board provably lacks is left off, as the kicker is above.
+    if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
+        .abilities_for_face(face_index)
+        .iter()
+        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        && *choose == baylee_cards_dsl::ModeCount::ONE
+        && modes.iter().any(|m| m.cost_override.is_some())
+    {
+        for (i, mode) in modes.iter().enumerate() {
+            if mode
+                .targets
+                .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            {
+                offer(
+                    CastModeKind::Mode(i),
+                    mode.cost_override.unwrap_or(face.mana_cost),
+                );
+            }
+        }
     }
     if let Some(req) = face.kicked_targets
         && crate::targeting::requirement_possible(view, req)
@@ -424,6 +456,45 @@ mod tests {
                 "playing a land floats no mana"
             );
         }
+    }
+
+    /// Overload is a way at its own price (CR 702.96a): Cyclonic Rift is
+    /// offered as its targeted `{1}{U}` mode and its overloaded `{6}{U}`
+    /// mode, each with the taps that pay for it, so the player picks before
+    /// any land is tapped. A mode the mana or the board cannot carry is left
+    /// off: two Islands reach only the cheap one, and with nothing of an
+    /// opponent's to bounce only the overload stands.
+    #[test]
+    fn cyclonic_rift_offers_its_overload_beside_its_targeted_mode() {
+        let rift = || vec![card_in_hand(1, "Cyclonic Rift", &[Color::Blue])];
+        let with_target = |(mut view, legal): (PlayerView, LegalActions)| {
+            let mut theirs = token(50, 1, "Grizzly Bears", 2, 2);
+            theirs.types = TypeSet::CREATURE;
+            view.battlefield.push(theirs);
+            (view, legal)
+        };
+
+        let (view, legal) = with_target(blue_table(rift(), 7));
+        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(
+            kinds(&modes),
+            [CastModeKind::Mode(0), CastModeKind::Mode(1)],
+            "both modes, and no mode-less printed cast"
+        );
+        assert_eq!(modes[0].plan.taps(), 2, "the targeted mode taps two");
+        assert_eq!(modes[1].plan.taps(), 7, "the overload taps all seven");
+
+        let (view, legal) = with_target(blue_table(rift(), 2));
+        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(kinds(&modes), [CastModeKind::Mode(0)], "two Islands");
+
+        let (view, legal) = blue_table(rift(), 7);
+        let modes = reachable_modes(&view, &legal, ObjectId::new(1, 0));
+        assert_eq!(
+            kinds(&modes),
+            [CastModeKind::Mode(1)],
+            "nothing of theirs to target: only the overload"
+        );
     }
 
     /// The measurement in the report: seven open mana and Reveillark's two
