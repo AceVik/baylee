@@ -143,6 +143,57 @@ pub struct CardFace {
     /// (name, cost, type line and stats all come from the view), and a
     /// renderer uses this to show a quiet placeholder instead of a blank box.
     pub text_pending: bool,
+    /// The printing a preview credits at its foot, where a caller knows it
+    /// (WP6): the catalog's set and artist, which `GET /printings` serves
+    /// and a [`baylee_view::PrintEntry`] does not carry. `None` writes no
+    /// foot.
+    pub credit: Option<Credit>,
+}
+
+/// What a face says about the printing it stands for: its set and rarity
+/// beside the type line, its set and artist at the foot, as a print does.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct Credit {
+    /// The set's code, `ZEN`.
+    pub set: String,
+    /// The set's name, `Zendikar`.
+    pub set_name: String,
+    /// `common`, `uncommon`, `rare`, `mythic`, `special`, `bonus`.
+    pub rarity: String,
+    /// The illustrator.
+    pub artist: String,
+}
+
+impl Credit {
+    /// The foot's line: `Zendikar · Ryan Pancoast`, the set's code where its
+    /// name is unknown, either half alone, or nothing.
+    #[must_use]
+    pub fn foot(&self) -> Option<String> {
+        let set = if self.set_name.is_empty() {
+            self.set.to_uppercase()
+        } else {
+            self.set_name.clone()
+        };
+        join_dotted([set.as_str(), self.artist.as_str()])
+    }
+
+    /// The type line's right end: `ZEN · C`, or the code alone, or nothing.
+    #[must_use]
+    pub fn mark(&self) -> Option<String> {
+        let rarity = self
+            .rarity
+            .chars()
+            .next()
+            .map(|c| c.to_uppercase().to_string())
+            .unwrap_or_default();
+        join_dotted([self.set.to_uppercase().as_str(), rarity.as_str()])
+    }
+}
+
+/// The non-empty parts, joined by a middle dot, or `None` with none.
+fn join_dotted<'a>(parts: impl IntoIterator<Item = &'a str>) -> Option<String> {
+    let parts: Vec<&str> = parts.into_iter().filter(|p| !p.is_empty()).collect();
+    (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
 /// The characteristics a face is built from.
@@ -340,7 +391,17 @@ impl CardFace {
             types: object.types,
             subtypes: object.subtypes,
             text_pending: text.is_none(),
+            credit: None,
         }
+    }
+
+    /// The rules blocks, without the reminders: what the band's keyword
+    /// chips and a small card's one line are read from.
+    pub fn rules(&self) -> impl Iterator<Item = &str> {
+        self.body.iter().filter_map(|block| match block {
+            TextBlock::Rules(text) => Some(text.as_str()),
+            TextBlock::Reminder(_) => None,
+        })
     }
 }
 

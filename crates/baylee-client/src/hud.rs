@@ -1190,6 +1190,9 @@ pub struct HudRevision {
     focus: Option<PlayerId>,
     /// Preview size (resized via handle or shortcut).
     preview_scale: f32,
+    /// The text step the interface's faces are set at (WP6): a step moves
+    /// their clamps, so a new one is a new face.
+    face_step: baylee_client_core::textface::Step,
     /// Whether cards are drawing their constructed face. Held on a key, so
     /// it changes between snapshots and has to be part of the redraw gate.
     faces: bool,
