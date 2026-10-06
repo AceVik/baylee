@@ -60,6 +60,9 @@ Built-in display, 3416×2064 pixels, final build:
 | Busy duel | after | 56–60 (cap) | 6.4 | 45 % | 50 % | 49 | 490 MB |
 | Front door, settled (2 s untouched) | after | 30 | — | — | 18 % | 17 | 357 MB |
 | Front door, resting (30 s untouched) | after | 1 | 8 (clocked down) | 1.4 % | 4 % | 4 | 357 MB |
+| Lobby, settled | after | 30 | — | — | 17 % | 16 | 450 MB |
+| Lobby, resting | after | 1 | — | — | 4 % | 4 | 367 MB |
+| Four seats (two busy boards, 1,244 entities) | after | 53–60 (cap) | 6.1 | 42 % | 57 % | 54 | 555 MB |
 
 What is left of the resting front door's 4 % is the score, which plays on.
 Startup to the harness answering is 1.2–2.4 s for both builds, and RSS six
@@ -128,8 +131,8 @@ lights at all). Reduced motion stays the account's.
 
 ## Not measured, or left alone
 
-- The browser build's size and frame time, and a four-seat table: not
-  measured this round.
+- The browser build's size and frame time: not measured this round; nor a
+  four-seat table on the old build (only the new one above).
 - The audio thread was 3.8 % of a core at the resting front door before the
   block renderer; not re-measured in the app after it.
 - The house AI (`baylee-ai`) never showed in a client profile; only its file
