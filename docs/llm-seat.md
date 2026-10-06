@@ -8,7 +8,10 @@ settings file that says which model plays and what it may spend, and the
 spend book that holds a player's caps across games. The types are
 `baylee_client_core::llmseat` (pure, every target), the files are
 `llmseat::store` and `llmseat::ledger::Book` (native only), and the bridge
-applies them in `baylee_seat::config` and `baylee_seat::spend`.
+applies them in `baylee_seat::config` and `baylee_seat::spend`. What a
+decision tells the model and what its answer may say (plans, `until`,
+`react`, the deck as the provider reads it, the cache) is
+`docs/llm-protocol.md`.
 
 An example file, with no key in it:
 
@@ -79,7 +82,7 @@ the profile: a file is played as written or not at all.
 | `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
 | `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
 | `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
-| `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. |
+| `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. A cache write is billed at 1.25× the input price for five minutes' entry and 2× for an hour's (the API path caches the game's constant head for an hour, `docs/llm-protocol.md` §"The cache"), a cache read at the input price unless the build knows better. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |
 | `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000; 20,000,000 for `cli`); the limit of a model without a price. |
 | `game_calls` | The most calls one game may make; past it the house finishes the game (default 500 for `cli`, no limit for an API). |
@@ -170,9 +173,11 @@ owner to check before playing.
   question waited on it (between turns, say) is found dead by the next
   question, which starts one again for itself and is answered by the
   model. A process idle five minutes is ended (the time Anthropic's API
-  keeps a cached prefix by default; a conversation resumed after that
-  would be written to the cache whole again, which costs more than
-  beginning a new one), and so is the least recently used one when a
+  keeps a cached prefix by default, which is the entry the tool writes;
+  a conversation resumed after that would be written to the cache whole
+  again, which costs more than beginning a new one; the hour's entry is
+  the API path's, set by the bridge, `docs/llm-protocol.md` §"The
+  cache"), and so is the least recently used one when a
   third would start: at most two live per bridge. The summary counts the
   conversations and those begun again after a loss
   (`conversations: 3 (1 begun again after one was lost)`).
@@ -270,7 +275,8 @@ language model is in the book, and a house or scripted game never is.
 - **Hard limit.** A reserved game plays under its reservation as a hard
   limit: before each call it holds that call's worst case (every byte of
   the request as an input token, a provider's allowance of 2,000 tokens
-  and `max_tokens`, dollars at the dearest input rate), and a call that
+  and `max_tokens`, dollars at the dearest input rate, which is an hour's
+  cache write where the model has one), and a call that
   could pass the budget is never sent. A call whose bill is unknown (a
   timeout, a reply that could not be read) counts at its worst.
 - **Settle.** When the game ends, however it ends (its end, an error,
