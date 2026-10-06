@@ -350,15 +350,18 @@ pub fn name_bar(lines: usize) -> f32 {
 /// between two sizes in pixels.
 ///
 /// Nine pixels at the least: a 92-pixel hand card's name is what a row of
-/// them is read by (WP6).
-pub const UI_NAME: (f32, [f32; 2]) = (0.082, [9.0, 26.0]);
+/// them is read by (WP6). Every top clamp is over its size on a 308-pixel
+/// preview even times the smallest step's 0.702, so the preview at the
+/// default scale is the same at every step and the steps bite on the small
+/// faces only.
+pub const UI_NAME: (f32, [f32; 2]) = (0.082, [9.0, 36.0]);
 
 /// The overlay's type line and its name stepped down, likewise.
 ///
 /// Smaller than the rules on a preview, as on a print — 16 px at 308 — and
 /// eight pixels at the least, which a small card's one line of rules is set
 /// at too.
-pub const UI_TYPE: (f32, [f32; 2]) = (0.052, [8.0, 17.0]);
+pub const UI_TYPE: (f32, [f32; 2]) = (0.052, [8.0, 24.0]);
 
 /// The overlay's rules text at its own size, likewise: 19 px on a 308-pixel
 /// preview at every step (WP6), since the top clamp, 28 px times the
@@ -367,10 +370,10 @@ pub const UI_BODY: (f32, [f32; 2]) = (0.062, [6.0, 28.0]);
 
 /// The band's subtype words and keyword chips, likewise: 12 px on a preview,
 /// 8 on a hand card.
-pub const UI_CHIP: (f32, [f32; 2]) = (0.040, [8.0, 14.0]);
+pub const UI_CHIP: (f32, [f32; 2]) = (0.040, [8.0, 18.0]);
 
 /// The foot's credit line, likewise: 11 px on a preview.
-pub const UI_FOOT: (f32, [f32; 2]) = (0.036, [7.0, 13.0]);
+pub const UI_FOOT: (f32, [f32; 2]) = (0.036, [7.0, 16.0]);
 
 /// The smallest the rules text is stepped down to at the default step, in
 /// pixels ([`Step::body_floor`]). Past it the text box scrolls rather than
@@ -1379,6 +1382,16 @@ mod tests {
             let want = (UI_NAME.0 * 92.0).max(UI_NAME.1[0] * step.factor());
             assert!((name - want).abs() < 1e-3, "{step:?}: {name}");
         }
+        // Nothing on a 308-pixel preview moves with the step.
+        for size in [UI_NAME, UI_TYPE, UI_BODY, UI_CHIP, UI_FOOT] {
+            let at = |step| ui_em_at(size, 308.0, step);
+            for n in 1..=5 {
+                assert!(
+                    (at(Step::new(n)) - at(Step::DEFAULT)).abs() < 1e-6,
+                    "{size:?}"
+                );
+            }
+        }
         assert_eq!(Step::new(0), Step::XS);
         assert_eq!(Step::new(9), Step::XL);
         assert_eq!(Step::default(), Step::DEFAULT);
@@ -1826,8 +1839,8 @@ mod tests {
         );
         assert!((hand.small - 8.0 / 92.0).abs() < 1e-4, "held at 8 px");
         assert!(hand.type_floor < hand.small);
-        let preview = Sizes::overlay(384.0, 0.2);
-        assert!((preview.name - 26.0 / 384.0).abs() < 1e-5, "held at 26 px");
+        let preview = Sizes::overlay(480.0, 0.2);
+        assert!((preview.name - 36.0 / 480.0).abs() < 1e-5, "held at 36 px");
         assert!((preview.name_room - (line_width() - 0.2 - TEXT_INSET)).abs() < 1e-6);
         assert!((Sizes::overlay(384.0, 0.0).name_room - line_width()).abs() < 1e-6);
 
