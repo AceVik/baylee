@@ -278,7 +278,9 @@ before playing.
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
   default, `--spend-calls`) is held like a budget, and the summary says
   `212 of 500 calls`. A reply that does not say what it used counts at its
-  worst.
+  worst; a process that ended without a word (a session not found, a
+  crash before its start) reached no model, and is a failed call at no
+  cost.
 - **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
   the house answers, and the mind cools down for the time the tool names
   when that is some time and at most fifteen minutes, else a minute,
