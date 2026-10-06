@@ -950,6 +950,57 @@ async fn an_openai_compatible_endpoint_answers_by_function_or_by_json() {
     let seen = provider.seen();
     assert_eq!(seen[1].body["response_format"]["type"], "json_object");
     assert!(seen[1].body.get("tools").is_none());
+    // A model held to no schema is told the answer's shape on its question.
+    let told = seen[1].body["messages"][1]["content"]
+        .as_str()
+        .expect("text");
+    assert!(
+        told.contains("Answer: ask=\"q12\", pick=[one option id]"),
+        "{told}"
+    );
+}
+
+/// The deck is told by name to an endpoint on this machine, which keeps no
+/// prompt cache, and in full to Anthropic, which reads it back from one.
+#[tokio::test]
+async fn the_deck_is_told_by_name_where_nothing_caches_it() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::ok(json!({
+        "choices": [{"message": {"role": "assistant",
+            "content": "{\"ask\": \"q12\", \"pick\": [\"p\"]}"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
+    })));
+    let local = mind(&base, Provider::OpenAi, |s| {
+        s.answer = AnswerMode::JsonSchema;
+    });
+    local.decide(a_priority()).await.expect("an answer");
+    let seen = provider.seen();
+    let told = seen[0].body["messages"][1]["content"]
+        .as_str()
+        .expect("text");
+    assert!(
+        told.contains("YOUR DECK «Gruul Test» (40 cards), by name."),
+        "{told}"
+    );
+    assert!(told.contains("  Llanowar Elves {G} · Creature"), "{told}");
+    assert!(!told.contains("Answer:"), "{told}");
+
+    provider.script(Scripted::ok(claude(&[(
+        "toolu_1",
+        "decide",
+        json!({"ask": "q12", "pick": ["p"]}),
+    )])));
+    let anthropic = mind(&base, Provider::Anthropic, |_| {});
+    anthropic.decide(a_priority()).await.expect("an answer");
+    let seen = provider.seen();
+    let prefix = last_user(&seen[1])[0]["text"]
+        .as_str()
+        .expect("prefix")
+        .to_string();
+    assert!(
+        prefix.contains("The full text of every card in it"),
+        "{prefix}"
+    );
 }
 
 /// An endpoint that takes no bare `json_object` (LM Studio) is asked for

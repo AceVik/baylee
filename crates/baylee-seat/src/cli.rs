@@ -730,7 +730,7 @@ impl CliMind {
         let stops_summary = state.seat.stops_summary();
         let wake = narrator.wake(request, &told, stops_summary.as_deref());
         let text = if fresh {
-            format!("{}\n\n{}", narrator::prefix(&request.context), wake.text)
+            format!("{}\n\n{}", narrator.prefix(&request.context), wake.text)
         } else {
             wake.text
         };

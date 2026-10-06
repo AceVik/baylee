@@ -90,6 +90,25 @@ pub struct Style {
     /// only the shapes the question itself carries (piles, blocks, how
     /// many ids).
     pub spell_answer: bool,
+    /// How the deck is told at the head of a conversation.
+    pub deck: DeckText,
+}
+
+/// How a seat's deck is told in a conversation's prefix: decided once a
+/// game from how the mind is reached, so the prefix's bytes never change
+/// within a game (a provider's cache keys on them).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DeckText {
+    /// Every card's text, once, in the prefix: where the prefix is read
+    /// back from a provider's cache at a tenth of the price (Anthropic, an
+    /// endpoint that caches, an agent CLI).
+    #[default]
+    Full,
+    /// The cards' names only; a card's text is told the first time the
+    /// card is seen, in the "New cards" block: where every token of every
+    /// call is read again at full cost (a model on this machine). Most of
+    /// a Commander deck is never seen in a game.
+    Names,
 }
 
 /// What one conversation has been told so far.
@@ -122,13 +141,18 @@ impl Narrator {
     /// in `style`.
     #[must_use]
     pub fn styled(context: &GameContext, style: Style) -> Self {
-        let deck = context
-            .deck
-            .main
-            .iter()
-            .chain(&context.deck.commanders)
-            .map(|entry| entry.card)
-            .collect();
+        // Under [`DeckText::Names`] the prefix carries no card's text, so
+        // every card is told on sight.
+        let deck = match style.deck {
+            DeckText::Full => context
+                .deck
+                .main
+                .iter()
+                .chain(&context.deck.commanders)
+                .map(|entry| entry.card)
+                .collect(),
+            DeckText::Names => BTreeSet::new(),
+        };
         Self {
             style,
             shown: BTreeSet::new(),
@@ -154,6 +178,13 @@ impl Narrator {
         self.unread.extend(log.entries.iter().skip(skip).cloned());
         let end = from + log.entries.len() as u64;
         self.next = self.next.max(end);
+    }
+
+    /// The stable first part of a conversation, as this narrator tells the
+    /// deck ([`prefix`]).
+    #[must_use]
+    pub fn prefix(&self, context: &GameContext) -> String {
+        prefix(context, self.style.deck)
     }
 
     /// Forgets which cards the conversation was shown: it was replaced by a
@@ -345,17 +376,73 @@ pub fn card_text(card: CardIndex, face: usize) -> Option<String> {
     }
     out.push('\n');
     if let Some(oracle) = baylee_cards::oracle::face(card, face) {
-        for line in oracle.lines().filter(|l| !l.trim().is_empty()) {
-            let _ = writeln!(out, "    {line}");
+        for line in oracle.lines().map(strip_reminder) {
+            if !line.trim().is_empty() {
+                let _ = writeln!(out, "    {line}");
+            }
         }
     }
     Some(out)
 }
 
-/// The stable first part of a conversation: the seat, the table and the
-/// full text of the deck it brought, which a provider caches (§5.1).
+/// One line of Oracle text without the reminder text a model knows by
+/// heart (CR 207.2: reminder text is in parentheses): a parenthesis that is
+/// the whole line (a basic land's `({T}: Add {G}.)`), one after nothing but
+/// keywords the narrator names ([`KEYWORDS`]: `Vigilance (Attacking doesn't
+/// cause …)`), or one after a sentence that ends in such a keyword
+/// (`Creatures you control have trample. (…)`). A keyword with a parameter
+/// keeps its reminder (`Suspend 4—{U} (…)`, `Ward {2} (…)`, `scry 1. (…)`),
+/// and so does a parenthesis that does not close the line.
 #[must_use]
-pub fn prefix(context: &GameContext) -> String {
+pub fn strip_reminder(line: &str) -> String {
+    let Some(open) = line.find('(') else {
+        return line.to_string();
+    };
+    let is_keyword = |word: &str| {
+        KEYWORDS
+            .iter()
+            .any(|(_, name)| name.eq_ignore_ascii_case(word.trim()))
+    };
+    let before = line[..open].trim();
+    let keywords_only = !before.is_empty() && before.split(", ").all(is_keyword);
+    let after_keyword = before.strip_suffix('.').is_some_and(|sentence| {
+        KEYWORDS.iter().any(|(_, name)| {
+            sentence.len() > name.len()
+                && sentence.is_char_boundary(sentence.len() - name.len())
+                && sentence[sentence.len() - name.len()..].eq_ignore_ascii_case(name)
+                && sentence[..sentence.len() - name.len()].ends_with(' ')
+        })
+    });
+    if !(before.is_empty() || keywords_only || after_keyword) {
+        return line.to_string();
+    }
+    // The reminder is one parenthesis from `open` that closes the line.
+    let rest = line[open..].trim_end();
+    let mut depth = 0_i32;
+    for (at, c) in rest.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 && at + 1 != rest.len() {
+                    return line.to_string();
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 {
+        return line.to_string();
+    }
+    line[..open].trim_end().to_string()
+}
+
+/// The stable first part of a conversation: the seat, the table and the
+/// deck it brought, its full text or its names as `deck` says, which a
+/// provider caches. A function of the game alone, so it is the same bytes
+/// at every conversation of the game.
+#[must_use]
+pub fn prefix(context: &GameContext, deck_text: DeckText) -> String {
     let mut out = String::new();
     let me = usize::from(context.seat.get());
     let _ = writeln!(
@@ -391,12 +478,20 @@ pub fn prefix(context: &GameContext) -> String {
         .chain(&deck.commanders)
         .map(|entry| entry.count)
         .sum();
-    let _ = writeln!(
-        out,
-        "\nYOUR DECK «{}» ({cards} cards). The full text of every card in it; later \
-         messages name these cards without their text.",
-        deck.name
-    );
+    let _ = match deck_text {
+        DeckText::Full => writeln!(
+            out,
+            "\nYOUR DECK «{}» ({cards} cards). The full text of every card in it; later \
+             messages name these cards without their text.",
+            deck.name
+        ),
+        DeckText::Names => writeln!(
+            out,
+            "\nYOUR DECK «{}» ({cards} cards), by name. A card's full text is shown the \
+             first time it is seen, under \"New cards\".",
+            deck.name
+        ),
+    };
     for (label, entries) in [("Commander", &deck.commanders), ("Main deck", &deck.main)] {
         if entries.is_empty() {
             continue;
@@ -407,6 +502,10 @@ pub fn prefix(context: &GameContext) -> String {
                 let _ = writeln!(out, "  {}× (a card this build does not know)", entry.count);
                 continue;
             };
+            if deck_text == DeckText::Names {
+                let _ = writeln!(out, "  {}× {}", entry.count, def.name());
+                continue;
+            }
             for face in 0..def.faces.len() {
                 let Some(text) = card_text(entry.card, face) else {
                     continue;

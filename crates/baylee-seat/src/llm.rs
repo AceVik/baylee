@@ -274,11 +274,13 @@ impl Settings {
     /// How its seats' messages are told: the answer's shape spelt out on
     /// every question only for a model whose answer no schema or tool
     /// holds (an API's plain JSON mode; a CLI is always handed the
-    /// schema).
+    /// schema); the deck's full text in the prefix, which a mind reached
+    /// through an endpoint that keeps no cache changes ([`ApiMind::new`]).
     #[must_use]
     pub fn style(&self) -> narrator::Style {
         narrator::Style {
             spell_answer: self.answer == AnswerMode::Json && self.provider != Provider::Cli,
+            deck: narrator::DeckText::Full,
         }
     }
 
@@ -821,6 +823,9 @@ type Seats = Mutex<BTreeMap<(String, u8), Arc<Mutex<SeatState>>>>;
 /// A language model behind an API.
 pub struct ApiMind {
     settings: Settings,
+    /// How its seats' messages are told, decided once from the settings
+    /// and the address.
+    style: narrator::Style,
     credentials: Credentials,
     agent: ureq::Agent,
     seats: Seats,
@@ -852,7 +857,17 @@ impl ApiMind {
             calls_cap: settings.spend_calls,
             ..Tally::default()
         };
+        let mut style = settings.style();
+        // An OpenAI-compatible server on this machine (LM Studio, llama.cpp)
+        // keeps no prompt cache between calls: every token of the prefix is
+        // read again at every decision, so the deck is told by name and a
+        // card's text when it is first seen. Anthropic and a remote
+        // endpoint read the prefix back from their cache.
+        if credentials.api == Api::OpenAi && is_loopback(&credentials.base) {
+            style.deck = narrator::DeckText::Names;
+        }
         Self {
+            style,
             settings,
             credentials,
             agent,
@@ -880,11 +895,7 @@ impl ApiMind {
         let mut seats = lock(&self.seats);
         Arc::clone(seats.entry(key).or_insert_with(|| {
             Arc::new(Mutex::new(SeatState {
-                seat: Seat::new(
-                    context,
-                    self.settings.transcripts.as_deref(),
-                    self.settings.style(),
-                ),
+                seat: Seat::new(context, self.settings.transcripts.as_deref(), self.style),
                 messages: Vec::new(),
                 results: Vec::new(),
             }))
@@ -1347,7 +1358,7 @@ impl SeatState {
         }
         let stops_summary = self.seat.stops_summary();
         let wake = narrator.wake(request, &told, stops_summary.as_deref());
-        let prefix = fresh.then(|| narrator::prefix(&request.context));
+        let prefix = fresh.then(|| narrator.prefix(&request.context));
         let (mut messages, results) = if fresh {
             let start = match api {
                 Api::Anthropic => Vec::new(),

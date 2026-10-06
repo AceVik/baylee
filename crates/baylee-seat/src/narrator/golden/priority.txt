@@ -33,12 +33,10 @@ Since your last decision:
 
 New cards (full text once; later by name):
   Plains · Basic Land — Plains
-    ({T}: Add {W}.)
   Island · Basic Land — Island
-    ({T}: Add {U}.)
   Serra Angel {3}{W}{W} · Creature — Angel · 4/4
     Flying
-    Vigilance (Attacking doesn't cause this creature to tap.)
+    Vigilance
   Counterspell {U}{U} · Instant
     Counter target spell.
 

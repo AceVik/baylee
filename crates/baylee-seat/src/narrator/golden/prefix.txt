@@ -6,9 +6,7 @@ The table gives each decision 90 seconds.
 YOUR DECK «Gruul Test» (40 cards). The full text of every card in it; later messages name these cards without their text.
 Main deck:
   8× Forest · Basic Land — Forest
-    ({T}: Add {G}.)
   8× Mountain · Basic Land — Mountain
-    ({T}: Add {R}.)
   4× Llanowar Elves {G} · Creature — Elf Druid · 1/1
     {T}: Add {G}.
   4× Prodigal Sorcerer {2}{U} · Creature — Human Wizard Sorcerer · 1/1
