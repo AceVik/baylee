@@ -74,6 +74,8 @@ pub struct Ui {
     trusted_proxies: Vec<IpAddr>,
     clock: Clock,
     limiter: Mutex<Limiter>,
+    /// Direct reports per address and in all (`crate::direct`).
+    direct: Mutex<crate::direct::Allowance>,
 }
 
 impl Default for Ui {
@@ -83,6 +85,7 @@ impl Default for Ui {
             trusted_proxies: Vec::new(),
             clock: Arc::new(OffsetDateTime::now_utc),
             limiter: Mutex::new(Limiter::default()),
+            direct: Mutex::new(crate::direct::Allowance::default()),
         }
     }
 }
@@ -147,6 +150,21 @@ impl Ui {
 
     fn now(&self) -> OffsetDateTime {
         (self.clock)()
+    }
+
+    /// The address a request is counted under ([`client_address`]): kept
+    /// in memory for the allowances' window, never written down.
+    pub(crate) fn address(&self, peer: Option<IpAddr>, headers: &HeaderMap) -> String {
+        client_address(&self.trusted_proxies, peer, headers)
+    }
+
+    /// Whether a direct report from `address` may be taken now; counted.
+    pub(crate) fn allow_direct(&self, address: &str) -> bool {
+        let now = self.now();
+        self.direct
+            .lock()
+            .expect("the allowance is never poisoned")
+            .take(address, now)
     }
 }
 
