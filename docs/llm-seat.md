@@ -547,16 +547,21 @@ holds the processes).
   back (`POST …/leave`), so a room never keeps a chair for a bridge that
   is gone. A bridge that cannot start says why on the chair's card and is
   not retried until the plan changes.
-- **Limits.** The bridge is a guest: a gateway with `BAYLEE_GUESTS=off`
-  seats none, and under `BAYLEE_REGISTRATION=invite` it needs a key it is
-  not given. A blitz table (30 seconds or less a decision) is refused by
+- **Limits.** The bridge is a guest: it signs in with a display name
+  only (`GuestSignIn`, `sit_down` in `crates/baylee-seat/src/main.rs`), not
+  under the host's session, so the gateway must take guests. A gateway with
+  `BAYLEE_GUESTS=off` seats none, and under `BAYLEE_REGISTRATION=invite` a
+  new guest needs a key the client does not hand it (a terminal bridge
+  takes `--invite-key`); the chair's card then shows the gateway's
+  refusal. Joining under the host's session or an invite of its own is an
+  open item (`TODO.md`). A blitz table (30 seconds or less a decision) is refused by
   the bridge, as from a terminal. The chair keeps the house level `steady` for its fallbacks
   (a plan's end, a cap reached).
 
 ## Changing a chair during the game
 
-In a debug build only (`seating::LIVE_CHANGES`), a panel at the top left
-of the duel lists the chairs this client's bridges play and offers, for
+In a debug build only (`seating::LIVE_CHANGES`), a panel of the duel
+lists the chairs this client's bridges play and offers, for
 each, the house, every profile, the profile's models and their efforts.
 A press writes one JSON line to that bridge's stdin (`seating::Order`:
 `{"mind":"house","level":"steady"}` or
@@ -565,9 +570,15 @@ key-shaped value), and the bridge plays the new mind from its next
 decision; a question already being thought about is answered by the mind
 that was asked it. The order is chosen as at sit-down: the key or program
 checked and the game reserved in the spend book first, and on any refusal
-the old mind plays on, the bridge saying why. The chair keeps the name it
-sat down under, so a language-model chair takes a model or the house,
-never the reverse. A release bridge reads no orders and a release client
+the old mind plays on, the bridge saying why. The new mind thinks for as
+long as its profile says (`think_secs`, else the bridge's), from the
+question it is first asked where that is shorter and from the next one
+otherwise (`bridge::Swap::think`). The chair keeps the name it sat down
+under, so a language-model chair takes a model or the house, never the
+reverse; the panel then lights the house alone. The table's name is what
+sat down, not what plays now (`SeatIdentity` says why a seat never renames
+itself); a seat that renamed itself mid-game would need its own message
+from the gateway to the engine. A release bridge reads no orders and a release client
 draws no panel.
 
 ## A dev table
