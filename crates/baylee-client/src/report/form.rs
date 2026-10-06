@@ -279,6 +279,13 @@ pub(super) fn draw(
         desk.waited += 1;
         return;
     }
+    // Closed, asking nothing and with nothing left up to take down: the
+    // frame has no work here. This runs every frame of every screen, and
+    // the route and the signature below allocate, so most frames stop here.
+    if !(desk.open || desk.asking) && roots.is_empty() {
+        *last = None;
+        return;
+    }
     let route = super::route(lobby.as_deref(), &settings);
     let width = windows.single().map_or(1280.0, Window::width);
     let now = signature(&desk, &settings, &route, width);
