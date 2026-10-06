@@ -82,6 +82,7 @@ pub mod loops;
 mod damage;
 mod damage_history;
 mod graveyard_order;
+mod hasher;
 mod phasing;
 mod sources;
 

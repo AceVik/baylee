@@ -16,7 +16,7 @@ use baylee_core::ids::{CardIndex, Defender, NameRef, ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
 use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
-use xxhash_rust::xxh3::Xxh3;
+use crate::hasher::Hasher;
 
 /// Registry seam: the engine resolves card definitions through this trait
 /// and never depends on the compiled registry directly — a future runtime
@@ -4463,108 +4463,6 @@ fn moves_since(obj: Option<&GameObject>, version: u32) -> u8 {
     }
 }
 
-struct Hasher {
-    inner: Xxh3,
-}
-
-// Fixed byte order and word width keep structural DSL hashing deterministic
-// across native and wasm builds. References hash their contents, never addresses.
-impl std::hash::Hasher for Hasher {
-    fn finish(&self) -> u64 {
-        self.inner.digest()
-    }
-    fn write(&mut self, bytes: &[u8]) {
-        self.inner.update(bytes);
-    }
-    fn write_u8(&mut self, value: u8) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_u16(&mut self, value: u16) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_u32(&mut self, value: u32) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_u64(&mut self, value: u64) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_u128(&mut self, value: u128) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_i8(&mut self, value: i8) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_i16(&mut self, value: i16) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_i32(&mut self, value: i32) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_i64(&mut self, value: i64) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_i128(&mut self, value: i128) {
-        self.inner.update(&value.to_le_bytes());
-    }
-    fn write_usize(&mut self, value: usize) {
-        self.inner.update(&(value as u64).to_le_bytes());
-    }
-    fn write_isize(&mut self, value: isize) {
-        self.inner.update(&(value as i64).to_le_bytes());
-    }
-}
-
-impl Hasher {
-    fn new() -> Self {
-        Self { inner: Xxh3::new() }
-    }
-    fn finish(self) -> u64 {
-        self.inner.digest()
-    }
-    fn bytes(&mut self, b: &[u8]) {
-        self.inner.update(b);
-    }
-    fn u8(&mut self, v: u8) {
-        self.bytes(&[v]);
-    }
-    fn i8(&mut self, v: i8) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn u16(&mut self, v: u16) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn u32(&mut self, v: u32) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn i16(&mut self, v: i16) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn i32(&mut self, v: i32) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn u64(&mut self, v: u64) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn u128(&mut self, v: u128) {
-        self.bytes(&v.to_le_bytes());
-    }
-    fn usize(&mut self, v: usize) {
-        self.bytes(&(v as u64).to_le_bytes());
-    }
-    fn boolean(&mut self, v: bool) {
-        self.u8(u8::from(v));
-    }
-    fn option_u32(&mut self, v: Option<u32>) {
-        match v {
-            Some(x) => {
-                self.u8(1);
-                self.u32(x);
-            }
-            None => self.u8(0),
-        }
-    }
-}
-
 /// Hashes a defender. `locate` maps an object to whatever identity the
 /// caller's hash is built on — the arena slot for the snapshot, a
 /// canonical position for the loop signature.
@@ -4912,7 +4810,9 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     colors.hash(h);
     types.hash(h);
     supertypes.hash(h);
-    subtypes.hash(h);
+    // `[u64; N]`'s own `Hash`, word by word: its length, then each word's
+    // native bytes, as fixed-size writes instead of one of runtime length.
+    h.words(subtypes.words());
     keywords.hash(h);
     power.hash(h);
     toughness.hash(h);
@@ -5409,14 +5309,14 @@ fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
     // an empty cost, most objects' (tokens'), costs the stream: a wider
     // prefix measured 7 % slower on `snapshot_hash_3k_tokens`.
     h.u8(cost.kinds());
-    for (symbol, count) in cost.runs() {
+    cost.for_each_run(|symbol, count| {
         let [count_lo, count_hi] = count.to_le_bytes();
         let (tag, first, second) = match symbol {
             ManaSymbol::Generic(amount) => {
                 // Always one generic symbol: its amount says it all.
                 let [w0, w1, w2, w3] = amount.to_le_bytes();
-                h.bytes(&[0, w0, w1, w2, w3]);
-                continue;
+                h.put([0, w0, w1, w2, w3]);
+                return;
             }
             ManaSymbol::Colorless => (1, 0, 0),
             ManaSymbol::White => (2, 0, 0),
@@ -5433,8 +5333,8 @@ fn hash_mana_cost(h: &mut Hasher, cost: &baylee_core::mana::ManaCost) {
             ManaSymbol::HalfGeneric => (13, 0, 0),
             ManaSymbol::Infinite => (14, 0, 0),
         };
-        h.bytes(&[tag, first, second, count_lo, count_hi]);
-    }
+        h.put([tag, first, second, count_lo, count_hi]);
+    });
 }
 
 /// Writes the controller a walk of the refresh projected, noting in `was`
