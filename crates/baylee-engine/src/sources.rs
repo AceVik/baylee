@@ -187,7 +187,9 @@ impl GameState {
             // the link is kept once.
             let ids: &[ObjectId] = if seat < self.players.len() {
                 self.zones
-                    .list(ZoneLocation::Exile(baylee_core::ids::PlayerId::new(seat as u8)))
+                    .list(ZoneLocation::Exile(baylee_core::ids::PlayerId::new(
+                        seat as u8,
+                    )))
             } else {
                 leaving.as_slice()
             };

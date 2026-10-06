@@ -172,8 +172,11 @@ impl<T> Arena<T> {
         let id = ObjectId::new(slot, 0);
         let (chunk, at) = locate(id);
         if chunk == self.chunks.len() {
-            self.chunks
-                .push(std::iter::repeat_with(|| Slot::UNISSUED).take(CHUNK).collect());
+            self.chunks.push(
+                std::iter::repeat_with(|| Slot::UNISSUED)
+                    .take(CHUNK)
+                    .collect(),
+            );
         }
         let s = &mut Arc::make_mut(&mut self.chunks[chunk])[at];
         debug_assert!(s.value.is_none() && s.generation == 0, "an issued slot");
@@ -341,7 +344,10 @@ mod tests {
         assert_eq!(arena.unshared_chunks(), 3, "and one that wants one value");
         assert_eq!(arena.get(ids[5]), Some(&6));
         assert_eq!(snapshot.get(ids[5]), Some(&5));
-        assert_eq!(snapshot.get(ids[3 * CHUNK + 1]), Some(&(3 * CHUNK as u32 + 1)));
+        assert_eq!(
+            snapshot.get(ids[3 * CHUNK + 1]),
+            Some(&(3 * CHUNK as u32 + 1))
+        );
         assert_eq!(snapshot.get(ids[7 * CHUNK]), Some(&(7 * CHUNK as u32)));
     }
 
@@ -364,7 +370,10 @@ mod tests {
                 .map(|(i, (g, v))| (i as u32, *g, *v))
                 .collect();
             assert_eq!(slots, expected);
-            assert_eq!(arena.len(), model.iter().filter(|(_, v)| v.is_some()).count());
+            assert_eq!(
+                arena.len(),
+                model.iter().filter(|(_, v)| v.is_some()).count()
+            );
             let live: Vec<(ObjectId, u64)> = arena.iter().map(|(id, v)| (id, *v)).collect();
             let expected: Vec<(ObjectId, u64)> = model
                 .iter()

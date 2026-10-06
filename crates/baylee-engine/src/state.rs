@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::arena::Arena;
 use crate::event::{Cause, GameEvent, Journal, LibraryPlace, LossReason};
+use crate::hasher::Hasher;
 use crate::object::{
     CardRef, Characteristics, CounterKind, GameObject, ObjectKind, PrintedFace, Rider,
 };
@@ -16,7 +17,6 @@ use baylee_core::ids::{CardIndex, Defender, NameRef, ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaPool, ManaSymbol};
 use baylee_core::preset::{FormatId, GamePreset, PresetError};
 use rustc_hash::FxHashMap;
-use crate::hasher::Hasher;
 
 /// Registry seam: the engine resolves card definitions through this trait
 /// and never depends on the compiled registry directly — a future runtime
@@ -5541,14 +5541,22 @@ mod tests {
         let forest = names.intern("Forest");
         let snapshot = names.clone();
         let island = names.intern("Island");
-        assert_eq!(names.intern("Forest"), forest, "an old name is found, not added");
+        assert_eq!(
+            names.intern("Forest"),
+            forest,
+            "an old name is found, not added"
+        );
         assert_eq!(names.len(), 2);
         assert_eq!(names.get(island), "Island");
         assert_eq!(snapshot.len(), 1);
         assert_eq!(snapshot.find("Island"), None);
         assert_eq!(snapshot.get(forest), "Forest");
         let mut other = snapshot.clone();
-        assert_eq!(other.intern("Swamp"), island, "the same next ref, on another side");
+        assert_eq!(
+            other.intern("Swamp"),
+            island,
+            "the same next ref, on another side"
+        );
         assert_eq!(other.get(island), "Swamp");
         assert_eq!(names.get(island), "Island");
     }
@@ -5589,7 +5597,9 @@ mod tests {
                     }
                     3 => {
                         let copy = state.object(id).unwrap().clone();
-                        state.arena.insert_with(|new| GameObject { id: new, ..copy });
+                        state
+                            .arena
+                            .insert_with(|new| GameObject { id: new, ..copy });
                     }
                     4 if ids.len() > 8 => {
                         state.arena.remove(id);
@@ -5597,11 +5607,23 @@ mod tests {
                     _ => clones.push(state.clone()),
                 }
                 // Twice: the second asks a memo the first just filled.
-                assert_eq!(state.snapshot_hash(), written(&state), "seed {seed} step {step}");
-                assert_eq!(state.snapshot_hash(), written(&state), "seed {seed} step {step}");
+                assert_eq!(
+                    state.snapshot_hash(),
+                    written(&state),
+                    "seed {seed} step {step}"
+                );
+                assert_eq!(
+                    state.snapshot_hash(),
+                    written(&state),
+                    "seed {seed} step {step}"
+                );
             }
             for clone in &clones {
-                assert_eq!(clone.snapshot_hash(), written(clone), "seed {seed}: a clone");
+                assert_eq!(
+                    clone.snapshot_hash(),
+                    written(clone),
+                    "seed {seed}: a clone"
+                );
             }
         }
     }
