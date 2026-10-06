@@ -104,6 +104,17 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
     // account or guest) or `off`, and whether guests are taken at all.
     body.insert("registration".into(), state.registration.wire().into());
     body.insert("guests".into(), state.guests_enabled.into());
+    // The version of the terms a player accepts here (WG-1), `null` when
+    // the gateway has none; `GET /terms` has the text.
+    body.insert(
+        "terms".into(),
+        state
+            .terms
+            .as_ref()
+            .map_or(serde_json::Value::Null, |terms| {
+                terms.version.clone().into()
+            }),
+    );
     Json(body.into())
 }
 

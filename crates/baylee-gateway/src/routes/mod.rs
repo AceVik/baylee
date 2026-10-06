@@ -16,6 +16,7 @@ mod signin;
 mod stats;
 mod table_view;
 mod tables;
+mod terms;
 mod tickets;
 
 pub(crate) use catalog::*;

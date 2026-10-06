@@ -171,7 +171,7 @@ pub fn ct_eq(a: &str, b: &str) -> bool {
     a.as_bytes().ct_eq(b.as_bytes()).into()
 }
 
-fn hex_lower(bytes: &[u8]) -> String {
+pub(crate) fn hex_lower(bytes: &[u8]) -> String {
     bytes.iter().fold(String::new(), |mut out, b| {
         use std::fmt::Write as _;
         let _ = write!(out, "{b:02x}");

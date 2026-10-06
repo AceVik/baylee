@@ -26,6 +26,7 @@ mod room;
 mod routes;
 mod seatrate;
 mod store;
+mod terms;
 mod texts;
 mod wsticket;
 
@@ -196,6 +197,9 @@ struct AppState {
     /// The accounts with a lobby socket open, as a count for
     /// `GET /lobby/stats` (`presence.rs`); memory only.
     presence: presence::Presence,
+    /// The terms of use a player accepts (`BAYLEE_TERMS_PATH`, WG-1), read
+    /// once at start; `None` when the gateway has none.
+    terms: Option<terms::Terms>,
 }
 
 impl AppState {
@@ -246,6 +250,8 @@ async fn main() {
     let legacy_until =
         wsticket::legacy_from_env(std::env::var("BAYLEE_WS_LEGACY_TOKENS").ok().as_deref())
             .unwrap_or_else(|why| panic!("BAYLEE_WS_LEGACY_TOKENS: {why}"));
+    let terms = terms::from_env(std::env::var_os("BAYLEE_TERMS_PATH").as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_TERMS_PATH: {why}"));
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
@@ -298,6 +304,7 @@ async fn main() {
         chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
         names: namebook::NameBook::default(),
         presence: presence::Presence::default(),
+        terms,
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;

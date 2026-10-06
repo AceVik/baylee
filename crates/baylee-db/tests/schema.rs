@@ -136,6 +136,8 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         lang: Set("de".to_owned()),
         guest: Set(false),
         invite_id: Set(None),
+        terms_version: Set(None),
+        terms_accepted_at: Set(None),
     }
 }
 
@@ -873,8 +875,10 @@ async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
     let mut players = Vec::new();
     for email in ["painter@example.com", "copier@example.com"] {
         let mut account = an_account(email);
-        // A column from a later migration than this schema has.
+        // Columns from later migrations than this schema has.
         account.invite_id = NotSet;
+        account.terms_version = NotSet;
+        account.terms_accepted_at = NotSet;
         let Set(id) = account.id else { unreachable!() };
         Account::insert(account).exec(&sandbox.db).await.unwrap();
         players.push(id);
@@ -2354,7 +2358,10 @@ async fn every_link_to_an_account_is_indexed() {
         Vec::<String>::new()
     );
 
-    Migrator::down(&sandbox.db, Some(1))
+    // Back to before the fourteenth migration, counted from the list, so the
+    // migrations after it are stepped back too.
+    let back = u32::try_from(Migrator::migrations().len() - 13).expect("a handful");
+    Migrator::down(&sandbox.db, Some(back))
         .await
         .expect("the index steps back");
     assert_eq!(

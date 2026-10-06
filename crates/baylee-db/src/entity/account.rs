@@ -60,6 +60,11 @@ pub struct Model {
     /// the account is made, and forgotten (`ON DELETE SET NULL`) when the
     /// key's row is removed.
     pub invite_id: Option<Uuid>,
+    /// The version of the gateway's terms of use it last accepted (WG-1),
+    /// as `GET /terms` names it; `None` for never.
+    pub terms_version: Option<String>,
+    /// When it accepted them.
+    pub terms_accepted_at: Option<TimeDateTimeWithTimeZone>,
 }
 
 /// Everything that belongs to an account and dies with it.

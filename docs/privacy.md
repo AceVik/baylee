@@ -19,6 +19,7 @@ the pointers, because line numbers move.
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
+| Which terms of use an account accepted, and when | Postgres `account` (`terms_version`, `terms_accepted_at`) | until the next acceptance replaces it | the account's deletion |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Who has a lobby socket open (account ids, for a count) | gateway memory | while the socket is open | the socket closing, a restart |
@@ -56,6 +57,11 @@ the pointers, because line numbers move.
     `guest`.
   - `invite_id`: on a closed beta (#317), which key let the account in
     (below); empty otherwise.
+  - `terms_version` and `terms_accepted_at`: on a gateway with terms of use
+    (`BAYLEE_TERMS_PATH`, WG-1), which version the account last accepted
+    and when (`POST /account/terms`); empty until it does, and on a gateway
+    without terms. Only the last acceptance is kept. It goes with the
+    account.
   - No IP address, user agent or last-login time is stored anywhere.
 - **Why:** the username signs in. The display name and tag are how other
   players see and find the account (`GET /players/{handle}`). The e-mail

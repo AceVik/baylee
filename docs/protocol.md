@@ -174,6 +174,8 @@ is no account yet:
   than cuts anything else (`gateway_info::GatewayInfo::source`). Its front
   door draws it under the Fan Content notice, and draws the client's own
   repository instead while the gateway has not said.
+- `terms` is the version of the terms of use a player accepts here, or
+  `null` on a gateway without terms (§"Terms of use (WG-1)").
 - `registration` is who may make an account: `open`, `invite` (a closed
   beta, §"A closed beta: keys (#317)") or `off`; `guests` is whether it takes
   guests. Both are absent from a gateway older than #317. They are here so a
@@ -2008,6 +2010,41 @@ door, key or no key.
   one key per line on stdout, and nothing else, so it pipes; `list` shows
   every key's id, note, uses left, accounts admitted, expiry and state,
   never a key; `revoke <id>` closes one. A key is shown once, when made.
+
+## Terms of use (WG-1)
+
+A gateway may ask its players to accept terms of use. The operator points
+`BAYLEE_TERMS_PATH` at a UTF-8 Markdown file of at most 64 KiB; unset, the
+gateway has none and **nothing below appears**: no `terms_stale`, `"terms":
+null` in `/info`, `404` on `/terms`. Set but unreadable, oversize, not UTF-8
+or empty, the gateway refuses to start. The file is read once, at start.
+
+- `GET /terms` (public) → `{"version", "updated"?, "markdown"}`. `version`
+  is the first 16 hex digits of the file's SHA-256, so any edit asks every
+  player again — unless the file's **first line** is `<!-- version: 2026-10
+  -->`, which names it (at most 64 characters, no whitespace), so an
+  editorial fix need not be accepted twice. `updated` is the date an
+  `<!-- updated: 2026-10-06 -->` line among the leading comment lines names;
+  absent without one. The leading comment lines are not part of `markdown`.
+- `/info` carries `"terms": "<version>"`, so a client can compare it with
+  what it last accepted before anyone signs in.
+- `POST /auth/login`, `/auth/register` and `/auth/guest` answer
+  `"terms_stale": true` when the account has not accepted the current
+  version (a new account or guest never has), `false` when it has. The
+  client then shows the terms and sends:
+- `POST /account/terms {"version"}` (signed in) → `{"version"}`, recording
+  the version and the time on the account. A version that is not the current
+  one is `409` (the file changed while the sheet was up; show it again), a
+  gateway without terms `404`.
+
+Enforcement stops there, for the beta (Q5): **no route refuses a session
+that has not accepted.** Tickets, decks and seats work as before, so an edit
+to the terms never blinds a lobby or locks a seat out of its game; the
+client asks right after sign-in. A returning guest signs in with its kept
+session and so never sees `terms_stale`; the client compares `/info.terms`
+with its own copy of what it accepted. The repository's
+`docs/terms-placeholder.md` is a placeholder for testing the sheet and is
+not legal text; no deploy reads it.
 
 ## Deleting an account (#292)
 

@@ -120,6 +120,9 @@ pub struct Account {
     pub lang: String,
     /// A guest (#269): no username, no password, and gone with its session.
     pub guest: bool,
+    /// The version of the gateway's terms it last accepted (WG-1), `None`
+    /// for never.
+    pub terms_version: Option<String>,
 }
 
 /// Whose a live session is.
@@ -275,6 +278,7 @@ impl From<account::Model> for Account {
             confirmed_at: row.confirmed_at.map(secs),
             lang: row.lang,
             guest: row.guest,
+            terms_version: row.terms_version,
         }
     }
 }
@@ -498,6 +502,8 @@ pub async fn create_account(
         lang: Set(new.lang),
         guest: Set(false),
         invite_id: Set(invite_id),
+        terms_version: Set(None),
+        terms_accepted_at: Set(None),
     };
     match Accounts::insert(row).exec_with_returning(&txn).await {
         Ok(_) => {
@@ -555,6 +561,8 @@ pub async fn create_guest(
         lang: Set(new.lang),
         guest: Set(true),
         invite_id: Set(invite_id),
+        terms_version: Set(None),
+        terms_accepted_at: Set(None),
     })
     .exec_with_returning(&txn)
     .await?;
@@ -1241,6 +1249,29 @@ pub async fn delete_deck(db: &DatabaseConnection, deck_id: &str, account_id: &st
         .await?
         .rows_affected
         > 0)
+}
+
+// ---------------------------------------------------------------- terms
+
+/// Records that an account accepted this version of the terms of use, now.
+///
+/// # Errors
+///
+/// If the database refuses.
+pub async fn accept_terms(db: &DatabaseConnection, account_id: &str, version: &str) -> Result<()> {
+    let Some(id) = uuid(account_id) else {
+        return Ok(());
+    };
+    Accounts::update_many()
+        .col_expr(account::Column::TermsVersion, Expr::value(version))
+        .col_expr(
+            account::Column::TermsAcceptedAt,
+            Expr::value(OffsetDateTime::now_utc()),
+        )
+        .filter(account::Column::Id.eq(id))
+        .exec(db)
+        .await?;
+    Ok(())
 }
 
 // ------------------------------------------------------------- settings
