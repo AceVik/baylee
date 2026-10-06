@@ -2294,6 +2294,14 @@ in the language `lang` asks for, falling back field by field to English;
 few hundred rows, so it is sent whole and filtered in the client; `total` and
 `pool_hash` are there for the day it is not.
 
+A row whose card's printed mana abilities name some kind of mana carries
+`produces`, those kinds as `WUBRGC` letters in that order (WG-4,
+`baylee_cards::produces`): `"G"` for a Forest, `"WU"` for a land with the
+Plains and Island types, `"C"` for a Sol Ring. It is what the words say,
+whatever the ability costs or does beside the mana, and what only a game
+can answer (a Command Tower's commanders, a chosen colour) is left out
+rather than guessed. Absent for every other card.
+
 Each row also carries `oracle_id` and `alt_names` — every *other* name the
 card is printed under: the languages a configured catalog holds, and, for a
 card with two faces, its whole `A // B` spelling. That is what lets the

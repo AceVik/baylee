@@ -47,6 +47,9 @@ pub mod mutate;
 pub mod oracle;
 /// The registry as deck-builder rows — what a deck may be built from.
 pub mod pool;
+/// Which kinds of mana a card's printed mana abilities name (`/pool`'s
+/// `produces`).
+pub mod produces;
 /// Whether a card has a back to show, and whether it is double-faced.
 pub mod sides;
 /// Central named token definitions (referenced by card files).

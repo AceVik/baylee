@@ -125,6 +125,11 @@ pub struct PoolCard {
     /// largest field in the answer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alt_names: Vec<String>,
+    /// The kinds of mana its printed mana abilities name, as `WUBRGC`
+    /// letters ([`crate::produces`], WG-4): what a deck's colour sources are
+    /// counted by. Omitted from the wire when empty, which is most cards.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub produces: String,
 }
 
 /// `serde`'s `skip_serializing_if` wants a predicate, and `bool` has none.
@@ -220,6 +225,7 @@ pub fn row(def: &'static CardDef) -> PoolCard {
             .map(ToString::to_string)
             .into_iter()
             .collect(),
+        produces: crate::produces::produces(def),
     }
 }
 
