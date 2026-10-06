@@ -1231,9 +1231,11 @@ training reader knows which model made which action (the owner, 06.10.).
   the tool, `claude`, `codex`, …; `model` the one it names, empty for the
   tool's default; `effort`). Built by `baylee_seat::declare` from what the
   bridge plays.
-- **When.** Once on every socket, before its `SeatReady` and so before its
-  first answer, and again whenever it changes: `SeatCore::declare` sends a
-  swapped model at once. The engine writes a line only when the declaration
+- **When.** Once on every socket, before its first answer, and again
+  whenever it changes. The client puts it first in each socket's outbox
+  (after a redial's `Resume`, since a mid-game redial sends no
+  `SeatReady`); the bridge sends it beside its `SeatReady`, which it sends
+  on every socket, and `SeatCore::declare` sends a swapped model at once. The engine writes a line only when the declaration
   differs from the seat's last; a socket that reconnects and says the same
   writes nothing.
 - **Self-declared, and checked for its shape only.** Nothing proves a
