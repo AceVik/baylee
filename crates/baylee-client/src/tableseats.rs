@@ -15,13 +15,15 @@
 //! Desktop and a gateway only: a browser and a phone have no bridge beside
 //! them, and an offline table (`LocalHost`) is the house's alone.
 
-use baylee_client_core::llmseat::door::{Admission, Doors, admission_for, ticket_request};
+use baylee_client_core::llmseat::door::Doors;
 use baylee_client_core::llmseat::models::{Resolved, listing_url, parse_listing};
 pub(crate) use baylee_client_core::llmseat::seating::Phase;
 use baylee_client_core::llmseat::seating::{
     ChairModel, Change, DECKS, LIVE_CHANGES, Refusal, Seating, endpoint, models_for, resolved,
 };
 // What runs the bridges: a native build's only.
+#[cfg(not(target_arch = "wasm32"))]
+use baylee_client_core::llmseat::door::{Admission, admission_for, ticket_request};
 #[cfg(not(target_arch = "wasm32"))]
 use baylee_client_core::llmseat::seating::{Launch, Running, Step, bridge_args};
 use baylee_client_core::llmseat::{Profile, SeatSettings};
@@ -33,6 +35,7 @@ pub(crate) struct Room<'a> {
     /// Its id.
     pub(crate) id: &'a str,
     /// The gateway's address.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // read where bridges run
     pub(crate) gateway: &'a str,
     /// Waiting for players, or playing.
     pub(crate) phase: Phase,
@@ -40,10 +43,13 @@ pub(crate) struct Room<'a> {
     pub(crate) open: Vec<u32>,
     /// The host's session at the gateway, which asks for a chair's ticket
     /// (`baylee_client_core::llmseat::door`).
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // read where bridges run
     pub(crate) session: Option<&'a str>,
     /// Whether the host is a guest, who is handed no chair ticket.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // read where bridges run
     pub(crate) host_is_guest: bool,
     /// Whether the gateway takes guests, the bridge's door without one.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))] // read where bridges run
     pub(crate) guests: bool,
 }
 

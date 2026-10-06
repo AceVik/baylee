@@ -618,3 +618,28 @@ async fn no_chair_ticket_reaches_the_log() {
         );
     }
 }
+
+/// A gateway whose guest seats are all taken still seats a host's bridge:
+/// it takes no guest seat.
+#[tokio::test]
+async fn a_full_guest_cap_still_seats_a_hosts_bridge() {
+    let gw = spawn_gateway_with("chair_cap", &[("BAYLEE_GUEST_CAP", "1".into())]);
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let guest = |name: &str| {
+        http(
+            port,
+            "POST",
+            "/auth/guest",
+            None,
+            &format!(r#"{{"display_name":"{name}"}}"#),
+        )
+        .0
+    };
+    assert_eq!(guest("First"), 200);
+    assert_eq!(guest("Second"), 503, "the cap is reached");
+    let host = login(port, "hostg", "Hostg");
+    let game = room(port, &host, 2);
+    let (status, body) = redeem(port, &ticket(port, &host, &game, 1), &game, 1);
+    assert_eq!(status, 200, "{body}");
+}
