@@ -28,28 +28,72 @@ use xxhash_rust::xxh3::Xxh3;
 const BUF: usize = 256;
 
 pub(crate) struct Hasher {
-    inner: Xxh3,
+    out: Out,
     len: usize,
     buf: [u8; BUF],
+}
+
+/// Where gathered bytes go: into the digest, or onto a tape that a later
+/// digest is fed whole ([`Hasher::tape_into`]).
+enum Out {
+    Stream(Xxh3),
+    Tape(Vec<u8>),
+}
+
+impl Out {
+    fn take(&mut self, bytes: &[u8]) {
+        match self {
+            Self::Stream(stream) => stream.update(bytes),
+            Self::Tape(tape) => tape.extend_from_slice(bytes),
+        }
+    }
 }
 
 impl Hasher {
     pub(crate) fn new() -> Self {
         Self {
-            inner: Xxh3::new(),
+            out: Out::Stream(Xxh3::new()),
             len: 0,
             buf: [0; BUF],
         }
     }
 
-    /// The digest of everything written.
+    /// A sink that keeps the bytes instead of digesting them, for a part
+    /// of the state that is written again unchanged on the next hash
+    /// (`GameState::snapshot_hash`'s memo). [`Self::bytes`] of the tape
+    /// later digests exactly what writing the part would have.
+    /// The tape is written into `reuse`'s allocation when given one.
+    pub(crate) fn tape_into(reuse: Option<Vec<u8>>) -> Self {
+        let mut tape = reuse.unwrap_or_default();
+        tape.clear();
+        Self {
+            out: Out::Tape(tape),
+            len: 0,
+            buf: [0; BUF],
+        }
+    }
+
+    /// The digest of everything written. A tape's is the digest of its
+    /// bytes, as a stream fed them would give.
     pub(crate) fn finish(mut self) -> u64 {
         self.flush();
-        self.inner.digest()
+        match self.out {
+            Out::Stream(stream) => stream.digest(),
+            Out::Tape(tape) => xxhash_rust::xxh3::xxh3_64(&tape),
+        }
+    }
+
+    /// The bytes a [`Self::tape`] kept.
+    pub(crate) fn into_tape(mut self) -> Vec<u8> {
+        self.flush();
+        match self.out {
+            Out::Tape(tape) => tape,
+            Out::Stream(_) => unreachable!("only a tape keeps its bytes"),
+        }
     }
 
     fn flush(&mut self) {
-        self.inner.update(&self.buf[..self.len]);
+        self.out.take(&self.buf[..self.len]);
         self.len = 0;
     }
 
@@ -63,12 +107,13 @@ impl Hasher {
         self.len += N;
     }
 
+    #[inline]
     pub(crate) fn bytes(&mut self, b: &[u8]) {
         if b.len() > BUF / 2 {
             // Large enough that copying it first only costs: hand the
             // stream what is gathered, then the slice itself.
             self.flush();
-            self.inner.update(b);
+            self.out.take(b);
             return;
         }
         if self.len + b.len() > BUF {
@@ -77,35 +122,45 @@ impl Hasher {
         self.buf[self.len..self.len + b.len()].copy_from_slice(b);
         self.len += b.len();
     }
+    #[inline]
     pub(crate) fn u8(&mut self, v: u8) {
         self.put([v]);
     }
+    #[inline]
     pub(crate) fn i8(&mut self, v: i8) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn u16(&mut self, v: u16) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn u32(&mut self, v: u32) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn i16(&mut self, v: i16) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn i32(&mut self, v: i32) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn u64(&mut self, v: u64) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn u128(&mut self, v: u128) {
         self.put(v.to_le_bytes());
     }
+    #[inline]
     pub(crate) fn usize(&mut self, v: usize) {
         self.put((v as u64).to_le_bytes());
     }
     /// What `[u64; N]`'s own `Hash` writes — its length, then the words'
     /// native bytes in one slice — as fixed-size writes.
+    #[inline]
     pub(crate) fn words(&mut self, words: &[u64; 16]) {
         self.usize(words.len());
         let mut bytes = [0u8; 128];
@@ -114,9 +169,11 @@ impl Hasher {
         }
         self.put(bytes);
     }
+    #[inline]
     pub(crate) fn boolean(&mut self, v: bool) {
         self.u8(u8::from(v));
     }
+    #[inline]
     pub(crate) fn option_u32(&mut self, v: Option<u32>) {
         match v {
             Some(x) => {
@@ -135,46 +192,69 @@ impl std::hash::Hasher for Hasher {
     /// asks it (the inherent [`Hasher::finish`] is the door); it is here
     /// because the trait wants it, and it answers what that one would.
     fn finish(&self) -> u64 {
-        let mut inner = self.inner.clone();
-        inner.update(&self.buf[..self.len]);
-        inner.digest()
+        match &self.out {
+            Out::Stream(stream) => {
+                let mut stream = stream.clone();
+                stream.update(&self.buf[..self.len]);
+                stream.digest()
+            }
+            Out::Tape(tape) => {
+                let mut stream = Xxh3::new();
+                stream.update(tape);
+                stream.update(&self.buf[..self.len]);
+                stream.digest()
+            }
+        }
     }
+    #[inline]
     fn write(&mut self, bytes: &[u8]) {
         self.bytes(bytes);
     }
+    #[inline]
     fn write_u8(&mut self, value: u8) {
         self.u8(value);
     }
+    #[inline]
     fn write_u16(&mut self, value: u16) {
         self.u16(value);
     }
+    #[inline]
     fn write_u32(&mut self, value: u32) {
         self.u32(value);
     }
+    #[inline]
     fn write_u64(&mut self, value: u64) {
         self.u64(value);
     }
+    #[inline]
     fn write_u128(&mut self, value: u128) {
         self.u128(value);
     }
+    #[inline]
     fn write_i8(&mut self, value: i8) {
         self.i8(value);
     }
+    #[inline]
     fn write_i16(&mut self, value: i16) {
         self.i16(value);
     }
+    #[inline]
     fn write_i32(&mut self, value: i32) {
         self.i32(value);
     }
+    #[inline]
     fn write_i64(&mut self, value: i64) {
         self.put(value.to_le_bytes());
     }
+    #[inline]
     fn write_i128(&mut self, value: i128) {
         self.put(value.to_le_bytes());
     }
+    #[inline]
     fn write_usize(&mut self, value: usize) {
         self.usize(value);
     }
+    #[inline]
     fn write_isize(&mut self, value: isize) {
         self.put((value as i64).to_le_bytes());
     }
@@ -317,6 +397,32 @@ mod tests {
                 digest,
                 "seed {seed}: and the one-shot digest of the same bytes"
             );
+        }
+    }
+
+    /// Bytes kept on a tape and fed to a stream later digest exactly as
+    /// writing them there would have, wherever the tapes start and end.
+    #[test]
+    fn a_tape_fed_later_digests_as_the_writes_it_kept() {
+        for seed in 0..200 {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let mut direct = Hasher::new();
+            let mut taped = Hasher::new();
+            let mut plain = Plain(Xxh3::new(), Vec::new());
+            for _ in 0..rng.next_u32() % 40 {
+                let mut tape = Hasher::tape_into(Some(vec![1, 2, 3]));
+                let writes = rng.next_u32() % 30;
+                let mut twin = rng.clone();
+                let mut ignored = Plain(Xxh3::new(), Vec::new());
+                for _ in 0..writes {
+                    write_one(&mut rng, &mut direct, &mut plain);
+                    write_one(&mut twin, &mut tape, &mut ignored);
+                }
+                taped.bytes(&tape.into_tape());
+            }
+            let digest = plain.finish();
+            assert_eq!(direct.finish(), digest, "seed {seed}");
+            assert_eq!(taped.finish(), digest, "seed {seed}: through tapes");
         }
     }
 }

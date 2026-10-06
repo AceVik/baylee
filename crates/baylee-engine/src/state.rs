@@ -1137,6 +1137,10 @@ pub struct GameState {
     /// Drained by every pass, so it is empty whenever anyone can observe
     /// the state — which is what keeps it out of [`Self::snapshot_hash`].
     token_cleanup: Vec<ObjectId>,
+    /// What [`Self::snapshot_hash`] last wrote for each arena chunk. A cache
+    /// of the hash's own bytes, never rules state; a clone starts without
+    /// one ([`SnapshotMemo`]).
+    snapshot_memo: SnapshotMemo,
 }
 
 #[cfg(any(test, feature = "fuzz"))]
@@ -1218,6 +1222,8 @@ impl GameState {
             projected_cross_zone,
             token_cleanup,
             printed_pt_cda,
+            // The snapshot hash's cache of its own bytes, not state.
+            snapshot_memo: _,
         } = self;
         let mut restrictions: Vec<_> = restriction_info.iter().collect();
         restrictions.sort_by_key(|(id, _)| **id);
@@ -1611,6 +1617,7 @@ impl GameState {
             projected_cross_zone: false,
             printed_pt_cda: Vec::new(),
             token_cleanup: Vec::new(),
+            snapshot_memo: SnapshotMemo::default(),
         };
         // Casting probes need the nameless face without mutating this interner.
         let nameless = state.names.intern("");
@@ -3872,6 +3879,8 @@ impl GameState {
             printed_pt_cda: _,
             // Drained by every pass, before anyone can look.
             token_cleanup: _,
+            // This hash's cache of its own bytes, read below.
+            snapshot_memo,
         } = self;
         let mut h = Hasher::new();
         h.u64(*timestamp);
@@ -3935,12 +3944,14 @@ impl GameState {
         for player in players {
             hash_player(&mut h, player);
         }
-        for (slot, generation, value) in arena.slots() {
-            h.u32(slot);
-            h.u8(generation);
-            h.boolean(value.is_some());
-            if let Some(obj) = value {
-                hash_object(&mut h, obj);
+        // Contended only if two threads hash one state at once, and then
+        // the second simply writes everything: the same bytes either way.
+        match snapshot_memo.0.try_lock() {
+            Ok(mut memo) => hash_arena_remembering(&mut h, arena, &mut memo),
+            Err(_) => {
+                for (slot, generation, value) in arena.slots() {
+                    hash_slot(&mut h, slot, generation, value);
+                }
             }
         }
         zones.hash(&mut h);
@@ -4827,6 +4838,83 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
     front_mana_value.hash(h);
 }
 
+/// What [`GameState::snapshot_hash`] last wrote for each arena chunk: the
+/// chunk's key and the bytes its slots made.
+///
+/// A game is hashed after every input its record keeps, and between two
+/// inputs most chunks are not written at all. A chunk whose key still
+/// matches has the same slots ([`crate::arena::ChunkKey`] says why), and
+/// its slots' bytes depend on nothing else, so its bytes are fed again
+/// instead of written again. The stream is byte for byte the one writing
+/// would make; `the_remembered_hash_is_the_written_hash` holds the two
+/// together over whole games.
+///
+/// A clone starts with an empty memo: a decision checkpoint is a clone, and
+/// a memo's keys would hold its chunks shared for nothing.
+#[derive(Default)]
+pub(crate) struct SnapshotMemo(std::sync::Mutex<Vec<Option<ArenaTape>>>);
+
+/// One chunk's key and bytes.
+struct ArenaTape {
+    key: crate::arena::ChunkKey<GameObject>,
+    bytes: Vec<u8>,
+}
+
+impl Clone for SnapshotMemo {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl std::fmt::Debug for SnapshotMemo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SnapshotMemo")
+    }
+}
+
+/// One arena slot as the snapshot hash writes it.
+fn hash_slot(h: &mut Hasher, slot: u32, generation: u8, value: Option<&GameObject>) {
+    h.u32(slot);
+    h.u8(generation);
+    h.boolean(value.is_some());
+    if let Some(obj) = value {
+        hash_object(h, obj);
+    }
+}
+
+/// The arena's slots in order, each chunk's bytes taken from `memo` while
+/// the chunk is the one they were written for, and written (and kept)
+/// otherwise.
+fn hash_arena_remembering(
+    h: &mut Hasher,
+    arena: &Arena<GameObject>,
+    memo: &mut Vec<Option<ArenaTape>>,
+) {
+    let mut chunks = 0;
+    for (i, view) in arena.chunk_views().enumerate() {
+        chunks = i + 1;
+        if memo.len() <= i {
+            memo.push(None);
+        }
+        match &mut memo[i] {
+            Some(tape) if view.is(&tape.key) => h.bytes(&tape.bytes),
+            entry => {
+                let mut written = Hasher::tape_into(entry.take().map(|t| t.bytes));
+                for (slot, generation, value) in view.slots() {
+                    hash_slot(&mut written, slot, generation, value);
+                }
+                let bytes = written.into_tape();
+                h.bytes(&bytes);
+                *entry = Some(ArenaTape {
+                    key: view.key(),
+                    bytes,
+                });
+            }
+        }
+    }
+    memo.truncate(chunks);
+}
+
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
 fn hash_object(h: &mut Hasher, obj: &GameObject) {
     let GameObject {
@@ -5382,6 +5470,50 @@ mod tests {
 
     fn force_of_will() -> CardIndex {
         card_index("956381ba-6d37-4a8a-846c-bad79222dbee")
+    }
+
+    /// The snapshot hash with its memo against the hash written out in full,
+    /// after every one of a few thousand random writes, removals and
+    /// insertions into a real game's arena, and in clones taken along the
+    /// way (which start without a memo). Holding the memo's lock makes the
+    /// hash write everything, which is how the full one is asked for.
+    #[test]
+    fn the_remembered_hash_is_the_written_hash() {
+        use rand_core::{Rng, SeedableRng};
+        let written = |state: &GameState| {
+            let _held = state.snapshot_memo.0.lock().unwrap();
+            state.snapshot_hash()
+        };
+        for seed in 0..8 {
+            let mut state = GameState::from_preset(&make_preset(seed), &RegistryLookup).unwrap();
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let mut clones: Vec<GameState> = Vec::new();
+            for step in 0..400 {
+                let ids: Vec<ObjectId> = state.arena.iter().map(|(id, _)| id).collect();
+                let id = ids[(rng.next_u32() as usize) % ids.len()];
+                match rng.next_u32() % 6 {
+                    0 | 1 => state.object_mut(id).unwrap().damage += 1,
+                    2 => {
+                        let obj = state.object_mut(id).unwrap();
+                        obj.regeneration_shields = obj.regeneration_shields.wrapping_add(1);
+                    }
+                    3 => {
+                        let copy = state.object(id).unwrap().clone();
+                        state.arena.insert_with(|new| GameObject { id: new, ..copy });
+                    }
+                    4 if ids.len() > 8 => {
+                        state.arena.remove(id);
+                    }
+                    _ => clones.push(state.clone()),
+                }
+                // Twice: the second asks a memo the first just filled.
+                assert_eq!(state.snapshot_hash(), written(&state), "seed {seed} step {step}");
+                assert_eq!(state.snapshot_hash(), written(&state), "seed {seed} step {step}");
+            }
+            for clone in &clones {
+                assert_eq!(clone.snapshot_hash(), written(clone), "seed {seed}: a clone");
+            }
+        }
     }
 
     fn make_preset(seed: u64) -> GamePreset {

@@ -57,6 +57,52 @@ impl<T> Default for Arena<T> {
     }
 }
 
+/// One chunk as a reader saw it, to ask later whether it is still the same.
+///
+/// Holding the key holds a reference to the chunk, and that is what makes
+/// the answer sound: every write to a chunk goes through `Arc::make_mut`,
+/// which copies a chunk anyone else still references, so while a key is
+/// held a write can never change the chunk it names in place — it makes a
+/// new one at a new address. Same address and same issued count is
+/// therefore same content. (Nothing in an arena value can change behind a
+/// shared reference either: no `Cell`, no lock.)
+pub(crate) struct ChunkKey<T> {
+    chunk: Arc<[Slot<T>]>,
+    issued: usize,
+}
+
+/// A chunk of an arena being read: its slots, and the key to remember it by.
+pub(crate) struct ChunkView<'a, T> {
+    chunk: &'a Arc<[Slot<T>]>,
+    first: u32,
+    issued: usize,
+}
+
+impl<'a, T> ChunkView<'a, T> {
+    /// Whether this is the chunk `key` was taken of, unchanged.
+    pub(crate) fn is(&self, key: &ChunkKey<T>) -> bool {
+        Arc::ptr_eq(self.chunk, &key.chunk) && self.issued == key.issued
+    }
+
+    /// The key to remember this chunk by.
+    pub(crate) fn key(&self) -> ChunkKey<T> {
+        ChunkKey {
+            chunk: Arc::clone(self.chunk),
+            issued: self.issued,
+        }
+    }
+
+    /// Its issued slots as [`Arena::slots`] gives them.
+    pub(crate) fn slots(&self) -> impl Iterator<Item = (u32, u8, Option<&'a T>)> + use<'a, T> {
+        let first = self.first;
+        let chunk: &'a [Slot<T>] = self.chunk;
+        chunk[..self.issued]
+            .iter()
+            .enumerate()
+            .map(move |(i, s)| (first + i as u32, s.generation, s.value.as_ref()))
+    }
+}
+
 /// A handle's chunk, and its place in the chunk.
 const fn locate(id: ObjectId) -> (usize, usize) {
     let slot = id.slot() as usize;
@@ -217,6 +263,16 @@ impl<T> Arena<T> {
         self.issued_slots()
             .enumerate()
             .map(|(i, s)| (i as u32, s.generation, s.value.as_ref()))
+    }
+
+    /// The chunks in slot order, for a reader that remembers what it read
+    /// of each (`GameState::snapshot_hash`'s memo, [`ChunkKey`]).
+    pub(crate) fn chunk_views(&self) -> impl Iterator<Item = ChunkView<'_, T>> {
+        self.chunks.iter().enumerate().map(|(i, chunk)| ChunkView {
+            chunk,
+            first: (i * CHUNK) as u32,
+            issued: (self.issued - i * CHUNK).min(CHUNK),
+        })
     }
 
     /// How many chunks no clone shares. For the tests of the sharing.
