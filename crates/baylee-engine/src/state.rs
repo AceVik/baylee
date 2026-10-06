@@ -2477,7 +2477,7 @@ impl GameState {
         for _ in 0..plan.control_effects() + 2 {
             self.follow_static_sources();
             readers.clear();
-            if !self.project_all(&ids, &plan, generation, &mut was, &mut readers) {
+            if !self.project_all(&ids, &plan, &mut was, &mut readers) {
                 settled = true;
                 break;
             }
@@ -2496,7 +2496,7 @@ impl GameState {
         // counter; the bound stops counters that count each other round in
         // a circle.
         for _ in 0..readers.len() {
-            if !self.project_readers(&readers, &plan, generation, &mut was) {
+            if !self.project_readers(&readers, &plan, &mut was) {
                 break;
             }
         }
@@ -2523,7 +2523,6 @@ impl GameState {
         &mut self,
         ids: &[ObjectId],
         plan: &crate::layers::LayerPlan,
-        generation: u64,
         was: &mut Vec<(ObjectId, PlayerId)>,
         readers: &mut Vec<ObjectId>,
     ) -> bool {
@@ -2532,6 +2531,9 @@ impl GameState {
             let Some(obj) = self.object(id) else {
                 continue;
             };
+            // Every branch asks before it writes: an object whose projection
+            // and controller did not move is left unwritten, so its arena
+            // chunk stays shared with the answer's checkpoint (`arena`).
             if crate::layers::needs_projection(self, plan, obj)
                 || self.defines_pt_off_battlefield(obj)
             {
@@ -2539,17 +2541,25 @@ impl GameState {
                 if projection.read_board {
                     readers.push(id);
                 }
+                if obj.controller == projection.controller
+                    && obj.cache.holds(&projection.characteristics, &obj.base)
+                {
+                    continue;
+                }
                 let obj = self.object_mut(id).expect("zone object exists");
                 moved |= settle_controller(obj, projection.controller, was);
                 // `cache` and `base` are disjoint fields, so this is one
                 // mutable borrow and one shared borrow of the same object.
                 let crate::object::GameObject { cache, base, .. } = obj;
-                cache.store(generation, projection.characteristics, base);
+                cache.store(projection.characteristics, base);
             } else {
                 // Nothing can change this object's characteristics, so the
                 // base is the projection. Dropping the cache is not just
                 // cheaper than recomputing it — it is what keeps an
                 // untouched board's per-object projection memory at zero.
+                if obj.cache.is_clear() && obj.controller == obj.base_controller {
+                    continue;
+                }
                 let obj = self.object_mut(id).expect("checked above");
                 obj.cache.clear();
                 // No effects means no layer 2 either: whoever the base
@@ -2569,7 +2579,6 @@ impl GameState {
         &mut self,
         readers: &[ObjectId],
         plan: &crate::layers::LayerPlan,
-        generation: u64,
         was: &mut Vec<(ObjectId, PlayerId)>,
     ) -> bool {
         let mut changed = false;
@@ -2578,11 +2587,17 @@ impl GameState {
                 continue;
             };
             let projection = crate::layers::recompute_with(self, obj, plan);
+            // As in `project_all`: nothing moved, nothing written.
+            if obj.controller == projection.controller
+                && obj.cache.holds(&projection.characteristics, &obj.base)
+            {
+                continue;
+            }
             let obj = self.object_mut(id).expect("zone object exists");
             changed |= settle_controller(obj, projection.controller, was);
             changed |= *obj.characteristics() != projection.characteristics;
             let crate::object::GameObject { cache, base, .. } = obj;
-            cache.store(generation, projection.characteristics, base);
+            cache.store(projection.characteristics, base);
         }
         changed
     }

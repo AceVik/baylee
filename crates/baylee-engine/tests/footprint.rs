@@ -26,9 +26,10 @@ use baylee_engine::state::GameState;
 /// all (272 B), so the AI's per-ply `GameState::clone` pays nothing for it.
 const CHARACTERISTICS_BUDGET: usize = 320;
 
-/// The projection cache holds a generation, an optional boxed projection
-/// and an optional layer-2 controller — not a second `Characteristics`.
-const CACHE_BUDGET: usize = 32;
+/// The projection cache holds an optional boxed projection — not a second
+/// `Characteristics`. Lowered 32 → 8 on 2026-10-06: the generation stamp
+/// it also held was never read (`CachedChar`).
+const CACHE_BUDGET: usize = 8;
 
 /// One object: identity, zone, a handle on the base characteristics,
 /// counters, riders, targets and the cache slot.
@@ -81,7 +82,11 @@ const CACHE_BUDGET: usize = 32;
 /// making the permanent summoning-sick. It is a stamp on the game's `u64`
 /// clock like the field it was split from, and there is no hole for it:
 /// the eight-byte step the two fields above share has two bytes left.
-const OBJECT_BUDGET: usize = 312;
+///
+/// Lowered 312 → 296 on 2026-10-06, to what the object measures once the
+/// projection cache's generation stamp went: it was written on every
+/// refresh and never read (`CachedChar`).
+const OBJECT_BUDGET: usize = 296;
 
 #[test]
 fn game_object_stays_within_its_budget() {
