@@ -59,6 +59,8 @@ export function summary(over: Partial<Summary> = {}): Summary {
     has_record: false,
     record_complete: null,
     record_bytes: 0,
+    channel: "gateway",
+    record_origin: null,
     issue_number: null,
     issue_url: null,
     ...over,

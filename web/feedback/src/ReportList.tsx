@@ -373,7 +373,7 @@ export function ReportList({ search }: { search: string }) {
                       {firstLine(report.text, 120) || <span className="muted">(no text)</span>}
                     </a>
                   </td>
-                  <td>{report.gateway}</td>
+                  <td>{report.channel === "direct" ? "direct" : report.gateway}</td>
                   <td>
                     <button
                       type="button"
@@ -388,7 +388,14 @@ export function ReportList({ search }: { search: string }) {
                     </button>
                   </td>
                   <td className="nowrap">
-                    {report.has_record ? formatBytes(report.record_bytes) : <span className="muted">—</span>}
+                    {report.has_record ? (
+                      <>
+                        {formatBytes(report.record_bytes)}
+                        {report.record_origin === "client" && <span className="muted"> (client)</span>}
+                      </>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                   <td>
                     {report.issue_number !== null && report.issue_url !== null ? (

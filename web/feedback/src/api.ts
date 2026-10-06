@@ -40,6 +40,10 @@ export interface Summary {
   has_record: boolean;
   record_complete: boolean | null;
   record_bytes: number;
+  /** How it came: passed on by a gateway, or sent by a client itself, unauthenticated. */
+  channel: "gateway" | "direct";
+  /** Who wrote the record: a gateway, or a client (unverified); null without one. */
+  record_origin: "gateway" | "client" | null;
   issue_number: number | null;
   issue_url: string | null;
 }

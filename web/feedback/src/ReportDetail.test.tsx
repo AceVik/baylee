@@ -81,6 +81,15 @@ describe("a full report", () => {
   });
 });
 
+describe("a report a client sent itself", () => {
+  test("says it came unauthenticated and its record is the client's", async () => {
+    start(fullReport({ channel: "direct", gateway: "(direct)", record_origin: "client" }));
+    render(<ReportDetail id="x" />);
+    expect(await screen.findByText("direct from a client, unauthenticated")).toBeTruthy();
+    expect(screen.getByText("client-supplied, unverified")).toBeTruthy();
+  });
+});
+
 describe("a report with nothing ticked", () => {
   test("says what is missing and breaks nowhere", async () => {
     start(fullReport({ client: {}, has_record: false, record_bytes: 0, record_complete: null, text: "" }));
