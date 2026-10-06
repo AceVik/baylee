@@ -23,7 +23,7 @@ DATABASE_URL=… ./scripts/gate-features.sh    # the eight non-default features
 
 ### Single tests
 
-Engine tests: `crates/baylee-engine/src/engine/*_tests.rs` plus directories `card_tests/` (one file per card type) and `combo_tests/`; filter by module path.
+Engine tests: `crates/baylee-engine/src/engine/*_tests.rs` plus directories `card_tests/` (one module per card, at the card's own path: `card_tests/<type>/<dir>/<slug>.rs` for `cards/<type>/<dir>/<slug>.rs`; helpers in `card_tests/<type>.rs`) and `combo_tests/`; filter by module path.
 
 ```bash
 cargo test -p baylee-engine keyword_tests
@@ -208,7 +208,7 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 - `cost!("{1}{G}", TapSelf, SacrificeSelf)` in printed order; `Cost::FREE`, `Cost::TAP`. Readers emit costs only via `body::cost_literal`.
 - Generic filters on `Filter` (`CREATURE`, `NONLAND`, …); pool-specific ones in `crates/baylee-cards/src/filters.rs` next to `crate::tokens` (Magic knowledge vs. this pool's). No per-card filter statics.
 - Some tests exist only to fail on broken convention.
-- Every card added, fixed or refactored is played in `crates/baylee-engine/src/engine/card_tests/<card type>.rs` (or `combo_tests/`), on the shared `testkit`, via `card_index("<oracle id>")`; `.claude/hooks/require-card-tests.py` checks recursively (restored stubs exempt). Never in the card file. A fix also needs a test beside the broken rule that fails on the old code. Diff `pool-dump` around no-rules-change refactors.
+- Every card added, fixed or refactored is played in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`, the card's own path (or `combo_tests/`), on the shared `testkit`, via `card_index("<oracle id>")`; `.claude/hooks/require-card-tests.py` checks recursively (restored stubs exempt). Never in the card file. A fix also needs a test beside the broken rule that fails on the old code. Diff `pool-dump` around no-rules-change refactors.
 
 ### Client
 

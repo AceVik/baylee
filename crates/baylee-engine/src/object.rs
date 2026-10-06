@@ -581,21 +581,19 @@ impl Characteristics {
 /// characteristics and carrying two. At 256 bytes per [`Characteristics`]
 /// that is a third of the object, on every object, paid again on every
 /// state clone the AI lookahead does.
+///
+/// It holds no generation: whether a projection is current is the state's
+/// question (`GameState::characteristics_generation`, one compare for the
+/// whole board), and a stamp per object that nothing read was eight bytes on
+/// every object and a write to every projected object on every refresh,
+/// which made each refresh copy the arena chunks a checkpoint shared.
 #[derive(Clone, Debug, Default)]
 pub struct CachedChar {
-    /// Effect generation the value was computed at; `u64::MAX` = never.
-    generation: u64,
     /// The projection, when it differs from the base.
     value: Option<Box<Characteristics>>,
 }
 
 impl CachedChar {
-    /// The effect generation this cache was computed at.
-    #[must_use]
-    pub const fn generation(&self) -> u64 {
-        self.generation
-    }
-
     /// The cached projection, if one is stored.
     #[must_use]
     pub fn value(&self) -> Option<&Characteristics> {
@@ -609,8 +607,27 @@ impl CachedChar {
     /// 400.7) and must not carry the anthem it was standing under into
     /// the graveyard.
     pub fn clear(&mut self) {
-        self.generation = u64::MAX;
         self.value = None;
+    }
+
+    /// Whether nothing is stored: the base is the projection.
+    #[must_use]
+    pub fn is_clear(&self) -> bool {
+        self.value.is_none()
+    }
+
+    /// Whether [`Self::store`] of this projection would leave the cache as
+    /// it is. The refresh asks before it writes, so an object whose
+    /// projection did not move is not written, and its arena chunk stays
+    /// shared with the answer's checkpoint.
+    #[must_use]
+    pub fn holds(&self, characteristics: &Characteristics, base: &Characteristics) -> bool {
+        match self.value.as_deref() {
+            // A stored projection the base has since caught up with is
+            // released by a store, so it is not "held".
+            Some(stored) => stored == characteristics && characteristics != base,
+            None => characteristics == base,
+        }
     }
 
     /// Stores a projection, reusing the allocation when one is already
@@ -619,13 +636,7 @@ impl CachedChar {
     /// The projected *controller* is not cached: the refresh writes it
     /// straight to [`GameObject::controller`], so there is one answer to
     /// "who controls this" rather than a cached second one.
-    pub fn store(
-        &mut self,
-        generation: u64,
-        characteristics: Characteristics,
-        base: &Characteristics,
-    ) {
-        self.generation = generation;
+    pub fn store(&mut self, characteristics: Characteristics, base: &Characteristics) {
         if characteristics == *base {
             self.value = None;
             return;
