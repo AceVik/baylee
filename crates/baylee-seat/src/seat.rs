@@ -548,6 +548,12 @@ impl SeatCore {
             .collect()
     }
 
+    /// The longest one answer may take from the next question on: a mind
+    /// handed over during the game brings its own ([`crate::bridge::Swap`]).
+    pub fn set_think(&mut self, think: Duration) {
+        self.config.think = think;
+    }
+
     /// The notes written since the last call, oldest first.
     pub fn take_notes(&mut self) -> Vec<Note> {
         std::mem::take(&mut self.notes)

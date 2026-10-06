@@ -1138,6 +1138,7 @@ impl OrderReader {
         Ok((
             bridge::Swap {
                 mind: chosen.mind,
+                think: Some(Duration::from_secs(chosen.think_secs)),
                 taken: Some(taken),
             },
             chosen.label,
@@ -1707,6 +1708,8 @@ mod tests {
         assert_eq!(join.profile.as_deref(), Some("sonnet"));
         let (swap, label) = reading.swap(&line, &placeholder).unwrap();
         assert_eq!(label, "opus-5-5");
+        // It thinks as long as its profile says, not the build's default.
+        assert_eq!(swap.think, Some(Duration::from_secs(30)));
         let games = book.read().unwrap().games;
         assert_eq!(games.len(), 2, "reserved before it is handed over");
         assert!(games.iter().all(|g| g.settled.is_none()));
@@ -1718,10 +1721,11 @@ mod tests {
         );
         assert!(games[1].settled.is_none(), "the new one plays on");
         // The house may play a language model's chair.
-        let (_, label) = reading
+        let (house, label) = reading
             .swap(r#"{"mind":"house","level":"sharp"}"#, &placeholder)
             .unwrap();
         assert_eq!(label, "house");
+        assert_eq!(house.think, Some(Duration::from_secs(DEFAULT_THINK_SECS)));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

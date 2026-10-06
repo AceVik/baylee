@@ -110,6 +110,9 @@ pub type Playing<'a> = Pin<Box<dyn Future<Output = anyhow::Result<Played>> + Sen
 pub struct Swap {
     /// The mind that answers from the next question the seat is asked.
     pub mind: Arc<dyn Mind>,
+    /// The longest one answer may take from then on, as the new mind's
+    /// profile says (`think_secs`); `None` keeps the bridge's.
+    pub think: Option<Duration>,
     /// Called once the swap is made, at that question: the old mind has
     /// answered its last (its spend can be settled).
     pub taken: Option<Box<dyn FnOnce() + Send>>,
@@ -119,6 +122,7 @@ impl std::fmt::Debug for Swap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Swap")
             .field("mind", &self.mind.disclosure())
+            .field("think", &self.think)
             .field("taken", &self.taken.is_some())
             .finish()
     }
@@ -174,6 +178,7 @@ async fn run(
         thinking: None,
         asked: None,
         swaps,
+        rethink: None,
     };
     let mut socket = link.connect().await?;
     if socket.is_none() {
@@ -189,6 +194,7 @@ async fn run(
             if socket.is_none() {
                 return Ok(bridge.closed(&mut core, transcript, link).await);
             }
+            bridge.settle(&mut core);
             let steps = core.resumed();
             record(&mut core, transcript);
             if let Next::Lost = bridge.carry_out(steps, socket.as_mut()).await {
@@ -198,7 +204,10 @@ async fn run(
         };
         let woken = bridge.wait(ws).await;
         let steps = match woken {
-            Woken::Frame(Some(Ok(Message::Binary(bytes)))) => core.hear(&bytes),
+            Woken::Frame(Some(Ok(Message::Binary(bytes)))) => {
+                bridge.settle(&mut core);
+                core.hear(&bytes)
+            }
             Woken::Frame(Some(Ok(Message::Close(_)) | Err(_)) | None) => {
                 tracing::info!("the seat socket closed");
                 socket = None;
@@ -212,6 +221,7 @@ async fn run(
                 let result = joined.unwrap_or_else(|e| {
                     Err(MindError::Unavailable(format!("the mind stopped: {e}")))
                 });
+                bridge.settle(&mut core);
                 core.answered(thinking.question, result)
             }
             Woken::Expired => {
@@ -219,6 +229,7 @@ async fn run(
                     continue;
                 };
                 thinking.task.abort();
+                bridge.settle(&mut core);
                 core.expired(thinking.question)
             }
             Woken::Quiet => {
@@ -280,6 +291,8 @@ struct Bridge {
     asked: Option<(u64, Instant)>,
     /// Other minds, handed over during the game.
     swaps: Option<Swaps>,
+    /// The think time of a mind taken since the core was last told it.
+    rethink: Option<Duration>,
 }
 
 impl Bridge {
@@ -291,9 +304,23 @@ impl Bridge {
         };
         while let Ok(swap) = swaps.try_recv() {
             self.mind = swap.mind;
+            self.rethink = swap.think.or(self.rethink);
             if let Some(taken) = swap.taken {
                 taken();
             }
+        }
+    }
+
+    /// Before the core is told anything: takes the minds handed over where
+    /// no question is being thought about (the old mind has answered its
+    /// last), and tells the core the think time of the mind now playing, so
+    /// the questions it asks are bounded by it.
+    fn settle(&mut self, core: &mut SeatCore) {
+        if self.thinking.is_none() {
+            self.take_swaps();
+        }
+        if let Some(think) = self.rethink.take() {
+            core.set_think(think);
         }
     }
 
@@ -367,7 +394,7 @@ impl Bridge {
                         next = Next::Lost;
                     }
                 }
-                Step::Ask(request) => {
+                Step::Ask(mut request) => {
                     let now = Instant::now();
                     if self
                         .asked
@@ -375,9 +402,15 @@ impl Bridge {
                     {
                         self.asked = Some((request.question, now));
                     }
+                    self.take_swaps();
+                    // A mind taken only now was asked under the old think
+                    // time: held to its own where that is shorter (the
+                    // core is told before the next question).
+                    if let Some(think) = self.rethink {
+                        request.budget = request.budget.min(think);
+                    }
                     let question = request.question;
                     let deadline = now + request.budget;
-                    self.take_swaps();
                     let mind = Arc::clone(&self.mind);
                     let task = tokio::spawn(async move { mind.decide(*request).await });
                     if let Some(old) = self.thinking.replace(Thinking {
@@ -542,6 +575,7 @@ mod tests {
             thinking: None,
             asked: None,
             swaps: Some(swaps),
+            rethink: None,
         };
         let mut core = seated();
         let first = asked(&mut core, 2);
@@ -551,6 +585,7 @@ mod tests {
         let count = Arc::clone(&taken);
         send.send(Swap {
             mind: mind(ManaColor::Green),
+            think: None,
             taken: Some(Box::new(move || *count.lock().unwrap() += 1)),
         })
         .unwrap_or_else(|_| panic!("the bridge listens"));
@@ -565,6 +600,7 @@ mod tests {
         bridge.carry_out(second, None).await;
         send.send(Swap {
             mind: mind(ManaColor::Red),
+            think: None,
             taken: None,
         })
         .unwrap_or_else(|_| panic!("the bridge listens"));
@@ -583,5 +619,59 @@ mod tests {
             [ManaColor::Green, ManaColor::Green, ManaColor::Red]
         );
         assert_eq!(*taken.lock().unwrap(), 1, "called once");
+    }
+
+    /// The budget of the question the core asks in `steps`.
+    fn budget(steps: &[Step]) -> Option<Duration> {
+        steps.iter().find_map(|s| match s {
+            Step::Ask(request) => Some(request.budget),
+            _ => None,
+        })
+    }
+
+    /// A mind handed over brings its profile's think time: every question
+    /// after it is bounded by that, and the one it is first asked as soon
+    /// as it is taken, where that is shorter.
+    #[tokio::test]
+    async fn a_swapped_mind_thinks_for_as_long_as_its_profile_says() {
+        let mind = |colour| -> Arc<dyn Mind> {
+            Arc::new(Named {
+                colour,
+                asked: Arc::new(Mutex::new(Vec::new())),
+            })
+        };
+        let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
+        let mut bridge = Bridge {
+            mind: mind(ManaColor::Red),
+            options: PlayOptions::default(),
+            thinking: None,
+            asked: None,
+            swaps: Some(swaps),
+            rethink: None,
+        };
+        let mut core = seated();
+        let swap = |think| Swap {
+            mind: mind(ManaColor::Green),
+            think: Some(Duration::from_secs(think)),
+            taken: None,
+        };
+        send.send(swap(7))
+            .unwrap_or_else(|_| panic!("the bridge listens"));
+        // Taken before the core hears the question: it asks under 7 s, not
+        // the bridge's 60.
+        bridge.settle(&mut core);
+        let first = asked(&mut core, 2);
+        assert_eq!(budget(&first), Some(Duration::from_secs(7)));
+        // Taken only as the question reaches the mind: held to 2 s at once.
+        send.send(swap(2))
+            .unwrap_or_else(|_| panic!("the bridge listens"));
+        let before = Instant::now();
+        bridge.carry_out(first, None).await;
+        let thinking = bridge.thinking.take().unwrap();
+        assert!(thinking.deadline <= before + Duration::from_secs(3));
+        core.answered(thinking.question, thinking.task.await.unwrap());
+        bridge.settle(&mut core);
+        let second = asked(&mut core, 3);
+        assert_eq!(budget(&second), Some(Duration::from_secs(2)));
     }
 }
