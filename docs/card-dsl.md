@@ -303,7 +303,7 @@ matters when you open one:
 - **Lands** are read from their printed text by
   `crates/baylee-cards-codegen/src/landgen.rs`.
 - **Everything else with a local card-script reference script** is read by
-  `crates/baylee-cards-codegen/src/scriptgen.rs` (the checkout is an
+  `crates/baylee-cards-codegen/src/scriptgen/` (the checkout is an
   automated lookup, never copied and never part of the build).
 
 Both write the *same* file standard as this document describes: the macros,
