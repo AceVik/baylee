@@ -20,11 +20,12 @@
 //! which must be named and must not be a variable (`ANTHROPIC_API_KEY`); a
 //! subscription's is `none`.
 
-use super::dialect::{Dialect, Event, Outcome, Started};
+use super::dialect::{Dialect, Event, Outcome, Started, Wire, listed, names};
 use crate::llm::{Settings, Usage, json_object, prompt};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::{Value, json};
 use std::ffi::OsString;
+use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// The only tool the model may be offered: the one the tool itself adds to
@@ -39,7 +40,13 @@ impl Dialect for Claude {
         CliTool::Claude
     }
 
-    fn args(&self, settings: &Settings, model: Option<&str>, system: &str) -> Vec<OsString> {
+    fn args(
+        &self,
+        settings: &Settings,
+        model: Option<&str>,
+        system: &str,
+        _support: &Path,
+    ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [
             "-p",
             "--input-format",
@@ -100,7 +107,7 @@ impl Dialect for Claude {
         false
     }
 
-    fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event {
+    fn read_event(&self, line: &str, wire: &mut Wire) -> Event {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
@@ -109,11 +116,11 @@ impl Dialect for Claude {
             Some("system") if text("subtype") == Some("init") => Event::Started(started(&value)),
             Some("assistant") => {
                 if let Some(error) = text("error") {
-                    *trouble = Some(error.to_string());
+                    wire.trouble = Some(error.to_string());
                 }
                 Event::Other
             }
-            Some("result") => Event::Reply(outcome(&value, trouble.take().as_deref())),
+            Some("result") => Event::Reply(outcome(&value, wire.trouble.take().as_deref())),
             _ => Event::Other,
         }
     }
@@ -165,7 +172,7 @@ impl Dialect for Claude {
         Some(["auth", "status", "--json"].map(OsString::from).into())
     }
 
-    fn probe_ok(&self, stdout: &[u8]) -> bool {
+    fn probe_ok(&self, stdout: &[u8], _stderr: &[u8]) -> bool {
         // Signed in only where the status says so: output it cannot read
         // is no login.
         serde_json::from_slice::<Value>(stdout)
@@ -176,27 +183,12 @@ impl Dialect for Claude {
 }
 
 /// What the `init` line names: the tools, the MCP servers, the slash
-/// commands and the key's source. An entry that is neither a name nor
-/// has one is kept, as `(unnamed)`, so it is never dropped unseen.
+/// commands and the key's source.
 fn started(init: &Value) -> Started {
-    let names = |key: &str| -> Option<Vec<String>> {
-        let items = init.get(key)?.as_array()?;
-        Some(
-            items
-                .iter()
-                .map(|item| {
-                    item.as_str()
-                        .or_else(|| item.get("name").and_then(Value::as_str))
-                        .unwrap_or("(unnamed)")
-                        .to_string()
-                })
-                .collect(),
-        )
-    };
     Started {
-        tools: names("tools"),
-        mcp_servers: names("mcp_servers"),
-        slash_commands: names("slash_commands"),
+        tools: names(init, "tools"),
+        mcp_servers: names(init, "mcp_servers"),
+        slash_commands: names(init, "slash_commands"),
         key_source: init
             .get("apiKeySource")
             .and_then(Value::as_str)
@@ -204,18 +196,9 @@ fn started(init: &Value) -> Started {
     }
 }
 
-/// Up to eight names, for a sentence.
-fn listed(names: &[String]) -> String {
-    let mut shown = names.iter().take(8).cloned().collect::<Vec<_>>().join(", ");
-    if names.len() > 8 {
-        shown.push_str(", …");
-    }
-    shown
-}
-
 /// Whether a key's source is an environment variable's name
 /// (`ANTHROPIC_API_KEY`), not a login (`none`, `/login managed key`).
-fn names_a_variable(source: &str) -> bool {
+pub(crate) fn names_a_variable(source: &str) -> bool {
     source.contains('_')
         && source
             .chars()

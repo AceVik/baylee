@@ -295,8 +295,22 @@ fn a_cli_model_names_its_tool_first() {
         cli_model("gemini:gemini-3.8-flash-high"),
         Ok((CliTool::Agy, Some("gemini-3.8-flash-high")))
     );
+    assert_eq!(cli_model("codex"), Ok((CliTool::Codex, None)));
+    assert_eq!(
+        cli_model("opencode:anthropic/claude-sonnet-5"),
+        Ok((CliTool::Opencode, Some("anthropic/claude-sonnet-5")))
+    );
+    assert_eq!(
+        cli_model("junie:sonnet"),
+        Ok((CliTool::Junie, Some("sonnet")))
+    );
+    for tool in CliTool::ALL {
+        assert_eq!(CliTool::named(tool.name()), Some(tool));
+    }
     for bad in [
-        "codex",
+        "cursor-agent",
+        "copilot",
+        "aider",
         "claude-opus-5-5",
         "",
         "claude:bad model",
@@ -454,7 +468,7 @@ fn every_refusal_is_a_fault_with_a_place() {
             Why::KeyShaped,
         ),
         (
-            cli(|p| p.model = "codex:o5".into()),
+            cli(|p| p.model = "cursor-agent:o5".into()),
             profile(Field::Model),
             Why::NoSuchTool,
         ),

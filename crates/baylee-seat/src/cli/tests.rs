@@ -3,15 +3,27 @@
 //! mind against a stand-in process is `tests/cli_mind.rs`.
 
 use super::claude::Claude;
-use super::dialect::{Dialect, Event, Outcome, Started};
+use super::dialect::{Dialect, Event, Outcome, Started, Wire};
 use super::*;
 use crate::llm::Spec;
+
+/// One line read by `dialect`, `trouble` carried in and out as a reply's
+/// lines carry it.
+fn read_with(dialect: &dyn Dialect, line: &str, trouble: &mut Option<String>) -> Event {
+    let mut wire = Wire {
+        trouble: trouble.take(),
+        ..Wire::default()
+    };
+    let event = dialect.read_event(line, &mut wire);
+    *trouble = wire.trouble;
+    event
+}
 
 fn read(lines: &[&str]) -> Vec<Event> {
     let mut trouble = None;
     lines
         .iter()
-        .map(|line| Claude.read_event(line, &mut trouble))
+        .map(|line| read_with(&Claude, line, &mut trouble))
         .collect()
 }
 
@@ -185,7 +197,7 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
     let mut settings = settings();
     settings.effort = Some("low".into());
     let args: Vec<String> = Claude
-        .args(&settings, Some("opus"), "SYSTEM")
+        .args(&settings, Some("opus"), "SYSTEM", Path::new("/support"))
         .into_iter()
         .map(|arg| arg.into_string().unwrap())
         .collect();
@@ -230,11 +242,11 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
         line,
         json!({"type": "user", "message": {"role": "user", "content": "q1 ·"}})
     );
-    assert!(Claude.probe_ok(br#"{"loggedIn": true}"#));
-    assert!(!Claude.probe_ok(br#"{"loggedIn": false}"#));
+    assert!(Claude.probe_ok(br#"{"loggedIn": true}"#, b""));
+    assert!(!Claude.probe_ok(br#"{"loggedIn": false}"#, b""));
     // A status it cannot read is no login.
-    assert!(!Claude.probe_ok(b"Logged in as someone"));
-    assert!(!Claude.probe_ok(br#"{"authMethod": "claude.ai"}"#));
+    assert!(!Claude.probe_ok(b"Logged in as someone", b""));
+    assert!(!Claude.probe_ok(br#"{"authMethod": "claude.ai"}"#, b""));
 }
 
 /// No key, token, bridge setting, cloud or forge credential, SSH agent or
@@ -412,7 +424,7 @@ fn result_line(fields: &Value) -> String {
 /// The outcome of one `result` line, after `trouble` was said earlier.
 fn outcome_of(trouble: Option<&str>, fields: &Value) -> Outcome {
     let mut trouble = trouble.map(str::to_string);
-    match Claude.read_event(&result_line(fields), &mut trouble) {
+    match read_with(&Claude, &result_line(fields), &mut trouble) {
         Event::Reply(outcome) => outcome,
         other => panic!("{other:?}"),
     }
@@ -464,24 +476,24 @@ fn the_trouble_an_assistant_line_names_is_spent_by_its_result() {
     let mut trouble = None;
     let assistant = json!({"type": "assistant", "error": "server_error", "message": {}});
     assert_eq!(
-        Claude.read_event(&assistant.to_string(), &mut trouble),
+        read_with(&Claude, &assistant.to_string(), &mut trouble),
         Event::Other
     );
     assert_eq!(trouble.as_deref(), Some("server_error"));
     let failing = result_line(&json!({"is_error": true, "result": "boom"}));
-    let Event::Reply(Outcome::Failed(why)) = Claude.read_event(&failing, &mut trouble) else {
+    let Event::Reply(Outcome::Failed(why)) = read_with(&Claude, &failing, &mut trouble) else {
         panic!();
     };
     assert_eq!(why, "server_error: boom");
     assert_eq!(trouble, None, "taken by its result");
-    let Event::Reply(Outcome::Failed(why)) = Claude.read_event(&failing, &mut trouble) else {
+    let Event::Reply(Outcome::Failed(why)) = read_with(&Claude, &failing, &mut trouble) else {
         panic!();
     };
     assert_eq!(why, "boom", "the next reply does not inherit it");
     // An assistant line with no error says nothing, and clears nothing.
     let mut kept = Some("rate_limit".to_string());
     let fine = json!({"type": "assistant", "message": {}});
-    Claude.read_event(&fine.to_string(), &mut kept);
+    read_with(&Claude, &fine.to_string(), &mut kept);
     assert_eq!(kept.as_deref(), Some("rate_limit"));
 }
 
@@ -576,7 +588,7 @@ fn other_lines_are_nothing_and_a_start_reads_named_objects() {
         r#"{"subtype":"init"}"#,
     ] {
         assert_eq!(
-            Claude.read_event(line, &mut trouble),
+            read_with(&Claude, line, &mut trouble),
             Event::Other,
             "{line}"
         );
@@ -679,7 +691,7 @@ fn a_start_that_names_no_key_source_is_refused() {
 /// A login check says yes only to a JSON object saying `loggedIn: true`.
 #[test]
 fn the_login_check_fails_closed() {
-    assert!(Claude.probe_ok(b"  {\"loggedIn\":true,\"x\":1}\n"));
+    assert!(Claude.probe_ok(b"  {\"loggedIn\":true,\"x\":1}\n", b""));
     for no in [
         &b""[..],
         b"null",
@@ -691,7 +703,7 @@ fn the_login_check_fails_closed() {
         br#"{"loggedIn":true} trailing"#,
         b"\xff\xfe",
     ] {
-        assert!(!Claude.probe_ok(no), "{}", String::from_utf8_lossy(no));
+        assert!(!Claude.probe_ok(no, b""), "{}", String::from_utf8_lossy(no));
     }
     assert_eq!(
         Claude.probe_args().unwrap(),
@@ -718,7 +730,7 @@ fn claude_names_a_model_and_an_effort_only_when_it_has_them() {
     let mut settings = settings();
     settings.effort = None;
     let args: Vec<String> = Claude
-        .args(&settings, None, "S")
+        .args(&settings, None, "S", Path::new("/support"))
         .into_iter()
         .map(|a| a.into_string().unwrap())
         .collect();
@@ -757,7 +769,7 @@ fn the_process_never_updates_itself_and_sees_only_the_allowlist() {
     };
     let launch = launch_with(&parent).unwrap();
     let tmp = Path::new("/session/tmp");
-    let env = launch.env(tmp).unwrap();
+    let env = launch.env(tmp, tmp).unwrap();
     let get = |name: &str| {
         env.iter()
             .find(|(n, _)| n == name)
@@ -791,21 +803,25 @@ fn the_process_never_updates_itself_and_sees_only_the_allowlist() {
 fn the_environment_refuses_a_forbidden_name_or_value_without_showing_it() {
     let mut launch = launch_with(&path_only).unwrap();
     launch.passed.push(("ANTHROPIC_API_KEY", "harmless".into()));
-    let why = launch.env(Path::new("/t")).unwrap_err();
+    let why = launch.env(Path::new("/t"), Path::new("/t")).unwrap_err();
     assert!(why.contains("ANTHROPIC_API_KEY is never given"), "{why}");
     let mut launch = launch_with(&path_only).unwrap();
     launch
         .passed
         .push(("USER", "Bearer SECRETVALUE0123456789".into()));
-    let why = launch.env(Path::new("/t")).unwrap_err();
+    let why = launch.env(Path::new("/t"), Path::new("/t")).unwrap_err();
     assert!(why.contains("USER looks like a key"), "{why}");
     assert!(!why.contains("SECRETVALUE"), "{why}");
     // A key-shaped TMPDIR is refused as well.
     let launch = launch_with(&path_only).unwrap();
-    assert!(launch.env(Path::new("/sk-0123456789abcdefghij")).is_err());
+    assert!(
+        launch
+            .env(Path::new("/sk-0123456789abcdefghij"), Path::new("/t"))
+            .is_err()
+    );
 
     let mut unsupported = settings();
-    unsupported.model = "codex:pro".into();
+    unsupported.model = "cursor-agent:pro".into();
     let why = Launch::new(&unsupported, Some("/bin/sh"), &path_only).unwrap_err();
     assert!(why.contains("not a CLI this build plays"), "{why}");
 }
@@ -1036,8 +1052,8 @@ fn agy_dialect_args_and_events() {
     assert_eq!(Agy.tool(), CliTool::Agy);
     assert_eq!(Agy.passed_env(), &[] as &[&str]);
     assert_eq!(Agy.fixed_env(), &[] as &[(&str, &str)]);
-    assert!(Agy.probe_ok(b"1.2.15\n"));
-    assert!(!Agy.probe_ok(b""));
+    assert!(Agy.probe_ok(b"1.2.15\n", b""));
+    assert!(!Agy.probe_ok(b"", b""));
 
     let settings = Settings::new(
         &Spec::parse("cli:agy:gemini-3.8-flash-high")
@@ -1045,7 +1061,12 @@ fn agy_dialect_args_and_events() {
             .unwrap(),
     );
     let args: Vec<String> = Agy
-        .args(&settings, Some("gemini-3.8-flash-high"), "system")
+        .args(
+            &settings,
+            Some("gemini-3.8-flash-high"),
+            "system",
+            Path::new("/support"),
+        )
         .into_iter()
         .map(|a| a.to_str().unwrap().to_string())
         .collect();
@@ -1090,7 +1111,7 @@ fn agy_dialect_args_and_events() {
         }
     })
     .to_string();
-    let ev1 = Agy.read_event(&init_line, &mut trouble);
+    let ev1 = read_with(&Agy, &init_line, &mut trouble);
     assert!(matches!(ev1, Event::Started(_)));
 
     // Event parsing: successful result
@@ -1108,7 +1129,7 @@ fn agy_dialect_args_and_events() {
         }
     })
     .to_string();
-    let ev2 = Agy.read_event(&result_line, &mut trouble);
+    let ev2 = read_with(&Agy, &result_line, &mut trouble);
     let Event::Reply(Outcome::Answer { value, usage, .. }) = ev2 else {
         panic!("expected answer");
     };
@@ -1124,6 +1145,6 @@ fn agy_dialect_args_and_events() {
         }
     })
     .to_string();
-    let ev3 = Agy.read_event(&rate_limit_line, &mut trouble);
+    let ev3 = read_with(&Agy, &rate_limit_line, &mut trouble);
     assert!(matches!(ev3, Event::Reply(Outcome::RateLimited { .. })));
 }

@@ -62,11 +62,14 @@
 
 mod agy;
 mod claude;
+mod codex;
 mod dialect;
+mod junie;
+mod opencode;
 #[cfg(test)]
 mod tests;
 
-use self::dialect::{Dialect, Event, Outcome};
+use self::dialect::{Dialect, Event, Outcome, Wire};
 use crate::llm::seatstate::Seat;
 use crate::llm::{MARGIN, RETRY_FLOOR, Settings, Tally, Usage, Worst, lock, prompt, scrub};
 use crate::mind::{Answer, Disclosure, GameContext, Mind, MindError, Readiness, Request, Thinking};
@@ -208,10 +211,7 @@ impl Launch {
         env: &dyn Fn(&str) -> Option<String>,
     ) -> Result<Self, String> {
         let (tool, model) = cli_model(&settings.model)?;
-        let dialect: Arc<dyn Dialect> = match tool {
-            CliTool::Claude => Arc::new(claude::Claude),
-            CliTool::Agy => Arc::new(agy::Agy),
-        };
+        let dialect = dialect(tool);
         let program = program(tool, command, env)?;
         let passed = COMMON
             .iter()
@@ -229,7 +229,8 @@ impl Launch {
             model: model.map(str::to_string),
             passed,
         };
-        launch.env(&std::env::temp_dir())?;
+        let temp = std::env::temp_dir();
+        launch.env(&temp, &temp)?;
         Ok(launch)
     }
 
@@ -245,12 +246,13 @@ impl Launch {
         &self.program
     }
 
-    /// A process's whole environment, with `tmp` as its temp directory.
+    /// A process's whole environment, with `tmp` as its temp directory and
+    /// `support` the directory of its session's own files.
     ///
     /// # Errors
     /// For a variable no CLI is given, by its name ([`forbidden`]), and
     /// for one whose value looks like a key.
-    fn env(&self, tmp: &Path) -> Result<Vec<(String, OsString)>, String> {
+    fn env(&self, tmp: &Path, support: &Path) -> Result<Vec<(String, OsString)>, String> {
         let mut env: Vec<(String, OsString)> = self
             .passed
             .iter()
@@ -270,6 +272,9 @@ impl Launch {
         ];
         for (name, value) in fixed.iter().chain(self.dialect.fixed_env()) {
             env.push(((*name).into(), (*value).into()));
+        }
+        for (name, value) in self.dialect.session_env(support) {
+            env.push((name.into(), value));
         }
         let tool = self.dialect.tool().name();
         for (name, value) in &env {
@@ -340,9 +345,21 @@ fn executable(_: &std::fs::Metadata) -> bool {
     true
 }
 
+/// The dialect of `tool`.
+fn dialect(tool: CliTool) -> Arc<dyn Dialect> {
+    match tool {
+        CliTool::Claude => Arc::new(claude::Claude),
+        CliTool::Agy => Arc::new(agy::Agy),
+        CliTool::Codex => Arc::new(codex::Codex),
+        CliTool::Opencode => Arc::new(opencode::Opencode),
+        CliTool::Junie => Arc::new(junie::Junie),
+    }
+}
+
 /// A session's own directory under the OS's temp directory, removed with
-/// it: `work`, the process's working directory, empty, and `tmp`, its
-/// temp directory; all three readable by this user alone.
+/// it: `work`, the process's working directory, empty; `tmp`, its temp
+/// directory; and `support`, the files its dialect points it at
+/// ([`Dialect::files`]); all four readable by this user alone.
 struct SessionDir {
     root: PathBuf,
 }
@@ -362,6 +379,7 @@ impl SessionDir {
         let dir = Self { root };
         private_dir(&dir.work())?;
         private_dir(&dir.tmp())?;
+        private_dir(&dir.support())?;
         Ok(dir)
     }
 
@@ -371,6 +389,26 @@ impl SessionDir {
 
     fn tmp(&self) -> PathBuf {
         self.root.join("tmp")
+    }
+
+    fn support(&self) -> PathBuf {
+        self.root.join("support")
+    }
+
+    /// Writes `files` into `support`, each readable by this user alone.
+    fn write(&self, files: &[(&'static str, String)]) -> std::io::Result<()> {
+        for (name, contents) in files {
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(self.support().join(name))?;
+            std::io::Write::write_all(&mut file, contents.as_bytes())?;
+        }
+        Ok(())
     }
 }
 
@@ -439,8 +477,11 @@ struct Session {
     sent: usize,
     /// When it was last asked.
     used: Instant,
-    /// Lines for its stdin, which close it when dropped.
-    lines: mpsc::UnboundedSender<String>,
+    /// Lines for its stdin, which close it when dropped: `None` once a
+    /// one-shot process has its message ([`Dialect::one_shot`]).
+    lines: Option<mpsc::UnboundedSender<String>>,
+    /// What its conversation keeps between lines, shared with its reader.
+    wire: Arc<Mutex<Wire>>,
     queue: Arc<Mutex<Queue>>,
     stderr: Arc<Mutex<String>>,
     /// Removed after the process, being dropped last.
@@ -672,10 +713,18 @@ impl CliMind {
                             "the model's answer could not be read: {why}"
                         )));
                     }
-                    text = format!(
+                    let correction = format!(
                         "That answer could not be taken: {why}. Answer q{} again.",
                         request.question
                     );
+                    text = if self.launch.dialect.one_shot() {
+                        // A process of its own, which has heard nothing yet.
+                        self.respawn(&seat, &request.context)
+                            .map_err(MindError::Unavailable)?;
+                        format!("{}\n\n{correction}", prepared.text)
+                    } else {
+                        correction
+                    };
                 }
             }
         }
@@ -706,6 +755,13 @@ impl CliMind {
             ))));
         }
         state.seat.asked += 1;
+        // A process of a tool that answers one message is done with once it
+        // answered: each question starts its own, and that is no loss.
+        if self.launch.dialect.one_shot()
+            && let Some(done) = state.session.take()
+        {
+            done.end(self.limits.grace);
+        }
         // A process that ended since the last message (between turns, say)
         // is begun again for this question rather than costing it.
         if state.session.as_mut().is_some_and(Session::died) {
@@ -760,15 +816,33 @@ impl CliMind {
         })
     }
 
+    /// Starts a new process for the seat in place of its last one, which a
+    /// one-shot tool is done with: a question asked again goes to a
+    /// process that has heard nothing.
+    fn respawn(&self, seat: &Arc<Mutex<CliSeat>>, context: &GameContext) -> Result<(), String> {
+        if let Some(why) = lock(&self.locked_out).clone() {
+            return Err(why);
+        }
+        let session = self.spawn(context, Arc::downgrade(seat))?;
+        if let Some(done) = lock(seat).session.replace(session) {
+            done.end(self.limits.grace);
+        }
+        lock(&self.tally).sessions += 1;
+        Ok(())
+    }
+
     /// Starts a process for `context`'s seat.
     fn spawn(&self, context: &GameContext, seat: Weak<Mutex<CliSeat>>) -> Result<Session, String> {
         let tool = self.tool();
         let dir = SessionDir::new(&context.game_id, context.seat.get())
             .map_err(|e| format!("{tool}'s private directory could not be made: {e}"))?;
-        let env = self.launch.env(&dir.tmp())?;
+        let env = self.launch.env(&dir.tmp(), &dir.support())?;
         let dialect = &self.launch.dialect;
+        let model = self.launch.model.as_deref();
+        dir.write(&dialect.files(&self.settings, &self.system))
+            .map_err(|e| format!("{tool}'s files could not be written: {e}"))?;
         let mut child = Command::new(&self.launch.program)
-            .args(dialect.args(&self.settings, self.launch.model.as_deref(), &self.system))
+            .args(dialect.args(&self.settings, model, &self.system, &dir.support()))
             .env_clear()
             .envs(env)
             .current_dir(dir.work())
@@ -786,10 +860,19 @@ impl CliMind {
         let (lines, to_stdin) = mpsc::unbounded_channel();
         let queue = Arc::new(Mutex::new(Queue::default()));
         let tail = Arc::new(Mutex::new(String::new()));
+        let mut wire = Wire::default();
+        for line in dialect.opening(&self.settings, model, &self.system, &mut wire) {
+            // The receiver lives until the writer below ends.
+            let _ = lines.send(line);
+        }
+        let wire = Arc::new(Mutex::new(wire));
         tokio::spawn(write(stdin, to_stdin));
         tokio::spawn(
             Reader {
                 dialect: Arc::clone(dialect),
+                wire: Arc::clone(&wire),
+                // Weak: the session's sender alone keeps stdin open.
+                lines: lines.downgrade(),
                 queue: Arc::clone(&queue),
                 tally: Arc::clone(&self.tally),
                 seat,
@@ -804,7 +887,8 @@ impl CliMind {
             child,
             sent: 0,
             used: Instant::now(),
-            lines,
+            lines: Some(lines),
+            wire,
             queue,
             stderr: tail,
             dir,
@@ -847,15 +931,20 @@ impl CliMind {
                 worst,
                 reply,
             });
-            if session
+            let framed = self.launch.dialect.message(text, &mut lock(&session.wire));
+            let sent = session
                 .lines
-                .send(self.launch.dialect.stdin_line(text))
-                .is_err()
-            {
+                .as_ref()
+                .is_some_and(|lines| framed.into_iter().all(|line| lines.send(line).is_ok()));
+            if !sent {
                 // The writer is gone, and so is the process: the reader
                 // ends every question waiting.
                 queue.gone.get_or_insert(Gone::Ended);
             }
+        }
+        if self.launch.dialect.one_shot() {
+            // Its one message is all it reads: its stdin closes.
+            session.lines = None;
         }
         session.sent += text.len();
         session.used = Instant::now();
@@ -1033,7 +1122,7 @@ impl CliMind {
         let Ok(dir) = SessionDir::new("probe", 0) else {
             return false;
         };
-        let Ok(env) = self.launch.env(&dir.tmp()) else {
+        let Ok(env) = self.launch.env(&dir.tmp(), &dir.support()) else {
             return false;
         };
         let Ok(child) = Command::new(&self.launch.program)
@@ -1043,7 +1132,7 @@ impl CliMind {
             .current_dir(dir.work())
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
         else {
@@ -1052,7 +1141,7 @@ impl CliMind {
         matches!(
             tokio::time::timeout(PROBE, child.wait_with_output()).await,
             Ok(Ok(output)) if output.status.success()
-                && self.launch.dialect.probe_ok(&output.stdout)
+                && self.launch.dialect.probe_ok(&output.stdout, &output.stderr)
         )
     }
 
@@ -1201,6 +1290,10 @@ async fn read_line(out: &mut BufReader<ChildStdout>, buf: &mut Vec<u8>) -> std::
 /// held by the reader itself, so it holds when no question waits.
 struct Reader {
     dialect: Arc<dyn Dialect>,
+    /// The conversation's state, shared with the messages sent to it.
+    wire: Arc<Mutex<Wire>>,
+    /// The process's stdin, for what the dialect writes back as it reads.
+    lines: mpsc::WeakUnboundedSender<String>,
     queue: Arc<Mutex<Queue>>,
     tally: Arc<Mutex<Tally>>,
     /// Weak: a seat owns its process, and the process its reader.
@@ -1218,7 +1311,8 @@ struct Reader {
 impl Reader {
     /// Reads until the output ends or the process breaks the lockdown: a
     /// start that names a tool it must not have (or does not name them),
-    /// or an answer or a failure before any start, which would be a reply
+    /// a line that shows the model used one ([`Event::Breach`]), or an
+    /// answer or a failure before any start, which would be a reply
     /// nothing vouched for. A break locks the mind out and kills its
     /// processes before any question waiting hears it. A rate limit before
     /// any start carries no answer and breaks nothing: reading stops there
@@ -1226,9 +1320,8 @@ impl Reader {
     async fn run(mut self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
-        let mut trouble = None;
         let mut started = false;
-        let gone = loop {
+        let gone = 'reading: loop {
             match read_line(&mut out, &mut buf).await {
                 Ok(Line::Read) => {}
                 Ok(Line::TooLong) => continue,
@@ -1237,27 +1330,61 @@ impl Reader {
             let Ok(line) = std::str::from_utf8(&buf) else {
                 continue;
             };
-            match self.dialect.read_event(line.trim_end(), &mut trouble) {
-                Event::Started(said) => {
-                    if let Some(why) = self.dialect.lockdown_fault(&said) {
-                        break Gone::Refused(why);
-                    }
-                    started = true;
+            // A line is read once, or twice where the dialect asks (a start
+            // read off a line that says more): never more.
+            let mut events = Vec::with_capacity(1);
+            let back = {
+                let mut wire = lock(&self.wire);
+                events.push(self.dialect.read_event(line.trim_end(), &mut wire));
+                if std::mem::take(&mut wire.again) {
+                    events.push(self.dialect.read_event(line.trim_end(), &mut wire));
+                    wire.again = false;
                 }
-                Event::Reply(Outcome::RateLimited { why, lifts_in }) if !started => {
-                    break Gone::Limited { why, lifts_in };
+                std::mem::take(&mut wire.out)
+            };
+            if let Some(lines) = self.lines.upgrade() {
+                for line in back {
+                    let _ = lines.send(line);
                 }
-                Event::Reply(_) if !started => {
-                    break Gone::Refused(format!(
-                        "the {} process replied before it said what it offers the model: the \
-                         seat does not play through it",
-                        self.dialect.tool().name()
-                    ));
+            }
+            for event in events {
+                if let Some(gone) = self.take(event, &mut started) {
+                    break 'reading gone;
                 }
-                Event::Reply(outcome) => self.reply(outcome),
-                Event::Other => {}
             }
         };
+        self.finish(&gone);
+    }
+
+    /// Takes one event, and says why the process is done with where it is.
+    fn take(&mut self, event: Event, started: &mut bool) -> Option<Gone> {
+        match event {
+            Event::Breach(why) => return Some(Gone::Refused(why)),
+            Event::Started(said) => {
+                if let Some(why) = self.dialect.lockdown_fault(&said) {
+                    return Some(Gone::Refused(why));
+                }
+                *started = true;
+            }
+            Event::Reply(Outcome::RateLimited { why, lifts_in }) if !*started => {
+                return Some(Gone::Limited { why, lifts_in });
+            }
+            Event::Reply(_) if !*started => {
+                return Some(Gone::Refused(format!(
+                    "the {} process replied before it said what it offers the model: the seat \
+                     does not play through it",
+                    self.dialect.tool().name()
+                )));
+            }
+            Event::Reply(outcome) => self.reply(outcome),
+            Event::Other => {}
+        }
+        None
+    }
+
+    /// The process is done with, for `gone`: a break locks the mind out,
+    /// and every question still waiting hears it.
+    fn finish(&self, gone: &Gone) {
         if let Gone::Refused(why) = &gone {
             lock_out(&self.locked_out, self.seats.upgrade().as_deref(), why);
         }

@@ -168,11 +168,23 @@ pub enum CliTool {
     Claude,
     /// Gemini CLI (Antigravity), `agy`.
     Agy,
+    /// The Codex CLI of `OpenAI`, `codex`.
+    Codex,
+    /// opencode, `opencode`.
+    Opencode,
+    /// The Junie CLI of `JetBrains`, `junie`.
+    Junie,
 }
 
 impl CliTool {
     /// Every tool this build speaks.
-    pub const ALL: [Self; 2] = [Self::Claude, Self::Agy];
+    pub const ALL: [Self; 5] = [
+        Self::Claude,
+        Self::Agy,
+        Self::Codex,
+        Self::Opencode,
+        Self::Junie,
+    ];
 
     /// Its name, which is also the program's name on `PATH`.
     #[must_use]
@@ -180,6 +192,9 @@ impl CliTool {
         match self {
             Self::Claude => "claude",
             Self::Agy => "agy",
+            Self::Codex => "codex",
+            Self::Opencode => "opencode",
+            Self::Junie => "junie",
         }
     }
 
@@ -189,6 +204,9 @@ impl CliTool {
         match name {
             "claude" => Some(Self::Claude),
             "agy" | "gemini" => Some(Self::Agy),
+            "codex" => Some(Self::Codex),
+            "opencode" => Some(Self::Opencode),
+            "junie" => Some(Self::Junie),
             _ => None,
         }
     }

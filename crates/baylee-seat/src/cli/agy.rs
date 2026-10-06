@@ -1,16 +1,30 @@
-//! Gemini CLI, `agy`, as a mind's CLI: one process per conversation, kept
-//! across turns as Claude Code's is ([`super`]), with stream-json both
-//! ways, so each message is a line on its stdin and each answer a `result`
-//! line on its stdout. It takes no system prompt of ours as a flag, so the
-//! first message of a conversation (the one that carries the game's
-//! prefix) carries ours ahead of it, and every later one only itself.
+//! Google's Antigravity CLI, `agy`, as a mind's CLI: one process per
+//! conversation, kept across turns as Claude Code's is ([`super`]), with
+//! stream-json both ways, so each message is a line on its stdin and each
+//! answer a `result` line on its stdout. It takes no system prompt of ours
+//! as a flag, so the first message of a conversation (the one that carries
+//! the game's prefix) carries ours ahead of it, and every later one only
+//! itself.
+//!
+//! Locked down less than Claude Code can be (`docs/llm-seat.md` §"A CLI as
+//! the model"): `agy` has no flag that takes its tools, MCP servers or
+//! rules files away. In print mode it approves nothing that asks (a
+//! command, the web: "soft-denied"), and it is never given
+//! `--dangerously-skip-permissions`; slash commands and skills are off
+//! (`--disable-slash-commands`); its working directory is empty, so no
+//! project's rules are read (its user rules under `~/.gemini` still are).
+//! Its `init` line must name the tools it offers and must connect no MCP
+//! server; and a step of the `tool` kind (the model used one, even one it
+//! may) takes the mind off the table ([`Event::Breach`]). It keeps each
+//! conversation in its own database: no flag turns that off.
 
-use super::dialect::{Dialect, Event, Outcome, Started};
+use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, listed, names};
 use crate::cli::GAME_DATA;
 use crate::llm::{Settings, Usage, json_object, prompt};
 use baylee_client_core::llmseat::{CliTool, DEFAULT_AGY_MODEL};
 use serde_json::{Value, json};
 use std::ffi::OsString;
+use std::path::Path;
 
 /// Gemini CLI (Antigravity).
 pub(crate) struct Agy;
@@ -20,7 +34,13 @@ impl Dialect for Agy {
         CliTool::Agy
     }
 
-    fn args(&self, settings: &Settings, model: Option<&str>, _system: &str) -> Vec<OsString> {
+    fn args(
+        &self,
+        settings: &Settings,
+        model: Option<&str>,
+        _system: &str,
+        _support: &Path,
+    ) -> Vec<OsString> {
         let mut args: Vec<OsString> = [
             "--input-format",
             "stream-json",
@@ -78,7 +98,7 @@ impl Dialect for Agy {
         true
     }
 
-    fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event {
+    fn read_event(&self, line: &str, wire: &mut Wire) -> Event {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
@@ -88,23 +108,54 @@ impl Dialect for Agy {
                 let init = value.get("init").unwrap_or(&value);
                 Event::Started(started(init))
             }
+            Some("step_update") => {
+                let step = value.get("step_update").unwrap_or(&Value::Null);
+                let kind = step.get("step_type").and_then(Value::as_str);
+                let tool = step
+                    .get("tool_info")
+                    .and_then(|info| info.get("name"))
+                    .and_then(Value::as_str);
+                if kind == Some("tool") || tool.is_some() {
+                    return Event::Breach(format!(
+                        "the agy process let the model use {}: the seat does not play through it",
+                        clipped(tool.unwrap_or("a tool"))
+                    ));
+                }
+                Event::Other
+            }
             Some("result") => {
                 let result = value.get("result").unwrap_or(&value);
-                Event::Reply(outcome(result, trouble.take().as_deref()))
+                Event::Reply(outcome(result, wire.trouble.take().as_deref()))
             }
             _ => Event::Other,
         }
     }
 
-    fn lockdown_fault(&self, _started: &Started) -> Option<String> {
-        None
+    fn lockdown_fault(&self, started: &Started) -> Option<String> {
+        // Its tools cannot be taken away, so they are not judged here; a
+        // tool used is ([`Event::Breach`]). That it named them, and that it
+        // connected no MCP server where it says, is.
+        if started.tools.is_none() {
+            return Some(
+                "the agy process did not say which tools it offers the model: the seat does not \
+                 play through it"
+                    .into(),
+            );
+        }
+        match &started.mcp_servers {
+            Some(servers) if !servers.is_empty() => Some(format!(
+                "the agy process connected MCP servers ({}): the seat does not play through it",
+                listed(servers)
+            )),
+            _ => None,
+        }
     }
 
     fn probe_args(&self) -> Option<Vec<OsString>> {
         Some(["--version"].map(OsString::from).into())
     }
 
-    fn probe_ok(&self, stdout: &[u8]) -> bool {
+    fn probe_ok(&self, stdout: &[u8], _stderr: &[u8]) -> bool {
         !stdout.is_empty()
     }
 }
@@ -112,24 +163,10 @@ impl Dialect for Agy {
 /// What the `init` line names: the tools, the MCP servers, the slash
 /// commands and the key's source.
 fn started(init: &Value) -> Started {
-    let names = |key: &str| -> Option<Vec<String>> {
-        let items = init.get(key)?.as_array()?;
-        Some(
-            items
-                .iter()
-                .map(|item| {
-                    item.as_str()
-                        .or_else(|| item.get("name").and_then(Value::as_str))
-                        .unwrap_or("(unnamed)")
-                        .to_string()
-                })
-                .collect(),
-        )
-    };
     Started {
-        tools: names("tools"),
-        mcp_servers: names("mcp_servers"),
-        slash_commands: names("slash_commands"),
+        tools: names(init, "tools"),
+        mcp_servers: names(init, "mcp_servers"),
+        slash_commands: names(init, "slash_commands"),
         key_source: init
             .get("apiKeySource")
             .and_then(Value::as_str)

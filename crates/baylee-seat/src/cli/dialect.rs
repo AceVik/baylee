@@ -4,18 +4,28 @@
 //!
 //! A dialect knows nothing of sessions, clocks or budgets
 //! ([`super::CliMind`] keeps those), and runs nothing: it turns settings
-//! into arguments and lines into [`Event`]s. This build speaks Claude Code
-//! ([`super::claude`]) and `agy` ([`super::agy`]), each of whose processes
-//! holds one conversation for as long as it runs and takes each message as
-//! a line on its stdin: the process is the session the mind keeps across
-//! turns, and so what keeps the conversation's prefix in the provider's
-//! cache. A tool that answers one message a process would need a way to
-//! resume its conversation by id, which no dialect here has.
+//! into arguments and files, messages into lines, and lines into
+//! [`Event`]s. What one process's conversation keeps between lines (the
+//! text of a reply so far, a failure an earlier line named, lines its
+//! protocol answers with) is its [`Wire`], which the mind keeps beside the
+//! process.
+//!
+//! Most dialects hold one conversation in one process for as long as it
+//! runs and take each message as a line on its stdin: the process is the
+//! session the mind keeps across turns, and so what keeps the
+//! conversation's prefix in the provider's cache. A tool that answers one
+//! message a process ([`Dialect::one_shot`]) gets every question as a new
+//! conversation, the prefix and the seat's notes again: none here resumes
+//! a conversation by id, which would need it kept on disk.
+//!
+//! Which tools this build speaks, and how each is locked down, is
+//! `docs/llm-seat.md` §"A CLI as the model".
 
 use crate::llm::{Settings, Usage};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::Value;
 use std::ffi::OsString;
+use std::path::Path;
 use std::time::Duration;
 
 /// One agent CLI's way of talking.
@@ -23,10 +33,25 @@ pub(crate) trait Dialect: Send + Sync {
     /// The tool it is.
     fn tool(&self) -> CliTool;
 
+    /// Files the tool is pointed at, by name and contents: written, for
+    /// this user alone, into the session's own `support` directory (never
+    /// its working directory, which stays empty) before the process
+    /// starts. A schema or instructions a flag takes only as a path.
+    fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
+        Vec::new()
+    }
+
     /// The arguments of a session's process, after the program: `model` is
-    /// the tool's own model id, where the profile names one, and `system`
-    /// the instructions, which replace the tool's own.
-    fn args(&self, settings: &Settings, model: Option<&str>, system: &str) -> Vec<OsString>;
+    /// the tool's own model id, where the profile names one, `system` the
+    /// instructions, which replace the tool's own where it can, and
+    /// `support` the directory [`Self::files`] are written to.
+    fn args(
+        &self,
+        settings: &Settings,
+        model: Option<&str>,
+        system: &str,
+        support: &Path,
+    ) -> Vec<OsString>;
 
     /// The parent's variables the tool reads beyond the common ones
     /// ([`super::COMMON`]), passed where the parent has them: where its
@@ -38,8 +63,40 @@ pub(crate) trait Dialect: Send + Sync {
     /// has: one that keeps a game's process from updating the tool, say.
     fn fixed_env(&self) -> &'static [(&'static str, &'static str)];
 
+    /// Variables that name the session's own files in `support`, checked
+    /// as every other variable is.
+    fn session_env(&self, _support: &Path) -> Vec<(&'static str, OsString)> {
+        Vec::new()
+    }
+
+    /// Whether a process takes one message and ends: its stdin is closed
+    /// after that message, and each question starts a process of its own
+    /// with the prefix and the seat's notes, as a conversation begun again
+    /// is (not counted as a loss).
+    fn one_shot(&self) -> bool {
+        false
+    }
+
+    /// The lines written as the process starts, before any message: a
+    /// protocol's greeting and the conversation it opens.
+    fn opening(
+        &self,
+        _settings: &Settings,
+        _model: Option<&str>,
+        _system: &str,
+        _wire: &mut Wire,
+    ) -> Vec<String> {
+        Vec::new()
+    }
+
     /// The line that sends `text` as the conversation's next message.
     fn stdin_line(&self, text: &str) -> String;
+
+    /// The lines that send `text` as the conversation's next message: by
+    /// default its [`Self::stdin_line`].
+    fn message(&self, text: &str, _wire: &mut Wire) -> Vec<String> {
+        vec![self.stdin_line(text)]
+    }
 
     /// Whether a reply's usage is the process's running count since it
     /// started rather than the reply's own: then each call is booked as the
@@ -48,16 +105,16 @@ pub(crate) trait Dialect: Send + Sync {
     /// a long conversation many times over.
     fn usage_is_cumulative(&self) -> bool;
 
-    /// Reads one line of the process's output. `trouble` carries what an
+    /// Reads one line of the process's output. `wire` carries what an
     /// earlier line of the same reply said went wrong to the line that
-    /// ends it.
-    fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event;
+    /// ends it, and takes the lines to write back ([`Wire::out`]).
+    fn read_event(&self, line: &str, wire: &mut Wire) -> Event;
 
     /// What the model may use, as the process reported it at its start:
     /// why the seat does not play through it, or `None` when it named
     /// everything the lockdown asks it to and has nothing beyond the
-    /// answer itself. A list it did not name is a fault: only a list it
-    /// named shows the lockdown held.
+    /// answer itself. A list it did not name is a fault where the tool
+    /// names it at all: only a list it named shows the lockdown held.
     fn lockdown_fault(&self, started: &Started) -> Option<String>;
 
     /// The arguments of the login check, which calls no model: whether the
@@ -65,8 +122,31 @@ pub(crate) trait Dialect: Send + Sync {
     fn probe_args(&self) -> Option<Vec<OsString>>;
 
     /// Whether the login check's output, from a process that exited
-    /// cleanly, says the tool is signed in.
-    fn probe_ok(&self, stdout: &[u8]) -> bool;
+    /// cleanly, says the tool is signed in: what it wrote to stdout, and to
+    /// stderr.
+    fn probe_ok(&self, stdout: &[u8], stderr: &[u8]) -> bool;
+}
+
+/// What one process's conversation keeps between the lines it reads and
+/// the messages it is sent.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Wire {
+    /// What an earlier line of the reply said went wrong, for the line
+    /// that ends it.
+    pub(crate) trouble: Option<String>,
+    /// The conversation's id, where the tool names one: also whether its
+    /// start was read.
+    pub(crate) session: Option<String>,
+    /// Lines to write to the process now: an answer to a request of its
+    /// own, say.
+    pub(crate) out: Vec<String>,
+    /// The text of the reply so far, for a protocol that ends a reply on a
+    /// line of its own.
+    pub(crate) said: Option<String>,
+    /// Whether the line just read is to be read once more: a tool with no
+    /// start of its own starts on its first line, which says something of
+    /// its own besides.
+    pub(crate) again: bool,
 }
 
 /// What the process said it started with: each list `None` where the
@@ -80,7 +160,7 @@ pub(crate) struct Started {
     /// The slash commands and skills the conversation could run.
     pub(crate) slash_commands: Option<Vec<String>>,
     /// Where the credential it calls the model with comes from, as it
-    /// says; `None` where it named no source as text, which is a fault.
+    /// says; `None` where it named no source as text.
     pub(crate) key_source: Option<String>,
 }
 
@@ -91,6 +171,10 @@ pub(crate) enum Event {
     Started(Started),
     /// The reply to the oldest message still unanswered.
     Reply(Outcome),
+    /// The model used something the lockdown takes away (a tool, a
+    /// command, a file): why. The mind is taken off the table, as for a
+    /// start that offers it.
+    Breach(String),
     /// Anything else: the model's own messages, progress.
     Other,
 }
@@ -114,4 +198,53 @@ pub(crate) enum Outcome {
     },
     /// Anything else that went wrong, billed as far as anybody knows.
     Failed(String),
+}
+
+/// The names a start's list gives, each entry a name or an object with
+/// one; an entry that is neither is kept as `(unnamed)`, so it is never
+/// dropped unseen. `None` where `key` is not a list.
+pub(crate) fn names(start: &Value, key: &str) -> Option<Vec<String>> {
+    let items = start.get(key)?.as_array()?;
+    Some(
+        items
+            .iter()
+            .map(|item| {
+                item.as_str()
+                    .or_else(|| item.get("name").and_then(Value::as_str))
+                    .unwrap_or("(unnamed)")
+                    .to_string()
+            })
+            .collect(),
+    )
+}
+
+/// Up to eight names, for a sentence.
+pub(crate) fn listed(names: &[String]) -> String {
+    let mut shown = names.iter().take(8).cloned().collect::<Vec<_>>().join(", ");
+    if names.len() > 8 {
+        shown.push_str(", …");
+    }
+    shown
+}
+
+/// Whether a limit's words say it is one: a rate limit, a usage limit, a
+/// spent quota, HTTP 429, a provider's `RESOURCE_EXHAUSTED`.
+pub(crate) fn sounds_limited(said: &str) -> bool {
+    let lower = said.to_lowercase();
+    [
+        "rate limit",
+        "rate_limit",
+        "usage limit",
+        "quota",
+        "429",
+        "resource_exhausted",
+        "too many requests",
+    ]
+    .iter()
+    .any(|sign| lower.contains(sign))
+}
+
+/// The first 200 characters of `said`.
+pub(crate) fn clipped(said: &str) -> String {
+    said.chars().take(200).collect()
 }
