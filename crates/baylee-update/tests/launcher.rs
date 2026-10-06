@@ -175,11 +175,11 @@ fn activation_helper() {
 fn normal_launch_path_recovers_after_process_death_at_each_activation_boundary() {
     for phase in ["intent", "placed", "committed"] {
         let fixture = Fixture::new(phase);
-        fixture.stage("0.1.0-beta.3");
+        fixture.stage("1.0.0-beta.3");
         fixture.interrupted(phase);
         assert!(fixture.entry.is_file(), "normal entry must never disappear");
         assert!(fixture.command().status().unwrap().success());
-        assert_eq!(fixture.result()["version"], "0.1.0-beta.3");
+        assert_eq!(fixture.result()["version"], "1.0.0-beta.3");
         assert!(!fixture.install.stage().join("activation.json").exists());
     }
 }
@@ -187,7 +187,7 @@ fn normal_launch_path_recovers_after_process_death_at_each_activation_boundary()
 #[test]
 fn missing_pending_payload_keeps_previous_client_launchable_and_retains_intent() {
     let fixture = Fixture::new("lost-payload");
-    fixture.stage("0.1.0-beta.3");
+    fixture.stage("1.0.0-beta.3");
     fixture.interrupted("intent");
     fs::remove_dir_all(fixture.install.stage().join(NEW)).unwrap();
     assert!(fixture.command().status().unwrap().success());
@@ -198,7 +198,7 @@ fn missing_pending_payload_keeps_previous_client_launchable_and_retains_intent()
 #[test]
 fn competing_process_cannot_activate_while_the_first_owns_staging() {
     let fixture = Fixture::new("activation-lock");
-    fixture.stage("0.1.0-beta.3");
+    fixture.stage("1.0.0-beta.3");
     let ready = fixture.root.join("ready");
     let mut first = Command::new(std::env::current_exe().unwrap())
         .args(["--ignored", "--exact", "activation_helper", "--nocapture"])
@@ -340,4 +340,16 @@ fn readonly_installation_launches_original_and_selected_payload_without_auto_ins
     assert_eq!(fixture.result()["version"], "1.0.0");
     assert_eq!(fixture.result()["writable"], false);
     fs::set_permissions(&fixture.install.base, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// The packaged launcher's own version (this workspace's) is newer than
+/// the installed update: the player installed a newer package by hand, so
+/// the original starts, and the runtime accepts the session that says so.
+#[test]
+fn a_newer_package_starts_instead_of_an_older_installed_update() {
+    let fixture = Fixture::new("hand-installed");
+    fixture.stage("0.0.1");
+    launch::activate(&fixture.install, "original").unwrap();
+    assert!(fixture.command().status().unwrap().success());
+    assert_eq!(fixture.result()["version"], "original");
 }

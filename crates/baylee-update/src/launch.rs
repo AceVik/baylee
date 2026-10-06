@@ -211,6 +211,33 @@ pub fn selected(install: &Install) -> io::Result<PathBuf> {
     })
 }
 
+/// [`selected`], unless the original package is at least as new as the
+/// selected generation: a package the player installed by hand over the
+/// original (a newer download, an installer) then starts instead of the
+/// older update the launcher had installed. `original` is the package's
+/// own version, which only its launcher knows (it is compiled into it); a
+/// generation whose version does not parse keeps being selected.
+///
+/// # Errors
+/// As [`selected`].
+pub fn chosen(install: &Install, original: &semver::Version) -> io::Result<PathBuf> {
+    let current = read::<Current>(&install.stage().join(CURRENT))?;
+    let newer = current
+        .as_ref()
+        .is_some_and(|c| semver::Version::parse(&c.to).map_or(true, |to| to > *original));
+    if newer {
+        selected(install)
+    } else {
+        Ok(runtime(&install.base, install.os, &install.program))
+    }
+}
+
+/// This launcher's version, which is its package's: the launcher is never
+/// replaced by an update, so it is the version the package was released as.
+fn package_version() -> semver::Version {
+    semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("the workspace version is semver")
+}
+
 /// Announce a committed activation once, without deleting a payload.
 ///
 /// # Errors
@@ -271,21 +298,33 @@ pub struct Placement {
 /// where the randomised mount would not. Its folder is not probed: that is
 /// usually `~/Downloads`, which macOS guards with a privacy prompt.
 #[must_use]
-pub fn placement(install: &Install, translocation: &dyn Translocation) -> Placement {
+pub fn placement(
+    install: &Install,
+    translocation: &dyn Translocation,
+    appimage: Option<&Path>,
+) -> Placement {
     let package = install.base.join(&install.program);
-    let in_place = || Placement {
-        original: Some(package.clone()),
-        blocked: probe(&install.base).err().map(|err| Blocked::ReadOnly {
-            folder: install.base.clone(),
-            error: err.to_string(),
-        }),
-        translocated: false,
+    let in_place = |package: PathBuf| {
+        let folder = package.parent().unwrap_or(&install.base).to_path_buf();
+        Placement {
+            original: Some(package),
+            blocked: probe(&folder).err().map(|err| Blocked::ReadOnly {
+                folder,
+                error: err.to_string(),
+            }),
+            translocated: false,
+        }
     };
+    // An AppImage runs from a fresh read-only mount each start; the file
+    // the player keeps is the package, and its folder is what is probed.
+    if let Some(image) = appimage.filter(|_| install.os == Os::Linux) {
+        return in_place(image.to_path_buf());
+    }
     if install.os != Os::MacOs {
-        return in_place();
+        return in_place(package);
     }
     match translocation.status(&package) {
-        Status::InPlace => in_place(),
+        Status::InPlace => in_place(package),
         Status::From(original) => Placement {
             original: Some(original),
             blocked: None,
@@ -297,6 +336,33 @@ pub fn placement(install: &Install, translocation: &dyn Translocation) -> Placem
             translocated: true,
         },
     }
+}
+
+/// The `AppImage` file this launcher runs from, if it runs from one.
+///
+/// The `AppImage` runtime mounts the image read-only at a fresh
+/// `/tmp/.mount_…` each start and sets `$APPDIR` to that mount and
+/// `$APPIMAGE` to the image file. Both are believed only together: the
+/// launcher must lie inside `$APPDIR`, and `$APPIMAGE` must be an existing
+/// file, so a stray variable in a shell cannot re-key a plain install.
+/// `var` reads the environment (a fake in tests).
+#[must_use]
+pub fn appimage_of(
+    install: &Install,
+    var: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    if install.os != Os::Linux {
+        return None;
+    }
+    let image = PathBuf::from(var("APPIMAGE")?);
+    let mount = PathBuf::from(var("APPDIR")?);
+    let inside = |base: &Path, mount: &Path| base.starts_with(mount);
+    let canonical = |p: &Path| fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    (image.is_absolute()
+        && mount.is_absolute()
+        && image.is_file()
+        && (inside(&install.base, &mount) || inside(&canonical(&install.base), &canonical(&mount))))
+    .then_some(image)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -314,6 +380,11 @@ struct Session {
     original: Option<PathBuf>,
     #[serde(default)]
     translocated: bool,
+    /// The runtime this launcher started ([`chosen`]). A runtime checks it
+    /// is that one; without it (an older launcher), against [`selected`],
+    /// which is what such a launcher started.
+    #[serde(default)]
+    runtime: Option<PathBuf>,
 }
 
 /// A runtime's shared lifetime lease. Also survives an orphaned launcher.
@@ -457,9 +528,12 @@ pub fn join() -> io::Result<Option<(Install, ClientLease)>> {
         serde_json::from_str(&value.to_string_lossy()).map_err(io::Error::other)?;
     let _entry = Claim::wait(&session.install.stage(), "entry.lock")?;
     let token: Option<uuid::Uuid> = read(&session.install.stage().join("session.json"))?;
+    let started = match &session.runtime {
+        Some(runtime) => runtime.clone(),
+        None => selected(&session.install)?,
+    };
     if token != Some(session.token)
-        || fs::canonicalize(selected(&session.install)?)?
-            != fs::canonicalize(std::env::current_exe()?)?
+        || fs::canonicalize(started)? != fs::canonicalize(std::env::current_exe()?)?
     {
         return Err(io::Error::other(
             "launcher session was superseded or names another runtime",
@@ -488,7 +562,8 @@ pub fn run(
     install: &Install,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> io::Result<ExitStatus> {
-    let place = placement(install, &translocation::System);
+    let image = appimage_of(install, &|name| std::env::var_os(name));
+    let place = placement(install, &translocation::System, image.as_deref());
     let managed;
     let install = if install.state.is_none() {
         managed = in_state_root_of(install, &state_root()?, place.original.as_deref())?;
@@ -514,13 +589,18 @@ pub fn run(
         blocked: place.blocked,
         original: place.original,
         translocated: place.translocated,
+        runtime: Some(chosen(install, &package_version())?),
     };
+    let started = session
+        .runtime
+        .clone()
+        .ok_or_else(|| io::Error::other("no runtime chosen"))?;
     apply::write_json(&install.stage().join("session.json"), &session.token)?;
     // Admission remains exclusive during conversion; a child of a killed
     // launcher must check its token under this same admission lock.
     live.unlock()?;
     live.try_lock_shared().map_err(io::Error::from)?;
-    let mut child = Command::new(selected(install)?)
+    let mut child = Command::new(started)
         .args(args)
         .env(
             ENV,
@@ -558,7 +638,7 @@ mod tests {
     #[test]
     fn an_app_in_a_writable_folder_installs_and_is_its_own_original() {
         let base = scratch("inplace");
-        let place = placement(&mac(&base), &Fixed(Status::InPlace));
+        let place = placement(&mac(&base), &Fixed(Status::InPlace), None);
         assert_eq!(place.blocked, None);
         assert_eq!(place.original, Some(base.join("Baylee.app")));
         assert!(!place.translocated);
@@ -572,7 +652,7 @@ mod tests {
     fn a_translocated_app_installs_and_names_its_original() {
         let mount = Path::new("/private/var/folders/xy/T/AppTranslocation/1-2/d");
         let original = Path::new("/Users/p/Downloads/baylee-client-x/Baylee.app");
-        let place = placement(&mac(mount), &Fixed(Status::From(original.into())));
+        let place = placement(&mac(mount), &Fixed(Status::From(original.into())), None);
         assert_eq!(
             place,
             Placement {
@@ -586,7 +666,7 @@ mod tests {
     #[test]
     fn a_translocated_app_of_unknown_origin_does_not_install() {
         let mount = Path::new("/private/var/folders/xy/T/AppTranslocation/1-2/d");
-        let place = placement(&mac(mount), &Fixed(Status::Unknown));
+        let place = placement(&mac(mount), &Fixed(Status::Unknown), None);
         assert_eq!(place.blocked, Some(Blocked::Translocated));
         assert_eq!(place.original, None);
     }
@@ -604,7 +684,7 @@ mod tests {
             fs::remove_dir_all(base).unwrap();
             return;
         }
-        let place = placement(&mac(&base), &Fixed(Status::InPlace));
+        let place = placement(&mac(&base), &Fixed(Status::InPlace), None);
         fs::set_permissions(&base, fs::Permissions::from_mode(0o755)).unwrap();
         let Some(Blocked::ReadOnly { folder, error }) = place.blocked else {
             panic!("not blocked: {:?}", place.blocked);
@@ -625,7 +705,7 @@ mod tests {
             ..mac(&base)
         };
         fs::write(base.join("baylee-client"), "").unwrap();
-        let place = placement(&install, &Fixed(Status::Unknown));
+        let place = placement(&install, &Fixed(Status::Unknown), None);
         assert_eq!(place.blocked, None);
         assert!(!place.translocated);
         fs::remove_dir_all(base).unwrap();
@@ -675,5 +755,193 @@ mod tests {
         assert_eq!(session.blocked, None);
         assert_eq!(session.original, None);
         assert!(!session.translocated);
+        assert_eq!(session.runtime, None);
+    }
+
+    /// An `AppImage`: the image file and its mount, as the `AppImage` runtime
+    /// sets them, around a launcher at `<mount>/opt/baylee/baylee-client`.
+    struct Image {
+        root: PathBuf,
+        file: PathBuf,
+        install: Install,
+    }
+
+    fn image(tag: &str, mount: &str) -> Image {
+        let root = scratch(tag);
+        let file = root.join("Apps/Baylee-0.1.0-x86_64.AppImage");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "ELF").unwrap();
+        let base = root.join(mount).join("opt/baylee");
+        fs::create_dir_all(&base).unwrap();
+        let install = Install {
+            state: None,
+            os: Os::Linux,
+            base,
+            program: "baylee-client".into(),
+        };
+        Image {
+            root,
+            file,
+            install,
+        }
+    }
+
+    fn env<'a>(
+        image: &'a Path,
+        mount: &'a Path,
+    ) -> impl Fn(&str) -> Option<std::ffi::OsString> + 'a {
+        move |name| match name {
+            "APPIMAGE" => Some(image.as_os_str().to_owned()),
+            "APPDIR" => Some(mount.as_os_str().to_owned()),
+            _ => None,
+        }
+    }
+
+    /// Each start mounts the image somewhere new; the state stays one,
+    /// keyed by the image file, and its folder decides about installing.
+    #[test]
+    fn an_appimage_is_keyed_by_its_file_not_its_mount() {
+        let one = image("appimage", ".mount_aB1");
+        let mount = one.root.join(".mount_aB1");
+        let found = appimage_of(&one.install, &env(&one.file, &mount));
+        assert_eq!(found.as_deref(), Some(one.file.as_path()));
+        let place = placement(&one.install, &Fixed(Status::Unknown), found.as_deref());
+        assert_eq!(place.original.as_deref(), Some(one.file.as_path()));
+        assert_eq!(place.blocked, None, "a writable folder installs");
+        assert!(!place.translocated);
+
+        let state = one.root.join("state");
+        let first = in_state_root_of(&one.install, &state, place.original.as_deref()).unwrap();
+        let next = Install {
+            base: one.root.join(".mount_Zq9/opt/baylee"),
+            ..one.install.clone()
+        };
+        let second = in_state_root_of(&next, &state, Some(&one.file)).unwrap();
+        assert_eq!(first.state, second.state, "a new mount, the same state");
+        fs::remove_dir_all(one.root).unwrap();
+    }
+
+    #[test]
+    fn appimage_variables_are_believed_only_together_and_from_inside() {
+        let one = image("appimage-env", ".mount_aB1");
+        let mount = one.root.join(".mount_aB1");
+        let elsewhere = one.root.join(".mount_other");
+        assert_eq!(
+            appimage_of(&one.install, &env(&one.file, &elsewhere)),
+            None,
+            "not inside the mount"
+        );
+        assert_eq!(
+            appimage_of(&one.install, &env(&one.root.join("gone.AppImage"), &mount)),
+            None,
+            "no such file"
+        );
+        assert_eq!(appimage_of(&one.install, &|_| None), None);
+        let only_image = |name: &str| (name == "APPIMAGE").then(|| one.file.as_os_str().to_owned());
+        assert_eq!(
+            appimage_of(&one.install, &only_image),
+            None,
+            "both or neither"
+        );
+        let mac = Install {
+            os: Os::MacOs,
+            ..one.install.clone()
+        };
+        assert_eq!(appimage_of(&mac, &env(&one.file, &mount)), None);
+        fs::remove_dir_all(one.root).unwrap();
+    }
+
+    /// An `AppImage` in a folder this user cannot write (`/opt`, say) says
+    /// which folder, as any read-only package does.
+    #[cfg(unix)]
+    #[test]
+    fn an_appimage_in_a_read_only_folder_names_it() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let one = image("appimage-ro", ".mount_aB1");
+        let apps = one.file.parent().unwrap().to_path_buf();
+        fs::set_permissions(&apps, fs::Permissions::from_mode(0o555)).unwrap();
+        let writable_anyway = fs::write(apps.join("root-can"), "").is_ok();
+        let place = placement(&one.install, &Fixed(Status::InPlace), Some(&one.file));
+        fs::set_permissions(&apps, fs::Permissions::from_mode(0o755)).unwrap();
+        if !writable_anyway {
+            let Some(Blocked::ReadOnly { folder, .. }) = place.blocked else {
+                panic!("not blocked: {:?}", place.blocked);
+            };
+            assert_eq!(folder, apps);
+        }
+        fs::remove_dir_all(one.root).unwrap();
+    }
+
+    fn selecting(to: Option<&str>) -> (PathBuf, Install) {
+        let base = scratch("chosen");
+        let install = Install {
+            state: Some(base.join("state")),
+            os: Os::Linux,
+            base: base.clone(),
+            program: "baylee-client".into(),
+        };
+        fs::create_dir_all(install.stage()).unwrap();
+        if let Some(to) = to {
+            let current = Current {
+                generation: uuid::Uuid::now_v7(),
+                previous: None,
+                from: "0.1.0-beta.4".into(),
+                to: to.into(),
+                announced: true,
+            };
+            apply::write_json(&install.stage().join(CURRENT), &current).unwrap();
+        }
+        (base, install)
+    }
+
+    /// A package installed by hand over the original, at least as new as
+    /// the update the launcher had installed, is the one that starts.
+    #[test]
+    fn a_newer_or_equal_package_beats_an_installed_update() {
+        let v = |s: &str| semver::Version::parse(s).unwrap();
+        let (base, install) = selecting(Some("0.1.0-beta.6"));
+        let original = base.join(runtime_name(Os::Linux));
+        let generation = selected(&install).unwrap();
+        assert_ne!(generation, original);
+        assert_eq!(
+            chosen(&install, &v("0.1.0-beta.5")).unwrap(),
+            generation,
+            "older package"
+        );
+        assert_eq!(
+            chosen(&install, &v("0.1.0-beta.6")).unwrap(),
+            original,
+            "equal"
+        );
+        assert_eq!(
+            chosen(&install, &v("0.1.0-beta.10")).unwrap(),
+            original,
+            "newer, by semver"
+        );
+        assert_eq!(
+            chosen(&install, &v("0.1.0")).unwrap(),
+            original,
+            "a release after its betas"
+        );
+        fs::remove_dir_all(base).unwrap();
+
+        let (base, install) = selecting(None);
+        assert_eq!(
+            chosen(&install, &v("0.1.0")).unwrap(),
+            base.join(runtime_name(Os::Linux))
+        );
+        fs::remove_dir_all(base).unwrap();
+
+        let (base, install) = selecting(Some("not a version"));
+        assert_eq!(
+            chosen(&install, &v("9.0.0")).unwrap(),
+            selected(&install).unwrap()
+        );
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn the_launcher_knows_its_packages_version() {
+        assert_eq!(package_version().to_string(), env!("CARGO_PKG_VERSION"));
     }
 }
