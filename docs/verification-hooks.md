@@ -48,7 +48,7 @@ files then cover only the tests that ran.
 - `<dir>/<test>.jsonl`, one file per test that saw at least one firing.
   `<test>` is the test's full name as libtest and nextest print it, the module
   path from the crate root, for example
-  `engine::card_tests::instants::lightning_bolt_deals_three_to_a_creature_or_a_player.jsonl`.
+  `engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player.jsonl`.
   On Windows `:` becomes `_` in the file name; the `test` field inside is
   always the real name and is the one to key on.
 - `<dir>/unnamed-thread.jsonl`, for firings on a thread no test named: a test
@@ -63,7 +63,7 @@ files then cover only the tests that ran.
 Each line of a `.jsonl` file is one object, fields in this order:
 
 ```json
-{"test":"engine::card_tests::instants::lightning_bolt_deals_three_to_a_creature_or_a_player","card":144,"index":4294967295,"kind":"spell"}
+{"test":"engine::card_tests::instants::mv_1::lightning_bolt::lightning_bolt_deals_three_to_a_creature_or_a_player","card":144,"index":4294967295,"kind":"spell"}
 ```
 
 | field   | type   | meaning |
@@ -331,7 +331,7 @@ tests and found two defects in the engine, both fixed since:
   two answers for one). A projection that counts now says so
   (`layers::Projection::read_board`), and the refresh projects those again
   once the board is done (test
-  `card_tests::creatures::ashaya_counts_a_creature_the_moment_it_enters`).
+  `card_tests::creatures::mv_5::ashaya_soul_of_the_wild::ashaya_counts_a_creature_the_moment_it_enters`).
 
 The second run, after both fixes: `false` 18 times in 7 tests. Seven were
 the harness, in

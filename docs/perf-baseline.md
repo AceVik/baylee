@@ -506,3 +506,168 @@ The diagnostic state-only measurements were 5.20 µs for a fresh clone and
 further investigation. The production path still takes and restores a complete
 checkpoint, with the retained arena/journal copy-on-write storage above; no
 numeric-capacity threshold or rollback omission was introduced.
+
+## The engine profiled and cleaned up (2026-10-06, task E for 0.1.0-beta.6)
+
+All numbers are this M1 Max (10 cores) while other worktrees compiled: load
+average 10 to 130 over the session. Whole workloads are compared by
+**instructions retired** (`/usr/bin/time -l`), which moved by under 0.1 %
+between repeated runs where wall time moved by tens of percent; wall time is
+given beside them as the minimum of the runs. Criterion rows are the minimum
+of three alternating rounds' medians, "before" being `a27c5139`'s bench
+binary run in the same rounds.
+
+### The workloads, before and after
+
+| Workload | Before | After | Change |
+|---|---:|---:|---:|
+| `ai_match sharp sharp 1..30` (120 acceptance-deck games, 116 562 answers), instructions | 120.3 G | 58.4 G | **−51 %** |
+| same, wall (min of two) | 9.09 s | 4.65 s | −49 % |
+| same, peak RSS | 18.5 MiB | 16.5 MiB | −11 % |
+| `selfplay --games 100 --threads 1 --name cmp` (records, views, agents), instructions | 101.0 G | 50.3 G | **−50 %** |
+| same, wall | 7.76 s | 4.39 s (user) | −43 % |
+| same, peak RSS | 37.9 MB | 42.0 MB | **+11 %** |
+
+The games are the same games: `ai_match`'s whole JSON output (outcomes,
+answer counts, the last answers of every game) is byte-identical, all 100
+`selfplay` games have the same answers, turns and outcomes, and the 200
+games `selfplay` recorded with the build before this work replay through
+`convert` built after it with every one of their 169 623 snapshot hashes
+equal (`refused {}`). Self-play's RSS grew by what the snapshot memo keeps
+(the bytes of every arena chunk and a reference to it, so a superseded chunk
+lives until the next hash).
+
+Where the time went before (`sample`, `ai_match`, 5 132 samples):
+`snapshot_hash` 35 % (the harness, and `Session` for the record, hash after
+every answer), the decision checkpoint 29 % (`GameState::clone` 9 %, the
+arena's copy-on-write copying the *whole* slot vector on the answer's first
+write 11 %, dropping the checkpoint 9 %), gamehost's `player_view` 8 %. The
+same split held in `selfplay`.
+
+### What changed, in the order it was measured
+
+Instructions retired; each step on top of the one before.
+
+| Step | `ai_match` | `selfplay` |
+|---|---:|---:|
+| `a27c5139` | 120.3 G | 101.0 G |
+| arena copied a 16-slot chunk at a time; checkpoint keeps the journal's length; refresh writes only what moved | 111.4 G | |
+| 8-slot chunks | 108.8 G | |
+| retained damage sources `Arc`'d | 108.2 G | |
+| buffered hasher, subtype set and mana cost as fixed-size writes | 101.2 G | 85.2 G |
+| snapshot memo, hasher writers `#[inline]` | 86.6 G | 72.8 G |
+| name interner shared by a clone | | 57.8 G |
+| memo keeps retained damage sources too | | 56.9 G |
+| 2-slot chunks | | 50.1 G |
+| source capture walks the exile lists | | 49.0 G |
+| the file splits, clippy (final) | 58.4 G | 50.3 G |
+
+The last row is a pure move plus clippy's spellings; it cost 1.3 G in
+`selfplay`, which three single-change rebuilds (`put` inlined always, the old
+subtype-word loop, the capture before it became two methods) did not explain
+— code layout, as far as could be told.
+
+- **Decision checkpoint.** `Engine::apply` clones the whole state per answer
+  (`docs/engine-internals.md` §"Object model"). The arena was one
+  `Arc<Vec<Slot>>`, so the first write after the clone copied every object:
+  copy-on-write in name only. It is chunked now, and the journal is no
+  longer in the checkpoint at all (only its length; it only grows). The
+  journal's clone had made the answer's first event copy the whole journal,
+  once per answer: quadratic over a game.
+- **`CachedChar` lost its generation stamp**, written on every refresh and
+  read by nothing: `CachedChar` 16 → 8 B, `GameObject` 304 → 296 B (budget
+  312 → 296; before this change it measured 304 B, not the 312 B the
+  2026-10-02 entry gives). The refresh now asks before it writes
+  (`CachedChar::holds`), so an untouched object's chunk stays shared.
+  `GameState` itself is 2 656 B.
+- **Clone of a start-of-game state**, release probe: 5.9 → 1.4 µs once the
+  retained damage sources were shared, and the name interner (`Names`, two
+  copies of every name string per clone) went behind an `Arc` later.
+- **Snapshot hash**, byte for byte the same: a 256-byte write buffer in front
+  of xxh3 (`hasher.rs`), and a memo of each arena chunk's and retained damage
+  source's bytes, reused while the chunk is the same allocation
+  (`state::hash::SnapshotMemo`). The `state/snapshot_hash*` benches hash one
+  state over and over, so they measure the memo's hit path: 19.6 → 7.0 µs
+  and 320 → 112 µs at 3 000 tokens.
+- **Source capture** (`GameState::capture_source_references`, on every zone
+  change) walked the whole arena for exiled cards; it walks the exile lists,
+  which debug builds check hold exactly the exiled objects on every capture.
+
+### The arena is copied a chunk at a time
+
+Chunk size against 100 self-play games (instructions) and the 3 000-token
+board's clone (criterion, same session):
+
+| Slots per chunk | `selfplay` | `state/clone_3k_tokens` |
+|---:|---:|---:|
+| 1 | 50.4 G | — |
+| 2 (kept) | 50.1 G | 7.96 µs |
+| 4 | 52.1 G | 5.44 µs |
+| 8 | 56.9 G | 4.48 µs |
+
+Smaller chunks copy less per answer and let the memo keep more of the
+board; they cost one reference count per chunk per clone, which is what the
+token board pays — microseconds beside the ~1 ms an answer on such a board
+takes (`combat/attack_to_blocks_900`).
+
+### Criterion, before and after
+
+| Bench | Before | After | Change |
+|---|---:|---:|---:|
+| `setup/from_preset` | 32.62 µs | 33.28 µs | +2 % |
+| `state/clone` | 5.16 µs | 1.37 µs | −74 % |
+| `state/names_clone` | 190.65 ns | 9.81 ns | −95 % |
+| `state/zones_clone` | 208.97 ns | 207.07 ns | −1 % |
+| `state/snapshot_hash` (memo hit) | 19.57 µs | 7.02 µs | −64 % |
+| `state/snapshot_hash_3k_tokens` (memo hit) | 319.55 µs | 111.55 µs | −65 % |
+| `engine/priority_pass_x4` | 30.12 µs | 13.80 µs | −54 % |
+| `layers/refresh_x1` | 11.12 µs | 8.04 µs | −28 % |
+| `layers/refresh_x8` | 14.96 µs | 12.26 µs | −18 % |
+| `layers/refresh_x32` | 29.64 µs | 28.36 µs | −4 % |
+| `layers/refresh_x8_counting` | 36.56 µs | 35.19 µs | −4 % |
+| `layers/refresh_over_20k_stack` | 13.28 ns | 13.14 ns | −1 % |
+| `state/clone_3k_tokens` | 5.26 µs | 7.73 µs | **+47 %** |
+| `layers/refresh_3k_tokens` | 465.96 µs | 516.53 µs | +11 % (spread ±72 %) |
+| `zones/wrath_60_exile_0` | 58.07 µs | 43.67 µs | −25 % |
+| `zones/wrath_60_exile_800` | 251.75 µs | 272.44 µs | +8 % (spread ±79 %) |
+| `zones/drain_stack_20000` | 45.13 µs | 45.79 µs | +1 % |
+| `combat/attack_to_blocks_100` | 131.53 µs | 99.19 µs | −25 % |
+| `combat/attack_to_blocks_900` | 995.43 µs | 965.25 µs | −3 % |
+
+`priority_pass_x4`, the checkpoint's own bench (27.5 µs on 2026-10-03,
+5.98 µs with the checkpoint switched off), is at 13.8 µs. `clone_3k_tokens`
+is the chunk size's price, above. The 900-attacker blocks offer and the
+800-card exile walk are unmoved: their time is in combat legality and in the
+exile list, which this work did not touch.
+
+No `unsafe`, intrinsics or SIMD were added: xxh3 already vectorises, and the
+profile's hashing cost was serialisation and call overhead, which the buffer
+and the memo removed. Every remaining step was allocation and copying.
+
+### Left for others, measured
+
+- **The record hash is defined over the raw byte stream**, and is still
+  28 % of self-play: xxh3 over every chunk's bytes, after every answer.
+  Defining it over per-chunk digests would make it a few percent, and would
+  make every stored record (the gateway's, the feedback service's, the
+  training runs') fail to replay. That is the owner's and the training
+  lane's decision, not an optimisation.
+- **gamehost**: `Session::agent_view` / `player_view` are 15–18 % of
+  self-play, and the harness's loop key formats every `Pending` with
+  `format!("{pending:?}")` (`harness::pending_fingerprint`, 2 %).
+
+### The card tests split, and compile time
+
+`card_tests/{creatures,lands,instants,sorceries,enchantments,artifacts}.rs`
+(273 000 lines) are one module per card now, at the card's own path; the
+engine's four largest files are directory modules (`state/`, `resolve/`,
+`engine/progress/`, `casting/`). `cargo build -p baylee-engine --tests`,
+under load averages of 15 to 45:
+
+| | Before | After |
+|---|---:|---:|
+| clean engine build (wall / user) | 46.8 s / 79.6 s, 47.0 s / 78.0 s | 52.5 s / 83.9 s, 83.6 s / 96.8 s |
+| one test edited (four edits) | 21.9, 16.5, 17.1, 17.2 s | 16.7, 17.8, 15.6, 15.4 s |
+
+No measurable effect under this load: the test binary is one crate either
+way, and a one-line edit still rebuilds and links it.

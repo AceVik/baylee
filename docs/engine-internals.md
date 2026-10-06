@@ -17,12 +17,16 @@ name on the stack point at one allocation. **Every write goes through
 what keeps a `GameObject` at 272 bytes and `GameState::clone` — the AI's
 per-ply primitive — from copying the same 256 bytes a thousand times.
 
-Arena and event-journal snapshots share immutable vectors. Their mutating APIs
-perform copy-on-write, preserving exact slot order, generations and journal
-sequence numbers in each snapshot. This supports the full decision checkpoint
-used for technical numeric failures without eagerly cloning every library card
-on an otherwise read-only pass. It does not make a checkpoint free: the measured
-cost and remaining performance limitation are in `docs/perf-baseline.md`.
+The arena is copy-on-write a chunk at a time: slots live in two-slot chunks,
+each behind its own `Arc`, a clone shares every chunk, and a write copies only
+the chunk it lands in, preserving exact slot order and generations in each
+snapshot. `Engine::apply` takes a full decision checkpoint per answer (a
+refused or numerically failed answer restores it), so an answer pays for the
+chunks it wrote and not for every object in the game. The checkpoint keeps the
+event journal's *length*, not the journal: it only grows, and a restore cuts
+it back, as `GameState::roll_back` does for a canceled payment. Names, retained
+damage sources and the base cache are shared by a clone the same way. Measured
+costs are in `docs/perf-baseline.md`.
 
 ## Layers & continuous effects
 Computed characteristics are cached projections: printed/copiable base →
@@ -1585,6 +1589,16 @@ position it entered them however many were taken. `snapshot_hash` covers
 the open mulligans: who is still deciding, and where each seat's stream
 stands. `house_rules_tests` pins all three, and pins the opening deal of a
 table that only keeps against the engine that asked in seat order.
+
+A record keeps the hash after every input, so the host hashes the game after
+every answer. `GameState` remembers, per arena chunk and per retained damage
+source, the bytes the hash last wrote for it (`state::hash::SnapshotMemo`), and
+feeds them again while the chunk is the same allocation; holding the chunk is
+what makes "same allocation" mean "same content", since any write to a shared
+chunk copies it. The bytes, and so every hash a record holds, are exactly the
+ones writing them out gives (`state::tests::the_remembered_hash_is_the_written_hash`,
+`hasher::tests`); a change that alters them breaks every stored record's replay
+and is a decision, not an optimisation.
 
 `Engine::snapshot_hash` is not a complete comparison: it leaves out the
 journal, the open question and its bookkeeping (`pending`, `pending_plan`, the
