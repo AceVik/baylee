@@ -152,6 +152,34 @@ impl TableSeats {
         self.house_now.contains(&chair)
     }
 
+    /// Whether the panel lights `press` for `chair`: the house where it
+    /// plays the chair now, else the profile, model and effort the chair
+    /// plays; never both, so a chair the house took over shows no model.
+    pub(crate) fn lit(&self, chair: u32, press: LlmPress) -> bool {
+        let house = self.house_now(chair);
+        if press == LlmPress::House {
+            return house;
+        }
+        let Some(planned) = self.planned(chair).filter(|_| !house) else {
+            return false;
+        };
+        match press {
+            LlmPress::Profile(at) => self
+                .profiles()
+                .get(at)
+                .is_some_and(|(name, _)| *name == planned.profile),
+            LlmPress::Model(at) => self
+                .models(chair)
+                .get(at)
+                .is_some_and(|m| m.id == planned.model),
+            LlmPress::Effort(None) => planned.effort.is_none(),
+            LlmPress::Effort(Some(at)) => self.current(chair).is_some_and(|current| {
+                current.efforts.get(at).copied() == planned.effort.as_deref()
+            }),
+            _ => false,
+        }
+    }
+
     /// Every chair a language model is planned for.
     pub(crate) fn chairs(&self) -> Vec<u32> {
         self.seating.chairs().map(|(chair, _)| chair).collect()
@@ -643,5 +671,71 @@ pub(crate) fn reconcile(mut state: bevy::prelude::ResMut<crate::lobby::LobbyStat
     lobby_state.llm.reconcile(room);
     if lobby_state.llm.revision != before {
         state.set_changed();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A chair planned to play the file's one profile.
+    fn planned() -> TableSeats {
+        let settings: SeatSettings = serde_json::from_str(
+            r#"{"profiles": {"sonnet": {"provider": "anthropic",
+                                        "model": "claude-sonnet-5-5"}}}"#,
+        )
+        .unwrap();
+        let mut seats = TableSeats {
+            file: Some(File {
+                path: String::new(),
+                settings: Ok(Some(settings)),
+            }),
+            ..TableSeats::default()
+        };
+        let profile = seats.profile("sonnet").cloned().unwrap();
+        seats
+            .seating
+            .plan(1, ChairModel::of("sonnet", &profile), None);
+        seats
+    }
+
+    /// Everything the in-game panel offers chair 1, lit or not.
+    fn lit(seats: &TableSeats) -> Vec<LlmPress> {
+        let efforts = seats.current(1).map_or(0, |m| m.efforts.len());
+        [
+            LlmPress::House,
+            LlmPress::Profile(0),
+            LlmPress::Effort(None),
+        ]
+        .into_iter()
+        .chain((0..seats.models(1).len()).map(LlmPress::Model))
+        .chain((0..efforts).map(|at| LlmPress::Effort(Some(at))))
+        .filter(|press| seats.lit(1, *press))
+        .collect()
+    }
+
+    /// While the house plays a language model's chair, the panel lights the
+    /// house alone: no profile, model or effort says a model still plays.
+    #[test]
+    fn a_chair_the_house_took_over_lights_no_model() {
+        let mut seats = planned();
+        let at = seats
+            .models(1)
+            .iter()
+            .position(|m| m.id == "claude-sonnet-5-5")
+            .unwrap();
+        let playing = lit(&seats);
+        assert_eq!(
+            playing,
+            [
+                LlmPress::Profile(0),
+                LlmPress::Effort(None),
+                LlmPress::Model(at)
+            ]
+        );
+        seats.house_now.insert(1);
+        assert_eq!(lit(&seats), [LlmPress::House]);
+        seats.house_now.remove(&1);
+        assert_eq!(lit(&seats), playing);
     }
 }

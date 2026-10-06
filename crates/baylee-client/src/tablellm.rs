@@ -6,11 +6,18 @@
 //! refuses an order besides.
 //!
 //! The panel is rebuilt only when what it shows changed
-//! (`TableSeats::revision`), never per frame; it stands only while a
-//! chair is planned, so a table with no language model of this client's
-//! shows nothing.
+//! (`TableSeats::revision`, or folding it), never per frame; it stands only
+//! while a chair is planned, so a table with no language model of this
+//! client's shows nothing.
+//!
+//! It opens folded: one button in the square beside the report button
+//! (`hud::BESIDE_CORNER`), which lies on no seat's place, and only a press
+//! on it lays the panel over the table, below `hud::TOP_CLEAR` at the right.
 
-use crate::hud::{ButtonWeight, UiFonts, answer_sized, palette, tf};
+use crate::hud::{
+    BESIDE_CORNER, ButtonWeight, CORNER_BUTTON, EDGE, TOP_CLEAR, UiFonts, answer_sized, btn_radius,
+    palette, tf,
+};
 use crate::tableseats::{LlmPress, Phase};
 use baylee_client_core::i18n::Phrase;
 use baylee_client_core::llmseat::models::Resolved;
@@ -23,11 +30,12 @@ pub struct TableLlmPlugin;
 
 impl Plugin for TableLlmPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (draw, clicks).run_if(in_state(crate::DuelPhase::Playing)),
-        )
-        .add_systems(OnExit(crate::DuelPhase::Playing), despawn);
+        app.init_resource::<Unfolded>()
+            .add_systems(
+                Update,
+                (draw, clicks).run_if(in_state(crate::DuelPhase::Playing)),
+            )
+            .add_systems(OnExit(crate::DuelPhase::Playing), despawn);
     }
 }
 
@@ -39,13 +47,23 @@ struct LlmPanel;
 #[derive(Component, Clone, Copy)]
 struct GamePress(u32, LlmPress);
 
+/// The button the panel folds to.
+#[derive(Component)]
+struct Fold;
+
+/// Whether the panel is laid out over the table; folded to its button
+/// otherwise, as every game begins.
+#[derive(Resource, Default)]
+struct Unfolded(bool);
+
 /// Rebuilds the panel when what it shows changed.
 fn draw(
     mut commands: Commands,
     state: Option<ResMut<crate::lobby::LobbyState>>,
     fonts: Option<Res<UiFonts>>,
     panels: Query<Entity, With<LlmPanel>>,
-    mut drawn: Local<Option<u64>>,
+    unfolded: Res<Unfolded>,
+    mut drawn: Local<Option<(u64, bool)>>,
 ) {
     use bevy::prelude::DetectChangesMut as _;
     let (Some(mut state), Some(fonts)) = (state, fonts) else {
@@ -54,16 +72,20 @@ fn draw(
     // The room's systems stand still during the game: a bridge's new line
     // is heard here, and only a new one rebuilds the panel.
     state.bypass_change_detection().llm.listen();
-    let revision = state.llm.revision;
-    if *drawn == Some(revision) && (panels.is_empty() == state.llm.chairs().is_empty()) {
+    let shown = (state.llm.revision, unfolded.0);
+    if *drawn == Some(shown) && (panels.is_empty() == state.llm.chairs().is_empty()) {
         return;
     }
-    *drawn = Some(revision);
+    *drawn = Some(shown);
     for panel in &panels {
         commands.entity(panel).despawn();
     }
     let chairs = state.llm.chairs();
     if chairs.is_empty() {
+        return;
+    }
+    fold(&mut commands, &fonts, unfolded.0);
+    if !unfolded.0 {
         return;
     }
     let lang = state.lobby.lang();
@@ -72,8 +94,8 @@ fn draw(
             LlmPanel,
             Node {
                 position_type: PositionType::Absolute,
-                top: px(72),
-                left: px(12),
+                top: px(TOP_CLEAR),
+                right: px(EDGE),
                 max_width: px(460),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
@@ -97,6 +119,43 @@ fn draw(
     for chair in chairs {
         chair_rows(&mut commands, &fonts, root, &state.llm, lang, chair);
     }
+}
+
+/// The button beside the report button that folds and unfolds the panel,
+/// lit while it is unfolded.
+fn fold(commands: &mut Commands, fonts: &UiFonts, unfolded: bool) {
+    let (ground, ink) = if unfolded {
+        (palette::DIALOG_LINE, palette::DIALOG_INK)
+    } else {
+        (palette::DIALOG, palette::DIALOG_SOFT)
+    };
+    commands.spawn((
+        LlmPanel,
+        Fold,
+        Node {
+            position_type: PositionType::Absolute,
+            right: px(BESIDE_CORNER),
+            top: px(EDGE),
+            width: px(CORNER_BUTTON),
+            height: px(CORNER_BUTTON),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border: UiRect::all(px(1)),
+            border_radius: btn_radius(),
+            ..default()
+        },
+        BackgroundColor(ground),
+        BorderColor::all(palette::DIALOG_LINE),
+        Button,
+        GlobalZIndex(crate::hud::Z_LOG),
+        children![(
+            // The kind of mind, as the chair's own name begins.
+            Text::new("LLM"),
+            tf(fonts, 10.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        )],
+    ));
 }
 
 /// One chair's rows: what it plays, and the house, its profiles, models
@@ -134,13 +193,13 @@ fn chair_rows(
     let mut items = vec![(
         Phrase::GameLlmHouse.text(lang).to_string(),
         LlmPress::House,
-        llm.house_now(chair),
+        llm.lit(chair, LlmPress::House),
     )];
     items.extend(llm.profiles().iter().enumerate().map(|(at, (name, _))| {
         (
             (*name).to_string(),
             LlmPress::Profile(at),
-            !llm.house_now(chair) && *name == planned.profile,
+            llm.lit(chair, LlmPress::Profile(at)),
         )
     }));
     chips(commands, fonts, root, chair, &items);
@@ -148,20 +207,26 @@ fn chair_rows(
         .models(chair)
         .iter()
         .enumerate()
-        .map(|(at, m)| (m.caption(), LlmPress::Model(at), m.id == planned.model))
+        .map(|(at, m)| {
+            (
+                m.caption(),
+                LlmPress::Model(at),
+                llm.lit(chair, LlmPress::Model(at)),
+            )
+        })
         .collect();
     chips(commands, fonts, root, chair, &models);
     if let Some(current) = &current {
         let mut efforts = vec![(
             Phrase::RoomLlmEffortOwn.text(lang).to_string(),
             LlmPress::Effort(None),
-            planned.effort.is_none(),
+            llm.lit(chair, LlmPress::Effort(None)),
         )];
         efforts.extend(current.efforts.iter().enumerate().map(|(at, e)| {
             (
                 (*e).to_string(),
                 LlmPress::Effort(Some(at)),
-                planned.effort.as_deref() == Some(*e),
+                llm.lit(chair, LlmPress::Effort(Some(at))),
             )
         }));
         chips(commands, fonts, root, chair, &efforts);
@@ -226,14 +291,24 @@ fn chips(
 fn clicks(
     mut pointer: MessageReader<Pointer<Click>>,
     presses: Query<&GamePress>,
+    folds: Query<(), With<Fold>>,
     parents: Query<&ChildOf>,
     state: Option<ResMut<crate::lobby::LobbyState>>,
+    mut unfolded: ResMut<Unfolded>,
 ) {
     let Some(mut state) = state else {
         pointer.clear();
         return;
     };
     for click in pointer.read() {
+        if folds.contains(click.entity)
+            || parents
+                .get(click.entity)
+                .is_ok_and(|parent| folds.contains(parent.parent()))
+        {
+            unfolded.0 = !unfolded.0;
+            continue;
+        }
         if let Some(GamePress(chair, press)) =
             crate::input::find_in_lineage(click.entity, &presses, &parents).copied()
         {
@@ -242,9 +317,15 @@ fn clicks(
     }
 }
 
-/// Takes the panel away with the duel.
-fn despawn(mut commands: Commands, panels: Query<Entity, With<LlmPanel>>) {
+/// Takes the panel away with the duel, folded for the next.
+fn despawn(
+    mut commands: Commands,
+    panels: Query<Entity, With<LlmPanel>>,
+    mut unfolded: ResMut<Unfolded>,
+) {
     for panel in &panels {
         commands.entity(panel).despawn();
     }
+    // The next game begins folded.
+    unfolded.0 = false;
 }

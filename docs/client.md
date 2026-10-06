@@ -3591,11 +3591,18 @@ is where the tests are). Closing the room, removing the model or quitting the
 client closes that stdin, and the bridge lets go of the chair. The flow, its
 limits and the key are `docs/llm-seat.md` §"A language model at your table".
 
-A debug build adds a panel at the top left of the duel (`tablellm.rs`,
-`TableLlmPlugin`, added only where `seating::LIVE_CHANGES`) that changes such
-a chair to the house or another profile, model or effort from its next
-decision (`docs/llm-seat.md` §"Changing a chair during the game"). It is
-rebuilt only when what it shows changed (`TableSeats::revision`), and the
+A debug build adds a panel to the duel (`tablellm.rs`, `TableLlmPlugin`,
+added only where `seating::LIVE_CHANGES`) that changes such a chair to the
+house or another profile, model or effort from its next decision
+(`docs/llm-seat.md` §"Changing a chair during the game"). Every game opens
+it folded to one `LLM` button in the square beside the report button
+(`hud::BESIDE_CORNER`), above `hud::TOP_CLEAR` and on no seat's place at any
+desktop window (`camera_tests::
+the_corner_beside_the_report_button_lies_on_no_seat_s_place`); a press lays
+it out below `TOP_CLEAR` at the right, over the table until pressed again.
+What it lights is `TableSeats::lit`: the house alone while the house plays
+the chair, else its profile, model and effort. It is rebuilt only when what
+it shows changed (`TableSeats::revision`, or a fold), and the
 room's systems that run the bridges touch the lobby's state only when a
 bridge, a listing or a key answer moved it (`bypass_change_detection`, then
 `set_changed`), so an idle room rebuilds nothing.

@@ -1907,6 +1907,25 @@ pub(crate) fn report_corner(window: Vec2) -> Rect {
     )
 }
 
+/// How far from the window's right edge the square beside the report
+/// button stands: where a debug build's language-model panel folds to
+/// (`crate::tablellm`). Above [`TOP_CLEAR`], so no panel pinned to the top
+/// reaches it, and on no seat's place (`camera_tests::
+/// the_corner_beside_the_report_button_lies_on_no_seat_s_place`).
+pub(crate) const BESIDE_CORNER: f32 = EDGE + CORNER_BUTTON + 6.0;
+
+/// The square beside the report button in a window `window` big.
+#[cfg(test)]
+#[must_use]
+pub(crate) fn beside_corner(window: Vec2) -> Rect {
+    Rect::new(
+        window.x - BESIDE_CORNER - CORNER_BUTTON,
+        EDGE,
+        window.x - BESIDE_CORNER,
+        EDGE + CORNER_BUTTON,
+    )
+}
+
 /// The end screen's root rung: over every other root of the table
 /// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
 pub(crate) const G_FINISH: i32 = 1;

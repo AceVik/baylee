@@ -1005,8 +1005,32 @@ fn the_report_corner_lies_on_no_seat_s_place() {
         Vec2::new(430.0, 932.0),
         Vec2::new(360.0, 800.0),
     ] {
+        on_no_seat_s_place(window, crate::hud::report_corner(window));
+    }
+}
+
+/// A debug build's language-model panel folds to the square beside the
+/// report button, and covers no seat's place there, in every desktop
+/// window (the panel is a desktop's only).
+#[test]
+fn the_corner_beside_the_report_button_lies_on_no_seat_s_place() {
+    for window in [
+        WINDOW,
+        Vec2::new(1400.0, 900.0),
+        Vec2::new(1280.0, 800.0),
+        Vec2::new(1024.0, 640.0),
+        Vec2::new(960.0, 600.0),
+        Vec2::new(800.0, 600.0),
+    ] {
+        on_no_seat_s_place(window, crate::hud::beside_corner(window));
+    }
+}
+
+/// Asserts that `corner` overlaps no seat's place, at any seat count, in a
+/// `window` big.
+fn on_no_seat_s_place(window: Vec2, corner: Rect) {
+    {
         let canvas = Canvas::hud(window);
-        let corner = crate::hud::report_corner(window);
         let square = [
             corner.min,
             Vec2::new(corner.max.x, corner.min.y),
@@ -1049,7 +1073,7 @@ fn the_report_corner_lies_on_no_seat_s_place() {
                 assert!(
                     apart,
                     "{n} seats in a {window} window: seat {seat}'s place {drawn:?} \
-                     reaches the report button at {corner:?}"
+                     reaches the corner button at {corner:?}"
                 );
             }
         }
