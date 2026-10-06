@@ -678,6 +678,23 @@ snapshot. The engine tests exercise an X spell with two targets and a Lotus
 Petal color question; `gamehost/tests/ai_miracle.rs` verifies the AI's actual
 Temporal Mastery payment and extra turn through the projected debt.
 
+A window that closes without its cast (a miracle declined after a tap, or
+paid short; a `PaymentContinuation::Cast` likewise) gives back what was made
+in it: the play was never completed, and CR 732.1 lets its player reverse the
+mana abilities activated while making it. The window holds a `WindowStart`
+(the journal's length, the payer's pool, the generated-mana obligations and
+the trigger queue's length when it opened), and `Engine::give_back_window`
+untaps every permanent tapped as a cost since then, puts the pool and the
+obligations back, and drops the triggers the taps queued. The journal is not
+cut back, because each tap was its own `apply` and a host has read past it:
+the untaps are journalled as `ObjectUntapped { cause: Cost }`, which nothing
+triggers on. A window in which anything but a tap and its mana happened (a
+sacrificed Lotus Petal, life paid, a library touched) is left as it stands,
+which 732.1's "may" allows. A cast started from a `Cast` window carries its
+start into the window its wizard opens for the rest
+(`CastWizard::window_start`), so both are given back together
+(`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
+
 ### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you
 don't, you lose the game" are delayed actions, not stack objects, and they

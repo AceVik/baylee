@@ -111,7 +111,7 @@ fn moves_library(effect: &Effect) -> bool {
         }
         // Scry, reordering, revealing and shuffling alone do not move a card
         // to/from this zone. They can nevertheless be irreversible under
-        // CR 733.1; that is a separate question from being a mana ability.
+        // CR 732.1; that is a separate question from being a mana ability.
         _ => {
             let (then, otherwise) = immediate_branches(effect);
             then.iter().chain(otherwise).any(moves_library)

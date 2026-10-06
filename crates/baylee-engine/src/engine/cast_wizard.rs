@@ -123,6 +123,11 @@ pub(crate) struct CastWizard {
     /// An effect casting it as it resolves, paying its costs (CR 608.2g,
     /// Conduit of Worlds); `None` for every other cast.
     pub by_effect: Option<EffectCast>,
+    /// Where the payment window this cast was started from began, for a
+    /// cast `Effect::MayCastTarget` said yes to: its mana was made for this
+    /// cast, and is given back with the next window's if the cast is not
+    /// made (`Engine::give_back_window`). `None` for every other cast.
+    pub window_start: Option<Box<super::WindowStart>>,
 }
 
 impl CastWizard {
@@ -293,6 +298,7 @@ impl<L: CardLookup> Engine<L> {
             free: false,
             masked: false,
             by_effect: self.commanded_card(card).then_some(EffectCast::Plain),
+            window_start: None,
         };
         if wizard.options.len() == 1 {
             wizard.option = Some(wizard.options[0].kind);
@@ -354,6 +360,7 @@ impl<L: CardLookup> Engine<L> {
             free: true,
             masked: true,
             by_effect: Some(EffectCast::Plain),
+            window_start: None,
         });
         self.advance_cast_wizard()
     }
@@ -462,6 +469,7 @@ impl<L: CardLookup> Engine<L> {
             free: false,
             masked: false,
             by_effect: None,
+            window_start: None,
         })
     }
 
@@ -594,6 +602,7 @@ impl<L: CardLookup> Engine<L> {
             free: true,
             masked: false,
             by_effect: None,
+            window_start: None,
         };
         let _ = &mut wizard;
         self.cast_wizard = Some(wizard);
@@ -666,6 +675,7 @@ impl<L: CardLookup> Engine<L> {
             free: true,
             masked: false,
             by_effect: None,
+            window_start: None,
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -680,12 +690,17 @@ impl<L: CardLookup> Engine<L> {
     ///
     /// Nothing is cast when the card is no longer the object that was
     /// targeted (CR 400.7) or its caster may cast nothing more this turn.
+    ///
+    /// `opened` is where that window began. The wizard carries it, so a
+    /// second window its Done stage opens for what the pool still lacks
+    /// gives back what both made if it closes without the cast (CR 732.1).
     pub(crate) fn start_paid_cast(
         &mut self,
         player: PlayerId,
         card: ObjectId,
         version: u32,
         then_no_more_spells: bool,
+        opened: Box<super::WindowStart>,
     ) -> Result<(), EngineError> {
         let cost = self
             .state
@@ -727,6 +742,7 @@ impl<L: CardLookup> Engine<L> {
             } else {
                 EffectCast::Plain
             }),
+            window_start: Some(opened),
         };
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
@@ -1998,12 +2014,19 @@ impl<L: CardLookup> Engine<L> {
                     .expect("wizard card exists")
                     .version;
                 self.cast_wizard = None;
+                // A cast started from an earlier window keeps that window's
+                // start: what it made was made for this cast too.
+                let opened = wizard
+                    .window_start
+                    .clone()
+                    .unwrap_or_else(|| Box::new(self.window_start(player)));
                 self.mana_window = Some(super::PaymentWindow {
                     player,
                     suspended: super::PaymentContinuation::Miracle {
                         cost: self.restricted_x_payment(&wizard, cost).0,
                         wizard: Box::new(wizard),
                         version,
+                        opened,
                     },
                 });
                 self.pending = Pending::Priority {
@@ -2031,10 +2054,16 @@ impl<L: CardLookup> Engine<L> {
     /// Closing the mana opportunity tries the chosen cast once. A short
     /// payment leaves the card in its original zone and cannot reopen an offer.
     /// The captured version also protects casts from graveyard or exile.
+    ///
+    /// A window that closes without the cast gives back what was made in it
+    /// (CR 732.1, `Engine::give_back_window`): declining a miracle the
+    /// player had begun to pay for leaves the lands they tapped untapped and
+    /// nothing floating.
     pub(super) fn finish_miracle_payment(
         &mut self,
         wizard: &CastWizard,
         version: u32,
+        opened: &super::WindowStart,
     ) -> Result<(), EngineError> {
         let current = self
             .state
@@ -2053,6 +2082,7 @@ impl<L: CardLookup> Engine<L> {
             {
                 return Err(EngineError::IllegalAction("generated mana remains unspent"));
             }
+            self.give_back_window(wizard.player, opened);
             if let Some(card) = self.state.object_mut(wizard.card) {
                 card.x_value = 0;
             }
@@ -2174,7 +2204,7 @@ impl<L: CardLookup> Engine<L> {
     /// The mana is paid first and all at once, and every refusal after it (a
     /// delve, pitch or sacrifice answer naming an object that is gone, the
     /// card itself gone) used to leave what was paid by then spent while the
-    /// cast was reversed. CR 733.1 cancels "any payments already made", so
+    /// cast was reversed. CR 732.1 cancels "any payments already made", so
     /// the game is kept before the first of them and put back on a refusal,
     /// with the spell-rider abilities the mana put on the stack.
     fn finish_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {

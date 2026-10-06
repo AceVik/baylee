@@ -4872,6 +4872,7 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 cost,
                 then_no_more_spells,
+                opened: Box::new(self.window_start(player)),
             },
         });
         self.pending = Pending::Priority {

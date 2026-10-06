@@ -3811,6 +3811,63 @@ fn conduit_of_worlds_casts_a_graveyard_card_and_locks_further_spells() {
     );
 }
 
+/// Conduit of Worlds' cast, said yes to and paid short: Canopy Spider's
+/// `{1}{G}` with one Forest tapped in the window. Passing there leaves the
+/// pool short, so the cast's own window opens for the rest (the wizard's
+/// Done stage); passing short again casts nothing, the Spider stays in the
+/// graveyard, and the play begun is reversed (CR 732.1): the Forest tapped
+/// in the first window untaps and its {G} leaves the pool. The second
+/// window carries the first one's start, so both are given back together.
+#[test]
+fn conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[conduit_of_worlds(), forest(), forest()])
+        .hand(0, &[canopy_spider()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    let spider = hand_to_graveyard(&mut engine, p0, canopy_spider());
+
+    conduit_targets(&mut engine, spider);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("the window: {:?}", engine.pending())
+    };
+    let tapped = legal.mana_abilities[0];
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: tapped })
+        .unwrap();
+    assert!(is_tapped(&engine, tapped));
+    assert_eq!(engine.state().players[0].mana_pool.total(), 1);
+
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(
+        engine.payment_window().is_some(),
+        "the cast's own window opens for what the pool lacks"
+    );
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    assert!(engine.payment_window().is_none());
+    assert_eq!(
+        engine.state().object(spider).map(|o| o.zone),
+        Some(Zone::Graveyard),
+        "nothing was cast"
+    );
+    assert!(
+        !is_tapped(&engine, tapped),
+        "the Forest tapped for it untaps"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and its mana is taken back"
+    );
+}
+
 /// Conduit of Worlds: "If you haven't cast a spell this turn". The seat
 /// casts Sol Ring first; the Conduit's ability then resolves without asking,
 /// and the Elves stay in the graveyard.

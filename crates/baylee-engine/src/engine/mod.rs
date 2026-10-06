@@ -150,6 +150,8 @@ enum PaymentContinuation {
         wizard: Box<cast_wizard::CastWizard>,
         version: u32,
         cost: baylee_core::mana::ManaCost,
+        /// What closing without the cast gives back (CR 732.1).
+        opened: Box<WindowStart>,
     },
     /// "You may cast that card" said yes to (CR 608.2g): the mana is made
     /// here, and passing casts the card out of the pool.
@@ -162,7 +164,47 @@ enum PaymentContinuation {
         cost: baylee_core::mana::ManaCost,
         /// "If you do, you can't cast additional spells this turn."
         then_no_more_spells: bool,
+        /// What closing without the cast gives back (CR 732.1).
+        opened: Box<WindowStart>,
     },
+}
+
+/// The board a `Miracle` or `Cast` payment window was opened on, as far as
+/// closing it without the cast it was opened for has to put it back.
+///
+/// The mana abilities activated in such a window were activated while
+/// making a play that, if the cast is not made, was never completed, and
+/// CR 732.1 lets each player reverse "any legal mana abilities that player
+/// activated while making the illegal play" (`Engine::give_back_window`).
+/// Every tap is its own `apply`, and a host reads the journal after each
+/// one, so the journal is not cut back: what was made is taken back, and
+/// what was tapped is untapped.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct WindowStart {
+    /// The journal's length when the window opened: every entry after it
+    /// was written in the window.
+    journal: usize,
+    /// The payer's pool when the window opened.
+    pool: baylee_core::mana::ManaPool,
+    /// The generated-mana obligations when the window opened, which a mana
+    /// ability made for an instructed play adds to.
+    constrained: Vec<crate::constrained_payment::ConstrainedPayment>,
+    /// How many triggered abilities were waiting when it opened: those
+    /// queued after were triggered by the mana abilities and wait for a
+    /// player to get priority (CR 117.5), and no ability triggers from what
+    /// is reversed (CR 732.1).
+    triggers: usize,
+}
+
+impl WindowStart {
+    fn fingerprint(&self) -> u64 {
+        crate::state::structural_fingerprint(&(
+            self.journal as u64,
+            &self.pool,
+            &self.constrained,
+            self.triggers as u64,
+        ))
+    }
 }
 
 impl PaymentContinuation {
@@ -186,24 +228,30 @@ impl PaymentContinuation {
                 wizard,
                 version,
                 cost,
+                opened,
             } => wizard
                 .miracle_payment_fingerprint()
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(*version))
                 .wrapping_mul(31)
-                .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
             Self::Cast {
                 card,
                 version,
                 cost,
                 then_no_more_spells,
+                opened,
             } => u64::from(card.slot())
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(*version))
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(2)
-                .wrapping_add(u64::from(*then_no_more_spells)),
+                .wrapping_add(u64::from(*then_no_more_spells))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
         }
     }
 }

@@ -3,8 +3,8 @@
 //! payment the window was opened for ([`super::PaymentContinuation`]).
 
 use super::{
-    CardLookup, Engine, EngineError, PaymentContinuation, PaymentWindow, Pending, PlayerId,
-    casting, resolve, sba,
+    CardLookup, Cause, Engine, EngineError, GameEvent, ObjectId, PaymentContinuation,
+    PaymentWindow, Pending, PlayerId, SmallVec, WindowStart, Zone, casting, resolve, sba,
 };
 
 impl<L: CardLookup> Engine<L> {
@@ -119,9 +119,12 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
             PaymentContinuation::Miracle {
-                wizard, version, ..
+                wizard,
+                version,
+                opened,
+                ..
             } => {
-                return self.finish_miracle_payment(&wizard, version);
+                return self.finish_miracle_payment(&wizard, version, &opened);
             }
             PaymentContinuation::Pact(cost) => {
                 if !casting::pay_mana(&mut self.state, window.player, &cost) {
@@ -131,14 +134,22 @@ impl<L: CardLookup> Engine<L> {
             }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
-            // reverses a casting that cannot be paid).
+            // reverses a casting that cannot be paid), and what the window
+            // made for it is given back (CR 732.1).
             PaymentContinuation::Cast {
                 card,
                 version,
                 cost: _,
                 then_no_more_spells,
+                opened,
             } => {
-                let _ = self.start_paid_cast(window.player, card, version, then_no_more_spells);
+                let start = (*opened).clone();
+                if self
+                    .start_paid_cast(window.player, card, version, then_no_more_spells, opened)
+                    .is_err()
+                {
+                    self.give_back_window(window.player, &start);
+                }
                 return Ok(());
             }
         };
@@ -168,5 +179,74 @@ impl<L: CardLookup> Engine<L> {
             }
         }
         Ok(())
+    }
+
+    /// Where a window `player` is about to pay in begins
+    /// ([`WindowStart`]).
+    pub(super) fn window_start(&self, player: PlayerId) -> WindowStart {
+        WindowStart {
+            journal: self.state.journal.len(),
+            pool: self.state.players[usize::from(player.get())]
+                .mana_pool
+                .clone(),
+            constrained: self.state.constrained_payments.clone(),
+            triggers: self.trigger_queue.len(),
+        }
+    }
+
+    /// Gives back what a payment window made when it closes without the
+    /// cast it was opened for: the play was never completed, and each
+    /// player may reverse the legal mana abilities they activated while
+    /// making it (CR 732.1). Returns whether it did.
+    ///
+    /// The owner wants the reversal, so it is taken for the player. What it
+    /// puts back is exactly what a mana ability that taps for mana does:
+    /// every permanent tapped as a cost since the window opened is untapped,
+    /// the pool and the generated-mana obligations are what they were, and
+    /// the triggered abilities the taps queued are dropped, because no
+    /// ability triggers from an action that is undone (CR 732.1). Every
+    /// mana ability of the window is reversed together, so none of them
+    /// paid for one that stays, which is the one reversal 732.1 forbids.
+    ///
+    /// A window in which anything else happened is left as it stands: a
+    /// sacrificed Lotus Petal cannot be put back as the object it was
+    /// (CR 400.7), life paid or damage dealt by a mana ability is not a tap,
+    /// and 732.1 forbids reversing anything that touched a library. CR 732.1
+    /// lets the player reverse, it does not make them, so leaving those is
+    /// a legal answer and not a half-reversal: nothing is given back at all.
+    pub(super) fn give_back_window(&mut self, player: PlayerId, opened: &WindowStart) -> bool {
+        let Some(made) = self.state.journal.entries().get(opened.journal..) else {
+            return false;
+        };
+        let mut tapped: SmallVec<[ObjectId; 8]> = SmallVec::new();
+        for entry in made {
+            match entry.event {
+                GameEvent::ObjectTapped {
+                    object,
+                    cause: Cause::Cost,
+                } => tapped.push(object),
+                GameEvent::ManaProduced { player: into, .. } if into == player => {}
+                _ => return false,
+            }
+        }
+        for object in tapped {
+            if self
+                .state
+                .object(object)
+                .is_some_and(|o| o.zone == Zone::Battlefield)
+                && self.state.set_tapped(object, false)
+            {
+                self.state.journal.record(GameEvent::ObjectUntapped {
+                    object,
+                    cause: Cause::Cost,
+                });
+            }
+        }
+        self.state.players[usize::from(player.get())].mana_pool = opened.pool.clone();
+        self.state
+            .constrained_payments
+            .clone_from(&opened.constrained);
+        self.trigger_queue.truncate(opened.triggers);
+        true
     }
 }
