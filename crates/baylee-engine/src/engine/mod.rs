@@ -1630,6 +1630,7 @@ mod effect_play;
 mod granted;
 mod leave;
 mod mulligan;
+mod payment_window;
 mod player_control;
 #[cfg(test)]
 mod player_control_tests;
