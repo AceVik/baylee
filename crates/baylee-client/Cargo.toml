@@ -64,6 +64,8 @@ futures-util.workspace = true
 # A command that fails is reported through `log` and nowhere else, so a test
 # that must see "Entity despawned" installs a logger (`teardown_tests`, #321).
 log.workspace = true
+# Reading back a kept record as one gzip stream of its members (`records`).
+flate2.workspace = true
 
 [features]
 # The dev-control harness: a loopback HTTP server that presses keys, moves

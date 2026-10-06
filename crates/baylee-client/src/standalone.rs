@@ -34,6 +34,11 @@ pub fn run() {
     // Straight after: a crash from here on is written down for the next
     // start to report (#310).
     crate::report::install_panic_hook();
+    // And what the last crash left of a local game's record is cut back to
+    // its whole lines. Off the main thread: it reads every kept record once
+    // (twenty, at most 64 MB together), and nothing waits on it.
+    #[cfg(not(target_arch = "wasm32"))]
+    std::thread::spawn(crate::records::recover);
     // Hot shader reload is watching from a root, and the wrong root reloads
     // nothing while looking exactly like the right one.
     #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]

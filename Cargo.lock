@@ -927,6 +927,7 @@ dependencies = [
  "blocking",
  "ehttp",
  "ewebsock",
+ "flate2",
  "futures-util",
  "getrandom 0.4.3",
  "image",

@@ -7530,10 +7530,19 @@ no encoder and takes none.
 through `Session::new_recorded`, so a game against the house is recorded
 as a hosted engine records one; the host takes the session's lines after
 every step (`DuelHost::local_record`, `None` for a networked host) and
-`crate::records::keep` writes them gzipped to `records/` beside the
-settings when the game ends or the host is dropped, then deletes the
-oldest past `bugreport::retention` (20 games, 64 MiB). A browser keeps
-none. `gather` packs the record once per opening (`LocalRecord::pack`:
+`crate::records::LiveRecord` appends each step's lines at once to
+`records/` beside the settings, one gzip member per step (members one
+after another are one gzip stream, as the engine's record pieces are), so
+a crash, which a release build answers with an abort and no `Drop`, loses
+at most the step it happened in. At the game's end or when the host is
+dropped the file is rewritten as one member, and the oldest past
+`bugreport::retention` (20 games, 64 MiB) are deleted. The writer holds an
+advisory lock on its file; at start `records::recover` cuts a file a crash
+tore in the middle of an append back to its whole lines
+(`bugreport::read_back`), removes one with nothing past its header, and
+leaves alone a file another running client holds. The crash courier does
+not carry the record: a record leaves only with a report it was ticked
+for. A browser keeps none. `gather` packs the record once per opening (`LocalRecord::pack`:
 gzip and base64 then, never per keystroke) and the form offers it in a box
 unticked at every opening (`ReportForm::opened`), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record

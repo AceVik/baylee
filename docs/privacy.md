@@ -341,7 +341,9 @@ decks and settings as JSON.
     client hosted itself (against the house): every input from the shuffle
     on, so every seat's cards, hidden ones included, and no name. The last
     20, at most 64 MiB together, oldest deleted first
-    (`bugreport::retention`). Written when the game ends or is left. They
+    (`bugreport::retention`). Written step by step as the game is played,
+    and compacted when it ends or is left, so a crash leaves the game up
+    to the step it happened in. They
     never leave the machine on their own (below);
   - in `client-settings.json`, `report_device`: a random id (32 hex digits)
     made for the first report sent straight to the feedback service, and
