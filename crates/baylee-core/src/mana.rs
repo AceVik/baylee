@@ -478,6 +478,29 @@ impl ManaCost {
             .chain(kinds(self.present & !VARIABLE_BITS))
     }
 
+    /// [`Self::runs`] as plain loops, for the one reader on a hot path: the
+    /// snapshot hash walks every object's cost on every input a record
+    /// keeps, and the chained iterator cost it several times the bytes.
+    /// Same runs, same order (`for_each_run_is_runs`).
+    #[inline]
+    pub fn for_each_run(&self, mut f: impl FnMut(ManaSymbol, u16)) {
+        let mut bits = self.present & VARIABLE_BITS;
+        while bits != 0 {
+            let k = bits.trailing_zeros() as usize;
+            bits &= bits - 1;
+            f(KIND_SYMBOLS[k], self.counts[k]);
+        }
+        if let Some(n) = self.generic {
+            f(ManaSymbol::Generic(n), 1);
+        }
+        let mut bits = self.present & !VARIABLE_BITS;
+        while bits != 0 {
+            let k = bits.trailing_zeros() as usize;
+            bits &= bits - 1;
+            f(KIND_SYMBOLS[k], self.counts[k]);
+        }
+    }
+
     /// Iterates the symbols in canonical order.
     pub fn symbols(&self) -> impl Iterator<Item = ManaSymbol> + '_ {
         self.runs()
@@ -1250,6 +1273,29 @@ mod tests {
                     required != ManaColor::Colorless || actual == required
                 );
             }
+        }
+    }
+
+    /// The loop the snapshot hash walks and the iterator everything else
+    /// walks give the same runs in the same order, over costs holding every
+    /// kind of symbol, X before generic before the rest, generic as `{0}`
+    /// and not at all.
+    #[test]
+    fn for_each_run_is_runs() {
+        for src in [
+            "",
+            "{0}",
+            "{3}",
+            "{X}{X}{R}",
+            "{X}{Y}{2}{W}{U}{B}{R}{G}{C}",
+            "{2/W}{W/U}{G/P}{B/G/P}{S}{S}{1}",
+            "{HALFGENERIC}{INFINITY}{Z}",
+            "{W}{W}{W}{W}{W}{W}{W}{W}{W}{W}{U}",
+        ] {
+            let cost = src.parse::<ManaCost>().unwrap_or(ManaCost::ZERO);
+            let mut walked = Vec::new();
+            cost.for_each_run(|symbol, n| walked.push((symbol, n)));
+            assert_eq!(walked, cost.runs().collect::<Vec<_>>(), "{src}");
         }
     }
 
