@@ -27,7 +27,9 @@ the pointers, because line numbers move.
 | Server logs | stdout | the host's choice | the host |
 | Legacy import file | disk, `STORE_PATH` + `.imported` | indefinitely | nothing |
 | Client settings | the player's device | until the player removes them | the player; a guest's token at sign-out |
-| A report the player sends | leaves the device for the gateway (`POST /reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
+| A report the player sends | leaves the device for the gateway (`POST /reports`), or, signed in nowhere, for the feedback service (`POST /client/reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
+| Record of a game the client hosted (against the house) | the player's device, `records/` beside the settings (native only) | the last 20 games, at most 64 MiB together | the client, oldest first; the player |
+| Device id for direct reports (random) | the player's device, `client-settings.json` (`report_device`) | until the player removes it | the player |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
@@ -335,6 +337,15 @@ decks and settings as JSON.
     (#309);
   - `crash-report.json`, after a crash, until the next start deals with it
     (#310);
+  - `records/game-<start>-<seed>.jsonl.gz`: the record of each game this
+    client hosted itself (against the house): every input from the shuffle
+    on, so every seat's cards, hidden ones included, and no name. The last
+    20, at most 64 MiB together, oldest deleted first
+    (`bugreport::retention`). Written when the game ends or is left. They
+    never leave the machine on their own (below);
+  - in `client-settings.json`, `report_device`: a random id (32 hex digits)
+    made for the first report sent straight to the feedback service, and
+    `feedback_url`, that service's address when the player set one;
   - `preferences.json`;
   - `offline-decks.json`;
   - a card-text cache per language.
@@ -397,6 +408,9 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely (the owner's decision) | nothing yet |
 | Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
+| Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
+| Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
 | Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
@@ -416,7 +430,10 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold),
   and what the player sent. Never a name, username, address, session or IP.
   The service has no column for an address or a name and logs no request's
-  address.
+  address. A report sent straight from a client carries no account at all:
+  its reporter is HMAC-SHA256 of the client's random device id under the
+  service's `FEEDBACK_DIRECT_KEY`, and the address it came from is counted
+  in memory for an hour and kept nowhere.
 - **The feedback web UI (#311)** is for the service's admins, who are
   developers, not players. Its one cookie (`__Host-baylee-feedback`,
   `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
@@ -438,7 +455,14 @@ report once it has it is theirs to describe.
   table's game menu, the lobby's gear menu or settings), and, for a crash,
   on the next start once the player has said yes to crash reports.
 - **Where to:** `POST {gateway}/reports` on the gateway the lobby is signed
-  in to, with that session's bearer. Signed in nowhere, nothing is sent.
+  in to, with that session's bearer. Signed in nowhere, `POST
+  {service}/client/reports` on the feedback service the settings
+  (`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name, with
+  no credential and the device's random id; knowing none, the form says so
+  and nothing is sent, to the gateway, Scryfall or anyone else. Before a
+  direct report goes, and before any report carrying a game's record, the
+  form shows a page listing where it goes and every part it carries, and
+  only its "Send now" sends.
   A crash report goes to the gateway the client was signed in to when it
   crashed, or, if none, to the live gateway every build knows
   (`gateway_list::PINNED`), and only once signed in there.
@@ -465,9 +489,24 @@ report once it has it is theirs to describe.
   - *Screenshot:* a PNG of the window as it was when the form opened, at
     most 1280 pixels wide. It shows whatever was on screen, which can
     include other players' names; the box says so. Native builds only.
+- **The record of a game hosted here**, only when the player ticks
+  "Attach the whole record of this game" for this one report: the box
+  starts unticked at every opening of the form and the yes is kept
+  nowhere. Its sentence says what it is: every move from the shuffle on,
+  so every seat's cards, hidden ones too (hands, libraries, face-down
+  cards), and no name. "Never offer to attach a game's record" is the one
+  standing answer (`RecordConsent::Never`, per device). Sent gzipped, at
+  most 4 MiB (a larger one stays home and the report goes without it); the
+  gateway and the service keep it marked as the client's, unverified. A
+  report at a networked table never carries one: that game's record is the
+  gateway's.
+- **The device id**, on a direct report only: 32 random hex digits made
+  once, never derived from the machine, an account or an address, never
+  sent to a gateway.
 - **What, never:** a session, seat or guest token. `bugreport::seal` looks
-  for every token the client holds in the serialised body and refuses to
-  send a body that contains one, whichever field it got into.
+  for every token the client holds in the serialised body, and in an
+  attached record's own lines, and refuses to send a body that contains
+  one, whichever field it got into.
 - **Crash reports:** the panic hook writes `crash-report.json` next to the
   settings (the panic message and location, the thread's name, the time,
   the build, the backtrace, and on disk only the gateway it was signed in

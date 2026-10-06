@@ -451,3 +451,51 @@ async fn a_browser_may_post_a_direct_report_from_any_origin() {
     assert_eq!(read, (200, None), "the read routes are not opened to pages");
     service.close().await;
 }
+
+/// The proxy's part (`scripts/server/feedback-direct.caddy`) passes the
+/// direct route alone to the service where it binds by default, bounds a
+/// body no tighter than the service does (a report the service takes is
+/// never cut off before it), and keeps no access log.
+#[test]
+fn the_proxy_passes_the_direct_route_alone_and_bounds_it_no_tighter() {
+    let caddy = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/server/feedback-direct.caddy"),
+    )
+    .expect("the snippet");
+    let directives: Vec<&str> = caddy
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+    assert!(directives.contains(&"@baylee_direct_report path /client/reports"));
+    assert!(directives.contains(&"handle @baylee_direct_report {"));
+    assert_eq!(
+        directives
+            .iter()
+            .filter(|l| l.starts_with("reverse_proxy"))
+            .collect::<Vec<_>>(),
+        [&"reverse_proxy 127.0.0.1:28780"],
+        "one proxy, to the service's default bind"
+    );
+    assert!(
+        !directives.iter().any(|l| l.starts_with("log")),
+        "no access log"
+    );
+    let size = directives
+        .iter()
+        .find_map(|l| l.strip_prefix("max_size "))
+        .expect("a bound on the body");
+    let mib: usize = size
+        .strip_suffix("MiB")
+        .and_then(|n| n.parse().ok())
+        .expect("whole MiB");
+    assert!(
+        mib * 1024 * 1024 >= baylee_feedback::direct::MAX_BODY_BYTES,
+        "{mib} MiB would cut off a body the service takes"
+    );
+    assert!(
+        (mib - 1) * 1024 * 1024 < baylee_feedback::direct::MAX_BODY_BYTES,
+        "{mib} MiB is a MiB looser than it needs to be"
+    );
+}
