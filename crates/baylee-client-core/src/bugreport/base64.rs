@@ -27,9 +27,31 @@ pub fn encode(bytes: &[u8]) -> String {
     out
 }
 
+/// `text` decoded, for a test reading back what a report carries. Panics on
+/// anything [`encode`] would not have written.
+#[cfg(test)]
+pub(crate) fn decode_for_tests(text: &str) -> Vec<u8> {
+    let mut bits = 0u32;
+    let mut held = 0;
+    let mut out = Vec::new();
+    for byte in text.bytes().filter(|b| *b != b'=') {
+        let value = ALPHABET
+            .iter()
+            .position(|a| *a == byte)
+            .expect("a base64 character");
+        bits = bits << 6 | u32::try_from(value).expect("under 64");
+        held += 6;
+        if held >= 8 {
+            held -= 8;
+            out.push(u8::try_from(bits >> held & 0xff).expect("a byte"));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
-    use super::encode;
+    use super::{decode_for_tests, encode};
 
     /// RFC 4648 §10.
     #[test]
@@ -44,6 +66,7 @@ mod tests {
             ("foobar", "Zm9vYmFy"),
         ] {
             assert_eq!(encode(plain.as_bytes()), coded, "{plain:?}");
+            assert_eq!(decode_for_tests(coded), plain.as_bytes(), "{coded:?}");
         }
         assert_eq!(encode(&[0xfb, 0xff]), "+/8=");
     }

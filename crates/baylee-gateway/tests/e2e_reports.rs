@@ -700,3 +700,134 @@ async fn a_report_whose_engine_does_not_answer_carries_what_was_stored() {
     );
     agent.abort();
 }
+
+/// A report body about a local game, carrying `gzip` as its record.
+fn local_report(gzip: &[u8]) -> String {
+    serde_json::json!({
+        "kind": "bug",
+        "text": "in my game against the house",
+        "game_id": null,
+        "client": {},
+        "local_record": {
+            "complete": true,
+            "gzip_base64": base64::engine::general_purpose::STANDARD.encode(gzip),
+        },
+    })
+    .to_string()
+}
+
+/// The record of a real game, as the gateway's store passed it on: what a
+/// client's local game writes too (`baylee_gamehost::record`).
+async fn a_real_record(port: u16, token: &str, gw: &Gateway, inbox: &Inbox) -> Vec<u8> {
+    let game = a_finished_game(port, token).await;
+    stored(gw, &game).await;
+    let body = serde_json::json!({
+        "kind": "bug", "text": "x", "game_id": game, "client": {},
+    })
+    .to_string();
+    assert_eq!(report(port, Some(token), &body).0, 201);
+    let sent = inbox.lock().last().expect("a report").1.clone();
+    base64::engine::general_purpose::STANDARD
+        .decode(sent["record"]["gzip_base64"].as_str().expect("a record"))
+        .expect("base64")
+}
+
+/// The most a local record may weigh, compressed (`report::MAX_LOCAL_RECORD_BYTES`,
+/// which a test cannot import from the gateway's binary).
+const MAX_LOCAL_RECORD: usize = 4 * 1024 * 1024;
+
+/// A local game's record rides with its report, marked as the client's and
+/// never under a game of the gateway's; held to its size, signed-in players
+/// only.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_local_games_record_rides_marked_as_the_clients() {
+    let (url, inbox) = stub_service().await;
+    let gw = with_service("reports-local", &url);
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let token = login(port, "lou", "LouLocal");
+    let real = a_real_record(port, &token, &gw, &inbox).await;
+    assert_eq!(inbox.lock()[0].1["record_origin"], "gateway");
+
+    assert_eq!(report(port, None, &local_report(&real)).0, 401);
+    let (status, answer) = report(port, Some(&token), &local_report(&real));
+    assert_eq!(status, 201, "{answer}");
+    {
+        let inbox = inbox.lock();
+        let sent = &inbox.last().unwrap().1;
+        assert_eq!(sent["record_origin"], "client");
+        assert_eq!(sent["game_id"], serde_json::Value::Null);
+        let mut unpacked = Vec::new();
+        flate2::read::MultiGzDecoder::new(&real[..])
+            .read_to_end(&mut unpacked)
+            .unwrap();
+        assert_eq!(record_sent(sent), unpacked);
+    }
+    let taken = inbox.lock().len();
+
+    // Under a game id: refused, whoever's game it names.
+    let mut both: serde_json::Value = serde_json::from_str(&local_report(&real)).unwrap();
+    both["game_id"] = serde_json::json!("some-game");
+    assert_eq!(report(port, Some(&token), &both.to_string()).0, 400);
+    // Not base64, not gzip.
+    let mut garbled: serde_json::Value = serde_json::from_str(&local_report(&real)).unwrap();
+    garbled["local_record"]["gzip_base64"] = serde_json::json!("%%%");
+    assert_eq!(report(port, Some(&token), &garbled.to_string()).0, 400);
+    assert_eq!(
+        report(port, Some(&token), &local_report(b"plain text")).0,
+        400
+    );
+    // The bound from both sides: gzip's magic and then anything, at the
+    // most the gateway takes and one byte more.
+    let mut edge = vec![0x1f, 0x8b];
+    edge.resize(MAX_LOCAL_RECORD, 7);
+    assert_eq!(report(port, Some(&token), &local_report(&edge)).0, 201);
+    edge.push(7);
+    assert_eq!(report(port, Some(&token), &local_report(&edge)).0, 413);
+    assert_eq!(
+        inbox.lock().len(),
+        taken + 1,
+        "only the one at the edge went on"
+    );
+    agent.abort();
+}
+
+/// Through the real service: a local game's record is checked for its shape
+/// and kept marked as the client's; one that only looks like gzip is not
+/// kept, and the report is not taken.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_real_service_keeps_a_local_record_as_the_clients() {
+    let (stub_url, inbox) = stub_service().await;
+    let source = with_service("reports-local-source", &stub_url);
+    let source_agent = attach_agent(&source).await;
+    let source_token = login(source.port, "sol", "SolSource");
+    let real = a_real_record(source.port, &source_token, &source, &inbox).await;
+    source_agent.abort();
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let gw = with_service("reports-local-service", &url);
+    let db = baylee_feedback::connect(&gw.database_url(), 2)
+        .await
+        .expect("the service migrates");
+    let config = baylee_feedback::Config::new("test-gw=intake-secret-for-tests", None, None)
+        .expect("config");
+    let app = baylee_feedback::app(Arc::new(baylee_feedback::AppState { db, config }));
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let token = login(gw.port, "lia", "LiaLocal");
+    let (status, answer) = report(gw.port, Some(&token), &local_report(&real));
+    assert_eq!(status, 201, "{answer}");
+    let id = json_field(&answer, "report_id").to_string();
+    assert_eq!(
+        gw.scalar(&format!(
+            "SELECT count(*) FROM feedback_report WHERE id = '{id}' AND channel = 'gateway' \
+             AND record_origin = 'client' AND game_id IS NULL AND octet_length(record) = {}",
+            real.len()
+        )),
+        1
+    );
+    let mut fake = vec![0x1f, 0x8b];
+    fake.extend_from_slice(b"not a stream");
+    assert_eq!(report(gw.port, Some(&token), &local_report(&fake)).0, 502);
+    assert_eq!(gw.scalar("SELECT count(*) FROM feedback_report"), 1);
+}

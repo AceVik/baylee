@@ -450,6 +450,8 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
             "record",
             "record_complete",
             "issue_number",
+            "channel",
+            "record_origin",
         ]
     );
     assert_eq!(

@@ -7517,6 +7517,32 @@ not of the form. It is encoded as PNG at most 1280 pixels wide, smaller
 until it is under 900 kB, and dropped if it never is. A browser build links
 no encoder and takes none.
 
+**A game hosted here, and a client signed in nowhere.** `LocalHost` plays
+through `Session::new_recorded`, so a game against the house is recorded
+as a hosted engine records one; the host takes the session's lines after
+every step (`DuelHost::local_record`, `None` for a networked host) and
+`crate::records::keep` writes them gzipped to `records/` beside the
+settings when the game ends or the host is dropped, then deletes the
+oldest past `bugreport::retention` (20 games, 64 MiB). A browser keeps
+none. `gather` packs the record once per opening (`LocalRecord::pack`:
+gzip and base64 then, never per keystroke) and the form offers it in a box
+unticked at every opening (`ReportForm::opened`), with "Never offer…"
+beside it (`RecordConsent::Never`, the one standing answer). The record
+never rides under a game id, and `seal` reads its own lines
+(`seal_record`), which the gzip would hide. `report::route` picks the
+road: the gateway signed in to, else the feedback service the settings
+(`feedback_url`, `""` = off) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`)
+name, as `bugreport::feedback_service` accepts it (`https`, or `http` to
+this machine), else none: the form then says it needs a gateway and has no
+Send. A direct report goes under `report_device`, a random id made with
+the first (`kept_device_id`, `getrandom`), fitted to the service's 1 MiB
+(`Submission::sealed_direct`). A direct report and any report carrying a
+record first show a confirmation (`form::confirmation`, from
+`ReportForm::parts`: where it goes, the words, each ticked part, the
+record in the danger colour, the device id); keys do not edit the words
+under it, `Esc` goes back, and only "Send now" sends
+(`docs/feedback.md` §"Straight from a client").
+
 Crashes: `report::install_panic_hook`, called by `standalone::run` right
 after the store opens, writes `crash-report.json` and chains the previous
 hook. It reads a static (`SIGNED_IN_AT`) and nothing from the world. At

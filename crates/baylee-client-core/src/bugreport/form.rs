@@ -6,11 +6,50 @@
 //! reports, and a gateway that takes no reports at all. [`outcome`] is that
 //! table, and [`ReportForm`] keeps what was typed through every refusal, so
 //! "try again" never means "type it again".
+//!
+//! Signed in nowhere, the form sends straight to the feedback service
+//! ([`Via::Direct`]); that, and any report carrying a local game's record,
+//! is confirmed first, on a page listing what goes out and where
+//! ([`ReportForm::parts`]).
 
 use crate::i18n::{Lang, Phrase, Refusal};
 use crate::textbuf::TextBuffer;
 
-use super::{Consent, Gathered, Kind, MAX_TEXT_CHARS, Secret, Trimmed, Unsendable};
+use super::{
+    Category, Consent, Gathered, Kind, MAX_TEXT_CHARS, Secret, Submission, Trimmed, Unsendable,
+};
+
+/// How a report is sent: through the gateway the client is signed in to,
+/// or straight to the feedback service under this device's id.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Via<'a> {
+    /// `POST {gateway}/reports`, with the session.
+    Gateway,
+    /// `POST {service}/client/reports`, under this device id.
+    Direct {
+        /// This device's random id ([`super::kept_device_id`]).
+        device: &'a str,
+    },
+}
+
+/// One thing a report sends, as the confirmation lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Part {
+    /// The player's words, this many characters, and the build's version.
+    Text(usize),
+    /// One ticked box's contents.
+    Category(Category),
+    /// A local game's whole record, this many kilobytes; whether the game
+    /// was over.
+    Record {
+        /// Its size on the wire.
+        kilobytes: usize,
+        /// Whether the game had ended.
+        complete: bool,
+    },
+    /// This device's random id (a direct report only).
+    Device,
+}
 
 /// What the gateway's answer to a report means.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -19,6 +58,20 @@ pub enum Outcome {
     Sent(String),
     /// Not received, and why.
     Refused(Refusal),
+}
+
+/// What the feedback service's answer to a report sent straight to it
+/// means (`direct`), or the gateway's ([`outcome`]). The service has no
+/// session to end and passes nothing on, so of the gateway's sentences only
+/// the two that name it differ: it may take no direct reports, and it may
+/// not be there.
+#[must_use]
+pub fn outcome_via(status: u16, body: &str, direct: bool) -> Outcome {
+    match status {
+        503 if direct => Outcome::Refused(Refusal::Said(Phrase::ReportsDirectUnavailable)),
+        0 if direct => Outcome::Refused(Refusal::Said(Phrase::ReportDirectUnreachable)),
+        _ => outcome(status, body),
+    }
 }
 
 /// What an HTTP `status` with `body` means for a report. Status 0 is a
@@ -87,6 +140,10 @@ impl Status {
 
 /// The report form, without a renderer.
 #[derive(Clone, Debug, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each is a different thing open or ticked, as on the client's `ReportDesk`"
+)]
 pub struct ReportForm {
     /// What kind of report.
     pub kind: Kind,
@@ -98,6 +155,15 @@ pub struct ReportForm {
     pub preview: bool,
     /// What the last send had to leave out to fit.
     pub trimmed: Trimmed,
+    /// Whether this report carries the local game's record: ticked for
+    /// this report alone, cleared at every opening ([`Self::opened`]) and
+    /// kept nowhere else.
+    pub send_record: bool,
+    /// Whether the confirmation is up ([`Self::needs_confirmation`]).
+    pub confirming: bool,
+    /// Whether the report on its way went straight to the service, for
+    /// reading its answer.
+    pub(crate) direct: bool,
 }
 
 impl ReportForm {
@@ -113,35 +179,102 @@ impl ReportForm {
         self.chars() > MAX_TEXT_CHARS
     }
 
+    /// The form was opened: the record's box starts unticked and no
+    /// confirmation is up, whatever the last opening left. What was typed
+    /// stays.
+    pub fn opened(&mut self) {
+        self.send_record = false;
+        self.confirming = false;
+    }
+
     /// Whether Send does anything: something written, within the limit, not
-    /// already on its way, and a session to send it with.
+    /// already on its way, and somewhere to send it (`routed`, a gateway
+    /// session or a feedback service).
     #[must_use]
-    pub fn can_send(&self, signed_in: bool) -> bool {
-        signed_in
+    pub fn can_send(&self, routed: bool) -> bool {
+        routed
             && self.status != Status::Sending
             && !self.text.text().trim().is_empty()
             && !self.over_limit()
     }
 
-    /// The bytes to send, having checked them; the form is then `Sending`.
-    /// `None` when there is nothing to send, or when the check refused it
-    /// (the form then says why).
+    /// What this report would send, as built from `gathered`.
+    fn submission(&self, gathered: &Gathered, consent: &Consent) -> Submission {
+        gathered.submission_with(self.kind, self.text.text(), consent, self.send_record)
+    }
+
+    /// Whether Send asks first: always straight to the service, where the
+    /// player has said nothing yet about where a report goes, and whenever
+    /// the report carries a game's record.
+    #[must_use]
+    pub fn needs_confirmation(&self, gathered: &Gathered, consent: &Consent, via: Via<'_>) -> bool {
+        matches!(via, Via::Direct { .. }) || gathered.record(consent, self.send_record).is_some()
+    }
+
+    /// Everything this report sends, for the confirmation to list: the
+    /// words, each ticked box with something behind it, the record, and
+    /// the device id when it goes straight to the service.
+    #[must_use]
+    pub fn parts(&self, gathered: &Gathered, consent: &Consent, via: Via<'_>) -> Vec<Part> {
+        let mut parts = vec![Part::Text(self.chars())];
+        parts.extend(
+            Category::ALL
+                .into_iter()
+                .filter(|c| consent.allows(*c) && gathered.has(*c))
+                .map(Part::Category),
+        );
+        if let Some(record) = gathered.record(consent, self.send_record) {
+            parts.push(Part::Record {
+                kilobytes: record.kilobytes(),
+                complete: record.complete,
+            });
+        }
+        if matches!(via, Via::Direct { .. }) {
+            parts.push(Part::Device);
+        }
+        parts
+    }
+
+    /// Send was pressed: the confirmation comes up when the report needs
+    /// one, and `true` when it may go at once.
+    pub fn ask_to_send(&mut self, gathered: &Gathered, consent: &Consent, via: Via<'_>) -> bool {
+        if !self.can_send(true) {
+            return false;
+        }
+        if self.needs_confirmation(gathered, consent, via) && !self.confirming {
+            self.confirming = true;
+            return false;
+        }
+        true
+    }
+
+    /// The bytes to send `via` the gateway or the service, having checked
+    /// them; the form is then `Sending`. `None` when there is nothing to
+    /// send, when the check refused it (the form then says why), or when
+    /// the report needs a confirmation that is not up.
     pub fn prepare(
         &mut self,
         gathered: &Gathered,
         consent: &Consent,
         secrets: &[Secret<'_>],
+        via: Via<'_>,
     ) -> Option<String> {
-        if !self.can_send(true) {
+        if !self.can_send(true)
+            || (self.needs_confirmation(gathered, consent, via) && !self.confirming)
+        {
             return None;
         }
-        match gathered
-            .submission(self.kind, self.text.text(), consent)
-            .sealed(secrets)
-        {
+        self.confirming = false;
+        let submission = self.submission(gathered, consent);
+        let sealed = match via {
+            Via::Gateway => submission.sealed(secrets),
+            Via::Direct { device } => submission.sealed_direct(device, secrets),
+        };
+        match sealed {
             Ok((json, trimmed)) => {
                 self.trimmed = trimmed;
                 self.status = Status::Sending;
+                self.direct = matches!(via, Via::Direct { .. });
                 Some(json)
             }
             Err(why) => {
@@ -154,10 +287,11 @@ impl ReportForm {
     /// The gateway answered `status` with `body`. A received report empties
     /// the form; a refused one keeps every word.
     pub fn answered(&mut self, status: u16, body: &str) {
-        match outcome(status, body) {
+        match outcome_via(status, body, self.direct) {
             Outcome::Sent(id) => {
                 self.text.clear();
                 self.preview = false;
+                self.send_record = false;
                 self.status = Status::Sent(id);
             }
             Outcome::Refused(refusal) => self.status = Status::Failed(refusal),
@@ -204,15 +338,29 @@ impl ReportForm {
     }
 
     /// What would be sent, as the preview shows it: the same submission
-    /// [`Self::prepare`] seals, fitted the same way, pretty-printed, with
-    /// the picture's bytes written as its size.
+    /// [`Self::prepare`] seals, fitted the same way and in the same shape
+    /// for `via`, pretty-printed, with the picture's bytes and the record's
+    /// written as their sizes.
     #[must_use]
-    pub fn preview_text(&self, gathered: &Gathered, consent: &Consent) -> String {
-        let submission = gathered.submission(self.kind, self.text.text(), consent);
-        let Ok((fitted, _)) = submission.fitted() else {
+    pub fn preview_text(&self, gathered: &Gathered, consent: &Consent, via: Via<'_>) -> String {
+        let submission = self.submission(gathered, consent);
+        let value = match via {
+            Via::Gateway => submission
+                .fitted()
+                .map(|(fitted, _)| serde_json::to_value(&fitted)),
+            Via::Direct { device } => submission
+                .fitted_to(super::MAX_DIRECT_CLIENT_BYTES)
+                .map(|(fitted, _)| serde_json::to_value(fitted.direct(device))),
+        };
+        let Ok(Ok(mut value)) = value else {
             return String::new();
         };
-        let mut value = serde_json::to_value(&fitted).unwrap_or_default();
+        for key in ["local_record", "record"] {
+            if let Some(record) = value.get_mut(key).and_then(|r| r.get_mut("gzip_base64")) {
+                let kb = record.as_str().map_or(0, |s| s.len().div_ceil(1000));
+                *record = serde_json::Value::String(format!("<gzip, {kb} KB>"));
+            }
+        }
         if let Some(shot) = value
             .get_mut("client")
             .and_then(|c| c.get_mut("screenshot"))
@@ -320,7 +468,7 @@ mod tests {
             (0, "", Phrase::ReportUnreachable.text(Lang::En).to_string()),
         ] {
             let mut form = form("it broke");
-            form.prepare(&Gathered::default(), &Consent::default(), &[])
+            form.prepare(&Gathered::default(), &Consent::default(), &[], Via::Gateway)
                 .expect("sendable");
             form.answered(status, body);
             assert_eq!(form.status.text(Lang::En), Some(want), "{status}");
@@ -331,14 +479,14 @@ mod tests {
     #[test]
     fn a_refusal_keeps_what_was_written() {
         let mut form = form("the stack ate my spell");
-        let json = form.prepare(&Gathered::default(), &Consent::default(), &[]);
+        let json = form.prepare(&Gathered::default(), &Consent::default(), &[], Via::Gateway);
         assert!(json.is_some());
         assert_eq!(form.status, Status::Sending);
         assert!(!form.can_send(true), "one report at a time");
         form.answered(429, "");
         assert_eq!(form.text.text(), "the stack ate my spell");
         assert!(form.can_send(true));
-        form.prepare(&Gathered::default(), &Consent::default(), &[]);
+        form.prepare(&Gathered::default(), &Consent::default(), &[], Via::Gateway);
         form.answered(201, r#"{"report_id":"abc"}"#);
         assert!(form.text.is_empty());
         assert_eq!(form.status, Status::Sent("abc".into()));
@@ -365,6 +513,7 @@ mod tests {
                 label: "session",
                 value: token,
             }],
+            Via::Gateway,
         );
         assert!(sent.is_none());
         assert!(matches!(
@@ -462,12 +611,176 @@ mod tests {
         };
         let mut consent = Consent::default();
         let form = form("hello");
-        let without = form.preview_text(&gathered, &consent);
+        let without = form.preview_text(&gathered, &consent, Via::Gateway);
         assert!(without.contains("9.9.9") && without.contains("hello"));
         assert!(!without.contains("screenshot"));
         consent.set(Category::Screenshot, true);
-        let with = form.preview_text(&gathered, &consent);
+        let with = form.preview_text(&gathered, &consent, Via::Gateway);
         assert!(with.contains("<PNG, 4 KB>"), "{with}");
         assert!(!with.contains("AAAA"));
+    }
+
+    fn local() -> Gathered {
+        Gathered {
+            local_record: super::super::LocalRecord::pack(
+                br#"{"kind":"header","record":1,"build":"0.1.0","preset":{},"hash":"00"}
+"#,
+            ),
+            ..Gathered::default()
+        }
+    }
+
+    const DEVICE: &str = "0123456789abcdef0123456789abcdef";
+
+    /// The record's yes is this report's alone: every opening clears it,
+    /// and so does a received report.
+    #[test]
+    fn the_records_box_is_unticked_at_every_opening() {
+        let mut form = form("it broke");
+        form.send_record = true;
+        form.confirming = true;
+        form.opened();
+        assert!(!form.send_record && !form.confirming);
+        assert_eq!(form.text.text(), "it broke", "the words stay");
+
+        form.send_record = true;
+        assert!(!form.ask_to_send(&local(), &Consent::default(), Via::Gateway));
+        assert!(form.confirming);
+        form.prepare(&local(), &Consent::default(), &[], Via::Gateway)
+            .expect("confirmed");
+        form.answered(201, r#"{"report_id":"r-1"}"#);
+        assert!(
+            !form.send_record,
+            "a sent record is not offered as sent again"
+        );
+    }
+
+    /// A report carrying a record, and any report straight to the service,
+    /// is confirmed first; a gateway report of words alone goes at once.
+    /// Nothing is prepared while a needed confirmation is not up.
+    #[test]
+    fn a_record_or_a_direct_report_is_confirmed_first() {
+        let consent = Consent::default();
+        let direct = Via::Direct { device: DEVICE };
+        let mut words = form("words alone");
+        assert!(words.ask_to_send(&local(), &consent, Via::Gateway));
+        assert!(!words.confirming);
+
+        for (record, via) in [(true, Via::Gateway), (false, direct), (true, direct)] {
+            let mut form = form("x");
+            form.send_record = record;
+            assert!(form.needs_confirmation(&local(), &consent, via));
+            assert_eq!(
+                form.prepare(&local(), &consent, &[], via),
+                None,
+                "unconfirmed"
+            );
+            assert_eq!(form.status, Status::Editing);
+            assert!(!form.ask_to_send(&local(), &consent, via));
+            assert!(form.confirming);
+            assert!(form.ask_to_send(&local(), &consent, via), "confirmed");
+            let body = form.prepare(&local(), &consent, &[], via).expect("sent");
+            assert!(!form.confirming);
+            assert_eq!(body.contains("gzip_base64"), record, "{via:?}");
+            assert_eq!(body.contains(DEVICE), via != Via::Gateway);
+        }
+        let never = Consent {
+            record: super::super::RecordConsent::Never,
+            ..Consent::default()
+        };
+        let mut form = form("x");
+        form.send_record = true;
+        assert!(!form.needs_confirmation(&local(), &never, Via::Gateway));
+        let body = form
+            .prepare(&local(), &never, &[], Via::Gateway)
+            .expect("words alone go at once");
+        assert!(!body.contains("gzip_base64"), "never means never");
+    }
+
+    /// The confirmation lists exactly what goes: the words, each ticked box
+    /// with something behind it, the record when ticked, the device id
+    /// when straight to the service.
+    #[test]
+    fn the_confirmation_lists_what_goes() {
+        let mut gathered = local();
+        gathered.system = Some(super::super::System::default());
+        let mut consent = Consent::default();
+        consent.set(Category::System, true);
+        consent.set(Category::Screenshot, true);
+        let mut form = form("four");
+        assert_eq!(
+            form.parts(&gathered, &consent, Via::Gateway),
+            [Part::Text(4), Part::Category(Category::System)]
+        );
+        form.send_record = true;
+        let parts = form.parts(&gathered, &consent, Via::Direct { device: DEVICE });
+        assert!(matches!(
+            parts.as_slice(),
+            [
+                Part::Text(4),
+                Part::Category(Category::System),
+                Part::Record {
+                    complete: false,
+                    ..
+                },
+                Part::Device
+            ]
+        ));
+    }
+
+    /// The service's answers read as the service's: its own sentence where
+    /// the gateway's would name a gateway, the gateway's elsewhere.
+    #[test]
+    fn a_direct_answer_names_the_service() {
+        assert_eq!(
+            outcome_via(503, "", true),
+            Outcome::Refused(Refusal::Said(Phrase::ReportsDirectUnavailable))
+        );
+        assert_eq!(
+            outcome_via(0, "", true),
+            Outcome::Refused(Refusal::Said(Phrase::ReportDirectUnreachable))
+        );
+        for status in [201, 400, 413, 429, 500] {
+            assert_eq!(
+                outcome_via(status, "", true),
+                outcome(status, ""),
+                "{status}"
+            );
+        }
+        assert_eq!(outcome_via(503, "", false), outcome(503, ""));
+
+        let mut form = form("x");
+        form.ask_to_send(
+            &Gathered::default(),
+            &Consent::default(),
+            Via::Direct { device: DEVICE },
+        );
+        form.prepare(
+            &Gathered::default(),
+            &Consent::default(),
+            &[],
+            Via::Direct { device: DEVICE },
+        )
+        .expect("sent");
+        form.answered(503, "");
+        assert_eq!(
+            form.status,
+            Status::Failed(Refusal::Said(Phrase::ReportsDirectUnavailable))
+        );
+    }
+
+    /// The preview shows the body as it goes, by either road, the record as
+    /// its size.
+    #[test]
+    fn the_preview_shows_the_record_as_its_size_by_either_road() {
+        let mut form = form("x");
+        form.send_record = true;
+        let consent = Consent::default();
+        let gateway = form.preview_text(&local(), &consent, Via::Gateway);
+        assert!(gateway.contains("\"local_record\"") && gateway.contains("<gzip, "));
+        assert!(!gateway.contains(DEVICE));
+        let direct = form.preview_text(&local(), &consent, Via::Direct { device: DEVICE });
+        assert!(direct.contains("\"record\"") && direct.contains("<gzip, "));
+        assert!(direct.contains(DEVICE) && !direct.contains("local_record"));
     }
 }

@@ -16,7 +16,7 @@ impl MigratorTrait for Migrator {
     }
 
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(Reports), Box::new(Admins)]
+        vec![Box::new(Reports), Box::new(Admins), Box::new(Channels)]
     }
 }
 
@@ -134,6 +134,53 @@ impl MigrationTrait for Admins {
             "DROP TABLE IF EXISTS feedback_audit",
             "DROP TABLE IF EXISTS feedback_session",
             "DROP TABLE IF EXISTS feedback_admin",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The third migration: how a report came, and who wrote its record.
+///
+/// `channel` is `gateway` for a report a gateway passed on and `direct` for
+/// one a client sent itself, unauthenticated (`POST /client/reports`).
+/// `record_origin` is `gateway` or `client` where there is a record: a
+/// client's record of a game it hosted itself is unverified and never a
+/// gateway's. Every report kept before this came through a gateway, with
+/// the gateway's record.
+struct Channels;
+
+impl MigrationName for Channels {
+    fn name(&self) -> &'static str {
+        "m0003_channel_record_origin"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Channels {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS channel text NOT NULL \
+                 DEFAULT 'gateway' CHECK (channel IN ('gateway', 'direct'))",
+            "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS record_origin text \
+                 CHECK (record_origin IN ('gateway', 'client'))",
+            "UPDATE feedback_report SET record_origin = 'gateway' \
+                 WHERE record IS NOT NULL AND record_origin IS NULL",
+            "CREATE INDEX IF NOT EXISTS feedback_report_by_channel ON feedback_report (channel)",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DROP INDEX IF EXISTS feedback_report_by_channel",
+            "ALTER TABLE feedback_report DROP COLUMN IF EXISTS record_origin",
+            "ALTER TABLE feedback_report DROP COLUMN IF EXISTS channel",
         ] {
             db.execute_unprepared(statement).await?;
         }

@@ -151,7 +151,11 @@ export function ReportDetail({ id }: { id: string }) {
           <dd>{formatTime(report.updated_at)}</dd>
           <dt>Gateway</dt>
           <dd>
-            {report.gateway}
+            {report.channel === "direct" ? (
+              <span className="tag">direct from a client, unauthenticated</span>
+            ) : (
+              report.gateway
+            )}
             {report.gateway_name !== null && <span className="muted"> · {report.gateway_name}</span>}
             {report.gateway_url !== null && <span className="muted"> · {report.gateway_url}</span>}
           </dd>
@@ -367,6 +371,12 @@ export function ReportDetail({ id }: { id: string }) {
               <>
                 <p>
                   {formatBytes(report.record_bytes)}, {report.record_complete ? "complete" : "partial"}
+                  {report.record_origin === "client" && (
+                    <>
+                      {" "}
+                      <span className="tag">client-supplied, unverified</span>
+                    </>
+                  )}
                 </p>
                 <a className="button" href={api.recordUrl(report.id)} download={`${report.id}.jsonl.gz`}>
                   Download

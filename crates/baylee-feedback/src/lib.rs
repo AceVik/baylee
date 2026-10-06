@@ -5,6 +5,8 @@
 //! holds its read token. `docs/feedback.md` is normative.
 //!
 //! - `POST /intake/reports`: a gateway, with its own intake token.
+//! - `POST /client/reports`: a client signed in to no gateway, with no
+//!   token at all, held to its limits instead ([`direct`]).
 //! - `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`: the
 //!   read token (or the admin token).
 //! - `PATCH /reports/{id}` (status), `DELETE /reports/{id}`: the admin token.
@@ -18,6 +20,7 @@
 #![warn(missing_docs)]
 
 pub mod admin;
+pub mod direct;
 pub mod migration;
 pub mod ui;
 pub mod web;
@@ -75,22 +78,57 @@ pub struct Config {
     read: Option<TokenHash>,
     /// `FEEDBACK_ADMIN_TOKEN`.
     admin: Option<TokenHash>,
+    /// `FEEDBACK_DIRECT_KEY`, hashed: the key direct reports' reporters are
+    /// made with; `None` = the direct route is off.
+    direct: Option<TokenHash>,
 }
 
 impl Config {
-    /// Reads `FEEDBACK_GATEWAY_TOKENS`, `FEEDBACK_READ_TOKEN` and
-    /// `FEEDBACK_ADMIN_TOKEN`.
+    /// Reads `FEEDBACK_GATEWAY_TOKENS`, `FEEDBACK_READ_TOKEN`,
+    /// `FEEDBACK_ADMIN_TOKEN` and `FEEDBACK_DIRECT_KEY`.
     ///
     /// # Errors
     ///
-    /// When a value is malformed; see [`Config::new`].
+    /// When a value is malformed; see [`Config::new`] and
+    /// [`Config::with_direct_key`].
     pub fn from_env() -> Result<Self> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-        Self::new(
+        let config = Self::new(
             &var("FEEDBACK_GATEWAY_TOKENS").unwrap_or_default(),
             var("FEEDBACK_READ_TOKEN").as_deref(),
             var("FEEDBACK_ADMIN_TOKEN").as_deref(),
-        )
+        )?;
+        match var("FEEDBACK_DIRECT_KEY") {
+            Some(key) => config.with_direct_key(&key),
+            None => Ok(config),
+        }
+    }
+
+    /// Takes direct reports (`POST /client/reports`), their reporters made
+    /// under `key`.
+    ///
+    /// # Errors
+    ///
+    /// When `key` is shorter than [`MIN_TOKEN_CHARS`] or is one of the
+    /// tokens: a key that also opened a door would be a token in two places.
+    pub fn with_direct_key(mut self, key: &str) -> Result<Self> {
+        if key.chars().count() < MIN_TOKEN_CHARS {
+            bail!("FEEDBACK_DIRECT_KEY: a key needs at least {MIN_TOKEN_CHARS} characters");
+        }
+        let h = hash(key);
+        let taken = self.gateways.iter().any(|(_, t)| *t == h)
+            || self.read == Some(h)
+            || self.admin == Some(h);
+        if taken {
+            bail!("FEEDBACK_DIRECT_KEY: that key is already a token");
+        }
+        self.direct = Some(h);
+        Ok(self)
+    }
+
+    /// The key direct reports' reporters are made with, when they are taken.
+    pub(crate) fn direct_key(&self) -> Option<&TokenHash> {
+        self.direct.as_ref()
     }
 
     /// `gateways` is `name=token` pairs separated by commas.
@@ -135,6 +173,7 @@ impl Config {
             gateways: list,
             read: read.map(|t| take("FEEDBACK_READ_TOKEN", t)).transpose()?,
             admin: admin.map(|t| take("FEEDBACK_ADMIN_TOKEN", t)).transpose()?,
+            direct: None,
         })
     }
 
@@ -223,6 +262,13 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
         .route(
             "/intake/reports",
             post(intake).layer(axum::extract::DefaultBodyLimit::max(MAX_INTAKE_BYTES)),
+        )
+        .route(
+            "/client/reports",
+            post(direct::post)
+                .options(direct::preflight)
+                .layer(axum::extract::DefaultBodyLimit::max(direct::MAX_BODY_BYTES))
+                .layer(axum::middleware::map_response(direct::any_origin)),
         )
         .route("/reports", get(list))
         .route("/reports/{id}", get(one).patch(set_status).delete(remove))
@@ -366,6 +412,102 @@ struct RecordIn {
     gzip_base64: String,
 }
 
+/// Who wrote a report's record.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Origin {
+    /// The gateway, from what the game's engine sent it.
+    #[default]
+    Gateway,
+    /// A client, of a game it hosted itself: unverified, never a gateway's.
+    Client,
+}
+
+impl Origin {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Gateway => "gateway",
+            Self::Client => "client",
+        }
+    }
+}
+
+/// How a report reached the service.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Channel {
+    /// A gateway passed it on (`POST /intake/reports`).
+    Gateway,
+    /// A client sent it itself, unauthenticated (`POST /client/reports`).
+    Direct,
+}
+
+impl Channel {
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Gateway => "gateway",
+            Self::Direct => "direct",
+        }
+    }
+}
+
+/// A report about to be kept, from either door.
+pub(crate) struct NewReport {
+    gateway: String,
+    gateway_name: Option<String>,
+    gateway_url: Option<String>,
+    gateway_version: String,
+    reporter: String,
+    kind: Kind,
+    text: String,
+    game_id: Option<String>,
+    /// The `client` object, serialized.
+    client: String,
+    /// The record and whether its end is in it.
+    record: Option<(Vec<u8>, bool)>,
+    record_origin: Origin,
+    channel: Channel,
+}
+
+/// Keeps `report`; its id.
+pub(crate) async fn store(db: &DatabaseConnection, report: NewReport) -> Result<Uuid, Refusal> {
+    let id = Uuid::now_v7();
+    let (record, complete, origin) = match report.record {
+        Some((bytes, complete)) => (
+            Some(bytes),
+            Some(complete),
+            Some(report.record_origin.name()),
+        ),
+        None => (None, None, None),
+    };
+    db.execute_raw(Statement::from_sql_and_values(
+        db.get_database_backend(),
+        "INSERT INTO feedback_report (id, gateway, gateway_name, gateway_url, \
+             gateway_version, reporter, kind, text, game_id, client, record, record_complete, \
+             record_origin, channel) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14)",
+        [
+            id.into(),
+            report.gateway.into(),
+            report.gateway_name.into(),
+            report.gateway_url.into(),
+            report.gateway_version.into(),
+            report.reporter.into(),
+            report.kind.name().into(),
+            report.text.into(),
+            report.game_id.into(),
+            report.client.into(),
+            Value::Bytes(record),
+            complete.into(),
+            origin.into(),
+            report.channel.name().into(),
+        ],
+    ))
+    .await
+    .map_err(|e| db_down(&e))?;
+    Ok(id)
+}
+
 /// What a gateway sends (`docs/feedback.md` §"Intake").
 #[derive(Deserialize)]
 struct Intake {
@@ -378,6 +520,10 @@ struct Intake {
     client: serde_json::Value,
     #[serde(default)]
     record: Option<RecordIn>,
+    /// Who wrote `record`: a client's is checked ([`direct::check_record`])
+    /// and held to a client's bounds, and kept marked as the client's.
+    #[serde(default)]
+    record_origin: Origin,
 }
 
 #[derive(Serialize)]
@@ -436,8 +582,15 @@ async fn intake(
     {
         return Err(bad("a field is malformed"));
     }
-    let (record, complete) = match report.record {
-        Some(r) => {
+    let record = match (report.record, report.record_origin) {
+        (Some(r), Origin::Client) => Some(
+            direct::ClientRecord {
+                complete: r.complete,
+                gzip_base64: r.gzip_base64,
+            }
+            .bytes()?,
+        ),
+        (Some(r), Origin::Gateway) => {
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(r.gzip_base64)
                 .map_err(|_| bad("the record is not base64"))?;
@@ -447,35 +600,28 @@ async fn intake(
                     "the record is too large",
                 ));
             }
-            (Some(bytes), Some(r.complete))
+            Some((bytes, r.complete))
         }
-        None => (None, None),
+        (None, _) => None,
     };
-    let id = Uuid::now_v7();
-    state
-        .db
-        .execute_raw(Statement::from_sql_and_values(
-            state.db.get_database_backend(),
-            "INSERT INTO feedback_report (id, gateway, gateway_name, gateway_url, \
-                 gateway_version, reporter, kind, text, game_id, client, record, record_complete) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)",
-            [
-                id.into(),
-                gateway.into(),
-                report.gateway.name.into(),
-                report.gateway.url.into(),
-                report.gateway.version.into(),
-                report.reporter.into(),
-                report.kind.name().into(),
-                report.text.into(),
-                report.game_id.into(),
-                client.into(),
-                Value::Bytes(record),
-                complete.into(),
-            ],
-        ))
-        .await
-        .map_err(|e| db_down(&e))?;
+    let id = store(
+        &state.db,
+        NewReport {
+            gateway: gateway.to_owned(),
+            gateway_name: report.gateway.name,
+            gateway_url: report.gateway.url,
+            gateway_version: report.gateway.version,
+            reporter: report.reporter,
+            kind: report.kind,
+            text: report.text,
+            game_id: report.game_id,
+            client,
+            record,
+            record_origin: report.record_origin,
+            channel: Channel::Gateway,
+        },
+    )
+    .await?;
     tracing::info!(report = %id, gateway, kind = report.kind.name(), "report taken");
     Ok((
         StatusCode::CREATED,
@@ -491,7 +637,8 @@ const SUMMARY: &str = "id::text AS id, \
     to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS updated_at, \
     gateway, gateway_name, gateway_url, gateway_version, reporter, kind, status, text, game_id, \
     record IS NOT NULL AS has_record, record_complete, \
-    coalesce(octet_length(record), 0)::bigint AS record_bytes, issue_number";
+    coalesce(octet_length(record), 0)::bigint AS record_bytes, issue_number, \
+    channel, record_origin";
 
 /// The repository a report's issue lives in; the UI opens new issues there.
 pub const ISSUE_REPOSITORY: &str = "https://github.com/AceVik/baylee";
@@ -514,6 +661,12 @@ struct Summary {
     has_record: bool,
     record_complete: Option<bool>,
     record_bytes: i64,
+    /// How it came: `gateway` (passed on by one) or `direct` (a client
+    /// sent it itself, unauthenticated).
+    channel: String,
+    /// Who wrote the record: `gateway`, or `client` (unverified); `None`
+    /// without one.
+    record_origin: Option<String>,
     /// The GitHub issue it is linked to, in [`ISSUE_REPOSITORY`].
     issue_number: Option<i32>,
     /// That issue's page, made here from the number rather than stored, so
@@ -542,6 +695,8 @@ impl Summary {
             has_record: row.try_get("", "has_record")?,
             record_complete: row.try_get("", "record_complete")?,
             record_bytes: row.try_get("", "record_bytes")?,
+            channel: row.try_get("", "channel")?,
+            record_origin: row.try_get("", "record_origin")?,
             issue_number,
             issue_url: issue_number.map(|n| format!("{ISSUE_REPOSITORY}/issues/{n}")),
             client: if client {
@@ -570,6 +725,8 @@ struct Filter {
     to: Option<String>,
     /// Whether it carries a game record.
     has_record: Option<bool>,
+    /// How it came.
+    channel: Option<Channel>,
     limit: Option<u64>,
     offset: Option<u64>,
 }
@@ -627,6 +784,9 @@ async fn listing(db: &DatabaseConnection, filter: Filter) -> Result<Listing, Ref
     }
     if let Some(game) = filter.game_id {
         add("game_id = ?", game.into());
+    }
+    if let Some(channel) = filter.channel {
+        add("channel = ?", channel.name().into());
     }
     if let Some(q) = filter.q.filter(|q| !q.trim().is_empty()) {
         if q.chars().count() > 200 {
@@ -746,15 +906,21 @@ async fn record_of(db: &DatabaseConnection, id: Uuid) -> Result<Response, Refusa
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
-            "SELECT record FROM feedback_report WHERE id = $1 AND record IS NOT NULL",
+            "SELECT record, record_origin FROM feedback_report \
+             WHERE id = $1 AND record IS NOT NULL",
             [id.into()],
         ))
         .await
         .map_err(|e| db_down(&e))?
         .ok_or_else(|| refuse(StatusCode::NOT_FOUND, "no record for that report"))?;
     let bytes: Vec<u8> = row.try_get("", "record").map_err(|e| db_down(&e))?;
+    let origin: Option<String> = row.try_get("", "record_origin").map_err(|e| db_down(&e))?;
     let mut response = bytes.into_response();
     let headers = response.headers_mut();
+    // Who wrote it, on the record itself: a client's is unverified.
+    if let Ok(origin) = HeaderValue::from_str(origin.as_deref().unwrap_or("gateway")) {
+        headers.insert("x-record-origin", origin);
+    }
     headers.insert(
         header::CONTENT_TYPE,
         HeaderValue::from_static("application/gzip"),

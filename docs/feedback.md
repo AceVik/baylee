@@ -3,17 +3,27 @@
 A player reports a bug, an idea or a crash from the client. The client sends
 it to the gateway it is signed in at, the gateway adds what only it knows and
 passes it to the feedback service, and the service keeps it for whoever reads
-reports. This document is normative for the gateway's `POST /reports`, the
-service's API, and what either keeps.
+reports. A client signed in nowhere sends it to the service itself
+(§"Straight from a client"). This document is normative for the gateway's
+`POST /reports`, the service's API, and what either keeps.
 
 ```
 client ── POST /reports ──> gateway ── POST /intake/reports ──> baylee-feedback
           (session)                    (gateway's intake token)     │
+client ── POST /client/reports ────────────────────────────────────>│
+          (signed in nowhere: no credential, a device id)          │
                                                                     ├── GET/PATCH/DELETE /reports
                                                                     │   (read / admin token)
                                                                     └── /ui/api/… and the web UI
                                                                         (an admin's session, #311)
 ```
+
+The client picks the road (`client-core::bugreport::route`): the gateway
+it is signed in to whenever there is one, else the service it knows, else
+none, and then it says so and sends nothing anywhere. Which service it
+knows: `feedback_url` in its settings file, else the address the build was
+given (`BAYLEE_FEEDBACK_PUBLIC_URL` at compile time); `https://`, or
+`http://` to the same machine, and an empty setting turns it off.
 
 ## The gateway: `POST /reports` (#307)
 
@@ -25,18 +35,31 @@ The body, frozen:
   "kind": "bug" | "improvement" | "feedback" | "crash" | "other",
   "text": "…",                 // at most 20000 characters
   "game_id": "…" | null,        // the game the report is about, if any; at most 128 characters
-  "client": { … }               // anything the client wants to say; at most 2 MB serialized
+  "client": { … },              // anything the client wants to say; at most 2 MiB serialized
+  "local_record": {             // optional: the record of a game the client hosted itself
+    "complete": true | false,
+    "gzip_base64": "…"          // at most 4 MiB of gzip
+  }
 }
 ```
+
+`local_record` is a game the client ran in its own process (against the
+house), which no gateway keeps a record of: the client writes the same
+JSON Lines a hosted game's engine does (`baylee_gamehost::record`) and
+attaches it only when the player ticked it for that report. The gateway
+cannot vouch for it and does not pretend to: it checks that it is base64
+of something that starts as gzip and is at most 4 MiB, and passes it on
+marked `record_origin: "client"`. A report carries a `game_id` or a
+`local_record`, never both.
 
 | answer | when |
 | --- | --- |
 | `201 {"report_id": "…"}` | the service took it; the id is the service's |
-| `400` | not JSON, an unknown `kind`, no `text`, `client` not an object, or `game_id` over 128 characters |
+| `400` | not JSON, an unknown `kind`, no `text`, `client` not an object, `game_id` over 128 characters, a `local_record` beside a `game_id`, or one that is not base64 of gzip |
 | `401` | no session, or not a live one |
-| `413` | `text` over 20000 characters, `client` over 2 MB, or the body over 2.25 MB |
+| `413` | `text` over 20000 characters, `client` over 2 MiB, a `local_record` over 4 MiB, or the body over 7.58 MiB |
 | `429` | the account has sent 64 reports in the last hour; one the service did not take (`502`) is not counted |
-| `502` | the service did not take it (unreachable, refused, or no `report_id`) |
+| `502` | the service did not take it (unreachable, refused, or no `report_id`); also a `local_record` the service found is no game record |
 | `503 {"error":"reports are not configured"}` | `BAYLEE_FEEDBACK_URL` is not set |
 
 What the gateway sends on, and nothing else:
@@ -64,6 +87,11 @@ What the gateway sends on, and nothing else:
   of the report, and the gateway logs that it went without: one of this
   build that was merely slow has sent everything older than 30 s by itself,
   and an older or a stuck one leaves the record where its last piece did.
+  With a `local_record`, that record instead, as the client sent it.
+- `record_origin`: `"gateway"` for a record the gateway kept, `"client"`
+  for a `local_record`. A service from before this field ignores it and
+  would file a client's record as the gateway's, so deploy the service
+  before the gateway.
 
 Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
@@ -87,7 +115,8 @@ default and is meant to sit behind a TLS reverse proxy.
 | `FEEDBACK_BIND` | `127.0.0.1:28780` |
 | `FEEDBACK_POOL` | database connections, 4 |
 | `FEEDBACK_WEB_DIR` | the built web UI (`web/feedback/dist`); unset = no page, `/` is `404` |
-| `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter believes; an entry that is not an address refuses startup |
+| `FEEDBACK_TRUSTED_PROXIES` | comma-separated addresses whose `X-Forwarded-For` the sign-in limiter and the direct route's allowance believe; an entry that is not an address refuses startup |
+| `FEEDBACK_DIRECT_KEY` | turns on `POST /client/reports` and keys its reporter pseudonyms; at least 16 characters and none of the tokens. Unset, the route answers `503`. Never change it if a device's reports should stay linkable |
 
 Every token is at least 16 characters and no token may be given twice; the
 service refuses to start otherwise. Tokens are kept as SHA-256 and compared in
@@ -103,15 +132,78 @@ but a gateway's token, `413` past the gateway's limits or a record over
 64 MiB. The report is filed under the name its token was configured with,
 whatever the gateway calls itself.
 
+`record_origin` (`"gateway"` when absent) says who wrote the record. A
+client's (`"client"`) is held to a client's bounds and checked for the
+shape of a record before it is kept: at most 4 MiB of gzip that unpacks to
+at most 32 MiB of JSON Lines (read only that far), a header of
+`RECORD_VERSION` 1 first and nothing after it but input, chair and end
+lines. That is all the service can check without the engine, which it does
+not link; replaying it is the reader's (`zcat`, then
+`baylee_gamehost::record::replay`). A shape it refuses is `400` (`413`
+past the bounds), so the gateway answers its player `502`.
+
+### Straight from a client: `POST /client/reports`
+
+A client signed in to no gateway reports here itself. A shipped client
+holds no secret, so the route asks for none and stands on its limits
+instead. Off until `FEEDBACK_DIRECT_KEY` is set. The body, every field
+named and no other taken:
+
+```json
+{
+  "kind": "bug" | "improvement" | "feedback" | "crash" | "other",
+  "text": "…",                       // 1–20000 characters
+  "build": {"version": "…", "commit": "…" | null},
+  "device": "<32 lowercase hex>",    // a random id the client made for reports
+  "client": { … },                   // at most 1 MiB serialized: half a gateway's
+  "record": {"complete": …, "gzip_base64": "…"}   // optional, as a gateway's local_record
+}
+```
+
+| answer | when |
+| --- | --- |
+| `201 {"report_id": "…"}` | taken |
+| `400` | not JSON, an unknown field, an unknown `kind`, no `text`, `client` not an object, a `device` that is not 32 lowercase hex digits, a `build` that is empty or over 128 characters, or a `record` that is not base64 or not a record's shape (as the intake checks a client's) |
+| `413` | `text` over 20000 characters, `client` over 1 MiB, a `record` over 4 MiB (32 MiB unpacked), or the body over 6.46 MiB |
+| `429` | 10 direct reports from one address in the last hour, or 600 from everyone together |
+| `503` | `FEEDBACK_DIRECT_KEY` is not set |
+
+The allowances count every request, a refused one too, so probing costs as
+much as sending; they are memory only, forgotten on restart, and the
+address they count under (`X-Forwarded-For` from a trusted proxy, else the
+peer) is never written down or logged. The reporter is
+`HMAC-SHA256(key, "device\0" + device)` under a key derived from
+`FEEDBACK_DIRECT_KEY`: one device's reports line up, and neither the device
+id nor anything about an account or an address is kept. Such a report is
+stored apart: `channel = 'direct'`, gateway `(direct)` (a name no intake
+token can be configured under), `game_id` empty, and its record, if any,
+`record_origin = 'client'`. The route answers a browser's preflight and
+names any origin (`Access-Control-Allow-Origin: *`, never with
+credentials), because a browser build of the client is served from its own
+origin; no other route of the service does.
+
+The client confirms first: a direct report, and any report carrying a
+record, goes only after a page listing where it goes and every part it
+carries (`client-core::bugreport::ReportForm::parts`).
+
+`scripts/server/feedback-direct.caddy` is the proxy's part: the route
+alone on the public site, its body bounded before the service reads it, no
+access log.
+
 ### Reading: `GET /reports`, `GET /reports/{id}`, `GET /reports/{id}/record`
 
 The read token or the admin token.
 
-`GET /reports?status=&kind=&gateway=&reporter=&game_id=&q=&from=&to=&has_record=&limit=&offset=`
+`GET /reports?status=&kind=&gateway=&reporter=&game_id=&channel=&q=&from=&to=&has_record=&limit=&offset=`
 lists newest first (`limit` 50, at most 200). `q` is words the text holds,
 case aside (`%` and `_` are literal); `from` and `to` are days,
-`YYYY-MM-DD` in UTC, both inclusive; `has_record` is `true` or `false`. A
-malformed filter is `400`.
+`YYYY-MM-DD` in UTC, both inclusive; `has_record` is `true` or `false`;
+`channel` is `gateway` or `direct`. A malformed filter is `400`.
+
+`channel` says how a report came (`gateway`, or `direct`: unauthenticated,
+§"Straight from a client"); `record_origin` who wrote its record
+(`gateway`, or `client`: unverified), `null` without one. The web UI says
+both beside the report.
 
 ```json
 {
@@ -123,6 +215,7 @@ malformed filter is `400`.
     "reporter": "5bdc…", "kind": "bug", "status": "new",
     "text": "…", "game_id": "…",
     "has_record": true, "record_complete": true, "record_bytes": 21606,
+    "channel": "gateway", "record_origin": "gateway",
     "issue_number": 311,
     "issue_url": "https://github.com/AceVik/baylee/issues/311"
   }]
@@ -134,7 +227,8 @@ stored as typed. Both are `null` for a report linked to no issue.
 
 `GET /reports/{id}` is one report with its `client` object as well.
 `GET /reports/{id}/record` is the game record as stored: `application/gzip`,
-JSON Lines inside (`zcat` reads it); `404` when the report has none. It
+JSON Lines inside (`zcat` reads it), its writer in `X-Record-Origin`
+(`gateway` or `client`); `404` when the report has none. It
 replays with `baylee_gamehost::record::replay` on the build its header names.
 
 ### Changing and deleting: `PATCH /reports/{id}`, `DELETE /reports/{id}`
@@ -250,7 +344,13 @@ served.
 - **The service** keeps each report as it came, the gateway's name, the
   pseudonym, and the record if one was attached, until an admin deletes it.
   It has no column for an address or a player's name, and no request's
-  address is logged.
+  address is logged. A direct report's pseudonym is the device's, keyed;
+  the addresses its allowance counts are in memory for an hour.
+- **The client** keeps the records of the last 20 games it hosted itself
+  (at most 64 MiB together, gzipped) in `records/` beside its settings, and
+  the random device id it sends direct reports under in its settings file.
+  Neither leaves the machine except in a report the player confirmed
+  (`docs/privacy.md`).
 - **For the web UI** it keeps each admin's name and Argon2id hash until
   `admin remove`, each session's token hash with its sign-in and last-use
   times until it lapses or is ended (at most 7 days), and an audit row per
@@ -273,8 +373,16 @@ FEEDBACK_READ_TOKEN=<openssl rand -hex 32>
 FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
+FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
 RUST_LOG=info
 ```
+
+Direct reports also need the route on the public site
+(`scripts/server/feedback-direct.caddy`, whose header says how to install
+it) and clients built with the service's address:
+`BAYLEE_FEEDBACK_PUBLIC_URL=https://feedback.example cargo build -p
+baylee-client` (and the same for `trunk build`). A client built without
+it, or told `""` in its settings, says it cannot send unless signed in.
 
 `baylee-deploy stage` builds the web UI (`npm ci && npm run build` in
 `web/feedback`) where npm is installed and puts `dist/` at

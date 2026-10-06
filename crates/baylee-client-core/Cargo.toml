@@ -20,6 +20,10 @@ baylee-engine.workspace = true
 # say what is wrong with a name before sending it (#269).
 baylee-protocol.workspace = true
 baylee-view.workspace = true
+# A local game's record is gzipped once, for disk and for a report that
+# carries it (`bugreport::localrecord`). Its default backend is pure Rust,
+# so it builds for wasm32 too.
+flate2.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true

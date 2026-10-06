@@ -1,0 +1,43 @@
+# The feedback service's direct route, `POST /client/reports`, on the
+# public site a client signed in to no gateway reports to
+# (docs/feedback.md §"Straight from a client").
+#
+# Directives for the feedback service's own site block. Only the direct
+# route is passed on here; the read routes and the web UI are the operator's
+# to expose or not (behind their own handle, a VPN, or loopback only), and
+# nothing in this file opens them.
+#
+# Install (once, as root):
+#
+#   install -m644 scripts/server/feedback-direct.caddy /etc/caddy/baylee-feedback-direct.caddy
+#
+# and in the service's site block (a file under /etc/caddy/sites/), import
+# it before any catch-all, so the two never both answer one request:
+#
+#   feedback.baylee.acevik.de {
+#       import /etc/caddy/baylee-feedback-direct.caddy
+#       handle {
+#           respond 404
+#       }
+#   }
+#
+# then `caddy validate --config /etc/caddy/Caddyfile` and
+# `systemctl reload caddy`. The service needs FEEDBACK_DIRECT_KEY set (else
+# the route answers 503) and FEEDBACK_TRUSTED_PROXIES=127.0.0.1, so its
+# per-address allowance counts the client's address and not Caddy's.
+# Caddy replaces any X-Forwarded-For a client sends with the address it
+# saw, as long as no `trusted_proxies` is configured for this server.
+#
+# No `log` here, on purpose: the service keeps no reporter's address, and
+# an access log would.
+
+@baylee_direct_report path /client/reports
+handle @baylee_direct_report {
+	# The service's own bound is 6.46 MiB (`direct::MAX_BODY_BYTES`: 1 MiB
+	# of client details, a 4 MiB record in base64, and room); anything
+	# larger stops here before the service reads a byte of it.
+	request_body {
+		max_size 7MiB
+	}
+	reverse_proxy 127.0.0.1:28780
+}
