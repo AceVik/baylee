@@ -828,20 +828,22 @@ impl EngineRunner {
         }
     }
 
-    /// Forwards what a seat's mind said (`v1::AiLog`) to the seats that may
-    /// read it, and drops it for every other.
+    /// Forwards what a seat's mind said (`v1::AiLog`) to every other
+    /// attached seat in a debug build, and drops it in a release build
+    /// (`docs/protocol.md` §"An AI seat's reasoning").
     ///
-    /// A model's reasoning reads its whole view out loud, so it goes exactly
-    /// where the sender's hand goes: to a teammate the table is showing that
-    /// hand to ([`Session::shows_hand`], CLAUDE.md "Hidden information and
-    /// seats"), never to the other side, never back to the sender, and to no
-    /// seat without a socket. The sender is stamped here, so a seat cannot
-    /// speak in another's name; nothing else in it is read. Not a move in the
-    /// game: no journal, no clock, no pump.
+    /// The AI log is a debugging and sparring tool, open to the whole table
+    /// by the owner's decision: a model's reasoning reads its whole view out
+    /// loud, its hand included, so a debug engine hands every seat hidden
+    /// information on purpose, and a release engine, the one deployed,
+    /// forwards nothing. Never back to the sender, and to no seat without a
+    /// socket. The sender is stamped here, so a seat cannot speak in
+    /// another's name; nothing else in it is read. Not a move in the game:
+    /// no journal, no clock, no pump.
     fn reasoning(&self, from: PlayerId, mut said: v1::AiLog) -> Vec<Envelope> {
-        let Some(session) = self.session.as_ref() else {
+        if !cfg!(debug_assertions) || self.session.is_none() {
             return Vec::new();
-        };
+        }
         said.seat = u32::from(from.get());
         let envelope = Envelope {
             msg: Some(v1::envelope::Msg::AiLog(said)),
@@ -849,7 +851,7 @@ impl EngineRunner {
         self.attached
             .iter()
             .copied()
-            .filter(|&seat| seat != from.get() && session.shows_hand(from, PlayerId::new(seat)))
+            .filter(|&seat| seat != from.get())
             .map(|seat| seat_frame(seat, &envelope))
             .collect()
     }
@@ -2757,41 +2759,52 @@ mod tests {
             .collect()
     }
 
-    /// A seat's reasoning is hidden information (CLAUDE.md "Hidden
-    /// information and seats"): it reads the seat's hand out loud. So it goes
-    /// where the hand goes and nowhere else — not to an opponent with a
-    /// socket, not to a teammate the hand is not shown to, not back to the
-    /// sender — and it names the seat that really sent it, whatever the
-    /// sender wrote.
-    #[test]
-    fn a_seats_reasoning_reaches_only_the_teammates_its_hand_is_shown_to() {
+    /// Three attached seats, two of them a team and the third the other
+    /// side, each with a socket, so every seat is one that could be sent a
+    /// reasoning.
+    fn three_at_the_table() -> EngineRunner {
         let mut preset = partners();
-        // The other side gets a socket too, so "not to an opponent" is a
-        // seat that could have been sent it.
         preset.seats[2].controller = baylee_core::preset::SeatController::Open;
         let mut runner = EngineRunner::new();
         setup(&mut runner, &preset);
         for seat in 0..3 {
             sit(&mut runner, seat);
         }
+        runner
+    }
 
-        let hidden = reasoning_from(&mut runner, 0, 0);
+    /// In a debug build the AI log is open to the table (the owner's
+    /// decision, `docs/protocol.md` §"An AI seat's reasoning"): a seat's
+    /// reasoning reaches every other attached seat, the other side and a
+    /// teammate not shown the hand included, never back to the sender, and
+    /// it names the seat that really sent it, whatever the sender wrote.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn in_a_debug_build_a_seats_reasoning_reaches_every_other_seat_in_its_name() {
+        let mut runner = three_at_the_table();
+        let claimed = reasoning_from(&mut runner, 0, 2);
         assert_eq!(
-            reasonings(&hidden),
-            [],
-            "nobody is shown seat 0's hand, so nobody reads its mind"
+            reasonings(&claimed),
+            [(1, 0), (2, 0)],
+            "both other seats, told it is seat 0's though it claimed seat 2"
         );
+        let opponent = reasoning_from(&mut runner, 2, 0);
+        assert_eq!(reasonings(&opponent), [(0, 2), (1, 2)]);
+    }
 
+    /// In a release build, the one deployed and the one CI's `test-release`
+    /// runs, nobody is sent a seat's reasoning: the engine drops it,
+    /// whoever sent it and whatever the table shares.
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn in_a_release_build_nobody_is_sent_a_seats_reasoning() {
+        let mut runner = three_at_the_table();
         let partner: baylee_core::ids::SeatSet = [PlayerId::new(1)].into_iter().collect();
         set(&mut runner, 0, SeatSetting::ShareHand(partner));
-        let shared = reasoning_from(&mut runner, 0, 2);
-        assert_eq!(
-            reasonings(&shared),
-            [(1, 0)],
-            "the teammate shown the hand, alone, told it is seat 0's"
-        );
-
-        let opponent = reasoning_from(&mut runner, 2, 2);
-        assert_eq!(reasonings(&opponent), [], "a seat alone on its side");
+        for (from, claimed) in [(0, 0), (0, 2), (1, 1), (2, 2)] {
+            let out = reasoning_from(&mut runner, from, claimed);
+            assert_eq!(reasonings(&out), [], "seat {from}'s reasoning went out");
+            assert_eq!(said(&out), [], "seat {from}'s reasoning sent something");
+        }
     }
 }

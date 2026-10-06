@@ -217,3 +217,38 @@ fn a_local_game_s_log_reaches_the_book() {
     });
     assert!(kept, "the seat kept its hand and its log does not say so");
 }
+
+/// What an AI seat's mind said, as the engine forwards it.
+fn ai_said() -> HostMessage {
+    HostMessage::AiLog(baylee_protocol::v1::AiLog {
+        note: r#"{"chose":"a1 Pass"}"#.into(),
+        thinking: "my hand is two Islands".into(),
+        seat: 1,
+    })
+}
+
+/// The AI log rides the same loop (`docs/protocol.md` §"An AI seat's
+/// reasoning"): in a debug build what an AI seat's mind said is queued for
+/// its panel, and its door stands from then on.
+#[cfg(debug_assertions)]
+#[test]
+fn in_a_debug_build_an_ai_log_is_queued_for_its_panel() {
+    let mut table = Table::new();
+    table.hear(vec![frame(1, None), ai_said()]);
+    let duel = table.duel();
+    assert!(duel.ai_log_heard, "the door stands");
+    assert_eq!(duel.ai_said.len(), 1);
+    assert_eq!(duel.ai_said[0].thinking, "my hand is two Islands");
+}
+
+/// A release build has no AI log: one that arrives anyway is dropped, and
+/// its door never stands.
+#[cfg(not(debug_assertions))]
+#[test]
+fn in_a_release_build_an_ai_log_is_dropped() {
+    let mut table = Table::new();
+    table.hear(vec![frame(1, None), ai_said()]);
+    let duel = table.duel();
+    assert!(!duel.ai_log_heard, "a door to the AI log stands");
+    assert!(duel.ai_said.is_empty(), "{:?}", duel.ai_said);
+}

@@ -340,3 +340,18 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
 `cargo run -p xtask -- dev-table --bridge profile:<name>` seats the bridge
 with `--profile <name>` instead of `--mind`, from the same file and under
 the same caps (`BAYLEE_SEAT_CONFIG` passes through).
+
+## The AI log (debug builds only)
+
+Beside each answer its model made (not a standing answer, a plan's tap or
+the house's), a debug bridge sends the table what the mind said: its note
+(the answer chosen, its `say`, tokens and time) and the model's reasoning,
+each cut at a character boundary to 16 KiB. A debug engine forwards it to
+every other seat at the table, the other side included, and a debug
+client shows it in its AI log panel: a tool for watching a model play and
+for sparring against one. The reasoning reads the model's hand out loud,
+so this is hidden information shown on purpose. A release build has none
+of it: the bridge sends nothing, the engine drops what a debug bridge
+sends, and the client stands no panel (`docs/protocol.md` §"An AI seat's
+reasoning"). The full transcript stays with the bridge either way
+(`--transcripts`).

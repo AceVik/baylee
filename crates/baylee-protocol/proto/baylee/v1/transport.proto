@@ -434,19 +434,19 @@ message Envelope {
     // decodes either as an envelope with no message and passes over it.
     FlushRecord flush_record = 31;
     RecordFlushed record_flushed = 32;
-    // Seat → engine → seat: what an AI seat's mind
-    // said beside an answer. The engine forwards it only to the sender's
-    // teammates that are shown the sender's hand (docs/protocol.md §"An AI
-    // seat's reasoning"); it never reaches the other side.
+    // Seat → engine → seat: what an AI seat's mind said beside an answer.
+    // Debug builds only: a debug engine forwards it to every other attached
+    // seat, a release engine drops it, and a release bridge sends none
+    // (docs/protocol.md §"An AI seat's reasoning").
     AiLog ai_log = 33;
   }
 
 }
 
-// What an AI seat's mind said beside an answer. A model's reasoning reads
-// its whole view out loud, so it is hidden information: the engine forwards
-// it to a seat only while the table shows that seat the sender's hand, and
-// drops it otherwise.
+// What an AI seat's mind said beside an answer: a debugging and sparring
+// tool. A model's reasoning reads its whole view out loud, so it is hidden
+// information, and a debug engine shows it to the whole table on purpose;
+// a release engine, the one deployed, forwards it to nobody.
 message AiLog {
   reserved 1, 2, 4, 5;
   reserved "event", "kind", "reason", "json";

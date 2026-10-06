@@ -185,9 +185,11 @@ pub struct Answer {
     /// spent thinking, for the transcript and for a mind's own budget.
     pub model_time: Duration,
     /// Anything the mind wants in the transcript beside the answer: a
-    /// sentence of reasoning, a provider's usage. Never sent to the table.
+    /// sentence of reasoning, a provider's usage. Never sent to the table,
+    /// but in a debug build's AI log (`v1::AiLog`, `docs/protocol.md`
+    /// §"An AI seat's reasoning").
     pub note: Option<String>,
-    /// The mind's reasoning or thinking process, if any.
+    /// The mind's reasoning or thinking process, if any; the AI log's too.
     pub thinking: Option<String>,
     /// The phases or steps the model wants to be woken in.
     pub stops: Option<Box<crate::narrator::Stops>>,

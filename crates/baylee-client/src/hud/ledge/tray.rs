@@ -148,8 +148,8 @@ pub struct StripRevision {
     /// Whether the game log's panel is up (#262). Its button says so the
     /// way the zones button does.
     log: bool,
-    /// Whether the AI log's door stands at all: only once a teammate's AI
-    /// mind has said something ([`Duel::ai_log_heard`]).
+    /// Whether the AI log's door stands at all: only once an AI seat's mind
+    /// has said something, in a debug build ([`Duel::ai_log_heard`]).
     ai_heard: bool,
     /// Whether the AI log's panel is up.
     ai_log: bool,
@@ -279,7 +279,7 @@ pub fn sync_tray_strip(
     commands.entity(strip).add_children(&doors);
 }
 
-/// The AI log's door: what a teammate's AI mind said.
+/// The AI log's door: what an AI seat's mind said (debug builds only).
 fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
@@ -573,7 +573,7 @@ mod tests {
             "the zones are not the strip's right end"
         );
 
-        // A teammate's AI mind has spoken: its door stands left of the
+        // An AI seat's mind has spoken: its door stands left of the
         // scroll, and the zones are still the right end.
         app.world_mut().resource_mut::<Duel>().ai_log_heard = true;
         app.update();

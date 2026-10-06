@@ -228,6 +228,92 @@ fn the_orders_answer_what_is_no_decision_and_the_mind_the_rest() {
     assert_eq!(core.stats().questions, 2);
 }
 
+/// Every `AiLog` the steps send: its note and its reasoning.
+fn ai_logs(steps: &[Step]) -> Vec<(String, String)> {
+    steps
+        .iter()
+        .filter_map(|step| match step {
+            Step::Send(Envelope {
+                msg: Some(v1::envelope::Msg::AiLog(said)),
+            }) => Some((said.note.clone(), said.thinking.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Three answers to the same question, each the next time it is asked: the
+/// model's (a note and a reasoning, after some thought), a plan's next tap
+/// (the mind's answer, with a note but no model time) and the house's. The
+/// steps of each.
+fn the_model_a_plan_and_the_house_answer(core: &mut SeatCore) -> [Vec<Step>; 3] {
+    let question = ask_mind(core, 2, &colour());
+    let thought = Answer {
+        model_time: Duration::from_millis(1_200),
+        note: Some(r#"{"chose":"Green"}"#.into()),
+        thinking: Some("my hand is two Forests".into()),
+        ..Answer::new(GREEN)
+    };
+    let model = core.answered(question, Ok(thought));
+    let question = ask_mind(core, 3, &colour());
+    let tap = Answer {
+        note: Some(r#"{"plan":"cast Giant Growth"}"#.into()),
+        ..Answer::new(GREEN)
+    };
+    let plan = core.answered(question, Ok(tap));
+    let question = ask_mind(core, 4, &colour());
+    let house = core.answered(question, Err(MindError::Declined("no".into())));
+    [model, plan, house]
+}
+
+/// In a debug build the bridge sends what its model said beside each answer
+/// the model thought about, before the answer itself, at a table with no
+/// teams at all: the AI log is open to the table (`docs/protocol.md` §"An
+/// AI seat's reasoning"). A plan's tap and the house's answer say nothing.
+#[cfg(debug_assertions)]
+#[test]
+fn in_a_debug_build_the_model_s_reasoning_goes_out_beside_its_answer() {
+    let mut core = seated(BridgeConfig::default());
+    let [model, plan, house] = the_model_a_plan_and_the_house_answer(&mut core);
+    assert_eq!(
+        ai_logs(&model),
+        [(
+            r#"{"chose":"Green"}"#.to_string(),
+            "my hand is two Forests".to_string()
+        )]
+    );
+    assert!(
+        matches!(model.last(), Some(Step::Answer { .. })),
+        "the answer goes after it: {model:?}"
+    );
+    assert_eq!(ai_logs(&plan), [], "a plan's tap says nothing new");
+    assert_eq!(ai_logs(&house), [], "the house says nothing");
+}
+
+/// In a release build the bridge never sends a reasoning.
+#[cfg(not(debug_assertions))]
+#[test]
+fn in_a_release_build_the_model_s_reasoning_stays_with_the_bridge() {
+    let mut core = seated(BridgeConfig::default());
+    let [model, plan, house] = the_model_a_plan_and_the_house_answer(&mut core);
+    for steps in [&model, &plan, &house] {
+        assert_eq!(ai_logs(steps), [], "{steps:?}");
+    }
+    assert!(matches!(model.last(), Some(Step::Answer { .. })));
+}
+
+/// The AI log's texts are cut at a character boundary, never inside one.
+#[test]
+fn an_ai_log_text_is_cut_at_a_character_boundary() {
+    assert_eq!(cut("short", 16), "short");
+    // "ä" is two bytes: four of them are eight, and seven cuts the last.
+    assert_eq!(cut("ääää", 7), "äää");
+    assert_eq!(cut("ääää", 8), "ääää");
+    let long = "€".repeat(AI_LOG_BYTES);
+    let kept = cut(&long, AI_LOG_BYTES);
+    assert!(kept.len() <= AI_LOG_BYTES && kept.len() > AI_LOG_BYTES - 3);
+    assert!(kept.chars().all(|c| c == '€'));
+}
+
 #[test]
 fn the_budget_is_the_clock_less_the_margin_and_no_time_is_the_houses() {
     let config = BridgeConfig {

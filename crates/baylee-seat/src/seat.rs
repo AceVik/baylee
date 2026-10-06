@@ -1016,11 +1016,12 @@ impl SeatCore {
             By::Least => self.stats.answered.least += 1,
         }
         let mut steps = Vec::new();
+        // A plan's next tap is the mind's answer too, made with no model
+        // time and nothing new to say: only what the model thought about
+        // goes into the AI log.
         if by == By::Mind
-            && let Some(said) = self.reasoning(
-                answer.and_then(|a| a.note.as_deref()),
-                answer.and_then(|a| a.thinking.as_deref()),
-            )
+            && let Some(answer) = answer.filter(|a| !a.model_time.is_zero())
+            && let Some(said) = Self::reasoning(answer.note.as_deref(), answer.thinking.as_deref())
         {
             steps.push(said);
         }
@@ -1082,38 +1083,45 @@ impl SeatCore {
         });
     }
 
-    /// What the mind said beside an answer, for the teammates the table
-    /// shows this seat's hand to (`v1::AiLog`), or `None` when there is
-    /// nobody it could go to.
+    /// What the mind said beside an answer (`v1::AiLog`), in a debug build;
+    /// `None` in a release build, and when the mind said nothing.
     ///
-    /// A model's reasoning reads its whole view out loud — its hand, what it
-    /// scried — so it is never for the other side. The engine decides who
-    /// receives it, from the hand-sharing it already keeps (`docs/protocol.md`
-    /// §"An AI seat's reasoning"); the bridge only declines to send a frame
-    /// no seat could receive, which a seat on no team, or alone on its team,
-    /// is. Each one counts against the socket's rate like any frame.
-    fn reasoning(&self, note: Option<&str>, thinking: Option<&str>) -> Option<Step> {
-        if note.is_none() && thinking.is_none() {
+    /// The AI log is a debugging and sparring tool, open to the whole table
+    /// and only in debug builds (`docs/protocol.md` §"An AI seat's
+    /// reasoning"): a model's reasoning reads its whole view out loud, its
+    /// hand included, so a release bridge never sends it, and a release
+    /// engine drops one from a debug bridge. Each one counts against the
+    /// socket's rate like any frame, and each of its texts is cut at a
+    /// character boundary to [`AI_LOG_BYTES`], so it never nears the
+    /// gateway's bound on a seat's frame.
+    fn reasoning(note: Option<&str>, thinking: Option<&str>) -> Option<Step> {
+        if !cfg!(debug_assertions) || (note.is_none() && thinking.is_none()) {
             return None;
         }
-        let context = self.context.as_ref()?;
-        let me = usize::from(context.seat.get());
-        let team = context.teams.get(me).copied().flatten()?;
-        let mates = context
-            .teams
-            .iter()
-            .enumerate()
-            .any(|(seat, side)| seat != me && *side == Some(team));
-        mates.then(|| {
-            Step::Send(Envelope {
-                msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
-                    seat: 0,
-                    note: note.unwrap_or_default().to_owned(),
-                    thinking: thinking.unwrap_or_default().to_owned(),
-                })),
-            })
-        })
+        Some(Step::Send(Envelope {
+            msg: Some(v1::envelope::Msg::AiLog(v1::AiLog {
+                seat: 0,
+                note: cut(note.unwrap_or_default(), AI_LOG_BYTES).to_owned(),
+                thinking: cut(thinking.unwrap_or_default(), AI_LOG_BYTES).to_owned(),
+            })),
+        }))
     }
+}
+
+/// The most bytes of each text an `AiLog` carries: two of them stay well
+/// inside the gateway's 64 KiB bound on a seat's frame.
+const AI_LOG_BYTES: usize = 16 * 1024;
+
+/// `text`, cut to at most `max` bytes at a character boundary.
+fn cut(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let end = (0..=max)
+        .rev()
+        .find(|at| text.is_char_boundary(*at))
+        .unwrap_or(0);
+    &text[..end]
 }
 
 /// An answer, as the table reads it.

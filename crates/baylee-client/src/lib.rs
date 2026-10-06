@@ -740,10 +740,11 @@ pub struct Duel {
     pub log_open: bool,
     /// Whether the AI log's panel is open.
     pub ai_log_open: bool,
-    /// Whether a teammate's AI mind has said anything this game: the AI
-    /// log's door stands in the tray only from then on.
+    /// Whether an AI seat's mind has said anything this game: the AI log's
+    /// door stands in the tray only from then on. Never in a release build,
+    /// which has no AI log (`docs/protocol.md` §"An AI seat's reasoning").
     pub ai_log_heard: bool,
-    /// What a teammate's AI mind said and the AI log has not drawn yet:
+    /// What an AI seat's mind said and the AI log has not drawn yet:
     /// filled by `poll_host`, drained by `hud::update_ai_log`. A queue on
     /// the duel rather than a Bevy message, so every harness that runs
     /// `poll_host` runs it without registering anything.
@@ -1972,9 +1973,14 @@ fn poll_host(
                 }
             }
             HostMessage::Curtain => duel.curtain_up = true,
+            // Debug builds only (`docs/protocol.md` §"An AI seat's
+            // reasoning"): a release engine sends none, and one that came
+            // anyway is not queued, so a release client's door never stands.
             HostMessage::AiLog(ai_log) => {
-                duel.ai_log_heard = true;
-                duel.ai_said.push(ai_log);
+                if cfg!(debug_assertions) {
+                    duel.ai_log_heard = true;
+                    duel.ai_said.push(ai_log);
+                }
             }
 
             HostMessage::Preparing {

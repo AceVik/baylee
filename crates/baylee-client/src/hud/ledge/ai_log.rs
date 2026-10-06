@@ -1,12 +1,14 @@
-//! The AI log: what a teammate's AI mind said beside its answers.
+//! The AI log: what an AI seat's mind said beside its answers.
 //!
-//! The engine forwards a seat's reasoning (`v1::AiLog`) only to a teammate
-//! the table shows that seat's hand to (`docs/protocol.md` §"An AI seat's
-//! reasoning"), so whatever arrives here this seat was entitled to. The lines
-//! are worked out in `baylee_client_core::aisaid`; this draws them, in a
-//! panel beside the game log that opens from its own door in the tray. The
-//! door stands only once something has been said ([`Duel::ai_log_heard`]),
-//! so a table without an AI teammate shows no door to an empty panel.
+//! A debugging and sparring tool, in debug builds only (`docs/protocol.md`
+//! §"An AI seat's reasoning"): a debug engine forwards every seat's
+//! reasoning (`v1::AiLog`) to every other seat at the table, the other
+//! side's included, and a release build has none of it: its engine drops
+//! them, its client queues none and stands no panel. The lines are worked
+//! out in `baylee_client_core::aisaid`; this draws them, in a panel beside
+//! the game log that opens from its own door in the tray. The door stands
+//! only once something has been said ([`Duel::ai_log_heard`]), so a table
+//! without an AI mind shows no door to an empty panel.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;

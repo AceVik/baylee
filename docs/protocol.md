@@ -1177,29 +1177,42 @@ chair rules, the decline, the no-op and "moves nothing in the game" are in
 
 A seat bridge (`baylee-seat`, `docs/llm-seat.md`) may send `AiLog { note,
 thinking }` beside an answer its mind made: the note it wrote (the answer it
-chose, what it said, tokens and time) and the model's reasoning. A model
-reasons over its whole view out loud, so this is hidden information, and it
-goes exactly where the sender's hand goes:
+chose, what it said, tokens and time) and the model's reasoning. It is a
+debugging and sparring tool, and it exists **in debug builds only**
+(`cfg!(debug_assertions)`; the owner's decision of 06.10.2026):
 
-- **Only to a teammate shown the hand.** The engine-server forwards it to an
-  attached seat only while `Session::shows_hand(sender, seat)` holds (same
-  team, the sender sharing its hand with that seat, both still in a game
-  that is going, the receiver not a house-AI chair). Never to the other
-  side, never back to the sender, never to a seat without a socket, and
-  never into the game log, a view or a record.
+- **Debug builds: open to the table.** The engine-server forwards it to
+  every other attached seat, the other side included. A model reasons over
+  its whole view out loud, its hand and what it scried, so a debug engine
+  hands every seat hidden information, on purpose: never host a game for
+  people who did not come to watch the AI think on a debug engine-server.
+  Never back to the sender, never to a seat without a socket, and never
+  into the game log, a view or a record.
+- **Release builds: none.** The engine-server drops every `AiLog`, the
+  bridge sends none, and the client queues none, so its panel's door never
+  stands. Release is what is deployed and what CI's `test-release` job
+  runs, so a release build never hands one seat's reasoning to another.
 - **The engine names the sender.** `AiLog.seat` is overwritten with the seat
   the frame came from, so a socket cannot speak in another seat's name.
-- **The bridge sends only what someone could read.** It sends `AiLog` only
-  for an answer its mind made, and only when its seat has a teammate at
-  all; each one counts against the seat socket's rate like any frame.
+- **The bridge sends it for its model's answers only.** Not for a standing
+  answer, a plan's next tap (the mind's answer, made with no model time)
+  or the house's; each one counts against the seat socket's rate like any
+  frame, and its note and reasoning are cut at a character boundary to
+  16 KiB each, well inside `MAX_SEAT_FRAME`.
 - **Not a move.** No journal, hash, clock or pump; it is heard before the
   curtain as after.
 
 The client shows it in the AI log panel (`hud/ledge/ai_log.rs`, lines from
-`client-core::aisaid`), whose door stands in the tray once something has
-arrived. A residual: a teammate shown the hand also reads what else the model
-mentions — a card it scried, say. Hand sharing is the closest entitlement the
-table has; a stricter rule would be its own setting.
+`client-core::aisaid`, which cuts them at a character boundary to what a
+panel holds), whose door stands in the tray once something has arrived;
+a release client spawns no panel and queues nothing for one.
+
+Tests: one for each build at each of the three ends, `cfg`-guarded so that
+`cargo test` and CI's release run each check their own: the engine-server
+(every other attached seat, named as the sender; nobody), the bridge
+(`baylee-seat`'s `seat/tests.rs`: sent beside the model's answer; never)
+and the client (`log_feed_tests.rs`: queued and its door standing;
+dropped).
 
 `PROTOCOL_VERSION` does not move, as it did not for `FlushRecord` (#323): an
 older engine drops a seat message it does not know (`seat_frame`'s `_` arm),

@@ -37,9 +37,9 @@ pub enum HostMessage {
     /// why the client holds its outbox until then. It never comes down again
     /// in the same game.
     Curtain,
-    /// What a teammate's AI mind said beside an answer: the engine sends it
-    /// only to a seat shown that teammate's hand (`docs/protocol.md` §"An AI
-    /// seat's reasoning").
+    /// What an AI seat's mind said beside an answer: a debug engine sends it
+    /// to every other seat, a release engine to none (`docs/protocol.md`
+    /// §"An AI seat's reasoning").
     AiLog(baylee_protocol::v1::AiLog),
     /// Human preparation progress and departure relative to receipt, clock corrected.
     Preparing {

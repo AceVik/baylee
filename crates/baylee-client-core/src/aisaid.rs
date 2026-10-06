@@ -1,8 +1,8 @@
-//! What a teammate's AI mind said beside an answer (`v1::AiLog`), as lines
+//! What an AI seat's mind said beside an answer (`v1::AiLog`), as lines
 //! for the client's AI log panel.
 //!
-//! The engine forwards a seat's reasoning only to a teammate the table shows
-//! that seat's hand to (`docs/protocol.md` §"An AI seat's reasoning"), so
+//! A debug engine forwards a seat's reasoning to every other seat, and a
+//! release one to none (`docs/protocol.md` §"An AI seat's reasoning"), so
 //! nothing here decides who may read it; this only turns the two strings the
 //! bridge sends into lines. Both are text a model wrote: they are shown as
 //! data, cut to a length a panel can hold, and never parsed for anything but
