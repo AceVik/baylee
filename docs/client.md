@@ -7665,6 +7665,20 @@ offers the old package to the Trash, or keeps it; nothing is deleted unasked.
 Packages up to 0.1.0-beta.5 carry the old launcher, which switches
 installing off when translocated; they are moved by hand once.
 
+Live check, 06.10.2026, a packaged release build unpacked into a fresh
+folder (a temporary one, and one in `~/Downloads`) with
+`com.apple.quarantine` on every file: `open` ran it from
+`AppTranslocation/<id>/d/Baylee.app`; the session named the original,
+`translocated: true`, `writable: true`, and the state directory was
+`sha256(original path)`. A staged update was installed on ⌘Q, and the next
+start (a new mount id) ran the new generation from the same state directory
+without a prompt. Files the translocated client wrote carried no quarantine,
+and no privacy prompt for Downloads was logged. The copy made from the mount
+had no quarantine left, passed `codesign --verify --deep --strict`, and
+`open -n` ran it in place, not translocated, without a Gatekeeper prompt
+(`spctl -a` still says "rejected" for an ad hoc signature; macOS only
+assesses a quarantined app at launch).
+
 **Development builds.** Only a build the release workflow made
 (`BAYLEE_RELEASE_BUILD=1` at compile time, optimised, clean commit;
 `update::native::is_release_build`) replaces itself. Any other build checks
