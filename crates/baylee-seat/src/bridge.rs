@@ -31,7 +31,7 @@ use crate::mind::{Answer, Mind, MindError};
 use crate::seat::{SeatCore, Stats, Step};
 use crate::transcript::Transcript;
 use baylee_engine::win::GameResult;
-use baylee_protocol::v1::Envelope;
+use baylee_protocol::v1::{Envelope, SeatMind};
 use futures_util::{SinkExt as _, StreamExt as _};
 use prost::Message as _;
 use std::future::Future;
@@ -116,6 +116,10 @@ pub struct Swap {
     /// Called once the swap is made, at that question: the old mind has
     /// answered its last (its spend can be settled).
     pub taken: Option<Box<dyn FnOnce() + Send>>,
+    /// What the new mind says it is (`docs/protocol.md` §"Who answers a
+    /// seat, as it says"): told to the table before the new mind's first
+    /// answer, so the game's record writes the change where it happened.
+    pub declared: Option<SeatMind>,
 }
 
 impl std::fmt::Debug for Swap {
@@ -124,6 +128,7 @@ impl std::fmt::Debug for Swap {
             .field("mind", &self.mind.disclosure())
             .field("think", &self.think)
             .field("taken", &self.taken.is_some())
+            .field("declared", &self.declared.as_ref().map(|m| m.model.as_str()))
             .finish()
     }
 }
@@ -179,6 +184,8 @@ async fn run(
         asked: None,
         swaps,
         rethink: None,
+        redeclare: None,
+        declaring: Vec::new(),
     };
     let mut socket = link.connect().await?;
     if socket.is_none() {
@@ -283,6 +290,10 @@ struct Bridge {
     swaps: Option<Swaps>,
     /// The think time of a mind taken since the core was last told it.
     rethink: Option<Duration>,
+    /// What a mind taken since the core was last told it says it is.
+    redeclare: Option<SeatMind>,
+    /// The declaration's steps, sent ahead of the next steps carried out.
+    declaring: Vec<Step>,
 }
 
 impl Bridge {
@@ -295,6 +306,9 @@ impl Bridge {
         while let Ok(swap) = swaps.try_recv() {
             self.mind = swap.mind;
             self.rethink = swap.think.or(self.rethink);
+            if let Some(declared) = swap.declared {
+                self.redeclare = Some(declared);
+            }
             if let Some(taken) = swap.taken {
                 taken();
             }
@@ -311,6 +325,9 @@ impl Bridge {
         }
         if let Some(think) = self.rethink.take() {
             core.set_think(think);
+        }
+        if let Some(declared) = self.redeclare.take() {
+            self.declaring.extend(core.declare(declared));
         }
     }
 
@@ -383,7 +400,8 @@ impl Bridge {
     /// Carries out the core's steps, in order.
     async fn carry_out(&mut self, steps: Vec<Step>, mut ws: Option<&mut Socket>) -> Next {
         let mut next = Next::Go;
-        for step in steps {
+        let declaring = std::mem::take(&mut self.declaring);
+        for step in declaring.into_iter().chain(steps) {
             match step {
                 Step::Send(envelope) => {
                     if !send(ws.as_deref_mut(), &envelope).await {
@@ -589,6 +607,8 @@ mod tests {
             asked: None,
             swaps: Some(swaps),
             rethink: None,
+            redeclare: None,
+            declaring: Vec::new(),
         };
         let mut core = seated();
         let first = asked(&mut core, 2);
@@ -600,6 +620,7 @@ mod tests {
             mind: mind(ManaColor::Green),
             think: None,
             taken: Some(Box::new(move || *count.lock().unwrap() += 1)),
+            declared: None,
         })
         .unwrap_or_else(|_| panic!("the bridge listens"));
         bridge.carry_out(first, None).await;
@@ -615,6 +636,7 @@ mod tests {
             mind: mind(ManaColor::Red),
             think: None,
             taken: None,
+            declared: None,
         })
         .unwrap_or_else(|_| panic!("the bridge listens"));
         let thinking = bridge.thinking.take().unwrap();
@@ -661,12 +683,15 @@ mod tests {
             asked: None,
             swaps: Some(swaps),
             rethink: None,
+            redeclare: None,
+            declaring: Vec::new(),
         };
         let mut core = seated();
         let swap = |think| Swap {
             mind: mind(ManaColor::Green),
             think: Some(Duration::from_secs(think)),
             taken: None,
+            declared: None,
         };
         send.send(swap(7))
             .unwrap_or_else(|_| panic!("the bridge listens"));
@@ -687,4 +712,64 @@ mod tests {
         let second = asked(&mut core, 3);
         assert_eq!(budget(&second), Some(Duration::from_secs(2)));
     }
+
+    /// A mind swapped during the game says what it is before it answers:
+    /// the declaration is carried out ahead of the new mind's first
+    /// answer, so the record writes the change where it happened.
+    #[tokio::test]
+    async fn a_swapped_mind_is_declared_before_its_first_answer() {
+        let mind = |colour| -> Arc<dyn Mind> {
+            Arc::new(Named {
+                colour,
+                asked: Arc::new(Mutex::new(Vec::new())),
+            })
+        };
+        let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
+        let mut bridge = Bridge {
+            mind: mind(ManaColor::Red),
+            options: PlayOptions::default(),
+            thinking: None,
+            asked: None,
+            swaps: Some(swaps),
+            rethink: None,
+            redeclare: None,
+            declaring: Vec::new(),
+        };
+        let mut core = seated();
+        let first = asked(&mut core, 2);
+        send.send(Swap {
+            mind: mind(ManaColor::Green),
+            think: None,
+            taken: None,
+            declared: Some(v1::SeatMind {
+                kind: v1::seat_mind::Kind::LlmApi as i32,
+                provider: "anthropic".into(),
+                model: "claude-sonnet-5-5".into(),
+                effort: "high".into(),
+                level: String::new(),
+            }),
+        })
+        .unwrap_or_else(|_| panic!("the bridge listens"));
+        bridge.carry_out(first, None).await;
+        let joined = (&mut bridge.thinking.as_mut().unwrap().task).await;
+        let answer = bridge.answered(&mut core, joined).unwrap();
+        let declared: Vec<_> = bridge
+            .declaring
+            .iter()
+            .filter_map(|step| match step {
+                Step::Send(Envelope {
+                    msg: Some(v1::envelope::Msg::SeatMind(mind)),
+                }) => Some(mind.model.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(declared, ["claude-sonnet-5-5"]);
+        assert!(
+            answer.iter().any(|step| matches!(step, Step::Answer { .. })),
+            "the new mind's answer follows"
+        );
+        bridge.carry_out(answer, None).await;
+        assert!(bridge.declaring.is_empty(), "sent once, ahead of the answer");
+    }
+
 }
