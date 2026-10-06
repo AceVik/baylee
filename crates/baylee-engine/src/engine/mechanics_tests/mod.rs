@@ -17,6 +17,7 @@
 
 mod blocks;
 mod branches;
+mod control;
 mod costs;
 mod effects;
 mod mana;
