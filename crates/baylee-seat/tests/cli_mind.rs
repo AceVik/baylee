@@ -1208,6 +1208,9 @@ async fn a_running_count_of_usage_is_booked_by_its_differences_per_process() {
     let turn = base.view.turn;
     let mut second = pass(2, "");
     second["exit_after"] = json!(0);
+    // Above the old process's last reading (input 200): a reader that kept
+    // counting from it would book 2800 for this field and fail below; a
+    // value under 200 would read whole either way and prove nothing.
     let mut third = pass(3, "");
     third["usage"] = json!({"input_tokens": 3000, "output_tokens": 20,
                             "cache_creation_input_tokens": 0, "cache_read_input_tokens": 1000});
