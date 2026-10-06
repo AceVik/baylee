@@ -16,7 +16,9 @@ use baylee_seat::cli::{CliMind, Limits};
 use baylee_seat::config::{self, Overrides, Paths, Plan};
 use baylee_seat::deck::Deck;
 use baylee_seat::llm::{self, Access, Tally, prompt};
+use baylee_seat::narrator::Until;
 use baylee_seat::spend;
+use baylee_seat::wake::{Held, Why};
 use baylee_seat::{GameContext, HouseMind, Mind, MindError, Request};
 use baylee_view::LogTail;
 use common::Table;
@@ -1239,4 +1241,94 @@ async fn a_running_count_of_usage_is_booked_by_its_differences_per_process() {
         2 * 1120 + 4020,
         "the new process's first reading is its own call, whole"
     );
+}
+
+/// `request` with a spell of the other seat's on the stack.
+fn their_spell(mut request: Request) -> Request {
+    let spell = baylee_client_core::test_support::token(90, 1, "Shock", 0, 0);
+    request.view.stack = vec![spell];
+    request
+}
+
+/// An answer with a plan (`docs/llm-protocol.md` §"Plans") costs one
+/// message for every question its steps answer: the steps run against
+/// each question without the process hearing of them, and the next
+/// message reports what ran, and how the `until` the seat held after it
+/// ended, with why it woke.
+#[tokio::test]
+async fn a_plan_answers_its_questions_without_a_message_and_the_next_one_tells_it() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "plan",
+        cli(json!({})),
+        &json!({"steps": [
+            {"kind": "answer", "answer": {"ask": "q1", "pick": ["p"],
+             "plan": ["pass", "pass", "pass"], "until": "my_turn"}},
+            pass(5, ""),
+        ]}),
+    );
+    let mind = rig.mind(Limits::default());
+    for (question, left) in [(1, 3), (2, 2), (3, 1), (4, 0)] {
+        let answer = mind.decide(ask(&base, question, turn, 20)).await.unwrap();
+        assert_eq!(answer.action, PlayerAction::PassPriority, "q{question}");
+        assert_eq!(answer.planned, left, "steps left after q{question}");
+    }
+    assert_eq!(rig.messages().len(), 1, "four answers, one message");
+    // The seat held the `until` through two windows, then woke at a spell
+    // of the other seat's.
+    let mut woken = their_spell(ask(&base, 5, turn + 1, 20));
+    woken.held = Some(Held {
+        until: Until::MyTurn,
+        windows: 2,
+        woke: Some(Why::OpposingStack),
+    });
+    mind.decide(woken).await.unwrap();
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2);
+    let told = &messages[1].1;
+    assert!(told.contains("Plan q1 ran: pass · pass · pass."), "{told}");
+    assert!(
+        told.contains("until my_turn held through 2 windows; woke because P2's "),
+        "{told}"
+    );
+    assert_eq!(spent(&mind.tally()).calls, 2);
+}
+
+/// Something of the other side's on the stack is a decision no plan
+/// makes: the plan stops there, unsent, and the question goes to the
+/// model with the reason in its message.
+#[tokio::test]
+async fn an_opposing_spell_mid_plan_stops_it_and_the_model_is_told_why() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "plan-stop",
+        cli(json!({})),
+        &json!({"steps": [
+            {"kind": "answer", "answer": {"ask": "q1", "pick": ["p"],
+             "plan": ["pass", "pass"]}},
+            pass(3, ""),
+        ]}),
+    );
+    let mind = rig.mind(Limits::default());
+    for question in 1..=2 {
+        let answer = mind.decide(ask(&base, question, turn, 20)).await.unwrap();
+        assert_eq!(answer.action, PlayerAction::PassPriority);
+    }
+    assert_eq!(rig.messages().len(), 1);
+    let answer = mind
+        .decide(their_spell(ask(&base, 3, turn, 20)))
+        .await
+        .unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    assert_eq!(answer.planned, 0, "the rest of the plan is dropped");
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2, "the stop is the model's question");
+    let told = &messages[1].1;
+    assert!(
+        told.contains("Plan q1 ran: pass. Stopped at step 2 (pass): "),
+        "{told}"
+    );
+    assert!(told.contains("this question is yours."), "{told}");
 }
