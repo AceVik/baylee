@@ -19,7 +19,13 @@
 /// than the frame, which is what keeps it clickable.
 #[test]
 fn the_hover_preview_cannot_take_the_pointer_from_the_card_it_describes() {
-    let source = include_str!("../overlay.rs");
+    let source = concat!(
+        include_str!("../overlay.rs"),
+        include_str!("../overlay/preview.rs"),
+        include_str!("../overlay/surfaces.rs"),
+        include_str!("../overlay/sync.rs"),
+        include_str!("../overlay/answers.rs"),
+    );
     let needle = ".insert_recursive::<Children>(Pickable::IGNORE);";
     assert!(
         source.contains(needle),
