@@ -59,6 +59,10 @@
 //! Run it with `BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client
 //! --features dev-control`, then `curl -s localhost:28770/state`.
 
+mod perf;
+
+pub use perf::CountingAlloc;
+
 use crate::Duel;
 use crate::settings::ClientSettings;
 use baylee_client_core::Interaction;
@@ -173,6 +177,7 @@ impl Plugin for DevControlPlugin {
         // `just_pressed` by then, so a key pressed here is `just_pressed`
         // for exactly the frame that follows, the way a real one is.
         .add_systems(PreUpdate, pump.after(bevy::input::InputSystems));
+        perf::install(app);
     }
 }
 
@@ -516,6 +521,36 @@ fn clock_answer(clock: &Time<Virtual>) -> String {
     )
 }
 
+/// What `/perf`, `/hide` and `/msaa` read and switch (`perf`).
+#[derive(bevy::ecs::system::SystemParam)]
+struct Measured<'w, 's> {
+    probe: ResMut<'w, perf::Probe>,
+    hidden: ResMut<'w, perf::Hidden>,
+    entities: &'w bevy::ecs::entity::Entities,
+    cameras: Query<'w, 's, &'static mut bevy::render::view::Msaa, With<Camera>>,
+}
+
+/// `/perf`, `/hide` and `/msaa` (`perf`).
+fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
+    match path {
+        "/perf" => perf::answer(&mut measured.probe, measured.entities, flag(body, "reset")),
+        "/hide" => match field(body, "what") {
+            Some(what) => perf::set_hidden(
+                &mut measured.hidden,
+                what,
+                field(body, "hidden") != Some("false"),
+            ),
+            None => r#"{"error":"no what"}"#.to_string(),
+        },
+        _ => perf::set_msaa(
+            &mut measured.cameras,
+            field(body, "samples")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+        ),
+    }
+}
+
 /// Drains the request queue once per frame and answers it.
 #[allow(clippy::too_many_arguments)]
 fn pump(
@@ -531,6 +566,7 @@ fn pump(
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
     believed: Believed,
     mut clock: ResMut<Time<Virtual>>,
+    mut measured: Measured,
 ) {
     control.frame += 1;
     catch_the_clock(&mut control, &mut clock);
@@ -634,6 +670,7 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
+            "/perf" | "/hide" | "/msaa" => measure(&job.path, &job.body, &mut measured),
             "/step" => {
                 start_step(&job.body, &mut control, &mut clock, job.reply);
                 continue;
