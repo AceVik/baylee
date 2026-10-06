@@ -539,6 +539,22 @@ impl Usage {
         self.input + self.output + self.cache_write + self.cache_read
     }
 
+    /// What this reading of a running count adds to `earlier`, the reading
+    /// before it from the same count: field by field, and a field that went
+    /// back (the count began again) is read whole.
+    #[must_use]
+    pub const fn since(self, earlier: Self) -> Self {
+        const fn step(now: u64, then: u64) -> u64 {
+            if now >= then { now - then } else { now }
+        }
+        Self {
+            input: step(self.input, earlier.input),
+            output: step(self.output, earlier.output),
+            cache_write: step(self.cache_write, earlier.cache_write),
+            cache_read: step(self.cache_read, earlier.cache_read),
+        }
+    }
+
     /// What it cost at `price`.
     #[must_use]
     pub fn cost(&self, price: Price) -> f64 {

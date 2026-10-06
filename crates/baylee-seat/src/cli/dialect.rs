@@ -41,6 +41,13 @@ pub(crate) trait Dialect: Send + Sync {
     /// The line that sends `text` as the conversation's next message.
     fn stdin_line(&self, text: &str) -> String;
 
+    /// Whether a reply's usage is the process's running count since it
+    /// started rather than the reply's own: then each call is booked as the
+    /// difference to the reading before it from the same process, and a new
+    /// process counts from nothing again. Summing running counts would book
+    /// a long conversation many times over.
+    fn usage_is_cumulative(&self) -> bool;
+
     /// Reads one line of the process's output. `trouble` carries what an
     /// earlier line of the same reply said went wrong to the line that
     /// ends it.

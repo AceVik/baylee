@@ -230,7 +230,14 @@ owner to check before playing.
   about 100,000 tokens, across turns), so a game takes far more tokens
   than through an API, most of them read from the cache: `game_tokens` is
   20,000,000 by default. Each call is held at its worst before it is sent:
-  the whole conversation so far as input, and the reply. Under the caps a cli game reserves its `game_tokens` against
+  the whole conversation so far as input, and the reply. Each call is
+  booked by what it used, per dialect: Claude Code's `result.usage` covers
+  only that turn (the Agent SDK's cost-tracking page, "Track costs in
+  streaming input mode"), and is booked as it stands; `agy` reports the
+  process's running count (read off recorded games, not from its docs), so
+  each reply is booked as the difference to the process's reading before
+  it, and a new process counts from nothing again
+  (`Dialect::usage_is_cumulative`). Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
   default, `--spend-calls`) is held like a budget, and the summary says

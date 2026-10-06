@@ -70,6 +70,14 @@ impl Dialect for Agy {
         .to_string()
     }
 
+    fn usage_is_cumulative(&self) -> bool {
+        // Read off recorded games: a process's `input_tokens` and
+        // `cache_read_tokens` only grow from reply to reply and begin again
+        // with a new process (one game booked 19.7 M tokens summed, about
+        // 3.2 M as differences).
+        true
+    }
+
     fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;

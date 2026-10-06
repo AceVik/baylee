@@ -791,6 +791,7 @@ impl CliMind {
                 seat,
                 seats: Arc::downgrade(&self.seats),
                 locked_out: Arc::clone(&self.locked_out),
+                counted: Usage::default(),
             }
             .run(stdout),
         );
@@ -1207,6 +1208,10 @@ struct Reader {
     /// all their processes.
     seats: Weak<Seats>,
     locked_out: LockedOut,
+    /// The last usage this process reported, for a dialect that reports a
+    /// running count ([`Dialect::usage_is_cumulative`]): one reader a
+    /// process, so a new process counts from nothing again.
+    counted: Usage,
 }
 
 impl Reader {
@@ -1217,7 +1222,7 @@ impl Reader {
     /// processes before any question waiting hears it. A rate limit before
     /// any start carries no answer and breaks nothing: reading stops there
     /// ([`Gone::Limited`]), and the mind cools down instead.
-    async fn run(self, stdout: ChildStdout) {
+    async fn run(mut self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
         let mut trouble = None;
@@ -1272,10 +1277,20 @@ impl Reader {
     }
 
     /// Hands `outcome` to the oldest question waiting, after counting it:
-    /// its tokens as the tool counted them, at its worst where it did not
-    /// say, nothing for a rate limit. An answer nobody waits for any more
-    /// is noted as late for the seat's next message.
-    fn reply(&self, outcome: Outcome) {
+    /// its tokens as the tool counted them (for a running count, what it
+    /// grew by since the process's last reading), at its worst where it did
+    /// not say, nothing for a rate limit. An answer nobody waits for any
+    /// more is noted as late for the seat's next message.
+    fn reply(&mut self, mut outcome: Outcome) {
+        if let Outcome::Answer {
+            usage: Some(usage), ..
+        } = &mut outcome
+            && self.dialect.usage_is_cumulative()
+        {
+            let reading = *usage;
+            *usage = reading.since(self.counted);
+            self.counted = reading;
+        }
         let Some(waiter) = lock(&self.queue).waiting.pop_front() else {
             return;
         };

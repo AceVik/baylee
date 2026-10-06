@@ -29,6 +29,11 @@
 //! next message: a process that dies between two questions. Past the last
 //! step it exits.
 //!
+//! `cumulative_usage: true` reports each reply's usage as the process's
+//! running count since it started, as agy does. Started as agy is (its
+//! `--input-format` first, no `-p`), it says its `init` and its answers in
+//! agy's shape; only `answer` steps.
+//!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
 //! directory, how many entries that holds and, on Unix, its and its
@@ -45,7 +50,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let auth = args.get(1..) == Some(&["auth".into(), "status".into(), "--json".into()][..]);
-    if !auth && args.get(1).map(String::as_str) != Some("-p") {
+    // Claude Code is started with `-p`, agy with its `--input-format`.
+    let agy = args.get(1).map(String::as_str) == Some("--input-format");
+    if !auth && !agy && args.get(1).map(String::as_str) != Some("-p") {
         // Run as a test binary (`--all-targets`, nextest's listing): it has
         // no tests, and touches nothing.
         return;
@@ -82,7 +89,12 @@ fn main() {
         say(&json!({"loggedIn": logged_in, "authMethod": "fake"}));
         std::process::exit(i32::from(!logged_in));
     }
-    let mut init = init(&config, pid);
+    let mut init = init(&config, pid).map(|line| if agy { agy_init(&line) } else { line });
+    let cumulative = config
+        .get("cumulative_usage")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut running = Usage::default();
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
         dump(&log, &json!({"pid": pid, "stdin": line}));
@@ -102,7 +114,16 @@ fn main() {
         if step.get("kind").and_then(Value::as_str) == Some("exit") {
             dump(&log, &json!({"pid": pid, "exit": step.get("code")}));
         }
-        play(&step);
+        let mut step = step;
+        if cumulative {
+            running.add(&usage_of(&step));
+            step["usage"] = running.json();
+        }
+        if agy {
+            play_agy(&step);
+        } else {
+            play(&step);
+        }
         if let Some(code) = step.get("exit_after").and_then(Value::as_i64) {
             dump(&log, &json!({"pid": pid, "exit": code}));
             eprintln!("fake: exiting with {code} after its reply");
@@ -136,12 +157,70 @@ fn init(config: &Value, pid: u32) -> Option<Value> {
     Some(init)
 }
 
+/// A reply's usage when the step names none.
+fn default_usage() -> Value {
+    json!({"input_tokens": 100, "output_tokens": 20,
+           "cache_creation_input_tokens": 0, "cache_read_input_tokens": 1000})
+}
+
+/// The usage a step's reply reports on its own: the step's, else the default.
+fn usage_of(step: &Value) -> Usage {
+    let usage = step.get("usage").cloned().unwrap_or_else(default_usage);
+    let n = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
+    Usage {
+        input: n("input_tokens"),
+        output: n("output_tokens"),
+        cache_write: n("cache_creation_input_tokens"),
+        cache_read: n("cache_read_input_tokens"),
+    }
+}
+
+/// A process's running count of what it used, for `cumulative_usage`.
+#[derive(Default)]
+struct Usage {
+    input: u64,
+    output: u64,
+    cache_write: u64,
+    cache_read: u64,
+}
+
+impl Usage {
+    fn add(&mut self, other: &Self) {
+        self.input += other.input;
+        self.output += other.output;
+        self.cache_write += other.cache_write;
+        self.cache_read += other.cache_read;
+    }
+
+    fn json(&self) -> Value {
+        json!({"input_tokens": self.input, "output_tokens": self.output,
+               "cache_creation_input_tokens": self.cache_write,
+               "cache_read_input_tokens": self.cache_read})
+    }
+}
+
+/// Claude Code's `init` line as agy says it.
+fn agy_init(line: &Value) -> Value {
+    json!({"event": "init", "init": line})
+}
+
+/// Answers one message as agy would: only `answer` steps, with agy's
+/// `cache_read_tokens` for Claude Code's `cache_read_input_tokens`.
+fn play_agy(step: &Value) {
+    let kind = step.get("kind").and_then(Value::as_str).unwrap_or("answer");
+    assert_eq!(kind, "answer", "the fake speaks only answers as agy");
+    let answer = step.get("answer").cloned().unwrap_or(Value::Null);
+    let usage = step.get("usage").cloned().unwrap_or_else(default_usage);
+    let n = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
+    say(&json!({"event": "result", "result": {
+        "status": "SUCCESS", "response": answer.to_string(), "structured_output": answer,
+        "usage": {"input_tokens": n("input_tokens"), "output_tokens": n("output_tokens"),
+                  "cache_read_tokens": n("cache_read_input_tokens")}}}));
+}
+
 /// Answers one message as `step` says.
 fn play(step: &Value) {
-    let usage = step.get("usage").cloned().unwrap_or_else(|| {
-        json!({"input_tokens": 100, "output_tokens": 20,
-               "cache_creation_input_tokens": 0, "cache_read_input_tokens": 1000})
-    });
+    let usage = step.get("usage").cloned().unwrap_or_else(default_usage);
     match step.get("kind").and_then(Value::as_str).unwrap_or("answer") {
         "answer" => {
             let answer = step.get("answer").cloned().unwrap_or(Value::Null);

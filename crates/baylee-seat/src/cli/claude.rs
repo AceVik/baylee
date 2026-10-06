@@ -93,6 +93,13 @@ impl Dialect for Claude {
         json!({"type": "user", "message": {"role": "user", "content": text}}).to_string()
     }
 
+    fn usage_is_cumulative(&self) -> bool {
+        // The Agent SDK's cost-tracking page, "Track costs in streaming
+        // input mode": each turn's result `usage` "covers only that turn";
+        // `total_cost_usd` is the running total, and is not read here.
+        false
+    }
+
     fn read_event(&self, line: &str, trouble: &mut Option<String>) -> Event {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
