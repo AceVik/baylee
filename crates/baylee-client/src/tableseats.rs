@@ -18,9 +18,11 @@
 use baylee_client_core::llmseat::models::{Resolved, listing_url, parse_listing};
 pub(crate) use baylee_client_core::llmseat::seating::Phase;
 use baylee_client_core::llmseat::seating::{
-    ChairModel, Change, DECKS, LIVE_CHANGES, Launch, Refusal, Running, Seating, Step, bridge_args,
-    endpoint, models_for, resolved,
+    ChairModel, Change, DECKS, LIVE_CHANGES, Refusal, Seating, endpoint, models_for, resolved,
 };
+// What runs the bridges: a native build's only.
+#[cfg(not(target_arch = "wasm32"))]
+use baylee_client_core::llmseat::seating::{Launch, Running, Step, bridge_args};
 use baylee_client_core::llmseat::{Profile, SeatSettings};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -66,6 +68,8 @@ type Listings = Arc<Mutex<Vec<(String, Vec<String>)>>>;
 
 /// The settings file as last read.
 struct File {
+    /// Named to the bridges, which a browser does not run.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     path: String,
     settings: Result<Option<SeatSettings>, String>,
 }

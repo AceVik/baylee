@@ -25,7 +25,9 @@ use crate::lobby::{
     FieldLook, Metrics, Press, button, chip, heading, note, panel, row, text_field,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
-use baylee_client_core::llmseat::keys::{KeyDesk, KeyEntry, KeyState};
+#[cfg(not(target_arch = "wasm32"))]
+use baylee_client_core::llmseat::keys::KeyEntry;
+use baylee_client_core::llmseat::keys::{KeyDesk, KeyState};
 use baylee_client_core::llmseat::panel::{Act, Disk, PanelFault, Saved, SeatPanel, Slot, Spot};
 use baylee_client_core::llmseat::seating::{Preset, protocol_label};
 use baylee_client_core::llmseat::{AnswerMode, CapField, Provider};
@@ -172,6 +174,7 @@ impl SeatDesk {
     }
 
     /// The entry the shown profile keeps its key under, as its boxes say.
+    #[cfg(not(target_arch = "wasm32"))]
     fn shown_entry(&self) -> Option<(usize, KeyEntry)> {
         let panel = self.panel()?;
         let at = panel.selected()?;
