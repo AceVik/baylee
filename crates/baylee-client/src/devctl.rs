@@ -528,9 +528,11 @@ struct Measured<'w, 's> {
     hidden: ResMut<'w, perf::Hidden>,
     entities: &'w bevy::ecs::entity::Entities,
     cameras: Query<'w, 's, &'static mut bevy::render::view::Msaa, With<Camera>>,
+    schedules: ResMut<'w, Schedules>,
 }
 
-/// `/perf`, `/hide` and `/msaa` (`perf`).
+/// `/perf`, `/hide`, `/msaa` and `/executor` (`perf`), and the answer to a
+/// path that is none of the routes.
 fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
     match path {
         "/perf" => perf::answer(&mut measured.probe, measured.entities, flag(body, "reset")),
@@ -542,12 +544,14 @@ fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
             ),
             None => r#"{"error":"no what"}"#.to_string(),
         },
-        _ => perf::set_msaa(
+        "/executor" => perf::set_executor(&mut measured.schedules, flag(body, "single")),
+        "/msaa" => perf::set_msaa(
             &mut measured.cameras,
             field(body, "samples")
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(0),
         ),
+        other => format!("{{\"error\":\"no such endpoint: {other}\"}}"),
     }
 }
 
@@ -670,12 +674,11 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
-            "/perf" | "/hide" | "/msaa" => measure(&job.path, &job.body, &mut measured),
             "/step" => {
                 start_step(&job.body, &mut control, &mut clock, job.reply);
                 continue;
             }
-            other => format!("{{\"error\":\"no such endpoint: {other}\"}}"),
+            other => measure(other, &job.body, &mut measured),
         };
         let _ = job.reply.send(answer);
     }
@@ -2436,6 +2439,8 @@ mod tests {
                 stepping: None,
                 frame: 0,
             })
+            .init_resource::<perf::Probe>()
+            .init_resource::<perf::Hidden>()
             .add_systems(Update, pump);
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         (app, tx)
@@ -2748,6 +2753,41 @@ mod tests {
         let keys = app.world().resource::<ButtonInput<KeyCode>>();
         assert!(!keys.pressed(KeyCode::Space));
         assert!(!keys.pressed(KeyCode::ShiftLeft));
+    }
+
+    /// The measuring routes answer through the same pump: `/perf` reports a
+    /// window and starts a new one, `/hide` names what it took away,
+    /// `/executor` switches every schedule it can reach, and a path that is
+    /// no route is still refused by name.
+    #[test]
+    fn the_measuring_routes_answer_and_an_unknown_path_is_refused() {
+        let (mut app, tx) = harness();
+        let perf = ask(&tx, "/perf", r#"{"reset":true}"#);
+        let hide = ask(&tx, "/hide", r#"{"what":"felt"}"#);
+        let executor = ask(&tx, "/executor", r#"{"single":true}"#);
+        let nowhere = ask(&tx, "/nowhere", "{}");
+        app.update();
+        let perf = perf.try_recv().expect("answered");
+        assert!(
+            perf.contains("\"frame_ms\"") && perf.contains("\"entities\""),
+            "{perf}"
+        );
+        assert_eq!(
+            hide.try_recv().expect("answered"),
+            r#"{"ok":true,"hidden":["felt"]}"#
+        );
+        assert!(
+            executor
+                .try_recv()
+                .expect("answered")
+                .contains("\"single\":true")
+        );
+        assert!(
+            nowhere
+                .try_recv()
+                .expect("answered")
+                .contains("no such endpoint: /nowhere")
+        );
     }
 
     /// A tenth speed is a tenth of the picture, not a flag saying so.

@@ -286,6 +286,24 @@ type HiddenQuery<'w, 's, C> = Query<'w, 's, (Entity, &'static mut Visibility), W
 /// What each hidden entity's visibility was before it was hidden.
 type Kept<'s> = Local<'s, HashMap<Entity, Visibility>>;
 
+/// `/executor {"single":true}`: every main-world schedule but the one
+/// running this on one thread, or (`false`) back on the task pool — to
+/// measure what the multi-threaded executor's wake-ups cost a client whose
+/// systems are mostly a few microseconds each.
+pub(super) fn set_executor(schedules: &mut Schedules, single: bool) -> String {
+    use bevy::ecs::schedule::{MultiThreadedExecutor, SingleThreadedExecutor};
+    let mut set = 0;
+    for (_, schedule) in schedules.iter_mut() {
+        if single {
+            schedule.set_executor(SingleThreadedExecutor::new());
+        } else {
+            schedule.set_executor(MultiThreadedExecutor::new());
+        }
+        set += 1;
+    }
+    format!("{{\"ok\":true,\"single\":{single},\"schedules\":{set}}}")
+}
+
 /// Keeps every entity wearing `C` hidden while its kind is asked to be, and
 /// gives each back the visibility it had once it is not.
 ///
