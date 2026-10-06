@@ -1138,13 +1138,21 @@ impl ApiMind {
 
     /// Whether the endpoint answers: the model's entry, or the model list.
     async fn probe(&self) -> bool {
+        self.check_endpoint().await.is_ok()
+    }
+
+    /// [`Self::probe`], saying why not: refused (a key the provider does
+    /// not take), a model it does not know, another answer, or no answer.
+    /// A `GET` that costs nothing; the sentence never carries the key.
+    async fn check_endpoint(&self) -> Result<(), String> {
         let url = match self.credentials.api {
             Api::Anthropic => anthropic::model_url(&self.credentials.base, &self.settings.model),
             Api::OpenAi => openai::models_url(&self.credentials.base),
         };
         let headers = self.headers();
         let agent = self.agent.clone();
-        tokio::task::spawn_blocking(move || {
+        let model = self.settings.model.clone();
+        let answered = tokio::task::spawn_blocking(move || {
             let mut request = agent.get(&url);
             for (name, value) in &headers {
                 if *name != "content-type" {
@@ -1156,10 +1164,29 @@ impl ApiMind {
                 .timeout_global(Some(Duration::from_secs(10)))
                 .build()
                 .call()
-                .is_ok_and(|answer| answer.status().is_success())
+                .map(|answer| answer.status().as_u16())
+                .map_err(|e| e.to_string())
         })
         .await
-        .unwrap_or(false)
+        .map_err(|e| e.to_string())
+        .and_then(|answered| answered);
+        let key = self.credentials.key.as_ref();
+        match answered {
+            Ok(status) if (200..300).contains(&status) => Ok(()),
+            Ok(status @ (401 | 403)) => Err(format!(
+                "the provider refused the key (HTTP {status}): check the key the profile names"
+            )),
+            Ok(404) => Err(format!(
+                "the provider does not know the model «{model}» (HTTP 404)"
+            )),
+            Ok(status) => Err(format!(
+                "the provider answered HTTP {status} when asked about the model"
+            )),
+            Err(why) => Err(format!(
+                "the provider could not be reached: {}",
+                scrub(&why, key)
+            )),
+        }
     }
 }
 
@@ -1503,5 +1530,9 @@ impl Mind for ApiMind {
 
     fn ready(&self) -> Readiness<'_> {
         Box::pin(self.probe())
+    }
+
+    fn check(&self) -> crate::mind::Checked<'_> {
+        Box::pin(self.check_endpoint())
     }
 }

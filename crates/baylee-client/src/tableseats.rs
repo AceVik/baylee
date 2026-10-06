@@ -15,6 +15,7 @@
 //! Desktop and a gateway only: a browser and a phone have no bridge beside
 //! them, and an offline table (`LocalHost`) is the house's alone.
 
+use baylee_client_core::llmseat::door::{Admission, Doors, admission_for, ticket_request};
 use baylee_client_core::llmseat::models::{Resolved, listing_url, parse_listing};
 pub(crate) use baylee_client_core::llmseat::seating::Phase;
 use baylee_client_core::llmseat::seating::{
@@ -37,7 +38,18 @@ pub(crate) struct Room<'a> {
     pub(crate) phase: Phase,
     /// The chairs no one sits in and the host has left open.
     pub(crate) open: Vec<u32>,
+    /// The host's session at the gateway, which asks for a chair's ticket
+    /// (`baylee_client_core::llmseat::door`).
+    pub(crate) session: Option<&'a str>,
+    /// Whether the host is a guest, who is handed no chair ticket.
+    pub(crate) host_is_guest: bool,
+    /// Whether the gateway takes guests, the bridge's door without one.
+    pub(crate) guests: bool,
 }
+
+/// Chair tickets that came back, waiting to be taken: the chair, the plan
+/// version asked for, and the status and body (`None` for no answer).
+type Tickets = Arc<Mutex<Vec<(u32, u64, Option<(u16, String)>)>>>;
 
 /// What the host can press for a language-model chair.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -100,6 +112,11 @@ pub(crate) struct TableSeats {
     /// Listings asked for, answered or not.
     asked: BTreeSet<String>,
     answers: Listings,
+    /// Chair tickets asked for and not answered yet.
+    doors: Doors,
+    /// Chair tickets answered, waiting to be taken.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    tickets: Tickets,
     /// Counts every change the in-game panel draws, so it rebuilds only on
     /// one.
     pub(crate) revision: u64,
@@ -453,7 +470,8 @@ impl TableSeats {
                 self.said.clear();
                 self.revision += 1;
             }
-            self.run(Phase::Waiting, &[], None, None);
+            self.doors = Doors::default();
+            self.run(Phase::Waiting, &[], None);
             return;
         };
         if self.seating.room() != Some(room.id) {
@@ -464,7 +482,8 @@ impl TableSeats {
             self.revision += 1;
         }
         self.ask_listings();
-        self.run(room.phase, &room.open, Some(room.id), Some(room.gateway));
+        self.land_tickets(&room);
+        self.run(room.phase, &room.open, Some(&room));
     }
 
     /// Notes what the bridges said since the last look. A bridge's last line
@@ -488,7 +507,7 @@ impl TableSeats {
 
     /// Starts and stops what [`Seating::steps`] says.
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
-    fn run(&mut self, phase: Phase, open: &[u32], room: Option<&str>, gateway: Option<&str>) {
+    fn run(&mut self, phase: Phase, open: &[u32], room: Option<&Room<'_>>) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut running: Vec<Running> = self
@@ -513,23 +532,109 @@ impl TableSeats {
                 version: *version,
                 exited: true,
             }));
+            // A chair waiting for its ticket is as good as started.
+            running.extend(self.doors.running());
             for step in self.seating.steps(phase, open, &running) {
                 self.revision += 1;
                 match step {
                     Step::Stop(chair) => {
                         self.bridges.remove(&chair);
+                        self.doors.forget(chair);
                     }
-                    Step::Launch(chair) => self.launch(chair, room, gateway),
+                    Step::Launch(chair) => {
+                        if let Some(room) = room {
+                            self.admit(chair, room);
+                        }
+                    }
                 }
             }
         }
     }
 
+    /// How `chair`'s bridge is to get in: a host signed in to an account
+    /// asks the gateway for a chair ticket first, and the bridge starts when
+    /// it comes ([`Self::land_tickets`]); a guest host's bridge goes in as a
+    /// guest, where the gateway takes guests.
     #[cfg(not(target_arch = "wasm32"))]
-    fn launch(&mut self, chair: u32, room: Option<&str>, gateway: Option<&str>) {
-        let (Some(room), Some(gateway)) = (room, gateway) else {
+    fn admit(&mut self, chair: u32, room: &Room<'_>) {
+        let Some(version) = self.seating.chair(chair).map(|p| p.version) else {
             return;
         };
+        match admission_for(room.host_is_guest, room.guests) {
+            Ok(Some(admission)) => self.launch(chair, room.id, room.gateway, &admission),
+            Ok(None) => {
+                let Some(session) = room.session else {
+                    self.said
+                        .insert(chair, "sign in to seat a language model".into());
+                    self.failed.insert(chair, version);
+                    return;
+                };
+                self.doors.ask(chair, version);
+                let url = format!(
+                    "{}{}",
+                    room.gateway.trim_end_matches('/'),
+                    ticket_request(room.id, chair)
+                );
+                let mut request = ehttp::Request::post(url, b"{}".to_vec());
+                request.headers = ehttp::Headers::new(&[
+                    ("Accept", "application/json"),
+                    ("Content-Type", "application/json"),
+                ]);
+                request
+                    .headers
+                    .insert("Authorization", format!("Bearer {session}"));
+                let tickets = Arc::clone(&self.tickets);
+                crate::transport::fetch(request, move |result| {
+                    let answer = result
+                        .ok()
+                        .map(|r| (r.status, r.text().map(str::to_string).unwrap_or_default()));
+                    tickets
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push((chair, version, answer));
+                });
+            }
+            Err(why) => {
+                self.said.insert(chair, why);
+                self.failed.insert(chair, version);
+            }
+        }
+    }
+
+    /// Takes the chair tickets that came back: a bridge starts on each one
+    /// still waited for, or on a guest's door where the gateway took no
+    /// ticket and takes guests; otherwise the chair says why it is empty.
+    fn land_tickets(&mut self, room: &Room<'_>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let landed =
+                std::mem::take(&mut *self.tickets.lock().unwrap_or_else(PoisonError::into_inner));
+            for (chair, version, answer) in landed {
+                let answer = answer
+                    .as_ref()
+                    .map(|(status, body)| (*status, body.as_str()));
+                match self.doors.answered(chair, version, answer, room.guests) {
+                    None => {}
+                    Some(Ok(admission)) => {
+                        let current = self.seating.chair(chair).map(|p| p.version);
+                        if current == Some(version) && room.phase == Phase::Waiting {
+                            self.launch(chair, room.id, room.gateway, &admission);
+                        }
+                    }
+                    Some(Err(why)) => {
+                        self.said.insert(chair, why);
+                        self.failed.insert(chair, version);
+                    }
+                }
+                self.revision += 1;
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = room;
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn launch(&mut self, chair: u32, room: &str, gateway: &str, admission: &Admission) {
         let Some(planned) = self.seating.chair(chair) else {
             return;
         };
@@ -553,11 +658,13 @@ impl TableSeats {
                 config: &file.path,
                 deck: &deck,
                 level,
+                chair_ticket: admission.on_ticket(),
             },
             &model,
             &profile,
         );
-        match crate::seatbin::Bridge::start(&args, self.password.as_deref()) {
+        let ticket = admission.stdin();
+        match crate::seatbin::Bridge::start(&args, self.password.as_deref(), ticket.as_deref()) {
             Ok(bridge) => {
                 self.said.remove(&chair);
                 self.bridges.insert(chair, (version, bridge));
@@ -662,11 +769,17 @@ pub(crate) fn reconcile(mut state: bevy::prelude::ResMut<crate::lobby::LobbyStat
             (game.id.clone(), phase, open)
         });
     let gateway = lobby_state.gateway.clone();
+    let session = lobby_state.lobby.token().map(str::to_string);
+    let host_is_guest = lobby_state.lobby.guest();
+    let guests = lobby_state.lobby.guests_enabled();
     let room = hosted.as_ref().map(|(id, phase, open)| Room {
         id,
         gateway: &gateway,
         phase: *phase,
         open: open.clone(),
+        session: session.as_deref(),
+        host_is_guest,
+        guests,
     });
     lobby_state.llm.reconcile(room);
     if lobby_state.llm.revision != before {

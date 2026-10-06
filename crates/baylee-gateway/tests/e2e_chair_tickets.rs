@@ -220,9 +220,39 @@ async fn a_hosts_bridge_sits_where_no_guest_may_and_the_record_names_the_host() 
     assert_eq!(chair["taken"], true, "{listed}");
     assert_eq!(chair["player"], "LLM-test", "{listed}");
     assert_eq!(chair["delegated_by"], listed["host"], "{listed}");
-    assert_eq!(chair["ready"], true, "{listed}");
     assert_eq!(chair["you"], false, "{listed}");
     assert_eq!(listed["seats"][0]["delegated_by"], serde_json::Value::Null);
+    // Not ready until the bridge says its mind answered: the room waits.
+    assert_eq!(chair["ready"], false, "{listed}");
+    assert_eq!(listed["startable"], false, "{listed}");
+    let (status, _) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game}/start"),
+        Some(&host),
+        "{}",
+    );
+    assert_eq!(status, 409, "not everyone is ready");
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game}/chair/ready"),
+        Some(&seat_token),
+        "{}",
+    );
+    assert_eq!(status, 204, "{body}");
+    // The host rearranging the table takes a person's yes back, and not the
+    // bridge's: that says the model can play, not that it likes the table.
+    let (status, body) = http(
+        port,
+        "POST",
+        &format!("/lobby/games/{game}/seats/0"),
+        Some(&host),
+        r#"{"team":1}"#,
+    );
+    assert_eq!(status, 200, "{body}");
+    let listed = row(port, &host, &game);
+    assert_eq!(listed["seats"][1]["ready"], true, "{listed}");
     assert_eq!(listed["startable"], true, "{listed}");
 
     // The bridge asks after its chair with its seat token.
@@ -455,6 +485,9 @@ async fn a_host_who_goes_takes_its_tickets_and_its_bridges_with_it() {
     );
     let players_seat = json_field(&body, "seat_token").to_string();
     assert_eq!(http(port, "POST", &leave, Some(&players_seat), "{}").0, 403);
+    let ready = format!("/lobby/games/{game}/chair/ready");
+    assert_eq!(http(port, "POST", &ready, Some(&players_seat), "{}").0, 403);
+    assert_eq!(http(port, "POST", &ready, Some(&gone), "{}").0, 401);
 
     // The host takes a chair back by arranging it.
     let (status, body) = redeem(port, &ticket(port, &host, &game, 1), &game, 1);

@@ -59,6 +59,9 @@ pub type Deliberation<'a> =
 /// Whether a mind that was down can answer again: [`Mind::ready`].
 pub type Readiness<'a> = Pin<Box<dyn Future<Output = bool> + Send + 'a>>;
 
+/// Whether a mind can play at all, and why not: [`Mind::check`].
+pub type Checked<'a> = Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>>;
+
 /// Whatever answers a seat's real decisions.
 ///
 /// Implemented by the house ([`crate::HouseMind`]), by test scripts
@@ -88,6 +91,22 @@ pub trait Mind: Send + Sync {
     fn ready(&self) -> Readiness<'_> {
         Box::pin(std::future::ready(true))
     }
+
+    /// Whether the mind can play at all, asked once after the bridge sat
+    /// down and before its chair says ready, so a room never starts a game
+    /// with a chair whose model cannot answer: the cheapest question its
+    /// provider takes (a model's entry or the model list, a CLI's login
+    /// check), never a game's call. `Err` says why, in a sentence for the
+    /// chair's card, never with a key in it. By default [`Mind::ready`].
+    fn check(&self) -> Checked<'_> {
+        Box::pin(async move {
+            if self.ready().await {
+                Ok(())
+            } else {
+                Err("the mind is not ready to play".to_string())
+            }
+        })
+    }
 }
 
 impl<M: Mind + ?Sized> Mind for Arc<M> {
@@ -102,6 +121,10 @@ impl<M: Mind + ?Sized> Mind for Arc<M> {
     fn ready(&self) -> Readiness<'_> {
         (**self).ready()
     }
+
+    fn check(&self) -> Checked<'_> {
+        (**self).check()
+    }
 }
 
 impl<M: Mind + ?Sized> Mind for Box<M> {
@@ -115,6 +138,10 @@ impl<M: Mind + ?Sized> Mind for Box<M> {
 
     fn ready(&self) -> Readiness<'_> {
         (**self).ready()
+    }
+
+    fn check(&self) -> Checked<'_> {
+        (**self).check()
     }
 }
 

@@ -13,6 +13,7 @@
 use crate::llm::{Settings, Tally};
 use baylee_client_core::llmseat::ledger::{Ask, Book, Budget, Grant, Moment};
 use baylee_client_core::llmseat::{Caps, FIRST_CALL_BYTES};
+use baylee_client_core::say_err;
 use std::sync::{Arc, Mutex, PoisonError};
 
 /// The player's clock now: the Unix time, and its offset from UTC where
@@ -164,7 +165,7 @@ impl Booked {
 impl Drop for Booked {
     fn drop(&mut self) {
         if let Err(why) = self.settle(now()) {
-            eprintln!("the game's reservation stays counted in full: {why}");
+            say_err!("the game's reservation stays counted in full: {why}");
         }
     }
 }

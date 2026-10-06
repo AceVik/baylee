@@ -35,6 +35,7 @@ use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
 use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyEntry, KeyStore};
 use baylee_client_core::llmseat::ledger::Moment;
 use baylee_client_core::llmseat::seating::Order;
+use baylee_client_core::{say, say_err};
 use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
@@ -479,14 +480,27 @@ fn no_key_in(
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
-    let done = runtime.block_on(run());
-    // A stopped game has settled by now (`stopped`). A request still out,
-    // such as a lobby call waiting on its timeout, is not waited for: a
-    // process that was asked to stop stops.
-    runtime.shutdown_timeout(Duration::from_secs(1));
-    done
+fn main() -> std::process::ExitCode {
+    let done = tokio::runtime::Runtime::new()
+        .map_err(anyhow::Error::from)
+        .and_then(|runtime| {
+            let done = runtime.block_on(run());
+            // A stopped game has settled by now (`stopped`). A request
+            // still out, such as a lobby call waiting on its timeout, is not
+            // waited for: a process that was asked to stop stops.
+            runtime.shutdown_timeout(Duration::from_secs(1));
+            done
+        });
+    match done {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        // As `main` returning the error would say it, without the panic
+        // that saying it to a closed stderr would be (`quiet`): the last
+        // line is what a host's client shows under the chair.
+        Err(e) => {
+            say_err!("Error: {e:?}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }
 
 async fn run() -> anyhow::Result<()> {
@@ -547,7 +561,7 @@ fn key_command(
     store: &dyn KeyStore,
 ) -> anyhow::Result<()> {
     let line = key_line(key, env, store, &mut std::io::stdin().lock())?;
-    println!("{line}");
+    say!("{line}");
     Ok(())
 }
 
@@ -654,9 +668,9 @@ async fn leave_unstarted(unstarted: &Unstarted) {
             }
         };
         match tokio::time::timeout(Duration::from_secs(2), left).await {
-            Ok(Ok(())) => println!("left the chair: the game had not begun"),
-            Ok(Err(e)) => eprintln!("the chair could not be given up: {e}"),
-            Err(_) => eprintln!("the chair could not be given up: the gateway did not answer"),
+            Ok(Ok(())) => say!("left the chair: the game had not begun"),
+            Ok(Err(e)) => say_err!("the chair could not be given up: {e}"),
+            Err(_) => say_err!("the chair could not be given up: the gateway did not answer"),
         }
     }
 }
@@ -664,6 +678,7 @@ async fn leave_unstarted(unstarted: &Unstarted) {
 /// Stdin held by the program that started the bridge (`--tethered`).
 mod tether {
     use baylee_client_core::llmseat::seating::{LIVE_CHANGES, ORDER_BYTES};
+    use baylee_client_core::say;
     use tokio::io::AsyncBufReadExt as _;
     use tokio::sync::{mpsc, oneshot};
 
@@ -707,13 +722,13 @@ mod tether {
                 }
                 if !LIVE_CHANGES {
                     if !said {
-                        println!("order refused: a release build changes no mind during a game");
+                        say!("order refused: a release build changes no mind during a game");
                         said = true;
                     }
                     continue;
                 }
                 if line.len() > ORDER_BYTES {
-                    println!("order refused: an order is one line of at most {ORDER_BYTES} bytes");
+                    say!("order refused: an order is one line of at most {ORDER_BYTES} bytes");
                     continue;
                 }
                 let _ = send.send(line);
@@ -885,12 +900,12 @@ async fn join_and_play(
         let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
         let show = show.lock().unwrap_or_else(PoisonError::into_inner);
         for line in show.summary(&played.stats, tally.as_ref()) {
-            println!("{line}");
+            say!("{line}");
         }
     }
     if let Some(mut booked) = booked {
         booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
-        println!("the game is settled in the spend book");
+        say!("the game is settled in the spend book");
     }
     Ok(())
 }
@@ -954,6 +969,10 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
 /// that started it writes the ticket as it starts it.
 const TICKET_WAIT: Duration = Duration::from_secs(30);
 
+/// How long the mind's check before ready may take ([`Mind::check`]): its
+/// own calls give up after ten seconds; this bounds the whole.
+const CHECK_WAIT: Duration = Duration::from_secs(30);
+
 /// Chooses the mind (a language model's game reserved in the spend book
 /// first), then takes the chair: on the host's chair ticket when one comes
 /// on stdin (`--chair-ticket`), else as a guest who checks the room, stores
@@ -978,10 +997,10 @@ async fn sit_down(
         declared,
     } = choose(join, args, env, keys, profile, spend::now())?;
     if let Some(note) = note {
-        println!("{note}");
+        say!("{note}");
     }
     if let Some(booked) = &booked {
-        println!("{}", booked.sat_down());
+        say!("{}", booked.sat_down());
     }
     let display_name = display_name(join.name.as_deref(), &label, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {
@@ -1027,27 +1046,18 @@ async fn sit_down(
         }
         None => sit_as_guest(join, &lobby, &display_name, &deck, unstarted).await?,
     };
-    println!(
+    say!(
         "«{display_name}» sits in chair {} of room {} with {}; waiting for the host to start",
-        chair.seat, chair.game_id, deck.name
+        chair.seat,
+        chair.game_id,
+        deck.name
     );
-    match &by {
-        Standing::Guest(session) => {
-            lobby
-                .wait_for_start(session, &chair.game_id, Duration::from_secs(1))
-                .await?;
-        }
-        Standing::Delegated(chair) => {
-            lobby
-                .wait_for_chair_start(chair, Duration::from_secs(1))
-                .await?;
-        }
-    }
+    ready_and_wait(&*mind, &lobby, &by, &chair).await?;
     unstarted
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .take();
-    println!("the game is on");
+    say!("the game is on");
     Ok(Seated {
         lobby,
         by,
@@ -1062,8 +1072,49 @@ async fn sit_down(
     })
 }
 
+/// Says the chair is ready once the mind answered its check, and waits for
+/// the host to start.
+///
+/// Ready only then: a room never starts with a chair whose model cannot
+/// play, and the chair's card says why not (the bridge's last line), the
+/// chair given back as the bridge stops.
+async fn ready_and_wait(
+    mind: &dyn Mind,
+    lobby: &Lobby,
+    by: &Standing,
+    chair: &Chair,
+) -> anyhow::Result<()> {
+    match tokio::time::timeout(CHECK_WAIT, mind.check()).await {
+        Ok(Ok(())) => {}
+        Ok(Err(why)) => bail!("the mind cannot play: {why}"),
+        Err(_) => bail!(
+            "the mind cannot play: it did not answer its check within {} s",
+            CHECK_WAIT.as_secs()
+        ),
+    }
+    match by {
+        Standing::Guest(session) => lobby.ready(session, &chair.game_id).await?,
+        Standing::Delegated(chair) => lobby.chair_ready(chair).await?,
+    }
+    say!("the mind answered its check: the chair is ready");
+    match by {
+        Standing::Guest(session) => {
+            lobby
+                .wait_for_start(session, &chair.game_id, Duration::from_secs(1))
+                .await?;
+        }
+        Standing::Delegated(chair) => {
+            lobby
+                .wait_for_chair_start(chair, Duration::from_secs(1))
+                .await?;
+        }
+    }
+    Ok(())
+}
+
 /// Signs in as a guest under `display_name`, checks the room, stores the
-/// deck, takes the chair and says ready: the way in where no host handed
+/// deck and takes the chair (ready is said once the mind answered its
+/// check, by [`ready_and_wait`]): the way in where no host handed
 /// this bridge a chair ticket, on a gateway that takes guests.
 async fn sit_as_guest(
     join: &Join,
@@ -1107,7 +1158,6 @@ async fn sit_as_guest(
         by: by.clone(),
         room: room.id.clone(),
     });
-    lobby.ready(&session, &room.id).await?;
     Ok((by, chair))
 }
 
@@ -1159,7 +1209,7 @@ async fn play_out(
                 .unwrap_or_else(PoisonError::into_inner)
                 .note(note);
             for line in lines {
-                println!("{line}");
+                say!("{line}");
             }
         });
     }
@@ -1224,9 +1274,9 @@ impl OrderReader {
                     if send.send(swap).is_err() {
                         return;
                     }
-                    println!("order: {label} plays this chair from its next decision");
+                    say!("order: {label} plays this chair from its next decision");
                 }
-                Err(why) => println!("order refused: {}", scrub(&format!("{why:#}"), None)),
+                Err(why) => say!("order refused: {}", scrub(&format!("{why:#}"), None)),
             }
         }
     }
@@ -1267,7 +1317,7 @@ impl OrderReader {
             "the order named a {kind:?} mind and another was chosen"
         );
         if let Some(booked) = &chosen.booked {
-            println!("{}", booked.sat_down());
+            say!("{}", booked.sat_down());
         }
         let current = Arc::clone(&self.booked);
         let next = chosen.booked;
@@ -1341,7 +1391,7 @@ fn report(played: &bridge::Played) {
         None if played.result.is_none() => "the room closed without a result",
         None => "ended",
     };
-    println!(
+    say!(
         "{outcome} after {} turns: {} questions, {} answered by standing orders, {} wakes \
          and {} payment steps, {} questions in a plan; the mind answered {}, the house {}, the least answer {}; \
          {} fallbacks, {} refused, {} ms of model time, {} sockets",

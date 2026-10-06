@@ -407,10 +407,14 @@ impl Lobby {
         Ok(())
     }
 
-    /// Waits, looking every `every`, until the room's game is on.
+    /// Waits, looking every `every`, until the room's game is on, saying
+    /// ready again whenever the room lists this session's chair as not
+    /// ready: a host rearranging the table takes every player's yes back,
+    /// and a bridge waiting on it would otherwise keep the room from ever
+    /// starting (beta.5: "an LLM chair never shows Ready").
     ///
     /// # Errors
-    /// When the room is gone or over before it starts.
+    /// When the room is gone or over before it starts, or refuses the yes.
     pub async fn wait_for_start(
         &self,
         session: &Session,
@@ -420,7 +424,12 @@ impl Lobby {
         loop {
             match self.room(session, game_id).await? {
                 Some(room) if room.playing() => return Ok(()),
-                Some(room) if room.waiting() => tokio::time::sleep(every).await,
+                Some(room) if room.waiting() => {
+                    if room.seats.iter().any(|seat| seat.you && !seat.ready) {
+                        self.ready(session, game_id).await?;
+                    }
+                    tokio::time::sleep(every).await;
+                }
                 Some(room) => bail!("the room {game_id} is {}", room.state),
                 None => bail!("the room {game_id} is gone"),
             }
@@ -484,6 +493,24 @@ impl Lobby {
         Ok(Some(
             serde_json::from_value(status).context("an unreadable chair status")?,
         ))
+    }
+
+    /// Says a chair taken on a host's ticket may play (`POST …/chair/ready`,
+    /// the seat token as `Authorization`): its mind answered its check.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or refuses.
+    pub async fn chair_ready(&self, chair: &Chair) -> anyhow::Result<()> {
+        let path = format!("/lobby/games/{}/chair/ready", escape(&chair.game_id));
+        self.call(
+            "POST",
+            &path,
+            Some(&chair.seat_token),
+            Some(serde_json::json!({ "ready": true })),
+        )
+        .await?
+        .expect_ok("say the chair is ready")?;
+        Ok(())
     }
 
     /// Gives a chair taken on a host's ticket back before the game

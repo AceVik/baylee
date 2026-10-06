@@ -15,6 +15,7 @@ fn launch() -> Launch<'static> {
         config: "/tmp/TEST/llm-seat.json",
         deck: "Allytifact",
         level: "steady",
+        chair_ticket: false,
     }
 }
 

@@ -33,9 +33,10 @@
 //!   redemptions per address in [`LIMIT_WINDOW`], and at most
 //!   [`wsticket::PER_HOLDER`] unspent per host.
 //!
-//! The bridge then has a seat token and nothing else, so its other two
-//! calls take that: [`status`] (is the game on, at what pace) and [`leave`]
-//! (give the chair back before the game). The host takes the chair back
+//! The bridge then has a seat token and nothing else, so its other calls
+//! take that: [`ready`] (its mind answered its check, so the chair may
+//! play; the room does not start before), [`status`] (is the game on, at
+//! what pace) and [`leave`] (give the chair back before the game). The host takes the chair back
 //! the way it arranges any chair (`POST …/seats/{seat}`, `kind`), which
 //! empties it and ends its seat token.
 
@@ -210,6 +211,8 @@ pub(crate) async fn redeem(
         chair.delegate = Some(lobby::Delegate {
             by: host,
             name: body.display_name,
+            // Not before the bridge says its mind answered (`ready`).
+            ready: false,
         });
         chair.deck_name.clone_from(&deck.name);
         chair.deck = Some(deck);
@@ -291,7 +294,49 @@ pub(crate) async fn status(
             lobby::LobbyState::Over => "over",
         },
         "decide_secs": game.house_rules.decision_timeout_secs,
+        "ready": game.seats[seat].ready(),
     })))
+}
+
+/// What a seat bridge says of its chair (`POST …/chair/ready`).
+#[derive(Deserialize)]
+pub(crate) struct ReadyBody {
+    /// Absent means ready.
+    #[serde(default = "yes")]
+    ready: bool,
+}
+
+/// `serde` default for [`ReadyBody::ready`].
+const fn yes() -> bool {
+    true
+}
+
+/// A host's seat bridge saying its mind answered its check and the chair
+/// may play (`POST /lobby/games/{id}/chair/ready`, the seat token as
+/// `Authorization: Bearer`). Until it does, the room does not start: a
+/// chair whose model cannot answer would lose its game to the clock.
+pub(crate) async fn ready(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<ReadyBody>,
+) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
+    {
+        let mut lobby = state.lobby.lock();
+        let (game, seat) = by_seat_token(&mut lobby, &id, &headers)?;
+        if game.state != lobby::LobbyState::Waiting {
+            return Err(err(StatusCode::CONFLICT, "game already started"));
+        }
+        let Some(delegate) = game.seats[seat].delegate.as_mut() else {
+            return Err(err(
+                StatusCode::FORBIDDEN,
+                "a player says ready with their session, not their seat token",
+            ));
+        };
+        delegate.ready = body.ready;
+    }
+    state.lobby_moved();
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// A host's seat bridge giving its chair back before the game

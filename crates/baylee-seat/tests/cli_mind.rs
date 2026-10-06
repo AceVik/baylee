@@ -1197,8 +1197,13 @@ async fn the_mind_is_ready_exactly_while_the_login_check_passes() {
     let rig = Rig::new("probe", cli(json!({})), &json!({"logged_in": false}));
     let mind = rig.mind(Limits::default());
     assert!(!mind.ready().await, "signed out");
+    // The check before a chair says ready is the same login check, and
+    // says why it failed, for the chair's card.
+    let why = mind.check().await.expect_err("signed out");
+    assert!(why.contains("is not signed in"), "{why}");
     rig.script(&json!({"logged_in": true}));
     assert!(mind.ready().await, "signed in");
+    assert_eq!(mind.check().await, Ok(()));
     assert_eq!(mind.disclosure(), baylee_seat::Disclosure::Llm);
 }
 

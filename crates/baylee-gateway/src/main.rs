@@ -303,6 +303,7 @@ async fn main() {
         )
         .route("/lobby/games/{id}/chair", get(chair::status))
         .route("/lobby/games/{id}/chair/leave", post(chair::leave))
+        .route("/lobby/games/{id}/chair/ready", post(chair::ready))
         .route("/ws-ticket", post(ws_ticket))
         .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))

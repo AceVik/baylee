@@ -122,8 +122,13 @@ pub(crate) struct Bridge {
 
 impl Bridge {
     /// Starts `baylee-seat` with `args`, the room's password (if any) in its
-    /// environment, never its arguments.
-    pub(crate) fn start(args: &[String], password: Option<&str>) -> Result<Self, String> {
+    /// environment, never its arguments, and `first`, the host's chair
+    /// ticket (if any), as the first line of its stdin, never anywhere else.
+    pub(crate) fn start(
+        args: &[String],
+        password: Option<&str>,
+        first: Option<&str>,
+    ) -> Result<Self, String> {
         let program = program().ok_or_else(no_program)?;
         let mut command = Command::new(program);
         command
@@ -137,6 +142,19 @@ impl Bridge {
         let mut child = command
             .spawn()
             .map_err(|e| format!("the seat bridge did not start: {e}"))?;
+        let mut stdin = child.stdin.take();
+        if let Some(first) = first {
+            let written = stdin.as_mut().map(|stdin| {
+                stdin
+                    .write_all(first.as_bytes())
+                    .and_then(|()| stdin.flush())
+            });
+            if !matches!(written, Some(Ok(()))) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("the seat bridge did not take its chair ticket".into());
+            }
+        }
         let last = Arc::new(Mutex::new(None));
         let heard = Arc::new(AtomicUsize::new(0));
         let streams: [Option<Box<dyn std::io::Read + Send>>; 2] = [
@@ -158,7 +176,7 @@ impl Bridge {
             });
         }
         Ok(Self {
-            stdin: child.stdin.take(),
+            stdin,
             child: Some(child),
             last,
             heard,

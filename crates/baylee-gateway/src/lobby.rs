@@ -96,6 +96,11 @@ pub struct Delegate {
     /// The name the chair sits under, as the bridge chose it (`LLM-…`),
     /// held to the display-name rule.
     pub name: String,
+    /// Whether the bridge said its mind answered its check
+    /// (`POST …/chair/ready`). Not undone by the host rearranging the table,
+    /// as a person's `said_ready` is: it says the model can play, and the
+    /// host says yes to the table by pressing Start.
+    pub ready: bool,
 }
 
 impl LobbySeat {
@@ -137,8 +142,8 @@ impl LobbySeat {
     /// game that started on one would be a game its player could not open a
     /// socket to.
     ///
-    /// A host's delegate is ready the moment it sits, as an AI chair is once
-    /// configured: the host asked for it, and says go by pressing Start.
+    /// A host's delegate is ready once its bridge says its mind answered
+    /// (`Delegate::ready`), and stays so.
     #[must_use]
     pub fn ready(&self) -> bool {
         match self.kind {
@@ -146,7 +151,10 @@ impl LobbySeat {
                 self.occupied()
                     && self.deck.is_some()
                     && self.seat_token_hash.is_some()
-                    && (self.said_ready || self.delegate.is_some())
+                    && self
+                        .delegate
+                        .as_ref()
+                        .map_or(self.said_ready, |delegate| delegate.ready)
             }
             // An AI the host gave no deck plays the house deck, so there is
             // nothing left to wait for.
