@@ -881,53 +881,10 @@ pub fn spawn_ui(
         spawn_text_box(commands, card, lang, face, laid, fonts, em);
     }
     if let Some(words) = &laid.line {
-        let [_, top, _, foot] = laid.regions.text_box;
-        let px = laid.sizes.small * w;
-        let block =
-            crate::manaui::spawn_rich_in(commands, fonts, words, px, FACE_INKS.0, text_font);
-        commands.entity(block).insert(Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px((x0 + TEXT_INSET) * w),
-            top: Val::Px((top + (foot - top - LINE_BOX * laid.sizes.small) * 0.5) * w),
-            max_width: Val::Px((x1 - x0 - 2.0 * TEXT_INSET) * w),
-            flex_direction: FlexDirection::Row,
-            flex_wrap: FlexWrap::Wrap,
-            align_items: AlignItems::Center,
-            overflow: Overflow::clip(),
-            max_height: Val::Px((foot - top) * w),
-            ..default()
-        });
-        commands.entity(block).insert(Pickable::IGNORE);
-        commands.entity(card).add_child(block);
+        spawn_small_line(commands, card, laid, fonts, words);
     }
-    let box_foot = laid.regions.text_box[3];
     if let Some(stats) = laid.stats {
-        let right = x1 - TEXT_INSET;
-        // A small card's numbers share its one line; a preview's keep the
-        // text box's foot.
-        let (em, top) = if laid.layout == Layout::Small {
-            let [_, top, _, foot] = laid.regions.text_box;
-            let em = laid.sizes.small;
-            (em, top + (foot - top - LINE_BOX * em) * 0.5)
-        } else {
-            let em = laid.sizes.name;
-            (em, box_foot - BAR_PAD - LINE_BOX * em)
-        };
-        let entity = commands
-            .spawn((
-                Pickable::IGNORE,
-                Text::new(stats_label(stats)),
-                text_font(fonts, em * w),
-                TextColor(stats_color(stats)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Px((1.0 - right) * w),
-                    top: Val::Px(top * w),
-                    ..default()
-                },
-            ))
-            .id();
-        commands.entity(card).add_child(entity);
+        spawn_stats(commands, card, laid, fonts, stats);
     }
     if let Some(foot) = &laid.foot {
         let [fx0, top, _, bottom] = laid.regions.foot;
@@ -948,6 +905,72 @@ pub fn spawn_ui(
             ),
         );
     }
+}
+
+/// A small card's one line of rules, centred down its one-line text box and
+/// clipped to it.
+fn spawn_small_line(
+    commands: &mut Commands,
+    card: Entity,
+    laid: &UiFace,
+    fonts: &UiFonts,
+    words: &str,
+) {
+    let w = laid.width;
+    let [x0, top, x1, foot] = laid.regions.text_box;
+    let px = laid.sizes.small * w;
+    let block = crate::manaui::spawn_rich_in(commands, fonts, words, px, FACE_INKS.0, text_font);
+    commands.entity(block).insert((
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px((x0 + TEXT_INSET) * w),
+            top: Val::Px((top + (foot - top - LINE_BOX * laid.sizes.small) * 0.5) * w),
+            max_width: Val::Px((x1 - x0 - 2.0 * TEXT_INSET) * w),
+            flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
+            align_items: AlignItems::Center,
+            overflow: Overflow::clip(),
+            max_height: Val::Px((foot - top) * w),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    commands.entity(card).add_child(block);
+}
+
+/// The numbers the plate does not say: on a small card beside its one line,
+/// on a preview at the text box's foot, right.
+fn spawn_stats(
+    commands: &mut Commands,
+    card: Entity,
+    laid: &UiFace,
+    fonts: &UiFonts,
+    stats: Stats,
+) {
+    let w = laid.width;
+    let [_, top, x1, foot] = laid.regions.text_box;
+    let (em, top) = if laid.layout == Layout::Small {
+        let em = laid.sizes.small;
+        (em, top + (foot - top - LINE_BOX * em) * 0.5)
+    } else {
+        let em = laid.sizes.name;
+        (em, foot - BAR_PAD - LINE_BOX * em)
+    };
+    let entity = commands
+        .spawn((
+            Pickable::IGNORE,
+            Text::new(stats_label(stats)),
+            text_font(fonts, em * w),
+            TextColor(stats_color(stats)),
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Px((1.0 - x1 + TEXT_INSET) * w),
+                top: Val::Px(top * w),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(card).add_child(entity);
 }
 
 /// The band: the subtype words over the keyword chips on a preview, the
@@ -1027,39 +1050,43 @@ fn spawn_band(commands: &mut Commands, card: Entity, laid: &UiFace, fonts: &UiFo
                 },
             ))
             .id();
-        let paper = Color::srgb_from_array(textface::CHIP_PAPER);
-        let ink = Color::srgb_from_array(textface::LIGHT_INK);
         for chip in &laid.chips {
-            let text = commands
-                .spawn((
-                    Pickable::IGNORE,
-                    Text::new(chip.clone()),
-                    TextFont {
-                        font: bevy::text::FontSource::Handle(fonts.medium.clone()),
-                        font_size: bevy::text::FontSize::Px(em),
-                        ..default()
-                    },
-                    TextColor(ink),
-                    TextLayout::new(Justify::Left, bevy::text::LineBreak::NoWrap),
-                ))
-                .id();
-            let plate = commands
-                .spawn((
-                    Pickable::IGNORE,
-                    Node {
-                        padding: UiRect::axes(Val::Px(CHIP_PAD.0 * em), Val::Px(CHIP_PAD.1 * em)),
-                        border_radius: BorderRadius::all(Val::Px(CHIP_ROUND * w)),
-                        ..default()
-                    },
-                    BackgroundColor(paper),
-                ))
-                .add_child(text)
-                .id();
+            let plate = spawn_chip(commands, fonts, chip, em, CHIP_ROUND * w);
             commands.entity(row).add_child(plate);
         }
         commands.entity(band).add_child(row);
     }
     commands.entity(card).add_child(band);
+}
+
+/// One keyword chip: its word in light ink on a slate plate, `em` pixels,
+/// its ends `round` pixels round.
+fn spawn_chip(commands: &mut Commands, fonts: &UiFonts, chip: &str, em: f32, round: f32) -> Entity {
+    let text = commands
+        .spawn((
+            Pickable::IGNORE,
+            Text::new(chip.to_owned()),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+                font_size: bevy::text::FontSize::Px(em),
+                ..default()
+            },
+            TextColor(Color::srgb_from_array(textface::LIGHT_INK)),
+            TextLayout::new(Justify::Left, bevy::text::LineBreak::NoWrap),
+        ))
+        .id();
+    commands
+        .spawn((
+            Pickable::IGNORE,
+            Node {
+                padding: UiRect::axes(Val::Px(CHIP_PAD.0 * em), Val::Px(CHIP_PAD.1 * em)),
+                border_radius: BorderRadius::all(Val::Px(round)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb_from_array(textface::CHIP_PAPER)),
+        ))
+        .add_child(text)
+        .id()
 }
 
 /// The rules text, set at `em`, in a box that scrolls past the floor, and
@@ -1237,6 +1264,10 @@ pub fn thumb(view: f32, content: f32, offset: f32) -> Option<(f32, f32)> {
     Some(((offset / room).clamp(0.0, 1.0) * (1.0 - length), length))
 }
 
+/// What a `▾` is, for [`show_scrollbars`]: a node that is neither a track
+/// nor a thumb, which the borrow checker needs said.
+type NeitherBarNorThumb = (Without<FaceScrollThumb>, Without<FaceScrollbar>);
+
 /// Shows each face's scrollbar while its text runs over, and stands the
 /// thumb where the box has scrolled to; and its `▾` while more of the text
 /// is below ([`FaceMore`]).
@@ -1248,7 +1279,7 @@ pub fn show_scrollbars(
     boxes: Query<(&ScrollPosition, &ComputedNode), With<FaceTextBox>>,
     mut tracks: Query<(&FaceScrollbar, &mut Node, &Children)>,
     mut thumbs: Query<&mut Node, (With<FaceScrollThumb>, Without<FaceScrollbar>)>,
-    mut mores: Query<(&FaceMore, &mut Node), (Without<FaceScrollThumb>, Without<FaceScrollbar>)>,
+    mut mores: Query<(&FaceMore, &mut Node), NeitherBarNorThumb>,
 ) {
     let measured = |text_box: Entity| {
         let (position, computed) = boxes.get(text_box).ok()?;
@@ -1625,19 +1656,35 @@ pub fn spawn_world(
             );
         }
     }
-    // The symbol band (WP6): each disc the shader draws wears its colour's
-    // symbol, in the Mana font, as a cost's pip does.
-    for ([x, y], hue) in textface::discs(word, &regions) {
-        let Some(color) = hue_color(hue) else {
-            continue;
-        };
-        let baylee_client_core::manapip::Pip::Solid { glyph, .. } =
-            baylee_client_core::manapip::of_color(color)
-        else {
-            continue;
-        };
-        texts.push(
-            commands
+    texts.extend(spawn_discs(commands, card, word, &regions, fonts));
+    texts.extend(spawn_sentence(
+        commands,
+        card,
+        &fit.sentence,
+        &regions,
+        fonts,
+    ));
+    texts
+}
+
+/// The symbol band (WP6): each disc the shader draws wears its colour's
+/// symbol, in the Mana font, as a cost's pip does.
+fn spawn_discs(
+    commands: &mut Commands,
+    card: Entity,
+    word: u32,
+    regions: &Regions,
+    fonts: &UiFonts,
+) -> Vec<Entity> {
+    use baylee_client_core::manapip::{Pip, of_color};
+    use bevy::sprite::Anchor;
+    textface::discs(word, regions)
+        .into_iter()
+        .filter_map(|([x, y], hue)| {
+            let Pip::Solid { glyph, .. } = of_color(hue_color(hue)?) else {
+                return None;
+            };
+            let entity = commands
                 .spawn((
                     WorldFace,
                     Text2d::new(glyph.to_string()),
@@ -1652,56 +1699,67 @@ pub fn spawn_world(
                         .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
                     ChildOf(card),
                 ))
-                .id(),
-        );
+                .id();
+            Some(entity)
+        })
+        .collect()
+}
+
+/// The first sentence of the rules, in the text box (WP6): what a card does,
+/// read off the table without opening its preview. One `Text2d` of spans, a
+/// symbol's in the Mana font, on the lines the fit broke it into.
+fn spawn_sentence(
+    commands: &mut Commands,
+    card: Entity,
+    lines: &[String],
+    regions: &Regions,
+    fonts: &UiFonts,
+) -> Option<Entity> {
+    use bevy::sprite::Anchor;
+    use bevy::text::LineBreak;
+    if lines.is_empty() {
+        return None;
     }
-    // The first sentence of the rules, in the text box (WP6): what a card
-    // does, read off the table without opening its preview.
-    if !fit.sentence.is_empty() {
-        let [x0, top, _, _] = regions.text_box;
-        let root = commands
-            .spawn((
-                WorldFace,
-                Text2d::default(),
+    let [x0, top, _, _] = regions.text_box;
+    let size = textface::SENTENCE_EM * PX_PER_UNIT;
+    let root = commands
+        .spawn((
+            WorldFace,
+            Text2d::default(),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.text.clone()),
+                font_size: bevy::text::FontSize::Px(size),
+                ..default()
+            },
+            TextColor(FACE_INKS.0),
+            TextLayout::new(Justify::Left, LineBreak::NoWrap),
+            Anchor::TOP_LEFT,
+            Transform::from_translation(on_the_card(x0 + TEXT_INSET, top + BAR_PAD).extend(0.002))
+                .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
+            ChildOf(card),
+        ))
+        .id();
+    for (n, words) in lines.iter().enumerate() {
+        let words = if n + 1 < lines.len() {
+            format!("{words}\n")
+        } else {
+            words.clone()
+        };
+        for (text, mana) in sentence_spans(&words) {
+            let font = if mana { &fonts.mana } else { &fonts.text };
+            commands.spawn((
+                TextSpan::new(text),
                 TextFont {
-                    font: bevy::text::FontSource::Handle(fonts.text.clone()),
-                    font_size: bevy::text::FontSize::Px(textface::SENTENCE_EM * PX_PER_UNIT),
+                    font: bevy::text::FontSource::Handle(font.clone()),
+                    font_size: bevy::text::FontSize::Px(size),
                     ..default()
                 },
                 TextColor(FACE_INKS.0),
-                TextLayout::new(Justify::Left, LineBreak::NoWrap),
-                Anchor::TOP_LEFT,
-                Transform::from_translation(
-                    on_the_card(x0 + TEXT_INSET, top + BAR_PAD).extend(0.002),
-                )
-                .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
-                ChildOf(card),
-            ))
-            .id();
-        let size = textface::SENTENCE_EM * PX_PER_UNIT;
-        for (n, words) in fit.sentence.iter().enumerate() {
-            let words = if n + 1 < fit.sentence.len() {
-                format!("{words}\n")
-            } else {
-                words.clone()
-            };
-            for (text, mana) in sentence_spans(&words) {
-                let font = if mana { &fonts.mana } else { &fonts.text };
-                commands.spawn((
-                    TextSpan::new(text),
-                    TextFont {
-                        font: bevy::text::FontSource::Handle(font.clone()),
-                        font_size: bevy::text::FontSize::Px(size),
-                        ..default()
-                    },
-                    TextColor(FACE_INKS.0),
-                    ChildOf(root),
-                ));
-            }
+                ChildOf(root),
+            ));
         }
-        texts.push(root);
     }
-    texts
+    Some(root)
 }
 
 /// The table's colour-disc glyph, as an em in card widths: the disc's

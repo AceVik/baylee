@@ -267,14 +267,12 @@ impl Regions {
         let type_top = name_end + PINLINE;
         let type_end = type_top + depths.type_bar();
         let band_top = type_end + PINLINE;
-        let (band_end, text_top) = match layout.band() {
-            Some(band) => (band_top + band, band_top + band + BOX_GAP),
-            // One line at the type line's size: the type bar's depth.
-            None => {
-                let text_top = TEXT_FOOT - depths.type_bar();
-                (text_top - BOX_GAP, text_top)
-            }
-        };
+        // A small card's text box is one line at the type line's size: the
+        // type bar's depth.
+        let text_top = layout.band().map_or(TEXT_FOOT - depths.type_bar(), |band| {
+            band_top + band + BOX_GAP
+        });
+        let band_end = text_top - BOX_GAP;
         Self {
             name_bar: [x0, top, x1, name_end],
             band: [x0, band_top, x1, band_end],
