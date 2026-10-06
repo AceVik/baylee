@@ -21,9 +21,13 @@ use baylee_core::ids::ObjectId;
 use std::sync::Arc;
 
 /// Slots per chunk, as a power of two. A smaller chunk copies less on a
-/// write and costs more reference counts per clone; 8 measured best
-/// (`docs/perf-baseline.md`).
-const CHUNK_BITS: u32 = 3;
+/// write, and lets the snapshot hash's memo keep more of a board, but costs
+/// one reference count per chunk on every clone. Two measured best over
+/// 100 self-play games (one 50.4 G instructions, two 50.1 G, four 52.1 G,
+/// eight 56.9 G); a 3 000-token board's clone pays for it, 8.0 µs against
+/// 4.5 µs at eight, beside the milliseconds an answer on such a board
+/// takes anyway (`docs/perf-baseline.md`).
+const CHUNK_BITS: u32 = 1;
 const CHUNK: usize = 1 << CHUNK_BITS;
 const CHUNK_MASK: usize = CHUNK - 1;
 
