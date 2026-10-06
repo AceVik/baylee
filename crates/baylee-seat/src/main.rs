@@ -8,7 +8,10 @@
 //! Signs in as a guest under the name its mind discloses (`HOUSE-house`,
 //! `TEST-scripted`, `LLM-sonnet-5-5`), stores the deck,
 //! takes a free chair in the room, says ready, waits for the host to start,
-//! and plays the game to its end. The gateway is `--gateway`, else
+//! and plays the game to its end. A bridge a host's client starts
+//! (`--tethered --chair <n> --chair-ticket`) instead reads the host's chair
+//! ticket off its stdin and sits down on it, with no account of its own, so
+//! it gets in where the gateway takes no guests. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
 //! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
@@ -40,7 +43,7 @@ use baylee_seat::declare;
 use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
-use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Room, Session, seat_name};
+use baylee_seat::lobby::{Chair, ChairTicket, GuestSignIn, Lobby, Room, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
@@ -117,6 +120,12 @@ struct Join {
     /// (`docs/llm-seat.md` §"A language model at your table").
     #[arg(long)]
     tethered: bool,
+    /// Sit down on the host's chair ticket, the first line of stdin, rather
+    /// than as a guest: the bridge a host's client starts, which gets in
+    /// where the gateway takes no guests. The ticket is never an argument
+    /// (`docs/llm-seat.md` §"A language model at your table").
+    #[arg(long, requires_all = ["tethered", "chair"])]
+    chair_ticket: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].
     #[arg(long)]
     gateway: Option<String>,
@@ -503,11 +512,11 @@ async fn run() -> anyhow::Result<()> {
     match Cli::parse().command {
         Command::Key(key) => key_command(&key, &env, &*keys),
         Command::Join(join) => {
-            let (mut let_go, orders) = if join.tethered {
-                let (let_go, orders) = tether::hold();
-                (Some(let_go), Some(orders))
+            let (mut let_go, orders, ticket) = if join.tethered {
+                let held = tether::hold(join.chair_ticket);
+                (Some(held.let_go), Some(held.orders), held.ticket)
             } else {
-                (None, None)
+                (None, None, None)
             };
             let unstarted: Unstarted = Arc::default();
             // Stopped, the game is dropped where it stands, and its
@@ -520,7 +529,7 @@ async fn run() -> anyhow::Result<()> {
                 () = tether::let_go(let_go.as_mut()) => Err(anyhow::anyhow!(
                     "the program that started this bridge let go of it before the game was over"
                 )),
-                done = join_and_play(&join, &args, &env, &keys, orders, &unstarted) => done,
+                done = join_and_play(&join, &args, &env, &keys, orders, ticket, &unstarted) => done,
             };
             if done.is_err() {
                 leave_unstarted(&unstarted).await;
@@ -600,8 +609,29 @@ fn key_line(
 /// A chair taken in a room whose game has not begun: what gives it up.
 struct Leaving {
     lobby: Lobby,
-    session: Session,
+    by: Standing,
     room: String,
+}
+
+/// How the bridge came to its chair, which is what it asks the gateway
+/// with afterwards.
+#[derive(Clone)]
+enum Standing {
+    /// As a guest, under its own session.
+    Guest(Session),
+    /// On its host's chair ticket: it has the chair's seat token and
+    /// nothing else.
+    Delegated(Chair),
+}
+
+impl Standing {
+    /// The session to take the chair back with, for a guest.
+    fn session(&self) -> Option<Session> {
+        match self {
+            Self::Guest(session) => Some(session.clone()),
+            Self::Delegated(_) => None,
+        }
+    }
 }
 
 /// The chair to give up if the bridge stops before its game begins.
@@ -616,13 +646,14 @@ async fn leave_unstarted(unstarted: &Unstarted) {
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .take();
-    if let Some(Leaving {
-        lobby,
-        session,
-        room,
-    }) = leaving
-    {
-        match tokio::time::timeout(Duration::from_secs(2), lobby.leave(&session, &room)).await {
+    if let Some(Leaving { lobby, by, room }) = leaving {
+        let left = async {
+            match &by {
+                Standing::Guest(session) => lobby.leave(session, &room).await,
+                Standing::Delegated(chair) => lobby.leave_chair(chair).await,
+            }
+        };
+        match tokio::time::timeout(Duration::from_secs(2), left).await {
             Ok(Ok(())) => println!("left the chair: the game had not begun"),
             Ok(Err(e)) => eprintln!("the chair could not be given up: {e}"),
             Err(_) => eprintln!("the chair could not be given up: the gateway did not answer"),
@@ -636,14 +667,39 @@ mod tether {
     use tokio::io::AsyncBufReadExt as _;
     use tokio::sync::{mpsc, oneshot};
 
-    /// Reads stdin until it closes: each line an order (a debug build's
-    /// only; a release build reads them and does nothing with them), and
-    /// its end the program letting go.
-    pub fn hold() -> (oneshot::Receiver<()>, mpsc::UnboundedReceiver<String>) {
+    /// What the program that started the bridge hands it on stdin.
+    pub struct Held {
+        /// Fires when stdin closes: the program let go.
+        pub let_go: oneshot::Receiver<()>,
+        /// Each later line, an order.
+        pub orders: mpsc::UnboundedReceiver<String>,
+        /// The first line, when the bridge was told a chair ticket comes
+        /// there (`--chair-ticket`): handed over as it was read and to
+        /// nothing else, never an order, never printed.
+        pub ticket: Option<oneshot::Receiver<String>>,
+    }
+
+    /// Reads stdin until it closes: first the chair ticket when `ticket`
+    /// says one comes, then each line an order (a debug build's only; a
+    /// release build reads them and does nothing with them), and its end
+    /// the program letting go.
+    pub fn hold(ticket: bool) -> Held {
         let (gone, let_go) = oneshot::channel();
         let (send, orders) = mpsc::unbounded_channel();
+        let (ticket_in, ticket_out) = if ticket {
+            let (tx, rx) = oneshot::channel();
+            (Some(tx), Some(rx))
+        } else {
+            (None, None)
+        };
         tokio::spawn(async move {
             let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+            if let Some(ticket_in) = ticket_in {
+                // Taken whatever it is: an empty or closed stdin hands over
+                // an empty line, which is refused as no ticket.
+                let first = lines.next_line().await.ok().flatten().unwrap_or_default();
+                let _ = ticket_in.send(first);
+            }
             let mut said = false;
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.trim().is_empty() {
@@ -664,7 +720,11 @@ mod tether {
             }
             let _ = gone.send(());
         });
-        (let_go, orders)
+        Held {
+            let_go,
+            orders,
+            ticket: ticket_out,
+        }
     }
 
     /// Waits for the program to let go; forever when nothing holds the
@@ -811,9 +871,10 @@ async fn join_and_play(
     env: &dyn Fn(&str) -> Option<String>,
     keys: &Arc<dyn KeyStore>,
     orders: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+    ticket: Option<tokio::sync::oneshot::Receiver<String>>,
     unstarted: &Unstarted,
 ) -> anyhow::Result<()> {
-    let mut seated = sit_down(join, args, env, &**keys, unstarted).await?;
+    let mut seated = sit_down(join, args, env, &**keys, ticket, unstarted).await?;
     let tally = seated.tally.clone();
     let booked: Current = Arc::new(Mutex::new(seated.booked.take()));
     let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
@@ -837,7 +898,7 @@ async fn join_and_play(
 /// A chair taken, and what the seat plays with.
 struct Seated {
     lobby: Lobby,
-    session: Session,
+    by: Standing,
     chair: Chair,
     deck: Deck,
     profile: AIProfile,
@@ -889,14 +950,20 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
     Ok(())
 }
 
+/// How long a bridge waits for the chair ticket on its stdin: the program
+/// that started it writes the ticket as it starts it.
+const TICKET_WAIT: Duration = Duration::from_secs(30);
+
 /// Chooses the mind (a language model's game reserved in the spend book
-/// first), signs in, checks the room, takes a chair, says ready and waits
-/// for the host to start.
+/// first), then takes the chair: on the host's chair ticket when one comes
+/// on stdin (`--chair-ticket`), else as a guest who checks the room, stores
+/// its deck, joins and says ready. Then waits for the host to start.
 async fn sit_down(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
     keys: &dyn KeyStore,
+    ticket: Option<tokio::sync::oneshot::Receiver<String>>,
     unstarted: &Unstarted,
 ) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
@@ -921,55 +988,61 @@ async fn sit_down(
         (Some(path), _) => Deck::from_file(path)?,
         (None, name) => Deck::acceptance(name.as_deref().unwrap_or("Allytifact"))?,
     };
-    let password = join
-        .password
-        .clone()
-        .or_else(|| std::env::var("BAYLEE_ROOM_PASSWORD").ok());
-    let invite_key = join
-        .invite_key
-        .clone()
-        .or_else(|| std::env::var("BAYLEE_INVITE_KEY").ok());
     let gateway = join
         .gateway
         .clone()
         .or_else(|| std::env::var("BAYLEE_GATEWAY").ok())
         .unwrap_or_else(|| LOCAL_GATEWAY.to_string());
-
     let lobby = Lobby::new(&gateway);
-    let session = lobby
-        .guest(&GuestSignIn {
-            display_name: display_name.clone(),
-            invite_key,
-        })
-        .await?;
-    let Some(room) = lobby.room(&session, &join.room).await? else {
-        bail!("no room {} on {gateway}", join.room);
+    let (by, chair) = match ticket {
+        Some(ticket) => {
+            let line = tokio::time::timeout(TICKET_WAIT, ticket)
+                .await
+                .map_err(|_| anyhow::anyhow!("no chair ticket came on stdin"))?
+                .map_err(|_| anyhow::anyhow!("stdin closed before a chair ticket came"))?;
+            let ticket = ChairTicket::read(&line)?;
+            let seat = join
+                .chair
+                .context("a chair ticket is for one chair: name it with --chair")?;
+            let (chair, decide_secs) = lobby
+                .redeem(&ticket, &join.room, seat, &display_name, &deck)
+                .await?;
+            let by = Standing::Delegated(chair.clone());
+            // Until the game begins, a bridge that stops gives the chair up.
+            *unstarted.lock().unwrap_or_else(PoisonError::into_inner) = Some(Leaving {
+                lobby: lobby.clone(),
+                by: by.clone(),
+                room: chair.game_id.clone(),
+            });
+            if let Some(secs) = decide_secs.filter(|s| *s <= BLITZ_SECS)
+                && !join.allow_blitz
+            {
+                bail!(
+                    "the room {} gives {secs} s a question, too few for a mind that thinks \
+                     (sit anyway with --allow-blitz)",
+                    join.room
+                );
+            }
+            (by, chair)
+        }
+        None => sit_as_guest(join, &lobby, &display_name, &deck, unstarted).await?,
     };
-    room_takes_us(&room, join, password.is_some())?;
-    let deck_id = lobby.upload(&session, &deck).await?;
-    let chair = lobby
-        .join(
-            &session,
-            &room.id,
-            &deck_id,
-            password.as_deref(),
-            join.chair,
-        )
-        .await?;
-    // Until the game begins, a bridge that stops gives the chair up.
-    *unstarted.lock().unwrap_or_else(PoisonError::into_inner) = Some(Leaving {
-        lobby: lobby.clone(),
-        session: session.clone(),
-        room: room.id.clone(),
-    });
-    lobby.ready(&session, &room.id).await?;
     println!(
         "«{display_name}» sits in chair {} of room {} with {}; waiting for the host to start",
-        chair.seat, room.id, deck.name
+        chair.seat, chair.game_id, deck.name
     );
-    lobby
-        .wait_for_start(&session, &room.id, Duration::from_secs(1))
-        .await?;
+    match &by {
+        Standing::Guest(session) => {
+            lobby
+                .wait_for_start(session, &chair.game_id, Duration::from_secs(1))
+                .await?;
+        }
+        Standing::Delegated(chair) => {
+            lobby
+                .wait_for_chair_start(chair, Duration::from_secs(1))
+                .await?;
+        }
+    }
     unstarted
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -977,7 +1050,7 @@ async fn sit_down(
     println!("the game is on");
     Ok(Seated {
         lobby,
-        session,
+        by,
         chair,
         deck,
         profile,
@@ -987,6 +1060,55 @@ async fn sit_down(
         think_secs,
         declared,
     })
+}
+
+/// Signs in as a guest under `display_name`, checks the room, stores the
+/// deck, takes the chair and says ready: the way in where no host handed
+/// this bridge a chair ticket, on a gateway that takes guests.
+async fn sit_as_guest(
+    join: &Join,
+    lobby: &Lobby,
+    display_name: &str,
+    deck: &Deck,
+    unstarted: &Unstarted,
+) -> anyhow::Result<(Standing, Chair)> {
+    let password = join
+        .password
+        .clone()
+        .or_else(|| std::env::var("BAYLEE_ROOM_PASSWORD").ok());
+    let invite_key = join
+        .invite_key
+        .clone()
+        .or_else(|| std::env::var("BAYLEE_INVITE_KEY").ok());
+    let session = lobby
+        .guest(&GuestSignIn {
+            display_name: display_name.to_string(),
+            invite_key,
+        })
+        .await?;
+    let Some(room) = lobby.room(&session, &join.room).await? else {
+        bail!("no room {} on {}", join.room, lobby.base());
+    };
+    room_takes_us(&room, join, password.is_some())?;
+    let deck_id = lobby.upload(&session, deck).await?;
+    let chair = lobby
+        .join(
+            &session,
+            &room.id,
+            &deck_id,
+            password.as_deref(),
+            join.chair,
+        )
+        .await?;
+    let by = Standing::Guest(session.clone());
+    // Until the game begins, a bridge that stops gives the chair up.
+    *unstarted.lock().unwrap_or_else(PoisonError::into_inner) = Some(Leaving {
+        lobby: lobby.clone(),
+        by: by.clone(),
+        room: room.id.clone(),
+    });
+    lobby.ready(&session, &room.id).await?;
+    Ok((by, chair))
 }
 
 /// Plays the seated chair's game to its end, printing each decision when
@@ -1045,7 +1167,7 @@ async fn play_out(
         min_think: Duration::from_millis(join.min_think_ms),
         ..PlayOptions::default()
     };
-    let mut link = SeatLink::new(seated.lobby, seated.chair, Some(seated.session));
+    let mut link = SeatLink::new(seated.lobby, seated.chair, seated.by.session());
     let played = bridge::play_swapping(
         &mut link,
         core,
@@ -1379,6 +1501,28 @@ mod tests {
     /// A key on the command line is refused, by its shape or by being the
     /// environment's key (a profile's own variable's too), and the refusal
     /// does not repeat it.
+    /// A chair ticket comes on stdin and never on the command line: the
+    /// switch takes no value, so there is no argument a ticket could ride
+    /// in, and it is only for a bridge held by its starter (`--tethered`,
+    /// whose stdin carries it) and named to one chair.
+    #[test]
+    fn a_chair_ticket_is_a_switch_and_never_an_argument() {
+        let ticket = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let sat = join_args(&["--tethered", "--chair", "1", "--chair-ticket"]).expect("parses");
+        assert!(sat.chair_ticket && sat.tethered);
+        let valued = format!("--chair-ticket={ticket}");
+        for refused in [
+            vec!["--tethered", "--chair", "1", valued.as_str()],
+            vec!["--tethered", "--chair", "1", "--chair-ticket", ticket],
+            vec!["--chair", "1", "--chair-ticket"],
+            vec!["--tethered", "--chair-ticket"],
+        ] {
+            assert!(join_args(&refused).is_err(), "{refused:?} parsed");
+        }
+        let plain = join_args(&["--tethered", "--chair", "1"]).expect("parses");
+        assert!(!plain.chair_ticket, "a guest unless told");
+    }
+
     #[test]
     fn a_key_on_the_command_line_is_refused_without_being_printed() {
         let args = |list: &[&str]| list.iter().map(ToString::to_string).collect::<Vec<_>>();

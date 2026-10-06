@@ -361,9 +361,11 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
                 .seats
                 .iter()
                 .map(|s| {
-                    s.account_id
-                        .as_deref()
-                        .and_then(|a| Uuid::parse_str(a).ok())
+                    let id = |a: &str| Uuid::parse_str(a).ok();
+                    baylee_db::records::Seat {
+                        account: s.account_id.as_deref().and_then(id),
+                        delegated_by: s.delegate.as_ref().and_then(|d| id(&d.by)),
+                    }
                 })
                 .collect();
             Ok((

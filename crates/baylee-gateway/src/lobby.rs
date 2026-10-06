@@ -79,6 +79,23 @@ pub struct LobbySeat {
     /// player who joined" is a question about time. `None` for an empty or
     /// AI chair.
     pub joined_seq: Option<u64>,
+    /// A seat bridge its host handed this chair to (`chair.rs`), sitting
+    /// here with no account of its own. Always with `account_id` `None`:
+    /// every route that finds "the caller's chair" by account must keep
+    /// finding the host's own, not this one.
+    pub delegate: Option<Delegate>,
+}
+
+/// A seat bridge sitting in a chair on its host's word (`chair.rs`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Delegate {
+    /// The account that handed the chair over and answers for it: the
+    /// game's record names it (`game_record_seat.delegated_by`), and the
+    /// chair goes when that account leaves the room or is deleted.
+    pub by: String,
+    /// The name the chair sits under, as the bridge chose it (`LLM-…`),
+    /// held to the display-name rule.
+    pub name: String,
 }
 
 impl LobbySeat {
@@ -96,7 +113,14 @@ impl LobbySeat {
             said_ready: false,
             team: None,
             joined_seq: None,
+            delegate: None,
         }
+    }
+
+    /// Whether anybody sits here: a player, or a host's delegate.
+    #[must_use]
+    pub const fn occupied(&self) -> bool {
+        self.account_id.is_some() || self.delegate.is_some()
     }
 
     /// Whether the seat is settled enough for the game to start: somebody is
@@ -112,14 +136,17 @@ impl LobbySeat {
     /// player it belongs to. Such a chair is *reserved*, not taken, and a
     /// game that started on one would be a game its player could not open a
     /// socket to.
+    ///
+    /// A host's delegate is ready the moment it sits, as an AI chair is once
+    /// configured: the host asked for it, and says go by pressing Start.
     #[must_use]
     pub fn ready(&self) -> bool {
         match self.kind {
             SeatKind::Human => {
-                self.account_id.is_some()
+                self.occupied()
                     && self.deck.is_some()
                     && self.seat_token_hash.is_some()
-                    && self.said_ready
+                    && (self.said_ready || self.delegate.is_some())
             }
             // An AI the host gave no deck plays the house deck, so there is
             // nothing left to wait for.
@@ -147,8 +174,18 @@ impl LobbySeat {
     /// one. Exactly two must not travel. A seat token names one game for the
     /// whole of its life, and `said_ready` is a statement about *this* table
     /// that only the player pressing the button gets to make.
+    ///
+    /// A host's delegate does not travel at all: its bridge plays one game
+    /// and is gone, and nothing could claim the chair for it at the next
+    /// table. The chair waits open, on its side, for the host to seat
+    /// another.
     #[must_use]
     pub fn again(&self) -> Self {
+        if self.delegate.is_some() {
+            let mut open = self.clone();
+            open.vacate();
+            return open;
+        }
         Self {
             seat_token_hash: None,
             said_ready: false,
@@ -553,7 +590,13 @@ impl Lobby {
             .games
             .values()
             .filter(|g| g.state != LobbyState::Over)
-            .flat_map(|g| g.seats.iter().filter_map(|s| s.account_id.clone()))
+            .flat_map(|g| {
+                g.seats.iter().filter_map(|s| {
+                    s.account_id
+                        .clone()
+                        .or_else(|| s.delegate.as_ref().map(|d| d.by.clone()))
+                })
+            })
             .collect();
         out.sort_unstable();
         out.dedup();
@@ -574,7 +617,10 @@ impl Lobby {
         let mut sat = false;
         for game in self.games.values_mut() {
             for chair in &mut game.seats {
-                if chair.account_id.as_deref() == Some(account_id) {
+                // A chair it handed to a bridge goes with it: nobody is left
+                // to answer for it.
+                let vouched = chair.delegate.as_ref().is_some_and(|d| d.by == account_id);
+                if chair.account_id.as_deref() == Some(account_id) || vouched {
                     chair.vacate();
                     sat = true;
                 }
@@ -717,12 +763,16 @@ impl Lobby {
                             "seat": s.seat,
                             "kind": s.kind,
                             "ai": s.ai,
-                            "taken": s.account_id.is_some(),
+                            "taken": s.occupied(),
                             // A name, never an account id: the listing is
                             // public to every signed-in player, and knowing
                             // who is at a table does not require knowing
                             // their account.
-                            "player": s.account_id.as_ref().and_then(|a| names.get(a)),
+                            "player": s.account_id.as_ref().and_then(|a| names.get(a))
+                                .or_else(|| s.delegate.as_ref().map(|d| &d.name)),
+                            // Whose seat bridge sits here (`chair.rs`), by
+                            // handle; `null` for every other chair.
+                            "delegated_by": s.delegate.as_ref().and_then(|d| names.get(&d.by)),
                             "you": s.account_id.as_deref() == Some(me),
                             "host": s.account_id.is_some() && s.account_id == g.host,
                             "deck": s.deck_name,
@@ -775,6 +825,7 @@ mod tests {
             said_ready: true,
             team: Some(1),
             joined_seq: Some(joined),
+            delegate: None,
         }
     }
 

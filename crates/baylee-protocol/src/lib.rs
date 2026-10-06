@@ -59,6 +59,23 @@ pub fn seat_socket_path(game_id: &str, ticket: &str) -> String {
     format!("/games/{game_id}/ws?ticket={ticket}&protocol={PROTOCOL_VERSION}")
 }
 
+/// Where a room's host asks for a chair ticket for its seat bridge:
+/// `POST`, `Authorization: Bearer <session>`, answered `{ticket,
+/// expires_in}` (`docs/protocol.md` §"A host's chair for a seat bridge").
+/// The ticket goes to the bridge on its stdin, never in an address.
+#[must_use]
+pub fn chair_ticket_path(game_id: &str, seat: u32) -> String {
+    format!("/lobby/games/{game_id}/chairs/{seat}/ticket")
+}
+
+/// Where a seat bridge sits down on its host's chair ticket: `POST`,
+/// `Authorization: Bearer <chair ticket>`, body `{display_name, deck}`,
+/// answered `{game_id, seat, seat_token, decide_secs}`.
+#[must_use]
+pub fn chair_redeem_path(game_id: &str, seat: u32) -> String {
+    format!("/lobby/games/{game_id}/chairs/{seat}/redeem")
+}
+
 /// Where a client trades its bearer token for a ticket to open one socket
 /// with (#294): `POST`, `Authorization: Bearer <session or seat token>`,
 /// body `{"socket":"lobby"}` or `{"socket":"seat","game":"<id>"}`.

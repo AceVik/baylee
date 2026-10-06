@@ -83,6 +83,15 @@ pub enum Door {
         /// The game in the path.
         game_id: String,
     },
+    /// `POST /lobby/games/{game_id}/chairs/{seat}/redeem`: a chair a host
+    /// handed to a seat bridge (`chair.rs`). Not a socket, but the same kind
+    /// of secret: single use, short-lived, bound.
+    Chair {
+        /// The game in the path.
+        game_id: String,
+        /// The chair in the path.
+        seat: usize,
+    },
 }
 
 /// What a ticket was issued for, and by whom.
@@ -106,6 +115,18 @@ pub enum Grant {
         /// handed out again (`POST /lobby/games/{id}/seat`) opens nothing.
         seat_token_hash: String,
     },
+    /// One open chair of one waiting room, handed by its host to a seat
+    /// bridge (`chair.rs`): whoever redeems it sits there as the host's
+    /// delegate, with no account of its own.
+    Chair {
+        /// The room.
+        game_id: String,
+        /// The chair.
+        seat: usize,
+        /// The host's account, who answers for the chair. The redemption
+        /// checks that it still hosts the room.
+        host: String,
+    },
 }
 
 impl Grant {
@@ -114,6 +135,13 @@ impl Grant {
         match (self, door) {
             (Self::Lobby { .. }, Door::Lobby) => true,
             (Self::Seat { game_id, .. }, Door::Seat { game_id: asked }) => game_id == asked,
+            (
+                Self::Chair { game_id, seat, .. },
+                Door::Chair {
+                    game_id: asked,
+                    seat: at,
+                },
+            ) => game_id == asked && seat == at,
             _ => false,
         }
     }
@@ -126,6 +154,7 @@ impl Grant {
             Self::Seat {
                 seat_token_hash, ..
             } => format!("seat:{seat_token_hash}"),
+            Self::Chair { host, .. } => format!("chair:{host}"),
         }
     }
 }
@@ -280,6 +309,24 @@ impl Tickets {
         Ok(entry.grant)
     }
 
+    /// Drops every unspent ticket whose grant `dead` says is no longer
+    /// meant (a host who left the room it handed chairs of), and says how
+    /// many that was. The redemption checks the same thing again; this only
+    /// keeps a ticket nobody may use from being kept.
+    pub fn revoke(&self, dead: impl Fn(&Grant) -> bool) -> usize {
+        let mut inner = self.inner.lock();
+        let gone: Vec<String> = inner
+            .live
+            .iter()
+            .filter(|(_, e)| dead(&e.grant))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for key in &gone {
+            inner.remove(key);
+        }
+        gone.len()
+    }
+
     /// Drops every expired ticket and says how many that was.
     pub fn sweep(&self, now: Instant) -> usize {
         sweep_inner(&mut self.inner.lock(), self.ttl, now)
@@ -317,8 +364,18 @@ fn hex(bytes: &[u8]) -> String {
 /// # Errors
 /// The sentence the gateway refuses to start with.
 pub fn ttl_from_env(raw: Option<&str>) -> Result<Duration, String> {
+    lifetime_from_env(raw, DEFAULT_SECS)
+}
+
+/// [`ttl_from_env`] with another default, for a store of tickets that are
+/// not a socket's (`BAYLEE_CHAIR_TICKET_SECS`, `chair.rs`): the same bounds,
+/// for the same reasons.
+///
+/// # Errors
+/// The sentence the gateway refuses to start with.
+pub fn lifetime_from_env(raw: Option<&str>, default_secs: u64) -> Result<Duration, String> {
     match raw.map(str::trim) {
-        None | Some("") => Ok(Duration::from_secs(DEFAULT_SECS)),
+        None | Some("") => Ok(Duration::from_secs(default_secs)),
         Some(text) => match text.parse::<u64>() {
             Ok(secs) if (MIN_SECS..=MAX_SECS).contains(&secs) => Ok(Duration::from_secs(secs)),
             Ok(secs) => Err(format!("{secs} seconds is outside {MIN_SECS}..={MAX_SECS}")),
@@ -550,6 +607,70 @@ mod tests {
             Err(Refusal::Unknown)
         );
         assert!(store.consume(&young, &Door::Lobby, t0 + TTL).is_ok());
+        assert!(store.inner.lock().by_holder.is_empty());
+    }
+
+    fn chair(game: &str, at: usize, host: &str) -> Grant {
+        Grant::Chair {
+            game_id: game.into(),
+            seat: at,
+            host: host.into(),
+        }
+    }
+
+    fn chair_door(game: &str, at: usize) -> Door {
+        Door::Chair {
+            game_id: game.into(),
+            seat: at,
+        }
+    }
+
+    #[test]
+    fn a_chair_ticket_opens_its_own_chair_of_its_own_room_only() {
+        let store = Tickets::new(TTL);
+        let t0 = Instant::now();
+        for wrong in [chair_door("g1", 2), chair_door("g2", 1), door("g1")] {
+            let ticket = store.issue(chair("g1", 1, "host"), t0).unwrap();
+            assert_eq!(
+                store.consume(&ticket, &wrong, t0),
+                Err(Refusal::WrongDoor),
+                "{wrong:?}"
+            );
+            assert_eq!(
+                store.consume(&ticket, &chair_door("g1", 1), t0),
+                Err(Refusal::Unknown),
+                "refused at the wrong chair is spent"
+            );
+        }
+        let seat_ticket = store.issue(seat("g1", 1, "h"), t0).unwrap();
+        assert_eq!(
+            store.consume(&seat_ticket, &chair_door("g1", 1), t0),
+            Err(Refusal::WrongDoor),
+            "a seat ticket is no chair ticket"
+        );
+        let ticket = store.issue(chair("g1", 1, "host"), t0).unwrap();
+        assert_eq!(
+            store.consume(&ticket, &chair_door("g1", 1), t0),
+            Ok(chair("g1", 1, "host"))
+        );
+    }
+
+    #[test]
+    fn a_revoked_grant_opens_nothing_and_the_others_stay() {
+        let store = Tickets::new(TTL);
+        let t0 = Instant::now();
+        let gone = store.issue(chair("g1", 1, "left"), t0).unwrap();
+        let kept = store.issue(chair("g1", 2, "stayed"), t0).unwrap();
+        let socket = store.issue(lobby(b"s"), t0).unwrap();
+        let revoked =
+            store.revoke(|grant| matches!(grant, Grant::Chair { host, .. } if host == "left"));
+        assert_eq!(revoked, 1);
+        assert_eq!(
+            store.consume(&gone, &chair_door("g1", 1), t0),
+            Err(Refusal::Unknown)
+        );
+        assert!(store.consume(&kept, &chair_door("g1", 2), t0).is_ok());
+        assert!(store.consume(&socket, &Door::Lobby, t0).is_ok());
         assert!(store.inner.lock().by_holder.is_empty());
     }
 

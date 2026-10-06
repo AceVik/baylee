@@ -106,14 +106,27 @@ impl SeatLink {
     /// Whether the room has closed: the lobby no longer lists it (it lists
     /// no finished room), or lists it as anything but playing.
     ///
-    /// `false` when that cannot be told (no session to ask with, a lobby
-    /// that did not answer): a seat does not leave a table on a guess.
+    /// Without a session (a chair taken on its host's ticket) the chair
+    /// itself is asked, with its seat token: a room that is gone, or no
+    /// longer takes the token, is closed to it.
+    ///
+    /// `false` when that cannot be told (a lobby that did not answer): a
+    /// seat does not leave a table on a guess.
     pub async fn room_closed(&self) -> bool {
-        let Some(session) = self.session.as_ref() else {
-            return false;
+        let closed = match self.session.as_ref() {
+            Some(session) => self
+                .lobby
+                .room(session, &self.chair.game_id)
+                .await
+                .map(|room| room.is_none_or(|room| !room.playing())),
+            None => self
+                .lobby
+                .chair_status(&self.chair)
+                .await
+                .map(|status| status.is_none_or(|status| status.state != "playing")),
         };
-        match self.lobby.room(session, &self.chair.game_id).await {
-            Ok(room) => room.is_none_or(|room| !room.playing()),
+        match closed {
+            Ok(closed) => closed,
             Err(e) => {
                 tracing::info!(
                     error = %format!("{e:#}"),

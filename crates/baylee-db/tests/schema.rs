@@ -1434,7 +1434,13 @@ async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
         .await
         .expect("an account");
 
-    records::open(db, "g1", &[Some(me_id), None])
+    // Seat 1 is my seat bridge's (a language model at my table): no account
+    // played it, and I answer for it.
+    let mine = records::Seat {
+        account: None,
+        delegated_by: Some(me_id),
+    };
+    records::open(db, "g1", &[records::Seat::played_by(me_id), mine])
         .await
         .expect("opens");
     // Out of order, and one piece twice: the store keeps each once, in
@@ -1485,9 +1491,16 @@ async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
     assert_eq!(records::for_seated(db, "g2", me_id).await.unwrap(), None);
 
     // Opening again rewrites nobody's seat.
-    records::open(db, "g1", &[Some(stranger_id), None])
-        .await
-        .unwrap();
+    records::open(
+        db,
+        "g1",
+        &[
+            records::Seat::played_by(stranger_id),
+            records::Seat::default(),
+        ],
+    )
+    .await
+    .unwrap();
     assert_eq!(
         records::for_seated(db, "g1", stranger_id).await.unwrap(),
         None
@@ -1501,7 +1514,8 @@ async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
         .query_one_raw(Statement::from_string(
             DbBackend::Postgres,
             "SELECT (SELECT count(*) FROM game_record) AS records, \
-                    (SELECT count(*) FROM game_record_seat WHERE account_id IS NOT NULL) AS linked, \
+                    (SELECT count(*) FROM game_record_seat \
+                      WHERE account_id IS NOT NULL OR delegated_by IS NOT NULL) AS linked, \
                     (SELECT bytes FROM game_record WHERE game_id = 'g1') AS bytes",
         ))
         .await
@@ -1510,6 +1524,58 @@ async fn a_game_record_is_read_back_whole_by_a_player_who_sat_there() {
     assert_eq!(row.try_get::<i64>("", "records").unwrap(), 1);
     assert_eq!(row.try_get::<i64>("", "linked").unwrap(), 0);
     assert_eq!(row.try_get::<i64>("", "bytes").unwrap(), 12);
+
+    sandbox.close().await;
+}
+
+/// A seat a host's seat bridge played names the host as the one who answers
+/// for it, never as the one who played it, and goes with the host's account.
+#[tokio::test]
+async fn a_bridges_seat_names_its_host_and_goes_with_it() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("record_delegate").await;
+    let db = &sandbox.db;
+    let host = an_account("host@example.com");
+    let host_id = host.id.clone().unwrap();
+    Account::insert(host).exec(db).await.expect("an account");
+    let bridge = records::Seat {
+        account: None,
+        delegated_by: Some(host_id),
+    };
+    records::open(db, "g1", &[records::Seat::played_by(host_id), bridge])
+        .await
+        .expect("opens");
+    let delegated = |db| async move {
+        let row = sea_orm::ConnectionTrait::query_one_raw(
+            db,
+            Statement::from_string(
+                DbBackend::Postgres,
+                "SELECT count(*) AS n FROM game_record_seat \
+                 WHERE seat = 1 AND account_id IS NULL AND delegated_by IS NOT NULL",
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        row.try_get::<i64>("", "n").unwrap()
+    };
+    assert_eq!(delegated(db).await, 1);
+    // A seat has one occupant: an account, or a host's bridge.
+    let both = db
+        .execute_raw(Statement::from_string(
+            DbBackend::Postgres,
+            format!(
+                "INSERT INTO game_record_seat (game_id, seat, account_id, delegated_by) \
+                 VALUES ('g1', 7, '{host_id}', '{host_id}')"
+            ),
+        ))
+        .await;
+    assert!(both.is_err(), "played and delegated at once");
+    baylee_db::accounts::delete(db, host_id)
+        .await
+        .expect("deletes");
+    assert_eq!(delegated(db).await, 0, "the link went with the account");
 
     sandbox.close().await;
 }
@@ -1527,7 +1593,9 @@ async fn a_game_record_at_its_edges() {
     Account::insert(me).exec(db).await.expect("an account");
 
     // Started, nothing sent: an empty record, not a missing one.
-    records::open(db, "empty", &[Some(me_id)]).await.unwrap();
+    records::open(db, "empty", &[records::Seat::played_by(me_id)])
+        .await
+        .unwrap();
     assert_eq!(
         records::for_seated(db, "empty", me_id).await.unwrap(),
         Some(records::Record {
@@ -1537,9 +1605,13 @@ async fn a_game_record_at_its_edges() {
     );
 
     // Its engine went before the last piece: what came, incomplete.
-    records::open(db, "cut", &[None, Some(me_id)])
-        .await
-        .unwrap();
+    records::open(
+        db,
+        "cut",
+        &[records::Seat::default(), records::Seat::played_by(me_id)],
+    )
+    .await
+    .unwrap();
     for (seq, piece) in [(0, b"ab"), (1, b"cd")] {
         assert!(
             records::append(db, "cut", seq, piece.to_vec(), false)
@@ -1613,7 +1685,9 @@ async fn a_game_record_of_many_small_pieces_reads_back_in_order() {
     let me_id = me.id.clone().unwrap();
     Account::insert(me).exec(db).await.expect("an account");
 
-    records::open(db, "small", &[Some(me_id)]).await.unwrap();
+    records::open(db, "small", &[records::Seat::played_by(me_id)])
+        .await
+        .unwrap();
     let pieces: Vec<Vec<u8>> = (0..300_u32)
         .map(|n| format!("{n}\n").into_bytes())
         .collect();
