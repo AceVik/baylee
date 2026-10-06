@@ -7,8 +7,9 @@
 //! anywhere:
 //!
 //! - **Known**: this build's tables, for hosted providers whose listing
-//!   would need the key ([`KNOWN`]), and for the agent CLIs this build
-//!   speaks, whose models are their own aliases. A snapshot: the provider's
+//!   would need the key ([`HOSTED`], by host, whichever protocol reaches
+//!   it), and for the agent CLIs this build speaks, whose models are their
+//!   own aliases ([`cli_models`]). A snapshot: the provider's
 //!   documentation is the authority, and a model missing here is still
 //!   played when its id is typed into the settings panel.
 //! - **Listed**: an OpenAI-compatible server on this machine (LM Studio, a

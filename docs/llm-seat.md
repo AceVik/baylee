@@ -66,7 +66,9 @@ the directory of `client-settings.json`: `$XDG_CONFIG_HOME/baylee`, else
 another, else `BAYLEE_SEAT_CONFIG`; a file named either way must be there,
 so a mistyped path never drops the caps. The bridge reads it; the client's
 settings panel writes it (`llmseat::store::save`, whole, through a
-temporary file, mode `0600` on unix).
+temporary file, mode `0600` on unix). The client finds it the same way
+(`BAYLEE_SEAT_CONFIG`, else the config directory's), and names it to every
+bridge it starts (`--config`), so a bridge plays the file the player saw.
 
 Unknown fields are refused, and so is every fault, in one sentence naming
 the profile: a file is played as written or not at all.
@@ -77,7 +79,7 @@ the profile: a file is played as written or not at all.
 | `caps.day_usd`, `caps.month_usd` | The most the games of models with a price may spend together per calendar day and per month, in US dollars. |
 | `caps.day_tokens`, `caps.month_tokens` | The same in tokens, for the games of models without a price. |
 | `profiles.<name>` | Up to 32 letters, digits, `-` and `_`, starting with a letter or digit. |
-| `provider` | `anthropic`, `openai` (any OpenAI-compatible endpoint) or `cli` (an agent CLI, [below](#a-cli-as-the-model)). Required. |
+| `provider` | `anthropic`, `openai` (any OpenAI-compatible endpoint) or `cli` (an agent CLI, [below](#a-cli-as-the-model)). Required. It names a wire protocol, not a vendor: the client calls the first two *Anthropic Messages* and *OpenAI-compatible*, and `base_url` says whose server speaks it (DeepSeek answers both). |
 | `model` | The provider's model id; for `cli` the tool, then its own model if any: `claude`, `claude:opus`. Required. |
 | `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
 | `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
@@ -87,7 +89,7 @@ the profile: a file is played as written or not at all.
 | `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000; 20,000,000 for `cli`); the limit of a model without a price. |
 | `game_calls` | The most calls one game may make; past it the house finishes the game (default 500 for `cli`, no limit for an API). |
 | `think_secs` | The longest one answer may take (default 60). |
-| `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`). Not for `cli`. |
+| `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`), and, with the address's host, the name a key is kept under in this machine's credential store ([below](#where-a-key-is-kept)). Not for `cli`. |
 | `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
 | `command` | `cli` only: the tool's program, a whole path; default: the tool's name on the bridge's `PATH`. Name a version's own file to play that version (`/Users/<you>/.local/share/claude/versions/<version>`, [below](#a-cli-as-the-model)). |
 
@@ -96,22 +98,65 @@ A model without a price in this build plays only with a `price` or a
 where the caps count dollars a day or a month, it also needs the token cap
 of that period, or its spend would count nowhere.
 
-## Keys
+## Where a key is kept
 
-No key is ever in the file. A profile names the variable its key is read
-from, and the bridge reads it from the environment. A field named like a
-key (`api_key`, `key`, `token`, `secret`, `password`, `authorization`, …),
-a profile's name included, or a name or value shaped like one refuses the
-file (`llmseat::shaped_like_a_key`: the generic `sk-`, `Bearer ` and
-`x-api-key` where a word starts, so `risk-free` is none; the long
-provider markers `sk-ant-`, `sk-proj-`, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`
-and `github_pat_` with twenty key characters after them wherever they
-stand, so a key glued to a model id is one) with a sentence saying
-where keys go, and so does a command line that carries the key of any
-variable the bridge would read. A profile's key goes only to the address
-written beside it: a profile's `base_url` beats `ANTHROPIC_BASE_URL` and
-`BAYLEE_LLM_BASE_URL`, and without one the environment's address, then the
-provider's, is used.
+In the environment or in this machine's credential store, never in the
+file. A profile names the variable its key is read from (`key_env`); the
+bridge reads that variable first, and where it is unset, the key kept in
+the operating system's credential store under the same name for the
+profile's address: the macOS Keychain, the Windows Credential Manager, the
+Secret Service on Linux (the `keyring` crate, Apache-2.0 or MIT; only
+`baylee-seat` links it).
+
+- **The entry.** Service `baylee-seat`, account `{key_env}@{host}` (with
+  the port where the address names one, `llmseat::keys::KeyEntry`): the
+  host of the profile's `base_url`, else of the environment's address,
+  else the provider's. A key is kept for one host, so a profile pointed
+  somewhere else finds none, and a key is never sent to an address it was
+  not kept for. Two profiles of one vendor on one host share a key; two
+  protocols of one vendor at two addresses (`api.deepseek.com/v1` and
+  `/anthropic` share a host) do too.
+- **Keeping one.** The client's settings panel has a key box under each
+  profile's address ([below](#the-settings-panel)), and a terminal has
+  `baylee-seat key set|status|delete --profile <name>` (or `--key-env
+  <variable> --host <host>`). `set` reads the key as one line on stdin,
+  never from the command line; `status` answers `set`, `absent` or
+  `unavailable: <why>`, and asks the store whether there is a key without
+  reading it out. Nothing prints a key, and an error that might quote one
+  has every key-shaped run blanked.
+- **Who reads it.** The bridge, itself, at the moment it sits down (or, in
+  a debug build, takes an order for another profile). The client never
+  reads a key back: its box sends a key to `baylee-seat key set` on that
+  child's stdin and forgets it, and a bridge it starts is handed no key.
+  This is the smaller exposure of the two ways a bridge could get the key:
+  a key handed down in the bridge's environment can be read by every
+  process of the same user (`/proc/<pid>/environ`, `ps eww`) for the whole
+  game and is inherited by every child (a CLI mind's tool included),
+  where the store answers only the program that asks, under its own
+  access rules, and the key then sits only in the process that sends it.
+  It also means one program touches the store, so macOS asks once, for
+  `baylee-seat`, rather than for each program that would read the entry.
+  A rebuilt (unsigned) bridge may be asked again.
+- **Where there is none.** A browser, a phone, a machine without a
+  running Secret Service, or `BAYLEE_KEY_STORE=off` (every test that
+  starts a bridge sets it: a test never reaches the player's store): the
+  key box says why it is not there, and the variable works as before.
+  Every test inside a process uses `llmseat::keys::MemoryKeys`.
+- **Never the file.** A field named like a key (`api_key`, `key`,
+  `token`, `secret`, `password`, `authorization`, …), a profile's name
+  included, or a name or value shaped like one refuses the file
+  (`llmseat::shaped_like_a_key`: the generic `sk-`, `Bearer ` and
+  `x-api-key` where a word starts, so `risk-free` is none; the long
+  provider markers `sk-ant-`, `sk-proj-`, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`
+  and `github_pat_` with twenty key characters after them wherever they
+  stand, so a key glued to a model id is one) with a sentence saying
+  where keys go, and so does a command line that carries the key of any
+  variable the bridge would read. The settings panel refuses a key typed
+  into any box but the key box, beside that box, and writes nothing.
+- **Its address.** A profile's key goes only to the address written
+  beside it: a profile's `base_url` beats `ANTHROPIC_BASE_URL` and
+  `BAYLEE_LLM_BASE_URL`, and without one the environment's address, then
+  the provider's, is used.
 
 ## Which model plays, with what
 
@@ -135,6 +180,32 @@ A flag beats the profile, and the profile beats the build.
 - No file: everything is as it was before the file existed. No caps and
   no spend book; a game's budget is $5 (or `--spend-usd`), checked before
   each call.
+
+## Models and efforts
+
+What the client offers to choose from, `llmseat::models`. A model is
+shown under a label a player reads, with its exact id beside it (`Claude
+Opus 5.5 · claude-opus-5-5`), and the id is what the file and `--mind`
+carry. Models are listed only where no key leaves the machine:
+
+- **Known**: this build's tables. Hosted APIs whose listing would need
+  the key are keyed by host, whichever protocol reaches it
+  (`models::HOSTED`: `api.anthropic.com`, `api.deepseek.com`); Anthropic's
+  table also serves an Anthropic-protocol address the build does not know
+  (a proxy). The agent CLIs' models are their own aliases, read through
+  one function (`models::cli_models`). A snapshot of the providers'
+  documentation, which stays the authority.
+- **Listed**: an OpenAI-compatible server on this machine (LM Studio, a
+  llama.cpp server) is asked `GET {base}/models` without a key. Only a
+  loopback address is asked.
+- **Typed**: any other id is played as written, labelled with itself.
+
+Efforts are offered only where the build knows which ones the model takes
+(Claude's current models `low` to `max`, `xhigh` from Opus 4.7 on;
+DeepSeek's models none it can name). Elsewhere the chair plays the model's
+own default and says so, and the bridge is started with
+`--default-effort`, so an effort the profile names cannot reach a model
+that may refuse it.
 
 ## A CLI as the model
 
@@ -393,17 +464,40 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
   box leaves the field out and says what the bridge plays instead. Beside
   the model are this build's priced models, with their dollars per
   million in and out, and under the prices what this build knows of the
-  model's. The key's box is the *name* of its variable, and beside it
-  whether that variable is set in the client's own environment: only
-  whether; its value is never read into the panel, and the bridge reads
-  its own.
+  model's. The key variable's box is the *name* of its variable, and
+  beside it whether that variable is set in the client's own environment:
+  only whether; its value is never read into the panel, and the bridge
+  reads its own.
+- **Protocol and address.** A profile's provider is offered as its
+  protocol (*Anthropic Messages*, *OpenAI-compatible*, *Agent CLI*) and
+  its address is a box beside it. *Add an adapter* offers presets, each a
+  profile with protocol, address and key variable filled and every box
+  editable afterwards: Anthropic (`ANTHROPIC_API_KEY`), OpenAI
+  (`https://api.openai.com/v1`, `OPENAI_API_KEY`), DeepSeek
+  (`https://api.deepseek.com/v1`, JSON answers) and DeepSeek over its
+  Anthropic address (`https://api.deepseek.com/anthropic`), both
+  `DEEPSEEK_API_KEY`, LM Studio on this machine (`http://127.0.0.1:1234/v1`,
+  no key, its loaded models listed), Claude Code and Antigravity
+  (`llmseat::seating::Preset`).
+- **The key box.** Under the address of a profile that needs a key: what
+  the credential store keeps for that variable and host (*a key is kept*,
+  *none kept*, or why there is no store), a box that draws what is typed
+  or pasted into it only as dots and has no eye to show it, *Keep* and
+  *Forget*. *Keep* hands the key to `baylee-seat key set` on its stdin and
+  empties the box; nothing in the panel ever holds a kept key, so there
+  is nothing to show back, only to replace or forget. The store is asked
+  again each time the settings screen opens (a key may have been kept
+  from a terminal meanwhile). `llmseat::keys::KeyDesk` decides,
+  `crates/baylee-client/src/seatbin.rs` runs the jobs off the frame, and
+  `BAYLEE_SEAT_BIN` names the bridge (default: `baylee-seat` beside the
+  client).
 - **Faults.** Every refusal of the file stands beside the box it is about,
   in the player's language: `SeatSettings::faults` is the list that
   `parse` and `check` say the first of, so the panel and the bridge refuse
   by one predicate. The panel adds its own (a number that is not one, half
   a price, two profiles with one name). Save is dead while any stands, so
-  a key typed or pasted into any box is refused there and never written.
-  There is no box for a key. A dollar cap beside a model with no price is
+  a key typed or pasted into any box but the key box is refused there and
+  never written. A dollar cap beside a model with no price is
   a warning rather than a fault: the file is sound, and the bridge refuses
   only that model's games.
 - **On disk.** Save writes through `store::save`. While the screen is up
@@ -416,6 +510,63 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
 - **Spent.** Today and this month, from the book at the client's clock and
   local offset, with the zone said (`Counted in local time, UTC+02:00.`),
   against the caps as the boxes now say them.
+
+## A language model at your table
+
+A host's desktop client can seat a language model in a chair of its own
+gateway table, beside the house. The engine plays the house; a language
+model is a seat bridge the client starts (`llmseat::seating`, decided and
+tested in client-core; `crates/baylee-client/src/tableseats.rs` spawns and
+holds the processes).
+
+- **Where.** In the room, on every chair that is not taken, the host sees
+  *→ language model* (a desktop at a gateway only: offline the house
+  plays alone, and a browser or phone runs no bridge). Pressed, the chair
+  is opened (the house leaves it) and an editor stands on its card: the
+  settings file's profiles, the chosen profile's models (labelled, [as
+  above](#models-and-efforts)), the efforts the model takes, the deck
+  it brings (one of the acceptance decks), *Keep as the profile's* and
+  *Remove the model*. *Keep as the profile's*
+  writes the chosen model and effort into the profile, through the same
+  `store::save` as the settings panel; until then they are the chair's.
+- **When.** Once the gateway lists the chair open, the client starts
+  `baylee-seat join <room> --chair <n> --config <file> --profile <name>
+  --acceptance <deck> --tethered` (with `--mind`, `--effort` or
+  `--default-effort` where the chair differs from its profile). The bridge
+  signs in as a guest named for its mind, takes that chair, says ready,
+  and plays; a locked room's password is handed over in its environment
+  (`BAYLEE_ROOM_PASSWORD`), never on its command line, and its key it
+  finds itself ([above](#where-a-key-is-kept)). A changed plan restarts
+  the bridge while the room waits; nothing starts or stops once the game
+  is on.
+- **Held by the client.** `--tethered`: the bridge holds its stdin from
+  the client, and when that closes (the plan removed, the client quit or
+  crashed) it stops as for ctrl-c and, before the game, gives its chair
+  back (`POST …/leave`), so a room never keeps a chair for a bridge that
+  is gone. A bridge that cannot start says why on the chair's card and is
+  not retried until the plan changes.
+- **Limits.** The bridge is a guest: a gateway with `BAYLEE_GUESTS=off`
+  seats none, and under `BAYLEE_REGISTRATION=invite` it needs a key it is
+  not given. A blitz table (30 seconds or less a decision) is refused by
+  the bridge, as from a terminal. The chair keeps the house level `steady` for its fallbacks
+  (a plan's end, a cap reached).
+
+## Changing a chair during the game
+
+In a debug build only (`seating::LIVE_CHANGES`), a panel at the top left
+of the duel lists the chairs this client's bridges play and offers, for
+each, the house, every profile, the profile's models and their efforts.
+A press writes one JSON line to that bridge's stdin (`seating::Order`:
+`{"mind":"house","level":"steady"}` or
+`{"mind":"model","profile":…,"model":…,"effort":…}`, at most 1 KiB, no
+key-shaped value), and the bridge plays the new mind from its next
+decision; a question already being thought about is answered by the mind
+that was asked it. The order is chosen as at sit-down: the key or program
+checked and the game reserved in the spend book first, and on any refusal
+the old mind plays on, the bridge saying why. The chair keeps the name it
+sat down under, so a language-model chair takes a model or the house,
+never the reverse. A release bridge reads no orders and a release client
+draws no panel.
 
 ## A dev table
 

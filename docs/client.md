@@ -3577,6 +3577,29 @@ cloud geometry are evaluated analytically inside the material. The GLB is an edi
 source export; the client consumes its transparent render. Mobile GPU performance
 has not been measured for this replacement; older geode timings do not apply.
 
+### A language model in a chair
+
+A host's room offers a language model in every chair not taken (`→ language
+model`), on a desktop at a gateway only: offline the house plays alone, and a
+browser or phone starts no process. The chair is opened and its card carries
+the editor (`lobby/room/llm.rs`): profile, model (label and exact id), the
+efforts that model takes, the deck it brings, and keeping the choice as the
+profile's. The client then starts a tethered seat bridge for the chair once
+the gateway lists it open, and holds it by its stdin (`tableseats.rs`;
+`client-core::llmseat::seating` decides which bridges to start and stop, and
+is where the tests are). Closing the room, removing the model or quitting the
+client closes that stdin, and the bridge lets go of the chair. The flow, its
+limits and the key are `docs/llm-seat.md` §"A language model at your table".
+
+A debug build adds a panel at the top left of the duel (`tablellm.rs`,
+`TableLlmPlugin`, added only where `seating::LIVE_CHANGES`) that changes such
+a chair to the house or another profile, model or effort from its next
+decision (`docs/llm-seat.md` §"Changing a chair during the game"). It is
+rebuilt only when what it shows changed (`TableSeats::revision`), and the
+room's systems that run the bridges touch the lobby's state only when a
+bridge, a listing or a key answer moved it (`bypass_change_detection`, then
+`set_changed`), so an idle room rebuilds nothing.
+
 ## The deck builder
 
 A screen of its own (`Screen::Build`), and the same split again: every
@@ -7048,8 +7071,14 @@ Below the two columns, on a desktop only, is the language-model seat's panel
 neither the account's nor the screen's: `llm-seat.json` belongs to the machine
 the seat bridge runs on, so it is in neither store, never leaves the machine,
 and is written only through `llmseat::store::save`. Its boxes type like the
-lobby's (the caret, `Tab`, `Enter` saves, `Escape` puts the caret away), and it
-has no box for a key.
+lobby's (the caret, `Tab`, `Enter` saves, `Escape` puts the caret away). Its
+one box for a key is sealed (`ui::Masked::sealed`): what is typed or pasted
+into it is drawn only as dots and it has no eye, `Keep` hands it to
+`baylee-seat key set` on that child's stdin, off the frame
+(`seatbin::KeyRunner`), and empties it, and the panel never holds a kept key
+to show back (`docs/llm-seat.md` §"Where a key is kept"). A key typed into
+any other box is refused there. In a test no key job runs: the panel is
+answered that there is no store.
 
 ## The interface's own words
 

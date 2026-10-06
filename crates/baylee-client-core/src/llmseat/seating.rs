@@ -13,7 +13,8 @@
 //! writes the orders; the bridge reads an order with [`Order::parse`].
 //!
 //! No key goes anywhere from here: a bridge reads its key from the variable
-//! its profile names, and neither a command line nor an order carries one
+//! its profile names, else from this machine's credential store
+//! (`super::keys`), and neither a command line nor an order carries one
 //! ([`Order::parse`] refuses a value shaped like one).
 
 use super::models::{Endpoint, Resolved, offered, resolve};
