@@ -4065,12 +4065,21 @@ is three things that say what is happening:
   not what is owed, and stops short of what declining costs, because whether
   it is a countered spell or an unpaid tax is the engine's sentence.
 - **The number**, beside the mana pool rather than in the shelf's middle
-  column. `Owed {2}{G}` and `have {G}` then stand in one register at one
-  scale, drawn by the same `manapip`, so a player subtracts them by looking
-  instead of converting first. The strip is hidden while nothing floats, and
-  the first frame of a payment window is exactly that case, so `owed` is a
-  fourth conjunct on its `empty` gate — otherwise the row saying what is owed
-  would unfold only after the player had worked it out.
+  column, in one register and scale with the pool, drawn by the same
+  `manapip`. It is the **remainder**, not the cost: `manaplan::remainder`
+  subtracts the pool by the planner's own matching (a hybrid by either half,
+  `{2/C}` the cheaper way, a CR 609.4b spending permission counted,
+  restricted mana not, as in the planner), so `{2}{G}` owed with a Forest
+  tapped by hand says `Owed {2}`, and paid in full `Owed {0}` until the pass
+  settles the window. One matching for the strip and the pay button, so the
+  two cannot disagree about what the pool covers
+  (`nothing_is_owed_exactly_when_the_pool_pays_without_a_tap`). It is drawn
+  only in this seat's own window (`view.awaiting == view.seat`): a seat
+  watching an opponent pay a ward tax is owed nothing from its own pool. The
+  strip is hidden while nothing floats, and the first frame of a payment
+  window is exactly that case, so `owed` is a fourth conjunct on its `empty`
+  gate — otherwise the row saying what is owed would unfold only after the
+  player had worked it out.
 - **The lands**, through the planner unchanged. `manaplan::plan` takes a cost
   it did not derive and spends the pool first by its own contract, so passing
   `owed` — which is the *total*, not the remainder — needs no arithmetic here

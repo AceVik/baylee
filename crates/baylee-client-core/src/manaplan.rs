@@ -38,6 +38,9 @@ use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaSymbol};
 use baylee_view::ManaPoolView;
 
+mod remainder;
+pub use remainder::remainder;
+
 /// How the client asks one source for its mana.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tap {
@@ -315,20 +318,7 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
     for generic_twobrid in [false, true] {
         let needs = needs(cost, generic_twobrid)?
             .into_iter()
-            .map(|need| {
-                ManaColor::ALL
-                    .into_iter()
-                    .fold(ColorMask::NONE, |mask, actual| {
-                        if need
-                            .colors()
-                            .any(|required| pool.spending.permits(actual, required))
-                        {
-                            mask.with(actual)
-                        } else {
-                            mask
-                        }
-                    })
-            })
+            .map(|need| permitted(need, pool))
             .collect::<Vec<_>>();
         if let Some(found) = assign(&needs, pool, sources) {
             return Some(Plan {
@@ -338,6 +328,23 @@ pub fn plan(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> Option<
         }
     }
     None
+}
+
+/// The mana colours that may pay `need` out of `pool`: its own, and every
+/// colour an effect lets this seat spend as one of them (CR 609.4b).
+fn permitted(need: ColorMask, pool: &ManaPoolView) -> ColorMask {
+    ManaColor::ALL
+        .into_iter()
+        .fold(ColorMask::NONE, |mask, actual| {
+            if need
+                .colors()
+                .any(|required| pool.spending.permits(actual, required))
+            {
+                mask.with(actual)
+            } else {
+                mask
+            }
+        })
 }
 
 /// A source of one mana in the matching: either floating, or a tap.
@@ -398,41 +405,52 @@ fn mask_of_set(set: ColorSet) -> ColorMask {
 fn needs(cost: &ManaCost, generic_twobrid: bool) -> Option<Vec<ColorMask>> {
     let mut out = Vec::new();
     for symbol in cost.symbols() {
-        match symbol {
-            ManaSymbol::Generic(n) => {
-                for _ in 0..n {
-                    out.push(ColorMask::ANY);
-                }
-            }
-            ManaSymbol::Colorless => out.push(ColorMask::of(ManaColor::Colorless)),
-            ManaSymbol::White => out.push(ColorMask::of(ManaColor::White)),
-            ManaSymbol::Blue => out.push(ColorMask::of(ManaColor::Blue)),
-            ManaSymbol::Black => out.push(ColorMask::of(ManaColor::Black)),
-            ManaSymbol::Red => out.push(ColorMask::of(ManaColor::Red)),
-            ManaSymbol::Green => out.push(ColorMask::of(ManaColor::Green)),
-            // A hybrid is one mana of either colour. Phyrexian is read as its
-            // colour only: paying two life is a decision, not a shortcut.
-            ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
-                out.push(mask_of_set(ColorSet::of_pair(pair)));
-            }
-            ManaSymbol::Phyrexian(color) => {
-                out.push(ColorMask::of(ManaColor::from_color(color)));
-            }
-            ManaSymbol::TwoOrColor(color) => {
-                if generic_twobrid {
-                    out.push(ColorMask::ANY);
-                    out.push(ColorMask::ANY);
-                } else {
-                    out.push(ColorMask::of(ManaColor::from_color(color)));
-                }
-            }
-            ManaSymbol::Snow
-            | ManaSymbol::Variable(_)
-            | ManaSymbol::HalfGeneric
-            | ManaSymbol::Infinite => return None,
+        if !push_needs(symbol, generic_twobrid, &mut out) {
+            return None;
         }
     }
     Some(out)
+}
+
+/// Pushes one entry per mana `symbol` demands, and `false` (pushing nothing)
+/// for a symbol this side of the wire must not guess at — [`needs`]'s
+/// reasons, one symbol at a time, so [`remainder`] can tell which symbol
+/// each entry was printed as.
+fn push_needs(symbol: ManaSymbol, generic_twobrid: bool, out: &mut Vec<ColorMask>) -> bool {
+    match symbol {
+        ManaSymbol::Generic(n) => {
+            for _ in 0..n {
+                out.push(ColorMask::ANY);
+            }
+        }
+        ManaSymbol::Colorless => out.push(ColorMask::of(ManaColor::Colorless)),
+        ManaSymbol::White => out.push(ColorMask::of(ManaColor::White)),
+        ManaSymbol::Blue => out.push(ColorMask::of(ManaColor::Blue)),
+        ManaSymbol::Black => out.push(ColorMask::of(ManaColor::Black)),
+        ManaSymbol::Red => out.push(ColorMask::of(ManaColor::Red)),
+        ManaSymbol::Green => out.push(ColorMask::of(ManaColor::Green)),
+        // A hybrid is one mana of either colour. Phyrexian is read as its
+        // colour only: paying two life is a decision, not a shortcut.
+        ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
+            out.push(mask_of_set(ColorSet::of_pair(pair)));
+        }
+        ManaSymbol::Phyrexian(color) => {
+            out.push(ColorMask::of(ManaColor::from_color(color)));
+        }
+        ManaSymbol::TwoOrColor(color) => {
+            if generic_twobrid {
+                out.push(ColorMask::ANY);
+                out.push(ColorMask::ANY);
+            } else {
+                out.push(ColorMask::of(ManaColor::from_color(color)));
+            }
+        }
+        ManaSymbol::Snow
+        | ManaSymbol::Variable(_)
+        | ManaSymbol::HalfGeneric
+        | ManaSymbol::Infinite => return false,
+    }
+    true
 }
 
 /// Every mana available: what is floating, then what could be tapped.

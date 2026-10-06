@@ -426,12 +426,6 @@ item names who it is for.
 
 ## Client
 
-8. **The remaining cost is not drawn as a remainder.** In a payment window
-   the pool strip shows the owed total beside the floating pips, and the
-   pay button says how many lands are left to tap ("Pay (tap
-   N)"); the plan is for the remainder, so hand-tapped mana is counted.
-   A pip row of what is still owed (owed minus pool, with hybrid and
-   restricted mana) is not written.
 9. **Not checked live.** The miracle window, the overload chooser and the
    AI log panel were tested in client-core and `baylee-client` unit tests,
    not through dev-control against a running client.

@@ -183,9 +183,45 @@ type Painted<'w, 's> = Query<
 pub struct PoolRevision {
     pool: Vec<Floating>,
     lang: Option<Lang>,
-    /// What the seat owes in an open payment window, and `None` the rest of
-    /// the time — which is nearly always.
-    owed: Option<baylee_core::mana::ManaPayment>,
+    /// What the seat still owes in its open payment window, and `None` the
+    /// rest of the time — which is nearly always.
+    owed: Option<Owing>,
+}
+
+/// The second half of the row, as drawn: the revision holds what is on the
+/// screen, so a pool that pays a pip rebuilds it even when the cost did not
+/// change.
+#[derive(Clone, PartialEq, Debug)]
+enum Owing {
+    /// A fixed cost, less what the pool already pays
+    /// ([`baylee_client_core::manaplan::remainder`]); empty once it is paid.
+    Fixed(Vec<baylee_core::mana::ManaSymbol>),
+    /// A number the player chooses (CR 605.3a's optional payments): the word
+    /// alone, there being no cost to subtract from.
+    AnyAmount,
+}
+
+impl Owing {
+    /// What `view`'s own seat still owes, if it is the seat being asked.
+    ///
+    /// Only its own window: `owed` names what the *awaited* seat owes, and a
+    /// watching seat's strip is its own pool, which an opponent's ward tax
+    /// is not owed from.
+    fn of(view: &baylee_view::PlayerView) -> Option<Self> {
+        if view.awaiting != Some(view.seat) {
+            return None;
+        }
+        Some(match view.owed? {
+            baylee_core::mana::ManaPayment::Fixed(cost) => {
+                let pool = view
+                    .seat(baylee_client_core::decision::resource_player(view))
+                    .map(|s| s.mana_pool)
+                    .unwrap_or_default();
+                Self::Fixed(baylee_client_core::manaplan::remainder(&cost, &pool))
+            }
+            baylee_core::mana::ManaPayment::AnyAmount { .. } => Self::AnyAmount,
+        })
+    }
 }
 
 /// Spawns the strip, once, beside the shelf.
@@ -284,7 +320,7 @@ pub fn sync_pool(
             .map(|s| baylee_client_core::manapool::row(&s.mana_pool))
             .unwrap_or_default(),
         lang: Some(lang),
-        owed: duel.view.as_ref().and_then(|v| v.owed),
+        owed: duel.view.as_ref().and_then(Owing::of),
     };
 
     let children: Vec<Entity> = standing.into_iter().flatten().copied().collect();
@@ -411,8 +447,8 @@ pub fn sync_pool(
 
     let mut row = vec![head];
     row.extend(ordered.into_iter().map(|(_, entry)| entry));
-    if let Some(cost) = revision.owed {
-        row.push(owed_group(&mut commands, &fonts, lang, &cost));
+    if let Some(owing) = &revision.owed {
+        row.push(owed_group(&mut commands, &fonts, lang, owing));
     }
     commands.entity(column).replace_children(&row);
 }
@@ -618,23 +654,22 @@ fn label(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
         .id()
 }
 
-/// The row's second half: the word `Owed` and the cost, as pips.
+/// The row's second half: the word `Owed` and what is still owed, as pips.
 ///
 /// Drawn by the same [`crate::manaui::spawn_pip`] the deck builder draws a
 /// printed cost with, at the pool's own pip size, because "owe {2}{G}" and
 /// "have {G}" standing in two different registers would be two things a
-/// player has to convert between before they can subtract them.
+/// player has to convert between. And it is the **remainder**, not the cost
+/// (TODO client item 8): `{2}{G}` with a Forest tapped by hand says `{2}`,
+/// so there is nothing left to subtract at all. Paid in full it says `{0}`
+/// until the pass settles the window, rather than a word with nothing after
+/// it.
 ///
 /// The word is [`palette::LEDGE_SOFT`] like the row's own label and for its
 /// measured reason — 5.45 : 1 on the strip's `DIALOG_LIT`, over the 4.5 prose
 /// is held to. The pips carry their own colours and are not dimmed: an owed
 /// cost is not a disabled thing, it is the question being asked.
-fn owed_group(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    lang: Lang,
-    payment: &baylee_core::mana::ManaPayment,
-) -> Entity {
+fn owed_group(commands: &mut Commands, fonts: &UiFonts, lang: Lang, owing: &Owing) -> Entity {
     let group = commands
         .spawn((
             PoolOwed,
@@ -652,9 +687,9 @@ fn owed_group(
     let word = commands
         .spawn((
             Text::new(
-                match payment {
-                    baylee_core::mana::ManaPayment::Fixed(_) => Phrase::Owed,
-                    baylee_core::mana::ManaPayment::AnyAmount { .. } => Phrase::OptionalPayment,
+                match owing {
+                    Owing::Fixed(_) => Phrase::Owed,
+                    Owing::AnyAmount => Phrase::OptionalPayment,
                 }
                 .text(lang)
                 .to_string(),
@@ -669,12 +704,17 @@ fn owed_group(
         ))
         .id();
     let mut kids = vec![word];
-    if let baylee_core::mana::ManaPayment::Fixed(cost) = payment {
-        kids.extend(
-            baylee_client_core::manapip::cost(cost)
-                .into_iter()
-                .map(|pip| crate::manaui::spawn_pip(commands, fonts, pip, POOL_PIP)),
-        );
+    if let Owing::Fixed(left) = owing {
+        let paid = [baylee_core::mana::ManaSymbol::Generic(0)];
+        let left = if left.is_empty() { &paid[..] } else { left };
+        kids.extend(left.iter().map(|symbol| {
+            crate::manaui::spawn_pip(
+                commands,
+                fonts,
+                baylee_client_core::manapip::pip(*symbol),
+                POOL_PIP,
+            )
+        }));
     }
     commands.entity(group).replace_children(&kids);
     group
@@ -733,4 +773,140 @@ fn spawn_entry(commands: &mut Commands, fonts: &UiFonts, floating: &Floating) ->
         .id();
     commands.entity(group).add_children(&[pip, count]);
     group
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_core::mana::{ManaCost, ManaSymbol};
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    /// The strip and the one system that fills it, over `duel`.
+    fn strip_over(duel: Duel) -> App {
+        let mut app = App::new();
+        app.insert_resource(duel)
+            .insert_resource(UiFonts::default())
+            .init_resource::<crate::settings::ClientSettings>()
+            .init_resource::<PoolRevision>()
+            .add_systems(Update, sync_pool);
+        app.world_mut()
+            .run_system_once(|mut commands: Commands| {
+                spawn_pool_strip(&mut commands);
+            })
+            .expect("the strip is spawned");
+        app.update();
+        app
+    }
+
+    /// The glyphs the owed half of the row draws, in order, one string per
+    /// pip; `None` when there is no owed half at all.
+    fn owed_glyphs(app: &mut App) -> Option<Vec<String>> {
+        let world = app.world_mut();
+        let group = world
+            .query_filtered::<Entity, With<PoolOwed>>()
+            .iter(world)
+            .next()?;
+        let kids: Vec<Entity> = world
+            .entity(group)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+        // The first child is the word; each one after is a pip's disc, whose
+        // own text (or its two halves' texts) is the glyph.
+        let glyphs = kids
+            .into_iter()
+            .skip(1)
+            .map(|disc| {
+                let mut stack = vec![disc];
+                let mut glyph = String::new();
+                while let Some(e) = stack.pop() {
+                    if let Some(text) = world.entity(e).get::<Text>() {
+                        glyph.push_str(&text.0);
+                    }
+                    if let Some(children) = world.entity(e).get::<Children>() {
+                        stack.extend(children.iter());
+                    }
+                }
+                glyph
+            })
+            .collect();
+        Some(glyphs)
+    }
+
+    /// The glyph a one-colour or generic `symbol` is drawn with.
+    fn glyph(symbol: ManaSymbol) -> String {
+        match baylee_client_core::manapip::pip(symbol) {
+            baylee_client_core::manapip::Pip::Solid { glyph, .. } => glyph.to_string(),
+            other => {
+                panic!("{other:?} is not one this test reads")
+            }
+        }
+    }
+
+    fn with_floating_green(mut duel: Duel, green: u32) -> Duel {
+        let view = duel.view.as_mut().expect("a view");
+        let seat = view.seat;
+        view.seats
+            .iter_mut()
+            .find(|s| s.player == seat)
+            .expect("this seat")
+            .mana_pool
+            .green = green;
+        duel
+    }
+
+    /// TODO client item 8: the row says what is **still** owed. `{2}{G}`
+    /// owed with a Forest's green floating says `{2}`, paid in full it says
+    /// `{0}`, and with nothing floating it is the cost.
+    #[test]
+    fn the_strip_says_what_is_still_owed_not_the_cost() {
+        let duel = || {
+            let owed = ManaCost::try_parse("{2}{G}").expect("a cost");
+            crate::owed_tests::seat_with_two_forests(Some(owed))
+        };
+
+        let mut app = strip_over(duel());
+        assert_eq!(
+            owed_glyphs(&mut app),
+            Some(vec![
+                glyph(ManaSymbol::Generic(2)),
+                glyph(ManaSymbol::Green)
+            ]),
+            "nothing floats: the whole cost"
+        );
+
+        let mut app = strip_over(with_floating_green(duel(), 1));
+        assert_eq!(
+            owed_glyphs(&mut app),
+            Some(vec![glyph(ManaSymbol::Generic(2))]),
+            "the floating green paid the green"
+        );
+
+        // And it follows the pool on the same strip: a second view.
+        *app.world_mut().resource_mut::<Duel>() = with_floating_green(duel(), 3);
+        app.update();
+        assert_eq!(
+            owed_glyphs(&mut app),
+            Some(vec![glyph(ManaSymbol::Generic(0))]),
+            "paid in full, until the pass settles it"
+        );
+    }
+
+    /// The owed half is this seat's own window only: a seat watching another
+    /// pay is owed nothing from its own pool.
+    #[test]
+    fn a_watching_seat_is_owed_nothing() {
+        let owed = ManaCost::try_parse("{1}").expect("a cost");
+        let mut duel = crate::owed_tests::seat_with_two_forests(Some(owed));
+        let view = duel.view.as_mut().expect("a view");
+        let other = view
+            .seats
+            .iter()
+            .map(|s| s.player)
+            .find(|p| *p != view.seat);
+        assert!(other.is_some(), "another seat to be asked");
+        view.awaiting = other;
+        let mut app = strip_over(duel);
+        assert_eq!(owed_glyphs(&mut app), None);
+    }
 }
