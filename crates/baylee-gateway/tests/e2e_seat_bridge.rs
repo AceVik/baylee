@@ -88,7 +88,7 @@ async fn a_scripted_seat_and_a_house_seat_play_a_game_through_real_sockets() {
     let room = lobby.room(&house_session, &game_id).await.unwrap().unwrap();
     assert!(room.waiting() && room.has_a_free_chair(), "{room:?}");
     let house_chair = lobby
-        .join(&house_session, &game_id, &house_deck_id, None)
+        .join(&house_session, &game_id, &house_deck_id, None, None)
         .await
         .unwrap();
     assert_eq!((scripted_chair.seat, house_chair.seat), (0, 1));

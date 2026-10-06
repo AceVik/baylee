@@ -718,7 +718,7 @@ async fn a_language_model_seat_plays_a_game_through_real_sockets() {
         .unwrap();
     let game_id = llm_chair.game_id.clone();
     let house_chair = lobby
-        .join(&house_session, &game_id, &house_deck_id, None)
+        .join(&house_session, &game_id, &house_deck_id, None, None)
         .await
         .unwrap();
     lobby.ready(&llm_session, &game_id).await.unwrap();
