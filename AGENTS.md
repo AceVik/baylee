@@ -35,7 +35,15 @@
   or a number in the commit), and is compensated by thorough tests: the fast
   path checked against the reference on property/fuzz inputs on every target
   CI builds. In the engine and core a fast path must stay bit-identical across
-  architectures (determinism).
+  architectures (determinism). For wasm, target the newest standard (Wasm 3.0:
+  `simd128`, `relaxed-simd`, bulk memory, tail calls, …) and check the feature
+  against the browsers the web client supports before enabling it globally;
+  relaxed SIMD is nondeterministic by design, so never on a rules path.
+- Cleaner includes splitting large files into a directory module of small,
+  single-purpose files (`example.rs` → `example/mod.rs` + `example/*.rs`, or
+  `example.rs` + `example/` where the crate already does that). Move code
+  without changing it in one commit, change it in the next, so the diff of the
+  move stays reviewable; card files are placed by codegen and never moved.
 - Generated files are **committed** and regenerated only via `cargo xtask codegen`;
   never edit them by hand (marked `// GENERATED`).
 - No `String`/`HashMap` iteration in engine hot paths; determinism is sacred
