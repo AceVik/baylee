@@ -941,3 +941,58 @@ fn a_local_games_record_is_offered_unticked_and_never_remembered() {
     let words = form_words(&mut app);
     assert!(!words.contains(&Phrase::ReportConfirmRecord.fill(Lang::En, &[&kilobytes])));
 }
+
+/// How far the form itself is scrolled.
+fn panel_scroll(app: &mut App) -> f32 {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&ScrollPosition, With<crate::report::DeskScroll>>();
+    q.single(app.world()).expect("one form column").y
+}
+
+/// A tick rebuilds the form and keeps it where it was scrolled: the
+/// record's boxes stand at its foot, and a form thrown back to its top on
+/// each tick hid the box just ticked (found playing, 06.10.). A new
+/// opening starts at the top again.
+#[test]
+fn a_tick_keeps_the_form_where_it_was_scrolled() {
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    let host = crate::host::house_duel().expect("the house duel builds");
+    app.insert_resource(crate::InstalledHost(Box::new(host)));
+    open_form(&mut app);
+    {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&mut ScrollPosition, With<crate::report::DeskScroll>>();
+        q.single_mut(app.world_mut()).expect("one form column").y = 64.0;
+    }
+    click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
+    assert!(desk(&app).form().send_record, "the tick landed");
+    let scrolled = panel_scroll(&mut app);
+    assert!((scrolled - 64.0).abs() < f32::EPSILON, "{scrolled}");
+
+    click_desk(&mut app, "close", |p| matches!(p, DeskPress::Close));
+    open_form(&mut app);
+    assert!(panel_scroll(&mut app).abs() < f32::EPSILON, "a new opening");
+}
+
+/// A game hosted here has no gateway to add its record or an id to name
+/// it by, so the form does not say it sends either (found playing, 06.10.).
+#[test]
+fn a_local_game_s_form_does_not_promise_a_gateway_s_record() {
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    let host = crate::host::house_duel().expect("the house duel builds");
+    app.insert_resource(crate::InstalledHost(Box::new(host)));
+    open_form(&mut app);
+    let words = form_words(&mut app);
+    assert!(
+        words.contains(Phrase::ReportAlwaysLocal.text(Lang::En)),
+        "{words}"
+    );
+    assert!(
+        !words.contains(Phrase::ReportAlways.text(Lang::En)),
+        "{words}"
+    );
+}

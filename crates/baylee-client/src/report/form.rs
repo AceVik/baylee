@@ -29,7 +29,7 @@ pub(crate) struct DeskRoot;
 
 /// The form's scrolling column.
 #[derive(Component)]
-pub(super) struct DeskScroll;
+pub(crate) struct DeskScroll;
 
 /// The report's text box: it scrolls on its own, and keeps the caret in view
 /// ([`place_the_caret`]).
@@ -266,6 +266,7 @@ pub(super) fn draw(
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     roots: Query<Entity, With<DeskRoot>>,
+    column: Query<&ScrollPosition, With<DeskScroll>>,
     mut last: Local<Option<u64>>,
 ) {
     let Some(fonts) = fonts else {
@@ -285,9 +286,15 @@ pub(super) fn draw(
         return;
     }
     *last = Some(now);
+    if desk.drawn_form
+        && let Ok(scrolled) = column.single()
+    {
+        desk.panel_scroll = scrolled.y;
+    }
     for root in &roots {
         commands.entity(root).despawn();
     }
+    desk.drawn_form = desk.open && !desk.form.confirming;
     let metrics = Metrics::of(width);
     let lang = Lang::of(&settings.lang);
     if desk.asking && !desk.open {
@@ -316,7 +323,12 @@ pub(super) fn draw(
 }
 
 /// The shade over everything, and the panel on it.
-fn shade(commands: &mut Commands, metrics: Metrics, max_width: f32) -> (Entity, Entity) {
+fn shade(
+    commands: &mut Commands,
+    metrics: Metrics,
+    max_width: f32,
+    scrolled: f32,
+) -> (Entity, Entity) {
     let shade = commands
         .spawn((
             DeskRoot,
@@ -348,7 +360,7 @@ fn shade(commands: &mut Commands, metrics: Metrics, max_width: f32) -> (Entity, 
                 border_radius: BorderRadius::all(px(10)),
                 ..default()
             },
-            ScrollPosition::default(),
+            ScrollPosition(Vec2::new(0.0, scrolled)),
             BackgroundColor(palette::PANEL.with_alpha(0.98)),
         ))
         .id();
@@ -482,7 +494,7 @@ fn form(
     metrics: Metrics,
     lang: Lang,
 ) {
-    let (_, panel) = shade(commands, metrics, 760.0);
+    let (_, panel) = shade(commands, metrics, 760.0, desk.panel_scroll);
     let mut parts = Vec::new();
     parts.push(words(
         commands,
@@ -524,7 +536,11 @@ fn form(
     parts.push(words(
         commands,
         tf(fonts, metrics.small),
-        Phrase::ReportAlways.text(lang),
+        if desk.gathered.game_id.is_some() {
+            Phrase::ReportAlways.text(lang)
+        } else {
+            Phrase::ReportAlwaysLocal.text(lang)
+        },
         palette::MUTED,
     ));
     parts.push(words(
@@ -811,7 +827,7 @@ fn confirmation(
     metrics: Metrics,
     lang: Lang,
 ) {
-    let (_, panel) = shade(commands, metrics, 620.0);
+    let (_, panel) = shade(commands, metrics, 620.0, 0.0);
     let mut lines = vec![words(
         commands,
         tf_bold(fonts, metrics.head),
@@ -1119,7 +1135,7 @@ pub(super) fn blink(
 
 /// The one-time question after a crash.
 fn crash_question(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, lang: Lang) {
-    let (_, panel) = shade(commands, metrics, 560.0);
+    let (_, panel) = shade(commands, metrics, 560.0, 0.0);
     let title = words(
         commands,
         tf_bold(fonts, metrics.head),

@@ -3455,6 +3455,12 @@ messages! {
         en: "Always sent: your text, this client's version and the game's id. The gateway adds its own record of the game, which names no one.",
         de: "Immer gesendet: dein Text, die Version dieses Clients und die Kennung der Partie. Das Gateway fügt seine eigene Aufzeichnung der Partie hinzu, die niemanden namentlich nennt.",
     },
+    /// The same, for a report written at no networked table: no game id,
+    /// and no record but one the player ticks below.
+    ReportAlwaysLocal {
+        en: "Always sent: your text and this client's version.",
+        de: "Immer gesendet: dein Text und die Version dieses Clients.",
+    },
     /// A box: system and hardware.
     ReportCatSystem { en: "System and hardware", de: "System und Hardware" },
     /// Under it.

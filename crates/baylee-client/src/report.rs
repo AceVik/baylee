@@ -41,7 +41,7 @@ mod shot;
 #[cfg(test)]
 pub(crate) use corner::ReportCorner;
 #[cfg(test)]
-pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskText};
+pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskScroll, DeskText};
 #[cfg(test)]
 mod tests;
 
@@ -89,6 +89,14 @@ pub struct ReportDesk {
     /// How far the text box is scrolled, carried across the rebuild every
     /// keystroke makes of the form.
     box_scroll: f32,
+    /// How far the form itself is scrolled, carried across the rebuild a
+    /// tick makes: the boxes at its foot (the record's) are ticked scrolled
+    /// down, and a form that jumped back to its top on each would hide the
+    /// box just ticked.
+    panel_scroll: f32,
+    /// Whether the tree up is the form (not the confirmation or the crash
+    /// question), whose scroll [`Self::panel_scroll`] keeps.
+    drawn_form: bool,
 }
 
 impl ReportDesk {
@@ -263,6 +271,7 @@ fn open_when_asked(
     desk.form.status = Status::Editing;
     desk.form.preview = false;
     desk.form.opened();
+    desk.panel_scroll = 0.0;
     let at_table = phase.is_some_and(|phase| *phase.get() != crate::DuelPhase::Closed);
     let duel = duel.as_deref().filter(|_| at_table);
     desk.gathered = gather(
