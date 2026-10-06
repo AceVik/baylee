@@ -506,3 +506,121 @@ The diagnostic state-only measurements were 5.20 µs for a fresh clone and
 further investigation. The production path still takes and restores a complete
 checkpoint, with the retained arena/journal copy-on-write storage above; no
 numeric-capacity threshold or rollback omission was introduced.
+
+
+## Server and tooling (2026-10-06, 0.1.0-beta.6)
+
+Everything outside the rules kernel: the gateway, the engine process's
+transport, the catalog, the database, xtask and the build. Same M1 Max, but
+**shared**: other sessions were compiling throughout, at load averages of 10
+to 150 on ten cores, and each figure below carries what the machine was doing
+only as far as "busy". Read the ratios, which were taken minutes apart in one
+session, rather than the absolute times. Every figure is reproducible with the
+command beside it.
+
+### How to measure
+
+| What | Command |
+|---|---|
+| Gateway under load | `DATABASE_URL=… cargo test --release -p baylee-gateway --test load -- --ignored --nocapture` (knobs `LOAD_GAMES`, `LOAD_LOBBY`, `LOAD_CHURN`, `LOAD_ECHOES`, `LOAD_ECHO_HZ`, `LOAD_BLAST`, `LOAD_BYTES`) |
+| One frame in the engine process | `cargo bench -p baylee-engine-server --bench frames` |
+| Catalog search | `EXPLAIN (ANALYZE, BUFFERS)` of `search_sql()` (`crates/baylee-catalog/src/sql.rs`) against an ingested catalog |
+| Engine-server start | spawn the dev harness with `PORT=0 BAYLEE_PORT_FILE=…` and time the port file |
+
+The load bench runs a real gateway (own port, own schema) and a stand-in
+engine that answers in-band, so the bytes it routes carry their own send time
+and the gateway's own CPU (`ps`) is read beside the wall clock. Its seats and
+engines share one test process with four runtime threads, so the round-trip
+times include that process's own scheduling; the gateway's CPU per frame is
+the cleaner number.
+
+### The gateway (200 lobby feeds, 50 games of two, release)
+
+| | Before | After | What changed |
+|---|---|---|---|
+| Gateway CPU per lobby change | 12.6 ms | 2.2–2.8 ms | names read once per account, not once per feed per change |
+| … per listing pushed | 63 µs | 13 µs | (the rest is the listing's JSON, rendered per feed) |
+| Open + leave a room, p50 / p99 | 30 / 80 ms | 2.4 / 8.2 ms | the feeds' 400 queries a change no longer hold the pool |
+| … while 100 seats send, p50 | 142 ms | 2.9 ms | |
+| 50 games opened with the feeds open | 23.3 s | 6.5 s | |
+| Seat → engine → seat, p50 / p99, quiet | 2.3 / 7.1 ms | 2.0 / 3.0 ms | no lobby lock per frame |
+| … beside lobby churn, p50 / p99 | 3.4 / 15.7 ms | 1.3 / 3.4 ms | |
+| Fan-out, gateway CPU per 16 KiB frame | 23 µs | 16 µs | `Bytes` end to end, one channel per seat |
+| Resident memory per game (two seats, engine link) | 672 KiB | 344 KiB | 8 KiB / 32 KiB read buffers instead of 128 KiB |
+| Peak after a 100-frame burst to every seat | 169 MB | 84 MB | no copy per listener |
+| Idle | 21.5 MB | 21.5 MB | |
+| Per lobby feed | 26 KiB | 26 KiB | |
+
+Seat round trips forwarded about 10 000 frames a second at 19–27 µs of
+gateway CPU each, before and after: what a forwarded frame costs is the
+socket's syscalls and the runtime's wake-ups, not the copies. The fan-out
+delivered 110–145 000 frames a second (2 GB/s) bound by the bench's own
+client.
+
+Found while measuring: tungstenite zeroes its whole read buffer before every
+read (`FrameCodec::read_in`), 128 KiB by default, which a sample of the
+forwarding gateway showed as `bzero` beside `recvfrom`. Every websocket the
+client and the seat bridge open still uses the default.
+
+### The engine process (`frames` bench)
+
+| Path | Time |
+|---|---|
+| `setup` (preset JSON to a built game) | 350–480 µs |
+| `attach` (a seat's whole state: static, view, log) | 60–110 µs |
+| `resync` | 28–34 µs |
+| `answer_keep` (a mulligan answer that moves the game, two seats' frames) | 165–230 µs |
+| Start to serving (dev harness, release) | 20 ms median (9 ms min), 8.8 MB resident |
+
+The frames weigh 23.6 KB (attach, four envelopes), 13.8 KB (resync) and
+7.7 KB (an answer). Protobuf around them is noise: 0.4 µs to encode a resync's
+four envelopes, 0.4 µs to decode them, and the gateway's unwrap of a seat
+frame went from 485 ns to 102 ns once the payload stayed a slice of the frame.
+A sample of `answer_keep` puts about a fifth of it in
+`GameState::snapshot_hash` and most of the rest in serializing the views to
+JSON, both in the engine and gamehost lanes. Records are already gzipped
+(`flate2`, level 6) in 32 KiB pieces at most every 30 s.
+
+### Catalog search (542 177 printings, 41 991 search rows, warm)
+
+| Query | Time |
+|---|---|
+| A name (`bolt`, `sol ring`, `goblin guide` in German) | 1–3 ms |
+| A common word (`dragon`) | 6.6 ms |
+| Rules text (`draw a card`, 3 753 hits) | 18 ms |
+| One letter (`e`, no bigram: every row) | 262 ms |
+| Cold cache | 10–110 ms, 338 ms for one letter |
+
+No client calls `/catalog/search` today (the deck builder searches the
+pool), so this was measured and left alone. The one-letter case and the text
+tier's join back to `card_search` per hit are where a change would go.
+
+### The database
+
+`session_token` was the one table following an account away without an index
+on the account. The guest purge (`DELETE … WHERE guest AND NOT EXISTS (live
+session)`) cascades into it once per guest: 2 000 lapsed guests among 50 000
+with two sessions each took **9.1 s** holding the rows, **76 ms** with the
+index (migration 14); deleting one account 7.5 → 3.3 ms. The other hot reads
+(a session by its token, decks by account, uploads, records) were already
+indexed.
+
+### xtask and the build
+
+| | Before | After |
+|---|---|---|
+| `codegen --check` (release) | 63.7 s | 4.9 s |
+| `codegen --tables` | 1.0 s | |
+| `validate` | 0.5 s | |
+| `cargo build --workspace`, nothing changed, in a worktree | 23.7 s | 0.8 s |
+| … after touching the gateway | | 4.4 s |
+| … after touching `baylee-protocol` | | 24.9 s (21 units; `baylee-client` 8 s + its binary 14 s) |
+| … from clean (debug) | 3 min 46 s | |
+
+Codegen spent all but a second spawning rustfmt once per machine-owned card,
+one after another; it now runs one rustfmt per core over a share of them
+(`format_rust_many`, held to formatting each alone by a test). The no-change
+build was `baylee-build`'s script watching `../../.git/HEAD`, which in a
+linked worktree does not exist, and cargo calls a missing watched path
+changed on every build, so every agent's worktree rebuilt the gateway, the
+engine-server, the client and xtask each time.
