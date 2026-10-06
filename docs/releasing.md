@@ -177,7 +177,11 @@ bundle, its resource seal, or the normal launch executable.
 
 The launcher stores each user's state under `$XDG_STATE_HOME/baylee` (or
 `$HOME/.local/state/baylee`) on Unix and `$LOCALAPPDATA/baylee` on Windows.
-A hash of the canonical installed launch path isolates installations.
+A hash of the canonical path of the original package isolates installations.
+Under macOS App Translocation that is the bundle the player unpacked, as the
+Security framework names it, not the randomised read-only mount it runs
+from, so in-place and translocated starts share one state
+(`launch::in_state_root_of`, `docs/client.md` §"Updating").
 Moving or renaming the original package starts a separate state directory.
 The original client always remains in the package; downloaded complete
 release trees live in `versions/<UUIDv7>` in the state directory.
@@ -205,8 +209,15 @@ exclusive lifetime lease does the launcher prune old generations; it keeps
 the selected generation and its predecessor. Cleanup failures are retried
 at the next launch. The untouched original package is retained separately.
 A read-only original installation still starts, including an already selected
-payload, but its session disables automatic installation. A directly started
-runtime also cannot auto-install; use the normal packaged launch path.
+payload, but its session disables automatic installation: updates would not
+write that folder, but whoever can is the one to manage it. The session names
+the folder and the error (`launch::Blocked`), and a macOS client offers to
+move itself to `~/Applications`. A translocated macOS app is not read-only
+in this sense (it is the player's own download) and installs updates. The
+session's fields after `writable` are `#[serde(default)]`: the launcher is
+permanent in every package, so a runtime must read a session from every
+older launcher. A directly started runtime also cannot auto-install; use the
+normal packaged launch path.
 
 The old rename journal code remains for explicit legacy recovery. Rollback
 has a persisted direction and progress; failed reverse renames retain the

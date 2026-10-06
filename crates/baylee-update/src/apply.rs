@@ -100,9 +100,10 @@ pub enum Unplaceable {
     /// development build started by `cargo run`).
     NotABundle,
     /// macOS runs a quarantined app it was never allowed to move from a
-    /// read-only copy (App Translocation), which cannot be replaced. The
-    /// player moves `Baylee.app` once (to `/Applications`, say), or clears
-    /// the quarantine as `README.txt` says, and it can.
+    /// read-only copy (App Translocation), and would not say of what
+    /// (`launch::Blocked::Translocated`; with an answer, the launcher keys
+    /// the state by the original and installs). The client offers to move
+    /// it to Applications (`crate::relocate`).
     Translocated,
     /// A program path with no folder around it.
     NoFolder,

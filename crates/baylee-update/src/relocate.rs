@@ -553,6 +553,24 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// For a live check on a Mac, by hand: copies a real packaged bundle
+    /// (a translocation mount of it, say) as the client's button does.
+    /// `BAYLEE_LIVE_SOURCE=<bundle> BAYLEE_LIVE_FOLDER=<folder> cargo test
+    /// -p baylee-update --lib live_copy -- --ignored --nocapture`
+    #[test]
+    #[ignore = "live check helper"]
+    fn live_copy() {
+        let (Some(source), Some(folder)) = (
+            std::env::var_os("BAYLEE_LIVE_SOURCE"),
+            std::env::var_os("BAYLEE_LIVE_FOLDER"),
+        ) else {
+            return;
+        };
+        let started = std::time::Instant::now();
+        let to = copy_bundle(Path::new(&source), Path::new(&folder), "Baylee.app").unwrap();
+        println!("copied to {} in {:?}", to.display(), started.elapsed());
+    }
+
     #[test]
     fn stripping_what_has_no_quarantine_is_fine() {
         let root = scratch("plain");

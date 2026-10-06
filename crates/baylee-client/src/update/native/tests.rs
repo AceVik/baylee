@@ -344,6 +344,41 @@ fn the_move_keeps_the_originals_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
+/// The buttons' requests reach the handler: a move that cannot copy says
+/// why in the place and does not quit; keeping the old copy stops asking.
+#[test]
+fn a_failed_move_is_said_and_does_not_quit() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
+        .add_message::<AppExit>()
+        .add_plugins(UpdatePlugin)
+        .insert_resource(Mover {
+            source: None,
+            original: None,
+            home: None,
+        })
+        .add_systems(Update, relocate_on_request);
+    app.world_mut()
+        .write_message(UpdateRequest::Move(MoveTo::Home));
+    app.update();
+    let failed = app.world().resource::<UpdatePlace>().failed.clone();
+    assert_eq!(
+        failed.as_deref(),
+        Some("Baylee could not be moved: Baylee is not running from an app bundle")
+    );
+    let exits = app.world().resource::<Messages<AppExit>>();
+    assert!(exits.is_empty(), "a failed move never quits");
+
+    app.world_mut().resource_mut::<UpdatePlace>().moved =
+        Some(("/new/Baylee.app".into(), "/old/Baylee.app".into()));
+    app.world_mut().write_message(UpdateRequest::KeepOld);
+    app.update();
+    let place = app.world().resource::<UpdatePlace>();
+    assert_eq!(place.moved, None);
+    assert_eq!(place.failed, None);
+}
+
 #[test]
 fn every_reason_is_worded() {
     for (manual, why) in [

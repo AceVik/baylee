@@ -154,11 +154,24 @@ The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
 Only **Apple silicon** Macs (M1 and later) are supported for now; there is no
 Intel build. macOS 11 or later is required.
 
-1. Unpack the zip and move `Baylee.app` to wherever you like, for example
-   `Applications`.
+1. Unpack the zip and drag `Baylee.app` into **Applications** (in the
+   Finder's sidebar) first. That is not required, but an app opened where it
+   was unpacked, in Downloads, is run by macOS from a hidden read-only copy
+   each time.
 2. Open it. The first time, macOS refuses because the app is not notarised.
 3. Open **System Settings → Privacy & Security**, scroll down to the message
    about Baylee and click **Open Anyway**.
+
+If you skipped step 1, Baylee still updates itself. Its settings screen then
+says that macOS runs it from a read-only copy and offers **Move to my
+Applications folder**: Baylee copies itself into the Applications folder in
+your home folder (`~/Applications`, which needs no password), checks that
+the copy's signature is intact, removes the download mark from the copy
+(not from the original), starts the copy and closes itself. The copy starts
+without macOS asking again. On its first start it asks whether to move the
+old copy to the Trash; nothing is deleted unless you say so. Where you may
+write to the main `Applications` folder, a second button puts it there
+instead.
 
 Or, in Terminal:
 
@@ -228,13 +241,20 @@ does not verify is never installed. The settings screen has two switches,
 GitHub nothing until you press "Check for updates"); `docs/privacy.md` says
 what GitHub sees.
 
-Baylee only links to the release page, and you update by hand, when it
-cannot replace itself: its folder is not writable for your user (it never
-asks for administrator rights), or macOS runs it from a read-only copy
-because `Baylee.app` was started from where it was unpacked in Downloads
-(move it once, to Applications for example). To update by hand, download
-the new archive and replace the old folder (or `Baylee.app`) with the new
-one.
+Updates are kept in your own state folder (`~/.local/state/baylee`, or
+`%LOCALAPPDATA%\baylee` on Windows), never written into the program's
+folder. Baylee still only links to the release page, and you update by
+hand, when the folder it lies in is not writable for your user: then
+someone else manages that installation (it never asks for administrator
+rights). The notice names the folder and what the system answered; on a Mac
+it offers **Move to my Applications folder** (see above), after which it
+updates itself. To update by hand, download the new archive and replace the
+old folder (or `Baylee.app`) with the new one.
+
+Releases up to 0.1.0-beta.5 did not update while macOS ran them from that
+read-only copy, and their launcher stays in the app: move such a
+`Baylee.app` into Applications by hand once (or replace it with a new
+download), and it updates from then on.
 
 Replacing the program keeps your settings, because they are not stored next
 to it. On Windows, the client keeps them in `%APPDATA%\Baylee`; on Linux

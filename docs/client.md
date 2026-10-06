@@ -7627,9 +7627,43 @@ is not used for new installations; its rollback remains retryable on error.
 
 **When it only links.** The notice says why: installing switched off, a
 development build, a folder this user cannot write (the client never asks
-for elevated rights), an app macOS runs from a read-only copy (App
-Translocation: moved once, to `/Applications` or anywhere else, it can
-update), a missing or refused signature, or a failed download.
+for elevated rights; the notice names the folder and the system's error,
+from the launcher's `launch::Blocked::ReadOnly`), an app macOS runs from a
+read-only copy whose original it would not name, a missing or refused
+signature, or a failed download.
+
+**App Translocation (macOS).** A quarantined app opened where it was
+unpacked (never moved by the Finder) runs from a read-only, randomised mount
+under `…/AppTranslocation/<id>/`, new each time it is registered. Updates
+never write the package, so the mount being read-only does not matter; what
+did was the state key: the launcher hashed the mount's path, so every start
+had a new, empty state directory (the owner's machine had two by 06.10.2026)
+and installing was switched off outright. Now the launcher asks the Security
+framework where the original is (`SecTranslocateIsTranslocatedURL`,
+`SecTranslocateCreateOriginalPathForURL`, looked up with `dlsym`;
+`baylee_update::translocation`) and keys the state by the original bundle,
+the same key as when the app runs in place. Such an app is the player's own
+download, so it installs updates; its folder is not probed, because that is
+usually `~/Downloads`, which macOS guards with a privacy prompt. Only when
+the framework would not answer does a `/AppTranslocation/` path still switch
+installing off (`Blocked::Translocated`).
+
+**Moving the app (macOS).** Where installing is off because of where the app
+lies, and whenever macOS translocates it, the notice and the settings screen
+offer "Move to my Applications folder" (`~/Applications`, always this user's)
+and, where this user may write it, "Move to Applications for all users"
+(`baylee_update::relocate`). The client copies the bundle it runs from (the
+original package, or the update generation the launcher selected, which is
+a whole release bundle with its own launcher) into a hidden temporary beside
+the destination, keeping links, modes and the signature's files; removes
+`com.apple.quarantine` from every entry of the copy; runs `codesign --verify
+--deep --strict` on it; renames it into place (never over an existing app);
+opens it with `open -n`; and quits. The copy's state is new, keyed by its own
+path: it needs nothing of the old one, being a copy of the newest client.
+The copy reads `moved.json` (beside the settings) at its first start and
+offers the old package to the Trash, or keeps it; nothing is deleted unasked.
+Packages up to 0.1.0-beta.5 carry the old launcher, which switches
+installing off when translocated; they are moved by hand once.
 
 **Development builds.** Only a build the release workflow made
 (`BAYLEE_RELEASE_BUILD=1` at compile time, optimised, clean commit;

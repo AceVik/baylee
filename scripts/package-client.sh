@@ -43,8 +43,11 @@ EOF
     case "$target" in
     *-apple-*) cat <<'EOF'
 
-macOS: the app is not notarised. On first start macOS refuses it; open
-System Settings > Privacy & Security and choose "Open Anyway", or run
+macOS: drag Baylee.app into Applications before the first start (opened
+here, macOS runs it from a hidden read-only copy; it still updates, and its
+settings offer the move). The app is not notarised. On first start macOS
+refuses it; open System Settings > Privacy & Security and choose "Open
+Anyway", or run
     xattr -dr com.apple.quarantine Baylee.app
 EOF
         ;;
