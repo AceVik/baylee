@@ -8,7 +8,12 @@ use super::*;
 
 #[allow(clippy::struct_excessive_bools)] // Exact snapshot of the driver's independent latches.
 pub(super) struct Checkpoint {
+    /// The game without its journal, which only grows (`Journal`): its
+    /// length is kept instead, and a restore cuts it back to that, as
+    /// `GameState::roll_back` does. A shared journal would be copied whole
+    /// by the answer's first event, once per answer, as long as the game.
     state: GameState,
+    journal: usize,
     pending: Pending,
     house_rules: HouseRules,
     passes: u8,
@@ -101,8 +106,13 @@ impl Checkpoint {
             action_loops,
             loops_broken,
         } = engine;
+        let mut kept = state.clone();
+        // Let go of the journal straight away: the engine's own journal is
+        // then the only holder again, and its next event appends in place.
+        drop(std::mem::take(&mut kept.journal));
         Self {
-            state: state.clone(),
+            state: kept,
+            journal: state.journal.len(),
             pending: pending.clone(),
             house_rules: house_rules.clone(),
             passes: *passes,
@@ -195,7 +205,10 @@ impl Checkpoint {
             action_loops,
             loops_broken,
         } = engine;
+        let mut journal = std::mem::take(&mut state.journal);
+        journal.cancel_from(self.journal);
         *state = self.state;
+        state.journal = journal;
         *pending = self.pending;
         *house_rules = self.house_rules;
         *passes = self.passes;

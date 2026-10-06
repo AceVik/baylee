@@ -46,6 +46,9 @@ fn hack_land(card: CardIndex) -> (Engine<RegistryLookup>, ObjectId) {
 fn independent_copy(engine: &Engine<RegistryLookup>) -> Engine<RegistryLookup> {
     let mut copy = Duel::new(305_612, forest()).start();
     crate::engine::checkpoint::Checkpoint::capture(engine).restore(&mut copy);
+    // A checkpoint keeps the journal's length, not the journal, for the
+    // engine it was taken of; a copy into another engine takes it whole.
+    copy.state.journal = engine.state.journal.clone();
     assert_eq!(copy.snapshot_hash(), engine.snapshot_hash());
     copy
 }
