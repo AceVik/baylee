@@ -2529,6 +2529,8 @@ struct Globals { time: f32 };
             ("BAND_PREVIEW", face::BAND_PREVIEW),
             ("BAND_LONG", face::BAND_LONG),
             ("BAND_LIFT", face::BAND_LIFT),
+            ("BAND_DEEP", face::BAND_DEEP),
+            ("BAND_LUMA", face::BAND_LUMA),
             ("COST_LINE", face::COST_LINE),
             ("DISC_RADIUS", face::DISC_RADIUS),
             ("DISC_DROP", face::DISC_DROP),
@@ -2595,6 +2597,8 @@ struct Globals { time: f32 };
             "let depth = select(BAND_PREVIEW, BAND_LONG, face_layout == LAYOUT_LONG);",
             "text_top = band.w + TEXT_BOX_GAP;",
             "let y = band.y + COST_LINE + DISC_DROP + DISC_RADIUS;",
+            "return clamp(BAND_LUMA / max(luma, 0.0001), BAND_DEEP, 1.0);",
+            "let luma = dot(hue, vec3<f32>(0.2126, 0.7152, 0.0722));",
         ] {
             assert!(src.contains(line), "`text_face` no longer says `{line}`");
         }

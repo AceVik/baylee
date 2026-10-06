@@ -115,6 +115,10 @@ const BEVEL: f32 = 0.06;
 const BAND_PREVIEW: f32 = 0.25142857;
 const BAND_LONG: f32 = 0.16761905;
 const BAND_LIFT: f32 = 0.35;
+/// How deep the band's colour goes where its words begin, and the least
+/// luminance it keeps there (`textface::BAND_DEEP`, `BAND_LUMA`).
+const BAND_DEEP: f32 = 0.6;
+const BAND_LUMA: f32 = 0.23;
 /// The table's colour discs (`textface::discs`): the cost's line above them,
 /// their radius, the drop under that line, and two discs' spacing.
 const COST_LINE: f32 = 0.14;
@@ -226,7 +230,9 @@ fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
         // The band: the identity as a gradient, from its colour where its
         // words begin to lighter under the chips' far end. Only ever
         // towards white, so the ink stands off it as far as off the bars.
-        let lit = mix(hue, PAPER_WHITE, BAND_LIFT * across);
+        let luma = dot(hue, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let deep = hue * band_depth(luma);
+        let lit = mix(deep, PAPER_WHITE, BAND_LIFT * across);
         out = mix(out, lit, face_part(p, band, aa));
     }
 
@@ -238,6 +244,13 @@ fn text_face(uv: vec2<f32>, word: u32) -> vec3<f32> {
     let text_box = vec4<f32>(x0, text_top, x1, TEXT_FOOT);
     out = mix(out, mix(bars, PAPER_WHITE, PAPER_MIX), face_part(p, text_box, aa));
     return out;
+}
+
+/// How far the band's colour is darkened where its words begin
+/// (`textface::band_depth`): to `BAND_DEEP` of itself, but never under the
+/// luminance `BAND_LUMA` at which the ink still reads.
+fn band_depth(luma: f32) -> f32 {
+    return clamp(BAND_LUMA / max(luma, 0.0001), BAND_DEEP, 1.0);
 }
 
 /// A colour disc on the table's art box, ringed in the border's ink.

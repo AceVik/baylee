@@ -1062,6 +1062,28 @@ pub const fn layout_of(word: u32) -> Layout {
 /// stands off the bars: 4.7:1 on black's, the least.
 pub const BAND_LIFT: f32 = 0.35;
 
+/// How deep the band's colour goes where its words begin: this share of
+/// itself, so a white or a gold band stands off the paper under it...
+pub const BAND_DEEP: f32 = 0.6;
+
+/// ...but never under this luminance, at which [`INK`] still stands off it
+/// at 4.5:1 — so black's band, already that dark, is not darkened at all.
+pub const BAND_LUMA: f32 = 0.23;
+
+/// What the band's colour is multiplied by where its words begin, for a
+/// colour of luminance `luma` ([`BAND_DEEP`], [`BAND_LUMA`]). The shader's
+/// `band_depth` is the same arithmetic.
+#[must_use]
+pub fn band_depth(luma: f32) -> f32 {
+    (BAND_LUMA / luma.max(1e-4)).clamp(BAND_DEEP, 1.0)
+}
+
+/// A colour's relative luminance, as WCAG weighs linear light.
+#[must_use]
+pub fn luminance([r, g, b]: [f32; 3]) -> f32 {
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
 /// A keyword chip's paper, in sRGB: a slate dark enough that
 /// [`LIGHT_INK`] reads on it whatever the band under it is.
 pub const CHIP_PAPER: [f32; 3] = [0.12, 0.14, 0.19];
@@ -1512,14 +1534,27 @@ mod tests {
     #[test]
     fn the_band_s_words_and_chips_and_the_foot_read() {
         let ink = linear(INK);
-        for hue in HUES {
-            for lift in [0.0, BAND_LIFT] {
-                let band: [f32; 3] = std::array::from_fn(|i| {
-                    hue.tone()[i] + (PAPER_WHITE[i] - hue.tone()[i]) * lift
-                });
-                assert!(contrast(ink, band) >= 4.5, "{hue:?} at {lift}");
+        // Every hue, and every mix of two the gradient passes through, at
+        // its depth where the words begin and lifted where the chips end.
+        for a in HUES {
+            for b in HUES {
+                for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                    let hue: [f32; 3] =
+                        std::array::from_fn(|i| a.tone()[i] + (b.tone()[i] - a.tone()[i]) * t);
+                    let deep = hue.map(|c| c * band_depth(luminance(hue)));
+                    for lift in [0.0, BAND_LIFT] {
+                        let band: [f32; 3] =
+                            std::array::from_fn(|i| deep[i] + (PAPER_WHITE[i] - deep[i]) * lift);
+                        assert!(contrast(ink, band) >= 4.5, "{a:?}–{b:?} {t} at {lift}");
+                    }
+                }
             }
         }
+        // And a light band stands off its card's paper, which is what the
+        // depth is for.
+        let white = Hue::White.tone();
+        let band = white.map(|c| c * band_depth(luminance(white)));
+        assert!(contrast(band, paper(Hue::White)) > 1.5);
         assert!(contrast(linear(LIGHT_INK), linear(CHIP_PAPER)) >= 7.0);
         assert!(contrast(linear(FOOT_INK), BORDER_INK) >= 7.0);
     }
