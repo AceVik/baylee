@@ -7,6 +7,14 @@
 //! report names a game the reporter sat at, that game's record (#315). It
 //! never passes on a name, an address or an IP.
 //!
+//! A report about a game the client hosted itself (a local game against
+//! the house, no engine of the gateway's) may carry that game's record as
+//! the client wrote it (`local_record`). The gateway cannot vouch for it and
+//! does not pretend to: it bounds its size, checks it is gzip, and passes it
+//! on marked as the client's (`record_origin: "client"`), which the service
+//! checks for a record's shape and keeps apart from the gateway's records.
+//! A report is about one game or the other, never both.
+//!
 //! Configured by `BAYLEE_FEEDBACK_URL` (the service; unset = `503`),
 //! `BAYLEE_FEEDBACK_TOKEN` (this gateway's intake token there) and
 //! `BAYLEE_FEEDBACK_KEY` (the key the pseudonym is made with; unset = one
@@ -33,9 +41,16 @@ pub const MAX_GAME_ID_CHARS: usize = 128;
 /// The largest `client` object, serialized.
 pub const MAX_CLIENT_BYTES: usize = 2 * 1024 * 1024;
 
-/// The largest request body the route reads: a full `client` object and a
-/// full text, with room for the JSON around them.
-pub const MAX_BODY_BYTES: usize = MAX_CLIENT_BYTES + 256 * 1024;
+/// The largest record a client may attach of a game it hosted itself,
+/// compressed (`docs/feedback.md`): the service's own bound for a client's
+/// record (`baylee_feedback::direct::MAX_CLIENT_RECORD_BYTES`).
+pub const MAX_LOCAL_RECORD_BYTES: usize = 4 * 1024 * 1024;
+
+/// The largest request body the route reads: a full `client` object, a
+/// full text and a full local record in base64, with room for the JSON
+/// around them.
+pub const MAX_BODY_BYTES: usize =
+    MAX_CLIENT_BYTES + MAX_LOCAL_RECORD_BYTES.div_ceil(3) * 4 + 256 * 1024;
 
 /// How many reports one account may send per [`REPORT_WINDOW`].
 pub const REPORTS_PER_WINDOW: usize = 64;
@@ -168,6 +183,34 @@ struct Report {
     #[serde(default)]
     game_id: Option<String>,
     client: serde_json::Value,
+    /// The record of a game the client hosted itself, as it wrote it.
+    #[serde(default)]
+    local_record: Option<LocalRecord>,
+}
+
+/// A client's record of its own game, as the body carries it.
+#[derive(Deserialize)]
+struct LocalRecord {
+    complete: bool,
+    gzip_base64: String,
+}
+
+/// A local record's bytes, or why not: base64 of gzip, at most
+/// [`MAX_LOCAL_RECORD_BYTES`]. What is inside is the service's to check.
+fn local_record(record: &LocalRecord) -> Result<Vec<u8>, (StatusCode, &'static str)> {
+    if record.gzip_base64.len() > MAX_LOCAL_RECORD_BYTES.div_ceil(3) * 4 {
+        return Err((StatusCode::PAYLOAD_TOO_LARGE, "the record is too large"));
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&record.gzip_base64)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "the record is not base64"))?;
+    if bytes.len() > MAX_LOCAL_RECORD_BYTES {
+        return Err((StatusCode::PAYLOAD_TOO_LARGE, "the record is too large"));
+    }
+    if !bytes.starts_with(&[0x1f, 0x8b]) {
+        return Err((StatusCode::BAD_REQUEST, "the record is not gzip"));
+    }
+    Ok(bytes)
 }
 
 /// A request body as a report, or why not (`docs/feedback.md`, the table
@@ -199,6 +242,17 @@ fn validate(body: &[u8]) -> Result<Report, (StatusCode, &'static str)> {
     {
         return Err((StatusCode::BAD_REQUEST, "not a game id"));
     }
+    if let Some(record) = &report.local_record {
+        // A record the client wrote never rides under a game of this
+        // gateway's: whose record it would then be is not the client's to say.
+        if report.game_id.is_some() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "a report is about a game of this gateway's or a local one, not both",
+            ));
+        }
+        local_record(record)?;
+    }
     Ok(report)
 }
 
@@ -212,6 +266,8 @@ struct Forward<'a> {
     game_id: Option<&'a str>,
     client: &'a serde_json::Value,
     record: Option<RecordOut>,
+    /// Who wrote `record`: `"gateway"`, or `"client"` for a local game's.
+    record_origin: &'static str,
 }
 
 #[derive(Serialize)]
@@ -278,7 +334,13 @@ pub async fn post_report(
     if let Some(game) = game_id {
         flush_record(&state, game, &session.account_id).await;
     }
+    let local = report.local_record.as_ref().map(|r| RecordOut {
+        complete: r.complete,
+        gzip_base64: r.gzip_base64.clone(),
+    });
+    let record_origin = if local.is_some() { "client" } else { "gateway" };
     let record = match (game_id, uuid::Uuid::parse_str(&session.account_id)) {
+        _ if local.is_some() => local,
         (Some(game), Ok(account)) => baylee_db::records::for_seated(&state.db, game, account)
             .await
             .map_err(|e| {
@@ -303,6 +365,7 @@ pub async fn post_report(
         game_id,
         client: &report.client,
         record,
+        record_origin,
     };
     let payload = serde_json::to_vec(&forward)
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "encoding the report"))?;
