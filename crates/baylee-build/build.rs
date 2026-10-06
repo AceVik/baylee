@@ -15,8 +15,9 @@ fn main() {
     // ref it points at covers the two shapes: a checkout on a branch, where
     // `HEAD` is a symref and the branch file is what changes on a commit,
     // and a detached checkout, where `HEAD` itself holds the hash.
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
-    println!("cargo:rerun-if-changed=../../.git/refs");
+    for path in watched() {
+        println!("cargo:rerun-if-changed={path}");
+    }
     println!("cargo:rerun-if-env-changed=GITHUB_RUN_NUMBER");
     println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
 
@@ -99,6 +100,37 @@ fn built_at() -> String {
         .filter(|out| out.status.success())
         .and_then(|out| String::from_utf8(out.stdout).ok())
         .map_or_else(|| "unknown".into(), |text| text.trim().to_owned())
+}
+
+/// The files whose change means `HEAD` may name another commit.
+///
+/// Asked of git rather than spelled `../../.git/HEAD`, because in a linked
+/// worktree `.git` is a file pointing elsewhere: a path cargo watches that
+/// does not exist is one it calls changed on every build, so this crate and
+/// everything that links it (the gateway, the engine-server, the client)
+/// were rebuilt by every `cargo build` in a worktree — 24 s for a tree with
+/// no change at all (06.10.2026). `HEAD` lives in the worktree's own git
+/// directory, a branch's ref and `packed-refs` in the common one; only the
+/// ref `HEAD` names is watched, so another branch's commit is no news here.
+///
+/// Without git the old paths stand, which is right for a plain checkout and
+/// at worst a rebuild for a tarball, never a wrong commit.
+fn watched() -> Vec<String> {
+    let dir = git(&["rev-parse", "--absolute-git-dir"]);
+    let common = git(&["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+    if dir == "unknown" || common == "unknown" {
+        return vec!["../../.git/HEAD".into(), "../../.git/refs".into()];
+    }
+    let mut paths = vec![format!("{dir}/HEAD"), format!("{common}/packed-refs")];
+    let head = git(&["symbolic-ref", "-q", "HEAD"]);
+    if head.starts_with("refs/") {
+        paths.push(format!("{common}/{head}"));
+    }
+    // Only what is there: a missing path would be the bug this replaces.
+    // A ref that is packed lives in `packed-refs`, and one packed later
+    // disappears from where it was watched, which reads as a change once.
+    paths.retain(|path| std::path::Path::new(path).exists());
+    paths
 }
 
 /// One `git` question, answered with "unknown" rather than with a failure.
