@@ -1453,15 +1453,21 @@ pub fn play_the_cues(
     mut duel: ResMut<Duel>,
     voices: Option<ResMut<Voices>>,
     prefs: Option<Res<Prefs>>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     if duel.cues.pending().is_empty() {
         return;
     }
     let level = prefs.map_or_else(Loudness::default, |prefs| prefs.all().sound);
+    // This device's own volumes under the account's coarse level.
+    let mix = settings.map_or(1.0, |s| {
+        s.audio.effects_gain(crate::quality::focused(&windows))
+    });
     let mut voices = voices;
     for beat in audible(&duel.cues.take()) {
         if let Some(voices) = voices.as_mut() {
-            sound(&mut commands, voices, beat, level);
+            sound(&mut commands, voices, beat, level, mix);
         }
     }
 }
@@ -1559,16 +1565,16 @@ fn audible(beats: &[Beat]) -> Vec<Beat> {
 /// down and back up does not put [`Cue::YourMove`] back on the variant it was
 /// on. The point of the cycle is that consecutive *firings* differ, not
 /// consecutive audible ones.
-fn sound(commands: &mut Commands, voices: &mut Voices, beat: Beat, level: Loudness) {
+fn sound(commands: &mut Commands, voices: &mut Voices, beat: Beat, level: Loudness, mix: f32) {
     let handle = voices.pick(beat).cloned();
     voices.played = voices.played.wrapping_add(1);
-    if !level.audible() {
+    if !level.audible() || mix <= 0.0 {
         return;
     }
     if let Some(handle) = handle {
         commands.spawn((
             AudioPlayer::new(handle),
-            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(level.gain())),
+            PlaybackSettings::DESPAWN.with_volume(Volume::Linear(level.gain() * mix)),
         ));
     }
 }

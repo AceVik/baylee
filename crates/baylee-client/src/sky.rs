@@ -254,6 +254,7 @@ pub fn sync_sky(
     mut light: ResMut<TableLight>,
     mut materials: ResMut<Assets<SkyMaterial>>,
     mut sky: Query<(&mut Sky, &MeshMaterial3d<SkyMaterial>)>,
+    quality: Option<Res<crate::quality::InUse>>,
 ) {
     let Ok((mut sky, handle)) = sky.single_mut() else {
         return;
@@ -264,7 +265,7 @@ pub fn sync_sky(
         duel.view.as_ref().and_then(|view| view.day_night),
         local_hour(),
     );
-    let motion = if settings.reduce_motion {
+    let motion = if crate::quality::ambient_still(settings.reduce_motion, quality.as_deref()) {
         crate::cardmat::STILL
     } else {
         crate::cardmat::MOVING

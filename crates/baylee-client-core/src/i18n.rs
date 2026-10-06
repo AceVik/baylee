@@ -496,6 +496,46 @@ messages! {
     /// The button that changes the interface language.
     Language { en: "Language", de: "Sprache" },
 
+    // ---- graphics and sound (this device's, `graphics.rs`, `audiomix.rs`)
+    /// The heading over the graphics knobs.
+    Graphics { en: "Graphics", de: "Grafik" },
+    /// The preset row: one name for every knob below it.
+    GraphicsPreset { en: "Quality", de: "Qualität" },
+    /// A preset, and the lowest ambient-effects level.
+    QualityLow { en: "Low", de: "Niedrig" },
+    /// A preset, and the middle ambient-effects level.
+    QualityMedium { en: "Medium", de: "Mittel" },
+    /// A preset, and the highest ambient-effects level.
+    QualityHigh { en: "High", de: "Hoch" },
+    /// The highest preset.
+    QualityUltra { en: "Ultra", de: "Ultra" },
+    /// The preset once a knob was moved by hand.
+    QualityCustom { en: "Custom", de: "Eigene" },
+    /// Edge smoothing on the table.
+    AntiAliasing { en: "Edge smoothing", de: "Kantenglättung" },
+    /// Whether frames wait for the display.
+    VSync { en: "VSync", de: "VSync" },
+    /// Vertical sync that lets a late frame through.
+    VSyncAdaptive { en: "adaptive", de: "adaptiv" },
+    /// The most frames per second with the window in front.
+    FrameLimit { en: "Frame limit", de: "Bildratenlimit" },
+    /// No frame limit.
+    Unlimited { en: "unlimited", de: "unbegrenzt" },
+    /// The most frames per second behind other windows and on an idle
+    /// front door.
+    BackgroundFrames { en: "In the background", de: "Im Hintergrund" },
+    /// How much the ambient surfaces (the front door's world, the cloth,
+    /// the sky) move and how finely.
+    AmbientEffects { en: "Ambient effects", de: "Umgebungseffekte" },
+    /// The heading over the volume knobs.
+    Audio { en: "Sound", de: "Ton" },
+    /// Every sound and the music together.
+    MasterVolume { en: "Overall", de: "Gesamt" },
+    /// The game's sounds, not the music.
+    EffectsVolume { en: "Game sounds", de: "Spielklänge" },
+    /// Silence while another window has the focus.
+    MuteInBackground { en: "Silent in the background", de: "Im Hintergrund stumm" },
+
     // ---- updating (#326)
     /// A newer release is downloaded, verified and waiting. `{0}` its version.
     UpdateReady {

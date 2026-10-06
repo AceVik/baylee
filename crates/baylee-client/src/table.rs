@@ -2712,7 +2712,7 @@ fn firewheel_of(
 /// material every frame for the rest of the game, which is exactly the
 /// garbage [`sync_zones`] exists to avoid.
 #[allow(clippy::too_many_lines)] // slab creation and incremental material update share one state
-#[allow(clippy::too_many_arguments)] // Bevy system: the slab and its assets
+#[allow(clippy::too_many_arguments)] // Bevy system: the slab, its assets and the settings it reads
 pub fn sync_table(
     mut commands: Commands,
     time: Res<Time>,
@@ -2722,6 +2722,7 @@ pub fn sync_table(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<FeltMaterial>>,
     mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<FeltMaterial>)>,
+    quality: Option<Res<crate::quality::InUse>>,
 ) {
     let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) else {
         return;
@@ -2737,7 +2738,7 @@ pub fn sync_table(
     let reach = min.abs().max(max.abs());
     let span = (reach + Vec2::splat(SLAB_MARGIN)) * 2.0;
 
-    let motion = if prefs.all().reduce_motion {
+    let motion = if crate::quality::ambient_still(prefs.all().reduce_motion, quality.as_deref()) {
         crate::cardmat::STILL
     } else {
         crate::cardmat::MOVING

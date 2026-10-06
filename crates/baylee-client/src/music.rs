@@ -148,6 +148,7 @@ fn perform(
     phase: Option<Res<State<DuelPhase>>>,
     duel: Option<Res<Duel>>,
     settings: Option<Res<ClientSettings>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut players: Query<(&mut Playing, Option<&mut AudioSink>)>,
     mut activity: Local<Activity>,
 ) {
@@ -159,7 +160,11 @@ fn perform(
         dt,
     );
     conductor.control.set(mood, energy);
-    let target = settings.map_or_else(|| music::MusicLevel::default().gain(), |s| s.music.gain());
+    let focused = crate::quality::focused(&windows);
+    let target = settings.map_or_else(
+        || music::MusicLevel::default().gain(),
+        |s| s.music.gain() * s.audio.master_gain(focused),
+    );
     let mut any = false;
     for (mut playing, sink) in &mut players {
         any = true;

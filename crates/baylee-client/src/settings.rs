@@ -123,6 +123,20 @@ pub struct ClientSettings {
     /// with it playing, at the default level.
     #[serde(default)]
     pub music: baylee_client_core::music::MusicLevel,
+    /// This device's graphics knobs (`baylee_client_core::graphics`,
+    /// applied by `crate::quality`). `None` until the player picks anything:
+    /// the GPU then picks the preset on every start, so a device that never
+    /// chose follows a better default a later build brings.
+    #[serde(
+        default,
+        deserialize_with = "baylee_client_core::graphics::lenient",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub graphics: Option<baylee_client_core::graphics::Graphics>,
+    /// This device's volumes (`baylee_client_core::audiomix`), beside the
+    /// music's own level above.
+    #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
+    pub audio: baylee_client_core::audiomix::AudioMix,
     /// What this device lets a report carry, and whether it sends crash
     /// reports (#309, #310). Per device, like the music: the form is open
     /// before anybody signs in, and a crash happens whoever is signed in.
@@ -154,6 +168,8 @@ impl Default for ClientSettings {
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
             guests: std::collections::BTreeMap::new(),
             music: baylee_client_core::music::MusicLevel::default(),
+            graphics: None,
+            audio: baylee_client_core::audiomix::AudioMix::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
             report_device: None,
@@ -646,6 +662,19 @@ mod tests {
                 music.set_muted(true);
                 music
             },
+            graphics: Some({
+                let mut graphics = baylee_client_core::graphics::Graphics::of(
+                    baylee_client_core::graphics::Preset::Low,
+                );
+                graphics.adjust(|g| g.vsync = baylee_client_core::graphics::VSync::Off);
+                graphics
+            }),
+            audio: {
+                let mut audio = baylee_client_core::audiomix::AudioMix::default();
+                audio.set_master(0.4);
+                audio.mute_in_background = true;
+                audio
+            },
             reports: baylee_client_core::bugreport::Consent {
                 log: true,
                 crashes: baylee_client_core::bugreport::CrashConsent::Never,
@@ -657,6 +686,8 @@ mod tests {
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
+        assert_eq!(read.graphics, written.graphics);
+        assert_eq!(read.audio, written.audio);
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.reports, written.reports);
