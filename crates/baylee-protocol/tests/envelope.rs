@@ -192,13 +192,13 @@ fn nested_seat_frames_forward_without_changing_a_byte() {
     let mid = v1::Envelope {
         msg: Some(Msg::SeatFrame(v1::SeatFrame {
             seat: 1,
-            envelope: inner.clone(),
+            envelope: inner.clone().into(),
         })),
     }
     .encode_to_vec();
     let outer = v1::SeatFrame {
         seat: 2,
-        envelope: mid.clone(),
+        envelope: mid.clone().into(),
     };
     let Msg::SeatFrame(back) = trip(Msg::SeatFrame(outer)) else {
         panic!()

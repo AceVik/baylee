@@ -281,10 +281,15 @@ fn publish_curtain(table: &Table, seat: PlayerId) {
 /// validated, so the frame budget is the only thing standing between an
 /// unauthenticated peer and an arbitrary allocation — it belongs here, not
 /// in the message handler.
+///
+/// And a read buffer of 8 KiB rather than 128: what arrives here is a seat's
+/// answer or an attach, hundreds of bytes, and tungstenite zeroes the whole
+/// buffer before every read.
 fn ws_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig {
     tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default()
         .max_message_size(Some(4 << 20))
         .max_frame_size(Some(4 << 20))
+        .read_buffer_size(8 << 10)
 }
 
 /// What this connection is, and where it sits.

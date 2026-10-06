@@ -23,9 +23,10 @@ use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::Response;
 use baylee_protocol::v1::{self, Envelope};
+use bytes::Bytes;
 use prost::Message as _;
 use std::collections::HashMap;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
 /// How often a connected agent is asked to say it is still there.
@@ -313,8 +314,14 @@ fn report(state: &Shared, status: &v1::EngineStatus) {
 
 /// `GET /engine/ws` — the engine process for one game, dialling back.
 pub async fn engine_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(move |socket| run_engine_socket(state, socket))
+    ws.read_buffer_size(ENGINE_READ_BUFFER)
+        .on_upgrade(move |socket| run_engine_socket(state, socket))
 }
+
+/// How much an engine's socket reads from the network at once: a view is
+/// tens of KiB, and tungstenite zeroes the whole buffer before each read
+/// (see `SEAT_READ_BUFFER`), so its 128 KiB default cost more than it saved.
+const ENGINE_READ_BUFFER: usize = 32 << 10;
 
 async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
     let Some(v1::envelope::Msg::EngineHello(hello)) = hello_of(&mut socket).await else {
@@ -438,6 +445,9 @@ async fn pump_engine(
     rx: &mut mpsc::UnboundedReceiver<Envelope>,
     record: &mut crate::record::Sink,
 ) {
+    // Each seat's channel, looked up under the lobby lock once and kept:
+    // a frame the engine sends then takes no lock at all on its way out.
+    let mut outboxes = Vec::new();
     loop {
         tokio::select! {
             outbound = rx.recv() => {
@@ -449,13 +459,12 @@ async fn pump_engine(
             frame = socket.recv() => {
                 match next_envelope(frame) {
                     Incoming::Msg(v1::envelope::Msg::SeatFrame(seat_frame)) => {
-                        let Ok(seat) = u8::try_from(seat_frame.seat) else { continue };
-                        let lobby = state.lobby.lock();
-                        if let Some(game) = lobby.games.get(game_id) {
-                            // No receivers is fine: a seat with no live socket
-                            // is a seat nobody is waiting at.
-                            let _ = game.updates.send((seat, seat_frame.envelope));
-                        }
+                        let Some(outbox) = outbox_of(state, game_id, &mut outboxes, seat_frame.seat) else {
+                            continue;
+                        };
+                        // No receivers is fine: a seat with no live socket
+                        // is a seat nobody is waiting at.
+                        let _ = outbox.send(seat_frame.envelope);
                     }
                     // Never forwarded: the record is omniscient (#315).
                     Incoming::Msg(v1::envelope::Msg::GameRecordChunk(piece)) => record.take(piece),
@@ -480,6 +489,31 @@ async fn pump_engine(
             }
         }
     }
+}
+
+/// Seat `seat`'s channel in `game_id`, from `cache` or the lobby. `None` for
+/// a seat the table does not have, or a game no longer here.
+fn outbox_of<'a>(
+    state: &Shared,
+    game_id: &str,
+    cache: &'a mut Vec<Option<broadcast::Sender<Bytes>>>,
+    seat: u32,
+) -> Option<&'a broadcast::Sender<Bytes>> {
+    let seat = usize::try_from(seat).ok()?;
+    if cache.get(seat).is_none_or(Option::is_none) {
+        let outbox = state
+            .lobby
+            .lock()
+            .games
+            .get_mut(game_id)
+            .filter(|game| seat < game.seats.len())
+            .map(|game| game.outbox(seat))?;
+        if cache.len() <= seat {
+            cache.resize(seat + 1, None);
+        }
+        cache[seat] = Some(outbox);
+    }
+    cache[seat].as_ref()
 }
 
 /// The one frame a refused agent or engine is sent before its socket closes.

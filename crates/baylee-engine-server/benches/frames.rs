@@ -52,7 +52,7 @@ fn from_seat(seat: u32, inner: &Envelope) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
             seat,
-            envelope: inner.encode_to_vec(),
+            envelope: inner.encode_to_vec().into(),
         })),
     }
 }

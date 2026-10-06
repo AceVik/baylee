@@ -8,6 +8,7 @@
 
 use baylee_core::preset::GamePreset;
 use baylee_protocol::v1::Envelope;
+use bytes::Bytes;
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc, watch};
 
@@ -209,6 +210,12 @@ impl LobbySeat {
 /// socket waits for before it announces itself.
 pub type EngineLink = mpsc::UnboundedSender<Envelope>;
 
+/// How many frames one seat's socket may fall behind before it is resynced
+/// rather than fed the gap. Per seat: the game-wide channel before
+/// [`LobbyGame::outboxes`] held 256 for every seat together, so a duel's
+/// seat had about this many of its own.
+pub const OUTBOX_DEPTH: usize = 128;
+
 /// A lobby game.
 pub struct LobbyGame {
     /// Game id (`UUIDv7`).
@@ -252,16 +259,20 @@ pub struct LobbyGame {
     /// moment the lobby says "playing", which is before the engine exists;
     /// this is what it waits on rather than polling.
     pub ready: watch::Sender<bool>,
-    /// Per-game update fan-out: every `(seat, encoded envelope)` the engine
-    /// produces is broadcast here, so every connected seat socket receives
-    /// its own messages — not just the seat that happened to act (human-vs-
-    /// human depends on this; filtering per-socket used to drop the
-    /// opponent's envelopes entirely).
+    /// What the engine says to each seat, one channel per chair: every
+    /// encoded player-facing envelope the engine addresses to seat `n` is
+    /// broadcast on `outboxes[n]`, where that seat's sockets receive it — a
+    /// player's own frames, and the frames the opponent's actions produced
+    /// for them (human-vs-human depends on this; filtering per socket once
+    /// dropped the opponent's envelopes entirely). Made as a seat first
+    /// needs one ([`LobbyGame::outbox`]).
     ///
-    /// The payload is the encoded player-facing envelope, not a decoded one:
-    /// the gateway forwards the bytes the engine handed it and never has to
-    /// understand them.
-    pub updates: broadcast::Sender<(u8, Vec<u8>)>,
+    /// One channel per seat rather than one per game, so a frame wakes only
+    /// the sockets it is for. `Bytes`, the slice of the engine's frame it
+    /// arrived in, so handing it to a socket is a reference count rather
+    /// than a copy per listener. The gateway forwards the bytes and never
+    /// has to understand them.
+    pub outboxes: Vec<broadcast::Sender<Bytes>>,
     /// When the game was created (unix seconds).
     pub created_at: u64,
     /// When the game ended (unix seconds), for the cleanup grace period.
@@ -413,7 +424,7 @@ impl LobbyGame {
             engine_local: false,
             engine: None,
             ready: watch::channel(false).0,
-            updates: broadcast::channel(256).0,
+            outboxes: Vec::new(),
             created_at,
             finished_at: None,
             password_hash: None,
@@ -475,6 +486,16 @@ impl LobbyGame {
         // `send_replace` for the same reason as the attach path: a game that
         // ends while nobody is watching must still read "not ready".
         self.ready.send_replace(false);
+    }
+
+    /// Seat `seat`'s channel from the engine, made the first time a socket
+    /// or the engine's frames need it.
+    pub fn outbox(&mut self, seat: usize) -> broadcast::Sender<Bytes> {
+        if self.outboxes.len() <= seat {
+            self.outboxes
+                .resize_with(seat + 1, || broadcast::channel(OUTBOX_DEPTH).0);
+        }
+        self.outboxes[seat].clone()
     }
 }
 

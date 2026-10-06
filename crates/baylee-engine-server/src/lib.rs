@@ -994,7 +994,7 @@ pub fn seat_frame(seat: u8, envelope: &Envelope) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
             seat: u32::from(seat),
-            envelope: prost::Message::encode_to_vec(envelope),
+            envelope: prost::Message::encode_to_vec(envelope).into(),
         })),
     }
 }
@@ -1114,7 +1114,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &[],
@@ -1157,7 +1157,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             remaining,
@@ -1599,7 +1599,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat: 0,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &[],
@@ -2126,7 +2126,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &[],
@@ -2558,7 +2558,7 @@ mod tests {
                     Envelope {
                         msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                             seat: 0,
-                            envelope: Vec::new(),
+                            envelope: bytes::Bytes::new(),
                         })),
                     },
                     &[]
@@ -2672,7 +2672,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat: 0,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &reading(&runner, 4_000),
@@ -2822,7 +2822,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &[],
@@ -2904,7 +2904,7 @@ mod tests {
             Envelope {
                 msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                     seat,
-                    envelope: prost::Message::encode_to_vec(&inner),
+                    envelope: prost::Message::encode_to_vec(&inner).into(),
                 })),
             },
             &[],

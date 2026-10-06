@@ -228,11 +228,11 @@ async fn stand_in_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
     })
 }
 
-fn seat_frame(seat: u32, envelope: Vec<u8>) -> Message {
+fn seat_frame(seat: u32, envelope: impl Into<bytes::Bytes>) -> Message {
     let outer = Envelope {
         msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
             seat,
-            envelope,
+            envelope: envelope.into(),
         })),
     };
     Message::Binary(outer.encode_to_vec().into())

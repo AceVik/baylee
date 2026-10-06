@@ -71,3 +71,78 @@ async fn a_seat_that_floods_its_socket_is_closed_with_policy() {
     let closed = closed.expect("the socket closed without saying why");
     assert_eq!(closed.code, CloseCode::Policy, "{closed:?}");
 }
+
+/// The gateway's bound on one seat frame, `MAX_SEAT_FRAME`: 64 KiB.
+const MAX_SEAT_FRAME: usize = 64 * 1024;
+
+/// A frame up to the bound is forwarded and the socket goes on; one byte
+/// more and the socket refuses it as it arrives, before it is read whole,
+/// and closes. Under the old check the gateway read any message the
+/// transport allowed (64 MiB) and only then dropped it.
+#[tokio::test]
+async fn a_seat_frame_past_the_bound_closes_the_socket_and_one_at_it_does_not() {
+    let gw = spawn_gateway("seat-bound");
+    let port = gw.port;
+    let _agent = common::attach_agent(&gw).await;
+    let token = login(port, "bounded", "bounded");
+    let (status, body) = http(
+        port,
+        "POST",
+        "/decks",
+        Some(&token),
+        "{\"name\":\"d\",\"cards\":[\"40 Forest\",\"20 Swamp\"]}",
+    );
+    assert_eq!(status, 200, "create deck: {body}");
+    let create = format!(
+        "{{\"deck_id\":\"{}\",\"mode\":\"ai\"}}",
+        json_field(&body, "deck_id")
+    );
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&token), &create);
+    assert_eq!(status, 200, "a game against the house: {body}");
+    let mut ws = common::dial_seat(
+        port,
+        json_field(&body, "game_id"),
+        json_field(&body, "seat_token"),
+    )
+    .await;
+
+    // At the bound: bytes no engine can read, so it is dropped there, and
+    // the socket still answers a probe after it.
+    ws.send(Message::Binary(vec![0xff; MAX_SEAT_FRAME].into()))
+        .await
+        .expect("a frame at the bound is sent");
+    let probe = Envelope {
+        msg: Some(v1::envelope::Msg::ClockProbe(v1::ClockProbe {
+            client_time_ms: 4242,
+            server_time_ms: 0,
+        })),
+    };
+    common::send(&mut ws, &probe).await;
+    let answered = tokio::time::timeout(common::WAIT_BUDGET, async {
+        while let Some(msg) = common::next_msg(&mut ws).await {
+            if let v1::envelope::Msg::ClockProbe(back) = msg {
+                return back.client_time_ms == 4242;
+            }
+        }
+        false
+    })
+    .await
+    .unwrap_or(false);
+    assert!(answered, "a frame at the bound cost the socket its life");
+
+    // Past it: the socket is gone, whatever it says on the way.
+    let _ = ws
+        .send(Message::Binary(vec![0xff; MAX_SEAT_FRAME + 1].into()))
+        .await;
+    let ended = tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            match ws.next().await {
+                None | Some(Err(_) | Ok(Message::Close(_))) => return true,
+                Some(Ok(_)) => {}
+            }
+        }
+    })
+    .await
+    .unwrap_or(false);
+    assert!(ended, "a frame past the bound was taken");
+}

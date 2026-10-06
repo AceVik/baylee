@@ -68,7 +68,11 @@ pub(crate) async fn game_ws(
         tracing::warn!(game_id = id, seat, why, "seat socket refused");
         return Ok(ws.on_upgrade(move |socket| refuse_seat(socket, why)));
     }
-    Ok(ws.on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
+    Ok(ws
+        .max_message_size(MAX_SEAT_FRAME)
+        .max_frame_size(MAX_SEAT_FRAME)
+        .read_buffer_size(SEAT_READ_BUFFER)
+        .on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
 }
 
 /// The one frame a seat socket of another protocol is sent before it closes
@@ -117,7 +121,21 @@ pub(crate) const ENGINE_WAIT_SECS: u64 = 30;
 /// A player's frame is a `PlayerActionMsg` carrying a JSON action — hundreds
 /// of bytes at most. The gateway forwards these without decoding them, so
 /// this is the only bound on what one seat can make the engine read.
+///
+/// Set on the socket itself, so a bigger message is refused as it arrives
+/// and the socket closes; before, the transport's own 64 MiB was read whole
+/// and only then dropped, which made the bound one on the engine and not on
+/// the gateway's memory.
 pub(crate) const MAX_SEAT_FRAME: usize = 64 * 1024;
+
+/// How much a seat socket reads from the network at once.
+///
+/// tungstenite zeroes its whole read buffer before every read, 128 KiB by
+/// default, and a seat's frames are hundreds of bytes: profiling a gateway
+/// forwarding seat frames found that memset beside `recvfrom` itself, and
+/// the buffer's pages resident for every socket. A frame bigger than this
+/// is read in several calls.
+pub(crate) const SEAT_READ_BUFFER: usize = 8 << 10;
 
 /// Waits until the game's engine is attached.
 pub(crate) async fn engine_ready(ready: &mut tokio::sync::watch::Receiver<bool>) -> bool {
@@ -136,15 +154,11 @@ pub(crate) async fn engine_ready(ready: &mut tokio::sync::watch::Receiver<bool>)
         .unwrap_or(false)
 }
 
-/// Sends one frame to a game's engine. False when there is no engine to send
-/// to, which is the end of this socket.
-pub(crate) fn to_engine(state: &Shared, game_id: &str, msg: v1::envelope::Msg) -> bool {
-    let lobby = state.lobby.lock();
-    lobby.games.get(game_id).is_some_and(|game| {
-        game.engine
-            .as_ref()
-            .is_some_and(|tx| tx.send(Envelope { msg: Some(msg) }).is_ok())
-    })
+/// Sends one frame to a game's engine down the link the socket took when it
+/// attached. False once that engine's link is gone, which is the end of this
+/// socket: the game is over or its engine has left.
+pub(crate) fn to_engine(link: &lobby::EngineLink, msg: v1::envelope::Msg) -> bool {
+    link.send(Envelope { msg: Some(msg) }).is_ok()
 }
 
 /// Whether chair `seat` of `game` still holds a seat token. A seated
@@ -164,12 +178,6 @@ pub(crate) fn still_seated(state: &Shared, game_id: &str, seat: usize) -> bool {
         .is_some_and(|game| holds_token(game, seat))
 }
 
-/// One seat's socket: everything it says goes to the engine tagged with its
-/// seat, and everything the engine addresses to that seat comes back.
-///
-/// The gateway never decodes either direction. It cannot: it does not link the
-/// rules kernel, and the whole point of the engine plane is that it does not
-/// have to.
 /// Closes a seat socket that sent more than its allowance (#284), with 1008
 /// and a line in the log.
 ///
@@ -196,12 +204,19 @@ pub(crate) async fn close_over_allowance(
     let _ = socket.send(Message::Close(Some(over))).await;
 }
 
-pub(crate) async fn run_game_socket(
-    state: Shared,
-    game_id: String,
-    seat: usize,
-    mut socket: WebSocket,
-) {
+/// What a seat socket holds for its life, taken once as it attaches.
+pub(crate) struct Attached {
+    /// Everything the engine addresses to this seat.
+    rx: tokio::sync::broadcast::Receiver<bytes::Bytes>,
+    /// The lobby's changes, for a chair that loses its seat token.
+    changed: tokio::sync::broadcast::Receiver<()>,
+    /// The game's engine.
+    link: lobby::EngineLink,
+}
+
+/// Subscribes seat `seat` of `game_id`, waits for its engine and tells it
+/// the seat is here. `None` when there is no such seat or no engine.
+async fn attach(state: &Shared, game_id: &str, seat: usize) -> Option<Attached> {
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
     // own first view; every envelope addressed to this seat arrives here,
     // including the ones produced by the opponent's actions.
@@ -209,28 +224,59 @@ pub(crate) async fn run_game_socket(
     // The lobby's changes too, under the same lock the chair is read with:
     // a chair loses its seat token when its player's account is deleted
     // (#292), which the socket hears about as a change and then reads.
-    let (mut rx, mut ready, mut changed) = {
-        let lobby = state.lobby.lock();
-        let Some(game) = lobby.games.get(&game_id).filter(|g| holds_token(g, seat)) else {
-            return;
-        };
+    let (rx, mut ready, changed) = {
+        let mut lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get_mut(game_id)
+            .filter(|g| holds_token(g, seat))?;
         (
-            game.updates.subscribe(),
+            game.outbox(seat).subscribe(),
             game.ready.subscribe(),
             state.lobby_changed.subscribe(),
         )
     };
     if !engine_ready(&mut ready).await {
         tracing::warn!(game_id, seat, "no engine attached; seat socket closing");
-        return;
+        return None;
     }
+    let link = state
+        .lobby
+        .lock()
+        .games
+        .get(game_id)
+        .and_then(|game| game.engine.clone())?;
     let attach = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
         seat: seat as u32,
         resync: false,
     });
-    if !to_engine(&state, &game_id, attach) {
+    to_engine(&link, attach).then_some(Attached { rx, changed, link })
+}
+
+/// One seat's socket: everything it says goes to the engine tagged with its
+/// seat, and everything the engine addresses to that seat comes back.
+///
+/// The gateway never decodes either direction. It cannot: it does not link the
+/// rules kernel, and the whole point of the engine plane is that it does not
+/// have to.
+///
+/// Neither direction takes the lobby lock per frame: the socket holds the
+/// engine's link and its seat's channel from the moment it attaches, so a
+/// listing being rendered for the lobby never holds up a game.
+pub(crate) async fn run_game_socket(
+    state: Shared,
+    game_id: String,
+    seat: usize,
+    mut socket: WebSocket,
+) {
+    let Some(Attached {
+        mut rx,
+        mut changed,
+        link,
+    }) = attach(&state, &game_id, seat).await
+    else {
         return;
-    }
+    };
     // What this seat sends, for the line logged when it goes, and how much
     // it may (#284).
     let opened = std::time::Instant::now();
@@ -248,16 +294,14 @@ pub(crate) async fn run_game_socket(
                     }
                 }
                 match frame {
+                    // At most `MAX_SEAT_FRAME`: the socket refuses a bigger
+                    // message before it is read (`game_ws`).
                     Some(Ok(Message::Binary(data))) => {
-                        if data.len() > MAX_SEAT_FRAME {
-                            tracing::warn!(game_id, seat, len = data.len(), "oversized seat frame");
-                            continue;
-                        }
                         let tagged = v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                             seat: seat as u32,
-                            envelope: data.into(),
+                            envelope: data,
                         });
-                        if !to_engine(&state, &game_id, tagged) {
+                        if !to_engine(&link, tagged) {
                             break;
                         }
                     }
@@ -268,16 +312,15 @@ pub(crate) async fn run_game_socket(
             }
             update = rx.recv() => {
                 match update {
-                    Ok((p, bytes)) => {
-                        if p == seat as u8
-                            && futures_util::SinkExt::send(&mut socket, Message::Binary(bytes.into()))
-                                .await
-                                .is_err()
+                    Ok(bytes) => {
+                        if futures_util::SinkExt::send(&mut socket, Message::Binary(bytes))
+                            .await
+                            .is_err()
                         {
                             break;
                         }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    Err(RecvError::Lagged(n)) => {
                         // Dropping the player was the old answer. Now that a
                         // seat's whole state can be rebuilt on demand, ask for
                         // it instead: the gap in the stream stops mattering.
@@ -286,11 +329,11 @@ pub(crate) async fn run_game_socket(
                             seat: seat as u32,
                             resync: true,
                         });
-                        if !to_engine(&state, &game_id, resync) {
+                        if !to_engine(&link, resync) {
                             break;
                         }
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(RecvError::Closed) => break,
                 }
             }
             // Its player's account was deleted (#292): the chair is the
@@ -314,8 +357,7 @@ pub(crate) async fn run_game_socket(
     // The engine runs a decision clock only for a seat that can answer, so it
     // has to be told when one walks away.
     to_engine(
-        &state,
-        &game_id,
+        &link,
         v1::envelope::Msg::SeatDetached(v1::SeatDetached { seat: seat as u32 }),
     );
 }

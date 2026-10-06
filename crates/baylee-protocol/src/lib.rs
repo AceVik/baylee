@@ -137,7 +137,7 @@ mod tests {
         let outer = v1::Envelope {
             msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                 seat: 3,
-                envelope: bytes.clone(),
+                envelope: bytes.clone().into(),
             })),
         };
         let wire = outer.encode_to_vec();
