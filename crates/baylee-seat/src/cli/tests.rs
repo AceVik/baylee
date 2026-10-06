@@ -769,7 +769,7 @@ fn the_process_never_updates_itself_and_sees_only_the_allowlist() {
     };
     let launch = launch_with(&parent).unwrap();
     let tmp = Path::new("/session/tmp");
-    let env = launch.env(tmp, tmp).unwrap();
+    let env = launch.env(tmp, tmp, None).unwrap();
     let get = |name: &str| {
         env.iter()
             .find(|(n, _)| n == name)
@@ -803,20 +803,24 @@ fn the_process_never_updates_itself_and_sees_only_the_allowlist() {
 fn the_environment_refuses_a_forbidden_name_or_value_without_showing_it() {
     let mut launch = launch_with(&path_only).unwrap();
     launch.passed.push(("ANTHROPIC_API_KEY", "harmless".into()));
-    let why = launch.env(Path::new("/t"), Path::new("/t")).unwrap_err();
+    let why = launch
+        .env(Path::new("/t"), Path::new("/t"), None)
+        .unwrap_err();
     assert!(why.contains("ANTHROPIC_API_KEY is never given"), "{why}");
     let mut launch = launch_with(&path_only).unwrap();
     launch
         .passed
         .push(("USER", "Bearer SECRETVALUE0123456789".into()));
-    let why = launch.env(Path::new("/t"), Path::new("/t")).unwrap_err();
+    let why = launch
+        .env(Path::new("/t"), Path::new("/t"), None)
+        .unwrap_err();
     assert!(why.contains("USER looks like a key"), "{why}");
     assert!(!why.contains("SECRETVALUE"), "{why}");
     // A key-shaped TMPDIR is refused as well.
     let launch = launch_with(&path_only).unwrap();
     assert!(
         launch
-            .env(Path::new("/sk-0123456789abcdefghij"), Path::new("/t"))
+            .env(Path::new("/sk-0123456789abcdefghij"), Path::new("/t"), None)
             .is_err()
     );
 
@@ -993,6 +997,89 @@ fn a_session_directory_is_private_and_removed_with_it() {
         tag.starts_with(&format!("baylee-cli-{}-0-", "g".repeat(24))),
         "{tag}"
     );
+}
+
+/// A seat's conversation store is this user's alone, holds an empty
+/// `work` and a `data`, and is gone when dropped.
+#[cfg(unix)]
+#[test]
+fn a_conversation_store_is_private_and_removed_with_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let store = Store::new("../g 1", 2).unwrap();
+    let root = store.root.clone();
+    let name = root.file_name().unwrap().to_str().unwrap().to_string();
+    assert_eq!(root.parent().unwrap(), std::env::temp_dir(), "{root:?}");
+    assert!(name.starts_with("baylee-cli-store-g1-2-"), "{name}");
+    for part in [&root, &store.work(), &store.data()] {
+        let mode = std::fs::metadata(part).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700, "{part:?}");
+    }
+    assert_eq!(std::fs::read_dir(store.work()).unwrap().count(), 0);
+    assert_eq!(std::fs::read_dir(store.data()).unwrap().count(), 0);
+    drop(store);
+    assert!(!root.exists());
+}
+
+/// The sweep at a mind's start removes the stores a killed bridge left,
+/// untouched past the limit, and nothing else: not a fresh store, not
+/// another directory, not a link named as one, not a store's lookalike
+/// others may read. A stale store that names its conversation's sessions
+/// in the user's home takes exactly those with it, by its tool's own
+/// matching; a fresh one's stay, and so does every other session.
+#[cfg(unix)]
+#[test]
+fn the_sweep_removes_only_stale_stores() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join(format!("baylee-sweep-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = |name: &str, age: Duration| {
+        let root = dir.join(format!("{STORE_PREFIX}{name}"));
+        private_dir(&root).unwrap();
+        let used = std::fs::File::create(root.join("used")).unwrap();
+        used.set_modified(std::time::SystemTime::now() - age)
+            .unwrap();
+        root
+    };
+    let stale = store("stale", Duration::from_hours(2));
+    let fresh = store("fresh", Duration::from_mins(5));
+    let open = store("open", Duration::from_hours(2));
+    std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let other = dir.join("baylee-cli-g-1-x");
+    private_dir(&other).unwrap();
+    let target = dir.join("target");
+    private_dir(&target).unwrap();
+    let link = dir.join(format!("{STORE_PREFIX}link"));
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    let sessions = dir.join("junie-home/sessions");
+    let session = |id: &str| {
+        let path = sessions.join(id);
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("events.jsonl"), "{}").unwrap();
+        path
+    };
+    let (left, playing, theirs) = (
+        session("session-left"),
+        session("session-playing"),
+        session("session-theirs"),
+    );
+    let record = |store: &Path, ids: &[&str]| {
+        let mut text = format!("junie\n{}", sessions.display());
+        for id in ids {
+            text.push('\n');
+            text.push_str(id);
+        }
+        std::fs::write(store.join(SESSIONS), text).unwrap();
+    };
+    record(&stale, &["session-left", "..", "session-gone"]);
+    record(&fresh, &["session-playing"]);
+    assert_eq!(sweep_stores(&dir, STALE_STORE), 1);
+    assert!(!stale.exists());
+    assert!(!left.exists(), "the killed bridge's session");
+    for kept in [&fresh, &open, &other, &target, &link, &playing, &theirs] {
+        assert!(kept.exists(), "{kept:?}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 // ---------------------------------------------------------------------

@@ -237,13 +237,15 @@ before playing.
   `--resume` would need the session kept on disk, which
   `--no-session-persistence` forbids. (`agy` takes no system prompt as a
   flag, so ours rides ahead of the prefix in the first message.) Codex,
-  opencode and Junie answer one message a process and go on only by
-  resuming a session from disk, so with them **each question is a
-  conversation of its own**: a process whose stdin is closed after the
-  message, the prefix and the seat's notes every time (the provider's
-  cache reads the unchanged prefix back), not counted as a loss
-  (`Dialect::one_shot`). An answer that cannot be read is asked again of a
-  new process, with the whole question and why.
+  opencode and Junie answer one message a process (`Dialect::one_shot`):
+  a process whose stdin is closed after the message. Each goes on with
+  its conversation by the id its first process named (`Dialect::resumes`;
+  §"The tools"), so each later question sends only what is new, as to a
+  long-lived process, and an answer that cannot be read is asked again of
+  a new process that goes on with it and hears only why. One the tool
+  cannot go on with (its session files gone, unreadable, or a process
+  that names another conversation than the one asked for) is begun again
+  for that question, with the prefix, the notes and that it was lost.
   A conversation ends only when it outgrows its size (about 100,000
   tokens, `conversation_tokens`): the next question closes its stdin (two
   seconds, then it is killed) and starts another with the prefix and the
@@ -254,7 +256,8 @@ before playing.
   sentence that the conversation was lost. One that died while no
   question waited on it (between turns, say) is found dead by the next
   question, which starts one again for itself and is answered by the
-  model. A process idle five minutes is ended (the time Anthropic's API
+  model. A process idle five minutes is ended, and a conversation kept on
+  disk is over (the time Anthropic's API
   keeps a cached prefix by default, which is the entry the tool writes;
   a conversation resumed after that would be written to the cache whole
   again, which costs more than beginning a new one; the hour's entry is
@@ -337,14 +340,19 @@ before playing.
   process's running count (read off recorded games, not from its docs), so
   each reply is booked as the difference to the process's reading before
   it, and a new process counts from nothing again
-  (`Dialect::usage_is_cumulative`). Codex's and Junie's counts are their
-  run's whole (one message a process, so each is booked whole), and
-  opencode's `step_finish` counts its own step. Under the caps a cli game reserves its `game_tokens` against
+  (`Dialect::usage_is_cumulative`). Codex's count is its thread's, which
+  a resumed process reads back from the rollout, so it is booked as the
+  difference across the processes of one conversation
+  (`Dialect::usage_spans_resumes`); Junie's result counts its task (one a
+  process, booked whole), and opencode's `step_finish` counts its own
+  step. Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
   default, `--spend-calls`) is held like a budget, and the summary says
   `212 of 500 calls`. A reply that does not say what it used counts at its
-  worst.
+  worst; a process that ended without a word (a session not found, a
+  crash before its start) reached no model, and is a failed call at no
+  cost.
 - **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
   the house answers, and the mind cools down for the time the tool names
   when that is some time and at most fifteen minutes, else a minute,
@@ -380,11 +388,55 @@ table (no program is asked).
 
 | CLI | Flags and files that strip its overhead | Conversation | Usage | Lockdown check | Confirmed |
 |---|---|---|---|---|---|
-| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
-| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
-| Codex `codex` (0.160.0) | `exec --json --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`). `$CODEX_HOME/AGENTS.md` is still read: give the seat a `CODEX_HOME` of its own | one process a question | thread total, one turn a process: booked whole | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored |
-| opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB=:memory:`, `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: `:memory:` at 1.18.34, built-in plugins left on (they carry the logins) |
-| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin. Sessions are still kept under `~/.junie/sessions` | one process a question | the task's per-model records, summed, booked whole | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer |
+| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines (not `--resume`: transcripts and the login share `CLAUDE_CONFIG_DIR`) | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
+| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
+| Codex `codex` (0.160.0) | `exec --json --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`); going on: the same, then `resume <thread uuid> -`. `$CODEX_HOME/AGENTS.md` is still read (the bridge warns where one is) | one process a question, going on by `exec … resume <id>`; sessions in `$CODEX_HOME/sessions` beside the login, the seat's own removed | thread total, read back on resume: booked as differences across the conversation | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored; that `exec`'s `--sandbox` and `--color` ahead of `resume` hold for it (source: global flags) |
+| opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB` = a file in the seat's store; `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question, going on by `--session <id>` from the seat's store: only what is new is sent | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: built-in plugins left on (they carry the logins); that a resumed `run` reads its history whole (source: `dev`) |
+| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin; going on: the same and `--session-id=<id>` (never `--resume` alone) | one process a question, following up by `--session-id`; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | the task's per-model records, summed, booked whole (a follow-up is a new task) | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer, that `--session-id` alone follows a session up (help: "the previously executed session to follow up") |
+
+A tool that answers one message a process goes on with its conversation
+by the id the tool's own output named for this seat, never "the most
+recent" (`--continue`, `--last`, `--resume` alone, a picker). Every
+process of the seat's conversation works in one directory of the seat's
+own (a store under the OS's temp directory, `0700`, removed with the
+conversation, the seat and the mind; a mind's start sweeps away stores a
+killed bridge left, untouched for an hour). A resumed process gets the
+same lockdown as a new one. One whose session files are gone is not asked
+to resume; one that ends before a line (not found, unreadable) or names
+another conversation than the one asked for (stopped at that line)
+begins the conversation again for that question, with the prefix,
+counted as lost. A conversation is over after `idle`, as a process is,
+and by its size, as a process's is.
+
+- **opencode**: `OPENCODE_DB` (an absolute path) puts its sessions in the
+  store; its login (`auth.json`) stays in the data directory. It still
+  appends `log/opencode.log` and makes its empty directories under the
+  user's data directory, as it does without resuming: the log and the
+  login share that directory, and only a key in the environment
+  (`OPENCODE_AUTH_CONTENT`) would let it move. Usage is per step, so no
+  session file is read.
+- **Codex**, **Junie**: their sessions cannot be split from their login
+  (Codex: `auth.json`, or a keyring entry keyed by the `CODEX_HOME` path;
+  Junie: `JUNIE_HOME` holds its fallback credentials, and on Linux its
+  keyring needs `DBUS_SESSION_BUS_ADDRESS`, which no CLI is given), so
+  they are kept where the user's are (owner, 06.10.2026): Codex's rollout
+  `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl` (no
+  `--ephemeral`, which would keep nothing to resume), Junie's
+  `$JUNIE_HOME/sessions/<id>/`. When the conversation is over the seat
+  removes exactly the files named for the ids its own processes named
+  (one that strayed included), matched by the tool's own file naming,
+  never through a link; the store notes those ids, so the sweep after a
+  killed bridge removes them too. Nothing else of the user's is touched:
+  Codex's thread row in its own state database and the line Junie's
+  `sessions/index.jsonl` holds for the session stay. No session file is
+  read: Codex's `turn.completed` already carries the thread's count, and
+  Junie's result its task's. Junie may begin a new session silently for
+  one it does not find, which its `session` line then names: that is a
+  process that strayed. One it begins anew under the very id asked for
+  could not be told from a kept one without reading its files.
+- **Claude Code**, **agy**: one process holds the conversation already;
+  a resume would need transcripts on disk beside the login. agy's usage
+  is cumulative over its session, as the differences booking assumes.
 
 Not spoken, and why:
 
@@ -586,6 +638,39 @@ draws no panel.
 `cargo run -p xtask -- dev-table --bridge profile:<name>` seats the bridge
 with `--profile <name>` instead of `--mind`, from the same file and under
 the same caps (`BAYLEE_SEAT_CONFIG` passes through).
+
+## What the game's record says played
+
+A game with a bridge at it is recorded like any other (`docs/protocol.md`
+§"The game record (#315)"), and the bridge tells the table what answers
+its seat, so the record says which model made which action
+(`docs/protocol.md` §"Who answers a seat, as it says"). It is the mind as
+chosen above, flags over profile over build (`baylee_seat::declare`):
+
+- `--mind house` (or nothing named): `house` and its `--level`;
+- `--mind scripted`: `scripted`;
+- a model behind an API: `llm_api`, the provider (`anthropic`, `openai`),
+  the exact model id and the effort, as sent to the provider;
+- a model behind a CLI: `llm_cli`, the tool (`claude`, `codex`, …), the
+  model it names (empty for the tool's own default) and the effort.
+
+Never the profile's name, its `base_url`, its key variable, a key or any
+prompt: the declaration has no field for them, and the engine refuses one
+whose text is shaped like a key or an address. It is sent on every socket
+before the seat says it is ready, so a bridge that comes back after its
+mind was down declares again; a mid-game swap is `SeatCore::declare`,
+which nothing in the bridge calls yet (a debug swap would). It is
+self-declared: the record labels it `declared_mind`, and nobody at the
+table is shown it.
+
+What the record does not split: within one declaration the bridge's own
+standing answers (a pass with nothing to do), its house fallback (a model
+too slow, refused or out of budget) and its least answer go to the table
+as the seat's answers, like the model's. Which of them made each answer is
+in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
+counts in its closing line. A mind taken off the table (`down_after`
+failures) leaves the socket, and the table's own stand-in, recorded as a
+`chair` line, plays until it is back.
 
 ## The AI log (debug builds only)
 

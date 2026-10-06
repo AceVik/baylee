@@ -1218,6 +1218,73 @@ dropped).
 older engine drops a seat message it does not know (`seat_frame`'s `_` arm),
 and an older client decodes an envelope with no message and passes over it.
 
+## Who answers a seat, as it says
+
+A seat socket says what answers it: `SeatMind { kind, provider, model,
+effort, level }`, player → engine inside the `SeatFrame` like `SeatReady`.
+It is for the game's record (§"The game record (#315)"), so a replay or
+training reader knows which model made which action (the owner, 06.10.).
+
+- **Kinds.** `human` (the client, `crates/baylee-client/src/net.rs`),
+  `house` with its `level`, `scripted`, `llm_api` (`provider` `anthropic`
+  or `openai`, the exact `model` id, `effort`) and `llm_cli` (`provider`
+  the tool, `claude`, `codex`, …; `model` the one it names, empty for the
+  tool's default; `effort`). Built by `baylee_seat::declare` from what the
+  bridge plays.
+- **When.** Once on every socket, before its first answer, and again
+  whenever it changes. The client puts it first in each socket's outbox
+  (after a redial's `Resume`, since a mid-game redial sends no
+  `SeatReady`); the bridge sends it beside its `SeatReady`, which it sends
+  on every socket, and `SeatCore::declare` sends a swapped model at once. The engine writes a line only when the declaration
+  differs from the seat's last; a socket that reconnects and says the same
+  writes nothing.
+- **Self-declared, and checked for its shape only.** Nothing proves a
+  client is what it says, and the record says so: the line is
+  `declared_mind`. `baylee_protocol::mind::fault` is the one check (the
+  engine refuses by it, the bridge and the client test what they send by
+  it): a kind is said; each field is a short word (32 characters, 100 for a
+  model) of letters, digits and `-_.:/@`, so no space (no prompt), no
+  control or bidi character, no `://` (no address, with or without a
+  password in it), and nothing `shaped_like_a_key` (the predicate the
+  settings file uses, now in `baylee-protocol` and re-exported by
+  `client-core::llmseat`). There is no field for an address, a key or a
+  profile name. A refused declaration is dropped and logged without its
+  text; it is not answered with an `Error`, which a seat reads as its
+  answer refused. A seat's record holds at most `MAX_DECLARATIONS` (256).
+- **Shown to nobody.** Not in a view, the roster, the game log or a frame
+  to any seat; no `VIEW_VERSION` change. What the table already sees is
+  the chair's name, whose prefix the bridge must sit under (`LLM-`,
+  `HOUSE-`, `TEST-`).
+- **Not a move.** No journal, hash, clock or pump; heard before the curtain
+  as after.
+- **`PROTOCOL_VERSION` does not move**, as it did not for `AiLog`: seat to
+  engine only, an engine from before it drops it (`seat_frame`'s `_` arm),
+  and no client is ever sent one.
+
+In the record it is `{"kind":"declared_mind","n":…,"at":…,"seat":0,
+"mind":{"kind":"llm_api","provider":"anthropic","model":"claude-opus-5-5",
+"effort":"high"}}`, empty fields left out. A seat's first one comes before
+its first input, so it heads the seat's part of the record (the header is
+written before any socket exists); later ones are changes where they
+happened. A declaration holds for the seat's `seat`-sourced inputs until its
+next one; `clock`, `house` and `stand_in` inputs are the house's whatever
+was declared, and `chair` lines say when the house took or gave back the
+chair. A new socket that answers before it declares anything ends the last
+declaration with `{"kind":"undeclared"}`, so an older client is never
+credited with what the bridge before it said; a seat with no declaration
+before an input is not known. Within a bridge, an answer its standing
+orders, its house fallback or its least answer gave is sent like the
+model's and goes under the declared mind; the bridge's transcript
+(`--transcripts`) says per answer who made it (`docs/llm-seat.md`).
+
+`RECORD_VERSION` stays 1: a record without declarations replays as it did
+(`a_record_without_declared_minds_replays_to_the_same_game`), and a reader
+from before them, which stops at the first such line as unreadable, is not
+the build that wrote it; a record is replayed by its own build.
+
+The gateway never decodes a `SeatFrame`, so `game_record_seat` gets no
+column for it: a query by model reads the record.
+
 ## Client preferences (`/settings`)
 
 Keys and standing orders follow the **account**, not the machine: a player who
@@ -1437,7 +1504,9 @@ never move again.
 Every game an engine plays is written down whole: the preset it was built
 from, then every action the engine applied, in order, each with who produced
 it (`seat`, `clock`, `house`, `stand_in`) and the engine's `snapshot_hash`
-after it, the changes of who answers a chair as annotations, and the end.
+after it, the changes of who answers a chair and what each seat's client
+declared answers it (§"Who answers a seat, as it says") as annotations
+that replay passes over, and the end.
 Enough to play the game again on a fresh engine of the same build and reach
 the same hash at every step (`baylee_gamehost::record::replay`). A policy's
 answer is not a line of its own: it is given inside `apply`, from settings

@@ -28,8 +28,9 @@ pub struct CliChoices {
     /// The effort levels its effort flag takes, least first; empty for a
     /// tool with none.
     pub efforts: &'static [&'static str],
-    /// Whether one process holds the conversation across turns; otherwise
-    /// each question is a conversation of its own.
+    /// Whether the conversation goes on across turns (one process holds
+    /// it, or the tool resumes it by its id); otherwise each question is a
+    /// conversation of its own.
     pub keeps_conversation: bool,
 }
 
@@ -66,7 +67,8 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             model_hint: "a model id from Codex's models page",
             default_model: None,
             efforts: &["low", "medium", "high", "xhigh", "max", "ultra"],
-            keeps_conversation: false,
+            // `exec resume <id>`, its sessions under `CODEX_HOME`.
+            keeps_conversation: true,
         },
         // opencode's models page: ids are `provider/model`; `--variant` is
         // provider-specific (Anthropic high, max; OpenAI none to xhigh;
@@ -77,7 +79,8 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             model_hint: "provider/model, as `opencode models` lists them",
             default_model: None,
             efforts: &["none", "minimal", "low", "medium", "high", "xhigh", "max"],
-            keeps_conversation: false,
+            // `run --session <id>`, from a database in the seat's store.
+            keeps_conversation: true,
         },
         // Junie's model-selection page: its aliases; `junie --help`
         // (26.9.22): `--effort` "low, medium, high".
@@ -95,7 +98,8 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             model_hint: "an alias (sonnet, opus, gpt, …) or a model id",
             default_model: None,
             efforts: &["low", "medium", "high"],
-            keeps_conversation: false,
+            // `--session-id=<id>`, its sessions under its home.
+            keeps_conversation: true,
         },
     }
 }
@@ -127,6 +131,8 @@ mod tests {
             }
         }
         assert!(choices(CliTool::Claude).keeps_conversation);
-        assert!(!choices(CliTool::Codex).keeps_conversation);
+        for tool in CliTool::ALL {
+            assert!(choices(tool).keeps_conversation, "{tool:?}");
+        }
     }
 }

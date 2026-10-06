@@ -8,6 +8,7 @@
 
 #![warn(missing_docs)]
 
+pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.
@@ -244,6 +245,9 @@ mod tests {
         // 18: finite damage-redirection choices and allocation semantics.
         // 19: temporary player special actions and payment-window offers.
         // 20: semantic text choices, constrained mana and controlled decisions.
+        // Not 21 for `SeatMind` (a seat's declared mind, for the record):
+        // seat to engine only, and an engine from before it drops it in
+        // `seat_frame`'s `_` arm, as with `AiLog`.
         assert_eq!(PROTOCOL_VERSION, 20);
     }
 

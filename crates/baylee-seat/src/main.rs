@@ -32,9 +32,11 @@ use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
 use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyEntry, KeyStore};
 use baylee_client_core::llmseat::ledger::Moment;
 use baylee_client_core::llmseat::seating::Order;
+use baylee_protocol::v1::SeatMind;
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
+use baylee_seat::declare;
 use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
@@ -263,6 +265,8 @@ struct Chosen {
     think_secs: u64,
     /// What the player should be told about the choice.
     note: Option<String>,
+    /// What the seat tells the table answers it, for the game's record.
+    declared: SeatMind,
 }
 
 impl Join {
@@ -302,8 +306,9 @@ fn choose(
     level: AIProfile,
     now: Moment,
 ) -> anyhow::Result<Chosen> {
-    let quiet = |mind: Arc<dyn Mind>, label: &str| Chosen {
+    let quiet = |mind: Arc<dyn Mind>, label: &str, declared: SeatMind| Chosen {
         mind,
+        declared,
         label: label.into(),
         tally: None,
         booked: None,
@@ -318,8 +323,16 @@ fn choose(
                 kind.label()
             );
             return Ok(match kind {
-                MindKind::House => quiet(Arc::new(HouseMind::new(level)), "house"),
-                _ => quiet(Arc::new(ScriptedMind::idle()), "scripted"),
+                MindKind::House => quiet(
+                    Arc::new(HouseMind::new(level)),
+                    "house",
+                    declare::house(&join.level),
+                ),
+                _ => quiet(
+                    Arc::new(ScriptedMind::idle()),
+                    "scripted",
+                    declare::scripted(),
+                ),
             });
         }
         Some(MindKind::Llm(spec)) => Some(spec),
@@ -337,7 +350,11 @@ fn choose(
     .map_err(anyhow::Error::msg)?;
     let Some(plan) = planned else {
         // Nothing names a model: the house, as with no settings file.
-        return Ok(quiet(Arc::new(HouseMind::new(level)), "house"));
+        return Ok(quiet(
+            Arc::new(HouseMind::new(level)),
+            "house",
+            declare::house(&join.level),
+        ));
     };
     let mut plan = plan;
     // A key the environment does not hold may be kept in the OS credential
@@ -375,6 +392,7 @@ fn choose(
         })
         .transpose()
         .map_err(anyhow::Error::msg)?;
+    let declared = declare::llm(&plan.settings);
     let built = access.build(&plan);
     if let Some(booked) = &mut booked {
         booked.watch(Arc::clone(&built.tally));
@@ -386,6 +404,7 @@ fn choose(
         booked,
         think_secs: plan.think_secs,
         note: plan.note,
+        declared,
     })
 }
 
@@ -826,6 +845,7 @@ struct Seated {
     tally: Option<Arc<Mutex<Tally>>>,
     booked: Option<Booked>,
     think_secs: u64,
+    declared: SeatMind,
 }
 
 /// The name a chair played by `mind` signs in under: the prefix of what
@@ -888,6 +908,7 @@ async fn sit_down(
         booked,
         think_secs,
         note,
+        declared,
     } = choose(join, args, env, keys, profile, spend::now())?;
     if let Some(note) = note {
         println!("{note}");
@@ -964,6 +985,7 @@ async fn sit_down(
         tally,
         booked,
         think_secs,
+        declared,
     })
 }
 
@@ -997,7 +1019,7 @@ async fn play_out(
         house: seated.profile,
         ..BridgeConfig::default()
     };
-    let core = seat_core(config, &seated.deck, &*seated.mind);
+    let core = seat_core(config, &seated.deck, &*seated.mind).with_mind(seated.declared.clone());
     let mut transcript = match &join.transcripts {
         Some(dir) => {
             let path = dir.join(format!(
@@ -1140,6 +1162,7 @@ impl OrderReader {
                 mind: chosen.mind,
                 think: Some(Duration::from_secs(chosen.think_secs)),
                 taken: Some(taken),
+                declared: Some(chosen.declared),
             },
             chosen.label,
         ))
@@ -1341,6 +1364,15 @@ mod tests {
                 assert!(core.disclosure().names(name), "the seat refuses «{name}»");
                 assert_eq!(Disclosure::Llm.names(name), llm, "«{name}» and a model");
             }
+            // What it tells the table answers it, for the game's record.
+            let declared = &chosen.declared;
+            assert_eq!(baylee_protocol::mind::fault(declared), None, "{spec}");
+            let model = match spec {
+                "anthropic" => baylee_seat::llm::DEFAULT_ANTHROPIC_MODEL,
+                other => other.split_once(':').map_or("", |(_, model)| model),
+            };
+            assert_eq!(declared.model, model, "{spec}");
+            assert_eq!(declared.level, if spec == "house" { "steady" } else { "" });
         }
     }
 

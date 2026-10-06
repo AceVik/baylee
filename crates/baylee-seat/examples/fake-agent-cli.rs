@@ -41,6 +41,22 @@
 //! answers the next step in that tool's shape and exits: `answer`, `text`,
 //! `tool` (the model uses a tool, then answers), `rate_limit`, `fail` and
 //! `exit` (and, as Junie, `signed_out`: a failure before any session).
+//! As opencode it keeps its conversations as its tool does, in the file
+//! `OPENCODE_DB` names (a JSON object of each session's turns, standing in
+//! for its database; `:memory:` or none keeps nothing): a new one is
+//! `ses_fake<pid>`, `--session <id>` goes on with one, and one that is not
+//! there, or a file it cannot read, is `Session not found` on stderr and
+//! an exit before any line, as opencode's is. It logs the session and its
+//! turn (`session`, `turn`), or the one it did not find (`not_found`).
+//! As Codex it keeps each thread as a rollout file under `$CODEX_HOME`
+//! (else `~/.codex`), `sessions/2026/10/06/rollout-…-<id>.jsonl`, holding
+//! its turns and its running count, which `turn.completed` reports whole;
+//! `resume <id>` goes on with one, and one not there is an exit before any
+//! line. As Junie it keeps `sessions/<id>/events.jsonl` under
+//! `$JUNIE_HOME` (else `~/.junie`); `--session-id=<id>` follows one up,
+//! and one not there begins a new session silently, as Junie may. With
+//! `stray: true` in the script, both begin a new one whatever they are
+//! asked to go on with (logged as `strayed`).
 //! Each one's login check answers as its tool's does (`login
 //! status` on stderr, `auth list`, `--version`), signed in unless
 //! `logged_in` is false.
@@ -230,7 +246,7 @@ fn usage_of(step: &Value) -> Usage {
 }
 
 /// A process's running count of what it used, for `cumulative_usage`.
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct Usage {
     input: u64,
     output: u64,
@@ -291,6 +307,16 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
     let _ = std::io::Read::read_to_string(&mut std::io::stdin().lock(), &mut prompt);
     dump(log, &json!({"pid": pid, "prompt": prompt}));
     dump(log, &json!({"pid": pid, "eof": true}));
+    let kept = match tool {
+        OneShot::Opencode => Kept {
+            id: opencode_session(log, pid),
+            turn: 0,
+            before: Usage::default(),
+            file: None,
+        },
+        OneShot::Codex => codex_thread(config, log, pid),
+        OneShot::Junie => junie_session(config, log, pid),
+    };
     let Some(step) = next_step(home, config) else {
         eprintln!("fake: the script ended");
         std::process::exit(0);
@@ -306,6 +332,15 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
         std::process::exit(i32::try_from(code).unwrap_or(1));
     }
     let usage = usage_of(&step);
+    let mut total = kept.before;
+    total.add(&usage);
+    if let Some(file) = &kept.file {
+        // Kept before a word is said, as the tool keeps it.
+        let record = json!({"turn": kept.turn, "input": total.input, "output": total.output,
+            "cache_write": total.cache_write, "cache_read": total.cache_read});
+        std::fs::write(file, record.to_string()).expect("the fake's session is written");
+    }
+    let session = kept.id;
     let answer = match kind {
         "text" => step
             .get("text")
@@ -319,9 +354,11 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
             .to_string(),
     };
     match tool {
-        OneShot::Codex => play_codex(kind, &answer, &usage),
-        OneShot::Opencode => play_opencode(kind, &answer, &usage),
-        OneShot::Junie => play_junie(kind, &answer, &usage),
+        // Codex reports the thread's running count, seeded from its
+        // rollout.
+        OneShot::Codex => play_codex(kind, &answer, &total, &session),
+        OneShot::Opencode => play_opencode(kind, &answer, &usage, &session),
+        OneShot::Junie => play_junie(kind, &answer, &usage, &session),
     }
     if matches!(kind, "rate_limit" | "fail") {
         std::process::exit(1);
@@ -329,8 +366,8 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
 }
 
 /// One message answered as `codex exec --json` does.
-fn play_codex(kind: &str, answer: &str, usage: &Usage) {
-    say(&json!({"type": "thread.started", "thread_id": "0199a213-fake"}));
+fn play_codex(kind: &str, answer: &str, usage: &Usage, thread: &str) {
+    say(&json!({"type": "thread.started", "thread_id": thread}));
     say(&json!({"type": "turn.started"}));
     match kind {
         "rate_limit" => {
@@ -360,10 +397,157 @@ fn play_codex(kind: &str, answer: &str, usage: &Usage) {
         "output_tokens": usage.output, "reasoning_output_tokens": 0}}));
 }
 
-/// One message answered as `opencode run --format json` does.
-fn play_opencode(kind: &str, answer: &str, usage: &Usage) {
+/// The conversation a process answers in, as its tool keeps it.
+struct Kept {
+    id: String,
+    /// Its turn, this one counted.
+    turn: u64,
+    /// Its running count before this turn.
+    before: Usage,
+    /// Where it is kept after this turn, if the fake keeps it there.
+    file: Option<PathBuf>,
+}
+
+/// A tool's home: `name`'s value, else `fallback` under `HOME`.
+fn tool_home(name: &str, fallback: &str) -> PathBuf {
+    std::env::var_os(name).map_or_else(
+        || PathBuf::from(std::env::var_os("HOME").expect("HOME")).join(fallback),
+        PathBuf::from,
+    )
+}
+
+/// What a kept session file says: its turns and its running count.
+fn read_kept(file: &Path) -> Option<(u64, Usage)> {
+    let value: Value = serde_json::from_slice(&std::fs::read(file).ok()?).ok()?;
+    let n = |key: &str| value.get(key).and_then(Value::as_u64);
+    Some((
+        n("turn")?,
+        Usage {
+            input: n("input")?,
+            output: n("output")?,
+            cache_write: n("cache_write")?,
+            cache_read: n("cache_read")?,
+        },
+    ))
+}
+
+/// Whether the script makes every resume begin a new conversation.
+fn strays(config: &Value) -> bool {
+    config.get("stray").and_then(Value::as_bool) == Some(true)
+}
+
+/// The Codex thread this process answers in: the one `resume <id>` names,
+/// from its rollout file, or a new one. One not there ends the process
+/// before any line.
+fn codex_thread(config: &Value, log: &Path, pid: u32) -> Kept {
+    let args: Vec<String> = std::env::args().collect();
+    let day = tool_home("CODEX_HOME", ".codex").join("sessions/2026/10/06");
+    std::fs::create_dir_all(&day).expect("the fake's sessions directory");
+    let rollout = |id: &str| day.join(format!("rollout-2026-10-06T12-00-00-{id}.jsonl"));
+    let asked = args
+        .iter()
+        .position(|arg| arg == "resume")
+        .and_then(|at| args.get(at + 1))
+        .cloned();
+    let fresh = format!("0199a213-0000-7000-8000-{pid:012}");
+    let (id, turn, before) = match asked {
+        Some(_) if strays(config) => {
+            dump(log, &json!({"pid": pid, "strayed": fresh}));
+            (fresh, 1, Usage::default())
+        }
+        Some(id) => {
+            let Some((turn, before)) = read_kept(&rollout(&id)) else {
+                dump(log, &json!({"pid": pid, "not_found": id}));
+                eprintln!("Error: thread/resume failed: no rollout found for thread id {id}");
+                std::process::exit(1);
+            };
+            (id, turn + 1, before)
+        }
+        None => (fresh, 1, Usage::default()),
+    };
+    dump(log, &json!({"pid": pid, "session": id, "turn": turn}));
+    Kept {
+        file: Some(rollout(&id)),
+        id,
+        turn,
+        before,
+    }
+}
+
+/// The Junie session this process answers in: the one `--session-id`
+/// names, or, when that one is not there, a new one, silently.
+fn junie_session(config: &Value, log: &Path, pid: u32) -> Kept {
+    let sessions = tool_home("JUNIE_HOME", ".junie").join("sessions");
+    let asked =
+        std::env::args().find_map(|arg| arg.strip_prefix("--session-id=").map(str::to_string));
+    let events = |id: &str| sessions.join(id).join("events.jsonl");
+    let going = asked
+        .filter(|_| !strays(config))
+        .and_then(|id| read_kept(&events(&id)).map(|(turn, _)| (id, turn + 1)));
+    let (id, turn) = going.unwrap_or_else(|| {
+        let fresh = format!("session-261006-120000-{pid}");
+        if strays(config) {
+            dump(log, &json!({"pid": pid, "strayed": fresh}));
+        }
+        (fresh, 1)
+    });
+    std::fs::create_dir_all(sessions.join(&id)).expect("the fake's session directory");
+    dump(log, &json!({"pid": pid, "session": id, "turn": turn}));
+    Kept {
+        file: Some(events(&id)),
+        id,
+        turn,
+        before: Usage::default(),
+    }
+}
+
+/// The opencode session this process answers in: the one `--session`
+/// names, from the store `OPENCODE_DB` names, or a new one kept there. One
+/// it cannot find ends the process as opencode does, before any line.
+fn opencode_session(log: &Path, pid: u32) -> String {
+    let args: Vec<String> = std::env::args().collect();
+    let named = args
+        .iter()
+        .position(|arg| arg == "--session")
+        .and_then(|at| args.get(at + 1))
+        .cloned();
+    let store = std::env::var_os("OPENCODE_DB")
+        .filter(|db| db != ":memory:")
+        .map(PathBuf::from);
+    let mut sessions: Value = match &store {
+        Some(db) if db.exists() => std::fs::read(db)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or(Value::Null),
+        _ => json!({}),
+    };
+    let id = if let Some(id) = named {
+        if sessions.get(&id).and_then(Value::as_u64).is_none() {
+            dump(log, &json!({"pid": pid, "not_found": id}));
+            eprintln!("Error: Session not found");
+            std::process::exit(1);
+        }
+        id
+    } else {
+        if !sessions.is_object() {
+            sessions = json!({});
+        }
+        format!("ses_fake{pid}")
+    };
+    let turn = sessions.get(&id).and_then(Value::as_u64).unwrap_or(0) + 1;
+    sessions[&id] = json!(turn);
+    if let Some(db) = &store {
+        std::fs::write(db, sessions.to_string()).expect("the fake's store is written");
+    }
+    dump(log, &json!({"pid": pid, "session": id, "turn": turn}));
+    id
+}
+
+/// One message answered as `opencode run --format json` does, in
+/// `session`.
+fn play_opencode(kind: &str, answer: &str, usage: &Usage, session: &str) {
     let line = |kind: &str, body: Value| {
-        let mut line = json!({"type": kind, "timestamp": 1, "sessionID": "ses_fake"});
+        let mut line = json!({"type": kind, "timestamp": 1, "sessionID": session});
         line.as_object_mut()
             .expect("an object")
             .extend(body.as_object().expect("an object").clone());
@@ -413,7 +597,7 @@ fn play_opencode(kind: &str, answer: &str, usage: &Usage) {
 }
 
 /// One task answered as Junie's `json-stream` does, its banner first.
-fn play_junie(kind: &str, answer: &str, usage: &Usage) {
+fn play_junie(kind: &str, answer: &str, usage: &Usage, session: &str) {
     println!("Junie fake banner");
     if kind == "signed_out" {
         // Its first word, before any session: it cannot sign in.
@@ -421,7 +605,7 @@ fn play_junie(kind: &str, answer: &str, usage: &Usage) {
             "errors": ["Cannot find authorization"]}));
         std::process::exit(1);
     }
-    say(&json!({"type": "session", "timestamp": 1, "sessionId": "session-fake"}));
+    say(&json!({"type": "session", "timestamp": 1, "sessionId": session}));
     let errors = match kind {
         "rate_limit" => {
             vec!["Junie: Insufficient Account Balance. All tokens on your balance are spent."]

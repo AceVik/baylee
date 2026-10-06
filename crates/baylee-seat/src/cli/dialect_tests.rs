@@ -117,17 +117,60 @@ fn no_dialect_approves_anything_or_passes_a_credential() {
 }
 
 /// Every tool this build speaks has a dialect, and the settings panel's
-/// word on whether a process keeps the conversation is the dialect's.
+/// word on whether the conversation goes on across turns is the
+/// dialect's: a process that holds it, or a one-shot tool that resumes it.
+/// One that resumes keeps its sessions either in the seat's store or in a
+/// place of its own it names, never neither; one that does not leaves its
+/// arguments as they are.
 #[test]
 fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
+    let home = |name: &str| (name == "HOME").then(|| OsString::from("/home/t"));
     for tool in CliTool::ALL {
         let dialect = dialect(tool);
         assert_eq!(dialect.tool(), tool);
         assert_eq!(
-            dialect.one_shot(),
-            !clis::choices(tool).keeps_conversation,
+            !dialect.one_shot() || dialect.resumes(),
+            clis::choices(tool).keeps_conversation,
             "{tool:?}"
         );
+        let in_store = !dialect.store_env(Path::new("/s")).is_empty();
+        let outside = dialect.sessions_root(&home);
+        if dialect.resumes() {
+            assert!(dialect.one_shot(), "{tool:?}");
+            assert_ne!(in_store, outside.is_some(), "{tool:?}");
+            if let Some(root) = outside {
+                assert!(root.starts_with("/home/t"), "{tool:?}: {root:?}");
+            }
+            if dialect.usage_spans_resumes() {
+                assert!(dialect.usage_is_cumulative(), "{tool:?}");
+            }
+        } else {
+            let mut args = vec![OsString::from("a")];
+            dialect.resume(&mut args, "ses_1");
+            assert_eq!(args, [OsString::from("a")], "{tool:?}");
+            assert!(!in_store && outside.is_none(), "{tool:?}");
+            assert!(!dialect.usage_spans_resumes(), "{tool:?}");
+        }
+    }
+}
+
+/// A conversation's id is handed back in an argument only as letters,
+/// digits, `_` and `-`, never first, and not too long.
+#[test]
+fn a_conversation_id_cannot_make_an_argument_of_its_own() {
+    use super::dialect::conversation_id;
+    assert_eq!(conversation_id("ses_1a-B").as_deref(), Some("ses_1a-B"));
+    for bad in [
+        "",
+        "-c",
+        "--continue",
+        "a b",
+        "a=b",
+        "ses/1",
+        "ü",
+        &"x".repeat(129),
+    ] {
+        assert_eq!(conversation_id(bad), None, "{bad:?}");
     }
 }
 
@@ -170,7 +213,11 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
         )
         .unwrap();
         let env = launch
-            .env(Path::new("/s/tmp"), Path::new("/s/support"))
+            .env(
+                Path::new("/s/tmp"),
+                Path::new("/s/support"),
+                Some(Path::new("/s/store")),
+            )
             .unwrap();
         env.into_iter()
             .map(|(name, value)| (name, value.to_string_lossy().into_owned()))
@@ -183,7 +230,10 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
         "not theirs"
     );
     assert_eq!(opencode["OPENCODE_CONFIG"], "/s/support/opencode.json");
-    assert_eq!(opencode["OPENCODE_DB"], ":memory:");
+    assert_eq!(
+        opencode["OPENCODE_DB"], "/s/store/opencode.db",
+        "its conversations in the seat's store, never the user's"
+    );
     assert_eq!(opencode["OPENCODE_DISABLE_PROJECT_CONFIG"], "1");
     let codex = env_of("codex");
     assert_eq!(codex["CODEX_HOME"], "/home/tester/.codex-seat");
@@ -204,7 +254,7 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
 
 /// `codex exec`, locked down: user config, rules and project docs off,
 /// our instructions and schema by file, every tool feature off, read-only,
-/// nothing kept, the prompt from stdin; model and effort where named.
+/// no prompt history, the prompt from stdin; model and effort where named.
 #[test]
 fn codex_runs_exec_with_our_instructions_and_no_tools() {
     let args = args_of(&Codex, Some("gpt-6.1-sol"), Some("low"));
@@ -213,7 +263,6 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
         "--json",
         "--color",
         "never",
-        "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
         "--skip-git-repo-check",
@@ -466,7 +515,47 @@ fn opencodes_configuration_denies_every_tool_and_carries_ours() {
     ] {
         assert_eq!(fixed[name], "1", "{name}");
     }
-    assert_eq!(fixed["OPENCODE_DB"], ":memory:");
+    assert!(
+        !fixed.contains_key("OPENCODE_DB"),
+        "the store names it ({:?})",
+        Opencode.store_env(Path::new("/s/store"))
+    );
+}
+
+/// opencode goes on with a conversation by the id its lines name: an
+/// explicit `--session <id>` (never `--continue`), from a database in the
+/// seat's store, an absolute path. An id that could be read as a flag is
+/// no id.
+#[test]
+fn opencode_resumes_by_the_id_its_lines_name() {
+    assert!(Opencode.resumes());
+    let store = Opencode.store_env(Path::new("/s/store"));
+    assert_eq!(store.len(), 1);
+    assert_eq!(store[0].0, "OPENCODE_DB");
+    assert_eq!(store[0].1, OsString::from("/s/store/opencode.db"));
+    let mut args = args_of(&Opencode, None, None);
+    let fresh = args.len();
+    let mut resumed: Vec<OsString> = args.drain(..).map(OsString::from).collect();
+    Opencode.resume(&mut resumed, "ses_1");
+    assert_eq!(resumed.len(), fresh + 2);
+    assert_eq!(
+        resumed[fresh..],
+        [OsString::from("--session"), OsString::from("ses_1")]
+    );
+    let mut wire = Wire::default();
+    for line in [
+        r#"{"type":"step_start","timestamp":1,"sessionID":"ses_1","part":{}}"#,
+        r#"{"type":"text","timestamp":2,"sessionID":"ses_2","part":{"text":""}}"#,
+    ] {
+        Opencode.read_event(line, &mut wire);
+    }
+    assert_eq!(wire.conversation.as_deref(), Some("ses_1"), "its first");
+    let mut wire = Wire::default();
+    Opencode.read_event(
+        r#"{"type":"step_start","timestamp":1,"sessionID":"--continue"}"#,
+        &mut wire,
+    );
+    assert_eq!(wire.conversation, None);
 }
 
 /// opencode says nothing at its start: its first line is the start and is
@@ -697,4 +786,188 @@ fn agy_names_its_tools_and_uses_none() {
     assert!(why.contains("run_command"), "{why}");
     let response = r#"{"event":"step_update","step_update":{"conversation_id":"c","step_index":3,"state":"DONE","step_type":"agent_response","text_delta":"x","usage":{"input_tokens":1}}}"#;
     assert_eq!(read_all(&Agy, &[response]), [Event::Other]);
+}
+
+// ---------------------------------------------------------------------
+// Resuming beside the login: Codex and Junie
+// ---------------------------------------------------------------------
+
+/// A directory of the test's own, empty.
+fn scratch_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("baylee-dialect-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+const THREAD: &str = "0199a213-81c0-7800-8aa1-bbab2a035a53";
+
+/// Codex goes on with a thread by the UUID its `thread.started` named:
+/// every flag kept ahead of `resume <id> -`, never `--last`, and a thread
+/// named by anything but a UUID (which `resume` would look up as a name)
+/// is no id. Nothing is ephemeral, or there would be nothing to resume.
+#[test]
+fn codex_resumes_its_thread_by_its_uuid() {
+    assert!(Codex.resumes() && Codex.usage_spans_resumes());
+    let fresh: Vec<OsString> = args_of(&Codex, Some("gpt-6.1-sol"), Some("low"))
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+    assert!(!fresh.iter().any(|arg| arg == "--ephemeral"));
+    let mut resumed = fresh.clone();
+    Codex.resume(&mut resumed, THREAD);
+    assert_eq!(resumed[..fresh.len() - 1], fresh[..fresh.len() - 1]);
+    assert_eq!(
+        resumed[fresh.len() - 1..],
+        ["resume", THREAD, "-"].map(OsString::from)
+    );
+    assert!(!resumed.iter().any(|arg| arg == "--last" || arg == "--all"));
+    let named = |line: &str| {
+        let mut wire = Wire::default();
+        Codex.read_event(line, &mut wire);
+        wire.conversation
+    };
+    assert_eq!(
+        named(&format!(
+            r#"{{"type":"thread.started","thread_id":"{THREAD}"}}"#
+        ))
+        .as_deref(),
+        Some(THREAD)
+    );
+    for bad in ["my-thread", "--last", "", "0199a213"] {
+        assert_eq!(
+            named(&format!(
+                r#"{{"type":"thread.started","thread_id":"{bad}"}}"#
+            )),
+            None,
+            "{bad:?}"
+        );
+    }
+    let mut wire = Wire {
+        asked: Some(THREAD.into()),
+        ..Wire::default()
+    };
+    Codex.read_event(
+        r#"{"type":"thread.started","thread_id":"0199a213-0000-7000-8000-000000000001"}"#,
+        &mut wire,
+    );
+    assert!(wire.strayed(), "another thread than the one asked for");
+}
+
+/// Codex's sessions are where its login is (`CODEX_HOME`, else
+/// `~/.codex`); the seat's own are exactly the rollout files named for its
+/// thread, at their place, never a link, another thread's or a lookalike.
+#[cfg(unix)]
+#[test]
+fn codex_names_exactly_its_threads_rollout_files() {
+    let env = |home: Option<&'static str>| {
+        move |name: &str| match name {
+            "HOME" => Some(OsString::from("/home/t")),
+            "CODEX_HOME" => home.map(OsString::from),
+            _ => None,
+        }
+    };
+    assert_eq!(
+        Codex.sessions_root(&env(None)),
+        Some(PathBuf::from("/home/t/.codex/sessions"))
+    );
+    assert_eq!(
+        Codex.sessions_root(&env(Some("/c"))),
+        Some(PathBuf::from("/c/sessions"))
+    );
+    assert_eq!(Codex.sessions_root(&env(Some("relative"))), None);
+    let root = scratch_dir("codex-files");
+    let day = root.join("2026/10/06");
+    std::fs::create_dir_all(&day).unwrap();
+    let ours = day.join(format!("rollout-2026-10-06T12-00-00-{THREAD}.jsonl"));
+    let packed = root.join("2026/09/01");
+    std::fs::create_dir_all(&packed).unwrap();
+    let ours_packed = packed.join(format!("rollout-2026-09-01T08-00-00-{THREAD}.jsonl.zst"));
+    let other = day.join("rollout-2026-10-06T12-00-00-0199a213-0000-7000-8000-000000000001.jsonl");
+    let lookalike = day.join(format!("rollout-2026-10-06T12-00-00-{THREAD}x.jsonl"));
+    let shallow = root.join(format!("rollout-2026-10-06T12-00-00-{THREAD}.jsonl"));
+    for file in [&ours, &ours_packed, &other, &lookalike, &shallow] {
+        std::fs::write(file, "{}").unwrap();
+    }
+    let link = day.join(format!("rollout-2026-10-06T13-00-00-{THREAD}.jsonl"));
+    std::os::unix::fs::symlink(&other, &link).unwrap();
+    let mut found = Codex.session_files(&root, THREAD);
+    found.sort();
+    assert_eq!(found, [ours_packed, ours]);
+    assert!(Codex.session_files(&root, "my-thread").is_empty());
+    assert!(Codex.session_files(&root, "..").is_empty());
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// Codex reads `$CODEX_HOME/AGENTS.md` whatever its flags say: the bridge
+/// warns where one is there, and says nothing where none is.
+#[test]
+fn codex_warns_of_an_agents_file_in_its_home() {
+    let home = scratch_dir("codex-agents");
+    let env = |name: &str| (name == "CODEX_HOME").then(|| home.clone().into_os_string());
+    assert_eq!(Codex.home_warning(&env), None);
+    std::fs::write(home.join("AGENTS.md"), "be nice").unwrap();
+    let warning = Codex.home_warning(&env).expect("a warning");
+    assert!(warning.contains("AGENTS.md"), "{warning}");
+    for dialect in the_dialects() {
+        if dialect.tool() != CliTool::Codex {
+            assert_eq!(dialect.home_warning(&env), None);
+        }
+    }
+    std::fs::remove_dir_all(&home).unwrap();
+}
+
+/// Junie follows a session up by the id its `session` line named
+/// (`--session-id=<id>`, never `--resume` alone), every flag kept; its
+/// sessions are where its home is, and the seat's own is exactly the
+/// directory named for its id.
+#[cfg(unix)]
+#[test]
+fn junie_follows_up_its_session_by_its_id() {
+    assert!(Junie.resumes() && !Junie.usage_spans_resumes());
+    let fresh: Vec<OsString> = args_of(&Junie, Some("opus"), Some("low"))
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+    let mut resumed = fresh.clone();
+    Junie.resume(&mut resumed, "session-261006-120000-1abc");
+    assert_eq!(resumed[..fresh.len()], fresh[..]);
+    assert_eq!(
+        resumed[fresh.len()..],
+        [OsString::from("--session-id=session-261006-120000-1abc")]
+    );
+    assert!(!resumed.iter().any(|arg| arg == "--resume"));
+    let mut wire = Wire::default();
+    Junie.read_event(
+        r#"{"type":"session","sessionId":"session-261006-120000-1abc"}"#,
+        &mut wire,
+    );
+    assert_eq!(
+        wire.conversation.as_deref(),
+        Some("session-261006-120000-1abc")
+    );
+    let env = |name: &str| (name == "HOME").then(|| OsString::from("/home/t"));
+    assert_eq!(
+        Junie.sessions_root(&env),
+        Some(PathBuf::from("/home/t/.junie/sessions"))
+    );
+    let root = scratch_dir("junie-files");
+    let ours = root.join("session-ours");
+    let other = root.join("session-other");
+    std::fs::create_dir_all(&ours).unwrap();
+    std::fs::create_dir_all(&other).unwrap();
+    std::fs::write(root.join("session-file"), "").unwrap();
+    std::os::unix::fs::symlink(&other, root.join("session-link")).unwrap();
+    assert_eq!(Junie.session_files(&root, "session-ours"), [ours]);
+    for none in [
+        "session-file",
+        "session-link",
+        "session-gone",
+        "..",
+        "-x",
+        "",
+    ] {
+        assert!(Junie.session_files(&root, none).is_empty(), "{none:?}");
+    }
+    std::fs::remove_dir_all(&root).unwrap();
 }

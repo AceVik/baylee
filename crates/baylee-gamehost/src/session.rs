@@ -20,7 +20,7 @@ use baylee_view::{
 };
 
 use crate::log::GameLog;
-use crate::record::{ChairChange, Recorder, Source};
+use crate::record::{ChairChange, Mind, MindKind, Recorder, Source};
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
@@ -222,7 +222,23 @@ pub struct Session {
     /// ([`Session::new_recorded`]); `None` in the client's own table, which
     /// has nowhere to keep it.
     record: Option<Recorder>,
+    /// Per seat, what its client last declared answers it, as the record
+    /// has it ([`Session::declare_mind`]); `None` while nothing was.
+    ///
+    /// Not game state: it is what a client *said*, for the record's reader,
+    /// and no seat is ever shown it.
+    minds: Vec<Option<Mind>>,
+    /// Per seat, whether a socket opened since its client last declared
+    /// ([`Session::socket_opened`]).
+    unsaid: Vec<bool>,
+    /// Per seat, how many declarations the record holds; past
+    /// [`MAX_DECLARATIONS`] the rest are refused.
+    declarations: Vec<u32>,
 }
+
+/// The most declared minds one seat's record holds: a client that changes
+/// its answer back and forth cannot grow the record without bound.
+pub const MAX_DECLARATIONS: u32 = 256;
 
 /// A seat's number as the policy-seed derivation takes it.
 ///
@@ -286,6 +302,9 @@ impl Session {
             asking: vec![SeatSet::new(); preset.seats.len()],
             declined: BTreeMap::new(),
             record: None,
+            minds: vec![None; preset.seats.len()],
+            unsaid: vec![false; preset.seats.len()],
+            declarations: vec![0; preset.seats.len()],
         })
     }
 
@@ -317,6 +336,19 @@ impl Session {
         let Some(record) = self.record.as_mut() else {
             return;
         };
+        // A socket that answers before it said what it is: what an earlier
+        // socket declared does not hold for it.
+        let at = seat.get() as usize;
+        if by == Source::Seat && self.unsaid.get(at).copied().unwrap_or(false) {
+            self.unsaid[at] = false;
+            if self.minds[at]
+                .as_ref()
+                .is_some_and(|m| m.kind != MindKind::Undeclared)
+            {
+                record.mind(seat, Mind::undeclared());
+                self.minds[at] = Some(Mind::undeclared());
+            }
+        }
         record.input(seat, by, action, &self.engine);
         if !record.ended()
             && let Pending::GameOver(result) = self.engine.pending()
@@ -331,6 +363,56 @@ impl Session {
                 record.end(winners, reason);
             }
         }
+    }
+
+    /// A socket opened for `seat` (not a resync of one already open): what
+    /// its client declares next is the seat's mind, and if it answers
+    /// before declaring anything, the record says the earlier declaration
+    /// no longer holds ([`MindKind::Undeclared`]).
+    pub fn socket_opened(&mut self, seat: PlayerId) {
+        if let Some(unsaid) = self.unsaid.get_mut(seat.get() as usize) {
+            *unsaid = true;
+        }
+    }
+
+    /// What `seat`'s own client says answers it (`v1::SeatMind`): a person,
+    /// the house, a script, or a language model and which. Written into the
+    /// record when it differs from what the seat declared last, and shown
+    /// to nobody: no view, roster or log line changes, and the game does not
+    /// move (`docs/protocol.md` §"Who answers a seat, as it says").
+    ///
+    /// Self-declared and unverified, so only its shape is checked
+    /// ([`Mind::from_wire`]): nothing in it can be an address, a key or a
+    /// prompt. Taken before the curtain as after. A session with no record
+    /// checks it and keeps nothing.
+    ///
+    /// # Errors
+    /// When the declaration's shape is refused, `seat` is not a seat here,
+    /// or the seat has declared [`MAX_DECLARATIONS`] times already.
+    pub fn declare_mind(
+        &mut self,
+        seat: PlayerId,
+        said: &baylee_protocol::v1::SeatMind,
+    ) -> Result<(), &'static str> {
+        let mind = Mind::from_wire(said)?;
+        let at = seat.get() as usize;
+        if at >= self.seats.len() {
+            return Err("no such seat");
+        }
+        let Some(record) = self.record.as_mut() else {
+            return Ok(());
+        };
+        self.unsaid[at] = false;
+        if self.minds[at].as_ref() == Some(&mind) {
+            return Ok(());
+        }
+        if self.declarations[at] >= MAX_DECLARATIONS {
+            return Err("this seat has declared its mind too often");
+        }
+        self.declarations[at] += 1;
+        record.mind(seat, mind.clone());
+        self.minds[at] = Some(mind);
+        Ok(())
     }
 
     /// Writes down a change of who answers `seat`.
