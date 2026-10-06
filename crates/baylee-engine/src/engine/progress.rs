@@ -5862,18 +5862,28 @@ impl<L: CardLookup> Engine<L> {
     /// first check, which is the machine's own next pass (`Cleanup::Checking`).
     pub(crate) fn cleanup_ends_the_turns_effects(&mut self) {
         let mut reverted: Vec<ObjectId> = Vec::new();
-        for obj in self.state.arena.iter_mut_all() {
-            obj.damage = 0;
-            obj.deathtouched = false;
-            // "The next time it would be destroyed **this turn**"
-            // (CR 701.19a) — an unspent shield does not keep.
-            obj.regeneration_shields = 0;
-            if obj.own_abilities_until_eot {
-                obj.drop_own_abilities();
-                obj.own_abilities_until_eot = false;
-                reverted.push(obj.id);
-            }
-        }
+        // Only objects with something to end are written, so the chunks of
+        // an arena holding none stay shared with the answer's checkpoint.
+        self.state.arena.update_where(
+            |obj| {
+                obj.damage != 0
+                    || obj.deathtouched
+                    || obj.regeneration_shields != 0
+                    || obj.own_abilities_until_eot
+            },
+            |obj| {
+                obj.damage = 0;
+                obj.deathtouched = false;
+                // "The next time it would be destroyed **this turn**"
+                // (CR 701.19a) — an unspent shield does not keep.
+                obj.regeneration_shields = 0;
+                if obj.own_abilities_until_eot {
+                    obj.drop_own_abilities();
+                    obj.own_abilities_until_eot = false;
+                    reverted.push(obj.id);
+                }
+            },
+        );
         self.state
             .effects
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
