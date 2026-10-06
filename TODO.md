@@ -364,34 +364,22 @@ item names who it is for.
 
 ## Engine lane (baylee-engine; not touched on this branch)
 
-1. **Miracle: a declined or short payment window does not give the mana
-   back.** The client now pays a miracle's window in one press ("Pay (tap
-   N)" taps what is owed, then passes) or declines it ("Don't pay").
-   Declining, or passing short, ends in
-   `crates/baylee-engine/src/engine/cast_wizard.rs:1925`
-   (`finish_miracle_payment`): `finish_cast` fails, `finish_nested_cast`
-   runs, and the lands tapped in the window stay tapped with their mana
-   floating (it empties at the step's end). The owner asked for the taps to
-   be rolled back. The rules ground is the reversal of an illegal casting
-   (Comprehensive Rules, "Handling Illegal Actions": the mana abilities
-   activated during it are reversed too; look the number up, sections
-   renumber). Wanted: when the window closes without a cast, untap what
-   was tapped for it since `cast_or_make_miracle_mana`
-   (`cast_wizard.rs:1873`) opened it and take back the mana it made. The
-   same holds for `PaymentContinuation::Cast` in `close_mana_window`
-   (`crates/baylee-engine/src/engine/actions.rs:1826`).
+1. **Done (c41/b6-engine): a declined or short payment window gives the
+   mana back.** `Engine::give_back_window` (`engine/payment_window.rs`)
+   untaps what was tapped in a `Miracle` or `Cast` window and puts the pool
+   back when it closes without the cast (CR 732.1); a window where a mana
+   ability did more than tap (Lotus Petal) is left as it stands.
 2. **"Sent to the engine only on completion"** can only be met as far as
    the protocol allows: every mana ability is its own action in a CR 605.3a
    window, so the client sends each tap and then the pass. If the owner
    wants one atomic answer, the engine needs an action like
    `PayWith { sources }` (the taps and the settle in one apply), which
    would also make item 1 unnecessary for the client's own path.
-3. **A real miracle test.** `combo_tests/miracle_bug.rs` was an empty,
-   unwired stub and is deleted. Wanted in `combo_tests/` or
-   `card_tests/`: a miracle card drawn on an opponent's turn, "yes", the
-   window opened with `PlayerView::owed`, one manual tap, the rest paid,
-   the pass casting it; and a decline leaving the card in hand (and, after
-   item 1, the lands untapped).
+3. **Done (c41/b6-engine): a real miracle test.**
+   `combo_tests/miracle.rs`: Brainstorm in the opponent's upkeep draws
+   Temporal Mastery, the window owes `{1}{U}`, one manual tap and the rest
+   cast it; closing it short leaves the card in hand and the Island
+   untapped.
 4. **Teferi, Time Raveler's +1: no engine defect.** `casting::timing_allows`
    (`crates/baylee-engine/src/casting.rs:1145`) already lets the
    controller's sorceries through and lets the opponent's static win;

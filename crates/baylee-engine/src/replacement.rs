@@ -96,21 +96,45 @@ pub(crate) fn graveyard_destination(
     (to, None)
 }
 
-/// The next instruction is a new event: a Voidwalker that died in the
-/// previous instruction cannot keep replacing later discards or the resolving
-/// spell's own departure. Other rules keep their existing LKI lifetime.
-pub(crate) fn expire_graveyard_rules(state: &mut GameState) {
-    // The engine's replacement sync drops a phased-out source's rules and
-    // scans them back when it phases in. This sweep runs between two
-    // instructions of one resolution, before that sync:
-    // phasing: it keeps them; graveyard_destination excludes them meanwhile.
-    let battlefield = state.zones.list(crate::zone::ZoneLocation::Battlefield);
-    state.replacement_rules.retain(|entry| {
-        !matches!(
-            entry.rule,
-            baylee_cards_dsl::ReplacementRule::ExileOpponentsGraveyard { .. }
-        ) || battlefield.contains(&entry.source)
-    });
+/// Drops the rules of every source that is no longer on the battlefield, at
+/// the boundary between two events of one resolution (#291).
+///
+/// A replacement or trigger-multiplier rule is a static ability of its
+/// source, and a source that has left has no abilities left to apply to an
+/// event that happens after it left: "destroy it, then create two tokens"
+/// with the Doubling Season as the "it" creates two tokens, not four. Inside
+/// one event the rule still applies to all of it, by last-known information,
+/// even when the engine moves the objects of a simultaneous event one at a
+/// time and the source goes first — a Dauthi Voidwalker destroyed in a wipe
+/// still exiles the cards that die beside it. So `resolve::run` calls this
+/// before each instruction and once after the last (the resolving spell's
+/// own departure is an event of its own), never inside one.
+///
+/// The engine's sync (`Engine::sync_static_effects`) did this already, but
+/// only between engine steps, so the rule outlived its source for the rest
+/// of the resolution. A phased-out source is still on the battlefield, and
+/// keeps its rules until that sync drops them; `graveyard_destination`
+/// excludes them meanwhile.
+pub(crate) fn expire_departed_rules(state: &mut GameState) {
+    let rules = &state.replacement_rules;
+    let on_battlefield = |source: ObjectId| {
+        state
+            .object(source)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+    };
+    // One lookup per rule, and no write unless something left: this runs
+    // before every instruction of every resolution.
+    if rules.iter().all(|entry| on_battlefield(entry.source)) {
+        return;
+    }
+    let departed: Vec<ObjectId> = rules
+        .iter()
+        .map(|entry| entry.source)
+        .filter(|&source| !on_battlefield(source))
+        .collect();
+    state
+        .replacement_rules
+        .retain(|entry| !departed.contains(&entry.source));
 }
 
 /// How many times over an effect creating tokens under `recipient`'s

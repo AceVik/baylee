@@ -15,18 +15,18 @@
 //!
 //! It has to be a real `PlayLand`, and that is the whole reason this module
 //! is not four lines. `SeatSpec::starting_battlefield` seeds a permanent with
-//! `move_object(.., Cause::Setup)` (`state.rs`), which is a placement rather
-//! than an entry: no replacement effect looks at it. A board built that way
-//! is nonetheless untapped by the time anybody can look at it, and the
-//! reason is worth stating exactly, because the obvious reading is wrong.
-//! Measured on a seeded Bojuka Bog: `apply_enter_modifiers` *does* reach it —
-//! it is tapped after the first mulligan is kept — and then the first turn's
+//! `move_object(.., Cause::Setup)` (`state.rs`). A board built that way is
+//! untapped by the time anybody can play, and the reason is worth stating
+//! exactly, because the obvious reading (no replacement looks at a setup
+//! placement) is wrong. Measured on a seeded Bojuka Bog: the arrival scan
+//! *does* reach it — `Engine::new` runs the half that asks nobody, so it is
+//! tapped while the mulligans are open (#304) — and then the first turn's
 //! untap step untaps it (CR 502.3, journalled as `ObjectUntapped { cause:
 //! TurnBased }`) before the first priority. So a test built on `Cause::Setup`
 //! would have measured nothing and passed, but not because the modifier was
 //! skipped. [`printed_tests`] leans on the half of that which survives: a
-//! modifier that *asks* — `TappedOrPayLife`, `ChooseSubtype` — interrupts on
-//! that same pass and has to be answered.
+//! modifier that *asks* — `TappedOrPayLife`, `ChooseSubtype` — is queued at
+//! the deal, asked on the loop's first pass and has to be answered.
 //!
 //! [`printed_tests`]: super::printed_tests
 //!
@@ -1254,6 +1254,63 @@ fn a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty() {
         loyalty(&engine),
         Some(5),
         "and Karn is still on the battlefield with it"
+    );
+}
+
+/// A planeswalker on the starting battlefield, behind a shockland (#304).
+/// What is put onto the battlefield gets its as-it-enters replacements
+/// (CR 614.1c), and a planeswalker's loyalty is one (CR 306.5b). They were
+/// given only once the mulligans were over, so every seat was asked to keep
+/// a hand beside a Karn with no loyalty, which any state-based check there
+/// would have put into the graveyard (CR 704.5i). The replacement that needs
+/// no answer is applied as the board is dealt; the shockland's question,
+/// which needs one, waits until nobody is deciding a mulligan, and is then
+/// asked before anything else.
+#[test]
+fn a_starting_planeswalker_has_its_loyalty_while_the_mulligans_are_open() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(934, basic_forest())
+        .battlefield(0, &[steam_vents(), karn_the_great_creator(), bojuka_bog()])
+        .start();
+    let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("Karn is dealt");
+    let bog = on_battlefield(&engine, p0, bojuka_bog()).expect("the Bog is dealt");
+    let loyalty = |engine: &Engine<RegistryLookup>| {
+        engine
+            .state()
+            .object(karn)
+            .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            .map(|o| o.counters.get(CounterKind::Loyalty))
+    };
+    assert!(
+        matches!(engine.pending(), Pending::Mulligan { .. }),
+        "the first question is a mulligan: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        loyalty(&engine),
+        Some(5),
+        "Karn has his five loyalty while the hands are kept"
+    );
+    assert!(
+        is_tapped(&engine, bog),
+        "and the Bog, which enters tapped, is tapped"
+    );
+
+    keep_mulligans(&mut engine);
+    decline_the_shockland(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert_eq!(
+        loyalty(&engine),
+        Some(5),
+        "five, not ten: the deal and the loop did not both give them"
+    );
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("seat 0 holds priority in its main phase")
+    };
+    assert!(
+        legal.abilities.iter().any(|(source, _)| *source == karn),
+        "and his loyalty abilities are offered: {:?}",
+        legal.abilities
     );
 }
 

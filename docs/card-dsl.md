@@ -745,7 +745,7 @@ Chromatic Sphere and the five Eggs use the stack because they draw cards.
 Quoted grants and delayed triggers are separate abilities. External replacements
 do not change this classification. Scry or shuffling alone does not cross a
 library zone boundary, but can still prohibit reversing an action under
-CR 733.1; mana classification is not an undo-safety guarantee. Triggered mana
+CR 732.1; mana classification is not an undo-safety guarantee. Triggered mana
 abilities retain their separate CR 605.1b criteria.
 
 Three of them go one step further and drop a field the card never decided.

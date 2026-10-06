@@ -923,9 +923,7 @@ impl<L: CardLookup> Engine<L> {
     /// runs *after* the projection two steps up, so a counter placed here is
     /// invisible to the state-based actions two steps down until they have
     /// been refreshed once more.
-    #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
     pub(crate) fn apply_enter_modifiers(&mut self) -> bool {
-        use baylee_cards_dsl::EnterModifier;
         let mut changed = false;
         // A question an earlier scan owes comes first. Nothing enters while
         // one is out, so the queue holds the rest of that batch's questions,
@@ -933,6 +931,24 @@ impl<L: CardLookup> Engine<L> {
         if self.ask_owed_entry_question(&mut changed) {
             return true;
         }
+        changed |= self.scan_arrivals();
+        if self.ask_owed_entry_question(&mut changed) {
+            return true;
+        }
+        changed
+    }
+
+    /// The half of [`Self::apply_enter_modifiers`] that asks nobody: every
+    /// arrival since the last scan gets the replacements that need no answer,
+    /// and the ones that ask are queued on [`Engine::entry_questions`],
+    /// APNAP, for the caller to ask. Returns whether it wrote to the board.
+    ///
+    /// [`Engine::new`] runs it over the starting battlefield, where nobody
+    /// may be asked anything yet: every seat is deciding its mulligan.
+    #[allow(clippy::too_many_lines)] // the entry-modifier table is naturally flat
+    pub(crate) fn scan_arrivals(&mut self) -> bool {
+        use baylee_cards_dsl::EnterModifier;
+        let mut changed = false;
         // `from` travels with the arrival because one modifier reads it:
         // the X a `{X}{X}` body enters with belongs to the spell that
         // became this permanent (CR 107.3m), so it exists on the way in
@@ -1268,9 +1284,6 @@ impl<L: CardLookup> Engine<L> {
         let seats = self.state.players.len() as u8;
         asks.sort_by_key(|(_, controller, _)| (controller.get() + seats - active) % seats);
         self.entry_questions.extend(asks);
-        if self.ask_owed_entry_question(&mut changed) {
-            return true;
-        }
         changed
     }
 
@@ -4859,6 +4872,7 @@ impl<L: CardLookup> Engine<L> {
                 version,
                 cost,
                 then_no_more_spells,
+                opened: Box::new(self.window_start(player)),
             },
         });
         self.pending = Pending::Priority {

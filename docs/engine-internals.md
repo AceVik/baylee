@@ -111,6 +111,12 @@ battlefield's static abilities apply to the board every seat keeps its hand
 beside (CR 604.2), and the statics of a player who concedes in the window
 leave with their permanents (CR 800.4a) before anybody is asked again
 (`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
+`Engine::new` also runs step 0b's half that asks nobody,
+`scan_arrivals`, over the starting battlefield: a planeswalker there has its
+loyalty (CR 306.5b) and a tapland is tapped while the hands are kept, and an
+arrival that asks (a shockland's life) waits in `entry_questions` for the
+machine's first pass, which asks it before anything else (#304,
+`a_starting_planeswalker_has_its_loyalty_while_the_mulligans_are_open`).
 
 Inside the machine, one step publishes a question after it has moved the
 board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters
@@ -672,6 +678,23 @@ snapshot. The engine tests exercise an X spell with two targets and a Lotus
 Petal color question; `gamehost/tests/ai_miracle.rs` verifies the AI's actual
 Temporal Mastery payment and extra turn through the projected debt.
 
+A window that closes without its cast (a miracle declined after a tap, or
+paid short; a `PaymentContinuation::Cast` likewise) gives back what was made
+in it: the play was never completed, and CR 732.1 lets its player reverse the
+mana abilities activated while making it. The window holds a `WindowStart`
+(the journal's length, the payer's pool, the generated-mana obligations and
+the trigger queue's length when it opened), and `Engine::give_back_window`
+untaps every permanent tapped as a cost since then, puts the pool and the
+obligations back, and drops the triggers the taps queued. The journal is not
+cut back, because each tap was its own `apply` and a host has read past it:
+the untaps are journalled as `ObjectUntapped { cause: Cost }`, which nothing
+triggers on. A window in which anything but a tap and its mana happened (a
+sacrificed Lotus Petal, life paid, a library touched) is left as it stands,
+which 732.1's "may" allows. A cast started from a `Cast` window carries its
+start into the window its wizard opens for the rest
+(`CastWizard::window_start`), so both are given back together
+(`combo_tests::miracle`, `conduit_of_worlds_paid_short_gives_back_the_forest_tapped_for_it`).
+
 ### An upkeep payment is asked after the upkeep's priority (CR 503.1a)
 Echo and a pact's "at the beginning of your next upkeep, pay …; if you
 don't, you lose the game" are delayed actions, not stack objects, and they
@@ -940,6 +963,15 @@ is doubled by the Doubling Season of the player whose creature was exiled,
 never by the caster's. The counter rule filters the **object receiving
 them**: "a permanent you control" is about the permanent, so an opponent's
 spell putting a counter on my creature is doubled by mine.
+
+A rule lasts as long as its source is on the battlefield, and within a
+resolution that is decided per instruction: `resolve::run` calls
+`replacement::expire_departed_rules` before each instruction and after the
+last, never inside one. "Destroy target permanent. Its controller creates a
+token" with the Doubling Season as the target makes one token (#291), and a
+rule whose source goes first in a simultaneous event still applies to the
+rest of that event by last-known information (the Dauthi Voidwalker in a
+Toxic Deluge).
 
 `Amass` is the one deliberate hole and is documented at its call site: two
 Armies would need a choice of which one takes the counters, and amass has

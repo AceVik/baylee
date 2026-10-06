@@ -635,6 +635,9 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
     assert_eq!(engine.state.object(card).unwrap().zone, Zone::Exile);
 }
 
+/// A short payment casts nothing, and what was made for it is given back
+/// (CR 732.1): the Island tapped in the window untaps and its mana leaves
+/// the pool. It used to float until the step ended, the Island tapped.
 #[test]
 fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
     for make_mana in [false, true] {
@@ -644,26 +647,133 @@ fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
         let Pending::Priority { legal, .. } = engine.pending().clone() else {
             panic!("mana window")
         };
+        let land = legal.mana_abilities[0];
         if make_mana {
             engine
-                .apply(
-                    player,
-                    PlayerAction::ActivateManaAbility {
-                        source: legal.mana_abilities[0],
-                    },
-                )
+                .apply(player, PlayerAction::ActivateManaAbility { source: land })
                 .unwrap();
+            assert_eq!(engine.state.players[0].mana_pool.total(), 1);
         }
         engine.apply(player, PlayerAction::PassPriority).unwrap();
         assert_eq!(engine.payment_window(), None);
         assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
-        assert_eq!(
-            engine.state.players[0].mana_pool.total(),
-            u64::from(make_mana)
+        assert_eq!(engine.state.players[0].mana_pool.total(), 0);
+        assert!(
+            !engine
+                .state
+                .object(land)
+                .unwrap()
+                .status
+                .contains(crate::object::Status::TAPPED),
+            "the Island is untapped"
         );
         assert!(matches!(engine.pending(), Pending::Priority { .. }));
         assert!(engine.state.extra_turns.is_empty());
     }
+}
+
+/// Manabarbs: "Whenever a player taps a land for mana, this enchantment
+/// deals 1 damage to that player." The Island tapped in the window triggers
+/// it, and the trigger waits in the queue, because nobody gets priority in a
+/// payment window. A window closed short reverses the tap, and no ability
+/// triggers from an action that is undone (CR 732.1): nothing goes on the
+/// stack and no damage is dealt. The control half pays in full, and the
+/// same tap's trigger reaches the stack.
+#[test]
+fn a_short_miracle_payment_drops_what_its_taps_triggered() {
+    let manabarbs = card_index("0f1afedd-c60f-454f-b84a-c8117aec0128");
+    for pay in [false, true] {
+        let board = if pay {
+            vec![island(), island(), manabarbs]
+        } else {
+            vec![island(), manabarbs]
+        };
+        let (mut engine, card) = draw_miracle(board);
+        let player = PlayerId::new(0);
+        engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("mana window")
+        };
+        let islands = legal.mana_abilities.clone();
+        for &source in &islands {
+            engine
+                .apply(player, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+        assert!(
+            engine.state.zones.stack_is_empty(),
+            "the trigger waits while the window is open"
+        );
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        let barbs_on_stack = engine
+            .state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| engine.state.object(**id).is_some_and(|o| o.card.is_none()))
+            .count();
+        if pay {
+            assert_eq!(engine.state.object(card).unwrap().zone, Zone::Stack);
+            assert_eq!(barbs_on_stack, 2, "each Island's tap triggered it");
+        } else {
+            assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
+            assert_eq!(barbs_on_stack, 0, "the undone tap triggered nothing");
+            assert!(engine.trigger_queue.is_empty());
+            assert_eq!(engine.state.players[0].life, 20);
+        }
+    }
+}
+
+/// A window in which a mana ability did more than tap and add is left as
+/// it stands: Lotus Petal was sacrificed for its mana and cannot come back
+/// as the object it was (CR 400.7), and CR 732.1 lets the player reverse
+/// their mana abilities without making them. Its mana floats, as every
+/// short payment's did before the reversal.
+#[test]
+fn a_short_miracle_payment_after_a_sacrifice_gives_nothing_back() {
+    let petal = card_index("32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5");
+    let (mut engine, card) = draw_miracle(vec![petal]);
+    let player = PlayerId::new(0);
+    engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("mana window")
+    };
+    let (source, ability_index) = legal
+        .abilities
+        .iter()
+        .copied()
+        .find(|(id, _)| engine.state.object(*id).unwrap().card.unwrap().index == petal)
+        .expect("Lotus Petal is offered");
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseColor(baylee_core::mana::ManaColor::Blue),
+        )
+        .unwrap();
+    assert_eq!(engine.state.players[0].mana_pool.total(), 1);
+
+    engine.apply(player, PlayerAction::PassPriority).unwrap();
+    assert_eq!(engine.payment_window(), None);
+    assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
+    assert_eq!(
+        engine.state.object(source).unwrap().zone,
+        Zone::Graveyard,
+        "the Petal stays sacrificed"
+    );
+    assert_eq!(
+        engine.state.players[0].mana_pool.total(),
+        1,
+        "and its mana stays in the pool"
+    );
 }
 
 #[test]

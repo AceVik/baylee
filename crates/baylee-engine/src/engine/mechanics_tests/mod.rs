@@ -17,7 +17,9 @@
 
 mod blocks;
 mod branches;
+mod control;
 mod costs;
+mod departed;
 mod effects;
 mod mana;
 mod tokens;
