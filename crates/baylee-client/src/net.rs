@@ -352,7 +352,7 @@ impl NetworkHost {
             dial,
             last_seq: 0,
             connection: Connection::default(),
-            outbox: Vec::new(),
+            outbox: vec![a_person_answers()],
             pending_out: Vec::new(),
             refused: None,
             clock: clock::Clock::default(),
@@ -404,6 +404,9 @@ impl NetworkHost {
         // before it would otherwise be the first thing the resumed socket
         // sent — an answer arriving ahead of the request to be caught up.
         self.outbox.insert(0, resume);
+        // Said again on the new socket, ahead of anything queued: the
+        // record does not credit a socket with what the last one said.
+        self.outbox.insert(1, a_person_answers());
         Ok(())
     }
 
@@ -518,6 +521,19 @@ impl NetworkHost {
     }
 }
 
+/// What answers this seat, for the game's record (#315): a person. The
+/// first thing every socket sends, before its ready and any answer
+/// (`docs/protocol.md` §"Who answers a seat, as it says"); the table shows
+/// it to nobody.
+fn a_person_answers() -> Envelope {
+    Envelope {
+        msg: Some(v1::envelope::Msg::SeatMind(v1::SeatMind {
+            kind: v1::seat_mind::Kind::Human as i32,
+            ..v1::SeatMind::default()
+        })),
+    }
+}
+
 impl DuelHost for NetworkHost {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = std::mem::take(&mut self.pending_out);
@@ -609,16 +625,6 @@ impl DuelHost for NetworkHost {
         }
         if self.pending_ready && self.clock.ready() {
             self.pending_ready = false;
-            // What answers this seat, for the game's record: a person, said
-            // once on every socket before it is ready and so before its
-            // first answer (`docs/protocol.md` §"Who answers a seat, as it
-            // says"). The table shows it to nobody.
-            self.outbox.push(Envelope {
-                msg: Some(v1::envelope::Msg::SeatMind(v1::SeatMind {
-                    kind: v1::seat_mind::Kind::Human as i32,
-                    ..v1::SeatMind::default()
-                })),
-            });
             self.outbox.push(Envelope {
                 msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
             });

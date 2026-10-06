@@ -2174,6 +2174,84 @@ mod tests {
         );
     }
 
+    /// A new socket is credited with nothing the last one declared: one that
+    /// answers before it says what it is ends the declaration where its first
+    /// answer stands, and one that says it again is written again. A resync,
+    /// the same socket that lagged, changes nothing.
+    #[test]
+    fn a_new_socket_that_answers_undeclared_ends_the_last_declaration() {
+        use baylee_gamehost::record::{Line, MindKind, Source};
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(0));
+        attach(&mut runner, 0);
+        declare(&mut runner, 0, "claude-opus-5-5");
+        ready(&mut runner, 0);
+        runner.tell_time(runner.entrance_deadline().expect("the entrance"));
+        runner.finish_entrance();
+        play_a_little(&mut runner, 3);
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatAttached(v1::SeatAttached {
+                    seat: 0,
+                    resync: true,
+                })),
+            },
+            &[],
+        );
+        play_a_little(&mut runner, 2);
+        detach(&mut runner, 0);
+        attach(&mut runner, 0);
+        play_a_little(&mut runner, 2);
+        declare(&mut runner, 0, "claude-opus-5-5");
+        play_a_little(&mut runner, 2);
+        let record = unpacked(&pieces(&flush(&mut runner, 1)));
+        let lines: Vec<Line> = record
+            .split(|&b| b == b'\n')
+            .filter(|l| !l.is_empty())
+            .map(|l| serde_json::from_slice(l).expect("a line"))
+            .collect();
+        let said: Vec<(usize, MindKind)> = lines
+            .iter()
+            .enumerate()
+            .filter_map(|(at, l)| match l {
+                Line::DeclaredMind { seat: 0, mind, .. } => Some((at, mind.kind)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            said.iter().map(|(_, kind)| *kind).collect::<Vec<_>>(),
+            [MindKind::LlmApi, MindKind::Undeclared, MindKind::LlmApi],
+            "{said:?}"
+        );
+        let undeclared = said[1].0;
+        let seat_inputs_before = lines[..undeclared]
+            .iter()
+            .filter(|l| {
+                matches!(
+                    l,
+                    Line::Input {
+                        seat: 0,
+                        by: Source::Seat,
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert_eq!(
+            seat_inputs_before, 5,
+            "the first socket's answers, resync included"
+        );
+        assert!(matches!(
+            lines.get(undeclared + 1),
+            Some(Line::Input {
+                seat: 0,
+                by: Source::Seat,
+                ..
+            })
+        ));
+        baylee_gamehost::record::replay(&record).expect("the record replays");
+    }
+
     /// A flush sends what has gathered as one piece that is not `last`, and
     /// then the acknowledgement with the gateway's nonce, in that order on
     /// the socket; the piece replays to exactly the game as it stands. It

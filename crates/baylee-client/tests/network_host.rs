@@ -93,6 +93,9 @@ struct Seen {
     ticket_requests: Vec<String>,
     upgrades: Vec<String>,
     issued: Vec<String>,
+    /// Per socket served, whether it said a person answers the seat
+    /// (`SeatMind`, for the game's record) before its ready or any answer.
+    declared: Vec<bool>,
 }
 
 type Witness = std::sync::Arc<std::sync::Mutex<Seen>>;
@@ -138,7 +141,7 @@ fn spawn_table_with_preset(door: Door, preset: GamePreset) -> (u16, Witness) {
                 let Some(ws) = admit(stream, &seen, &mut refusals).await else {
                     continue;
                 };
-                serve(ws, &mut session).await;
+                serve(ws, &mut session, &seen).await;
             }
         });
     });
@@ -274,7 +277,10 @@ async fn admit(
 async fn serve(
     mut ws: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
     session: &mut Session,
+    seen: &Witness,
 ) {
+    seen.lock().expect("witness").declared.push(false);
+    let mut answered = false;
     let mut opening = vec![session.game_static_envelope(SEAT)];
     opening.extend(mine(session.pump()));
     for envelope in opening {
@@ -292,10 +298,23 @@ async fn serve(
         let Ok(envelope) = Envelope::decode(frame.into_data()) else {
             continue;
         };
+        let before_any_answer = !answered;
+        answered |= matches!(
+            envelope.msg,
+            Some(v1::envelope::Msg::PlayerAction(_) | v1::envelope::Msg::SeatReady(_))
+        );
         let replies = match envelope.msg {
             Some(v1::envelope::Msg::SeatMind(mind)) => {
                 declared_human = mind.kind == v1::seat_mind::Kind::Human as i32
                     && baylee_protocol::mind::fault(&mind).is_none();
+                if before_any_answer && declared_human {
+                    *seen
+                        .lock()
+                        .expect("witness")
+                        .declared
+                        .last_mut()
+                        .expect("this socket") = true;
+                }
                 vec![]
             }
             Some(v1::envelope::Msg::PlayerAction(msg)) => {
@@ -643,7 +662,7 @@ fn a_refused_answer_is_reported() {
 /// not to a new one.
 #[test]
 fn a_reconnect_returns_to_the_same_table() {
-    let port = spawn_table();
+    let (port, seen) = spawn_table_behind(Door::default());
     let mut host = NetworkHost::connect(ticket(port)).expect("connect");
     poll_until(&mut host, "the first question", |m| !choices(m).is_empty());
     host.submit(PlayerAction::MulliganKeep);
@@ -667,6 +686,11 @@ fn a_reconnect_returns_to_the_same_table() {
             .any(|p| matches!(p, Pending::Mulligan { .. })),
         "{back:#?}"
     );
+    // Each socket said first that a person answers the seat, so the game's
+    // record credits the new one with nothing the old one said.
+    poll_until(&mut host, "both sockets to say who answers", |_| {
+        seen.lock().expect("witness").declared == [true, true]
+    });
 }
 
 /// The networked host answers the report form's keyring with its ticket's
