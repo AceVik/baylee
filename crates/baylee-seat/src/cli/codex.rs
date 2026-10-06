@@ -33,7 +33,9 @@
 //! `$CODEX_HOME/AGENTS.md` is still read: Codex has no switch for it, so a
 //! seat's `CODEX_HOME` should be one of its own (`docs/llm-seat.md`).
 
-use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, sounds_limited};
+use super::dialect::{
+    Dialect, Event, Outcome, Started, Wire, clipped, first_line_starts, sounds_limited,
+};
 use crate::llm::{Settings, Usage, json_object, prompt};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::Value;
@@ -187,9 +189,11 @@ impl Dialect for Codex {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
+        if let Some(start) = first_line_starts(&value, wire) {
+            return start;
+        }
         let text = |key: &str| value.get(key).and_then(Value::as_str);
         match text("type") {
-            Some("thread.started") => Event::Started(Started::default()),
             Some("item.started" | "item.updated" | "item.completed") => {
                 let item = value.get("item").unwrap_or(&Value::Null);
                 let kind = item.get("type").and_then(Value::as_str).unwrap_or("(none)");

@@ -29,7 +29,9 @@
 //! the mind off the table ([`Event::Breach`]). It still keeps each session
 //! under its home (`~/.junie/sessions`): no flag turns that off.
 
-use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, sounds_limited};
+use super::dialect::{
+    Dialect, Event, Outcome, Started, Wire, clipped, first_line_starts, sounds_limited,
+};
 use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::{Value, json};
@@ -122,9 +124,11 @@ impl Dialect for Junie {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
+        if let Some(start) = first_line_starts(&value, wire) {
+            return start;
+        }
         let text = |key: &str| value.get(key).and_then(Value::as_str);
         match text("type") {
-            Some("session") => Event::Started(Started::default()),
             Some("step") => {
                 let name = text("name").unwrap_or("(unnamed)");
                 if name == RESULT_STEP {

@@ -769,10 +769,13 @@ impl CliMind {
         state.seat.asked += 1;
         // A process of a tool that answers one message is done with once it
         // answered: each question starts its own, and that is no loss.
-        if self.launch.dialect.one_shot()
-            && let Some(done) = state.session.take()
-        {
-            done.end(self.limits.grace);
+        // Nor is one ended idle, or killed for hanging: no conversation of
+        // it was going on.
+        if self.launch.dialect.one_shot() {
+            if let Some(done) = state.session.take() {
+                done.end(self.limits.grace);
+            }
+            state.lost = false;
         }
         // A process that ended since the last message (between turns, say)
         // is begun again for this question rather than costing it.

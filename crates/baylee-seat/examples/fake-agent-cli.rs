@@ -40,7 +40,8 @@
 //! in its session's `support` directory (`support`, beside its `TMPDIR`),
 //! answers the next step in that tool's shape and exits: `answer`, `text`,
 //! `tool` (the model uses a tool, then answers), `rate_limit`, `fail` and
-//! `exit`. Each one's login check answers as its tool's does (`login
+//! `exit` (and, as Junie, `signed_out`: a failure before any session).
+//! Each one's login check answers as its tool's does (`login
 //! status` on stderr, `auth list`, `--version`), signed in unless
 //! `logged_in` is false.
 //!
@@ -414,6 +415,12 @@ fn play_opencode(kind: &str, answer: &str, usage: &Usage) {
 /// One task answered as Junie's `json-stream` does, its banner first.
 fn play_junie(kind: &str, answer: &str, usage: &Usage) {
     println!("Junie fake banner");
+    if kind == "signed_out" {
+        // Its first word, before any session: it cannot sign in.
+        say(&json!({"type": "result", "timestamp": 1, "result": "",
+            "errors": ["Cannot find authorization"]}));
+        std::process::exit(1);
+    }
     say(&json!({"type": "session", "timestamp": 1, "sessionId": "session-fake"}));
     let errors = match kind {
         "rate_limit" => {

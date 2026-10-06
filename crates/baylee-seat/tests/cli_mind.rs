@@ -1569,3 +1569,61 @@ async fn a_one_shot_clis_limit_cools_and_its_failure_is_billed() {
         "opencode signed out"
     );
 }
+
+/// A one-shot tool's process ended idle is no lost conversation: a
+/// question long after the last starts without saying one was lost, and
+/// no restart is counted.
+#[tokio::test]
+async fn a_one_shot_clis_idle_process_is_no_lost_conversation() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "oneshot-idle",
+        one_shot("opencode"),
+        &json!({"steps": [pass(1, ""), pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits {
+        idle: Duration::from_millis(1),
+        ..Limits::default()
+    });
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    mind.decide(ask(&base, 2, turn + 1, 20)).await.unwrap();
+    let prompts = rig.prompts();
+    assert_eq!(prompts.len(), 2);
+    assert!(
+        !prompts[1].1.contains("conversation was lost"),
+        "{}",
+        prompts[1].1
+    );
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (2, 0));
+}
+
+/// A tool that names nothing at its start and fails as its first word
+/// (signed out) is unavailable, not a reply before a start: the mind is
+/// not locked out, and plays once it can.
+#[tokio::test]
+async fn a_one_shot_clis_failure_as_its_first_word_locks_nothing_out() {
+    let base = a_priority().await;
+    let rig = Rig::new(
+        "oneshot-first",
+        one_shot("junie"),
+        &json!({"steps": [{"kind": "signed_out"}, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let failed = mind
+        .decide(ask(&base, 1, base.view.turn, 20))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        failed,
+        MindError::Unavailable("Cannot find authorization".into())
+    );
+    assert!(mind.ready().await, "not locked out");
+    let answer = mind
+        .decide(ask(&base, 2, base.view.turn, 20))
+        .await
+        .unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+}

@@ -218,6 +218,21 @@ pub(crate) fn names(start: &Value, key: &str) -> Option<Vec<String>> {
     )
 }
 
+/// The start of a tool whose start vouches for nothing (it names no tools):
+/// its first line of JSON with a `type`, whatever it says, which is then
+/// read again for itself ([`Wire::again`]). So a failure that is its
+/// first word (signed out, a configuration it refuses) is a reply after a
+/// start, unavailable, and never taken for a reply before one, which
+/// would take the mind off the table for good.
+pub(crate) fn first_line_starts(value: &Value, wire: &mut Wire) -> Option<Event> {
+    if wire.session.is_some() || !value.get("type").is_some_and(Value::is_string) {
+        return None;
+    }
+    wire.session = Some(String::new());
+    wire.again = true;
+    Some(Event::Started(Started::default()))
+}
+
 /// Up to eight names, for a sentence.
 pub(crate) fn listed(names: &[String]) -> String {
     let mut shown = names.iter().take(8).cloned().collect::<Vec<_>>().join(", ");

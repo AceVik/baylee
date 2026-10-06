@@ -33,7 +33,9 @@
 //! the table ([`Event::Breach`]). A reply ends at its `step_finish`, whose
 //! tokens are that step's own.
 
-use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, sounds_limited};
+use super::dialect::{
+    Dialect, Event, Outcome, Started, Wire, clipped, first_line_starts, sounds_limited,
+};
 use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::{Value, json};
@@ -148,21 +150,12 @@ impl Dialect for Opencode {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
+        if let Some(start) = first_line_starts(&value, wire) {
+            return start;
+        }
         let Some(kind) = value.get("type").and_then(Value::as_str) else {
             return Event::Other;
         };
-        if wire.session.is_none() {
-            // Its first line is its start, and is read again for itself.
-            wire.session = Some(
-                value
-                    .get("sessionID")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string(),
-            );
-            wire.again = true;
-            return Event::Started(Started::default());
-        }
         let part = value.get("part").unwrap_or(&Value::Null);
         match kind {
             "tool_use" => {

@@ -300,9 +300,9 @@ fn codex_reads_its_answer_and_usage_off_the_turn() {
         ],
     );
     assert_eq!(events[0], Event::Started(Started::default()));
-    assert_eq!(events[1..4], [Event::Other, Event::Other, Event::Other]);
-    let Event::Reply(Outcome::Answer { value, text, usage }) = &events[4] else {
-        panic!("{:?}", events[4]);
+    assert_eq!(events[1..5], [const { Event::Other }; 4]);
+    let Event::Reply(Outcome::Answer { value, text, usage }) = &events[5] else {
+        panic!("{:?}", events[5]);
     };
     assert_eq!(value.as_ref().unwrap()["ask"], "q1");
     assert!(text.contains("pick"));
@@ -334,14 +334,17 @@ fn codex_takes_a_tool_item_as_a_breach() {
         for event in ["item.started", "item.completed"] {
             let line = json!({"type": event, "item": {"id": "i", "type": kind}}).to_string();
             let read = read_all(&Codex, &[&line]);
-            let Event::Breach(why) = &read[0] else {
+            let Event::Breach(why) = &read[1] else {
                 panic!("{kind}: {read:?}");
             };
             assert!(why.contains(kind), "{why}");
         }
     }
     let warning = r#"{"type":"item.completed","item":{"id":"i","type":"error","message":"x"}}"#;
-    assert_eq!(read_all(&Codex, &[warning]), [Event::Other]);
+    assert_eq!(
+        read_all(&Codex, &[warning]),
+        [Event::Started(Started::default()), Event::Other]
+    );
 }
 
 /// A failed turn is a limit by its words, else a failure; an `error` line
@@ -357,9 +360,9 @@ fn codex_reads_a_failed_turn_as_a_limit_or_a_failure() {
             r#"{"type":"turn.failed","error":{"message":"You've hit your usage limit. Try again at 3:04 PM."}}"#,
         ],
     );
-    assert_eq!(limited[1], Event::Other, "a retry ends nothing");
+    assert_eq!(limited[2], Event::Other, "a retry ends nothing");
     assert!(matches!(
-        &limited[2],
+        &limited[3],
         Event::Reply(Outcome::RateLimited { lifts_in: None, .. })
     ));
     let failed = read_all(
@@ -371,11 +374,11 @@ fn codex_reads_a_failed_turn_as_a_limit_or_a_failure() {
         ],
     );
     assert_eq!(
-        failed[1],
+        failed[2],
         Event::Reply(Outcome::Failed("stream disconnected".into()))
     );
     assert_eq!(
-        failed[2],
+        failed[3],
         Event::Reply(Outcome::Failed("the turn failed".into())),
         "the next turn does not inherit it"
     );
@@ -386,7 +389,7 @@ fn codex_reads_a_failed_turn_as_a_limit_or_a_failure() {
         ],
     );
     assert!(matches!(
-        retries[0],
+        retries[1],
         Event::Reply(Outcome::RateLimited { .. })
     ));
 }
@@ -607,8 +610,8 @@ fn junie_reads_its_result_and_its_per_model_usage() {
     );
     assert_eq!(events[0], Event::Other);
     assert_eq!(events[1], Event::Started(Started::default()));
-    assert_eq!(events[2], Event::Other);
-    let Event::Reply(Outcome::Answer { value, usage, .. }) = &events[3] else {
+    assert_eq!(events[2..4], [const { Event::Other }; 2]);
+    let Event::Reply(Outcome::Answer { value, usage, .. }) = &events[4] else {
         panic!("{events:?}");
     };
     assert_eq!(value.as_ref().unwrap()["ask"], "q1");
@@ -627,7 +630,7 @@ fn junie_reads_its_result_and_its_per_model_usage() {
         &Junie,
         &[r#"{"type":"result","result":"x","usage":[{"inputTokens":7,"outputTokens":2}]}"#],
     );
-    let Event::Reply(Outcome::Answer { usage, .. }) = &renamed[0] else {
+    let Event::Reply(Outcome::Answer { usage, .. }) = &renamed[1] else {
         panic!();
     };
     assert_eq!(usage.unwrap().input, 7);
@@ -639,13 +642,13 @@ fn junie_reads_its_result_and_its_per_model_usage() {
 #[test]
 fn junie_reads_a_step_as_a_breach_and_its_errors_by_their_words() {
     let step = r#"{"type":"step","timestamp":2,"name":"Opened file","details":"ping.txt"}"#;
-    let Event::Breach(why) = &read_all(&Junie, &[step])[0] else {
+    let Event::Breach(why) = &read_all(&Junie, &[step])[1] else {
         panic!();
     };
     assert!(why.contains("Opened file"), "{why}");
     let spent = r#"{"type":"result","result":"","errors":["Junie: Insufficient Account Balance. All tokens on your balance are spent."]}"#;
     assert!(matches!(
-        read_all(&Junie, &[spent])[0],
+        read_all(&Junie, &[spent])[1],
         Event::Reply(Outcome::RateLimited { .. })
     ));
     let events = read_all(
@@ -656,7 +659,7 @@ fn junie_reads_a_step_as_a_breach_and_its_errors_by_their_words() {
         ],
     );
     assert_eq!(
-        events[1],
+        events[2],
         Event::Reply(Outcome::Failed("Cannot find authorization".into()))
     );
     assert!(Junie.probe_ok(b"Junie version: 26.9.22 (3419.29)\n", b""));
