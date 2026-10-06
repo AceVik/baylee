@@ -149,13 +149,16 @@ are our own, drawn by `scripts/installers/make-art.py` from the brand icon
 and Alegreya Sans, and committed.
 
 What each installer does, and whether the client then updates itself
-(`launch::original_writable` decides, by trying to create a file beside the
-original package):
+(`launch::placement` decides, by trying to create a file beside the
+original package, or beside the AppImage file):
 
 - **dmg**: the classic window, Baylee.app and a link to `/Applications`. The
   app keeps package-client.sh's ad hoc signature; a copy dragged to
   `/Applications` is writable for an administrator account (the default),
-  so it updates itself. Started straight from the mounted image it cannot.
+  so it updates itself. Started straight from a downloaded image, macOS
+  translocates it and it still updates into its per-user state, keyed by
+  `/Volumes/…/Baylee.app`; an image without quarantine is read-only, so it
+  only links and offers the move to Applications.
 - **Setup**: per user, `%LOCALAPPDATA%\Programs\Baylee`, no administrator
   rights and no UAC prompt, a Start-menu entry, an optional desktop icon and
   an uninstall entry under HKCU (Settings → Apps). The folder is the
@@ -168,21 +171,18 @@ original package):
   `0.1.0-beta.5` becomes `0.1.0~beta.5`, which dpkg sorts before `0.1.0`.
 - **AppImage**: the same tree in one file, using the system's libraries
   exactly as the tarball does (nothing is bundled; its README lists them).
-  The image is mounted read-only while it runs, so it only links too. It
-  carries no zsync update information: the client's updater is the update
-  path. Known gap: the launcher keys its state directory on the canonical
-  launch path, which for an AppImage is a fresh `/tmp/.mount_…` each start,
-  so every start leaves a small state folder (locks, `session.json`) under
-  `~/.local/state/baylee/`. Keying on `$APPIMAGE` instead is a change in
-  `launch.rs`, and with it an AppImage could also install updates into its
-  state directory as the other packages do.
+  The image is mounted read-only at a fresh `/tmp/.mount_…` each start, so
+  the launcher keys its state on the image file (`$APPIMAGE`, believed only
+  with `$APPDIR` around the launcher; `launch::appimage_of`): one state
+  folder per image, and where the image's folder is writable (`~/Apps`,
+  say) it updates itself into that state like the other packages. The
+  image file is never rewritten (only the archive is signed). It carries no
+  zsync update information: the client's updater is the update path.
 
-Known gap shared by all of them, and by replacing an unpacked archive in
-place: once the launcher has selected a downloaded generation
-(`current.json`), installing a newer package by hand over the original does
-not change that selection; the older generation keeps starting until the
-updater installs the newer release itself. `launch::selected` would have to
-prefer the original package when its version is not older.
+Installing a newer package by hand over the original (or replacing an
+unpacked archive in place) wins over an older downloaded generation: the
+launcher starts the original whenever its own version is at least that of
+`current.json` (`launch::chosen`).
 
 No Intel macOS package: the shipping matrix has no `x86_64-apple-darwin`
 dist build. A universal app would not be cheap either, because the updater
