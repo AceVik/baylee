@@ -609,6 +609,16 @@ impl DuelHost for NetworkHost {
         }
         if self.pending_ready && self.clock.ready() {
             self.pending_ready = false;
+            // What answers this seat, for the game's record: a person, said
+            // once on every socket before it is ready and so before its
+            // first answer (`docs/protocol.md` §"Who answers a seat, as it
+            // says"). The table shows it to nobody.
+            self.outbox.push(Envelope {
+                msg: Some(v1::envelope::Msg::SeatMind(v1::SeatMind {
+                    kind: v1::seat_mind::Kind::Human as i32,
+                    ..v1::SeatMind::default()
+                })),
+            });
             self.outbox.push(Envelope {
                 msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
             });

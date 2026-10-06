@@ -153,6 +153,24 @@ fn the_empty_messages_still_say_which_kind_they_are() {
     );
 }
 
+/// A declared mind keeps every field, and one that says nothing still says
+/// it is one (#315's `SeatMind`).
+#[test]
+fn a_declared_mind_keeps_its_fields() {
+    let opus = v1::SeatMind {
+        kind: v1::seat_mind::Kind::LlmApi as i32,
+        provider: "anthropic".into(),
+        model: "claude-opus-5-5".into(),
+        effort: "high".into(),
+        level: String::new(),
+    };
+    assert_eq!(trip(Msg::SeatMind(opus.clone())), Msg::SeatMind(opus));
+    assert_eq!(
+        trip(Msg::SeatMind(v1::SeatMind::default())),
+        Msg::SeatMind(v1::SeatMind::default())
+    );
+}
+
 #[test]
 fn a_seat_attach_keeps_its_resync_flag() {
     for resync in [false, true] {

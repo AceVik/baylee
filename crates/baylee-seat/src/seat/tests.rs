@@ -643,3 +643,71 @@ fn every_answer_names_the_game_and_no_token() {
         PlayerAction::PassPriority
     );
 }
+
+/// What the steps send, by kind: `"mind:<model>"` for a declaration,
+/// `"ready"`, `"resume"`, and `"other"`.
+fn sent(steps: &[Step]) -> Vec<String> {
+    steps
+        .iter()
+        .filter_map(|step| match step {
+            Step::Send(Envelope { msg: Some(msg) }) => Some(match msg {
+                v1::envelope::Msg::SeatMind(mind) => format!("mind:{}", mind.model),
+                v1::envelope::Msg::SeatReady(_) => "ready".into(),
+                v1::envelope::Msg::Resume(_) => "resume".into(),
+                _ => "other".into(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The seat says what answers it on every socket, before it says it is
+/// ready and so before its first answer; a swap is told at once, and
+/// declaring the same again sends nothing (`docs/protocol.md` §"Who
+/// answers a seat, as it says").
+#[test]
+fn the_seat_declares_its_mind_before_its_ready_on_every_socket_and_on_a_swap() {
+    let model = |id: &str| v1::SeatMind {
+        kind: v1::seat_mind::Kind::LlmApi as i32,
+        provider: "anthropic".into(),
+        model: id.into(),
+        effort: "high".into(),
+        level: String::new(),
+    };
+    let mut core = SeatCore::new(
+        BridgeConfig::default(),
+        DeckList::default(),
+        Disclosure::Llm,
+    )
+    .with_mind(model("claude-opus-5-5"));
+    assert!(
+        core.hear(&table("LLM-seat", None)).is_empty(),
+        "no view yet"
+    );
+    assert_eq!(
+        sent(&core.hear(&view(1))),
+        ["mind:claude-opus-5-5", "ready"]
+    );
+    assert_eq!(
+        sent(&core.hear(&view(2))),
+        [String::new(); 0],
+        "once a socket"
+    );
+    assert!(
+        core.declare(model("claude-opus-5-5")).is_empty(),
+        "the same"
+    );
+    assert_eq!(
+        sent(&core.declare(model("claude-sonnet-5-5"))),
+        ["mind:claude-sonnet-5-5"]
+    );
+    assert_eq!(sent(&core.resumed()), ["resume"]);
+    assert_eq!(
+        sent(&core.hear(&table("LLM-seat", None))),
+        ["mind:claude-sonnet-5-5", "ready"],
+        "the new socket is told the mind that answers now"
+    );
+    for declared in [model("claude-opus-5-5"), model("claude-sonnet-5-5")] {
+        assert_eq!(baylee_protocol::mind::fault(&declared), None);
+    }
+}

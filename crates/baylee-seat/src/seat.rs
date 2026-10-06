@@ -376,6 +376,9 @@ pub struct SeatCore {
     refused: Option<String>,
     questions: u64,
     ready_sent: bool,
+    /// What the seat tells the table answers it ([`SeatCore::with_mind`]),
+    /// sent on every socket before its ready; `None` sends nothing.
+    mind: Option<v1::SeatMind>,
     checked: bool,
     down: bool,
     failures: u32,
@@ -400,6 +403,7 @@ impl SeatCore {
             refused: None,
             questions: 0,
             ready_sent: false,
+            mind: None,
             checked: false,
             down: false,
             failures: 0,
@@ -407,6 +411,31 @@ impl SeatCore {
             stats: Stats::default(),
             notes: Vec::new(),
         }
+    }
+
+    /// The seat that tells the table `mind` answers it (`v1::SeatMind`),
+    /// for the game's record: once on every socket, before it says it is
+    /// ready and so before its first answer (`docs/protocol.md` §"Who
+    /// answers a seat, as it says").
+    #[must_use]
+    pub fn with_mind(mut self, mind: v1::SeatMind) -> Self {
+        self.mind = Some(mind);
+        self
+    }
+
+    /// Another mind answers the seat from now on: a model swapped while
+    /// the game goes on. Told to the table at once when the seat has said
+    /// it is ready on this socket, else with its ready, so the record
+    /// writes the change where it happened.
+    pub fn declare(&mut self, mind: v1::SeatMind) -> Vec<Step> {
+        let changed = self.mind.as_ref() != Some(&mind);
+        self.mind = Some(mind.clone());
+        if !changed || !self.ready_sent || self.life != Life::Playing {
+            return Vec::new();
+        }
+        vec![Step::Send(Envelope {
+            msg: Some(v1::envelope::Msg::SeatMind(mind)),
+        })]
     }
 
     /// Reads one frame from the table.
@@ -663,9 +692,17 @@ impl SeatCore {
             return Vec::new();
         }
         self.ready_sent = true;
-        vec![Step::Send(Envelope {
-            msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
-        })]
+        let declared = self.mind.clone().map(|mind| {
+            Step::Send(Envelope {
+                msg: Some(v1::envelope::Msg::SeatMind(mind)),
+            })
+        });
+        declared
+            .into_iter()
+            .chain([Step::Send(Envelope {
+                msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
+            })])
+            .collect()
     }
 
     fn leave(&mut self, reason: String) -> Vec<Step> {

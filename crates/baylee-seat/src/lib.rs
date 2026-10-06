@@ -31,6 +31,7 @@ pub mod bridge;
 pub mod cli;
 pub mod config;
 pub mod deck;
+pub mod declare;
 pub mod house;
 pub mod link;
 pub mod llm;
