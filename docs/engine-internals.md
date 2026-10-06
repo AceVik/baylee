@@ -111,6 +111,12 @@ battlefield's static abilities apply to the board every seat keeps its hand
 beside (CR 604.2), and the statics of a player who concedes in the window
 leave with their permanents (CR 800.4a) before anybody is asked again
 (`a_starting_battlefield_s_statics_apply_while_the_mulligans_are_open`).
+`Engine::new` also runs step 0b's half that asks nobody,
+`scan_arrivals`, over the starting battlefield: a planeswalker there has its
+loyalty (CR 306.5b) and a tapland is tapped while the hands are kept, and an
+arrival that asks (a shockland's life) waits in `entry_questions` for the
+machine's first pass, which asks it before anything else (#304,
+`a_starting_planeswalker_has_its_loyalty_while_the_mulligans_are_open`).
 
 Inside the machine, one step publishes a question after it has moved the
 board behind step 0a: 0b, `apply_enter_modifiers`, which asks as-it-enters

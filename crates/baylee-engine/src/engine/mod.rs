@@ -875,6 +875,20 @@ impl<L: CardLookup> Engine<L> {
         // first step, so they are registered here too, or every hand is
         // kept beside a board shown without them.
         engine.sync_static_effects();
+        // The starting battlefield was put onto the battlefield, as a card a
+        // player begins the game with there is (CR 103.6a), and what is put
+        // there gets its as-it-enters replacements (CR 614.1c), a
+        // planeswalker's loyalty among them (CR 306.5b). The loop gave them
+        // only once the mulligans were over, so every seat kept a hand
+        // beside a walker with no loyalty on it (#304). The ones that need nobody's answer
+        // are applied here, over the statics just registered (a counter
+        // doubler on the starting battlefield has its say); the ones that ask
+        // wait in `entry_questions` for the loop's first pass, because every
+        // seat is deciding its mulligan now and a question here would take
+        // that one's place.
+        if engine.scan_arrivals() {
+            engine.sync_static_effects();
+        }
         engine.state.refresh_characteristics();
         Ok(engine)
     }
