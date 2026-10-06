@@ -672,6 +672,58 @@ fn a_short_miracle_payment_keeps_the_card_and_does_not_repeat_the_offer() {
     }
 }
 
+/// Manabarbs: "Whenever a player taps a land for mana, this enchantment
+/// deals 1 damage to that player." The Island tapped in the window triggers
+/// it, and the trigger waits in the queue, because nobody gets priority in a
+/// payment window. A window closed short reverses the tap, and no ability
+/// triggers from an action that is undone (CR 732.1): nothing goes on the
+/// stack and no damage is dealt. The control half pays in full, and the
+/// same tap's trigger reaches the stack.
+#[test]
+fn a_short_miracle_payment_drops_what_its_taps_triggered() {
+    let manabarbs = card_index("0f1afedd-c60f-454f-b84a-c8117aec0128");
+    for pay in [false, true] {
+        let board = if pay {
+            vec![island(), island(), manabarbs]
+        } else {
+            vec![island(), manabarbs]
+        };
+        let (mut engine, card) = draw_miracle(board);
+        let player = PlayerId::new(0);
+        engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("mana window")
+        };
+        let islands = legal.mana_abilities.clone();
+        for &source in &islands {
+            engine
+                .apply(player, PlayerAction::ActivateManaAbility { source })
+                .unwrap();
+        }
+        assert!(
+            engine.state.zones.stack_is_empty(),
+            "the trigger waits while the window is open"
+        );
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+        let barbs_on_stack = engine
+            .state
+            .zones
+            .list(ZoneLocation::Stack)
+            .iter()
+            .filter(|id| engine.state.object(**id).is_some_and(|o| o.card.is_none()))
+            .count();
+        if pay {
+            assert_eq!(engine.state.object(card).unwrap().zone, Zone::Stack);
+            assert_eq!(barbs_on_stack, 2, "each Island's tap triggered it");
+        } else {
+            assert_eq!(engine.state.object(card).unwrap().zone, Zone::Hand);
+            assert_eq!(barbs_on_stack, 0, "the undone tap triggered nothing");
+            assert!(engine.trigger_queue.is_empty());
+            assert_eq!(engine.state.players[0].life, 20);
+        }
+    }
+}
+
 /// A window in which a mana ability did more than tap and add is left as
 /// it stands: Lotus Petal was sacrificed for its mana and cannot come back
 /// as the object it was (CR 400.7), and CR 732.1 lets the player reverse

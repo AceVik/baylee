@@ -1270,9 +1270,10 @@ fn a_planeswalker_entering_behind_a_shockland_enters_with_its_loyalty() {
 fn a_starting_planeswalker_has_its_loyalty_while_the_mulligans_are_open() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(934, basic_forest())
-        .battlefield(0, &[steam_vents(), karn_the_great_creator()])
+        .battlefield(0, &[steam_vents(), karn_the_great_creator(), bojuka_bog()])
         .start();
     let karn = on_battlefield(&engine, p0, karn_the_great_creator()).expect("Karn is dealt");
+    let bog = on_battlefield(&engine, p0, bojuka_bog()).expect("the Bog is dealt");
     let loyalty = |engine: &Engine<RegistryLookup>| {
         engine
             .state()
@@ -1289,6 +1290,10 @@ fn a_starting_planeswalker_has_its_loyalty_while_the_mulligans_are_open() {
         loyalty(&engine),
         Some(5),
         "Karn has his five loyalty while the hands are kept"
+    );
+    assert!(
+        is_tapped(&engine, bog),
+        "and the Bog, which enters tapped, is tapped"
     );
 
     keep_mulligans(&mut engine);
