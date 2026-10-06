@@ -1,7 +1,7 @@
 //! What the gateway says about itself: its source (AGPL §13), its build,
 //! its health, and how it signs people in.
 
-use crate::{Json, LobbyState, Shared, State, StatusCode, clock};
+use crate::{Json, Shared, State, StatusCode, clock};
 
 /// What this gateway is, and where the source for exactly this build lives.
 ///
@@ -234,21 +234,14 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
     // no `EngineLink`. That gap is what `seats_awaiting_engine` is.
     let (games_running, games_local, games_waiting, seats_awaiting_engine) = {
         let lobby = state.lobby.lock();
-        let playing = lobby
-            .games
-            .values()
-            .filter(|game| game.state == LobbyState::Playing);
+        let playing = lobby.running();
         (
             playing.clone().count(),
             // Ordered from an agent on this machine's unix socket. What a
             // deploy of this machine waits for: a game on an agent elsewhere
             // is not ended by replacing this machine's engine binary.
             playing.clone().filter(|game| game.engine_local).count(),
-            lobby
-                .games
-                .values()
-                .filter(|game| game.state == LobbyState::Waiting)
-                .count(),
+            lobby.waiting().count(),
             playing
                 .filter(|game| game.engine.is_none())
                 .map(|game| game.seats.len())

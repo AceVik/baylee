@@ -9,7 +9,7 @@
 use baylee_core::preset::GamePreset;
 use baylee_protocol::v1::Envelope;
 use bytes::Bytes;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use tokio::sync::{broadcast, mpsc, watch};
 
 /// Lobby state of a game.
@@ -609,6 +609,39 @@ pub struct Lobby {
 }
 
 impl Lobby {
+    /// The tables still waiting for players to sit down and start.
+    ///
+    /// One definition for `/health` and `/lobby/stats`, so the operator's
+    /// number and the players' number cannot disagree.
+    pub fn waiting(&self) -> impl Iterator<Item = &LobbyGame> + Clone {
+        self.games
+            .values()
+            .filter(|game| game.state == LobbyState::Waiting)
+    }
+
+    /// The games being played right now (not the finished tables a rematch
+    /// may still copy).
+    pub fn running(&self) -> impl Iterator<Item = &LobbyGame> + Clone {
+        self.games
+            .values()
+            .filter(|game| game.state == LobbyState::Playing)
+    }
+
+    /// The accounts in a chair of a running game: their own, or the one a
+    /// seat bridge answers for.
+    #[must_use]
+    pub fn playing_accounts(&self) -> BTreeSet<String> {
+        self.running()
+            .flat_map(|game| {
+                game.seats.iter().filter_map(|seat| {
+                    seat.account_id
+                        .clone()
+                        .or_else(|| seat.delegate.as_ref().map(|d| d.by.clone()))
+                })
+            })
+            .collect()
+    }
+
     /// Every account id sitting at a visible table.
     ///
     /// The caller resolves these to display names against the store, which

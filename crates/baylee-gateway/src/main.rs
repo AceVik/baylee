@@ -19,6 +19,7 @@ mod lobby;
 mod mail;
 mod namebook;
 mod pool;
+mod presence;
 mod record;
 mod report;
 mod room;
@@ -43,9 +44,10 @@ use routes::{
     auth_config, bearer_token, catalog_search, catalog_text, check_pictures, connect_catalog,
     create_game, deck_routes, display_name, expand, game_cosmetics, game_ws, get_settings,
     hand_over, health, house_deck, info, is_bidi_control, join_game, leave_game, legacy_token,
-    list_games, listing, listing_page, lobby_ws, own_deck, parse_deck_lines, put_settings, rematch,
-    seat_names, seat_of_token, set_ready, set_seat, source, source_url, spend_ticket, start_room,
-    table_prints, take_seat, try_start, validate_deck, validate_the_dev_board, ws_ticket,
+    list_games, listing, listing_page, lobby_stats, lobby_ws, own_deck, parse_deck_lines,
+    put_settings, rematch, seat_names, seat_of_token, set_ready, set_seat, source, source_url,
+    spend_ticket, start_room, table_prints, take_seat, try_start, validate_deck,
+    validate_the_dev_board, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -191,6 +193,9 @@ struct AppState {
     /// The handles of the accounts seated in the lobby, read once each
     /// (`namebook.rs`).
     names: namebook::NameBook,
+    /// The accounts with a lobby socket open, as a count for
+    /// `GET /lobby/stats` (`presence.rs`); memory only.
+    presence: presence::Presence,
 }
 
 impl AppState {
@@ -292,6 +297,7 @@ async fn main() {
         chair_limiter: auth::RateLimiter::new(chair::LIMIT_WINDOW, chair::LIMIT_TRIES),
         chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
         names: namebook::NameBook::default(),
+        presence: presence::Presence::default(),
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
@@ -306,6 +312,7 @@ async fn main() {
         .merge(deck_routes())
         .merge(report::routes())
         .route("/lobby/games", get(list_games).post(create_game))
+        .route("/lobby/stats", get(lobby_stats))
         .route("/lobby/games/{id}/join", post(join_game))
         .route("/lobby/games/{id}/configure", post(room::configure))
         .route("/lobby/games/{id}/seat", post(take_seat))

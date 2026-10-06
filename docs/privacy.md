@@ -21,6 +21,7 @@ the pointers, because line numbers move.
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
+| Who has a lobby socket open (account ids, for a count) | gateway memory | while the socket is open | the socket closing, a restart |
 | Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
 | Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
@@ -244,6 +245,11 @@ the pointers, because line numbers move.
   chairs its seat bridges sat in; its seat and lobby sockets close. A
   running game plays on with the house in that chair. A host who leaves a
   waiting room takes its bridges' chairs with it.
+- **Counted, not shown:** `GET /lobby/stats` (WG-0) answers a signed-in
+  session three numbers — players online, tables waiting, games running —
+  and no ids. "Online" is the accounts with a lobby socket open (held in
+  memory per account while the socket is, `presence.rs`) and those in a
+  chair of a running game; it is never stored or logged.
 
 ## Rate limits (memory)
 

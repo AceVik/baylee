@@ -2681,7 +2681,8 @@ notification, and each socket then renders its own page. A subscriber that
 falls behind is not replayed: every frame is the whole page, so the newest one
 is the only one worth having.
 
-Nothing is sent up the socket. A change of search or page is a **different
+Nothing is sent up the socket (the gateway reads it only to notice it
+closing). A change of search or page is a **different
 subscription**, so the client closes it and dials again with the new query;
 that keeps the socket's answer and the HTTP route's answer the same question,
 asked over two transports.
@@ -2699,6 +2700,24 @@ also what a deploy looks like from the lobby: it stops this machine's agent
 before it replaces the gateway (`scripts/server/baylee-deploy`). A listing
 without the field comes from an older gateway and means `true`. It is an
 added field, not a new message, so `PROTOCOL_VERSION` does not move.
+
+### How busy it is: `GET /lobby/stats` (WG-0)
+
+`{"players_online": 12, "tables_waiting": 3, "games_running": 4}`, for the
+lobby header's gateway pill. Signed-in sessions only (`401` otherwise), as
+the listing is: the front door shows no counts. Three numbers and nothing
+else — no ids, no names, nothing per table — exact, not rounded, and read
+from memory at the moment of asking.
+
+- `players_online`: distinct accounts that have a lobby socket open
+  (`/lobby/ws`), together with those in a chair of a running game (their
+  own, or one their seat bridge plays). Not a count of sessions: a session
+  lives twelve hours after its last request, a guest's a month, and neither
+  is presence. The gateway reads the lobby socket only to notice it closing,
+  so a player who leaves stops counting at once.
+- `tables_waiting`: tables waiting for players; `games_running`: games being
+  played. A finished table is neither. Counted as `/health` counts its
+  `games.waiting` and `games.running`, by the same two functions.
 
 ## The opening payload, and a client that is not the server
 
