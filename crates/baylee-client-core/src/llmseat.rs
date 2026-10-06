@@ -23,6 +23,7 @@
 //! ([`ledger::Moment`]).
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod clis;
 pub mod desk;
 pub mod ledger;
 pub mod panel;

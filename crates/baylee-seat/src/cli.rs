@@ -64,6 +64,8 @@ mod agy;
 mod claude;
 mod codex;
 mod dialect;
+#[cfg(test)]
+mod dialect_tests;
 mod junie;
 mod opencode;
 #[cfg(test)]
