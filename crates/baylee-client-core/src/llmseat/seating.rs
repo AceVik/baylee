@@ -38,7 +38,8 @@ pub struct ChairModel {
     pub profile: String,
     /// The model's exact id, as `--mind` carries it.
     pub model: String,
-    /// The effort named, or `None` for the model's own.
+    /// The effort named, or `None` for the build's default (medium on
+    /// Anthropic, the model's own elsewhere), whatever the profile names.
     pub effort: Option<String>,
 }
 
@@ -172,10 +173,13 @@ pub fn bridge_args(launch: &Launch<'_>, chair: &ChairModel, profile: &Profile) -
     if chair.model != profile.model {
         args.extend(["--mind".into(), mind(profile.provider, &chair.model)]);
     }
-    if chair.effort != profile.effort
-        && let Some(effort) = &chair.effort
-    {
-        args.extend(["--effort".into(), effort.clone()]);
+    if chair.effort != profile.effort {
+        match &chair.effort {
+            Some(effort) => args.extend(["--effort".into(), effort.clone()]),
+            // The profile names one and the chair plays the default: the
+            // profile's must not stand (the model may not take it).
+            None => args.push("--default-effort".into()),
+        }
     }
     args
 }
@@ -199,7 +203,8 @@ pub enum Order {
         profile: String,
         /// The model's exact id.
         model: String,
-        /// The effort, or `None` for the model's own.
+        /// The effort, or `None` for the build's default, whatever the
+        /// profile names.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         effort: Option<String>,
     },

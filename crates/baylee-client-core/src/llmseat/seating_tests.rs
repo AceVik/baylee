@@ -117,12 +117,21 @@ fn the_bridge_is_told_the_chair_the_file_and_only_what_the_profile_does_not_say(
         args.windows(2)
             .any(|w| w == ["--mind", "cli:claude:sonnet"])
     );
-    // The model's own effort is not a flag: the profile's would stand.
+    // The default effort over a profile that names one says so: the
+    // profile's would stand otherwise.
     let own = ChairModel {
         effort: None,
         ..chair
     };
-    assert!(!bridge_args(&launch(), &own, &profile).contains(&"--effort".to_string()));
+    let args = bridge_args(&launch(), &own, &profile);
+    assert!(!args.contains(&"--effort".to_string()));
+    assert_eq!(args.last().map(String::as_str), Some("--default-effort"));
+    let bare = Profile::new(Provider::Anthropic, "claude-opus-5-5");
+    let args = bridge_args(&launch(), &ChairModel::of("bare", &bare), &bare);
+    assert!(
+        !args.contains(&"--default-effort".to_string()),
+        "nothing to drop"
+    );
 }
 
 #[test]

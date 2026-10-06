@@ -171,6 +171,7 @@ fn a_flag_overrides_the_profile() {
         spend_tokens: Some(900_000),
         spend_calls: Some(40),
         think_secs: Some(20),
+        default_effort: false,
     };
     let plan = planned(None, Some(&file), Some("sonnet"), &flags);
     let settings = &plan.settings;
@@ -195,6 +196,34 @@ fn a_flag_overrides_the_profile() {
     };
     let plan = planned(None, Some(&file), None, &one);
     assert_eq!((plan.think_secs, plan.settings.spend_usd), (9, Some(2.5)));
+}
+
+/// `--default-effort` drops the profile's effort for the build's: a chair
+/// that plays a model which does not take it (`docs/llm-seat.md` §"A
+/// language model at your table"). `--effort` still wins over both.
+#[test]
+fn the_default_effort_drops_the_profiles() {
+    let file = file();
+    let profiles = planned(None, Some(&file), Some("sonnet"), &Overrides::default());
+    assert_eq!(profiles.settings.effort.as_deref(), Some("high"));
+    let builds = Overrides {
+        default_effort: true,
+        ..Overrides::default()
+    };
+    let plan = planned(None, Some(&file), Some("sonnet"), &builds);
+    assert_eq!(
+        plan.settings.effort.as_deref(),
+        Some("medium"),
+        "Anthropic's"
+    );
+    let deepseek = planned(None, Some(&file), Some("deepseek"), &builds);
+    assert_eq!(deepseek.settings.effort, None, "the endpoint's own");
+    let named = Overrides {
+        effort: Some("low".into()),
+        ..builds
+    };
+    let plan = planned(None, Some(&file), Some("sonnet"), &named);
+    assert_eq!(plan.settings.effort.as_deref(), Some("low"));
 }
 
 /// `--mind` over a profile of its provider changes the model and keeps

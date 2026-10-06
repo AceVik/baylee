@@ -104,6 +104,29 @@ enum Next {
 /// table, too large a future for a caller's stack.
 pub type Playing<'a> = Pin<Box<dyn Future<Output = anyhow::Result<Played>> + Send + 'a>>;
 
+/// Another mind for the seat, from its next decision on: what a debug
+/// bridge is ordered during its game (`docs/llm-seat.md` §"Changing a
+/// chair during the game").
+pub struct Swap {
+    /// The mind that answers from the next question the seat is asked.
+    pub mind: Arc<dyn Mind>,
+    /// Called once the swap is made, at that question: the old mind has
+    /// answered its last (its spend can be settled).
+    pub taken: Option<Box<dyn FnOnce() + Send>>,
+}
+
+impl std::fmt::Debug for Swap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Swap")
+            .field("mind", &self.mind.disclosure())
+            .field("taken", &self.taken.is_some())
+            .finish()
+    }
+}
+
+/// Where [`Swap`]s come from.
+pub type Swaps = tokio::sync::mpsc::UnboundedReceiver<Swap>;
+
 /// Plays the seat's game to its end.
 ///
 /// # Errors
@@ -117,7 +140,24 @@ pub fn play<'a>(
     transcript: &'a mut Transcript,
     options: &'a PlayOptions,
 ) -> Playing<'a> {
-    Box::pin(run(link, core, mind, transcript, options))
+    play_swapping(link, core, mind, transcript, options, None)
+}
+
+/// [`play`], taking another mind whenever `swaps` hands one over: never in
+/// the middle of a question, which the mind that was asked it answers, but
+/// at the next one the seat asks a mind.
+///
+/// # Errors
+/// As [`play`].
+pub fn play_swapping<'a>(
+    link: &'a mut SeatLink,
+    core: SeatCore,
+    mind: Arc<dyn Mind>,
+    transcript: &'a mut Transcript,
+    options: &'a PlayOptions,
+    swaps: Option<Swaps>,
+) -> Playing<'a> {
+    Box::pin(run(link, core, mind, transcript, options, swaps))
 }
 
 async fn run(
@@ -126,12 +166,14 @@ async fn run(
     mind: Arc<dyn Mind>,
     transcript: &mut Transcript,
     options: &PlayOptions,
+    swaps: Option<Swaps>,
 ) -> anyhow::Result<Played> {
     let mut bridge = Bridge {
         mind,
         options: options.clone(),
         thinking: None,
         asked: None,
+        swaps,
     };
     let mut socket = link.connect().await?;
     if socket.is_none() {
@@ -236,9 +278,25 @@ struct Bridge {
     thinking: Option<Thinking>,
     /// The question last handed to the mind, and when it was first asked.
     asked: Option<(u64, Instant)>,
+    /// Other minds, handed over during the game.
+    swaps: Option<Swaps>,
 }
 
 impl Bridge {
+    /// Takes every mind handed over since the last question, the latest
+    /// last: the mind the next question is asked of.
+    fn take_swaps(&mut self) {
+        let Some(swaps) = self.swaps.as_mut() else {
+            return;
+        };
+        while let Ok(swap) = swaps.try_recv() {
+            self.mind = swap.mind;
+            if let Some(taken) = swap.taken {
+                taken();
+            }
+        }
+    }
+
     /// Waits for a frame, the mind's answer, the mind's deadline, or a
     /// quiet spell long enough to ask the lobby about the room.
     async fn wait(&mut self, ws: &mut Socket) -> Woken {
@@ -319,6 +377,7 @@ impl Bridge {
                     }
                     let question = request.question;
                     let deadline = now + request.budget;
+                    self.take_swaps();
                     let mind = Arc::clone(&self.mind);
                     let task = tokio::spawn(async move { mind.decide(*request).await });
                     if let Some(old) = self.thinking.replace(Thinking {
@@ -346,9 +405,11 @@ impl Bridge {
     /// or the room has closed meanwhile (`false`): the house plays on for a
     /// seat whose socket is gone, and may finish the game before the mind
     /// comes back, if it ever does.
-    async fn wait_for_mind(&self, link: &SeatLink) -> bool {
+    async fn wait_for_mind(&mut self, link: &SeatLink) -> bool {
         loop {
             tokio::time::sleep(self.options.mind_poll).await;
+            // A mind handed over meanwhile is the one asked.
+            self.take_swaps();
             if self.mind.ready().await {
                 tracing::info!("the mind is ready again");
                 return true;
@@ -368,4 +429,159 @@ async fn send(ws: Option<&mut Socket>, envelope: &Envelope) -> bool {
     ws.send(Message::Binary(envelope.encode_to_vec().into()))
         .await
         .is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mind::{DeckList, Disclosure, Request, Thinking};
+    use crate::seat::BridgeConfig;
+    use baylee_client_core::test_support::{ViewBuilder, statics};
+    use baylee_core::ids::PlayerId;
+    use baylee_core::mana::ManaColor;
+    use baylee_engine::choice::{Pending, PlayerAction};
+    use baylee_protocol::v1;
+    use baylee_view::SeatIdentity;
+    use std::sync::Mutex;
+
+    const ME: PlayerId = PlayerId::new(0);
+
+    fn frame(msg: v1::envelope::Msg) -> Vec<u8> {
+        Envelope { msg: Some(msg) }.encode_to_vec()
+    }
+
+    /// A seat at a two-chair table, its own called as its mind must be.
+    fn seated() -> SeatCore {
+        let mut game = statics(0);
+        game.seats = [(ME, "LLM-seat"), (PlayerId::new(1), "Alice")]
+            .into_iter()
+            .map(|(player, name)| SeatIdentity {
+                player,
+                display_name: name.into(),
+                is_ai: false,
+                away: false,
+                team: None,
+            })
+            .collect();
+        let mut core = SeatCore::new(
+            BridgeConfig::default(),
+            DeckList::default(),
+            Disclosure::Llm,
+        );
+        core.hear(&frame(v1::envelope::Msg::GameStatic(v1::GameStaticMsg {
+            game_id: game.game_id.clone(),
+            view_version: game.view_version,
+            static_json: serde_json::to_vec(&game).unwrap(),
+        })));
+        core
+    }
+
+    /// The steps of the seat being asked to choose a colour at `seq`: a
+    /// question its standing orders never answer, so the mind is asked.
+    fn asked(core: &mut SeatCore, seq: u64) -> Vec<Step> {
+        let mut view = ViewBuilder::new(2).build();
+        view.seq = seq;
+        core.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
+            game_id: "test-game".into(),
+            seq,
+            view_json: serde_json::to_vec(&view).unwrap(),
+            log_json: Vec::new(),
+        })));
+        let pending = Pending::ChooseColor {
+            player: ME,
+            options: vec![ManaColor::Red, ManaColor::Green],
+        };
+        let steps = core.hear(&frame(v1::envelope::Msg::ChoiceRequest(
+            v1::ChoiceRequest {
+                game_id: "test-game".into(),
+                seq,
+                pending_json: serde_json::to_vec(&pending).unwrap(),
+            },
+        )));
+        assert!(
+            steps.iter().any(|s| matches!(s, Step::Ask(_))),
+            "the mind is asked: {steps:?}"
+        );
+        steps
+    }
+
+    /// A mind that answers `colour`, and writes down that it was asked.
+    struct Named {
+        colour: ManaColor,
+        asked: Arc<Mutex<Vec<ManaColor>>>,
+    }
+
+    impl Mind for Named {
+        fn decide(&self, _request: Request) -> Thinking<'_> {
+            self.asked.lock().unwrap().push(self.colour);
+            let colour = self.colour;
+            Box::pin(async move { Ok(Answer::new(PlayerAction::ChooseColor(colour))) })
+        }
+
+        fn disclosure(&self) -> Disclosure {
+            Disclosure::Llm
+        }
+    }
+
+    /// A mind handed over during the game answers from the next question
+    /// on, never the question already being thought about; and once it
+    /// does, the swap says so (where the old mind's spend is settled).
+    #[tokio::test]
+    async fn a_swapped_mind_answers_from_the_next_question_on() {
+        let asked_of = Arc::new(Mutex::new(Vec::new()));
+        let mind = |colour| -> Arc<dyn Mind> {
+            Arc::new(Named {
+                colour,
+                asked: Arc::clone(&asked_of),
+            })
+        };
+        let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
+        let mut bridge = Bridge {
+            mind: mind(ManaColor::Red),
+            options: PlayOptions::default(),
+            thinking: None,
+            asked: None,
+            swaps: Some(swaps),
+        };
+        let mut core = seated();
+        let first = asked(&mut core, 2);
+        // Handed over before the question reaches the mind: it is the new
+        // mind's, at the moment it is asked.
+        let taken = Arc::new(Mutex::new(0));
+        let count = Arc::clone(&taken);
+        send.send(Swap {
+            mind: mind(ManaColor::Green),
+            taken: Some(Box::new(move || *count.lock().unwrap() += 1)),
+        })
+        .unwrap_or_else(|_| panic!("the bridge listens"));
+        bridge.carry_out(first, None).await;
+        assert_eq!(*taken.lock().unwrap(), 1);
+        let thinking = bridge.thinking.take().unwrap();
+        core.answered(thinking.question, thinking.task.await.unwrap());
+        assert_eq!(*asked_of.lock().unwrap(), [ManaColor::Green]);
+        // One handed over while a question is being thought about waits
+        // for the next question.
+        let second = asked(&mut core, 3);
+        bridge.carry_out(second, None).await;
+        send.send(Swap {
+            mind: mind(ManaColor::Red),
+            taken: None,
+        })
+        .unwrap_or_else(|_| panic!("the bridge listens"));
+        let thinking = bridge.thinking.take().unwrap();
+        core.answered(thinking.question, thinking.task.await.unwrap());
+        assert_eq!(
+            *asked_of.lock().unwrap(),
+            [ManaColor::Green, ManaColor::Green]
+        );
+        let third = asked(&mut core, 4);
+        bridge.carry_out(third, None).await;
+        let thinking = bridge.thinking.take().unwrap();
+        core.answered(thinking.question, thinking.task.await.unwrap());
+        assert_eq!(
+            *asked_of.lock().unwrap(),
+            [ManaColor::Green, ManaColor::Green, ManaColor::Red]
+        );
+        assert_eq!(*taken.lock().unwrap(), 1, "called once");
+    }
 }

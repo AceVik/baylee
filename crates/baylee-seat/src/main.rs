@@ -30,16 +30,17 @@ use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
 use baylee_client_core::llmseat::ledger::Moment;
+use baylee_client_core::llmseat::seating::Order;
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
-use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
+use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Room, Session, seat_name};
 use baylee_seat::seat::{BLITZ_SECS, Outcome};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
-use baylee_seat::{BridgeConfig, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
+use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -64,10 +65,22 @@ enum Command {
     Join(Join),
 }
 
-#[derive(clap::Args)]
+#[derive(Clone, clap::Args)]
+#[allow(clippy::struct_excessive_bools)] // command-line switches, each its own
 struct Join {
     /// The room's id, as the lobby lists it.
     room: String,
+    /// The chair to take, numbered from 0 as the lobby lists it [default:
+    /// the first free one].
+    #[arg(long)]
+    chair: Option<u32>,
+    /// Held by the program that started it, through stdin: when stdin
+    /// closes, the bridge stops as for ctrl-c, and leaves its chair if the
+    /// game has not begun. A debug build also reads orders on it, one JSON
+    /// line each, that change the mind from its next decision
+    /// (`docs/llm-seat.md` §"A language model at your table").
+    #[arg(long)]
+    tethered: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].
     #[arg(long)]
     gateway: Option<String>,
@@ -98,6 +111,11 @@ struct Join {
     /// [default: medium on Anthropic, the endpoint's own elsewhere].
     #[arg(long)]
     effort: Option<String>,
+    /// Play the build's default effort (medium on Anthropic, the model's
+    /// own elsewhere) whatever the profile names: for a model that does
+    /// not take the profile's.
+    #[arg(long, conflicts_with = "effort")]
+    default_effort: bool,
     /// How an OpenAI-compatible model answers: by calling a tool, or with a
     /// JSON object, for a server without tools; `json-schema` asks for the
     /// object by its schema, for a server that refuses a bare `json`. A CLI
@@ -218,6 +236,7 @@ impl Join {
     fn overrides(&self) -> Overrides {
         Overrides {
             effort: self.effort.clone(),
+            default_effort: self.default_effort,
             answer: self.answer.map(|answer| match answer {
                 Answering::Tools => AnswerMode::Tools,
                 Answering::Json => AnswerMode::Json,
@@ -411,13 +430,111 @@ async fn run() -> anyhow::Result<()> {
     no_key_in(&args, &env, &[])?;
     match Cli::parse().command {
         Command::Join(join) => {
+            let (mut let_go, orders) = if join.tethered {
+                let (let_go, orders) = tether::hold();
+                (Some(let_go), Some(orders))
+            } else {
+                (None, None)
+            };
+            let unstarted: Unstarted = Arc::default();
             // Stopped, the game is dropped where it stands, and its
             // reservation settles with what it spent (`spend::Booked`).
-            tokio::select! {
+            let done = tokio::select! {
                 biased;
-                by = stoppers.stopped() => bail!("stopped by {by} before the game was over"),
-                done = join_and_play(&join, &args, &env) => done,
+                by = stoppers.stopped() => Err(anyhow::anyhow!(
+                    "stopped by {by} before the game was over"
+                )),
+                () = tether::let_go(let_go.as_mut()) => Err(anyhow::anyhow!(
+                    "the program that started this bridge let go of it before the game was over"
+                )),
+                done = join_and_play(&join, &args, &env, orders, &unstarted) => done,
+            };
+            if done.is_err() {
+                leave_unstarted(&unstarted).await;
             }
+            done
+        }
+    }
+}
+
+/// A chair taken in a room whose game has not begun: what gives it up.
+struct Leaving {
+    lobby: Lobby,
+    session: Session,
+    room: String,
+}
+
+/// The chair to give up if the bridge stops before its game begins.
+type Unstarted = Arc<Mutex<Option<Leaving>>>;
+
+/// Gives up the chair of a game that never began, so the room does not
+/// keep a chair for a bridge that is gone: a host's client starts another
+/// in it (`docs/llm-seat.md` §"A language model at your table"). Two
+/// seconds at most; a gateway that does not answer keeps the chair.
+async fn leave_unstarted(unstarted: &Unstarted) {
+    let leaving = unstarted
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
+    if let Some(Leaving {
+        lobby,
+        session,
+        room,
+    }) = leaving
+    {
+        match tokio::time::timeout(Duration::from_secs(2), lobby.leave(&session, &room)).await {
+            Ok(Ok(())) => println!("left the chair: the game had not begun"),
+            Ok(Err(e)) => eprintln!("the chair could not be given up: {e}"),
+            Err(_) => eprintln!("the chair could not be given up: the gateway did not answer"),
+        }
+    }
+}
+
+/// Stdin held by the program that started the bridge (`--tethered`).
+mod tether {
+    use baylee_client_core::llmseat::seating::{LIVE_CHANGES, ORDER_BYTES};
+    use tokio::io::AsyncBufReadExt as _;
+    use tokio::sync::{mpsc, oneshot};
+
+    /// Reads stdin until it closes: each line an order (a debug build's
+    /// only; a release build reads them and does nothing with them), and
+    /// its end the program letting go.
+    pub fn hold() -> (oneshot::Receiver<()>, mpsc::UnboundedReceiver<String>) {
+        let (gone, let_go) = oneshot::channel();
+        let (send, orders) = mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+            let mut said = false;
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                if !LIVE_CHANGES {
+                    if !said {
+                        println!("order refused: a release build changes no mind during a game");
+                        said = true;
+                    }
+                    continue;
+                }
+                if line.len() > ORDER_BYTES {
+                    println!("order refused: an order is one line of at most {ORDER_BYTES} bytes");
+                    continue;
+                }
+                let _ = send.send(line);
+            }
+            let _ = gone.send(());
+        });
+        (let_go, orders)
+    }
+
+    /// Waits for the program to let go; forever when nothing holds the
+    /// bridge.
+    pub async fn let_go(held: Option<&mut oneshot::Receiver<()>>) {
+        match held {
+            Some(held) => {
+                let _ = held.await;
+            }
+            None => std::future::pending().await,
         }
     }
 }
@@ -552,12 +669,15 @@ async fn join_and_play(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
+    orders: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+    unstarted: &Unstarted,
 ) -> anyhow::Result<()> {
-    let mut seated = sit_down(join, args, env).await?;
+    let mut seated = sit_down(join, args, env, unstarted).await?;
     let tally = seated.tally.clone();
-    let booked = seated.booked.take();
+    let booked: Current = Arc::new(Mutex::new(seated.booked.take()));
     let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
-    let played = play_out(join, seated, show.clone()).await?;
+    let played = play_out(join, seated, show.clone(), orders, &booked).await?;
+    let booked = booked.lock().unwrap_or_else(PoisonError::into_inner).take();
     report(&played);
     if let Some(show) = show {
         let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
@@ -599,6 +719,34 @@ fn seat_core(config: BridgeConfig, deck: &Deck, mind: &dyn Mind) -> SeatCore {
     SeatCore::new(config, deck.list.clone(), mind.disclosure())
 }
 
+/// Whether `room` would seat this bridge: waiting, a chair free, its
+/// password given where it is locked, and a clock a thinking mind can keep.
+fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result<()> {
+    if !room.waiting() {
+        bail!(
+            "the room {} is {}, not waiting for players",
+            room.id,
+            room.state
+        );
+    }
+    if !room.has_a_free_chair() {
+        bail!("the room {} has no free chair", room.id);
+    }
+    if room.locked && !has_password {
+        bail!("the room {} is locked: give its --password", room.id);
+    }
+    if let Some(secs) = room.clock.decide_secs.filter(|s| *s <= BLITZ_SECS)
+        && !join.allow_blitz
+    {
+        bail!(
+            "the room {} gives {secs} s a question, too few for a mind that thinks \
+             (sit anyway with --allow-blitz)",
+            room.id
+        );
+    }
+    Ok(())
+}
+
 /// Chooses the mind (a language model's game reserved in the spend book
 /// first), signs in, checks the room, takes a chair, says ready and waits
 /// for the host to start.
@@ -606,6 +754,7 @@ async fn sit_down(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
+    unstarted: &Unstarted,
 ) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
         .with_context(|| format!("no house level called «{}»", join.level))?;
@@ -652,32 +801,23 @@ async fn sit_down(
     let Some(room) = lobby.room(&session, &join.room).await? else {
         bail!("no room {} on {gateway}", join.room);
     };
-    if !room.waiting() {
-        bail!(
-            "the room {} is {}, not waiting for players",
-            room.id,
-            room.state
-        );
-    }
-    if !room.has_a_free_chair() {
-        bail!("the room {} has no free chair", room.id);
-    }
-    if room.locked && password.is_none() {
-        bail!("the room {} is locked: give its --password", room.id);
-    }
-    if let Some(secs) = room.clock.decide_secs.filter(|s| *s <= BLITZ_SECS)
-        && !join.allow_blitz
-    {
-        bail!(
-            "the room {} gives {secs} s a question, too few for a mind that thinks \
-             (sit anyway with --allow-blitz)",
-            room.id
-        );
-    }
+    room_takes_us(&room, join, password.is_some())?;
     let deck_id = lobby.upload(&session, &deck).await?;
     let chair = lobby
-        .join(&session, &room.id, &deck_id, password.as_deref())
+        .join(
+            &session,
+            &room.id,
+            &deck_id,
+            password.as_deref(),
+            join.chair,
+        )
         .await?;
+    // Until the game begins, a bridge that stops gives the chair up.
+    *unstarted.lock().unwrap_or_else(PoisonError::into_inner) = Some(Leaving {
+        lobby: lobby.clone(),
+        session: session.clone(),
+        room: room.id.clone(),
+    });
     lobby.ready(&session, &room.id).await?;
     println!(
         "«{display_name}» sits in chair {} of room {} with {}; waiting for the host to start",
@@ -686,6 +826,10 @@ async fn sit_down(
     lobby
         .wait_for_start(&session, &room.id, Duration::from_secs(1))
         .await?;
+    unstarted
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
     println!("the game is on");
     Ok(Seated {
         lobby,
@@ -706,7 +850,22 @@ async fn play_out(
     join: &Join,
     seated: Seated,
     show: Option<Arc<Mutex<Show>>>,
+    orders: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+    booked: &Current,
 ) -> anyhow::Result<bridge::Played> {
+    // Orders change the mind from its next decision; the task that reads
+    // them ends with the game.
+    let (swaps, _reading) = orders
+        .map(|orders| {
+            let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
+            let reader = OrderReader {
+                join: join.clone(),
+                disclosure: seated.mind.disclosure(),
+                booked: Arc::clone(booked),
+            };
+            (swaps, Aborting(tokio::spawn(reader.run(orders, send))))
+        })
+        .unzip();
     let config = BridgeConfig {
         think: Duration::from_secs(seated.think_secs),
         allow_blitz: join.allow_blitz,
@@ -740,10 +899,157 @@ async fn play_out(
         ..PlayOptions::default()
     };
     let mut link = SeatLink::new(seated.lobby, seated.chair, Some(seated.session));
-    let played = bridge::play(&mut link, core, seated.mind, &mut transcript, &options).await?;
+    let played = bridge::play_swapping(
+        &mut link,
+        core,
+        seated.mind,
+        &mut transcript,
+        &options,
+        swaps,
+    )
+    .await?;
     transcript.write_value(&serde_json::json!({ "summary": played.stats }));
     transcript.flush();
     Ok(played)
+}
+
+/// The game's reservation in the spend book, held by the mind that plays
+/// now: a swapped-in mind's replaces it, which settles the old one.
+type Current = Arc<Mutex<Option<Booked>>>;
+
+/// A task that ends when this is dropped.
+struct Aborting(tokio::task::JoinHandle<()>);
+
+impl Drop for Aborting {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Reads a debug bridge's orders during its game and hands the bridge the
+/// minds they name (`docs/llm-seat.md` §"Changing a chair during the
+/// game"). Each mind is chosen as at sit-down ([`choose`]): its key or
+/// program checked and its game reserved in the spend book before it is
+/// handed over, and refused, with the old mind playing on, where either
+/// fails. The chair keeps the name it sat down under, so a mind is taken
+/// only where that name still tells the truth: one of the same kind, or the
+/// house in a language model's chair (less than the name claims, never
+/// more).
+struct OrderReader {
+    join: Join,
+    disclosure: Disclosure,
+    booked: Current,
+}
+
+impl OrderReader {
+    async fn run(
+        self,
+        mut orders: tokio::sync::mpsc::UnboundedReceiver<String>,
+        send: tokio::sync::mpsc::UnboundedSender<bridge::Swap>,
+    ) {
+        let env = |name: &str| std::env::var(name).ok();
+        while let Some(line) = orders.recv().await {
+            match self.swap(&line, &env) {
+                Ok((swap, label)) => {
+                    if send.send(swap).is_err() {
+                        return;
+                    }
+                    println!("order: {label} plays this chair from its next decision");
+                }
+                Err(why) => println!("order refused: {}", scrub(&format!("{why:#}"), None)),
+            }
+        }
+    }
+
+    /// The mind `line` orders, ready to hand over, and its label.
+    fn swap(
+        &self,
+        line: &str,
+        env: &dyn Fn(&str) -> Option<String>,
+    ) -> anyhow::Result<(bridge::Swap, String)> {
+        let order = Order::parse(line).map_err(anyhow::Error::msg)?;
+        // Asked before anything is reserved: what the order names is what
+        // its mind will say it is.
+        let kind = match order {
+            Order::House { .. } => Disclosure::House,
+            Order::Model { .. } => Disclosure::Llm,
+        };
+        anyhow::ensure!(
+            kind == self.disclosure
+                || (kind == Disclosure::House && self.disclosure == Disclosure::Llm),
+            "this chair sat down as {}…, and a mind may play it only where that name tells the \
+             truth",
+            self.disclosure.prefix()
+        );
+        let join = self.ordered(&order, env)?;
+        let level = AIProfile::named(&join.level)
+            .with_context(|| format!("no house level called «{}»", join.level))?;
+        let chosen = choose(&join, &[line.to_string()], env, level, spend::now())?;
+        anyhow::ensure!(
+            chosen.mind.disclosure() == kind,
+            "the order named a {kind:?} mind and another was chosen"
+        );
+        if let Some(booked) = &chosen.booked {
+            println!("{}", booked.sat_down());
+        }
+        let current = Arc::clone(&self.booked);
+        let next = chosen.booked;
+        let taken: Box<dyn FnOnce() + Send> = Box::new(move || {
+            let old = std::mem::replace(
+                &mut *current.lock().unwrap_or_else(PoisonError::into_inner),
+                next,
+            );
+            // The old mind has answered its last: its game settles.
+            drop(old);
+        });
+        Ok((
+            bridge::Swap {
+                mind: chosen.mind,
+                taken: Some(taken),
+            },
+            chosen.label,
+        ))
+    }
+
+    /// The command line the order amounts to: this bridge's, its mind,
+    /// profile and effort replaced.
+    fn ordered(&self, order: &Order, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Join> {
+        match order {
+            Order::House { level } => Ok(Join {
+                mind: Some(MindKind::House),
+                profile: None,
+                level: level.clone(),
+                ..self.join.clone()
+            }),
+            Order::Model {
+                profile, effort, ..
+            } => {
+                let paths = Paths::resolve(
+                    self.join.config.as_deref(),
+                    self.join.ledger.as_deref(),
+                    env,
+                );
+                let file = paths.load().map_err(anyhow::Error::msg)?;
+                let provider = file
+                    .as_ref()
+                    .and_then(|file| file.profile(profile))
+                    .map(|found| found.provider)
+                    .with_context(|| format!("the settings file has no profile «{profile}»"))?;
+                let mind = order
+                    .mind(provider)
+                    .map(|mind| MindKind::parse(&mind))
+                    .transpose()
+                    .map_err(anyhow::Error::msg)?;
+                Ok(Join {
+                    mind,
+                    profile: Some(profile.clone()),
+                    effort: effort.clone(),
+                    default_effort: effort.is_none(),
+                    ..self.join.clone()
+                })
+            }
+        }
+    }
 }
 
 /// The line a game ends with.
@@ -1216,6 +1522,94 @@ mod tests {
         let named = join_with("anthropic", &["--ledger", book.to_str().unwrap()]).unwrap();
         drop(chosen(&named, &placeholder).unwrap());
         assert_eq!(Book::new(book).read().unwrap().games.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A reader of orders for a bridge started as `join` would be, seated
+    /// as `disclosure`.
+    fn reader(join: Join, disclosure: Disclosure, booked: Option<Booked>) -> OrderReader {
+        OrderReader {
+            join,
+            disclosure,
+            booked: Arc::new(Mutex::new(booked)),
+        }
+    }
+
+    /// An order is chosen as a sit-down is: the profile's provider puts the
+    /// model in `--mind`, the effort over the profile's (none named: the
+    /// build's default), its game reserved in the book; and the old
+    /// reservation settles only once the new mind is taken.
+    #[test]
+    fn an_order_is_chosen_as_a_sit_down_and_settles_the_old_game_when_taken() {
+        let dir = scratch("orders");
+        let config = settings_in(&dir);
+        let path = config.to_str().unwrap();
+        let started = join_args(&["--config", path, "--profile", "sonnet", "--tethered"]).unwrap();
+        let first = chosen(&started, &placeholder).unwrap();
+        assert_eq!(first.mind.disclosure(), Disclosure::Llm);
+        let reading = reader(started, Disclosure::Llm, first.booked);
+        let book = Book::beside(&config);
+        assert_eq!(book.read().unwrap().games.len(), 1);
+        // An order for Opus over the same profile, at the build's effort.
+        let line = Order::Model {
+            profile: "sonnet".into(),
+            model: "claude-opus-5-5".into(),
+            effort: None,
+        }
+        .line();
+        let order = Order::parse(&line).unwrap();
+        let join = reading.ordered(&order, &placeholder).unwrap();
+        assert!(matches!(&join.mind, Some(MindKind::Llm(spec)) if spec.model == "claude-opus-5-5"));
+        assert!(join.default_effort && join.effort.is_none());
+        assert_eq!(join.profile.as_deref(), Some("sonnet"));
+        let (swap, label) = reading.swap(&line, &placeholder).unwrap();
+        assert_eq!(label, "opus-5-5");
+        let games = book.read().unwrap().games;
+        assert_eq!(games.len(), 2, "reserved before it is handed over");
+        assert!(games.iter().all(|g| g.settled.is_none()));
+        (swap.taken.unwrap())();
+        let games = book.read().unwrap().games;
+        assert!(
+            games[0].settled.is_some(),
+            "the old game settles when taken"
+        );
+        assert!(games[1].settled.is_none(), "the new one plays on");
+        // The house may play a language model's chair.
+        let (_, label) = reading
+            .swap(r#"{"mind":"house","level":"sharp"}"#, &placeholder)
+            .unwrap();
+        assert_eq!(label, "house");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// An order the chair's name would lie about, a profile the file does
+    /// not have, a key and a missing one are refused, each in a sentence,
+    /// and nothing is reserved.
+    #[test]
+    fn an_order_the_chair_cannot_take_is_refused() {
+        let dir = scratch("orders-refused");
+        let config = settings_in(&dir);
+        let path = config.to_str().unwrap();
+        let started = join_args(&["--config", path, "--tethered"]).unwrap();
+        let model = Order::Model {
+            profile: "sonnet".into(),
+            model: "claude-sonnet-5-5".into(),
+            effort: Some("high".into()),
+        }
+        .line();
+        let house = reader(started.clone(), Disclosure::House, None);
+        let why = house.swap(&model, &placeholder).unwrap_err().to_string();
+        assert!(why.contains("HOUSE-"), "{why}");
+        let llm = reader(started, Disclosure::Llm, None);
+        let gone = r#"{"mind":"model","profile":"gone","model":"claude-opus-5-5"}"#;
+        let why = llm.swap(gone, &placeholder).unwrap_err().to_string();
+        assert!(why.contains("no profile «gone»"), "{why}");
+        let why = llm.swap(&model, &|_| None).unwrap_err().to_string();
+        assert!(why.contains("ANTHROPIC_API_KEY"), "{why}");
+        let key = format!(r#"{{"mind":"house","level":"sk-ant-{}"}}"#, "B".repeat(30));
+        let why = llm.swap(&key, &placeholder).unwrap_err().to_string();
+        assert!(!why.contains("BBBB"), "{why}");
+        assert_eq!(Book::beside(&config).read().unwrap().games.len(), 0);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

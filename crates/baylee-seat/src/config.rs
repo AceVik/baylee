@@ -101,6 +101,10 @@ impl Paths {
 pub struct Overrides {
     /// `--effort`.
     pub effort: Option<String>,
+    /// `--default-effort`: the build's default effort, whatever the
+    /// profile names (a chair that plays a model which does not take the
+    /// profile's).
+    pub default_effort: bool,
     /// `--answer`.
     pub answer: Option<AnswerMode>,
     /// `--max-tokens`.
@@ -260,7 +264,7 @@ fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Setti
     let profile = chosen.map(|c| c.profile);
     let mut settings = Settings::new(spec);
     if let Some(profile) = profile {
-        if let Some(effort) = &profile.effort {
+        if let Some(effort) = profile.effort.as_ref().filter(|_| !flags.default_effort) {
             settings.effort = Some(effort.clone());
         }
         if let Some(answer) = profile.answer {

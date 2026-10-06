@@ -253,18 +253,24 @@ impl Lobby {
         })
     }
 
-    /// Takes a free chair in the room with the deck (`POST …/join`).
+    /// Takes a free chair in the room with the deck (`POST …/join`): the
+    /// one `seat` names, else the first free one.
     ///
     /// # Errors
-    /// When the room is full, started, locked or gone.
+    /// When the room is full, started, locked or gone, or the chair named
+    /// is taken.
     pub async fn join(
         &self,
         session: &Session,
         game_id: &str,
         deck_id: &str,
         password: Option<&str>,
+        seat: Option<u32>,
     ) -> anyhow::Result<Chair> {
-        let body = serde_json::json!({ "deck_id": deck_id, "password": password });
+        let mut body = serde_json::json!({ "deck_id": deck_id, "password": password });
+        if let Some(seat) = seat {
+            body["seat"] = serde_json::json!(seat);
+        }
         let path = format!("/lobby/games/{}/join", escape(game_id));
         let answer = self
             .call("POST", &path, Some(&session.token), Some(body))
