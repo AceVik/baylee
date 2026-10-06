@@ -1685,16 +1685,16 @@ pub(crate) mod tests {
     fn measure(
         app: &mut App,
         fonts: &UiFonts,
-        face: &CardFace,
+        (face, lang): (&CardFace, Lang),
         width: f32,
         plate: u32,
     ) -> Measured {
         let (laid, model) = {
             let assets = app.world().resource::<Assets<Font>>();
             let widths = Widths::of(assets.get(&fonts.text));
-            let laid = UiFace::lay(face, Lang::En, width, Detail::Full, &widths, plate);
+            let laid = UiFace::lay(face, lang, width, Detail::Full, &widths, plate);
             let em = laid.body.expect("a full face");
-            let model = body_depth(&body_blocks(face, Lang::En), em, width, &widths);
+            let model = body_depth(&body_blocks(face, lang), em, width, &widths);
             (laid, model)
         };
         let room = body_room(&laid.regions, laid.stats, &laid.sizes);
@@ -1707,7 +1707,7 @@ pub(crate) mod tests {
             })
             .id();
         let mut commands = app.world_mut().commands();
-        spawn_ui(&mut commands, card, Lang::En, face, &laid, fonts);
+        spawn_ui(&mut commands, card, lang, face, &laid, fonts);
         app.world_mut().flush();
         app.update();
         app.update();
@@ -1741,11 +1741,17 @@ pub(crate) mod tests {
     /// The first face of pool card `index`, with its English Oracle text,
     /// and the plate its corner would show.
     fn pool_face(index: usize) -> Option<(CardFace, u32)> {
+        pool_face_in(index, None)
+    }
+
+    /// [`pool_face`], with `text_in` (a language, and the card's rules text
+    /// in it) in place of the English Oracle where it is given.
+    fn pool_face_in(index: usize, text_in: Option<(&str, &str)>) -> Option<(CardFace, u32)> {
         use baylee_client_core::card_face::{CardText, Characteristics};
         let def =
             baylee_cards::by_index(baylee_core::ids::CardIndex::new(u32::try_from(index).ok()?))?;
         let printed = def.faces.first()?;
-        let oracle = baylee_cards::generated_oracle::ORACLE.get(index)?.first()?;
+        let oracle: &str = baylee_cards::generated_oracle::ORACLE.get(index)?.first()?;
         let chars = Characteristics {
             name: printed.name.to_owned(),
             types: printed.types,
@@ -1757,11 +1763,12 @@ pub(crate) mod tests {
             loyalty: printed.loyalty,
             damage: 0,
         };
+        let (lang, oracle) = text_in.unwrap_or(("en", oracle));
         let text = CardText {
-            lang: "en".to_owned(),
+            lang: lang.to_owned(),
             name: printed.name.to_owned(),
             type_line: String::new(),
-            oracle_text: (*oracle).to_owned(),
+            oracle_text: oracle.to_owned(),
             mana_cost: String::new(),
             english_name: printed.name.to_owned(),
         };
@@ -1807,7 +1814,7 @@ pub(crate) mod tests {
         for index in hardest_first().into_iter().take(40) {
             let (face, plate) = pool_face(index).expect("a pool card");
             for width in [231.0, 384.0, 480.0] {
-                let m = measure(&mut app, &fonts, &face, width, plate);
+                let m = measure(&mut app, &fonts, (&face, Lang::En), width, plate);
                 if m.fits {
                     fits += 1;
                     stepped += usize::from(m.fitted < m.own);
@@ -1829,17 +1836,48 @@ pub(crate) mod tests {
     /// How much of the pool's rules text still runs over at the floor, by
     /// bevy's layout, in English. A measurement and not a check: run it by
     /// name with `--ignored --nocapture`.
+    ///
+    /// In another language (#289): `BAYLEE_MEASURE_TEXTS` names a file of
+    /// `English name<TAB>rules text` lines (a newline in the text written
+    /// `\\n`), `BAYLEE_MEASURE_LANG` its language (`de` unless said), and
+    /// only the cards the file names are measured, in its words. The
+    /// catalog has them (`card_faces.printed_text` of the newest printing in
+    /// that language); nothing here reads the database.
     #[test]
     #[ignore = "a measurement over the whole pool; prints, asserts nothing"]
     fn how_much_of_the_pool_runs_over_at_the_floor() {
         let (mut app, fonts) = layout_app();
-        let cards: Vec<(CardFace, u32)> =
-            hardest_first().into_iter().filter_map(pool_face).collect();
+        let printed: Option<std::collections::BTreeMap<String, String>> =
+            std::env::var("BAYLEE_MEASURE_TEXTS").ok().map(|path| {
+                std::fs::read_to_string(path)
+                    .expect("the texts file")
+                    .lines()
+                    .filter_map(|line| line.split_once('\t'))
+                    .map(|(name, text)| (name.to_owned(), text.replace("\\n", "\n")))
+                    .collect()
+            });
+        let code = std::env::var("BAYLEE_MEASURE_LANG").unwrap_or_else(|_| "de".to_owned());
+        let lang = if printed.is_some() {
+            Lang::of(&code)
+        } else {
+            Lang::En
+        };
+        let cards: Vec<(CardFace, u32)> = hardest_first()
+            .into_iter()
+            .filter_map(|index| match &printed {
+                None => pool_face(index),
+                Some(texts) => {
+                    let (english, _) = pool_face(index)?;
+                    let text = texts.get(&english.name)?;
+                    pool_face_in(index, Some((&code, text)))
+                }
+            })
+            .collect();
         for width in [231.0, 384.0, 480.0] {
             let (mut over, mut own, mut worst) = (0, 0, 0.0_f32);
             let mut wrong = Vec::new();
             for (face, plate) in &cards {
-                let m = measure(&mut app, &fonts, face, width, *plate);
+                let m = measure(&mut app, &fonts, (face, lang), width, *plate);
                 over += usize::from(m.bar);
                 if m.fits && m.bar {
                     wrong.push(format!(

@@ -83,9 +83,12 @@ pub struct HandScroll;
 /// is kept here because the overlay rebuilds the preview on its own schedule,
 /// and a rebuilt text box would start at its top.
 ///
-/// The hand keeps its wheel: a hovered hand card's preview does not scroll,
-/// and a text that still runs over at ten pixels shows its scrollbar there
-/// and is read larger, on the table or in the deckbuilder.
+/// In the hand the wheel is the hand's (it scrolls the row sideways), with
+/// one exception (#289): an upright wheel over the hovered hand card scrolls
+/// its preview while that preview's text runs over, which its scrollbar
+/// shows. Text that fits leaves the wheel to the hand, so a mouse with one
+/// wheel still scrolls the hand over nearly every card, and a sideways
+/// wheel is always the hand's.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
 pub struct PreviewScroll {
     /// The card whose preview it is.
@@ -127,6 +130,7 @@ pub fn scrolls(
     parents: Query<&ChildOf>,
     mut panels: Query<Scrolled, (With<Scrolls>, Without<crate::face::FaceTextBox>)>,
     hand: Query<(), With<HandScroll>>,
+    hand_cards: Query<&HandCardVisual>,
     table: Query<&crate::table::CardVisual>,
     bars: Query<&crate::rowbar::RowBar>,
     mut previews: Query<Scrolled, With<crate::face::FaceTextBox>>,
@@ -162,20 +166,19 @@ pub fn scrolls(
                 // fits is left where it is, and nothing else takes the wheel
                 // instead.
                 if duel.hovered == Some(card.object) {
-                    for (mut position, computed) in &mut previews {
-                        position.y = scrolled(
-                            position.y,
-                            -travel,
-                            computed.size().y,
-                            computed.content_size().y,
-                            computed.inverse_scale_factor(),
-                        );
-                        *preview = PreviewScroll {
-                            object: Some(card.object),
-                            offset: position.y,
-                        };
-                    }
+                    wheel_the_preview(&mut previews, &mut preview, card.object, travel);
                 }
+                break;
+            }
+            // The hovered hand card, wheeled upright while its preview's
+            // text runs over: that text (#289). Otherwise the walk goes on
+            // up to the hand.
+            if let Ok(card) = hand_cards.get(entity)
+                && wheel.y.abs() >= wheel.x.abs()
+                && duel.hovered == Some(card.object)
+                && previews.iter().any(|(_, computed)| runs_over(computed))
+            {
+                wheel_the_preview(&mut previews, &mut preview, card.object, travel);
                 break;
             }
             if let Ok((mut position, computed)) = panels.get_mut(entity) {
@@ -225,6 +228,43 @@ pub fn scrolls(
             current = parents.get(entity).ok().map(ChildOf::parent);
         }
     }
+}
+
+/// Scrolls the preview of `object`, the card hovered, by `travel`, and keeps
+/// the offset for a rebuilt preview. At either end of the text it moves
+/// nothing, and nothing else takes the wheel.
+fn wheel_the_preview(
+    previews: &mut Query<Scrolled, With<crate::face::FaceTextBox>>,
+    preview: &mut PreviewScroll,
+    object: ObjectId,
+    travel: f32,
+) {
+    for (mut position, computed) in previews {
+        position.y = scrolled(
+            position.y,
+            -travel,
+            computed.size().y,
+            computed.content_size().y,
+            computed.inverse_scale_factor(),
+        );
+        *preview = PreviewScroll {
+            object: Some(object),
+            offset: position.y,
+        };
+    }
+}
+
+/// Whether a text box holds more than it shows: the predicate that puts its
+/// scrollbar up (`face::thumb`), so the wheel goes to the text exactly when
+/// the bar says there is more of it.
+fn runs_over(computed: &ComputedNode) -> bool {
+    let scale = computed.inverse_scale_factor();
+    crate::face::thumb(
+        computed.size().y * scale,
+        computed.content_size().y * scale,
+        0.0,
+    )
+    .is_some()
 }
 
 /// Scrolls a battlefield row by one wheel gesture: a line is a card, and
@@ -510,6 +550,54 @@ mod tests {
         wheel(&mut app, card, -1.0);
         assert!(app.world().resource::<Duel>().hand_scroll > 0.0);
         assert!(offset(&app, text).abs() < f32::EPSILON, "the text stayed");
+    }
+
+    /// The hovered hand card, in its bar, with its preview holding `content`
+    /// pixels of text in a box 100 deep.
+    fn hovered_hand_card(app: &mut App, content: f32) -> (Entity, Entity) {
+        let object = ObjectId::new(9, 0);
+        let bar = app.world_mut().spawn((Node::default(), HandScroll)).id();
+        let card = app
+            .world_mut()
+            .spawn((Node::default(), HandCardVisual { object }, ChildOf(bar)))
+            .id();
+        let text = preview_text(app, content);
+        app.world_mut().resource_mut::<Duel>().hovered = Some(object);
+        app.update();
+        (card, text)
+    }
+
+    /// (b2, #289) The hovered hand card's preview runs over: an upright
+    /// wheel scrolls its text, and the hand stays where it is; a sideways
+    /// one is still the hand's.
+    #[test]
+    fn an_upright_wheel_over_a_hand_card_whose_text_runs_over_scrolls_the_text() {
+        let mut app = app();
+        let (card, text) = hovered_hand_card(&mut app, 400.0);
+        wheel(&mut app, card, -1.0);
+        assert!(offset(&app, text) > 0.0, "the preview's text moved");
+        assert!(
+            app.world().resource::<Duel>().hand_scroll.abs() < f32::EPSILON,
+            "the hand did not"
+        );
+        let kept = offset(&app, text);
+        app.world_mut()
+            .resource_mut::<Messages<Pointer<Scroll>>>()
+            .write(aimed_both(card, -1.0, 0.0));
+        app.update();
+        assert!(app.world().resource::<Duel>().hand_scroll > 0.0, "sideways");
+        assert!((offset(&app, text) - kept).abs() < f32::EPSILON);
+    }
+
+    /// (b3, #289) Text that fits leaves the upright wheel to the hand, so a
+    /// one-wheel mouse scrolls the hand over nearly every card.
+    #[test]
+    fn a_wheel_over_a_hand_card_whose_text_fits_scrolls_the_hand() {
+        let mut app = app();
+        let (card, text) = hovered_hand_card(&mut app, 100.0);
+        wheel(&mut app, card, -1.0);
+        assert!(app.world().resource::<Duel>().hand_scroll > 0.0);
+        assert!(offset(&app, text).abs() < f32::EPSILON);
     }
 
     /// (c) A card whose text fits leaves the wheel inert: nothing moves,

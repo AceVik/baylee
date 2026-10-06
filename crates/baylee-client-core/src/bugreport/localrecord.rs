@@ -166,11 +166,115 @@ pub fn gzip(bytes: &[u8]) -> Vec<u8> {
     out.finish().unwrap_or_default()
 }
 
+/// What a kept record's file says once read back.
+///
+/// The client writes a game's record as it is played, one gzip member per
+/// step, appended (`records::LiveRecord`), so a client that crashes or is
+/// killed leaves every step but the one it died in. One such file read back
+/// as a single gzip stream (`gunzip`, [`flate2::read::MultiGzDecoder`]) is
+/// the record so far. Only a death in the middle of an append leaves a
+/// member cut short, and that tail is what [`read_back`] cuts.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReadBack {
+    /// Every member is whole: nothing to repair.
+    Whole,
+    /// The last member was cut short: the whole lines before the cut.
+    Torn(Vec<u8>),
+    /// Nothing past the header survived, or nothing at all: not a record
+    /// worth keeping.
+    Empty,
+}
+
+/// Reads a kept record's file back ([`ReadBack`]).
+#[must_use]
+pub fn read_back(gzip: &[u8]) -> ReadBack {
+    use std::io::Read as _;
+    let mut lines = Vec::new();
+    let whole = flate2::read::MultiGzDecoder::new(gzip)
+        .read_to_end(&mut lines)
+        .is_ok();
+    // A cut member may already have inflated part of a line: only the
+    // lines that end are the record.
+    let kept = lines
+        .iter()
+        .rposition(|b| *b == b'\n')
+        .map_or(0, |end| end + 1);
+    lines.truncate(kept);
+    let past_header = lines
+        .iter()
+        .position(|b| *b == b'\n')
+        .is_some_and(|end| end + 1 < lines.len());
+    match (whole, past_header) {
+        (true, _) if !gzip.is_empty() => ReadBack::Whole,
+        (_, true) => ReadBack::Torn(lines),
+        _ => ReadBack::Empty,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Read as _;
 
     use super::*;
+
+    /// A record written a member per step reads back whole as one stream;
+    /// cut anywhere inside its last member it reads back as the whole lines
+    /// before the cut, header included; cut inside the header it is no
+    /// record at all.
+    #[test]
+    fn a_record_cut_short_reads_back_as_its_whole_lines() {
+        let input =
+            r#"{"kind":"input","n":1,"at":0,"seat":1,"by":"seat","action":"Pass","hash":"02"}"#;
+        let mut file = gzip(RECORD.as_bytes());
+        let first = file.len();
+        file.extend(gzip(format!("{input}\n").as_bytes()));
+        assert_eq!(read_back(&file), ReadBack::Whole);
+        let mut stream = String::new();
+        flate2::read::MultiGzDecoder::new(&file[..])
+            .read_to_string(&mut stream)
+            .expect("one stream");
+        assert_eq!(stream, format!("{RECORD}{input}\n"));
+
+        // Cut in its deflate data, the last member gives no whole line; cut
+        // in its eight-byte trailer, its line is already whole, and kept.
+        let both = format!("{RECORD}{input}\n");
+        for cut in first + 1..file.len() {
+            let ReadBack::Torn(lines) = read_back(&file[..cut]) else {
+                panic!("cut at {cut} of {}: not torn", file.len())
+            };
+            assert!(
+                lines == RECORD.as_bytes() || lines == both.as_bytes(),
+                "cut at {cut} of {}: {}",
+                file.len(),
+                String::from_utf8_lossy(&lines)
+            );
+        }
+        assert_eq!(
+            read_back(&file[..=first]),
+            ReadBack::Torn(RECORD.as_bytes().to_vec()),
+            "cut just past the first member"
+        );
+        for cut in 0..first {
+            let header_only = gzip(
+                RECORD
+                    .lines()
+                    .next()
+                    .map(|h| format!("{h}\n"))
+                    .unwrap_or_default()
+                    .as_bytes(),
+            );
+            assert_eq!(read_back(&header_only), ReadBack::Whole);
+            assert!(
+                matches!(read_back(&file[..cut]), ReadBack::Empty | ReadBack::Torn(_)),
+                "cut at {cut}"
+            );
+            if let ReadBack::Torn(lines) = read_back(&file[..cut]) {
+                assert!(RECORD.as_bytes().starts_with(&lines), "cut at {cut}");
+            }
+        }
+        assert_eq!(read_back(&[]), ReadBack::Empty);
+        assert_eq!(read_back(b"not a gzip"), ReadBack::Empty);
+    }
 
     const RECORD: &str = concat!(
         r#"{"kind":"header","record":1,"build":"0.1.0","preset":{},"hash":"00"}"#,

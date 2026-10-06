@@ -44,6 +44,24 @@ pub(super) struct Hovered {
     /// Bumped whenever either changes, so the preview knows to redraw
     /// without comparing an image handle.
     epoch: u64,
+    /// What the pointer is over now, which is not always what is previewed:
+    /// on its way to a preview it crosses other rows (#289).
+    under: Under,
+    /// Where the pointer last was on the row being previewed: the corner of
+    /// the way to its preview.
+    apex: Option<Vec2>,
+}
+
+/// What the pointer is over, as the picking messages last said.
+#[derive(Default, Clone, PartialEq)]
+enum Under {
+    /// Nothing that previews.
+    #[default]
+    Nothing,
+    /// A row with a card behind it, and where the pointer came onto it.
+    Row(Entity, HoverCard, Vec2),
+    /// The preview itself.
+    Preview,
 }
 
 /// The preview node itself.
@@ -52,14 +70,32 @@ pub(super) struct CardPreview {
     canvas: Vec2,
     /// The epoch this node was drawn for.
     epoch: u64,
+    /// Where it stands, in logical pixels.
+    rect: Rect,
+    /// Whether the pointer may go onto it (#289): a text face, whose rules
+    /// text may run over and is scrolled by a wheel over it. A picture has
+    /// nothing to scroll, and stays out of the pointer's way.
+    takes_pointer: bool,
 }
 
-/// Tracks which row the pointer is over.
+/// Tracks which row the pointer is over, and keeps a text face's preview
+/// while the pointer travels onto it (#289).
+///
+/// The preview stands beside the pointer, so on the way to it the pointer
+/// crosses the rows above or below its own. Those are passed over while the
+/// pointer is inside the triangle between where it last was on its row and
+/// the preview's near edge, the way a menu lets a pointer cut across to its
+/// submenu: heading for the preview, it keeps the card; turning away, the
+/// row under it takes over at once. Straight down a list is never inside
+/// that triangle, so reading down the pool is as quick as it was.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn hovers(
     mut overs: MessageReader<Pointer<Over>>,
     mut outs: MessageReader<Pointer<Out>>,
     cards: Query<&HoverCard>,
     parents: Query<&ChildOf>,
+    previews: Query<&CardPreview>,
+    windows: Query<&Window>,
     mut hovered: ResMut<Hovered>,
     state: Res<LobbyState>,
 ) {
@@ -70,39 +106,137 @@ pub(super) fn hovers(
         overs.clear();
         outs.clear();
         hovered.source = None;
+        hovered.under = Under::Nothing;
+        hovered.apex = None;
         if hovered.card.take().is_some() {
             hovered.epoch = hovered.epoch.wrapping_add(1);
         }
         return;
     }
-    let mut next = hovered.card.clone();
-    let mut source = hovered.source;
+    let is_preview = |entity: Entity| lineage(entity, &parents).any(|e| previews.contains(e));
+    let mut under = hovered.under.clone();
+    if let Under::Row(entity, ..) = under
+        && cards.get(entity).is_err()
+    {
+        under = Under::Nothing;
+    }
+    for out in outs.read() {
+        let left = match &under {
+            Under::Row(entity, ..) => lineage_card(out.entity, &cards, &parents)
+                .is_some_and(|(found, _)| found == *entity),
+            Under::Preview => is_preview(out.entity),
+            Under::Nothing => false,
+        };
+        if left {
+            under = Under::Nothing;
+        }
+    }
+    for over in overs.read() {
+        if is_preview(over.entity) {
+            under = Under::Preview;
+        } else if let Some((entity, card)) = lineage_card(over.entity, &cards, &parents) {
+            under = Under::Row(entity, card.clone(), over.pointer_location.position);
+        }
+    }
+
+    let cursor = windows.iter().next().and_then(Window::cursor_position);
+    // The preview drawn for the card shown now, if the pointer may go to it.
+    let reach = previews
+        .iter()
+        .find(|p| p.takes_pointer && p.epoch == hovered.epoch && hovered.card.is_some())
+        .map(|p| p.rect);
+    let (mut next, mut source, mut at) = (hovered.card.clone(), hovered.source, hovered.at);
     if source.is_some_and(|entity| cards.get(entity).is_err()) {
         next = None;
         source = None;
     }
-    let mut at = hovered.at;
-    for out in outs.read() {
-        if lineage_card(out.entity, &cards, &parents)
-            .is_some_and(|(entity, _)| Some(entity) == source)
-        {
+    match &under {
+        // On the preview, or back on its own row: the card stays.
+        Under::Preview => {}
+        Under::Row(entity, ..) if Some(*entity) == source => hovered.apex = cursor,
+        _ if travelling(hovered.apex, cursor, reach) => {}
+        Under::Row(entity, card, entered) => {
+            next = Some(card.clone());
+            source = Some(*entity);
+            at = *entered;
+            hovered.apex = cursor.or(Some(*entered));
+        }
+        Under::Nothing => {
             next = None;
             source = None;
+            hovered.apex = None;
         }
     }
-    for over in overs.read() {
-        if let Some((entity, card)) = lineage_card(over.entity, &cards, &parents) {
-            source = Some(entity);
-            next = Some(card.clone());
-            at = over.pointer_location.position;
-        }
-    }
+    hovered.under = under;
     let moved = source != hovered.source;
     hovered.source = source;
     if next != hovered.card || moved {
         hovered.card = next;
         hovered.at = at;
         hovered.epoch = hovered.epoch.wrapping_add(1);
+    }
+}
+
+/// Whether a pointer at `cursor` is on its way from `apex` to the preview
+/// standing at `reach`: inside the triangle between the two (a few pixels
+/// wider, for a hand that is not a ruler), or on the preview already.
+fn travelling(apex: Option<Vec2>, cursor: Option<Vec2>, reach: Option<Rect>) -> bool {
+    /// How much wider than the preview the triangle's far side is.
+    const SLACK: f32 = 12.0;
+    let (Some(apex), Some(cursor), Some(rect)) = (apex, cursor, reach) else {
+        return false;
+    };
+    if rect.contains(cursor) {
+        return true;
+    }
+    let edge = if rect.min.x >= apex.x {
+        rect.min.x
+    } else {
+        rect.max.x
+    };
+    let top = Vec2::new(edge, rect.min.y - SLACK);
+    let foot = Vec2::new(edge, rect.max.y + SLACK);
+    // The same side of all three edges, by the sign of each cross product.
+    let side = |a: Vec2, b: Vec2| (b - a).perp_dot(cursor - a);
+    let signs = [side(apex, top), side(top, foot), side(foot, apex)];
+    signs.iter().all(|s| *s >= 0.0) || signs.iter().all(|s| *s <= 0.0)
+}
+
+/// `entity` and every ancestor above it, nearest first.
+fn lineage<'a>(entity: Entity, parents: &'a Query<&ChildOf>) -> impl Iterator<Item = Entity> + 'a {
+    std::iter::successors(Some(entity), move |e| {
+        parents.get(*e).ok().map(ChildOf::parent)
+    })
+}
+
+/// Scrolls a preview's rules text under a wheel over the preview (#289):
+/// the wheel scrolls what is under the pointer, and once the pointer is on
+/// a text face's preview, that is its text.
+pub(super) fn scroll_the_preview(
+    mut wheels: MessageReader<Pointer<Scroll>>,
+    parents: Query<&ChildOf>,
+    previews: Query<(), With<CardPreview>>,
+    mut boxes: Query<(Entity, &mut ScrollPosition, &ComputedNode), With<crate::face::FaceTextBox>>,
+) {
+    for wheel in wheels.read() {
+        let Some(preview) = lineage(wheel.entity, &parents).find(|e| previews.contains(*e)) else {
+            continue;
+        };
+        let travel = match wheel.unit {
+            bevy::input::mouse::MouseScrollUnit::Line => wheel.y * super::systems::WHEEL_LINE,
+            bevy::input::mouse::MouseScrollUnit::Pixel => wheel.y,
+        };
+        for (text_box, mut position, computed) in &mut boxes {
+            if lineage(text_box, &parents).any(|e| e == preview) {
+                position.y = crate::hud::scrolled(
+                    position.y,
+                    -travel,
+                    computed.size().y,
+                    computed.content_size().y,
+                    computed.inverse_scale_factor(),
+                );
+            }
+        }
     }
 }
 
@@ -235,20 +369,8 @@ pub(super) fn preview(
         assets: &mut store,
     };
 
-    // Big enough to read the art, small enough to leave the list visible.
-
-    let (w, h) = (canvas.x, canvas.y);
-    let height = (h * 0.65).clamp(280.0, 520.0).min((h - 32.0).max(100.0));
-    let width = height * baylee_client_core::layout::CARD_ASPECT;
-    // Beside the pointer, flipped to the other side when there is no room
-    // and clamped so a row near the bottom does not push it off screen.
-    let left = if hovered.at.x + width + 32.0 < w {
-        hovered.at.x + 24.0
-    } else {
-        (hovered.at.x - width - 24.0).max(8.0)
-    };
-    let left = left.min((w - width - 8.0).max(8.0));
-    let top = (hovered.at.y - height / 2.0).clamp(8.0, (h - height - 8.0).max(8.0));
+    let rect = place(hovered.at, canvas);
+    let (left, top, width, height) = (rect.min.x, rect.min.y, rect.width(), rect.height());
 
     // The frame that turns: it holds the position and the scale, and each
     // face fills it. Two nodes rather than one swapped material, so the back
@@ -258,6 +380,8 @@ pub(super) fn preview(
             CardPreview {
                 canvas,
                 epoch: hovered.epoch,
+                rect,
+                takes_pointer: text.is_some(),
             },
             crate::flip::Flip::default(),
             Node {
@@ -276,8 +400,15 @@ pub(super) fn preview(
                 px(28),
             ),
             GlobalZIndex(600),
-            // A preview must never eat the click that would add the card.
-            Pickable::IGNORE,
+            // A picture is passed over by the pointer. A text face takes it
+            // (#289), so its rules text can be scrolled; it stands beside
+            // the pointer and never over the row it previews, so it never
+            // eats the click that would add the card.
+            if text.is_some() {
+                Pickable::default()
+            } else {
+                Pickable::IGNORE
+            },
         ))
         .id();
 
@@ -321,6 +452,26 @@ pub(super) fn preview(
         baylee_client_core::images::back_url(baylee_client_core::images::ArtSize::Normal)
     });
     face(&back, crate::flip::Side::Back);
+}
+
+/// Where the preview of a row the pointer came onto at `at` stands, in a
+/// window of `canvas` logical pixels.
+///
+/// Big enough to read the art, small enough to leave the list visible;
+/// beside the pointer, flipped to the other side when there is no room, and
+/// clamped so a row near the bottom does not push it off screen.
+fn place(at: Vec2, canvas: Vec2) -> Rect {
+    let (w, h) = (canvas.x, canvas.y);
+    let height = (h * 0.65).clamp(280.0, 520.0).min((h - 32.0).max(100.0));
+    let width = height * baylee_client_core::layout::CARD_ASPECT;
+    let left = if at.x + width + 32.0 < w {
+        at.x + 24.0
+    } else {
+        (at.x - width - 24.0).max(8.0)
+    };
+    let left = left.min((w - width - 8.0).max(8.0));
+    let top = (at.y - height / 2.0).clamp(8.0, (h - height - 8.0).max(8.0));
+    Rect::new(left, top, left + width, top + height)
 }
 
 /// Takes the preview down when the builder does.
@@ -480,6 +631,237 @@ mod tests {
         assert!(app.world().resource::<Hovered>().card.is_some());
     }
 
+    /// The builder's hover, with a window whose pointer the test moves.
+    fn hover_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<LobbyState>()
+            .init_resource::<Hovered>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Out>>()
+            .add_systems(Update, hovers);
+        let window = app.world_mut().spawn(Window::default()).id();
+        (app, window)
+    }
+
+    /// Moves the pointer to `at`, says it left `from` and came onto `onto`
+    /// (either may be nothing), and runs a frame.
+    fn step(
+        app: &mut App,
+        window: Entity,
+        at: Vec2,
+        from: Option<Entity>,
+        onto: Option<Entity>,
+    ) -> u64 {
+        use bevy::picking::pointer::{Location, PointerId};
+        let location = Location {
+            target: bevy::camera::NormalizedRenderTarget::Window(
+                bevy::window::WindowRef::Entity(window)
+                    .normalize(None)
+                    .unwrap(),
+            ),
+            position: at,
+        };
+        let hit = bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .set_cursor_position(Some(at));
+        if let Some(from) = from {
+            app.world_mut().write_message(Pointer::new(
+                PointerId::Mouse,
+                location.clone(),
+                Out { hit: hit.clone() },
+                from,
+            ));
+        }
+        if let Some(onto) = onto {
+            app.world_mut().write_message(Pointer::new(
+                PointerId::Mouse,
+                location,
+                Over { hit },
+                onto,
+            ));
+        }
+        app.update();
+        app.world().resource::<Hovered>().epoch
+    }
+
+    /// Stands a preview for the card hovered now, as `preview` would.
+    fn stand_preview(app: &mut App, rect: Rect, takes_pointer: bool) -> Entity {
+        let epoch = app.world().resource::<Hovered>().epoch;
+        app.world_mut()
+            .spawn(CardPreview {
+                canvas: Vec2::new(1280.0, 800.0),
+                epoch,
+                rect,
+                takes_pointer,
+            })
+            .id()
+    }
+
+    fn source(app: &App) -> Option<Entity> {
+        app.world().resource::<Hovered>().source
+    }
+
+    /// #289: a text face's preview keeps its card while the pointer cuts
+    /// across the rows between it and the preview, and on the preview; off
+    /// the preview, onto nothing, it goes. The preview stands where it was
+    /// drawn throughout: its card's epoch never moves.
+    #[test]
+    fn a_text_preview_keeps_its_card_while_the_pointer_travels_onto_it() {
+        let (mut app, window) = hover_app();
+        let art = hover_of_card(&row(false, false));
+        let first = app.world_mut().spawn(art.clone()).id();
+        let second = app.world_mut().spawn(art).id();
+        let start = Vec2::new(100.0, 100.0);
+        let epoch = step(&mut app, window, start, None, Some(first));
+        assert_eq!(source(&app), Some(first));
+        let preview = stand_preview(&mut app, Rect::new(124.0, -50.0, 424.0, 350.0), true);
+
+        // Diagonally towards it, over the next row: still the first card.
+        let crossing = Vec2::new(110.0, 130.0);
+        assert_eq!(
+            step(&mut app, window, crossing, Some(first), Some(second)),
+            epoch
+        );
+        assert_eq!(source(&app), Some(first), "the row crossed on the way");
+        // On the preview.
+        let on = Vec2::new(150.0, 130.0);
+        assert_eq!(
+            step(&mut app, window, on, Some(second), Some(preview)),
+            epoch
+        );
+        assert_eq!(source(&app), Some(first), "on the preview");
+        // Off it, onto nothing and away from it: gone.
+        step(
+            &mut app,
+            window,
+            Vec2::new(500.0, 600.0),
+            Some(preview),
+            None,
+        );
+        assert_eq!(source(&app), None);
+        assert!(app.world().resource::<Hovered>().card.is_none());
+    }
+
+    /// The other side of the same rule: straight down the list is never on
+    /// the way to the preview, so the next row takes over at once; and a
+    /// pointer that turns away while over a crossed row lands on that row.
+    #[test]
+    fn a_pointer_that_is_not_heading_for_the_preview_moves_on_at_once() {
+        let (mut app, window) = hover_app();
+        let art = hover_of_card(&row(false, false));
+        let first = app.world_mut().spawn(art.clone()).id();
+        let second = app.world_mut().spawn(art).id();
+        step(&mut app, window, Vec2::new(100.0, 100.0), None, Some(first));
+        stand_preview(&mut app, Rect::new(124.0, -50.0, 424.0, 350.0), true);
+        step(
+            &mut app,
+            window,
+            Vec2::new(100.0, 130.0),
+            Some(first),
+            Some(second),
+        );
+        assert_eq!(source(&app), Some(second), "straight down");
+
+        let (mut app, window) = hover_app();
+        let art = hover_of_card(&row(false, false));
+        let first = app.world_mut().spawn(art.clone()).id();
+        let second = app.world_mut().spawn(art).id();
+        step(&mut app, window, Vec2::new(100.0, 100.0), None, Some(first));
+        stand_preview(&mut app, Rect::new(124.0, -50.0, 424.0, 350.0), true);
+        step(
+            &mut app,
+            window,
+            Vec2::new(110.0, 130.0),
+            Some(first),
+            Some(second),
+        );
+        assert_eq!(source(&app), Some(first), "heading for it");
+        // Turned back left, still over the crossed row: no new message, and
+        // the row under the pointer takes over.
+        step(&mut app, window, Vec2::new(80.0, 132.0), None, None);
+        assert_eq!(source(&app), Some(second), "turned away");
+    }
+
+    /// A picture's preview takes no pointer, so nothing is kept for it.
+    #[test]
+    fn a_picture_preview_keeps_nothing_on_the_way() {
+        let (mut app, window) = hover_app();
+        let art = hover_of_card(&row(false, false));
+        let first = app.world_mut().spawn(art.clone()).id();
+        let second = app.world_mut().spawn(art).id();
+        step(&mut app, window, Vec2::new(100.0, 100.0), None, Some(first));
+        stand_preview(&mut app, Rect::new(124.0, -50.0, 424.0, 350.0), false);
+        step(
+            &mut app,
+            window,
+            Vec2::new(110.0, 130.0),
+            Some(first),
+            Some(second),
+        );
+        assert_eq!(source(&app), Some(second));
+    }
+
+    /// A wheel over the preview scrolls its own rules text (#289), and no
+    /// other text box.
+    #[test]
+    fn a_wheel_over_a_preview_scrolls_its_text() {
+        use bevy::picking::pointer::{Location, PointerId};
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<Pointer<Scroll>>()
+            .add_systems(Update, scroll_the_preview);
+        let text_box = || {
+            (
+                crate::face::FaceTextBox,
+                ScrollPosition::default(),
+                ComputedNode {
+                    size: Vec2::new(200.0, 100.0),
+                    content_size: Vec2::new(200.0, 400.0),
+                    ..default()
+                },
+            )
+        };
+        let preview = app
+            .world_mut()
+            .spawn(CardPreview {
+                canvas: Vec2::ZERO,
+                epoch: 0,
+                rect: Rect::default(),
+                takes_pointer: true,
+            })
+            .id();
+        let face = app.world_mut().spawn(ChildOf(preview)).id();
+        let inside = app.world_mut().spawn((text_box(), ChildOf(face))).id();
+        let elsewhere = app.world_mut().spawn(text_box()).id();
+        let window = app.world_mut().spawn(Window::default()).id();
+        app.world_mut().write_message(Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: bevy::camera::NormalizedRenderTarget::Window(
+                    bevy::window::WindowRef::Entity(window)
+                        .normalize(None)
+                        .unwrap(),
+                ),
+                position: Vec2::ZERO,
+            },
+            Scroll {
+                unit: bevy::input::mouse::MouseScrollUnit::Line,
+                x: 0.0,
+                y: -1.0,
+                hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                phase: bevy::input::touch::TouchPhase::Moved,
+            },
+            preview,
+        ));
+        app.update();
+        let at = |e: Entity| app.world().get::<ScrollPosition>(e).unwrap().y;
+        assert!(at(inside) > 0.0, "the preview's text moved");
+        assert!(at(elsewhere).abs() < f32::EPSILON, "and nothing else");
+    }
+
     #[test]
     fn resizing_the_window_repositions_a_stationary_preview() {
         let mut app = App::new();
@@ -577,6 +959,14 @@ mod tests {
             .iter(world)
             .count()
             > 0;
+        // A text face takes the pointer (#289), and a picture never does.
+        let (preview, pickable) = world
+            .query::<(&CardPreview, &Pickable)>()
+            .single(world)
+            .expect("one preview");
+        assert_eq!(preview.takes_pointer, text_box);
+        assert_eq!(pickable.should_block_lower, text_box);
+        assert_eq!(pickable.is_hoverable, text_box);
         let fronts: Vec<_> = world
             .query::<(&crate::flip::Side, &MaterialNode<CardUiMaterial>)>()
             .iter(world)

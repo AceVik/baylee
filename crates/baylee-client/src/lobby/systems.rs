@@ -1700,7 +1700,7 @@ pub(super) fn clicks(
 const DRAG_SLOP: f32 = 8.0;
 
 /// What one line of wheel travel moves a list, in logical pixels.
-const WHEEL_LINE: f32 = 32.0;
+pub(super) const WHEEL_LINE: f32 = 32.0;
 
 /// A list that scrolls its own contents, and which one it is.
 ///

@@ -2420,7 +2420,11 @@ takes no hover from the card it is drawn on.
   cards in English, the text still runs over at 10 px on 3.2% of them in a
   308-pixel preview, on 26.8% at a preview scale of 0.75 (231 pixels), and
   on one card at 372 (`how_much_of_the_pool_runs_over_at_the_floor`,
-  ignored; run it by name). German runs longer.
+  ignored; run it by name). German runs longer (#289; 06.10.2026, at the
+  test's 231, 384 and 480 pixels): English over the pool's 3287 cards runs
+  over on 34.2%, 2.6% and 0.0% (one card); the German printed text of the
+  2920 that have a German printing (`BAYLEE_MEASURE_TEXTS`, read out of the
+  catalog) on 48.2%, 7.0% and 0.4% (12 cards).
 - **The fit is a model of the layout, held to the layout.** It cannot wait
   for bevy to lay the text out, because the material is keyed before
   anything is spawned. So `manaui::rich_depth` models how `rich` sets a
@@ -2444,11 +2448,17 @@ takes no hover from the card it is drawn on.
   again when the hover moves to another card or off every card
   (`follow_the_hover`). A card whose text fits leaves the wheel inert; it
   nudges nothing else. The hand keeps its wheel
-  (§"Table presentation", `hud::scroll`).
-- **Known limit:** a hovered *hand* card whose text still runs over at 10 px
-  shows its scrollbar in the preview and cannot be scrolled there, because
-  the wheel over the hand scrolls the hand. The ways out are a larger preview
-  (`preview_scale` in the settings) or the same card on the table.
+  (§"Table presentation", `hud::scroll`), with one exception (#289).
+- **A hand card's preview scrolls while its text runs over.** An upright
+  wheel over the hovered hand card scrolls its preview's text exactly while
+  that text runs over, which is when its scrollbar shows (`runs_over` asks
+  `face::thumb`, the bar's own predicate), and stops at either end of the
+  text like any list. Text that fits leaves the upright wheel to the hand,
+  so a mouse with one wheel still scrolls the hand over nearly every card,
+  and a sideways wheel is always the hand's. The alternative, the hand
+  preview taking the pointer as the builder's does, was not taken: the
+  preview stands above the shelf, and the way to it crosses the shelf's own
+  controls.
 - **A card in hand draws the short face** (`Detail::Compact`): name, cost
   and type line, no rules text. At the hand's 92 pixels that text would be
   six pixels, under the ten-pixel floor, and hovering the card opens the
@@ -3751,9 +3761,20 @@ language — on the printed card's body out of the registry. A gateway with no
 catalog serves no rules text, and the face then carries the English Oracle
 (`generated_oracle::ORACLE`), never an empty box. The rules text steps down to
 10 px as it does on the table and shows its scrollbar past that
-(`face::show_scrollbars` runs in the lobby too), but does not scroll: the
-preview follows the pointer and is never under it, and the wheel over the list
-scrolls the list. The back stays a picture, the printing's or the card back.
+(`face::show_scrollbars` runs in the lobby too), and it scrolls (#289): a text
+face's preview takes the pointer (a picture's does not, and stays out of its
+way), the hover survives the pointer moving onto it, and a wheel over it
+scrolls its text (`preview::scroll_the_preview`). It stands beside the
+pointer and never over the row it previews, so it never eats the click that
+adds the card. On the way to it the pointer crosses the rows above or below
+its own, and those are passed over while the pointer is inside the triangle
+between where it last was on its row and the preview's near edge
+(`preview::travelling`, the way a menu lets a pointer cut across to its
+submenu): heading for the preview it keeps the card, and the preview stays
+where it stands; turning away, the row under the pointer takes over at once.
+Straight down a list is never inside the triangle, so reading down the pool
+is as quick as before. The back stays a picture, the printing's or the card
+back.
 The held modifier that turns a table card to its text is not read here. A
 preview whose picture is still on its way waits for it, as before, rather than
 drawing the text face in the meantime.
@@ -4065,12 +4086,21 @@ is three things that say what is happening:
   not what is owed, and stops short of what declining costs, because whether
   it is a countered spell or an unpaid tax is the engine's sentence.
 - **The number**, beside the mana pool rather than in the shelf's middle
-  column. `Owed {2}{G}` and `have {G}` then stand in one register at one
-  scale, drawn by the same `manapip`, so a player subtracts them by looking
-  instead of converting first. The strip is hidden while nothing floats, and
-  the first frame of a payment window is exactly that case, so `owed` is a
-  fourth conjunct on its `empty` gate — otherwise the row saying what is owed
-  would unfold only after the player had worked it out.
+  column, in one register and scale with the pool, drawn by the same
+  `manapip`. It is the **remainder**, not the cost: `manaplan::remainder`
+  subtracts the pool by the planner's own matching (a hybrid by either half,
+  `{2/C}` the cheaper way, a CR 609.4b spending permission counted,
+  restricted mana not, as in the planner), so `{2}{G}` owed with a Forest
+  tapped by hand says `Owed {2}`, and paid in full `Owed {0}` until the pass
+  settles the window. One matching for the strip and the pay button, so the
+  two cannot disagree about what the pool covers
+  (`nothing_is_owed_exactly_when_the_pool_pays_without_a_tap`). It is drawn
+  only in this seat's own window (`view.awaiting == view.seat`): a seat
+  watching an opponent pay a ward tax is owed nothing from its own pool. The
+  strip is hidden while nothing floats, and the first frame of a payment
+  window is exactly that case, so `owed` is a fourth conjunct on its `empty`
+  gate — otherwise the row saying what is owed would unfold only after the
+  player had worked it out.
 - **The lands**, through the planner unchanged. `manaplan::plan` takes a cost
   it did not derive and spends the pool first by its own contract, so passing
   `owed` — which is the *total*, not the remainder — needs no arithmetic here
@@ -7521,10 +7551,19 @@ no encoder and takes none.
 through `Session::new_recorded`, so a game against the house is recorded
 as a hosted engine records one; the host takes the session's lines after
 every step (`DuelHost::local_record`, `None` for a networked host) and
-`crate::records::keep` writes them gzipped to `records/` beside the
-settings when the game ends or the host is dropped, then deletes the
-oldest past `bugreport::retention` (20 games, 64 MiB). A browser keeps
-none. `gather` packs the record once per opening (`LocalRecord::pack`:
+`crate::records::LiveRecord` appends each step's lines at once to
+`records/` beside the settings, one gzip member per step (members one
+after another are one gzip stream, as the engine's record pieces are), so
+a crash, which a release build answers with an abort and no `Drop`, loses
+at most the step it happened in. At the game's end or when the host is
+dropped the file is rewritten as one member, and the oldest past
+`bugreport::retention` (20 games, 64 MiB) are deleted. The writer holds an
+advisory lock on its file; at start `records::recover` cuts a file a crash
+tore in the middle of an append back to its whole lines
+(`bugreport::read_back`), removes one with nothing past its header, and
+leaves alone a file another running client holds. The crash courier does
+not carry the record: a record leaves only with a report it was ticked
+for. A browser keeps none. `gather` packs the record once per opening (`LocalRecord::pack`:
 gzip and base64 then, never per keystroke) and the form offers it in a box
 unticked at every opening (`ReportForm::opened`), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record

@@ -222,10 +222,9 @@ pub struct LocalHost {
     /// The game's record so far: the same JSON Lines a hosted game's engine
     /// writes (#315), taken from the session after every step.
     record: Vec<u8>,
-    /// Its file among the kept records (`crate::records`).
-    record_name: String,
-    /// Whether that file holds the record as it stands.
-    record_kept: bool,
+    /// Its file among the kept records, written step by step
+    /// (`crate::records`).
+    live: crate::records::LiveRecord,
 }
 
 impl LocalHost {
@@ -247,15 +246,17 @@ impl LocalHost {
             statics: Some(statics),
             pending_out: Vec::new(),
             record: Vec::new(),
-            record_name: baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed),
-            record_kept: false,
+            live: crate::records::LiveRecord::new(
+                &baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed),
+            ),
         };
         host.take_the_record();
         Some(host)
     }
 
-    /// Takes what the session recorded since the last step; keeps the file
-    /// the moment the game is over.
+    /// Takes what the session recorded since the last step and puts it on
+    /// disk at once, so a crash loses at most the step it happened in; the
+    /// moment the game is over the file is finished.
     fn take_the_record(&mut self) {
         let fresh = self.session.take_record();
         if fresh.is_empty() {
@@ -265,25 +266,11 @@ impl LocalHost {
             .split(|b| *b == b'\n')
             .any(|line| line.starts_with(br#"{"kind":"end""#));
         self.record.extend_from_slice(&fresh);
-        self.record_kept = false;
         if ended {
-            self.keep_the_record();
+            self.live.finish(&self.record);
+        } else {
+            self.live.write(&self.record);
         }
-    }
-
-    /// Writes the record to its file, if it moved past its header since the
-    /// last write: a game nobody played a step of is not worth a file.
-    fn keep_the_record(&mut self) {
-        let past_header = self
-            .record
-            .iter()
-            .position(|b| *b == b'\n')
-            .is_some_and(|end| end + 1 < self.record.len());
-        if self.record_kept || !past_header {
-            return;
-        }
-        crate::records::keep(&self.record_name, &self.record);
-        self.record_kept = true;
     }
 
     /// Decodes the session's envelopes for this seat.
@@ -369,11 +356,12 @@ impl DuelHost for LocalHost {
 }
 
 /// A game left before its end is kept as far as it went: the table closed,
-/// the lobby took another, or the client is quitting.
+/// the lobby took another, or the client is quitting. Its steps are on disk
+/// already; this compacts them into one gzip member.
 impl Drop for LocalHost {
     fn drop(&mut self) {
         self.take_the_record();
-        self.keep_the_record();
+        self.live.finish(&self.record);
     }
 }
 

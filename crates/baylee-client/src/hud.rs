@@ -55,6 +55,8 @@ use bevy::prelude::*;
 /// carries all of them. Both families are OFL 1.1 with no Reserved Font
 /// Name; see `NOTICE` and `assets/fonts/licenses/`.
 #[derive(Resource, Clone)]
+// A test's fonts are default handles: nothing it asserts is a glyph's shape.
+#[cfg_attr(test, derive(Default))]
 pub struct UiFonts {
     /// Interface text (Alegreya Sans Regular).
     pub text: Handle<Font>,
