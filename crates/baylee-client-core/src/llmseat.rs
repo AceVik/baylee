@@ -22,8 +22,8 @@
 //! here reads a clock: the ledger is handed the moment
 //! ([`ledger::Moment`]).
 
-#[cfg(not(target_arch = "wasm32"))]
 pub mod clis;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod desk;
 pub mod ledger;
 pub mod panel;
