@@ -7,6 +7,7 @@
 
 use crate::apply::{self, Claim, Install, Staged};
 use crate::plan::{NEW, Os};
+use crate::translocation::{self, Status, Translocation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use std::fs;
@@ -227,17 +228,101 @@ pub fn take_updated(install: &Install) -> io::Result<Option<String>> {
     Ok(Some(current.to))
 }
 
+/// Why a session may not install updates automatically.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Blocked {
+    /// The original package's folder cannot be written by this user: an
+    /// installation someone else manages (`/Applications` set up by an
+    /// administrator, a root-owned `/opt`, a read-only volume).
+    ReadOnly {
+        /// The folder the probe was made in.
+        folder: PathBuf,
+        /// What the system answered.
+        error: String,
+    },
+    /// macOS runs a translocated copy and would not say of what, so no
+    /// state key would survive the next start.
+    Translocated,
+}
+
+/// Where the original package really is, and whether this user's session
+/// may install updates for it ([`placement`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Placement {
+    /// The original package (bundle or program), where it lies: under App
+    /// Translocation the one the player unpacked, not the mount. `None`
+    /// only when macOS would not say.
+    pub original: Option<PathBuf>,
+    /// Why automatic installation is off, or `None` when it is allowed.
+    pub blocked: Option<Blocked>,
+    /// Whether macOS runs it from a translocation mount.
+    pub translocated: bool,
+}
+
+/// Where the package at `install` really is, and whether updates may be
+/// installed for it.
+///
+/// Updates never write the original package (they live in the per-user
+/// state directory), so its folder's writability is a policy, not a need:
+/// a folder this user cannot write is someone else's to manage, and is
+/// left to them. An app macOS translocates is one this user downloaded and
+/// never moved, so it is theirs: its updates are allowed, keyed by the
+/// original bundle ([`in_state_root_of`]), which survives the next start
+/// where the randomised mount would not. Its folder is not probed: that is
+/// usually `~/Downloads`, which macOS guards with a privacy prompt.
+#[must_use]
+pub fn placement(install: &Install, translocation: &dyn Translocation) -> Placement {
+    let package = install.base.join(&install.program);
+    let in_place = || Placement {
+        original: Some(package.clone()),
+        blocked: probe(&install.base).err().map(|err| Blocked::ReadOnly {
+            folder: install.base.clone(),
+            error: err.to_string(),
+        }),
+        translocated: false,
+    };
+    if install.os != Os::MacOs {
+        return in_place();
+    }
+    match translocation.status(&package) {
+        Status::InPlace => in_place(),
+        Status::From(original) => Placement {
+            original: Some(original),
+            blocked: None,
+            translocated: true,
+        },
+        Status::Unknown => Placement {
+            original: None,
+            blocked: Some(Blocked::Translocated),
+            translocated: true,
+        },
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct Session {
     install: Install,
     token: uuid::Uuid,
+    /// Read by every runtime, the oldest included: keep it.
     writable: bool,
+    /// The rest came after the launcher first shipped. A launcher that
+    /// predates them sends none, and is permanent in its package, so a
+    /// runtime reads their absence as "not said".
+    #[serde(default)]
+    blocked: Option<Blocked>,
+    #[serde(default)]
+    original: Option<PathBuf>,
+    #[serde(default)]
+    translocated: bool,
 }
 
 /// A runtime's shared lifetime lease. Also survives an orphaned launcher.
 pub struct ClientLease {
     _file: fs::File,
     writable: bool,
+    blocked: Option<Blocked>,
+    original: Option<PathBuf>,
+    translocated: bool,
 }
 
 impl ClientLease {
@@ -245,6 +330,24 @@ impl ClientLease {
     #[must_use]
     pub fn writable(&self) -> bool {
         self.writable
+    }
+
+    /// Why it is not, when the launcher said (one that predates this does not).
+    #[must_use]
+    pub fn blocked(&self) -> Option<&Blocked> {
+        self.blocked.as_ref()
+    }
+
+    /// The original package, where it lies, when the launcher said.
+    #[must_use]
+    pub fn original(&self) -> Option<&Path> {
+        self.original.as_deref()
+    }
+
+    /// Whether macOS runs the original from a translocation mount.
+    #[must_use]
+    pub fn translocated(&self) -> bool {
+        self.translocated
     }
 }
 
@@ -254,10 +357,38 @@ impl ClientLease {
 /// The installation path must exist and be canonicalizable.
 pub fn in_state_root(install: &Install, root: &Path) -> io::Result<Install> {
     let path = fs::canonicalize(install.base.join(&install.program))?;
-    let digest = Sha256::digest(path.as_os_str().as_encoded_bytes());
+    Ok(keyed(install, root, &path))
+}
+
+/// [`in_state_root`], keyed by where the original package really is
+/// ([`Placement::original`]): the same key whether macOS runs it in place
+/// or from a translocation mount, so an update installed under one is
+/// selected under the other. Without an original, the launch path keys it.
+///
+/// # Errors
+/// As [`in_state_root`], when there is no original.
+pub fn in_state_root_of(
+    install: &Install,
+    root: &Path,
+    original: Option<&Path>,
+) -> io::Result<Install> {
+    match original {
+        // An original that no longer resolves (moved since) still keys this
+        // start by its name; the next start resolves the new place.
+        Some(original) => Ok(keyed(
+            install,
+            root,
+            &fs::canonicalize(original).unwrap_or_else(|_| original.to_path_buf()),
+        )),
+        None => in_state_root(install, root),
+    }
+}
+
+fn keyed(install: &Install, root: &Path, package: &Path) -> Install {
+    let digest = Sha256::digest(package.as_os_str().as_encoded_bytes());
     let mut managed = install.clone();
     managed.state = Some(root.join("baylee").join(crate::sign::hex_of(&digest)));
-    Ok(managed)
+    managed
 }
 
 fn state_root() -> io::Result<PathBuf> {
@@ -274,29 +405,16 @@ fn state_root() -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::other("no absolute per-user state directory"))
 }
 
-fn original_writable(install: &Install) -> bool {
-    if install.os == Os::MacOs
-        && install
-            .base
-            .to_string_lossy()
-            .contains("/AppTranslocation/")
-    {
-        return false;
-    }
-    let path = install
-        .base
-        .join(format!(".baylee-probe-{}", uuid::Uuid::now_v7()));
-    match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-    {
-        Ok(file) => {
-            drop(file);
-            fs::remove_file(path).is_ok()
-        }
-        Err(_) => false,
-    }
+/// Whether this user can create (and remove) a file in `folder`.
+fn probe(folder: &Path) -> io::Result<()> {
+    let path = folder.join(format!(".baylee-probe-{}", uuid::Uuid::now_v7()));
+    drop(
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?,
+    );
+    fs::remove_file(path)
 }
 
 // Called only while the launcher holds the EXCLUSIVE lifetime lock. Never
@@ -354,6 +472,9 @@ pub fn join() -> io::Result<Option<(Install, ClientLease)>> {
         ClientLease {
             _file: file,
             writable: session.writable,
+            blocked: session.blocked,
+            original: session.original,
+            translocated: session.translocated,
         },
     )))
 }
@@ -367,9 +488,10 @@ pub fn run(
     install: &Install,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> io::Result<ExitStatus> {
+    let place = placement(install, &translocation::System);
     let managed;
     let install = if install.state.is_none() {
-        managed = in_state_root(install, &state_root()?)?;
+        managed = in_state_root_of(install, &state_root()?, place.original.as_deref())?;
         &managed
     } else {
         install
@@ -388,7 +510,10 @@ pub fn run(
     let session = Session {
         install: install.clone(),
         token: uuid::Uuid::now_v7(),
-        writable: original_writable(install),
+        writable: place.blocked.is_none(),
+        blocked: place.blocked,
+        original: place.original,
+        translocated: place.translocated,
     };
     apply::write_json(&install.stage().join("session.json"), &session.token)?;
     // Admission remains exclusive during conversion; a child of a killed
@@ -404,4 +529,151 @@ pub fn run(
         .spawn()?;
     drop(entry);
     child.wait()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::translocation::Fixed;
+
+    fn scratch(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "baylee-launch-{tag}-{}-{}",
+            std::process::id(),
+            uuid::Uuid::now_v7()
+        ));
+        fs::create_dir_all(dir.join("Baylee.app")).unwrap();
+        dir
+    }
+
+    fn mac(base: &Path) -> Install {
+        Install {
+            state: None,
+            os: Os::MacOs,
+            base: base.to_path_buf(),
+            program: "Baylee.app".into(),
+        }
+    }
+
+    #[test]
+    fn an_app_in_a_writable_folder_installs_and_is_its_own_original() {
+        let base = scratch("inplace");
+        let place = placement(&mac(&base), &Fixed(Status::InPlace));
+        assert_eq!(place.blocked, None);
+        assert_eq!(place.original, Some(base.join("Baylee.app")));
+        assert!(!place.translocated);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    /// The owner's case of 06.10.2026: unpacked in Downloads, never moved,
+    /// quarantined. The mount is read-only, the original's folder is not
+    /// even looked at, and installing is allowed.
+    #[test]
+    fn a_translocated_app_installs_and_names_its_original() {
+        let mount = Path::new("/private/var/folders/xy/T/AppTranslocation/1-2/d");
+        let original = Path::new("/Users/p/Downloads/baylee-client-x/Baylee.app");
+        let place = placement(&mac(mount), &Fixed(Status::From(original.into())));
+        assert_eq!(
+            place,
+            Placement {
+                original: Some(original.into()),
+                blocked: None,
+                translocated: true,
+            }
+        );
+    }
+
+    #[test]
+    fn a_translocated_app_of_unknown_origin_does_not_install() {
+        let mount = Path::new("/private/var/folders/xy/T/AppTranslocation/1-2/d");
+        let place = placement(&mac(mount), &Fixed(Status::Unknown));
+        assert_eq!(place.blocked, Some(Blocked::Translocated));
+        assert_eq!(place.original, None);
+    }
+
+    /// The notice can say exactly which folder, and what the system said.
+    #[cfg(unix)]
+    #[test]
+    fn a_read_only_folder_says_which_and_why() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let base = scratch("readonly");
+        fs::set_permissions(&base, fs::Permissions::from_mode(0o555)).unwrap();
+        if fs::write(base.join("root-can"), "").is_ok() {
+            // Running as root: nothing is read-only to it.
+            fs::set_permissions(&base, fs::Permissions::from_mode(0o755)).unwrap();
+            fs::remove_dir_all(base).unwrap();
+            return;
+        }
+        let place = placement(&mac(&base), &Fixed(Status::InPlace));
+        fs::set_permissions(&base, fs::Permissions::from_mode(0o755)).unwrap();
+        let Some(Blocked::ReadOnly { folder, error }) = place.blocked else {
+            panic!("not blocked: {:?}", place.blocked);
+        };
+        assert_eq!(folder, base);
+        assert!(error.contains("ermission denied"), "{error}");
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    /// Other systems are never asked about translocation, even if a fake
+    /// would say yes.
+    #[test]
+    fn only_macos_translocates() {
+        let base = scratch("linux");
+        let install = Install {
+            os: Os::Linux,
+            program: "baylee-client".into(),
+            ..mac(&base)
+        };
+        fs::write(base.join("baylee-client"), "").unwrap();
+        let place = placement(&install, &Fixed(Status::Unknown));
+        assert_eq!(place.blocked, None);
+        assert!(!place.translocated);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    /// The state key: one per original, the same in place and translocated,
+    /// and the same as before this change for an app that never was.
+    #[test]
+    fn the_state_follows_the_original_not_the_mount() {
+        let base = scratch("key");
+        let root = base.join("state");
+        let install = mac(&base);
+        let in_place = in_state_root(&install, &root).unwrap();
+        let original = base.join("Baylee.app");
+        let mounted = mac(Path::new("/private/var/folders/AppTranslocation/9/d"));
+        let translocated = in_state_root_of(&mounted, &root, Some(&original)).unwrap();
+        assert_eq!(translocated.state, in_place.state);
+        assert_eq!(
+            in_state_root_of(&install, &root, Some(&original))
+                .unwrap()
+                .state,
+            in_place.state
+        );
+        let elsewhere = base.join("Elsewhere.app");
+        fs::create_dir_all(&elsewhere).unwrap();
+        assert_ne!(
+            in_state_root_of(&install, &root, Some(&elsewhere))
+                .unwrap()
+                .state,
+            in_place.state,
+            "a moved package starts a state of its own"
+        );
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    /// A launcher that predates the new fields (it is permanent in its
+    /// package) still makes a session every runtime reads.
+    #[test]
+    fn an_old_launchers_session_reads() {
+        let old = serde_json::json!({
+            "install": mac(Path::new("/Applications")),
+            "token": uuid::Uuid::now_v7(),
+            "writable": false,
+        });
+        let session: Session = serde_json::from_value(old).unwrap();
+        assert!(!session.writable);
+        assert_eq!(session.blocked, None);
+        assert_eq!(session.original, None);
+        assert!(!session.translocated);
+    }
 }

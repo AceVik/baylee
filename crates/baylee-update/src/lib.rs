@@ -17,6 +17,10 @@
 //!   legacy rename-journal recovery.
 //! - [`launch`]: a permanent entry executable, immutable payloads, atomic
 //!   activation and process lifetime coordination.
+//! - [`translocation`]: where an app macOS runs from a read-only
+//!   mount really is.
+//! - [`relocate`]: "Move Baylee to Applications", copying the running app
+//!   where updates may be installed.
 //! - [`check`]: the HTTP half: asking GitHub, downloading, verifying,
 //!   staging.
 //! - [`service`]: the thread that checks at start and every six hours, and
@@ -38,6 +42,8 @@ pub mod check;
 pub mod launch;
 pub mod plan;
 pub mod release;
+pub mod relocate;
 pub mod service;
 pub mod sign;
+pub mod translocation;
 pub mod version;
