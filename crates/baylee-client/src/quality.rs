@@ -92,6 +92,24 @@ impl Plugin for QualityPlugin {
             )
             .add_systems(Last, pace);
     }
+
+    /// Every main-world schedule runs on one thread.
+    ///
+    /// This client's systems are hundreds of small ones, most of them an
+    /// early return, and the multi-threaded executor paid more in waking and
+    /// parking its pool than it won in parallelism. Measured on the M1 Max at
+    /// a busy duel (46 permanents, 60 frames, `/executor` A/B in one
+    /// process): process CPU 66 % -> 56 %, energy impact 62 -> 52, and the
+    /// main schedules' own time per frame 1.9 -> 1.3 ms. Rendering keeps its
+    /// own pipelined thread and the task pools stay for async work. Here, in
+    /// `finish`, because every schedule exists only once all plugins have
+    /// added their systems.
+    fn finish(&self, app: &mut App) {
+        let mut schedules = app.world_mut().resource_mut::<Schedules>();
+        for (_, schedule) in schedules.iter_mut() {
+            schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+        }
+    }
 }
 
 /// Whether ambient surfaces stand still: the player asked for no motion, or
