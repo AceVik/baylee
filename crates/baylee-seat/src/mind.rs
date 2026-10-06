@@ -151,6 +151,9 @@ pub struct Request {
     /// that did not is asked as usual. The standing orders do not answer
     /// these, because passing would throw the mana away.
     pub continuing: bool,
+    /// How the model's last `until` ended, when it passed something or a
+    /// wake ended it: told once, in the next message.
+    pub held: Option<crate::wake::Held>,
 }
 
 /// An answer and why it was refused: [`Request::retry`].
@@ -193,8 +196,12 @@ pub struct Answer {
     pub thinking: Option<String>,
     /// The phases or steps the model wants to be woken in.
     pub stops: Option<Box<crate::narrator::Stops>>,
-    /// "`until_my_turn`"
-    pub hold: Option<String>,
+    /// For an answer of the model's own: its `until` and `react`, which
+    /// replace the ones before. `None` for an answer its plan, its taps or
+    /// its hint gave, which leaves them as they are.
+    pub orders: Option<crate::wake::Orders>,
+    /// How many steps of the model's plan are left after this answer.
+    pub planned: usize,
 }
 
 impl Answer {
@@ -207,7 +214,8 @@ impl Answer {
             note: None,
             thinking: None,
             stops: None,
-            hold: None,
+            orders: None,
+            planned: 0,
         }
     }
 

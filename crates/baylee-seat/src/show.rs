@@ -143,7 +143,7 @@ impl Show {
     #[must_use]
     pub fn summary(&self, stats: &Stats, tally: Option<&Tally>) -> Vec<String> {
         let mut out = Vec::new();
-        let decisions = stats.wakes + stats.continuations;
+        let decisions = stats.wakes + stats.continuations + stats.planned;
         let fell = stats.fallbacks.total();
         let rate = if decisions == 0 {
             0.0
@@ -160,6 +160,12 @@ impl Show {
             stats.answered.house,
             stats.answered.least,
         ));
+        if stats.planned > 0 {
+            out.push(format!(
+                "{} questions came while a plan of the mind's ran",
+                stats.planned
+            ));
+        }
         if !self.house.is_empty() {
             let why: Vec<String> = self
                 .house

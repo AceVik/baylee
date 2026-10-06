@@ -26,6 +26,7 @@ use super::SAYS;
 use crate::mind::{Answer, GameContext, Request};
 use crate::narrator::{self, Act, Hint, Narrator, Step, Stop, Table};
 use crate::transcript::Transcript;
+use crate::wake::{Held, Orders, Why};
 use baylee_client_core::manaplan;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaColor;
@@ -133,7 +134,8 @@ pub(crate) struct Seat {
     pub(crate) casting: Option<ObjectId>,
     pub(crate) transcript: Transcript,
     pub(crate) stops: Option<narrator::Stops>,
-    pub(crate) hold: Option<String>,
+    /// The `until` and `react` of the model's last answer.
+    pub(crate) orders: Orders,
 }
 
 impl Seat {
@@ -166,7 +168,7 @@ impl Seat {
             casting: None,
             transcript,
             stops: None,
-            hold: None,
+            orders: Orders::default(),
         }
     }
 
@@ -194,19 +196,34 @@ impl Seat {
         if let Some(refusal) = &request.retry {
             self.refused(&refusal.reason, &refusal.answer, carry);
         }
+        if let Some(held) = request.held {
+            self.notes.push(held_line(held, request));
+        }
         let (action, label) = self.follow(request)?;
         self.last_by_model = false;
         let note = json!({"plan": label}).to_string();
-        let stops = self.stops.clone();
-        let hold = self.hold.clone();
-        Some(Answer {
+        Some(self.answer(action, note, Duration::ZERO, None, None))
+    }
+
+    /// The seat's answer: `action`, with the stops the seat holds and the
+    /// steps of its plan left; `orders` for an answer of the model's own.
+    pub(crate) fn answer(
+        &self,
+        action: PlayerAction,
+        note: String,
+        model_time: Duration,
+        thinking: Option<String>,
+        orders: Option<Orders>,
+    ) -> Answer {
+        Answer {
             action,
-            model_time: Duration::ZERO,
+            model_time,
             note: Some(note),
-            thinking: None,
-            stops: stops.map(Box::new),
-            hold,
-        })
+            thinking,
+            stops: self.stops.clone().map(Box::new),
+            orders,
+            planned: self.queue.as_ref().map_or(0, |queue| queue.steps.len()),
+        }
     }
 
     /// The lines a message carries above the decision: at the start of a
@@ -226,23 +243,15 @@ impl Seat {
         told
     }
 
+    /// The stops the model set, for the header: state it chose.
     pub(crate) fn stops_summary(&self) -> Option<String> {
-        let mut s = String::new();
-        if let Some(stops) = &self.stops {
-            s.push_str("stops: mine [");
-            s.push_str(&stops.mine.join(", "));
-            s.push_str("], theirs [");
-            s.push_str(&stops.theirs.join(", "));
-            s.push(']');
-        }
-        if let Some(hold) = &self.hold {
-            if !s.is_empty() {
-                s.push_str(" · ");
-            }
-            s.push_str("hold: ");
-            s.push_str(hold);
-        }
-        if s.is_empty() { None } else { Some(s) }
+        self.stops.as_ref().map(|stops| {
+            format!(
+                "stops: mine [{}], theirs [{}]",
+                stops.mine.join(", "),
+                stops.theirs.join(", ")
+            )
+        })
     }
 
     /// Keeps what the model answered, `resolved` against its question and
@@ -269,10 +278,12 @@ impl Seat {
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
         }
-        // A hold lasts until the seat's turn, or the model's next answer
-        // without it.
-        self.hold =
-            (resolved.until == Some(narrator::Until::MyTurn)).then(|| "until_my_turn".to_string());
+        // An `until` lasts to its boundary, a wake, or the model's next
+        // answer without it: this answer's replace the last's.
+        self.orders = Orders {
+            until: resolved.until,
+            react: resolved.react,
+        };
         let view = &request.view;
         self.queue = (!resolved.plan.is_empty()).then(|| Queue {
             steps: resolved.plan.into(),
@@ -604,6 +615,43 @@ impl Seat {
             players: hint.players,
         })
     }
+}
+
+/// What the model's `until` did since its last answer, in one line.
+fn held_line(held: Held, request: &Request) -> String {
+    let view = &request.view;
+    let table = Table::new(view, &request.context);
+    let windows = match held.windows {
+        1 => "1 window".to_string(),
+        n => format!("{n} windows"),
+    };
+    let head = format!("until {} held through {windows}", held.until.as_str());
+    let Some(why) = held.woke else {
+        return format!("{head} and ended where you said.");
+    };
+    let because = match why {
+        Why::OpposingStack => view
+            .stack
+            .iter()
+            .rev()
+            .find(|o| !table.ally(o.controller))
+            .map_or_else(
+                || "something of an opponent's is on the stack".to_string(),
+                |o| {
+                    format!(
+                        "{}'s {} is on the stack",
+                        Table::player_id(o.controller),
+                        table.named(o.id)
+                    )
+                },
+            ),
+        Why::Declaration => "there is an attack or a block to declare".into(),
+        Why::Owed => "you owe a payment".into(),
+        Why::Cleanup => "a cleanup window opened".into(),
+        Why::Question | Why::NotAsked => "the table asks you something".into(),
+        Why::RailStop => "a window you stop at came".into(),
+    };
+    format!("{head}; woke because {because}.")
 }
 
 /// The label of a window a plan passes.

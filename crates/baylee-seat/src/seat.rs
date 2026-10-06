@@ -177,6 +177,9 @@ pub struct Stats {
     pub woken: WokenCounts,
     /// Next steps of a payment the mind began.
     pub continuations: u32,
+    /// Questions while a plan of the mind's ran, which its plan answered or
+    /// stopped at.
+    pub planned: u32,
     /// Every time the mind was asked, retries included.
     pub asked: u32,
     /// Askings that were retries of a refused answer.
@@ -443,8 +446,15 @@ impl SeatCore {
         match result {
             Ok(answer) => {
                 self.failures = 0;
-                self.wake
-                    .apply_stops(answer.stops.as_deref(), answer.hold.as_ref());
+                if let (Some(current), Some(context)) = (self.current.as_ref(), &self.context) {
+                    self.wake.apply_orders(
+                        answer.stops.as_deref(),
+                        answer.orders,
+                        answer.planned,
+                        &current.view,
+                        &context.teams,
+                    );
+                }
                 self.stats.model_ms = self.stats.model_ms.saturating_add(
                     u64::try_from(answer.model_time.as_millis()).unwrap_or(u64::MAX),
                 );
@@ -735,6 +745,10 @@ impl SeatCore {
                 self.stats.continuations += 1;
                 self.ask(None)
             }
+            Verdict::Planned => {
+                self.stats.planned += 1;
+                self.ask(None)
+            }
         });
         steps
     }
@@ -856,6 +870,7 @@ impl SeatCore {
             budget,
             retry,
             continuing: current.continuing,
+            held: self.wake.take_held(),
         };
         self.stats.asked += 1;
         if request.retry.is_some() {

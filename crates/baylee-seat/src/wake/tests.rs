@@ -4,7 +4,7 @@
 
 use super::*;
 use baylee_client_core::test_support::{ViewBuilder, token};
-use baylee_core::ids::{Defender, ObjectId, PrintRef};
+use baylee_core::ids::{DamageSourceRef, Defender, ObjectId, PrintRef};
 use baylee_core::mana::{ManaColor, ManaCost};
 use baylee_engine::choice::{BlockOption, TargetPrompt};
 use baylee_view::{CardIdentity, HandObject, PublicObject, RulesFace};
@@ -393,6 +393,192 @@ fn an_answer_on_the_way_keeps_the_payment_and_one_that_ends_it_does_not() {
         Verdict::Continue
     );
     filter.heard(&view, &PlayerAction::PassPriority);
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        passes(Standing::NothingToDo)
+    );
+}
+
+/// A spell of theirs on the stack, aimed at `target`.
+fn aimed(view: &mut PlayerView, target: TargetRef) {
+    let mut shock = token(40, 1, "Shock", 0, 0);
+    shock.targets = vec![target];
+    view.stack = vec![shock];
+}
+
+/// An object as a target.
+const fn at(n: u32) -> TargetRef {
+    TargetRef::Object(DamageSourceRef {
+        object: o(n),
+        version: 0,
+    })
+}
+
+/// A filter holding `until`, with `react`, written in `view`.
+fn holding(until: Until, react: React, view: &PlayerView) -> WakeFilter {
+    let mut filter = WakeFilter::default();
+    let orders = Orders {
+        until: Some(until),
+        react,
+    };
+    filter.apply_orders(None, Some(orders), 0, view, &[]);
+    filter
+}
+
+#[test]
+fn react_targets_me_passes_a_spell_aimed_elsewhere_and_wakes_at_one_aimed_at_me() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut filter = holding(Until::MyTurn, React::TargetsMe, &view);
+    // At their own creature: not this seat's business.
+    aimed(&mut view, at(70));
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::QuietWindow)
+    );
+    // At this seat's Forest: a permanent it controls.
+    aimed(&mut view, at(1));
+    assert_eq!(
+        filter.clone().judge(&view, &priority(legal.clone()), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
+    // At this seat itself; the wake ends the `until`, and says how.
+    aimed(&mut view, TargetRef::Player(ME));
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
+    assert_eq!(
+        filter.take_held(),
+        Some(Held {
+            until: Until::MyTurn,
+            windows: 1,
+            woke: Some(Why::OpposingStack),
+        })
+    );
+    assert_eq!(filter.take_held(), None, "told once");
+    // Ended: the next spell of theirs wakes, whatever it aims at.
+    aimed(&mut view, at(70));
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
+}
+
+#[test]
+fn react_none_passes_their_stack_and_react_all_wakes_at_it() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    let mut quiet = holding(Until::EndOfTurn, React::None, &view);
+    let mut all = holding(Until::EndOfTurn, React::All, &view);
+    aimed(&mut view, TargetRef::Player(ME));
+    assert_eq!(
+        quiet.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::QuietWindow)
+    );
+    assert_eq!(
+        all.judge(&view, &priority(legal), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
+}
+
+#[test]
+fn an_until_never_answers_a_block_there_is_something_to_declare_in() {
+    let (mut view, _) = table(&["Forest"], &[]);
+    their(&mut view, Phase::Combat, Step::DeclareBlockers);
+    let mut filter = holding(Until::MyTurn, React::None, &view);
+    let block = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: ME,
+        attacker: THEM,
+        blockers: vec![BlockOption {
+            blocker: o(6),
+            attackers: vec![o(9)],
+        }],
+        bounds: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+    };
+    assert_eq!(
+        filter.judge(&view, &block, &[]),
+        Verdict::Wake(Why::Declaration)
+    );
+    // Nothing passed, and a wake ended it: the mind hears why.
+    assert_eq!(
+        filter.take_held().map(|held| held.woke),
+        Some(Some(Why::Declaration))
+    );
+}
+
+#[test]
+fn my_main2_ends_at_the_seats_second_main_phase_and_not_before() {
+    let (mut view, legal) = table(&["Forest"], &["Giant Growth"]);
+    view.turn = 3;
+    view.phase = Phase::SecondMain;
+    view.step = Step::Main;
+    let fresh = |view: &PlayerView| judge(view, legal.clone());
+    // Written in the second main phase, it means the next one.
+    let mut filter = holding(Until::MyMain2, React::All, &view);
+    assert_eq!(fresh(&view), Verdict::Wake(Why::RailStop));
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::QuietWindow)
+    );
+    // Their end step and this seat's first main phase: windows the rail
+    // wakes in, which the `until` passes.
+    view.turn = 4;
+    their(&mut view, Phase::Ending, Step::End);
+    assert_eq!(fresh(&view), Verdict::Wake(Why::RailStop));
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::QuietWindow)
+    );
+    view.turn = 5;
+    view.active = ME;
+    view.phase = Phase::FirstMain;
+    view.step = Step::Main;
+    assert_eq!(fresh(&view), Verdict::Wake(Why::RailStop));
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::QuietWindow)
+    );
+    assert_eq!(filter.take_held(), None, "still holding");
+    view.phase = Phase::SecondMain;
+    assert_eq!(
+        filter.judge(&view, &priority(legal), &[]),
+        Verdict::Wake(Why::RailStop)
+    );
+    assert_eq!(
+        filter.take_held(),
+        Some(Held {
+            until: Until::MyMain2,
+            windows: 3,
+            woke: None,
+        })
+    );
+}
+
+#[test]
+fn a_plan_is_asked_every_question_of_its_turn_and_none_after() {
+    let (mut view, legal) = table(&["Forest"], &[]);
+    view.turn = 3;
+    let mut filter = WakeFilter::default();
+    filter.apply_orders(None, None, 2, &view, &[]);
+    // Even what the orders would answer at once is the plan's.
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        Verdict::Planned
+    );
+    view.turn = 4;
+    their(&mut view, Phase::Beginning, Step::Upkeep);
+    assert_eq!(
+        filter.judge(&view, &priority(legal.clone()), &[]),
+        passes(Standing::NothingToDo)
+    );
+    // An answer with no steps left ends it within its own turn.
+    view.turn = 5;
+    filter.apply_orders(None, None, 1, &view, &[]);
+    filter.apply_orders(None, None, 0, &view, &[]);
     assert_eq!(
         filter.judge(&view, &priority(legal), &[]),
         passes(Standing::NothingToDo)

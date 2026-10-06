@@ -877,6 +877,10 @@ impl CliMind {
             return Err(MindError::Declined("a newer question replaced it".into()));
         }
         let label = resolved.label.clone();
+        let orders = crate::wake::Orders {
+            until: resolved.until,
+            react: resolved.react,
+        };
         let action = state
             .seat
             .keep(request, prepared.narrator, resolved, say.as_deref());
@@ -887,16 +891,9 @@ impl CliMind {
             "tokens": usage,
             "ms": u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
         });
-        let stops = state.seat.stops.clone();
-        let hold = state.seat.hold.clone();
-        Ok(Answer {
-            action,
-            model_time: took,
-            note: Some(note.to_string()),
-            thinking: Some(thinking),
-            stops: stops.map(Box::new),
-            hold,
-        })
+        Ok(state
+            .seat
+            .answer(action, note.to_string(), took, Some(thinking), Some(orders)))
     }
 
     /// The seat's process, taken from it, its conversation noted as lost.

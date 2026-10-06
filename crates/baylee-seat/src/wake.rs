@@ -29,6 +29,14 @@
 //! - no round is passed while a payment is owed, while the other side has
 //!   something on the stack, or in a cleanup window, unless the seat has
 //!   nothing at all it could do;
+//! - while a plan of the mind's runs, every question of the seat's is the
+//!   plan's ([`Verdict::Planned`]): the plan's executor sees them all, and
+//!   stops the plan at the first it cannot answer exactly;
+//! - `until` passes the windows the rail would wake the mind in, and an
+//!   opposing spell or ability as `react` says, and nothing else: never a
+//!   question, a declaration with something to declare, a payment owed or a
+//!   cleanup window. It ends at its boundary, at any wake, and at the
+//!   mind's next answer without it (`docs/llm-protocol.md` §"Plans");
 //! - while the seat's own payment is under way, nothing is answered for it:
 //!   the next priority round with mana in the pool (passing would throw the
 //!   mana away) and whatever the activation asks on the way (which colour a
@@ -60,11 +68,13 @@ use baylee_client_core::automation::{
 };
 use baylee_client_core::manaplan::Plan;
 use baylee_client_core::prefs::AutoRules;
-use baylee_core::ids::{ObjectId, PlayerId};
+use baylee_core::ids::{ObjectId, PlayerId, TargetRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
 use baylee_view::{Phase, PlayerView, Step};
+
+use crate::narrator::{React, Until};
 
 /// The windows a mind is woken in when it could do something there: its
 /// own two main phases, and the other side's attack and end step.
@@ -90,6 +100,9 @@ pub enum Verdict {
     /// The next step of a payment the seat began: the mind is asked, marked
     /// as continuing, and no order may answer it.
     Continue,
+    /// A question while a plan of the mind's runs: the mind is asked, and
+    /// its plan answers it or stops there.
+    Planned,
 }
 
 /// Which standing order answered.
@@ -135,7 +148,46 @@ pub struct WakeFilter {
     /// Where the seat's last answer was an activation, while its pool holds
     /// mana: the moment the seat is paying for something.
     paying: Option<(u32, Phase, Step)>,
-    hold_until_my_turn: bool,
+    /// The mind's `until`, while it holds.
+    until: Option<Holding>,
+    /// The turn a plan of the mind's runs in, while it has steps.
+    planned: Option<u32>,
+    /// How the last `until` ended, until the mind is told.
+    held: Option<Held>,
+}
+
+/// An `until` the mind gave, while it holds.
+#[derive(Clone, Copy, Debug)]
+struct Holding {
+    until: Until,
+    react: React,
+    /// The turn it was written in.
+    turn: u32,
+    /// Whether the seat has been somewhere other than its boundary since:
+    /// `my_main2` written in the second main phase means the next one.
+    armed: bool,
+    /// Windows it passed that the seat would have been woken in.
+    windows: u32,
+}
+
+/// What the mind asked the seat to go on doing after its answer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Orders {
+    /// How long to pass for it.
+    pub until: Option<Until>,
+    /// What an opposing spell or ability does meanwhile.
+    pub react: React,
+}
+
+/// How an `until` ended, told in the mind's next message.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Held {
+    /// What it was.
+    pub until: Until,
+    /// The windows it passed that would have woken the mind.
+    pub windows: u32,
+    /// Why it ended: `None` at its boundary.
+    pub woke: Option<Why>,
 }
 
 impl Default for WakeFilter {
@@ -162,12 +214,58 @@ impl WakeFilter {
             orders,
             rules: AutoRules::default(),
             paying: None,
-            hold_until_my_turn: false,
+            until: None,
+            planned: None,
+            held: None,
         }
     }
 
-    /// Updates the filter with the model's chosen stops and hold instruction.
-    pub fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>, hold: Option<&String>) {
+    /// Takes what the mind's answer asks of the filter: its stops, and, for
+    /// an answer of the model's own (`orders`), its `until` and `react`;
+    /// `planned` is how many steps of its plan are left after the answer,
+    /// in `view`'s turn.
+    pub fn apply_orders(
+        &mut self,
+        stops: Option<&crate::narrator::Stops>,
+        orders: Option<Orders>,
+        planned: usize,
+        view: &PlayerView,
+        teams: &[Option<u8>],
+    ) {
+        self.apply_stops(stops);
+        self.planned = (planned > 0).then_some(view.turn);
+        if let Some(orders) = orders {
+            self.held = None;
+            self.until = orders.until.map(|until| Holding {
+                until,
+                react: orders.react,
+                turn: view.turn,
+                armed: !boundary(until, view, view.turn, teams),
+                windows: 0,
+            });
+        }
+    }
+
+    /// How the last `until` ended, once, for the mind's next message.
+    pub const fn take_held(&mut self) -> Option<Held> {
+        self.held.take()
+    }
+
+    /// Ends the `until`, keeping how for the mind.
+    fn end_until(&mut self, woke: Option<Why>) {
+        if let Some(holding) = self.until.take()
+            && (holding.windows > 0 || woke.is_some())
+        {
+            self.held = Some(Held {
+                until: holding.until,
+                windows: holding.windows,
+                woke,
+            });
+        }
+    }
+
+    /// Updates the filter with the model's chosen stops.
+    fn apply_stops(&mut self, stops: Option<&crate::narrator::Stops>) {
         if let Some(stops) = stops {
             let mut orders = PhaseOrders::default();
             orders.set_to(RailPreset::EveryStep);
@@ -193,11 +291,6 @@ impl WakeFilter {
             }
             self.orders = orders;
         }
-        if let Some(hold) = hold
-            && hold == "until_my_turn"
-        {
-            self.hold_until_my_turn = true;
-        }
     }
 
     /// Whether the rail stops at this row: a test's window on the rail.
@@ -219,9 +312,36 @@ impl WakeFilter {
             // orders may answer for anybody else.
             return Verdict::Wake(Why::NotAsked);
         }
-        if self.hold_until_my_turn && same_side(teams, view.active, view.seat) {
-            self.hold_until_my_turn = false;
+        // A plan runs in the turn it was written in, and sees every
+        // question of it: no order answers one for it.
+        if let Some(turn) = self.planned {
+            if turn == view.turn {
+                return Verdict::Planned;
+            }
+            self.planned = None;
         }
+        if let Some(holding) = &mut self.until {
+            if boundary(holding.until, view, holding.turn, teams) {
+                if holding.armed {
+                    self.end_until(None);
+                }
+            } else {
+                holding.armed = true;
+            }
+        }
+        let verdict = self.judge_orders(view, pending, teams);
+        if let Verdict::Wake(why) = verdict {
+            self.end_until(Some(why));
+        }
+        verdict
+    }
+
+    fn judge_orders(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> Verdict {
         let paying = self.paying.take();
         let here = Some((view.turn, view.phase, view.step));
         match pending {
@@ -243,7 +363,12 @@ impl WakeFilter {
         }
     }
 
-    fn judge_window(&self, view: &PlayerView, pending: &Pending, teams: &[Option<u8>]) -> Verdict {
+    fn judge_window(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> Verdict {
         match pending {
             Pending::Priority { legal, .. } => self.priority(view, pending, legal, teams),
             Pending::ChooseAttackers { attackers, .. } if attackers.is_empty() => standing(
@@ -266,7 +391,7 @@ impl WakeFilter {
     }
 
     fn priority(
-        &self,
+        &mut self,
         view: &PlayerView,
         pending: &Pending,
         legal: &LegalActions,
@@ -286,15 +411,24 @@ impl WakeFilter {
             .iter()
             .any(|object| !same_side(teams, object.controller, view.seat));
         // Held here as well as in `auto_answer`: an opposing stack and a
-        // cleanup window are decisions whatever the rail says.
+        // cleanup window are decisions whatever the rail says, unless the
+        // mind's `react` says otherwise of the stack.
         if opposing_stack {
+            if let Some(holding) = &mut self.until {
+                let passes = match holding.react {
+                    React::All => false,
+                    React::TargetsMe => !targets_me(view, teams),
+                    React::None => true,
+                };
+                if passes {
+                    holding.windows += 1;
+                    return standing(PlayerAction::PassPriority, Standing::QuietWindow);
+                }
+            }
             return Verdict::Wake(Why::OpposingStack);
         }
         if view.step == Step::Cleanup {
             return Verdict::Wake(Why::Cleanup);
-        }
-        if self.hold_until_my_turn {
-            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
         }
         let at = Situation {
             mine: true,
@@ -305,10 +439,16 @@ impl WakeFilter {
             offering,
             owing: view.owed.is_some(),
         };
-        match automation::auto_answer(pending, at, &self.orders, &self.rules, None) {
-            AutoAnswer::Pass => standing(PlayerAction::PassPriority, Standing::QuietWindow),
-            _ => Verdict::Wake(Why::RailStop),
+        if automation::auto_answer(pending, at, &self.orders, &self.rules, None) == AutoAnswer::Pass
+        {
+            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
         }
+        // A window the rail stops at: the mind's `until` passes it.
+        if let Some(holding) = &mut self.until {
+            holding.windows += 1;
+            return standing(PlayerAction::PassPriority, Standing::QuietWindow);
+        }
+        Verdict::Wake(Why::RailStop)
     }
 
     /// Tells the filter what the seat answered, whoever answered it.
@@ -367,6 +507,42 @@ fn same_side(teams: &[Option<u8>], a: PlayerId, b: PlayerId) -> bool {
     }
     let side = |p: PlayerId| teams.get(usize::from(p.get())).copied().flatten();
     matches!((side(a), side(b)), (Some(x), Some(y)) if x == y)
+}
+
+/// Whether `view` is where `until`, written in `turn`, ends: the seat's
+/// turn, its second main phase, its end step, or any turn after `turn`.
+fn boundary(until: Until, view: &PlayerView, turn: u32, teams: &[Option<u8>]) -> bool {
+    let mine = same_side(teams, view.active, view.seat);
+    match until {
+        Until::MyTurn => mine,
+        Until::MyMain2 => mine && view.phase == Phase::SecondMain,
+        Until::MyEnd => mine && view.step == Step::End,
+        Until::EndOfTurn => view.turn != turn,
+    }
+}
+
+/// Whether something of the other side's on the stack targets this seat, a
+/// permanent it controls, or its commander (`react: targets_me`). Read
+/// from the targets the view states, never from what a card is.
+fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
+    let me = view.seat;
+    let commanders: Vec<ObjectId> = view
+        .seat(me)
+        .map(|seat| seat.commanders.iter().map(|c| c.object).collect())
+        .unwrap_or_default();
+    view.stack
+        .iter()
+        .filter(|object| !same_side(teams, object.controller, me))
+        .flat_map(|object| &object.targets)
+        .any(|target| match target {
+            TargetRef::Player(player) => *player == me,
+            TargetRef::Object(source) => {
+                commanders.contains(&source.object)
+                    || view
+                        .object(source.object)
+                        .is_some_and(|object| object.controller == me)
+            }
+        })
 }
 
 /// The mana in the seat's pool.

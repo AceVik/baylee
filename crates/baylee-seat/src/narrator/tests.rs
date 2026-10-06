@@ -304,6 +304,7 @@ pub(crate) fn request(view: PlayerView, pending: Pending, log: LogTail) -> Reque
         budget: Duration::from_secs(25),
         retry: None,
         continuing: false,
+        held: None,
     }
 }
 

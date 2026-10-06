@@ -758,13 +758,14 @@ fn report(played: &bridge::Played) {
     };
     println!(
         "{outcome} after {} turns: {} questions, {} answered by standing orders, {} wakes \
-         and {} payment steps; the mind answered {}, the house {}, the least answer {}; \
+         and {} payment steps, {} questions in a plan; the mind answered {}, the house {}, the least answer {}; \
          {} fallbacks, {} refused, {} ms of model time, {} sockets",
         stats.turns,
         stats.questions,
         stats.standing.total(),
         stats.wakes,
         stats.continuations,
+        stats.planned,
         stats.answered.mind,
         stats.answered.house,
         stats.answered.least,

@@ -1437,6 +1437,10 @@ impl SeatState {
                 is_error: false,
             }))
             .collect();
+        let orders = crate::wake::Orders {
+            until: read.resolved.until,
+            react: read.resolved.react,
+        };
         let action = self
             .seat
             .keep(request, narrator, read.resolved, read.say.as_deref());
@@ -1447,16 +1451,8 @@ impl SeatState {
             "tokens": reply.usage,
             "ms": u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
         });
-        let stops = self.seat.stops.clone();
-        let hold = self.seat.hold.clone();
-        Answer {
-            action,
-            model_time: took,
-            note: Some(note.to_string()),
-            thinking: None,
-            stops: stops.map(Box::new),
-            hold,
-        }
+        self.seat
+            .answer(action, note.to_string(), took, None, Some(orders))
     }
 
     /// One line of the mind's own transcript: the message, the reply.
