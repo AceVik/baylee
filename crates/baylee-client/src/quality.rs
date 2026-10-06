@@ -55,6 +55,10 @@ impl Default for InUse {
 pub struct Watch {
     last_input: f64,
     hidden: bool,
+    /// The front door's passage as last seen: a passage on the move counts
+    /// as activity, so a flight that outlasts the settle time is not drawn
+    /// at the settled rate.
+    scene: Option<(crate::vista::Stage, bool, f32)>,
 }
 
 /// A phone: never `Continuous` (iOS stops asking for frames, see
@@ -70,7 +74,7 @@ impl Plugin for QualityPlugin {
             .init_resource::<Watch>()
             .add_systems(
                 PreUpdate,
-                (note_input, note_hidden).after(bevy::input::InputSystems),
+                (note_input, note_hidden, note_motion).after(bevy::input::InputSystems),
             )
             .add_systems(
                 Update,
@@ -122,6 +126,23 @@ fn note_input(
         + wheels.read().count()
         + touches.read().count();
     if touched > 0 {
+        watch.last_input = time.elapsed_secs_f64();
+    }
+}
+
+/// A screen changing, or the front door's passage moving, is activity: the
+/// settle clock starts again, as if the player had touched something.
+fn note_motion(
+    time: Res<Time<Real>>,
+    mut watch: ResMut<Watch>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    front: Option<Res<crate::vista::FrontScene>>,
+) {
+    let changed_screen = phase.is_some_and(|p| p.is_changed());
+    let scene = front.map(|f| (f.stage, f.entering, f.portal));
+    let moving = scene.is_some() && scene != watch.scene;
+    watch.scene = scene;
+    if changed_screen || moving {
         watch.last_input = time.elapsed_secs_f64();
     }
 }

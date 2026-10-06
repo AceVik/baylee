@@ -528,7 +528,7 @@ messages! {
     /// the sky) move and how finely.
     AmbientEffects { en: "Ambient effects", de: "Umgebungseffekte" },
     /// The heading over the volume knobs.
-    Audio { en: "Sound", de: "Ton" },
+    Audio { en: "Volume", de: "Lautstärke" },
     /// Every sound and the music together.
     MasterVolume { en: "Overall", de: "Gesamt" },
     /// The game's sounds, not the music.
