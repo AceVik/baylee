@@ -18,7 +18,13 @@
 #[test]
 fn every_field_of_the_revision_is_both_compared_and_assigned() {
     let hud = include_str!("../../hud.rs");
-    let overlay = include_str!("../overlay.rs");
+    let overlay = concat!(
+        include_str!("../overlay.rs"),
+        include_str!("../overlay/preview.rs"),
+        include_str!("../overlay/surfaces.rs"),
+        include_str!("../overlay/sync.rs"),
+        include_str!("../overlay/answers.rs"),
+    );
 
     let body = hud
         .split_once("pub struct HudRevision {")

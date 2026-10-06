@@ -57,7 +57,17 @@ fn a_text_span_never_takes_the_hover_from_the_control_it_is_in() {
     // because a walk over a directory that finds nothing reports an empty
     // worklist as a pass.
     let sources = [
-        ("hud/ledge.rs", include_str!("../ledge.rs")),
+        (
+            "hud/ledge.rs",
+            concat!(
+                include_str!("../ledge.rs"),
+                include_str!("../ledge/shelf.rs"),
+                include_str!("../ledge/sync.rs"),
+                include_str!("../ledge/answers.rs"),
+                include_str!("../ledge/buttons.rs"),
+                include_str!("../ledge/clock.rs"),
+            ),
+        ),
         ("hud/slip.rs", include_str!("../slip.rs")),
         ("hud/stack.rs", include_str!("../stack.rs")),
         ("hud/seatbar.rs", include_str!("../seatbar.rs")),

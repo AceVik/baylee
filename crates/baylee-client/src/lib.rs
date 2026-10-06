@@ -83,6 +83,7 @@ pub mod music;
 pub mod net;
 pub mod platemat;
 pub mod prefs;
+pub mod quality;
 pub(crate) mod records;
 pub mod report;
 pub mod rowbar;

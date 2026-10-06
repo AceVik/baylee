@@ -111,6 +111,8 @@ pub(crate) fn screen(
     commands.entity(root).add_child(tongue);
     let music = crate::music::controls(commands, fonts, metrics, lang);
     commands.entity(root).add_child(music);
+    let quality = crate::quality::controls(commands, fonts, metrics, lang);
+    commands.entity(root).add_child(quality);
     let report = crate::report::button(commands, fonts, metrics, lang);
     commands.entity(root).add_child(report);
     if let Some(update) = crate::update::controls(commands, fonts, metrics, lang) {

@@ -2799,7 +2799,16 @@ mod running {
         let ink_in = format!("TextColor(palette::{}", "BRASS");
         for (what, source) in [
             ("the ability sheet", include_str!("sheet.rs")),
-            ("the prompt slip", include_str!("overlay.rs")),
+            (
+                "the prompt slip",
+                concat!(
+                    include_str!("overlay.rs"),
+                    include_str!("overlay/preview.rs"),
+                    include_str!("overlay/surfaces.rs"),
+                    include_str!("overlay/sync.rs"),
+                    include_str!("overlay/answers.rs"),
+                ),
+            ),
         ] {
             for line in source.lines() {
                 let code = line.split("//").next().unwrap_or(line);

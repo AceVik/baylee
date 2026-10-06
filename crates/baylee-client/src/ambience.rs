@@ -222,20 +222,33 @@ fn breathe(
     nodes: Query<(&Ambient, &ComputedNode, &MaterialNode<AmbienceMaterial>)>,
     materials: Option<ResMut<Assets<AmbienceMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
+    quality: Option<Res<crate::quality::InUse>>,
 ) {
     let Some(mut materials) = materials else {
         return;
     };
-    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let still = crate::quality::ambient_still(
+        prefs.is_some_and(|p| p.all().reduce_motion),
+        quality.as_deref(),
+    );
     for (ambient, computed, handle) in &nodes {
-        let Some(mut material) = materials.get_mut(&handle.0) else {
-            continue;
-        };
         let size = computed.size();
         let aspect = if size.y > 0.0 { size.x / size.y } else { 1.0 };
         let energy = if still { 0.0 } else { ambient.energy };
-        material.params.aspect = aspect;
-        material.params.energy = energy;
+        // Read before written: a write marks the material changed and
+        // uploads it again, and this ran every frame for numbers that
+        // change only with the window and the setting.
+        let unchanged = materials.get(&handle.0).is_none_or(|m| {
+            m.params.aspect.to_bits() == aspect.to_bits()
+                && m.params.energy.to_bits() == energy.to_bits()
+        });
+        if unchanged {
+            continue;
+        }
+        if let Some(mut material) = materials.get_mut(&handle.0) {
+            material.params.aspect = aspect;
+            material.params.energy = energy;
+        }
     }
 }
 

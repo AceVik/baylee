@@ -4,7 +4,10 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )] // bounded MIDI/tick/sample conversions
-use super::{RATE, orchestra::Orchestra};
+use super::{
+    RATE,
+    orchestra::{BLOCK, Orchestra},
+};
 use std::sync::{
     Arc,
     atomic::{AtomicU32, Ordering},
@@ -77,6 +80,12 @@ pub struct Tune {
     until_tick: f64,
     bpm: f64,
     energy: f32,
+    /// Frames rendered ahead for the sample iterator, and how many of them
+    /// it has handed out (`Iterator for Tune`).
+    ahead: Vec<[f32; 2]>,
+    scratch: Box<[f32; BLOCK]>,
+    ahead_len: usize,
+    ahead_read: usize,
     right: Option<f32>,
 }
 impl Default for Tune {
@@ -103,11 +112,26 @@ impl Tune {
             until_tick: 0.0,
             bpm: 60.0,
             energy: 0.0,
+            ahead: vec![[0.0; 2]; BLOCK],
+            scratch: Box::new([0.0; BLOCK]),
+            ahead_len: 0,
+            ahead_read: 0,
             right: None,
         }
     }
     /// Render the next stereo frame, without allocation or I/O.
+    ///
+    /// The reference: [`Tune::render`] gives the same frames in runs, and is
+    /// what the audio thread plays (`a_rendered_block_is_the_frames_it_replaces`).
     pub fn frame(&mut self) -> [f32; 2] {
+        self.transport();
+        self.advance();
+        self.orchestra.frame()
+    }
+
+    /// The bar and tick clock at the start of a frame: a new tick schedules
+    /// its notes.
+    fn transport(&mut self) {
         if self.until_tick <= 0.0 {
             if self.tick == 0 {
                 self.conduct();
@@ -121,6 +145,10 @@ impl Tune {
             }
             self.until_tick += f64::from(RATE) * 60.0 / (self.bpm * 6.0);
         }
+    }
+
+    /// One frame of tempo inertia and of the tick countdown.
+    fn advance(&mut self) {
         let target = match self.mood {
             Mood::Battle => 72.0 + f64::from(self.energy) * 28.0,
             Mood::Victory => 68.0,
@@ -131,7 +159,27 @@ impl Tune {
         // Eight-second tempo inertia, per sample: no pitch change, beat jump or restart.
         self.bpm += (target - self.bpm) / (f64::from(RATE) * 8.0);
         self.until_tick -= 1.0;
-        self.orchestra.frame()
+    }
+
+    /// Renders `out.len()` frames, at most a block at a time: the same frames, bit for
+    /// bit, as as many calls of [`Tune::frame`]. The run is cut at every tick,
+    /// so a note starts on exactly the frame it would have, and between ticks
+    /// the orchestra renders a whole run at once.
+    pub fn render(&mut self, out: &mut [[f32; 2]]) {
+        let mut done = 0;
+        while done < out.len() {
+            self.transport();
+            // The frames until the next tick is due: the first frame whose
+            // countdown, one less each frame, has reached zero.
+            let due = (self.until_tick.ceil() as usize).max(1);
+            let run = due.min(out.len() - done).min(BLOCK);
+            for _ in 0..run {
+                self.advance();
+            }
+            self.orchestra
+                .render(&mut out[done..done + run], &mut self.scratch[..]);
+            done += run;
+        }
     }
     fn conduct(&mut self) {
         let (wanted, energy) = self.control.get();
@@ -438,7 +486,17 @@ impl Iterator for Tune {
         if let Some(right) = self.right.take() {
             return Some(right);
         }
-        let [left, right] = self.frame();
+        if self.ahead_read == self.ahead_len {
+            // Taken and put back, never reallocated: an empty `Vec` costs
+            // nothing, and this runs on the audio thread.
+            let mut ahead = std::mem::take(&mut self.ahead);
+            self.render(&mut ahead);
+            self.ahead = ahead;
+            self.ahead_len = BLOCK;
+            self.ahead_read = 0;
+        }
+        let [left, right] = self.ahead[self.ahead_read];
+        self.ahead_read += 1;
         self.right = Some(right);
         Some(left)
     }
@@ -1018,6 +1076,46 @@ mod tests {
             outcome_power[0] > outcome_power[1] * 1.5,
             "the brass victory must contrast audibly with the quiet defeat: {outcome_power:?}"
         );
+    }
+    /// The audio thread's path is the reference path, bit for bit, across
+    /// mood changes and the ticks that schedule every note: the sample
+    /// iterator (blocks of [`BLOCK`]) and [`Tune::render`] in uneven runs
+    /// both give exactly what [`Tune::frame`] gives.
+    #[test]
+    #[allow(clippy::float_cmp)] // bit-identity is the claim
+    fn a_rendered_block_is_the_frames_it_replaces() {
+        let control = Arc::new(ScoreControl::default());
+        let mut reference = Tune::with_control(control.clone());
+        let mut streamed = Tune::with_control(control.clone());
+        let mut runs = Tune::with_control(control.clone());
+        let mut out = [[0.0f32; 2]; BLOCK];
+        let lengths = [BLOCK, 1, 77, 255, 3, 128];
+        let mut frames = 0usize;
+        for (round, mood) in [
+            Mood::Sanctuary,
+            Mood::Battle,
+            Mood::Victory,
+            Mood::Sanctuary,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            control.set(mood, 0.8);
+            for step in 0..400 {
+                let run = lengths[(round + step) % lengths.len()];
+                runs.render(&mut out[..run]);
+                for frame in &out[..run] {
+                    let want = reference.frame();
+                    assert_eq!(*frame, want, "frame {frames}");
+                    let left = streamed.next().expect("endless");
+                    let right = streamed.next().expect("endless");
+                    assert_eq!([left, right], want, "streamed frame {frames}");
+                    frames += 1;
+                }
+            }
+        }
+        assert!(frames > 4 * RATE as usize, "{frames} frames");
+        assert_eq!(runs.bar, reference.bar);
     }
     #[test]
     fn invalid_energy_cannot_poison_the_audio_clock() {

@@ -36,72 +36,14 @@
 mod server;
 pub use server::server_message;
 
-use baylee_core::ids::PlayerId;
-use baylee_view::GameStatic;
+mod lang;
+mod names;
+mod phrase;
+mod refusal;
 
-/// A language the interface speaks.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
-pub enum Lang {
-    /// English.
-    #[default]
-    En,
-    /// German.
-    De,
-}
-
-impl Lang {
-    /// Every language, in the order a picker offers them.
-    pub const ALL: [Self; 2] = [Self::En, Self::De];
-
-    /// The language a stored code names.
-    ///
-    /// Anything unrecognised is English rather than an error: the code comes
-    /// from a settings file, a query string or an account, and a client that
-    /// refused to start over one would be worse than one that speaks English.
-    /// A regional code (`de-DE`, `en_GB`) is read by its first part, because
-    /// the catalog's languages are plain two-letter codes and a player who
-    /// wrote one out in full meant the language.
-    #[must_use]
-    pub fn of(code: &str) -> Self {
-        let base = code
-            .split(['-', '_'])
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        match base.as_str() {
-            "de" => Self::De,
-            _ => Self::En,
-        }
-    }
-
-    /// The code this language is stored and requested under.
-    #[must_use]
-    pub fn code(self) -> &'static str {
-        match self {
-            Self::En => "en",
-            Self::De => "de",
-        }
-    }
-
-    /// What the language calls itself. Never "German" in an English list: a
-    /// player looking for their own language is looking for their own word
-    /// for it.
-    #[must_use]
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::En => "English",
-            Self::De => "Deutsch",
-        }
-    }
-
-    /// The next language round the ring — one button rather than a menu,
-    /// which is what two languages deserve.
-    #[must_use]
-    pub fn next(self) -> Self {
-        let at = Self::ALL.iter().position(|l| *l == self).unwrap_or(0);
-        Self::ALL[(at + 1) % Self::ALL.len()]
-    }
-}
+pub use lang::Lang;
+pub use names::{ai_name, own_seat_name, seat_name};
+pub use refusal::Refusal;
 
 /// Defines [`Phrase`] with one arm per language, so a missing translation is
 /// a compilation error rather than a fallback.
@@ -495,6 +437,46 @@ messages! {
     MusicSilent { en: "Music off", de: "Musik aus" },
     /// The button that changes the interface language.
     Language { en: "Language", de: "Sprache" },
+
+    // ---- graphics and sound (this device's, `graphics.rs`, `audiomix.rs`)
+    /// The heading over the graphics knobs.
+    Graphics { en: "Graphics", de: "Grafik" },
+    /// The preset row: one name for every knob below it.
+    GraphicsPreset { en: "Quality", de: "Qualität" },
+    /// A preset, and the lowest ambient-effects level.
+    QualityLow { en: "Low", de: "Niedrig" },
+    /// A preset, and the middle ambient-effects level.
+    QualityMedium { en: "Medium", de: "Mittel" },
+    /// A preset, and the highest ambient-effects level.
+    QualityHigh { en: "High", de: "Hoch" },
+    /// The highest preset.
+    QualityUltra { en: "Ultra", de: "Ultra" },
+    /// The preset once a knob was moved by hand.
+    QualityCustom { en: "Custom", de: "Eigene" },
+    /// Edge smoothing on the table.
+    AntiAliasing { en: "Edge smoothing", de: "Kantenglättung" },
+    /// Whether frames wait for the display.
+    VSync { en: "VSync", de: "VSync" },
+    /// Vertical sync that lets a late frame through.
+    VSyncAdaptive { en: "adaptive", de: "adaptiv" },
+    /// The most frames per second with the window in front.
+    FrameLimit { en: "Frame limit", de: "Bildratenlimit" },
+    /// No frame limit.
+    Unlimited { en: "unlimited", de: "unbegrenzt" },
+    /// The most frames per second behind other windows and on an idle
+    /// front door.
+    BackgroundFrames { en: "In the background", de: "Im Hintergrund" },
+    /// How much the ambient surfaces (the front door's world, the cloth,
+    /// the sky) move and how finely.
+    AmbientEffects { en: "Ambient effects", de: "Umgebungseffekte" },
+    /// The heading over the volume knobs.
+    Audio { en: "Volume", de: "Lautstärke" },
+    /// Every sound and the music together.
+    MasterVolume { en: "Overall", de: "Gesamt" },
+    /// The game's sounds, not the music.
+    EffectsVolume { en: "Game sounds", de: "Spielklänge" },
+    /// Silence while another window has the focus.
+    MuteInBackground { en: "Silent in the background", de: "Im Hintergrund stumm" },
 
     // ---- updating (#326)
     /// A newer release is downloaded, verified and waiting. `{0}` its version.
@@ -4063,400 +4045,5 @@ messages! {
     SeatFaultFile { en: "These settings cannot be written.", de: "Diese Einstellungen lassen sich nicht schreiben." },
 }
 
-impl Phrase {
-    /// This phrase with its placeholders filled in, left to right.
-    ///
-    /// `{0}` is replaced by the first argument, `{1}` by the second, and a
-    /// placeholder with no argument is left standing rather than swallowed —
-    /// a visible `{2}` is a bug report; a silently missing number is a
-    /// sentence that means something else.
-    #[must_use]
-    pub fn fill(self, lang: Lang, args: &[&str]) -> String {
-        let mut text = self.text(lang).to_string();
-        for (index, arg) in args.iter().enumerate() {
-            text = text.replace(&format!("{{{index}}}"), arg);
-        }
-        text
-    }
-
-    /// What to say about a username the rule refused, one sentence per
-    /// fault, so the player is told the thing to fix.
-    #[must_use]
-    pub fn username_fault(fault: baylee_protocol::names::UsernameFault) -> Self {
-        use baylee_protocol::names::UsernameFault;
-        match fault {
-            UsernameFault::Invisible => Self::UsernameInvisible,
-            UsernameFault::Character => Self::UsernameCharacters,
-            UsernameFault::Length => Self::UsernameLength,
-            UsernameFault::Edge => Self::UsernameEdge,
-            UsernameFault::Doubled => Self::UsernameDoubled,
-        }
-    }
-
-    /// The form of a counted sentence that `n` things ask for.
-    ///
-    /// Both languages split in the same place — exactly one against anything
-    /// else — so the number picks the sentence and the language never has to
-    /// be asked. **Zero takes the plural**, which is both languages again:
-    /// "Choose up to 0 cards", "Wähle bis zu 0 Karten".
-    ///
-    /// This exists because the file said `card(s)` and `Karte(n)` out loud in
-    /// five places, and the sheet's own typography greys a bracketed aside
-    /// ([`crate::prose::bracketed`]) — so a broken plural was drawn as an
-    /// editorial remark, in grey, next to the number it disagreed with. The
-    /// repair is not a suffix: German wants a relative clause here
-    /// ("Karte, die nach unten geht" against "Karten, die nach unten gehen"),
-    /// and the verb inside it agrees too. Only a whole second literal can say
-    /// that, which is why a counted phrase is written twice rather than
-    /// assembled.
-    #[must_use]
-    pub const fn counted(n: usize, one: Self, many: Self) -> Self {
-        if n == 1 { one } else { many }
-    }
-
-    /// The placeholders this phrase carries, as their indices.
-    ///
-    /// Used by the test that keeps the languages in step: word order is the
-    /// translator's business and `{0}` may move anywhere, but a `{0}` that is
-    /// not there at all is a name, a count or a reason that never reaches the
-    /// player.
-    #[must_use]
-    pub fn slots(self, lang: Lang) -> Vec<usize> {
-        let text = self.text(lang);
-        let mut found: Vec<usize> = (0..10)
-            .filter(|i| text.contains(&format!("{{{i}}}")))
-            .collect();
-        found.sort_unstable();
-        found
-    }
-}
-
-/// What the local seat's own tab is headed.
-///
-/// [`Phrase::YouNamed`] is "You ({0})" — the pronoun, and then whatever the
-/// table calls this seat, because at a room of six "You" alone does not say
-/// which chair is yours to anybody reading over your shoulder. The offline
-/// `LocalHost` names seat 0 `"You"`, which is the pronoun itself, and the tab
-/// then read **"You (You)"**.
-///
-/// So a name that already *is* this language's pronoun is drawn once. The
-/// comparison is against [`Phrase::You`] rather than against a literal, or a
-/// German table would go on saying "Du (Du)"; it ignores case, because the
-/// name comes from a host and "you" is the same claim.
-#[must_use]
-pub fn own_seat_name(lang: Lang, name: &str) -> String {
-    let pronoun = Phrase::You.text(lang);
-    if name.trim().eq_ignore_ascii_case(pronoun) {
-        pronoun.to_string()
-    } else {
-        Phrase::YouNamed.fill(lang, &[name])
-    }
-}
-
-/// A refusal the prompt bar has to draw, in whichever form it arrived.
-///
-/// Client-owned phrases and known engine/server messages follow the current
-/// language. Unknown diagnostics keep the original message so newer servers
-/// remain readable without a lockstep client update.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Refusal {
-    /// A sentence this client owns.
-    Said(Phrase),
-    /// A sentence another process sent, in its own words.
-    Verbatim(String),
-}
-
-impl Refusal {
-    /// The sentence, in `lang` where this client has a say in it.
-    #[must_use]
-    pub fn text(&self, lang: Lang) -> String {
-        match self {
-            Self::Said(phrase) => phrase.text(lang).to_string(),
-            Self::Verbatim(prose) => server_message(lang, prose),
-        }
-    }
-}
-
-/// What a house AI's difficulty is called, from its wire spelling.
-///
-/// The wire value is an identifier — `"sharp"` is what a `GamePreset` holds
-/// and what an HTTP route takes — and the root contract keeps it: *values
-/// that are also identifiers keep their wire spelling and translate only the
-/// label*. This is the label half, and it had only one caller, so the table
-/// went on printing the identifier. A chair arranged in the lobby as
-/// "Solide" sat down at the table called `steady 1`.
-///
-/// Unknown spellings are [`None`] rather than the middle difficulty, because
-/// a caller that has a value the client does not know is in a different
-/// situation from one that has none — and a wrong difficulty drawn
-/// confidently is worse than no difficulty at all.
-#[must_use]
-pub fn ai_name(lang: Lang, wire: &str) -> Option<&'static str> {
-    let phrase = match wire {
-        "novice" => Phrase::AiNovice,
-        "casual" => Phrase::AiCasual,
-        "steady" => Phrase::AiSteady,
-        "sharp" => Phrase::AiSharp,
-        "expert" => Phrase::AiExpert,
-        _ => return None,
-    };
-    Some(phrase.text(lang))
-}
-
-/// What to call a seat inside a sentence.
-///
-/// Every line that talks *about* another chair needs this, and four of them
-/// were writing it out: a zone browser's tab, the player chooser's rows, the
-/// bar's "waiting for" line and now a draw offer. Three spellings had grown
-/// between them — `Phrase::SeatNumbered` in one, a developer's `#1` in
-/// another, and a bare `PlayerId` in the third, which is how "Warte auf Platz
-/// 1" was the best the prompt bar could say at a table where everyone has a
-/// name.
-///
-/// The roster is [`Option`] because a seat is sent [`GameStatic`] once and a
-/// client draws frames before it arrives; a seat it does not describe is
-/// **numbered, not dropped**, because the sentence is about a chair that
-/// exists either way.
-///
-/// This is for *another* seat. The viewing seat's own name is
-/// [`own_seat_name`], which draws the pronoun instead — and no caller here
-/// has to choose between them: a line that says "waiting for" or "offers a
-/// draw" is never about the seat reading it.
-#[must_use]
-pub fn seat_name(lang: Lang, statics: Option<&GameStatic>, player: PlayerId) -> String {
-    statics
-        .and_then(|s| s.seats.iter().find(|seat| seat.player == player))
-        .map_or_else(
-            || Phrase::SeatNumbered.fill(lang, &[&player.get().to_string()]),
-            |seat| seat.display_name.clone(),
-        )
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// `docs/legal.md` §3: Scryfall's terms ask a client for the words
-    /// "data and images provided by Scryfall" (#325). The English is those
-    /// words; every language names Scryfall.
-    #[test]
-    fn scryfall_is_credited_in_its_own_words() {
-        assert!(
-            Phrase::ScryfallCredit
-                .text(Lang::En)
-                .contains("data and images provided by Scryfall"),
-            "{:?}",
-            Phrase::ScryfallCredit.text(Lang::En)
-        );
-        for lang in Lang::ALL {
-            assert!(
-                Phrase::ScryfallCredit.text(lang).contains("Scryfall"),
-                "{lang:?}"
-            );
-        }
-    }
-
-    /// The whole point of the macro: there is no such thing as a phrase with
-    /// no German. This test cannot fail — it would not compile — and is here
-    /// so that the guarantee is written down where a reader looks for it.
-    #[test]
-    fn every_phrase_answers_in_every_language() {
-        for phrase in Phrase::ALL {
-            for lang in Lang::ALL {
-                assert!(
-                    !phrase.text(lang).is_empty(),
-                    "{phrase:?} says nothing in {lang:?}"
-                );
-            }
-        }
-    }
-
-    /// The tab over the local seat says the pronoun once.
-    #[test]
-    fn a_seat_named_for_the_pronoun_is_not_named_twice() {
-        assert_eq!(own_seat_name(Lang::En, "You"), "You");
-        assert_eq!(own_seat_name(Lang::De, "Du"), "Du");
-        // A real name still gets the pronoun in front of it: at a table of
-        // six, "You" alone does not say which chair.
-        assert_eq!(own_seat_name(Lang::En, "Viktor"), "You (Viktor)");
-        assert_eq!(own_seat_name(Lang::De, "Viktor"), "Du (Viktor)");
-        // The languages do not borrow each other's pronoun — a German table
-        // whose host still names the seat in English is two claims, not one.
-        assert_eq!(own_seat_name(Lang::De, "You"), "Du (You)");
-        assert_eq!(own_seat_name(Lang::En, "you"), "You");
-    }
-
-    /// Word order is the translator's; the values are not. A `{0}` that is
-    /// dropped in one language is a name or a count the player never sees.
-    #[test]
-    fn a_translation_keeps_every_placeholder_it_was_given() {
-        for phrase in Phrase::ALL {
-            let english = phrase.slots(Lang::En);
-            for lang in Lang::ALL {
-                assert_eq!(
-                    phrase.slots(lang),
-                    english,
-                    "{phrase:?} loses or invents a placeholder in {lang:?}"
-                );
-            }
-        }
-    }
-
-    /// `card(s)` is not a plural in any language, and the sheet greys what a
-    /// sentence says in brackets — so the broken form was drawn as an
-    /// editorial aside, in grey, right beside the number it disagreed with.
-    /// [`Phrase::counted`] is the way to say this; a bracketed suffix is not.
-    #[test]
-    fn no_phrase_fakes_a_plural_with_a_bracket() {
-        for phrase in Phrase::ALL {
-            for lang in Lang::ALL {
-                let text = phrase.text(lang);
-                for fake in ["(s)", "(n)", "(e)", "(en)", "(er)"] {
-                    assert!(
-                        !text.contains(fake),
-                        "{phrase:?} says {fake} in {lang:?} instead of being written twice"
-                    );
-                }
-            }
-        }
-    }
-
-    /// A counted phrase is two literals, and the pair has to stay one
-    /// sentence: the same values in the same slots, or the singular quietly
-    /// drops the number it is counting.
-    #[test]
-    fn both_forms_of_a_counted_phrase_carry_the_same_values() {
-        let pairs = [
-            (Phrase::ShakyCard, Phrase::ShakyCards),
-            (Phrase::PutCardOnBottom, Phrase::PutOnBottom),
-            (Phrase::DiscardCard, Phrase::DiscardCards),
-            (Phrase::NounCard, Phrase::NounCards),
-            (Phrase::NounTarget, Phrase::NounTargets),
-            (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
-            (Phrase::NounCardToTop, Phrase::NounCardsToTop),
-            (Phrase::NounCardOutside, Phrase::NounCardsOutside),
-            (
-                Phrase::NounPermanentToSacrifice,
-                Phrase::NounPermanentsToSacrifice,
-            ),
-            (Phrase::NounCardToKeep, Phrase::NounCardsToKeep),
-            (Phrase::NounLandToKeep, Phrase::NounLandsToKeep),
-            (Phrase::NounCreatureToKeep, Phrase::NounCreaturesToKeep),
-            (Phrase::NounPermanentToKeep, Phrase::NounPermanentsToKeep),
-            (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
-            (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
-            (
-                Phrase::NounPermanentToReturn,
-                Phrase::NounPermanentsToReturn,
-            ),
-            (Phrase::NounCardToExile, Phrase::NounCardsToExile),
-            (
-                Phrase::NounPermanentToLeaveTapped,
-                Phrase::NounPermanentsToLeaveTapped,
-            ),
-            (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
-            (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
-            (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
-            (
-                Phrase::NounAttackerToBandWith,
-                Phrase::NounAttackersToBandWith,
-            ),
-            (Phrase::NounCardToHand, Phrase::NounCardsToHand),
-            (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
-            (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
-            (
-                Phrase::NounCardToBattlefield,
-                Phrase::NounCardsToBattlefield,
-            ),
-            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
-            (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
-            (
-                Phrase::NounCardFromGraveyard,
-                Phrase::NounCardsFromGraveyard,
-            ),
-            (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
-            (Phrase::LogKeptCard, Phrase::LogKeptCards),
-            (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),
-            (Phrase::LogDrewCard, Phrase::LogDrewCards),
-            (Phrase::LogLifePointYou, Phrase::LogLifePointsYou),
-            (Phrase::LogLifePoint, Phrase::LogLifePoints),
-            (Phrase::LogCounterPlus, Phrase::LogCountersPlus),
-            (Phrase::LogCounterMinus, Phrase::LogCountersMinus),
-            (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty),
-            (Phrase::LogCounterLore, Phrase::LogCountersLore),
-            (Phrase::LogCounterTime, Phrase::LogCountersTime),
-            (Phrase::LogCounterCharge, Phrase::LogCountersCharge),
-            (Phrase::LogCounterPoison, Phrase::LogCountersPoison),
-            (Phrase::LogCounterEnergy, Phrase::LogCountersEnergy),
-            (Phrase::LogCounterRad, Phrase::LogCountersRad),
-            (Phrase::LogCounterLifelink, Phrase::LogCountersLifelink),
-            (Phrase::LogCounterLevel, Phrase::LogCountersLevel),
-            (Phrase::LogCounterOther, Phrase::LogCountersOther),
-        ];
-        for (one, many) in pairs {
-            for lang in Lang::ALL {
-                assert_eq!(
-                    one.slots(lang),
-                    many.slots(lang),
-                    "{one:?} and {many:?} disagree about their values in {lang:?}"
-                );
-            }
-            assert_eq!(Phrase::counted(1, one, many), one);
-            for n in [0, 2, 7] {
-                assert_eq!(Phrase::counted(n, one, many), many);
-            }
-        }
-    }
-
-    /// Two languages that say exactly the same thing everywhere would mean
-    /// the second one was never written. A handful of phrases genuinely are
-    /// the same word (`baylee`, `E-MAIL`), so this asks for most, not all.
-    #[test]
-    fn german_is_actually_german() {
-        let same = Phrase::ALL
-            .iter()
-            .filter(|p| p.text(Lang::En) == p.text(Lang::De))
-            .count();
-        assert!(
-            same * 5 < Phrase::ALL.len(),
-            "{same} of {} phrases are untranslated",
-            Phrase::ALL.len()
-        );
-    }
-
-    #[test]
-    fn a_stored_code_names_a_language() {
-        assert_eq!(Lang::of("de"), Lang::De);
-        assert_eq!(Lang::of("DE"), Lang::De);
-        // A regional code is the language it is a region of…
-        assert_eq!(Lang::of("de-AT"), Lang::De);
-        assert_eq!(Lang::of("en_GB"), Lang::En);
-        // …and anything else is English rather than a refusal to start.
-        assert_eq!(Lang::of("kl"), Lang::En);
-        assert_eq!(Lang::of(""), Lang::En);
-        assert_eq!(Lang::of("de").code(), "de");
-    }
-
-    #[test]
-    fn the_picker_walks_every_language_and_comes_back() {
-        let mut lang = Lang::default();
-        for _ in Lang::ALL {
-            lang = lang.next();
-        }
-        assert_eq!(lang, Lang::default(), "the ring is not a ring");
-    }
-
-    #[test]
-    fn filling_a_phrase_puts_the_arguments_where_the_language_wants_them() {
-        assert_eq!(
-            Phrase::PageOf.fill(Lang::En, &["1", "8", "12"]),
-            "1–8 of 12"
-        );
-        assert_eq!(
-            Phrase::PageOf.fill(Lang::De, &["1", "8", "12"]),
-            "1–8 von 12"
-        );
-        // An argument that was not supplied leaves its placeholder showing.
-        assert!(Phrase::PageOf.fill(Lang::En, &["1"]).contains("{1}"));
-    }
-}
+mod tests;

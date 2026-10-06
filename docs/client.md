@@ -7969,7 +7969,20 @@ curl -s -XPOST localhost:28770/screenshot -d '{"path":"/tmp/table.png"}'
 curl -s -XPOST localhost:28770/timescale -d '{"speed":0.1}'
 curl -s -XPOST localhost:28770/pause     -d '{}'
 curl -s -XPOST localhost:28770/step      -d '{"frames":6}'
+curl -s -XPOST localhost:28770/perf      -d '{"reset":true}'   # then again: the window's numbers
+curl -s -XPOST localhost:28770/hide      -d '{"what":"felt"}'  # {"hidden":false} gives it back
+curl -s -XPOST localhost:28770/msaa      -d '{"samples":1}'
+curl -s -XPOST localhost:28770/executor  -d '{"single":true}'
 ```
+
+The last four are for measuring, and `docs/perf-client.md` says how: `/perf`
+reports frame time, main-schedule time, entities, systems and allocations per
+frame (a `dev-control` build counts allocations through its own global
+allocator) over the window since the last reset; `/hide` takes every entity
+of one material away (`felt`, `mat`, `card`, `floor`, `shell`, `plate`,
+`badge`, `marks`, `arrow`, `sky`, `vista`, `ambience`, `frontal`, `card_ui`,
+`shell_ui`), so one switch gives both a drawing's GPU cost and, by a
+full-frame diff, what it contributes to the picture.
 
 Seven things about it are load-bearing.
 

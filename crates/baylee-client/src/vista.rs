@@ -25,13 +25,6 @@ use bevy::shader::ShaderRef;
 use bevy::ui::UiGlobalTransform;
 use bevy::window::PrimaryWindow;
 
-/// Desktop adds a second firefly depth plane and fine water highlights.
-const QUALITY: f32 = if cfg!(any(target_os = "android", target_os = "ios")) {
-    0.0
-} else {
-    1.0
-};
-
 /// How fast the pointer's lean follows the pointer: a low pass at about
 /// 4 Hz, so a flick of the mouse is a lean and not a jolt.
 const GAZE_RATE: f32 = 25.0;
@@ -447,8 +440,36 @@ fn towards(from: f32, to: f32, step: f32) -> f32 {
     }
 }
 
+/// The painted world's own clock, one for every surface that draws it, so the
+/// front door and the lobby behind its aperture show one world at one moment:
+/// seconds it has moved, stopped while a menu rests (`quality::Resting`) and
+/// going on from there, never jumping.
+#[derive(Default)]
+pub(crate) struct WorldClock(f32);
+
+/// What the device's settings ask of the world this frame: whether it stands
+/// still (ambient `Low` freezes its own movement, never a transition), its
+/// detail, and how far its clock moves (none while a menu rests).
+fn ambience(
+    still: bool,
+    quality: Option<&crate::quality::InUse>,
+    resting: Option<&crate::quality::Resting>,
+    dt: f32,
+) -> (bool, f32, f32) {
+    (
+        crate::quality::ambient_still(still, quality),
+        crate::quality::ambient_detail(quality),
+        if resting.is_some_and(|r| r.0) {
+            0.0
+        } else {
+            dt
+        },
+    )
+}
+
 /// Writes each surface's uniforms for this frame.
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)] // Bevy system: the stage, the screen and the settings it reads
 pub(crate) fn paint(
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
@@ -464,12 +485,17 @@ pub(crate) fn paint(
         Option<&mut GlobalZIndex>,
     )>,
     materials: Option<ResMut<Assets<VistaMaterial>>>,
+    quality: Option<Res<crate::quality::InUse>>,
+    resting: Option<Res<crate::quality::Resting>>,
+    mut clock: Local<WorldClock>,
 ) {
     let Some(mut materials) = materials else {
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
+    let (frozen, detail, world_dt) = ambience(still, quality.as_deref(), resting.as_deref(), dt);
+    clock.0 += world_dt;
     for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
         if size.y <= 0.0 {
@@ -535,11 +561,11 @@ pub(crate) fn paint(
         let Some(mut material) = materials.get_mut(&handle.0) else {
             continue;
         };
-        let energy = if still { 0.0 } else { 1.0 };
+        let energy = if frozen { 0.0 } else { 1.0 };
         material.params = VistaParams {
             panel,
             view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
-            hour: Vec4::new(settled.hour, stage.haze, stage.glow, QUALITY),
+            hour: Vec4::new(settled.hour, stage.haze, stage.glow, detail),
             gate_a: Vec4::new(
                 stage.before.opening,
                 stage.before.alpha,
@@ -555,7 +581,7 @@ pub(crate) fn paint(
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },
                 if entering { 1.0 } else { 0.0 },
-                time.elapsed_secs() * energy,
+                clock.0 * energy,
                 size.y * computed.inverse_scale_factor(),
             ),
             air: Vec4::new(

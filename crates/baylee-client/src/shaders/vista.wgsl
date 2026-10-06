@@ -58,6 +58,9 @@ fn cloud_volume(uv: vec2<f32>, eye: vec2<f32>, t: f32) -> vec4<f32> {
         let hit = origin + ray * (h / max(ray.y, 0.08));
         let at = hit * vec3<f32>(0.31, 0.95, 0.31) + vec3<f32>(t * 0.035, 0.0, t * 0.017);
         let density = cloud_density(at);
+        // Clear air adds nothing (`a` is zero), so its lighting sample —
+        // half of every step — is not taken. Most of the sky is clear air.
+        if density <= 0.0 { continue; }
         let lit = clamp(1.0 - cloud_density(at + vec3<f32>(0.15, 0.3, 0.0)), 0.0, 1.0);
         let a = (1.0 - exp(-density * 1.1 / count));
         let moon = bell(uv - vec2<f32>(0.758, 0.060), vec2<f32>(0.23, 0.26));
@@ -110,6 +113,8 @@ fn fireflies(p: vec2<f32>, t: f32, scale: f32, depth: f32, rush: f32) -> vec3<f3
             let id = cell + vec2<f32>(f32(x), f32(y));
             let seed = hash2(id + depth * 7.3);
             let alive = smoothstep(0.48, 0.7, seed);
+            // Half the cells hold no firefly at all.
+            if alive <= 0.0 { continue; }
             let phase = seed * TAU;
             let pos = id + vec2<f32>(0.5 + 0.30 * sin(t * 0.29 + phase),
                 0.5 + 0.24 * cos(t * 0.21 + phase * 3.0));
@@ -171,13 +176,22 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let ray_mask = smoothstep(0.12, 0.35, uv.y) * (1.0 - smoothstep(0.65, 0.9, uv.y));
     rgb += MOON * ray * ray_mask * 0.035;
     // Wisps move at two speeds and dissolve at their edges, not a scrolling overlay.
-    let fog_a = noise2(uv * vec2<f32>(8.0, 19.0) + vec2<f32>(t * 0.021, -t * 0.006));
-    let fog_b = noise2(uv * vec2<f32>(15.0, 29.0) - vec2<f32>(t * 0.012, t * 0.004));
-    let mist = pow(fog_a * 0.65 + fog_b * 0.35, 2.0)
-        * bell(uv - vec2<f32>(0.48, 0.68), vec2<f32>(0.40, 0.15));
-    rgb = mix(rgb, MOON * 0.65, mist * 0.13);
-    let shimmer = pow(noise2(vec2<f32>(uv.x * 240.0, uv.y * 450.0 - t * 0.48)), 7.0);
-    rgb += MOON * shimmer * stream * params.air.x * 0.32;
+    //
+    // Every term below that is a noise times a mask is only evaluated where
+    // its mask lets anything through (`docs/perf-client.md`): a skipped term
+    // is exactly zero, or under a ten-thousandth of a level where a bell's
+    // tail is cut.
+    let mist_bell = bell(uv - vec2<f32>(0.48, 0.68), vec2<f32>(0.40, 0.15));
+    if mist_bell > 1e-4 {
+        let fog_a = noise2(uv * vec2<f32>(8.0, 19.0) + vec2<f32>(t * 0.021, -t * 0.006));
+        let fog_b = noise2(uv * vec2<f32>(15.0, 29.0) - vec2<f32>(t * 0.012, t * 0.004));
+        let mist = pow(fog_a * 0.65 + fog_b * 0.35, 2.0) * mist_bell;
+        rgb = mix(rgb, MOON * 0.65, mist * 0.13);
+    }
+    if stream > 0.0 {
+        let shimmer = pow(noise2(vec2<f32>(uv.x * 240.0, uv.y * 450.0 - t * 0.48)), 7.0);
+        rgb += MOON * shimmer * stream * params.air.x * 0.32;
+    }
     // Small warm pools anchored to the painted hanging lamps.
     let flicker = 0.92 + 0.05 * sin(t * 2.1) + 0.03 * sin(t * 3.7);
     rgb += GOLD * (bell(uv - vec2<f32>(0.115, 0.17), vec2<f32>(0.029, 0.046))
@@ -191,19 +205,27 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let disc = 1.0 - smoothstep(0.026, 0.029, moon_r);
     rgb += vec3<f32>(0.23, 0.34, 0.40) * moon_halo * 0.18;
     rgb += vec3<f32>(0.34, 0.42, 0.43) * disc * 0.12;
-    let clouds = cloud_volume(world_uv, pointer, t);
-    rgb = rgb * (1.0 - clouds.a) + clouds.rgb;
+    // The cloud volume is masked to the sky above 0.42 (`cloud_volume`'s
+    // own `sky`), so below it there is nothing to integrate.
+    if world_uv.y < 0.42 {
+        let clouds = cloud_volume(world_uv, pointer, t);
+        rgb = rgb * (1.0 - clouds.a) + clouds.rgb;
+    }
     // Narrow falling streams and expanding ripples stay inside water masks.
     let falls = bell(uv - vec2<f32>(0.234, 0.510), vec2<f32>(0.007, 0.065))
         + bell(uv - vec2<f32>(0.451, 0.654), vec2<f32>(0.006, 0.036))
         + bell(uv - vec2<f32>(0.720, 0.604), vec2<f32>(0.005, 0.026))
         + bell(uv - vec2<f32>(0.748, 0.750), vec2<f32>(0.007, 0.05));
-    let cascade = pow(noise2(vec2<f32>(uv.x * 950.0, uv.y * 125.0 - t * 2.9)), 2.0)
-        + 0.5 * pow(max(0.0, sin(uv.y * 510.0 - t * 13.0 + uv.x * 32.0)), 6.0);
-    rgb += vec3<f32>(0.19, 0.32, 0.38) * falls * cascade * 0.62;
-    let ripples = pow(max(0.0, sin(uv.y * 600.0 - t * 2.5
-        + noise2(uv * 32.0) * 9.0)), 12.0);
-    rgb += MOON * stream * ripples * 0.07;
+    if falls > 1e-4 {
+        let cascade = pow(noise2(vec2<f32>(uv.x * 950.0, uv.y * 125.0 - t * 2.9)), 2.0)
+            + 0.5 * pow(max(0.0, sin(uv.y * 510.0 - t * 13.0 + uv.x * 32.0)), 6.0);
+        rgb += vec3<f32>(0.19, 0.32, 0.38) * falls * cascade * 0.62;
+    }
+    if stream > 0.0 {
+        let ripples = pow(max(0.0, sin(uv.y * 600.0 - t * 2.5
+            + noise2(uv * 32.0) * 9.0)), 12.0);
+        rgb += MOON * stream * ripples * 0.07;
+    }
 
     // The foreground is anchored to the screen. Only the distant world
     // responds to the pointer; the deliberate portal flight still advances.
@@ -248,11 +270,15 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
 
     let air_mask = smoothstep(0.18, 0.40, in.uv.y) * (1.0 - smoothstep(0.85, 1.0, in.uv.y));
-    var motes = fireflies(p + pointer * 0.025, t, 11.0, 0.45, advance);
-    if params.hour.w > 0.5 {
-        motes += fireflies(p - pointer * 0.013, t + 73.0, 18.0, 1.2, advance) * 0.55;
+    // Behind the form the quiet mask is whole and lets no firefly through.
+    let air = air_mask * (1.0 - quiet * (1.0 - params.portal.y)) * (1.0 - interior * 0.5);
+    if air > 0.0 {
+        var motes = fireflies(p + pointer * 0.025, t, 11.0, 0.45, advance);
+        if params.hour.w > 0.5 {
+            motes += fireflies(p - pointer * 0.013, t + 73.0, 18.0, 1.2, advance) * 0.55;
+        }
+        rgb += motes * air;
     }
-    rgb += motes * air_mask * (1.0 - quiet * (1.0 - params.portal.y)) * (1.0 - interior * 0.5);
     rgb = mix(rgb, MOON * 0.55, params.hour.y * 0.28);
     // The editor lives in the same garden, with a calm reading light.
     rgb *= 1.0 - interior * 0.32;

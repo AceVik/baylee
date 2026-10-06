@@ -129,6 +129,10 @@ pub fn run() {
     app.add_plugins(plugins).add_plugins(DuelPlugin {
         config: DuelConfig::default(),
     });
+    // How often a frame is drawn, and the device's other graphics and sound
+    // knobs (`crate::quality`). After the plugins: it writes `WinitSettings`,
+    // which `WinitPlugin` installs.
+    app.add_plugins(crate::quality::QualityPlugin);
     #[cfg(target_os = "macos")]
     app.add_systems(Startup, super::app_icon::install);
     crate::arrival::start_login(&mut app);

@@ -36,3 +36,13 @@ time.workspace = true
 # The view builders in `test_support`, for tests in crates above this one.
 # Enabled through a dev-dependency, so it is never in a shipped build.
 test-support = []
+
+[dev-dependencies]
+criterion.workspace = true
+
+# Per-call costs outside the renderer (`docs/perf-client.md`):
+# `cargo bench -p baylee-client-core --features test-support --bench client`.
+[[bench]]
+name = "client"
+harness = false
+required-features = ["test-support"]

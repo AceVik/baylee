@@ -5,6 +5,12 @@
 //! object and calls `android_main`, so the same three steps have to be
 //! reachable from somewhere that is not a binary.
 
+/// A `dev-control` build counts its allocations for `/perf`
+/// (`devctl::perf`); every other build keeps the system allocator untouched.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+#[global_allocator]
+static ALLOCATOR: baylee_client::devctl::CountingAlloc = baylee_client::devctl::CountingAlloc;
+
 fn main() {
     baylee_client::standalone::run();
 }

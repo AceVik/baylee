@@ -44,7 +44,14 @@
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
 //! POST /step     {"frames":6}   (replies once they have run)
+//! POST /perf     {"reset":true}   (frame time, entities, systems, allocations; `perf`)
+//! POST /hide     {"what":"felt","hidden":true}   (one material's entities away)
+//! POST /msaa     {"samples":1}   (every camera's multisampling)
+//! POST /executor {"single":true}   (every schedule on one thread, or back)
 //! ```
+//!
+//! The last four measure rather than drive: `docs/perf-client.md` has what
+//! they found and how a measurement is taken with them.
 //!
 //! The last three are one tool. Almost everything worth photographing here is
 //! over before a screenshot can be asked for — a card's exit lives 0.55 s —
@@ -58,6 +65,10 @@
 //!
 //! Run it with `BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client
 //! --features dev-control`, then `curl -s localhost:28770/state`.
+
+mod perf;
+
+pub use perf::CountingAlloc;
 
 use crate::Duel;
 use crate::settings::ClientSettings;
@@ -173,6 +184,7 @@ impl Plugin for DevControlPlugin {
         // `just_pressed` by then, so a key pressed here is `just_pressed`
         // for exactly the frame that follows, the way a real one is.
         .add_systems(PreUpdate, pump.after(bevy::input::InputSystems));
+        perf::install(app);
     }
 }
 
@@ -516,6 +528,40 @@ fn clock_answer(clock: &Time<Virtual>) -> String {
     )
 }
 
+/// What `/perf`, `/hide` and `/msaa` read and switch (`perf`).
+#[derive(bevy::ecs::system::SystemParam)]
+struct Measured<'w, 's> {
+    probe: ResMut<'w, perf::Probe>,
+    hidden: ResMut<'w, perf::Hidden>,
+    entities: &'w bevy::ecs::entity::Entities,
+    cameras: Query<'w, 's, &'static mut bevy::render::view::Msaa, With<Camera>>,
+    schedules: ResMut<'w, Schedules>,
+}
+
+/// `/perf`, `/hide`, `/msaa` and `/executor` (`perf`), and the answer to a
+/// path that is none of the routes.
+fn measure(path: &str, body: &str, measured: &mut Measured) -> String {
+    match path {
+        "/perf" => perf::answer(&mut measured.probe, measured.entities, flag(body, "reset")),
+        "/hide" => match field(body, "what") {
+            Some(what) => perf::set_hidden(
+                &mut measured.hidden,
+                what,
+                field(body, "hidden") != Some("false"),
+            ),
+            None => r#"{"error":"no what"}"#.to_string(),
+        },
+        "/executor" => perf::set_executor(&mut measured.schedules, flag(body, "single")),
+        "/msaa" => perf::set_msaa(
+            &mut measured.cameras,
+            field(body, "samples")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+        ),
+        other => format!("{{\"error\":\"no such endpoint: {other}\"}}"),
+    }
+}
+
 /// Drains the request queue once per frame and answers it.
 #[allow(clippy::too_many_arguments)]
 fn pump(
@@ -531,6 +577,7 @@ fn pump(
     mut windows: Query<(Entity, &mut Window), With<PrimaryWindow>>,
     believed: Believed,
     mut clock: ResMut<Time<Virtual>>,
+    mut measured: Measured,
 ) {
     control.frame += 1;
     catch_the_clock(&mut control, &mut clock);
@@ -638,7 +685,7 @@ fn pump(
                 start_step(&job.body, &mut control, &mut clock, job.reply);
                 continue;
             }
-            other => format!("{{\"error\":\"no such endpoint: {other}\"}}"),
+            other => measure(other, &job.body, &mut measured),
         };
         let _ = job.reply.send(answer);
     }
@@ -2399,6 +2446,8 @@ mod tests {
                 stepping: None,
                 frame: 0,
             })
+            .init_resource::<perf::Probe>()
+            .init_resource::<perf::Hidden>()
             .add_systems(Update, pump);
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         (app, tx)
@@ -2711,6 +2760,41 @@ mod tests {
         let keys = app.world().resource::<ButtonInput<KeyCode>>();
         assert!(!keys.pressed(KeyCode::Space));
         assert!(!keys.pressed(KeyCode::ShiftLeft));
+    }
+
+    /// The measuring routes answer through the same pump: `/perf` reports a
+    /// window and starts a new one, `/hide` names what it took away,
+    /// `/executor` switches every schedule it can reach, and a path that is
+    /// no route is still refused by name.
+    #[test]
+    fn the_measuring_routes_answer_and_an_unknown_path_is_refused() {
+        let (mut app, tx) = harness();
+        let perf = ask(&tx, "/perf", r#"{"reset":true}"#);
+        let hide = ask(&tx, "/hide", r#"{"what":"felt"}"#);
+        let executor = ask(&tx, "/executor", r#"{"single":true}"#);
+        let nowhere = ask(&tx, "/nowhere", "{}");
+        app.update();
+        let perf = perf.try_recv().expect("answered");
+        assert!(
+            perf.contains("\"frame_ms\"") && perf.contains("\"entities\""),
+            "{perf}"
+        );
+        assert_eq!(
+            hide.try_recv().expect("answered"),
+            r#"{"ok":true,"hidden":["felt"]}"#
+        );
+        assert!(
+            executor
+                .try_recv()
+                .expect("answered")
+                .contains("\"single\":true")
+        );
+        assert!(
+            nowhere
+                .try_recv()
+                .expect("answered")
+                .contains("no such endpoint: /nowhere")
+        );
     }
 
     /// A tenth speed is a tenth of the picture, not a flag saying so.
