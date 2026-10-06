@@ -36,3 +36,8 @@ uuid.workspace = true
 # the two — so without this the two spellings are only ever held against
 # themselves. It points the way a test may: the reader depends on the writer.
 baylee-agent.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "frames"
+harness = false

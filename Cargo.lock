@@ -1058,6 +1058,7 @@ dependencies = [
  "baylee-protocol",
  "baylee-view",
  "bytes",
+ "criterion",
  "flate2",
  "futures-util",
  "prost",

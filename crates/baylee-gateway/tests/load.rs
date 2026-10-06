@@ -365,6 +365,56 @@ async fn drain_seat(mut ws: Socket, count: usize) -> (Socket, Vec<u64>) {
     (ws, seen)
 }
 
+/// Opens and leaves `count` rooms as `churner`: two lobby changes each,
+/// and the latency of every request.
+fn churn_rooms(port: u16, churner: &(String, String), count: usize) -> Vec<u64> {
+    let mut ops = Vec::with_capacity(2 * count);
+    for _ in 0..count {
+        let at = Instant::now();
+        let body = format!("{{\"deck_id\":\"{}\",\"mode\":\"open\"}}", churner.1);
+        let (status, body) = http(port, "POST", "/lobby/games", Some(&churner.0), &body);
+        assert_eq!(status, 200, "create: {body}");
+        ops.push(at.elapsed().as_nanos() as u64);
+        let game = json_field(&body, "game_id").to_string();
+        let at = Instant::now();
+        let path = format!("/lobby/games/{game}/leave");
+        let (status, body) = http(port, "POST", &path, Some(&churner.0), "");
+        assert_eq!(status, 204, "leave: {body}");
+        ops.push(at.elapsed().as_nanos() as u64);
+    }
+    ops
+}
+
+/// Every seat echoes at once; the seats back, and every round trip.
+async fn round_trip(
+    pid: u32,
+    seats: Vec<Socket>,
+    echoes: usize,
+    every: Duration,
+    name: &str,
+) -> (Vec<Socket>, Vec<u64>) {
+    let sample = Sample::take(pid);
+    let runs: Vec<_> = seats
+        .into_iter()
+        .map(|ws| tokio::spawn(echo_seat(ws, echoes, every)))
+        .collect();
+    let mut seats = Vec::with_capacity(runs.len());
+    let mut rtt = Vec::new();
+    for run in runs {
+        let (ws, seen) = run.await.expect("echo seat");
+        seats.push(ws);
+        rtt.extend(seen);
+    }
+    let (wall, cpu) = sample.since(pid);
+    println!(
+        "{name}: {} echoes over {} seats in {wall:.2}s, gateway CPU {cpu:.3}s = {:.1}µs per forwarded frame",
+        rtt.len(),
+        seats.len(),
+        cpu * 1e6 / (rtt.len() * 2).max(1) as f64
+    );
+    (seats, rtt)
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "a load bench, run by hand in --release"]
 #[allow(clippy::too_many_lines)] // four phases, read top to bottom
@@ -435,25 +485,12 @@ async fn gateway_under_load() {
     let opening = counted.load(std::sync::atomic::Ordering::Relaxed);
     let churner = players.last().expect("a churner").clone();
     let sample = Sample::take(pid);
-    let mut ops = Vec::with_capacity(2 * churn);
-    let churned = tokio::task::spawn_blocking(move || {
-        for _ in 0..churn {
-            let at = Instant::now();
-            let body = format!("{{\"deck_id\":\"{}\",\"mode\":\"open\"}}", churner.1);
-            let (status, body) = http(port, "POST", "/lobby/games", Some(&churner.0), &body);
-            assert_eq!(status, 200, "create: {body}");
-            ops.push(at.elapsed().as_nanos() as u64);
-            let game = json_field(&body, "game_id").to_string();
-            let at = Instant::now();
-            let path = format!("/lobby/games/{game}/leave");
-            let (status, body) = http(port, "POST", &path, Some(&churner.0), "");
-            assert_eq!(status, 204, "leave: {body}");
-            ops.push(at.elapsed().as_nanos() as u64);
-        }
-        ops
-    })
-    .await
-    .expect("churn");
+    let churned = {
+        let churner = churner.clone();
+        tokio::task::spawn_blocking(move || churn_rooms(port, &churner, churn))
+            .await
+            .expect("churn")
+    };
     let (http_wall, _) = sample.since(pid);
     // Drained when nothing has arrived for half a second.
     let mut last = usize::MAX;
@@ -479,10 +516,6 @@ async fn gateway_under_load() {
         cpu * 1e6 / pushed.max(1) as f64,
     );
     latency_line("create/leave request", churned);
-    for reader in readers {
-        reader.abort();
-    }
-    tokio::time::sleep(Duration::from_millis(500)).await;
 
     // ---- games
     let rss_before_games = rss_kib(pid);
@@ -503,29 +536,17 @@ async fn gateway_under_load() {
         rss_games.saturating_sub(rss_before_games) as f64 / games.max(1) as f64
     );
 
-    // ---- round trip
+    // ---- round trip, quiet and beside lobby churn
     let every = Duration::from_secs_f64(1.0 / echo_hz.max(1) as f64);
-    let sample = Sample::take(pid);
-    let runs: Vec<_> = seats
-        .into_iter()
-        .map(|ws| tokio::spawn(echo_seat(ws, echoes, every)))
-        .collect();
-    let mut seats = Vec::with_capacity(runs.len());
-    let mut rtt = Vec::new();
-    for run in runs {
-        let (ws, seen) = run.await.expect("echo seat");
-        seats.push(ws);
-        rtt.extend(seen);
-    }
-    let (wall, cpu) = sample.since(pid);
-    let frames = rtt.len() * 2;
-    println!(
-        "round trip: {} echoes over {} seats in {wall:.2}s, gateway CPU {cpu:.3}s = {:.1}µs per forwarded frame",
-        rtt.len(),
-        seats.len(),
-        cpu * 1e6 / frames.max(1) as f64
-    );
+    let (seats, rtt) = round_trip(pid, seats, echoes, every, "round trip").await;
     latency_line("seat → engine → seat", rtt);
+    let churning = {
+        let churner = churner.clone();
+        tokio::task::spawn_blocking(move || churn_rooms(port, &churner, churn))
+    };
+    let (mut seats, rtt) = round_trip(pid, seats, echoes, every, "round trip beside churn").await;
+    latency_line("seat → engine → seat", rtt);
+    latency_line("create/leave request", churning.await.expect("churn"));
 
     // ---- fan-out
     let sample = Sample::take(pid);
@@ -564,4 +585,7 @@ async fn gateway_under_load() {
     latency_line("engine → seat", delivered);
     println!("memory: peak-ish {} KiB", rss_kib(pid));
     drop(seats);
+    for reader in readers {
+        reader.abort();
+    }
 }
