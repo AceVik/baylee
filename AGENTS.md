@@ -26,6 +26,24 @@
   `// SAFETY:` comment naming the invariant that makes it sound, and tests
   that fail if that invariant is broken. Never reach for it to silence a
   borrow-check error. Clippy pedantic is enforced in CI.
+- Leave code better than you found it (owner, 06.10.2026): while doing a task,
+  make the existing code you touch more efficient and cleaner — that is part of
+  the task, not scope creep. Performance and RAM optimisations with `unsafe`,
+  intrinsics or assembler (`core::arch`, `asm!`; x86_64, aarch64, and wasm
+  `simd128` where it pays) are explicitly wanted. Each one keeps a portable safe
+  reference path, states its invariants in `// SAFETY:`, is measured (a bench
+  or a number in the commit), and is compensated by thorough tests: the fast
+  path checked against the reference on property/fuzz inputs on every target
+  CI builds. In the engine and core a fast path must stay bit-identical across
+  architectures (determinism). For wasm, target the newest standard (Wasm 3.0:
+  `simd128`, `relaxed-simd`, bulk memory, tail calls, …) and check the feature
+  against the browsers the web client supports before enabling it globally;
+  relaxed SIMD is nondeterministic by design, so never on a rules path.
+- Cleaner includes splitting large files into a directory module of small,
+  single-purpose files (`example.rs` → `example/mod.rs` + `example/*.rs`, or
+  `example.rs` + `example/` where the crate already does that). Move code
+  without changing it in one commit, change it in the next, so the diff of the
+  move stays reviewable; card files are placed by codegen and never moved.
 - Generated files are **committed** and regenerated only via `cargo xtask codegen`;
   never edit them by hand (marked `// GENERATED`).
 - No `String`/`HashMap` iteration in engine hot paths; determinism is sacred
