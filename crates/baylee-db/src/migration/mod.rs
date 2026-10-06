@@ -22,6 +22,7 @@ mod m20260927_000010_invites;
 mod m20260929_000011_maik_deck;
 mod m20260930_000012_precons;
 mod m20261006_000013_delegated_seats;
+mod m20261006_000014_sessions_by_account;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -43,6 +44,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260929_000011_maik_deck::Migration),
             Box::new(m20260930_000012_precons::Migration),
             Box::new(m20261006_000013_delegated_seats::Migration),
+            Box::new(m20261006_000014_sessions_by_account::Migration),
         ]
     }
 }

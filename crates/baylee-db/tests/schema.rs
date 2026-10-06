@@ -2316,3 +2316,59 @@ async fn only_a_shared_deck_carries_a_source_or_leaves_the_offer() {
 
     sandbox.close().await;
 }
+
+/// The columns in this schema that point at an account without an index
+/// whose first column is that column, as `table.column`.
+async fn unindexed_account_links(db: &DatabaseConnection) -> Vec<String> {
+    db.query_all_raw(Statement::from_string(
+        DbBackend::Postgres,
+        "SELECT c.conrelid::regclass::text || '.' || a.attname AS link \
+         FROM pg_constraint c \
+         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1] \
+         WHERE c.contype = 'f' \
+           AND c.connamespace = current_schema()::regnamespace \
+           AND c.confrelid = format('%I.account', current_schema())::regclass \
+           AND cardinality(c.conkey) = 1 \
+           AND NOT EXISTS (SELECT 1 FROM pg_index i \
+                           WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1]) \
+         ORDER BY 1",
+    ))
+    .await
+    .expect("asking for the links")
+    .into_iter()
+    .map(|row| row.try_get::<String>("", "link").expect("a link"))
+    .collect()
+}
+
+/// Every table that follows an account away (`ON DELETE CASCADE`) or
+/// forgets it (`SET NULL`) is indexed on the account: deleting one, and the
+/// guest purge deleting thousands, asks each of them for the account's rows.
+/// The sessions were the one that was not, and a purge of 2 000 guests
+/// among 50 000 scanned every session 2 000 times (9.1 s, 76 ms indexed).
+/// Stepping the index's migration back shows the gap again.
+#[tokio::test]
+async fn every_link_to_an_account_is_indexed() {
+    let sandbox = Sandbox::open("account-links").await;
+    assert_eq!(
+        unindexed_account_links(&sandbox.db).await,
+        Vec::<String>::new()
+    );
+
+    Migrator::down(&sandbox.db, Some(1))
+        .await
+        .expect("the index steps back");
+    assert_eq!(
+        unindexed_account_links(&sandbox.db).await,
+        vec!["session_token.account_id".to_string()],
+        "the reader finds the gap the index closes"
+    );
+    Migrator::up(&sandbox.db, None)
+        .await
+        .expect("and forward again");
+    assert_eq!(
+        unindexed_account_links(&sandbox.db).await,
+        Vec::<String>::new()
+    );
+
+    sandbox.close().await;
+}
