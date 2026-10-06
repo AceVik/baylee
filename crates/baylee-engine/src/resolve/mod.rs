@@ -1423,10 +1423,13 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         state.refresh_characteristics();
         state.award_enduring_stories();
         state.award_citys_blessings();
+        // Each instruction is an event of its own: a source that left in an
+        // earlier one applies none of its rules to this one (#291). Not
+        // after `exec`, which may have suspended in the middle of one.
+        crate::replacement::expire_departed_rules(state);
         let since = state.journal.last_seq();
         let pending = exec(state, res, op);
         crate::graveyard_order::capture(state, since);
-        crate::replacement::expire_graveyard_rules(state);
         if pending.is_none() {
             res.pc += 1;
         }
@@ -1434,6 +1437,8 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
             return Flow::Wait(pending);
         }
     }
+    // The resolving object's own departure is the next event.
+    crate::replacement::expire_departed_rules(state);
     Flow::Complete
 }
 

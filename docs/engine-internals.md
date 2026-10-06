@@ -947,6 +947,15 @@ never by the caster's. The counter rule filters the **object receiving
 them**: "a permanent you control" is about the permanent, so an opponent's
 spell putting a counter on my creature is doubled by mine.
 
+A rule lasts as long as its source is on the battlefield, and within a
+resolution that is decided per instruction: `resolve::run` calls
+`replacement::expire_departed_rules` before each instruction and after the
+last, never inside one. "Destroy target permanent. Its controller creates a
+token" with the Doubling Season as the target makes one token (#291), and a
+rule whose source goes first in a simultaneous event still applies to the
+rest of that event by last-known information (the Dauthi Voidwalker in a
+Toxic Deluge).
+
 `Amass` is the one deliberate hole and is documented at its call site: two
 Armies would need a choice of which one takes the counters, and amass has
 nowhere to ask it.
