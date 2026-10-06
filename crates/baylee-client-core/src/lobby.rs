@@ -1165,6 +1165,19 @@ impl Lobby {
         self.awaiting.as_ref()
     }
 
+    /// The table this client is at: the one it waits at, or the one whose
+    /// seat it has been handed since the table started. The same table
+    /// before and after its start, where [`Self::awaiting`] lets go of it at
+    /// the start: what lives as long as the table (the language-model
+    /// chairs this client seats, `llmseat::seating`) asks this.
+    #[must_use]
+    pub fn table(&self) -> Option<&SeatHandover> {
+        match &self.screen {
+            Screen::Seated(handover) => Some(handover),
+            _ => self.awaiting.as_ref(),
+        }
+    }
+
     /// Whether this gateway takes sign-ups, with a key or without.
     #[must_use]
     pub fn registration_enabled(&self) -> bool {

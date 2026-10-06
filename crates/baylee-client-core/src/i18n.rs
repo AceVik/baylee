@@ -3592,8 +3592,8 @@ messages! {
     SeatPanelTitle { en: "Language-model seats", de: "Sprachmodell-Sitze" },
     /// Under its title.
     SeatPanelAbout {
-        en: "Which model the seat bridge (baylee-seat) plays at a table, and what it may spend. No key is ever in this file: each profile names the environment variable its key is read from.",
-        de: "Welches Modell die Sitz-Brücke (baylee-seat) am Tisch spielt und was sie ausgeben darf. Kein Schlüssel steht je in dieser Datei: Jedes Profil nennt die Umgebungsvariable, aus der sein Schlüssel gelesen wird.",
+        en: "Which model the seat bridge (baylee-seat) plays at a table, and what it may spend. No key is ever in this file: each profile names the environment variable its key is read from, or keeps it in this machine's credential store.",
+        de: "Welches Modell die Sitz-Brücke (baylee-seat) am Tisch spielt und was sie ausgeben darf. Kein Schlüssel steht je in dieser Datei: Jedes Profil nennt die Umgebungsvariable, aus der sein Schlüssel gelesen wird, oder legt ihn im Schlüsselbund dieses Rechners ab.",
     },
     /// Where the file is. `{0}` its path.
     SeatFileAt { en: "File: {0}", de: "Datei: {0}" },

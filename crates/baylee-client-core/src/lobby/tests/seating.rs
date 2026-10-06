@@ -57,6 +57,7 @@ fn an_open_table_is_not_sat_at_until_somebody_joins() {
     );
     assert_eq!(*lobby.screen(), Screen::Table);
     assert_eq!(lobby.awaiting(), Some(&handover));
+    assert_eq!(lobby.table(), Some(&handover));
 
     // Still only us at the table.
     lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
@@ -95,8 +96,12 @@ fn an_open_table_is_not_sat_at_until_somebody_joins() {
         ],
         ..GameSummary::default()
     }])));
-    assert_eq!(*lobby.screen(), Screen::Seated(handover));
+    assert_eq!(*lobby.screen(), Screen::Seated(handover.clone()));
     assert_eq!(lobby.awaiting(), None);
+    // The same table across its start: what a host's language-model
+    // bridges are held by, which were all stopped here while they read
+    // only `awaiting`.
+    assert_eq!(lobby.table(), Some(&handover));
 }
 
 /// The other half of that, and the half that was missing: **joining**

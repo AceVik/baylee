@@ -87,6 +87,10 @@ pub(crate) struct TableSeats {
     /// The plan versions whose bridge did not start: not tried again.
     #[cfg(not(target_arch = "wasm32"))]
     failed: BTreeMap<u32, u64>,
+    /// What each bridge had printed, and whether it had ended, when the
+    /// page was last told: a new line or an end is a change to draw.
+    #[cfg(not(target_arch = "wasm32"))]
+    heard: BTreeMap<u32, (usize, bool)>,
     /// What a server on this machine listed, by its listing's address.
     listed: BTreeMap<String, Vec<String>>,
     /// Listings asked for, answered or not.
@@ -431,6 +435,25 @@ impl TableSeats {
         self.run(room.phase, &room.open, Some(room.id), Some(room.gateway));
     }
 
+    /// Notes what the bridges said since the last look. A bridge's last line
+    /// stands under its chair, in the room and on a debug build's in-game
+    /// panel: one more line, or its end, is a change to draw
+    /// ([`Self::revision`]); a quiet bridge rebuilds nothing.
+    pub(crate) fn listen(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let heard: BTreeMap<u32, (usize, bool)> = self
+                .bridges
+                .iter_mut()
+                .map(|(chair, (_, bridge))| (*chair, (bridge.heard(), bridge.exited())))
+                .collect();
+            if heard != self.heard {
+                self.heard = heard;
+                self.revision += 1;
+            }
+        }
+    }
+
     /// Starts and stops what [`Seating::steps`] says.
     #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
     fn run(&mut self, phase: Phase, open: &[u32], room: Option<&str>, gateway: Option<&str>) {
@@ -445,6 +468,7 @@ impl TableSeats {
                     exited: bridge.exited(),
                 })
                 .collect();
+            self.listen();
             // A bridge that did not start counts as one that ended: not
             // started again for that plan, and forgotten with it.
             self.failed.retain(|chair, version| {
@@ -576,9 +600,13 @@ pub(crate) fn reconcile(mut state: bevy::prelude::ResMut<crate::lobby::LobbyStat
     }
     let lobby_state = state.bypass_change_detection();
     let before = lobby_state.llm.revision;
+    // The room waited in, or the game it became (`Lobby::table`): the seat
+    // is handed over the moment the table starts, frames before the duel
+    // opens, and a room that vanished then stopped every bridge just as its
+    // game began.
     let hosted = lobby_state
         .lobby
-        .awaiting()
+        .table()
         .filter(|_| !lobby_state.lobby.offline())
         .and_then(|handover| {
             lobby_state

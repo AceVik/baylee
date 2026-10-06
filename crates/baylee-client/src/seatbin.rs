@@ -14,6 +14,7 @@ use baylee_client_core::llmseat::keys::{KeyEntry, KeyJob, KeyState};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 /// The variable that names the bridge program, over the one beside this
@@ -114,6 +115,9 @@ pub(crate) struct Bridge {
     child: Option<Child>,
     stdin: Option<ChildStdin>,
     last: Arc<Mutex<Option<String>>>,
+    /// How many lines it has printed, so a page showing the last one is
+    /// rebuilt when another comes, and only then.
+    heard: Arc<AtomicUsize>,
 }
 
 impl Bridge {
@@ -134,18 +138,21 @@ impl Bridge {
             .spawn()
             .map_err(|e| format!("the seat bridge did not start: {e}"))?;
         let last = Arc::new(Mutex::new(None));
+        let heard = Arc::new(AtomicUsize::new(0));
         let streams: [Option<Box<dyn std::io::Read + Send>>; 2] = [
             child.stdout.take().map(|s| Box::new(s) as _),
             child.stderr.take().map(|s| Box::new(s) as _),
         ];
         for stream in streams.into_iter().flatten() {
             let last = Arc::clone(&last);
+            let heard = Arc::clone(&heard);
             std::thread::spawn(move || {
                 for line in BufReader::new(stream).lines().map_while(Result::ok) {
                     let line = baylee_client_core::llmseat::blank_key_shapes(line.trim());
                     if !line.is_empty() {
                         *last.lock().unwrap_or_else(PoisonError::into_inner) =
-                            Some(line.chars().take(160).collect());
+                            Some(line.chars().take(240).collect());
+                        heard.fetch_add(1, Ordering::Release);
                     }
                 }
             });
@@ -154,6 +161,7 @@ impl Bridge {
             stdin: child.stdin.take(),
             child: Some(child),
             last,
+            heard,
         })
     }
 
@@ -175,6 +183,11 @@ impl Bridge {
         self.child
             .as_mut()
             .is_none_or(|child| !matches!(child.try_wait(), Ok(None)))
+    }
+
+    /// How many lines it has printed.
+    pub(crate) fn heard(&self) -> usize {
+        self.heard.load(Ordering::Acquire)
     }
 
     /// The last line it printed.

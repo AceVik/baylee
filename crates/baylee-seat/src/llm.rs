@@ -441,7 +441,8 @@ pub fn credentials_at(
     }
     if key.is_none() && !(provider == Provider::OpenAi && is_loopback(&base)) {
         return Err(format!(
-            "set {key_env} in the environment (never on the command line)"
+            "set {key_env} in the environment, or keep its key in this machine's credential \
+             store (the client's settings, or `baylee-seat key set`); never on the command line"
         ));
     }
     Ok(Credentials { api, key, base })

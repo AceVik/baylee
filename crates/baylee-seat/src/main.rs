@@ -443,8 +443,9 @@ fn no_key_in(
         anyhow::ensure!(
             !(shaped || named),
             "argument {at} looks like an API key: set the key in the environment \
-             (ANTHROPIC_API_KEY, BAYLEE_LLM_API_KEY, or the variable a profile's key_env names), \
-             never on the command line"
+             (ANTHROPIC_API_KEY, BAYLEE_LLM_API_KEY, or the variable a profile's key_env names) \
+             or keep it in this machine's credential store (`baylee-seat key set`), never on \
+             the command line"
         );
     }
     Ok(())

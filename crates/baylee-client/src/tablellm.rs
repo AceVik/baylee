@@ -42,14 +42,18 @@ struct GamePress(u32, LlmPress);
 /// Rebuilds the panel when what it shows changed.
 fn draw(
     mut commands: Commands,
-    state: Option<Res<crate::lobby::LobbyState>>,
+    state: Option<ResMut<crate::lobby::LobbyState>>,
     fonts: Option<Res<UiFonts>>,
     panels: Query<Entity, With<LlmPanel>>,
     mut drawn: Local<Option<u64>>,
 ) {
-    let (Some(state), Some(fonts)) = (state, fonts) else {
+    use bevy::prelude::DetectChangesMut as _;
+    let (Some(mut state), Some(fonts)) = (state, fonts) else {
         return;
     };
+    // The room's systems stand still during the game: a bridge's new line
+    // is heard here, and only a new one rebuilds the panel.
+    state.bypass_change_detection().llm.listen();
     let revision = state.llm.revision;
     if *drawn == Some(revision) && (panels.is_empty() == state.llm.chairs().is_empty()) {
         return;
@@ -172,6 +176,12 @@ fn chair_rows(
 fn line(commands: &mut Commands, fonts: &UiFonts, words: &str, ink: Color) -> Entity {
     commands
         .spawn((
+            // Its width bounded, so a long line wraps inside the panel and
+            // the panel grows to hold it.
+            Node {
+                max_width: px(440),
+                ..default()
+            },
             Text::new(words),
             tf(fonts, 13.0),
             TextColor(ink),

@@ -827,7 +827,12 @@ impl Drawn<'_, '_, '_> {
             .iter()
             .map(|preset| (preset.label(), Press::Seat(Act::AddPreset(*preset)), false))
             .collect();
-        self.choice(parent, Phrase::SeatPresets.text(self.lang), &presets);
+        // A row of its own across the panel, not a cell of a form's row.
+        let row_of_presets = self.choice(parent, Phrase::SeatPresets.text(self.lang), &presets);
+        self.commands
+            .entity(row_of_presets)
+            .entry::<Node>()
+            .and_modify(|mut node| node.width = percent(100));
         if self.panel.is_empty() && matches!(self.panel.disk(), Disk::Read(_)) {
             self.line(
                 parent,
