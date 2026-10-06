@@ -690,7 +690,7 @@ fn the_seat_declares_its_mind_before_its_ready_on_every_socket_and_on_a_swap() {
     );
     assert_eq!(
         sent(&core.hear(&view(2))),
-        [String::new(); 0],
+        Vec::<String>::new(),
         "once a socket"
     );
     assert!(
