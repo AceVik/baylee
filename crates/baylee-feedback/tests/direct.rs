@@ -379,3 +379,75 @@ async fn a_gateway_passes_on_a_clients_record_marked_as_the_clients() {
     assert_eq!(one["record_origin"], "client");
     service.close().await;
 }
+
+/// A browser build may post a direct report from its own origin: the
+/// preflight is answered and the answer names any origin, never with
+/// credentials. The read routes, and the UI behind its cookie, stay this
+/// origin's alone.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_browser_may_post_a_direct_report_from_any_origin() {
+    let service = Service::start("direct_cors", true).await;
+    let base = service.base.clone();
+    let (preflight, posted, read) = tokio::task::spawn_blocking(move || {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .into();
+        let header = |r: &ureq::http::Response<ureq::Body>, name: &str| {
+            r.headers()
+                .get(name)
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_owned)
+        };
+        let pre = agent
+            .options(format!("{base}/client/reports"))
+            .header("Origin", "https://play.example")
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", "content-type")
+            .call()
+            .expect("a preflight answer");
+        let preflight = (
+            pre.status().as_u16(),
+            header(&pre, "access-control-allow-origin"),
+            header(&pre, "access-control-allow-methods"),
+            header(&pre, "access-control-allow-headers"),
+            header(&pre, "access-control-allow-credentials"),
+        );
+        let post = agent
+            .post(format!("{base}/client/reports"))
+            .header("Origin", "https://play.example")
+            .header("Content-Type", "application/json")
+            .send(report(None).to_string())
+            .expect("an answer");
+        let posted = (
+            post.status().as_u16(),
+            header(&post, "access-control-allow-origin"),
+        );
+        let list = agent
+            .get(format!("{base}/reports"))
+            .header("Origin", "https://play.example")
+            .header("Authorization", format!("Bearer {READ}"))
+            .call()
+            .expect("an answer");
+        let read = (
+            list.status().as_u16(),
+            header(&list, "access-control-allow-origin"),
+        );
+        (preflight, posted, read)
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        preflight,
+        (
+            204,
+            Some("*".into()),
+            Some("POST, OPTIONS".into()),
+            Some("content-type".into()),
+            None
+        )
+    );
+    assert_eq!(posted, (201, Some("*".into())));
+    assert_eq!(read, (200, None), "the read routes are not opened to pages");
+    service.close().await;
+}

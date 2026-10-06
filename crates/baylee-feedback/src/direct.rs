@@ -249,6 +249,39 @@ struct Direct {
     record: Option<ClientRecord>,
 }
 
+/// Any page may post here: a browser build of the client is served from
+/// its own origin, never this service's. Only on this route, and never
+/// with `Allow-Credentials`: the UI's session cookie is this origin's own
+/// and stays so, and a direct report carries no credential to send.
+pub(crate) async fn any_origin(mut response: axum::response::Response) -> axum::response::Response {
+    response.headers_mut().insert(
+        axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        axum::http::HeaderValue::from_static("*"),
+    );
+    response
+}
+
+/// The browser's preflight for [`post`]: a JSON body is what makes one.
+pub(crate) async fn preflight() -> axum::response::Response {
+    use axum::http::{HeaderValue, header};
+    let mut response = axum::response::Response::new(axum::body::Body::empty());
+    *response.status_mut() = StatusCode::NO_CONTENT;
+    let headers = response.headers_mut();
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("POST, OPTIONS"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("content-type"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("86400"),
+    );
+    response
+}
+
 /// `POST /client/reports`.
 pub(crate) async fn post(
     State(shared): State<Shared>,

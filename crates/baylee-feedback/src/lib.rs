@@ -265,7 +265,10 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
         )
         .route(
             "/client/reports",
-            post(direct::post).layer(axum::extract::DefaultBodyLimit::max(direct::MAX_BODY_BYTES)),
+            post(direct::post)
+                .options(direct::preflight)
+                .layer(axum::extract::DefaultBodyLimit::max(direct::MAX_BODY_BYTES))
+                .layer(axum::middleware::map_response(direct::any_origin)),
         )
         .route("/reports", get(list))
         .route("/reports/{id}", get(one).patch(set_status).delete(remove))
