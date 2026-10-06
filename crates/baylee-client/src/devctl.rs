@@ -44,7 +44,14 @@
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
 //! POST /step     {"frames":6}   (replies once they have run)
+//! POST /perf     {"reset":true}   (frame time, entities, systems, allocations; `perf`)
+//! POST /hide     {"what":"felt","hidden":true}   (one material's entities away)
+//! POST /msaa     {"samples":1}   (every camera's multisampling)
+//! POST /executor {"single":true}   (every schedule on one thread, or back)
 //! ```
+//!
+//! The last four measure rather than drive: `docs/perf-client.md` has what
+//! they found and how a measurement is taken with them.
 //!
 //! The last three are one tool. Almost everything worth photographing here is
 //! over before a screenshot can be asked for — a card's exit lives 0.55 s —

@@ -458,12 +458,25 @@ impl Pace {
 }
 
 impl Graphics {
+    /// Whether a menu has come to rest: untouched for [`IDLE_AFTER_SECS`],
+    /// with ambient effects below `High`. A resting menu holds its ambient
+    /// world still where it stands (the next input moves it on from there)
+    /// and draws one frame a second, so an idle front door costs next to
+    /// nothing; at `High` it keeps moving at the background limit.
+    #[must_use]
+    pub fn rests(&self, showing: Showing) -> bool {
+        showing.menu
+            && showing.untouched_secs >= IDLE_AFTER_SECS
+            && (showing.still || self.effects != Effects::High)
+    }
+
     /// The pace for a window in this state, and whether input should wake a
     /// frame at once (a reduced pace) or wait for the next one (a cap).
     ///
     /// Hidden beats everything (nobody sees it). A menu left alone for
-    /// [`IDLE_AFTER_SECS`] draws at the background limit — or, with nothing
-    /// ambient moving, one frame a second; behind other windows, the
+    /// [`IDLE_AFTER_SECS`] comes to rest at one frame a second
+    /// ([`Self::rests`]), or at `High` draws at the background limit; behind
+    /// other windows, the
     /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
     /// [`MENU_FPS`]; otherwise the focused limit. A reduced pace is never
     /// faster than the focused limit.
@@ -475,7 +488,7 @@ impl Graphics {
         let focused = self.frame_limit.fps();
         let held = |fps: u32| Pace::Fps(focused.map_or(fps, |f| fps.min(f)));
         let idle = showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS;
-        if idle && showing.still {
+        if self.rests(showing) {
             return (Pace::Fps(HIDDEN_FPS), true);
         }
         if idle || !showing.focused {
@@ -574,12 +587,23 @@ mod tests {
             untouched_secs: IDLE_AFTER_SECS,
             ..menu
         };
-        assert_eq!(medium.pace(idle), (Pace::Fps(15), true));
+        // Medium comes to rest; High keeps its world moving at the
+        // background rate unless nothing ambient moves anyway.
+        assert!(medium.rests(idle) && !medium.rests(settled));
+        assert_eq!(medium.pace(idle), (Pace::Fps(HIDDEN_FPS), true));
+        let high = Graphics::of(Preset::High);
+        assert!(!high.rests(idle));
+        assert_eq!(high.pace(idle), (Pace::Fps(30), true));
         let idle_still = Showing {
             still: true,
             ..idle
         };
-        assert_eq!(medium.pace(idle_still), (Pace::Fps(HIDDEN_FPS), true));
+        assert!(high.rests(idle_still));
+        assert_eq!(high.pace(idle_still), (Pace::Fps(HIDDEN_FPS), true));
+        assert!(!medium.rests(Showing {
+            menu: false,
+            ..idle
+        }));
         let away = Showing {
             focused: false,
             ..AT_DESK

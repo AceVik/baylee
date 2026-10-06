@@ -14,6 +14,11 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - Give-up is `DuelReport::Unreachable`, never `Failed(String)` (single-action refusals; never ejects).
 - `PlayerView::decision_remaining_ms` is relative; `DecisionClock` (`baylee-client-core/src/decisionclock.rs`) counts down between views, each correcting it. Shown from 60 s; `Cue::ClockLow` at 60 and 10 s, latched per question, own seat only. `LedgeRevision` holds its presence, never its value (else rebuilds every second).
 
+## Frames and graphics settings
+
+- `quality.rs` applies `client-core::graphics` (presets, AA, vsync, frame and background limits, ambient effects) and `audiomix` (overall, game sounds, silent in background), all per device in `ClientSettings` (`None` graphics = the GPU's preset, M1 → Medium). It paces frames with a `Reactive` `WinitSettings`: the table holds the focused cap whatever the pointer does; a menu eases to `MENU_FPS` 2 s after the last input or passage step, to the background limit after 30 s (1 fps if nothing ambient moves); a hidden window draws 1 fps. Ambient `Low` stands the vista, felt and sky still (`quality::ambient_still`), never gameplay motion.
+- Measure before changing a shader or a frame cost (`docs/perf-client.md`: `/perf`, `/hide`, xctrace Metal System Trace, `ab.sh`-style paused A/B). A material write marks it changed: compare before writing (`ambience::breathe`). The felt's vein points come from `client-core::feltveins` (the shader's own hash), not per pixel.
+
 ## Tests
 
 - A `Duel` literal proves nothing about wire-filled fields with a legal empty value (`reachable: {}`, `owed_plan: None`); fill via `Duel::receive_view`, `receive_choice`, `rebuild_board`, `poll_host` (`owed_tests::seat_with_two_forests`). Fine where set on purpose or written by the system under test (`link_note`, `cues`, `browser`).

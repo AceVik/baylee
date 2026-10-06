@@ -49,6 +49,11 @@ impl Default for InUse {
     }
 }
 
+/// Whether a menu has come to rest (`Graphics::rests`): its ambient world
+/// holds still where it stands until something happens.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Resting(pub bool);
+
 /// What the pacer watches: when anything was last touched, and whether the
 /// window can be seen.
 #[derive(Resource, Default, Debug)]
@@ -72,6 +77,7 @@ impl Plugin for QualityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InUse>()
             .init_resource::<Watch>()
+            .init_resource::<Resting>()
             .add_systems(
                 PreUpdate,
                 (note_input, note_hidden, note_motion).after(bevy::input::InputSystems),
@@ -259,10 +265,8 @@ fn pace(
     phase: Option<Res<State<crate::DuelPhase>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     winit: Option<ResMut<WinitSettings>>,
+    mut resting: ResMut<Resting>,
 ) {
-    let Some(mut winit) = winit else {
-        return;
-    };
     #[allow(clippy::cast_possible_truncation)] // seconds, far inside f32
     let untouched_secs = (time.elapsed_secs_f64() - watch.last_input) as f32;
     let showing = Showing {
@@ -271,6 +275,10 @@ fn pace(
         menu: phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed),
         untouched_secs,
         still: ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use)),
+    };
+    resting.set_if_neq(Resting(in_use.0.rests(showing)));
+    let Some(mut winit) = winit else {
+        return;
     };
     let (pace, waking) = in_use.0.pace(showing);
     let mode = update_mode(pace, waking);

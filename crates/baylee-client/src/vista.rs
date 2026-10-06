@@ -295,6 +295,9 @@ pub struct Gaze(pub Vec2);
 pub struct Settled {
     panel: Option<Vec4>,
     presence: f32,
+    /// The world's own clock: seconds it has moved, which stop while a
+    /// menu rests (`quality::Resting`) and go on from there, never jumping.
+    clock: f32,
     hour: f32,
     age: f32,
 }
@@ -440,6 +443,26 @@ fn towards(from: f32, to: f32, step: f32) -> f32 {
     }
 }
 
+/// What the device's settings ask of the world this frame: whether it stands
+/// still (ambient `Low` freezes its own movement, never a transition), its
+/// detail, and how far its clock moves (none while a menu rests).
+fn ambience(
+    still: bool,
+    quality: Option<&crate::quality::InUse>,
+    resting: Option<&crate::quality::Resting>,
+    dt: f32,
+) -> (bool, f32, f32) {
+    (
+        crate::quality::ambient_still(still, quality),
+        crate::quality::ambient_detail(quality),
+        if resting.is_some_and(|r| r.0) {
+            0.0
+        } else {
+            dt
+        },
+    )
+}
+
 /// Writes each surface's uniforms for this frame.
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)] // Bevy system: the stage, the screen and the settings it reads
@@ -459,16 +482,14 @@ pub(crate) fn paint(
     )>,
     materials: Option<ResMut<Assets<VistaMaterial>>>,
     quality: Option<Res<crate::quality::InUse>>,
+    resting: Option<Res<crate::quality::Resting>>,
 ) {
     let Some(mut materials) = materials else {
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    // Ambient effects at `Low` freeze the world's own movement (the water,
-    // the fireflies, the clouds) and keep every transition a player causes.
-    let frozen = crate::quality::ambient_still(still, quality.as_deref());
-    let detail = crate::quality::ambient_detail(quality.as_deref());
     let dt = time.delta_secs();
+    let (frozen, detail, world_dt) = ambience(still, quality.as_deref(), resting.as_deref(), dt);
     for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
         if size.y <= 0.0 {
@@ -476,6 +497,7 @@ pub(crate) fn paint(
         }
         let aspect = size.x / size.y;
         settled.age += dt;
+        settled.clock += world_dt;
         let (stage, presence) = match kind {
             Vista::Front => (front.stage, if front.shown { 1.0 } else { 0.0 }),
             Vista::Interior => (
@@ -554,7 +576,7 @@ pub(crate) fn paint(
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },
                 if entering { 1.0 } else { 0.0 },
-                time.elapsed_secs() * energy,
+                settled.clock * energy,
                 size.y * computed.inverse_scale_factor(),
             ),
             air: Vec4::new(
