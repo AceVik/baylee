@@ -1277,7 +1277,8 @@ mod tests {
     /// Every part lies in the window inside the border, the parts stand in a
     /// card's order down it without overlapping, and each has room: the
     /// table's (name, art box, type, rules, foot) and the interface's three
-    /// layouts (name, type, band, rules, foot), at the depths a 92-, a 308-
+    /// layouts (name, type, band, rules, foot), at the depths a 56- (an
+    /// attachment), a 72- (the stack), a 92- (the hand), a 308-
     /// and a 480-pixel card's bars take.
     #[test]
     fn the_face_is_laid_out_inside_the_window_in_a_card_s_order() {
@@ -1290,7 +1291,7 @@ mod tests {
                 format!("table, {lines} lines"),
                 [r.name_bar, r.band, r.type_bar, r.text_box, r.foot],
             ));
-            for px in [92.0, 308.0, 480.0] {
+            for px in [56.0, 72.0, 92.0, 308.0, 480.0] {
                 for step in [Step::XS, Step::DEFAULT, Step::XL] {
                     let depths = Sizes::overlay_at(px, 0.2, step).depths(lines);
                     for layout in [Layout::Preview, Layout::Long, Layout::Small] {

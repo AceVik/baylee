@@ -2336,8 +2336,8 @@ subtypes keeps its card types. Over the pool's 2745 type lines: 71.1% fit at
 10 px, 5.8% at 9 px, 1.9% give up only their supertypes, 20.1% are their
 subtypes alone, and 1.1% (29, "Land — Mountain Plains Swamp" → "Mountain
 Plains…") lose a subtype; cutting subtypes from the end first had cost 23%
-of them one, "Creature — Human Soldier" the commonest. The preview says the
-whole line. A supertype is known by the English word the engine prints
+of them one, "Creature — Human Soldier" the commonest. The preview says its
+whole line where it fits and else its front (`fit_type_front_in`). A supertype is known by the English word the engine prints
 (`SupertypeSet::from_word`); a translated line has none the table can tell
 apart and goes from the whole line straight to its subtypes.
 
@@ -2396,6 +2396,62 @@ word and state: a mono-green board is still one material.
   numbers to `textface`'s, the hues to `Hue::tone`, and the word's shifts to
   `face_word`'s.
 
+**The interface lays its faces out its own way** (WP6, `textface::Layout`,
+`.claude/ux-b6/DESIGN-v5.md` §9). The table keeps the layout above, because
+the strip lies on its art box; the interface lays no strip over a text face,
+so its faces put the type line under the name and give the art box's empty
+half of the card (45 % of a 308-pixel preview held a gradient) to the rules.
+The layout rides the face word in bits 1–3 (`FACE_LAYOUT_SHIFT`; the table's
+is zero), and `text_face` draws each part where `Regions::laid` places it.
+
+- **A preview** (`Layout::Preview`): name with the cost at its right end,
+  the type line (set and rarity at its right end where the face knows the
+  printing), the **band** — 18 % of the face, the colour identity as a
+  gradient, the subtype words (`textface::subtype_words`) over the keyword
+  chips — then the rules, then the foot. The type line keeps its front
+  ("Legendary Creature…") and gives up its end, since the band says the
+  subtypes again (`fit_type_front_in`).
+- **A long preview** (`Layout::Long`): rules that would be set under 16 px
+  at the full band (`LONG_PX`, times the step; or the card's own size where
+  that is smaller) take a band of 12 % holding only the chips, and fit again
+  there; past the floor the box scrolls.
+- **The band's colour** runs from the identity's colour, darkened to 0.6 of
+  itself where its words begin but never under the luminance at which the
+  ink reads (`band_depth`, `BAND_LUMA` 0.23), to 0.35 of the way to white
+  at its right end: a white or gold band stands off its own paper, black's
+  is not darkened at all, and the ink reads at 4.5:1 or more on every hue
+  and every mix of two (`the_band_s_words_and_chips_and_the_foot_read`).
+- **The chips are the card's own keyword lines**, split at their commas: a
+  rules block with no sentence in it — no full stop, colon, dash, bullet or
+  symbol, at most 48 characters — is a line of keywords
+  (`textface::keyword_chips`). Read off the printed text rather than named
+  from the keyword set, so a German face says "Fliegend" because its
+  printing does and nothing here translates a keyword. Light ink on a slate
+  chip, over 7:1 on any band.
+- **The foot credits the printing** — `Zendikar · Ryan Pancoast`, the set
+  code where its name is unknown — from `CardFace::credit`, which a caller
+  that has the catalog's printing (`GET /printings`) fills. A `PrintEntry`
+  carries no set or artist, so the duel does not yet: its foot is empty.
+- **The battlefield face** (the table's) keeps its bars and gains a colour
+  disc in the art box under the cost's line — one for a card of one colour
+  (or gold, or grey), two side by side for two — with the colour's Mana-font
+  symbol on it (`textface::discs`), and the first sentence of its rules in
+  the text box, at most two lines at 8.5 px (`SENTENCE_EM`), the second cut
+  at a word, its symbols in the Mana font. The type bar stays on the seam:
+  under the name, the strip would lie on it.
+
+**Text steps move the clamps.** `textface::Step` is the interface's text
+size (five steps, 0.702 to 1.125): a face multiplies only its clamps by the
+step's factor and takes the step's rules floor (12, 13, 14, 14, 16 px). Every
+top clamp stands over its size on a 308-pixel preview even at the smallest
+factor, so the default preview is the same at every step and the step bites
+on the hand's clamped sizes (`a_step_moves_the_clamps_and_the_floor_and_nothing_else`).
+The table's faces do not follow it. The step lives on `face::FaceMode`,
+which the shell's setting (WP0b-1) writes; until then it is the default,
+or `BAYLEE_TEXT_STEP` in a dev-control build. `HudRevision::face_step`
+rebuilds the overlay on a change. The lobby's preview is laid at the
+default step until its owner passes one.
+
 **The overlay draws the same face at its own em.** The hand, the preview,
 the stack and the tray draw a card with no art through `CardUiMaterial` and
 the same `text_face`, and lay their text out by the same rule
@@ -2410,21 +2466,29 @@ take (`Sizes::name_room`). The text is placed by `Regions` from the same
 depths the shader draws by; every node is `Pickable::IGNORE`, so the face
 takes no hover from the card it is drawn on.
 
-- **Rules text steps down, then scrolls.** It starts at its own size (15 px
-  in a preview at the default scale) and steps a pixel at a time down to
-  `BODY_FLOOR_PX`, 10 px, where a sentence stops being read
-  (`textface::fit_body`). Past the floor the text box scrolls, with a thin
-  bar in the bars' colour in its right margin (`face::FaceScrollbar`); the
-  margin is kept whether the bar shows or not, so the text never reflows
-  when it appears (`SCROLL_MARGIN`). Laid out by bevy over the pool's 2716
-  cards in English, the text still runs over at 10 px on 3.2% of them in a
-  308-pixel preview, on 26.8% at a preview scale of 0.75 (231 pixels), and
-  on one card at 372 (`how_much_of_the_pool_runs_over_at_the_floor`,
-  ignored; run it by name). German runs longer (#289; 06.10.2026, at the
-  test's 231, 384 and 480 pixels): English over the pool's 3287 cards runs
-  over on 34.2%, 2.6% and 0.0% (one card); the German printed text of the
-  2920 that have a German printing (`BAYLEE_MEASURE_TEXTS`, read out of the
-  catalog) on 48.2%, 7.0% and 0.4% (12 cards).
+- **Rules text steps down, then scrolls.** It starts at its own size (19 px
+  in a preview at the default scale, 0.062 card widths) and steps a pixel at
+  a time down to the step's floor, the last step landing on the floor itself
+  (`textface::fit_body_at`; 14 px at the default step). Past the floor the
+  text box scrolls, with a thin bar in the bars' colour in its right margin
+  (`face::FaceScrollbar`) and a `▾` at its foot while more is below
+  (`face::FaceMore`). Both stand from the frame the face is spawned on where
+  the fit's model says the text runs over, and `show_scrollbars` keeps them
+  true to bevy's layout after; the margin is kept whether the bar shows or
+  not, so the text never reflows when it appears (`SCROLL_MARGIN`).
+  **WP6, 07.10.2026**, laid out by bevy over the whole pool
+  (`how_much_of_the_pool_runs_over_at_the_floor`, run by name; it asserts
+  that every face fits or shows its scrollbar): English, 3287 cards, runs
+  over at 231/308/384/480 px on 4.1/0.1/0.0/0.1 %, at 308 px on 0.0 % at
+  step 1 and 0.8 % at step 5; German, 2920 cards, 10.7/0.2/0.0/0.3 %, and
+  0.0/2.5 % at steps 1/5. Before WP6 (rules from 15 px, a text box 26 % of
+  the face) the same runs at 231/384/480 px gave English 34.2/2.6/0.0 % and
+  German 48.3/7.1/0.4 % (06.10.2026). The model misses by a line on one
+  German card (Voice of Resurgence, whose hyphenated compound bevy breaks
+  where the model does not), and its bar then comes a frame late. The
+  twenty longest English texts filled 25.8 % of a 308-pixel face and all
+  twenty scrolled; they fill 54.1 % now and two scroll
+  (`how_much_of_the_face_the_longest_texts_fill`).
 - **The fit is a model of the layout, held to the layout.** It cannot wait
   for bevy to lay the text out, because the material is keyed before
   anything is spawned. So `manaui::rich_depth` models how `rich` sets a
@@ -2459,10 +2523,14 @@ takes no hover from the card it is drawn on.
   preview taking the pointer as the builder's does, was not taken: the
   preview stands above the shelf, and the way to it crosses the shelf's own
   controls.
-- **A card in hand draws the short face** (`Detail::Compact`): name, cost
-  and type line, no rules text. At the hand's 92 pixels that text would be
-  six pixels, under the ten-pixel floor, and hovering the card opens the
+- **A card in hand draws the small face** (`Detail::Compact`,
+  `Layout::Small`): name and cost, type line, the band as its keyword strip
+  with the chips at its foot, and one line of rules — the first sentence,
+  cut at a word with an ellipsis where it runs past the line, beside the
+  numbers (`face::small_line`, `a_small_card_reads_one_line`). The whole
+  text would be six pixels at the hand's 92; hovering the card opens the
   preview, which is where it is read (`a_card_in_hand_draws_no_rules_text`).
+  The stack and the tray draw the same small face.
 - **Not yet:** dragging the scrollbar's thumb; the bar only shows how much is
   hidden and where the box stands. And the overlay fits a face when it
   rebuilds, not when the font arrives: a face drawn before Alegreya Sans
