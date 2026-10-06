@@ -475,6 +475,39 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
 with `--profile <name>` instead of `--mind`, from the same file and under
 the same caps (`BAYLEE_SEAT_CONFIG` passes through).
 
+## What the game's record says played
+
+A game with a bridge at it is recorded like any other (`docs/protocol.md`
+§"The game record (#315)"), and the bridge tells the table what answers
+its seat, so the record says which model made which action
+(`docs/protocol.md` §"Who answers a seat, as it says"). It is the mind as
+chosen above, flags over profile over build (`baylee_seat::declare`):
+
+- `--mind house` (or nothing named): `house` and its `--level`;
+- `--mind scripted`: `scripted`;
+- a model behind an API: `llm_api`, the provider (`anthropic`, `openai`),
+  the exact model id and the effort, as sent to the provider;
+- a model behind a CLI: `llm_cli`, the tool (`claude`, `codex`, …), the
+  model it names (empty for the tool's own default) and the effort.
+
+Never the profile's name, its `base_url`, its key variable, a key or any
+prompt: the declaration has no field for them, and the engine refuses one
+whose text is shaped like a key or an address. It is sent on every socket
+before the seat says it is ready, so a bridge that comes back after its
+mind was down declares again; a mid-game swap is `SeatCore::declare`,
+which nothing in the bridge calls yet (a debug swap would). It is
+self-declared: the record labels it `declared_mind`, and nobody at the
+table is shown it.
+
+What the record does not split: within one declaration the bridge's own
+standing answers (a pass with nothing to do), its house fallback (a model
+too slow, refused or out of budget) and its least answer go to the table
+as the seat's answers, like the model's. Which of them made each answer is
+in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
+counts in its closing line. A mind taken off the table (`down_after`
+failures) leaves the socket, and the table's own stand-in, recorded as a
+`chair` line, plays until it is back.
+
 ## The AI log (debug builds only)
 
 Beside each answer its model made (not a standing answer, a plan's tap or
