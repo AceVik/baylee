@@ -314,7 +314,7 @@ async fn messages(State(books): State<Shared>, headers: HeaderMap, body: Bytes) 
 
     let question = latest_question(&request);
     books.last_question = question.lines().take(6).collect::<Vec<_>>().join("\n");
-    let (shape, mut input) = decide(&question);
+    let (shape, mut input) = decide(&question, &latest_ask(&request));
     *books.shapes.entry(shape).or_default() += 1;
     let id = format!("toolu_TEST{call}");
     // The first question answered with a pick gets an id on no list (the
@@ -447,15 +447,43 @@ fn latest_question(request: &Value) -> String {
         .map_or_else(String::new, |at| text[at..].to_string())
 }
 
-/// The stand-in's answer: the shape it read, and the `decide` input.
-fn decide(question: &str) -> (&'static str, Value) {
+/// The latest question's id, from its header (`DECISION q12 · …`).
+fn latest_ask(request: &Value) -> String {
+    let mut ask = String::new();
+    for message in request["messages"].as_array().into_iter().flatten() {
+        if message["role"] == "user" {
+            for block in blocks(message, "text") {
+                let text = block["text"].as_str().unwrap_or_default();
+                if let Some(line) = text.lines().rev().find(|l| l.starts_with("DECISION q")) {
+                    ask = line["DECISION ".len()..]
+                        .split(' ')
+                        .next()
+                        .unwrap_or_default()
+                        .to_string();
+                }
+            }
+        }
+    }
+    ask
+}
+
+/// The stand-in's answer: the shape it read, and the `decide` input. A
+/// question that picks one option says no answer line under the tool
+/// (`docs/llm-protocol.md` §"Boilerplate"): its id is the header's.
+fn decide(question: &str, header_ask: &str) -> (&'static str, Value) {
     let line = question
         .lines()
         .rev()
         .find(|l| l.starts_with("Answer with decide: ask=\""))
         .unwrap_or_default();
-    let ask = line.split('"').nth(1).unwrap_or_default();
-    let shape = line.split_once(", ").map_or("", |(_, s)| s);
+    let (ask, shape) = if line.is_empty() {
+        (header_ask, "pick=[one option id]")
+    } else {
+        (
+            line.split('"').nth(1).unwrap_or_default(),
+            line.split_once(", ").map_or("", |(_, s)| s),
+        )
+    };
     let mut input = json!({"ask": ask});
     let kind = if shape.starts_with("attacks=") {
         input["attacks"] = attacks(question);
