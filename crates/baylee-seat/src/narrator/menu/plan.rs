@@ -367,13 +367,6 @@ pub enum Stop {
     Owed,
     /// The turn the plan was written in ended.
     TurnOver,
-    /// The seat lost life since the plan was written.
-    LifeFell {
-        /// Its life then.
-        from: i32,
-        /// Its life now.
-        to: i32,
-    },
     /// The table refused what a step sent.
     Refused(String),
     /// The taps of a cast or a payment were interrupted.
@@ -394,9 +387,6 @@ impl Stop {
             Self::OpposingStack(what) => format!("{what} is on the stack"),
             Self::Owed => "you owe a payment".into(),
             Self::TurnOver => "the turn it was written in ended".into(),
-            Self::LifeFell { from, to } => {
-                format!("your life fell from {from} to {to} since you wrote it")
-            }
             Self::Refused(why) => format!("the table refused it ({why})"),
             Self::TapsStopped => "the table asked something else while it tapped mana; any \
                                   mana it made is in your pool"

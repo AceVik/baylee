@@ -309,7 +309,7 @@ pub(crate) fn request(view: PlayerView, pending: Pending, log: LogTail) -> Reque
 
 /// Compares `text` with the golden file `name`, or rewrites it under
 /// `BAYLEE_SEAT_BLESS=1`.
-fn golden(name: &str, text: &str) {
+pub(crate) fn golden(name: &str, text: &str) {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("src/narrator/golden")
         .join(name);

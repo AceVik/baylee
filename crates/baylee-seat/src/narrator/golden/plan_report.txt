@@ -1,0 +1,5 @@
+another kind of question: Plan q12 stopped at step 1 (activate #209): the table asked for a yes or a no; the rest of the plan is dropped, and this question is yours.
+a stale id: Plan q12 stopped at step 1 (activate #209): the question does not offer it (#209 is not one of the choices: #31); the rest of the plan is dropped, and this question is yours.
+an opponent's spell: Plan q12 stopped at step 1 (activate #209): P2's Counterspell #61 is on the stack; the rest of the plan is dropped, and this question is yours.
+a payment owed: Plan q12 stopped at step 1 (activate #209): you owe a payment; the rest of the plan is dropped, and this question is yours.
+the turn's end: Plan q12 stopped at step 1 (activate #209): the turn it was written in ended; the rest of the plan is dropped, and this question is yours.
