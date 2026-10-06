@@ -16,10 +16,16 @@
 //! seat's memory is the tool's own context. That is what keeps the prefix
 //! cached: the tool sends the whole conversation again with each message,
 //! and its provider reads all but the newest message back from its prompt
-//! cache, so each decision sends only what is new since the last. Neither
-//! tool this build speaks needs more for it than its process: the process
-//! is the session (Claude Code's own `--resume` would need the session
-//! kept on disk, which the lockdown forbids).
+//! cache, so each decision sends only what is new since the last. Claude
+//! Code and `agy` need no more for it than their process: the process is
+//! the session (Claude Code's own `--resume` would need the session kept
+//! on disk, which the lockdown forbids).
+//!
+//! A tool that answers one message a process (Codex, opencode, Junie:
+//! [`dialect::Dialect::one_shot`]) gets each question as a conversation
+//! of its own: a process whose stdin closes after the message, with the
+//! prefix and the notes, as after a loss but not counted as one. A
+//! question asked again goes to a new process, with the whole question.
 //!
 //! A conversation past [`Settings::conversation_tokens`] closes its stdin
 //! and starts another, with the prefix and the notes again. A process that
@@ -41,13 +47,17 @@
 //! fixed ones (Claude Code's `DISABLE_AUTOUPDATER=1`). No key, no
 //! `BAYLEE_*`, no forge's or cloud's credentials and no SSH agent ever
 //! reach it ([`forbidden`]), and a passed value that looks like a key
-//! refuses the start. The tool's own flags take its tools, MCP servers,
-//! skills, settings and hooks away ([`claude`]). What the process says at
-//! its start is the proof they held, and it is read before any reply is
-//! taken: a process that does not say it, says it after a reply, or reports
-//! any tool beyond the answer's own takes the mind off the table for good,
-//! and every process of the mind is killed, whether or not a question
-//! still waits on one ([`Reader`]).
+//! refuses the start. The tool's own flags (and, for some, files of the
+//! session's own beside its working directory) take its tools, MCP
+//! servers, skills, settings and hooks away, as far as each tool lets them
+//! ([`claude`], [`agy`], [`codex`], [`opencode`], [`junie`]). What the
+//! process says at its start is the proof they held, and it is read before
+//! any reply is taken: a process that does not say it, says it after a
+//! reply, or reports any tool beyond the answer's own takes the mind off
+//! the table for good, and every process of the mind is killed, whether or
+//! not a question still waits on one ([`Reader`]). Where a tool names
+//! nothing at its start, a line that shows the model used a tool does the
+//! same ([`dialect::Event::Breach`]).
 //!
 //! # Spend
 //!

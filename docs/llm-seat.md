@@ -140,10 +140,12 @@ A flag beats the profile, and the profile beats the build.
 
 `provider: cli` plays through an agent CLI that its owner signed in to a
 subscription, instead of an API and a key (`baylee_seat::cli`). This build
-speaks Claude Code, `claude` (`claude:opus`, or `claude` for its own default
-model); others are each a dialect of their own (`cli::dialect::Dialect`).
-Whether a tool's terms allow automated play on a subscription is for its
-owner to check before playing.
+speaks Claude Code (`claude:opus`, or `claude` for its own default model),
+Antigravity's `agy`, Codex (`codex`), opencode (`opencode`) and Junie
+(`junie`), each a dialect of its own (`cli::dialect::Dialect`; the table
+in [The tools](#the-tools) says how each is locked down). Whether a tool's
+terms allow automated play on a subscription is for its owner to check
+before playing.
 
 - **No key.** The tool plays on its own login (`claude` signed in once by
   hand). A cli profile has no `key_env`, `base_url`, `price` or `game_usd`
@@ -156,12 +158,19 @@ owner to check before playing.
   sends the whole conversation again with each message and its provider
   reads all but the newest message back from its prompt cache, so each
   decision sends only what is new since the last (the board as it stands,
-  the question, what the model has not been told). Both tools work this
-  way: Claude Code and `agy` take each message as a line on the stdin of
-  one long-lived process, and that process is the session. Claude Code's
-  own `--resume` would need the session kept on disk, which
+  the question, what the model has not been told). Claude Code and `agy`
+  work this way: they take each message as a line on the stdin of one
+  long-lived process, and that process is the session. Claude Code's own
+  `--resume` would need the session kept on disk, which
   `--no-session-persistence` forbids. (`agy` takes no system prompt as a
-  flag, so ours rides ahead of the prefix in the first message.)
+  flag, so ours rides ahead of the prefix in the first message.) Codex,
+  opencode and Junie answer one message a process and go on only by
+  resuming a session from disk, so with them **each question is a
+  conversation of its own**: a process whose stdin is closed after the
+  message, the prefix and the seat's notes every time (the provider's
+  cache reads the unchanged prefix back), not counted as a loss
+  (`Dialect::one_shot`). An answer that cannot be read is asked again of a
+  new process, with the whole question and why.
   A conversation ends only when it outgrows its size (about 100,000
   tokens, `conversation_tokens`): the next question closes its stdin (two
   seconds, then it is killed) and starts another with the prefix and the
@@ -198,11 +207,19 @@ owner to check before playing.
   the process, so no project's `CLAUDE.md` or settings are found. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
-  `NO_COLOR=1`, the tool's own login variable (`CLAUDE_CONFIG_DIR` where
-  set) and its fixed ones (`DISABLE_AUTOUPDATER=1`); on Windows also
+  `NO_COLOR=1`, the tool's own login variables where set
+  (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `JUNIE_HOME`, opencode's
+  `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`), its fixed ones
+  (`DISABLE_AUTOUPDATER=1`, opencode's `OPENCODE_*` switches) and those
+  naming the session's own files (opencode's `OPENCODE_CONFIG`,
+  `XDG_CONFIG_HOME`); on Windows also
   `SYSTEMROOT`, `APPDATA`, `LOCALAPPDATA`, `USERPROFILE`, `TEMP`, `TMP`. No `*_API_KEY`, `*_TOKEN`, `BAYLEE_*`,
   `GITHUB_*`, `AWS_*`, `ANTHROPIC_*`, `SSH_AUTH_SOCK` or `DATABASE_URL` ever
-  reaches it, and a passed value that looks like a key refuses the game.
+  reaches it (so neither `CODEX_API_KEY` nor `JUNIE_API_KEY`), and a passed
+  value that looks like a key refuses the game. A file a tool takes only
+  as a path (Codex's instructions and schema, opencode's configuration,
+  Junie's empty guidelines) is written, for this user alone, into a
+  `support` directory beside the working directory, never into it.
   `HOME` is the user's own, because Claude Code reads its login from
   `~/.claude` (or `CLAUDE_CONFIG_DIR`); so with any tool that reads files
   the model could read `~/.ssh` or `~/.aws` too. `--tools ""` is that
@@ -228,7 +245,12 @@ owner to check before playing.
   question still waits. A rate limit before the `init` line carries no
   answer: nothing more is read from that process, it is ended, and the mind
   cools down as for any rate limit, then starts a new one. A line of
-  output over a mebibyte is never read.
+  output over a mebibyte is never read. The other tools are locked down
+  as far as each lets itself be ([The tools](#the-tools)); where a tool
+  names nothing at its start, its first line is the start, and any line
+  that shows the model used a tool (a command, a file, an MCP or web
+  call) takes the mind off the table in the same way
+  (`dialect::Event::Breach`).
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
   reads the whole conversation again at every decision (up to its size of
@@ -242,7 +264,9 @@ owner to check before playing.
   process's running count (read off recorded games, not from its docs), so
   each reply is booked as the difference to the process's reading before
   it, and a new process counts from nothing again
-  (`Dialect::usage_is_cumulative`). Under the caps a cli game reserves its `game_tokens` against
+  (`Dialect::usage_is_cumulative`). Codex's and Junie's counts are their
+  run's whole (one message a process, so each is booked whole), and
+  opencode's `step_finish` counts its own step. Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
   default, `--spend-calls`) is held like a budget, and the summary says
@@ -252,14 +276,59 @@ owner to check before playing.
   the house answers, and the mind cools down for the time the tool names
   when that is some time and at most fifteen minutes, else a minute,
   doubling to fifteen. It plays again once that has passed
-  and `claude auth status --json` (which calls no model) says
-  `"loggedIn": true`; output it cannot read counts as signed out.
+  and the tool's login check (which calls no model) passes: `claude auth
+  status --json` says `"loggedIn": true`; `codex login status` says
+  `Logged in using …` on stderr, not with an API key; `opencode auth list`
+  names an `oauth` credential, not a stored key. Output it cannot read
+  counts as signed out. `agy` and Junie have no such check: their
+  `--version` shows only that the program runs.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
-  speaks Claude Code's stream-json and logs what it was started with and
-  every message it read (`tests/cli_mind.rs`: one process across turns
-  with the prefix sent once, a process that died between turns or
-  mid-question begun again with the prefix); no test starts a real CLI or
-  reaches a model.
+  speaks Claude Code's stream-json, `agy`'s, and each one-shot tool's
+  output, and logs what it was started with and every message it read
+  (`tests/cli_mind.rs`: one process across turns with the prefix sent
+  once, a process that died between turns or mid-question begun again
+  with the prefix; a one-shot tool's process a question, a tool used
+  taking the mind off the table). Each dialect's arguments are golden and
+  its lines are read from fixtures written from its documentation or
+  source (`cli/dialect_tests.rs`); no dialect may pass an approving flag
+  or a credential in its arguments. No test starts a real CLI or reaches a
+  model.
+
+### The tools
+
+What each dialect passes to take the tool's own agent away, how it holds
+a conversation, and how its usage is booked. **Docs** marks what the
+tool's help (`--help` of the installed version, 06.10.2026), documentation
+or source says; **assumed** what no source confirmed and a first live game
+must show (a tool that refuses a flag fails its game with a sentence; it
+never plays unlocked). The models and effort levels the settings panel
+offers for each are `baylee_client_core::llmseat::clis::choices`, a pure
+table (no program is asked).
+
+| CLI | Flags and files that strip its overhead | Conversation | Usage | Lockdown check | Confirmed |
+|---|---|---|---|---|---|
+| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
+| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
+| Codex `codex` (0.160.0) | `exec --json --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`). `$CODEX_HOME/AGENTS.md` is still read: give the seat a `CODEX_HOME` of its own | one process a question | thread total, one turn a process: booked whole | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored |
+| opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB=:memory:`, `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: `:memory:` at 1.18.34, built-in plugins left on (they carry the logins) |
+| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin. Sessions are still kept under `~/.junie/sessions` | one process a question | the task's per-model records, summed, booked whole | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer |
+
+Not spoken, and why:
+
+- **Gemini CLI** (`gemini`): since 18.06.2026 it no longer serves Google
+  AI Pro/Ultra or free sign-ins (Google's developer blog, "transitioning
+  Gemini CLI to Antigravity CLI"); its successor is `agy`, which the
+  profile name `gemini` also names.
+- **GitHub Copilot CLI** (`copilot`): no way to replace its system prompt;
+  its `--output-format json` lines are documented only by third parties;
+  more than one message needs its ACP server.
+- **Cursor CLI** (`cursor-agent`): its stream-json reports no token usage
+  (every call would be booked at its worst), and it has no flag that
+  removes its tools or its rules files (`AGENTS.md`, `.cursor/rules`).
+- **Qwen Code** (`qwen`): its free sign-in closed on 15.04.2026, leaving
+  keys and a paid plan; its stream-json input is documented as "under
+  construction".
+- **Aider**: no structured output, and keys only.
 
 ## The spend book
 
