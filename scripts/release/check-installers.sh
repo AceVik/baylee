@@ -103,7 +103,7 @@ windows() {
     need "$(cygpath -u "$APPDATA")/Microsoft/Windows/Start Menu/Programs/Baylee.lnk"
     # The uninstall entry is per user: Settings > Apps lists it, and no
     # administrator was asked.
-    reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{01A111A7-93E6-7434-8D14-F893B3405EC8}_is1' -v DisplayName >/dev/null ||
+    MSYS_NO_PATHCONV=1 reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{01A111A7-93E6-7434-8D14-F893B3405EC8}_is1' /v DisplayName >/dev/null ||
         fail "no per-user uninstall entry"
     MSYS_NO_PATHCONV=1 "$dir/unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
     # The uninstaller hands itself to a copy in %TEMP% and returns at once.
@@ -139,14 +139,12 @@ linux() {
     grep -q '\./opt/baylee/baylee-runtime$' <<<"$contents" || fail ".deb has no runtime"
     echo ".deb: readable"
     $install || return 0
-    sudo apt-get install -y --no-install-recommends "./$deb"
+    sudo apt-get install -y --no-install-recommends "./$deb" desktop-file-utils
     [ "$(readlink -f /usr/bin/baylee)" = /opt/baylee/baylee-client ] || fail "/usr/bin/baylee does not lead to the launcher"
     need /opt/baylee/baylee-runtime
     need /usr/share/applications/baylee.desktop
     need /usr/share/icons/hicolor/256x256/apps/baylee.png
-    if command -v desktop-file-validate >/dev/null; then
-        desktop-file-validate /usr/share/applications/baylee.desktop
-    fi
+    desktop-file-validate /usr/share/applications/baylee.desktop
     # Root-owned, so the launcher will not install updates here; the client
     # only links to the release (docs/releasing.md §"Installers").
     [ ! -w /opt/baylee ] || fail "/opt/baylee is writable for $(id -un)"
