@@ -625,7 +625,7 @@ part only because that fix is in the same commit.
 anything it has looked at into the graveyard. `rg -in 'surveil'` over
 `crates/baylee-cards-dsl/src` and `crates/baylee-engine/src`: **no hits**
 (checked here).
-**(b)** `crates/baylee-cards-dsl/src/effect.rs`, directly beside `Scry`
+**(b)** `crates/baylee-cards-dsl/src/effect/mod.rs`, directly beside `Scry`
 (line 646 according to view `stubs`), and the matching resolve arm in
 `crates/baylee-engine/src/resolve/`.
 **(c)** The same pairing Scry already has:
@@ -721,7 +721,7 @@ That makes every printed "unless you reveal/tap/return/sacrifice" unsayable.
 17 card files with "unless … pay" in the header were counted by hand here;
 view `stubs` counts 36 scripts with a non-pure `UnlessCost$`, 33 of them with
 no PayLife either.
-**(b)** `crates/baylee-cards-dsl/src/effect.rs:868` and
+**(b)** `crates/baylee-cards-dsl/src/effect/mod.rs:868` and
 `crates/baylee-cards-dsl/src/lib.rs` beside line 317.
 **(c)** No new enum, a **field change**: `PlayerMayPayOr { player, cost: Cost,
 effect }`. `Cost { mana, parts }` covers the existing case as `Cost { mana,
@@ -934,7 +934,7 @@ files name a chosen color (counted by hand here, "choose a color" plus "chosen
 color"), and view `stubs` counts 24 scripts, 14 of them with
 `Produced$ Chosen`.
 **(b)** `crates/baylee-cards-dsl/src/lib.rs` (`EnterModifier`),
-`crates/baylee-cards-dsl/src/effect.rs` (`Effect`, `ManaSource`, `Amount`),
+`crates/baylee-cards-dsl/src/effect/mod.rs` (`Effect`, `ManaSource`, `Amount`),
 `crates/baylee-engine/src/object.rs` (the state field).
 **(c)** `EnterModifier::ChooseColor { exclude: ColorSet }` (which covers the
 gate lands' "Exclude$ white"), `Effect::ChooseColor { player: PlayerRel,

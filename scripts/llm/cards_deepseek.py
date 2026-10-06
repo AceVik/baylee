@@ -28,7 +28,7 @@ import lane
 
 PACK_FILES = [
     "docs/card-dsl.md",
-    "crates/baylee-cards-dsl/src/effect.rs",
+    "crates/baylee-cards-dsl/src/effect/mod.rs",
     "crates/baylee-cards-dsl/src/cost.rs",
     "crates/baylee-cards-dsl/src/ability.rs",
     "crates/baylee-cards-dsl/src/filter.rs",

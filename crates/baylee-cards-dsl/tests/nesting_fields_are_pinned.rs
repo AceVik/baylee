@@ -112,7 +112,7 @@ const MIN_VARIANTS: usize = 60;
 fn enum_body(src: &str) -> String {
     let head = src
         .find("pub enum Effect {")
-        .expect("`pub enum Effect {` is not in effect.rs — has it been renamed?");
+        .expect("`pub enum Effect {` is not in effect/mod.rs — has it been renamed?");
     let open = src[head..].find('{').expect("checked above") + head;
     let mut depth = 0_usize;
     for (i, c) in src[open..].char_indices() {
@@ -143,7 +143,7 @@ fn without_comments(body: &str) -> String {
 
 #[test]
 fn every_field_that_nests_an_effect_is_one_the_walker_knows_about() {
-    let src = include_str!("../src/effect.rs");
+    let src = include_str!("../src/effect/mod.rs");
     let body = without_comments(&enum_body(src));
 
     // A variant opens with an upper-case name at one level of indentation.
