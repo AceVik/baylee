@@ -29,6 +29,70 @@ pub(crate) fn format_rust(content: &str) -> anyhow::Result<String> {
     }
 }
 
+/// [`format_rust`] for many sources at once, in order: what it gives each
+/// one is what it would give it alone.
+///
+/// Spawning rustfmt once per card was nearly all of `codegen`: two thousand
+/// machine-owned cards, a process apiece, one after another, 64 s of a 65 s
+/// `--check` (measured 06.10.2026). Here every core runs one rustfmt over a
+/// share of the files, written to `scratch` first because rustfmt takes
+/// one source on stdin and many on the command line. `scratch` lies under
+/// the workspace, so rustfmt finds the same `rustfmt.toml` there as it does
+/// from the workspace on stdin. A share rustfmt refuses as a whole falls back
+/// to [`format_rust`] file by file, which keeps an unparseable source as it
+/// was.
+pub(crate) fn format_rust_many(scratch: &Path, sources: &[String]) -> anyhow::Result<Vec<String>> {
+    /// Files per rustfmt process at most, so a command line stays short.
+    const SHARE: usize = 256;
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
+    let workers = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
+    let share = sources.len().div_ceil(workers).clamp(1, SHARE);
+    let dir = scratch.join(format!("xtask-rustfmt-{}", std::process::id()));
+    fs::create_dir_all(&dir)?;
+    let formatted = std::thread::scope(|scope| {
+        let jobs: Vec<_> = sources
+            .chunks(share)
+            .enumerate()
+            .map(|(n, chunk)| {
+                let dir = &dir;
+                scope.spawn(move || format_share(dir, n, chunk))
+            })
+            .collect();
+        jobs.into_iter()
+            .map(|job| job.join().expect("a rustfmt worker panicked"))
+            .collect::<anyhow::Result<Vec<_>>>()
+    });
+    let _ = fs::remove_dir_all(&dir);
+    Ok(formatted?.into_iter().flatten().collect())
+}
+
+/// One worker's share of [`format_rust_many`]: share `n`, written under
+/// `dir`, formatted by one rustfmt and read back.
+fn format_share(dir: &Path, n: usize, sources: &[String]) -> anyhow::Result<Vec<String>> {
+    use std::process::{Command, Stdio};
+    let paths: Vec<PathBuf> = (0..sources.len())
+        .map(|i| dir.join(format!("s{n}_{i}.rs")))
+        .collect();
+    for (path, source) in paths.iter().zip(sources) {
+        fs::write(path, source)?;
+    }
+    let status = Command::new("rustfmt")
+        .args(["--edition", "2024"])
+        .args(&paths)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    if !status.success() {
+        return sources.iter().map(|source| format_rust(source)).collect();
+    }
+    paths
+        .iter()
+        .map(|path| Ok(fs::read_to_string(path)?))
+        .collect()
+}
+
 /// Every card file under `cards/`, wherever the taxonomy has put it, keyed by
 /// slug.
 ///

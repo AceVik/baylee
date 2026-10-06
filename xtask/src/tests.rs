@@ -692,3 +692,34 @@ fn an_unrelated_unless_clause_states_no_arrival_bound() {
     );
     assert_eq!(printed_enters_tapped_bound("{T}: Add {G}."), None);
 }
+
+/// Formatting many sources at once gives each what formatting it alone
+/// gives it, in order, across more than one rustfmt process, and a source
+/// rustfmt cannot parse is kept as it was.
+#[test]
+fn formatting_many_at_once_is_formatting_each_alone() {
+    let kinds = [
+        "fn  a ( ) -> u8 {1}".to_string(),
+        "use std::collections::{HashMap,BTreeMap};\nconst X:&[u32]=&[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30];"
+            .to_string(),
+        "fn broken( {".to_string(),
+        std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../crates/baylee-cards/src/generated.rs"),
+        )
+        .expect("the registry"),
+    ];
+    let many: Vec<String> = (0..24).map(|i| kinds[i % kinds.len()].clone()).collect();
+    let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../target");
+    let together = super::format_rust_many(&scratch, &many).expect("formatting together");
+    let alone: Vec<String> = many
+        .iter()
+        .map(|source| super::format_rust(source).expect("formatting alone"))
+        .collect();
+    assert_eq!(together, alone);
+    assert_eq!(
+        together[2], "fn broken( {",
+        "an unparseable source is kept as it was"
+    );
+    assert_ne!(together[0], many[0], "and the rest were formatted");
+}

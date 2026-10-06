@@ -1,6 +1,7 @@
 //! `codegen`: the card files, the registry, the index tree and the tables
 //! the compiled pool reads.
 
+use crate::files::format_rust_many;
 use crate::{
     BTreeMap, BTreeSet, Path, PathBuf, acceptance, card_files, cardindex, catalog, fs, layout,
     ledger, refresh_payload_cache, relative, render_ability_lines, render_name_table,
@@ -85,6 +86,7 @@ pub(crate) fn cards(
     refresh_payload_cache(names, agent, cache);
 
     let mut stubs = Vec::with_capacity(names.len());
+    let mut machine_owned = Vec::with_capacity(names.len());
     for name in names {
         let card = scryfall::fetch_named(name, agent, cache)?;
         let oracle_id = card.oracle_id.clone().unwrap_or_default();
@@ -147,8 +149,15 @@ pub(crate) fn cards(
             stubs.push(info);
             continue;
         }
-        write_or_check(check, &stub_path, &content, changed)?;
+        machine_owned.push((stub_path, content));
         stubs.push(info);
+    }
+    // Formatted together, in parallel, and written in the order they came:
+    // one rustfmt per card was nearly the whole run (`format_rust_many`).
+    let (paths, sources): (Vec<PathBuf>, Vec<String>) = machine_owned.into_iter().unzip();
+    let formatted = format_rust_many(&root.join("target"), &sources)?;
+    for (path, content) in paths.iter().zip(&formatted) {
+        write_verbatim(check, path, content, changed)?;
     }
 
     // The same refusal once more, now that every slug is the one the reader

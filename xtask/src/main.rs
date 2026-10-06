@@ -64,9 +64,9 @@ use dev_table::{TableSpec, dev_table};
 #[cfg(test)]
 use dev_table::{arrange_room, bridge_mind, table_deck, table_deck_names};
 use explain::{explain, pool_dump};
-#[cfg(test)]
-use files::format_rust;
 use files::{card_files, knob, quoted_value, relative, write_or_check, write_verbatim};
+#[cfg(test)]
+use files::{format_rust, format_rust_many};
 use ledger_cmd::ledger_cmd;
 use oracle_lines::{render_ability_lines, render_oracle};
 #[cfg(test)]
