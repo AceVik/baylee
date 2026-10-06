@@ -1,6 +1,6 @@
 //! The lobby listing, as one account sees it.
 
-use crate::{ErrorBody, HeaderMap, Json, Query, Shared, State, StatusCode, authed, lobby, store};
+use crate::{ErrorBody, HeaderMap, Json, Query, Shared, State, StatusCode, authed, lobby};
 
 /// The lobby listing as one account sees it, whole.
 ///
@@ -48,16 +48,13 @@ pub(crate) async fn listing_page(
 /// `!Send`, which axum refuses to accept as a handler. The ordering was
 /// already right — it is the reason this conversion was small.
 ///
-/// One query for every name, not one per chair.
-pub(crate) async fn seated_names(state: &Shared) -> std::collections::HashMap<String, String> {
+/// Read through the name book (`namebook.rs`): one query for the accounts that
+/// sat down since the last render, and none at all when nobody did.
+pub(crate) async fn seated_names(
+    state: &Shared,
+) -> std::sync::Arc<std::collections::HashMap<String, String>> {
     let wanted = state.lobby.lock().seated_accounts();
-    match store::display_names(&state.db, wanted).await {
-        Ok(names) => names,
-        Err(e) => {
-            tracing::error!("{e:#}");
-            std::collections::HashMap::new()
-        }
-    }
+    state.names.names(&state.db, wanted).await
 }
 
 /// The lobby, searched and paged.
