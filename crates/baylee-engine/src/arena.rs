@@ -21,9 +21,9 @@ use baylee_core::ids::ObjectId;
 use std::sync::Arc;
 
 /// Slots per chunk, as a power of two. A smaller chunk copies less on a
-/// write and costs more reference counts per clone; 16 measured best
+/// write and costs more reference counts per clone; 8 measured best
 /// (`docs/perf-baseline.md`).
-const CHUNK_BITS: u32 = 4;
+const CHUNK_BITS: u32 = 3;
 const CHUNK: usize = 1 << CHUNK_BITS;
 const CHUNK_MASK: usize = CHUNK - 1;
 
