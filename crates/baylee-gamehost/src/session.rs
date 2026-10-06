@@ -448,7 +448,7 @@ fn clock_answer(pending: Option<&Pending>, action: &PlayerAction) -> ClockAnswer
 /// client that drops a view as not newer still reads the lines beside it. No
 /// lines is one frame with an empty `log_json`.
 fn state_frames(seq: u64, view: &PlayerView, tail: LogTail) -> Vec<Envelope> {
-    let view_json = serde_json::to_vec(view).unwrap_or_default();
+    let view_json = view_json(view);
     let LogTail {
         mut from,
         mut entries,
@@ -467,6 +467,21 @@ fn state_frames(seq: u64, view: &PlayerView, tail: LogTail) -> Vec<Envelope> {
     }
     out
 }
+
+/// A view as the wire carries it, written into a buffer sized for a busy
+/// table up front: growing one from empty copied it a dozen times on the
+/// way to a four-seat board's tens of kilobytes.
+fn view_json(view: &PlayerView) -> Vec<u8> {
+    let mut json = Vec::with_capacity(VIEW_JSON_HINT);
+    if serde_json::to_writer(&mut json, view).is_err() {
+        json.clear();
+    }
+    json
+}
+
+/// What a view's JSON is sized for before it is written: a busy four-seat
+/// board is about 36 KB (`docs/perf-client.md`).
+const VIEW_JSON_HINT: usize = 40 << 10;
 
 fn state_delta(seq: u64, view_json: Vec<u8>, log_json: Vec<u8>) -> Envelope {
     Envelope {

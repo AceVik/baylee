@@ -307,7 +307,8 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // Damage decisions carry event identities, effect metadata, and allocations.
     // `PlayerView::sorceries_have_flash` is additive and defaulted: an
     // older client skips it and stays conservative, so 53 still names it.
-    const RECORDED: (u32, u64) = (53, 6_263_270_473_425_543_018);
+    // 54: a `PublicObject` field at its default is no longer written.
+    const RECORDED: (u32, u64) = (54, 5_224_630_772_348_353_994);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

@@ -152,6 +152,70 @@ fn rooms_with_different_doors_open_never_share_a_board_pile() {
     assert_ne!(a.summary_key(), b.summary_key(), "one door left to open");
 }
 
+/// An object writes only what is not its default, and reads back whole:
+/// the vanilla token leaves out every empty field, a busy one keeps each of
+/// them, and both round-trip to themselves. A reader that took a missing
+/// field for anything but its default would fail the second half.
+#[test]
+fn an_object_writes_only_what_is_not_default_and_reads_back_whole() {
+    let plain = obj(1, 0);
+    let json = serde_json::to_string(&plain).expect("writes");
+    for absent in [
+        "\"card\"",
+        "\"commander\"",
+        "\"counters\"",
+        "\"damage\"",
+        "\"targets\"",
+        "\"grants\"",
+        "\"summoning_sick\"",
+        "\"word_changes\"",
+        "\"flashback\"",
+    ] {
+        assert!(
+            !json.contains(absent),
+            "{absent} written at its default: {json}"
+        );
+    }
+    for present in [
+        "\"id\"",
+        "\"name\"",
+        "\"controller\"",
+        "\"power\"",
+        "\"types\"",
+    ] {
+        assert!(json.contains(present), "{present} missing: {json}");
+    }
+    assert_eq!(
+        serde_json::from_str::<PublicObject>(&json).expect("reads"),
+        plain
+    );
+
+    let mut busy = obj(2, 1);
+    busy.commander = true;
+    busy.suspended = true;
+    busy.summoning_sick = true;
+    busy.damage = 3;
+    busy.token = Some(4);
+    busy.loyalty = Some(5);
+    busy.attached_to = Some(ObjectId::new(9, 0));
+    busy.flashback = Some(ManaCost::default());
+    let json = serde_json::to_string(&busy).expect("writes");
+    for present in [
+        "\"commander\"",
+        "\"damage\"",
+        "\"token\"",
+        "\"loyalty\"",
+        "\"attached_to\"",
+        "\"flashback\"",
+    ] {
+        assert!(json.contains(present), "{present} missing: {json}");
+    }
+    assert_eq!(
+        serde_json::from_str::<PublicObject>(&json).expect("reads"),
+        busy
+    );
+}
+
 #[test]
 fn an_older_public_object_without_doors_still_decodes() {
     let object = obj(1, 0);

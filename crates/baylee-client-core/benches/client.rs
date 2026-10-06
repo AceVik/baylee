@@ -55,6 +55,20 @@ fn busy_view() -> PlayerView {
 fn view(c: &mut Criterion) {
     let json = serde_json::to_vec(&busy_view()).expect("a view serializes");
     eprintln!("a busy four-seat view is {} bytes of JSON", json.len());
+    if let Ok(path) = std::env::var("BAYLEE_BENCH_DUMP") {
+        std::fs::write(path, &json).expect("dump");
+    }
+    let view = busy_view();
+    c.bench_function("view/encode/four_seats_busy", |b| {
+        b.iter(|| black_box(serde_json::to_vec(black_box(&view)).expect("encodes")));
+    });
+    c.bench_function("view/encode_presized/four_seats_busy", |b| {
+        b.iter(|| {
+            let mut out = Vec::with_capacity(json.len() + json.len() / 8);
+            serde_json::to_writer(&mut out, black_box(&view)).expect("encodes");
+            black_box(out)
+        });
+    });
     c.bench_function("view/decode/four_seats_busy", |b| {
         b.iter(|| {
             black_box(serde_json::from_slice::<PlayerView>(black_box(&json)).expect("decodes"))

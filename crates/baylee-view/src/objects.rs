@@ -211,12 +211,13 @@ pub struct StackText {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PublicObject {
     /// Effective typed word substitutions, separate from the unchanged Oracle.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub word_changes: Vec<WordChange>,
     /// Engine object handle; stable while the object stays in its zone.
     pub id: ObjectId,
     /// Backing card, when the viewing seat is entitled to know it. `None` for
     /// tokens, emblems, and face-down permanents the seat may not look at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub card: Option<CardIdentity>,
     /// The card this object's abilities are printed on ([`RulesFace`]).
     ///
@@ -224,6 +225,7 @@ pub struct PublicObject {
     /// a copy, and gated on the same entitlement: a face-down permanent the
     /// seat may not look at names no card here either. `None` for a registry
     /// token (which [`Self::token`] names) and an emblem.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rules: Option<RulesFace>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
@@ -245,6 +247,7 @@ pub struct PublicObject {
     /// list down with it. The host asserts the two agree.
     ///
     /// [`SeatView::commanders`]: crate::SeatView::commanders
+    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
     pub commander: bool,
     /// Status bits.
     pub status: ObjectStatus,
@@ -260,24 +263,24 @@ pub struct PublicObject {
     /// its printed ones — only the projection knows the answer.
     pub subtypes: SubtypeSet,
     /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     /// Card name chosen for this permanent as it entered (Pithing Needle).
     /// Public: the choice is announced as it is made.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chosen_name: Option<NamedFace>,
     /// Opponent publicly chosen as this permanent entered (Black Vise).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chosen_opponent: Option<PlayerId>,
     /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
     /// half is unlocked; `None` for anything that is not a Room on the
     /// battlefield. Public, as the designations are. A locked half has no
     /// name, mana cost or rules text on the battlefield (CR 709.5), which
     /// the other fields already say; this says which half is which.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unlocked_doors: Option<[bool; 2]>,
     /// Whether this face-up exiled card is suspended. Its time counters are public.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
     pub suspended: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
@@ -288,6 +291,7 @@ pub struct PublicObject {
     /// both project to "an artifact named something". `None` for cards and
     /// for the tokens a copy effect makes, which are copies of a card rather
     /// than of a registry token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token: Option<u16>,
     /// Projected colors.
     pub colors: ColorSet,
@@ -316,20 +320,28 @@ pub struct PublicObject {
     /// a real card prints its power and toughness and therefore hides them.
     /// `None` for anything that is not a creature, and for a creature whose
     /// base the engine has no number for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_power: Option<i16>,
     /// The toughness the card itself prints. See [`Self::base_power`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_toughness: Option<i16>,
     /// Loyalty, for planeswalkers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub loyalty: Option<u16>,
     /// Damage marked this turn.
+    #[serde(default, skip_serializing_if = "crate::wire::is_zero_u16")]
     pub damage: u16,
     /// Counters on the object.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub counters: Vec<CounterEntry>,
     /// What this is attached to (auras, equipment, fortifications).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attached_to: Option<ObjectId>,
     /// Targets, for objects on the stack.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<TargetRef>,
     /// What this is, for objects on the stack; `None` everywhere else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stack_item: Option<StackItem>,
     /// Whether this is a creature that has *not* been under its controller's
     /// control continuously since their most recent turn began, and has no
@@ -341,6 +353,7 @@ pub struct PublicObject {
     /// turn came back `true` for a question the rules never ask about lands.
     /// It also holds through an opponent's turn, because the clock it is
     /// measured against is the controller's own.
+    #[serde(default, skip_serializing_if = "crate::wire::is_false")]
     pub summoning_sick: bool,
     /// Mana this permanent can make through an ability it does not print.
     ///
@@ -352,6 +365,7 @@ pub struct PublicObject {
     ///
     /// `None` for everything that has no such ability, and for a granted
     /// ability too complicated to reduce to "n mana of these colours".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub granted_mana: Option<GrantedMana>,
     /// Which colours a **printed** mana ability of this permanent makes, when
     /// the printing does not say.
@@ -382,6 +396,7 @@ pub struct PublicObject {
     /// `None` means there is nothing here to plan with: no such ability, or
     /// one that makes nothing right now. A lone Reflecting Pool contributes
     /// nothing to the union it reads, so it taps for no colour at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub board_mana: Option<BoardMana>,
     /// What the viewing seat may pay to cast this card from its graveyard:
     /// the cost of a flashback it has right now (CR 702.34a).
@@ -403,6 +418,7 @@ pub struct PublicObject {
     ///
     /// Graveyard only, and per viewer: `None` unless this seat may cast the
     /// card, which is only ever from its own graveyard.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flashback: Option<ManaCost>,
     /// Who granted each of this permanent's granted activated abilities, in
     /// slot order: entry `n` is the ability offered as `granted_ability(n)`
@@ -417,6 +433,7 @@ pub struct PublicObject {
     /// library since, or face down — is an entry with every field `None`.
     /// A nontoken card keeps its handle across zones (#240), so naming it
     /// would say which card in a hidden zone it is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub grants: Vec<GrantSource>,
 }
 
