@@ -5,7 +5,10 @@
 // roughly 114 physical pixels at this camera, so drawing the cloth sharply
 // would want some four thousand texels — and measured in a debug build,
 // generating 2048 already costs 1.6 seconds every time the table is re-cut.
-// Arithmetic has no resolution.
+// Arithmetic has no resolution. The one texture it reads is not a picture
+// but a table of numbers: every vein cell's point, which the arithmetic
+// would otherwise work out again nine times per field on every pixel
+// (`vein_points`, `baylee_client_core::feltveins`).
 //
 // `baylee_client_core::tabletop::felt` remains the base-cloth reference. The
 // shader adds the machined frame and its light; the CPU bounds the cloth's
@@ -33,7 +36,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::globals
-#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2}
+#import "embedded://baylee_client/shaders/noise.wgsl"::{hash_cell}
 
 struct FeltParams {
     /// The phase lamp: `rgb` its colour, `a` how much of it there is.
@@ -78,9 +81,17 @@ struct FeltParams {
     thickness: f32,
     rotation: f32,
     pattern: vec4<f32>,
+    /// The texel offset of each cellular field's cells in `vein_points`:
+    /// trunk in `xy`, capillary in `zw`.
+    veins: vec4<f32>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
+/// Every vein cell's point, as `vein_distance` used to compute it with two
+/// value noises per cell (`baylee_client_core::feltveins`, which computes it
+/// once per cut with this file's own `vnoise`). Read with `textureLoad`: one
+/// texel is one cell, never filtered.
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var vein_points: texture_2d<f32>;
 
 // The baize, and the rail around it. Display-referred, like every colour this
 // project writes down, and therefore run through `to_linear` before use.
@@ -192,10 +203,11 @@ fn vnoise(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
     let u = f * f * (3.0 - 2.0 * f);
-    let a = hash2(i);
-    let b = hash2(i + vec2<f32>(1.0, 0.0));
-    let c = hash2(i + vec2<f32>(0.0, 1.0));
-    let d = hash2(i + vec2<f32>(1.0, 1.0));
+    let c0 = vec2<i32>(i);
+    let a = hash_cell(c0);
+    let b = hash_cell(c0 + vec2<i32>(1, 0));
+    let c = hash_cell(c0 + vec2<i32>(0, 1));
+    let d = hash_cell(c0 + vec2<i32>(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
@@ -239,16 +251,18 @@ fn hairline(distance: f32, width: f32, pixel: f32) -> f32 {
 // Distance to a cellular seam. Two scales form connected trunks and finer
 // capillaries; domain warping removes the straight polygon edges. Fixed loops
 // and scalar noise keep the network in the existing opaque material pass.
-fn vein_distance(p: vec2<f32>) -> f32 {
+fn vein_distance(p: vec2<f32>, texel_offset: vec2<f32>) -> f32 {
     let cell = floor(p);
     let local = fract(p);
     var nearest = 8.0;
     var second = 8.0;
+    let base = vec2<i32>(cell + texel_offset);
+    let last = vec2<i32>(textureDimensions(vein_points)) - vec2<i32>(1);
     for (var y = -1; y <= 1; y += 1) {
         for (var x = -1; x <= 1; x += 1) {
             let offset = vec2<f32>(f32(x), f32(y));
-            let seed = cell + offset;
-            let point = vec2<f32>(vnoise(seed * 7.13), vnoise(seed * 9.71 + 31.7));
+            let texel = clamp(base + vec2<i32>(x, y), vec2<i32>(0), last);
+            let point = textureLoad(vein_points, texel, 0).xy;
             let delta = offset + point - local;
             let d = dot(delta, delta);
             second = min(second, max(nearest, d));
@@ -265,8 +279,8 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let domain = vec2<f32>(dot(p, axis), dot(p, vec2<f32>(-axis.y, axis.x)))
         * (0.85 + params.pattern.w * (0.30 / 256.0)) + params.pattern.xy;
     let warp = domain + vec2<f32>(fbm(domain * 0.32), fbm(domain * 0.32 + 19.4)) * 3.4;
-    let trunk = vein_distance(warp * 0.28);
-    let capillary = vein_distance(warp * 0.73 + 8.3);
+    let trunk = vein_distance(warp * 0.28, params.veins.xy);
+    let capillary = vein_distance(warp * 0.73 + 8.3, params.veins.zw);
     // Fine branches fade between the larger vessels instead of filling every
     // cell with equally bright cracks. Water and molten rock share junctions.
     let branch = min(trunk, capillary * 3.2 + 0.012 + smoothstep(0.04, 0.20, trunk) * 0.065);
@@ -278,32 +292,42 @@ fn glass_at(p: vec2<f32>) -> vec3<f32> {
     let silt = fbm(p * 0.34);
     var colour = mix(vec3<f32>(0.012, 0.023, 0.029), vec3<f32>(0.035, 0.046, 0.050), silt);
 
+    // Each moving layer is drawn only where its seam shows: away from the
+    // veins `water` and `lava` are exactly zero, the mixes below would keep
+    // `colour` as it is, and most of the cloth is away from the veins
+    // (`docs/perf-client.md`).
     // Advected ripples, refracted caustics and narrow reflected crests.
-    let flow = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.34);
-    let current = fbm(flow);
-    let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
-    let crest = pow(max(ripple, 0.0), 14.0);
-    let depth = (1.0 - smoothstep(0.0, 1.3, water_d));
-    var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.012, 0.047, 0.075), depth);
-    river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.30;
-    river += vec3<f32>(0.32, 0.52, 0.55) * crest * 0.065;
-    let foam = smoothstep(0.52, 0.76, current) * (1.0 - depth) * 0.20;
-    river += vec3<f32>(0.38, 0.49, 0.46) * foam;
-    colour = mix(colour, river, water);
+    if water > 0.0 {
+        let flow = vec2<f32>(warp.x * 2.4, warp.y * 1.4 - t * 0.34);
+        let current = fbm(flow);
+        let ripple = sin(flow.y * 18.0 + sin(flow.x * 4.0 + current * 8.0) * 0.8);
+        let crest = pow(max(ripple, 0.0), 14.0);
+        let depth = (1.0 - smoothstep(0.0, 1.3, water_d));
+        var river = mix(vec3<f32>(0.018, 0.12, 0.16), vec3<f32>(0.012, 0.047, 0.075), depth);
+        river += vec3<f32>(0.08, 0.27, 0.31) * current * 0.30;
+        river += vec3<f32>(0.32, 0.52, 0.55) * crest * 0.065;
+        let foam = smoothstep(0.52, 0.76, current) * (1.0 - depth) * 0.20;
+        river += vec3<f32>(0.38, 0.49, 0.46) * foam;
+        colour = mix(colour, river, water);
+    }
 
     // Slower molten flow carries dark crust islands over glowing seams.
-    let molten_uv = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * 0.23);
-    let crust = fbm(molten_uv);
-    let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
-    let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
-    var molten = mix(vec3<f32>(0.10, 0.023, 0.006), vec3<f32>(0.30, 0.075, 0.012), crack);
-    molten += vec3<f32>(0.19, 0.11, 0.026) * crack * core;
-    // Cooling at the confluence forms black glass and a thin pale steam veil.
-    let contact = water * lava;
-    molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * (0.65 + crust * 0.25));
-    colour = mix(colour, molten, lava);
-    let steam = vnoise(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
-    colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.80, steam) * 0.25;
+    if lava > 0.0 {
+        let molten_uv = vec2<f32>(warp.x * 4.5, warp.y * 2.5 - t * 0.23);
+        let crust = fbm(molten_uv);
+        let crack = 1.0 - smoothstep(0.008, 0.09, abs(crust - 0.49));
+        let core = 1.0 - smoothstep(0.1, 1.0, lava_d);
+        var molten = mix(vec3<f32>(0.10, 0.023, 0.006), vec3<f32>(0.30, 0.075, 0.012), crack);
+        molten += vec3<f32>(0.19, 0.11, 0.026) * crack * core;
+        // Cooling at the confluence forms black glass and a thin pale steam veil.
+        let contact = water * lava;
+        molten = mix(molten, vec3<f32>(0.018, 0.026, 0.031), contact * (0.65 + crust * 0.25));
+        colour = mix(colour, molten, lava);
+        if contact > 0.0 {
+            let steam = vnoise(vec2<f32>(p.x * 1.8 + t * 0.05, p.y * 1.2 - t * 0.16));
+            colour += vec3<f32>(0.11, 0.15, 0.16) * contact * smoothstep(0.40, 0.80, steam) * 0.25;
+        }
+    }
     // The broad reflection belongs to the glass above both rivers.
     let reflection = exp(-pow((p.y + p.x * 0.28 + 2.5) * 0.23, 2.0));
     return colour + vec3<f32>(0.035, 0.052, 0.06) * reflection;

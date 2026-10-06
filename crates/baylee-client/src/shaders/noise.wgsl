@@ -47,16 +47,36 @@ fn hash2(p: vec2<f32>) -> f32 {
     return f32(h >> 8u) * (1.0 / 16777216.0);
 }
 
+/// `hash2` at a lattice point, which is all a value noise ever asks for.
+///
+/// The same bits as `hash2(vec2<f32>(c))` for every cell: a lattice point's
+/// place is zero, so `hash2`'s place term multiplies out to nothing, and what
+/// is left is this. It skips the float split and the select a general point
+/// needs, which is a third of the work of a noise lookup, four times a
+/// lookup, on every pixel of the front door's sky and the table's cloth
+/// (`docs/perf-client.md`).
+fn hash_cell(c: vec2<i32>) -> f32 {
+    let cell = bitcast<vec2<u32>>(c);
+    var h = (cell.x * 0x27d4eb2du) ^ (cell.y * 0x165667b1u);
+    h = h ^ (h >> 15u);
+    h = h * 0x2c1b3c6du;
+    h = h ^ (h >> 12u);
+    h = h * 0x29745c65u;
+    h = h ^ (h >> 15u);
+    return f32(h >> 8u) * (1.0 / 16777216.0);
+}
+
 /// Value noise, smoothed with the usual quintic so the derivative is
 /// continuous and the field has no visible cell edges.
 fn noise2(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
     let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-    let a = hash2(i);
-    let b = hash2(i + vec2<f32>(1.0, 0.0));
-    let c = hash2(i + vec2<f32>(0.0, 1.0));
-    let d = hash2(i + vec2<f32>(1.0, 1.0));
+    let c0 = vec2<i32>(i);
+    let a = hash_cell(c0);
+    let b = hash_cell(c0 + vec2<i32>(1, 0));
+    let c = hash_cell(c0 + vec2<i32>(0, 1));
+    let d = hash_cell(c0 + vec2<i32>(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 

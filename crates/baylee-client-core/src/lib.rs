@@ -59,6 +59,7 @@ pub mod damage;
 pub mod decisionclock;
 pub mod deckbuilder;
 pub mod depart;
+pub mod feltveins;
 pub mod filterdialog;
 pub mod firewheel;
 pub mod gamelog;

@@ -28,7 +28,7 @@
 
 #import bevy_pbr::forward_io::VertexOutput
 #import bevy_pbr::mesh_view_bindings::{globals, view}
-#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2}
+#import "embedded://baylee_client/shaders/noise.wgsl"::{hash2, hash_cell}
 
 struct SkyParams {
     /// 0 is full night, 1 is full day. `baylee_client_core::sky::phase`.
@@ -103,10 +103,11 @@ fn vnoise(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
     let u = f * f * (3.0 - 2.0 * f);
-    let a = hash2(i);
-    let b = hash2(i + vec2<f32>(1.0, 0.0));
-    let c = hash2(i + vec2<f32>(0.0, 1.0));
-    let d = hash2(i + vec2<f32>(1.0, 1.0));
+    let c0 = vec2<i32>(i);
+    let a = hash_cell(c0);
+    let b = hash_cell(c0 + vec2<i32>(1, 0));
+    let c = hash_cell(c0 + vec2<i32>(0, 1));
+    let d = hash_cell(c0 + vec2<i32>(1, 1));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 

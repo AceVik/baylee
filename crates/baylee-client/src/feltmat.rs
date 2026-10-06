@@ -75,6 +75,10 @@ pub struct FeltParams {
     pub rotation: f32,
     /// Per-duel domain offset, orientation, and scale of the vascular pattern.
     pub pattern: Vec4,
+    /// Where each cellular field's cells sit in [`FeltMaterial::veins`]: the
+    /// texel offset of the trunk field in `xy`, of the capillary field in
+    /// `zw` (`baylee_client_core::feltveins::VeinTable::offsets`).
+    pub veins: Vec4,
 }
 
 /// Random presentation seed, sampled once when a duel is created.
@@ -123,10 +127,53 @@ pub const WASH_GAIN: f32 = 1.80;
 /// The slab.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct FeltMaterial {
-    /// Everything the shader reads. No textures at all — see the module
-    /// header for why the cloth is arithmetic.
+    /// Everything the shader computes from. The cloth itself is arithmetic
+    /// (see the module header); the one texture below is a table of numbers
+    /// the arithmetic would otherwise redo on every pixel.
     #[uniform(0)]
     pub params: FeltParams,
+    /// Every vein cell's point, computed once per cut
+    /// (`baylee_client_core::feltveins`, [`vein_points`]).
+    #[texture(1)]
+    pub veins: Handle<Image>,
+}
+
+/// The vein table for a slab `span` across under `pattern`: the image the
+/// felt reads its cell points from, and the offsets that go in
+/// [`FeltParams::veins`].
+///
+/// `RENDER_WORLD` only: nothing on the CPU reads it again, so its bytes leave
+/// the main world once uploaded. A duel's table is a few kilobytes.
+#[must_use]
+pub fn vein_points(span: Vec2, pattern: Vec4) -> (Image, Vec4) {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    let table =
+        baylee_client_core::feltveins::VeinTable::for_table(span.to_array(), pattern.to_array());
+    let (width, height, texels) = if table.texels.is_empty() {
+        (1, 1, vec![0, 0])
+    } else {
+        (table.width, table.height, table.texels)
+    };
+    let image = Image::new(
+        Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        texels,
+        TextureFormat::Rg8Unorm,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+    #[allow(clippy::cast_precision_loss)]
+    let offsets = Vec4::new(
+        table.offsets[0][0] as f32,
+        table.offsets[0][1] as f32,
+        table.offsets[1][0] as f32,
+        table.offsets[1][1] as f32,
+    );
+    (image, offsets)
 }
 
 impl Material for FeltMaterial {

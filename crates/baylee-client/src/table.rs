@@ -2712,12 +2712,14 @@ fn firewheel_of(
 /// material every frame for the rest of the game, which is exactly the
 /// garbage [`sync_zones`] exists to avoid.
 #[allow(clippy::too_many_lines)] // slab creation and incremental material update share one state
+#[allow(clippy::too_many_arguments)] // Bevy system: the slab and its assets
 pub fn sync_table(
     mut commands: Commands,
     time: Res<Time>,
     duel: Res<Duel>,
     prefs: Res<crate::prefs::Prefs>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<FeltMaterial>>,
     mut slabs: Query<(&mut Slab, &mut Mesh3d, &MeshMaterial3d<FeltMaterial>)>,
 ) {
@@ -2773,6 +2775,7 @@ pub fn sync_table(
 
     let Ok((mut slab, mut mesh, handle)) = slabs.single_mut() else {
         // No slab yet. Cut one, and let the next frame light it.
+        let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
         commands.spawn((
             DuelStage,
             crate::compass::Compass::default(),
@@ -2810,7 +2813,9 @@ pub fn sync_table(
                     thickness: TABLE_THICKNESS,
                     rotation: 0.0,
                     pattern: duel.table_pattern.0,
+                    veins: vein_offsets,
                 },
+                veins: images.add(veins),
             })),
             Transform::from_xyz(0.0, TABLE_Y, 0.0)
                 .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
@@ -2852,6 +2857,11 @@ pub fn sync_table(
         if recut {
             material.params.span = span;
             material.params.corner = tabletop::table_corner(span);
+            // A bigger slab reaches cells the old table did not hold.
+            let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
+            images.remove(&material.veins);
+            material.veins = images.add(veins);
+            material.params.veins = vein_offsets;
         }
         material.params.wash = next;
         material.params.flames = next_flames;
