@@ -220,10 +220,11 @@ pub struct Settings {
     /// The most calls the game may make, where that is a limit: a CLI's
     /// subscription has no price, and its calls are what it counts.
     pub spend_calls: Option<u64>,
-    /// How long a turn's conversation may grow, in estimated tokens, before
-    /// the next question starts a new one with the notes carried over: a
-    /// long turn neither outgrows the model's context nor has every call
-    /// send all of it again.
+    /// How long a conversation may grow, in estimated tokens, before the
+    /// next question starts a new one with the notes carried over: a turn's
+    /// through an API, a whole game's through a CLI ([`crate::cli`]), which
+    /// keeps one across turns. Neither outgrows the model's context, nor
+    /// has every call send more than this again.
     pub conversation_tokens: usize,
     /// A directory for the mind's own transcript: every message it sent and
     /// every reply, one JSON line each.
@@ -574,6 +575,13 @@ pub struct Tally {
     /// The most calls a game may make, where that is a limit
     /// ([`Settings::spend_calls`]), for the summary.
     pub calls_cap: Option<u64>,
+    /// The conversations a CLI's processes held ([`crate::cli`]): one a
+    /// seat, kept across turns, and another each time one outgrew its
+    /// size or was lost.
+    pub sessions: u64,
+    /// Of them, the ones begun again because the one before was lost: its
+    /// process died, hung or sat idle, and the prefix was sent again.
+    pub restarts: u64,
 }
 
 /// The most calls can cost: tokens, and dollars where the price is known.

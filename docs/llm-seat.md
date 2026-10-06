@@ -145,15 +145,37 @@ owner to check before playing.
 - **No key.** The tool plays on its own login (`claude` signed in once by
   hand). A cli profile has no `key_env`, `base_url`, `price` or `game_usd`
   (each refused), and answers `json_schema` or `json`, never `tools`.
-- **One process per turn.** A seat's first question of a game turn starts
-  the tool with the game's prefix, the seat's notes from earlier turns and
-  the decision; each later question of the turn is one more message to the
-  same process, which keeps the turn's conversation. The next turn closes
-  its stdin (two seconds, then it is killed) and starts another. A process
-  that hangs past the question's time is killed, one that dies is said
-  with its exit and its last line on stderr, and either way the next
-  question starts one again, saying the conversation was lost; one idle
-  three minutes is ended; at most two live per bridge.
+- **One process per conversation, across turns.** A seat's first question
+  starts the tool with the game's prefix (the answer's rules, the game,
+  the deck), the seat's notes and the decision; every later question, of
+  this turn or a later one, is one more message to the same process, which
+  keeps the conversation. That is how the prefix stays cached: the tool
+  sends the whole conversation again with each message and its provider
+  reads all but the newest message back from its prompt cache, so each
+  decision sends only what is new since the last (the board as it stands,
+  the question, what the model has not been told). Both tools work this
+  way: Claude Code and `agy` take each message as a line on the stdin of
+  one long-lived process, and that process is the session. Claude Code's
+  own `--resume` would need the session kept on disk, which
+  `--no-session-persistence` forbids. (`agy` takes no system prompt as a
+  flag, so ours rides ahead of the prefix in the first message.)
+  A conversation ends only when it outgrows its size (about 100,000
+  tokens, `conversation_tokens`): the next question closes its stdin (two
+  seconds, then it is killed) and starts another with the prefix and the
+  notes. A process that hangs past the question's time is killed; one that
+  dies while a question waits on it is said with its exit and its last
+  line on stderr, and the house answers that question; either way the
+  next question starts one again, with the prefix, the notes and a
+  sentence that the conversation was lost. One that died while no
+  question waited on it (between turns, say) is found dead by the next
+  question, which starts one again for itself and is answered by the
+  model. A process idle five minutes is ended (the time Anthropic's API
+  keeps a cached prefix by default; a conversation resumed after that
+  would be written to the cache whole again, which costs more than
+  beginning a new one), and so is the least recently used one when a
+  third would start: at most two live per bridge. The summary counts the
+  conversations and those begun again after a loss
+  (`conversations: 3 (1 begun again after one was lost)`).
 - **The program.** `command`, a whole path, else the tool's name on the
   bridge's `PATH` (absolute entries only). It is run directly with an
   argument array and never through a shell, so a shell function or alias
@@ -204,9 +226,11 @@ owner to check before playing.
   output over a mebibyte is never read.
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
-  reads the turn's whole conversation again at every decision, so a game
-  takes far more tokens than through an API: `game_tokens` is 20,000,000
-  by default. Under the caps a cli game reserves its `game_tokens` against
+  reads the whole conversation again at every decision (up to its size of
+  about 100,000 tokens, across turns), so a game takes far more tokens
+  than through an API, most of them read from the cache: `game_tokens` is
+  20,000,000 by default. Each call is held at its worst before it is sent:
+  the whole conversation so far as input, and the reply. Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
   default, `--spend-calls`) is held like a budget, and the summary says
@@ -219,8 +243,11 @@ owner to check before playing.
   and `claude auth status --json` (which calls no model) says
   `"loggedIn": true`; output it cannot read counts as signed out.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
-  speaks Claude Code's stream-json and logs what it was started with
-  (`tests/cli_mind.rs`); no test starts a real CLI or reaches a model.
+  speaks Claude Code's stream-json and logs what it was started with and
+  every message it read (`tests/cli_mind.rs`: one process across turns
+  with the prefix sent once, a process that died between turns or
+  mid-question begun again with the prefix); no test starts a real CLI or
+  reaches a model.
 
 ## The spend book
 

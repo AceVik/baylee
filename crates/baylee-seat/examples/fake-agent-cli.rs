@@ -24,13 +24,16 @@
 //! result line of more than a mebibyte, then the answer as `answer`
 //! writes it), `text` (a result with only its `text`), `rate_limit`
 //! (`lifts_in` seconds optional), `fail` (an error result), `hang` (no
-//! reply, ever) and `exit` (`code`, after a line on stderr). Past the last
+//! reply, ever) and `exit` (`code`, after a line on stderr). Any step with
+//! `exit_after` (a code) exits once it has replied, before it reads the
+//! next message: a process that dies between two questions. Past the last
 //! step it exits.
 //!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
 //! directory, how many entries that holds and, on Unix, its and its
-//! parent's modes), every line it read, and its stdin's end. `auth status
+//! parent's modes), every line it read, its stdin's end, and an exit it
+//! chose (`exit`, `exit_after`) as it takes it. `auth status
 //! --json` answers `{"loggedIn": logged_in}` and reads nothing.
 
 use serde_json::{Value, json};
@@ -96,7 +99,15 @@ fn main() {
         if let Some(ms) = step.get("delay_ms").and_then(Value::as_u64) {
             std::thread::sleep(Duration::from_millis(ms));
         }
+        if step.get("kind").and_then(Value::as_str) == Some("exit") {
+            dump(&log, &json!({"pid": pid, "exit": step.get("code")}));
+        }
         play(&step);
+        if let Some(code) = step.get("exit_after").and_then(Value::as_i64) {
+            dump(&log, &json!({"pid": pid, "exit": code}));
+            eprintln!("fake: exiting with {code} after its reply");
+            std::process::exit(i32::try_from(code).unwrap_or(1));
+        }
     }
     dump(&log, &json!({"pid": pid, "eof": true}));
 }

@@ -496,12 +496,14 @@ async fn a_tool_without_a_command_is_found_on_path_as_a_link() {
     assert!(refused.contains("not on PATH"), "{refused}");
 }
 
-/// Each turn is one process: a second question of the turn is one more
-/// message to it, without the game's prefix; the next turn closes its
-/// stdin and starts another, whose first message carries the prefix again
-/// and the model's notes.
+/// One process holds the seat's conversation across turns, which is what
+/// keeps its prefix in the provider's cache: the game's prefix goes out
+/// once, in the first message, and every later question (the same turn's
+/// or the next turn's) is one more message to the same process, carrying
+/// only what is new. The model's notes are not told again either: they
+/// are in the conversation already.
 #[tokio::test]
-async fn a_turn_is_one_process_and_the_next_turn_starts_another_with_the_notes() {
+async fn one_process_holds_the_conversation_across_turns_and_the_prefix_goes_once() {
     let base = a_priority().await;
     let turn = base.view.turn;
     let rig = Rig::new(
@@ -516,20 +518,140 @@ async fn a_turn_is_one_process_and_the_next_turn_starts_another_with_the_notes()
     }
     let messages = rig.messages();
     let pids: Vec<u64> = messages.iter().map(|(pid, _)| *pid).collect();
-    assert_eq!(pids[0], pids[1], "one process for the turn");
-    assert_ne!(pids[1], pids[2], "another for the next");
+    assert_eq!(pids, [pids[0]; 3], "one process for both turns");
+    assert_eq!(rig.starts().len(), 1, "started once");
     let prefix: String = messages[0].1.chars().take(120).collect();
-    assert!(!messages[1].1.contains(&prefix), "no prefix mid-turn");
-    assert!(messages[2].1.starts_with(&prefix), "{}", messages[2].1);
-    assert!(messages[2].1.contains("Your notes from earlier turns"));
-    assert!(messages[2].1.contains("plan A: race"));
     assert!(
-        rig.until(|rig| rig.ended(pids[0])).await,
-        "the first process read its stdin's end"
+        messages[0].1.starts_with(&prefix) && messages[0].1.contains("THE GAME"),
+        "the first message carries the game's prefix: {}",
+        messages[0].1
+    );
+    for (_, later) in &messages[1..] {
+        assert!(!later.contains(&prefix), "no prefix again: {later}");
+        assert!(!later.contains("THE GAME"), "no prefix again: {later}");
+        assert!(
+            !later.contains("Your notes from earlier turns"),
+            "the notes are in the conversation already: {later}"
+        );
+        assert!(
+            later.len() < messages[0].1.len(),
+            "a later message is smaller than the first"
+        );
+    }
+    assert!(
+        !rig.ended(pids[0]),
+        "the process still holds the conversation"
     );
     let tally = spent(&mind.tally());
     assert_eq!((tally.calls, tally.failed), (3, 0));
     assert_eq!(tally.usage.total(), 3 * 1120, "the tool's own count");
+    assert_eq!((tally.sessions, tally.restarts), (1, 0));
+}
+
+/// Whether the process `pid` has exited: gone, or a zombie its parent has
+/// not reaped yet (`kill -0` still finds one of those).
+#[cfg(unix)]
+fn exited(pid: u64) -> bool {
+    std::process::Command::new("ps")
+        .args(["-o", "stat=", "-p", &pid.to_string()])
+        .output()
+        .is_ok_and(|out| {
+            let stat = String::from_utf8_lossy(&out.stdout);
+            let stat = stat.trim();
+            stat.is_empty() || stat.starts_with('Z')
+        })
+}
+
+/// A process that dies between two turns, with no question waiting on it,
+/// costs no question: the next one finds it dead and begins the
+/// conversation again for itself, with the game's prefix, the notes the
+/// model wrote, and the sentence that its conversation was lost. The
+/// restart is counted, and nothing was billed for a call that never went.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_process_that_died_between_turns_is_begun_again_for_the_next_question() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let mut first = pass(1, "plan A: race");
+    first["exit_after"] = json!(0);
+    let rig = Rig::new(
+        "diedidle",
+        cli(json!({})),
+        &json!({"steps": [first, pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    let pid = rig.messages()[0].0;
+    assert!(
+        rig.until(|_| exited(pid)).await,
+        "the process died after its reply"
+    );
+
+    let answer = mind.decide(ask(&base, 2, turn + 1, 20)).await.unwrap();
+    assert_eq!(
+        answer.action,
+        PlayerAction::PassPriority,
+        "no question lost"
+    );
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 2);
+    assert_ne!(messages[1].0, pid, "a new process");
+    let prefix: String = messages[0].1.chars().take(120).collect();
+    let again = &messages[1].1;
+    assert!(again.contains(&prefix), "the prefix again: {again}");
+    assert!(
+        again.contains("Your earlier conversation was lost"),
+        "{again}"
+    );
+    assert!(again.contains("Your notes from earlier turns"), "{again}");
+    assert!(again.contains("plan A: race"), "{again}");
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.calls, tally.failed), (2, 0));
+    assert_eq!((tally.sessions, tally.restarts), (2, 1));
+}
+
+/// A process that dies while a question waits on it fails that question
+/// (the house answers it, and the call counts at its worst), and the next
+/// question, in the next turn, begins the conversation again with the
+/// game's prefix, the model's notes and the sentence that it was lost.
+#[tokio::test]
+async fn a_process_that_crashed_mid_question_is_begun_again_with_the_prefix() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "crashed",
+        cli(json!({})),
+        &json!({"steps": [pass(1, "plan A: race"), {"kind": "exit", "code": 9}, pass(3, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    let crashed = mind.decide(ask(&base, 2, turn + 1, 20)).await.unwrap_err();
+    assert!(
+        matches!(&crashed, MindError::Unavailable(why) if why.starts_with("the claude process ended")),
+        "{crashed:?}"
+    );
+    let answer = mind.decide(ask(&base, 3, turn + 1, 20)).await.unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 3);
+    assert_eq!(
+        messages[0].0, messages[1].0,
+        "the crash was the same process"
+    );
+    assert_ne!(messages[1].0, messages[2].0, "then a new one");
+    assert!(!messages[1].1.contains("THE GAME"), "{}", messages[1].1);
+    let again = &messages[2].1;
+    assert!(again.contains("THE GAME"), "the prefix again: {again}");
+    assert!(
+        again.contains("Your earlier conversation was lost"),
+        "{again}"
+    );
+    assert!(again.contains("plan A: race"), "{again}");
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.calls, tally.failed), (3, 1));
+    assert!(tally.unsure.tokens > 0, "the crashed call at its worst");
+    assert_eq!((tally.sessions, tally.restarts), (2, 1));
 }
 
 /// A process that does not answer within the question's time is killed:
@@ -564,7 +686,7 @@ async fn a_hung_or_dead_process_is_unavailable_and_the_next_question_starts_agai
     assert_eq!(answer.action, PlayerAction::PassPriority);
     let messages = rig.messages();
     assert_ne!(messages[0].0, messages[1].0, "a new process");
-    assert!(messages[1].1.contains("conversation this turn was lost"));
+    assert!(messages[1].1.contains("Your earlier conversation was lost"));
 
     let dead = mind.decide(ask(&base, 3, turn, 20)).await.unwrap_err();
     let MindError::Unavailable(why) = dead else {
@@ -578,6 +700,8 @@ async fn a_hung_or_dead_process_is_unavailable_and_the_next_question_starts_agai
     let answer = mind.decide(ask(&base, 4, turn, 20)).await.unwrap();
     assert_eq!(answer.action, PlayerAction::PassPriority);
     assert_eq!(rig.starts().len(), 3);
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (3, 2), "two begun again");
 }
 
 /// A rate limit is unavailable and unbilled, keeps the process, and cools
@@ -1026,16 +1150,17 @@ async fn a_failure_before_the_start_is_still_refused() {
     assert_eq!(rig.starts().len(), 1, "no second process");
 }
 
-/// A conversation past its token size ends, and the next message of the
-/// same turn opens a new process with the game's prefix again.
+/// A conversation past its token size ends, and the next message opens a
+/// new process with the game's prefix and the model's notes again: the
+/// one thing besides a loss that ends a conversation.
 #[tokio::test]
-async fn a_conversation_past_its_size_starts_a_new_process_within_the_turn() {
+async fn a_conversation_past_its_size_starts_a_new_process() {
     let base = a_priority().await;
     let turn = base.view.turn;
     let mut rig = Rig::new(
         "outgrown",
         cli(json!({})),
-        &json!({"steps": [pass(1, ""), pass(2, "")]}),
+        &json!({"steps": [pass(1, "plan A: race"), pass(2, "")]}),
     );
     rig.plan.settings.conversation_tokens = 1;
     let mind = rig.mind(Limits::default());
@@ -1045,11 +1170,19 @@ async fn a_conversation_past_its_size_starts_a_new_process_within_the_turn() {
     assert_eq!(messages.len(), 2);
     assert_ne!(messages[0].0, messages[1].0, "a new process");
     assert_eq!(rig.starts().len(), 2);
+    let again = &messages[1].1;
+    assert!(again.contains("THE GAME"), "the prefix again: {again}");
+    assert!(again.contains("plan A: race"), "the notes again: {again}");
     assert!(
-        !messages[1].1.contains("conversation this turn was lost"),
-        "outgrown is not lost: {}",
-        messages[1].1
+        !again.contains("Your earlier conversation was lost"),
+        "outgrown is not lost: {again}"
     );
+    assert!(
+        rig.until(|rig| rig.ended(messages[0].0)).await,
+        "the outgrown process read its stdin's end"
+    );
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (2, 0));
 }
 
 /// The login check decides readiness each time it is asked: signed out is

@@ -5,8 +5,12 @@
 //! A dialect knows nothing of sessions, clocks or budgets
 //! ([`super::CliMind`] keeps those), and runs nothing: it turns settings
 //! into arguments and lines into [`Event`]s. This build speaks Claude Code
-//! ([`super::claude`]), whose process holds one conversation and takes
-//! each message as a line on its stdin.
+//! ([`super::claude`]) and `agy` ([`super::agy`]), each of whose processes
+//! holds one conversation for as long as it runs and takes each message as
+//! a line on its stdin: the process is the session the mind keeps across
+//! turns, and so what keeps the conversation's prefix in the provider's
+//! cache. A tool that answers one message a process would need a way to
+//! resume its conversation by id, which no dialect here has.
 
 use crate::llm::{Settings, Usage};
 use baylee_client_core::llmseat::CliTool;

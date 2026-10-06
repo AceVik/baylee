@@ -51,9 +51,10 @@ pub const DEFAULT_SPEND_TOKENS: u64 = 5_000_000;
 pub const DEFAULT_THINK_SECS: u64 = 60;
 
 /// A CLI's game budget in tokens when none is given. Cache reads count as
-/// every other token does, and a CLI that keeps a turn's conversation sends
-/// all of it again with each decision, which it reports as read from the
-/// cache: a turn of ten decisions counts its first one ten times.
+/// every other token does, and a CLI that keeps its conversation across
+/// turns sends all of it again with each decision, which it reports as read
+/// from the cache: a conversation of ten decisions counts its first one ten
+/// times.
 pub const DEFAULT_CLI_SPEND_TOKENS: u64 = 20_000_000;
 
 /// The most calls a CLI's game makes when nothing says otherwise: past it
@@ -71,8 +72,9 @@ pub enum Provider {
     #[serde(rename = "openai")]
     OpenAi,
     /// An agent CLI on this machine that the player is signed in to (Claude
-    /// Code), run as a program for each turn ([`CliTool`]): a subscription,
-    /// with no key, no address and no price.
+    /// Code), run as a program that holds a seat's conversation across
+    /// turns ([`CliTool`]): a subscription, with no key, no address and no
+    /// price.
     #[serde(rename = "cli")]
     Cli,
 }

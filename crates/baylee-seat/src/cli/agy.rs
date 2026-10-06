@@ -1,6 +1,9 @@
-//! Gemini CLI, `agy`, as a mind's CLI: one process per turn,
-//! with stream-json both ways, so each message is a line on
-//! its stdin and each answer a `result` line on its stdout.
+//! Gemini CLI, `agy`, as a mind's CLI: one process per conversation, kept
+//! across turns as Claude Code's is ([`super`]), with stream-json both
+//! ways, so each message is a line on its stdin and each answer a `result`
+//! line on its stdout. It takes no system prompt of ours as a flag, so the
+//! first message of a conversation (the one that carries the game's
+//! prefix) carries ours ahead of it, and every later one only itself.
 
 use super::dialect::{Dialect, Event, Outcome, Started};
 use crate::cli::GAME_DATA;

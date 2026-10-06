@@ -182,6 +182,12 @@ impl Show {
                  ({} failed); {money}",
                 usage.input, usage.cache_write, usage.cache_read, usage.output, tally.failed,
             ));
+            if tally.sessions > 0 {
+                out.push(format!(
+                    "conversations: {} ({} begun again after one was lost)",
+                    tally.sessions, tally.restarts
+                ));
+            }
             if tally.spent {
                 out.push("the game's budget ran out: the house finished the game".into());
             }
@@ -456,6 +462,17 @@ mod tests {
             "{summary:?}"
         );
         assert!(summary[3].contains("(it was)"), "{summary:?}");
+        // A CLI's conversations, kept across turns, and how many were lost.
+        let cli = Tally {
+            sessions: 3,
+            restarts: 1,
+            ..capped
+        };
+        let summary = show.summary(&stats, Some(&cli));
+        assert_eq!(
+            summary[3],
+            "conversations: 3 (1 begun again after one was lost)"
+        );
     }
 
     #[test]
