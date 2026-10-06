@@ -36,6 +36,9 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  # Where a client signed in to no gateway sends reports (docs/feedback.md
+  # §"Straight from a client"); a repository variable, unset = off.
+  BAYLEE_FEEDBACK_PUBLIC_URL: ${{ vars.BAYLEE_FEEDBACK_PUBLIC_URL }}
 
 jobs:
   version:

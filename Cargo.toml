@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 edition = "2024"
 # MSRV: not a preference but the floor the dependency graph sets. `bevy`
 # 0.19.1 declares `rust-version = "1.95.0"` and `sea-orm` 2.0.2 (through

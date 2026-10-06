@@ -60,6 +60,15 @@ web=$root/web/feedback
 # The browser client: trunk (installed as docs/client.md §"Serving it at
 # /play/" says) and the rustup that knows the wasm target; Caddy's `root`.
 trunk=${TRUNK:-$HOME/.cargo/bin/trunk}
+# Build-time settings for the clients built here, one KEY=value a line:
+# BAYLEE_FEEDBACK_PUBLIC_URL, where a browser client signed in to no gateway
+# sends reports (docs/feedback.md §"Straight from a client"). No secrets.
+if [ -r /etc/baylee/deploy.env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . /etc/baylee/deploy.env
+    set +a
+fi
 rustup=${RUSTUP:-$HOME/.cargo/bin/rustup}
 play=$root/web/play
 
