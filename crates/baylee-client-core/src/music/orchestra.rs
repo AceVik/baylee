@@ -1,5 +1,13 @@
 //! Sample playback and the shared concert room. The bank is decoded once;
 //! rendering allocates nothing. See art/music/samples.json for provenance.
+//!
+//! Two ways to render, one sound: [`Orchestra::frame`] is the reference, one
+//! stereo frame at a time, and [`Orchestra::render`] renders a run of frames
+//! voice by voice and then delay line by delay line. Every sum is taken in the
+//! same order as the reference takes it, so the two agree bit for bit
+//! (`a_block_is_the_frames_it_replaces`); the block costs a fraction of the
+//! audio thread (`docs/perf-client.md`), which was a third of the client's
+//! CPU while the front door's score played.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -74,6 +82,47 @@ struct Voice {
     room_send: f32,
 }
 impl Voice {
+    /// Renders this voice into a run of frames, adding to `dry` and `feed`
+    /// exactly what [`Voice::next`] would have added frame by frame, and
+    /// answers whether it is still sounding.
+    ///
+    /// The envelope's three ratios are each exactly 1.0 for most of a note
+    /// (after the attack, before the release, away from the sample's end),
+    /// so they are only divided out where they are not: the same numbers,
+    /// without three divisions per voice per frame.
+    fn render(&mut self, bank: &[Instrument], dry: &mut [[f32; 2]], feed: &mut [f32]) -> bool {
+        let samples = &bank[self.instrument].pcm;
+        for (out, send) in dry.iter_mut().zip(feed.iter_mut()) {
+            let i = self.position as usize;
+            if i + 1 >= samples.len() || self.age >= self.hold + self.release {
+                return false;
+            }
+            let fraction = self.position.fract() as f32;
+            let wave = samples[i] + (samples[i + 1] - samples[i]) * fraction;
+            let steady =
+                self.age >= self.attack && self.age <= self.hold && samples.len() - i >= 1102;
+            let frame = if steady {
+                // Each ratio is exactly 1.0 here, and so is their product:
+                // `gain * wave * 1.0` is `gain * wave`.
+                self.gain.map(|gain| gain * wave)
+            } else {
+                let attack = (self.age as f32 / self.attack as f32).min(1.0);
+                let release = (1.0
+                    - self.age.saturating_sub(self.hold) as f32 / self.release as f32)
+                    .max(0.0);
+                let tail = ((samples.len() - i) as f32 / 1102.0).min(1.0);
+                let envelope = attack * release * release * tail;
+                self.gain.map(|gain| gain * wave * envelope)
+            };
+            self.age += 1;
+            self.position += self.rate;
+            out[0] += frame[0];
+            out[1] += frame[1];
+            *send += (frame[0] + frame[1]) * self.room_send;
+        }
+        true
+    }
+
     fn next(&mut self, bank: &[Instrument]) -> Option<[f32; 2]> {
         let samples = &bank[self.instrument].pcm;
         let i = self.position as usize;
@@ -110,17 +159,27 @@ impl Delay {
         let out = self.data[self.at];
         self.low += (out - self.low) * 0.34;
         self.data[self.at] = input + self.low * 0.84;
-        self.at = (self.at + 1) % self.data.len();
+        self.step();
         out
+    }
+    /// The next slot, round the ring: a compare, not a division per sample.
+    fn step(&mut self) {
+        self.at += 1;
+        if self.at == self.data.len() {
+            self.at = 0;
+        }
     }
     fn diffuse(&mut self, input: f32) -> f32 {
         let old = self.data[self.at];
         let out = old - input * 0.5;
         self.data[self.at] = input + out * 0.5;
-        self.at = (self.at + 1) % self.data.len();
+        self.step();
         out
     }
 }
+
+/// The most frames one [`Orchestra::render`] call takes.
+pub(super) const BLOCK: usize = 256;
 
 pub(super) struct Orchestra {
     voices: Vec<Voice>,
@@ -192,6 +251,39 @@ impl Orchestra {
         }
     }
 
+    /// Renders `out.len()` frames: the same frames, bit for bit, as as many
+    /// calls of [`Self::frame`] (`a_block_is_the_frames_it_replaces`).
+    /// `feed` is scratch, at least as long as `out`.
+    pub(super) fn render(&mut self, out: &mut [[f32; 2]], feed: &mut [f32]) {
+        let feed = &mut feed[..out.len()];
+        out.fill([0.0; 2]);
+        feed.fill(0.0);
+        let bank = bank();
+        self.voices
+            .retain_mut(|voice| voice.render(bank, out, feed));
+        // The room, delay line by delay line: each frame still sums its four
+        // lines per side in the reference's order, starting from zero.
+        let mut wet = [[0.0f32; 2]; BLOCK];
+        let wet = &mut wet[..out.len()];
+        for (i, delay) in self.room.iter_mut().enumerate() {
+            for (w, f) in wet.iter_mut().zip(feed.iter()) {
+                w[i / 4] += delay.comb(*f) * 0.25;
+            }
+        }
+        for (i, delay) in self.scatter.iter_mut().enumerate() {
+            for w in wet.iter_mut() {
+                w[i / 2] = delay.diffuse(w[i / 2]);
+            }
+        }
+        for (frame, w) in out.iter_mut().zip(wet.iter()) {
+            *frame = std::array::from_fn(|i| {
+                let x = (frame[i] + w[i] * 0.48) * 1.5;
+                x / (1.0 + x.abs())
+            });
+        }
+    }
+
+    /// One stereo frame: the reference [`Self::render`] is measured against.
     pub(super) fn frame(&mut self) -> [f32; 2] {
         let mut dry = [0.0; 2];
         let mut feed = 0.0;
@@ -217,5 +309,49 @@ impl Orchestra {
             // Soft safety ceiling leaves room for UI cues; never hard clips.
             x / (1.0 + x.abs())
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The block renderer is the frame renderer, bit for bit: the same notes
+    /// started at the same frames, rendered both ways over many runs of
+    /// uneven length, give identical samples — through attacks, releases,
+    /// sample ends and the room's whole delay ring.
+    #[test]
+    #[allow(clippy::float_cmp)] // bit-identity is the claim
+    fn a_block_is_the_frames_it_replaces() {
+        let mut by_frame = Orchestra::default();
+        let mut by_block = Orchestra::default();
+        let mut feed = [0.0f32; BLOCK];
+        let mut block = [[0.0f32; 2]; BLOCK];
+        // Uneven runs, so a run boundary lands everywhere relative to a
+        // note's envelope and every delay line's ring.
+        let runs = [1usize, 7, 256, 13, 100, 256, 3, 199, 256, 64];
+        let mut rendered = 0usize;
+        for round in 0..400usize {
+            if round % 3 == 0 {
+                // A note on every instrument in turn, long and short.
+                let instrument = round % bank().len();
+                let pitch = 40 + (round % 40) as u8;
+                let seconds = if round % 2 == 0 { 0.05 } else { 1.3 };
+                for orchestra in [&mut by_frame, &mut by_block] {
+                    orchestra.note(instrument, pitch, seconds, 0.4, 0.2);
+                    orchestra.piano(pitch, seconds, 0.3, 0.6);
+                }
+            }
+            let run = runs[round % runs.len()];
+            by_block.render(&mut block[..run], &mut feed);
+            for (k, frame) in block[..run].iter().enumerate() {
+                assert_eq!(*frame, by_frame.frame(), "frame {}", rendered + k);
+            }
+            rendered += run;
+        }
+        assert!(
+            rendered > RATE as usize,
+            "{rendered} frames is under a second"
+        );
     }
 }
