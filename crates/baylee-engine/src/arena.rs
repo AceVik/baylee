@@ -393,7 +393,7 @@ mod tests {
                 let pick = |rng: &mut rand_chacha::ChaCha8Rng, model: &Model| {
                     let slot = (rng.next_u32() as usize) % (model.len() + 2);
                     let generation = model.get(slot).map_or(0, |(g, _)| *g);
-                    let stale = rng.next_u32() % 8 == 0;
+                    let stale = rng.next_u32().is_multiple_of(8);
                     ObjectId::new(slot as u32, generation.wrapping_add(u8::from(stale)))
                 };
                 match rng.next_u32() % 10 {

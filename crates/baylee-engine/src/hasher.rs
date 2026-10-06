@@ -35,6 +35,7 @@ pub(crate) struct Hasher {
 
 /// Where gathered bytes go: into the digest, or onto a tape that a later
 /// digest is fed whole ([`Hasher::tape_into`]).
+#[allow(clippy::large_enum_variant)] // one per hash, on the stack: boxing the stream would allocate per hash
 enum Out {
     Stream(Xxh3),
     Tape(Vec<u8>),
@@ -98,7 +99,7 @@ impl Hasher {
     }
 
     /// A field of a size known where it is written: a fixed-size copy.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn put<const N: usize>(&mut self, bytes: [u8; N]) {
         if self.len + N > BUF {
             self.flush();
@@ -164,8 +165,8 @@ impl Hasher {
     pub(crate) fn words(&mut self, words: &[u64; 16]) {
         self.usize(words.len());
         let mut bytes = [0u8; 128];
-        for (out, word) in bytes.chunks_exact_mut(8).zip(words) {
-            out.copy_from_slice(&word.to_ne_bytes());
+        for (out, word) in bytes.as_chunks_mut::<8>().0.iter_mut().zip(words) {
+            *out = word.to_ne_bytes();
         }
         self.put(bytes);
     }

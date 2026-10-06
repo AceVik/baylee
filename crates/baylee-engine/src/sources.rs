@@ -171,6 +171,13 @@ impl GameState {
     /// [`Self::capture_source_references`], as `leaving` is about to be
     /// remembered and removed: it may already be off its zone's list.
     fn capture_references_leaving(&mut self, leaving: Option<ObjectId>) {
+        self.capture_exile_links(leaving);
+        self.capture_stack_references();
+    }
+
+    /// The host each exiled card is linked to (CR 610.3), for the cards
+    /// whose link is not remembered yet.
+    fn capture_exile_links(&mut self, leaving: Option<ObjectId>) {
         // The exile zones' lists, not a walk of the whole arena: this runs
         // on every zone change, and on a board of thousands of permanents
         // the walk was most of a zone change. The lists hold exactly the
@@ -208,6 +215,10 @@ impl GameState {
                 }
             }
         }
+    }
+
+    /// What every object on the stack refers to, by slot.
+    fn capture_stack_references(&mut self) {
         for id in self.zones.list(ZoneLocation::Stack).clone() {
             let Some(obj) = self.object(id) else { continue };
             let holder = identity(obj);
