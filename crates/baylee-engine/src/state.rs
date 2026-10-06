@@ -1092,7 +1092,7 @@ pub struct GameState {
     /// Source incarnations before leaving a public rules zone. Pending
     /// abilities and chosen-source shields can still name those incarnations
     /// after a second zone change; the ordinary last-move LKI cannot.
-    pub(crate) damage_sources: Vec<GameObject>,
+    pub(crate) damage_sources: Vec<Arc<GameObject>>,
     /// Exact references retained by live rules objects.
     pub(crate) source_memory: crate::sources::SourceMemory,
     /// The effect generation the characteristic caches were computed at.
@@ -2741,6 +2741,7 @@ impl GameState {
                     .iter()
                     .rev()
                     .find(|obj| obj.id == id && version == Some(obj.version))
+                    .map(|obj| &**obj)
             })
     }
 

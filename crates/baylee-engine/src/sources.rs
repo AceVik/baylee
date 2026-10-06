@@ -134,7 +134,7 @@ impl GameState {
                 .iter()
                 .any(|old| identity(old) == identity(obj))
         {
-            self.damage_sources.push(obj.clone());
+            self.damage_sources.push(std::sync::Arc::new(obj.clone()));
         }
     }
 
