@@ -74,9 +74,11 @@ impl SeatDesk {
         {
             match &mut self.opened {
                 Opened::Not if DESKTOP && crate::settings::store_is_open() => {
-                    use baylee_client_core::llmseat::store::default_path;
+                    use baylee_client_core::llmseat::store::configured_path;
                     use baylee_client_core::userdirs::{Os, real_env};
-                    self.opened = match default_path(Os::current(), &real_env) {
+                    // The file the bridges this client seats read: the one
+                    // `BAYLEE_SEAT_CONFIG` names, else the config directory's.
+                    self.opened = match configured_path(Os::current(), &real_env) {
                         Some(path) => Opened::Desk(Box::new(Desk {
                             desk: baylee_client_core::llmseat::desk::Desk::open(path, now()),
                             paste: None,

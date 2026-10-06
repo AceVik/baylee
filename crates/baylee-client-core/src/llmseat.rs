@@ -26,7 +26,9 @@ pub mod clis;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod desk;
 pub mod ledger;
+pub mod models;
 pub mod panel;
+pub mod seating;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod store;
 #[cfg(test)]

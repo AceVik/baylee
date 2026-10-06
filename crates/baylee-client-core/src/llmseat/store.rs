@@ -15,6 +15,21 @@ pub fn default_path(os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> Option<Pa
     Some(user_dir(Kind::Config, os, env)?.join(FILE))
 }
 
+/// The environment variable that names the settings file in place of
+/// [`default_path`]: the bridge reads it under `--config`, and the client
+/// edits and seats the file it names.
+pub const CONFIG_ENV: &str = "BAYLEE_SEAT_CONFIG";
+
+/// The settings file the client and the bridges it starts share: the one
+/// [`CONFIG_ENV`] names, else [`default_path`].
+#[must_use]
+pub fn configured_path(os: Os, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+    env(CONFIG_ENV)
+        .filter(|named| !named.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| default_path(os, env))
+}
+
 /// The settings at `path`, or `None` when there is no file.
 ///
 /// # Errors

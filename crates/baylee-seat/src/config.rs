@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 /// The environment variable that names the settings file, under
 /// `--config`.
-pub const CONFIG_ENV: &str = "BAYLEE_SEAT_CONFIG";
+pub const CONFIG_ENV: &str = store::CONFIG_ENV;
 
 /// Where the bridge's settings file and spend book are.
 #[derive(Clone, Debug, PartialEq, Eq)]
