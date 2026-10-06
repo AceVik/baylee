@@ -1293,11 +1293,24 @@ rebinds confirm at home finds it rebound at a friend's table.
 - `GET /settings` → the stored object, or `{}` for an account that has never
   saved any. Never a 404: the client's own defaults are the right answer, and
   making it tell two failures apart buys nothing.
-- `PUT /settings` replaces it. The body *is* the preferences object — there is
-  no wrapper, because there is nothing else to say about it.
+- `PUT /settings` **merges** its body into the stored object, per top-level
+  key (WG-5, since beta.6). The body is an object of top-level keys, no
+  wrapper. Each key it names replaces that key's value **whole** (a keymap
+  is one value; nothing is merged below the top level); a key whose value is
+  `null` is removed (a `null` deeper down is a value and is kept); a key it
+  does not name is left as it was. The answer is `{"stored": <bytes>}`, the
+  merged object's size. Merging happens in one statement under the row's
+  lock, so two saves naming different keys both land.
 
-The gateway keeps the blob **opaque** and checks exactly two things: that it is
-a JSON object, and that it is under 16 KiB. It cannot check more, and should
+Why a merge and not a replace: a client from before a preference existed
+sends its whole struct without that key, and under a replace it erased what
+a newer client on the player's other device had written there. After the
+merge a client can no longer drop a key by leaving it out; it sends `null`.
+No client relies on omission.
+
+The gateway keeps the object **opaque** and checks exactly two things: that it is
+a JSON object, and that it — the patch and the merged object both — is under
+16 KiB. It cannot check more, and should
 not: knowing what a keymap is would mean linking `baylee-client-core`, which
 is the client's brain and pulls in the engine behind it — the one dependency
 the gateway does not have. The second reason is deployment order: a client
@@ -1305,12 +1318,21 @@ that learns to remember a new preference must not need a gateway release
 before it can store it.
 
 The shape is `baylee_client_core::prefs::Preferences` — a `Keymap`, the phase
-rail's `PhaseOrders`, and the `AutoRules` switches — and every field of it is
-`#[serde(default)]`, so a blob written by an older or newer client still loads
-with the rest defaulted rather than costing a player their bindings. A
-corrupt blob decodes to the defaults rather than to an error, for the same
-reason: preferences are a convenience, and a player mid-upgrade should get a
-working keymap rather than a screen that will not open.
+rail's `PhaseOrders`, the `AutoRules` switches, the standing answers and the
+display and sound choices — and every field of it is `#[serde(default)]`.
+The client reads it **one field at a time** (`Preferences::from_json`): a
+top-level value it cannot read costs that field, which falls back to its
+default, and nothing else; a key it does not know is kept in
+`Preferences::rest` and written back as it came, after the known fields. Only
+text that is not a JSON object falls back to the defaults whole, because
+preferences are a convenience, and a player mid-upgrade should get a working
+keymap rather than a screen that will not open.
+
+**What this does not make safe: changing the shape of a key that exists.**
+A new key is safe across versions. A key whose type changes is not: the
+older client reads the new shape as unreadable, falls back to its default,
+and its next save writes that default, which the merge then lays over the
+newer client's value. A preference that needs a new shape takes a new key.
 
 Not stored here: the preview's size, the interface language, and the gateway
 address. Those are properties of a *device*, they stay in the client's own

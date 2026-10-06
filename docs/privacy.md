@@ -186,7 +186,9 @@ the pointers, because line numbers move.
   client stores its `Preferences` there: keymap, phase stops, automation,
   standing answers to abilities, and display and sound choices
   (`baylee_client_core::prefs`).
-- **Kept:** indefinitely, overwritten on each save.
+- **Kept:** indefinitely. Each save merges into it per top-level key (a
+  key the save names is replaced, `null` removes one, the rest stay), so a
+  key is gone only when a client removes it or with the account.
 - **Removed:** only with the account.
 
 ## Uploaded sleeves and mats

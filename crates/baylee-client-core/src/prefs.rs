@@ -790,26 +790,67 @@ pub struct Preferences {
     /// [`Loudness::Full`](crate::cue::Loudness::Full), so a settings blob
     /// written before there was sound opens a client that makes some.
     pub sound: crate::cue::Loudness,
+    /// Every top-level key this client does not know, kept as it came.
+    ///
+    /// A newer client on the player's other device may have stored a
+    /// preference this one has never heard of. Carrying it here means this
+    /// client's next save writes it back unchanged rather than dropping it
+    /// (M4-7); the gateway's per-key merge (`PUT /settings`) is the other
+    /// half, for a client older than this field. Written after the known
+    /// fields, in the map's order.
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Preferences {
     /// Reads preferences from stored JSON, falling back to the defaults for
-    /// anything missing or unreadable.
+    /// anything missing or unreadable — **one field at a time**.
     ///
     /// Never an error: preferences are a convenience, and a player whose
     /// stored blob is from a client three versions old should get a working
     /// keymap rather than a screen that will not open.
+    ///
+    /// A top-level value this client cannot read costs that field and
+    /// nothing else. The derived reader refuses a whole document over one bad
+    /// value, and answering that with all the defaults would wipe the keymap,
+    /// the automation and the stops because, say, `sound` changed its shape.
+    /// So each entry is tried against the derived reader on top of the ones
+    /// already accepted, and an entry that makes it fail is dropped and left
+    /// to its `#[serde(default)]`. Field-agnostic on purpose: a list of the
+    /// known fields would go stale with the next one added. A key this client
+    /// does not know never fails (it lands in [`Self::rest`]). Only text that
+    /// is not a JSON object at all falls back to the defaults whole.
     ///
     /// The one place [`Keymap::migrated`] is called, and deliberately so:
     /// both ways a stored blob reaches the client — this machine's file and
     /// the account's copy from the gateway — come through here.
     #[must_use]
     pub fn from_json(text: &str) -> Self {
-        let stored: Self = serde_json::from_str(text).unwrap_or_default();
+        let stored = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(text)
+            .map(Self::tolerant)
+            .unwrap_or_default();
         Self {
             keymap: stored.keymap.migrated(),
             ..stored
         }
+    }
+
+    /// The per-field reading [`Self::from_json`] describes.
+    fn tolerant(entries: serde_json::Map<String, serde_json::Value>) -> Self {
+        let read = |doc: &serde_json::Map<String, serde_json::Value>| {
+            serde_json::from_value::<Self>(serde_json::Value::Object(doc.clone()))
+        };
+        if let Ok(whole) = read(&entries) {
+            return whole;
+        }
+        let mut accepted = serde_json::Map::new();
+        for (key, value) in entries {
+            accepted.insert(key.clone(), value);
+            if read(&accepted).is_err() {
+                accepted.remove(&key);
+            }
+        }
+        read(&accepted).unwrap_or_default()
     }
 
     /// The stored form. Stable for an unchanged value, so saving twice
@@ -1169,6 +1210,87 @@ mod tests {
             "a missing field took the whole blob with it"
         );
         assert_eq!(prefs.sky, crate::sky::SkyMode::Night);
+    }
+
+    /// A canonical document with these unknown entries appended, as the
+    /// writer orders them: the known fields first, then the rest by key.
+    fn with_unknown(prefs: &Preferences, unknown: &str) -> String {
+        let known = prefs.to_json();
+        let open = known.strip_suffix('}').expect("an object");
+        format!("{open},{unknown}}}")
+    }
+
+    /// The whole of M4-7's client half in one blob: a newer client's key
+    /// this one has never heard of, and a known key in a shape this one
+    /// cannot read. The unknown key comes back out byte for byte; the bad
+    /// one, and only the bad one, is its default; a non-default sibling of
+    /// each survives (a test that only read `{}` could not fail).
+    #[test]
+    fn an_unknown_key_rides_through_and_a_bad_one_costs_only_itself() {
+        let unknown = r#""shell_keys":{"search":[{"key":"KeyF","meta":true}],"zoom":[]}"#;
+        let stored = format!(
+            r#"{{"sound":{{"level":3}},"sky":"night","auto":{{"pass_when_nothing_to_do":false}},{unknown}}}"#
+        );
+        let prefs = Preferences::from_json(&stored);
+        assert_eq!(
+            prefs.sound,
+            crate::cue::Loudness::Full,
+            "the unreadable field did not fall back"
+        );
+        assert_eq!(
+            prefs.sky,
+            crate::sky::SkyMode::Night,
+            "a bad sibling cost a good field"
+        );
+        assert!(
+            !prefs.auto.pass_when_nothing_to_do,
+            "a bad sibling cost the automation"
+        );
+        assert!(prefs.rest.contains_key("shell_keys"), "{:?}", prefs.rest);
+        assert!(
+            prefs.to_json().ends_with(&format!(",{unknown}}}")),
+            "the unknown key did not come back as it came: {}",
+            prefs.to_json()
+        );
+    }
+
+    /// `to_json(from_json(b)) == b` for every document in the writer's own
+    /// form, unknown keys included: saving what was read writes what was
+    /// stored, so two clients that disagree about which keys exist do not
+    /// rewrite each other's bytes.
+    #[test]
+    fn a_stored_document_reads_and_writes_back_byte_for_byte() {
+        let mut changed = Preferences {
+            sky: crate::sky::SkyMode::Night,
+            sound: crate::cue::Loudness::Half,
+            reduce_motion: true,
+            ..Preferences::default()
+        };
+        changed.auto.pass_when_nothing_to_do = false;
+        changed
+            .keymap
+            .bind(Action::Confirm, vec![Chord::key("KeyQ")]);
+        let fixtures = [
+            Preferences::default().to_json(),
+            changed.to_json(),
+            with_unknown(&Preferences::default(), r#""favourites":["a","b"]"#),
+            with_unknown(
+                &changed,
+                r#""a_newer_key":1.25,"graphics":{"msaa":4,"preset":"high"},"shell_keys":{}"#,
+            ),
+        ];
+        for stored in fixtures {
+            assert_eq!(Preferences::from_json(&stored).to_json(), stored);
+        }
+    }
+
+    /// Text that is not an object at all is the one case that still falls
+    /// back whole, and it falls back to a working client.
+    #[test]
+    fn a_document_that_is_not_an_object_falls_back_whole() {
+        for text in ["[1,2]", "7", "\"keys\"", ""] {
+            assert!(Preferences::from_json(text).is_default(), "{text}");
+        }
     }
 
     #[test]
