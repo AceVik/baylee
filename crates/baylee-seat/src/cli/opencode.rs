@@ -3,12 +3,16 @@
 //! which `run` would requote) and its events as JSON lines on its stdout
 //! (`--format json`).
 //!
-//! `opencode run` answers one message and ends; going on would be
-//! `--session`/`--continue`, which read the conversation back from
-//! opencode's database, and that database is kept in memory here. So every
-//! question is a conversation of its own ([`Dialect::one_shot`]). Its ACP
-//! mode (`opencode acp`) would hold a session in one process; it is not
-//! used yet.
+//! `opencode run` answers one message and ends ([`Dialect::one_shot`]),
+//! and goes on with a conversation by its id (`--session <id>`, the
+//! `sessionID` every line names; never `--continue`, the most recent one),
+//! read back from its database ([`Dialect::resumes`]). That database is a
+//! file in the seat's own store (`OPENCODE_DB`, an absolute path), not the
+//! user's, and goes with the store; the login stays where it is
+//! (`auth.json` under the data directory). A session it does not find is
+//! `Session not found` on stderr and an exit before any line: the mind
+//! begins the conversation again. Its ACP mode (`opencode acp`) would hold
+//! a session in one process; it is not used yet.
 //!
 //! Locked down by its environment and a configuration file of the
 //! session's own (`docs/llm-seat.md` §"A CLI as the model"): every tool
@@ -18,14 +22,17 @@
 //! its servers, plugins or `AGENTS.md` are read); no external plugin
 //! (`--pure`); no project configuration or instruction file
 //! (`OPENCODE_DISABLE_PROJECT_CONFIG`), none of Claude Code's
-//! (`OPENCODE_DISABLE_CLAUDE_CODE`), no external skill; a database in
-//! memory (`OPENCODE_DB=:memory:`), so no session is kept; no update, share,
+//! (`OPENCODE_DISABLE_CLAUDE_CODE`), no external skill; a database in the
+//! seat's store, so no session reaches the user's; no update, share,
 //! snapshot, formatter or compaction; our instructions in place of the
 //! provider prompt (an agent `seat` whose `prompt` is ours: opencode still
 //! adds its own environment block, naming the model, the working directory
 //! and the date); and a title given (`--title`), so no model call is made
-//! to write one. `--auto`, which approves what is not denied, is never
-//! passed: `run` rejects every permission request without it.
+//! to write one (`--title` is ignored on a resumed session, which has one).
+//! The configuration, `--agent` and `--model` are given again to every
+//! process, a resumed one too, so a resumed session is as locked down as a
+//! new one. `--auto`, which approves what is not denied, is never passed:
+//! `run` rejects every permission request without it.
 //!
 //! opencode says nothing at its start: its first line (whatever it says;
 //! each names the session) is the start, and the proof the lockdown held is
@@ -34,7 +41,8 @@
 //! tokens are that step's own.
 
 use super::dialect::{
-    Dialect, Event, Outcome, Started, Wire, clipped, first_line_starts, sounds_limited,
+    Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, first_line_starts,
+    sounds_limited,
 };
 use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
@@ -48,6 +56,9 @@ const CONFIG: &str = "opencode.json";
 /// The configuration directory opencode is given in place of the user's:
 /// empty.
 const CONFIG_HOME: &str = "config";
+
+/// The database file in the seat's store.
+const DATABASE: &str = "opencode.db";
 
 /// The agent the seat plays as, defined in [`CONFIG`].
 const AGENT: &str = "seat";
@@ -114,7 +125,6 @@ impl Dialect for Opencode {
 
     fn fixed_env(&self) -> &'static [(&'static str, &'static str)] {
         &[
-            ("OPENCODE_DB", ":memory:"),
             ("OPENCODE_DISABLE_PROJECT_CONFIG", "1"),
             ("OPENCODE_DISABLE_CLAUDE_CODE", "1"),
             ("OPENCODE_DISABLE_EXTERNAL_SKILLS", "1"),
@@ -135,6 +145,20 @@ impl Dialect for Opencode {
         true
     }
 
+    fn resumes(&self) -> bool {
+        true
+    }
+
+    fn store_env(&self, store: &Path) -> Vec<(&'static str, OsString)> {
+        // An absolute path is taken as it is (a relative one would be under
+        // the user's data directory); its `-wal` and `-shm` beside it.
+        vec![("OPENCODE_DB", store.join(DATABASE).into())]
+    }
+
+    fn resume_args(&self, id: &str) -> Vec<OsString> {
+        vec!["--session".into(), id.into()]
+    }
+
     fn stdin_line(&self, text: &str) -> String {
         // The whole of stdin is the message, as it stands.
         text.to_string()
@@ -150,6 +174,12 @@ impl Dialect for Opencode {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
+        if wire.conversation.is_none() {
+            wire.conversation = value
+                .get("sessionID")
+                .and_then(Value::as_str)
+                .and_then(conversation_id);
+        }
         if let Some(start) = first_line_starts(&value, wire) {
             return start;
         }

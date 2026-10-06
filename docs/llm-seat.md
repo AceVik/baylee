@@ -164,13 +164,19 @@ before playing.
   `--resume` would need the session kept on disk, which
   `--no-session-persistence` forbids. (`agy` takes no system prompt as a
   flag, so ours rides ahead of the prefix in the first message.) Codex,
-  opencode and Junie answer one message a process and go on only by
-  resuming a session from disk, so with them **each question is a
-  conversation of its own**: a process whose stdin is closed after the
-  message, the prefix and the seat's notes every time (the provider's
-  cache reads the unchanged prefix back), not counted as a loss
-  (`Dialect::one_shot`). An answer that cannot be read is asked again of a
-  new process, with the whole question and why.
+  opencode and Junie answer one message a process (`Dialect::one_shot`):
+  a process whose stdin is closed after the message. opencode goes on with
+  its conversation by its id (`--session <id>`, `Dialect::resumes`) from a
+  store of the seat's own, so each later question sends only what is new,
+  as to a long-lived process; one it cannot resume (not found, or not
+  read) is begun again for that question, with the prefix, the notes and
+  that it was lost. With Codex and Junie, whose sessions cannot be kept
+  apart from their login (§"The tools"), **each question is a
+  conversation of its own**: the prefix and the seat's notes every time
+  (the provider's cache reads the unchanged prefix back), not counted as a
+  loss. An answer that cannot be read is asked again of a new process:
+  opencode's goes on with the conversation and hears only why, the others'
+  hear the whole question and why.
   A conversation ends only when it outgrows its size (about 100,000
   tokens, `conversation_tokens`): the next question closes its stdin (two
   seconds, then it is killed) and starts another with the prefix and the
@@ -181,7 +187,8 @@ before playing.
   sentence that the conversation was lost. One that died while no
   question waited on it (between turns, say) is found dead by the next
   question, which starts one again for itself and is answered by the
-  model. A process idle five minutes is ended (the time Anthropic's API
+  model. A process idle five minutes is ended, and a conversation kept on
+  disk is over (the time Anthropic's API
   keeps a cached prefix by default, which is the entry the tool writes;
   a conversation resumed after that would be written to the cache whole
   again, which costs more than beginning a new one; the hour's entry is
@@ -307,11 +314,44 @@ table (no program is asked).
 
 | CLI | Flags and files that strip its overhead | Conversation | Usage | Lockdown check | Confirmed |
 |---|---|---|---|---|---|
-| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
-| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
-| Codex `codex` (0.160.0) | `exec --json --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`). `$CODEX_HOME/AGENTS.md` is still read: give the seat a `CODEX_HOME` of its own | one process a question | thread total, one turn a process: booked whole | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored |
-| opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB=:memory:`, `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: `:memory:` at 1.18.34, built-in plugins left on (they carry the logins) |
-| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin. Sessions are still kept under `~/.junie/sessions` | one process a question | the task's per-model records, summed, booked whole | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer |
+| Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines (not `--resume`: transcripts and the login share `CLAUDE_CONFIG_DIR`) | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
+| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
+| Codex `codex` (0.160.0) | `exec --json --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`). `$CODEX_HOME/AGENTS.md` is still read: give the seat a `CODEX_HOME` of its own | one process a question, each a new conversation (`exec resume <id>` is not used: sessions and the login share `CODEX_HOME`) | thread total, one turn a process: booked whole | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored |
+| opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB` = a file in the seat's store; `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question, going on by `--session <id>` from the seat's store: only what is new is sent | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: built-in plugins left on (they carry the logins); that a resumed `run` reads its history whole (source: `dev`) |
+| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin. Sessions are still kept under `~/.junie/sessions` | one process a question, each a new conversation (`--session-id --resume` is not used: see below) | the task's per-model records, summed, booked whole | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer |
+
+A tool that answers one message a process may go on with a conversation
+by its id only if its sessions can be kept in a store of the seat's own
+(under the OS's temp directory, `0700`, removed with the conversation,
+the seat and the mind; a mind's start sweeps away stores a killed bridge
+left, untouched for an hour) while its login stays where the user has
+it; never "the most recent" (`--continue`, `--last`). A resumed process
+gets the same lockdown as a new one, and a session the tool cannot find
+or read begins the conversation again for that question, with the
+prefix, counted as lost. A conversation is over after `idle`, as a
+process is.
+
+- **opencode**: resumed. `OPENCODE_DB` (an absolute path) puts its
+  sessions in the store; its login (`auth.json`) stays in the data
+  directory. It still appends `log/opencode.log` and makes its empty
+  directories under the user's data directory, as it does without
+  resuming: the log and the login share that directory, and only a key
+  in the environment (`OPENCODE_AUTH_CONTENT`) would let it move. Usage is
+  per step, so no session file is read.
+- **Codex**: not resumed. Sessions (`sessions/`), its SQLite files and
+  the login (`auth.json`, or a keyring entry keyed by the `CODEX_HOME`
+  path) all live under `CODEX_HOME`; no setting moves the sessions alone.
+  A seat home would need the login copied or linked (a link would write
+  refreshed credentials through it) or `CODEX_API_KEY`, a key: so each
+  question stays a conversation of its own, with `--ephemeral`.
+- **Junie**: not resumed. `JUNIE_HOME` moves sessions, logs and settings
+  together with the fallback credential file; on Linux its keyring needs
+  `DBUS_SESSION_BUS_ADDRESS`, which no CLI is given, so a seat home
+  signs it out. And a session it does not find may start a new one
+  silently, so a lost conversation could not be told from a kept one.
+- **Claude Code**, **agy**: one process holds the conversation already;
+  a resume would need transcripts on disk beside the login. agy's usage
+  is cumulative over its session, as the differences booking assumes.
 
 Not spoken, and why:
 

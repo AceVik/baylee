@@ -41,6 +41,13 @@
 //! answers the next step in that tool's shape and exits: `answer`, `text`,
 //! `tool` (the model uses a tool, then answers), `rate_limit`, `fail` and
 //! `exit` (and, as Junie, `signed_out`: a failure before any session).
+//! As opencode it keeps its conversations as its tool does, in the file
+//! `OPENCODE_DB` names (a JSON object of each session's turns, standing in
+//! for its database; `:memory:` or none keeps nothing): a new one is
+//! `ses_fake<pid>`, `--session <id>` goes on with one, and one that is not
+//! there, or a file it cannot read, is `Session not found` on stderr and
+//! an exit before any line, as opencode's is. It logs the session and its
+//! turn (`session`, `turn`), or the one it did not find (`not_found`).
 //! Each one's login check answers as its tool's does (`login
 //! status` on stderr, `auth list`, `--version`), signed in unless
 //! `logged_in` is false.
@@ -291,6 +298,11 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
     let _ = std::io::Read::read_to_string(&mut std::io::stdin().lock(), &mut prompt);
     dump(log, &json!({"pid": pid, "prompt": prompt}));
     dump(log, &json!({"pid": pid, "eof": true}));
+    let session = if tool == OneShot::Opencode {
+        opencode_session(log, pid)
+    } else {
+        String::new()
+    };
     let Some(step) = next_step(home, config) else {
         eprintln!("fake: the script ended");
         std::process::exit(0);
@@ -320,7 +332,7 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
     };
     match tool {
         OneShot::Codex => play_codex(kind, &answer, &usage),
-        OneShot::Opencode => play_opencode(kind, &answer, &usage),
+        OneShot::Opencode => play_opencode(kind, &answer, &usage, &session),
         OneShot::Junie => play_junie(kind, &answer, &usage),
     }
     if matches!(kind, "rate_limit" | "fail") {
@@ -360,10 +372,53 @@ fn play_codex(kind: &str, answer: &str, usage: &Usage) {
         "output_tokens": usage.output, "reasoning_output_tokens": 0}}));
 }
 
-/// One message answered as `opencode run --format json` does.
-fn play_opencode(kind: &str, answer: &str, usage: &Usage) {
+/// The opencode session this process answers in: the one `--session`
+/// names, from the store `OPENCODE_DB` names, or a new one kept there. One
+/// it cannot find ends the process as opencode does, before any line.
+fn opencode_session(log: &Path, pid: u32) -> String {
+    let args: Vec<String> = std::env::args().collect();
+    let named = args
+        .iter()
+        .position(|arg| arg == "--session")
+        .and_then(|at| args.get(at + 1))
+        .cloned();
+    let store = std::env::var_os("OPENCODE_DB")
+        .filter(|db| db != ":memory:")
+        .map(PathBuf::from);
+    let mut sessions: Value = match &store {
+        Some(db) if db.exists() => std::fs::read(db)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or(Value::Null),
+        _ => json!({}),
+    };
+    let id = if let Some(id) = named {
+        if sessions.get(&id).and_then(Value::as_u64).is_none() {
+            dump(log, &json!({"pid": pid, "not_found": id}));
+            eprintln!("Error: Session not found");
+            std::process::exit(1);
+        }
+        id
+    } else {
+        if !sessions.is_object() {
+            sessions = json!({});
+        }
+        format!("ses_fake{pid}")
+    };
+    let turn = sessions.get(&id).and_then(Value::as_u64).unwrap_or(0) + 1;
+    sessions[&id] = json!(turn);
+    if let Some(db) = &store {
+        std::fs::write(db, sessions.to_string()).expect("the fake's store is written");
+    }
+    dump(log, &json!({"pid": pid, "session": id, "turn": turn}));
+    id
+}
+
+/// One message answered as `opencode run --format json` does, in
+/// `session`.
+fn play_opencode(kind: &str, answer: &str, usage: &Usage, session: &str) {
     let line = |kind: &str, body: Value| {
-        let mut line = json!({"type": kind, "timestamp": 1, "sessionID": "ses_fake"});
+        let mut line = json!({"type": kind, "timestamp": 1, "sessionID": session});
         line.as_object_mut()
             .expect("an object")
             .extend(body.as_object().expect("an object").clone());

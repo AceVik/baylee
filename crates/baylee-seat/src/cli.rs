@@ -22,15 +22,22 @@
 //! on disk, which the lockdown forbids).
 //!
 //! A tool that answers one message a process (Codex, opencode, Junie:
-//! [`dialect::Dialect::one_shot`]) gets each question as a conversation
-//! of its own: a process whose stdin closes after the message, with the
-//! prefix and the notes, as after a loss but not counted as one. A
-//! question asked again goes to a new process, with the whole question.
+//! [`dialect::Dialect::one_shot`]) gets each question as a process whose
+//! stdin closes after the message. Codex and Junie get each as a
+//! conversation of its own, with the prefix and the notes, as after a loss
+//! but not counted as one; a question asked again goes to a new process,
+//! with the whole question. opencode goes on with its conversation by its
+//! id ([`dialect::Dialect::resumes`]): the seat keeps it in a [`Store`] of
+//! its own, and each question within the conversation's limits sends only
+//! what is new, as to a process that holds it. One the tool cannot resume
+//! (it ended before a line: not found, or unreadable) is begun again for
+//! that very question, with the prefix, and counted as lost.
 //!
 //! A conversation past [`Settings::conversation_tokens`] closes its stdin
 //! and starts another, with the prefix and the notes again. A process that
 //! dies, hangs past the question's time (it is killed) or is idle for
-//! [`Limits::idle`] is ended, and the next question starts one again,
+//! [`Limits::idle`] is ended (a resumed conversation idle as long is
+//! over), and the next question starts one again,
 //! saying the conversation was lost; one found dead before a message is
 //! sent (it ended between turns, say) is started again for that very
 //! question. Each start after a loss is counted ([`Tally::restarts`]). At
@@ -242,7 +249,7 @@ impl Launch {
             passed,
         };
         let temp = std::env::temp_dir();
-        launch.env(&temp, &temp)?;
+        launch.env(&temp, &temp, Some(&temp))?;
         Ok(launch)
     }
 
@@ -258,13 +265,19 @@ impl Launch {
         &self.program
     }
 
-    /// A process's whole environment, with `tmp` as its temp directory and
-    /// `support` the directory of its session's own files.
+    /// A process's whole environment, with `tmp` as its temp directory,
+    /// `support` the directory of its session's own files and `store` the
+    /// seat's store of a tool that resumes ([`Dialect::store_env`]).
     ///
     /// # Errors
     /// For a variable no CLI is given, by its name ([`forbidden`]), and
     /// for one whose value looks like a key.
-    fn env(&self, tmp: &Path, support: &Path) -> Result<Vec<(String, OsString)>, String> {
+    fn env(
+        &self,
+        tmp: &Path,
+        support: &Path,
+        store: Option<&Path>,
+    ) -> Result<Vec<(String, OsString)>, String> {
         let mut env: Vec<(String, OsString)> = self
             .passed
             .iter()
@@ -287,6 +300,11 @@ impl Launch {
         }
         for (name, value) in self.dialect.session_env(support) {
             env.push((name.into(), value));
+        }
+        if let Some(store) = store {
+            for (name, value) in self.dialect.store_env(store) {
+                env.push((name.into(), value));
+            }
         }
         let tool = self.dialect.tool().name();
         for (name, value) in &env {
@@ -378,13 +396,9 @@ struct SessionDir {
 
 impl SessionDir {
     fn new(game: &str, seat: u8) -> std::io::Result<Self> {
-        let tag: String = game
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
-            .take(24)
-            .collect();
         let root = std::env::temp_dir().join(format!(
-            "baylee-cli-{tag}-{seat}-{}",
+            "baylee-cli-{}-{seat}-{}",
+            tag(game),
             uuid::Uuid::now_v7().simple()
         ));
         private_dir(&root)?;
@@ -441,6 +455,125 @@ fn private_dir(path: &Path) -> std::io::Result<()> {
     builder.create(path)
 }
 
+/// What a seat's [`Store`] is called under the OS's temp directory, before
+/// the game, the seat and a unique tail.
+const STORE_PREFIX: &str = "baylee-cli-store-";
+
+/// A [`Store`] untouched this long belongs to no bridge still playing it
+/// (each process started in it touches it, and a conversation idle for
+/// [`Limits::idle`] is over), and the next mind to start sweeps it away.
+const STALE_STORE: Duration = Duration::from_hours(1);
+
+/// A seat's conversation kept on disk for a tool that resumes one
+/// ([`Dialect::resumes`]): under the OS's temp directory beside the
+/// sessions' own directories, readable by this user alone, removed with
+/// the conversation (and so with the seat and the mind); `work`, the
+/// working directory every process of the conversation shares, empty, and
+/// `data`, where the tool keeps the conversation ([`Dialect::store_env`]).
+/// Nothing of the user's own sessions is read or written: the tool is
+/// pointed only here.
+struct Store {
+    root: PathBuf,
+}
+
+impl Store {
+    fn new(game: &str, seat: u8) -> std::io::Result<Self> {
+        let root = std::env::temp_dir().join(format!(
+            "{STORE_PREFIX}{}-{seat}-{}",
+            tag(game),
+            uuid::Uuid::now_v7().simple()
+        ));
+        private_dir(&root)?;
+        let store = Self { root };
+        private_dir(&store.work())?;
+        private_dir(&store.data())?;
+        store.touch();
+        Ok(store)
+    }
+
+    fn work(&self) -> PathBuf {
+        self.root.join("work")
+    }
+
+    fn data(&self) -> PathBuf {
+        self.root.join("data")
+    }
+
+    /// Marks the store as in use now, for [`sweep_stores`].
+    fn touch(&self) {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let _ = options.open(self.root.join("used"));
+    }
+}
+
+impl Drop for Store {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+/// Removes the [`Store`]s in `dir` untouched for `stale`: a bridge that
+/// was killed left them. Only directories named as stores and private as
+/// a store is are looked at, never through a link (another user's could
+/// not be removed anyway). How many went.
+fn sweep_stores(dir: &Path, stale: Duration) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut swept = 0;
+    for entry in entries.flatten() {
+        if !entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with(STORE_PREFIX))
+        {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if !meta.is_dir() || !private(&meta) {
+            continue;
+        }
+        let used = std::fs::symlink_metadata(path.join("used"))
+            .and_then(|used| used.modified())
+            .or_else(|_| meta.modified());
+        let old = used.is_ok_and(|used| used.elapsed().is_ok_and(|age| age >= stale));
+        if old && std::fs::remove_dir_all(&path).is_ok() {
+            swept += 1;
+        }
+    }
+    swept
+}
+
+/// Whether what `meta` describes is readable by its owner alone, as every
+/// directory [`private_dir`] makes is.
+#[cfg(unix)]
+fn private(meta: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    meta.permissions().mode() & 0o777 == 0o700
+}
+
+#[cfg(not(unix))]
+fn private(_: &std::fs::Metadata) -> bool {
+    true
+}
+
+/// `game` as a directory name's part: its letters, digits and `-`.
+fn tag(game: &str) -> String {
+    game.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .take(24)
+        .collect()
+}
+
 /// Why a process stopped answering.
 #[derive(Clone, Debug)]
 enum Gone {
@@ -479,6 +612,9 @@ struct Waiter {
 struct Queue {
     waiting: VecDeque<Waiter>,
     gone: Option<Gone>,
+    /// Whether the process said anything at all (its start): one that
+    /// ended without a word reached no model.
+    heard: bool,
 }
 
 /// One process, holding one seat's conversation across turns.
@@ -559,6 +695,22 @@ struct CliSeat {
     /// Whether the last process ended before its conversation was done
     /// with: the next one's first message says the conversation was lost.
     lost: bool,
+    /// The conversation a tool that resumes one goes on with
+    /// ([`Dialect::resumes`]); `None` for every other tool.
+    conversation: Option<Conversation>,
+}
+
+/// A conversation a tool keeps on disk, which the next process goes on
+/// with ([`Dialect::resumes`]).
+struct Conversation {
+    /// Where it is kept; removed with it.
+    store: Store,
+    /// Its id, once the tool named it: until then nothing can resume it.
+    id: Option<String>,
+    /// The bytes sent to it so far: its size.
+    sent: usize,
+    /// When it was last asked.
+    used: Instant,
 }
 
 /// A decision told and ready to send.
@@ -567,6 +719,10 @@ struct Prepared {
     narrator: Narrator,
     text: String,
     asked: u64,
+    /// Whether it goes to a process that resumes the seat's conversation
+    /// ([`Dialect::resumes`]): only what is new, so a resume that fails
+    /// is told again from the start.
+    resumed: bool,
 }
 
 /// When the mind may ask again after a rate limit.
@@ -604,6 +760,12 @@ impl CliMind {
             calls_cap: settings.spend_calls,
             ..Tally::default()
         };
+        if launch.dialect.resumes() {
+            let swept = sweep_stores(&std::env::temp_dir(), STALE_STORE);
+            if swept > 0 {
+                tracing::info!(swept, "removed stale conversation stores");
+            }
+        }
         Self {
             system: format!("{}{}{GAME_DATA}", prompt::SYSTEM, prompt::JSON_MODE),
             settings,
@@ -648,6 +810,7 @@ impl CliMind {
                 ),
                 session: None,
                 lost: false,
+                conversation: None,
             }))
         }))
     }
@@ -661,7 +824,7 @@ impl CliMind {
         }
         self.reap(&request.context);
         let seat = self.seat(&request.context);
-        let prepared = match self.start(&seat, request) {
+        let mut prepared = match self.start(&seat, request) {
             Ok(prepared) => prepared,
             Err(done) => return done,
         };
@@ -692,7 +855,21 @@ impl CliMind {
                         return Err(error);
                     }
                 };
+            if matches!(reply, Reply::Outcome(_)) {
+                self.note_conversation(&mut lock(&seat));
+            }
             let (value, usage, said) = match reply {
+                Reply::Gone(Gone::Ended) if prepared.resumed && !Self::heard(&seat) => {
+                    // The tool could not go on with the conversation (it
+                    // was not found, or not read): it begins again, for
+                    // this very question, from the start.
+                    prepared = self
+                        .afresh(&seat, request)
+                        .map_err(MindError::Unavailable)?;
+                    text = prepared.text.clone();
+                    tries = 0;
+                    continue;
+                }
                 Reply::Outcome(Outcome::Answer {
                     value,
                     text: said,
@@ -725,21 +902,38 @@ impl CliMind {
                             "the model's answer could not be read: {why}"
                         )));
                     }
-                    let correction = format!(
-                        "That answer could not be taken: {why}. Answer q{} again.",
-                        request.question
-                    );
-                    text = if self.launch.dialect.one_shot() {
-                        // A process of its own, which has heard nothing yet.
-                        self.respawn(&seat, &request.context)
-                            .map_err(MindError::Unavailable)?;
-                        format!("{}\n\n{correction}", prepared.text)
-                    } else {
-                        correction
-                    };
+                    text = self.again(&seat, request, &mut prepared, &why)?;
                 }
             }
         }
+    }
+
+    /// The message that asks `request` again after its answer could not be
+    /// read for `why`. A one-shot tool's goes to a process of its own: one
+    /// that goes on with the conversation hears only why, one that has
+    /// heard nothing yet the whole question again.
+    fn again(
+        &self,
+        seat: &Arc<Mutex<CliSeat>>,
+        request: &Request,
+        prepared: &mut Prepared,
+        why: &str,
+    ) -> Result<String, MindError> {
+        let correction = format!(
+            "That answer could not be taken: {why}. Answer q{} again.",
+            request.question
+        );
+        if !self.launch.dialect.one_shot() {
+            return Ok(correction);
+        }
+        prepared.resumed = self
+            .respawn(seat, &request.context)
+            .map_err(MindError::Unavailable)?;
+        Ok(if prepared.resumed {
+            correction
+        } else {
+            format!("{}\n\n{correction}", prepared.text)
+        })
     }
 
     /// What is done before the tool is asked: the log heard, a refusal or a
@@ -767,15 +961,19 @@ impl CliMind {
             ))));
         }
         state.seat.asked += 1;
+        let dialect = &self.launch.dialect;
         // A process of a tool that answers one message is done with once it
         // answered: each question starts its own, and that is no loss.
         // Nor is one ended idle, or killed for hanging: no conversation of
-        // it was going on.
-        if self.launch.dialect.one_shot() {
+        // it was going on, unless the tool resumes one, whose loss is the
+        // conversation's own.
+        if dialect.one_shot() {
             if let Some(done) = state.session.take() {
                 done.end(self.limits.grace);
             }
-            state.lost = false;
+            if !dialect.resumes() {
+                state.lost = false;
+            }
         }
         // A process that ended since the last message (between turns, say)
         // is begun again for this question rather than costing it.
@@ -785,11 +983,41 @@ impl CliMind {
             }
             state.lost = true;
         }
-        // One conversation across turns: only its size ends it.
-        let fresh = state
-            .session
-            .as_ref()
-            .is_none_or(|session| session.sent.div_ceil(3) > self.settings.conversation_tokens);
+        // One conversation across turns: only its size ends it, and, kept
+        // on disk, its idleness, as a process's would.
+        let tokens = self.settings.conversation_tokens;
+        let fresh = if dialect.resumes() {
+            let idle = self.limits.idle;
+            let goes_on = state.conversation.as_ref().is_some_and(|going| {
+                going.id.is_some()
+                    && going.used.elapsed() < idle
+                    && going.sent.div_ceil(3) <= tokens
+            });
+            if goes_on {
+                state.lost = false;
+            } else if let Some(over) = state.conversation.take() {
+                state.lost = over.id.is_some() && over.used.elapsed() >= idle;
+            }
+            !goes_on
+        } else {
+            state
+                .session
+                .as_ref()
+                .is_none_or(|session| session.sent.div_ceil(3) > tokens)
+        };
+        let mut prepared = Self::tell(&state, request, fresh);
+        if fresh || state.session.is_none() {
+            prepared.resumed = self
+                .open(&mut state, seat, &request.context, fresh)
+                .map_err(|why| Err(MindError::Unavailable(why)))?;
+        }
+        Ok(prepared)
+    }
+
+    /// The message for `request`: what is new since the last, or, `fresh`,
+    /// a conversation's first, with the prefix, the seat's notes and, after
+    /// a loss, that it was lost.
+    fn tell(state: &CliSeat, request: &Request, fresh: bool) -> Prepared {
         let mut told = state.seat.told(fresh);
         if fresh && state.lost {
             told.insert(0, LOST.into());
@@ -805,62 +1033,144 @@ impl CliMind {
         } else {
             wake.text
         };
-        if fresh {
-            // A lockout found since the question began starts nothing.
-            if let Some(why) = lock(&self.locked_out).clone() {
-                return Err(Err(MindError::Unavailable(why)));
-            }
-            if let Some(old) = state.session.take() {
-                old.end(self.limits.grace);
-            }
-            match self.spawn(&request.context, Arc::downgrade(seat)) {
-                Ok(session) => state.session = Some(session),
-                Err(why) => return Err(Err(MindError::Unavailable(why))),
-            }
-            let mut tally = lock(&self.tally);
-            tally.sessions += 1;
-            if std::mem::take(&mut state.lost) {
-                tally.restarts += 1;
-            }
-        }
-        Ok(Prepared {
+        Prepared {
             menu: wake.menu,
             narrator,
             text,
             asked: state.seat.asked,
-        })
+            resumed: false,
+        }
+    }
+
+    /// Starts the seat's next process in place of its last one: for a
+    /// `fresh` conversation (a tool that resumes one gets a new store for
+    /// it, and a start after a loss is counted), else going on with the
+    /// seat's conversation where its tool resumes one. Whether it resumes
+    /// one.
+    fn open(
+        &self,
+        state: &mut CliSeat,
+        seat: &Arc<Mutex<CliSeat>>,
+        context: &GameContext,
+        fresh: bool,
+    ) -> Result<bool, String> {
+        // A lockout found since the question began starts nothing.
+        if let Some(why) = lock(&self.locked_out).clone() {
+            return Err(why);
+        }
+        if let Some(old) = state.session.take() {
+            old.end(self.limits.grace);
+        }
+        if fresh && self.launch.dialect.resumes() {
+            let store = Store::new(&context.game_id, context.seat.get()).map_err(|e| {
+                format!(
+                    "{}'s conversation store could not be made: {e}",
+                    self.tool()
+                )
+            })?;
+            state.conversation = Some(Conversation {
+                store,
+                id: None,
+                sent: 0,
+                used: Instant::now(),
+            });
+        }
+        let session = self.spawn(context, Arc::downgrade(seat), state.conversation.as_ref())?;
+        let resumed = state
+            .conversation
+            .as_ref()
+            .is_some_and(|going| going.id.is_some());
+        state.session = Some(session);
+        let mut tally = lock(&self.tally);
+        tally.sessions += 1;
+        if fresh && std::mem::take(&mut state.lost) {
+            tally.restarts += 1;
+        }
+        Ok(resumed)
     }
 
     /// Starts a new process for the seat in place of its last one, which a
     /// one-shot tool is done with: a question asked again goes to a
-    /// process that has heard nothing.
-    fn respawn(&self, seat: &Arc<Mutex<CliSeat>>, context: &GameContext) -> Result<(), String> {
-        if let Some(why) = lock(&self.locked_out).clone() {
-            return Err(why);
-        }
-        let session = self.spawn(context, Arc::downgrade(seat))?;
-        if let Some(done) = lock(seat).session.replace(session) {
-            done.end(self.limits.grace);
-        }
-        lock(&self.tally).sessions += 1;
-        Ok(())
+    /// process that has heard nothing, or, where the tool resumes the
+    /// conversation, to one that goes on with it. Whether it does.
+    fn respawn(&self, seat: &Arc<Mutex<CliSeat>>, context: &GameContext) -> Result<bool, String> {
+        let mut state = lock(seat);
+        self.note_conversation(&mut state);
+        self.open(&mut state, seat, context, false)
     }
 
-    /// Starts a process for `context`'s seat.
-    fn spawn(&self, context: &GameContext, seat: Weak<Mutex<CliSeat>>) -> Result<Session, String> {
+    /// Begins the seat's conversation again for `request`, after its tool
+    /// could not resume it: from the start, saying it was lost, counted.
+    fn afresh(&self, seat: &Arc<Mutex<CliSeat>>, request: &Request) -> Result<Prepared, String> {
+        let mut state = lock(seat);
+        if let Some(dead) = state.session.take() {
+            dead.end(Duration::ZERO);
+        }
+        state.conversation = None;
+        state.lost = true;
+        let prepared = Self::tell(&state, request, true);
+        self.open(&mut state, seat, &request.context, true)?;
+        Ok(prepared)
+    }
+
+    /// Keeps the id the seat's process named its conversation by, for the
+    /// next process to resume ([`Dialect::resumes`]).
+    fn note_conversation(&self, state: &mut CliSeat) {
+        if !self.launch.dialect.resumes() {
+            return;
+        }
+        let (Some(session), Some(going)) = (&state.session, &mut state.conversation) else {
+            return;
+        };
+        if let Some(id) = lock(&session.wire).conversation.clone() {
+            going.id = Some(id);
+        }
+    }
+
+    /// Whether the seat's process said anything before it ended.
+    fn heard(seat: &Mutex<CliSeat>) -> bool {
+        lock(seat)
+            .session
+            .as_ref()
+            .is_some_and(|session| lock(&session.queue).heard)
+    }
+
+    /// Starts a process for `context`'s seat; for a tool that resumes a
+    /// conversation, in `conversation`'s store, going on with it once it
+    /// has an id.
+    fn spawn(
+        &self,
+        context: &GameContext,
+        seat: Weak<Mutex<CliSeat>>,
+        conversation: Option<&Conversation>,
+    ) -> Result<Session, String> {
         let tool = self.tool();
         let dir = SessionDir::new(&context.game_id, context.seat.get())
             .map_err(|e| format!("{tool}'s private directory could not be made: {e}"))?;
-        let env = self.launch.env(&dir.tmp(), &dir.support())?;
+        let store = conversation.map(|going| &going.store);
+        let env = self.launch.env(
+            &dir.tmp(),
+            &dir.support(),
+            store.map(Store::data).as_deref(),
+        )?;
         let dialect = &self.launch.dialect;
         let model = self.launch.model.as_deref();
         dir.write(&dialect.files(&self.settings, &self.system))
             .map_err(|e| format!("{tool}'s files could not be written: {e}"))?;
+        let mut args = dialect.args(&self.settings, model, &self.system, &dir.support());
+        let resumes = conversation.and_then(|going| going.id.as_deref());
+        if let Some(id) = resumes {
+            args.extend(dialect.resume_args(id));
+        }
+        let work = store.map_or_else(|| dir.work(), Store::work);
+        if let Some(store) = store {
+            store.touch();
+        }
         let mut child = Command::new(&self.launch.program)
-            .args(dialect.args(&self.settings, model, &self.system, &dir.support()))
+            .args(args)
             .env_clear()
             .envs(env)
-            .current_dir(dir.work())
+            .current_dir(work)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -900,7 +1210,11 @@ impl CliMind {
         tokio::spawn(collect(stderr, Arc::clone(&tail)));
         Ok(Session {
             child,
-            sent: 0,
+            sent: if resumes.is_some() {
+                conversation.map_or(0, |going| going.sent)
+            } else {
+                0
+            },
             used: Instant::now(),
             lines: Some(lines),
             wire,
@@ -963,6 +1277,11 @@ impl CliMind {
         }
         session.sent += text.len();
         session.used = Instant::now();
+        let (sent, used) = (session.sent, session.used);
+        if let Some(going) = state.conversation.as_mut() {
+            going.sent = sent;
+            going.used = used;
+        }
         Ok(heard)
     }
 
@@ -1004,6 +1323,7 @@ impl CliMind {
     fn lose(seat: &Mutex<CliSeat>) -> Option<Session> {
         let mut state = lock(seat);
         state.lost = true;
+        state.conversation = None;
         state.session.take()
     }
 
@@ -1069,7 +1389,9 @@ impl CliMind {
             let busy = !lock(&session.queue).waiting.is_empty();
             let used = session.used;
             if !busy && now.duration_since(used) >= self.limits.idle {
-                state.lost = true;
+                // A one-shot process holds no conversation: ending it loses
+                // nothing (one kept on disk is over by its own idleness).
+                state.lost |= !self.launch.dialect.one_shot();
                 if let Some(session) = state.session.take() {
                     session.end(self.limits.grace);
                 }
@@ -1093,7 +1415,7 @@ impl CliMind {
             }
             let mut state = lock(&seat);
             if let Some(session) = state.session.take() {
-                state.lost = true;
+                state.lost |= !self.launch.dialect.one_shot();
                 session.end(self.limits.grace);
                 live -= 1;
             }
@@ -1137,7 +1459,12 @@ impl CliMind {
         let Ok(dir) = SessionDir::new("probe", 0) else {
             return false;
         };
-        let Ok(env) = self.launch.env(&dir.tmp(), &dir.support()) else {
+        // A tool that keeps conversations keeps the check's in its own
+        // directory too, never in the user's.
+        let Ok(env) = self
+            .launch
+            .env(&dir.tmp(), &dir.support(), Some(&dir.tmp()))
+        else {
             return false;
         };
         let Ok(child) = Command::new(&self.launch.program)
@@ -1380,6 +1707,7 @@ impl Reader {
                     return Some(Gone::Refused(why));
                 }
                 *started = true;
+                lock(&self.queue).heard = true;
             }
             Event::Reply(Outcome::RateLimited { why, lifts_in }) if !*started => {
                 return Some(Gone::Limited { why, lifts_in });
@@ -1406,14 +1734,17 @@ impl Reader {
         // Every question still waiting hears it, and counts at its worst:
         // nobody knows what the tool spent on it. The oldest one's rate
         // limit, which answered it, is unbilled, as any rate limit is.
-        let waiting: Vec<Waiter> = {
+        let (waiting, heard): (Vec<Waiter>, bool) = {
             let mut queue = lock(&self.queue);
             queue.gone = Some(gone.clone());
-            queue.waiting.drain(..).collect()
+            (queue.waiting.drain(..).collect(), queue.heard)
         };
+        // One that ended without a word reached no model: failed, but at no
+        // cost.
+        let unheard = matches!(gone, Gone::Ended) && !heard;
         let mut limited = matches!(gone, Gone::Limited { .. });
         for waiter in waiting {
-            lock(&self.tally).back(waiter.worst, Err(!limited), None);
+            lock(&self.tally).back(waiter.worst, Err(!(limited || unheard)), None);
             limited = false;
             let _ = waiter.reply.send(Reply::Gone(gone.clone()));
         }

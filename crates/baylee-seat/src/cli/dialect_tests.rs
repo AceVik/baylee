@@ -117,17 +117,48 @@ fn no_dialect_approves_anything_or_passes_a_credential() {
 }
 
 /// Every tool this build speaks has a dialect, and the settings panel's
-/// word on whether a process keeps the conversation is the dialect's.
+/// word on whether the conversation goes on across turns is the
+/// dialect's: a process that holds it, or a one-shot tool that resumes it.
+/// One that resumes counts each reply's own usage, since its running
+/// count would start again with each process.
 #[test]
 fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
     for tool in CliTool::ALL {
         let dialect = dialect(tool);
         assert_eq!(dialect.tool(), tool);
         assert_eq!(
-            dialect.one_shot(),
-            !clis::choices(tool).keeps_conversation,
+            !dialect.one_shot() || dialect.resumes(),
+            clis::choices(tool).keeps_conversation,
             "{tool:?}"
         );
+        if dialect.resumes() {
+            assert!(dialect.one_shot(), "{tool:?}");
+            assert!(!dialect.usage_is_cumulative(), "{tool:?}");
+            assert!(!dialect.store_env(Path::new("/s")).is_empty(), "{tool:?}");
+        } else {
+            assert!(dialect.resume_args("ses_1").is_empty(), "{tool:?}");
+            assert!(dialect.store_env(Path::new("/s")).is_empty(), "{tool:?}");
+        }
+    }
+}
+
+/// A conversation's id is handed back in an argument only as letters,
+/// digits, `_` and `-`, never first, and not too long.
+#[test]
+fn a_conversation_id_cannot_make_an_argument_of_its_own() {
+    use super::dialect::conversation_id;
+    assert_eq!(conversation_id("ses_1a-B").as_deref(), Some("ses_1a-B"));
+    for bad in [
+        "",
+        "-c",
+        "--continue",
+        "a b",
+        "a=b",
+        "ses/1",
+        "ü",
+        &"x".repeat(129),
+    ] {
+        assert_eq!(conversation_id(bad), None, "{bad:?}");
     }
 }
 
@@ -170,7 +201,11 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
         )
         .unwrap();
         let env = launch
-            .env(Path::new("/s/tmp"), Path::new("/s/support"))
+            .env(
+                Path::new("/s/tmp"),
+                Path::new("/s/support"),
+                Some(Path::new("/s/store")),
+            )
             .unwrap();
         env.into_iter()
             .map(|(name, value)| (name, value.to_string_lossy().into_owned()))
@@ -183,7 +218,10 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
         "not theirs"
     );
     assert_eq!(opencode["OPENCODE_CONFIG"], "/s/support/opencode.json");
-    assert_eq!(opencode["OPENCODE_DB"], ":memory:");
+    assert_eq!(
+        opencode["OPENCODE_DB"], "/s/store/opencode.db",
+        "its conversations in the seat's store, never the user's"
+    );
     assert_eq!(opencode["OPENCODE_DISABLE_PROJECT_CONFIG"], "1");
     let codex = env_of("codex");
     assert_eq!(codex["CODEX_HOME"], "/home/tester/.codex-seat");
@@ -466,7 +504,42 @@ fn opencodes_configuration_denies_every_tool_and_carries_ours() {
     ] {
         assert_eq!(fixed[name], "1", "{name}");
     }
-    assert_eq!(fixed["OPENCODE_DB"], ":memory:");
+    assert!(
+        !fixed.contains_key("OPENCODE_DB"),
+        "the store names it ({:?})",
+        Opencode.store_env(Path::new("/s/store"))
+    );
+}
+
+/// opencode goes on with a conversation by the id its lines name: an
+/// explicit `--session <id>` (never `--continue`), from a database in the
+/// seat's store, an absolute path. An id that could be read as a flag is
+/// no id.
+#[test]
+fn opencode_resumes_by_the_id_its_lines_name() {
+    assert!(Opencode.resumes());
+    let store = Opencode.store_env(Path::new("/s/store"));
+    assert_eq!(store.len(), 1);
+    assert_eq!(store[0].0, "OPENCODE_DB");
+    assert_eq!(store[0].1, OsString::from("/s/store/opencode.db"));
+    assert_eq!(
+        Opencode.resume_args("ses_1"),
+        [OsString::from("--session"), OsString::from("ses_1")]
+    );
+    let mut wire = Wire::default();
+    for line in [
+        r#"{"type":"step_start","timestamp":1,"sessionID":"ses_1","part":{}}"#,
+        r#"{"type":"text","timestamp":2,"sessionID":"ses_2","part":{"text":""}}"#,
+    ] {
+        Opencode.read_event(line, &mut wire);
+    }
+    assert_eq!(wire.conversation.as_deref(), Some("ses_1"), "its first");
+    let mut wire = Wire::default();
+    Opencode.read_event(
+        r#"{"type":"step_start","timestamp":1,"sessionID":"--continue"}"#,
+        &mut wire,
+    );
+    assert_eq!(wire.conversation, None);
 }
 
 /// opencode says nothing at its start: its first line is the start and is

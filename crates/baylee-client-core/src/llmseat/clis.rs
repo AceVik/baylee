@@ -28,8 +28,9 @@ pub struct CliChoices {
     /// The effort levels its effort flag takes, least first; empty for a
     /// tool with none.
     pub efforts: &'static [&'static str],
-    /// Whether one process holds the conversation across turns; otherwise
-    /// each question is a conversation of its own.
+    /// Whether the conversation goes on across turns (one process holds
+    /// it, or the tool resumes it by its id from the seat's own store);
+    /// otherwise each question is a conversation of its own.
     pub keeps_conversation: bool,
 }
 
@@ -77,7 +78,8 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             model_hint: "provider/model, as `opencode models` lists them",
             default_model: None,
             efforts: &["none", "minimal", "low", "medium", "high", "xhigh", "max"],
-            keeps_conversation: false,
+            // `run --session <id>`, from a database in the seat's store.
+            keeps_conversation: true,
         },
         // Junie's model-selection page: its aliases; `junie --help`
         // (26.9.22): `--effort` "low, medium, high".
@@ -128,5 +130,6 @@ mod tests {
         }
         assert!(choices(CliTool::Claude).keeps_conversation);
         assert!(!choices(CliTool::Codex).keeps_conversation);
+        assert!(choices(CliTool::Opencode).keeps_conversation);
     }
 }

@@ -90,6 +90,9 @@ fn parent_env(home: &Path, path: &Path) -> impl Fn(&str) -> Option<String> + use
             "PATH" => path.clone(),
             "USER" | "LOGNAME" => "tester".into(),
             "CLAUDE_CONFIG_DIR" => format!("{home}/.claude-config"),
+            "XDG_DATA_HOME" => format!("{home}/.local/share"),
+            "XDG_STATE_HOME" => format!("{home}/.local/state"),
+            "XDG_CACHE_HOME" => format!("{home}/.cache"),
             "ANTHROPIC_API_KEY" => "sk-ant-api03-TESTTESTTESTTESTTESTTEST".into(),
             "BAYLEE_LLM_API_KEY" => "sk-TESTTESTTESTTESTTESTTEST".into(),
             "BAYLEE_SEAT_CONFIG" => format!("{home}/llm-seat.json"),
@@ -1373,8 +1376,10 @@ impl Rig {
 /// Each question to a tool that answers one message a process is a
 /// process of its own: started with the tool's locked-down arguments in
 /// an empty working directory, its own files beside it (never in it),
-/// the whole message on stdin and then its end, the prefix every time,
-/// and each booked by what it counted. A process done with is no loss.
+/// the whole message on stdin and then its end, and each booked by what
+/// it counted. A process done with is no loss. One that does not resume
+/// a conversation hears the prefix every time; opencode, which does,
+/// hears it once and then goes on by the id.
 #[tokio::test]
 async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
     let base = a_priority().await;
@@ -1428,6 +1433,20 @@ async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
         }
         let prompts = rig.prompts();
         assert_eq!(prompts.len(), 2, "{tool}");
+        if tool == "opencode" {
+            let first = format!("ses_fake{}", starts[0]["pid"]);
+            assert_eq!(arg_after(&starts[0], "--session"), None);
+            assert_eq!(arg_after(&starts[1], "--session"), Some(first));
+            assert!(prompts[0].1.contains("THE GAME"));
+            assert!(
+                !prompts[1].1.contains("THE GAME"),
+                "only what is new: {}",
+                prompts[1].1
+            );
+            let tally = spent(&mind.tally());
+            assert_eq!((tally.sessions, tally.restarts), (2, 0), "{tool}: no loss");
+            continue;
+        }
         for (_, prompt) in &prompts {
             let text = if tool == "junie" {
                 serde_json::from_str::<Value>(prompt).unwrap()["task"]
@@ -1579,7 +1598,7 @@ async fn a_one_shot_clis_idle_process_is_no_lost_conversation() {
     let turn = base.view.turn;
     let rig = Rig::new(
         "oneshot-idle",
-        one_shot("opencode"),
+        one_shot("codex"),
         &json!({"steps": [pass(1, ""), pass(2, "")]}),
     );
     let mind = rig.mind(Limits {
@@ -1626,4 +1645,249 @@ async fn a_one_shot_clis_failure_as_its_first_word_locks_nothing_out() {
         .await
         .unwrap();
     assert_eq!(answer.action, PlayerAction::PassPriority);
+}
+
+// ---------------------------------------------------------------------
+// opencode: a conversation kept in the seat's store, resumed by its id
+// ---------------------------------------------------------------------
+
+/// The argument after `flag` in a start's arguments.
+fn arg_after(start: &Value, flag: &str) -> Option<String> {
+    let argv = start["argv"].as_array()?;
+    let at = argv.iter().position(|arg| arg == flag)?;
+    argv.get(at + 1)?.as_str().map(str::to_string)
+}
+
+/// Every path under `dir`, relative to it, sorted.
+fn tree(dir: &Path) -> Vec<String> {
+    fn walk(root: &Path, dir: &Path, into: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            into.push(path.strip_prefix(root).unwrap().display().to_string());
+            if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                walk(root, &path, into);
+            }
+        }
+    }
+    let mut paths = Vec::new();
+    walk(dir, dir, &mut paths);
+    paths.sort();
+    paths
+}
+
+/// Where a start's opencode kept its conversations.
+fn database(start: &Value) -> PathBuf {
+    PathBuf::from(start["env"]["OPENCODE_DB"].as_str().expect("OPENCODE_DB"))
+}
+
+/// opencode goes on with its conversation: the first question with the
+/// prefix, every later one only what is new, to a process started with
+/// the id the first named (never "the most recent"), still locked down,
+/// in one working directory; an answer that cannot be read is asked again
+/// of a process that goes on with it and hears only why. The conversation
+/// is kept in the seat's own store, private, under the OS's temp
+/// directory, which goes with the mind; nothing is written under the
+/// user's home, where the login is read.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // three questions, then the store and the home after them
+async fn opencode_goes_on_with_its_conversation_by_its_id() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "resume",
+        one_shot("opencode"),
+        &json!({"steps": [
+            pass(1, "plan A"),
+            {"kind": "text", "text": "I pass."},
+            pass(2, ""),
+            pass(3, ""),
+        ]}),
+    );
+    let before = tree(&rig.home);
+    let mind = rig.mind(Limits::default());
+    for (question, at) in [(1, turn), (2, turn), (3, turn + 1)] {
+        let answer = mind.decide(ask(&base, question, at, 20)).await;
+        assert_eq!(answer.unwrap().action, PlayerAction::PassPriority);
+    }
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 4, "a process a message");
+    let id = format!("ses_fake{}", starts[0]["pid"]);
+    assert_eq!(arg_after(&starts[0], "--session"), None);
+    for start in &starts[1..] {
+        assert_eq!(arg_after(start, "--session"), Some(id.clone()));
+        assert_eq!(start["argv"][1], "run");
+        assert_eq!(arg_after(start, "--agent").as_deref(), Some("seat"));
+        assert!(
+            !start["argv"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|arg| arg == "--continue" || arg == "-c" || arg == "--auto"),
+            "{start}"
+        );
+        assert_eq!(start["cwd"], starts[0]["cwd"], "one working directory");
+        assert_eq!(database(start), database(&starts[0]), "one store");
+    }
+    let turns: Vec<(String, u64)> = rig
+        .log()
+        .iter()
+        .filter_map(|line| Some((line["session"].as_str()?.into(), line["turn"].as_u64()?)))
+        .collect();
+    assert_eq!(
+        turns,
+        (1..=4).map(|turn| (id.clone(), turn)).collect::<Vec<_>>(),
+        "one conversation, four turns"
+    );
+    let prompts = rig.prompts();
+    assert!(prompts[0].1.contains("THE GAME"));
+    assert!(
+        prompts[1].1.contains("q2") && !prompts[1].1.contains("THE GAME"),
+        "{}",
+        prompts[1].1
+    );
+    assert!(
+        prompts[2].1.starts_with("That answer could not be taken"),
+        "only why: {}",
+        prompts[2].1
+    );
+    assert!(!prompts[3].1.contains("THE GAME"), "{}", prompts[3].1);
+    for (_, prompt) in &prompts {
+        assert!(!prompt.contains("conversation was lost"), "{prompt}");
+    }
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.calls, tally.failed), (4, 0));
+    assert_eq!((tally.sessions, tally.restarts), (4, 0));
+    assert_eq!(tally.usage.total(), 4 * 1120, "each reply's own count");
+
+    let db = database(&starts[0]);
+    let store = db.parent().and_then(Path::parent).unwrap().to_path_buf();
+    assert!(
+        store.starts_with(std::env::temp_dir()),
+        "{}",
+        store.display()
+    );
+    assert!(
+        store
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("baylee-cli-store-"),
+        "{}",
+        store.display()
+    );
+    assert!(db.is_file(), "the conversation is kept in the store");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for dir in [&store, &db.parent().unwrap().to_path_buf()] {
+            let mode = std::fs::metadata(dir).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700, "{}", dir.display());
+        }
+    }
+    drop(mind);
+    assert!(!store.exists(), "the store goes with the mind");
+    let after: Vec<String> = tree(&rig.home)
+        .into_iter()
+        .filter(|path| !before.contains(path))
+        .collect();
+    assert_eq!(
+        after,
+        ["fake-cli.cursor", "fake-cli.log"],
+        "nothing but the fake's own notes under the home"
+    );
+}
+
+/// A conversation opencode cannot go on with (its store unreadable, or
+/// the session gone from it: `Session not found`, an exit before any
+/// line) is begun again for that very question, with the prefix and word
+/// that it was lost, counted as a restart; the attempt failed but reached
+/// no model, so it costs nothing. The new conversation goes on as the
+/// first did.
+#[tokio::test]
+async fn a_conversation_opencode_cannot_resume_begins_again_with_the_prefix() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "resume-lost",
+        one_shot("opencode"),
+        &json!({"steps": [pass(1, "plan A"), pass(2, ""), pass(3, ""), pass(4, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    let db = database(&rig.starts()[0]);
+
+    // Corrupt: the store is not read.
+    std::fs::write(&db, "not a database").unwrap();
+    let answer = mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 3);
+    let first = format!("ses_fake{}", starts[0]["pid"]);
+    assert_eq!(arg_after(&starts[1], "--session"), Some(first.clone()));
+    assert_eq!(arg_after(&starts[2], "--session"), None, "a new one");
+    let prompts = rig.prompts();
+    let again = &prompts[2].1;
+    assert!(again.contains("THE GAME"), "the prefix: {again}");
+    assert!(again.contains("conversation was lost"), "{again}");
+    assert!(again.contains("plan A"), "the seat's notes: {again}");
+    assert_ne!(database(&starts[2]), db, "a store of its own");
+    assert!(!db.exists(), "the old store is gone");
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (3, 1));
+    assert_eq!((tally.calls, tally.failed, tally.unsure.tokens), (3, 1, 0));
+
+    // It goes on with the new one.
+    mind.decide(ask(&base, 3, turn + 1, 20)).await.unwrap();
+    let starts = rig.starts();
+    let second = format!("ses_fake{}", starts[2]["pid"]);
+    assert_eq!(arg_after(&starts[3], "--session"), Some(second.clone()));
+
+    // Lost: the session is gone from its store.
+    std::fs::write(database(&starts[3]), "{}").unwrap();
+    mind.decide(ask(&base, 4, turn + 1, 20)).await.unwrap();
+    let starts = rig.starts();
+    assert_eq!(arg_after(&starts[4], "--session"), Some(second));
+    assert_eq!(arg_after(&starts[5], "--session"), None);
+    let not_found: Vec<&str> = rig
+        .log()
+        .iter()
+        .filter_map(|line| line["not_found"].as_str().map(str::to_string))
+        .collect::<Vec<_>>()
+        .leak()
+        .iter()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(not_found.len(), 2, "{not_found:?}");
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (6, 2));
+}
+
+/// A conversation kept on disk idle past [`Limits::idle`] is over, as a
+/// process idle as long is: the next question begins a new one in a new
+/// store, says the last was lost, and counts it.
+#[tokio::test]
+async fn an_idle_opencode_conversation_is_over() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    let rig = Rig::new(
+        "resume-idle",
+        one_shot("opencode"),
+        &json!({"steps": [pass(1, ""), pass(2, "")]}),
+    );
+    let mind = rig.mind(Limits {
+        idle: Duration::from_millis(1),
+        ..Limits::default()
+    });
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    mind.decide(ask(&base, 2, turn + 1, 20)).await.unwrap();
+    let starts = rig.starts();
+    assert_eq!(arg_after(&starts[1], "--session"), None);
+    assert_ne!(database(&starts[1]), database(&starts[0]));
+    assert!(!database(&starts[0]).exists(), "the old store is gone");
+    let prompts = rig.prompts();
+    assert!(prompts[1].1.contains("THE GAME"));
+    assert!(prompts[1].1.contains("conversation was lost"));
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (2, 1));
 }

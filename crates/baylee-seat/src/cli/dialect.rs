@@ -15,8 +15,9 @@
 //! session the mind keeps across turns, and so what keeps the
 //! conversation's prefix in the provider's cache. A tool that answers one
 //! message a process ([`Dialect::one_shot`]) gets every question as a new
-//! conversation, the prefix and the seat's notes again: none here resumes
-//! a conversation by id, which would need it kept on disk.
+//! conversation, the prefix and the seat's notes again, unless it resumes
+//! one by its id ([`Dialect::resumes`]) from a store the seat owns: then
+//! each process goes on with the conversation the last one left there.
 //!
 //! Which tools this build speaks, and how each is locked down, is
 //! `docs/llm-seat.md` §"A CLI as the model".
@@ -75,6 +76,31 @@ pub(crate) trait Dialect: Send + Sync {
     /// is (not counted as a loss).
     fn one_shot(&self) -> bool {
         false
+    }
+
+    /// Whether a one-shot tool goes on with a conversation by its id
+    /// ([`Wire::conversation`]), kept in a store of the seat's own: then a
+    /// question within the conversation's limits is only what is new, sent
+    /// to a process started with [`Self::resume_args`]. Such a tool must
+    /// count each reply's own usage ([`Self::usage_is_cumulative`] false):
+    /// a running count would start again with each process, though the
+    /// conversation does not.
+    fn resumes(&self) -> bool {
+        false
+    }
+
+    /// Variables that put the tool's conversations into `store`, the
+    /// seat's own directory ([`Self::resumes`]), and nowhere else; checked
+    /// as every other variable is.
+    fn store_env(&self, _store: &Path) -> Vec<(&'static str, OsString)> {
+        Vec::new()
+    }
+
+    /// The arguments, after [`Self::args`], that go on with the
+    /// conversation `id` ([`Self::resumes`]): an explicit id, never a
+    /// tool's "the most recent one".
+    fn resume_args(&self, _id: &str) -> Vec<OsString> {
+        Vec::new()
     }
 
     /// The lines written as the process starts, before any message: a
@@ -137,6 +163,9 @@ pub(crate) struct Wire {
     /// The conversation's id, where the tool names one: also whether its
     /// start was read.
     pub(crate) session: Option<String>,
+    /// The id a tool that resumes ([`Dialect::resumes`]) named its
+    /// conversation by, as [`conversation_id`] takes it.
+    pub(crate) conversation: Option<String>,
     /// Lines to write to the process now: an answer to a request of its
     /// own, say.
     pub(crate) out: Vec<String>,
@@ -231,6 +260,19 @@ pub(crate) fn first_line_starts(value: &Value, wire: &mut Wire) -> Option<Event>
     wire.session = Some(String::new());
     wire.again = true;
     Some(Event::Started(Started::default()))
+}
+
+/// `id` as a conversation's id to hand back to its tool in an argument:
+/// letters, digits, `_` and `-`, not first, at most 128 of them; anything
+/// else is no id (and so never resumed), so no line can make an argument
+/// of its own.
+pub(crate) fn conversation_id(id: &str) -> Option<String> {
+    let fits = (1..=128).contains(&id.len())
+        && !id.starts_with('-')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    fits.then(|| id.to_string())
 }
 
 /// Up to eight names, for a sentence.
