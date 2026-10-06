@@ -190,24 +190,22 @@ const AGY: &[KnownModel] = &[
     ),
 ];
 
-/// Every table this build has, by where it applies: the one [`known`]
-/// reads.
-pub const KNOWN: &[(Where, &[KnownModel])] = &[
-    (Where::Anthropic, ANTHROPIC),
-    (Where::Host("api.deepseek.com"), DEEPSEEK),
-    (Where::Cli(CliTool::Claude), CLAUDE_CODE),
-    (Where::Cli(CliTool::Agy), AGY),
+/// The hosted APIs this build knows the models of, by host: whichever wire
+/// protocol a profile speaks there (`DeepSeek` answers both, at
+/// `/v1` and at `/anthropic`), the host's models are the ones it serves.
+pub const HOSTED: &[(&str, &[KnownModel])] = &[
+    ("api.anthropic.com", ANTHROPIC),
+    ("api.deepseek.com", DEEPSEEK),
 ];
 
-/// Where a table of [`KNOWN`] applies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Where {
-    /// Anthropic's API, at any address (a proxy serves the same ids).
-    Anthropic,
-    /// An OpenAI-compatible endpoint on this host.
-    Host(&'static str),
-    /// An agent CLI.
-    Cli(CliTool),
+/// The models this build knows of an agent CLI, in the order offered: the
+/// one place a CLI's models are read from.
+#[must_use]
+pub const fn cli_models(tool: CliTool) -> &'static [KnownModel] {
+    match tool {
+        CliTool::Claude => CLAUDE_CODE,
+        CliTool::Agy => AGY,
+    }
 }
 
 /// Whom a profile plays through: what [`known`] and [`resolve`] look up.
@@ -262,18 +260,22 @@ fn host(base: &str) -> &str {
         .map_or(host, |(h, _)| h)
 }
 
-/// The models this build knows at `endpoint`, in the order offered.
+/// The models this build knows at `endpoint`, in the order offered: a
+/// CLI's ([`cli_models`]); an API's by its host ([`HOSTED`]), and
+/// Anthropic's at any other address that speaks its protocol (a proxy
+/// serves the same ids).
 #[must_use]
 pub fn known(endpoint: Endpoint<'_>) -> &'static [KnownModel] {
-    KNOWN
+    if endpoint.provider == Provider::Cli {
+        return endpoint.tool.map_or(NONE_MODELS, cli_models);
+    }
+    let at = endpoint.base.map(host);
+    HOSTED
         .iter()
-        .find(|(at, _)| match (*at, endpoint.provider) {
-            (Where::Anthropic, Provider::Anthropic) => true,
-            (Where::Host(name), Provider::OpenAi) => endpoint.base.map(host) == Some(name),
-            (Where::Cli(tool), Provider::Cli) => endpoint.tool == Some(tool),
-            _ => false,
-        })
-        .map_or(NONE_MODELS, |(_, models)| *models)
+        .find(|(name, _)| at == Some(*name))
+        .map(|(_, models)| *models)
+        .or((endpoint.provider == Provider::Anthropic).then_some(ANTHROPIC))
+        .unwrap_or(NONE_MODELS)
 }
 
 /// No model.
@@ -285,15 +287,12 @@ const NONE_MODELS: &[KnownModel] = &[];
 fn find(endpoint: Endpoint<'_>, id: &str) -> Option<KnownModel> {
     if endpoint.provider == Provider::Cli {
         let tool = id.split(':').next().and_then(CliTool::named)?;
-        let table = match tool {
-            CliTool::Claude => CLAUDE_CODE,
-            CliTool::Agy => AGY,
-        };
+        let table = cli_models(tool);
         if let Some(found) = table.iter().find(|m| m.id == id) {
             return Some(*found);
         }
         if tool == CliTool::Agy && id == format!("agy:{DEFAULT_AGY_MODEL}") {
-            return AGY.first().copied();
+            return table.first().copied();
         }
         let own = id.split_once(':').map(|(_, own)| own)?;
         return ANTHROPIC
@@ -456,7 +455,11 @@ mod tests {
         assert_eq!(opus.caption(), "Claude Opus 5.5 · claude-opus-5-5");
         assert_eq!(opus.source, Source::Known);
         // Every id is one the file and the bridge take, and once only.
-        for (_, table) in KNOWN {
+        let tables = HOSTED
+            .iter()
+            .map(|(_, table)| *table)
+            .chain(CliTool::ALL.map(cli_models));
+        for table in tables {
             for (at, m) in table.iter().enumerate() {
                 let own = m.id.split_once(':').map_or(m.id, |(_, own)| own);
                 assert!(model_fault(own).is_none(), "{}", m.id);
@@ -472,10 +475,36 @@ mod tests {
                 );
             }
         }
-        // A CLI model's tool is one this build speaks.
-        for m in CLAUDE_CODE.iter().chain(AGY) {
-            assert!(super::super::cli_model(m.id).is_ok(), "{}", m.id);
+        // A CLI model's tool is one this build speaks, and its own.
+        for tool in CliTool::ALL {
+            for m in cli_models(tool) {
+                let named = super::super::cli_model(m.id).map(|(t, _)| t);
+                assert_eq!(named, Ok(tool), "{}", m.id);
+            }
         }
+    }
+
+    /// The models are the host's whichever protocol a profile speaks there:
+    /// `DeepSeek`'s Anthropic-compatible address offers `DeepSeek`'s, not
+    /// Claude; Anthropic's protocol anywhere else (a proxy) offers Claude;
+    /// an OpenAI-compatible host this build does not know offers nothing.
+    #[test]
+    fn a_hosts_models_are_offered_whichever_protocol_reaches_it() {
+        for (provider, base) in [
+            (Provider::OpenAi, "https://api.deepseek.com/v1"),
+            (Provider::Anthropic, "https://api.deepseek.com/anthropic"),
+        ] {
+            let ids: Vec<String> = offered(Endpoint::new(provider, Some(base)), &[])
+                .into_iter()
+                .map(|m| m.id)
+                .collect();
+            assert_eq!(ids, ["deepseek-flash", "deepseek-v4-pro"], "{base}");
+        }
+        let proxy = Endpoint::new(Provider::Anthropic, Some("https://llm.example.org"));
+        assert_eq!(known(proxy), ANTHROPIC);
+        let elsewhere = Endpoint::new(Provider::OpenAi, Some("https://llm.example.org/v1"));
+        assert!(known(elsewhere).is_empty());
+        assert!(known(Endpoint::new(Provider::OpenAi, None)).is_empty());
     }
 
     /// Only the efforts a model takes are offered: no `xhigh` on the 4.6

@@ -29,11 +29,13 @@
 use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
+use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyStore};
 use baylee_client_core::llmseat::ledger::Moment;
 use baylee_client_core::llmseat::seating::Order;
 use baylee_seat::bridge::{self, PlayOptions};
 use baylee_seat::config::{self, Overrides, Paths};
 use baylee_seat::deck::Deck;
+use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Room, Session, seat_name};
@@ -62,7 +64,32 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Take a free chair in a room and play its game.
-    Join(Join),
+    Join(Box<Join>),
+    /// Keep, replace or forget a profile's key in the OS credential store,
+    /// or say whether one is kept (never what).
+    Key(KeyArgs),
+}
+
+#[derive(clap::Args)]
+struct KeyArgs {
+    /// What to do: `status` prints `set`, `absent` or `unavailable: …`;
+    /// `set` reads the key from stdin, one line; `delete` forgets it.
+    #[arg(value_enum)]
+    action: KeyAction,
+    /// The profile whose key it is, in the settings file.
+    #[arg(long)]
+    profile: String,
+    /// The settings file [default: `BAYLEE_SEAT_CONFIG`, else
+    /// `llm-seat.json` in the client's config directory].
+    #[arg(long)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum KeyAction {
+    Status,
+    Set,
+    Delete,
 }
 
 #[derive(Clone, clap::Args)]
@@ -264,6 +291,7 @@ fn choose(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
     level: AIProfile,
     now: Moment,
 ) -> anyhow::Result<Chosen> {
@@ -305,10 +333,26 @@ fn choose(
         return Ok(quiet(Arc::new(HouseMind::new(level)), "house"));
     };
     let mut plan = plan;
-    no_key_in(args, env, plan.key_env.as_deref().as_slice())?;
+    // A key the environment does not hold may be kept in the OS credential
+    // store for the address it goes to (`keys`); it is read as if it were
+    // in its variable, and nowhere else.
+    let stored = plan.key_env.as_deref().and_then(|key_env| {
+        let provider = plan.settings.provider;
+        let env_base = provider.base_env().and_then(env);
+        let base = llmseat_keys::address(provider, plan.base_url.as_deref(), env_base.as_deref())?;
+        keys::stored_key(keys, key_env, &base, env)
+    });
+    let env = |name: &str| {
+        env(name).or_else(|| {
+            (plan.key_env.as_deref() == Some(name))
+                .then(|| stored.clone())
+                .flatten()
+        })
+    };
+    no_key_in(args, &env, plan.key_env.as_deref().as_slice())?;
     // What the mind is reached through is checked before the game reserves
     // anything: a missing key or program refuses the game, not the book.
-    let access = llm::check(&plan, env).map_err(anyhow::Error::msg)?;
+    let access = llm::check(&plan, &env).map_err(anyhow::Error::msg)?;
     plan.settings.transcripts.clone_from(&join.transcripts);
     let caps = file.as_ref().map(|file| file.caps).unwrap_or_default();
     let mut booked = paths
@@ -428,7 +472,9 @@ async fn run() -> anyhow::Result<()> {
     let env = |name: &str| std::env::var(name).ok();
     let args: Vec<String> = std::env::args().skip(1).collect();
     no_key_in(&args, &env, &[])?;
+    let keys = keys::store(&env);
     match Cli::parse().command {
+        Command::Key(key) => key_command(&key, &env, &*keys),
         Command::Join(join) => {
             let (mut let_go, orders) = if join.tethered {
                 let (let_go, orders) = tether::hold();
@@ -447,7 +493,7 @@ async fn run() -> anyhow::Result<()> {
                 () = tether::let_go(let_go.as_mut()) => Err(anyhow::anyhow!(
                     "the program that started this bridge let go of it before the game was over"
                 )),
-                done = join_and_play(&join, &args, &env, orders, &unstarted) => done,
+                done = join_and_play(&join, &args, &env, &keys, orders, &unstarted) => done,
             };
             if done.is_err() {
                 leave_unstarted(&unstarted).await;
@@ -455,6 +501,67 @@ async fn run() -> anyhow::Result<()> {
             done
         }
     }
+}
+
+/// `baylee-seat key`: the entry of the profile named, then what was asked
+/// of the store, printed as one line ([`key_line`]).
+fn key_command(
+    key: &KeyArgs,
+    env: &dyn Fn(&str) -> Option<String>,
+    store: &dyn KeyStore,
+) -> anyhow::Result<()> {
+    let line = key_line(key, env, store, &mut std::io::stdin().lock())?;
+    println!("{line}");
+    Ok(())
+}
+
+/// What `key` does to `store`, the key (for `set`) read as one line from
+/// `input`; the line to print. The key is never printed, and an error
+/// never holds it.
+fn key_line(
+    key: &KeyArgs,
+    env: &dyn Fn(&str) -> Option<String>,
+    store: &dyn KeyStore,
+    input: &mut dyn std::io::BufRead,
+) -> anyhow::Result<String> {
+    let paths = Paths::resolve(key.config.as_deref(), None, env);
+    let file = paths.load().map_err(anyhow::Error::msg)?;
+    let profile = file
+        .as_ref()
+        .and_then(|file| file.profile(&key.profile))
+        .with_context(|| {
+            format!(
+                "the settings file {} has no profile «{}»",
+                paths.named_file(),
+                key.profile
+            )
+        })?;
+    let env_base = profile.provider.base_env().and_then(env);
+    let entry = llmseat_keys::entry(profile, env_base.as_deref()).with_context(|| {
+        format!(
+            "the profile «{}» plays a CLI, which reads no key",
+            key.profile
+        )
+    })?;
+    match key.action {
+        KeyAction::Status => {}
+        KeyAction::Set => {
+            store.available().map_err(anyhow::Error::msg)?;
+            let mut line = String::new();
+            // One line, and no more of it than a key could be.
+            let most = llmseat_keys::KEY_BYTES as u64 + 2;
+            let mut limited = std::io::Read::take(&mut *input, most);
+            std::io::BufRead::read_line(&mut limited, &mut line)
+                .context("read the key from stdin")?;
+            let typed = line.trim_end_matches(['\n', '\r']);
+            store.set(&entry, typed).map_err(anyhow::Error::msg)?;
+        }
+        KeyAction::Delete => {
+            store.available().map_err(anyhow::Error::msg)?;
+            store.delete(&entry).map_err(anyhow::Error::msg)?;
+        }
+    }
+    Ok(llmseat_keys::state(store, &entry).line())
 }
 
 /// A chair taken in a room whose game has not begun: what gives it up.
@@ -669,14 +776,15 @@ async fn join_and_play(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
+    keys: &Arc<dyn KeyStore>,
     orders: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
     unstarted: &Unstarted,
 ) -> anyhow::Result<()> {
-    let mut seated = sit_down(join, args, env, unstarted).await?;
+    let mut seated = sit_down(join, args, env, &**keys, unstarted).await?;
     let tally = seated.tally.clone();
     let booked: Current = Arc::new(Mutex::new(seated.booked.take()));
     let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
-    let played = play_out(join, seated, show.clone(), orders, &booked).await?;
+    let played = play_out(join, seated, show.clone(), keys, orders, &booked).await?;
     let booked = booked.lock().unwrap_or_else(PoisonError::into_inner).take();
     report(&played);
     if let Some(show) = show {
@@ -754,6 +862,7 @@ async fn sit_down(
     join: &Join,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
+    keys: &dyn KeyStore,
     unstarted: &Unstarted,
 ) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
@@ -765,7 +874,7 @@ async fn sit_down(
         booked,
         think_secs,
         note,
-    } = choose(join, args, env, profile, spend::now())?;
+    } = choose(join, args, env, keys, profile, spend::now())?;
     if let Some(note) = note {
         println!("{note}");
     }
@@ -850,6 +959,7 @@ async fn play_out(
     join: &Join,
     seated: Seated,
     show: Option<Arc<Mutex<Show>>>,
+    keys: &Arc<dyn KeyStore>,
     orders: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
     booked: &Current,
 ) -> anyhow::Result<bridge::Played> {
@@ -862,6 +972,7 @@ async fn play_out(
                 join: join.clone(),
                 disclosure: seated.mind.disclosure(),
                 booked: Arc::clone(booked),
+                keys: Arc::clone(keys),
             };
             (swaps, Aborting(tokio::spawn(reader.run(orders, send))))
         })
@@ -939,6 +1050,7 @@ struct OrderReader {
     join: Join,
     disclosure: Disclosure,
     booked: Current,
+    keys: Arc<dyn KeyStore>,
 }
 
 impl OrderReader {
@@ -984,7 +1096,14 @@ impl OrderReader {
         let join = self.ordered(&order, env)?;
         let level = AIProfile::named(&join.level)
             .with_context(|| format!("no house level called «{}»", join.level))?;
-        let chosen = choose(&join, &[line.to_string()], env, level, spend::now())?;
+        let chosen = choose(
+            &join,
+            &[line.to_string()],
+            env,
+            &*self.keys,
+            level,
+            spend::now(),
+        )?;
         anyhow::ensure!(
             chosen.mind.disclosure() == kind,
             "the order named a {kind:?} mind and another was chosen"
@@ -1085,6 +1204,7 @@ fn report(played: &bridge::Played) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_client_core::llmseat::keys::{KeyEntry, MemoryKeys};
     use baylee_client_core::llmseat::ledger::{Book, Budget};
     use baylee_seat::Disclosure;
     use std::path::Path;
@@ -1112,7 +1232,8 @@ mod tests {
     fn join_args(args: &[&str]) -> Result<Join, clap::Error> {
         let head = ["baylee-seat", "join", "TEST-room"];
         Cli::try_parse_from(head.iter().chain(args)).map(|cli| match cli.command {
-            Command::Join(join) => join,
+            Command::Join(join) => *join,
+            Command::Key(_) => panic!("not a join"),
         })
     }
 
@@ -1125,7 +1246,14 @@ mod tests {
     }
 
     fn chosen(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Chosen> {
-        choose(join, &[], env, AIProfile::default(), NOW)
+        choose(
+            join,
+            &[],
+            env,
+            &MemoryKeys::default(),
+            AIProfile::default(),
+            NOW,
+        )
     }
 
     /// A directory of this test's own, empty.
@@ -1532,6 +1660,7 @@ mod tests {
             join,
             disclosure,
             booked: Arc::new(Mutex::new(booked)),
+            keys: Arc::new(MemoryKeys::default()),
         }
     }
 
@@ -1610,6 +1739,81 @@ mod tests {
         let why = llm.swap(&key, &placeholder).unwrap_err().to_string();
         assert!(!why.contains("BBBB"), "{why}");
         assert_eq!(Book::beside(&config).read().unwrap().games.len(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `baylee-seat key` as the client runs it, against a store in memory.
+    fn key_args(args: &[&str]) -> KeyArgs {
+        let head = ["baylee-seat", "key"];
+        match Cli::try_parse_from(head.iter().chain(args))
+            .unwrap()
+            .command
+        {
+            Command::Key(key) => key,
+            Command::Join(_) => panic!("not a key command"),
+        }
+    }
+
+    /// The client keeps, replaces and forgets a key through the bridge,
+    /// which reads it from stdin and answers only whether one is kept; a
+    /// CLI's profile has none, and a store that cannot be opened says so.
+    #[test]
+    fn a_key_is_kept_and_forgotten_and_never_printed() {
+        let dir = scratch("key-command");
+        let file = settings_in(&dir);
+        let config = file.to_string_lossy().into_owned();
+        let store = MemoryKeys::default();
+        let none = |_: &str| None;
+        let run = |action: &str, profile: &str, typed: &str, store: &MemoryKeys| {
+            let args = key_args(&[action, "--profile", profile, "--config", &config]);
+            key_line(&args, &none, store, &mut typed.as_bytes())
+        };
+        assert_eq!(run("status", "keyed", "", &store).unwrap(), "absent");
+        let said = run("set", "keyed", "TEST-kept-0123456789abcdef\n", &store).unwrap();
+        assert_eq!(said, "set");
+        let at = KeyEntry::new("TEST_OWN_KEY", "https://api.anthropic.com").unwrap();
+        assert_eq!(
+            store.get(&at).unwrap().as_deref(),
+            Some("TEST-kept-0123456789abcdef"),
+            "under its variable and its host"
+        );
+        let refused = run("set", "keyed", "two words\n", &store).unwrap_err();
+        assert!(!format!("{refused:#}").contains("two"), "{refused:#}");
+        assert_eq!(run("delete", "keyed", "", &store).unwrap(), "absent");
+        assert!(run("status", "nobody", "", &store).is_err());
+        let off = MemoryKeys::unavailable("TEST: no store here");
+        assert_eq!(
+            run("status", "keyed", "", &off).unwrap(),
+            "unavailable: TEST: no store here"
+        );
+        assert!(run("set", "keyed", "TEST-kept-0123456789abcdef\n", &off).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A key kept in the store sits a language model down where its
+    /// variable is unset, and only for the host it was kept for.
+    #[test]
+    fn a_kept_key_sits_a_model_down_without_the_environment() {
+        let dir = scratch("key-kept");
+        let file = settings_in(&dir);
+        let config = file.to_string_lossy().into_owned();
+        let join = join_args(&["--profile", "keyed", "--config", &config]).unwrap();
+        let none = |_: &str| None;
+        let store = MemoryKeys::default();
+        let pick = |store: &MemoryKeys| {
+            choose(&join, &[], &none, store, AIProfile::default(), NOW).map(|c| c.label)
+        };
+        let refused = pick(&store).expect_err("no key anywhere");
+        assert!(
+            format!("{refused:#}").contains("TEST_OWN_KEY"),
+            "{refused:#}"
+        );
+        let elsewhere = KeyEntry::new("TEST_OWN_KEY", "https://llm.example.org").unwrap();
+        store.set(&elsewhere, "TEST-kept-0123456789abcdef").unwrap();
+        assert!(pick(&store).is_err(), "kept for another host");
+        let here = KeyEntry::new("TEST_OWN_KEY", "https://api.anthropic.com").unwrap();
+        store.set(&here, "TEST-kept-0123456789abcdef").unwrap();
+        assert!(pick(&store).is_ok());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

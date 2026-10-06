@@ -32,6 +32,7 @@ pub mod cli;
 pub mod config;
 pub mod deck;
 pub mod house;
+pub mod keys;
 pub mod link;
 pub mod llm;
 pub mod lobby;

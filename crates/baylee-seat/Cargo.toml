@@ -74,3 +74,10 @@ path = "src/main.rs"
 [[example]]
 name = "fake-agent-cli"
 harness = false
+
+# A language model's key in the OS credential store (`keys::OsKeys`): the
+# Keychain, the Credential Manager, the Secret Service (pure-Rust D-Bus, no
+# C library). Only this program opens the store; the client hands it a key
+# over a pipe (`docs/llm-seat.md` §"Where a key is kept").
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
+keyring = "4.2"

@@ -48,7 +48,7 @@ fn a_chair_keeps_an_effort_only_where_its_model_takes_it() {
 
 #[test]
 fn a_chair_is_offered_its_profiles_models_and_what_it_plays() {
-    let lm = Adapter::LmStudio.profile();
+    let lm = Preset::LmStudio.profile();
     let listed = vec!["qwen3-8b".to_string()];
     let ids: Vec<String> = models_for(&lm, None, &listed)
         .into_iter()
@@ -56,7 +56,7 @@ fn a_chair_is_offered_its_profiles_models_and_what_it_plays() {
         .collect();
     // The listed model, and the profile's own placeholder after it.
     assert_eq!(ids, ["qwen3-8b", "local-model"]);
-    let claude = Adapter::ClaudeCode.profile();
+    let claude = Preset::ClaudeCode.profile();
     let offered = models_for(&claude, None, &[]);
     assert!(offered.iter().any(|m| m.id == "claude:sonnet"));
     assert!(offered.iter().all(|m| m.id.starts_with("claude")));
@@ -109,7 +109,7 @@ fn the_bridge_is_told_the_chair_the_file_and_only_what_the_profile_does_not_say(
         ["--mind", "anthropic:claude-sonnet-5-5", "--effort", "low"]
     );
     // A CLI's model is the tool's, after `cli:`.
-    let cli = Adapter::ClaudeCode.profile();
+    let cli = Preset::ClaudeCode.profile();
     let mut on_cli = ChairModel::of("claude-code", &cli);
     on_cli.model = "claude:sonnet".into();
     let args = bridge_args(&launch(), &on_cli, &cli);
@@ -280,14 +280,14 @@ fn bridges_start_once_their_chair_is_open_and_stop_when_their_plan_moves_on() {
 }
 
 #[test]
-fn an_adapter_makes_a_profile_the_file_takes_under_a_free_name() {
+fn a_preset_makes_a_profile_the_file_takes_under_a_free_name() {
     let mut settings = SeatSettings::default();
-    for adapter in Adapter::ALL {
-        let name = adapter.add_to(&mut settings);
-        assert_eq!(name, adapter.name());
+    for preset in Preset::ALL {
+        let name = preset.add_to(&mut settings);
+        assert_eq!(name, preset.name());
         assert!(profile_name_is_a_name(&name));
     }
-    assert_eq!(Adapter::Anthropic.add_to(&mut settings), "anthropic-2");
+    assert_eq!(Preset::Anthropic.add_to(&mut settings), "anthropic-2");
     assert_eq!(settings.check(), Ok(()), "{:?}", settings.faults());
     // And the bridge would sit down with each: a model with no price states
     // a token budget, and no key is in any of them.
@@ -300,4 +300,52 @@ fn an_adapter_makes_a_profile_the_file_takes_under_a_free_name() {
         );
     }
     assert!(!settings.to_json().contains("sk-"));
+}
+
+#[test]
+fn an_adapter_is_a_protocol_and_an_address_the_player_may_change() {
+    let deepseek = Preset::DeepSeek.profile();
+    let over_anthropic = Preset::DeepSeekAnthropic.profile();
+    assert_eq!(deepseek.provider, Provider::OpenAi);
+    assert_eq!(over_anthropic.provider, Provider::Anthropic);
+    assert_eq!(
+        protocol_label(over_anthropic.provider),
+        "Anthropic Messages"
+    );
+    // One vendor, one key, whichever protocol reaches it.
+    assert_eq!(deepseek.key_env(), over_anthropic.key_env());
+    assert_ne!(
+        Preset::OpenAi.profile().key_env(),
+        Preset::DeepSeek.profile().key_env()
+    );
+    let mut edited = deepseek.clone();
+    assert_eq!(
+        set_address(&mut edited, Some(" https://llm.example.org/v1/ ")),
+        Ok(())
+    );
+    assert_eq!(
+        edited.base_url.as_deref(),
+        Some("https://llm.example.org/v1")
+    );
+    for refused in [
+        "http://llm.example.org/v1",
+        "https://llm.example.org/sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    ] {
+        assert!(
+            set_address(&mut edited, Some(refused)).is_err(),
+            "{refused}"
+        );
+    }
+    assert_eq!(
+        edited.base_url.as_deref(),
+        Some("https://llm.example.org/v1")
+    );
+    assert_eq!(
+        set_address(&mut edited, Some("http://localhost:8080/v1")),
+        Ok(())
+    );
+    assert_eq!(set_address(&mut edited, None), Ok(()));
+    assert_eq!(edited.base_url, None);
+    let mut cli = Preset::ClaudeCode.profile();
+    assert!(set_address(&mut cli, Some("https://api.anthropic.com")).is_err());
 }

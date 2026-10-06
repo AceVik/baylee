@@ -492,17 +492,34 @@ impl Seating {
     }
 }
 
-/// A ready-made way to play, for a player with no profile for it yet: the
-/// providers a chair offers, each made into a profile of the settings file
-/// in one press ([`Adapter::profile`]).
+/// What a player reads for a wire protocol: an adapter is a protocol and
+/// the address it is spoken to, not a vendor.
+#[must_use]
+pub const fn protocol_label(provider: Provider) -> &'static str {
+    match provider {
+        Provider::Anthropic => "Anthropic Messages",
+        Provider::OpenAi => "OpenAI-compatible",
+        Provider::Cli => "Agent CLI",
+    }
+}
+
+/// A ready-made adapter: a wire protocol and the address it is spoken to,
+/// with the variable its key is read from, made into a profile of the
+/// settings file in one press ([`Preset::profile`]). The player may change
+/// the address and the model afterwards; the preset only fills them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Adapter {
-    /// Anthropic's API, its key in `ANTHROPIC_API_KEY`.
+pub enum Preset {
+    /// Anthropic Messages at Anthropic, its key in `ANTHROPIC_API_KEY`.
     Anthropic,
-    /// `DeepSeek`'s OpenAI-compatible API, its key in `DEEPSEEK_API_KEY`.
+    /// OpenAI-compatible at `OpenAI`, its key in `OPENAI_API_KEY`.
+    OpenAi,
+    /// OpenAI-compatible at `DeepSeek`, its key in `DEEPSEEK_API_KEY`.
     DeepSeek,
-    /// An OpenAI-compatible server on this machine, LM Studio's address:
-    /// no key, its models listed.
+    /// Anthropic Messages at `DeepSeek`'s Anthropic-compatible address, the
+    /// same key as [`Preset::DeepSeek`].
+    DeepSeekAnthropic,
+    /// OpenAI-compatible at LM Studio's address on this machine: no key
+    /// needed, its models listed.
     LmStudio,
     /// Claude Code, on its own login.
     ClaudeCode,
@@ -510,22 +527,26 @@ pub enum Adapter {
     Agy,
 }
 
-impl Adapter {
+impl Preset {
     /// Every one, in the order offered.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::Anthropic,
+        Self::OpenAi,
         Self::DeepSeek,
+        Self::DeepSeekAnthropic,
         Self::LmStudio,
         Self::ClaudeCode,
         Self::Agy,
     ];
 
-    /// What a player reads.
+    /// What a player reads: whose address, and which protocol.
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Anthropic => "Anthropic API",
-            Self::DeepSeek => "DeepSeek API",
+            Self::Anthropic => "Anthropic",
+            Self::OpenAi => "OpenAI",
+            Self::DeepSeek => "DeepSeek",
+            Self::DeepSeekAnthropic => "DeepSeek (Anthropic protocol)",
             Self::LmStudio => "LM Studio (this machine)",
             Self::ClaudeCode => "Claude Code",
             Self::Agy => "Antigravity (agy)",
@@ -537,27 +558,43 @@ impl Adapter {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Anthropic => "anthropic",
+            Self::OpenAi => "openai",
             Self::DeepSeek => "deepseek",
+            Self::DeepSeekAnthropic => "deepseek-anthropic",
             Self::LmStudio => "lmstudio",
             Self::ClaudeCode => "claude-code",
             Self::Agy => "agy",
         }
     }
 
-    /// Its profile: the build's defaults, and what each needs to sit down
-    /// (a token budget for a model with no price, the answer a server
-    /// without tools gives).
+    /// Its profile: the protocol, the address and the key's variable, the
+    /// build's defaults otherwise, and what each needs to sit down (a token
+    /// budget for a model with no price, the answer a server without tools
+    /// gives). Each vendor's key has its own variable, so two adapters
+    /// never share a key by accident.
     #[must_use]
     pub fn profile(self) -> Profile {
+        let deepseek = |provider, base: &str| Profile {
+            base_url: Some(base.into()),
+            key_env: Some("DEEPSEEK_API_KEY".into()),
+            game_tokens: Some(3_000_000),
+            ..Profile::new(provider, "deepseek-flash")
+        };
         match self {
             Self::Anthropic => Profile::new(Provider::Anthropic, DEFAULT_ANTHROPIC_MODEL),
-            Self::DeepSeek => Profile {
-                base_url: Some("https://api.deepseek.com/v1".into()),
-                key_env: Some("DEEPSEEK_API_KEY".into()),
-                answer: Some(AnswerMode::Json),
-                game_tokens: Some(3_000_000),
-                ..Profile::new(Provider::OpenAi, "deepseek-flash")
+            Self::OpenAi => Profile {
+                base_url: Some("https://api.openai.com/v1".into()),
+                key_env: Some("OPENAI_API_KEY".into()),
+                game_tokens: Some(super::DEFAULT_SPEND_TOKENS),
+                ..Profile::new(Provider::OpenAi, "gpt-5")
             },
+            Self::DeepSeek => Profile {
+                answer: Some(AnswerMode::Json),
+                ..deepseek(Provider::OpenAi, "https://api.deepseek.com/v1")
+            },
+            Self::DeepSeekAnthropic => {
+                deepseek(Provider::Anthropic, "https://api.deepseek.com/anthropic")
+            }
             Self::LmStudio => Profile {
                 base_url: Some("http://127.0.0.1:1234/v1".into()),
                 answer: Some(AnswerMode::JsonSchema),
@@ -583,6 +620,34 @@ impl Adapter {
         settings.profiles.insert(name.clone(), self.profile());
         name
     }
+}
+
+/// Points `profile` at `base` (an adapter's address the player typed),
+/// trimmed and without a trailing slash; `None` puts it back to the
+/// protocol's own. A CLI has no address.
+///
+/// # Errors
+/// A sentence, for a CLI or an address that would carry a key in the clear
+/// ([`super::address_fault`]); the profile is then unchanged.
+pub fn set_address(profile: &mut Profile, base: Option<&str>) -> Result<(), String> {
+    if profile.provider == Provider::Cli {
+        return Err("a CLI is a program on this machine and has no address".into());
+    }
+    let base = base
+        .map(|b| b.trim().trim_end_matches('/').to_string())
+        .filter(|b| !b.is_empty());
+    if let Some(base) = &base {
+        if let Some(why) = super::address_fault(base, "the address") {
+            return Err(why);
+        }
+        if super::shaped_like_a_key(base) {
+            return Err(
+                "the address holds what looks like a key: keys never go in the file".into(),
+            );
+        }
+    }
+    profile.base_url = base;
+    Ok(())
 }
 
 #[cfg(test)]

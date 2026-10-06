@@ -88,7 +88,8 @@ impl Paths {
     }
 
     /// The settings file, for a sentence.
-    fn named_file(&self) -> String {
+    #[must_use]
+    pub fn named_file(&self) -> String {
         self.settings.as_ref().map_or_else(
             || "this machine's config directory (none is set)".into(),
             |path| path.display().to_string(),

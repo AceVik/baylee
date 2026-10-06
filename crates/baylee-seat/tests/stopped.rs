@@ -57,6 +57,8 @@ fn a_bridge_stopped_by_sigterm_settles_its_game() {
         // placeholder.
         .env_clear()
         .env("HOME", &dir)
+        // Never the player's credential store.
+        .env("BAYLEE_KEY_STORE", "off")
         .env("ANTHROPIC_API_KEY", "TEST-placeholder-key")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -153,6 +155,8 @@ fn one_stress_round(name: &str) -> Result<(), String> {
         .args(["--gateway", &format!("http://127.0.0.1:{port}")])
         .env_clear()
         .env("HOME", &dir)
+        // Never the player's credential store.
+        .env("BAYLEE_KEY_STORE", "off")
         .env("ANTHROPIC_API_KEY", "TEST-placeholder-key")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

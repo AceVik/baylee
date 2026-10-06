@@ -95,6 +95,8 @@ fn a_tethered_bridge_let_go_before_its_game_gives_its_chair_up() {
         // Nothing of the machine's own: no config directory, no key.
         .env_clear()
         .env("HOME", &dir)
+        // Never the player's credential store.
+        .env("BAYLEE_KEY_STORE", "off")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
