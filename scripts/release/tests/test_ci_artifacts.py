@@ -94,10 +94,12 @@ class Provenance(unittest.TestCase):
             self.assertEqual(ci.resolve(), "123")
 
     def package(self, directory, target):
-        archive, manifest = ci.names("0.1.0-beta.4", target)
+        archive, installers, manifest = ci.names("0.1.0-beta.4", target)
         (directory / archive).write_bytes(b"packaged executable")
+        for name in installers:
+            (directory / name).write_bytes(b"installer of " + name.encode())
         ci.write(directory, "0.1.0-beta.4", target)
-        return archive, manifest
+        return archive, installers, manifest
 
     def test_all_platforms_roundtrip(self):
         for target in ci.TARGETS:
@@ -106,11 +108,31 @@ class Provenance(unittest.TestCase):
                 self.package(directory, target)
                 ci.verify(directory, "0.1.0-beta.4", target, "123")
 
+    def test_every_target_has_installers_named_as_the_packaging_script_writes(self):
+        self.assertEqual(set(ci.INSTALLERS), set(ci.TARGETS))
+        self.assertEqual(
+            {name for t in ci.TARGETS for name in ci.names("0.1.0-beta.5", t)[1]},
+            {
+                "Baylee-0.1.0-beta.5-aarch64.dmg",
+                "Baylee-Setup-0.1.0-beta.5-x64.exe",
+                "Baylee-Setup-0.1.0-beta.5-arm64.exe",
+                "Baylee-0.1.0-beta.5-x86_64.AppImage",
+                "Baylee-0.1.0-beta.5-aarch64.AppImage",
+                "baylee_0.1.0-beta.5_amd64.deb",
+                "baylee_0.1.0-beta.5_arm64.deb",
+            },
+        )
+        # The signer and the updater match archives by these suffixes; an
+        # installer must never look like one.
+        for t in ci.TARGETS:
+            for name in ci.names("0.1.0-beta.5", t)[1]:
+                self.assertFalse(name.endswith((".zip", ".tar.gz")), name)
+
     def test_corruption_or_wrong_identity_is_refused(self):
         target = "x86_64-pc-windows-msvc"
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
-            archive, manifest = self.package(directory, target)
+            archive, installers, manifest = self.package(directory, target)
             original = json.loads((directory / manifest).read_text())
             for field, value in [
                 ("commit", "b" * 40),
@@ -118,9 +140,11 @@ class Provenance(unittest.TestCase):
                 ("target", "aarch64-pc-windows-msvc"),
                 ("run_id", "124"),
                 ("repository", "fork/baylee"),
-                ("schema", 2),
+                ("schema", 1),
                 ("archive", "../payload.zip"),
                 ("sha256", "0" * 64),
+                ("installers", {}),
+                ("installers", {installers[0]: "0" * 64}),
             ]:
                 with self.subTest(field=field):
                     data = copy.deepcopy(original)
@@ -129,27 +153,58 @@ class Provenance(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         ci.verify(directory, "0.1.0-beta.4", target, "123")
             (directory / manifest).write_text(json.dumps(original))
-            (directory / archive).write_bytes(b"tampered executable")
-            with self.assertRaises(ValueError):
-                ci.verify(directory, "0.1.0-beta.4", target, "123")
+            ci.verify(directory, "0.1.0-beta.4", target, "123")
+            for tampered in (archive, installers[0]):
+                with self.subTest(tampered=tampered):
+                    saved = (directory / tampered).read_bytes()
+                    (directory / tampered).write_bytes(b"tampered executable")
+                    with self.assertRaises(ValueError):
+                        ci.verify(directory, "0.1.0-beta.4", target, "123")
+                    (directory / tampered).write_bytes(saved)
 
     def test_missing_extra_and_rewritten_checksum_are_refused(self):
-        target = "aarch64-apple-darwin"
+        target = "x86_64-unknown-linux-gnu"
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
-            archive, _ = self.package(directory, target)
+            archive, installers, _ = self.package(directory, target)
             extra = directory / "unexpected.exe"
             extra.write_bytes(b"extra")
             with self.assertRaises(ValueError):
                 ci.verify(directory, "0.1.0-beta.4", target, "123")
             extra.unlink()
-            checksum = directory / (archive + ".sha256")
-            checksum.write_text("changed")
+            for name in (archive, *installers):
+                with self.subTest(name=name):
+                    checksum = directory / (name + ".sha256")
+                    saved = checksum.read_text()
+                    checksum.write_text("changed")
+                    with self.assertRaises(ValueError):
+                        ci.verify(directory, "0.1.0-beta.4", target, "123")
+                    checksum.unlink()
+                    with self.assertRaises(ValueError):
+                        ci.verify(directory, "0.1.0-beta.4", target, "123")
+                    checksum.write_text(saved)
+                    ci.verify(directory, "0.1.0-beta.4", target, "123")
+            # A package without one of its installers is not promotable.
+            (directory / installers[1]).unlink()
             with self.assertRaises(ValueError):
                 ci.verify(directory, "0.1.0-beta.4", target, "123")
-            checksum.unlink()
+
+    def test_release_notes_list_every_installer_with_its_checksum(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            for target in ci.TARGETS:
+                self.package(directory, target)
+            table = ci.installer_sums(directory, "0.1.0-beta.4")
+            rows = table.splitlines()[2:]
+            self.assertEqual(len(rows), sum(len(v) for v in ci.INSTALLERS.values()))
+            dmg = "Baylee-0.1.0-beta.4-aarch64.dmg"
+            self.assertIn(f"| `{dmg}` | `{ci.digest(directory / dmg)}` |", rows)
+            (directory / (dmg + ".sha256")).write_text("0" * 64 + "  other.dmg\n")
             with self.assertRaises(ValueError):
-                ci.verify(directory, "0.1.0-beta.4", target, "123")
+                ci.installer_sums(directory, "0.1.0-beta.4")
+            (directory / (dmg + ".sha256")).unlink()
+            with self.assertRaises(ValueError):
+                ci.installer_sums(directory, "0.1.0-beta.4")
 
     def test_paths_are_not_versions(self):
         for version in ["../evil", "1.2.3\nextra", "1.2.3/a", "$(id)"]:

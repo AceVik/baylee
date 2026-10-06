@@ -128,19 +128,23 @@ Gateway Baylee Sanctuary.
 
 ## Installation
 
-Lade das Archiv für dein System von der
+Lade Baylee für dein System von der
 **[Release-Seite](https://github.com/AceVik/baylee/releases)** herunter. Dort
-stehen auch die Vorabversionen. Jedes Archiv enthält das Spiel, seinen Ordner
-`assets`, `LICENSE`, `NOTICE` und eine `README.txt` mit diesen Schritten für
-den ersten Start.
+stehen auch die Vorabversionen. Für jedes System gibt es einen
+**Installer**, der einfachste Weg, und ein **Archiv** mit demselben Spiel zum
+Entpacken an beliebiger Stelle. Baylee aktualisiert sich selbst, wo es seinen
+eigenen Ordner beschreiben darf ([Aktualisieren](#aktualisieren)).
 
-| System | Datei |
-| --- | --- |
-| Windows, Intel/AMD 64 Bit | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
-| Windows auf ARM | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
-| macOS, Apple Silicon (M1 und neuer) | `baylee-client-<version>-aarch64-apple-darwin.zip` |
-| Linux, x86-64 | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux, ARM64 | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
+| System | Installer | Archiv |
+| --- | --- | --- |
+| Windows, Intel/AMD 64 Bit | `Baylee-Setup-<version>-x64.exe` | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
+| Windows auf ARM | `Baylee-Setup-<version>-arm64.exe` | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
+| macOS, Apple Silicon (M1 und neuer) | `Baylee-<version>-aarch64.dmg` | `baylee-client-<version>-aarch64-apple-darwin.zip` |
+| Linux, x86-64 | `Baylee-<version>-x86_64.AppImage` oder `baylee_<version>_amd64.deb` | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux, ARM64 | `Baylee-<version>-aarch64.AppImage` oder `baylee_<version>_arm64.deb` | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
+
+Jedes Archiv enthält das Spiel, seinen Ordner `assets`, `LICENSE`, `NOTICE`
+und eine `README.txt` mit diesen Schritten für den ersten Start.
 
 Die Programme sind **nicht signiert**, weil eine Signatur Geld kostet. Windows
 und macOS warnen deshalb beim ersten Start. Wie du an der Warnung vorbeikommst,
@@ -148,13 +152,23 @@ steht in den Schritten unten.
 
 ### Windows
 
-1. Entpacke die ZIP-Datei in einen beliebigen Ordner, etwa
-   `Dokumente\Baylee`. Der Ordner `assets` muss neben `baylee-client.exe`
-   liegen bleiben.
-2. Starte `baylee-client.exe`.
-3. Meldet Microsoft Defender SmartScreen „Der Computer wurde durch Windows
+1. Starte `Baylee-Setup-<version>-x64.exe` (bzw. `-arm64` unter Windows auf
+   ARM).
+2. Meldet Microsoft Defender SmartScreen „Der Computer wurde durch Windows
    geschützt“, klicke auf **Weitere Informationen** und dann auf
    **Trotzdem ausführen**.
+3. Das Setup installiert Baylee nur für deinen Benutzer, in
+   `%LOCALAPPDATA%\Programs\Baylee`, und fragt nach keinen
+   Administratorrechten. Es legt Baylee ins Startmenü und, wenn du das
+   Häkchen setzt, auf den Desktop.
+
+Entfernen kannst du es unter **Einstellungen → Apps**. Heruntergeladene
+Updates und zwischengespeicherte Kartenbilder bleiben in
+`%LOCALAPPDATA%\baylee`; lösche den Ordner mit, um alles zu entfernen.
+
+Ohne Setup: Entpacke die ZIP-Datei in einen beliebigen Ordner, etwa
+`Dokumente\Baylee`, lass den Ordner `assets` neben `baylee-client.exe` liegen
+und starte `baylee-client.exe`.
 
 Die x86-64-Version braucht eine CPU mit x86-64-v2 (SSE4.2, POPCNT); ohne
 eine solche startet auch Windows 11 24H2 nicht.
@@ -164,20 +178,40 @@ eine solche startet auch Windows 11 24H2 nicht.
 Unterstützt werden vorerst nur Macs mit **Apple Silicon** (M1 und neuer); eine
 Intel-Version gibt es nicht. Voraussetzung ist macOS 11 oder neuer.
 
-1. Entpacke die ZIP-Datei und lege `Baylee.app` ab, wo du willst, zum
-   Beispiel in `Programme`.
-2. Öffne die App. Beim ersten Mal lehnt macOS sie ab, weil sie nicht
-   notarisiert ist.
+1. Öffne `Baylee-<version>-aarch64.dmg` und ziehe **Baylee** auf
+   **Programme** (Applications). Wirf das Image danach aus.
+2. Öffne Baylee aus „Programme“. Beim ersten Mal lehnt macOS die App ab,
+   weil sie nicht notarisiert ist.
 3. Öffne **Systemeinstellungen → Datenschutz & Sicherheit**, scrolle zum
    Hinweis zu Baylee und klicke auf **Dennoch öffnen**.
+
+Starte es aus „Programme“, nicht aus dem Image: von dort kann es sich nicht
+selbst aktualisieren. Mit der ZIP-Datei entpackst du sie und verschiebst
+`Baylee.app` ebenso nach „Programme“ (oder an eine andere Stelle).
 
 Oder im Terminal:
 
 ```bash
-xattr -dr com.apple.quarantine /pfad/zu/Baylee.app
+xattr -dr com.apple.quarantine /Applications/Baylee.app
 ```
 
 ### Linux
+
+Das **AppImage** ist eine einzige Datei, die du direkt startest:
+
+```bash
+chmod +x Baylee-<version>-x86_64.AppImage
+./Baylee-<version>-x86_64.AppImage
+```
+
+Das **.deb** (Debian, Ubuntu und Verwandte) installiert Baylee nach
+`/opt/baylee`, mit Menüeintrag und dem Befehl `baylee`:
+
+```bash
+sudo apt install ./baylee_<version>_amd64.deb
+```
+
+Oder entpacke das Archiv:
 
 ```bash
 tar -xzf baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz
@@ -186,10 +220,13 @@ cd baylee-client-<version>-x86_64-unknown-linux-gnu
 ```
 
 Du brauchst einen Vulkan-Treiber und die Laufzeitbibliotheken für ALSA, udev,
-X11/Wayland und xkbcommon. Unter Debian oder Ubuntu sind das
-`libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0`. Gebaut wird auf
-Ubuntu 22.04; das Programm läuft auf jeder Distribution mit glibc 2.35 oder
-neuer. Wie unter Windows braucht die x86-64-Version eine CPU mit x86-64-v2.
+X11/Wayland und xkbcommon; das `.deb` nennt sie, `apt` installiert sie also
+mit, und das AppImage nutzt wie das Archiv die des Systems. Unter Debian oder
+Ubuntu sind das
+`libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0 libvulkan1`.
+Gebaut wird auf Ubuntu 22.04; das Programm läuft auf jeder Distribution mit
+glibc 2.35 oder neuer. Wie unter Windows braucht die x86-64-Version eine CPU
+mit x86-64-v2.
 
 ### Handy, Tablet und Browser
 
@@ -214,18 +251,19 @@ Was genau geht und was nicht, steht in [docs/mobile.md](docs/mobile.md).
 
 ### Download prüfen
 
-Neben jedem Archiv liegt auf der Release-Seite eine `.sha256`-Datei. Lade
-beide in denselben Ordner und führe aus:
+Neben jedem Installer und jedem Archiv liegt auf der Release-Seite eine
+`.sha256`-Datei, und die Release-Notizen nennen die Prüfsummen der Installer
+auch. Lade die Datei und ihre `.sha256` in denselben Ordner und führe aus:
 
 ```bash
 # Linux
-sha256sum -c baylee-client-<version>-<target>.tar.gz.sha256
+sha256sum -c Baylee-<version>-x86_64.AppImage.sha256
 # macOS
-shasum -a 256 -c baylee-client-<version>-<target>.zip.sha256
+shasum -a 256 -c Baylee-<version>-aarch64.dmg.sha256
 ```
 
 Unter Windows führst du in der PowerShell
-`certutil -hashfile baylee-client-<version>-<target>.zip SHA256` aus und
+`certutil -hashfile Baylee-Setup-<version>-x64.exe SHA256` aus und
 vergleichst das Ergebnis mit der Zahl in der `.sha256`-Datei.
 
 ### Aktualisieren
@@ -242,11 +280,14 @@ fragt GitHub gar nichts, bis du „Nach Updates suchen“ drückst);
 
 Nur verlinken, und du aktualisierst von Hand, wenn Baylee sich nicht selbst
 ersetzen kann: Sein Ordner ist für deinen Benutzer nicht beschreibbar (es
-fragt nie nach Administratorrechten), oder macOS startet es aus einer
-schreibgeschützten Kopie, weil `Baylee.app` noch dort liegt, wo es in
-„Downloads“ entpackt wurde (einmal verschieben, etwa nach „Programme“). Von
-Hand: Lade das neue Archiv herunter und ersetze den alten Ordner (oder
-`Baylee.app`) durch den neuen.
+fragt nie nach Administratorrechten; `/opt/baylee` aus dem `.deb` ist so ein
+Ordner, ein laufendes AppImage auch), oder macOS startet es aus einer
+schreibgeschützten Kopie, weil `Baylee.app` aus dem Image gestartet wurde
+oder noch dort liegt, wo es in „Downloads“ entpackt wurde (einmal
+verschieben, etwa nach „Programme“). Von Hand: Starte den neuen Installer
+über der alten Installation (das `.deb` mit `sudo apt install`, beim
+AppImage ersetzt du die Datei), oder lade das neue Archiv herunter und
+ersetze den alten Ordner (oder `Baylee.app`) durch den neuen.
 
 Deine Einstellungen bleiben dabei erhalten, weil sie nicht neben dem Programm
 liegen. Unter Windows speichert der Client sie in `%APPDATA%\Baylee`, unter

@@ -7627,7 +7627,8 @@ is not used for new installations; its rollback remains retryable on error.
 
 **When it only links.** The notice says why: installing switched off, a
 development build, a folder this user cannot write (the client never asks
-for elevated rights), an app macOS runs from a read-only copy (App
+for elevated rights; the `.deb`'s `/opt/baylee` and a running AppImage's
+read-only mount are such folders, `docs/releasing.md` §"Installers"), an app macOS runs from a read-only copy (App
 Translocation: moved once, to `/Applications` or anywhere else, it can
 update), a missing or refused signature, or a failed download.
 

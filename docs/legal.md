@@ -642,3 +642,32 @@ The same pass extends the existing Mana-font rendering path to gameplay
 prompts and error text in `hud/ledge.rs::sentence`, where brace tokens could
 previously appear as literal text. No new font, glyph artwork or external
 asset is added. The recorded owner exception for the Mana font in §2a applies.
+
+## Desktop installers (2026-10-06)
+
+The installers (`docs/releasing.md` §"Installers") add three pictures, drawn
+by `scripts/installers/make-art.py` and committed: the dmg window's
+background (a gradient, eight dots, an arrow and two lines of text set in the
+bundled Alegreya Sans), and the Windows `.ico` and Linux icon, both resized
+from the existing Baylee brand icon. No third-party art, logo or symbol is
+used. The [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was reread on 2026-10-06: “Don't use Wizards' logos and trademarks.” None is
+used. “Tell the Community it's unofficial. Make it clear that your Fan
+Content is not endorsed or sponsored by Wizards—i.e., unofficial.” The dmg
+background says “Unofficial fan content, not affiliated with Wizards of the
+Coast.”, and so does the `.deb`'s description; the installed tree is the
+archive's, with its `README.txt`, `LICENSE` and `NOTICE`. The fonts' licence
+says: “This Font Software is licensed under the SIL Open Font License,
+Version 1.1.”; text set in them inside a picture is a document made with the
+font, not the font. dmgbuild, appimagetool and dpkg only build the files.
+Two tools put a program part of their own into what we publish: Inno
+Setup's setup stub, under the Inno Setup licence (“Permission is granted to
+anyone to use this software for any purpose, including commercial
+applications, and to alter and redistribute it”, provided the copyright
+notices it carries stay in place, which an unmodified stub does), and the
+AppImage type2 runtime (MIT; its README: “a statically linked runtime …
+Since the runtime is linked statically, libfuse2 is no longer required”).
+Open for the owner: the runtime statically links FUSE code, whose upstream
+libfuse is LGPL-2.1; what that asks of a project that redistributes the
+pinned runtime binary (20251108, sources public at that tag) has not been
+reviewed here.

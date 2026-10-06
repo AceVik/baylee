@@ -14,7 +14,9 @@ archive holds a permanent launcher (`baylee-client` / `baylee-client.exe`),
 the real client (`baylee-runtime` / `baylee-runtime.exe`), `assets/` (the fonts load from there at run time,
 together with their licences),
 `LICENSE`, `NOTICE` and a `README.txt`. `scripts/package-client.sh` builds the
-archive and also runs locally.
+archive and also runs locally. Beside each archive stand its installers (a
+dmg, a setup `.exe`, an AppImage and a `.deb`, §"Installers"), made from the
+same tree in the same CI job.
 
 The binaries are built with `--profile dist` (`Cargo.toml`), which is
 `release` plus line tables and no strip, so a crash report keeps file and line.
@@ -58,8 +60,9 @@ checks their test-only code, and uploads the client/launcher archives. The Intel
 macOS link check stays in its own parallel job. PRs keep their debug platform
 matrix and cannot supply release archives.
 
-Each package artifact includes its archive, SHA-256 checksum and a manifest
-naming repository, commit, source CI run, version and architecture. Promotion
+Each package artifact includes its archive, its installers, a SHA-256 checksum
+file for each and a manifest (schema 2) naming repository, commit, source CI
+run, version, architecture and every file's digest. Promotion
 checks the source run through GitHub's API, requires all five unexpired artifacts,
 and verifies every file and manifest before signing. It rejects unexpected
 files and wrong hashes; artifacts from another commit are never a fallback.
@@ -111,7 +114,91 @@ Local checks for pipeline changes:
 python3 -m unittest discover -s scripts/release/tests -v
 cargo test --locked -p baylee-update --test sign_script
 actionlint
+shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
 ```
+
+## Installers
+
+The owner asked on 06.10.2026 for installers like other desktop apps have.
+They stand **beside** the archives, never instead of them: the updater only
+ever downloads `baylee-client-<version>-<target>.{zip,tar.gz}`, checks its
+`.sig` and the signed root folder's name (§"Desktop launcher and
+recovery"), and an installed client updates itself from there. So the
+installers get no `.sig`; each has a `.sha256` beside it, and the publish
+job writes a table of them into the release notes
+(`ci_artifacts.py installer-sums`, which also refuses a release missing one).
+
+| Target | Installer | Built with |
+| --- | --- | --- |
+| aarch64-apple-darwin | `Baylee-<version>-aarch64.dmg` | dmgbuild 1.6.7 (pip, hash-pinned) |
+| x86_64 / aarch64 Windows | `Baylee-Setup-<version>-{x64,arm64}.exe` | Inno Setup 7.1.0 |
+| x86_64 / aarch64 Linux | `Baylee-<version>-{x86_64,aarch64}.AppImage` | appimagetool 1.9.1, type2 runtime 20251108 |
+| x86_64 / aarch64 Linux | `baylee_<version>_{amd64,arm64}.deb` | the runner's `dpkg-deb` |
+
+In `client-packages.yml`, after `package-client.sh`,
+`scripts/installers/tools.sh` fetches the tools (each pinned by version and
+SHA-256), `scripts/package-installers.sh` wraps the staged tree, and
+`scripts/release/check-installers.sh --install` installs each one on the
+throwaway runner, checks it and removes it again: the dmg's app is copied to
+`/Applications` and started from there until it logs `assets from
+/Applications/Baylee.app/…`; the setup installs for the runner's user and
+uninstalls; the `.deb` goes in with `apt`, which proves its dependencies
+resolve. Without `--install` the script only mounts, extracts and lists,
+which also works on a Mac. The pictures (dmg background, `.ico`, Linux icon)
+are our own, drawn by `scripts/installers/make-art.py` from the brand icon
+and Alegreya Sans, and committed.
+
+What each installer does, and whether the client then updates itself
+(`launch::original_writable` decides, by trying to create a file beside the
+original package):
+
+- **dmg**: the classic window, Baylee.app and a link to `/Applications`. The
+  app keeps package-client.sh's ad hoc signature; a copy dragged to
+  `/Applications` is writable for an administrator account (the default),
+  so it updates itself. Started straight from the mounted image it cannot.
+- **Setup**: per user, `%LOCALAPPDATA%\Programs\Baylee`, no administrator
+  rights and no UAC prompt, a Start-menu entry, an optional desktop icon and
+  an uninstall entry under HKCU (Settings → Apps). The folder is the
+  player's, so it updates itself. The uninstaller leaves
+  `%LOCALAPPDATA%\baylee` (downloaded updates and the card-image cache,
+  shared by every installation of this user).
+- **.deb**: the tree in `/opt/baylee`, `/usr/bin/baylee`, a `.desktop` entry
+  and icon. `/opt/baylee` is root's, so the client only says a release is
+  out and links to it; the player installs the new `.deb`. Version
+  `0.1.0-beta.5` becomes `0.1.0~beta.5`, which dpkg sorts before `0.1.0`.
+- **AppImage**: the same tree in one file, using the system's libraries
+  exactly as the tarball does (nothing is bundled; its README lists them).
+  The image is mounted read-only while it runs, so it only links too. It
+  carries no zsync update information: the client's updater is the update
+  path. Known gap: the launcher keys its state directory on the canonical
+  launch path, which for an AppImage is a fresh `/tmp/.mount_…` each start,
+  so every start leaves a small state folder (locks, `session.json`) under
+  `~/.local/state/baylee/`. Keying on `$APPIMAGE` instead is a change in
+  `launch.rs`, and with it an AppImage could also install updates into its
+  state directory as the other packages do.
+
+Known gap shared by all of them, and by replacing an unpacked archive in
+place: once the launcher has selected a downloaded generation
+(`current.json`), installing a newer package by hand over the original does
+not change that selection; the older generation keeps starting until the
+updater installs the newer release itself. `launch::selected` would have to
+prefer the original package when its version is not older.
+
+No Intel macOS package: the shipping matrix has no `x86_64-apple-darwin`
+dist build. A universal app would not be cheap either, because the updater
+asks for the archive of its compiled target, so an Intel slice needs its own
+archive, matrix row (about half an hour per main push) and updater tests.
+
+**What signing would add.** macOS: an Apple Developer Program membership
+("The Apple Developer Program is 99 USD per membership year",
+developer.apple.com/programs/enroll, read 06.10.2026) buys a Developer ID
+certificate; signing the app and the dmg with it and notarising both lets
+Gatekeeper open the app without the trip to Privacy & Security. Windows: an
+Authenticode certificate from a certificate authority or Microsoft's
+Artifact Signing service (an Azure subscription; its price page names none
+we could read) signs the setup and the executables; SmartScreen still warns
+until the signature has earned reputation. Both are the owner's call, and
+neither changes the update signature, which stays our own Ed25519 key.
 
 ## Signing
 
