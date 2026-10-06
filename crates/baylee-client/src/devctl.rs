@@ -103,6 +103,40 @@ pub(crate) fn window_size() -> Option<(f32, f32)> {
         .then_some((f32::from(width), f32::from(height)))
 }
 
+/// `/window {"width":844,"height":390}`: sets the window's logical size.
+///
+/// The shell is checked at seven sizes (the shell design, §2.7), and a
+/// relaunch per size costs a sign-in each — which at a phone's height the
+/// front door of today cannot even offer, its guest button being clipped.
+/// The OS may refuse a size larger than the screen; the answer is the size
+/// asked for, and `/health` is the one granted, a frame later.
+fn resize(body: &str, win: &mut Window) -> String {
+    let size = |key| {
+        field(body, key)
+            .and_then(|v| v.parse::<f32>().ok())
+            .filter(|v| (320.0..=7680.0).contains(v))
+    };
+    match (size("width"), size("height")) {
+        (Some(width), Some(height)) => {
+            win.set_maximized(false);
+            win.resolution.set(width, height);
+            format!("{{\"ok\":true,\"width\":{width},\"height\":{height}}}")
+        }
+        _ => "{\"error\":\"width and height, 320 to 7680\"}".to_string(),
+    }
+}
+
+/// Optional scale-factor override (`BAYLEE_DEV_SCALE=1`) for captures at a
+/// logical size the display could not otherwise hold: a 2560 × 1440 window
+/// at the Retina factor 2 is wider than the screen and the OS shrinks it,
+/// so the layout under test was never the one asked for. At 1 a logical
+/// pixel is a physical one and every listed size fits. Layout reads logical
+/// pixels only, so nothing under test changes but the sharpness.
+pub(crate) fn window_scale() -> Option<f32> {
+    let scale: f32 = std::env::var("BAYLEE_DEV_SCALE").ok()?.parse().ok()?;
+    (0.5..=4.0).contains(&scale).then_some(scale)
+}
+
 /// One request from the socket thread, with the channel its answer goes back
 /// on. Answering can outlive the frame that received it (a screenshot is not
 /// ready until the render world has read the surface), which is why the
@@ -420,8 +454,14 @@ fn waiting(control: &mut DevControl) -> Vec<Job> {
 /// wrong by a factor of two. The clock is there for the same kind of reason —
 /// a harness that had slowed or stopped the picture and then reconnected
 /// would otherwise have no way to ask what it had left running.
-fn health(frame: u64, size: (f32, f32, f32), clock: &Time<Virtual>) -> String {
-    let (w, h, scale) = size;
+fn health(frame: u64, window: Option<&Window>, clock: &Time<Virtual>) -> String {
+    let (w, h, scale) = window.map_or((0.0, 0.0, 0.0), |window| {
+        (
+            window.width(),
+            window.height(),
+            window.resolution.scale_factor(),
+        )
+    });
     format!(
         "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\
          \"speed\":{},\"paused\":{}}}",
@@ -601,16 +641,7 @@ fn pump(
 
     for job in waiting(&mut control) {
         let answer = match job.path.as_str() {
-            "/health" => {
-                let size = windows.single().map_or((0.0, 0.0, 0.0), |(_, window)| {
-                    (
-                        window.width(),
-                        window.height(),
-                        window.resolution.scale_factor(),
-                    )
-                });
-                health(control.frame, size, &clock)
-            }
+            "/health" => health(control.frame, windows.single().ok().map(|(_, w)| w), &clock),
             "/state" => {
                 let size = windows
                     .single()
@@ -681,6 +712,10 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
+            "/window" => match windows.single_mut() {
+                Ok((_, mut win)) => resize(&job.body, &mut win),
+                Err(_) => "{\"error\":\"no primary window\"}".to_string(),
+            },
             "/step" => {
                 start_step(&job.body, &mut control, &mut clock, job.reply);
                 continue;
@@ -1129,6 +1164,35 @@ fn write_screenshot(
 /// clock around them.
 #[derive(bevy::ecs::system::SystemParam)]
 struct Believed<'w, 's> {
+    /// The lobby's rebuild count (`shell_nodes_json`'s companion).
+    rebuilds: Option<Res<'w, crate::lobby::UiRebuilds>>,
+    /// The report form, for its own redraw count beside the lobby's.
+    report: Option<Res<'w, crate::report::ReportDesk>>,
+    /// The report form's buttons, where a pointer would press them.
+    desk_controls: Query<
+        'w,
+        's,
+        (
+            &'static crate::report::DeskPress,
+            &'static ComputedNode,
+            &'static UiGlobalTransform,
+        ),
+    >,
+    /// The lobby tree's root, and every node under it, for `shell_nodes`.
+    shell_roots: Query<'w, 's, Entity, With<crate::lobby::LobbyRoot>>,
+    #[allow(clippy::type_complexity)] // one row of a tree walk
+    shell_nodes: Query<
+        'w,
+        's,
+        (
+            Option<&'static Text>,
+            Option<&'static TextSpan>,
+            Option<&'static ComputedNode>,
+            Option<&'static UiGlobalTransform>,
+            Option<&'static Children>,
+            bevy::ecs::query::Has<crate::lobby::Press>,
+        ),
+    >,
     legal_text: Query<
         'w,
         's,
@@ -1395,6 +1459,100 @@ fn exits_json(believed: &Believed) -> String {
     lobby_controls_json(believed)
 }
 
+/// How often the lobby rebuilt its tree, by cause (`lobby::UiRebuilds`).
+///
+/// `null` outside the lobby plugin. The counter is monotonic: a caller
+/// measures a span by reading it twice.
+fn rebuilds_json(believed: &Believed) -> String {
+    let report = believed.report.as_deref().map_or(0, |desk| desk.redraws);
+    believed.rebuilds.as_deref().map_or_else(
+        || "null".to_string(),
+        |r| {
+            format!(
+                "{{\"total\":{},\"patches\":{},\"state\":{},\"prefs\":{},\"cast\":{},\"frame\":{},\
+                 \"report\":{report}}}",
+                r.total, r.patches, r.state, r.prefs, r.cast, r.frame
+            )
+        },
+    )
+}
+
+/// The report form's buttons in logical pixels, as `lobby_controls` lists
+/// the lobby's.
+fn desk_controls_json(believed: &Believed) -> String {
+    let rows: Vec<String> = believed
+        .desk_controls
+        .iter()
+        .map(|(press, node, place)| {
+            let scale = node.inverse_scale_factor;
+            let size = node.size() * scale;
+            let mid = place.translation * scale;
+            format!(
+                "{{\"press\":{press},\"at_x\":{x:.1},\"at_y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}}}",
+                press = quoted(&format!("{press:?}")),
+                x = mid.x,
+                y = mid.y,
+                w = size.x,
+                h = size.y,
+            )
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
+/// Every node of the lobby's tree, in tree order: depth, rect in logical
+/// pixels, the text it draws (spans joined) and whether it is pressable.
+///
+/// The before-image a behaviour-free refactor of the lobby is held to (the
+/// shell design's `WP0a`: "node dump identical"), so it carries nothing that
+/// may legitimately change under such a refactor — no entity index, no
+/// `Press` spelling — and nothing a player typed into a masked field: a
+/// `Masked` field draws dots, and the dots are what is reported.
+fn shell_nodes_json(believed: &Believed) -> String {
+    fn walk(believed: &Believed, entity: Entity, depth: usize, out: &mut Vec<String>) {
+        let Ok((text, _, node, place, children, pressable)) = believed.shell_nodes.get(entity)
+        else {
+            return;
+        };
+        let (Some(node), Some(place)) = (node, place) else {
+            return;
+        };
+        let scale = node.inverse_scale_factor;
+        let size = node.size() * scale;
+        let mid = place.translation * scale;
+        let mut row = format!(
+            "{{\"d\":{depth},\"x\":{x:.1},\"y\":{y:.1},\"w\":{w:.1},\"h\":{h:.1}",
+            x = mid.x - size.x / 2.0,
+            y = mid.y - size.y / 2.0,
+            w = size.x,
+            h = size.y,
+        );
+        if let Some(text) = text {
+            let mut said = text.0.clone();
+            for span in children.into_iter().flatten() {
+                if let Ok((_, Some(span), ..)) = believed.shell_nodes.get(*span) {
+                    said.push_str(&span.0);
+                }
+            }
+            row.push_str(",\"t\":");
+            row.push_str(&quoted(&said));
+        }
+        if pressable {
+            row.push_str(",\"i\":true");
+        }
+        row.push('}');
+        out.push(row);
+        for child in children.into_iter().flatten() {
+            walk(believed, *child, depth + 1, out);
+        }
+    }
+    let mut out = Vec::new();
+    for root in &believed.shell_roots {
+        walk(believed, root, 0, &mut out);
+    }
+    format!("[{}]", out.join(","))
+}
+
 /// All front-door controls in logical pixels, without field values or credentials.
 fn lobby_controls_json(believed: &Believed) -> String {
     let rows: Vec<String> = believed
@@ -1592,7 +1750,11 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
-         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits}}}",
+         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\
+         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls}}}",
+        ui_rebuilds = rebuilds_json(believed),
+        desk_controls = desk_controls_json(believed),
+        shell_nodes = shell_nodes_json(believed),
         // Which screen this is, and — on the end screen only — the ways off
         // it with `duel_exit` saying which the keyboard can see. See
         // [`exits_json`] for why that flag is the row rather than a detail

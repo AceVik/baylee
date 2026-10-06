@@ -281,7 +281,10 @@ fn feel(
             Some(PickingInteraction::Hovered) => 1.0,
             _ => 0.0,
         };
-        if (feel.warmth - target).abs() < f32::EPSILON && !feel.is_added() {
+        // `is_changed` and not `is_added`: a control whose resting tone was
+        // changed in place (the report's boxes, `report::form::retick`) has
+        // to be painted again although the pointer never moved.
+        if (feel.warmth - target).abs() < f32::EPSILON && !feel.is_changed() {
             continue;
         }
         feel.warmth += (target - feel.warmth) * step;

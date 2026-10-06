@@ -18,6 +18,7 @@ mod frame;
 mod gateway;
 mod guests;
 mod invites;
+mod perf;
 mod printings;
 mod report;
 mod settings;

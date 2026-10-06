@@ -245,13 +245,19 @@ fn signature(desk: &ReportDesk, settings: &ClientSettings, route: &Route, width:
     for category in Category::ALL {
         desk.gathered.has(category).hash(&mut hash);
     }
-    format!("{:?}", desk.form.kind).hash(&mut hash);
+    // The kind and the ticks are redrawn in place by [`retick`] (§10 #9 of
+    // the shell design) — except under an open preview, whose text they
+    // change. The record's consent decides whether its box is drawn at all.
+    if desk.form.preview {
+        format!("{:?}{:?}", desk.form.kind, settings.reports).hash(&mut hash);
+    }
+    format!("{:?}", settings.reports.record).hash(&mut hash);
     desk.form.text.text().hash(&mut hash);
     desk.form.text.cursor().hash(&mut hash);
     desk.form.text.selection().hash(&mut hash);
     format!("{:?}", desk.form.status).hash(&mut hash);
     desk.form.preview.hash(&mut hash);
-    format!("{:?}{:?}", settings.reports, settings.lang).hash(&mut hash);
+    settings.lang.hash(&mut hash);
     (width as u32).hash(&mut hash);
     hash.finish()
 }
@@ -301,6 +307,7 @@ pub(super) fn draw(
     for root in &roots {
         commands.entity(root).despawn();
     }
+    desk.redraws += 1;
     desk.drawn_form = desk.open && !desk.form.confirming;
     let metrics = Metrics::of(width);
     let lang = Lang::of(&settings.lang);
@@ -326,6 +333,68 @@ pub(super) fn draw(
             metrics,
             lang,
         );
+    }
+}
+
+/// Redraws the kind chips and the boxes in place when one is pressed.
+///
+/// [`signature`] leaves the kind and the ticks out while the preview is
+/// closed, so a toggle costs the one control it changed rather than the
+/// whole form (§10 #9 of the shell design). After [`draw`], so a rebuild
+/// this frame is already right and this writes nothing.
+pub(super) fn retick(
+    desk: Res<ReportDesk>,
+    settings: Res<ClientSettings>,
+    mut controls: Query<(&DeskPress, &mut crate::ambience::Feel, Option<&Children>)>,
+    mut marks: Query<(&mut Text, &mut TextColor)>,
+) {
+    if !desk.open {
+        return;
+    }
+    for (press, mut feel, children) in &mut controls {
+        let lit = match *press {
+            DeskPress::Kind(kind) => desk.form.kind == kind,
+            DeskPress::Toggle(category) => settings.reports.allows(category),
+            DeskPress::Crashes => settings.reports.crashes == CrashConsent::Send,
+            _ => continue,
+        };
+        // What `button` gives a lit control, and what the lobby's
+        // secondary button rests at otherwise.
+        let tone = if lit {
+            palette::PANEL_HOT
+        } else {
+            crate::hud::ButtonWeight::Secondary
+                .feel()
+                .map_or(palette::PANEL, |f| f.base)
+        };
+        if feel.base != tone {
+            feel.base = tone;
+        }
+        if matches!(*press, DeskPress::Kind(_)) {
+            continue;
+        }
+        // A box's first child is its mark (`checkbox`).
+        let Some(&mark) = children.and_then(|c| c.first()) else {
+            continue;
+        };
+        if let Ok((mut glyph, mut ink)) = marks.get_mut(mark) {
+            let (want, colour) = tick_mark(lit);
+            if glyph.0.chars().ne(std::iter::once(want)) {
+                glyph.0 = want.to_string();
+            }
+            if ink.0 != colour {
+                ink.0 = colour;
+            }
+        }
+    }
+}
+
+/// The glyph and ink of a box's mark, ticked or not.
+fn tick_mark(ticked: bool) -> (char, Color) {
+    if ticked {
+        ('\u{f14a}', palette::ACCENT)
+    } else {
+        ('\u{f0c8}', palette::MUTED.with_alpha(0.5))
     }
 }
 
@@ -448,11 +517,7 @@ fn checkbox(
     ticked: bool,
 ) -> Entity {
     let id = button(commands, fonts, metrics, label, press, ticked, true);
-    let (glyph, ink) = if ticked {
-        ('\u{f14a}', palette::ACCENT)
-    } else {
-        ('\u{f0c8}', palette::MUTED.with_alpha(0.5))
-    };
+    let (glyph, ink) = tick_mark(ticked);
     let mark = commands
         .spawn((
             Text::new(glyph.to_string()),

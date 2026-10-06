@@ -857,6 +857,10 @@ enum GatewaySelection {
 /// One request is in flight at a time ([`Lobby::busy`]): every intent method
 /// returns `None` while one is, so a double click cannot open two tables.
 #[derive(Clone, Debug, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent facts about the session and the request in flight"
+)]
 pub struct Lobby {
     library: library::Library,
     copied_deck: Option<String>,
@@ -900,6 +904,9 @@ pub struct Lobby {
     /// is what [`Lobby::write`] is for.
     tone: Tone,
     busy: bool,
+    /// Whether what is in flight only re-reads lists already on screen
+    /// (refresh, search, a page, the watch). See [`Lobby::refreshing`].
+    refreshing: bool,
     /// Who this gateway lets in, as `GET /auth/config` said.
     doors: Doors,
     /// The guest this device holds for this gateway, if any.
@@ -1898,6 +1905,7 @@ impl Lobby {
     )]
     fn list(&mut self) -> Option<LobbyRequest> {
         self.busy = true;
+        self.refreshing = true;
         Some(LobbyRequest::ListGames(self.query()))
     }
 
@@ -1996,7 +2004,20 @@ impl Lobby {
             return None;
         }
         self.busy = true;
+        self.refreshing = true;
         Some(LobbyRequest::ListDecks)
+    }
+
+    /// Whether the request in flight only re-reads the deck and table
+    /// lists the screen already shows: a refresh, a search, a page, and the
+    /// chain of list reads they set off.
+    ///
+    /// The shell answers this one with a quiet mark on the list rather than
+    /// the loading veil (§10 #7 of the shell design): a veil over a list the
+    /// player is reading, every time it is re-read, is a flicker.
+    #[must_use]
+    pub fn refreshing(&self) -> bool {
+        self.busy && self.refreshing
     }
 
     /// Opens a new table with the selected deck.
@@ -2345,6 +2366,7 @@ impl Lobby {
             self.screen = Screen::Table;
         }
         self.busy = false;
+        self.refreshing = false;
         self.awaiting = None;
         self.asked_for = None;
         self.write(why, tone);
@@ -2488,6 +2510,7 @@ impl Lobby {
         self.games.clear();
         self.deck = None;
         self.busy = false;
+        self.refreshing = false;
         self.awaiting = None;
         self.asked_for = None;
         self.rematch_wanted = None;
@@ -2504,12 +2527,26 @@ impl Lobby {
     /// Feeds back the outcome of a request, and returns the next one the
     /// lobby wants made. Ending a request always clears [`Lobby::busy`] —
     /// chaining sets it again in the same breath.
+    pub fn apply(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
+        let next = self.answer(event);
+        // A refresh stays one while its answers chain into further list
+        // reads, and ends with the first answer that asks for anything else.
+        if !matches!(
+            next,
+            Some(LobbyRequest::ListGames(_) | LobbyRequest::ListDecks)
+        ) {
+            self.refreshing = false;
+        }
+        next
+    }
+
+    /// [`Lobby::apply`] without the refresh bookkeeping.
     #[expect(
         clippy::too_many_lines,
         reason = "one arm per event, read top to bottom: splitting it would \
                   hide which events chain into another request"
     )]
-    pub fn apply(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
+    fn answer(&mut self, event: LobbyEvent) -> Option<LobbyRequest> {
         self.busy = false;
         // Any answer from the gateway, a refusal included, is the gateway
         // answering. Said first, so the event's own sentence can follow it.

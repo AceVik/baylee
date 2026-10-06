@@ -478,7 +478,7 @@ pub(super) fn keyboard(
             text_field_keys(
                 &mut keys,
                 &codes,
-                state.as_mut(),
+                &mut state,
                 &mut prefs,
                 &mailbox,
                 false,
@@ -618,7 +618,7 @@ pub(super) fn keyboard(
     text_field_keys(
         &mut keys,
         &codes,
-        state.as_mut(),
+        &mut state,
         &mut prefs,
         &mailbox,
         table,
@@ -633,12 +633,14 @@ pub(super) fn keyboard(
 /// row does everything a tap on it does.
 fn choose_gateway(
     state: &mut LobbyState,
-    prefs: &mut crate::prefs::Prefs,
+    prefs: &mut ResMut<crate::prefs::Prefs>,
     mailbox: &Mailbox,
     index: usize,
 ) {
     if state.select_gateway(index) {
-        prefs.detach();
+        // Bookkeeping, not a visible preference: `poll` follows the token
+        // the same way (and a detach without an account is a no-op).
+        prefs.bypass_change_detection().detach();
         http::probe_registration(state, mailbox);
         // Asked again: the answer in the list may be from before the gateway
         // was upgraded, and choosing it is the moment that answer is about to
@@ -821,8 +823,8 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
-    state: &mut LobbyState,
-    prefs: &mut crate::prefs::Prefs,
+    state: &mut ResMut<LobbyState>,
+    prefs: &mut ResMut<crate::prefs::Prefs>,
     mailbox: &Mailbox,
     table: bool,
     mut clipboard: Option<&mut bevy::clipboard::Clipboard>,
@@ -863,10 +865,22 @@ fn text_field_keys(
         match &key.logical_key {
             Key::Backspace => state.lobby.backspace(),
             Key::Delete => state.lobby.delete_forward(),
-            Key::ArrowLeft => state.lobby.move_caret(reach, Dir::Left, shift),
-            Key::ArrowRight => state.lobby.move_caret(reach, Dir::Right, shift),
-            Key::Home => state.lobby.move_caret(Reach::Line, Dir::Left, shift),
-            Key::End => state.lobby.move_caret(Reach::Line, Dir::Right, shift),
+            // A caret that moves changes only the field it stands in, and
+            // `ui::retrace_runs` redraws that field's runs in place: marking
+            // the whole state changed for it rebuilt every node on the
+            // screen per arrow key (§10 #3 of the shell design).
+            Key::ArrowLeft | Key::ArrowRight | Key::Home | Key::End => {
+                let (reach, dir) = match &key.logical_key {
+                    Key::ArrowLeft => (reach, Dir::Left),
+                    Key::ArrowRight => (reach, Dir::Right),
+                    Key::Home => (Reach::Line, Dir::Left),
+                    _ => (Reach::Line, Dir::Right),
+                };
+                state
+                    .bypass_change_detection()
+                    .lobby
+                    .move_caret(reach, dir, shift);
+            }
             Key::Tab => cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next }),
             Key::Escape if state.lobby.deleting_account().is_some() => {
                 state.lobby.cancel_account_deletion();
@@ -903,7 +917,8 @@ fn text_field_keys(
                 }
             }
             Key::Escape if table && matches!(state.lobby.focus(), Field::RoomBoard(_)) => {
-                state.lobby.set_field(state.lobby.focus(), "");
+                let focus = state.lobby.focus();
+                state.lobby.set_field(focus, "");
             }
             Key::Enter => {
                 let request = if table {
@@ -1025,7 +1040,12 @@ pub(super) fn clicks(
             state.front_menu = false;
         }
         // Any other control answers the question the back button asked.
-        if *press != Press::CloseBuilder {
+        //
+        // Every write in this preamble is guarded: taking `&mut` out of the
+        // state marks it changed, and a changed state rebuilds the whole tree
+        // (§10 #1 of the shell design) — so a press that changes nothing
+        // must not write anything either (`a_press_that_changes_nothing_marks_nothing`).
+        if *press != Press::CloseBuilder && state.confirm_leave {
             state.confirm_leave = false;
         }
         // A filter that changes what is in the list puts it back at the top:
@@ -1045,7 +1065,7 @@ pub(super) fn clicks(
         // Any click that is not the rebinding chip itself calls off a
         // rebinding in progress. Leaving it armed would mean the next key
         // pressed anywhere lands on whichever row was last tapped.
-        if state.settings.is_open() && !matches!(*press, Press::Rebind(_)) {
+        if state.settings.capturing().is_some() && !matches!(*press, Press::Rebind(_)) {
             state.settings = SettingsPane::Open;
         }
         // And anything but the seat panel's own controls takes the caret out
@@ -1055,8 +1075,10 @@ pub(super) fn clicks(
         }
         match *press {
             Press::Hub(hub) => {
-                state.hub = hub;
-                scrolled.set(List::Table, 0.0);
+                if state.hub != hub {
+                    state.hub = hub;
+                    scrolled.set(List::Table, 0.0);
+                }
             }
             Press::AddGateway => {
                 if let Some(url) = state.check_gateway() {
@@ -1127,8 +1149,12 @@ pub(super) fn clicks(
                 let request = state.lobby.restore_preview();
                 dispatch(&mut state, &mailbox, request);
             }
-            Press::OpenSettings => state.settings = SettingsPane::Open,
-            Press::CloseSettings => state.settings = SettingsPane::Closed,
+            Press::OpenSettings if !state.settings.is_open() => {
+                state.settings = SettingsPane::Open;
+            }
+            Press::CloseSettings if state.settings.is_open() => {
+                state.settings = SettingsPane::Closed;
+            }
             Press::Seat(act) => state.seat.act(act),
             Press::SeatKey(key) => state.seat.key_press(key),
             Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
@@ -1164,9 +1190,14 @@ pub(super) fn clicks(
                 let mut edit = prefs.edit();
                 edit.reduce_motion = !edit.reduce_motion;
             }
-            Press::PickSky(mode) => prefs.edit().sky = mode,
-            Press::PickSound(level) => prefs.edit().sound = level,
-            Press::PickAtmosphere(air) => prefs.edit().atmosphere = air,
+            // A choice already made is no edit: `edit` schedules a write-back
+            // to the gateway as well as marking the preferences changed.
+            Press::PickSky(mode) if prefs.all().sky != mode => prefs.edit().sky = mode,
+            Press::PickSound(level) if prefs.all().sound != level => prefs.edit().sound = level,
+            Press::PickAtmosphere(air) if prefs.all().atmosphere != air => {
+                prefs.edit().atmosphere = air;
+            }
+            Press::PickLang(lang) if lang == state.lobby.lang() => {}
             Press::PickLang(lang) => {
                 state.lobby.set_lang(lang);
                 // One setting, two readers: the interface draws itself in
@@ -1425,7 +1456,14 @@ pub(super) fn clicks(
             // the transfer dialog's panel only keeps it from reaching the
             // shade behind. An empty part of the artwork dialog dismisses
             // its set autocomplete.
-            Press::Leave | Press::PlayAgain | Press::TransferNothing => {}
+            Press::Leave
+            | Press::PlayAgain
+            | Press::TransferNothing
+            | Press::OpenSettings
+            | Press::CloseSettings
+            | Press::PickSky(_)
+            | Press::PickSound(_)
+            | Press::PickAtmosphere(_) => {}
             Press::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
             Press::NewDeck => {
                 state.commander_pick = None;
@@ -2302,16 +2340,25 @@ fn in_lineage<'a>(
 /// click again.
 pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading::Loading>) {
     let lang = state.lobby.lang();
-    match state.lobby.screen() {
-        Screen::Seated(_) => loading.show(Phrase::VeilTakingSeat.text(lang)),
+    let want = match state.lobby.screen() {
+        Screen::Seated(_) => Some(Phrase::VeilTakingSeat),
+        // Re-reading lists already on screen raises no veil (§10 #7): the
+        // list keeps standing and is replaced when the answer lands.
+        _ if state.lobby.refreshing() => None,
         // Offline the wait is this process building a deck, a room or an
         // engine, and a veil claiming a conversation with a gateway would
         // be naming a machine that was never dialled.
-        _ if state.lobby.busy() && state.lobby.offline() => {
-            loading.show(Phrase::VeilWorking.text(lang));
+        _ if state.lobby.busy() && state.lobby.offline() => Some(Phrase::VeilWorking),
+        _ if state.lobby.busy() => Some(Phrase::VeilTalking),
+        _ => None,
+    }
+    .map(|phrase| phrase.text(lang));
+    // Written only when it differs: this runs every frame.
+    if loading.what() != want {
+        match want {
+            Some(what) => loading.show(what),
+            None => loading.clear(),
         }
-        _ if state.lobby.busy() => loading.show(Phrase::VeilTalking.text(lang)),
-        _ => loading.clear(),
     }
 }
 

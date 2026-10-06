@@ -412,6 +412,48 @@ fn a_ticked_box_is_kept_in_the_settings() {
     assert!(consent.allows(Category::System));
 }
 
+/// A tick or a kind is redrawn in place, never the whole form (§10 #9 of
+/// the shell design) — unless the preview is open, whose text it changes.
+#[test]
+fn a_ticked_box_redraws_its_mark_and_not_the_form() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    let mark = |app: &mut App| {
+        let (entity, _) = desk_presses(app)
+            .into_iter()
+            .find(|(_, p)| matches!(p, DeskPress::Toggle(Category::System)))
+            .expect("the system box");
+        let first = app
+            .world()
+            .get::<Children>(entity)
+            .expect("a box has a mark")[0];
+        app.world().get::<Text>(first).expect("the mark").0.clone()
+    };
+    let before = (desk(&app).redraws, mark(&mut app));
+    click_desk(&mut app, "the system box", |p| {
+        matches!(p, DeskPress::Toggle(Category::System))
+    });
+    click_desk(&mut app, "the improvement kind", |p| {
+        matches!(
+            p,
+            DeskPress::Kind(baylee_client_core::bugreport::Kind::Improvement)
+        )
+    });
+    assert_eq!(desk(&app).redraws, before.0, "a tick redrew the whole form");
+    assert_ne!(mark(&mut app), before.1, "the tick was not drawn");
+    // Under the preview the payload is on screen, and it changes with a box.
+    click_desk(&mut app, "the preview", |p| matches!(p, DeskPress::Preview));
+    let shown = desk(&app).redraws;
+    click_desk(&mut app, "the system box", |p| {
+        matches!(p, DeskPress::Toggle(Category::System))
+    });
+    assert_eq!(
+        desk(&app).redraws,
+        shown + 1,
+        "the preview kept a stale payload"
+    );
+}
+
 /// The lobby has no table, so the game, the log and the picture have
 /// nothing behind them: the boxes say so, and ticked they send nothing.
 #[test]

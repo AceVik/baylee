@@ -86,6 +86,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
+            .init_resource::<ui::UiRebuilds>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
             .init_resource::<front::FrontMotion>()
@@ -120,6 +121,7 @@ impl Plugin for LobbyPlugin {
                         front::move_front,
                         front::show_scene.before(crate::vista::paint),
                         ui,
+                        ui::retrace_runs,
                         front::pose_front,
                     )
                         .chain(),
@@ -539,6 +541,10 @@ mod ui;
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) use ui::DuelExit;
 pub(crate) use ui::caret_lit;
+/// The tree's root and its rebuild count, for `devctl`'s `shell_nodes` and
+/// `ui_rebuilds` rows, under the probe's own `cfg` for the reason above.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub(crate) use ui::{LobbyRoot, UiRebuilds};
 
 #[cfg(test)]
 mod tests;

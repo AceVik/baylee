@@ -238,7 +238,7 @@ impl Weight {
     /// [`Dead`](Self::Dead) is the one weight with no answer: a button that
     /// warms under the pointer and does nothing when pressed is worse than a
     /// button that is plainly not there.
-    pub(super) fn feel(self) -> Option<Feel> {
+    pub(crate) fn feel(self) -> Option<Feel> {
         Some(match self {
             Self::Candle => Feel::new(palette::CANDLE),
             Self::Secondary => Feel::new(palette::DOCK_GROUND),

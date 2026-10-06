@@ -72,6 +72,12 @@ pub fn run() {
                 window.set_maximized(true);
                 // Reproducible viewport captures without desktop automation.
                 // Only a dev-control build reads this test-only override.
+                // The scale first: the size is logical, and is turned into
+                // physical pixels at whatever factor stands when it is set.
+                #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+                if let Some(scale) = crate::devctl::window_scale() {
+                    window.resolution.set_scale_factor_override(Some(scale));
+                }
                 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
                 if let Some((width, height)) = crate::devctl::window_size() {
                     window.set_maximized(false);

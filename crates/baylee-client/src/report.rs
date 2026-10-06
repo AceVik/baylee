@@ -40,6 +40,10 @@ mod form;
 mod shot;
 #[cfg(test)]
 pub(crate) use corner::ReportCorner;
+/// The form's buttons, for `devctl`'s `desk_controls` row (a test build
+/// has them from the line below).
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32"), not(test)))]
+pub(crate) use form::DeskPress;
 #[cfg(test)]
 pub(crate) use form::{DeskBox, DeskCaret, DeskPress, DeskRoot, DeskScroll, DeskText};
 #[cfg(test)]
@@ -97,6 +101,8 @@ pub struct ReportDesk {
     /// Whether the tree up is the form (not the confirmation or the crash
     /// question), whose scroll [`Self::panel_scroll`] keeps.
     drawn_form: bool,
+    /// How often the tree has been drawn, for `devctl`'s `ui_rebuilds`.
+    pub(crate) redraws: u64,
 }
 
 impl ReportDesk {
@@ -194,6 +200,7 @@ pub(crate) fn install(app: &mut App) {
                 answers,
                 send_the_crash,
                 form::draw,
+                form::retick,
                 form::scroll,
                 form::blink,
             )

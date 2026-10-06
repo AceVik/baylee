@@ -284,3 +284,48 @@ fn a_nameless_table_still_has_a_headline() {
     };
     assert_eq!(room.headline(), "table  \u{b7}  0/2 seated");
 }
+
+/// A refresh is a refresh through its whole chain of list reads — decks,
+/// then tables — and ends with the last answer; signing in, whose first list
+/// read is the screen's first, is not one (§10 #7 of the shell design: the
+/// shell veils a first open and only marks a refresh).
+#[test]
+fn a_refresh_lasts_through_its_chain_of_list_reads_and_a_sign_in_is_none() {
+    let mut lobby = Lobby::new();
+    lobby.set_field(Field::Username, "alice");
+    lobby.set_field(Field::Password, "hunter22");
+    assert!(lobby.submit().is_some());
+    assert!(!lobby.refreshing(), "signing in is not a refresh");
+    let next = lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".to_string(),
+        username: None,
+    });
+    assert_eq!(next, Some(LobbyRequest::ListDecks));
+    assert!(
+        lobby.busy() && !lobby.refreshing(),
+        "the first list is the screen's first"
+    );
+    lobby.apply(LobbyEvent::Decks(Vec::new()));
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(!lobby.busy());
+
+    assert_eq!(lobby.refresh(), Some(LobbyRequest::ListDecks));
+    assert!(lobby.refreshing());
+    let chained = lobby.apply(LobbyEvent::Decks(Vec::new()));
+    assert!(matches!(chained, Some(LobbyRequest::ListGames(_))));
+    assert!(
+        lobby.refreshing(),
+        "the chained table read is still the refresh"
+    );
+    assert_eq!(lobby.apply(LobbyEvent::Games(GameListing::default())), None);
+    assert!(
+        !lobby.refreshing() && !lobby.busy(),
+        "the refresh ended with its last answer"
+    );
+
+    // And a request that is not a list read after it is not a refresh.
+    assert!(lobby.search_again().is_some());
+    assert!(lobby.refreshing());
+    lobby.apply(LobbyEvent::Games(GameListing::default()));
+    assert!(!lobby.refreshing());
+}

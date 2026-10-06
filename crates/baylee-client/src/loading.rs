@@ -69,10 +69,12 @@ pub struct Loading {
 
 impl Loading {
     /// Shows the veil, saying what is being waited for.
-    pub fn show(&mut self, what: impl Into<String>) {
-        let what = what.into();
-        if self.what.as_deref() != Some(what.as_str()) {
-            self.what = Some(what);
+    ///
+    /// Compares before it allocates: the lobby says what it is waiting for
+    /// on every frame of a wait.
+    pub fn show(&mut self, what: &str) {
+        if self.what.as_deref() != Some(what) {
+            self.what = Some(what.to_owned());
         }
     }
 
@@ -153,16 +155,17 @@ fn raise(
     // the veil that often would reset the dots to the start of their cycle —
     // three dots that never move, which is precisely the impression the veil
     // exists to avoid.
+    // Borrowed until a rebuild needs it: this runs every frame of a wait.
     let want = (*asked >= GRACE && !journey.is_some_and(|j| j.active()))
-        .then(|| loading.what.clone())
-        .flatten();
-    if *shown == want && want.is_some() != veil.is_empty() {
+        .then_some(())
+        .and(loading.what.as_deref());
+    if shown.as_deref() == want && want.is_some() != veil.is_empty() {
         return;
     }
     for entity in &veil {
         commands.entity(entity).despawn();
     }
-    let (Some(what), Some(fonts)) = (want.clone(), fonts) else {
+    let (Some(what), Some(fonts)) = (want.map(str::to_owned), fonts) else {
         // Without fonts nothing can be drawn yet; leaving `shown` alone means
         // this is tried again on the next frame.
         if want.is_none() {
@@ -170,7 +173,7 @@ fn raise(
         }
         return;
     };
-    *shown = want;
+    *shown = Some(what.clone());
 
     let root = commands
         .spawn((

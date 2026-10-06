@@ -7984,6 +7984,22 @@ of one material away (`felt`, `mat`, `card`, `floor`, `shell`, `plate`,
 `shell_ui`), so one switch gives both a drawing's GPU cost and, by a
 full-frame diff, what it contributes to the picture.
 
+Three rows of `/state` measure the lobby rather than the table.
+`ui_rebuilds` counts how often the lobby despawned and redrew its whole tree,
+by cause (`state`, `prefs`, `cast`, `frame`), beside the builder's in-place
+`patches` and the report form's `report` redraws; it only grows, so a caller
+reads it before and after what it measures. An idle screen reads zero, a
+keystroke one, a moving caret or a ticked report box zero (§10 of the shell
+design). `shell_nodes` is every node under the lobby's root in tree order —
+depth, rect in logical pixels, its text, `"i"` where it carries a `Press` —
+and nothing a behaviour-free refactor may change (no entity index, no `Press`
+spelling): two dumps of the same screen compare byte for byte.
+`desk_controls` lists the report form's buttons as `lobby_controls` lists the
+lobby's. `BAYLEE_DEV_SCALE=1` beside `BAYLEE_DEV_WINDOW` sets the window's
+scale factor, so a 2560 × 1440 logical window fits a Retina display and the
+layout under test is the one asked for (`/health` says what was granted), and
+`/window {"width":844,"height":390}` resizes it without a relaunch.
+
 Seven things about it are load-bearing.
 
 **It is a compile-time feature, not a runtime switch.** A remote-control socket

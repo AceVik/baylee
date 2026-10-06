@@ -14,7 +14,31 @@ pub(super) struct LobbyScreen;
 
 /// The root of the rebuilt node tree.
 #[derive(Component)]
-pub(super) struct LobbyRoot;
+pub(crate) struct LobbyRoot;
+
+/// How often [`ui`] has rebuilt the tree, and why (§10 of the shell design).
+///
+/// The measurement every perf claim about the lobby is held to: a rebuild
+/// despawns and respawns every node, so "nothing changed" must read as zero
+/// here, and a keystroke as one. Counted by cause because the gate in [`ui`]
+/// has four doors and a bare total cannot say which one was open (more than
+/// one can be, so the causes may sum past the total). Read by `devctl`'s
+/// `/state.ui_rebuilds`; never reset by the client itself.
+#[derive(Resource, Default, Clone, Copy, Debug)]
+pub(crate) struct UiRebuilds {
+    /// Full rebuilds: the tree despawned and drawn again.
+    pub(crate) total: u64,
+    /// Builder patches: the retained builder updated in place.
+    pub(crate) patches: u64,
+    /// Rebuilds a changed `LobbyState` asked for.
+    pub(crate) state: u64,
+    /// Rebuilds changed account preferences asked for.
+    pub(crate) prefs: u64,
+    /// Rebuilds the front door's cast asked for.
+    pub(crate) cast: u64,
+    /// Rebuilds a frame change (or an empty tree) asked for.
+    pub(crate) frame: u64,
+}
 
 /// The bar the ways out fall back to when the duel drew no end screen.
 ///
@@ -225,6 +249,7 @@ pub(super) fn ui(
     cast: Res<super::front::FrontCast>,
     mut drawn: Local<Option<Frame>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
+    mut rebuilds: ResMut<UiRebuilds>,
 ) {
     let width = windows
         .iter()
@@ -272,8 +297,14 @@ pub(super) fn ui(
             assets.as_deref(),
             cards.as_mut(),
         );
+        rebuilds.patches += 1;
         return;
     }
+    rebuilds.total += 1;
+    rebuilds.state += u64::from(state.is_changed());
+    rebuilds.prefs += u64::from(prefs.is_changed());
+    rebuilds.cast += u64::from(cast.is_changed());
+    rebuilds.frame += u64::from(root.is_empty() || *drawn != Some(metrics.frame));
     *builder_drawn = None;
     for entity in &root {
         commands.entity(entity).despawn();
@@ -1696,24 +1727,11 @@ pub(crate) fn text_field(
     for run in field_runs(commands, fonts, metrics, look) {
         commands.entity(boxed).add_child(run);
     }
+    mark_runs(commands, boxed, metrics, look);
     // After the runs, so the caret stands in front of it the way a caret
     // stands in front of an empty `<input>`'s placeholder.
     if let Some(words) = look.hint.filter(|_| look.buffer.text().is_empty()) {
-        let ghost = commands
-            .spawn((
-                Text::new(words.to_string()),
-                tf(fonts, metrics.text),
-                TextLayout::no_wrap(),
-                TextColor(palette::MUTED),
-                Node {
-                    min_width: px(0),
-                    overflow: Overflow::clip_x(),
-                    flex_shrink: 1.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
+        let ghost = hint_ghost(commands, fonts, metrics, words);
         commands.entity(boxed).add_child(ghost);
     }
     if look.mask.is_some() || look.tail.is_some() {
@@ -1879,6 +1897,110 @@ fn field_runs(
     out
 }
 
+/// The box of the lobby field holding the caret, as [`text_field`] drew it.
+///
+/// The caret moving is the one edit that changes nothing outside its own box,
+/// so the keyboard makes it without marking the lobby's state changed and
+/// [`retrace_runs`] redraws the box's runs here instead: one field's three or
+/// four nodes rather than the whole screen per arrow key (§10 #3 of the
+/// shell design).
+#[derive(Component)]
+pub(super) struct RunsOf {
+    field: Field,
+    mask: Option<Masked>,
+    /// Whether a lead glyph stands before the runs, which they go after.
+    lead: bool,
+    metrics: Metrics,
+    /// The caret and the selection the runs were drawn for.
+    at: (usize, Option<std::ops::Range<usize>>),
+}
+
+/// What an empty box says it is for, in muted ink, clipped rather than
+/// wrapped.
+fn hint_ghost(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, words: &str) -> Entity {
+    commands
+        .spawn((
+            Text::new(words.to_string()),
+            tf(fonts, metrics.text),
+            TextLayout::no_wrap(),
+            TextColor(palette::MUTED),
+            Node {
+                min_width: px(0),
+                overflow: Overflow::clip_x(),
+                flex_shrink: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// Marks the box of the field with the caret, so its runs can be redrawn in
+/// place when only the caret moves ([`retrace_runs`]).
+fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &FieldLook) {
+    if look.focused
+        && let Press::Focus(field) = look.press
+    {
+        commands.entity(boxed).insert(RunsOf {
+            field,
+            mask: look.mask,
+            lead: look.lead.is_some(),
+            metrics,
+            at: (look.buffer.cursor(), look.buffer.selection()),
+        });
+    }
+}
+
+/// One run of a field's text, or its caret: what [`retrace_runs`] replaces.
+#[derive(Component)]
+pub(super) struct FieldRun;
+
+/// Redraws the focused field's runs where only its caret or selection moved.
+///
+/// After [`ui`]: a rebuild this frame has already drawn them from the state,
+/// and then this finds nothing to do.
+pub(super) fn retrace_runs(
+    mut commands: Commands,
+    state: Res<LobbyState>,
+    fonts: Option<Res<UiFonts>>,
+    mut boxes: Query<(Entity, &mut RunsOf, &Children)>,
+    runs: Query<(), With<FieldRun>>,
+) {
+    let Some(fonts) = fonts else {
+        return;
+    };
+    let focus = state.lobby.focus();
+    for (entity, mut drawn, children) in &mut boxes {
+        if drawn.field != focus {
+            continue;
+        }
+        let buffer = state.lobby.buffer(focus);
+        let at = (buffer.cursor(), buffer.selection());
+        if drawn.at == at {
+            continue;
+        }
+        drawn.at = at;
+        for child in children {
+            if runs.contains(*child) {
+                commands.entity(*child).despawn();
+            }
+        }
+        let look = FieldLook {
+            buffer,
+            focused: true,
+            mask: drawn.mask,
+            press: Press::Focus(focus),
+            tail: None,
+            lead: None,
+            hint: None,
+        };
+        let fresh = field_runs(&mut commands, &fonts, drawn.metrics, &look);
+        commands
+            .entity(entity)
+            .insert_children(usize::from(drawn.lead), &fresh);
+    }
+}
+
 /// One run of a field's text, masked where the field is a password.
 fn spawn_run(
     commands: &mut Commands,
@@ -1894,6 +2016,7 @@ fn spawn_run(
         text.to_string()
     };
     let mut run = commands.spawn((
+        FieldRun,
         Text::new(shown),
         tf(fonts, metrics.text),
         TextColor(palette::INK),
@@ -1910,6 +2033,7 @@ fn spawn_run(
 fn spawn_caret(commands: &mut Commands, metrics: Metrics, caret: Caret) -> Entity {
     commands
         .spawn((
+            FieldRun,
             caret,
             Node {
                 width: px(1),
