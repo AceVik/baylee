@@ -36,9 +36,11 @@
   path checked against the reference on property/fuzz inputs on every target
   CI builds. In the engine and core a fast path must stay bit-identical across
   architectures (determinism). For wasm, target the newest standard (Wasm 3.0:
-  `simd128`, `relaxed-simd`, bulk memory, tail calls, …) and check the feature
-  against the browsers the web client supports before enabling it globally;
+  `simd128`, `relaxed-simd`, bulk memory, tail calls, …): the web client
+  supports only the latest Google Chrome, so whatever it ships may be used;
   relaxed SIMD is nondeterministic by design, so never on a rules path.
+- Third-party crates may be added for performance where they are maintained
+  (active upstream, recent releases) and `cargo-deny`/`cargo-audit` stay green.
 - Cleaner includes splitting large files into a directory module of small,
   single-purpose files (`example.rs` → `example/mod.rs` + `example/*.rs`, or
   `example.rs` + `example/` where the crate already does that). Move code

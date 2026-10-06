@@ -128,7 +128,10 @@ impl std::fmt::Debug for Swap {
             .field("mind", &self.mind.disclosure())
             .field("think", &self.think)
             .field("taken", &self.taken.is_some())
-            .field("declared", &self.declared.as_ref().map(|m| m.model.as_str()))
+            .field(
+                "declared",
+                &self.declared.as_ref().map(|m| m.model.as_str()),
+            )
             .finish()
     }
 }
@@ -765,11 +768,15 @@ mod tests {
             .collect();
         assert_eq!(declared, ["claude-sonnet-5-5"]);
         assert!(
-            answer.iter().any(|step| matches!(step, Step::Answer { .. })),
+            answer
+                .iter()
+                .any(|step| matches!(step, Step::Answer { .. })),
             "the new mind's answer follows"
         );
         bridge.carry_out(answer, None).await;
-        assert!(bridge.declaring.is_empty(), "sent once, ahead of the answer");
+        assert!(
+            bridge.declaring.is_empty(),
+            "sent once, ahead of the answer"
+        );
     }
-
 }
