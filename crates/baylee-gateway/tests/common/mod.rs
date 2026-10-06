@@ -37,6 +37,11 @@ impl Gateway {
         std::fs::read_to_string(&self.log_path).unwrap_or_default()
     }
 
+    /// The gateway's process id, for the load bench's `ps` readings.
+    pub fn pid(&self) -> u32 {
+        self.child.id()
+    }
+
     /// The test database, scoped to this gateway's own schema: where a test
     /// seeds what the gateway will read, such as catalog rows.
     pub fn database_url(&self) -> String {
