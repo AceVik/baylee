@@ -45,7 +45,7 @@ mod menu;
 mod words;
 
 pub use menu::{Act, Decision, Hint, Menu, Resolved, Stops, tap};
-pub use words::{KEYWORDS, color_name};
+pub use words::{KEYWORDS, color_name, step_id};
 
 use crate::mind::{GameContext, Request};
 use baylee_client_core::gamelog::{LogBook, Wording};
@@ -79,9 +79,24 @@ pub struct Wake {
     pub headline: String,
 }
 
+/// How a seat's messages are told, fixed for its game: what a model's way
+/// of answering needs said, and nothing else.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Style {
+    /// Whether each question ends with the shape of its answer even where
+    /// the options say it all (`Answer: ask="q12", pick=[one option id]`):
+    /// for a model whose answer no schema holds, which reads its fields
+    /// only from its instructions. A tool's or a schema's model is told
+    /// only the shapes the question itself carries (piles, blocks, how
+    /// many ids).
+    pub spell_answer: bool,
+}
+
 /// What one conversation has been told so far.
 #[derive(Clone, Debug)]
 pub struct Narrator {
+    /// How it tells.
+    style: Style,
     /// Card faces whose full text this conversation carries.
     shown: BTreeSet<(CardIndex, u8)>,
     /// Cards whose text the stable prefix carries: the seat's own deck.
@@ -96,9 +111,17 @@ pub struct Narrator {
 }
 
 impl Narrator {
-    /// A narrator for a seat that brought the deck in `context`.
+    /// A narrator for a seat that brought the deck in `context`, telling
+    /// in the default [`Style`].
     #[must_use]
     pub fn new(context: &GameContext) -> Self {
+        Self::styled(context, Style::default())
+    }
+
+    /// A narrator for a seat that brought the deck in `context`, telling
+    /// in `style`.
+    #[must_use]
+    pub fn styled(context: &GameContext, style: Style) -> Self {
         let deck = context
             .deck
             .main
@@ -107,6 +130,7 @@ impl Narrator {
             .map(|entry| entry.card)
             .collect();
         Self {
+            style,
             shown: BTreeSet::new(),
             deck,
             unread: Vec::new(),
@@ -172,7 +196,7 @@ impl Narrator {
                 text.push_str(&card);
             }
         }
-        let (question, menu) = menu::question(&table, request);
+        let (question, menu) = menu::question(&table, request, self.style);
         text.push('\n');
         text.push_str(&question);
         Wake {
@@ -199,19 +223,30 @@ impl Narrator {
             statics: Some(&statics),
             texts: &|_: CardIndex, _: u8| None,
         };
-        let mut lines: Vec<String> = book
-            .lines(&wording)
-            .into_iter()
-            .map(|line| {
-                let mut text = line.text.clone();
-                // Name spans in reverse, so earlier ranges stay put.
-                for span in line.names.iter().rev() {
-                    if table.visible(span.id) {
-                        text.insert_str(span.range.end, &format!(" {}", tag(span.id)));
-                    }
+        // Lines that read the same once written are told once, counted:
+        // four Treasures that left the battlefield have no handle left to
+        // tell them apart by, and four lines would say nothing a count
+        // does not.
+        let mut folded: Vec<(String, u32)> = Vec::new();
+        for line in book.lines(&wording) {
+            let mut text = line.text.clone();
+            // Name spans in reverse, so earlier ranges stay put.
+            for span in line.names.iter().rev() {
+                if table.visible(span.id) {
+                    text.insert_str(span.range.end, &format!(" {}", tag(span.id)));
                 }
-                if line.times > 1 {
-                    let _ = write!(text, " ({} times)", line.times);
+            }
+            let times = line.times.max(1);
+            match folded.last_mut() {
+                Some((last, n)) if *last == text => *n += times,
+                _ => folded.push((text, times)),
+            }
+        }
+        let mut lines: Vec<String> = folded
+            .into_iter()
+            .map(|(mut text, times)| {
+                if times > 1 {
+                    let _ = write!(text, " ({times} times)");
                 }
                 text.push('.');
                 text
@@ -539,6 +574,16 @@ impl<'a> Table<'a> {
         }
     }
 
+    /// "turn 7, yours" or "turn 7, P2's".
+    fn turn_short(&self) -> String {
+        let whose = if self.view.active == self.me() {
+            "yours".to_string()
+        } else {
+            self.whose(self.view.active)
+        };
+        format!("turn {}, {whose}", self.view.turn)
+    }
+
     /// "turn 7, your turn" or "turn 7, P2's turn".
     fn turn(&self) -> String {
         format!(
@@ -548,17 +593,16 @@ impl<'a> Table<'a> {
         )
     }
 
+    /// `DECISION q12 · turn 7, yours · main1 · 25 s`: the question, the
+    /// turn and whose it is, the step by the name `stops` and `until` use,
+    /// and the seconds the answer has.
     fn header(&self, request: &Request, stops_summary: Option<&str>) -> String {
-        let secs = request.budget.as_secs();
-        let clock = self.view.decision_remaining_ms.map_or_else(
-            || "no table clock".to_string(),
-            |ms| format!("table clock {} s", ms / 1000),
-        );
         let mut text = format!(
-            "DECISION q{} · {} · {} · answer within {secs} s ({clock})",
+            "DECISION q{} · {} · {} · {} s",
             request.question,
-            self.turn(),
-            words::step_name(self.view.phase, self.view.step),
+            self.turn_short(),
+            words::step_id(self.view.phase, self.view.step),
+            request.budget.as_secs(),
         );
         if let Some(stops) = stops_summary {
             text.push_str(" · ");

@@ -370,8 +370,10 @@ fn a_wake_holds_its_token_budget() {
     narrator.hear(&request.log);
     let first = narrator.wake(&request, &[], None);
     let tokens = estimate_tokens(&first.text);
+    // 1,043 on 2026-10-06, with the short header, no empty pools and no
+    // answer line under a schema (`docs/llm-protocol.md` §"Boilerplate").
     assert!(
-        tokens <= 2_000,
+        tokens <= 1_150,
         "a crowded wake costs about {tokens} tokens"
     );
     let again = self::request(
@@ -792,6 +794,93 @@ fn the_log_is_told_once_and_a_gap_is_said() {
     narrator.hear(&later);
     let text = narrator.wake(&request, &[], None).text;
     assert!(text.contains("some earlier lines were lost"), "{text}");
+}
+
+/// Lines that read the same once written are told once, with a count:
+/// four tokens that left the battlefield have no handle left to tell them
+/// apart, and the engine's own log counts only the same object's lines.
+#[test]
+fn identical_log_lines_are_folded_into_one_with_a_count() {
+    let (view, _) = board();
+    let pending = priority(&view);
+    let gone = |slot: u32| LogObject::Known {
+        id: id(slot),
+        card: None,
+        token: None,
+        name: "Treasure".into(),
+    };
+    let log = LogTail {
+        from: 0,
+        entries: (0..4)
+            .map(|n| {
+                line(
+                    7,
+                    LogEvent::Discarded {
+                        player: THEM,
+                        card: gone(300 + n),
+                    },
+                )
+            })
+            .chain(std::iter::once(line(
+                7,
+                LogEvent::Drew {
+                    player: THEM,
+                    cards: vec![LogObject::Hidden],
+                },
+            )))
+            .collect(),
+    };
+    let request = request(view, pending, log.clone());
+    let mut narrator = Narrator::new(&request.context);
+    narrator.hear(&log);
+    let text = narrator.wake(&request, &[], None).text;
+    assert_eq!(text.matches("discarded Treasure").count(), 1, "{text}");
+    assert!(text.contains("P2 discarded Treasure (4 times)."), "{text}");
+    assert!(text.contains("P2 drew 1 card."), "{text}");
+}
+
+/// A model held to a schema or a tool is not told how to pick an option
+/// in every message (its instructions and the schema say it once); one
+/// that answers plain JSON is, with the question's id. A shape the
+/// question itself carries is told to both.
+#[test]
+fn the_answer_line_is_said_only_where_no_schema_holds_the_answer() {
+    let (view, log) = board();
+    let pending = priority(&view);
+    let request = request(view.clone(), pending, log);
+    let terse = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(!terse.text.contains("Answer"), "{}", terse.text);
+    let spelt =
+        Narrator::styled(&request.context, Style { spell_answer: true }).wake(&request, &[], None);
+    assert!(
+        spelt
+            .text
+            .ends_with("Answer: ask=\"q12\", pick=[one option id]\n"),
+        "{}",
+        spelt.text
+    );
+    let blocks = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: ME,
+        attacker: THEM,
+        blockers: vec![BlockOption {
+            blocker: id(31),
+            attackers: vec![id(45)],
+        }],
+        bounds: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+    };
+    let request = self::request(
+        view,
+        blocks,
+        LogTail {
+            from: 9,
+            entries: Vec::new(),
+        },
+    );
+    let terse = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(terse.text.contains("Answer: blocks=["), "{}", terse.text);
 }
 
 #[test]

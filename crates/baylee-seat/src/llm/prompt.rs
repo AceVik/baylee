@@ -24,9 +24,10 @@ dropped then.
 
 HOW TO ANSWER
 Answer every decision with exactly one call of the decide tool, naming the question in ask \
-(for example ask=\"q12\"). The QUESTION says which field to fill: pick (option ids such as a1 or \
-p, object ids such as #45, player ids such as P2), attacks, blocks, number, piles or name. Use \
-only ids the current question lists.
+(for example ask=\"q12\"). Choose from the QUESTION's list with pick (option ids such as a1 or \
+p, object ids such as #45, player ids such as P2); a question that takes another field says so \
+in its Answer line: attacks, blocks, number, piles or name. Use only ids the current question \
+lists.
 An option that says \"(taps ...)\" taps those sources for you and then casts; you never tap lands \
 yourself. When you cast a spell or activate an ability that will ask for targets, you may add \
 then={\"targets\": [ids]} to name them at once; if they are not legal then, you are asked.

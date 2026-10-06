@@ -588,7 +588,11 @@ impl CliMind {
         let mut seats = lock(&self.seats);
         Arc::clone(seats.entry(key).or_insert_with(|| {
             Arc::new(Mutex::new(CliSeat {
-                seat: Seat::new(context, self.settings.transcripts.as_deref()),
+                seat: Seat::new(
+                    context,
+                    self.settings.transcripts.as_deref(),
+                    self.settings.style(),
+                ),
                 session: None,
                 lost: false,
             }))

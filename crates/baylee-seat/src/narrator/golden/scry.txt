@@ -1,7 +1,7 @@
-DECISION q12 · turn 7, your turn · precombat main phase · answer within 25 s (table clock 88 s)
+DECISION q12 · turn 7, yours · main1 · 25 s
 
-You (P1): 17 life · library 45 · hand 4 · graveyard 1 · pool empty
-P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1 · pool empty
+You (P1): 17 life · library 45 · hand 4 · graveyard 1
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1
 
 Your battlefield:
   lands: Forest #21, Forest #22, Mountain #23
@@ -37,4 +37,4 @@ Cards: Forest #70, Lightning Bolt #71
 Piles:
   pile 1: the top of your library (up to 2 cards; list them from the top down)
   pile 2: the bottom of your library (up to 2 cards; list them from the top down)
-Answer with decide: ask="q12", piles=[[ids of pile 1], [ids of pile 2]], every card in exactly one pile
+Answer: piles=[[ids of pile 1], [ids of pile 2]], every card in exactly one pile

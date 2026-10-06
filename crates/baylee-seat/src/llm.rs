@@ -271,6 +271,17 @@ impl Settings {
         }
     }
 
+    /// How its seats' messages are told: the answer's shape spelt out on
+    /// every question only for a model whose answer no schema or tool
+    /// holds (an API's plain JSON mode; a CLI is always handed the
+    /// schema).
+    #[must_use]
+    pub fn style(&self) -> narrator::Style {
+        narrator::Style {
+            spell_answer: self.answer == AnswerMode::Json && self.provider != Provider::Cli,
+        }
+    }
+
     /// The most one call with a request of `bytes` can use: every byte as
     /// an input token at the dearest rate, the provider's own allowance,
     /// and a whole reply of [`Self::max_tokens`].
@@ -869,7 +880,11 @@ impl ApiMind {
         let mut seats = lock(&self.seats);
         Arc::clone(seats.entry(key).or_insert_with(|| {
             Arc::new(Mutex::new(SeatState {
-                seat: Seat::new(context, self.settings.transcripts.as_deref()),
+                seat: Seat::new(
+                    context,
+                    self.settings.transcripts.as_deref(),
+                    self.settings.style(),
+                ),
                 messages: Vec::new(),
                 results: Vec::new(),
             }))

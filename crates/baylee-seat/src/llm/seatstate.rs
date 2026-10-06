@@ -62,7 +62,11 @@ pub(crate) struct Seat {
 impl Seat {
     /// A seat at the start of `context`'s game, writing its transcript as
     /// `<game>-seat<n>-mind.jsonl` in `transcripts`, if that is given.
-    pub(crate) fn new(context: &GameContext, transcripts: Option<&Path>) -> Self {
+    pub(crate) fn new(
+        context: &GameContext,
+        transcripts: Option<&Path>,
+        style: narrator::Style,
+    ) -> Self {
         let transcript = transcripts.map_or_else(Transcript::none, |dir| {
             let path = dir.join(format!(
                 "{}-seat{}-mind.jsonl",
@@ -72,7 +76,7 @@ impl Seat {
             Transcript::file(&path).unwrap_or_else(|_| Transcript::none())
         });
         Self {
-            narrator: Narrator::new(context),
+            narrator: Narrator::styled(context, style),
             turn: 0,
             last_by_model: false,
             plan: None,

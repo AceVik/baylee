@@ -1,7 +1,7 @@
-DECISION q12 · turn 7, your turn · precombat main phase · answer within 25 s (table clock 88 s)
+DECISION q12 · turn 7, yours · main1 · 25 s
 
-You (P1): 17 life · library 45 · hand 4 · graveyard 1 · pool empty
-P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1 · pool empty
+You (P1): 17 life · library 45 · hand 4 · graveyard 1
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1
 
 Your battlefield:
   lands: Forest #21, Forest #22, Mountain #23
@@ -50,4 +50,3 @@ Options:
   a4  Cast Rampant Growth #53 {1}{G} (taps Forest #21, Forest #22)
   a5  Activate Prodigal Sorcerer #31: "{T}: This creature deals 1 damage to any target."
   p   Pass priority (moves on to combat, where you declare attackers)
-Answer with decide: ask="q12", pick=[one option id]. For a spell or ability that will ask for targets you may add then={"targets":[ids]}

@@ -1,7 +1,7 @@
-DECISION q12 · turn 7, P2's turn · declare blockers step · answer within 25 s (table clock 88 s)
+DECISION q12 · turn 7, P2's · blockers · 25 s
 
-You (P1): 17 life · library 45 · hand 4 · graveyard 1 · pool empty
-P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1 · pool empty
+You (P1): 17 life · library 45 · hand 4 · graveyard 1
+P2 (opponent): 14 life · library 44 · hand 3 · graveyard 1
 
 Your battlefield:
   lands: Forest #21, Forest #22, Mountain #23
@@ -38,4 +38,4 @@ Attacking:
   #45 Serra Angel · Creature — Angel · 4/4 · flying, vigilance · attacking you
 Your creatures that can block, and what each may block:
   #31 Prodigal Sorcerer 1/1 can block #45
-Answer with decide: ask="q12", blocks=[{"blocker": id, "attacker": id}, …]; blocks=[] blocks nothing. Each blocker blocks one attacker
+Answer: blocks=[{"blocker": id, "attacker": id}, …]; blocks=[] blocks nothing. Each blocker blocks one attacker

@@ -36,7 +36,11 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         if seat.energy > 0 {
             facts.push(format!("energy {}", seat.energy));
         }
-        facts.push(pool(&seat.mana_pool));
+        // An empty pool, which a pool almost always is at a decision, is
+        // said by saying nothing.
+        if !seat.mana_pool.is_empty() {
+            facts.push(pool(&seat.mana_pool));
+        }
         for commander in &seat.commanders {
             let tax = commander.casts.saturating_mul(2);
             let mut fact = format!(
@@ -74,11 +78,8 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
     }
 }
 
-/// A mana pool: "pool empty", or "pool {R}{R}{G}".
+/// A mana pool that holds something: "pool {R}{R}{G}".
 fn pool(pool: &ManaPoolView) -> String {
-    if pool.is_empty() {
-        return "pool empty".into();
-    }
     let mut out = String::from("pool ");
     for (count, symbol) in [
         (pool.white, "W"),

@@ -7,7 +7,7 @@
 //! question is refused with a reason the model can act on, never mapped to
 //! whatever holds that slot now.
 
-use super::{Table, board, tag, words};
+use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::wake::{Reach, ReachFrom, reachable};
 use baylee_cards_dsl::AbilityDef;
@@ -793,16 +793,18 @@ fn pick_shape(min: usize, max: usize) -> String {
 struct Builder<'t, 'a> {
     table: &'t Table<'a>,
     request: &'t Request,
+    style: Style,
     text: String,
     options: Vec<Choice>,
     ask: Ask,
 }
 
 /// Writes `request`'s question and the menu that reads its answer.
-pub(super) fn question(table: &Table<'_>, request: &Request) -> (String, Menu) {
+pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (String, Menu) {
     let mut q = Builder {
         table,
         request,
+        style,
         text: String::new(),
         options: Vec::new(),
         ask: Ask::Pick,
@@ -861,9 +863,34 @@ impl Builder<'_, '_> {
         }
     }
 
+    /// The shape of the answer, where the question carries one (how many
+    /// ids, which field): said to every model.
     fn answer(&mut self, shape: &str) {
-        let ask = self.request.question;
-        self.line(format!("Answer with decide: ask=\"q{ask}\", {shape}"));
+        if self.style.spell_answer {
+            let ask = self.request.question;
+            self.line(format!("Answer: ask=\"q{ask}\", {shape}"));
+        } else {
+            self.line(format!("Answer: {shape}"));
+        }
+    }
+
+    /// The shape of an answer that picks one of the options listed: said
+    /// only to a model no schema holds ([`Style::spell_answer`]); the
+    /// schema and the instructions say it to the others.
+    fn answer_pick(&mut self, shape: &str) {
+        if self.style.spell_answer {
+            let ask = self.request.question;
+            self.line(format!("Answer: ask=\"q{ask}\", {shape}"));
+        }
+    }
+
+    /// The shape of an answer that picks `min` to `max` ids from a list.
+    fn answer_ids(&mut self, min: usize, max: usize) {
+        if (min, max) == (1, 1) {
+            self.answer_pick(&pick_shape(min, max));
+        } else {
+            self.answer(&pick_shape(min, max));
+        }
     }
 
     #[allow(clippy::too_many_lines)] // one arm per question, and no `_`
@@ -901,7 +928,7 @@ impl Builder<'_, '_> {
                     );
                 }
                 self.list_options();
-                self.answer("pick=[one mana ability id]");
+                self.answer_pick("pick=[one mana ability id]");
             }
             Pending::ChooseDamageSource {
                 choice, options, ..
@@ -928,7 +955,7 @@ impl Builder<'_, '_> {
                     );
                 }
                 self.list_options();
-                self.answer("pick=[one source id]");
+                self.answer_pick("pick=[one source id]");
             }
             Pending::ChooseDamageEffect {
                 choice,
@@ -948,7 +975,7 @@ impl Builder<'_, '_> {
                     );
                 }
                 self.list_options();
-                self.answer("pick=[one damage effect id]");
+                self.answer_pick("pick=[one damage effect id]");
             }
             Pending::AllocatePrevention {
                 effect,
@@ -1075,7 +1102,7 @@ impl Builder<'_, '_> {
                     );
                 }
                 self.list_options();
-                self.answer("pick=[one player id]");
+                self.answer_pick("pick=[one player id]");
             }
             Pending::Arrange {
                 cards,
@@ -1102,7 +1129,7 @@ impl Builder<'_, '_> {
                     );
                 }
                 self.list_options();
-                self.answer("pick=[one pile id]");
+                self.answer_pick("pick=[one pile id]");
             }
             Pending::ChooseAttackers {
                 attackers,
@@ -1274,10 +1301,7 @@ impl Builder<'_, '_> {
         }
         self.line("Options:");
         self.list_options();
-        self.answer(
-            "pick=[one option id]. For a spell or ability that will ask for targets you may add \
-             then={\"targets\":[ids]}",
-        );
+        self.answer_pick("pick=[one option id]");
     }
 
     /// A variable payment has no fixed plan: every legal mana ability is usable.
@@ -1478,7 +1502,7 @@ impl Builder<'_, '_> {
         }
         self.line("Options:");
         self.list_options();
-        self.answer("pick=[one option id]");
+        self.answer_pick("pick=[one option id]");
     }
 
     /// A choice of `count` cards from the hand.
@@ -1500,7 +1524,7 @@ impl Builder<'_, '_> {
             min: count,
             max: count,
         };
-        self.answer(&pick_shape(count, count));
+        self.answer_ids(count, count);
     }
 
     fn objects(&mut self, options: &[ObjectId], min: usize, max: usize) {
@@ -1531,7 +1555,7 @@ impl Builder<'_, '_> {
             min,
             max,
         };
-        self.answer(&pick_shape(min, max));
+        self.answer_ids(min, max);
     }
 
     fn card_total(&mut self, total: &CardTotal) {
@@ -1663,7 +1687,7 @@ impl Builder<'_, '_> {
             min,
             max,
         };
-        self.answer(&pick_shape(min, max));
+        self.answer_ids(min, max);
     }
 
     fn subtype(&mut self, options: &[SubtypeId]) {
@@ -1708,7 +1732,7 @@ impl Builder<'_, '_> {
         }
         self.line("Options:");
         self.list_options();
-        self.answer("pick=[one option id]");
+        self.answer_pick("pick=[one option id]");
     }
 
     fn yes_no(&mut self, prompt: &YesNoPrompt, source: Option<AbilityRef>) {
@@ -1746,7 +1770,7 @@ impl Builder<'_, '_> {
         self.options.last_mut().expect("just pushed").alias = Some("no".into());
         self.line("Options:");
         self.list_options();
-        self.answer("pick=[one option id]");
+        self.answer_pick("pick=[one option id]");
     }
 }
 
@@ -1888,7 +1912,7 @@ impl Builder<'_, '_> {
         }
         self.line("Options:");
         self.list_options();
-        self.answer("pick=[one option id]");
+        self.answer_pick("pick=[one option id]");
     }
 
     fn number(&mut self, min: u32, max: u32, reason: &NumberPrompt) {

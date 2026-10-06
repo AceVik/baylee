@@ -34,6 +34,27 @@ pub const fn step_name(phase: Phase, step: Step) -> &'static str {
     }
 }
 
+/// A step or phase by the short name a model writes in `stops` and
+/// `until` (`main1`, `attackers`, `end_step`): the header says the step
+/// in the words the model answers with.
+#[must_use]
+pub const fn step_id(phase: Phase, step: Step) -> &'static str {
+    match (phase, step) {
+        (_, Step::Untap) => "untap",
+        (_, Step::Upkeep) => "upkeep",
+        (_, Step::Draw) => "draw",
+        (Phase::SecondMain, _) => "main2",
+        (_, Step::Main) => "main1",
+        (_, Step::CombatBegin) => "combat_begin",
+        (_, Step::DeclareAttackers) => "attackers",
+        (_, Step::DeclareBlockers) => "blockers",
+        (_, Step::CombatDamageFirst | Step::CombatDamage) => "damage",
+        (_, Step::CombatEnd) => "combat_end",
+        (_, Step::End) => "end_step",
+        (_, Step::Cleanup) => "cleanup",
+    }
+}
+
 /// Every keyword the engine keeps as a bit, by its English name.
 ///
 /// A positive list, so `every_keyword_a_card_prints_has_a_name` holds it
