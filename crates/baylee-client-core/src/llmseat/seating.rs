@@ -526,11 +526,17 @@ pub enum Preset {
     ClaudeCode,
     /// Gemini CLI (Antigravity), on its own login.
     Agy,
+    /// The Codex CLI, on its own login.
+    Codex,
+    /// opencode, on its own providers' logins.
+    Opencode,
+    /// The Junie CLI, on its own login.
+    Junie,
 }
 
 impl Preset {
     /// Every one, in the order offered.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 10] = [
         Self::Anthropic,
         Self::OpenAi,
         Self::DeepSeek,
@@ -538,6 +544,9 @@ impl Preset {
         Self::LmStudio,
         Self::ClaudeCode,
         Self::Agy,
+        Self::Codex,
+        Self::Opencode,
+        Self::Junie,
     ];
 
     /// What a player reads: whose address, and which protocol.
@@ -551,6 +560,9 @@ impl Preset {
             Self::LmStudio => "LM Studio (this machine)",
             Self::ClaudeCode => "Claude Code",
             Self::Agy => "Antigravity (agy)",
+            Self::Codex => "Codex",
+            Self::Opencode => "opencode",
+            Self::Junie => "Junie",
         }
     }
 
@@ -565,6 +577,9 @@ impl Preset {
             Self::LmStudio => "lmstudio",
             Self::ClaudeCode => "claude-code",
             Self::Agy => "agy",
+            Self::Codex => "codex",
+            Self::Opencode => "opencode",
+            Self::Junie => "junie",
         }
     }
 
@@ -604,6 +619,9 @@ impl Preset {
             },
             Self::ClaudeCode => Profile::new(Provider::Cli, "claude:opus"),
             Self::Agy => Profile::new(Provider::Cli, CliTool::Agy.name()),
+            Self::Codex => Profile::new(Provider::Cli, CliTool::Codex.name()),
+            Self::Opencode => Profile::new(Provider::Cli, CliTool::Opencode.name()),
+            Self::Junie => Profile::new(Provider::Cli, CliTool::Junie.name()),
         }
     }
 

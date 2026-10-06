@@ -192,9 +192,11 @@ carry. Models are listed only where no key leaves the machine:
   the key are keyed by host, whichever protocol reaches it
   (`models::HOSTED`: `api.anthropic.com`, `api.deepseek.com`); Anthropic's
   table also serves an Anthropic-protocol address the build does not know
-  (a proxy). The agent CLIs' models are their own aliases, read through
-  one function (`models::cli_models`). A snapshot of the providers'
-  documentation, which stays the authority.
+  (a proxy). An agent CLI's models and efforts are its dialect's table
+  (`llmseat::clis::choices`, [below](#a-cli-as-the-model)), offered as
+  `<tool>:<model>` and the bare tool last, which plays the tool's own
+  default, each at the levels the tool's effort flag takes. A snapshot of
+  the providers' documentation, which stays the authority.
 - **Listed**: an OpenAI-compatible server on this machine (LM Studio, a
   llama.cpp server) is asked `GET {base}/models` without a key. Only a
   loopback address is asked.
@@ -477,8 +479,8 @@ one line. `llmseat::panel::SeatPanel` decides and is tested in client-core,
   (`https://api.deepseek.com/v1`, JSON answers) and DeepSeek over its
   Anthropic address (`https://api.deepseek.com/anthropic`), both
   `DEEPSEEK_API_KEY`, LM Studio on this machine (`http://127.0.0.1:1234/v1`,
-  no key, its loaded models listed), Claude Code and Antigravity
-  (`llmseat::seating::Preset`).
+  no key, its loaded models listed), and the CLIs: Claude Code,
+  Antigravity, Codex, opencode and Junie (`llmseat::seating::Preset`).
 - **The key box.** Under the address of a profile that needs a key: what
   the credential store keeps for that variable and host (*a key is kept*,
   *none kept*, or why there is no store), a box that draws what is typed

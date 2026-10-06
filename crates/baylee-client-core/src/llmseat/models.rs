@@ -23,7 +23,7 @@
 //! default, and the chair says so rather than offering a word the model
 //! might refuse. Pure data, for every target.
 
-use super::{CliTool, DEFAULT_AGY_MODEL, Provider, is_loopback, model_fault};
+use super::{CliTool, Provider, is_loopback, model_fault};
 
 /// The efforts Claude's current models take: Fable 5 and 5.1, Opus 5.5, 5,
 /// 4.8 and 4.7, Sonnet 5.5 and 5 (Anthropic's model and Claude Code's
@@ -134,63 +134,6 @@ const DEEPSEEK: &[KnownModel] = &[
     model("deepseek-v4-pro", "DeepSeek V4 Pro", NONE, None),
 ];
 
-/// Claude Code's own model aliases, on the login it is signed in to.
-/// Against Anthropic's API, `opus` is Opus 5.5 and `sonnet` Sonnet 5.5 (on a
-/// cloud provider an alias may be an older model); Claude Code plays both at
-/// `medium` unless told. `haiku` takes no effort, and the bare tool plays
-/// the account's default model, whose efforts are not known here.
-const CLAUDE_CODE: &[KnownModel] = &[
-    model(
-        "claude:opus",
-        "Opus (Claude Code)",
-        CLAUDE_EFFORTS,
-        Some("medium"),
-    ),
-    model(
-        "claude:sonnet",
-        "Sonnet (Claude Code)",
-        CLAUDE_EFFORTS,
-        Some("medium"),
-    ),
-    model(
-        "claude:fable",
-        "Fable (Claude Code)",
-        CLAUDE_EFFORTS,
-        Some("high"),
-    ),
-    model("claude:haiku", "Haiku (Claude Code)", NONE, None),
-    model("claude", "Claude Code's default model", NONE, None),
-];
-
-/// The Gemini models this repository has played through `agy`; the thinking
-/// level is part of the id (`-high`), so no effort is offered beside it.
-const AGY: &[KnownModel] = &[
-    model(
-        "agy:gemini-3.8-flash-high",
-        "Gemini 3.8 Flash, high (agy)",
-        NONE,
-        None,
-    ),
-    model(
-        "agy:gemini-3.7-flash-high",
-        "Gemini 3.7 Flash, high (agy)",
-        NONE,
-        None,
-    ),
-    model(
-        "agy:gemini-3.1-pro-high",
-        "Gemini 3.1 Pro, high (agy)",
-        NONE,
-        None,
-    ),
-    model(
-        "agy",
-        "Gemini 3.8 Flash, high (agy's default here)",
-        NONE,
-        None,
-    ),
-];
-
 /// The hosted APIs this build knows the models of, by host: whichever wire
 /// protocol a profile speaks there (`DeepSeek` answers both, at
 /// `/v1` and at `/anthropic`), the host's models are the ones it serves.
@@ -199,14 +142,48 @@ pub const HOSTED: &[(&str, &[KnownModel])] = &[
     ("api.deepseek.com", DEEPSEEK),
 ];
 
-/// The models this build knows of an agent CLI, in the order offered: the
-/// one place a CLI's models are read from.
+/// What a player reads for an agent CLI.
 #[must_use]
-pub const fn cli_models(tool: CliTool) -> &'static [KnownModel] {
+pub const fn tool_label(tool: CliTool) -> &'static str {
     match tool {
-        CliTool::Claude => CLAUDE_CODE,
-        CliTool::Agy => AGY,
+        CliTool::Claude => "Claude Code",
+        CliTool::Agy => "agy",
+        CliTool::Codex => "Codex",
+        CliTool::Opencode => "opencode",
+        CliTool::Junie => "Junie",
     }
+}
+
+/// The models a chair offers for an agent CLI, in order: each one the
+/// tool's table names ([`super::clis::choices`], the one place a CLI's
+/// models and efforts are read from), then the bare tool, which plays the
+/// tool's own default. Each takes the efforts the tool's effort flag takes.
+#[must_use]
+pub fn cli_models(tool: CliTool) -> Vec<Resolved> {
+    let choices = super::clis::choices(tool);
+    let label = tool_label(tool);
+    let mut out: Vec<Resolved> = choices
+        .models
+        .iter()
+        .map(|model| Resolved {
+            id: format!("{}:{model}", tool.name()),
+            label: format!("{model} ({label})"),
+            efforts: choices.efforts,
+            default_effort: None,
+            source: Source::Known,
+        })
+        .collect();
+    out.push(Resolved {
+        id: tool.name().to_string(),
+        label: choices.default_model.map_or_else(
+            || format!("{label}'s default model"),
+            |model| format!("{model} ({label}'s default)"),
+        ),
+        efforts: choices.efforts,
+        default_effort: None,
+        source: Source::Known,
+    });
+    out
 }
 
 /// Whom a profile plays through: what [`known`] and [`resolve`] look up.
@@ -261,14 +238,14 @@ fn host(base: &str) -> &str {
         .map_or(host, |(h, _)| h)
 }
 
-/// The models this build knows at `endpoint`, in the order offered: a
-/// CLI's ([`cli_models`]); an API's by its host ([`HOSTED`]), and
-/// Anthropic's at any other address that speaks its protocol (a proxy
-/// serves the same ids).
+/// The models this build knows of an API at `endpoint`, in the order
+/// offered: by its host ([`HOSTED`]), and Anthropic's at any other address
+/// that speaks its protocol (a proxy serves the same ids). A CLI's are
+/// [`cli_models`].
 #[must_use]
 pub fn known(endpoint: Endpoint<'_>) -> &'static [KnownModel] {
     if endpoint.provider == Provider::Cli {
-        return endpoint.tool.map_or(NONE_MODELS, cli_models);
+        return NONE_MODELS;
     }
     let at = endpoint.base.map(host);
     HOSTED
@@ -282,27 +259,26 @@ pub fn known(endpoint: Endpoint<'_>) -> &'static [KnownModel] {
 /// No model.
 const NONE_MODELS: &[KnownModel] = &[];
 
-/// The known model `id` at `endpoint`; for a CLI, the table of the tool its
-/// id names, and a tool's full model id read as Anthropic's
+/// The known model `id` at `endpoint`; for a CLI, among the models of the
+/// tool its id names, and a Claude Code full model id read as Anthropic's
 /// (`claude:claude-opus-5-5`).
-fn find(endpoint: Endpoint<'_>, id: &str) -> Option<KnownModel> {
+fn find(endpoint: Endpoint<'_>, id: &str) -> Option<Resolved> {
     if endpoint.provider == Provider::Cli {
         let tool = id.split(':').next().and_then(CliTool::named)?;
-        let table = cli_models(tool);
-        if let Some(found) = table.iter().find(|m| m.id == id) {
-            return Some(*found);
-        }
-        if tool == CliTool::Agy && id == format!("agy:{DEFAULT_AGY_MODEL}") {
-            return table.first().copied();
+        if let Some(found) = cli_models(tool).into_iter().find(|m| m.id == id) {
+            return Some(found);
         }
         let own = id.split_once(':').map(|(_, own)| own)?;
         return ANTHROPIC
             .iter()
             .find(|m| m.id == own)
             .filter(|_| tool == CliTool::Claude)
-            .copied();
+            .map(|m| Resolved::from(*m));
     }
-    known(endpoint).iter().find(|m| m.id == id).copied()
+    known(endpoint)
+        .iter()
+        .find(|m| m.id == id)
+        .map(|m| Resolved::from(*m))
 }
 
 /// Where a resolved model's label comes from.
@@ -369,7 +345,7 @@ impl From<KnownModel> for Resolved {
 #[must_use]
 pub fn resolve(endpoint: Endpoint<'_>, model: &str, listed: &[String]) -> Resolved {
     if let Some(known) = find(endpoint, model) {
-        return known.into();
+        return known;
     }
     let source = if listed.iter().any(|id| id == model) {
         Source::Listed
@@ -389,7 +365,11 @@ pub fn resolve(endpoint: Endpoint<'_>, model: &str, listed: &[String]) -> Resolv
 /// what the server on this machine `listed` that is not among them.
 #[must_use]
 pub fn offered(endpoint: Endpoint<'_>, listed: &[String]) -> Vec<Resolved> {
-    let mut out: Vec<Resolved> = known(endpoint).iter().copied().map(Into::into).collect();
+    let mut out: Vec<Resolved> = if endpoint.provider == Provider::Cli {
+        endpoint.tool.map(cli_models).unwrap_or_default()
+    } else {
+        known(endpoint).iter().copied().map(Into::into).collect()
+    };
     if endpoint.on_this_machine() {
         for id in listed {
             if !out.iter().any(|m| m.id == *id) {
@@ -456,11 +436,7 @@ mod tests {
         assert_eq!(opus.caption(), "Claude Opus 5.5 · claude-opus-5-5");
         assert_eq!(opus.source, Source::Known);
         // Every id is one the file and the bridge take, and once only.
-        let tables = HOSTED
-            .iter()
-            .map(|(_, table)| *table)
-            .chain(CliTool::ALL.map(cli_models));
-        for table in tables {
+        for table in HOSTED.iter().map(|(_, table)| *table) {
             for (at, m) in table.iter().enumerate() {
                 let own = m.id.split_once(':').map_or(m.id, |(_, own)| own);
                 assert!(model_fault(own).is_none(), "{}", m.id);
@@ -476,12 +452,22 @@ mod tests {
                 );
             }
         }
-        // A CLI model's tool is one this build speaks, and its own.
+        // A CLI model's tool is one this build speaks, and its own; each
+        // id once, each effort the tool's own (`clis::choices`).
         for tool in CliTool::ALL {
-            for m in cli_models(tool) {
-                let named = super::super::cli_model(m.id).map(|(t, _)| t);
+            let models = cli_models(tool);
+            for (at, m) in models.iter().enumerate() {
+                let named = super::super::cli_model(&m.id).map(|(t, _)| t);
                 assert_eq!(named, Ok(tool), "{}", m.id);
+                assert!(!models[..at].iter().any(|o| o.id == m.id), "{} twice", m.id);
+                assert_eq!(m.efforts, super::super::clis::choices(tool).efforts);
+                assert_eq!(m.source, Source::Known);
             }
+            assert_eq!(
+                models.last().map(|m| m.id.as_str()),
+                Some(tool.name()),
+                "the bare tool, its own default, comes last"
+            );
         }
     }
 
@@ -524,17 +510,26 @@ mod tests {
         let full = resolve(cli, "claude:claude-sonnet-4-6", &[]);
         assert_eq!(full.label, "Claude Sonnet 4.6");
         assert!(!full.takes("xhigh"));
-        // agy's bare tool is its default model, with no effort beside it.
+        // agy's bare tool is its default model; its effort flag's levels
+        // stand beside each model.
         let agy = Endpoint::cli("agy");
         assert_eq!(resolve(agy, "agy", &[]).source, Source::Known);
-        assert!(
-            resolve(agy, "agy:gemini-3.8-flash-high", &[])
-                .efforts
-                .is_empty()
-        );
+        assert!(resolve(agy, "agy:gemini-3.8-flash-high", &[]).takes("high"));
         // A CLI profile is offered its own tool's models only.
         assert!(offered(cli, &[]).iter().all(|m| m.id.starts_with("claude")));
         assert!(offered(agy, &[]).iter().all(|m| m.id.starts_with("agy")));
+        // The newer dialects come from the same table: Codex its models and
+        // `ultra`, opencode only its own default (its ids are the player's
+        // providers'), each at the tool's efforts.
+        let codex = offered(Endpoint::cli("codex"), &[]);
+        assert!(codex.iter().any(|m| m.id == "codex:gpt-6-astra"));
+        assert!(codex.iter().all(|m| m.takes("ultra")));
+        let opencode = offered(Endpoint::cli("opencode"), &[]);
+        assert_eq!(
+            opencode.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            ["opencode"]
+        );
+        assert!(resolve(Endpoint::cli("junie"), "junie:opus", &[]).takes("high"));
         // Unknown: labelled with itself, no effort offered.
         let typed = resolve(anthropic(), "claude-next-9", &[]);
         assert_eq!(typed.label, "claude-next-9");
