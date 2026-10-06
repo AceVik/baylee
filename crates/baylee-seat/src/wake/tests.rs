@@ -442,6 +442,18 @@ fn react_targets_me_passes_a_spell_aimed_elsewhere_and_wakes_at_one_aimed_at_me(
         filter.clone().judge(&view, &priority(legal.clone()), &[]),
         Verdict::Wake(Why::OpposingStack)
     );
+    // At this seat's commander, wherever it is and whoever controls it.
+    view.seats[0].commanders = vec![baylee_view::CommanderView {
+        object: o(80),
+        card: None,
+        name: "Atraxa".into(),
+        casts: 1,
+    }];
+    aimed(&mut view, at(80));
+    assert_eq!(
+        filter.clone().judge(&view, &priority(legal.clone()), &[]),
+        Verdict::Wake(Why::OpposingStack)
+    );
     // At this seat itself; the wake ends the `until`, and says how.
     aimed(&mut view, TargetRef::Player(ME));
     assert_eq!(
