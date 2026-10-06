@@ -34,6 +34,16 @@
 //! `--input-format` first, no `-p`), it says its `init` and its answers in
 //! agy's shape; only `answer` steps.
 //!
+//! Started as a tool that answers one message a process is (`codex exec`,
+//! `opencode run`, Junie's `--input-format=json` first), it reads its
+//! stdin to its end as the one message, logs it (`prompt`) and the files
+//! in its session's `support` directory (`support`, beside its `TMPDIR`),
+//! answers the next step in that tool's shape and exits: `answer`, `text`,
+//! `tool` (the model uses a tool, then answers), `rate_limit`, `fail` and
+//! `exit`. Each one's login check answers as its tool's does (`login
+//! status` on stderr, `auth list`, `--version`), signed in unless
+//! `logged_in` is false.
+//!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
 //! directory, how many entries that holds and, on Unix, its and its
@@ -47,12 +57,43 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// A tool that answers one message a process.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OneShot {
+    Codex,
+    Opencode,
+    Junie,
+}
+
+/// The one-shot tool `args` start, and the one whose login check they are.
+fn one_shot_of(args: &[String]) -> (Option<OneShot>, Option<OneShot>) {
+    let one_shot = match args.get(1).map(String::as_str) {
+        Some("exec") => Some(OneShot::Codex),
+        Some("run") => Some(OneShot::Opencode),
+        Some("--input-format=json") => Some(OneShot::Junie),
+        _ => None,
+    };
+    let probe = match args.get(1..) {
+        Some([a, b]) if a == "login" && b == "status" => Some(OneShot::Codex),
+        Some([a, b]) if a == "auth" && b == "list" => Some(OneShot::Opencode),
+        Some([a]) if a == "--version" => Some(OneShot::Junie),
+        _ => None,
+    };
+    (one_shot, probe)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let auth = args.get(1..) == Some(&["auth".into(), "status".into(), "--json".into()][..]);
     // Claude Code is started with `-p`, agy with its `--input-format`.
     let agy = args.get(1).map(String::as_str) == Some("--input-format");
-    if !auth && !agy && args.get(1).map(String::as_str) != Some("-p") {
+    let (one_shot, probe) = one_shot_of(&args);
+    if !auth
+        && !agy
+        && one_shot.is_none()
+        && probe.is_none()
+        && args.get(1).map(String::as_str) != Some("-p")
+    {
         // Run as a test binary (`--all-targets`, nextest's listing): it has
         // no tests, and touches nothing.
         return;
@@ -88,6 +129,18 @@ fn main() {
             .unwrap_or(true);
         say(&json!({"loggedIn": logged_in, "authMethod": "fake"}));
         std::process::exit(i32::from(!logged_in));
+    }
+    let logged_in = config
+        .get("logged_in")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    if let Some(tool) = probe {
+        answer_probe(tool, logged_in);
+        return;
+    }
+    if let Some(tool) = one_shot {
+        answer_once(tool, &home, &config, &log, pid);
+        return;
     }
     let mut init = init(&config, pid).map(|line| if agy { agy_init(&line) } else { line });
     let cumulative = config
@@ -197,6 +250,194 @@ impl Usage {
                "cache_creation_input_tokens": self.cache_write,
                "cache_read_input_tokens": self.cache_read})
     }
+}
+
+/// A login check, as each one-shot tool answers it.
+fn answer_probe(tool: OneShot, logged_in: bool) {
+    match (tool, logged_in) {
+        (OneShot::Codex, true) => eprintln!("Logged in using ChatGPT"),
+        (OneShot::Codex, false) => {
+            eprintln!("Not logged in");
+            std::process::exit(1);
+        }
+        (OneShot::Opencode, true) => {
+            println!(
+                "Credentials ~/.local/share/opencode/auth.json\n  Anthropic oauth\n1 credentials"
+            );
+        }
+        (OneShot::Opencode, false) => println!("0 credentials"),
+        (OneShot::Junie, _) => println!("Junie version: 26.9.22 (fake)"),
+    }
+}
+
+/// Reads stdin to its end as the one message, answers it as `tool` does
+/// with the next step, and exits.
+fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32) {
+    let support = std::env::var_os("TMPDIR")
+        .map(PathBuf::from)
+        .and_then(|tmp| tmp.parent().map(|root| root.join("support")));
+    let mut files: Vec<String> = support
+        .as_deref()
+        .and_then(|dir| std::fs::read_dir(dir).ok())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    files.sort();
+    dump(log, &json!({"pid": pid, "support": files}));
+    let mut prompt = String::new();
+    let _ = std::io::Read::read_to_string(&mut std::io::stdin().lock(), &mut prompt);
+    dump(log, &json!({"pid": pid, "prompt": prompt}));
+    dump(log, &json!({"pid": pid, "eof": true}));
+    let Some(step) = next_step(home, config) else {
+        eprintln!("fake: the script ended");
+        std::process::exit(0);
+    };
+    if let Some(ms) = step.get("delay_ms").and_then(Value::as_u64) {
+        std::thread::sleep(Duration::from_millis(ms));
+    }
+    let kind = step.get("kind").and_then(Value::as_str).unwrap_or("answer");
+    if kind == "exit" {
+        let code = step.get("code").and_then(Value::as_i64).unwrap_or(1);
+        dump(log, &json!({"pid": pid, "exit": code}));
+        eprintln!("fake: exiting with {code}");
+        std::process::exit(i32::try_from(code).unwrap_or(1));
+    }
+    let usage = usage_of(&step);
+    let answer = match kind {
+        "text" => step
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        _ => step
+            .get("answer")
+            .cloned()
+            .unwrap_or(Value::Null)
+            .to_string(),
+    };
+    match tool {
+        OneShot::Codex => play_codex(kind, &answer, &usage),
+        OneShot::Opencode => play_opencode(kind, &answer, &usage),
+        OneShot::Junie => play_junie(kind, &answer, &usage),
+    }
+    if matches!(kind, "rate_limit" | "fail") {
+        std::process::exit(1);
+    }
+}
+
+/// One message answered as `codex exec --json` does.
+fn play_codex(kind: &str, answer: &str, usage: &Usage) {
+    say(&json!({"type": "thread.started", "thread_id": "0199a213-fake"}));
+    say(&json!({"type": "turn.started"}));
+    match kind {
+        "rate_limit" => {
+            say(&json!({"type": "error", "message": "Reconnecting... 1/5"}));
+            say(&json!({"type": "turn.failed", "error": {"message":
+                "You've hit your usage limit. Try again at 3:04 PM."}}));
+            return;
+        }
+        "fail" => {
+            say(&json!({"type": "turn.failed", "error": {"message": "the fake failed"}}));
+            return;
+        }
+        "tool" => say(&json!({"type": "item.started", "item": {"id": "item_1",
+            "type": "command_execution", "command": "bash -lc ls", "status": "in_progress"}})),
+        _ => {}
+    }
+    say(
+        &json!({"type": "item.completed", "item": {"id": "item_0", "type": "reasoning",
+        "text": "thinking"}}),
+    );
+    say(
+        &json!({"type": "item.completed", "item": {"id": "item_3", "type": "agent_message",
+        "text": answer}}),
+    );
+    say(&json!({"type": "turn.completed", "usage": {
+        "input_tokens": usage.input + usage.cache_read, "cached_input_tokens": usage.cache_read,
+        "output_tokens": usage.output, "reasoning_output_tokens": 0}}));
+}
+
+/// One message answered as `opencode run --format json` does.
+fn play_opencode(kind: &str, answer: &str, usage: &Usage) {
+    let line = |kind: &str, body: Value| {
+        let mut line = json!({"type": kind, "timestamp": 1, "sessionID": "ses_fake"});
+        line.as_object_mut()
+            .expect("an object")
+            .extend(body.as_object().expect("an object").clone());
+        say(&line);
+    };
+    match kind {
+        "rate_limit" => {
+            line(
+                "error",
+                json!({"error": {"name": "APIError", "data": {
+                "message": "Too Many Requests", "statusCode": 429, "isRetryable": true}}}),
+            );
+            return;
+        }
+        "fail" => {
+            line(
+                "error",
+                json!({"error": {"name": "UnknownError", "data": {
+                "message": "the fake failed"}}}),
+            );
+            return;
+        }
+        _ => {}
+    }
+    line(
+        "step_start",
+        json!({"part": {"id": "prt_1", "type": "step-start"}}),
+    );
+    if kind == "tool" {
+        line(
+            "tool_use",
+            json!({"part": {"type": "tool", "callID": "c1", "tool": "bash",
+            "state": {"status": "completed", "output": ""}}}),
+        );
+    }
+    line(
+        "text",
+        json!({"part": {"type": "text", "text": answer,
+        "time": {"start": 1, "end": 2}}}),
+    );
+    line(
+        "step_finish",
+        json!({"part": {"type": "step-finish", "reason": "stop", "cost": 0,
+        "tokens": {"input": usage.input, "output": usage.output, "reasoning": 0,
+                   "cache": {"read": usage.cache_read, "write": usage.cache_write}}}}),
+    );
+}
+
+/// One task answered as Junie's `json-stream` does, its banner first.
+fn play_junie(kind: &str, answer: &str, usage: &Usage) {
+    println!("Junie fake banner");
+    say(&json!({"type": "session", "timestamp": 1, "sessionId": "session-fake"}));
+    let errors = match kind {
+        "rate_limit" => {
+            vec!["Junie: Insufficient Account Balance. All tokens on your balance are spent."]
+        }
+        "fail" => vec!["the fake failed"],
+        _ => Vec::new(),
+    };
+    if kind == "tool" {
+        say(
+            &json!({"type": "step", "timestamp": 2, "name": "Opened file",
+            "details": "ping.txt"}),
+        );
+    }
+    if errors.is_empty() {
+        say(&json!({"type": "step", "timestamp": 3, "name": "TASK RESULT", "details": answer}));
+    }
+    say(
+        &json!({"type": "result", "timestamp": 4, "result": if errors.is_empty() { answer } else { "" },
+        "errors": errors, "changes": [],
+        "errorCode": [{"model": "fake", "calls": 1, "cost": 0.0,
+            "inputTokens": usage.input, "cacheInputTokens": usage.cache_read,
+            "cacheCreateTokens": usage.cache_write, "outputTokens": usage.output}]}),
+    );
 }
 
 /// Claude Code's `init` line as agy says it.

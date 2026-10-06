@@ -1332,3 +1332,240 @@ async fn an_opposing_spell_mid_plan_stops_it_and_the_model_is_told_why() {
     );
     assert!(told.contains("this question is yours."), "{told}");
 }
+
+// ---------------------------------------------------------------------
+// Tools that answer one message a process: codex, opencode, junie
+// ---------------------------------------------------------------------
+
+/// A one-shot tool's profile, playing the fake.
+fn one_shot(model: &str) -> Value {
+    json!({"provider": "cli", "model": model, "command": fake(), "effort": "low"})
+}
+
+impl Rig {
+    /// The whole message each one-shot process read, by pid, in order.
+    fn prompts(&self) -> Vec<(u64, String)> {
+        self.log()
+            .into_iter()
+            .filter_map(|line| {
+                let text = line.get("prompt")?.as_str()?.to_string();
+                Some((line["pid"].as_u64()?, text))
+            })
+            .collect()
+    }
+
+    /// The files in each process's support directory, by pid.
+    fn support(&self) -> Vec<(u64, Vec<String>)> {
+        self.log()
+            .into_iter()
+            .filter_map(|line| {
+                let files = line.get("support")?.as_array()?;
+                let files = files
+                    .iter()
+                    .filter_map(|f| f.as_str().map(str::to_string))
+                    .collect();
+                Some((line["pid"].as_u64()?, files))
+            })
+            .collect()
+    }
+}
+
+/// Each question to a tool that answers one message a process is a
+/// process of its own: started with the tool's locked-down arguments in
+/// an empty working directory, its own files beside it (never in it),
+/// the whole message on stdin and then its end, the prefix every time,
+/// and each booked by what it counted. A process done with is no loss.
+#[tokio::test]
+async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    for (tool, first, files) in [
+        ("codex", "exec", vec!["instructions.md", "schema.json"]),
+        ("opencode", "run", vec!["opencode.json"]),
+        ("junie", "--input-format=json", vec!["guidelines.md"]),
+    ] {
+        let rig = Rig::new(
+            &format!("oneshot-{tool}"),
+            one_shot(tool),
+            &json!({"steps": [pass(1, "plan A"), pass(2, "")]}),
+        );
+        let mind = rig.mind(Limits::default());
+        for (question, at) in [(1, turn), (2, turn + 1)] {
+            let answer = mind.decide(ask(&base, question, at, 20)).await;
+            assert_eq!(answer.unwrap().action, PlayerAction::PassPriority, "{tool}");
+        }
+        let starts = rig.starts();
+        assert_eq!(starts.len(), 2, "{tool}: a process a question");
+        for start in &starts {
+            assert_eq!(start["argv"][1], first, "{tool}");
+            assert_eq!(
+                start["cwd_entries"], 0,
+                "{tool}: the working directory is empty"
+            );
+            #[cfg(unix)]
+            assert_eq!(start["cwd_mode"], "700", "{tool}");
+            let env = start["env"].to_string();
+            for secret in [
+                "sk-ant",
+                "sk-TEST",
+                "ghp_",
+                "TESTTEST",
+                "ssh-agent",
+                "postgres",
+            ] {
+                assert!(!env.contains(secret), "{tool}: {secret} reached the CLI");
+            }
+            let pid = start["pid"].as_u64().unwrap();
+            assert!(
+                rig.ended(pid),
+                "{tool}: its stdin was closed after the message"
+            );
+        }
+        let support = rig.support();
+        assert_eq!(support.len(), 2, "{tool}");
+        for (_, written) in &support {
+            assert_eq!(written, &files, "{tool}: its own files, beside its work");
+        }
+        let prompts = rig.prompts();
+        assert_eq!(prompts.len(), 2, "{tool}");
+        for (_, prompt) in &prompts {
+            let text = if tool == "junie" {
+                serde_json::from_str::<Value>(prompt).unwrap()["task"]
+                    .as_str()
+                    .unwrap()
+                    .to_string()
+            } else {
+                prompt.clone()
+            };
+            assert!(
+                text.contains("THE GAME"),
+                "{tool}: the prefix every time: {text}"
+            );
+            assert!(!text.contains("conversation was lost"), "{tool}: {text}");
+        }
+        let second = &prompts[1].1;
+        assert!(
+            second.contains("plan A"),
+            "{tool}: what the model noted travels with the next question"
+        );
+        let tally = spent(&mind.tally());
+        assert_eq!((tally.calls, tally.failed), (2, 0), "{tool}");
+        assert_eq!(
+            tally.usage.total(),
+            2 * 1120,
+            "{tool}: the tool's own count"
+        );
+        assert_eq!((tally.sessions, tally.restarts), (2, 0), "{tool}: no loss");
+        assert!(mind.ready().await, "{tool}: its login check passes");
+    }
+}
+
+/// A one-shot tool's model that uses a tool breaks the lockdown, whatever
+/// it answers after: the mind is off the table for good.
+#[tokio::test]
+async fn a_tool_used_by_a_one_shot_cli_takes_the_mind_off_the_table() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    for tool in ["codex", "opencode", "junie"] {
+        let mut step = pass(1, "");
+        step["kind"] = json!("tool");
+        let rig = Rig::new(
+            &format!("breach-{tool}"),
+            one_shot(tool),
+            &json!({"steps": [step, pass(2, "")]}),
+        );
+        let mind = rig.mind(Limits::default());
+        let refused = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+        assert!(
+            matches!(&refused, MindError::Unavailable(why)
+                if why.contains("the seat does not play through it")),
+            "{tool}: {refused:?}"
+        );
+        let again = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
+        assert_eq!(again, refused, "{tool}: for good");
+        assert_eq!(rig.prompts().len(), 1, "{tool}: nothing more was sent");
+        assert!(!mind.ready().await, "{tool}");
+    }
+}
+
+/// An answer that cannot be read is asked again of a new process, which
+/// hears the whole question and why the answer was not taken.
+#[tokio::test]
+async fn a_one_shot_clis_unreadable_answer_is_asked_again_of_a_new_process() {
+    let base = a_priority().await;
+    let rig = Rig::new(
+        "oneshot-again",
+        one_shot("codex"),
+        &json!({"steps": [{"kind": "text", "text": "I pass."}, pass(1, "")]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let answer = mind
+        .decide(ask(&base, 1, base.view.turn, 20))
+        .await
+        .unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    let prompts = rig.prompts();
+    assert_eq!(prompts.len(), 2);
+    assert_ne!(prompts[0].0, prompts[1].0, "a new process");
+    assert!(
+        prompts[1].1.starts_with(&prompts[0].1),
+        "the whole question again"
+    );
+    assert!(prompts[1].1.contains("That answer could not be taken"));
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.calls, tally.sessions, tally.restarts), (2, 2, 0));
+}
+
+/// A one-shot tool's rate limit is unavailable and unbilled and cools the
+/// mind down; a failure is unavailable and billed; signed out, it is not
+/// ready.
+#[tokio::test]
+async fn a_one_shot_clis_limit_cools_and_its_failure_is_billed() {
+    let base = a_priority().await;
+    let turn = base.view.turn;
+    for tool in ["codex", "opencode", "junie"] {
+        let rig = Rig::new(
+            &format!("oneshot-limit-{tool}"),
+            one_shot(tool),
+            &json!({"steps": [{"kind": "rate_limit"}, {"kind": "fail"}]}),
+        );
+        let limits = Limits {
+            cooldown: Duration::from_millis(200),
+            ..Limits::default()
+        };
+        let mind = rig.mind(limits);
+        let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
+        assert!(
+            matches!(&limited, MindError::Unavailable(why) if why.starts_with("rate limit")),
+            "{tool}: {limited:?}"
+        );
+        let tally = spent(&mind.tally());
+        assert_eq!(tally.unsure.tokens, 0, "{tool}: a limit is not billed");
+        assert!(!mind.ready().await, "{tool}: cooling down");
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let failed = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
+        assert!(
+            matches!(&failed, MindError::Unavailable(why) if why.contains("the fake failed")),
+            "{tool}: {failed:?}"
+        );
+        assert_eq!(spent(&mind.tally()).failed, 2, "{tool}");
+    }
+    let rig = Rig::new(
+        "oneshot-out",
+        one_shot("codex"),
+        &json!({"logged_in": false}),
+    );
+    assert!(
+        !rig.mind(Limits::default()).ready().await,
+        "codex signed out"
+    );
+    let rig = Rig::new(
+        "oneshot-out-oc",
+        one_shot("opencode"),
+        &json!({"logged_in": false}),
+    );
+    assert!(
+        !rig.mind(Limits::default()).ready().await,
+        "opencode signed out"
+    );
+}
