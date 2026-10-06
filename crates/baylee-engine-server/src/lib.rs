@@ -686,6 +686,12 @@ impl EngineRunner {
         // in the *other* order too: `hand_back` marks every seat's roster as
         // out of date, and this seat's is cleared by sending it.
         session.hand_back(player);
+        // A new socket says anew what answers the seat (`v1::SeatMind`);
+        // until it does, the record does not credit it with what the last
+        // one said. A resync is the same socket.
+        if !attached.resync {
+            session.socket_opened(player);
+        }
         // The roster and the print table go first: everything after this
         // points into them, and a seat earns printings as it sees cards, so
         // this is not a payload that "cannot have changed".
@@ -767,6 +773,21 @@ impl EngineRunner {
             )],
             Some(v1::envelope::Msg::SeatReady(_)) => self.seat_ready(player),
             Some(v1::envelope::Msg::AiLog(ai_log)) => self.reasoning(player, ai_log),
+            // What answers the seat, as its client says, for the record
+            // only (`docs/protocol.md` §"Who answers a seat, as it says").
+            // Not a move: no view, pump or clock, and taken before the
+            // curtain as after. A refused one is dropped without a word:
+            // an `Error` on a seat's socket reads as its answer refused,
+            // and the client sends only what passes the same check. Its
+            // text is never logged.
+            Some(v1::envelope::Msg::SeatMind(said)) => {
+                if let Some(session) = self.session.as_mut()
+                    && let Err(why) = session.declare_mind(player, &said)
+                {
+                    tracing::warn!(seat, why, "a declared mind was refused");
+                }
+                Vec::new()
+            }
             // Dropped rather than refused before the curtain is up (#256): no
             // seat has been asked anything, so a correct client has nothing
             // to answer, and a refusal would reach it as a failure.
@@ -2087,6 +2108,70 @@ mod tests {
             out.extend(act(runner, 0, &action));
         }
         out
+    }
+
+    /// What answers a seat, as its socket declares it, wrapped the way the
+    /// socket sends it.
+    fn declare(runner: &mut EngineRunner, seat: u32, model: &str) -> Vec<Envelope> {
+        let inner = Envelope {
+            msg: Some(v1::envelope::Msg::SeatMind(v1::SeatMind {
+                kind: v1::seat_mind::Kind::LlmApi as i32,
+                provider: "anthropic".into(),
+                model: model.into(),
+                effort: "high".into(),
+                level: String::new(),
+            })),
+        };
+        runner.handle(
+            Envelope {
+                msg: Some(v1::envelope::Msg::SeatFrame(v1::SeatFrame {
+                    seat,
+                    envelope: prost::Message::encode_to_vec(&inner),
+                })),
+            },
+            &[],
+        )
+    }
+
+    /// A seat's declared mind goes into the record, before the curtain as
+    /// after, and to nobody at the table: it answers no frame. One shaped
+    /// like a key is dropped, and the record holds no trace of it. A swap
+    /// mid-game is written where it came; the record still replays.
+    #[test]
+    fn a_declared_mind_goes_into_the_record_and_to_no_seat() {
+        let key = format!("claude-opus-5-5sk-ant-{}", "Z".repeat(30));
+        let mut runner = EngineRunner::new();
+        setup(&mut runner, &duel(0));
+        attach(&mut runner, 0);
+        assert!(runner.curtain_pending());
+        assert!(declare(&mut runner, 0, &key).is_empty());
+        assert!(declare(&mut runner, 0, "claude-opus-5-5").is_empty());
+        ready(&mut runner, 0);
+        runner.tell_time(runner.entrance_deadline().expect("the entrance"));
+        runner.finish_entrance();
+        play_a_little(&mut runner, 4);
+        assert!(declare(&mut runner, 0, "claude-sonnet-5-5").is_empty());
+        play_a_little(&mut runner, 4);
+        let record = unpacked(&pieces(&flush(&mut runner, 1)));
+        let text = String::from_utf8(record.clone()).unwrap();
+        assert!(!text.contains("ZZZZ"), "the key-shaped one is not written");
+        let models: Vec<String> = text
+            .lines()
+            .filter_map(|l| {
+                match serde_json::from_str::<baylee_gamehost::record::Line>(l).ok()? {
+                    baylee_gamehost::record::Line::DeclaredMind { seat: 0, mind, .. } => {
+                        Some(mind.model)
+                    }
+                    _ => None,
+                }
+            })
+            .collect();
+        assert_eq!(models, ["claude-opus-5-5", "claude-sonnet-5-5"]);
+        let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
+        assert_eq!(
+            replayed.engine.snapshot_hash(),
+            runner.session().unwrap().snapshot_hash()
+        );
     }
 
     /// A flush sends what has gathered as one piece that is not `last`, and

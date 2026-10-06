@@ -439,6 +439,11 @@ message Envelope {
     // seat, a release engine drops it, and a release bridge sends none
     // (docs/protocol.md §"An AI seat's reasoning").
     AiLog ai_log = 33;
+    // Seat → engine: what answers this seat, as its own client says
+    // (docs/protocol.md §"Who answers a seat, as it says"). Written into
+    // the game's record and shown to nobody. An engine from before it drops
+    // it; no client is ever sent one.
+    SeatMind seat_mind = 34;
   }
 
 }
@@ -457,4 +462,39 @@ message AiLog {
   // The seat that said it. Written by the engine on the way out; whatever a
   // sender puts here is overwritten.
   uint32 seat = 7;
+}
+
+// What answers a seat, as the seat's own client declares it, for the game's
+// record (#315): sent once on every socket, before the seat's first answer,
+// and again whenever it changes. Self-declared and unverified: the engine
+// checks its shape (`baylee_protocol::mind::fault`) and nothing else, writes
+// it into the record, and shows it to no seat. It names a kind of mind and a
+// model, never how the model is reached: no address, no key, no prompt.
+message SeatMind {
+  enum Kind {
+    // Says none; refused.
+    KIND_UNSPECIFIED = 0;
+    // A person at a client.
+    KIND_HUMAN = 1;
+    // The house heuristic, played by a seat bridge at `level`.
+    KIND_HOUSE = 2;
+    // A script that gives the least answer to every question.
+    KIND_SCRIPTED = 3;
+    // A language model behind an API.
+    KIND_LLM_API = 4;
+    // A language model behind an agent CLI.
+    KIND_LLM_CLI = 5;
+  }
+  Kind kind = 1;
+  // An API's protocol (`anthropic`, `openai`) or a CLI's tool (`claude`,
+  // `codex`, …). Empty for the other kinds.
+  string provider = 2;
+  // The exact model id asked for; empty for a CLI's own default and for the
+  // other kinds.
+  string model = 3;
+  // The effort or thinking level asked for, as the provider spells it;
+  // empty when none was set.
+  string effort = 4;
+  // The house's level (`steady`, …), for `KIND_HOUSE`.
+  string level = 5;
 }

@@ -8,6 +8,7 @@
 
 #![warn(missing_docs)]
 
+pub mod mind;
 pub mod names;
 
 /// Wire protocol version; incompatible versions refuse the session.

@@ -15,6 +15,9 @@
 //! What changes who answers a chair — a takeover, a stand-in, a player coming
 //! back — moves nothing in the engine. It is written down as a
 //! [`Line::Chair`] for whoever reads the record, and replay passes over it.
+//! So is what a seat's own client says answers it, a person or a mind and
+//! which model ([`Line::DeclaredMind`]): self-declared, written as it came
+//! and whenever it changed, and passed over by replay too.
 //!
 //! The record is omniscient: it holds every seat's deck order and every
 //! answer. It names no one. Seats are numbers and the preset carries card
@@ -29,6 +32,7 @@ use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
+use baylee_protocol::v1;
 use serde::{Deserialize, Serialize};
 
 use crate::session::RegistryLookup;
@@ -62,6 +66,88 @@ pub enum ChairChange {
     StoodIn,
     /// The player came back.
     HandedBack,
+}
+
+/// What kind of mind a seat's client declared.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MindKind {
+    /// A person at a client.
+    Human,
+    /// The house heuristic, played by a seat bridge.
+    House,
+    /// A script giving the least answer to every question.
+    Scripted,
+    /// A language model behind an API.
+    LlmApi,
+    /// A language model behind an agent CLI.
+    LlmCli,
+    /// A new socket answered the seat without saying what it is, after an
+    /// earlier one had: what was declared before no longer holds.
+    Undeclared,
+}
+
+/// What answers a seat, as the seat's own client declared it
+/// (`v1::SeatMind`): unverified, checked for its shape only
+/// ([`baylee_protocol::mind::fault`]). An empty field is left out.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct Mind {
+    /// The kind.
+    pub kind: MindKind,
+    /// An API's protocol (`anthropic`, `openai`) or a CLI's tool (`claude`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub provider: String,
+    /// The exact model id asked for; empty for a CLI's own default.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub model: String,
+    /// The effort asked for, as the provider spells it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub effort: String,
+    /// The house's level.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub level: String,
+}
+
+impl Mind {
+    /// A socket that said nothing (see [`MindKind::Undeclared`]).
+    #[must_use]
+    pub const fn undeclared() -> Self {
+        Self {
+            kind: MindKind::Undeclared,
+            provider: String::new(),
+            model: String::new(),
+            effort: String::new(),
+            level: String::new(),
+        }
+    }
+
+    /// A declaration as it came over a seat socket, once its shape passes.
+    ///
+    /// # Errors
+    /// The sentence [`baylee_protocol::mind::fault`] refuses it with.
+    pub fn from_wire(said: &v1::SeatMind) -> Result<Self, &'static str> {
+        if let Some(fault) = baylee_protocol::mind::fault(said) {
+            return Err(fault);
+        }
+        let kind = match v1::seat_mind::Kind::try_from(said.kind) {
+            Ok(v1::seat_mind::Kind::Human) => MindKind::Human,
+            Ok(v1::seat_mind::Kind::House) => MindKind::House,
+            Ok(v1::seat_mind::Kind::Scripted) => MindKind::Scripted,
+            Ok(v1::seat_mind::Kind::LlmApi) => MindKind::LlmApi,
+            Ok(v1::seat_mind::Kind::LlmCli) => MindKind::LlmCli,
+            // `fault` refuses both.
+            Ok(v1::seat_mind::Kind::Unspecified) | Err(_) => {
+                return Err("a declared mind says what kind it is");
+            }
+        };
+        Ok(Self {
+            kind,
+            provider: said.provider.clone(),
+            model: said.model.clone(),
+            effort: said.effort.clone(),
+            level: said.level.clone(),
+        })
+    }
 }
 
 /// One line of a record.
@@ -105,6 +191,21 @@ pub enum Line {
         seat: u8,
         /// What changed.
         change: ChairChange,
+    },
+    /// What a seat's own client says answers it, self-declared and
+    /// unverified: written when a socket first says it, and again whenever
+    /// that changes. It holds for the seat's [`Source::Seat`] inputs from
+    /// here until the seat's next one; a seat with none before an input is
+    /// not known. Not an input: replay passes over it.
+    DeclaredMind {
+        /// As on [`Line::Input`].
+        n: u64,
+        /// As on [`Line::Input`].
+        at: u64,
+        /// The seat.
+        seat: u8,
+        /// What it said.
+        mind: Mind,
     },
     /// The game is over. Written once, after the input that ended it.
     End {
@@ -193,6 +294,16 @@ impl Recorder {
             at: self.now,
             seat: seat.get(),
             change,
+        };
+        self.write(&line);
+    }
+
+    pub(crate) fn mind(&mut self, seat: PlayerId, mind: Mind) {
+        let line = Line::DeclaredMind {
+            n: self.next(),
+            at: self.now,
+            seat: seat.get(),
+            mind,
         };
         self.write(&line);
     }
@@ -338,7 +449,7 @@ pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
                 check(&engine, Some(n), hash)?;
                 inputs += 1;
             }
-            Line::Chair { .. } => {}
+            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
             Line::End { n, .. } => {
                 if !matches!(engine.pending(), Pending::GameOver(_)) {
                     return Err(ReplayError::NotOver { n });
@@ -381,13 +492,22 @@ mod tests {
     /// player leaves and the house AI's throughout, with chairs changing
     /// hands on the way. Returns the finished session.
     fn played(seed: u64) -> Session {
+        played_saying(seed, |_, _| {})
+    }
+
+    /// [`played`], calling `between` before each of the player's answers
+    /// with how many it has given, and once with `u32::MAX` before the
+    /// game's first pump.
+    fn played_saying(seed: u64, mut between: impl FnMut(&mut Session, u32)) -> Session {
         let me = PlayerId::new(0);
         let mut session = Session::new_recorded(&table(seed), "test").expect("the table builds");
         session.describe("g".into(), vec!["Alice Example".into(), "Bob".into()]);
         session.tell_time(1_000);
+        between(&mut session, u32::MAX);
         session.pump();
         let mut asked = 0_u32;
         while !matches!(session.pending(), Pending::GameOver(_)) {
+            between(&mut session, asked);
             if asked == 60 {
                 // The player leaves; the house holds the chair to the end.
                 assert!(session.stand_in(me));
@@ -651,6 +771,200 @@ mod tests {
         let bare = replay(&encode(&without)).expect("replays without its chair lines");
         assert_eq!(with.inputs, bare.inputs);
         assert_eq!(with.engine.snapshot_hash(), bare.engine.snapshot_hash());
+    }
+
+    fn declared(
+        kind: v1::seat_mind::Kind,
+        provider: &str,
+        model: &str,
+        effort: &str,
+    ) -> v1::SeatMind {
+        v1::SeatMind {
+            kind: kind as i32,
+            provider: provider.into(),
+            model: model.into(),
+            effort: effort.into(),
+            level: String::new(),
+        }
+    }
+
+    fn minds(lines: &[Line]) -> Vec<(usize, u8, Mind)> {
+        lines
+            .iter()
+            .enumerate()
+            .filter_map(|(at, l)| match l {
+                Line::DeclaredMind { seat, mind, .. } => Some((at, *seat, mind.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// A seat's mind as its client declared it opens its part of the record
+    /// before any input, a model swapped mid-game is written where it
+    /// happened, saying the same again writes nothing, and the record still
+    /// replays to the same game, its lines reading back as they were written.
+    #[test]
+    fn a_declared_mind_and_its_swap_are_written_where_they_happened() {
+        use v1::seat_mind::Kind;
+        let me = PlayerId::new(0);
+        let opus = declared(Kind::LlmApi, "anthropic", "claude-opus-5-5", "high");
+        let sonnet = declared(Kind::LlmCli, "claude", "sonnet", "");
+        let mut session = played_saying(7, |session, asked| match asked {
+            u32::MAX => {
+                session.declare_mind(me, &opus).expect("opus is declared");
+                session.declare_mind(me, &opus).expect("again, the same");
+            }
+            30 => session
+                .declare_mind(me, &sonnet)
+                .expect("the swap is declared"),
+            _ => {}
+        });
+        let record = session.take_record();
+        let written = lines(&record);
+        assert_eq!(encode(&written), record, "the lines read back as written");
+        let said = minds(&written);
+        assert_eq!(said.len(), 2, "once each: {said:?}");
+        let (first, seat, mind) = &said[0];
+        assert_eq!(*seat, 0);
+        assert_eq!(
+            *mind,
+            Mind {
+                kind: MindKind::LlmApi,
+                provider: "anthropic".into(),
+                model: "claude-opus-5-5".into(),
+                effort: "high".into(),
+                level: String::new(),
+            }
+        );
+        let first_input = written
+            .iter()
+            .position(|l| by(l).is_some())
+            .expect("inputs");
+        assert!(
+            *first < first_input,
+            "the declaration heads the seat's inputs"
+        );
+        let (swap, _, mind) = &said[1];
+        assert_eq!(mind.kind, MindKind::LlmCli);
+        assert_eq!(mind.model, "sonnet");
+        let answered = |range: &[Line]| {
+            range
+                .iter()
+                .filter(|l| {
+                    matches!(
+                        l,
+                        Line::Input {
+                            seat: 0,
+                            by: Source::Seat,
+                            ..
+                        }
+                    )
+                })
+                .count()
+        };
+        assert!(answered(&written[..*swap]) > 0 && answered(&written[*swap..]) > 0);
+        let replayed = replay(&record).expect("the record replays");
+        assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
+        assert!(replayed.ended);
+        let json = String::from_utf8(record).unwrap();
+        assert!(
+            json.contains(r#"{"kind":"declared_mind","#)
+                && json.contains(
+                    r#""mind":{"kind":"llm_api","provider":"anthropic","model":"claude-opus-5-5","effort":"high"}"#
+                ),
+            "{json}"
+        );
+    }
+
+    /// A record from before declarations, which has none, replays as it did:
+    /// the same game with or without them.
+    #[test]
+    fn a_record_without_declared_minds_replays_to_the_same_game() {
+        let me = PlayerId::new(0);
+        let human = declared(v1::seat_mind::Kind::Human, "", "", "");
+        let written = lines(
+            &played_saying(3, |session, asked| {
+                if asked == u32::MAX {
+                    session.declare_mind(me, &human).expect("a person");
+                }
+            })
+            .take_record(),
+        );
+        assert_eq!(minds(&written).len(), 1);
+        let without: Vec<Line> = written
+            .iter()
+            .filter(|l| !matches!(l, Line::DeclaredMind { .. }))
+            .cloned()
+            .collect();
+        let with = replay(&encode(&written)).expect("replays");
+        let bare = replay(&encode(&without)).expect("replays without its declarations");
+        assert_eq!(with.inputs, bare.inputs);
+        assert_eq!(with.engine.snapshot_hash(), bare.engine.snapshot_hash());
+        assert!(bare.ended);
+    }
+
+    /// A model id with a key glued to it, an address and a prompt are
+    /// refused, and the record holds none of them.
+    #[test]
+    fn a_declared_mind_shaped_like_a_secret_is_refused_and_not_written() {
+        use v1::seat_mind::Kind;
+        let me = PlayerId::new(0);
+        let key = format!("sk-ant-{}", "Q".repeat(30));
+        let mut session = Session::new_recorded(&table(3), "test").expect("the table builds");
+        for refused in [
+            declared(
+                Kind::LlmApi,
+                "anthropic",
+                &format!("claude-opus-5-5{key}"),
+                "",
+            ),
+            declared(Kind::LlmApi, "https://me:secret@example.org", "m", ""),
+            declared(Kind::LlmApi, "anthropic", "you are a careful player", ""),
+        ] {
+            assert!(session.declare_mind(me, &refused).is_err(), "{refused:?}");
+        }
+        let record = String::from_utf8(session.take_record()).unwrap();
+        assert!(!record.contains("declared_mind"), "{record}");
+        assert!(!record.contains("QQQQ") && !record.contains("secret"));
+    }
+
+    /// A new socket that answers before it said what it is ends what the
+    /// last one declared; one that declares the same again writes nothing.
+    #[test]
+    fn a_new_socket_that_says_nothing_ends_the_last_declaration() {
+        let me = PlayerId::new(0);
+        let opus = declared(
+            v1::seat_mind::Kind::LlmApi,
+            "anthropic",
+            "claude-opus-5-5",
+            "",
+        );
+        let written = lines(
+            &played_saying(3, |session, asked| match asked {
+                u32::MAX => session.declare_mind(me, &opus).expect("declared"),
+                10 => {
+                    session.socket_opened(me);
+                    session.declare_mind(me, &opus).expect("the same, again");
+                }
+                20 => session.socket_opened(me),
+                _ => {}
+            })
+            .take_record(),
+        );
+        let said = minds(&written);
+        assert_eq!(
+            said.iter().map(|(_, _, m)| m.kind).collect::<Vec<_>>(),
+            [MindKind::LlmApi, MindKind::Undeclared],
+            "{said:?}"
+        );
+        assert!(matches!(
+            written.get(said[1].0 + 1),
+            Some(Line::Input {
+                seat: 0,
+                by: Source::Seat,
+                ..
+            })
+        ));
     }
 
     #[test]
