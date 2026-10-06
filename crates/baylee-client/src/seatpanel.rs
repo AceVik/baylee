@@ -210,6 +210,12 @@ impl SeatDesk {
         false
     }
 
+    /// The key boxes, for a test to tell what the store answered.
+    #[cfg(test)]
+    pub(crate) fn keys_mut(&mut self) -> &mut KeyDesk {
+        &mut self.keys
+    }
+
     /// Does what a press on a key box asks.
     pub(crate) fn key_press(&mut self, press: KeyPress) {
         if let Some(panel) = self.panel_mut() {

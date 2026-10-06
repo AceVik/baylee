@@ -409,3 +409,109 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     assert_eq!(focus(&app), None);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A model's key box, as a player meets it: a preset fills an adapter,
+/// and its address has a sealed box. What is typed into it is drawn only
+/// as dots, never in the clear and with no eye to show it; `Keep` takes
+/// it out of the box and hands it to the store. In a test the store is
+/// never the player's: the job is answered "unavailable" without a
+/// process run, and the box says so.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
+    use crate::seatpanel::KeyPress;
+    use baylee_client_core::i18n::Phrase;
+    use baylee_client_core::llmseat::keys::KeyState;
+    use baylee_client_core::llmseat::panel::Act;
+    use baylee_client_core::llmseat::seating::Preset;
+
+    fn keys(app: &mut App, events: Vec<KeyboardInput>) {
+        let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
+        for event in events {
+            messages.write(event);
+        }
+        app.update();
+    }
+    const SECRET: &str = "sk-test-SECRETSECRETSECRET";
+
+    let dir = std::env::temp_dir().join(format!("baylee-seatkey-ui-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(baylee_client_core::llmseat::FILE);
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::OpenSettings);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(path.clone());
+    app.update();
+    press(&mut app, Press::Seat(Act::AddPreset(Preset::DeepSeek)));
+    // The frame after the box is drawn asks the store about it.
+    app.update();
+
+    // Untold, the box asks the store; a test's store is none.
+    let unavailable = Phrase::SeatKeyStoreUnavailable.fill(Lang::En, &["not in a test"]);
+    assert!(
+        labels(&mut app).contains(&unavailable),
+        "a test reached for a store: {:?}",
+        labels(&mut app)
+    );
+    assert!(
+        !presses(&mut app).contains(&Press::SeatKey(KeyPress::Focus(0))),
+        "no box where no store can keep a key"
+    );
+
+    // Told that none is kept, the box stands, sealed.
+    let entry = app
+        .world()
+        .resource::<LobbyState>()
+        .seat
+        .panel()
+        .and_then(|panel| panel.key_entry(0, &|_| None))
+        .expect("the preset names a key and an address");
+    assert_eq!(entry.host(), "api.deepseek.com");
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .keys_mut()
+        .answered(&entry, Ok(KeyState::Absent));
+    app.update();
+    let none = Phrase::SeatKeyNoneKept.fill(Lang::En, &["api.deepseek.com"]);
+    assert!(labels(&mut app).contains(&none));
+    assert!(
+        !presses(&mut app)
+            .iter()
+            .any(|p| matches!(p, Press::Reveal(_))),
+        "a key box has no eye"
+    );
+
+    press(&mut app, Press::SeatKey(KeyPress::Focus(0)));
+    keys(&mut app, SECRET.chars().map(typed).collect());
+    let drawn = labels(&mut app);
+    assert!(
+        drawn.iter().all(|l| !l.contains("SECRET")),
+        "the key is drawn in the clear: {drawn:?}"
+    );
+    let dots = "\u{2022}".repeat(SECRET.chars().count());
+    assert!(
+        drawn.iter().any(|l| l.contains(&dots)),
+        "the key is not drawn as dots: {drawn:?}"
+    );
+    assert!(presses(&mut app).contains(&Press::SeatKey(KeyPress::Submit)));
+
+    keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
+    app.update();
+    assert!(
+        !app.world().resource::<LobbyState>().seat.typing(),
+        "the key stayed in its box"
+    );
+    assert!(labels(&mut app).contains(&unavailable));
+    assert!(labels(&mut app).iter().all(|l| !l.contains("SECRET")));
+    assert!(!path.exists(), "a key box writes no file");
+    let _ = std::fs::remove_dir_all(&dir);
+}
