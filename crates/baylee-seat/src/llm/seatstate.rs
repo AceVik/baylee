@@ -191,14 +191,10 @@ impl Seat {
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
         }
-        if resolved.hold.is_some() {
-            self.hold = resolved.hold;
-        } else {
-            // "hold" expires when the seat gets a chance to act on it (a new turn),
-            // or when they send a new answer without it. If the user explicitly sends an answer,
-            // the hold should be dropped. But wait, `hold: "until_my_turn"` is a one-off instruction.
-            self.hold = None;
-        }
+        // A hold lasts until the seat's turn, or the model's next answer
+        // without it.
+        self.hold =
+            (resolved.until == Some(narrator::Until::MyTurn)).then(|| "until_my_turn".to_string());
         match resolved.act {
             Act::Now(action) => {
                 self.plan = None;

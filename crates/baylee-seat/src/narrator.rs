@@ -44,7 +44,9 @@ mod board;
 mod menu;
 mod words;
 
-pub use menu::{Act, Decision, Hint, Menu, Resolved, Stops, tap};
+pub use menu::{
+    Act, Decision, GRAMMAR, Hint, Menu, React, Resolved, Step, Stop, Stops, Until, asked, tap,
+};
 pub use words::{KEYWORDS, color_name, step_id};
 
 use crate::mind::{GameContext, Request};
@@ -185,6 +187,14 @@ impl Narrator {
     #[must_use]
     pub fn prefix(&self, context: &GameContext) -> String {
         prefix(context, self.style.deck)
+    }
+
+    /// The menu of `request`'s question, untold: what a plan's step is read
+    /// against ([`Menu::plan_decision`]).
+    #[must_use]
+    pub fn menu(&self, request: &Request) -> Menu {
+        let table = Table::new(&request.view, &request.context);
+        menu::question(&table, request, self.style).1
     }
 
     /// Forgets which cards the conversation was shown: it was replaced by a

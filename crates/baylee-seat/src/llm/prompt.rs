@@ -3,8 +3,10 @@
 //! The system prompt is frozen text: it states the interface (how a
 //! decision arrives, how to answer, what the ids mean), never strategy,
 //! and nothing in it changes during a game, so a provider caches it with
-//! the deck prefix (`llm-seat.md` §5.1).
+//! the deck prefix (`llm-seat.md` §5.1). Plans, `until` and `react` are
+//! `docs/llm-protocol.md` §"Plans".
 
+use crate::narrator::GRAMMAR;
 use serde_json::{Value, json};
 
 /// The system prompt.
@@ -33,9 +35,29 @@ yourself. When you cast a spell or activate an ability that will ask for targets
 then={\"targets\": [ids]} to name them at once; if they are not legal then, you are asked.
 Add say: one short sentence for the people watching, about your plan. Keep it to the game.
 To change when you are asked, add stops: {\"mine\": [\"main1\", \"main2\", \"attackers\"], \"theirs\": [\"upkeep\", \"attackers\", \"end_step\"]}.
-To pass until your next turn (unless they act), add hold: \"until_my_turn\".
+To see the whole board in the next message rather than what changed, add board: \"full\".
 If the table refuses an answer, the tool result says why: answer the same question again.
 Call concede instead only when you are certain to lose and want the game to end.
+
+PLANS: SEVERAL STEPS IN ONE ANSWER
+When you know what comes next, add plan: the steps that answer the questions after this one, in \
+order, one string each: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] (n: the \
+ability's number, when the object has several) | choose <card name or #id>[, …] | yes | no | \
+color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass. Each step \
+answers exactly one question. pass passes priority once: the stack resolves, or with the stack \
+empty the game moves on. While only your own spells and abilities are on the stack, a step that \
+answers what they will ask waits for them; an attack step waits through your main phase. The table \
+runs the plan without asking you, and stops it and asks you at anything it does not answer \
+exactly: another question, an id that is gone, an opponent's spell or ability on the stack, a \
+payment, the end of the turn. The next message says what ran and why it stopped.
+To go on passing afterwards, add until: my_turn, my_main2, my_end, or end_of_turn (this turn's); an \
+answer without until ends it. You are still asked every other question, every attack or block \
+with something to declare, and every payment. Add react for an opponent's spell or ability on the \
+stack meanwhile: all (you are asked; the default), targets_me (only when it targets you, a \
+permanent you control or your commander), none.
+Example, a fetchland main phase: {\"ask\": \"q38\", \"pick\": [\"a2\"], \"plan\": \
+[\"activate #209\", \"choose Swamp\", \"cast #141 -> P2\", \"pass\"], \"until\": \"my_turn\", \
+\"react\": \"targets_me\", \"say\": \"Fetch a Swamp, then the Shaman.\"}
 
 THINGS TO KNOW
 - Objects are #N. A card that moves from one zone to another becomes a new object with a new id \
@@ -123,10 +145,24 @@ pub fn decide_schema() -> Value {
                 },
                 "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"])."
             },
-            "hold": {
+            "plan": {
+                "type": "array", "items": {"type": "string"},
+                "description": format!("The steps that answer the questions after this one, in order: {GRAMMAR}.")
+            },
+            "until": {
                 "type": "string",
-                "enum": ["until_my_turn"],
-                "description": "Pass until your next turn, unless they put something on the stack."
+                "enum": ["my_turn", "my_main2", "my_end", "end_of_turn", "none"],
+                "description": "Go on passing until then; you are still asked every other question."
+            },
+            "react": {
+                "type": "string",
+                "enum": ["all", "targets_me", "none"],
+                "description": "While until holds: which opposing spells or abilities on the stack wake you."
+            },
+            "board": {
+                "type": "string",
+                "enum": ["full"],
+                "description": "Show the whole board in the next message."
             }
         },
         "required": ["ask"]

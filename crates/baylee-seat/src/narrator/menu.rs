@@ -22,6 +22,10 @@ use baylee_view::{ManaPoolView, PublicObject};
 use serde_json::Value;
 use std::fmt::Write as _;
 
+mod plan;
+
+pub use plan::{GRAMMAR, React, Step, Stop, Until, asked};
+
 /// What a question's options mean.
 #[derive(Clone, Debug)]
 pub struct Menu {
@@ -152,8 +156,14 @@ pub struct Resolved {
     pub hint: Option<Hint>,
     /// The phases or steps the model wants to be woken in.
     pub stops: Option<Stops>,
-    /// "`until_my_turn`"
-    pub hold: Option<String>,
+    /// The steps that answer the questions after this one, read.
+    pub plan: Vec<Step>,
+    /// How long the seat passes for the model after this answer.
+    pub until: Option<Until>,
+    /// What an opponent's spell does while `until` holds.
+    pub react: React,
+    /// Whether the model asked to see the whole board next time.
+    pub board_full: bool,
 }
 
 /// A model's answer, read from a `decide` or `concede` call, or from a JSON
@@ -186,8 +196,16 @@ pub struct Decision {
     pub say: Option<String>,
     /// The phases or steps the model wants to be woken in on its turns and theirs.
     pub stops: Option<Stops>,
-    /// "`until_my_turn`"
-    pub hold: Option<String>,
+    /// The steps that answer the questions after this one ([`Step`]), as
+    /// written.
+    pub plan: Vec<String>,
+    /// `until`, as written; the older `hold: "until_my_turn"` reads as
+    /// `until: "my_turn"`.
+    pub until: Option<String>,
+    /// `react`, as written.
+    pub react: Option<String>,
+    /// `board`, as written: `full` asks for the whole board next time.
+    pub board: Option<String>,
     /// A concession, with its reason.
     pub concede: Option<String>,
 }
@@ -250,7 +268,10 @@ impl Decision {
                 mine: s.get("mine").map(list).unwrap_or_default(),
                 theirs: s.get("theirs").map(list).unwrap_or_default(),
             }),
-            hold: text("hold"),
+            plan: map.get("plan").map(list).unwrap_or_default(),
+            until: text("until").or_else(|| text("hold")),
+            react: text("react"),
+            board: text("board"),
             concede: None,
         })
     }
@@ -337,14 +358,32 @@ impl Menu {
             Some(_) => {}
         }
         if decision.concede.is_some() {
-            return Ok(Resolved {
-                act: Act::Now(PlayerAction::Concede),
-                label: "concede the game".into(),
-                hint: None,
-                stops: None,
-                hold: None,
-            });
+            return Ok(now(PlayerAction::Concede, "concede the game".into()));
         }
+        // The orders around the answer are read first: one that is not
+        // understood refuses the whole answer, before anything is sent.
+        let plan = decision
+            .plan
+            .iter()
+            .map(|step| Step::parse(step))
+            .collect::<Result<Vec<_>, _>>()?;
+        let until = decision
+            .until
+            .as_deref()
+            .map(Until::parse)
+            .transpose()?
+            .flatten();
+        let react = decision
+            .react
+            .as_deref()
+            .map(React::parse)
+            .transpose()?
+            .unwrap_or_default();
+        let board_full = match decision.board.as_deref().map(normal).as_deref() {
+            None | Some("") => false,
+            Some("full") => true,
+            Some(other) => return Err(format!("board «{other}» is not full")),
+        };
         match &self.ask {
             Ask::Prevention { pending } => Self::prevention(pending, decision),
             Ask::Pick => self.pick(decision),
@@ -404,7 +443,10 @@ impl Menu {
         }
         .map(|mut resolved| {
             resolved.stops.clone_from(&decision.stops);
-            resolved.hold.clone_from(&decision.hold);
+            resolved.plan = plan;
+            resolved.until = until;
+            resolved.react = react;
+            resolved.board_full = board_full;
             resolved
         })
     }
@@ -434,11 +476,11 @@ impl Menu {
             .filter(|_| !decision.then_targets.is_empty())
             .and_then(|card| self.hint(card, &decision.then_targets));
         Ok(Resolved {
-            act: choice.act.clone(),
-            label: format!("{} {}", choice.id, choice.label),
             hint,
-            stops: None,
-            hold: None,
+            ..now_act(
+                choice.act.clone(),
+                format!("{} {}", choice.id, choice.label),
+            )
         })
     }
 
@@ -659,12 +701,20 @@ impl Menu {
 }
 
 fn now(action: PlayerAction, label: String) -> Resolved {
+    now_act(Act::Now(action), label)
+}
+
+/// `act`, with nothing around it.
+fn now_act(act: Act, label: String) -> Resolved {
     Resolved {
-        act: Act::Now(action),
+        act,
         label,
         hint: None,
         stops: None,
-        hold: None,
+        plan: Vec::new(),
+        until: None,
+        react: React::All,
+        board_full: false,
     }
 }
 
