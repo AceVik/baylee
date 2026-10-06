@@ -2131,7 +2131,7 @@ from a curl recipe into a contract:
 | leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
-| decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, sleeve, playmat}]` |
+| decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, signature, unplayable, updated_at, sleeve, playmat}]` |
 | one deck | `GET /decks/{id}` | `{id, kind, name, format, description, cards:[…], sideboard:[…], commanders:[…], version}` |
 | save a deck | `POST /decks` `{name, cards:["N Card Name"], sideboard, commanders, format?, description?, summary?, sleeve?, playmat?}` | `{deck_id}`; `403` for a sleeve or mat the caller did not upload |
 | edit one | `PUT /decks/{id}` — same body | `204` |
@@ -2240,6 +2240,22 @@ lobby answers the same request with. A row this build cannot parse or name
 counts where it can and is skipped otherwise, rather than refusing the list.
 An older gateway sends none of these fields, and the client reads their
 absence as empty.
+
+**And when it was saved, what of it will not play, and its picture (WG-3).**
+`updated_at` is the last save, in unix seconds (the list is ordered by it,
+newest first). `unplayable` counts the main deck's copies this build cannot
+play: a card the registry holds only as a stub, or one it does not know; the
+sideboard is not counted. `signature` is the picture of a deck **without**
+commanders, shaped as a `leaders` entry: its most expensive non-land card by
+the front face's mana value, the first in the deck's order on a tie, in the
+printing its row names; `null` for a deck with commanders (its `leaders` are
+its picture) and for one of lands alone. `signature` and every `leaders`
+entry carry `artist`, who painted that printing, from the gateway's catalog
+(one query for the whole list); it is left out when nobody knows — no
+catalog, a catalog that lacks the printing or is down, the offline lobby —
+and a client shows a printing's `art_crop` only with its artist credited,
+so no `artist` means no art. All four are added fields, read as empty when
+absent.
 
 **`POST /lobby/games/{id}/seat` is the way back to a chair you are already
 in**, and it is not a join. It names no deck, moves nobody, and changes

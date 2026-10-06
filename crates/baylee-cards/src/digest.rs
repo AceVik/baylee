@@ -8,10 +8,11 @@
 //! skipped, because a summary that refused a whole deck over one row would
 //! be a sidebar that went blank.
 
-use baylee_cards_dsl::CardDef;
+use baylee_cards_dsl::{CardDef, Coverage};
 use baylee_core::color::ColorSet;
 use baylee_core::deckdigest::{Digest, Leader};
 use baylee_core::deckrow;
+use baylee_core::types::TypeSet;
 
 use crate::pool::letters;
 
@@ -58,20 +59,30 @@ pub fn digest(cards: &[String], sideboard: &[String], commanders: &[String]) -> 
                         || card.is_some_and(|c| named(&r.name).is_some_and(|n| n.index == c.index))
                 })
                 .map(|r| &r.print);
-            Leader {
-                name: name.clone(),
-                scryfall_id: chosen
-                    .and_then(|p| p.scryfall_id.clone())
-                    .or_else(|| card.map(|c| c.scryfall_id.to_string()))
-                    .unwrap_or_default(),
-                lang: chosen.map_or("en", |p| p.lang_or_default()).to_string(),
-                finish: chosen
-                    .map(deckrow::PrintChoice::finish_or_default)
-                    .unwrap_or_default(),
-                has_back_image: card.is_some_and(|c| crate::sides::has_back_image(c.index)),
-            }
+            picture(name, card, chosen)
         })
         .collect();
+
+    // Copies, as the deck counts them: four stubs are four cards that will
+    // not play.
+    let unplayable = main
+        .iter()
+        .filter(|r| named(&r.name).is_none_or(|c| c.coverage == Coverage::Unimplemented))
+        .fold(0u32, |n, r| n.saturating_add(r.count));
+
+    // A commander is a deck's picture; without one, its most expensive
+    // spell. `max_by_key` keeps the last of equals, so the rows are walked
+    // backwards to keep the first.
+    let signature = if commanders.is_empty() {
+        main.iter()
+            .rev()
+            .filter_map(|r| named(&r.name).map(|card| (r, card)))
+            .filter(|(_, card)| !is_land(card))
+            .max_by_key(|(_, card)| mana_value(card))
+            .map(|(r, card)| picture(&r.name, Some(card), Some(&r.print)))
+    } else {
+        None
+    };
 
     // A commander bounds the deck; without one the deck is what it plays.
     let identity = if commanders.is_empty() {
@@ -85,7 +96,40 @@ pub fn digest(cards: &[String], sideboard: &[String], commanders: &[String]) -> 
         side_copies,
         identity,
         leaders,
+        unplayable,
+        signature,
     }
+}
+
+/// A card as a deck pictures it: the printing its row chose, else the one
+/// the registry references. The artist is the catalog's to fill in (the
+/// gateway does); nothing here knows it.
+fn picture(name: &str, card: Option<&CardDef>, chosen: Option<&deckrow::PrintChoice>) -> Leader {
+    Leader {
+        name: name.to_owned(),
+        scryfall_id: chosen
+            .and_then(|p| p.scryfall_id.clone())
+            .or_else(|| card.map(|c| c.scryfall_id.to_string()))
+            .unwrap_or_default(),
+        lang: chosen.map_or("en", |p| p.lang_or_default()).to_string(),
+        finish: chosen
+            .map(deckrow::PrintChoice::finish_or_default)
+            .unwrap_or_default(),
+        has_back_image: card.is_some_and(|c| crate::sides::has_back_image(c.index)),
+        artist: String::new(),
+    }
+}
+
+/// Whether a card's front face is a land, which is never a deck's picture.
+fn is_land(card: &CardDef) -> bool {
+    card.faces
+        .first()
+        .is_some_and(|face| face.types.contains(TypeSet::LAND))
+}
+
+/// A card's mana value, by its front face's printed cost.
+fn mana_value(card: &CardDef) -> u32 {
+    card.faces.first().map_or(0, |face| face.mana_cost.cmc())
 }
 
 #[cfg(test)]
@@ -216,5 +260,95 @@ mod tests {
         let many = vec![huge; 5_000];
         let d = digest(&many, &many, &[]);
         assert_eq!((d.copies, d.side_copies), (u32::MAX, u32::MAX));
+    }
+
+    /// A playable non-land, non-commander card at this mana value.
+    fn spell_at(cmc: u32) -> &'static PoolCard {
+        registry_rows()
+            .iter()
+            .find(|c| {
+                c.coverage == "implemented"
+                    && !c.commander
+                    && c.cmc == cmc
+                    && !c.kinds.contains(&"Land")
+            })
+            .unwrap_or_else(|| panic!("the pool has a {cmc}-drop"))
+    }
+
+    /// Copies of stubs and of cards this build does not know, in the main
+    /// deck only; a playable card and the sideboard cost nothing.
+    #[test]
+    fn unplayable_counts_the_copies_this_build_cannot_play() {
+        let stub = registry_rows()
+            .iter()
+            .find(|c| c.coverage == "unimplemented")
+            .expect("the pool holds a stub");
+        let fine = spell_at(2);
+        let d = digest(
+            &rows(&[
+                &format!("3 {}", stub.english_name),
+                &format!("4 {}", fine.english_name),
+                "2 A Card No Build Has Ever Heard Of",
+            ]),
+            &rows(&[&format!("4 {}", stub.english_name)]),
+            &[],
+        );
+        assert_eq!(d.unplayable, 5, "{d:?}");
+        let clean = digest(&rows(&[&format!("4 {}", fine.english_name)]), &[], &[]);
+        assert_eq!(clean.unplayable, 0);
+    }
+
+    /// Without a commander a deck is pictured by its most expensive spell,
+    /// the first of equals, never a land; with one, by its commander alone.
+    #[test]
+    fn a_deck_without_a_commander_is_pictured_by_its_most_expensive_spell() {
+        let land = registry_rows()
+            .iter()
+            .find(|c| c.kinds.contains(&"Land") && !c.basic_land && c.cmc == 0)
+            .expect("a nonbasic land");
+        let (cheap, dear) = (spell_at(1), spell_at(5));
+        let tied = registry_rows()
+            .iter()
+            .find(|c| {
+                c.coverage == "implemented"
+                    && !c.commander
+                    && c.cmc == 5
+                    && c.index != dear.index
+                    && !c.kinds.contains(&"Land")
+            })
+            .expect("a second 5-drop");
+        let chosen = "11111111-2222-3333-4444-555555555555";
+        let d = digest(
+            &rows(&[
+                &format!("1 {}", land.english_name),
+                &format!("4 {}", cheap.english_name),
+                &format!("1 {} *F* scryfall={chosen}", dear.english_name),
+                &format!("1 {}", tied.english_name),
+            ]),
+            &[],
+            &[],
+        );
+        let signature = d.signature.expect("a picture");
+        assert_eq!(signature.name, dear.english_name, "the first of equals");
+        assert_eq!(signature.scryfall_id, chosen, "the printing its row chose");
+        assert_eq!(signature.finish, Finish::Foil);
+        assert!(signature.artist.is_empty(), "the catalog's to fill in");
+
+        let lands = digest(&rows(&[&format!("1 {}", land.english_name)]), &[], &[]);
+        assert_eq!(lands.signature, None, "a land is never the picture");
+
+        let leader = leader_with("G");
+        let led = digest(
+            &rows(&[
+                &format!("1 {}", leader.english_name),
+                &format!("1 {}", dear.english_name),
+            ]),
+            &[],
+            std::slice::from_ref(&leader.english_name),
+        );
+        assert_eq!(
+            led.signature, None,
+            "a commander deck's picture is its leader"
+        );
     }
 }

@@ -570,6 +570,41 @@ impl Catalog {
             .collect()
     }
 
+    /// Who illustrated each of these printings, by Scryfall id (WG-3: the
+    /// deck list credits the art it shows). A printing the catalog lacks, or
+    /// one it holds no artist for, is left out; an id that is not a UUID is
+    /// dropped rather than failing the batch.
+    ///
+    /// # Errors
+    /// When the query fails.
+    pub async fn artists(
+        &self,
+        scryfall_ids: &[String],
+    ) -> Result<std::collections::BTreeMap<String, String>> {
+        let ids: Vec<&str> = scryfall_ids
+            .iter()
+            .map(String::as_str)
+            .filter(|id| is_uuid(id))
+            .collect();
+        if ids.is_empty() {
+            return Ok(std::collections::BTreeMap::new());
+        }
+        let rows = self
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT scryfall_id::text AS scryfall_id, artist \
+                 FROM cards WHERE scryfall_id = ANY(string_to_array($1, ',')::uuid[]) \
+                 AND coalesce(artist, '') <> ''",
+                [Value::from(ids.join(","))],
+            ))
+            .await
+            .context("looking up artists")?;
+        rows.into_iter()
+            .map(|row| Ok((row.try_get("", "scryfall_id")?, row.try_get("", "artist")?)))
+            .collect()
+    }
+
     /// Which card each known printing is, as `(scryfall_id, oracle_id)`,
     /// in printing-id order. A printing the catalog lacks is left out.
     ///
@@ -958,3 +993,13 @@ impl Catalog {
 
 #[cfg(test)]
 mod tests;
+
+/// Whether this is a UUID in its hyphenated form, which is the only one a
+/// Scryfall id comes in: a malformed one would fail a whole `::uuid[]` cast.
+fn is_uuid(id: &str) -> bool {
+    id.len() == 36
+        && id.bytes().enumerate().all(|(at, b)| match at {
+            8 | 13 | 18 | 23 => b == b'-',
+            _ => b.is_ascii_hexdigit(),
+        })
+}

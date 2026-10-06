@@ -416,6 +416,7 @@ fn a_deck_row_decodes_from_a_gateway_before_and_after_254() {
                     lang: "de".to_string(),
                     finish: Finish::Foil,
                     has_back_image: true,
+                    artist: String::new(),
                 },
                 Leader {
                     name: "Second".to_string(),
@@ -423,6 +424,7 @@ fn a_deck_row_decodes_from_a_gateway_before_and_after_254() {
                     lang: "en".to_string(),
                     finish: Finish::Normal,
                     has_back_image: false,
+                    artist: String::new(),
                 },
             ],
         }])

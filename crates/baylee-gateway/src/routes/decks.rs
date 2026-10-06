@@ -5,6 +5,14 @@ use crate::{
     authed, check_pictures, db_down, err, get, post, store, validate_deck,
 };
 
+/// `GET /decks`: the account's decks, newest save first, each with what the
+/// list says about it beyond its name.
+///
+/// WG-3 added `updated_at` (unix seconds of the last save), `unplayable`
+/// (main-deck copies this build cannot play), `signature` (a deck without a
+/// commander's picture) and an `artist` on `signature` and every `leaders`
+/// entry, from the catalog: one query for the whole list, and no artist at
+/// all — never a failed list — without a catalog or when it is down.
 pub(crate) async fn list_decks(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -12,12 +20,18 @@ pub(crate) async fn list_decks(
     let account_id = authed(&state, &headers).await?;
     // One indexed read on `(account_id, updated_at DESC)`, where this used
     // to walk every deck on the gateway to find one player's.
-    let decks: Vec<_> = store::decks_of(&state.db, &account_id)
+    let decks = store::decks_of(&state.db, &account_id)
         .await
-        .map_err(|e| db_down(&e))?
+        .map_err(|e| db_down(&e))?;
+    let mut digests: Vec<_> = decks
         .iter()
-        .map(|d| {
-            let digest = baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders);
+        .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
+        .collect();
+    credit_artists(&state, &mut digests).await;
+    let decks: Vec<_> = decks
+        .iter()
+        .zip(digests)
+        .map(|(d, digest)| {
             serde_json::json!({
                 "id": d.id,
                 "name": d.name,
@@ -29,12 +43,50 @@ pub(crate) async fn list_decks(
                 "identity": digest.identity,
                 "commanders": d.commanders,
                 "leaders": digest.leaders,
+                "signature": digest.signature,
+                "unplayable": digest.unplayable,
+                "updated_at": d.updated_at,
                 "sleeve": d.sleeve,
                 "playmat": d.playmat,
             })
         })
         .collect();
     Ok(Json(serde_json::json!(decks)))
+}
+
+/// Fills in who painted every picture these digests name, from the
+/// catalog. Left empty where it does not know, and wholly empty without a
+/// catalog or when it fails: a deck list without credits is a list, and the
+/// client then shows no art rather than uncredited art.
+async fn credit_artists(state: &Shared, digests: &mut [baylee_core::deckdigest::Digest]) {
+    let Some(catalog) = state.catalog.as_ref() else {
+        return;
+    };
+    let mut ids: Vec<String> = digests
+        .iter()
+        .flat_map(|d| d.leaders.iter().chain(d.signature.as_ref()))
+        .map(|l| l.scryfall_id.clone())
+        .filter(|id| !id.is_empty())
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.is_empty() {
+        return;
+    }
+    let artists = match catalog.artists(&ids).await {
+        Ok(artists) => artists,
+        Err(e) => {
+            tracing::warn!("deck list without artists: {e:#}");
+            return;
+        }
+    };
+    for digest in digests {
+        for picture in digest.leaders.iter_mut().chain(digest.signature.as_mut()) {
+            if let Some(artist) = artists.get(&picture.scryfall_id) {
+                picture.artist.clone_from(artist);
+            }
+        }
+    }
 }
 
 pub(crate) async fn get_deck(
