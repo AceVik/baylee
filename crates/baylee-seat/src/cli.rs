@@ -26,12 +26,17 @@
 //! stdin closes after the message. Codex and Junie get each as a
 //! conversation of its own, with the prefix and the notes, as after a loss
 //! but not counted as one; a question asked again goes to a new process,
-//! with the whole question. opencode goes on with its conversation by its
-//! id ([`dialect::Dialect::resumes`]): the seat keeps it in a [`Store`] of
-//! its own, and each question within the conversation's limits sends only
-//! what is new, as to a process that holds it. One the tool cannot resume
-//! (it ended before a line: not found, or unreadable) is begun again for
-//! that very question, with the prefix, and counted as lost.
+//! with the whole question. All three go on with their conversation by
+//! its id ([`dialect::Dialect::resumes`]), so each question within the
+//! conversation's limits sends only what is new, as to a process that
+//! holds it. opencode keeps it in the seat's [`Store`]; Codex and Junie
+//! keep it beside their login under the user's home, from where exactly
+//! the seat's own session files are removed when the conversation is over
+//! (and, after a killed bridge, by the sweep of its store, which names
+//! them). One the tool cannot resume (its files are gone, it ended before
+//! a line, or it named another conversation than the one asked for) is
+//! begun again for that very question, with the prefix, and counted as
+//! lost.
 //!
 //! A conversation past [`Settings::conversation_tokens`] closes its stdin
 //! and starts another, with the prefix and the notes again. A process that
@@ -251,6 +256,20 @@ impl Launch {
         let temp = std::env::temp_dir();
         launch.env(&temp, &temp, Some(&temp))?;
         Ok(launch)
+    }
+
+    /// The value the parent gives the tool for `name`, of those it passes.
+    fn passed(&self, name: &str) -> Option<OsString> {
+        self.passed
+            .iter()
+            .find(|(passed, _)| *passed == name)
+            .map(|(_, value)| value.into())
+    }
+
+    /// Where the tool keeps its sessions outside the seat's store
+    /// ([`Dialect::sessions_root`]).
+    fn sessions_root(&self) -> Option<PathBuf> {
+        self.dialect.sessions_root(&|name| self.passed(name))
     }
 
     /// The tool.
@@ -510,6 +529,68 @@ impl Store {
         }
         let _ = options.open(self.root.join("used"));
     }
+
+    /// Writes down which of `tool`'s sessions under `sessions` are the
+    /// conversation's (`ids`), for the sweep, should the bridge be killed
+    /// before it removes them itself.
+    fn record(&self, tool: CliTool, sessions: &Path, ids: &[String]) {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut lines = vec![tool.name().to_string(), sessions.display().to_string()];
+        lines.extend(ids.iter().cloned());
+        if let Ok(mut file) = options.open(self.root.join(SESSIONS)) {
+            let _ = std::io::Write::write_all(&mut file, lines.join("\n").as_bytes());
+        }
+    }
+}
+
+/// The file in a [`Store`] that names the conversation's sessions kept
+/// outside it ([`Store::record`]).
+const SESSIONS: &str = "sessions";
+
+/// Removes what [`Dialect::session_files`] names as the conversation `id`
+/// under `sessions`, and nothing else. How many went.
+fn forget(dialect: &dyn Dialect, sessions: &Path, id: &str) -> usize {
+    let mut gone = 0;
+    for path in dialect.session_files(sessions, id) {
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        let removed = if meta.is_dir() {
+            std::fs::remove_dir_all(&path)
+        } else if meta.is_file() {
+            std::fs::remove_file(&path)
+        } else {
+            continue;
+        };
+        gone += usize::from(removed.is_ok());
+    }
+    gone
+}
+
+/// Removes the sessions a stale store names ([`Store::record`]): its
+/// tool's own, under the directory it names, by the tool's own matching.
+fn forget_recorded(store: &Path) {
+    let Ok(text) = std::fs::read_to_string(store.join(SESSIONS)) else {
+        return;
+    };
+    let mut lines = text.lines();
+    let (Some(tool), Some(sessions)) = (lines.next().and_then(CliTool::named), lines.next()) else {
+        return;
+    };
+    let sessions = Path::new(sessions);
+    if !sessions.is_absolute() {
+        return;
+    }
+    let dialect = dialect(tool);
+    for id in lines {
+        forget(dialect.as_ref(), sessions, id);
+    }
 }
 
 impl Drop for Store {
@@ -546,7 +627,11 @@ fn sweep_stores(dir: &Path, stale: Duration) -> usize {
             .and_then(|used| used.modified())
             .or_else(|_| meta.modified());
         let old = used.is_ok_and(|used| used.elapsed().is_ok_and(|age| age >= stale));
-        if old && std::fs::remove_dir_all(&path).is_ok() {
+        if !old {
+            continue;
+        }
+        forget_recorded(&path);
+        if std::fs::remove_dir_all(&path).is_ok() {
             swept += 1;
         }
     }
@@ -590,6 +675,10 @@ enum Gone {
         why: String,
         lifts_in: Option<Duration>,
     },
+    /// Asked to go on with a conversation, it named another: it began a
+    /// new one, which knows nothing of the game. Its reader stops before
+    /// any reply, and the question begins the conversation again.
+    Strayed,
 }
 
 /// What a question waiting on a process hears.
@@ -703,15 +792,88 @@ struct CliSeat {
 /// A conversation a tool keeps on disk, which the next process goes on
 /// with ([`Dialect::resumes`]).
 struct Conversation {
-    /// Where it is kept; removed with it.
-    store: Store,
     /// Its id, once the tool named it: until then nothing can resume it.
     id: Option<String>,
     /// The bytes sent to it so far: its size.
     sent: usize,
     /// When it was last asked.
     used: Instant,
+    /// Every id its processes named (one that strayed too), whose session
+    /// files are removed with it.
+    ids: Vec<String>,
+    /// Where its tool keeps sessions outside the store, with the tool:
+    /// `None` where they are in the store.
+    sessions: Option<(Arc<dyn Dialect>, PathBuf)>,
+    /// The running count its tool reported last, where that count runs on
+    /// across the processes that resume it
+    /// ([`Dialect::usage_spans_resumes`]).
+    counted: Arc<Mutex<Usage>>,
+    /// Its own directory (the processes' working directory, and the tool's
+    /// data where it can be put there); removed last.
+    store: Store,
 }
+
+impl Conversation {
+    /// Whether the tool still has what it needs to go on with it: its
+    /// session files, where they are kept outside the store.
+    fn kept(&self) -> bool {
+        let Some(id) = &self.id else {
+            return false;
+        };
+        self.sessions
+            .as_ref()
+            .is_none_or(|(dialect, root)| !dialect.session_files(root, id).is_empty())
+    }
+
+    /// Notes `id`, which a process named, for removal; the first is the
+    /// conversation's own.
+    fn named(&mut self, id: String) {
+        if self.ids.contains(&id) {
+            return;
+        }
+        self.id.get_or_insert_with(|| id.clone());
+        self.ids.push(id);
+        if let Some((dialect, root)) = &self.sessions {
+            self.store.record(dialect.tool(), root, &self.ids);
+        }
+    }
+
+    /// Removes the session files of every id it named, outside its store.
+    fn forget(&self) {
+        if let Some((dialect, root)) = &self.sessions {
+            for id in &self.ids {
+                forget(dialect.as_ref(), root, id);
+            }
+        }
+    }
+}
+
+impl Drop for Conversation {
+    fn drop(&mut self) {
+        self.forget();
+        // A process ended with it may still be writing its last line: once
+        // its grace is over, again.
+        if self.sessions.is_some()
+            && !self.ids.is_empty()
+            && tokio::runtime::Handle::try_current().is_ok()
+        {
+            let Some((dialect, root)) = self.sessions.clone() else {
+                return;
+            };
+            let ids = self.ids.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(LATE_WRITE).await;
+                for id in &ids {
+                    forget(dialect.as_ref(), &root, id);
+                }
+            });
+        }
+    }
+}
+
+/// How long after a conversation is over its session files are removed
+/// once more, past a process's grace ([`Limits::grace`]).
+const LATE_WRITE: Duration = Duration::from_secs(5);
 
 /// A decision told and ready to send.
 struct Prepared {
@@ -749,6 +911,9 @@ pub struct CliMind {
     tally: Arc<Mutex<Tally>>,
     cooldown: Mutex<Cooldown>,
     locked_out: LockedOut,
+    /// Whether the bridge has warned of what the tool reads of the user's
+    /// ([`Dialect::home_warning`]).
+    warned: std::sync::atomic::AtomicBool,
 }
 
 impl CliMind {
@@ -778,6 +943,7 @@ impl CliMind {
             }),
             limits,
             locked_out: Arc::new(Mutex::new(None)),
+            warned: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -846,6 +1012,7 @@ impl CliMind {
                     Ok(Err(_)) => Reply::Gone(Gone::Ended),
                     Err(_) => {
                         // Hung: killed now, and the next question starts again.
+                        self.note_conversation(&mut lock(&seat));
                         if let Some(session) = Self::lose(&seat) {
                             session.end(Duration::ZERO);
                         }
@@ -855,14 +1022,18 @@ impl CliMind {
                         return Err(error);
                     }
                 };
-            if matches!(reply, Reply::Outcome(_)) {
-                self.note_conversation(&mut lock(&seat));
-            }
+            // Whatever it named is the conversation's, to resume or to
+            // remove.
+            self.note_conversation(&mut lock(&seat));
             let (value, usage, said) = match reply {
-                Reply::Gone(Gone::Ended) if prepared.resumed && !Self::heard(&seat) => {
+                Reply::Gone(gone)
+                    if prepared.resumed
+                        && (matches!(gone, Gone::Strayed)
+                            || (matches!(gone, Gone::Ended) && !Self::heard(&seat))) =>
+                {
                     // The tool could not go on with the conversation (it
-                    // was not found, or not read): it begins again, for
-                    // this very question, from the start.
+                    // was not found, not read, or another was begun): it
+                    // begins again, for this very question, from the start.
                     prepared = self
                         .afresh(&seat, request)
                         .map_err(MindError::Unavailable)?;
@@ -989,14 +1160,13 @@ impl CliMind {
         let fresh = if dialect.resumes() {
             let idle = self.limits.idle;
             let goes_on = state.conversation.as_ref().is_some_and(|going| {
-                going.id.is_some()
-                    && going.used.elapsed() < idle
-                    && going.sent.div_ceil(3) <= tokens
+                going.kept() && going.used.elapsed() < idle && going.sent.div_ceil(3) <= tokens
             });
             if goes_on {
                 state.lost = false;
             } else if let Some(over) = state.conversation.take() {
-                state.lost = over.id.is_some() && over.used.elapsed() >= idle;
+                // Over by its size is no loss; idle, or its files gone, is.
+                state.lost = over.id.is_some() && (over.used.elapsed() >= idle || !over.kept());
             }
             !goes_on
         } else {
@@ -1069,10 +1239,16 @@ impl CliMind {
                 )
             })?;
             state.conversation = Some(Conversation {
-                store,
                 id: None,
                 sent: 0,
                 used: Instant::now(),
+                ids: Vec::new(),
+                sessions: self
+                    .launch
+                    .sessions_root()
+                    .map(|root| (Arc::clone(&self.launch.dialect), root)),
+                counted: Arc::default(),
+                store,
             });
         }
         let session = self.spawn(context, Arc::downgrade(seat), state.conversation.as_ref())?;
@@ -1123,7 +1299,7 @@ impl CliMind {
             return;
         };
         if let Some(id) = lock(&session.wire).conversation.clone() {
-            going.id = Some(id);
+            going.named(id);
         }
     }
 
@@ -1160,7 +1336,17 @@ impl CliMind {
         let mut args = dialect.args(&self.settings, model, &self.system, &dir.support());
         let resumes = conversation.and_then(|going| going.id.as_deref());
         if let Some(id) = resumes {
-            args.extend(dialect.resume_args(id));
+            dialect.resume(&mut args, id);
+        }
+        let lookup = |name: &str| {
+            env.iter()
+                .find(|(passed, _)| passed == name)
+                .map(|(_, value)| value.clone())
+        };
+        if let Some(warning) = dialect.home_warning(&lookup)
+            && !self.warned.swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            tracing::warn!("{tool}: {warning}");
         }
         let work = store.map_or_else(|| dir.work(), Store::work);
         if let Some(store) = store {
@@ -1185,7 +1371,10 @@ impl CliMind {
         let (lines, to_stdin) = mpsc::unbounded_channel();
         let queue = Arc::new(Mutex::new(Queue::default()));
         let tail = Arc::new(Mutex::new(String::new()));
-        let mut wire = Wire::default();
+        let mut wire = Wire {
+            asked: resumes.map(str::to_string),
+            ..Wire::default()
+        };
         for line in dialect.opening(&self.settings, model, &self.system, &mut wire) {
             // The receiver lives until the writer below ends.
             let _ = lines.send(line);
@@ -1204,6 +1393,9 @@ impl CliMind {
                 seats: Arc::downgrade(&self.seats),
                 locked_out: Arc::clone(&self.locked_out),
                 counted: Usage::default(),
+                running: conversation
+                    .filter(|_| dialect.usage_spans_resumes())
+                    .map(|going| Arc::clone(&going.counted)),
             }
             .run(stdout),
         );
@@ -1648,6 +1840,11 @@ struct Reader {
     /// running count ([`Dialect::usage_is_cumulative`]): one reader a
     /// process, so a new process counts from nothing again.
     counted: Usage,
+    /// The conversation's last reading, where the running count runs on
+    /// across the processes that resume it
+    /// ([`Dialect::usage_spans_resumes`]): read and kept in place of
+    /// [`Self::counted`].
+    running: Option<Arc<Mutex<Usage>>>,
 }
 
 impl Reader {
@@ -1675,15 +1872,20 @@ impl Reader {
             // A line is read once, or twice where the dialect asks (a start
             // read off a line that says more): never more.
             let mut events = Vec::with_capacity(1);
-            let back = {
+            let (back, strayed) = {
                 let mut wire = lock(&self.wire);
                 events.push(self.dialect.read_event(line.trim_end(), &mut wire));
                 if std::mem::take(&mut wire.again) {
                     events.push(self.dialect.read_event(line.trim_end(), &mut wire));
                     wire.again = false;
                 }
-                std::mem::take(&mut wire.out)
+                (std::mem::take(&mut wire.out), wire.strayed())
             };
+            if strayed {
+                // Nothing it says belongs to the conversation it was asked
+                // to go on with.
+                break Gone::Strayed;
+            }
             if let Some(lines) = self.lines.upgrade() {
                 for line in back {
                     let _ = lines.send(line);
@@ -1762,8 +1964,15 @@ impl Reader {
             && self.dialect.usage_is_cumulative()
         {
             let reading = *usage;
-            *usage = reading.since(self.counted);
+            let before = self
+                .running
+                .as_ref()
+                .map_or(self.counted, |running| *lock(running));
+            *usage = reading.since(before);
             self.counted = reading;
+            if let Some(running) = &self.running {
+                *lock(running) = reading;
+            }
         }
         let Some(waiter) = lock(&self.queue).waiting.pop_front() else {
             return;

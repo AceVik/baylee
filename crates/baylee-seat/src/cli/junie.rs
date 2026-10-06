@@ -3,9 +3,19 @@
 //! (`--input-format=json`, `{"task": …}`) and its events as JSON lines on
 //! its stdout (`--output-format=json-stream`).
 //!
-//! Junie takes one task a process and goes on only by `--resume` or
-//! `--session-id`, which read a session it kept on disk; so every question
-//! is a conversation of its own ([`Dialect::one_shot`]). Its ACP mode
+//! Junie takes one task a process ([`Dialect::one_shot`]) and follows a
+//! session up by its id (`--session-id=<id>`, the id its `session` line
+//! named; never `--resume` alone, the last session), read back from what
+//! it kept on disk ([`Dialect::resumes`]). It keeps its sessions under its
+//! home (`$JUNIE_HOME`, else `~/.junie`) with its settings and its
+//! fallback credentials, so they are kept where the user's are
+//! (`sessions/<id>/`), and the seat removes exactly its own directory when
+//! the conversation is over ([`Dialect::session_files`]); the line its
+//! index (`sessions/index.jsonl`) holds for it stays. A session it does not
+//! find may be begun anew rather than refused: a process whose `session`
+//! line names another id than the one asked for is stopped, and the
+//! question begins the conversation again. Every flag below is given again
+//! to the process that follows up. Its ACP mode
 //! (`--acp=true`) would hold a session, but runs Junie's own tools with
 //! their permission prompts sent to the client and reports no reliable
 //! token counts; it is not used.
@@ -26,17 +36,17 @@
 //! Junie names no tools at its start: its `session` line is the start,
 //! and the proof the lockdown held is read off every line after it, so a
 //! step other than the task's result (a file opened, a command run) takes
-//! the mind off the table ([`Event::Breach`]). It still keeps each session
-//! under its home (`~/.junie/sessions`): no flag turns that off.
+//! the mind off the table ([`Event::Breach`]).
 
 use super::dialect::{
-    Dialect, Event, Outcome, Started, Wire, clipped, first_line_starts, sounds_limited,
+    Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, entries, first_line_starts,
+    sounds_limited, tool_home,
 };
 use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::{Value, json};
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The guidelines file Junie is pointed at: empty.
 const GUIDELINES: &str = "guidelines.md";
@@ -108,6 +118,29 @@ impl Dialect for Junie {
         true
     }
 
+    fn resumes(&self) -> bool {
+        true
+    }
+
+    fn resume(&self, args: &mut Vec<OsString>, id: &str) {
+        args.push(format!("--session-id={id}").into());
+    }
+
+    fn sessions_root(&self, env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+        tool_home(env, "JUNIE_HOME", ".junie").map(|home| home.join("sessions"))
+    }
+
+    fn session_files(&self, root: &Path, id: &str) -> Vec<PathBuf> {
+        let Some(id) = conversation_id(id) else {
+            return Vec::new();
+        };
+        entries(root)
+            .into_iter()
+            .filter(|(name, kind, _)| kind.is_dir() && *name == id)
+            .map(|(_, _, path)| path)
+            .collect()
+    }
+
     fn stdin_line(&self, text: &str) -> String {
         json!({"task": text}).to_string()
     }
@@ -115,7 +148,7 @@ impl Dialect for Junie {
     fn usage_is_cumulative(&self) -> bool {
         // The `result` line counts the whole task, per model; one task a
         // process, so each reading is booked whole as a new process's
-        // first.
+        // first, a follow-up's too (a new task in the session).
         true
     }
 
@@ -124,6 +157,14 @@ impl Dialect for Junie {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Event::Other;
         };
+        if wire.conversation.is_none()
+            && value.get("type").and_then(Value::as_str) == Some("session")
+        {
+            wire.conversation = value
+                .get("sessionId")
+                .and_then(Value::as_str)
+                .and_then(conversation_id);
+        }
         if let Some(start) = first_line_starts(&value, wire) {
             return start;
         }

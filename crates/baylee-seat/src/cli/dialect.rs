@@ -16,8 +16,11 @@
 //! conversation's prefix in the provider's cache. A tool that answers one
 //! message a process ([`Dialect::one_shot`]) gets every question as a new
 //! conversation, the prefix and the seat's notes again, unless it resumes
-//! one by its id ([`Dialect::resumes`]) from a store the seat owns: then
-//! each process goes on with the conversation the last one left there.
+//! one by its id ([`Dialect::resumes`]): then each process goes on with
+//! the conversation the last one left, in a store the seat owns or, where
+//! the tool keeps its sessions beside its login, under the user's home
+//! ([`Dialect::sessions_root`]), from where the seat removes exactly its
+//! own ([`Dialect::session_files`]).
 //!
 //! Which tools this build speaks, and how each is locked down, is
 //! `docs/llm-seat.md` §"A CLI as the model".
@@ -26,7 +29,7 @@ use crate::llm::{Settings, Usage};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::Value;
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// One agent CLI's way of talking.
@@ -79,13 +82,20 @@ pub(crate) trait Dialect: Send + Sync {
     }
 
     /// Whether a one-shot tool goes on with a conversation by its id
-    /// ([`Wire::conversation`]), kept in a store of the seat's own: then a
-    /// question within the conversation's limits is only what is new, sent
-    /// to a process started with [`Self::resume_args`]. Such a tool must
-    /// count each reply's own usage ([`Self::usage_is_cumulative`] false):
-    /// a running count would start again with each process, though the
-    /// conversation does not.
+    /// ([`Wire::conversation`]): then a question within the conversation's
+    /// limits is only what is new, sent to a process started as
+    /// [`Self::resume`] says. A process that names another conversation
+    /// than the one it was asked to go on with has begun a new one: it is
+    /// stopped, and the question begins the conversation again.
     fn resumes(&self) -> bool {
+        false
+    }
+
+    /// Whether a running count of usage ([`Self::usage_is_cumulative`])
+    /// runs on across the processes that resume one conversation (it is
+    /// the conversation's, read back with it), rather than starting again
+    /// with each process.
+    fn usage_spans_resumes(&self) -> bool {
         false
     }
 
@@ -96,11 +106,33 @@ pub(crate) trait Dialect: Send + Sync {
         Vec::new()
     }
 
-    /// The arguments, after [`Self::args`], that go on with the
+    /// Turns [`Self::args`] into the arguments that go on with the
     /// conversation `id` ([`Self::resumes`]): an explicit id, never a
-    /// tool's "the most recent one".
-    fn resume_args(&self, _id: &str) -> Vec<OsString> {
+    /// tool's "the most recent one", and every lockdown flag kept.
+    fn resume(&self, _args: &mut Vec<OsString>, _id: &str) {}
+
+    /// Where the tool keeps its sessions when they cannot be put in the
+    /// seat's store (they live beside its login), by the variables `env`
+    /// gives its process: `None` where they are in the store, or nowhere.
+    fn sessions_root(&self, _env: &dyn Fn(&str) -> Option<OsString>) -> Option<PathBuf> {
+        None
+    }
+
+    /// The files (or directory) under `root` ([`Self::sessions_root`])
+    /// that are the conversation `id` and nothing else: only what is named
+    /// for exactly that id, never through a link, and nothing for an id
+    /// that is not one ([`conversation_id`]). These are what the seat
+    /// removes when the conversation is over, and what must be there for it
+    /// to be resumed.
+    fn session_files(&self, _root: &Path, _id: &str) -> Vec<PathBuf> {
         Vec::new()
+    }
+
+    /// Something of the user's that the tool reads whatever its flags say
+    /// and the bridge should warn of, by the variables `env` gives its
+    /// process: Codex's `$CODEX_HOME/AGENTS.md`.
+    fn home_warning(&self, _env: &dyn Fn(&str) -> Option<OsString>) -> Option<String> {
+        None
     }
 
     /// The lines written as the process starts, before any message: a
@@ -176,6 +208,17 @@ pub(crate) struct Wire {
     /// start of its own starts on its first line, which says something of
     /// its own besides.
     pub(crate) again: bool,
+    /// The conversation the process was asked to go on with
+    /// ([`Dialect::resume`]): one that names another has begun a new one.
+    pub(crate) asked: Option<String>,
+}
+
+impl Wire {
+    /// Whether the process named another conversation than the one it was
+    /// asked to go on with.
+    pub(crate) fn strayed(&self) -> bool {
+        matches!((&self.asked, &self.conversation), (Some(asked), Some(named)) if asked != named)
+    }
 }
 
 /// What the process said it started with: each list `None` where the
@@ -273,6 +316,35 @@ pub(crate) fn conversation_id(id: &str) -> Option<String> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
     fits.then(|| id.to_string())
+}
+
+/// The entries of `dir` that are what their names say (a link is never
+/// followed), by name; nothing where it cannot be read.
+pub(crate) fn entries(dir: &Path) -> Vec<(String, std::fs::FileType, PathBuf)> {
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    read.flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            let kind = entry.file_type().ok()?;
+            Some((name, kind, entry.path()))
+        })
+        .collect()
+}
+
+/// `name`'s value in `env`, or `home`'s `fallback` beneath `HOME`: where a
+/// tool keeps its home.
+pub(crate) fn tool_home(
+    env: &dyn Fn(&str) -> Option<OsString>,
+    name: &str,
+    fallback: &str,
+) -> Option<PathBuf> {
+    env(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| env("HOME").map(|home| PathBuf::from(home).join(fallback)))
+        .filter(|path| path.is_absolute())
 }
 
 /// Up to eight names, for a sentence.

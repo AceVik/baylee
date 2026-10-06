@@ -155,8 +155,8 @@ impl Dialect for Opencode {
         vec![("OPENCODE_DB", store.join(DATABASE).into())]
     }
 
-    fn resume_args(&self, id: &str) -> Vec<OsString> {
-        vec!["--session".into(), id.into()]
+    fn resume(&self, args: &mut Vec<OsString>, id: &str) {
+        args.extend(["--session".into(), id.into()]);
     }
 
     fn stdin_line(&self, text: &str) -> String {

@@ -1023,7 +1023,9 @@ fn a_conversation_store_is_private_and_removed_with_it() {
 /// The sweep at a mind's start removes the stores a killed bridge left,
 /// untouched past the limit, and nothing else: not a fresh store, not
 /// another directory, not a link named as one, not a store's lookalike
-/// others may read.
+/// others may read. A stale store that names its conversation's sessions
+/// in the user's home takes exactly those with it, by its tool's own
+/// matching; a fresh one's stay, and so does every other session.
 #[cfg(unix)]
 #[test]
 fn the_sweep_removes_only_stale_stores() {
@@ -1049,9 +1051,32 @@ fn the_sweep_removes_only_stale_stores() {
     private_dir(&target).unwrap();
     let link = dir.join(format!("{STORE_PREFIX}link"));
     std::os::unix::fs::symlink(&target, &link).unwrap();
+    let sessions = dir.join("junie-home/sessions");
+    let session = |id: &str| {
+        let path = sessions.join(id);
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("events.jsonl"), "{}").unwrap();
+        path
+    };
+    let (left, playing, theirs) = (
+        session("session-left"),
+        session("session-playing"),
+        session("session-theirs"),
+    );
+    let record = |store: &Path, ids: &[&str]| {
+        let mut text = format!("junie\n{}", sessions.display());
+        for id in ids {
+            text.push('\n');
+            text.push_str(id);
+        }
+        std::fs::write(store.join(SESSIONS), text).unwrap();
+    };
+    record(&stale, &["session-left", "..", "session-gone"]);
+    record(&fresh, &["session-playing"]);
     assert_eq!(sweep_stores(&dir, STALE_STORE), 1);
     assert!(!stale.exists());
-    for kept in [&fresh, &open, &other, &target, &link] {
+    assert!(!left.exists(), "the killed bridge's session");
+    for kept in [&fresh, &open, &other, &target, &link, &playing, &theirs] {
         assert!(kept.exists(), "{kept:?}");
     }
     std::fs::remove_dir_all(&dir).unwrap();
