@@ -172,9 +172,9 @@ impl FrameLimit {
 }
 
 /// The most frames drawn per second while the window is in the background
-/// (not focused) or the front door and lobby have stood untouched for
-/// [`IDLE_AFTER_SECS`]. A hidden or minimised window draws one frame a
-/// second whatever this says: nobody can see it.
+/// (not focused) or a menu has stood untouched for [`IDLE_AFTER_SECS`]. A
+/// hidden or minimised window draws one frame a second whatever this says:
+/// nobody can see it; so does an idle menu with nothing ambient moving.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackgroundLimit {
@@ -250,6 +250,15 @@ impl Effects {
 /// at the background rate. Never at the table, where an opponent's move is
 /// worth watching at full rate whether or not the mouse moves.
 pub const IDLE_AFTER_SECS: f32 = 30.0;
+
+/// Seconds without input after which a menu (front door, lobby, settings)
+/// eases from the frame limit to [`MENU_FPS`]: what moves there on its own is
+/// slow ambience, and a click or a key brings the full rate back at once.
+pub const MENU_SETTLE_SECS: f32 = 2.0;
+
+/// The most frames a settled menu draws per second. The front door's
+/// slowest-moving world reads the same at thirty as at sixty, and costs half.
+pub const MENU_FPS: u32 = 30;
 
 /// Frames per second a hidden or minimised window still draws.
 pub const HIDDEN_FPS: u32 = 1;
@@ -411,14 +420,20 @@ impl Graphics {
 }
 
 /// What the window is doing, as far as pacing cares.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // independent facts about one window, not a state
 pub struct Showing {
     /// The window has the keyboard focus.
     pub focused: bool,
     /// The window is hidden, minimised or entirely covered.
     pub hidden: bool,
-    /// The front door or the lobby, untouched for [`IDLE_AFTER_SECS`].
-    pub idle_screen: bool,
+    /// A menu (the front door, the lobby, settings) rather than a table.
+    pub menu: bool,
+    /// Seconds since the last key, click, pointer move, wheel or touch.
+    pub untouched_secs: f32,
+    /// Nothing ambient moves (effects `Low`, or reduced motion): an idle
+    /// menu then has nothing to draw until something happens.
+    pub still: bool,
 }
 
 /// How often frames are drawn: as fast as allowed, or one every so often.
@@ -443,22 +458,33 @@ impl Pace {
 }
 
 impl Graphics {
-    /// The pace for a window in this state.
+    /// The pace for a window in this state, and whether input should wake a
+    /// frame at once (a reduced pace) or wait for the next one (a cap).
     ///
-    /// Hidden beats everything (nobody sees it); then the background or an
-    /// idle front door takes the background limit, never faster than the
-    /// focused limit; then the focused limit.
+    /// Hidden beats everything (nobody sees it). A menu left alone for
+    /// [`IDLE_AFTER_SECS`] draws at the background limit — or, with nothing
+    /// ambient moving, one frame a second; behind other windows, the
+    /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
+    /// [`MENU_FPS`]; otherwise the focused limit. A reduced pace is never
+    /// faster than the focused limit.
     #[must_use]
-    pub fn pace(&self, showing: Showing) -> Pace {
+    pub fn pace(&self, showing: Showing) -> (Pace, bool) {
         if showing.hidden {
-            return Pace::Fps(HIDDEN_FPS);
+            return (Pace::Fps(HIDDEN_FPS), true);
         }
         let focused = self.frame_limit.fps();
-        if !showing.focused || showing.idle_screen {
-            let background = self.background_limit.fps();
-            return Pace::Fps(focused.map_or(background, |f| background.min(f)));
+        let held = |fps: u32| Pace::Fps(focused.map_or(fps, |f| fps.min(f)));
+        let idle = showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS;
+        if idle && showing.still {
+            return (Pace::Fps(HIDDEN_FPS), true);
         }
-        focused.map_or(Pace::Unlimited, Pace::Fps)
+        if idle || !showing.focused {
+            return (held(self.background_limit.fps()), true);
+        }
+        if showing.menu && showing.untouched_secs >= MENU_SETTLE_SECS {
+            return (held(MENU_FPS), true);
+        }
+        (focused.map_or(Pace::Unlimited, Pace::Fps), false)
     }
 }
 
@@ -469,7 +495,9 @@ mod tests {
     const AT_DESK: Showing = Showing {
         focused: true,
         hidden: false,
-        idle_screen: false,
+        menu: false,
+        untouched_secs: 0.0,
+        still: false,
     };
 
     /// Each named preset is its own: setting one and asking which preset
@@ -518,34 +546,62 @@ mod tests {
         assert_eq!(graphics.preset, Preset::High);
     }
 
-    /// The pace: the focused limit at the desk, the background limit
-    /// behind other windows and on an idle front door — never faster than
-    /// the focused one — and one frame a second when nobody can see it.
+    /// The pace: the focused limit at the table, whatever the pointer does;
+    /// a settled menu at thirty; an idle menu, or any screen behind other
+    /// windows, at the background limit — and an idle menu with nothing
+    /// moving, like a hidden window, at one frame a second. A reduced pace
+    /// wakes on input, a cap does not, and none is faster than the cap.
     #[test]
     fn the_pace_follows_the_window() {
         let medium = Graphics::of(Preset::Medium);
-        assert_eq!(medium.pace(AT_DESK), Pace::Fps(60));
+        assert_eq!(medium.pace(AT_DESK), (Pace::Fps(60), false));
+        let table_untouched = Showing {
+            untouched_secs: 600.0,
+            ..AT_DESK
+        };
+        assert_eq!(medium.pace(table_untouched), (Pace::Fps(60), false));
+        let menu = Showing {
+            menu: true,
+            ..AT_DESK
+        };
+        assert_eq!(medium.pace(menu), (Pace::Fps(60), false));
+        let settled = Showing {
+            untouched_secs: MENU_SETTLE_SECS,
+            ..menu
+        };
+        assert_eq!(medium.pace(settled), (Pace::Fps(MENU_FPS), true));
+        let idle = Showing {
+            untouched_secs: IDLE_AFTER_SECS,
+            ..menu
+        };
+        assert_eq!(medium.pace(idle), (Pace::Fps(15), true));
+        let idle_still = Showing {
+            still: true,
+            ..idle
+        };
+        assert_eq!(medium.pace(idle_still), (Pace::Fps(HIDDEN_FPS), true));
         let away = Showing {
             focused: false,
             ..AT_DESK
         };
-        assert_eq!(medium.pace(away), Pace::Fps(15));
-        let idle = Showing {
-            idle_screen: true,
-            ..AT_DESK
-        };
-        assert_eq!(medium.pace(idle), Pace::Fps(15));
+        assert_eq!(medium.pace(away), (Pace::Fps(15), true));
         let hidden = Showing {
             hidden: true,
             ..AT_DESK
         };
-        assert_eq!(medium.pace(hidden), Pace::Fps(HIDDEN_FPS));
-        assert_eq!(Graphics::of(Preset::Ultra).pace(AT_DESK), Pace::Unlimited);
-        assert_eq!(Graphics::of(Preset::Ultra).pace(away), Pace::Fps(60));
-        // A background limit above the focused one is held to it.
+        assert_eq!(medium.pace(hidden), (Pace::Fps(HIDDEN_FPS), true));
+        let ultra = Graphics::of(Preset::Ultra);
+        assert_eq!(ultra.pace(AT_DESK), (Pace::Unlimited, false));
+        assert_eq!(ultra.pace(away), (Pace::Fps(60), true));
+        assert_eq!(ultra.pace(settled), (Pace::Fps(MENU_FPS), true));
+        // A reduced pace is held to the cap.
         let mut odd = Graphics::of(Preset::Low);
         odd.background_limit = BackgroundLimit::Fps60;
-        assert_eq!(odd.pace(away), Pace::Fps(30));
+        assert_eq!(odd.pace(away), (Pace::Fps(30), true));
+        let mut slow = Graphics::of(Preset::Medium);
+        slow.frame_limit = FrameLimit::Fps30;
+        slow.background_limit = BackgroundLimit::Fps60;
+        assert_eq!(slow.pace(settled), (Pace::Fps(30), true));
         let interval = Pace::Fps(60).interval_secs().expect("a limit");
         assert!((interval - 1.0 / 60.0).abs() < 1e-6);
         assert_eq!(Pace::Unlimited.interval_secs(), None);

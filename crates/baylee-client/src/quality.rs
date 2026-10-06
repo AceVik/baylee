@@ -15,13 +15,14 @@
 //! the owner heard. A frame limit here is a `Reactive` update mode with the
 //! limit's interval as its wait: winit sleeps until the next frame is due
 //! instead of spinning, and the cap holds whatever the pointer does (window
-//! events do not wake it early while the window is in front). Behind other
-//! windows, on a front door nobody has touched for half a minute, and when the
-//! window is hidden, the wait grows and any input wakes it at once.
+//! events do not wake it early while the window is in front). A menu nobody
+//! has touched for two seconds eases to thirty frames, after half a minute to
+//! the background limit; behind other windows the background limit holds,
+//! and a hidden window draws one frame a second. Every reduced pace wakes on
+//! input at once (`baylee_client_core::graphics::Graphics::pace`).
 
 use baylee_client_core::graphics::{
-    AntiAliasing, BackgroundLimit, Effects, FrameLimit, Graphics, IDLE_AFTER_SECS, Pace, Preset,
-    Showing, VSync,
+    AntiAliasing, BackgroundLimit, Effects, FrameLimit, Graphics, Pace, Preset, Showing, VSync,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use bevy::anti_alias::fxaa::Fxaa;
@@ -228,10 +229,12 @@ pub fn update_mode(pace: Pace, waking: bool) -> UpdateMode {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Bevy system: the clocks, the window and the settings it reads
 fn pace(
     time: Res<Time<Real>>,
     watch: Res<Watch>,
     in_use: Res<InUse>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     winit: Option<ResMut<WinitSettings>>,
@@ -239,16 +242,17 @@ fn pace(
     let Some(mut winit) = winit else {
         return;
     };
-    let focused = focused(&windows);
-    let screen = phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed);
-    let untouched = time.elapsed_secs_f64() - watch.last_input > f64::from(IDLE_AFTER_SECS);
+    #[allow(clippy::cast_possible_truncation)] // seconds, far inside f32
+    let untouched_secs = (time.elapsed_secs_f64() - watch.last_input) as f32;
     let showing = Showing {
-        focused,
+        focused: focused(&windows),
         hidden: watch.hidden,
-        idle_screen: screen && untouched,
+        menu: phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed),
+        untouched_secs,
+        still: ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use)),
     };
-    let waking = !focused || showing.hidden || showing.idle_screen;
-    let mode = update_mode(in_use.0.pace(showing), waking);
+    let (pace, waking) = in_use.0.pace(showing);
+    let mode = update_mode(pace, waking);
     if winit.focused_mode != mode || winit.unfocused_mode != mode {
         winit.focused_mode = mode;
         winit.unfocused_mode = mode;
