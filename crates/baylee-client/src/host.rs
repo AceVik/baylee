@@ -136,6 +136,15 @@ pub trait DuelHost: Send + Sync + 'static {
     fn seat_token(&self) -> Option<&str> {
         None
     }
+
+    /// The record of the game this client hosts itself, as written so far
+    /// (`baylee_gamehost::record`), for a report about it to offer.
+    ///
+    /// Defaults to `None`, the truthful answer for a networked host: its
+    /// game's record is the gateway's, which attaches it itself.
+    fn local_record(&self) -> Option<&[u8]> {
+        None
+    }
 }
 
 /// Decodes one server envelope into the message a client acts on.
@@ -210,6 +219,13 @@ pub struct LocalHost {
     /// The opening payload, still encoded — see [`LocalHost::absorb`].
     statics: Option<Envelope>,
     pending_out: Vec<HostMessage>,
+    /// The game's record so far: the same JSON Lines a hosted game's engine
+    /// writes (#315), taken from the session after every step.
+    record: Vec<u8>,
+    /// Its file among the kept records (`crate::records`).
+    record_name: String,
+    /// Whether that file holds the record as it stands.
+    record_kept: bool,
 }
 
 impl LocalHost {
@@ -219,18 +235,55 @@ impl LocalHost {
     /// malformed deck, or a seat count the engine refuses.
     #[must_use]
     pub fn new(preset: &GamePreset, seat: PlayerId, seat_names: &[&str]) -> Option<Self> {
-        let mut session = Session::new(preset)?;
+        let mut session = Session::new_recorded(preset, baylee_build::short())?;
         session.describe(
             "local".to_string(),
             seat_names.iter().map(|n| (*n).to_string()).collect(),
         );
         let statics = session.game_static_envelope(seat);
-        Some(Self {
+        let mut host = Self {
             session,
             seat,
             statics: Some(statics),
             pending_out: Vec::new(),
-        })
+            record: Vec::new(),
+            record_name: baylee_client_core::bugreport::record_file_name(wall_ms(), preset.seed),
+            record_kept: false,
+        };
+        host.take_the_record();
+        Some(host)
+    }
+
+    /// Takes what the session recorded since the last step; keeps the file
+    /// the moment the game is over.
+    fn take_the_record(&mut self) {
+        let fresh = self.session.take_record();
+        if fresh.is_empty() {
+            return;
+        }
+        let ended = fresh
+            .split(|b| *b == b'\n')
+            .any(|line| line.starts_with(br#"{"kind":"end""#));
+        self.record.extend_from_slice(&fresh);
+        self.record_kept = false;
+        if ended {
+            self.keep_the_record();
+        }
+    }
+
+    /// Writes the record to its file, if it moved past its header since the
+    /// last write: a game nobody played a step of is not worth a file.
+    fn keep_the_record(&mut self) {
+        let past_header = self
+            .record
+            .iter()
+            .position(|b| *b == b'\n')
+            .is_some_and(|end| end + 1 < self.record.len());
+        if self.record_kept || !past_header {
+            return;
+        }
+        crate::records::keep(&self.record_name, &self.record);
+        self.record_kept = true;
     }
 
     /// Decodes the session's envelopes for this seat.
@@ -271,6 +324,7 @@ impl DuelHost for LocalHost {
             self.absorb(routed);
         }
         out.append(&mut self.pending_out);
+        self.take_the_record();
         // A table of one seat is open as soon as it is dealt: nobody else is
         // loading, and no clock runs here. Said anyway, and last, because
         // every host that serves a seat does (#256).
@@ -299,6 +353,7 @@ impl DuelHost for LocalHost {
                     .extend(again.into_iter().filter_map(host_message));
             }
         }
+        self.take_the_record();
     }
 
     /// Nothing to say: this table opened on the first poll.
@@ -306,6 +361,19 @@ impl DuelHost for LocalHost {
 
     fn seat(&self) -> PlayerId {
         self.seat
+    }
+
+    fn local_record(&self) -> Option<&[u8]> {
+        Some(&self.record)
+    }
+}
+
+/// A game left before its end is kept as far as it went: the table closed,
+/// the lobby took another, or the client is quitting.
+impl Drop for LocalHost {
+    fn drop(&mut self) {
+        self.take_the_record();
+        self.keep_the_record();
     }
 }
 
@@ -768,5 +836,62 @@ pub(crate) mod tests {
         let out = host.poll();
         assert!(out.iter().any(|m| matches!(m, HostMessage::View(..))));
         assert!(!out.iter().any(|m| matches!(m, HostMessage::Failed(_))));
+    }
+
+    /// A game hosted here keeps its record as a hosted game's engine
+    /// writes it (#315): the header first, then each input as it is
+    /// applied, the house's moves too; a networked host keeps none.
+    #[test]
+    fn a_local_game_keeps_its_record_as_it_goes() {
+        let mut host =
+            LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+        let header = host
+            .local_record()
+            .expect("a local host keeps one")
+            .to_vec();
+        assert!(header.starts_with(br#"{"kind":"header","record":1"#));
+        assert_eq!(
+            header.iter().position(|b| *b == b'\n'),
+            Some(header.len() - 1),
+            "the header and nothing else"
+        );
+        host.poll();
+        host.submit(PlayerAction::MulliganKeep);
+        host.poll();
+        let record = std::str::from_utf8(host.local_record().expect("kept"))
+            .expect("text")
+            .to_string();
+        assert!(record.starts_with(std::str::from_utf8(&header).expect("text")));
+        let inputs: Vec<&str> = record.lines().skip(1).collect();
+        assert!(!inputs.is_empty(), "the keep was recorded");
+        assert!(
+            inputs
+                .iter()
+                .all(|line| line.starts_with(r#"{"kind":"input""#)
+                    || line.starts_with(r#"{"kind":"chair""#)),
+            "{record}"
+        );
+        assert!(record.contains("MulliganKeep"), "{record}");
+        assert!(
+            baylee_client_core::bugreport::LocalRecord::pack(record.as_bytes())
+                .is_some_and(|packed| !packed.complete)
+        );
+        assert!(
+            Seatless.local_record().is_none(),
+            "a host by default keeps none"
+        );
+    }
+
+    struct Seatless;
+
+    impl DuelHost for Seatless {
+        fn poll(&mut self) -> Vec<HostMessage> {
+            Vec::new()
+        }
+        fn submit(&mut self, _: PlayerAction) {}
+        fn ready(&mut self) {}
+        fn seat(&self) -> PlayerId {
+            PlayerId::new(0)
+        }
     }
 }

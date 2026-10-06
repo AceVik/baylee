@@ -115,6 +115,7 @@ pub fn crash_submission(file: &CrashFile, system: Option<System>) -> Submission 
             crash: Some(file.record.clone()),
             ..BugReport::default()
         },
+        local_record: None,
     }
 }
 

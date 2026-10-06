@@ -11,13 +11,21 @@
 //! by the button in the table's top-right corner (`corner`, over the end
 //! screen too), by the row in the table's game menu and by the button beside
 //! the music controls in the lobby. It sends to the gateway the lobby is
-//! signed in to, with that session; without one it says so and sends nothing.
+//! signed in to, with that session. Signed in nowhere, it sends straight to
+//! the feedback service this build was given (`BAYLEE_FEEDBACK_PUBLIC_URL`)
+//! or the settings name, under this device's random id, after a
+//! confirmation listing what goes; knowing none, it says so and sends
+//! nothing, to anyone.
+//!
+//! A report about a game this client hosted (against the house) may carry
+//! that game's record, taken from the host when the form opens: a box
+//! ticked for that one report, never remembered, confirmed before it goes.
 
 use std::sync::{Arc, Mutex};
 
 use baylee_client_core::bugreport::{
     self, Build, Category, Consent, CrashConsent, CrashFile, CrashStep, Game, Gathered, Holding,
-    Keyring, ReportForm, Settings, Status, System, Table,
+    Keyring, LocalRecord, ReportForm, Route, Settings, Status, System, Table, Via,
 };
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::lobby::{Screen, gateway_list};
@@ -254,6 +262,7 @@ fn open_when_asked(
     desk.open = true;
     desk.form.status = Status::Editing;
     desk.form.preview = false;
+    desk.form.opened();
     let at_table = phase.is_some_and(|phase| *phase.get() != crate::DuelPhase::Closed);
     let duel = duel.as_deref().filter(|_| at_table);
     desk.gathered = gather(
@@ -329,6 +338,11 @@ fn gather(
             preferences: prefs.and_then(|p| serde_json::from_str(&p.all().to_json()).ok()),
         }),
         screenshot: None,
+        // Packed here, once per opening, and not per keystroke: the form
+        // rebuilds its body on every change it shows.
+        local_record: host
+            .and_then(|h| h.0.local_record())
+            .and_then(LocalRecord::pack),
     }
 }
 
@@ -360,6 +374,19 @@ fn system(
         scale: window.map_or(1.0, |w| w.resolution.scale_factor()),
         lang: lang.to_string(),
     }
+}
+
+/// The feedback service this build was given, if any.
+const BUILT_FEEDBACK_URL: Option<&str> = option_env!("BAYLEE_FEEDBACK_PUBLIC_URL");
+
+/// Where a report goes now: the gateway the lobby is signed in to, else
+/// the feedback service the settings or the build name, else nowhere.
+pub(crate) fn route(lobby: Option<&LobbyState>, settings: &ClientSettings) -> Route {
+    let service = bugreport::feedback_service(settings.feedback_url.as_deref(), BUILT_FEEDBACK_URL);
+    bugreport::route(
+        session(lobby).map(|(gateway, _)| gateway).as_deref(),
+        service.as_deref(),
+    )
 }
 
 /// The session the report is sent with, and the gateway it belongs to.
@@ -435,39 +462,111 @@ pub(crate) fn keyring(
     ring
 }
 
-/// Sends the form's report: sealed here, answered into [`Answers`].
-fn send(desk: &mut ReportDesk, holders: &Holders, settings: &ClientSettings, answers: &Answers) {
-    let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
-        return;
-    };
-    let keyring = holders.keyring(settings);
-    let consent = settings.reports.clone();
-    let gathered = desk.gathered.clone();
-    let Some(json) = desk.form.prepare(&gathered, &consent, &keyring.secrets()) else {
-        return;
-    };
-    post(&gateway, &token, json, answers, Answer::Form);
+/// The device id direct reports go under: the one the settings keep, or a
+/// fresh one from the platform's generator, kept from now on.
+fn device_id(settings: &mut ClientSettings) -> String {
+    let id = bugreport::kept_device_id(settings.report_device.as_deref(), || {
+        let mut random = [0u8; 16];
+        // A generator that fails leaves zeros, which is still an id; the
+        // reports of such a device merely share one.
+        let _ = getrandom::fill(&mut random);
+        random
+    });
+    if settings.report_device.as_deref() != Some(id.as_str()) {
+        settings.report_device = Some(id.clone());
+        settings.save();
+    }
+    id
 }
 
-/// `POST {gateway}/reports` with the session, its answer posted back.
+/// Send was pressed: the confirmation comes up when the report needs one
+/// ([`ReportForm::ask_to_send`]), else it goes.
+fn ask_to_send(
+    desk: &mut ReportDesk,
+    holders: &Holders,
+    settings: &mut ClientSettings,
+    answers: &Answers,
+) {
+    let route = route(holders.lobby.as_deref(), settings);
+    if !route.sends() {
+        return;
+    }
+    let device = settings.report_device.clone().unwrap_or_default();
+    let via = if route.is_direct() {
+        Via::Direct { device: &device }
+    } else {
+        Via::Gateway
+    };
+    let gathered = desk.gathered.clone();
+    if desk.form.ask_to_send(&gathered, &settings.reports, via) {
+        send(desk, holders, settings, answers);
+    }
+}
+
+/// Sends the form's report: sealed here, answered into [`Answers`].
+fn send(
+    desk: &mut ReportDesk,
+    holders: &Holders,
+    settings: &mut ClientSettings,
+    answers: &Answers,
+) {
+    let keyring = holders.keyring(settings);
+    let gathered = desk.gathered.clone();
+    match route(holders.lobby.as_deref(), settings) {
+        Route::Gateway(_) => {
+            let Some((gateway, token)) = session(holders.lobby.as_deref()) else {
+                return;
+            };
+            let consent = settings.reports.clone();
+            let Some(json) =
+                desk.form
+                    .prepare(&gathered, &consent, &keyring.secrets(), Via::Gateway)
+            else {
+                return;
+            };
+            post(
+                &format!("{}/reports", gateway.trim_end_matches('/')),
+                Some(&token),
+                json,
+                answers,
+                Answer::Form,
+            );
+        }
+        Route::Direct(url) => {
+            let device = device_id(settings);
+            let consent = settings.reports.clone();
+            let via = Via::Direct { device: &device };
+            let Some(json) = desk
+                .form
+                .prepare(&gathered, &consent, &keyring.secrets(), via)
+            else {
+                return;
+            };
+            post(&url, None, json, answers, Answer::Form);
+        }
+        Route::Nowhere => {}
+    }
+}
+
+/// `POST` a report to `url`, with the session when there is one (a
+/// gateway's), its answer posted back.
 fn post(
-    gateway: &str,
-    token: &str,
+    url: &str,
+    token: Option<&str>,
     body: String,
     answers: &Answers,
     answer: impl FnOnce(u16, String) -> Answer + Send + 'static,
 ) {
-    let mut request = ehttp::Request::post(
-        format!("{}/reports", gateway.trim_end_matches('/')),
-        body.into_bytes(),
-    );
+    let mut request = ehttp::Request::post(url, body.into_bytes());
     request.headers = ehttp::Headers::new(&[
         ("Accept", "application/json"),
         ("Content-Type", "application/json"),
     ]);
-    request
-        .headers
-        .insert("Authorization", format!("Bearer {token}"));
+    if let Some(token) = token {
+        request
+            .headers
+            .insert("Authorization", format!("Bearer {token}"));
+    }
     let slot = Arc::clone(&answers.0);
     crate::transport::fetch(request, move |result| {
         let (status, body) = match result {
@@ -633,9 +732,13 @@ fn send_the_crash(
         .then(|| system(None, None, &settings.lang));
     let keyring = holders.keyring(&settings);
     if let Ok((json, _)) = bugreport::crash_submission(&file, system).sealed(&keyring.secrets()) {
-        post(&gateway, &token, json, &answers, |status, _| {
-            Answer::Crash(status)
-        });
+        post(
+            &format!("{}/reports", gateway.trim_end_matches('/')),
+            Some(&token),
+            json,
+            &answers,
+            |status, _| Answer::Crash(status),
+        );
     }
 }
 

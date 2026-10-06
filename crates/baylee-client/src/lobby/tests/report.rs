@@ -11,7 +11,7 @@ use super::*;
 use crate::report::{DeskPress, DeskRoot, ReportDesk, gateway_answers};
 use crate::settings::ClientSettings;
 use baylee_client_core::bugreport::{
-    Category, CrashConsent, CrashFile, CrashRecord, MAX_TEXT_CHARS, Status,
+    Category, CrashConsent, CrashFile, CrashRecord, MAX_TEXT_CHARS, RecordConsent, Status,
 };
 use baylee_client_core::prefs::{Action, Chord};
 
@@ -525,7 +525,12 @@ fn a_trimmed_send_says_what_was_left_out() {
     };
     let json = desk_mut(&mut app)
         .form_mut()
-        .prepare(&gathered, &consent, &[])
+        .prepare(
+            &gathered,
+            &consent,
+            &[],
+            baylee_client_core::bugreport::Via::Gateway,
+        )
         .expect("sendable once trimmed");
     assert!(!json.contains("AAAA"), "the picture went out");
     assert!(desk(&app).form().trimmed.screenshot);
@@ -765,4 +770,174 @@ fn the_box_s_caret_blinks_unless_asked_to_hold_still() {
         still.iter().all(|c| *c == palette::INK),
         "reduce_motion holds it lit: {still:?}"
     );
+}
+
+/// A feedback service only this test's settings name, on a port nothing
+/// listens on: the build's own default never decides what a test sees.
+const SERVICE: &str = "http://127.0.0.1:9";
+
+/// The settings with direct reports going to [`SERVICE`] (`Some`) or
+/// turned off (`None`).
+fn service(app: &mut App, url: Option<&str>) {
+    app.world_mut()
+        .resource_mut::<ClientSettings>()
+        .feedback_url = Some(url.unwrap_or_default().to_string());
+}
+
+/// Signed in nowhere and knowing no service, the form says so and Send is
+/// no button at all; knowing one, it says the report goes there.
+#[test]
+fn signed_in_nowhere_the_form_says_where_a_report_would_go() {
+    let mut app = with_settings();
+    service(&mut app, None);
+    open_form(&mut app);
+    keys(&mut app, [typed('x')]);
+    let words = form_words(&mut app);
+    assert!(
+        words.contains(Phrase::ReportNeedsSession.text(Lang::En)),
+        "{words}"
+    );
+    assert!(
+        !desk_presses(&mut app)
+            .iter()
+            .any(|(_, p)| matches!(p, DeskPress::Send)),
+        "nowhere to send it, nothing to press"
+    );
+
+    service(&mut app, Some(SERVICE));
+    app.update();
+    let words = form_words(&mut app);
+    assert!(
+        words.contains(&Phrase::ReportGoesDirect.fill(Lang::En, &[SERVICE])),
+        "{words}"
+    );
+    assert!(!words.contains(Phrase::ReportNeedsSession.text(Lang::En)));
+}
+
+/// Straight to the service, Send first shows what goes and where; Back
+/// returns to the words, and only the confirmation's Send sends, under a
+/// device id made for it and kept.
+#[test]
+fn a_direct_report_is_confirmed_before_it_goes() {
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    open_form(&mut app);
+    keys(&mut app, [typed('o'), typed('w')]);
+    click_desk(&mut app, "send", |p| matches!(p, DeskPress::Send));
+    assert!(desk(&app).form().confirming);
+    assert_eq!(
+        desk(&app).form().status,
+        Status::Editing,
+        "nothing sent yet"
+    );
+    let words = form_words(&mut app);
+    for said in [
+        Phrase::ReportConfirmTitle.text(Lang::En).to_string(),
+        Phrase::ReportConfirmTo.fill(Lang::En, &[SERVICE]),
+        Phrase::ReportConfirmText.fill(Lang::En, &["2"]),
+        Phrase::ReportConfirmDevice.text(Lang::En).to_string(),
+    ] {
+        assert!(words.contains(&said), "{said:?} is not in {words}");
+    }
+    assert!(!words.contains(&Phrase::ReportConfirmRecord.fill(Lang::En, &["0"])[..20]));
+
+    // Keys do not reach the words under the confirmation; Esc goes back.
+    keys(&mut app, [typed('!')]);
+    assert_eq!(desk(&app).form().text.text(), "ow");
+    click_desk(&mut app, "back", |p| matches!(p, DeskPress::ConfirmBack));
+    assert!(!desk(&app).form().confirming && desk(&app).open);
+
+    assert!(
+        app.world()
+            .resource::<ClientSettings>()
+            .report_device
+            .is_none(),
+        "no id before the first direct report"
+    );
+    click_desk(&mut app, "send", |p| matches!(p, DeskPress::Send));
+    click_desk(&mut app, "send now", |p| {
+        matches!(p, DeskPress::ConfirmSend)
+    });
+    // On its way, or already refused by the port nobody listens on, in the
+    // service's own words: either way it went to the service.
+    assert!(
+        matches!(
+            desk(&app).form().status,
+            Status::Sending
+                | Status::Failed(baylee_client_core::i18n::Refusal::Said(
+                    Phrase::ReportDirectUnreachable
+                ))
+        ),
+        "{:?}",
+        desk(&app).form().status
+    );
+    let device = app
+        .world()
+        .resource::<ClientSettings>()
+        .report_device
+        .clone()
+        .expect("an id was made for it");
+    assert!(baylee_client_core::bugreport::is_device_id(&device));
+}
+
+/// A game hosted here offers its record, unticked at every opening; a
+/// ticked record is confirmed with what it shows, and "never" takes the
+/// box away and is kept.
+#[test]
+fn a_local_games_record_is_offered_unticked_and_never_remembered() {
+    let mut app = with_settings();
+    service(&mut app, Some(SERVICE));
+    let host = crate::host::house_duel().expect("the house duel builds");
+    app.insert_resource(crate::InstalledHost(Box::new(host)));
+    open_form(&mut app);
+    let words = form_words(&mut app);
+    assert!(
+        words.contains(Phrase::ReportRecordBox.text(Lang::En)),
+        "{words}"
+    );
+    assert!(!desk(&app).form().send_record, "unticked when it opens");
+
+    click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
+    assert!(desk(&app).form().send_record);
+    click_desk(&mut app, "close", |p| matches!(p, DeskPress::Close));
+    open_form(&mut app);
+    assert!(!desk(&app).form().send_record, "unticked at every opening");
+    assert_eq!(
+        app.world().resource::<ClientSettings>().reports.record,
+        RecordConsent::Ask,
+        "a yes is kept nowhere"
+    );
+
+    click_desk(&mut app, "the record", |p| matches!(p, DeskPress::Record));
+    keys(&mut app, [typed('x')]);
+    click_desk(&mut app, "send", |p| matches!(p, DeskPress::Send));
+    let kilobytes = desk_mut(&mut app)
+        .gathered_mut()
+        .local_record
+        .as_ref()
+        .expect("gathered")
+        .kilobytes()
+        .to_string();
+    let words = form_words(&mut app);
+    assert!(
+        words.contains(&Phrase::ReportConfirmRecord.fill(Lang::En, &[&kilobytes])),
+        "{words}"
+    );
+    click_desk(&mut app, "back", |p| matches!(p, DeskPress::ConfirmBack));
+
+    click_desk(&mut app, "never", |p| matches!(p, DeskPress::RecordNever));
+    assert_eq!(
+        app.world().resource::<ClientSettings>().reports.record,
+        RecordConsent::Never
+    );
+    assert!(!desk(&app).form().send_record);
+    assert!(
+        !desk_presses(&mut app)
+            .iter()
+            .any(|(_, p)| matches!(p, DeskPress::Record)),
+        "never: no box"
+    );
+    click_desk(&mut app, "send", |p| matches!(p, DeskPress::Send));
+    let words = form_words(&mut app);
+    assert!(!words.contains(&Phrase::ReportConfirmRecord.fill(Lang::En, &[&kilobytes])));
 }

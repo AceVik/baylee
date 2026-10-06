@@ -976,6 +976,7 @@ dependencies = [
  "baylee-engine",
  "baylee-protocol",
  "baylee-view",
+ "flate2",
  "glam",
  "serde",
  "serde_json",

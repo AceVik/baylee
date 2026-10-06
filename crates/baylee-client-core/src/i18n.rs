@@ -3559,10 +3559,71 @@ messages! {
         en: "The report could not be sent. Try again later.",
         de: "Der Bericht konnte nicht gesendet werden. Versuch es später erneut.",
     },
-    /// No session to send it with.
+    /// No session to send it with, and no feedback service to send it to.
     ReportNeedsSession {
-        en: "Sign in to a gateway to send a report.",
-        de: "Melde dich bei einem Gateway an, um einen Bericht zu senden.",
+        en: "Sign in to a gateway to send a report. This client knows no feedback service to send it to otherwise.",
+        de: "Melde dich bei einem Gateway an, um einen Bericht zu senden. Einen anderen Feedback-Dienst, an den er gehen könnte, kennt dieser Client nicht.",
+    },
+    /// Signed in nowhere, the report goes straight to the service. `{0}` is
+    /// its address.
+    ReportGoesDirect {
+        en: "You are not signed in, so this report goes straight to the Baylee feedback service at {0}.",
+        de: "Du bist nicht angemeldet, darum geht dieser Bericht direkt an den Baylee-Feedback-Dienst unter {0}.",
+    },
+    /// 503 from the service itself.
+    ReportsDirectUnavailable {
+        en: "The feedback service takes no reports straight from a client right now. Sign in to a gateway to send it.",
+        de: "Der Feedback-Dienst nimmt gerade keine Berichte direkt von einem Client an. Melde dich bei einem Gateway an, um ihn zu senden.",
+    },
+    /// No answer from the service.
+    ReportDirectUnreachable {
+        en: "The feedback service could not be reached. Your report is still here.",
+        de: "Der Feedback-Dienst war nicht erreichbar. Dein Bericht ist noch da.",
+    },
+    /// The box for a local game's record, ticked per report.
+    ReportRecordBox {
+        en: "Attach the whole record of this game",
+        de: "Die vollständige Aufzeichnung dieses Spiels anhängen",
+    },
+    /// Under it. `{0}` is its size in kilobytes.
+    ReportRecordHint {
+        en: "Every move of the game this device hosted, from the shuffle on ({0} KB). It shows every seat's cards, the hidden ones too: hands, libraries, face-down cards. It names nobody. Asked again for each report.",
+        de: "Jeder Zug des Spiels, das dieses Gerät ausgerichtet hat, ab dem Mischen ({0} KB). Sie zeigt die Karten aller Plätze, auch die verdeckten: Hände, Bibliotheken, verdeckte Karten. Sie nennt niemanden. Wird bei jedem Bericht neu gefragt.",
+    },
+    /// The standing "never" for records.
+    ReportRecordNever {
+        en: "Never offer to attach a game's record",
+        de: "Nie anbieten, die Aufzeichnung eines Spiels anzuhängen",
+    },
+    /// The confirmation's heading.
+    ReportConfirmTitle { en: "Send this report?", de: "Diesen Bericht senden?" },
+    /// Where it goes. `{0}` is the address.
+    ReportConfirmTo { en: "To: {0}", de: "An: {0}" },
+    /// The words. `{0}` is how many characters.
+    ReportConfirmText {
+        en: "Your text ({0} characters) and this build's version",
+        de: "Dein Text ({0} Zeichen) und die Version dieses Builds",
+    },
+    /// A ticked box, before its label.
+    ReportConfirmPart { en: "and: {0}", de: "und: {0}" },
+    /// The record. `{0}` is its size in kilobytes.
+    ReportConfirmRecord {
+        en: "and the whole record of the game this device hosted ({0} KB): every seat's cards, the hidden ones too",
+        de: "und die vollständige Aufzeichnung des Spiels, das dieses Gerät ausgerichtet hat ({0} KB): die Karten aller Plätze, auch die verdeckten",
+    },
+    /// The device id, on a direct report.
+    ReportConfirmDevice {
+        en: "and a random id this device made for reports, so that reports from one device can be told apart; never your name, account or address",
+        de: "und eine zufällige Kennung, die dieses Gerät für Berichte erzeugt hat, damit sich Berichte eines Geräts zuordnen lassen; nie dein Name, Konto oder deine Adresse",
+    },
+    /// Sends after the confirmation.
+    ReportConfirmSend { en: "Send now", de: "Jetzt senden" },
+    /// Back to the form.
+    ReportConfirmBack { en: "Back", de: "Zurück" },
+    /// The record was too large and stayed home.
+    ReportRecordLeftOut {
+        en: "The game's record was too large to attach and was left out.",
+        de: "Die Aufzeichnung des Spiels war zu groß zum Anhängen und wurde weggelassen.",
     },
     /// `seal` found a secret. `{0}` names which, never its value.
     ReportLeaked {

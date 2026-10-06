@@ -6,6 +6,11 @@
 //! nothing, and a crash report is asked about once ([`CrashConsent::Unasked`])
 //! rather than assumed. The client keeps this in its per-device settings
 //! file, so un-ticking a box (or answering "don't send") is the revocation.
+//!
+//! A game's record is different again ([`RecordConsent`]): it holds every
+//! seat's cards, hidden ones too, so a standing yes would be a standing
+//! leak. The only standing answer is "never"; the yes is given per report,
+//! in the form, and nothing here can keep it.
 
 use serde::{Deserialize, Serialize};
 
@@ -98,6 +103,22 @@ pub enum CrashConsent {
     Never,
 }
 
+/// Whether the form offers to attach the record of a game this device
+/// hosted (`docs/feedback.md`, "A local game's record").
+///
+/// Two answers, and neither of them is "send": a record leaves the machine
+/// only on a box ticked for the one report it goes with, unticked again at
+/// every opening of the form ([`crate::bugreport::ReportForm::send_record`]).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordConsent {
+    /// Offer the box, unticked, whenever there is a record.
+    #[default]
+    Ask,
+    /// Never offer it, and never attach one.
+    Never,
+}
+
 /// The player's standing answers about reports, on this device.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -119,6 +140,8 @@ pub struct Consent {
     pub screenshot: bool,
     /// Crash reports.
     pub crashes: CrashConsent,
+    /// Whether a local game's record is offered at all.
+    pub record: RecordConsent,
 }
 
 impl Consent {
@@ -174,6 +197,36 @@ mod tests {
         assert_eq!(consent.crashes, CrashConsent::Unasked);
         let read: Consent = serde_json::from_str("{}").expect("an empty object reads");
         assert_eq!(read, consent);
+    }
+
+    /// A settings file from before the record's answer offers the box, and
+    /// "never" is kept; there is no third answer for a file to hold, so a
+    /// yes cannot be remembered by hand-editing one either.
+    #[test]
+    fn the_only_standing_answer_about_a_record_is_never() {
+        let old: Consent = serde_json::from_str(r#"{"system":true,"crashes":"send"}"#)
+            .expect("a file from before reads");
+        assert_eq!(old.record, RecordConsent::Ask);
+        let never = Consent {
+            record: RecordConsent::Never,
+            ..Consent::default()
+        };
+        let text = serde_json::to_string(&never).expect("json");
+        assert!(text.contains(r#""record":"never""#), "{text}");
+        assert_eq!(
+            serde_json::from_str::<Consent>(&text).expect("reads"),
+            never
+        );
+        for yes in [
+            r#"{"record":"send"}"#,
+            r#"{"record":true}"#,
+            r#"{"record":"always"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<Consent>(yes).is_err(),
+                "{yes} was read as an answer"
+            );
+        }
     }
 
     /// A client that takes no picture says so at the screenshot box, under

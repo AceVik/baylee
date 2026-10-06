@@ -14,6 +14,15 @@
 //! only when its box is, and the form's preview shows the very bytes
 //! [`Submission::sealed`] hands the sender.
 //!
+//! A report about a game this device hosted itself may carry that game's
+//! record ([`LocalRecord`]), which is a different kind of thing: the whole
+//! game, every seat's hidden cards included. It is no [`Category`]; it is
+//! attached only when the player ticks it for the one report
+//! ([`Gathered::submission`]'s `send_record`), and never under a game id.
+//!
+//! Signed in, a report goes to that gateway; signed in nowhere, straight to
+//! the feedback service the client knows, or nowhere ([`route`]).
+//!
 //! # Why that is safe
 //!
 //! The alarming half of "send me everything" is that a client is a program a
@@ -64,15 +73,25 @@ mod base64;
 mod consent;
 mod crash;
 mod form;
+mod localrecord;
+mod route;
 mod seatlog;
 
 pub use base64::encode as base64_encode;
-pub use consent::{Category, Consent, CrashConsent};
+pub use consent::{Category, Consent, CrashConsent, RecordConsent};
 pub use crash::{
     BACKTRACE_CHARS, CrashFile, CrashRecord, CrashStep, bounded_backtrace, crash_step,
     crash_submission, scrub_home,
 };
-pub use form::{Outcome, ReportForm, Status, outcome};
+pub use form::{Outcome, Part, ReportForm, Status, Via, outcome, outcome_via};
+pub use localrecord::{
+    KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_RECORD_BYTES, gzip, is_record_file_name,
+    record_file_name, retention,
+};
+pub use route::{
+    DEVICE_ID_CHARS, DIRECT_PATH, DirectSubmission, MAX_DIRECT_CLIENT_BYTES, Route, device_id,
+    feedback_service, is_device_id, kept_device_id, route,
+};
 pub use seatlog::{LogRow, RosterSeat, SeatLog, seat_log};
 
 /// The shortest string [`seal`] will search for.
@@ -404,6 +423,8 @@ pub struct Gathered {
     pub settings: Option<Settings>,
     /// The picture, once it has been taken.
     pub screenshot: Option<Screenshot>,
+    /// The record of the game this device hosted, packed once.
+    pub local_record: Option<LocalRecord>,
 }
 
 impl Gathered {
@@ -449,14 +470,50 @@ impl Gathered {
         }
     }
 
-    /// The whole body of a report of `kind` saying `text`.
+    /// The record this report would carry: the local game's, when the
+    /// device has not said "never" ([`RecordConsent`]) and the player
+    /// ticked it for this report (`send_record`). Never a networked game's:
+    /// its gateway keeps that one itself.
+    #[must_use]
+    pub fn record(&self, consent: &Consent, send_record: bool) -> Option<&LocalRecord> {
+        self.local_record
+            .as_ref()
+            .filter(|_| send_record && consent.record == RecordConsent::Ask)
+            .filter(|_| self.game_id.is_none())
+    }
+
+    /// Whether the form offers the record's box at all.
+    #[must_use]
+    pub fn offers_record(&self, consent: &Consent) -> bool {
+        self.record(consent, true).is_some()
+    }
+
+    /// The whole body of a report of `kind` saying `text`, without a
+    /// record: the safe side, for every caller that is not the form.
     #[must_use]
     pub fn submission(&self, kind: Kind, text: &str, consent: &Consent) -> Submission {
+        self.submission_with(kind, text, consent, false)
+    }
+
+    /// The whole body of a report of `kind` saying `text`, carrying the
+    /// local game's record when `send_record` (see [`Self::record`]).
+    #[must_use]
+    pub fn submission_with(
+        &self,
+        kind: Kind,
+        text: &str,
+        consent: &Consent,
+        send_record: bool,
+    ) -> Submission {
+        let local_record = self.record(consent, send_record).cloned();
         Submission {
             kind,
             text: text.to_string(),
-            game_id: self.game_id.clone(),
+            // A report is about a game of the gateway's or a local one: a
+            // record the client wrote never rides under a game id.
+            game_id: self.game_id.clone().filter(|_| local_record.is_none()),
             client: self.report(consent),
+            local_record,
         }
     }
 }
@@ -473,6 +530,10 @@ pub struct Submission {
     pub game_id: Option<String>,
     /// Everything else, as far as the player allowed it.
     pub client: BugReport,
+    /// The record of a game the client hosted itself, when the player
+    /// ticked it for this report: unverified, and marked so by the gateway.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_record: Option<LocalRecord>,
 }
 
 /// A submission that cannot be sent as it stands.
@@ -508,29 +569,46 @@ pub struct Trimmed {
     pub screenshot: bool,
     /// The log was cut to its last this many lines.
     pub log_lines: Option<usize>,
+    /// The game's record was too large to ride and was left out.
+    pub record: bool,
 }
 
 impl Submission {
     /// This submission cut to [`MAX_CLIENT_BYTES`], and what was cut.
     ///
+    /// # Errors
+    ///
+    /// [`Unsendable::TooLarge`] when even that is not enough.
+    pub fn fitted(self) -> Result<(Self, Trimmed), Unsendable> {
+        self.fitted_to(MAX_CLIENT_BYTES)
+    }
+
+    /// This submission with its `client` object cut to `limit` bytes, and
+    /// what was cut.
+    ///
     /// The screenshot goes first, because it is by far the heaviest part and
     /// the one a report can best do without; then the log loses its oldest
     /// half, again and again, because the lines nearest the report are the
-    /// ones it is about.
+    /// ones it is about. A record over [`MAX_RECORD_BYTES`] is left out
+    /// rather than refusing the report: the words still go.
     ///
     /// # Errors
     ///
     /// [`Unsendable::TooLarge`] when even that is not enough.
-    pub fn fitted(mut self) -> Result<(Self, Trimmed), Unsendable> {
+    pub fn fitted_to(mut self, limit: usize) -> Result<(Self, Trimmed), Unsendable> {
         fn weight(report: &BugReport) -> usize {
             serde_json::to_vec(report).map_or(usize::MAX, |bytes| bytes.len())
         }
         let mut trimmed = Trimmed::default();
-        if weight(&self.client) <= MAX_CLIENT_BYTES {
+        if self.local_record.as_ref().is_some_and(|r| !r.fits()) {
+            self.local_record = None;
+            trimmed.record = true;
+        }
+        if weight(&self.client) <= limit {
             return Ok((self, trimmed));
         }
         trimmed.screenshot = self.client.screenshot.take().is_some();
-        while weight(&self.client) > MAX_CLIENT_BYTES {
+        while weight(&self.client) > limit {
             let Some(log) = self.client.log.as_mut() else {
                 return Err(Unsendable::TooLarge);
             };
@@ -557,9 +635,65 @@ impl Submission {
             return Err(Unsendable::TextTooLong);
         }
         let (fitted, trimmed) = self.fitted()?;
+        seal_record(fitted.local_record.as_ref(), secrets)?;
         let json = seal(&fitted, secrets).map_err(Unsendable::Leaked)?;
         Ok((json, trimmed))
     }
+
+    /// The body to send straight to the feedback service under `device`
+    /// ([`DirectSubmission`]): checked, fitted to the service's smaller
+    /// bound ([`MAX_DIRECT_CLIENT_BYTES`]) and sealed, as [`Self::sealed`].
+    ///
+    /// # Errors
+    ///
+    /// See [`Unsendable`].
+    pub fn sealed_direct(
+        self,
+        device: &str,
+        secrets: &[Secret<'_>],
+    ) -> Result<(String, Trimmed), Unsendable> {
+        if self.text.chars().count() > MAX_TEXT_CHARS {
+            return Err(Unsendable::TextTooLong);
+        }
+        let (fitted, trimmed) = self.fitted_to(MAX_DIRECT_CLIENT_BYTES)?;
+        let direct = fitted.direct(device);
+        seal_record(direct.record.as_ref(), secrets)?;
+        let json = seal(&direct, secrets).map_err(Unsendable::Leaked)?;
+        Ok((json, trimmed))
+    }
+
+    /// This submission in the shape the service takes straight from a
+    /// client: the same text, parts and record; the build beside them; the
+    /// device's id where a gateway would have named the account; no game
+    /// id, since no gateway is there to know one.
+    #[must_use]
+    pub fn direct(self, device: &str) -> DirectSubmission {
+        DirectSubmission {
+            kind: self.kind,
+            text: self.text,
+            build: self.client.build.clone(),
+            device: device.to_string(),
+            client: self.client,
+            record: self.local_record,
+        }
+    }
+}
+
+/// [`seal`] for a record, which the serialised report carries as base64 of
+/// a gzip that no search for a token could see into: its own lines are
+/// searched instead.
+fn seal_record(record: Option<&LocalRecord>, secrets: &[Secret<'_>]) -> Result<(), Unsendable> {
+    let Some(record) = record else {
+        return Ok(());
+    };
+    for secret in secrets {
+        if secret.value.len() >= SHORTEST_SECRET && record.plain().contains(secret.value) {
+            return Err(Unsendable::Leaked(Leaked {
+                label: secret.label.to_string(),
+            }));
+        }
+    }
+    Ok(())
 }
 
 /// The report as bytes, or a refusal because one of `secrets` is in it.
@@ -659,6 +793,7 @@ mod tests {
                 height: 1,
                 png_base64: "iVBORw0KGgo=".into(),
             }),
+            local_record: None,
         }
     }
 
@@ -764,7 +899,7 @@ mod tests {
             text: crate::textbuf::TextBuffer::new("x"),
             ..ReportForm::default()
         }
-        .preview_text(&lobby, &everything);
+        .preview_text(&lobby, &everything, Via::Gateway);
         let shown: serde_json::Value = serde_json::from_str(&preview).expect("the preview is JSON");
         for absent in ["game", "log", "screenshot"] {
             assert!(
@@ -937,5 +1072,186 @@ mod tests {
             "the newest line is the one kept"
         );
         assert!(serde_json::to_vec(&fitted.client).expect("json").len() <= MAX_CLIENT_BYTES);
+    }
+
+    const RECORD: &str = concat!(
+        r#"{"kind":"header","record":1,"build":"0.1.0","preset":{},"hash":"00"}"#,
+        "\n",
+        r#"{"kind":"input","n":0,"at":0,"seat":0,"by":"seat","action":"Pass","hash":"01"}"#,
+        "\n",
+    );
+
+    /// A game this device hosted: no game id, and its record packed.
+    fn local() -> Gathered {
+        Gathered {
+            game_id: None,
+            local_record: LocalRecord::pack(RECORD.as_bytes()),
+            ..gathered()
+        }
+    }
+
+    /// The record rides only when the device has not said never and the
+    /// player ticked it for this report; never under a networked game, and
+    /// never by any door but the form's.
+    #[test]
+    fn a_local_record_rides_only_on_a_yes_for_this_report() {
+        let ask = Consent::everything();
+        let never = Consent {
+            record: RecordConsent::Never,
+            ..Consent::everything()
+        };
+        let with = json_of(local().submission_with(Kind::Bug, "x", &ask, true));
+        let record = &with["local_record"];
+        assert_eq!(record["complete"], false);
+        assert!(
+            record["gzip_base64"]
+                .as_str()
+                .is_some_and(|b| !b.is_empty())
+        );
+        assert_eq!(with["game_id"], serde_json::Value::Null);
+        assert!(local().offers_record(&ask));
+
+        for (consent, yes, why) in [
+            (&ask, false, "not ticked"),
+            (&never, true, "never"),
+            (&never, false, "never, not ticked"),
+        ] {
+            let body = json_of(local().submission_with(Kind::Bug, "x", consent, yes));
+            assert!(body.get("local_record").is_none(), "{why}");
+        }
+        assert!(!local().offers_record(&never));
+        let body = json_of(local().submission(Kind::Bug, "x", &ask));
+        assert!(
+            body.get("local_record").is_none(),
+            "the plain door sends none"
+        );
+
+        // A networked game's record is its gateway's: a local one beside it
+        // is never offered, never sent, and the game id stays.
+        let networked = Gathered {
+            local_record: LocalRecord::pack(RECORD.as_bytes()),
+            ..gathered()
+        };
+        assert!(!networked.offers_record(&ask));
+        let body = json_of(networked.submission_with(Kind::Bug, "x", &ask, true));
+        assert!(body.get("local_record").is_none());
+        assert_eq!(body["game_id"], "g-42");
+    }
+
+    /// The leak check reads the record's own lines, which the base64 of
+    /// its gzip would hide from a search of the body.
+    #[test]
+    fn a_secret_inside_a_record_blocks_the_send() {
+        let token = "s3cr3t-session-token-0001";
+        let leaky = Gathered {
+            local_record: LocalRecord::pack(format!("{RECORD}{token}\n").as_bytes()),
+            ..local()
+        };
+        let secrets = [Secret {
+            label: Keyring::SESSION,
+            value: token,
+        }];
+        let ask = Consent::default();
+        let body = leaky.submission_with(Kind::Bug, "x", &ask, true);
+        assert!(
+            !serde_json::to_string(&body).expect("json").contains(token),
+            "the body alone would pass"
+        );
+        for sealed in [
+            body.clone().sealed(&secrets),
+            body.sealed_direct(&"a".repeat(32), &secrets),
+        ] {
+            assert_eq!(
+                sealed.map(|_| ()),
+                Err(Unsendable::Leaked(Leaked {
+                    label: Keyring::SESSION.into()
+                }))
+            );
+        }
+        assert!(
+            leaky
+                .submission_with(Kind::Bug, "x", &ask, false)
+                .sealed(&secrets)
+                .is_ok(),
+            "without the record it goes"
+        );
+    }
+
+    /// A record too large to ride stays home and the words still go.
+    #[test]
+    fn a_record_too_large_is_left_out_not_the_report() {
+        use std::fmt::Write as _;
+        let mut big = String::from(RECORD);
+        let mut n = 0u64;
+        // Hex of a scrambled counter compresses poorly: past the bound
+        // even gzipped.
+        while big.len() < MAX_RECORD_BYTES * 3 {
+            n += 1;
+            let noise = n.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ (n << 29);
+            let _ = writeln!(big, "{noise:016x}{:016x}", noise.rotate_left(17));
+        }
+        let gathered = Gathered {
+            local_record: LocalRecord::pack(big.as_bytes()),
+            ..local()
+        };
+        assert!(!gathered.local_record.as_ref().expect("packed").fits());
+        let (fitted, trimmed) = gathered
+            .submission_with(Kind::Bug, "x", &Consent::default(), true)
+            .fitted()
+            .expect("the words fit");
+        assert!(trimmed.record && fitted.local_record.is_none());
+    }
+
+    /// Straight to the service: the service's own shape (no game id, the
+    /// build beside the parts, the device id), held to its smaller bound;
+    /// through a gateway, never the device id.
+    #[test]
+    fn a_direct_report_is_the_services_shape_and_bound() {
+        let device = "0123456789abcdef0123456789abcdef";
+        let (json, _) = local()
+            .submission_with(Kind::Feedback, told(), &Consent::everything(), true)
+            .sealed_direct(device, &[])
+            .expect("sendable");
+        let body: serde_json::Value = serde_json::from_str(&json).expect("json");
+        let mut keys: Vec<&str> = body
+            .as_object()
+            .expect("an object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            ["build", "client", "device", "kind", "record", "text"]
+        );
+        assert_eq!(body["device"], device);
+        assert_eq!(body["build"], serde_json::to_value(build()).expect("json"));
+        assert_eq!(body["kind"], "feedback");
+
+        let (gateway, _) = local()
+            .submission_with(Kind::Feedback, told(), &Consent::everything(), true)
+            .sealed(&[])
+            .expect("sendable");
+        assert!(!gateway.contains(device) && !gateway.contains("\"device\""));
+
+        let mut heavy = local();
+        heavy.screenshot = Some(Screenshot {
+            width: 1,
+            height: 1,
+            png_base64: "A".repeat(MAX_DIRECT_CLIENT_BYTES),
+        });
+        let (fitted, trimmed) = heavy
+            .submission(Kind::Bug, "x", &Consent::everything())
+            .fitted_to(MAX_DIRECT_CLIENT_BYTES)
+            .expect("fits");
+        assert!(trimmed.screenshot);
+        assert!(serde_json::to_vec(&fitted.client).expect("json").len() <= MAX_DIRECT_CLIENT_BYTES);
+        assert!(
+            heavy
+                .submission(Kind::Bug, "x", &Consent::everything())
+                .fitted()
+                .is_ok_and(|(_, t)| !t.screenshot),
+            "a gateway's bound takes it whole"
+        );
     }
 }

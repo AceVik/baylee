@@ -129,6 +129,16 @@ pub struct ClientSettings {
     /// A file from before it allows nothing and has not been asked.
     #[serde(default)]
     pub reports: baylee_client_core::bugreport::Consent,
+    /// The feedback service a report goes straight to when the client is
+    /// signed in nowhere, over the one this build was given
+    /// (`BAYLEE_FEEDBACK_PUBLIC_URL`); `""` turns direct reports off.
+    /// `bugreport::feedback_service` says which addresses count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_url: Option<String>,
+    /// The random id this device sends direct reports under, made with the
+    /// first one (`bugreport::kept_device_id`). Never sent to a gateway.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report_device: Option<String>,
 }
 
 impl Default for ClientSettings {
@@ -145,6 +155,8 @@ impl Default for ClientSettings {
             guests: std::collections::BTreeMap::new(),
             music: baylee_client_core::music::MusicLevel::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
+            feedback_url: None,
+            report_device: None,
         }
     }
 }
@@ -354,7 +366,7 @@ pub(crate) mod store {
     /// decks are nobody else's either. The temporary is made so, and made so
     /// again when one was left behind, since opening an existing file keeps
     /// its mode; the rename carries it over whatever mode the old file had.
-    pub(super) fn write_at(path: &std::path::Path, text: &str) {
+    pub(crate) fn write_at(path: &std::path::Path, text: impl AsRef<[u8]>) {
         use std::io::Write as _;
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
@@ -372,7 +384,7 @@ pub(crate) mod store {
             use std::os::unix::fs::PermissionsExt as _;
             let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
         }
-        if file.write_all(text.as_bytes()).is_ok() && file.sync_all().is_ok() {
+        if file.write_all(text.as_ref()).is_ok() && file.sync_all().is_ok() {
             drop(file);
             let _ = std::fs::rename(&temporary, path);
         }
@@ -405,6 +417,12 @@ pub(crate) mod store {
             return;
         }
         let _ = std::fs::rename(&path, &broken);
+    }
+
+    /// A folder in the config dir (the kept game records, `crate::records`),
+    /// and `None` in a process that has not opened the store, as [`path`].
+    pub fn folder(name: &str) -> Option<std::path::PathBuf> {
+        path(name)
     }
 
     /// A config-dir file location, and `None` in a process that has not
@@ -631,11 +649,17 @@ mod tests {
             reports: baylee_client_core::bugreport::Consent {
                 log: true,
                 crashes: baylee_client_core::bugreport::CrashConsent::Never,
+                record: baylee_client_core::bugreport::RecordConsent::Never,
                 ..baylee_client_core::bugreport::Consent::default()
             },
+            feedback_url: Some("https://feedback.example.test".into()),
+            report_device: Some("0123456789abcdef0123456789abcdef".into()),
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
+        assert_eq!(read.feedback_url, written.feedback_url);
+        assert_eq!(read.report_device, written.report_device);
+        assert_eq!(read.reports, written.reports);
         assert_eq!(read.gateways, written.gateways);
         assert!((read.preview_scale - 1.75).abs() < f32::EPSILON);
         assert_eq!(read.lang, "de");

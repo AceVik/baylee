@@ -8,7 +8,9 @@
 
 use std::hash::{Hash, Hasher};
 
-use baylee_client_core::bugreport::{Category, CrashConsent, Kind, MAX_TEXT_CHARS, Status};
+use baylee_client_core::bugreport::{
+    Category, CrashConsent, Kind, MAX_TEXT_CHARS, Part, RecordConsent, Route, Status, Via,
+};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::textbuf::{Dir, Step};
 use bevy::input::keyboard::{Key, KeyboardInput};
@@ -86,7 +88,19 @@ pub(crate) enum DeskPress {
     CrashSend,
     /// The crash question: no.
     CrashNever,
+    /// Tick or clear the local game's record, for this report.
+    Record,
+    /// Never offer the record, or offer it again.
+    RecordNever,
+    /// The confirmation: send.
+    ConfirmSend,
+    /// The confirmation: back to the form.
+    ConfirmBack,
 }
+
+/// What the preview names the device id by before this device has one:
+/// it is made the moment a direct report is first sent.
+const DEVICE_TO_BE_MADE: &str = "(made for the first direct report)";
 
 /// The most of the preview drawn at once, in characters. The whole body is
 /// what is sent; a view of a busy board runs to hundreds of kilobytes, and a
@@ -126,6 +140,16 @@ pub(super) fn typing(
         Step::Char
     };
     let mut closed = false;
+    if desk.form.confirming {
+        // The words are what is being confirmed: they do not change under
+        // the confirmation. `Esc` goes back to them.
+        for key in typed.read() {
+            if key.state.is_pressed() && key.logical_key == Key::Escape {
+                desk.form.confirming = false;
+            }
+        }
+        return false;
+    }
     for key in typed.read() {
         if !key.state.is_pressed() {
             continue;
@@ -208,8 +232,12 @@ pub(super) fn scroll(
 }
 
 /// Everything the tree shows, folded into one number.
-fn signature(desk: &ReportDesk, settings: &ClientSettings, signed_in: bool, width: f32) -> u64 {
+fn signature(desk: &ReportDesk, settings: &ClientSettings, route: &Route, width: f32) -> u64 {
     let mut hash = std::collections::hash_map::DefaultHasher::new();
+    desk.form.send_record.hash(&mut hash);
+    desk.form.confirming.hash(&mut hash);
+    desk.gathered.local_record.is_some().hash(&mut hash);
+    format!("{route:?}{:?}", settings.report_device).hash(&mut hash);
     desk.open.hash(&mut hash);
     desk.asking.hash(&mut hash);
     desk.shooting.hash(&mut hash);
@@ -224,7 +252,6 @@ fn signature(desk: &ReportDesk, settings: &ClientSettings, signed_in: bool, widt
     format!("{:?}", desk.form.status).hash(&mut hash);
     desk.form.preview.hash(&mut hash);
     format!("{:?}{:?}", settings.reports, settings.lang).hash(&mut hash);
-    signed_in.hash(&mut hash);
     (width as u32).hash(&mut hash);
     hash.finish()
 }
@@ -251,9 +278,9 @@ pub(super) fn draw(
         desk.waited += 1;
         return;
     }
-    let signed_in = super::session(lobby.as_deref()).is_some();
+    let route = super::route(lobby.as_deref(), &settings);
     let width = windows.single().map_or(1280.0, Window::width);
-    let now = signature(&desk, &settings, signed_in, width);
+    let now = signature(&desk, &settings, &route, width);
     if *last == Some(now) && (roots.iter().next().is_some() || !(desk.open || desk.asking)) {
         return;
     }
@@ -265,12 +292,22 @@ pub(super) fn draw(
     let lang = Lang::of(&settings.lang);
     if desk.asking && !desk.open {
         crash_question(&mut commands, &fonts, metrics, lang);
+    } else if desk.open && desk.form.confirming {
+        confirmation(
+            &mut commands,
+            &desk,
+            &settings,
+            &route,
+            &fonts,
+            metrics,
+            lang,
+        );
     } else if desk.open {
         form(
             &mut commands,
             &desk,
             &settings,
-            signed_in,
+            &route,
             &fonts,
             metrics,
             lang,
@@ -440,7 +477,7 @@ fn form(
     commands: &mut Commands,
     desk: &ReportDesk,
     settings: &ClientSettings,
-    signed_in: bool,
+    route: &Route,
     fonts: &UiFonts,
     metrics: Metrics,
     lang: Lang,
@@ -560,6 +597,7 @@ fn form(
         DeskPress::Crashes,
         crashes,
     ));
+    parts.extend(record_boxes(commands, desk, settings, fonts, metrics, lang));
 
     let preview_label = if desk.form.preview {
         Phrase::ReportPreviewHide
@@ -579,7 +617,13 @@ fn form(
     commands.entity(preview_row).add_child(toggle);
     parts.push(preview_row);
     if desk.form.preview {
-        let full = desk.form.preview_text(&desk.gathered, &settings.reports);
+        let device = settings
+            .report_device
+            .as_deref()
+            .unwrap_or(DEVICE_TO_BE_MADE);
+        let full = desk
+            .form
+            .preview_text(&desk.gathered, &settings.reports, via(route, device));
         let total = full.chars().count();
         let mut shown: String = full.chars().take(PREVIEW_CHARS).collect();
         if total > PREVIEW_CHARS {
@@ -605,13 +649,20 @@ fn form(
         parts.push(pane);
     }
 
-    if !signed_in {
-        parts.push(words(
+    match route {
+        Route::Gateway(_) => {}
+        Route::Direct(url) => parts.push(words(
+            commands,
+            tf(fonts, metrics.small),
+            Phrase::ReportGoesDirect.fill(lang, &[&service_of(url)]),
+            palette::MUTED,
+        )),
+        Route::Nowhere => parts.push(words(
             commands,
             tf(fonts, metrics.small),
             Phrase::ReportNeedsSession.text(lang),
             palette::DANGER,
-        ));
+        )),
     }
     if let Some(said) = desk.form.status.text(lang) {
         let colour = match desk.form.status {
@@ -628,6 +679,14 @@ fn form(
             commands,
             tf(fonts, metrics.small),
             Phrase::ReportTrimmed.text(lang),
+            palette::MUTED,
+        ));
+    }
+    if matches!(desk.form.status, Status::Sending | Status::Sent(_)) && desk.form.trimmed.record {
+        parts.push(words(
+            commands,
+            tf(fonts, metrics.small),
+            Phrase::ReportRecordLeftOut.text(lang),
             palette::MUTED,
         ));
     }
@@ -649,11 +708,174 @@ fn form(
         Phrase::ReportSend.text(lang),
         DeskPress::Send,
         true,
-        desk.form.can_send(signed_in),
+        desk.form.can_send(route.sends()),
     );
     commands.entity(actions).add_children(&[close, send]);
     parts.push(actions);
     commands.entity(panel).add_children(&parts);
+}
+
+/// How a report goes by `route`, for the form's own calls.
+fn via<'a>(route: &Route, device: &'a str) -> Via<'a> {
+    if route.is_direct() {
+        Via::Direct { device }
+    } else {
+        Via::Gateway
+    }
+}
+
+/// A direct route's service, as the form names it: its address without
+/// the path every service takes reports at.
+fn service_of(url: &str) -> String {
+    url.strip_suffix(baylee_client_core::bugreport::DIRECT_PATH)
+        .unwrap_or(url)
+        .to_string()
+}
+
+/// The local game's record: its box, ticked for this report alone, the
+/// sentence saying what it shows, and the standing "never". With "never"
+/// set, only that box, ticked, to take it back; without a record to offer,
+/// nothing.
+fn record_boxes(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    settings: &ClientSettings,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+) -> Vec<Entity> {
+    let never = settings.reports.record == RecordConsent::Never;
+    if never {
+        return vec![checkbox(
+            commands,
+            fonts,
+            metrics,
+            Phrase::ReportRecordNever.text(lang),
+            DeskPress::RecordNever,
+            true,
+        )];
+    }
+    let Some(record) = desk
+        .gathered
+        .local_record
+        .as_ref()
+        .filter(|_| desk.gathered.offers_record(&settings.reports))
+    else {
+        return Vec::new();
+    };
+    let entry = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tick = checkbox(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ReportRecordBox.text(lang),
+        DeskPress::Record,
+        desk.form.send_record,
+    );
+    let hint = words(
+        commands,
+        tf(fonts, metrics.small),
+        Phrase::ReportRecordHint.fill(lang, &[&record.kilobytes().to_string()]),
+        palette::MUTED,
+    );
+    commands.entity(entry).add_children(&[tick, hint]);
+    let never = checkbox(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ReportRecordNever.text(lang),
+        DeskPress::RecordNever,
+        false,
+    );
+    vec![entry, never]
+}
+
+/// The page before a report goes straight to the service or carries a
+/// game's record: where it goes, and every part it carries, one line each.
+fn confirmation(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    settings: &ClientSettings,
+    route: &Route,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+) {
+    let (_, panel) = shade(commands, metrics, 620.0);
+    let mut lines = vec![words(
+        commands,
+        tf_bold(fonts, metrics.head),
+        Phrase::ReportConfirmTitle.text(lang),
+        palette::INK,
+    )];
+    let to = match route {
+        Route::Gateway(gateway) => gateway.clone(),
+        Route::Direct(url) => service_of(url),
+        Route::Nowhere => String::new(),
+    };
+    lines.push(words(
+        commands,
+        tf_bold(fonts, metrics.text),
+        Phrase::ReportConfirmTo.fill(lang, &[&to]),
+        palette::INK,
+    ));
+    let device = settings.report_device.as_deref().unwrap_or_default();
+    for part in desk
+        .form
+        .parts(&desk.gathered, &settings.reports, via(route, device))
+    {
+        let (said, colour) = match part {
+            Part::Text(chars) => (
+                Phrase::ReportConfirmText.fill(lang, &[&chars.to_string()]),
+                palette::INK,
+            ),
+            Part::Category(category) => (
+                Phrase::ReportConfirmPart.fill(lang, &[category.phrase().text(lang)]),
+                palette::INK,
+            ),
+            Part::Record { kilobytes, .. } => (
+                Phrase::ReportConfirmRecord.fill(lang, &[&kilobytes.to_string()]),
+                palette::DANGER,
+            ),
+            Part::Device => (
+                Phrase::ReportConfirmDevice.text(lang).to_string(),
+                palette::MUTED,
+            ),
+        };
+        lines.push(words(commands, tf(fonts, metrics.text), said, colour));
+    }
+    let actions = row(commands, metrics, true);
+    let back = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ReportConfirmBack.text(lang),
+        DeskPress::ConfirmBack,
+        false,
+        true,
+    );
+    let send = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ReportConfirmSend.text(lang),
+        DeskPress::ConfirmSend,
+        true,
+        desk.form.can_send(route.sends()),
+    );
+    commands.entity(actions).add_children(&[back, send]);
+    lines.push(actions);
+    commands.entity(panel).add_children(&lines);
 }
 
 /// The text box: a paragraph that wraps inside it, a caret, and a scroll of
@@ -968,7 +1190,27 @@ fn pressed(
         DeskPress::Preview => desk.form.preview = !desk.form.preview,
         DeskPress::Send => {
             let desk = desk.as_mut();
-            super::send(desk, &holders, &settings, &answers);
+            super::ask_to_send(desk, &holders, &mut settings, &answers);
+        }
+        DeskPress::ConfirmSend => {
+            let desk = desk.as_mut();
+            super::send(desk, &holders, &mut settings, &answers);
+        }
+        DeskPress::ConfirmBack => desk.form.confirming = false,
+        DeskPress::Record => {
+            desk.form.send_record = !desk.form.send_record;
+            desk.form.edited();
+        }
+        DeskPress::RecordNever => {
+            let consent = super::consent_mut(&mut settings);
+            consent.record = if consent.record == RecordConsent::Never {
+                RecordConsent::Ask
+            } else {
+                RecordConsent::Never
+            };
+            settings.save();
+            desk.form.send_record = false;
+            desk.form.edited();
         }
         DeskPress::Close => {
             desk.open = false;

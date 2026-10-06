@@ -178,7 +178,12 @@ fn a_report_carrying_any_token_the_client_holds_is_refused() {
     ] {
         let mut form = ReportForm::default();
         form.paste(&format!("it said {token}"));
-        let sent = form.prepare(&Gathered::default(), &Consent::default(), &ring.secrets());
+        let sent = form.prepare(
+            &Gathered::default(),
+            &Consent::default(),
+            &ring.secrets(),
+            Via::Gateway,
+        );
         assert!(sent.is_none(), "{label} went out");
         assert_eq!(
             form.status,
