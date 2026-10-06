@@ -22,7 +22,7 @@ use baylee_update::apply::{self, Install, Recovery, Unplaceable};
 use baylee_update::check::{Context, GITHUB_RELEASES, Manual, Outcome};
 use baylee_update::launch::{self, Blocked};
 use baylee_update::plan::Os;
-use baylee_update::relocate::{self, Destination, Moved};
+use baylee_update::relocate::{self, Destination, Moved, SystemTrash, Trash};
 use baylee_update::service::{self, Command, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
 use bevy::prelude::*;
@@ -159,6 +159,7 @@ impl Plugin for NativeUpdatePlugin {
         let running = exe.as_deref().and_then(relocate::bundle_of);
         let seen = lease.as_ref().map(Seen::of);
         let mover = Mover {
+            trash: Box::new(SystemTrash),
             source: running.clone(),
             original: lease
                 .as_ref()
@@ -469,8 +470,10 @@ pub(crate) fn place_of(
 const MOVED_FILE: &str = "moved.json";
 
 /// What the move needs to know about this process.
-#[derive(Resource, Clone, Debug)]
+#[derive(Resource)]
 pub(crate) struct Mover {
+    /// Where the old copy goes: the system's Trash, a fake in tests.
+    pub trash: Box<dyn Trash + Send + Sync>,
     /// The bundle this runtime runs from: the original package (perhaps a
     /// translocation mount of it) or the update generation the launcher
     /// selected, which is a complete release bundle of the newest version.
@@ -584,10 +587,7 @@ fn relocate_on_request(
                 let Some((_, old)) = place.moved.clone() else {
                     continue;
                 };
-                let Some(home) = &mover.home else {
-                    continue;
-                };
-                match relocate::trash(Path::new(&old), home) {
+                match mover.trash.trash(Path::new(&old)) {
                     Ok(at) => {
                         info!("updates: the old copy is in the Trash: {}", at.display());
                         crate::settings::store::remove_named(MOVED_FILE);

@@ -317,6 +317,7 @@ fn the_move_keeps_the_originals_name() {
     let source = root.join("mount/Baylee.app");
     fs::create_dir_all(source.join("Contents/MacOS")).unwrap();
     let mover = Mover {
+        trash: Box::new(FakeTrash::default()),
         source: Some(source.clone()),
         original: Some(root.join("Downloads/Baylee Beta.app")),
         home: Some(root.join("home")),
@@ -344,21 +345,77 @@ fn the_move_keeps_the_originals_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
-/// The buttons' requests reach the handler: a move that cannot copy says
-/// why in the place and does not quit; keeping the old copy stops asking.
-#[test]
-fn a_failed_move_is_said_and_does_not_quit() {
+/// The Trash, faked: records what it was given, or refuses.
+#[derive(Clone, Default)]
+struct FakeTrash {
+    taken: std::sync::Arc<Mutex<Vec<PathBuf>>>,
+    refuse: bool,
+}
+
+impl Trash for FakeTrash {
+    fn trash(&self, item: &Path) -> std::io::Result<PathBuf> {
+        if self.refuse {
+            return Err(std::io::Error::other("the volume has no Trash"));
+        }
+        self.taken.lock().unwrap().push(item.to_path_buf());
+        Ok(Path::new("/Trash").join(item.file_name().unwrap()))
+    }
+}
+
+fn mover_app(trash: FakeTrash) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_message::<bevy::picking::events::Pointer<bevy::picking::events::Click>>()
         .add_message::<AppExit>()
         .add_plugins(UpdatePlugin)
         .insert_resource(Mover {
+            trash: Box::new(trash),
             source: None,
             original: None,
             home: None,
         })
         .add_systems(Update, relocate_on_request);
+    app
+}
+
+/// "Move old copy to Trash" hands the old copy to the Trash and stops
+/// asking; a refusal is said, and the question stays.
+#[test]
+fn the_old_copy_goes_to_the_trash_or_says_why_not() {
+    let trash = FakeTrash::default();
+    let mut app = mover_app(trash.clone());
+    let moved = Some(("/new/Baylee.app".to_owned(), "/old/Baylee.app".to_owned()));
+    app.world_mut().resource_mut::<UpdatePlace>().moved = moved.clone();
+    app.world_mut().write_message(UpdateRequest::TrashOld);
+    app.update();
+    assert_eq!(
+        *trash.taken.lock().unwrap(),
+        [PathBuf::from("/old/Baylee.app")]
+    );
+    assert_eq!(app.world().resource::<UpdatePlace>().moved, None);
+
+    let mut app = mover_app(FakeTrash {
+        refuse: true,
+        ..FakeTrash::default()
+    });
+    app.world_mut().resource_mut::<UpdatePlace>().moved = moved.clone();
+    app.world_mut().write_message(UpdateRequest::TrashOld);
+    app.update();
+    let place = app.world().resource::<UpdatePlace>();
+    assert_eq!(place.moved, moved, "still asked");
+    assert_eq!(
+        place.failed.as_deref(),
+        Some(
+            "It could not be moved to the Trash (the volume has no Trash); drag it there yourself if you like."
+        )
+    );
+}
+
+/// The buttons' requests reach the handler: a move that cannot copy says
+/// why in the place and does not quit; keeping the old copy stops asking.
+#[test]
+fn a_failed_move_is_said_and_does_not_quit() {
+    let mut app = mover_app(FakeTrash::default());
     app.world_mut()
         .write_message(UpdateRequest::Move(MoveTo::Home));
     app.update();

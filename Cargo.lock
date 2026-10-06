@@ -1229,6 +1229,7 @@ dependencies = [
  "ed25519-dalek",
  "flate2",
  "getrandom 0.4.3",
+ "objc2-foundation 0.3.2",
  "semver",
  "serde",
  "serde_json",

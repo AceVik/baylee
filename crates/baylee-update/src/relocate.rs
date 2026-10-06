@@ -21,7 +21,7 @@
 //!
 //! Then [`relaunch`] opens the copy as a new instance and the client quits.
 //! The original is never deleted by this: once the copy runs, it offers
-//! [`trash`] for the old one, and the player may keep it.
+//! [`SystemTrash`] for the old one, and the player may keep it.
 //!
 //! The copy's per-user state is new, keyed by its own path
 //! ([`crate::launch::in_state_root`]): it needs nothing of the old one,
@@ -236,33 +236,58 @@ pub fn relaunch(bundle: &Path) -> io::Result<()> {
     }
 }
 
-/// Moves `path` into this user's Trash (`home/.Trash`), under a free name,
-/// and answers where. A rename, so only on the same volume; the Finder's
-/// "Put Back" does not know about it.
-///
-/// # Errors
-/// The rename's: another volume, or a folder this user may not change.
-pub fn trash(path: &Path, home: &Path) -> io::Result<PathBuf> {
-    let bin = home.join(".Trash");
-    fs::create_dir_all(&bin)?;
-    let name = path
-        .file_name()
-        .ok_or_else(|| io::Error::other("nothing to move to the Trash"))?;
-    let mut at = bin.join(name);
-    let stem = Path::new(name)
-        .file_stem()
-        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
-    let ext = Path::new(name)
-        .extension()
-        .map(|e| format!(".{}", e.to_string_lossy()))
-        .unwrap_or_default();
-    let mut n = 2;
-    while fs::symlink_metadata(&at).is_ok() {
-        at = bin.join(format!("{stem} {n}{ext}"));
-        n += 1;
+/// Puts things into the Trash.
+pub trait Trash {
+    /// Moves `item` into the Trash and answers where it now is.
+    ///
+    /// # Errors
+    /// Why the system would not.
+    fn trash(&self, item: &Path) -> io::Result<PathBuf>;
+}
+
+/// The system's Trash: `NSFileManager`'s `trashItemAtURL:` on macOS, which
+/// picks the volume's Trash and a free name, lets the Finder "Put Back",
+/// and needs no Full Disk Access (a rename into `~/.Trash` does: that
+/// folder is privacy-protected). No other system is moved from.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SystemTrash;
+
+impl Trash for SystemTrash {
+    fn trash(&self, item: &Path) -> io::Result<PathBuf> {
+        #[cfg(target_os = "macos")]
+        return foundation::trash(item);
+        #[cfg(not(target_os = "macos"))]
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("{}: only a macOS app is moved", item.display()),
+        ))
     }
-    fs::rename(path, &at)?;
-    Ok(at)
+}
+
+#[cfg(target_os = "macos")]
+mod foundation {
+    //! `NSFileManager` through objc2-foundation's safe binding: a public
+    //! Foundation API since macOS 10.8, so linked rather than looked up,
+    //! and no `unsafe` is needed.
+
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+    use std::io;
+    use std::path::{Path, PathBuf};
+
+    pub(super) fn trash(item: &Path) -> io::Result<PathBuf> {
+        let path = item
+            .to_str()
+            .ok_or_else(|| io::Error::other(format!("{} is not UTF-8", item.display())))?;
+        let url = NSURL::fileURLWithPath(&NSString::from_str(path));
+        let mut landed = None;
+        NSFileManager::defaultManager()
+            .trashItemAtURL_resultingItemURL_error(&url, Some(&mut landed))
+            .map_err(|err| io::Error::other(err.localizedDescription().to_string()))?;
+        landed
+            .and_then(|url| url.path())
+            .map(|path| PathBuf::from(path.to_string()))
+            .ok_or_else(|| io::Error::other("the Trash did not say where it put it"))
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -580,23 +605,32 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// The real Trash, through Foundation: the item is gone from where it
+    /// was and lies where the answer says. What it put there is removed
+    /// again at once (a uniquely named empty folder of this test's own).
+    #[cfg(target_os = "macos")]
     #[test]
-    fn the_trash_takes_a_free_name() {
+    fn the_system_trash_takes_an_item_and_says_where() {
         let root = scratch("trash");
-        let home = root.join("home");
-        let first = root.join("one/Baylee.app");
-        let second = root.join("two/Baylee.app");
-        fs::create_dir_all(&first).unwrap();
-        fs::create_dir_all(&second).unwrap();
-        assert_eq!(
-            trash(&first, &home).unwrap(),
-            home.join(".Trash/Baylee.app")
+        let item = root.join(format!("baylee-trash-test-{}.app", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&item).unwrap();
+        let landed = SystemTrash.trash(&item).unwrap();
+        assert!(!item.exists(), "it left where it was");
+        assert!(
+            landed.is_dir(),
+            "it is where the answer says: {}",
+            landed.display()
         );
-        assert_eq!(
-            trash(&second, &home).unwrap(),
-            home.join(".Trash/Baylee 2.app")
-        );
-        assert!(!first.exists() && !second.exists());
+        assert_eq!(landed.file_name(), item.file_name());
+        fs::remove_dir(&landed).unwrap();
+        assert!(SystemTrash.trash(&item).is_err(), "nothing there, an error");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn no_other_system_trashes() {
+        let err = SystemTrash.trash(Path::new("/tmp/x")).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
     }
 }

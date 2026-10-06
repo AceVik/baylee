@@ -181,7 +181,13 @@ A hash of the canonical path of the original package isolates installations.
 Under macOS App Translocation that is the bundle the player unpacked, as the
 Security framework names it, not the randomised read-only mount it runs
 from, so in-place and translocated starts share one state
-(`launch::in_state_root_of`, `docs/client.md` §"Updating").
+(`launch::in_state_root_of`, `docs/client.md` §"Updating"). An AppImage,
+mounted at a fresh `/tmp/.mount_…` each start, is keyed by its image file
+(`$APPIMAGE`, believed only with `$APPDIR` around the launcher;
+`launch::appimage_of`), and installs updates where that file's folder is
+writable. The image file itself is never rewritten: updates are generations
+in the state directory, as for every package, because only the archive is
+signed.
 Moving or renaming the original package starts a separate state directory.
 The original client always remains in the package; downloaded complete
 release trees live in `versions/<UUIDv7>` in the state directory.
@@ -193,7 +199,11 @@ cannot establish that identity.
 
 `activation.json` records intent before the staged tree moves. Files are
 flushed, the whole tree is renamed into a new generation, and `current.json`
-is atomically replaced to select it. The permanent launcher resumes pending
+is atomically replaced to select it. The launcher starts the selected
+generation unless its own package is at least as new (its compiled version
+against `current.json`'s, `launch::chosen`): a newer package installed by hand
+over the original then starts, and the session names the runtime it started.
+The permanent launcher resumes pending
 activation before starting a client. If recovery cannot finish, it retains
 its intent and payload and starts the previously selected client. The
 original launch path is never part of the transaction. These guarantees

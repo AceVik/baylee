@@ -7661,7 +7661,9 @@ the destination, keeping links, modes and the signature's files; removes
 opens it with `open -n`; and quits. The copy's state is new, keyed by its own
 path: it needs nothing of the old one, being a copy of the newest client.
 The copy reads `moved.json` (beside the settings) at its first start and
-offers the old package to the Trash, or keeps it; nothing is deleted unasked.
+offers the old package to the Trash (`NSFileManager` `trashItemAtURL:`, so the
+Finder can put it back and no Full Disk Access is needed, which a rename into
+`~/.Trash` would), or keeps it; nothing is deleted unasked.
 Packages up to 0.1.0-beta.5 carry the old launcher, which switches
 installing off when translocated; they are moved by hand once.
 
