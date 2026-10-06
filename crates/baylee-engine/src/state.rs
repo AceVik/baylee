@@ -3891,6 +3891,9 @@ impl GameState {
             // This hash's cache of its own bytes, read below.
             snapshot_memo,
         } = self;
+        // Contended only if two threads hash one state at once, and then
+        // the second simply writes everything: the same bytes either way.
+        let mut memo = snapshot_memo.0.try_lock().ok();
         let mut h = Hasher::new();
         h.u64(*timestamp);
         h.u64(*characteristics_generation);
@@ -3913,8 +3916,13 @@ impl GameState {
         next_damage_batch.hash(&mut h);
         source_memory.hash(&mut h);
         h.usize(damage_sources.len());
-        for source in damage_sources {
-            hash_object(&mut h, source);
+        match memo.as_deref_mut() {
+            Some(memo) => hash_sources_remembering(&mut h, damage_sources, &mut memo.sources),
+            None => {
+                for source in damage_sources {
+                    hash_object(&mut h, source);
+                }
+            }
         }
         turn.hash(&mut h);
         day_night.hash(&mut h);
@@ -3953,11 +3961,9 @@ impl GameState {
         for player in players {
             hash_player(&mut h, player);
         }
-        // Contended only if two threads hash one state at once, and then
-        // the second simply writes everything: the same bytes either way.
-        match snapshot_memo.0.try_lock() {
-            Ok(mut memo) => hash_arena_remembering(&mut h, arena, &mut memo),
-            Err(_) => {
+        match memo.as_deref_mut() {
+            Some(memo) => hash_arena_remembering(&mut h, arena, &mut memo.chunks),
+            None => {
                 for (slot, generation, value) in arena.slots() {
                     hash_slot(&mut h, slot, generation, value);
                 }
@@ -4860,8 +4866,20 @@ fn hash_characteristics(h: &mut Hasher, characteristics: &Characteristics) {
 ///
 /// A clone starts with an empty memo: a decision checkpoint is a clone, and
 /// a memo's keys would hold its chunks shared for nothing.
+///
+/// The retained damage sources are remembered the same way, each by its
+/// `Arc`: nothing writes one once it is retained, and the memo's reference
+/// would make a write copy it anyway.
 #[derive(Default)]
-pub(crate) struct SnapshotMemo(std::sync::Mutex<Vec<Option<ArenaTape>>>);
+pub(crate) struct SnapshotMemo(std::sync::Mutex<MemoTables>);
+
+#[derive(Default)]
+struct MemoTables {
+    chunks: Vec<Option<ArenaTape>>,
+    /// In `damage_sources` order, which only ever drops entries or adds
+    /// them at the end.
+    sources: Vec<(Arc<GameObject>, Vec<u8>)>,
+}
 
 /// One chunk's key and bytes.
 struct ArenaTape {
@@ -4922,6 +4940,39 @@ fn hash_arena_remembering(
         }
     }
     memo.truncate(chunks);
+}
+
+/// The retained damage sources in order, each one's bytes taken from
+/// `memo` while it is the same allocation they were written for. The
+/// list only loses entries or gains them at its end, so one cursor through
+/// the memo finds every one still there.
+fn hash_sources_remembering(
+    h: &mut Hasher,
+    sources: &[Arc<GameObject>],
+    memo: &mut Vec<(Arc<GameObject>, Vec<u8>)>,
+) {
+    let mut old = std::mem::take(memo).into_iter();
+    let mut next = old.next();
+    for source in sources {
+        // Past every remembered entry the list has since dropped. Were the
+        // order ever different, an entry would only be written again: a
+        // remembered entry is used for the very allocation it was made of.
+        let mut found = None;
+        while let Some((kept, bytes)) = next.take() {
+            next = old.next();
+            if Arc::ptr_eq(&kept, source) {
+                found = Some(bytes);
+                break;
+            }
+        }
+        let bytes = found.unwrap_or_else(|| {
+            let mut written = Hasher::tape_into(None);
+            hash_object(&mut written, source);
+            written.into_tape()
+        });
+        h.bytes(&bytes);
+        memo.push((Arc::clone(source), bytes));
+    }
 }
 
 #[allow(clippy::too_many_lines)] // one line per field: the list is the guard
@@ -5504,7 +5555,8 @@ mod tests {
 
     /// The snapshot hash with its memo against the hash written out in full,
     /// after every one of a few thousand random writes, removals and
-    /// insertions into a real game's arena, and in clones taken along the
+    /// insertions into a real game's arena and its retained damage sources,
+    /// and in clones taken along the
     /// way (which start without a memo). Holding the memo's lock makes the
     /// hash write everything, which is how the full one is asked for.
     #[test]
@@ -5521,7 +5573,15 @@ mod tests {
             for step in 0..400 {
                 let ids: Vec<ObjectId> = state.arena.iter().map(|(id, _)| id).collect();
                 let id = ids[(rng.next_u32() as usize) % ids.len()];
-                match rng.next_u32() % 6 {
+                match rng.next_u32() % 8 {
+                    6 => {
+                        let copy = state.object(id).unwrap().clone();
+                        state.damage_sources.push(Arc::new(copy));
+                    }
+                    7 if !state.damage_sources.is_empty() => {
+                        let at = rng.next_u32() as usize % state.damage_sources.len();
+                        state.damage_sources.remove(at);
+                    }
                     0 | 1 => state.object_mut(id).unwrap().damage += 1,
                     2 => {
                         let obj = state.object_mut(id).unwrap();
