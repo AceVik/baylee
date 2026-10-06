@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Baylee
+GenericName=Card game
+Comment=Unofficial fan-made card game client
+Exec=baylee
+Icon=baylee
+Terminal=false
+Categories=Game;CardGame;
+StartupNotify=true

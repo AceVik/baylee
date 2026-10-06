@@ -14,6 +14,11 @@
 # `docs/releasing.md` §"Signing"). The seed is the repository secret
 # BAYLEE_UPDATE_SIGNING_KEY. Without it a tag fails in `sign` and nothing is
 # published; a dry run says so and goes on unsigned.
+#
+# Beside each archive the release carries its installers (dmg, setup .exe,
+# AppImage, .deb; `docs/releasing.md` §"Installers"), promoted from the same
+# CI run. The updater never fetches them, so they get no `.sig`; their
+# SHA-256 is beside them and in the release notes.
 name: release
 
 on:
@@ -146,16 +151,22 @@ jobs:
           for archive in out/*.zip out/*.tar.gz; do
             [ -s "$archive.sig" ] || { echo "::error::$archive has no .sig"; exit 1; }
           done
+          # The installers are not signed for the updater (it never fetches
+          # them); the notes list their SHA-256, and this fails if any is missing.
+          sums=$(python3 scripts/release/ci_artifacts.py installer-sums out "$VERSION")
           cat > notes.md <<EOF
           Unofficial fan content, not affiliated with Wizards of the Coast.
 
-          One archive per system. Unpack it and start \`baylee-client\` (on macOS: \`Baylee.app\`); \`README.txt\` in each archive has the first-start steps.
+          **Install:** macOS (Apple silicon): open \`Baylee-$VERSION-aarch64.dmg\` and drag Baylee to Applications. Windows: run \`Baylee-Setup-$VERSION-x64.exe\` (or \`-arm64\`), which installs for your user only and asks for no administrator rights. Linux: \`Baylee-$VERSION-<arch>.AppImage\` (make it executable and start it) or \`baylee_${VERSION}_<arch>.deb\`.
+          The archives (\`baylee-client-…\`) are the same game to unpack anywhere; \`README.txt\` in each has the first-start steps. An installed client updates itself from these archives.
           The builds are not code-signed, so macOS and Windows warn on first start.
           Each archive has a \`.sig\` beside it, the Ed25519 signature a client checks before it installs an update by itself.
           Every binary names its commit and CI run in its build stamp. The build number identifies the source \`ci\` run.
+
+          $sums
           EOF
           ls -l out
           # A version with a pre-release part (`0.1.0-beta.1`) is published as a
           # pre-release, so GitHub does not offer it as the latest stable build.
           pre=; case $VERSION in *-*) pre=--prerelease ;; esac
-          gh release create "$GITHUB_REF_NAME" out/*.zip out/*.tar.gz out/*.sha256 out/*.sig --verify-tag $pre --title "Baylee $VERSION" --notes-file notes.md --generate-notes
+          gh release create "$GITHUB_REF_NAME" out/*.zip out/*.tar.gz out/*.dmg out/*.exe out/*.AppImage out/*.deb out/*.sha256 out/*.sig --verify-tag $pre --title "Baylee $VERSION" --notes-file notes.md --generate-notes

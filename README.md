@@ -121,18 +121,23 @@ the sign-in panel show the real Baylee Sanctuary gateway.
 
 ## Installing
 
-Download the archive for your system from the
+Download Baylee for your system from the
 **[releases page](https://github.com/AceVik/baylee/releases)**. Pre-releases
-are listed there too. Every archive contains the game, its `assets` folder,
-`LICENSE`, `NOTICE` and a `README.txt` with these first-start steps.
+are listed there too. Each system has an **installer**, which is the easy
+way, and an **archive** with the same game to unpack anywhere. Baylee
+updates itself wherever it may write its own folder
+([Updating](#updating)).
 
-| System | File |
-| --- | --- |
-| Windows, Intel/AMD 64-bit | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
-| Windows on ARM | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
-| macOS, Apple silicon (M1 and later) | `baylee-client-<version>-aarch64-apple-darwin.zip` |
-| Linux, x86-64 | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux, ARM64 | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
+| System | Installer | Archive |
+| --- | --- | --- |
+| Windows, Intel/AMD 64-bit | `Baylee-Setup-<version>-x64.exe` | `baylee-client-<version>-x86_64-pc-windows-msvc.zip` |
+| Windows on ARM | `Baylee-Setup-<version>-arm64.exe` | `baylee-client-<version>-aarch64-pc-windows-msvc.zip` |
+| macOS, Apple silicon (M1 and later) | `Baylee-<version>-aarch64.dmg` | `baylee-client-<version>-aarch64-apple-darwin.zip` |
+| Linux, x86-64 | `Baylee-<version>-x86_64.AppImage` or `baylee_<version>_amd64.deb` | `baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux, ARM64 | `Baylee-<version>-aarch64.AppImage` or `baylee_<version>_arm64.deb` | `baylee-client-<version>-aarch64-unknown-linux-gnu.tar.gz` |
+
+Every archive contains the game, its `assets` folder, `LICENSE`, `NOTICE` and
+a `README.txt` with these first-start steps.
 
 The builds are **not code-signed**, because signing costs money. Windows and
 macOS therefore warn you the first time you start Baylee. The steps below get
@@ -140,11 +145,21 @@ you past the warning.
 
 ### Windows
 
-1. Unpack the zip to any folder, for example `Documents\Baylee`. Keep the
-   `assets` folder next to `baylee-client.exe`.
-2. Start `baylee-client.exe`.
-3. If Microsoft Defender SmartScreen says "Windows protected your PC", click
+1. Run `Baylee-Setup-<version>-x64.exe` (or `-arm64` on Windows on ARM).
+2. If Microsoft Defender SmartScreen says "Windows protected your PC", click
    **More info** and then **Run anyway**.
+3. The setup installs Baylee for your user only, in
+   `%LOCALAPPDATA%\Programs\Baylee`, and asks for no administrator rights.
+   It adds Baylee to the Start menu and, if you tick the box, to the
+   desktop.
+
+To remove it, use **Settings → Apps**. Downloaded updates and cached card
+images stay in `%LOCALAPPDATA%\baylee`; delete that folder too to remove
+everything.
+
+Without the setup: unpack the zip to any folder, for example
+`Documents\Baylee`, keep the `assets` folder next to `baylee-client.exe`,
+and start `baylee-client.exe`.
 
 The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
 24H2 does not start without one either.
@@ -154,18 +169,26 @@ The x86-64 build needs a CPU with x86-64-v2 (SSE4.2, POPCNT); Windows 11
 Only **Apple silicon** Macs (M1 and later) are supported for now; there is no
 Intel build. macOS 11 or later is required.
 
-1. Unpack the zip and drag `Baylee.app` into **Applications** (in the
-   Finder's sidebar) first. That is not required, but an app opened where it
-   was unpacked, in Downloads, is run by macOS from a hidden read-only copy
-   each time.
-2. Open it. The first time, macOS refuses because the app is not notarised.
+1. Open `Baylee-<version>-aarch64.dmg` and drag **Baylee** onto
+   **Applications**. Then eject the disk image. With the zip instead,
+   unpack it and drag `Baylee.app` into **Applications** the same way.
+2. Open Baylee from Applications. The first time, macOS refuses because the
+   app is not notarised.
 3. Open **System Settings → Privacy & Security**, scroll down to the message
    about Baylee and click **Open Anyway**.
 
-If you skipped step 1, Baylee still updates itself. Its settings screen then
-says that macOS runs it from a read-only copy and offers **Move to my
-Applications folder**: Baylee copies itself into the Applications folder in
-your home folder (`~/Applications`, which needs no password), checks that
+Or, in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Baylee.app
+```
+
+Moving it to Applications first is not required, but an app opened where it
+lies after the download (the disk image, or the unpacked folder in
+Downloads) is run by macOS from a hidden read-only copy each time. Baylee
+still updates itself then. Its settings screen says so and offers **Move to
+my Applications folder**: Baylee copies itself into the Applications folder
+in your home folder (`~/Applications`, which needs no password), checks that
 the copy's signature is intact, removes the download mark from the copy
 (not from the original), starts the copy and closes itself. The copy starts
 without macOS asking again. On its first start it asks whether to move the
@@ -173,13 +196,23 @@ old copy to the Trash; nothing is deleted unless you say so. Where you may
 write to the main `Applications` folder, a second button puts it there
 instead.
 
-Or, in Terminal:
+### Linux
+
+The **AppImage** is one file that runs on its own:
 
 ```bash
-xattr -dr com.apple.quarantine /path/to/Baylee.app
+chmod +x Baylee-<version>-x86_64.AppImage
+./Baylee-<version>-x86_64.AppImage
 ```
 
-### Linux
+The **.deb** (Debian, Ubuntu and their relatives) installs Baylee in
+`/opt/baylee` with a menu entry, and the command `baylee`:
+
+```bash
+sudo apt install ./baylee_<version>_amd64.deb
+```
+
+Or unpack the archive:
 
 ```bash
 tar -xzf baylee-client-<version>-x86_64-unknown-linux-gnu.tar.gz
@@ -188,10 +221,13 @@ cd baylee-client-<version>-x86_64-unknown-linux-gnu
 ```
 
 You need a Vulkan driver and the ALSA, udev, X11/Wayland and xkbcommon
-runtime libraries. On Debian or Ubuntu these are
-`libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0`. The binaries are
-built on Ubuntu 22.04 and run on any distribution with glibc 2.35 or newer.
-Like the Windows one, the x86-64 build needs a CPU with x86-64-v2.
+runtime libraries; the `.deb` names them, so `apt` installs them for you,
+and the AppImage uses the system's like the archive does. On Debian or
+Ubuntu these are
+`libasound2 libudev1 libxkbcommon-x11-0 libwayland-client0 libvulkan1`. The
+binaries are built on Ubuntu 22.04 and run on any distribution with glibc
+2.35 or newer. Like the Windows one, the x86-64 build needs a CPU with
+x86-64-v2.
 
 ### Phones, tablets and the browser
 
@@ -216,18 +252,19 @@ not.
 
 ### Checking the download
 
-Next to each archive on the release page there is a `.sha256` file. Download
-both into the same folder and run:
+Next to each installer and archive on the release page there is a `.sha256`
+file, and the release notes list the installers' checksums too. Download the
+file and its `.sha256` into the same folder and run:
 
 ```bash
 # Linux
-sha256sum -c baylee-client-<version>-<target>.tar.gz.sha256
+sha256sum -c Baylee-<version>-x86_64.AppImage.sha256
 # macOS
-shasum -a 256 -c baylee-client-<version>-<target>.zip.sha256
+shasum -a 256 -c Baylee-<version>-aarch64.dmg.sha256
 ```
 
 On Windows, run
-`certutil -hashfile baylee-client-<version>-<target>.zip SHA256` in PowerShell
+`certutil -hashfile Baylee-Setup-<version>-x64.exe SHA256` in PowerShell
 and compare the result with the number in the `.sha256` file.
 
 ### Updating
@@ -243,13 +280,23 @@ what GitHub sees.
 
 Updates are kept in your own state folder (`~/.local/state/baylee`, or
 `%LOCALAPPDATA%\baylee` on Windows), never written into the program's
-folder. Baylee still only links to the release page, and you update by
-hand, when the folder it lies in is not writable for your user: then
-someone else manages that installation (it never asks for administrator
-rights). The notice names the folder and what the system answered; on a Mac
-it offers **Move to my Applications folder** (see above), after which it
-updates itself. To update by hand, download the new archive and replace the
-old folder (or `Baylee.app`) with the new one.
+folder. So the Windows setup's per-user installation updates itself, and so
+does a Mac app wherever you started it, even one macOS runs from a hidden
+read-only copy. An **AppImage** updates itself too when the folder holding
+the `.AppImage` file is yours (`~/Apps`, say); the file itself stays as it
+is, and the newer version starts from the state folder.
+
+Baylee only links to the release page, and you update by hand, when the
+folder its program lies in is not writable for your user: then someone else
+manages that installation, and Baylee never asks for administrator rights.
+The `.deb`'s `/opt/baylee` is such a folder. The notice names the folder and
+what the system answered; on a Mac it offers **Move to my Applications
+folder** (see above), after which it updates itself. To update by hand, run
+the new installer over the old installation (the `.deb` with `sudo apt
+install`, the AppImage by replacing the file), or download the new archive
+and replace the old folder (or `Baylee.app`) with the new one. A newer
+version installed by hand always starts in place of an older one Baylee had
+downloaded itself.
 
 Releases up to 0.1.0-beta.5 did not update while macOS ran them from that
 read-only copy, and their launcher stays in the app: move such a

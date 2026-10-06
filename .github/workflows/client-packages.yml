@@ -108,9 +108,39 @@ jobs:
           archive=$(scripts/package-client.sh "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
           mkdir -p out
           cp "$archive" out/
+      # The installers wrap the tree package-client.sh just packed: a dmg, an
+      # Inno Setup installer, an AppImage and a .deb (docs/releasing.md
+      # §"Installers"). They are promoted with the archive, never rebuilt.
+      - if: inputs.source-run == '' && runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: scripts/installers/tools.sh "$RUNNER_TEMP/installer-tools" "$PACKAGE_TARGET" >> "$GITHUB_ENV"
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: |
+          scripts/package-installers.sh "$PACKAGE_TARGET" "$PACKAGE_VERSION" | while read -r installer; do
+            cp "$installer" out/
+          done
           python_cmd=python3
           if [ "$RUNNER_OS" = Windows ]; then python_cmd=python; fi
           "$python_cmd" scripts/release/ci_artifacts.py write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+      # What a player gets: on this throwaway runner each installer is
+      # installed (the dmg's app copied to /Applications and started from
+      # there), checked and removed again.
+      - if: inputs.source-run == ''
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: scripts/release/check-installers.sh --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: client-${{ matrix.target }}
