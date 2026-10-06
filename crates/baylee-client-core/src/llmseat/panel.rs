@@ -21,7 +21,9 @@
 //! and tells the panel what it found, and the caller says what time it is
 //! ([`Moment`]).
 
+use super::keys::{self, KeyEntry};
 use super::ledger::{Ledger, Moment, Spent};
+use super::seating::Preset;
 use super::{
     AnswerMode, CapField, Caps, DEFAULT_ANTHROPIC_MODEL, DEFAULT_CLI_CALLS,
     DEFAULT_CLI_SPEND_TOKENS, Field, GivenPrice, PRICED, Period, Place, Price, Profile, Provider,
@@ -208,6 +210,9 @@ pub struct PanelFault {
 pub enum Act {
     /// Add a profile, and put the caret in its name.
     Add,
+    /// Add a profile from a ready-made adapter (a protocol, an address and
+    /// the key's variable), and put the caret in its name.
+    AddPreset(Preset),
     /// Show this profile's fields.
     Select(usize),
     /// Add a copy of this profile, under a name of its own, below it.
@@ -794,6 +799,11 @@ impl SeatPanel {
                 self.drafts.push(Draft::of(&name, &profile));
                 self.name_the_new(self.drafts.len() - 1);
             }
+            Act::AddPreset(preset) => {
+                let name = self.free_name(preset.name());
+                self.drafts.push(Draft::of(&name, &preset.profile()));
+                self.name_the_new(self.drafts.len() - 1);
+            }
             Act::Select(at) if at < self.drafts.len() => {
                 self.selected = Some(at);
                 if matches!(self.focus, Some(Spot::Profile(other, _)) if other != at) {
@@ -1080,6 +1090,30 @@ impl SeatPanel {
             .any(|fault| fault.field == Field::KeyEnv)
             || profile.key_env.as_deref().is_some_and(shaped_like_a_key);
         profile.key_env().filter(|_| !faulty).map(str::to_string)
+    }
+
+    /// Where the profile at `at` keeps its key in the OS credential store,
+    /// as its boxes say now (`super::keys`), with the provider's address
+    /// variable read by `env`: `None` for a CLI, or while the key's
+    /// variable or the address is not one yet.
+    #[must_use]
+    pub fn key_entry(&self, at: usize, env: &dyn Fn(&str) -> Option<String>) -> Option<KeyEntry> {
+        let name = self.key_variable(at)?;
+        let (profile, _) = self.drafts.get(at)?.read();
+        if profile
+            .faults()
+            .iter()
+            .any(|fault| fault.field == Field::BaseUrl)
+        {
+            return None;
+        }
+        let env_base = profile.provider.base_env().and_then(env);
+        let base = keys::address(
+            profile.provider,
+            profile.base_url.as_deref(),
+            env_base.as_deref(),
+        )?;
+        KeyEntry::new(&name, &base)
     }
 
     /// A period the caps count dollars in and no tokens, which a profile

@@ -1486,7 +1486,7 @@ fn account_face(
     };
     let masked = |field: Field| FieldLook {
         mask: Some(Masked {
-            field,
+            field: Some(field),
             shown: lobby.showing(field),
         }),
         ..plain(field)

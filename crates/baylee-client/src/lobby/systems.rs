@@ -1050,7 +1050,7 @@ pub(super) fn clicks(
         }
         // And anything but the seat panel's own controls takes the caret out
         // of its box.
-        if !matches!(*press, Press::Seat(_)) && state.seat.typing() {
+        if !matches!(*press, Press::Seat(_) | Press::SeatKey(_)) && state.seat.typing() {
             state.seat.blur();
         }
         match *press {
@@ -1130,6 +1130,7 @@ pub(super) fn clicks(
             Press::OpenSettings => state.settings = SettingsPane::Open,
             Press::CloseSettings => state.settings = SettingsPane::Closed,
             Press::Seat(act) => state.seat.act(act),
+            Press::SeatKey(key) => state.seat.key_press(key),
             Press::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
             Press::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
             Press::ConfirmAccountDeletion => {
@@ -1350,9 +1351,37 @@ pub(super) fn clicks(
                     dispatch(&mut state, &mailbox, request);
                 }
             }
+            Press::RoomLlm(index, seat, press) => {
+                let found = state.lobby.games().get(index).map(|g| {
+                    let phase = if g.state == "waiting" {
+                        crate::tableseats::Phase::Waiting
+                    } else {
+                        crate::tableseats::Phase::Playing
+                    };
+                    let house = g
+                        .seats
+                        .iter()
+                        .any(|s| s.seat == seat && s.kind == SeatKind::Ai);
+                    (g.id.clone(), phase, house)
+                });
+                if let Some((game, phase, house)) = found {
+                    let open_it = state.llm.press(seat, press, phase, "steady");
+                    // The house's chair is the gateway's: open it, and the
+                    // bridge takes it once the room lists it open.
+                    if open_it && house {
+                        let request =
+                            state
+                                .lobby
+                                .set_seat(&game, seat, Some(SeatKind::Human), None);
+                        dispatch(&mut state, &mailbox, request);
+                    }
+                }
+            }
             Press::SeatKind(index, seat, kind) => {
                 let game = state.lobby.games().get(index).map(|g| g.id.clone());
                 if let Some(game) = game {
+                    // Open or the house's: no language model of ours here.
+                    state.llm.unplan(seat);
                     let request = state.lobby.set_seat(&game, seat, Some(kind), None);
                     dispatch(&mut state, &mailbox, request);
                 }
@@ -2004,6 +2033,10 @@ pub(crate) enum Press {
     Hub(Hub),
     /// A control of the language-model seat's panel on the settings screen.
     Seat(baylee_client_core::llmseat::panel::Act),
+    /// A control of a profile's key box on that panel.
+    SeatKey(crate::seatpanel::KeyPress),
+    /// A language-model control of a chair: the room's index, the chair.
+    RoomLlm(usize, u32, crate::tableseats::LlmPress),
     AddGateway,
     SelectGateway(usize),
     /// Asks, in the confirm dialog, whether a saved gateway leaves the list.

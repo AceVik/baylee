@@ -916,3 +916,38 @@ mod on_disk {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// A preset adds an adapter's profile, protocol and address and key
+/// variable filled and every box still editable; the key's entry follows
+/// the boxes as typed, and there is none for a CLI or a faulty address.
+#[test]
+fn a_preset_fills_an_adapter_and_the_key_follows_its_address() {
+    let mut panel = SeatPanel::new(Disk::Missing);
+    panel.act(Act::AddPreset(Preset::DeepSeekAnthropic));
+    assert_eq!(panel.provider(0), Some(Provider::Anthropic));
+    let none = |_: &str| None;
+    let at = panel.key_entry(0, &none).expect("an entry");
+    assert_eq!(at.account(), "DEEPSEEK_API_KEY@api.deepseek.com");
+    let saved = panel.to_save().expect("a profile to write");
+    assert_eq!(saved.check(), Ok(()));
+    assert_eq!(
+        saved.profiles["deepseek-anthropic"],
+        Preset::DeepSeekAnthropic.profile()
+    );
+    type_into(
+        &mut panel,
+        Spot::Profile(0, Slot::BaseUrl),
+        "https://llm.example.org",
+    );
+    assert_eq!(panel.key_entry(0, &none).unwrap().host(), "llm.example.org");
+    type_into(
+        &mut panel,
+        Spot::Profile(0, Slot::BaseUrl),
+        "http://llm.example.org",
+    );
+    assert_eq!(panel.key_entry(0, &none), None, "an address in the clear");
+    panel.act(Act::AddPreset(Preset::ClaudeCode));
+    assert_eq!(panel.key_entry(1, &none), None, "a CLI reads no key");
+    panel.act(Act::AddPreset(Preset::DeepSeekAnthropic));
+    assert_eq!(panel.name(2), Some("deepseek-anthropic-2"));
+}

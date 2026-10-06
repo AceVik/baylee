@@ -11,17 +11,23 @@
 //! On a desktop only, where the bridge runs. A browser and a phone have no
 //! bridge beside them, and the settings screen says so in one line.
 //!
-//! There is no box for a key. A key typed into any box is refused beside
-//! it and never saved; the key's box is the *name* of its environment
-//! variable, and whether that variable is set in this program is the one
-//! thing read of it.
+//! A key never goes in the file. A key typed into any of the file's boxes
+//! is refused beside it and never saved; the file holds the *name* of the
+//! key's environment variable. Beside it is the key box: what is typed
+//! there is drawn masked, with no eye to show it, and handed to the bridge
+//! on its stdin (`baylee-seat key set`), which keeps it in the OS
+//! credential store under that variable and the host the key goes to
+//! (`docs/llm-seat.md` §"Where a key is kept"). Of a kept key the panel
+//! knows only that it is kept: it is never read back.
 
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{
     FieldLook, Metrics, Press, button, chip, heading, note, panel, row, text_field,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::llmseat::keys::{KeyDesk, KeyEntry, KeyState};
 use baylee_client_core::llmseat::panel::{Act, Disk, PanelFault, Saved, SeatPanel, Slot, Spot};
+use baylee_client_core::llmseat::seating::{Preset, protocol_label};
 use baylee_client_core::llmseat::{AnswerMode, CapField, Provider};
 use bevy::prelude::*;
 use bevy::ui::{percent, px};
@@ -43,6 +49,39 @@ const POLL_SECS: f32 = 1.0;
 pub(crate) struct SeatDesk {
     #[cfg(not(target_arch = "wasm32"))]
     opened: Opened,
+    /// The key boxes, and what the store was last heard to keep.
+    keys: KeyDesk,
+    /// The `baylee-seat key` jobs out.
+    #[cfg(not(target_arch = "wasm32"))]
+    runner: crate::seatbin::KeyRunner,
+    /// A paste into the key box the clipboard has not answered.
+    #[cfg(not(target_arch = "wasm32"))]
+    key_paste: Option<bevy::clipboard::ClipboardRead>,
+}
+
+/// A press on a profile's key box.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum KeyPress {
+    /// Put the caret in the key box of the profile at this place.
+    Focus(usize),
+    /// Hand the typed key to the store.
+    Submit,
+    /// Forget the key kept for the profile at this place.
+    Delete(usize),
+}
+
+/// The provider's address variable, read from this program's environment
+/// for a key's entry (the bridge it starts inherits it).
+fn env_var(name: &str) -> Option<String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::env::var(name).ok()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = name;
+        None
+    }
 }
 
 /// Whether the desk is open, and on what.
@@ -129,11 +168,80 @@ impl SeatDesk {
     /// Whether a box of the panel has the caret.
     #[must_use]
     pub(crate) fn typing(&self) -> bool {
-        self.panel().is_some_and(SeatPanel::typing)
+        self.panel().is_some_and(SeatPanel::typing) || self.keys.typing().is_some()
+    }
+
+    /// The entry the shown profile keeps its key under, as its boxes say.
+    fn shown_entry(&self) -> Option<(usize, KeyEntry)> {
+        let panel = self.panel()?;
+        let at = panel.selected()?;
+        Some((at, panel.key_entry(at, &env_var)?))
+    }
+
+    /// Takes what the key jobs came to, asks the store about the shown
+    /// profile's entry once, and starts the jobs waiting. Whether anything
+    /// drawn changed. Runs every frame the settings screen is up and costs
+    /// a lock when nothing is out; no job runs in a test, which may not
+    /// touch the player's store ([`crate::settings::store_is_open`]).
+    pub(crate) fn pump(&mut self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut changed = false;
+            for (entry, came) in self.runner.take() {
+                self.keys.answered(&entry, came);
+                changed = true;
+            }
+            if let Some((_, entry)) = self.shown_entry() {
+                self.keys.look(&entry);
+            }
+            while let Some(job) = self.keys.next_job() {
+                if crate::settings::store_is_open() {
+                    self.runner.run(job);
+                } else {
+                    let entry = job.entry().clone();
+                    self.keys
+                        .answered(&entry, Ok(KeyState::Unavailable("not in a test".into())));
+                    changed = true;
+                }
+            }
+            changed
+        }
+        #[cfg(target_arch = "wasm32")]
+        false
+    }
+
+    /// Does what a press on a key box asks.
+    pub(crate) fn key_press(&mut self, press: KeyPress) {
+        if let Some(panel) = self.panel_mut() {
+            panel.blur();
+        }
+        match press {
+            KeyPress::Focus(at) | KeyPress::Delete(at) => {
+                let entry = self.panel().and_then(|panel| panel.key_entry(at, &env_var));
+                if let Some(entry) = entry {
+                    if matches!(press, KeyPress::Focus(_)) {
+                        self.keys.focus(&entry);
+                    } else {
+                        self.keys.delete(&entry);
+                    }
+                }
+            }
+            KeyPress::Submit => self.keys.submit(),
+        }
+    }
+
+    /// The panel, to change.
+    fn panel_mut(&mut self) -> Option<&mut SeatPanel> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Opened::Desk(open) = &mut self.opened {
+            return Some(open.desk.panel_mut());
+        }
+        None
     }
 
     /// Does what a press on the panel asks. [`Act::Save`] writes the file.
     pub(crate) fn act(&mut self, act: Act) {
+        self.keys.blur();
         #[cfg(not(target_arch = "wasm32"))]
         if let Opened::Desk(open) = &mut self.opened {
             open.desk.act(act);
@@ -144,10 +252,14 @@ impl SeatDesk {
 
     /// Takes the caret out of the panel, when anything else is pressed.
     pub(crate) fn blur(&mut self) {
+        self.keys.blur();
         #[cfg(not(target_arch = "wasm32"))]
-        if let Opened::Desk(open) = &mut self.opened {
-            open.desk.panel_mut().blur();
-            open.paste = None;
+        {
+            self.key_paste = None;
+            if let Opened::Desk(open) = &mut self.opened {
+                open.desk.panel_mut().blur();
+                open.paste = None;
+            }
         }
     }
 
@@ -199,8 +311,15 @@ pub(crate) fn poll(
     mut last: Local<Option<f32>>,
 ) {
     if !DESKTOP || !state.settings_open() {
-        *last = None;
+        if last.take().is_some() {
+            // Opened again later, every key is asked about anew: one may
+            // have been kept from a terminal meanwhile.
+            state.bypass_change_detection().seat.keys.forget();
+        }
         return;
+    }
+    if state.bypass_change_detection().seat.pump() {
+        state.set_changed();
     }
     let at = time.elapsed_secs();
     if state.seat.is_open() && last.is_some_and(|last| at - last < POLL_SECS) {
@@ -232,6 +351,10 @@ pub(crate) fn keys(
             keys.clear();
             return;
         }
+        if state.seat.keys.typing().is_some() {
+            type_key(keys, codes, &mut state.seat, clipboard);
+            return;
+        }
         let Opened::Desk(open) = &mut state.seat.opened else {
             keys.clear();
             return;
@@ -245,10 +368,83 @@ pub(crate) fn keys(
     }
 }
 
+/// Types into the key box: what the other boxes answer, but `Enter` hands
+/// the key over and `Tab` and `Escape` drop it. Nothing typed here is
+/// logged, and the box draws it masked.
+#[cfg(not(target_arch = "wasm32"))]
+fn type_key(
+    keys: &mut MessageReader<bevy::input::keyboard::KeyboardInput>,
+    codes: &ButtonInput<KeyCode>,
+    seat: &mut SeatDesk,
+    clipboard: Option<&mut bevy::clipboard::Clipboard>,
+) {
+    use baylee_client_core::textbuf::{Dir, Step, TextBuffer};
+    use bevy::input::keyboard::Key;
+    let shift = codes.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let command = codes.any_pressed([
+        KeyCode::SuperLeft,
+        KeyCode::SuperRight,
+        KeyCode::ControlLeft,
+        KeyCode::ControlRight,
+    ]);
+    let mut clipboard = clipboard;
+    for key in keys.read() {
+        if !key.state.is_pressed() || seat.keys.typing().is_none() {
+            continue;
+        }
+        let desk = &mut seat.keys;
+        match &key.logical_key {
+            Key::Backspace => desk.edit(TextBuffer::delete_back),
+            Key::Delete => desk.edit(TextBuffer::delete_forward),
+            Key::ArrowLeft => desk.edit(|b| b.move_caret(Step::Char, Dir::Left, shift)),
+            Key::ArrowRight => desk.edit(|b| b.move_caret(Step::Char, Dir::Right, shift)),
+            Key::Home => desk.edit(|b| b.move_caret(Step::Line, Dir::Left, shift)),
+            Key::End => desk.edit(|b| b.move_caret(Step::Line, Dir::Right, shift)),
+            Key::Tab | Key::Escape => desk.blur(),
+            Key::Enter => desk.submit(),
+            Key::Character(text) if command => {
+                if text.eq_ignore_ascii_case("a") {
+                    desk.edit(TextBuffer::select_all);
+                } else if text.eq_ignore_ascii_case("v")
+                    && let Some(cb) = clipboard.as_deref_mut()
+                {
+                    let mut read = cb.fetch_text();
+                    match read.poll_result() {
+                        Some(Ok(text)) => desk.edit(|b| b.insert(text.trim())),
+                        Some(Err(_)) => {}
+                        None => seat.key_paste = Some(read),
+                    }
+                }
+            }
+            _ => {
+                if let Some(text) = key.text.as_ref() {
+                    desk.edit(|b| b.insert(text));
+                }
+            }
+        }
+    }
+}
+
 /// Lands a paste the clipboard has now answered, in the box it was asked
 /// for while that box still has the caret.
 #[cfg(not(target_arch = "wasm32"))]
 fn land_paste(state: &mut ResMut<crate::lobby::LobbyState>) {
+    if state.seat.key_paste.is_some() {
+        let seat = &mut state.bypass_change_detection().seat;
+        let answer = seat
+            .key_paste
+            .as_mut()
+            .and_then(bevy::clipboard::ClipboardRead::poll_result);
+        if let Some(answer) = answer {
+            seat.key_paste = None;
+            if let Ok(text) = answer
+                && seat.keys.typing().is_some()
+            {
+                seat.keys.edit(|b| b.insert(text.trim()));
+                state.set_changed();
+            }
+        }
+    }
     let Opened::Desk(open) = &state.seat.opened else {
         return;
     };
@@ -404,6 +600,7 @@ pub(crate) fn draw(
         lang,
         panel,
         faults: &faults,
+        keys: &seat.keys,
     };
     match panel.disk() {
         Disk::Refused(why) => {
@@ -446,6 +643,7 @@ struct Drawn<'a, 'w, 's> {
     lang: Lang,
     panel: &'a SeatPanel,
     faults: &'a [PanelFault],
+    keys: &'a KeyDesk,
 }
 
 impl Drawn<'_, '_, '_> {
@@ -619,6 +817,11 @@ impl Drawn<'_, '_, '_> {
             true,
         );
         self.commands.entity(line).add_child(add);
+        let presets: Vec<(&str, Press, bool)> = Preset::ALL
+            .iter()
+            .map(|preset| (preset.label(), Press::Seat(Act::AddPreset(*preset)), false))
+            .collect();
+        self.choice(parent, Phrase::SeatPresets.text(self.lang), &presets);
         if self.panel.is_empty() && matches!(self.panel.disk(), Disk::Read(_)) {
             self.line(
                 parent,
@@ -677,27 +880,14 @@ impl Drawn<'_, '_, '_> {
         let provider = self.panel.provider(at).unwrap_or(Provider::Anthropic);
         let first = self.cells(parent);
         self.field(first, spot(Slot::Name), Phrase::SeatName.text(lang));
-        self.choice(
-            first,
-            Phrase::SeatProvider.text(lang),
-            &[
-                (
-                    Phrase::SeatProviderAnthropic.text(lang),
-                    Press::Seat(Act::Provider(at, Provider::Anthropic)),
-                    provider == Provider::Anthropic,
-                ),
-                (
-                    Phrase::SeatProviderOpenAi.text(lang),
-                    Press::Seat(Act::Provider(at, Provider::OpenAi)),
-                    provider == Provider::OpenAi,
-                ),
-                (
-                    Phrase::SeatProviderCli.text(lang),
-                    Press::Seat(Act::Provider(at, Provider::Cli)),
-                    provider == Provider::Cli,
-                ),
-            ],
-        );
+        let protocols = [Provider::Anthropic, Provider::OpenAi, Provider::Cli].map(|p| {
+            (
+                protocol_label(p),
+                Press::Seat(Act::Provider(at, p)),
+                provider == p,
+            )
+        });
+        self.choice(first, Phrase::SeatProvider.text(lang), &protocols);
 
         let model = self.cells(parent);
         let cell = self.field(model, spot(Slot::Model), Phrase::SeatModel.text(lang));
@@ -783,16 +973,97 @@ impl Drawn<'_, '_, '_> {
         }
 
         let reach = self.cells(parent);
+        for slot in [Slot::BaseUrl, Slot::Command] {
+            if self.panel.shows(spot(slot)) {
+                self.field(reach, spot(slot), slot.label().text(lang));
+            }
+        }
         if self.panel.shows(spot(Slot::KeyEnv)) {
             let key = self.field(reach, spot(Slot::KeyEnv), Phrase::SeatKeyEnv.text(lang));
             if let Some((words, set)) = self.panel.key_line(at, &is_set, lang) {
                 self.line(key, &words, if set { palette::INK } else { palette::MUTED });
             }
+            self.key_box(reach, at);
         }
-        for slot in [Slot::BaseUrl, Slot::Command] {
-            if self.panel.shows(spot(slot)) {
-                self.field(reach, spot(slot), slot.label().text(lang));
+    }
+
+    /// The key box of the profile at `at`: what the store keeps for its
+    /// entry (never the key), a masked box to type one into, and Keep and
+    /// Forget. Unavailable, with the reason, where this machine has no
+    /// store the bridge can open; the variable keeps working everywhere.
+    fn key_box(&mut self, parent: Entity, at: usize) {
+        let lang = self.lang;
+        let cell = self.cell(parent);
+        let Some(entry) = self.panel.key_entry(at, &env_var) else {
+            self.line(cell, Phrase::SeatKeyNoEntry.text(lang), palette::MUTED);
+            return;
+        };
+        let state = self.keys.state(&entry).cloned();
+        let busy = self.keys.busy(&entry);
+        let host = entry.host().to_string();
+        let (words, ink) = match (&state, busy) {
+            (_, true) | (None, _) => (Phrase::SeatKeyAsking.text(lang).to_string(), palette::MUTED),
+            (Some(KeyState::Set), _) => (Phrase::SeatKeyKept.fill(lang, &[&host]), palette::INK),
+            (Some(KeyState::Absent), _) => {
+                (Phrase::SeatKeyNoneKept.fill(lang, &[&host]), palette::MUTED)
             }
+            (Some(KeyState::Unavailable(why)), _) => (
+                Phrase::SeatKeyStoreUnavailable.fill(lang, &[why.as_str()]),
+                palette::MUTED,
+            ),
+        };
+        if matches!(state, Some(KeyState::Unavailable(_))) {
+            self.line(cell, &words, ink);
+            return;
+        }
+        let typing = self.keys.typing().filter(|(e, _)| **e == entry);
+        let blank = baylee_client_core::textbuf::TextBuffer::default();
+        let look = FieldLook {
+            buffer: typing.map_or(&blank, |(_, buffer)| buffer),
+            focused: typing.is_some(),
+            mask: Some(crate::lobby::Masked::sealed()),
+            press: Press::SeatKey(KeyPress::Focus(at)),
+            tail: None,
+            lead: None,
+            hint: Some(if matches!(state, Some(KeyState::Set)) {
+                Phrase::SeatKeyReplaceHint.text(lang)
+            } else {
+                Phrase::SeatKeyHint.text(lang)
+            }),
+        };
+        let boxed = text_field(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            Phrase::SeatKeyBox.text(lang),
+            &look,
+        );
+        self.commands.entity(cell).add_child(boxed);
+        let doors = row(self.commands, self.metrics, true);
+        self.commands.entity(cell).add_child(doors);
+        let keep = button(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            Phrase::SeatKeyKeep.text(lang),
+            Press::SeatKey(KeyPress::Submit),
+            palette::ACCENT,
+            typing.is_some_and(|(_, b)| !b.is_empty()) && !busy,
+        );
+        let forget = button(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            Phrase::SeatKeyForget.text(lang),
+            Press::SeatKey(KeyPress::Delete(at)),
+            palette::DANGER,
+            matches!(state, Some(KeyState::Set)) && !busy,
+        );
+        self.commands.entity(doors).add_children(&[keep, forget]);
+        self.line(cell, &words, ink);
+        if let Some(why) = self.keys.said(&entry) {
+            let why = why.to_string();
+            self.line(cell, &why, palette::DANGER);
         }
     }
 

@@ -101,7 +101,12 @@ impl Plugin for LobbyPlugin {
                     localization::update,
                     watch,
                     softkeys,
-                    (crate::seatpanel::poll, keyboard).chain(),
+                    (
+                        crate::seatpanel::poll,
+                        keyboard,
+                        crate::tableseats::reconcile,
+                    )
+                        .chain(),
                     // A press asks the clipboard or the disk; the ask is
                     // answered in the same frame.
                     (clicks, crate::buildui::transfer::act).chain(),
@@ -248,6 +253,9 @@ pub struct LobbyState {
     /// The language-model seat's panel on the settings screen, opened the
     /// first time the screen is up (`crate::seatpanel`).
     pub(crate) seat: crate::seatpanel::SeatDesk,
+    /// The language models this client seats at the table it hosts
+    /// (`crate::tableseats`).
+    pub(crate) llm: crate::tableseats::TableSeats,
     /// Offline play, once the player has asked for it.
     ///
     /// `Some` is the whole of "this client has no gateway": every request
@@ -406,6 +414,7 @@ impl LobbyState {
             room_card_edit: None,
             settings: SettingsPane::Closed,
             seat: crate::seatpanel::SeatDesk::default(),
+            llm: crate::tableseats::TableSeats::default(),
             offline: None,
         }
     }
@@ -551,8 +560,8 @@ pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
 pub(crate) use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
 pub(crate) use ui::{
-    FieldLook, FieldTail, Frame, Metrics, button, chip, heading, note, panel, print_mark, row,
-    scroller, spacer, text_field,
+    FieldLook, FieldTail, Frame, Masked, Metrics, button, chip, heading, note, panel, print_mark,
+    row, scroller, spacer, text_field,
 };
 
 pub(crate) mod scrollbars;

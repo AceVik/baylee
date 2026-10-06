@@ -28,6 +28,11 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
     // account names, which have no language.
     let lang = state.lobby.lang();
     let pool = matches!(request, LobbyRequest::LoadPool);
+    // A language model this client seats in a locked room it opened needs
+    // the password (`crate::tableseats`), which the box forgets.
+    if let LobbyRequest::CreateGame { password, .. } = &request {
+        state.llm.remember_password(password);
+    }
     if let Some(offline) = state.offline.as_mut() {
         let event = offline.perform(request, lang);
         if let Ok(mut box_) = mailbox.0.lock() {

@@ -85,6 +85,8 @@ pub mod platemat;
 pub mod prefs;
 pub mod report;
 pub mod rowbar;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod seatbin;
 pub mod seatpanel;
 pub mod settings;
 pub mod settingsui;
@@ -96,6 +98,8 @@ pub mod softkeys;
 pub mod sound;
 pub mod standalone;
 pub mod table;
+pub(crate) mod tablellm;
+pub(crate) mod tableseats;
 pub mod targeting;
 pub mod textures;
 pub mod tokenart;

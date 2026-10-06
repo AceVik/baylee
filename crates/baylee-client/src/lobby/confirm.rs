@@ -177,7 +177,7 @@ pub(super) fn draw_deletion(
                 buffer: lobby.buffer(field),
                 focused: lobby.focus() == field,
                 mask: Some(super::ui::Masked {
-                    field,
+                    field: Some(field),
                     shown: lobby.showing(field),
                 }),
                 press: Press::Focus(field),

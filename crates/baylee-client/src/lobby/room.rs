@@ -4,6 +4,7 @@ use super::ui::{FieldLook, Masked, button, chip, heading, note, panel, row, text
 use super::*;
 use baylee_client_core::lobby::room::Adjustment;
 mod cards;
+mod llm;
 
 /// Draw a room in the same bounded sanctuary frame as the lobby.
 #[allow(clippy::too_many_lines)] // the page is read in visual order
@@ -483,6 +484,16 @@ fn seat_card(
             commands.entity(tools).add_child(b);
         }
     }
+    // A language model of this client's in this chair, or the chip that
+    // seats one (`crate::tableseats`): the host's, on a desktop, at a
+    // gateway.
+    if game.yours && !lobby.offline() && crate::tableseats::available() {
+        if state.llm.planned(seat.seat).is_some() {
+            llm::editor(commands, card, state, fonts, m, index, seat.seat);
+        } else if !seat.taken {
+            llm::offer(commands, (tools, card), state, fonts, m, index, seat.seat);
+        }
+    }
     if seat.you || (game.yours && seat.kind == SeatKind::Ai) {
         let b = button(
             commands,
@@ -653,7 +664,7 @@ fn field(
             buffer: state.lobby.buffer(field),
             focused: state.lobby.focus() == field,
             mask: secret.then_some(Masked {
-                field,
+                field: Some(field),
                 shown: state.lobby.showing(field),
             }),
             press: Press::Focus(field),

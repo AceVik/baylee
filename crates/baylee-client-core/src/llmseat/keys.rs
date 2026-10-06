@@ -54,6 +54,28 @@ impl KeyEntry {
         })
     }
 
+    /// The entry named by its parts, as `baylee-seat key --key-env --host`
+    /// takes them: `None` unless the variable is a variable's name and the
+    /// host a host's.
+    #[must_use]
+    pub fn named(key_env: &str, host: &str) -> Option<Self> {
+        let variable = !key_env.is_empty()
+            && key_env.len() <= 64
+            && key_env
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !super::shaped_like_a_key(key_env);
+        let hosted = !host.is_empty()
+            && host.len() <= 255
+            && host
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':' | '[' | ']'));
+        (variable && hosted).then(|| Self {
+            key_env: key_env.to_string(),
+            host: host.to_ascii_lowercase(),
+        })
+    }
+
     /// The variable the key would otherwise be read from.
     #[must_use]
     pub fn key_env(&self) -> &str {
@@ -271,6 +293,200 @@ impl KeyStore for MemoryKeys {
     }
 }
 
+/// What the client asks the bridge of the store (`baylee-seat key`).
+#[derive(Clone, PartialEq, Eq)]
+pub enum KeyJob {
+    /// Whether a key is kept.
+    Status(KeyEntry),
+    /// Keep this key, handed over on the bridge's stdin.
+    Set(KeyEntry, String),
+    /// Forget the key.
+    Delete(KeyEntry),
+}
+
+impl KeyJob {
+    /// The entry it is about.
+    #[must_use]
+    pub fn entry(&self) -> &KeyEntry {
+        match self {
+            Self::Status(entry) | Self::Set(entry, _) | Self::Delete(entry) => entry,
+        }
+    }
+
+    /// `baylee-seat`'s arguments for it: never the key, which goes on
+    /// stdin ([`KeyJob::stdin`]).
+    #[must_use]
+    pub fn args(&self) -> Vec<String> {
+        let action = match self {
+            Self::Status(_) => "status",
+            Self::Set(..) => "set",
+            Self::Delete(_) => "delete",
+        };
+        let entry = self.entry();
+        vec![
+            "key".into(),
+            action.into(),
+            "--key-env".into(),
+            entry.key_env.clone(),
+            "--host".into(),
+            entry.host.clone(),
+        ]
+    }
+
+    /// What goes on the bridge's stdin: the key and a line break for
+    /// [`KeyJob::Set`], nothing otherwise.
+    #[must_use]
+    pub fn stdin(&self) -> Option<String> {
+        match self {
+            Self::Set(_, key) => Some(format!("{key}\n")),
+            Self::Status(_) | Self::Delete(_) => None,
+        }
+    }
+}
+
+/// Never the key.
+impl std::fmt::Debug for KeyJob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Status(entry) => f.debug_tuple("Status").field(entry).finish(),
+            Self::Set(entry, _) => f.debug_tuple("Set").field(entry).field(&"…").finish(),
+            Self::Delete(entry) => f.debug_tuple("Delete").field(entry).finish(),
+        }
+    }
+}
+
+/// The key box on the settings panel: what the client last heard of the
+/// store for each entry, what it has asked and not yet heard, and the key
+/// being typed. Pure; the client runs the jobs ([`KeyDesk::next_job`]) and
+/// says what came back ([`KeyDesk::answered`]).
+///
+/// The typed key is held only until it is handed to a job, and is drawn
+/// masked with no way to show it; a stored key is never read back.
+#[derive(Default)]
+pub struct KeyDesk {
+    heard: BTreeMap<KeyEntry, KeyState>,
+    asked: BTreeMap<KeyEntry, bool>,
+    queued: Vec<KeyJob>,
+    typing: Option<(KeyEntry, crate::textbuf::TextBuffer)>,
+    said: Option<(KeyEntry, String)>,
+}
+
+impl KeyDesk {
+    /// What was last heard of `entry`; `None` before anything was.
+    #[must_use]
+    pub fn state(&self, entry: &KeyEntry) -> Option<&KeyState> {
+        self.heard.get(entry)
+    }
+
+    /// Whether a job about `entry` is out.
+    #[must_use]
+    pub fn busy(&self, entry: &KeyEntry) -> bool {
+        self.asked.get(entry).copied().unwrap_or(false)
+            || self.queued.iter().any(|job| job.entry() == entry)
+    }
+
+    /// A refusal to show beside `entry`'s box (a key that is no key, a
+    /// store that refused), until the next press.
+    #[must_use]
+    pub fn said(&self, entry: &KeyEntry) -> Option<&str> {
+        self.said
+            .as_ref()
+            .filter(|(at, _)| at == entry)
+            .map(|(_, why)| why.as_str())
+    }
+
+    /// Asks the store about `entry` unless it was asked already: what the
+    /// panel calls each time it draws an entry, so a status is asked once.
+    pub fn look(&mut self, entry: &KeyEntry) {
+        if !self.heard.contains_key(entry) && !self.busy(entry) {
+            self.queued.push(KeyJob::Status(entry.clone()));
+        }
+    }
+
+    /// The next job to run, marked as out.
+    pub fn next_job(&mut self) -> Option<KeyJob> {
+        if self.queued.is_empty() {
+            return None;
+        }
+        let job = self.queued.remove(0);
+        self.asked.insert(job.entry().clone(), true);
+        Some(job)
+    }
+
+    /// What a job about `entry` came to: the store's state after it, or
+    /// the sentence it was refused with.
+    pub fn answered(&mut self, entry: &KeyEntry, came: Result<KeyState, String>) {
+        self.asked.remove(entry);
+        match came {
+            Ok(state) => {
+                self.heard.insert(entry.clone(), state);
+            }
+            Err(why) => self.said = Some((entry.clone(), blank_key_shapes_short(&why))),
+        }
+    }
+
+    /// Puts the caret in `entry`'s key box, empty.
+    pub fn focus(&mut self, entry: &KeyEntry) {
+        self.said = None;
+        self.typing = Some((entry.clone(), crate::textbuf::TextBuffer::default()));
+    }
+
+    /// The box with the caret: its entry and what is typed.
+    #[must_use]
+    pub fn typing(&self) -> Option<(&KeyEntry, &crate::textbuf::TextBuffer)> {
+        self.typing.as_ref().map(|(entry, buffer)| (entry, buffer))
+    }
+
+    /// Changes what is typed.
+    pub fn edit(&mut self, change: impl FnOnce(&mut crate::textbuf::TextBuffer)) {
+        if let Some((_, buffer)) = &mut self.typing {
+            change(buffer);
+        }
+    }
+
+    /// Takes the caret away and forgets what was typed.
+    pub fn blur(&mut self) {
+        self.typing = None;
+    }
+
+    /// Hands what is typed to the store, if it reads as a key; the box is
+    /// emptied and the caret taken away either way, so a refused key is
+    /// not kept on screen.
+    pub fn submit(&mut self) {
+        let Some((entry, buffer)) = self.typing.take() else {
+            return;
+        };
+        let key = buffer.text().trim().to_string();
+        if let Some(why) = key_fault(&key) {
+            self.said = Some((entry, why.to_string()));
+        } else {
+            self.said = None;
+            self.queued.push(KeyJob::Set(entry, key));
+        }
+    }
+
+    /// Forgets the key kept for `entry`.
+    pub fn delete(&mut self, entry: &KeyEntry) {
+        self.said = None;
+        if self.typing.as_ref().is_some_and(|(at, _)| at == entry) {
+            self.typing = None;
+        }
+        self.queued.push(KeyJob::Delete(entry.clone()));
+    }
+
+    /// Forgets what was heard, so every entry shown is asked again (the
+    /// settings screen opened anew: a key may have been kept from a
+    /// terminal meanwhile).
+    pub fn forget(&mut self) {
+        self.heard.clear();
+    }
+}
+
+/// `text` with any key shape blanked, cut to a sentence's length.
+fn blank_key_shapes_short(text: &str) -> String {
+    super::blank_key_shapes(text).chars().take(200).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::seating::Preset;
@@ -305,6 +521,18 @@ mod tests {
             "127.0.0.1:4000"
         );
         assert_eq!(entry(&Preset::ClaudeCode.profile(), None), None, "a CLI");
+        // Named by its parts, as the client hands them to the bridge.
+        let named = KeyEntry::named("DEEPSEEK_API_KEY", "api.deepseek.com").unwrap();
+        assert_eq!(Some(named), entry(&deepseek, None));
+        for (key_env, host) in [
+            ("", "a.b"),
+            ("TWO WORDS", "a.b"),
+            ("OK", "a.b/path"),
+            ("OK", ""),
+            ("sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "a.b"),
+        ] {
+            assert!(KeyEntry::named(key_env, host).is_none(), "{key_env}@{host}");
+        }
         assert!(!needs_a_key(Provider::OpenAi, "http://localhost:1234/v1"));
         assert!(needs_a_key(Provider::Anthropic, "http://localhost:1234"));
     }
@@ -341,5 +569,76 @@ mod tests {
             KeyState::parse("garbled"),
             KeyState::Unavailable(_)
         ));
+    }
+
+    /// The panel's key box: a status asked once per entry; a typed key
+    /// handed over on stdin, never in the arguments or a debug print, and
+    /// gone from the box once handed over or refused.
+    #[test]
+    fn a_typed_key_goes_to_the_bridge_on_stdin_and_leaves_the_box() {
+        let mut desk = KeyDesk::default();
+        let at = entry(&Preset::DeepSeek.profile(), None).unwrap();
+        desk.look(&at);
+        desk.look(&at);
+        let job = desk.next_job().unwrap();
+        assert_eq!(job, KeyJob::Status(at.clone()));
+        assert_eq!(
+            job.args(),
+            [
+                "key",
+                "status",
+                "--key-env",
+                "DEEPSEEK_API_KEY",
+                "--host",
+                "api.deepseek.com"
+            ]
+        );
+        assert_eq!(desk.next_job(), None, "asked once");
+        assert!(desk.busy(&at));
+        desk.look(&at);
+        assert_eq!(desk.next_job(), None, "not asked again while out");
+        desk.answered(&at, Ok(KeyState::Absent));
+        assert_eq!(desk.state(&at), Some(&KeyState::Absent));
+        desk.look(&at);
+        assert_eq!(desk.next_job(), None, "heard");
+
+        desk.focus(&at);
+        desk.edit(|b| b.insert("TEST-typed-0123456789abcdef"));
+        desk.submit();
+        assert!(desk.typing().is_none(), "the box is empty");
+        let job = desk.next_job().unwrap();
+        let key = "TEST-typed-0123456789abcdef";
+        assert!(
+            !job.args().iter().any(|a| a.contains(key)),
+            "never an argument"
+        );
+        assert!(!format!("{job:?}").contains(key), "never printed");
+        assert_eq!(
+            job.stdin().as_deref(),
+            Some("TEST-typed-0123456789abcdef\n")
+        );
+        desk.answered(&at, Ok(KeyState::Set));
+        assert_eq!(desk.state(&at), Some(&KeyState::Set));
+
+        desk.focus(&at);
+        desk.edit(|b| b.insert("two words"));
+        desk.submit();
+        assert!(desk.typing().is_none(), "a refused key is not kept either");
+        assert!(desk.said(&at).is_some());
+        assert_eq!(desk.next_job(), None);
+
+        desk.delete(&at);
+        assert_eq!(desk.next_job(), Some(KeyJob::Delete(at.clone())));
+        desk.answered(
+            &at,
+            Err("TEST refused sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into()),
+        );
+        assert!(!desk.said(&at).unwrap().contains("AAAA"), "blanked");
+        desk.forget();
+        desk.look(&at);
+        assert!(
+            matches!(desk.next_job(), Some(KeyJob::Status(_))),
+            "asked anew"
+        );
     }
 }

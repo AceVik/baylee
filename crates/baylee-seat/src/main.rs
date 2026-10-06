@@ -29,7 +29,7 @@
 use anyhow::{Context as _, bail};
 use baylee_ai::AIProfile;
 use baylee_client_core::llmseat::DEFAULT_THINK_SECS;
-use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyStore};
+use baylee_client_core::llmseat::keys::{self as llmseat_keys, KeyEntry, KeyStore};
 use baylee_client_core::llmseat::ledger::Moment;
 use baylee_client_core::llmseat::seating::Order;
 use baylee_seat::bridge::{self, PlayOptions};
@@ -77,12 +77,19 @@ struct KeyArgs {
     #[arg(value_enum)]
     action: KeyAction,
     /// The profile whose key it is, in the settings file.
-    #[arg(long)]
-    profile: String,
+    #[arg(long, required_unless_present = "key_env", conflicts_with_all = ["key_env", "host"])]
+    profile: Option<String>,
     /// The settings file [default: `BAYLEE_SEAT_CONFIG`, else
     /// `llm-seat.json` in the client's config directory].
     #[arg(long)]
     config: Option<PathBuf>,
+    /// The variable the key would otherwise be read from, with `--host`:
+    /// the entry by its parts, as the client names it.
+    #[arg(long, requires = "host")]
+    key_env: Option<String>,
+    /// The host (and port) the key goes to, with `--key-env`.
+    #[arg(long, requires = "key_env")]
+    host: Option<String>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -515,6 +522,30 @@ fn key_command(
     Ok(())
 }
 
+/// The entry `key` names: by its parts, or by a profile of the settings
+/// file.
+fn key_entry(key: &KeyArgs, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<KeyEntry> {
+    if let (Some(key_env), Some(host)) = (&key.key_env, &key.host) {
+        return KeyEntry::named(key_env, host)
+            .context("--key-env names a variable and --host a host, such as api.deepseek.com");
+    }
+    let name = key.profile.as_deref().unwrap_or_default();
+    let paths = Paths::resolve(key.config.as_deref(), None, env);
+    let file = paths.load().map_err(anyhow::Error::msg)?;
+    let profile = file
+        .as_ref()
+        .and_then(|file| file.profile(name))
+        .with_context(|| {
+            format!(
+                "the settings file {} has no profile «{name}»",
+                paths.named_file()
+            )
+        })?;
+    let env_base = profile.provider.base_env().and_then(env);
+    llmseat_keys::entry(profile, env_base.as_deref())
+        .with_context(|| format!("the profile «{name}» plays a CLI, which reads no key"))
+}
+
 /// What `key` does to `store`, the key (for `set`) read as one line from
 /// `input`; the line to print. The key is never printed, and an error
 /// never holds it.
@@ -524,25 +555,7 @@ fn key_line(
     store: &dyn KeyStore,
     input: &mut dyn std::io::BufRead,
 ) -> anyhow::Result<String> {
-    let paths = Paths::resolve(key.config.as_deref(), None, env);
-    let file = paths.load().map_err(anyhow::Error::msg)?;
-    let profile = file
-        .as_ref()
-        .and_then(|file| file.profile(&key.profile))
-        .with_context(|| {
-            format!(
-                "the settings file {} has no profile «{}»",
-                paths.named_file(),
-                key.profile
-            )
-        })?;
-    let env_base = profile.provider.base_env().and_then(env);
-    let entry = llmseat_keys::entry(profile, env_base.as_deref()).with_context(|| {
-        format!(
-            "the profile «{}» plays a CLI, which reads no key",
-            key.profile
-        )
-    })?;
+    let entry = key_entry(key, env)?;
     match key.action {
         KeyAction::Status => {}
         KeyAction::Set => {
@@ -1204,7 +1217,7 @@ fn report(played: &bridge::Played) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_client_core::llmseat::keys::{KeyEntry, MemoryKeys};
+    use baylee_client_core::llmseat::keys::MemoryKeys;
     use baylee_client_core::llmseat::ledger::{Book, Budget};
     use baylee_seat::Disclosure;
     use std::path::Path;
@@ -1787,6 +1800,25 @@ mod tests {
             "unavailable: TEST: no store here"
         );
         assert!(run("set", "keyed", "TEST-kept-0123456789abcdef\n", &off).is_err());
+        // By its parts, as the client names it: the same entry.
+        let parts = key_args(&[
+            "status",
+            "--key-env",
+            "TEST_OWN_KEY",
+            "--host",
+            "api.anthropic.com",
+        ]);
+        store.set(&at, "TEST-kept-0123456789abcdef").unwrap();
+        assert_eq!(
+            key_line(&parts, &none, &store, &mut "".as_bytes()).unwrap(),
+            "set"
+        );
+        let bad = key_args(&["status", "--key-env", "TEST_OWN_KEY", "--host", "a/b"]);
+        assert!(key_line(&bad, &none, &store, &mut "".as_bytes()).is_err());
+        assert!(
+            Cli::try_parse_from(["baylee-seat", "key", "status", "--key-env", "X"]).is_err(),
+            "a variable without its host"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

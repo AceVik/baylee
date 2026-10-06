@@ -148,13 +148,15 @@ pub fn run() {
     if let Some(control) = crate::devctl::DevControlPlugin::from_env() {
         app.add_plugins(control);
     }
-    match seated {
-        Some(host) => {
-            app.insert_resource(InstalledHost(host))
-                .add_systems(Startup, open_duel);
-        }
-        None => {
-            app.add_plugins(LobbyPlugin);
+    if let Some(host) = seated {
+        app.insert_resource(InstalledHost(host))
+            .add_systems(Startup, open_duel);
+    } else {
+        app.add_plugins(LobbyPlugin);
+        // A debug build's panel for changing a language-model chair during
+        // the game (`crate::tablellm`); a release build has none.
+        if baylee_client_core::llmseat::seating::LIVE_CHANGES {
+            app.add_plugins(crate::tablellm::TableLlmPlugin);
         }
     }
     // The updater (#326): after the lobby, so its notice stands over it.

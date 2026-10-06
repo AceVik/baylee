@@ -693,6 +693,37 @@ messages! {
     SeatToAi { en: "→ AI", de: "→ KI" },
     /// Turns it back into a chair for a person.
     SeatToOpen { en: "→ open", de: "→ frei" },
+    /// Seats a language model in an open chair (`docs/llm-seat.md`).
+    SeatToLlm { en: "→ language model", de: "→ Sprachmodell" },
+    /// What a language-model chair plays. `{0}` the model's label and id, `{1}` the effort.
+    RoomLlmPlays { en: "Language model: {0}, effort {1}", de: "Sprachmodell: {0}, Aufwand {1}" },
+    /// The effort a model picks itself.
+    RoomLlmEffortOwn { en: "the model's own", de: "wie das Modell es vorgibt" },
+    /// Over the profile chips of a language-model chair.
+    RoomLlmProfile { en: "Profile (settings file)", de: "Profil (Einstellungsdatei)" },
+    /// Under a model that takes no named effort.
+    RoomLlmNoEfforts {
+        en: "This model takes no effort this build can name.",
+        de: "Dieses Modell nimmt keinen Aufwand, den dieser Build benennen kann.",
+    },
+    /// Over the deck chips of a language-model chair.
+    RoomLlmDeck { en: "Deck it brings", de: "Deck, das es mitbringt" },
+    /// Keeps a chair's model and effort as its profile's.
+    RoomLlmSave { en: "Keep as the profile's", de: "Ins Profil übernehmen" },
+    /// Takes the language model out of the chair.
+    RoomLlmRemove { en: "Remove the model", de: "Modell entfernen" },
+    /// Before the chair's bridge has said anything.
+    RoomLlmStarting {
+        en: "Its bridge takes the chair once the room lists it open.",
+        de: "Seine Brücke nimmt den Stuhl, sobald der Raum ihn als frei führt.",
+    },
+    /// The in-game panel's title (a debug build only).
+    GameLlmTitle {
+        en: "Language-model chairs (debug: from the next decision)",
+        de: "Sprachmodell-Stühle (Debug: ab der nächsten Entscheidung)",
+    },
+    /// Hands a language-model chair to the house during the game.
+    GameLlmHouse { en: "House AI", de: "Haus-KI" },
     /// The gentlest house AI.
     AiNovice { en: "novice", de: "Anfänger" },
     /// The relaxed house AI.
@@ -3619,7 +3650,7 @@ messages! {
     /// A profile's name.
     SeatName { en: "Name", de: "Name" },
     /// A profile's provider.
-    SeatProvider { en: "Provider", de: "Anbieter" },
+    SeatProvider { en: "Protocol", de: "Protokoll" },
     /// The Anthropic API.
     SeatProviderAnthropic { en: "Anthropic", de: "Anthropic" },
     /// Any OpenAI-compatible endpoint.
@@ -3685,6 +3716,43 @@ messages! {
     SeatKeyUnset {
         en: "{0} is not set in this program's environment. The bridge reads it from its own.",
         de: "{0} ist in der Umgebung dieses Programms nicht gesetzt. Die Brücke liest sie aus ihrer eigenen.",
+    },
+    /// Over the ready-made adapters a profile can be added from.
+    SeatPresets {
+        en: "Add an adapter (a protocol and its address, both editable afterwards):",
+        de: "Adapter hinzufügen (Protokoll und Adresse, danach änderbar):",
+    },
+    /// The key box's caption.
+    SeatKeyBox { en: "Key", de: "Schlüssel" },
+    /// The empty key box, no key kept.
+    SeatKeyHint { en: "paste the key here", de: "Schlüssel hier einfügen" },
+    /// The empty key box, a key kept.
+    SeatKeyReplaceHint { en: "paste a new key to replace it", de: "neuen Schlüssel einfügen, um ihn zu ersetzen" },
+    /// Hands the typed key to the credential store.
+    SeatKeyKeep { en: "Keep", de: "Speichern" },
+    /// Forgets the kept key.
+    SeatKeyForget { en: "Forget", de: "Vergessen" },
+    /// The store is being asked.
+    SeatKeyAsking { en: "Asking this machine's credential store…", de: "Frage den Schlüsselbund dieses Rechners…" },
+    /// A key is kept. `{0}` the host it goes to.
+    SeatKeyKept {
+        en: "A key is kept in this machine's credential store, for {0} only. It is never shown; the variable wins where it is set.",
+        de: "Im Schlüsselbund dieses Rechners liegt ein Schlüssel, nur für {0}. Er wird nie angezeigt; die Variable geht vor, wo sie gesetzt ist.",
+    },
+    /// No key is kept. `{0}` the host.
+    SeatKeyNoneKept {
+        en: "No key kept for {0}. One pasted here goes to this machine's credential store, never to the file.",
+        de: "Kein Schlüssel für {0} gespeichert. Ein hier eingefügter geht in den Schlüsselbund dieses Rechners, nie in die Datei.",
+    },
+    /// No store to keep a key in. `{0}` why.
+    SeatKeyStoreUnavailable {
+        en: "No credential store to keep a key in ({0}): set the key's variable in the environment.",
+        de: "Kein Schlüsselbund für einen Schlüssel ({0}): Setze die Variable des Schlüssels in der Umgebung.",
+    },
+    /// The key's variable or address is not one yet.
+    SeatKeyNoEntry {
+        en: "A key can be kept once the key variable and the address read.",
+        de: "Ein Schlüssel kann gespeichert werden, sobald Schlüssel-Variable und Adresse stimmen.",
     },
     /// Where the API is.
     SeatBaseUrl { en: "Base URL", de: "Basis-URL" },

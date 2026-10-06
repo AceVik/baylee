@@ -1181,7 +1181,7 @@ fn table(
                         buffer: lobby.buffer(Field::RoomPassword),
                         focused: lobby.focus() == Field::RoomPassword,
                         mask: Some(Masked {
-                            field: Field::RoomPassword,
+                            field: Some(Field::RoomPassword),
                             shown: lobby.showing(Field::RoomPassword),
                         }),
                         press: Press::Focus(Field::RoomPassword),
@@ -1543,10 +1543,21 @@ pub(crate) struct FieldTail {
 /// A password box: what the eye beside it addresses, and whether it is open.
 #[derive(Clone, Copy)]
 pub(crate) struct Masked {
-    /// The field the eye toggles.
-    pub(crate) field: Field,
+    /// The field the eye toggles; `None` for a secret with no eye, which is
+    /// never shown in the clear (a model's key, `crate::seatpanel`).
+    pub(crate) field: Option<Field>,
     /// Whether the player has asked to read what they are typing.
     pub(crate) shown: bool,
+}
+
+impl Masked {
+    /// A box that is always masked and has no eye.
+    pub(crate) const fn sealed() -> Self {
+        Self {
+            field: None,
+            shown: false,
+        }
+    }
 }
 
 /// The caret drawn in the field that has it.
@@ -1719,10 +1730,10 @@ pub(crate) fn text_field(
             ))
             .id();
         commands.entity(boxed).add_child(gap);
-        if let Some(masked) = look.mask {
-            let eye = eye_button(commands, fonts, metrics, masked);
-            commands.entity(boxed).add_child(eye);
-        }
+        let eye = look
+            .mask
+            .and_then(|m| eye_button(commands, fonts, metrics, m));
+        commands.entity(boxed).add_children(eye.as_slice());
         if let Some(tail) = look.tail {
             let button = icon_button(commands, fonts, metrics, tail);
             commands.entity(boxed).add_child(button);
@@ -1757,8 +1768,10 @@ fn eye_button(
     fonts: &UiFonts,
     metrics: Metrics,
     masked: Masked,
-) -> Entity {
-    icon_button(
+) -> Option<Entity> {
+    // A sealed box has no eye: what is in it is never shown.
+    let field = masked.field?;
+    Some(icon_button(
         commands,
         fonts,
         metrics,
@@ -1768,10 +1781,10 @@ fn eye_button(
             } else {
                 crate::hud::glyph::EYE
             },
-            press: Press::Reveal(masked.field),
+            press: Press::Reveal(field),
             lit: masked.shown,
         },
-    )
+    ))
 }
 
 /// One glyph button at the end of a field.
