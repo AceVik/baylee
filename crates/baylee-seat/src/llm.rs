@@ -1152,6 +1152,7 @@ impl ApiMind {
         let headers = self.headers();
         let agent = self.agent.clone();
         let model = self.settings.model.clone();
+        let shown = url.clone();
         let answered = tokio::task::spawn_blocking(move || {
             let mut request = agent.get(&url);
             for (name, value) in &headers {
@@ -1182,9 +1183,11 @@ impl ApiMind {
             Ok(status) => Err(format!(
                 "the provider answered HTTP {status} when asked about the model"
             )),
-            Err(why) => Err(format!(
-                "the provider could not be reached: {}",
-                scrub(&why, key)
+            // The address said, for the chair's card, with any credentials
+            // it carries blanked (`scrub`).
+            Err(why) => Err(scrub(
+                &format!("the provider at {shown} could not be reached: {why}"),
+                key,
             )),
         }
     }

@@ -588,7 +588,11 @@ async fn the_check_before_ready_asks_once_and_says_why() {
     // Nobody there.
     let gone = {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        format!("http://{}", listener.local_addr().unwrap())
+        // Credentials in the address, which the sentence must not repeat.
+        format!(
+            "https://alice:s3cret-pass@{}",
+            listener.local_addr().unwrap()
+        )
     };
     let why = mind(&gone, Provider::OpenAi, |_| {})
         .check()
@@ -596,6 +600,7 @@ async fn the_check_before_ready_asks_once_and_says_why() {
         .expect_err("unreachable");
     assert!(why.contains("could not be reached"), "{why}");
     assert!(!why.contains(KEY), "{why}");
+    assert!(!why.contains("s3cret-pass"), "{why}");
 }
 
 /// A redirect is followed nowhere. ureq drops only `Authorization` and

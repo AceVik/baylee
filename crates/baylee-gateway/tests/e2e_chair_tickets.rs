@@ -643,3 +643,50 @@ async fn a_full_guest_cap_still_seats_a_hosts_bridge() {
     let (status, body) = redeem(port, &ticket(port, &host, &game, 1), &game, 1);
     assert_eq!(status, 200, "{body}");
 }
+
+/// An operator may switch chair tickets off (`BAYLEE_CHAIR_TICKETS=off`):
+/// none is handed out, and none redeemed.
+#[tokio::test]
+async fn an_operator_may_switch_chair_tickets_off() {
+    let gw = spawn_gateway_with("chair_off", &[("BAYLEE_CHAIR_TICKETS", "off".into())]);
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let host = login(port, "hosth", "Hosth");
+    let game = room(port, &host, 2);
+    let (status, body) = mint(port, &host, &game, 1);
+    assert_eq!(status, 403, "{body}");
+    assert!(body.contains("hands no chair"), "{body}");
+    let (status, body) = redeem(port, &"0".repeat(64), &game, 1);
+    assert_eq!(status, 403, "{body}");
+    assert!(body.contains("hands no chair"), "{body}");
+}
+
+/// A host's word seats a language model and nothing else: a delegate's
+/// name must say it is one (`LLM-…`), so a host cannot seat a person, or a
+/// chair called after the house, with no account, key or guest seat. The
+/// refused name does not spend the ticket.
+#[tokio::test]
+async fn a_delegate_must_be_called_a_language_model() {
+    let gw = spawn_gateway_with("chair_names", &[]);
+    let port = gw.port;
+    let _agent = attach_agent(&gw).await;
+    let host = login(port, "hosti", "Hosti");
+    let game = room(port, &host, 2);
+    let ticket = ticket(port, &host, &game, 1);
+    for name in ["House-AI", "HOUSE-house", "Alice", "LLM-"] {
+        let body = format!(
+            r#"{{"display_name":"{name}","deck":{{"name":"swamps","cards":["60 Swamp"]}}}}"#
+        );
+        let (status, said) = http(
+            port,
+            "POST",
+            &chair_redeem_path(&game, 1),
+            Some(&ticket),
+            &body,
+        );
+        assert_eq!(status, 400, "{name}: {said}");
+        assert!(said.contains("LLM-"), "{said}");
+    }
+    let (status, body) = redeem(port, &ticket, &game, 1);
+    assert_eq!(status, 200, "{body}");
+}

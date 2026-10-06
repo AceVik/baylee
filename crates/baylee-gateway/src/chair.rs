@@ -17,6 +17,10 @@
 //! - **asked for** by a host signed in to an account (a guest may not hand
 //!   a chair on: a guest is what the guest switches exist to bound), for an
 //!   open person's chair of a waiting room it hosts;
+//! - **Off where the operator says** (`BAYLEE_CHAIR_TICKETS=off`): neither
+//!   asked for nor redeemed, `403` [`SWITCHED_OFF`];
+//! - **only a language model's chair**: the delegate's name must carry
+//!   [`DELEGATE_PREFIX`], so a host cannot seat a person on its word;
 //! - **random** (256 bits), kept only as its SHA-256 and looked up by that
 //!   hash, so no comparison ever runs over the secret itself;
 //! - **single use**, spent the moment it is presented whether or not the
@@ -66,6 +70,27 @@ pub const LIMIT_WINDOW: Duration = Duration::from_secs(60);
 /// mind about each a few times stays far below it.
 pub const LIMIT_TRIES: usize = 30;
 
+/// Why nobody is handed a chair ticket where the operator switched them
+/// off (`BAYLEE_CHAIR_TICKETS=off`).
+pub const SWITCHED_OFF: &str = "this gateway hands no chair to a seat bridge";
+
+/// What a delegate's name must begin with: a host's word seats a language
+/// model and nothing else, and the table must see that no person sits there
+/// (the seat bridge's `Disclosure::Llm`). A host who could seat any name
+/// could seat a friend under a person's name with no account, key or guest
+/// seat.
+pub const DELEGATE_PREFIX: &str = "LLM-";
+
+/// Whether `name` may be a delegate's: the display-name rule, and the
+/// language model's prefix with something after it.
+#[must_use]
+pub fn delegate_name(name: &str) -> bool {
+    auth::valid_display_name(name)
+        && name
+            .strip_prefix(DELEGATE_PREFIX)
+            .is_some_and(|rest| !rest.is_empty())
+}
+
 /// Why a guest is not handed a chair ticket.
 pub const GUEST_REFUSED: &str =
     "a guest cannot hand a chair to a seat bridge; sign in with an account";
@@ -77,6 +102,9 @@ pub(crate) async fn mint(
     headers: HeaderMap,
     Path((id, seat)): Path<(String, usize)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state.chair_tickets_enabled {
+        return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
+    }
     let session = authed_session(&state, &headers).await?;
     if session.guest {
         return Err(err(StatusCode::FORBIDDEN, GUEST_REFUSED));
@@ -85,39 +113,57 @@ pub(crate) async fn mint(
     if !state.chair_limiter.allow(&format!("mint:{host}")) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
     }
-    {
-        let lobby = state.lobby.lock();
-        let game = lobby
-            .games
-            .get(&id)
-            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
-        if !game.hosted_by(&host) {
-            return Err(err(
-                StatusCode::FORBIDDEN,
-                "only the host hands a chair to a seat bridge",
-            ));
-        }
-        open_chair(game, seat)?;
-    }
-    let grant = wsticket::Grant::Chair {
-        game_id: id,
+    let ticket = hand_over(
+        &state.lobby.lock(),
+        &state.chair_tickets,
+        &id,
         seat,
         host,
-    };
-    let ticket = state
-        .chair_tickets
-        .issue(grant, Instant::now())
-        .map_err(|wsticket::Full| {
-            tracing::warn!("the chair ticket store is full");
-            err(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "too many chairs are being handed over",
-            )
-        })?;
+        Instant::now(),
+    )?;
     Ok(Json(serde_json::json!({
         "ticket": ticket,
         "expires_in": state.chair_tickets.ttl().as_secs(),
     })))
+}
+
+/// Issues a ticket for chair `seat` of room `id`, from `host`, while the
+/// lobby is held: checked and issued under one lock, so a host leaving the
+/// room (which revokes its tickets after the lobby moved) can never come
+/// between the check and the ticket and leave a ticket its revocation
+/// missed. The lock order is the lobby's first, then the store's, and
+/// nothing takes them the other way round.
+fn hand_over(
+    lobby: &lobby::Lobby,
+    tickets: &wsticket::Tickets,
+    id: &str,
+    seat: usize,
+    host: String,
+    now: Instant,
+) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+    let game = lobby
+        .games
+        .get(id)
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+    if !game.hosted_by(&host) {
+        return Err(err(
+            StatusCode::FORBIDDEN,
+            "only the host hands a chair to a seat bridge",
+        ));
+    }
+    open_chair(game, seat)?;
+    let grant = wsticket::Grant::Chair {
+        game_id: id.to_string(),
+        seat,
+        host,
+    };
+    tickets.issue(grant, now).map_err(|wsticket::Full| {
+        tracing::warn!("the chair ticket store is full");
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "too many chairs are being handed over",
+        )
+    })
 }
 
 /// The chair `seat` of `game` when a seat bridge could sit there now: a
@@ -162,6 +208,9 @@ pub(crate) async fn redeem(
     Path((id, seat)): Path<(String, usize)>,
     Json(body): Json<RedeemBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    if !state.chair_tickets_enabled {
+        return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
+    }
     let ip = rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
     if !state.chair_limiter.allow(&format!("redeem:{ip}")) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
@@ -169,8 +218,11 @@ pub(crate) async fn redeem(
     // The body is checked before the ticket is spent: a malformed one says
     // nothing about the ticket, and the bridge that sent it may send a
     // better one with the same ticket.
-    if !auth::valid_display_name(&body.display_name) {
-        return Err(err(StatusCode::BAD_REQUEST, "invalid display name"));
+    if !delegate_name(&body.display_name) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a seat bridge sits under a language model's name (LLM-…)",
+        ));
     }
     validate_deck(&body.deck)?;
     let ticket =
@@ -376,4 +428,75 @@ pub(crate) fn revoke(state: &Shared, id: &str, host: &str) {
             wsticket::Grant::Chair { game_id, host: by, .. } if game_id == id && by == host
         )
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn room(host: &str) -> lobby::Lobby {
+        let mut game = lobby::LobbyGame::blank("g1".into(), 0);
+        game.host = Some(host.into());
+        game.seats = (0..3).map(lobby::LobbySeat::open).collect();
+        game.seats[0].account_id = Some(host.into());
+        let mut lobby = lobby::Lobby::default();
+        lobby.games.insert("g1".into(), game);
+        lobby
+    }
+
+    /// Checked and issued under one hold of the lobby: a ticket exists only
+    /// for a host who hosts the room at that moment, and a revocation run
+    /// after the host left finds every ticket it handed out.
+    #[test]
+    fn a_ticket_is_issued_only_under_the_check_and_a_revocation_finds_it() {
+        let tickets = wsticket::Tickets::new(Duration::from_secs(DEFAULT_SECS));
+        let now = Instant::now();
+        let mut lobby = room("host");
+        assert!(hand_over(&lobby, &tickets, "g1", 1, "stranger".into(), now).is_err());
+        assert!(
+            hand_over(&lobby, &tickets, "g1", 0, "host".into(), now).is_err(),
+            "taken"
+        );
+        assert!(hand_over(&lobby, &tickets, "g9", 1, "host".into(), now).is_err());
+        assert_eq!(
+            tickets.sweep(now + Duration::from_secs(DEFAULT_SECS)),
+            0,
+            "none issued"
+        );
+        let Ok(ticket) = hand_over(&lobby, &tickets, "g1", 1, "host".into(), now) else {
+            panic!("issued");
+        };
+        // The host leaves: the lobby moves first, then its tickets go.
+        lobby.games.get_mut("g1").unwrap().host = None;
+        assert!(hand_over(&lobby, &tickets, "g1", 2, "host".into(), now).is_err());
+        let revoked = tickets
+            .revoke(|grant| matches!(grant, wsticket::Grant::Chair { host, .. } if host == "host"));
+        assert_eq!(revoked, 1);
+        let door = wsticket::Door::Chair {
+            game_id: "g1".into(),
+            seat: 1,
+        };
+        assert_eq!(
+            tickets.consume(&ticket, &door, now),
+            Err(wsticket::Refusal::Unknown)
+        );
+    }
+
+    #[test]
+    fn a_delegate_is_called_a_language_model() {
+        for good in ["LLM-sonnet-5-5", "LLM-test", "LLM-x"] {
+            assert!(delegate_name(good), "{good}");
+        }
+        for bad in [
+            "House-AI",
+            "HOUSE-house",
+            "TEST-scripted",
+            "Alice",
+            "LLM-",
+            "llm-test",
+            "LLM- x",
+        ] {
+            assert!(!delegate_name(bad), "{bad}");
+        }
+    }
 }

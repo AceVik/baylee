@@ -174,6 +174,9 @@ struct AppState {
     /// Chair tickets asked for, per host, and redemptions tried, per
     /// address (`chair.rs`).
     chair_limiter: auth::RateLimiter,
+    /// Whether hosts may hand chairs to seat bridges at all
+    /// (`BAYLEE_CHAIR_TICKETS=off` to disable), read as `BAYLEE_GUESTS` is.
+    chair_tickets_enabled: bool,
 }
 
 impl AppState {
@@ -273,6 +276,7 @@ async fn main() {
         legacy_until,
         chair_tickets: wsticket::Tickets::new(chair_ticket_ttl),
         chair_limiter: auth::RateLimiter::new(chair::LIMIT_WINDOW, chair::LIMIT_TRIES),
+        chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;

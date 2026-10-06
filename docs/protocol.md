@@ -2538,6 +2538,24 @@ socket: tickets"), in a store of its own:
 - **Only a host signed in to an account** may ask for one: a guest is what
   the guest switches exist to bound, and a guest host's bridge still signs
   in as a guest, where the gateway takes guests.
+- **Only for a language model.** The delegate's `display_name` must begin
+  `LLM-` (`chair::DELEGATE_PREFIX`, `400` otherwise, the ticket not
+  spent), so a host cannot seat a person, or a chair called after the house,
+  on its word with no account, key or guest seat. The roster carries only
+  that name: marking a delegated seat in `SeatIdentity` would be a new field
+  the gateway hands the engine (`GameSetup`) and a view change, so the
+  prefix is the mark.
+- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (read as
+  `BAYLEE_GUESTS` is) answers both the ask and the redemption `403` `this
+  gateway hands no chair to a seat bridge`; a host's client then falls back
+  to the guest door, where there is one. A host could otherwise hand its
+  ticket to a person, who would sit with no account; the prefix makes that
+  person a chair the table reads as a model, and the switch lets an
+  operator who wants no such chairs have none.
+- **Issued under the check.** The ticket is made while the lobby is held,
+  in the same hold that found the caller hosting the room and the chair
+  open, so a host leaving cannot fall between the check and the ticket and
+  leave one its revocation missed.
 
 **The chair it buys.** The bridge sits as the host's **delegate**: no
 account is made, and none sits in the chair (`account_id` stays empty, so
