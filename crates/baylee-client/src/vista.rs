@@ -295,9 +295,6 @@ pub struct Gaze(pub Vec2);
 pub struct Settled {
     panel: Option<Vec4>,
     presence: f32,
-    /// The world's own clock: seconds it has moved, which stop while a
-    /// menu rests (`quality::Resting`) and go on from there, never jumping.
-    clock: f32,
     hour: f32,
     age: f32,
 }
@@ -443,6 +440,13 @@ fn towards(from: f32, to: f32, step: f32) -> f32 {
     }
 }
 
+/// The painted world's own clock, one for every surface that draws it, so the
+/// front door and the lobby behind its aperture show one world at one moment:
+/// seconds it has moved, stopped while a menu rests (`quality::Resting`) and
+/// going on from there, never jumping.
+#[derive(Default)]
+pub(crate) struct WorldClock(f32);
+
 /// What the device's settings ask of the world this frame: whether it stands
 /// still (ambient `Low` freezes its own movement, never a transition), its
 /// detail, and how far its clock moves (none while a menu rests).
@@ -483,6 +487,7 @@ pub(crate) fn paint(
     materials: Option<ResMut<Assets<VistaMaterial>>>,
     quality: Option<Res<crate::quality::InUse>>,
     resting: Option<Res<crate::quality::Resting>>,
+    mut clock: Local<WorldClock>,
 ) {
     let Some(mut materials) = materials else {
         return;
@@ -490,6 +495,7 @@ pub(crate) fn paint(
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs();
     let (frozen, detail, world_dt) = ambience(still, quality.as_deref(), resting.as_deref(), dt);
+    clock.0 += world_dt;
     for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
         if size.y <= 0.0 {
@@ -497,7 +503,6 @@ pub(crate) fn paint(
         }
         let aspect = size.x / size.y;
         settled.age += dt;
-        settled.clock += world_dt;
         let (stage, presence) = match kind {
             Vista::Front => (front.stage, if front.shown { 1.0 } else { 0.0 }),
             Vista::Interior => (
@@ -576,7 +581,7 @@ pub(crate) fn paint(
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },
                 if entering { 1.0 } else { 0.0 },
-                settled.clock * energy,
+                clock.0 * energy,
                 size.y * computed.inverse_scale_factor(),
             ),
             air: Vec4::new(

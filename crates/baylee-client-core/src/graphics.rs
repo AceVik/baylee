@@ -83,10 +83,10 @@ impl Preset {
 /// How the table's edges are smoothed. The front door and the lobby are
 /// flat interface and draw no edge that needs it.
 ///
-/// Measured cost on the M1 Max at a duel: MSAA 4× against none, 0.2 ms of GPU
-/// per frame (Apple's tile memory resolves samples nearly free), FXAA a full
-/// screen pass of about the same. Without either, the card and slab edges
-/// stair-step visibly.
+/// Measured on the M1 Max at a duel: MSAA 4× against none, 0.2 ms of GPU per
+/// frame, inside the noise (Apple's tile memory resolves samples nearly
+/// free); FXAA is not measured yet. Without either, the card and slab edges
+/// stair-step visibly (`docs/perf-client.md`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AntiAliasing {
@@ -139,8 +139,8 @@ impl VSync {
 /// The most frames drawn per second while the window has the focus.
 ///
 /// The biggest single knob there is: every frame pays the whole screen's
-/// shaders again. Measured at the front door, 120 frames cost 2.0× the CPU and
-/// energy of 60 (`docs/perf-client.md`).
+/// shaders again: the front door drew 120 frames when the GPU let it, and
+/// the cap halves that work (`docs/perf-client.md` has what was measured).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameLimit {

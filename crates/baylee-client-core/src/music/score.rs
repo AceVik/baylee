@@ -82,7 +82,7 @@ pub struct Tune {
     energy: f32,
     /// Frames rendered ahead for the sample iterator, and how many of them
     /// it has handed out (`Iterator for Tune`).
-    ahead: Box<[[f32; 2]; BLOCK]>,
+    ahead: Vec<[f32; 2]>,
     scratch: Box<[f32; BLOCK]>,
     ahead_len: usize,
     ahead_read: usize,
@@ -112,7 +112,7 @@ impl Tune {
             until_tick: 0.0,
             bpm: 60.0,
             energy: 0.0,
-            ahead: Box::new([[0.0; 2]; BLOCK]),
+            ahead: vec![[0.0; 2]; BLOCK],
             scratch: Box::new([0.0; BLOCK]),
             ahead_len: 0,
             ahead_read: 0,
@@ -161,7 +161,7 @@ impl Tune {
         self.until_tick -= 1.0;
     }
 
-    /// Renders `out.len()` frames (at most a block): the same frames, bit for
+    /// Renders `out.len()` frames, at most a block at a time: the same frames, bit for
     /// bit, as as many calls of [`Tune::frame`]. The run is cut at every tick,
     /// so a note starts on exactly the frame it would have, and between ticks
     /// the orchestra renders a whole run at once.
@@ -172,7 +172,7 @@ impl Tune {
             // The frames until the next tick is due: the first frame whose
             // countdown, one less each frame, has reached zero.
             let due = (self.until_tick.ceil() as usize).max(1);
-            let run = due.min(out.len() - done);
+            let run = due.min(out.len() - done).min(BLOCK);
             for _ in 0..run {
                 self.advance();
             }
@@ -487,8 +487,10 @@ impl Iterator for Tune {
             return Some(right);
         }
         if self.ahead_read == self.ahead_len {
-            let mut ahead = std::mem::replace(&mut self.ahead, Box::new([[0.0; 2]; BLOCK]));
-            self.render(&mut ahead[..]);
+            // Taken and put back, never reallocated: an empty `Vec` costs
+            // nothing, and this runs on the audio thread.
+            let mut ahead = std::mem::take(&mut self.ahead);
+            self.render(&mut ahead);
             self.ahead = ahead;
             self.ahead_len = BLOCK;
             self.ahead_read = 0;
