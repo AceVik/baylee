@@ -48,7 +48,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `open_picker`: `GET /printings` → `deckrow::PrintChoice`. `Entry` is `(slot, count, print, note)`: two printings, two rows; copy limit per card; the uneditable note survives every save. A no-op choice writes nothing (default printing leaves `4 Lightning Bolt`).
 - `?` menu: add, move deck↔sideboard (keeping the printing), remove, set commander.
 - Import/Export (`DeckBuilder::transfer`, `buildui/transfer.rs`; `docs/deck-format.md`): a dialog over the builder. Import reads pasted text only (Paste button or Ctrl/Cmd+V; nothing is typed there), auto-detects via `baylee-deckio`, and holds rows through `hold_rows` → `resolve_pending`, the builder's one path. A deck link is answered with an instruction, never fetched. Export copies or saves (native: downloads folder, never overwriting; wasm: `data:` download; Android: copy only). Only `buildui::transfer::act` touches clipboard and disk; the dialog keys read `ButtonInput` before `SoftKeyboard::owns_typing`.
-- Hover preview is outside the retained tree (`Hovered` → `CardPreview`, epoch, `src/lobby/preview.rs`).
+- Hover preview is outside the retained tree (`Hovered` → `CardPreview`, epoch, `src/lobby/preview.rs`). A text face's preview takes the pointer and its wheel; rows crossed on the way to it are passed over (`travelling`, #289).
 - Pips: `baylee-client-core/src/manapip.rs` decides, `src/manaui.rs` draws; the Mana font gives a monochrome mark, the disc is ours; hybrid: one disc, two half-clipped glyphs (docs/legal.md §2).
 
 ## The table

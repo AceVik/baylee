@@ -110,7 +110,7 @@ impl Plugin for LobbyPlugin {
                     // A press asks the clipboard or the disk; the ask is
                     // answered in the same frame.
                     (clicks, crate::buildui::transfer::act).chain(),
-                    scrolls,
+                    (scrolls, scroll_the_preview),
                     scrollbars::remember,
                     (hovers, hint::hint_hovers),
                     // The motion decides which panels are drawn, and the
@@ -544,7 +544,7 @@ pub(crate) use ui::caret_lit;
 mod tests;
 
 use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
-use preview::{Hovered, despawn_preview, hovers, preview};
+use preview::{Hovered, despawn_preview, hovers, preview, scroll_the_preview};
 use systems::{
     art_follows_the_session, came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls,
     softkeys, text_follows_the_session, waiting, watch,

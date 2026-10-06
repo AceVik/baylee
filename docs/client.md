@@ -2420,7 +2420,11 @@ takes no hover from the card it is drawn on.
   cards in English, the text still runs over at 10 px on 3.2% of them in a
   308-pixel preview, on 26.8% at a preview scale of 0.75 (231 pixels), and
   on one card at 372 (`how_much_of_the_pool_runs_over_at_the_floor`,
-  ignored; run it by name). German runs longer.
+  ignored; run it by name). German runs longer (#289; 06.10.2026, at the
+  test's 231, 384 and 480 pixels): English over the pool's 3287 cards runs
+  over on 34.2%, 2.6% and 0.0% (one card); the German printed text of the
+  2920 that have a German printing (`BAYLEE_MEASURE_TEXTS`, read out of the
+  catalog) on 48.2%, 7.0% and 0.4% (12 cards).
 - **The fit is a model of the layout, held to the layout.** It cannot wait
   for bevy to lay the text out, because the material is keyed before
   anything is spawned. So `manaui::rich_depth` models how `rich` sets a
@@ -2444,11 +2448,17 @@ takes no hover from the card it is drawn on.
   again when the hover moves to another card or off every card
   (`follow_the_hover`). A card whose text fits leaves the wheel inert; it
   nudges nothing else. The hand keeps its wheel
-  (§"Table presentation", `hud::scroll`).
-- **Known limit:** a hovered *hand* card whose text still runs over at 10 px
-  shows its scrollbar in the preview and cannot be scrolled there, because
-  the wheel over the hand scrolls the hand. The ways out are a larger preview
-  (`preview_scale` in the settings) or the same card on the table.
+  (§"Table presentation", `hud::scroll`), with one exception (#289).
+- **A hand card's preview scrolls while its text runs over.** An upright
+  wheel over the hovered hand card scrolls its preview's text exactly while
+  that text runs over, which is when its scrollbar shows (`runs_over` asks
+  `face::thumb`, the bar's own predicate), and stops at either end of the
+  text like any list. Text that fits leaves the upright wheel to the hand,
+  so a mouse with one wheel still scrolls the hand over nearly every card,
+  and a sideways wheel is always the hand's. The alternative, the hand
+  preview taking the pointer as the builder's does, was not taken: the
+  preview stands above the shelf, and the way to it crosses the shelf's own
+  controls.
 - **A card in hand draws the short face** (`Detail::Compact`): name, cost
   and type line, no rules text. At the hand's 92 pixels that text would be
   six pixels, under the ten-pixel floor, and hovering the card opens the
@@ -3751,9 +3761,20 @@ language — on the printed card's body out of the registry. A gateway with no
 catalog serves no rules text, and the face then carries the English Oracle
 (`generated_oracle::ORACLE`), never an empty box. The rules text steps down to
 10 px as it does on the table and shows its scrollbar past that
-(`face::show_scrollbars` runs in the lobby too), but does not scroll: the
-preview follows the pointer and is never under it, and the wheel over the list
-scrolls the list. The back stays a picture, the printing's or the card back.
+(`face::show_scrollbars` runs in the lobby too), and it scrolls (#289): a text
+face's preview takes the pointer (a picture's does not, and stays out of its
+way), the hover survives the pointer moving onto it, and a wheel over it
+scrolls its text (`preview::scroll_the_preview`). It stands beside the
+pointer and never over the row it previews, so it never eats the click that
+adds the card. On the way to it the pointer crosses the rows above or below
+its own, and those are passed over while the pointer is inside the triangle
+between where it last was on its row and the preview's near edge
+(`preview::travelling`, the way a menu lets a pointer cut across to its
+submenu): heading for the preview it keeps the card, and the preview stays
+where it stands; turning away, the row under the pointer takes over at once.
+Straight down a list is never inside the triangle, so reading down the pool
+is as quick as before. The back stays a picture, the printing's or the card
+back.
 The held modifier that turns a table card to its text is not read here. A
 preview whose picture is still on its way waits for it, as before, rather than
 drawing the text face in the meantime.
