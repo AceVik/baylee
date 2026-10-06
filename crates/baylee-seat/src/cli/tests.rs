@@ -64,6 +64,7 @@ fn a_result_is_the_structured_answer_or_the_object_in_its_text() {
                 output: 5,
                 cache_write: 7,
                 cache_read: 900,
+                ..Usage::default()
             }),
         })
     );

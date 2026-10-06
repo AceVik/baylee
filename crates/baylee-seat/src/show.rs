@@ -440,8 +440,8 @@ mod tests {
             usage: crate::llm::Usage {
                 input: 1200,
                 output: 300,
-                cache_write: 0,
                 cache_read: 2000,
+                ..crate::llm::Usage::default()
             },
             usd: Some(0.0059),
             ..Tally::default()

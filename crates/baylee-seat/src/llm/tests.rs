@@ -216,6 +216,8 @@ async fn a_valid_answer_is_played_and_the_request_is_the_documented_shape() {
     assert_eq!(body["output_config"]["effort"], "medium");
     assert_eq!(body["tool_choice"]["type"], "auto");
     assert_eq!(body["system"][0]["cache_control"]["type"], "ephemeral");
+    assert_eq!(body["system"][0]["cache_control"]["ttl"], "1h");
+    assert_eq!(body["cache_control"], json!({"type": "ephemeral"}));
     let blocks = last_user(sent);
     assert_eq!(blocks.len(), 2, "the prefix and the decision");
     assert!(
@@ -224,7 +226,8 @@ async fn a_valid_answer_is_played_and_the_request_is_the_documented_shape() {
             .expect("prefix")
             .starts_with("THE GAME")
     );
-    assert_eq!(blocks[0]["cache_control"]["type"], "ephemeral");
+    assert_eq!(blocks[0]["cache_control"]["ttl"], "1h");
+    assert!(blocks[1].get("cache_control").is_none());
     assert!(
         blocks[1]["text"]
             .as_str()
@@ -691,8 +694,88 @@ fn a_dollar_budget_is_held_only_with_a_price() {
             (given.cache_write - table.cache_write).abs() < 1e-9,
             "{model}"
         );
+        assert!(
+            (given.cache_write_hour - table.cache_write_hour).abs() < 1e-9,
+            "{model}"
+        );
         assert!(given.cache_read >= table.cache_read, "{model}");
+        assert!(
+            given.dearest_input() >= table.cache_write_hour,
+            "a reservation covers an hour's write: {model}"
+        );
     }
+}
+
+/// What every turn of a game repeats, the system prompt and the deck
+/// prefix, is cached for an hour, and those two marks come before the
+/// five-minute one the growing tail takes: the API refuses a shorter
+/// entry ahead of a longer one. Four marks at most.
+#[test]
+fn the_game_s_constant_head_is_cached_for_an_hour_ahead_of_the_tail() {
+    let settings = Settings::new(&Spec {
+        provider: Provider::Anthropic,
+        model: "claude-sonnet-5-5".into(),
+    });
+    let mut messages = Vec::new();
+    anthropic::user(&mut messages, &[], Some("THE GAME"), "DECISION q1");
+    messages.push(json!({"role": "assistant", "content": [
+        {"type": "tool_use", "id": "toolu_1", "name": "decide", "input": {}}
+    ]}));
+    let result = ToolResult {
+        id: "toolu_1".into(),
+        content: "done".into(),
+        is_error: false,
+    };
+    anthropic::user(&mut messages, &[result], None, "DECISION q2");
+    let body = anthropic::body(&settings, &messages);
+    // The order the API renders a request in: tools, system, messages,
+    // then the top-level mark on the last block.
+    let mut marks = Vec::new();
+    let mut walk = |blocks: &Value| {
+        for block in blocks.as_array().into_iter().flatten() {
+            if let Some(mark) = block.get("cache_control") {
+                marks.push(mark.clone());
+            }
+        }
+    };
+    walk(&body["tools"]);
+    walk(&body["system"]);
+    for message in body["messages"].as_array().expect("messages") {
+        walk(&message["content"]);
+    }
+    let hour = json!({"type": "ephemeral", "ttl": "1h"});
+    assert_eq!(marks, [hour.clone(), hour]);
+    assert_eq!(body["cache_control"], json!({"type": "ephemeral"}));
+    assert!(marks.len() < 4, "the top-level mark takes the fourth slot");
+}
+
+/// An hour's cache write is told apart in the usage and billed at its
+/// own price, twice the input's; the five-minute rest at 1.25 times.
+#[test]
+fn an_hour_s_cache_write_is_billed_at_its_own_price() {
+    let usage = Usage::of_anthropic(&json!({
+        "input_tokens": 10, "output_tokens": 20,
+        "cache_creation_input_tokens": 1_000,
+        "cache_creation": {"ephemeral_5m_input_tokens": 100, "ephemeral_1h_input_tokens": 900},
+        "cache_read_input_tokens": 5_000,
+    }));
+    assert_eq!(
+        (usage.cache_write, usage.cache_write_hour, usage.total()),
+        (1_000, 900, 6_030)
+    );
+    let sonnet = price("claude-sonnet-5-5").expect("a price");
+    assert!((sonnet.cache_write_hour - 2.0 * sonnet.input).abs() < 1e-9);
+    let billed = usage.cost(sonnet);
+    let by_hand = (10.0 * sonnet.input
+        + 20.0 * sonnet.output
+        + 100.0 * sonnet.cache_write
+        + 900.0 * sonnet.cache_write_hour
+        + 5_000.0 * sonnet.cache_read)
+        / 1_000_000.0;
+    assert!((billed - by_hand).abs() < 1e-12, "{billed} {by_hand}");
+    // A usage without the split (an older reply) is all five minutes.
+    let old = Usage::of_anthropic(&json!({"cache_creation_input_tokens": 1_000}));
+    assert_eq!((old.cache_write, old.cache_write_hour), (1_000, 0));
 }
 
 /// A price given for a model is the one its dollars are counted at, and

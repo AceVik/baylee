@@ -541,6 +541,9 @@ pub struct Usage {
     pub output: u64,
     /// Input written to the cache.
     pub cache_write: u64,
+    /// Of [`Self::cache_write`], what was written to live an hour, billed
+    /// at [`Price::cache_write_hour`].
+    pub cache_write_hour: u64,
     /// Input read from the cache.
     pub cache_read: u64,
 }
@@ -564,7 +567,29 @@ impl Usage {
             input: step(self.input, earlier.input),
             output: step(self.output, earlier.output),
             cache_write: step(self.cache_write, earlier.cache_write),
+            cache_write_hour: step(self.cache_write_hour, earlier.cache_write_hour),
             cache_read: step(self.cache_read, earlier.cache_read),
+        }
+    }
+
+    /// The Messages API's `usage` object, which Claude Code's `result`
+    /// also carries: an hour's cache writes are told apart under
+    /// `cache_creation`.
+    #[must_use]
+    pub fn of_anthropic(usage: &Value) -> Self {
+        let n = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
+        let cache_write = n("cache_creation_input_tokens");
+        Self {
+            input: n("input_tokens"),
+            output: n("output_tokens"),
+            cache_write,
+            cache_write_hour: usage
+                .get("cache_creation")
+                .and_then(|split| split.get("ephemeral_1h_input_tokens"))
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                .min(cache_write),
+            cache_read: n("cache_read_input_tokens"),
         }
     }
 
@@ -575,7 +600,8 @@ impl Usage {
         let at = |n: u64, per: f64| n as f64 * per / 1_000_000.0;
         at(self.input, price.input)
             + at(self.output, price.output)
-            + at(self.cache_write, price.cache_write)
+            + at(self.cache_write - self.cache_write_hour, price.cache_write)
+            + at(self.cache_write_hour, price.cache_write_hour)
             + at(self.cache_read, price.cache_read)
     }
 }
@@ -757,6 +783,7 @@ impl Tally {
         self.usage.input += usage.input;
         self.usage.output += usage.output;
         self.usage.cache_write += usage.cache_write;
+        self.usage.cache_write_hour += usage.cache_write_hour;
         self.usage.cache_read += usage.cache_read;
         if let Some(price) = price {
             *self.usd.get_or_insert(0.0) += usage.cost(price);

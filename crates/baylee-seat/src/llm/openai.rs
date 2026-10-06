@@ -163,8 +163,8 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
         Usage {
             input: n("prompt_tokens").saturating_sub(cached),
             output: n("completion_tokens"),
-            cache_write: 0,
             cache_read: cached,
+            ..Usage::default()
         }
     });
     let stop = match choice.get("finish_reason").and_then(Value::as_str) {

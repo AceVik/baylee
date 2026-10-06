@@ -290,11 +290,5 @@ fn lifts_in(said: &str) -> Option<Duration> {
 /// The tokens a `result` counted. Every read of the context counts,
 /// cache reads included, as for an API.
 fn usage(usage: &Value) -> Usage {
-    let n = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
-    Usage {
-        input: n("input_tokens"),
-        output: n("output_tokens"),
-        cache_write: n("cache_creation_input_tokens"),
-        cache_read: n("cache_read_input_tokens"),
-    }
+    Usage::of_anthropic(usage)
 }

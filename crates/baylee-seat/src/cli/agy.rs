@@ -196,7 +196,7 @@ fn usage(usage: &Value) -> Usage {
     Usage {
         input: n("input_tokens"),
         output: n("output_tokens"),
-        cache_write: 0,
         cache_read: n("cache_read_tokens"),
+        ..Usage::default()
     }
 }

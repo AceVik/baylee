@@ -2,11 +2,16 @@
 //!
 //! Adaptive thinking with its summary shown (the terminal prints it), the
 //! effort named, `tool_choice` left to the model (a forced tool is refused
-//! beside thinking), and two cache points: the system prompt, and the
-//! deck prefix at the head of each turn's conversation, with the top-level
-//! breakpoint carrying the growing tail. The model's content is replayed
-//! byte for byte, thinking blocks and all; a conversation is only ever
-//! appended to, and a fresh one starts each turn.
+//! beside thinking), and two cache points that live an hour: the system
+//! prompt, and the deck prefix at the head of each turn's conversation.
+//! Between two of a seat's turns the other players act, often for longer
+//! than the five minutes of the default entry; an hour's entry costs twice
+//! the input price to write against 1.25 times, and pays from the third
+//! turn that reads it (`docs/llm-protocol.md` §"The cache"). The top-level
+//! breakpoint carries the growing tail at five minutes, after the hour's
+//! marks (the API takes the longer entries first). The model's content is
+//! replayed byte for byte, thinking blocks and all; a conversation is only
+//! ever appended to, and a fresh one starts each turn.
 
 use super::prompt::{SYSTEM, anthropic_tools};
 use super::{Call, Reply, Settings, Stop, ToolResult, Usage};
@@ -27,13 +32,19 @@ pub fn model_url(base: &str, model: &str) -> String {
     format!("{base}/v1/models/{model}")
 }
 
+/// The cache mark of what every turn of a game repeats: an hour's entry.
+#[must_use]
+pub fn long_cache() -> Value {
+    json!({"type": "ephemeral", "ttl": "1h"})
+}
+
 /// The request body for `messages`.
 #[must_use]
 pub fn body(settings: &Settings, messages: &[Value]) -> Value {
     let mut body = json!({
         "model": settings.model,
         "max_tokens": settings.max_tokens,
-        "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+        "system": [{"type": "text", "text": SYSTEM, "cache_control": long_cache()}],
         "messages": messages,
         "tools": anthropic_tools(),
         "tool_choice": {"type": "auto"},
@@ -48,7 +59,7 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
 
 /// Appends the user's turn: the results of the model's last tool calls
 /// first (the API's order), then the conversation's prefix when it starts
-/// one, cached, then the decision.
+/// one, cached for an hour, then the decision.
 pub fn user(messages: &mut Vec<Value>, results: &[ToolResult], prefix: Option<&str>, text: &str) {
     let mut content: Vec<Value> = results
         .iter()
@@ -65,9 +76,7 @@ pub fn user(messages: &mut Vec<Value>, results: &[ToolResult], prefix: Option<&s
         })
         .collect();
     if let Some(prefix) = prefix {
-        content.push(json!({
-            "type": "text", "text": prefix, "cache_control": {"type": "ephemeral"}
-        }));
+        content.push(json!({"type": "text", "text": prefix, "cache_control": long_cache()}));
     }
     content.push(json!({"type": "text", "text": text}));
     messages.push(json!({"role": "user", "content": content}));
@@ -125,15 +134,9 @@ pub fn parse(body: &Value) -> Result<Reply, String> {
             _ => {}
         }
     }
-    let usage = body.get("usage").map_or_else(Usage::default, |u| {
-        let n = |key: &str| u.get(key).and_then(Value::as_u64).unwrap_or(0);
-        Usage {
-            input: n("input_tokens"),
-            output: n("output_tokens"),
-            cache_write: n("cache_creation_input_tokens"),
-            cache_read: n("cache_read_input_tokens"),
-        }
-    });
+    let usage = body
+        .get("usage")
+        .map_or_else(Usage::default, Usage::of_anthropic);
     let stop = match body.get("stop_reason").and_then(Value::as_str) {
         Some("end_turn" | "tool_use" | "stop_sequence" | "pause_turn") | None => Stop::Done,
         Some("refusal") => Stop::Refusal,

@@ -349,22 +349,29 @@ fn a_model_with_no_price_needs_a_token_cap_where_dollars_are_capped() {
 
 /// The worst case of a call is never below its bill, for any reply the
 /// provider may send under `max_tokens` and any split of the input between
-/// plain, cache writes and cache reads.
+/// plain, cache writes for five minutes or an hour, and cache reads.
 #[test]
 fn a_call_s_worst_case_is_never_below_its_bill() {
     let sonnet = price("claude-sonnet-5-5").unwrap();
     assert_eq!(worst_tokens(10_000, 16_000), 28_000);
     let worst = worst_usd(10_000, 16_000, sonnet);
     assert!(
-        (worst - (12_000.0 * 2.5 + 16_000.0 * 10.0) / 1e6).abs() < 1e-12,
+        (worst - (12_000.0 * 4.0 + 16_000.0 * 10.0) / 1e6).abs() < 1e-12,
         "{worst}"
     );
     for bytes in [0_u64, 1, 900, 64 * 1024, 1_000_000] {
         let input = bytes; // a token is at least a byte
-        for (plain, write) in [(input, 0), (0, input), (input / 2, input / 3), (0, 0)] {
-            let read = input - plain - write;
+        for (plain, write, hour) in [
+            (input, 0, 0),
+            (0, input, 0),
+            (0, 0, input),
+            (input / 2, input / 3, input / 7),
+            (0, 0, 0),
+        ] {
+            let read = input - plain - write - hour;
             let bill = (plain as f64 * sonnet.input
                 + write as f64 * sonnet.cache_write
+                + hour as f64 * sonnet.cache_write_hour
                 + read as f64 * sonnet.cache_read
                 + 16_000.0 * sonnet.output)
                 / 1e6;

@@ -263,8 +263,11 @@ pub struct Price {
     pub input: f64,
     /// Output, thinking included.
     pub output: f64,
-    /// Input written to the cache.
+    /// Input written to the cache for five minutes.
     pub cache_write: f64,
+    /// Input written to the cache for an hour: twice the input price at
+    /// Anthropic.
+    pub cache_write_hour: f64,
     /// Input read from the cache.
     pub cache_read: f64,
 }
@@ -281,15 +284,19 @@ impl Price {
             input,
             output,
             cache_write: input * 1.25,
+            cache_write_hour: input * 2.0,
             cache_read: input,
         }
     }
 
     /// The dearest way an input token can be billed: plain, written to the
-    /// cache, or read from it.
+    /// cache for either time, or read from it.
     #[must_use]
     pub fn dearest_input(&self) -> f64 {
-        self.input.max(self.cache_write).max(self.cache_read)
+        self.input
+            .max(self.cache_write)
+            .max(self.cache_write_hour)
+            .max(self.cache_read)
     }
 }
 
@@ -298,6 +305,7 @@ const SONNET: Price = Price {
     input: 2.0,
     output: 10.0,
     cache_write: 2.5,
+    cache_write_hour: 4.0,
     cache_read: 0.2,
 };
 
@@ -314,6 +322,7 @@ pub const PRICED: &[(Provider, &str, Price)] = &[
             input: 4.0,
             output: 20.0,
             cache_write: 5.0,
+            cache_write_hour: 8.0,
             cache_read: 0.2,
         },
     ),
