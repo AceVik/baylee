@@ -128,48 +128,57 @@ pub enum Side {
 pub(crate) const NAMELESS: NameRef = NameRef::new(0);
 
 /// Deterministic name interner (rules identity, not display).
+///
+/// It only grows, and a clone shares it: a decision checkpoint clones the
+/// state on every answer, and copying every interned name twice (map and
+/// list) was over a third of that clone in self-play. A name it has never
+/// seen copies the table once, then appends in place.
 #[derive(Clone, Debug, Default)]
-pub struct Names {
-    map: FxHashMap<String, NameRef>,
-    list: Vec<String>,
+pub struct Names(Arc<NameTable>);
+
+#[derive(Clone, Debug, Default)]
+struct NameTable {
+    map: FxHashMap<Arc<str>, NameRef>,
+    list: Vec<Arc<str>>,
 }
 
 impl Names {
     /// Interns a name.
     pub fn intern(&mut self, name: &str) -> NameRef {
-        if let Some(&id) = self.map.get(name) {
+        if let Some(&id) = self.0.map.get(name) {
             return id;
         }
-        let id = NameRef::new(self.list.len() as u32);
-        let owned = name.to_string();
-        self.list.push(owned.clone());
-        self.map.insert(owned, id);
+        let table = Arc::make_mut(&mut self.0);
+        let id = NameRef::new(table.list.len() as u32);
+        let owned: Arc<str> = Arc::from(name);
+        table.list.push(Arc::clone(&owned));
+        table.map.insert(owned, id);
         id
     }
 
     /// Resolves a name.
     #[must_use]
     pub fn get(&self, id: NameRef) -> &str {
-        &self.list[id.get() as usize]
+        &self.0.list[id.get() as usize]
     }
 
     /// The interned `name`, without interning it: `None` when no object of
     /// this game has ever carried it, and so none carries it now.
     #[must_use]
     pub fn find(&self, name: &str) -> Option<NameRef> {
-        self.map.get(name).copied()
+        self.0.map.get(name).copied()
     }
 
     /// Number of interned names.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.list.len()
+        self.0.list.len()
     }
 
     /// Whether no names are interned.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.list.is_empty()
+        self.0.list.is_empty()
     }
 }
 
@@ -5470,6 +5479,27 @@ mod tests {
 
     fn force_of_will() -> CardIndex {
         card_index("956381ba-6d37-4a8a-846c-bad79222dbee")
+    }
+
+    /// A clone shares the interner, and a name interned after the clone is
+    /// the interning side's alone: the other side neither finds it nor
+    /// counts it, and both keep resolving what they had.
+    #[test]
+    fn a_name_interned_after_a_clone_stays_on_its_own_side() {
+        let mut names = Names::default();
+        let forest = names.intern("Forest");
+        let snapshot = names.clone();
+        let island = names.intern("Island");
+        assert_eq!(names.intern("Forest"), forest, "an old name is found, not added");
+        assert_eq!(names.len(), 2);
+        assert_eq!(names.get(island), "Island");
+        assert_eq!(snapshot.len(), 1);
+        assert_eq!(snapshot.find("Island"), None);
+        assert_eq!(snapshot.get(forest), "Forest");
+        let mut other = snapshot.clone();
+        assert_eq!(other.intern("Swamp"), island, "the same next ref, on another side");
+        assert_eq!(other.get(island), "Swamp");
+        assert_eq!(names.get(island), "Island");
     }
 
     /// The snapshot hash with its memo against the hash written out in full,
