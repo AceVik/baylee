@@ -214,24 +214,14 @@ async fn run(
                 continue;
             }
             Woken::Frame(Some(Ok(_))) => continue,
-            Woken::Joined(joined) => {
-                let Some(thinking) = bridge.thinking.take() else {
-                    continue;
-                };
-                let result = joined.unwrap_or_else(|e| {
-                    Err(MindError::Unavailable(format!("the mind stopped: {e}")))
-                });
-                bridge.settle(&mut core);
-                core.answered(thinking.question, result)
-            }
-            Woken::Expired => {
-                let Some(thinking) = bridge.thinking.take() else {
-                    continue;
-                };
-                thinking.task.abort();
-                bridge.settle(&mut core);
-                core.expired(thinking.question)
-            }
+            Woken::Joined(joined) => match bridge.answered(&mut core, joined) {
+                Some(steps) => steps,
+                None => continue,
+            },
+            Woken::Expired => match bridge.expired(&mut core) {
+                Some(steps) => steps,
+                None => continue,
+            },
             Woken::Quiet => {
                 if !link.room_closed().await {
                     continue;
@@ -322,6 +312,29 @@ impl Bridge {
         if let Some(think) = self.rethink.take() {
             core.set_think(think);
         }
+    }
+
+    /// The mind answered (or its task ended): the core's steps, `None`
+    /// where no question was being thought about.
+    fn answered(
+        &mut self,
+        core: &mut SeatCore,
+        joined: Result<Result<Answer, MindError>, tokio::task::JoinError>,
+    ) -> Option<Vec<Step>> {
+        let thinking = self.thinking.take()?;
+        let result = joined
+            .unwrap_or_else(|e| Err(MindError::Unavailable(format!("the mind stopped: {e}"))));
+        self.settle(core);
+        Some(core.answered(thinking.question, result))
+    }
+
+    /// The mind ran out of time: the core's steps, `None` where no question
+    /// was being thought about.
+    fn expired(&mut self, core: &mut SeatCore) -> Option<Vec<Step>> {
+        let thinking = self.thinking.take()?;
+        thinking.task.abort();
+        self.settle(core);
+        Some(core.expired(thinking.question))
     }
 
     /// Waits for a frame, the mind's answer, the mind's deadline, or a
