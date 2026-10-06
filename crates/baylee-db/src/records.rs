@@ -12,18 +12,36 @@
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbErr, Statement, TransactionTrait, Value};
 use uuid::Uuid;
 
-/// Starts a game's record: its row, and which account sat in which seat
-/// (`None` for a chair the house plays). Starting one that exists changes
-/// nothing, so an engine that attaches twice cannot rewrite who sat where.
+/// Who sat in one seat of a recorded game.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Seat {
+    /// The account that played it; `None` for a chair the house or a
+    /// host's seat bridge played.
+    pub account: Option<Uuid>,
+    /// The host whose seat bridge played it (a language model at its
+    /// table), who answers for the seat without having played it.
+    pub delegated_by: Option<Uuid>,
+}
+
+impl Seat {
+    /// A seat an account played.
+    #[must_use]
+    pub const fn played_by(account: Uuid) -> Self {
+        Self {
+            account: Some(account),
+            delegated_by: None,
+        }
+    }
+}
+
+/// Starts a game's record: its row, and who sat in which seat (nobody, for
+/// a chair the house plays). Starting one that exists changes nothing, so an
+/// engine that attaches twice cannot rewrite who sat where.
 ///
 /// # Errors
 ///
 /// When a statement fails.
-pub async fn open(
-    db: &DatabaseConnection,
-    game_id: &str,
-    seats: &[Option<Uuid>],
-) -> Result<(), DbErr> {
+pub async fn open(db: &DatabaseConnection, game_id: &str, seats: &[Seat]) -> Result<(), DbErr> {
     let txn = db.begin().await?;
     let backend = txn.get_database_backend();
     let made = txn
@@ -34,13 +52,19 @@ pub async fn open(
         ))
         .await?;
     if made.rows_affected() == 1 {
-        for (seat, account) in seats.iter().enumerate() {
+        for (seat, who) in seats.iter().enumerate() {
             let seat =
                 i16::try_from(seat).map_err(|_| DbErr::Custom("seat out of range".into()))?;
             txn.execute_raw(Statement::from_sql_and_values(
                 backend,
-                "INSERT INTO game_record_seat (game_id, seat, account_id) VALUES ($1, $2, $3)",
-                [game_id.into(), seat.into(), Value::Uuid(*account)],
+                "INSERT INTO game_record_seat (game_id, seat, account_id, delegated_by) \
+                 VALUES ($1, $2, $3, $4)",
+                [
+                    game_id.into(),
+                    seat.into(),
+                    Value::Uuid(who.account),
+                    Value::Uuid(who.delegated_by),
+                ],
             ))
             .await?;
         }

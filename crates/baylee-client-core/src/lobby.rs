@@ -272,6 +272,10 @@ pub struct GameSeat {
     /// which is every chair at a table with no teams on it.
     #[serde(default)]
     pub team: Option<u8>,
+    /// Whose seat bridge sits here, by handle: a host's language model on
+    /// the host's chair ticket. `None` for every other chair.
+    #[serde(default)]
+    pub delegated_by: Option<String>,
 }
 
 impl GameSeat {

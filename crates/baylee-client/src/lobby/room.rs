@@ -355,11 +355,18 @@ fn seat_card(
     commands.entity(card).insert(super::dock::Dock(4));
     commands.entity(parent).add_child(card);
     let who = if seat.kind == SeatKind::Ai {
-        super::ui::ai_name(lang, seat.ai.as_deref().unwrap_or("steady"))
+        super::ui::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string()
     } else {
-        seat.player
+        let player = seat
+            .player
             .as_deref()
-            .unwrap_or(Phrase::StateWaiting.text(lang))
+            .unwrap_or(Phrase::StateWaiting.text(lang));
+        // A host's language model says whose it is: it sits on that
+        // account's word, with no account of its own.
+        match &seat.delegated_by {
+            Some(host) => format!("{player} ({host})"),
+            None => player.to_string(),
+        }
     };
     let identity = row(commands, m, true);
     commands.entity(card).add_child(identity);

@@ -177,6 +177,11 @@ pub fn forget_accounts(state: &Shared, accounts: &[String]) {
             sat |= lobby.forget_account(account, now);
         }
     }
+    // A chair it handed to a bridge and nobody redeemed yet is not meant any
+    // more either (`chair.rs`).
+    state.chair_tickets.revoke(|grant| {
+        matches!(grant, crate::wsticket::Grant::Chair { host, .. } if accounts.contains(host))
+    });
     for account in accounts {
         let _ = state.departed.send(account.clone());
     }

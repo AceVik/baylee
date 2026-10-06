@@ -22,6 +22,7 @@ the pointers, because line numbers move.
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Socket ticket (hash only) | gateway memory | ≤ 45 s (`BAYLEE_WS_TICKET_SECS`), or until used | use, the ticket sweep, a restart |
+| Chair ticket (hash only), with the room, chair and host account it is for | gateway memory | ≤ 120 s (`BAYLEE_CHAIR_TICKET_SECS`), or until used | use, its host leaving the room or being deleted, the ticket sweep, a restart |
 | Rate-limit keys (IP, typed login name) | gateway memory | a window (300 s), then until the next check | the limiter itself |
 | Game state | engine process memory | the game | the process exits |
 | Server logs | stdout | the host's choice | the host |
@@ -221,19 +222,26 @@ the pointers, because line numbers move.
 
 - **Held:**
   - per seat: the account id, a hash of the seat token, the deck's name
-    and a full copy of the deck, ready and team;
+    and a full copy of the deck, ready and team; for a host's seat bridge
+    (`docs/protocol.md` §"A host's chair for a seat bridge") instead of an
+    account id the host's account id and the name the bridge sat under,
+    and its deck only here, never as a deck row;
   - per table: the host's account id, the room name, a hash of the room
     password, and the game's preset.
 - **Seen by others:** every signed-in session sees an open or running
-  table's name, host, seat handles, deck names and whether it is locked.
+  table's name, host, seat handles, deck names and whether it is locked;
+  for a seat bridge's chair its name and the handle of the host it sits
+  for (`delegated_by`).
 - **Kept:** in `spawn_cleanup`:
   - a waiting table goes 2 h after it opened (`WAITING_TIMEOUT_SECS`);
   - a finished game goes 1 h after it ended (`OVER_GRACE_SECS`), unless a
     rematch room still points at it;
   - a restart loses all of it.
 - **Removed early:** a deleted account's chairs are emptied at every table,
-  waiting, running or over (`Lobby::forget_account`), and its seat and lobby
-  sockets close. A running game plays on with the house in that chair.
+  waiting, running or over (`Lobby::forget_account`), and so are the
+  chairs its seat bridges sat in; its seat and lobby sockets close. A
+  running game plays on with the house in that chair. A host who leaves a
+  waiting room takes its bridges' chairs with it.
 
 ## Rate limits (memory)
 
@@ -309,6 +317,13 @@ the pointers, because line numbers move.
   game id, seat and the seat token's hash) and when, until it is used or
   `BAYLEE_WS_TICKET_SECS` (45 s by default) have passed; a sweep every minute
   removes expired ones, and a restart all of them.
+- **Chair tickets, in memory only** (`chair.rs`): a SHA-256 hash, the room,
+  the chair and the host's account id, and when, until redeemed, its host
+  leaves the room or is deleted, or `BAYLEE_CHAIR_TICKET_SECS` (120 s by
+  default) have passed. The host's client hands the ticket to its bridge on
+  the bridge's stdin, never in its arguments or environment, and neither
+  side logs it. Tries are counted per host account and per address
+  (`AppState.chair_limiter`, 30 a minute each).
 
 ## Card data
 
@@ -409,6 +424,7 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | --- | --- | --- | --- |
 | Game record (every input, all hands and libraries) | gateway Postgres `game_record`, `game_record_chunk` | indefinitely (the owner's decision) | nothing yet |
 | Who sat in which seat of a recorded game | gateway Postgres `game_record_seat` (account id) | until the account is deleted | the account's deletion sets it to `NULL`; the record stays |
+| Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
 | Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
@@ -421,8 +437,9 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
-  was told never enter it. The only link to a person is `game_record_seat`,
-  which goes with the account. What stays after that is a game between
+  was told never enter it. The only link to a person is `game_record_seat`
+  (who played a seat, or whose seat bridge did), which goes with the
+  account. What stays after that is a game between
   numbered seats, with their decks and every card they held.
 - **No seat or lobby route reads a record.** The one reader is
   `POST /reports`, which attaches a game's record only when the reporter sat

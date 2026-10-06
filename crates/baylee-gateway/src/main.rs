@@ -9,6 +9,7 @@
 mod account;
 mod art;
 mod auth;
+mod chair;
 mod clock;
 mod cosmetics;
 mod engine;
@@ -166,6 +167,16 @@ struct AppState {
     /// token in the query, as clients from before #294 do
     /// ([`wsticket::LEGACY_UNTIL`], or `0` for `BAYLEE_WS_LEGACY_TOKENS=off`).
     legacy_until: u64,
+    /// The unspent chair tickets hosts handed to their seat bridges
+    /// (`chair.rs`), in memory only; `BAYLEE_CHAIR_TICKET_SECS` says how
+    /// long each lives.
+    chair_tickets: wsticket::Tickets,
+    /// Chair tickets asked for, per host, and redemptions tried, per
+    /// address (`chair.rs`).
+    chair_limiter: auth::RateLimiter,
+    /// Whether hosts may hand chairs to seat bridges at all
+    /// (`BAYLEE_CHAIR_TICKETS=off` to disable), read as `BAYLEE_GUESTS` is.
+    chair_tickets_enabled: bool,
 }
 
 impl AppState {
@@ -208,6 +219,11 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
     let ticket_ttl = wsticket::ttl_from_env(std::env::var("BAYLEE_WS_TICKET_SECS").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_WS_TICKET_SECS: {why}"));
+    let chair_ticket_ttl = wsticket::lifetime_from_env(
+        std::env::var("BAYLEE_CHAIR_TICKET_SECS").ok().as_deref(),
+        chair::DEFAULT_SECS,
+    )
+    .unwrap_or_else(|why| panic!("BAYLEE_CHAIR_TICKET_SECS: {why}"));
     let legacy_until =
         wsticket::legacy_from_env(std::env::var("BAYLEE_WS_LEGACY_TOKENS").ok().as_deref())
             .unwrap_or_else(|why| panic!("BAYLEE_WS_LEGACY_TOKENS: {why}"));
@@ -258,6 +274,9 @@ async fn main() {
         record_flushes: record::Flushes::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,
+        chair_tickets: wsticket::Tickets::new(chair_ticket_ttl),
+        chair_limiter: auth::RateLimiter::new(chair::LIMIT_WINDOW, chair::LIMIT_TRIES),
+        chair_tickets_enabled: switched_on(std::env::var("BAYLEE_CHAIR_TICKETS").ok().as_deref()),
     });
     // Before serving, so it is done by the time anybody can upload (#301).
     account::sweep_pictures(&state).await;
@@ -281,6 +300,14 @@ async fn main() {
         .route("/lobby/games/{id}/host", post(hand_over))
         .route("/lobby/games/{id}/leave", post(leave_game))
         .route("/lobby/games/{id}/rematch", post(rematch))
+        .route("/lobby/games/{id}/chairs/{seat}/ticket", post(chair::mint))
+        .route(
+            "/lobby/games/{id}/chairs/{seat}/redeem",
+            post(chair::redeem),
+        )
+        .route("/lobby/games/{id}/chair", get(chair::status))
+        .route("/lobby/games/{id}/chair/leave", post(chair::leave))
+        .route("/lobby/games/{id}/chair/ready", post(chair::ready))
         .route("/ws-ticket", post(ws_ticket))
         .route("/lobby/ws", get(lobby_ws))
         .route("/games/{id}/ws", get(game_ws))
@@ -592,7 +619,8 @@ fn spawn_ticket_sweep(state: Shared) {
         interval.tick().await;
         loop {
             interval.tick().await;
-            let swept = state.tickets.sweep(std::time::Instant::now());
+            let now = std::time::Instant::now();
+            let swept = state.tickets.sweep(now) + state.chair_tickets.sweep(now);
             if swept > 0 {
                 tracing::debug!(swept, "expired socket tickets swept");
             }
@@ -3081,8 +3109,7 @@ async fn join_game(
             return Err(err(StatusCode::CONFLICT, "you are already at this table"));
         }
         let seq = game.claim_seq();
-        let free =
-            |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && s.account_id.is_none();
+        let free = |s: &&mut lobby::LobbySeat| s.kind == lobby::SeatKind::Human && !s.occupied();
         let chair = match body.seat {
             Some(at) => game
                 .seats
@@ -3454,6 +3481,8 @@ async fn hand_over(
         };
         game.host = Some(new_host);
     }
+    // The chairs it handed out and nobody took yet were the host's to give.
+    chair::revoke(&state, &id, &account_id);
     state.lobby_moved();
     Ok(Json(listing(&state, &account_id).await))
 }
@@ -3481,6 +3510,13 @@ async fn leave_game(
         return Err(err(StatusCode::NOT_FOUND, "you are not at this table"));
     };
     chair.vacate();
+    // A seat bridge it seated goes with it: nobody is left at the table to
+    // answer for the chair (`chair.rs`).
+    for seat in &mut game.seats {
+        if seat.delegate.as_ref().is_some_and(|d| d.by == account_id) {
+            seat.vacate();
+        }
+    }
     // A room outlives its host: it passes to whoever has been here longest,
     // and only a room with nobody left in it is closed. The earlier version
     // closed it the moment the host stood up, which threw everyone else out
@@ -3489,6 +3525,7 @@ async fn leave_game(
         game.finish(auth::now_secs());
     }
     drop(lobby);
+    chair::revoke(&state, &id, &account_id);
     state.lobby_moved();
     Ok(StatusCode::NO_CONTENT)
 }
@@ -3989,7 +4026,7 @@ async fn game_ws(
                 })
                 .map(|s| s.seat)
                 .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?,
-            Some(wsticket::Grant::Lobby { .. }) => {
+            Some(wsticket::Grant::Lobby { .. } | wsticket::Grant::Chair { .. }) => {
                 return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
             }
             None => {
@@ -4115,10 +4152,19 @@ async fn game_cosmetics(
 /// where, the store says what that account is called, and nothing in between
 /// needs both at once.
 async fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
-    let accounts: Vec<Option<String>> = {
+    let (accounts, delegates): (Vec<Option<String>>, Vec<Option<String>>) = {
         let lobby = state.lobby.lock();
         match lobby.games.get(game_id) {
-            Some(game) => game.seats.iter().map(|s| s.account_id.clone()).collect(),
+            Some(game) => game
+                .seats
+                .iter()
+                .map(|s| {
+                    (
+                        s.account_id.clone(),
+                        s.delegate.as_ref().map(|d| d.name.clone()),
+                    )
+                })
+                .unzip(),
             None => return Vec::new(),
         }
     };
@@ -4131,13 +4177,17 @@ async fn seat_names(state: &Shared, game_id: &str) -> Vec<String> {
     };
     accounts
         .into_iter()
-        .map(|id| match id {
-            Some(id) => names
+        .zip(delegates)
+        .map(|(id, delegate)| match (id, delegate) {
+            (Some(id), _) => names
                 .get(&id)
                 .cloned()
                 .unwrap_or_else(|| "Unknown player".to_string()),
+            // A host's seat bridge sits under the name it chose, which says
+            // what plays (`LLM-…`); the listing says whose it is.
+            (None, Some(name)) => name,
             // An empty chair in a running game is the house playing it.
-            None => "House AI".to_string(),
+            (None, None) => "House AI".to_string(),
         })
         .collect()
 }

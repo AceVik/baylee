@@ -77,6 +77,7 @@ pub mod manapool;
 pub mod music;
 pub mod prefs;
 pub mod prose;
+pub mod quiet;
 pub mod reconnect;
 pub mod rowscroll;
 pub mod seatbar;

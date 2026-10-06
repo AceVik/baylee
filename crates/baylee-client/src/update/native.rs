@@ -151,7 +151,7 @@ impl Plugin for NativeUpdatePlugin {
             Err(err) => {
                 // A child of a killed launcher may have been superseded.
                 // It must stop before touching installation state.
-                eprintln!("updates: cannot join the launcher session: {err}");
+                baylee_client_core::say_err!("updates: cannot join the launcher session: {err}");
                 std::process::exit(1);
             }
         };

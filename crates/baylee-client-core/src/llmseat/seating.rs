@@ -132,6 +132,9 @@ pub struct Launch<'a> {
     pub deck: &'a str,
     /// The house level that answers when the model cannot.
     pub level: &'a str,
+    /// Whether the bridge sits on the host's chair ticket, which it reads
+    /// off its stdin (`super::door`); never the ticket itself.
+    pub chair_ticket: bool,
 }
 
 /// The acceptance decks a chair may bring (`data/acceptance-decks.txt`),
@@ -171,6 +174,9 @@ pub fn bridge_args(launch: &Launch<'_>, chair: &ChairModel, profile: &Profile) -
     .iter()
     .map(ToString::to_string)
     .collect();
+    if launch.chair_ticket {
+        args.push("--chair-ticket".into());
+    }
     if chair.model != profile.model {
         args.extend(["--mind".into(), mind(profile.provider, &chair.model)]);
     }

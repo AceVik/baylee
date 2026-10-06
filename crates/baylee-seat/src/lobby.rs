@@ -1,8 +1,12 @@
 //! The gateway's front door, as the bridge walks through it: a guest
-//! account under the mind's name, a deck, a chair in a room, ready.
+//! account under the mind's name, a deck, a chair in a room, ready; or, for
+//! a bridge its host's client started, the host's chair ticket, which sits
+//! it down with its deck in one call and no account at all
+//! ([`Lobby::redeem`]).
 //!
 //! Every call is an ordinary request a person's client makes, with the
-//! session in `Authorization` and never in an address. A blocking HTTP
+//! session (or the chair ticket, or the seat token) in `Authorization` and
+//! never in an address. A blocking HTTP
 //! client on a blocking thread: the lobby is a handful of requests before a
 //! game and one after a dropped socket, and the socket is the only thing
 //! that has to be asynchronous.
@@ -134,6 +138,52 @@ impl Session {
     pub const fn from_token(token: String) -> Self {
         Self { token }
     }
+}
+
+/// A chair ticket: the host's word that this bridge may sit in one chair of
+/// its room (`docs/protocol.md` §"A host's chair for a seat bridge"). Read
+/// from the bridge's stdin, shown to the gateway once as `Authorization`,
+/// and never printed, logged or put in an address: its `Debug` says only
+/// that there is one.
+#[derive(Clone)]
+pub struct ChairTicket(String);
+
+impl std::fmt::Debug for ChairTicket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ChairTicket(..)")
+    }
+}
+
+impl ChairTicket {
+    /// The longest line read as a ticket. The gateway's are 64 hex digits.
+    pub const MAX_LEN: usize = 128;
+
+    /// The ticket on `line` (one line of stdin, its end trimmed).
+    ///
+    /// # Errors
+    /// When the line is empty, too long, or holds anything but letters and
+    /// digits; the error never quotes it.
+    pub fn read(line: &str) -> anyhow::Result<Self> {
+        let ticket = line.trim();
+        if ticket.is_empty() {
+            bail!("no chair ticket on stdin");
+        }
+        if ticket.len() > Self::MAX_LEN || !ticket.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            bail!("the line on stdin is not a chair ticket");
+        }
+        Ok(Self(ticket.to_string()))
+    }
+}
+
+/// What the gateway says of a chair to the bridge that holds it
+/// (`GET /lobby/games/{id}/chair`).
+#[derive(Clone, Debug, Deserialize)]
+pub struct ChairStatus {
+    /// `waiting`, `playing` or `over`.
+    pub state: String,
+    /// Seconds a question gets; `None` for an untimed table.
+    #[serde(default)]
+    pub decide_secs: Option<u32>,
 }
 
 /// The name a mind sits under: `prefix` + `name`, held to the gateway's
@@ -357,10 +407,14 @@ impl Lobby {
         Ok(())
     }
 
-    /// Waits, looking every `every`, until the room's game is on.
+    /// Waits, looking every `every`, until the room's game is on, saying
+    /// ready again whenever the room lists this session's chair as not
+    /// ready: a host rearranging the table takes every player's yes back,
+    /// and a bridge waiting on it would otherwise keep the room from ever
+    /// starting (beta.5: "an LLM chair never shows Ready").
     ///
     /// # Errors
-    /// When the room is gone or over before it starts.
+    /// When the room is gone or over before it starts, or refuses the yes.
     pub async fn wait_for_start(
         &self,
         session: &Session,
@@ -370,9 +424,129 @@ impl Lobby {
         loop {
             match self.room(session, game_id).await? {
                 Some(room) if room.playing() => return Ok(()),
-                Some(room) if room.waiting() => tokio::time::sleep(every).await,
+                Some(room) if room.waiting() => {
+                    if room.seats.iter().any(|seat| seat.you && !seat.ready) {
+                        self.ready(session, game_id).await?;
+                    }
+                    tokio::time::sleep(every).await;
+                }
                 Some(room) => bail!("the room {game_id} is {}", room.state),
                 None => bail!("the room {game_id} is gone"),
+            }
+        }
+    }
+
+    /// Sits down in chair `seat` of room `game_id` on its host's `ticket`,
+    /// under `display_name` with `deck` (`POST …/chairs/{seat}/redeem`):
+    /// the chair, and the seconds its table gives a question. No session:
+    /// the host vouched for the chair, so a gateway that takes no guests
+    /// seats the bridge all the same.
+    ///
+    /// # Errors
+    /// When the ticket is refused (used, expired, for another chair, or its
+    /// host gone) or the chair is no longer open; never quoting the ticket.
+    pub async fn redeem(
+        &self,
+        ticket: &ChairTicket,
+        game_id: &str,
+        seat: u32,
+        display_name: &str,
+        deck: &Deck,
+    ) -> anyhow::Result<(Chair, Option<u32>)> {
+        let body = serde_json::json!({ "display_name": display_name, "deck": deck.upload() });
+        let path = baylee_protocol::chair_redeem_path(&escape(game_id), seat);
+        let answer = self
+            .call("POST", &path, Some(&ticket.0), Some(body))
+            .await?
+            .expect_ok("sit down on the host's chair ticket")?;
+        let decide_secs = answer
+            .body
+            .get("decide_secs")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|n| u32::try_from(n).ok());
+        Ok((
+            Chair {
+                game_id: game_id.to_string(),
+                seat: answer.number("seat")?,
+                seat_token: answer.string("seat_token")?,
+            },
+            decide_secs,
+        ))
+    }
+
+    /// The chair's room as the gateway tells the chair's holder
+    /// (`GET …/chair`, the seat token as `Authorization`); `None` when the
+    /// room is gone or no longer takes the token (the host took the chair
+    /// back, or left).
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or answers otherwise.
+    pub async fn chair_status(&self, chair: &Chair) -> anyhow::Result<Option<ChairStatus>> {
+        let path = format!("/lobby/games/{}/chair", escape(&chair.game_id));
+        let answer = self
+            .call("GET", &path, Some(&chair.seat_token), None)
+            .await?;
+        if matches!(answer.status, 401 | 404) {
+            return Ok(None);
+        }
+        let status = answer.expect_ok("ask after the chair")?.body;
+        Ok(Some(
+            serde_json::from_value(status).context("an unreadable chair status")?,
+        ))
+    }
+
+    /// Says a chair taken on a host's ticket may play (`POST …/chair/ready`,
+    /// the seat token as `Authorization`): its mind answered its check.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or refuses.
+    pub async fn chair_ready(&self, chair: &Chair) -> anyhow::Result<()> {
+        let path = format!("/lobby/games/{}/chair/ready", escape(&chair.game_id));
+        self.call(
+            "POST",
+            &path,
+            Some(&chair.seat_token),
+            Some(serde_json::json!({ "ready": true })),
+        )
+        .await?
+        .expect_ok("say the chair is ready")?;
+        Ok(())
+    }
+
+    /// Gives a chair taken on a host's ticket back before the game
+    /// (`POST …/chair/leave`, the seat token as `Authorization`).
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or refuses.
+    pub async fn leave_chair(&self, chair: &Chair) -> anyhow::Result<()> {
+        let path = format!("/lobby/games/{}/chair/leave", escape(&chair.game_id));
+        self.call(
+            "POST",
+            &path,
+            Some(&chair.seat_token),
+            Some(serde_json::json!({})),
+        )
+        .await?
+        .expect_ok("leave the chair")?;
+        Ok(())
+    }
+
+    /// [`Lobby::wait_for_start`] for a chair taken on a host's ticket,
+    /// asked with its seat token.
+    ///
+    /// # Errors
+    /// When the room is gone, over, or no longer takes the chair before it
+    /// starts.
+    pub async fn wait_for_chair_start(&self, chair: &Chair, every: Duration) -> anyhow::Result<()> {
+        loop {
+            match self.chair_status(chair).await? {
+                Some(status) if status.state == "playing" => return Ok(()),
+                Some(status) if status.state == "waiting" => tokio::time::sleep(every).await,
+                Some(status) => bail!("the room {} is {}", chair.game_id, status.state),
+                None => bail!(
+                    "the room {} is gone, or its host took the chair back",
+                    chair.game_id
+                ),
             }
         }
     }
@@ -591,6 +765,45 @@ mod tests {
             assert_eq!(redirect.asked().len(), 3, "each call reached the gateway");
             assert_eq!(redirect.followed(), 0, "{status} was followed");
         }
+    }
+
+    /// A chair ticket is read off one line and is never shown again: not by
+    /// `Debug`, and not by the sentence a bad line is refused with.
+    #[test]
+    fn a_chair_ticket_is_read_from_a_line_and_never_shown() {
+        let secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let ticket = ChairTicket::read(&format!("{secret}\n")).expect("a ticket");
+        assert_eq!(ticket.0, secret);
+        assert_eq!(format!("{ticket:?}"), "ChairTicket(..)");
+        assert!(ChairTicket::read("\n").is_err(), "an empty line");
+        let long = "a".repeat(ChairTicket::MAX_LEN + 1);
+        for bad in [format!("{secret} extra"), format!("{secret};"), long] {
+            let said = format!("{:#}", ChairTicket::read(&bad).expect_err("refused"));
+            assert!(!said.contains(secret), "{said}");
+            assert!(!said.contains("aaaa"), "{said}");
+        }
+    }
+
+    /// Every call made on a chair ticket fails by its status alone, and the
+    /// ticket goes to no other address and into no error.
+    #[tokio::test]
+    async fn a_chair_ticket_is_not_followed_by_a_redirect_nor_quoted() {
+        let secret = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+        let ticket = ChairTicket::read(secret).unwrap();
+        let moved = serde_json::json!({"error": "see LOCATION"});
+        let deck = Deck::acceptance("Victory").unwrap();
+        let redirect = crate::testnet::redirect(307, &moved).await;
+        let lobby = Lobby::new(&redirect.base);
+        let said = format!(
+            "{:#}",
+            lobby
+                .redeem(&ticket, "g1", 1, "LLM-test", &deck)
+                .await
+                .expect_err("a redirect")
+        );
+        assert!(said.contains("redirect"), "{said}");
+        assert!(!said.contains(secret), "the ticket: {said}");
+        assert_eq!(redirect.followed(), 0);
     }
 
     #[test]

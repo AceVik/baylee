@@ -420,15 +420,7 @@ item names who it is for.
 
 # Open items (c41/client-llm-config, 2026-10-06)
 
-1. **A table's language-model chair needs guest sign-in.** The client's
-   bridge signs in as a guest (`GuestSignIn` in `baylee-seat`'s
-   `sit_down`), so a gateway with `BAYLEE_GUESTS=off` seats none, and under
-   `BAYLEE_REGISTRATION=invite` a new guest needs a key the client does not
-   pass. Let a bridge join under the host's session (a seat the host's
-   account vouches for) or an invite the host's client asks for, without
-   ever putting the host's session token in its arguments
-   (`docs/llm-seat.md` §"A language model at your table").
-2. **Owner decision: should a seat's name follow a debug swap?** After a
+1. **Owner decision: should a seat's name follow a debug swap?** After a
    debug order to the house, the table still names the chair `LLM-…`: the
    name is what sat down (`SeatIdentity` in `crates/baylee-view/src/lib.rs`,
    "a seat that renamed itself … would be telling the table something that

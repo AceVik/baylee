@@ -124,7 +124,9 @@ impl DevControlPlugin {
         match raw.parse::<u16>() {
             Ok(port) if port > 0 => Some(Self { port }),
             _ => {
-                eprintln!("BAYLEE_DEV_CONTROL={raw} is not a port; dev control is off");
+                baylee_client_core::say_err!(
+                    "BAYLEE_DEV_CONTROL={raw} is not a port; dev control is off"
+                );
                 None
             }
         }
@@ -277,7 +279,7 @@ fn serve(port: u16) -> Option<Receiver<Job>> {
     let listener = match TcpListener::bind(("127.0.0.1", port)) {
         Ok(listener) => listener,
         Err(err) => {
-            eprintln!("dev control: cannot listen on 127.0.0.1:{port}: {err}");
+            baylee_client_core::say_err!("dev control: cannot listen on 127.0.0.1:{port}: {err}");
             return None;
         }
     };
@@ -285,10 +287,10 @@ fn serve(port: u16) -> Option<Receiver<Job>> {
     std::thread::Builder::new()
         .name("baylee-dev-control".to_string())
         .spawn(move || {
-            eprintln!("dev control: listening on http://127.0.0.1:{port}");
+            baylee_client_core::say_err!("dev control: listening on http://127.0.0.1:{port}");
             for stream in listener.incoming().flatten() {
                 if let Err(err) = handle(&stream, &tx) {
-                    eprintln!("dev control: {err}");
+                    baylee_client_core::say_err!("dev control: {err}");
                 }
             }
         })

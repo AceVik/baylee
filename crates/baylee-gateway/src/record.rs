@@ -24,7 +24,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use baylee_protocol::v1;
 use parking_lot::Mutex;
 use tokio::sync::{mpsc, oneshot};
-use uuid::Uuid;
 
 /// The most one game's record may take in the database, compressed. A
 /// two-seat game of the acceptance decks sends 17–29 KB; this is a bound on
@@ -56,7 +55,7 @@ trait Store {
 struct Database {
     db: sea_orm::DatabaseConnection,
     game_id: String,
-    seats: Vec<Option<Uuid>>,
+    seats: Vec<baylee_db::records::Seat>,
 }
 
 impl Store for Database {
@@ -115,9 +114,14 @@ pub struct Sink {
 }
 
 impl Sink {
-    /// Starts the game's record with who sits where (`None` for a chair the
-    /// house plays) and the task that writes it.
-    pub fn open(db: sea_orm::DatabaseConnection, game_id: &str, seats: Vec<Option<Uuid>>) -> Self {
+    /// Starts the game's record with who sits where (nobody for a chair the
+    /// house plays; the host for its seat bridge's) and the task that writes
+    /// it.
+    pub fn open(
+        db: sea_orm::DatabaseConnection,
+        game_id: &str,
+        seats: Vec<baylee_db::records::Seat>,
+    ) -> Self {
         let store = Database {
             db,
             game_id: game_id.to_owned(),

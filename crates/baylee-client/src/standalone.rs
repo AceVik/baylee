@@ -43,7 +43,7 @@ pub fn run() {
     // nothing while looking exactly like the right one.
     #[cfg(all(feature = "dev-reload", not(target_arch = "wasm32")))]
     if let Err(reason) = watching_from_the_workspace_root() {
-        eprintln!("{reason}");
+        baylee_client_core::say_err!("{reason}");
         return;
     }
     // A ticket means somebody is already waiting at a table; anything else
@@ -51,7 +51,7 @@ pub fn run() {
     let seated = match seated_host() {
         Ok(host) => host,
         Err(reason) => {
-            eprintln!("{reason}");
+            baylee_client_core::say_err!("{reason}");
             return;
         }
     };

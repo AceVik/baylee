@@ -547,6 +547,62 @@ async fn no_key_reaches_an_error_or_a_transcript() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The check before a chair says ready asks the model's entry, once, and
+/// says in a sentence why it failed: the key, the model, another answer,
+/// or no answer; never with the key in it, and never a game's call.
+#[tokio::test]
+async fn the_check_before_ready_asks_once_and_says_why() {
+    let (base, provider) = stand_in().await;
+    for (status, said) in [
+        (200, None),
+        (401, Some("refused the key (HTTP 401)")),
+        (403, Some("refused the key (HTTP 403)")),
+        (
+            404,
+            Some("does not know the model «claude-sonnet-5» (HTTP 404)"),
+        ),
+        (500, Some("answered HTTP 500")),
+    ] {
+        provider.script(Scripted {
+            status,
+            body: json!({"error": {"message": "ECHO_KEY"}}),
+            delay: Duration::ZERO,
+        });
+        let checked = mind(&base, Provider::Anthropic, |_| {}).check().await;
+        match said {
+            None => assert_eq!(checked, Ok(()), "{status}"),
+            Some(said) => {
+                let why = checked.expect_err("refused");
+                assert!(why.contains(said), "{status}: {why}");
+                assert!(!why.contains(KEY), "{why}");
+            }
+        }
+    }
+    let seen = provider.seen();
+    assert_eq!(seen.len(), 5, "one ask each");
+    assert!(
+        seen.iter().all(|s| s.path == "/v1/models/claude-sonnet-5"),
+        "{:?}",
+        seen.iter().map(|s| &s.path).collect::<Vec<_>>()
+    );
+    // Nobody there.
+    let gone = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        // Credentials in the address, which the sentence must not repeat.
+        format!(
+            "https://alice:s3cret-pass@{}",
+            listener.local_addr().unwrap()
+        )
+    };
+    let why = mind(&gone, Provider::OpenAi, |_| {})
+        .check()
+        .await
+        .expect_err("unreachable");
+    assert!(why.contains("could not be reached"), "{why}");
+    assert!(!why.contains(KEY), "{why}");
+    assert!(!why.contains("s3cret-pass"), "{why}");
+}
+
 /// A redirect is followed nowhere. ureq drops only `Authorization` and
 /// `Cookie` when it follows one, so an `x-api-key` would have gone to the
 /// address it named: a call and a probe that meet one fail, by the status

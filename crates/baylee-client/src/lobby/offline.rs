@@ -680,6 +680,7 @@ impl Offline {
                     player: (at == 0).then(|| Phrase::You.text(lang).to_string()),
                     you: at == 0,
                     host: at == 0,
+                    delegated_by: None,
                     deck: chair
                         .deck
                         .as_ref()

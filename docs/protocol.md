@@ -2095,6 +2095,7 @@ from a curl recipe into a contract:
 | take the chair you are in | `POST /lobby/games/{id}/seat` | `{game_id, seat, seat_token}` |
 | arrange a chair | `POST /lobby/games/{id}/seats/{seat}` `{kind?, ai?, deck_id?, team?}` | the seat |
 | stand up | `POST /lobby/games/{id}/leave` | `204` |
+| hand a chair to a seat bridge | `POST /lobby/games/{id}/chairs/{seat}/ticket` (§"A host's chair for a seat bridge") | `{ticket, expires_in}` |
 
 Everything but `/info`, the three auth calls and `/auth/config` takes
 `Authorization: Bearer <token>`; `/pool` and `/printings` did not until
@@ -2493,6 +2494,97 @@ already arrived. An
 and a socket opened against it is accepted and then closed with nothing on it,
 because there is no game yet to describe. The host of an open table has to wait
 for its `state` to turn `"playing"`, which is what the lobby feed below is for.
+
+### A host's chair for a seat bridge
+
+A language model at a table is a seat bridge (`baylee-seat join`) the
+host's client starts (`docs/llm-seat.md` §"A language model at your
+table"). It used to sit down as a guest, so a gateway with
+`BAYLEE_GUESTS=off`, one whose guest cap was reached and a closed beta
+(`BAYLEE_REGISTRATION=invite`) seated none. Now the host hands the bridge
+one chair of its room on its own word (owner, 06.10.2026), and the bridge
+needs no account at all (`crates/baylee-gateway/src/chair.rs`):
+
+| step | call | answer |
+| --- | --- | --- |
+| the host asks for a chair ticket | `POST /lobby/games/{id}/chairs/{seat}/ticket`, `Authorization: Bearer <session>` (`baylee_protocol::chair_ticket_path`) | `{ticket, expires_in}`; `403` for a guest or anybody but the host, `409` for a chair that is not an open person's chair of a waiting room, `404` for no such seat or game, `429` past the limit |
+| the bridge sits down on it | `POST /lobby/games/{id}/chairs/{seat}/redeem` `{display_name, deck:{name, cards, sideboard?, commanders?, format?}}`, `Authorization: Bearer <chair ticket>` (`chair_redeem_path`) | `{game_id, seat, seat_token, decide_secs}`; `401` `ticket expired or used` for any refused ticket, `403` when its host no longer hosts the room, `409` for a chair taken meanwhile, `400` for a bad name or deck |
+| its mind answered its check | `POST /lobby/games/{id}/chair/ready` `{ready?}`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair (they say ready with their session) |
+| is the game on | `GET /lobby/games/{id}/chair`, `Authorization: Bearer <seat token>` | `{game_id, seat, state, decide_secs, ready}`; `401` once the token opens nothing (the host took the chair back, or left) |
+| give the chair back before the game | `POST /lobby/games/{id}/chair/leave`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair |
+
+A chair ticket is the same kind of secret as a socket's (§"Opening a
+socket: tickets"), in a store of its own:
+
+- **Random**, 256 bits, kept only as its SHA-256 and looked up by that
+  hash, never compared as itself; **in memory only**; at most eight unspent
+  per host (the oldest gives way), 65 536 in all.
+- **Single use**: spent the moment it is shown, whether or not the chair is
+  still there to take. A refused one is `401` with the one sentence, so a
+  guess learns nothing from which.
+- **Bound** to its room, its chair and its host. A ticket for chair 2 opens
+  no chair 3 and no other room's chair 2. It opens its chair only while its
+  host still hosts the room: a host who leaves, hands the room on or is
+  deleted takes its unspent tickets with it, and the redemption checks
+  again.
+- **Short-lived**: `BAYLEE_CHAIR_TICKET_SECS`, 120 s by default, any whole
+  number of seconds from 1 to 600; anything else refuses startup.
+- **Rate-limited**: thirty tickets per host and thirty redemptions per
+  address a minute, then `429`.
+- **Never logged and never in an address**: the host is handed it in a
+  JSON answer, the bridge reads it off its stdin and shows it as
+  `Authorization`. `e2e_chair_tickets::no_chair_ticket_reaches_the_log`
+  runs the gateway at `debug` and looks.
+- **Only a host signed in to an account** may ask for one: a guest is what
+  the guest switches exist to bound, and a guest host's bridge still signs
+  in as a guest, where the gateway takes guests.
+- **Only for a language model.** The delegate's `display_name` must begin
+  `LLM-` (`chair::DELEGATE_PREFIX`, `400` otherwise, the ticket not
+  spent), so a host cannot seat a person, or a chair called after the house,
+  on its word with no account, key or guest seat. The roster carries only
+  that name: marking a delegated seat in `SeatIdentity` would be a new field
+  the gateway hands the engine (`GameSetup`) and a view change, so the
+  prefix is the mark.
+- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (read as
+  `BAYLEE_GUESTS` is) answers both the ask and the redemption `403` `this
+  gateway hands no chair to a seat bridge`; a host's client then falls back
+  to the guest door, where there is one. A host could otherwise hand its
+  ticket to a person, who would sit with no account; the prefix makes that
+  person a chair the table reads as a model, and the switch lets an
+  operator who wants no such chairs have none.
+- **Issued under the check.** The ticket is made while the lobby is held,
+  in the same hold that found the caller hosting the room and the chair
+  open, so a host leaving cannot fall between the check and the ticket and
+  leave one its revocation missed.
+
+**The chair it buys.** The bridge sits as the host's **delegate**: no
+account is made, and none sits in the chair (`account_id` stays empty, so
+every route that finds "the caller's chair" by account still finds the
+host's own). Its deck comes with the redemption and is kept with the chair,
+in memory, never as a deck row; it wears no sleeve or mat. The listing
+shows the chair `taken`, its `player` the name the bridge sat under and
+`delegated_by` the host's handle (`null` on every other chair); the table's
+roster calls the seat by that name, so a bridge still finds itself called
+what its mind is. The chair is ready only once the bridge says its mind
+answered its check (`…/chair/ready`), and that yes is about the model, so
+the host rearranging the table does not take it back as it does a person's;
+the host still says go by pressing Start. The host takes the chair back by
+arranging it (`POST …/seats/{seat}` with a `kind`), which ends its seat
+token; a host who leaves the room or deletes its account takes every chair
+it handed out with it. A rematch room copies no delegate: the chair waits
+open, on its side, for the host to seat another.
+
+**What the record says.** `game_record_seat` carries `delegated_by` beside
+`account_id` (migration `m20261006_000013_delegated_seats`): a delegate's
+seat has no `account_id` and the host's id in `delegated_by`, never both
+(`CHECK`). So the record says whose bridge played the seat without saying
+the host played it, and the link goes with the host's account as the other
+does (`ON DELETE SET NULL`).
+
+`PROTOCOL_VERSION` did not move: these are HTTP routes and additive listing
+fields, and no frame changed. A client that asks an older gateway for a
+chair ticket is answered `404` and falls back to the guest door where there
+is one (`llmseat::door::Doors::answered`).
 
 ### Playing it again
 
