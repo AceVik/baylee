@@ -275,4 +275,21 @@ mod tests {
         );
         assert!(!args.contains(&"--chair-ticket".to_string()), "{args:?}");
     }
+
+    /// The room lists a host's model as the host's: the chair's player is
+    /// the name the bridge sat under, and `delegated_by` says whose it is;
+    /// an older gateway's row, without it, reads as before.
+    #[test]
+    fn the_room_lists_a_hosts_model_as_the_hosts() {
+        let seat: crate::lobby::GameSeat = serde_json::from_str(
+            r#"{"seat":1,"kind":"human","taken":true,"player":"LLM-sonnet-5-5",
+                "delegated_by":"Alice#af03","ready":false}"#,
+        )
+        .unwrap();
+        assert_eq!(seat.delegated_by.as_deref(), Some("Alice#af03"));
+        assert!(!seat.open(), "taken");
+        let older: crate::lobby::GameSeat =
+            serde_json::from_str(r#"{"seat":1,"taken":false}"#).unwrap();
+        assert_eq!(older.delegated_by, None);
+    }
 }

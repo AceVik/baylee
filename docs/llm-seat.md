@@ -586,29 +586,58 @@ holds the processes).
 - **When.** Once the gateway lists the chair open, the client starts
   `baylee-seat join <room> --chair <n> --config <file> --profile <name>
   --acceptance <deck> --tethered` (with `--mind`, `--effort` or
-  `--default-effort` where the chair differs from its profile). The bridge
-  signs in as a guest named for its mind, takes that chair, says ready,
-  and plays; a locked room's password is handed over in its environment
+  `--default-effort` where the chair differs from its profile). A locked
+  room's password is handed over in its environment
   (`BAYLEE_ROOM_PASSWORD`), never on its command line, and its key it
   finds itself ([above](#where-a-key-is-kept)). A changed plan restarts
   the bridge while the room waits; nothing starts or stops once the game
   is on.
+- **How it gets in: the host's chair ticket.** A host signed in to an
+  account first asks its gateway for a chair ticket for that chair
+  (`llmseat::door`; `docs/protocol.md` §"A host's chair for a seat
+  bridge"), and starts the bridge with `--chair-ticket` and the ticket as
+  the first line of its stdin: never an argument, never its environment,
+  never a log. The bridge redeems it with its name (`LLM-…`) and its deck
+  and sits in the chair as the host's delegate, with no account of its
+  own, so it gets in where the gateway takes no guests
+  (`BAYLEE_GUESTS=off`), its guest cap is reached, or it is a closed beta
+  (`BAYLEE_REGISTRATION=invite`). The room lists the chair under the
+  bridge's name with the host's handle (`delegated_by`), and the game's
+  record names the host as the one who answers for it
+  (`game_record_seat.delegated_by`), never as the one who played it. A
+  host who is a guest is handed no ticket: its bridge signs in as a guest
+  named for its mind (`GuestSignIn`), as before, where the gateway takes
+  guests, and the chair's card says why not where it takes none. So does
+  an older gateway that sells no tickets (`404`): the guest door, where
+  there is one.
+- **Ready once the model answers.** Sitting is not ready. The bridge first
+  asks its mind the cheapest question its provider takes (`Mind::check`:
+  the model's entry for Anthropic, the model list for an OpenAI-compatible
+  endpoint, the tool's own login check for a CLI; never a game's call),
+  and only then says the chair is ready (a delegate with `POST
+  …/chair/ready` and its seat token, a guest with `POST …/ready`). A
+  refused key, an unknown model, an endpoint that does not answer or a CLI
+  that is not signed in stops the bridge with that reason, which is the
+  chair's card's last line, and the chair is given back. A guest bridge
+  says ready again whenever the host's rearranging took its yes back; a
+  delegate's yes is about its model and stays.
 - **Held by the client.** `--tethered`: the bridge holds its stdin from
   the client, and when that closes (the plan removed, the client quit or
   crashed) it stops as for ctrl-c and, before the game, gives its chair
-  back (`POST …/leave`), so a room never keeps a chair for a bridge that
-  is gone. A bridge that cannot start says why on the chair's card and is
-  not retried until the plan changes.
-- **Limits.** The bridge is a guest: it signs in with a display name
-  only (`GuestSignIn`, `sit_down` in `crates/baylee-seat/src/main.rs`), not
-  under the host's session, so the gateway must take guests. A gateway with
-  `BAYLEE_GUESTS=off` seats none, and under `BAYLEE_REGISTRATION=invite` a
-  new guest needs a key the client does not hand it (a terminal bridge
-  takes `--invite-key`); the chair's card then shows the gateway's
-  refusal. Joining under the host's session or an invite of its own is an
-  open item (`TODO.md`). A blitz table (30 seconds or less a decision) is refused by
-  the bridge, as from a terminal. The chair keeps the house level `steady` for its fallbacks
-  (a plan's end, a cap reached).
+  back (`POST …/leave`, or `POST …/chair/leave` with its seat token on a
+  ticket), so a room never keeps a chair for a bridge that is gone. A
+  bridge that cannot start says why on the chair's card and is not retried
+  until the plan changes. Its output can outlive the client reading it, so
+  every line it writes goes through `client_core::say!`, which drops a
+  line nobody reads rather than panicking ("failed printing to stderr:
+  Broken pipe", beta.5).
+- **Taken back.** The host empties the chair by arranging it (`POST
+  …/seats/{seat}` with a `kind`), which ends its seat token; a host who
+  leaves the room, hands it on or deletes its account takes its bridges'
+  chairs and its unspent tickets with it.
+- **Limits.** A blitz table (30 seconds or less a decision) is refused by
+  the bridge, as from a terminal. The chair keeps the house level `steady`
+  for its fallbacks (a plan's end, a cap reached).
 
 ## Changing a chair during the game
 
