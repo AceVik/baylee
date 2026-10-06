@@ -1,0 +1,19 @@
+DECISION q13 · turn 7, yours · main1 · 25 s
+
+Board as at q12, except:
+You (P1): 17 life · library 45 · hand 3 · graveyard 2
+Your battlefield, changed lines (the rest as before):
+  lands: Forest #21 (tapped), Forest #22, Mountain #23
+  no longer here: Llanowar Elves #30
+Stack (top first; the top resolves next):
+  #50 Lightning Bolt · your instant spell
+Your hand, changed lines (the rest as before):
+  no longer here: Lightning Bolt #50
+Your graveyard (2): Shock #60, Llanowar Elves #30
+
+QUESTION: You have priority.
+Options:
+  a1  Play land Mountain #52
+  a2  Cast Giant Growth #51 {G} (taps Forest #21)
+  a3  Activate Prodigal Sorcerer #31: "{T}: This creature deals 1 damage to any target."
+  p   Pass priority (if every other player passes too, #50 Lightning Bolt resolves)

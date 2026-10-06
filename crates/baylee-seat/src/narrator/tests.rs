@@ -560,9 +560,11 @@ fn a_wake_holds_its_token_budget() {
     );
     let second = narrator.wake(&again, &[], None);
     let fewer = estimate_tokens(&second.text);
+    // The same board again in its turn: told as unchanged, with no card
+    // text twice (`docs/llm-protocol.md` §"Delta wakes").
     assert!(
-        fewer < tokens,
-        "the second wake ({fewer}) repeats card text the first ({tokens}) gave"
+        fewer <= 400,
+        "the second wake ({fewer}) repeats what the first ({tokens}) gave"
     );
     assert!(!second.text.contains("New cards"));
     let prefix = estimate_tokens(&prefix(&context(), DeckText::Full));
@@ -1297,4 +1299,103 @@ fn temporary_actions_are_explicit_costed_offers_in_the_real_narrator() {
         }
     );
     assert_eq!(pending.answer_fault(&action), None);
+}
+
+/// The fixture's board told at q12, then asked again at `question` in the
+/// same turn after `change`: the narrator, and the later wake.
+fn told_again(question: u64, change: impl FnOnce(&mut PlayerView)) -> (Narrator, Request) {
+    let (mut view, log) = board();
+    let pending = priority(&view);
+    let first = request(view.clone(), pending.clone(), log);
+    let mut narrator = Narrator::new(&first.context);
+    narrator.hear(&first.log);
+    let _ = narrator.wake(&first, &[], None);
+    change(&mut view);
+    let mut later = request(view, pending, LogTail::default());
+    later.question = question;
+    (narrator, later)
+}
+
+/// A land tapped, a creature died, a spell of the seat's own cast: the
+/// later wake of the turn tells only that, against the board of q12.
+fn a_land_tapped_a_creature_gone_a_spell_cast(view: &mut PlayerView) {
+    for object in &mut view.battlefield {
+        if object.id == id(21) {
+            object.status = ObjectStatus::TAPPED;
+        }
+    }
+    view.battlefield.retain(|o| o.id != id(30));
+    view.graveyards[0].push(card(30, "Llanowar Elves"));
+    view.seats[0].graveyard_count = 2;
+    view.hand.retain(|c| c.id != id(50));
+    view.seats[0].hand_count = 3;
+    view.stack = vec![card(50, "Lightning Bolt")];
+}
+
+#[test]
+fn a_later_wake_of_the_turn_tells_what_changed_since_its_whole_board() {
+    let (narrator, later) = told_again(13, a_land_tapped_a_creature_gone_a_spell_cast);
+    let delta = narrator.clone().wake(&later, &[], None);
+    golden("delta.txt", &delta.text);
+    let mut whole = narrator;
+    whole.tell_whole_board();
+    let whole = whole.wake(&later, &[], None);
+    assert!(whole.text.contains("Your battlefield:\n  lands:"));
+    let (delta, whole) = (estimate_tokens(&delta.text), estimate_tokens(&whole.text));
+    // 260 against 351 on 2026-10-06: four of the board's seventeen lines
+    // changed, in four of its sections, and the question and its options
+    // are the same in both.
+    assert!(
+        delta * 4 <= whole * 3,
+        "the difference ({delta}) is over three quarters of the whole wake ({whole})"
+    );
+}
+
+#[test]
+fn the_board_is_whole_again_on_their_stack_a_new_turn_a_new_conversation_or_asked() {
+    let says_whole =
+        |text: &str| text.contains("P2's battlefield:") && !text.contains("Board as at");
+    // Something of the other side's on the stack: a decision to read in
+    // full.
+    let (mut narrator, later) = told_again(13, |view| {
+        let mut theirs = card(70, "Lightning Bolt");
+        theirs.controller = THEM;
+        theirs.owner = THEM;
+        view.stack = vec![theirs];
+    });
+    assert!(says_whole(&narrator.wake(&later, &[], None).text));
+    // Then a difference from that whole board, not from q12's.
+    let mut after = later.clone();
+    after.question = 14;
+    after.view.stack.clear();
+    let text = narrator.wake(&after, &[], None).text;
+    assert!(text.contains("Board as at q13, except:"), "{text}");
+    // A new turn.
+    let (mut narrator, mut later) = told_again(13, |_| {});
+    later.view.turn = 8;
+    assert!(says_whole(&narrator.wake(&later, &[], None).text));
+    // A fresh conversation.
+    let (mut narrator, later) = told_again(13, |_| {});
+    narrator.forget_cards();
+    assert!(says_whole(&narrator.wake(&later, &[], None).text));
+    // The model asked, for one message.
+    let (mut narrator, mut later) = told_again(13, |_| {});
+    narrator.tell_whole_board();
+    assert!(says_whole(&narrator.wake(&later, &[], None).text));
+    later.question = 14;
+    let text = narrator.wake(&later, &[], None).text;
+    assert!(text.contains("Board as at q13, unchanged."), "{text}");
+}
+
+#[test]
+fn a_board_that_changed_past_four_lines_in_ten_is_told_whole() {
+    // Seventeen lines; seven changed (both seats, the hand) is past 40 %.
+    let (mut narrator, later) = told_again(13, |view| {
+        view.seats[0].life = 3;
+        view.seats[1].life = 2;
+        view.hand.clear();
+        view.seats[0].hand_count = 0;
+    });
+    let text = narrator.wake(&later, &[], None).text;
+    assert!(!text.contains("Board as at"), "{text}");
 }

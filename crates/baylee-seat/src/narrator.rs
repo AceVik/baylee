@@ -2,11 +2,13 @@
 //!
 //! A language model is handed each real decision as one message (`llm-seat.md`
 //! §5.1): the header (question, turn, step, whose turn, the time to answer),
-//! the seats, the whole board, the hand and the stack, what happened since
-//! the last decision, the text of cards the conversation has not shown yet,
-//! and the question with its numbered options. The board is always whole;
-//! only the log is a delta, because a model reconciling a delta board against
-//! one two messages back attacks with creatures that died.
+//! the seats, the board, the hand and the stack, what happened since the
+//! last decision, the text of cards the conversation has not shown yet, and
+//! the question with its numbered options. The board is whole at the first
+//! wake of a turn; a later wake of the turn may tell it as what changed
+//! since that whole board ([`delta`]), never since another difference,
+//! because a model reconciling a chain of differences attacks with
+//! creatures that died.
 //!
 //! # What the model may read
 //!
@@ -41,6 +43,7 @@
 //! which way to cast once the card is cast).
 
 mod board;
+mod delta;
 mod menu;
 mod words;
 
@@ -129,6 +132,11 @@ pub struct Narrator {
     /// Whether some lines never reached the narrator (a request dropped
     /// before its mind was asked).
     gap: bool,
+    /// The last whole board this conversation was told, which a later wake
+    /// of its turn tells the board as a difference from.
+    told: Option<delta::Told>,
+    /// Whether the model asked for the whole board in the next message.
+    whole_next: bool,
 }
 
 impl Narrator {
@@ -162,6 +170,8 @@ impl Narrator {
             unread: Vec::new(),
             next: 0,
             gap: false,
+            told: None,
+            whole_next: false,
         }
     }
 
@@ -197,10 +207,18 @@ impl Narrator {
         menu::question(&table, request, self.style).1
     }
 
-    /// Forgets which cards the conversation was shown: it was replaced by a
-    /// fresh one, which carries only the deck in its prefix.
+    /// Forgets which cards and which board the conversation was shown: it
+    /// was replaced by a fresh one, which carries only the deck in its
+    /// prefix.
     pub fn forget_cards(&mut self) {
         self.shown.clear();
+        self.told = None;
+    }
+
+    /// Tells the whole board in the next wake: the model asked for it
+    /// (`board: "full"`).
+    pub const fn tell_whole_board(&mut self) {
+        self.whole_next = true;
     }
 
     /// Tells `request` as one message. `notes` are the mind's own lines
@@ -220,9 +238,30 @@ impl Narrator {
             let _ = writeln!(text, "{note}");
         }
         text.push('\n');
-        board::seats(&table, &mut text);
-        text.push('\n');
-        board::board(&table, &mut text);
+        let mut state = String::new();
+        board::seats(&table, &mut state);
+        state.push('\n');
+        board::board(&table, &mut state);
+        // Whole at a turn's first wake, when the model asked, and when the
+        // other side has something on the stack: a decision to read in
+        // full, not to reconcile.
+        let opposing = request
+            .view
+            .stack
+            .iter()
+            .any(|object| !table.ally(object.controller));
+        let difference = self
+            .told
+            .as_ref()
+            .filter(|told| told.turn == request.view.turn && !self.whole_next && !opposing)
+            .and_then(|told| delta::difference(told, &state));
+        if let Some(difference) = difference {
+            text.push_str(&difference);
+        } else {
+            text.push_str(&state);
+            self.told = Some(delta::Told::new(request.question, &table, &state));
+        }
+        self.whole_next = false;
         let log = self.take_log(&table);
         if !log.is_empty() {
             text.push_str("\nSince your last decision:\n");

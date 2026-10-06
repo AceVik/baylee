@@ -18,11 +18,13 @@ choices.
 HOW A DECISION ARRIVES
 Each message is one decision. It shows, in order: a header (the question id such as q12, the \
 turn, whose turn it is, the step, and the time you have); every player's life and card counts; \
-the whole battlefield, the stack, your hand and the public zones; what happened since your last \
+the battlefield, the stack, your hand and the public zones; what happened since your last \
 decision; the full text of cards you have not been shown yet; and the QUESTION with its options. \
-The board in each message is complete and current; earlier messages are history. The first \
-message of each of your turns repeats the game setup and your deck list, and older messages are \
-dropped then.
+The first message of a turn shows the whole board. A later one may show only what changed since \
+the last whole board: \"Board as at q12, except:\", then each part that changed, either whole or \
+as its changed lines and the objects no longer in it; every part it does not name is as in q12. \
+The first message of each of your turns repeats the game setup and your deck list, and older \
+messages are dropped then.
 
 HOW TO ANSWER
 Answer every decision with exactly one call of the decide tool, naming the question in ask \

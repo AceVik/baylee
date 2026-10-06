@@ -134,8 +134,6 @@ pub(crate) struct Seat {
     pub(crate) casting: Option<ObjectId>,
     pub(crate) transcript: Transcript,
     pub(crate) stops: Option<narrator::Stops>,
-    /// The `until` and `react` of the model's last answer.
-    pub(crate) orders: Orders,
 }
 
 impl Seat {
@@ -168,7 +166,6 @@ impl Seat {
             casting: None,
             transcript,
             stops: None,
-            orders: Orders::default(),
         }
     }
 
@@ -265,6 +262,9 @@ impl Seat {
         say: Option<&str>,
     ) -> PlayerAction {
         self.narrator = narrator;
+        if resolved.board_full {
+            self.narrator.tell_whole_board();
+        }
         self.turn = request.view.turn;
         self.notes.clear();
         self.last_by_model = true;
@@ -278,12 +278,6 @@ impl Seat {
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
         }
-        // An `until` lasts to its boundary, a wake, or the model's next
-        // answer without it: this answer's replace the last's.
-        self.orders = Orders {
-            until: resolved.until,
-            react: resolved.react,
-        };
         let view = &request.view;
         self.queue = (!resolved.plan.is_empty()).then(|| Queue {
             steps: resolved.plan.into(),
