@@ -199,6 +199,8 @@ pub struct PlayerView {
     /// Empty in every view an agent answers from, as are the three sets
     /// below: a seat the house plays is handed what it was handed before
     /// hands could be shown.
+    ///
+    /// [`SeatSetting::ShareHand`]: crate::SeatSetting::ShareHand
     pub shared_hands: Vec<SharedHand>,
     /// The teammates this seat is showing its own hand to.
     pub hand_shared_with: SeatSet,
@@ -324,6 +326,8 @@ impl PlayerView {
     /// hands the seat nothing it was not already shown.
     ///
     /// A card may come up more than once; a caller collects into a set.
+    ///
+    /// [`GrantSource::rules`]: crate::GrantSource::rules
     pub fn cards(&self) -> impl Iterator<Item = CardIndex> + '_ {
         let printed_on = self.public_objects().flat_map(|object| {
             let ability = match object.stack_item {

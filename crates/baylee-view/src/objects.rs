@@ -50,6 +50,8 @@ pub struct CardIdentity {
     /// Rules identity (index into the compiled card registry).
     pub index: CardIndex,
     /// Print identity (index into [`GameStatic::prints`]).
+    ///
+    /// [`GameStatic::prints`]: crate::GameStatic::prints
     pub print: PrintRef,
     /// Which face is currently up (MDFC, transform, flip).
     pub face: u8,
@@ -241,6 +243,8 @@ pub struct PublicObject {
     /// names the same ids, because every renderer that draws a card has a
     /// `PublicObject` in hand and would otherwise have to carry the seat
     /// list down with it. The host asserts the two agree.
+    ///
+    /// [`SeatView::commanders`]: crate::SeatView::commanders
     pub commander: bool,
     /// Status bits.
     pub status: ObjectStatus,
@@ -650,6 +654,8 @@ impl core::hash::Hash for ObjectSummaryKey {
 ///
 /// Separate from [`PublicObject`] because a card in hand has no board state and
 /// carrying the permanent-only fields would invite a client to render them.
+///
+/// [`SharedHand`]: crate::SharedHand
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct HandObject {
     /// Engine object handle.

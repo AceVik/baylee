@@ -87,6 +87,8 @@ pub struct SeatView {
     pub energy: u16,
     /// Cards in hand. Contents are only in [`PlayerView::hand`], and only for
     /// the viewing seat.
+    ///
+    /// [`PlayerView::hand`]: crate::PlayerView::hand
     pub hand_count: u32,
     /// An active public effect removes this seat's maximum hand size.
     /// False for older hosts that do not publish this optional field.

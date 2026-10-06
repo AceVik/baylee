@@ -26,6 +26,8 @@ pub const LOG_TAIL_CAP: usize = 256;
 /// client that reconnects is sent the whole log again. A seat with more than
 /// [`LOG_TAIL_CAP`] lines waiting is sent several frames with the same view
 /// and `seq`, and reads the tail in every one of them.
+///
+/// [`PlayerView`]: crate::PlayerView
 #[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub struct LogTail {
     /// Index of the first entry in this seat's log.
@@ -89,6 +91,8 @@ pub enum LogObject {
         card: Option<CardIdentity>,
         /// The registry token it is, as [`PublicObject::token`], so a line
         /// can show a token that has since left the battlefield.
+        ///
+        /// [`PublicObject::token`]: crate::PublicObject::token
         token: Option<u16>,
         /// Its name as it was then.
         name: String,
@@ -161,10 +165,16 @@ pub enum LogTarget {
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct LogAbility {
     /// Which ability of which card, as [`StackItem::Ability::ability`].
+    ///
+    /// [`StackItem::Ability::ability`]: crate::StackItem::Ability::ability
     pub ability: Option<AbilityRef>,
     /// Where its printed sentence is, as [`StackItem::Ability::text`].
+    ///
+    /// [`StackItem::Ability::text`]: crate::StackItem::Ability::text
     pub text: Option<StackText>,
     /// The card it is printed on, as [`StackItem::Ability::rules`].
+    ///
+    /// [`StackItem::Ability::rules`]: crate::StackItem::Ability::rules
     pub rules: Option<RulesFace>,
 }
 

@@ -168,6 +168,8 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 52 accompanies temporary special-action offers and answers.
 /// Version 53 distinguishes the answering actor from the resource player,
 /// projects hands inspected through control, and widens mana counters.
+///
+/// [`SubtypeSet`]: baylee_core::types::SubtypeSet
 pub const VIEW_VERSION: u32 = 53;
 
 // ------------------------------------------------------------------- targets

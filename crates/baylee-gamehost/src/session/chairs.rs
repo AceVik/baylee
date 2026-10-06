@@ -12,6 +12,8 @@ impl Session {
     /// its client declares next is the seat's mind, and if it answers
     /// before declaring anything, the record says the earlier declaration
     /// no longer holds ([`MindKind::Undeclared`]).
+    ///
+    /// [`MindKind::Undeclared`]: crate::record::MindKind::Undeclared
     pub fn socket_opened(&mut self, seat: PlayerId) {
         if let Some(unsaid) = self.unsaid.get_mut(seat.get() as usize) {
             *unsaid = true;

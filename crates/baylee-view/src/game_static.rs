@@ -64,6 +64,8 @@ pub struct SeatIdentity {
 ///
 /// Splitting this out keeps every subsequent [`PlayerView`] small: the print
 /// table alone would otherwise be re-sent on every single state change.
+///
+/// [`PlayerView`]: crate::PlayerView
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct GameStatic {
     /// View protocol version; a client refuses a mismatch.
@@ -91,6 +93,8 @@ pub struct GameStatic {
     /// choosing a table is choosing a pace, and stating it once here is what
     /// lets a seat sheet say so without a per-question warning claiming a
     /// three-second table is nearly over.
+    ///
+    /// [`PlayerView::decision_remaining_ms`]: crate::PlayerView::decision_remaining_ms
     pub decision_secs: Option<u32>,
     /// How long a seat may be gone before the house answers for it, in
     /// seconds, or `None` at a table that waits forever.
