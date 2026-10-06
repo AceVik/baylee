@@ -291,6 +291,129 @@ pub(super) fn opened() -> std::sync::MutexGuard<'static, Vec<String>> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
+fn read_only_place() -> UpdatePlace {
+    UpdatePlace {
+        read_only: Some((
+            "/Applications".into(),
+            "Permission denied (os error 13)".into(),
+        )),
+        moves: vec![MoveTo::Home, MoveTo::System],
+        ..UpdatePlace::default()
+    }
+}
+
+/// A read-only folder: the notice names the folder and the error, and
+/// offers both moves, which reach the updater as requests.
+#[test]
+fn a_read_only_folder_is_named_and_the_move_is_offered() {
+    let mut app = headless();
+    app.world_mut().insert_resource(read_only_place());
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Available {
+        version: "0.1.0-beta.6".into(),
+        page: "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.6".into(),
+        why: Why::Folder,
+    });
+    app.update();
+    let said = texts(&mut app);
+    assert!(
+        said.iter().any(|t| t
+            == "Baylee installs no updates here: it may not write to /Applications \
+                (Permission denied (os error 13)). Move it to your Applications folder and it can."),
+        "{said:?}"
+    );
+    assert!(said.iter().any(|t| t == "Move to my Applications folder"));
+    assert!(
+        said.iter()
+            .any(|t| t == "Move to Applications for all users")
+    );
+    let home = button(&mut app, &UpdateButton::Move(MoveTo::Home));
+    click(&mut app, home);
+    assert_eq!(requests(&mut app), [UpdateRequest::Move(MoveTo::Home)]);
+}
+
+/// An update that is only a link for another reason offers no move.
+#[test]
+fn no_move_is_offered_when_the_place_is_not_the_reason() {
+    let mut app = headless();
+    app.world_mut().insert_resource(read_only_place());
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Available {
+        version: "0.1.0-beta.6".into(),
+        page: "https://example.org/".into(),
+        why: Why::NotVerified,
+    });
+    app.update();
+    assert!(
+        !texts(&mut app)
+            .iter()
+            .any(|t| t == "Move to my Applications folder")
+    );
+}
+
+/// The first start after a move asks about the old copy, with no update
+/// to announce, and the answers reach the updater.
+#[test]
+fn after_a_move_the_old_copy_is_offered_to_the_trash() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<UpdatePlace>().moved = Some((
+        "/Users/p/Applications/Baylee.app".into(),
+        "/Users/p/Downloads/b/Baylee.app".into(),
+    ));
+    app.update();
+    assert_eq!(toasts(&mut app), 1);
+    let said = texts(&mut app);
+    assert!(
+        said.iter()
+            .any(|t| t == "Baylee now runs from /Users/p/Applications/Baylee.app.")
+    );
+    assert!(
+        said.iter()
+            .any(|t| t == "The old copy is still at /Users/p/Downloads/b/Baylee.app.")
+    );
+    let trash = button(&mut app, &UpdateButton::TrashOld);
+    click(&mut app, trash);
+    assert_eq!(requests(&mut app), [UpdateRequest::TrashOld]);
+    let keep = button(&mut app, &UpdateButton::KeepOld);
+    click(&mut app, keep);
+    assert_eq!(requests(&mut app), [UpdateRequest::KeepOld]);
+}
+
+/// The settings screen says where the app lies and offers the move, and
+/// follows a failure without being reopened.
+#[test]
+fn the_settings_say_where_the_app_lies() {
+    let mut app = headless();
+    let row = app.world_mut().spawn((PlaceRow, Node::default())).id();
+    app.update();
+    assert!(
+        app.world()
+            .entity(row)
+            .get::<Children>()
+            .is_none_or(|children| children.iter().next().is_none()),
+        "nothing to say, nothing said"
+    );
+    app.world_mut().insert_resource(UpdatePlace {
+        translocated: true,
+        moves: vec![MoveTo::Home],
+        ..UpdatePlace::default()
+    });
+    app.update();
+    let said = texts(&mut app);
+    assert!(
+        said.iter()
+            .any(|t| t.starts_with("macOS runs Baylee from a read-only copy")),
+        "{said:?}"
+    );
+    assert!(said.iter().any(|t| t == "Move to my Applications folder"));
+    app.world_mut().resource_mut::<UpdatePlace>().failed =
+        Some("Baylee could not be moved: full".into());
+    app.update();
+    assert!(
+        texts(&mut app)
+            .iter()
+            .any(|t| t == "Baylee could not be moved: full")
+    );
+}
+
 #[test]
 fn only_a_web_page_is_opened() {
     assert!(openable(

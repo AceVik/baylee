@@ -103,6 +103,53 @@ impl Why {
     }
 }
 
+/// Where a move can copy the app to (macOS).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MoveTo {
+    /// `~/Applications`: always this user's, no password asked.
+    Home,
+    /// `/Applications`, offered only where this user may write it.
+    System,
+}
+
+impl MoveTo {
+    fn phrase(self) -> Phrase {
+        match self {
+            Self::Home => Phrase::UpdateMoveHome,
+            Self::System => Phrase::UpdateMoveSystem,
+        }
+    }
+}
+
+/// Where the app runs, as far as updating cares, and what moving it can
+/// do. Only `native` fills it, and only on macOS offers a move; elsewhere
+/// it stays empty and draws nothing.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct UpdatePlace {
+    /// Installing is off because this user may not write the installation's
+    /// folder: the folder, and what the system answered.
+    pub read_only: Option<(String, String)>,
+    /// macOS runs the app from a read-only copy (App Translocation).
+    pub translocated: bool,
+    /// Where a move can go, in the order offered; empty, no move.
+    pub moves: Vec<MoveTo>,
+    /// A move or a trashing that failed, worded for the player.
+    pub failed: Option<String>,
+    /// The first start after a move: where it runs now, and the old copy,
+    /// offered to the Trash until the player decides.
+    pub moved: Option<(String, String)>,
+}
+
+impl UpdatePlace {
+    /// Whether the settings screen has anything to say about the place.
+    fn worth_saying(&self) -> bool {
+        self.read_only.is_some()
+            || self.translocated
+            || !self.moves.is_empty()
+            || self.failed.is_some()
+    }
+}
+
 /// What the notice says, if anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Shown {
@@ -192,6 +239,12 @@ pub enum UpdateRequest {
     CheckNow,
     /// A switch changed.
     Prefs(UpdatePrefs),
+    /// "Move to … Applications" was pressed.
+    Move(MoveTo),
+    /// The old copy after a move goes to the Trash.
+    TrashOld,
+    /// The old copy after a move stays; stop asking.
+    KeepOld,
 }
 
 /// A button of the updater's face, and what it does.
@@ -207,7 +260,17 @@ pub enum UpdateButton {
     ToggleInstall,
     /// Checks now.
     CheckNow,
+    /// Moves the app ([`UpdateRequest::Move`]).
+    Move(MoveTo),
+    /// [`UpdateRequest::TrashOld`].
+    TrashOld,
+    /// [`UpdateRequest::KeepOld`].
+    KeepOld,
 }
+
+/// The settings screen's place for [`UpdatePlace`], filled by `show_place`.
+#[derive(Component)]
+struct PlaceRow;
 
 /// The notice's panel in the lobby's corner.
 #[derive(Component)]
@@ -229,9 +292,13 @@ pub struct UpdatePlugin;
 impl Plugin for UpdatePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UpdateNotice>()
+            .init_resource::<UpdatePlace>()
             .insert_resource(UpdatePrefs::load())
             .add_message::<UpdateRequest>()
-            .add_systems(Update, (press, show_toast, show_settings).chain());
+            .add_systems(
+                Update,
+                (press, show_toast, show_settings, show_place).chain(),
+            );
     }
 }
 
@@ -262,6 +329,15 @@ fn press(
             UpdateButton::CheckNow => {
                 notice.asked = Some(Asked::Checking);
                 requests.write(UpdateRequest::CheckNow);
+            }
+            UpdateButton::Move(to) => {
+                requests.write(UpdateRequest::Move(*to));
+            }
+            UpdateButton::TrashOld => {
+                requests.write(UpdateRequest::TrashOld);
+            }
+            UpdateButton::KeepOld => {
+                requests.write(UpdateRequest::KeepOld);
             }
         }
     }
@@ -303,20 +379,18 @@ fn openable(page: &str) -> bool {
 fn show_toast(
     mut commands: Commands,
     notice: Res<UpdateNotice>,
+    place: Res<UpdatePlace>,
     phase: Option<Res<State<DuelPhase>>>,
     fonts: Option<Res<UiFonts>>,
     settings: Option<Res<ClientSettings>>,
     windows: Query<&Window>,
     toasts: Query<Entity, With<UpdateToast>>,
-    mut drawn: Local<Option<(Shown, Lang)>>,
+    mut drawn: Local<Option<(Option<Shown>, UpdatePlace, Lang)>>,
 ) {
     let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
     let in_lobby = phase.is_none_or(|p| *p.get() == DuelPhase::Closed);
-    let wanted = notice
-        .shown
-        .clone()
-        .filter(|_| !notice.hidden && in_lobby)
-        .map(|shown| (shown, lang));
+    let wanted = (in_lobby && !notice.hidden && (notice.shown.is_some() || place.moved.is_some()))
+        .then(|| (notice.shown.clone(), place.clone(), lang));
     if *drawn == wanted && (wanted.is_none() || !toasts.is_empty()) {
         return;
     }
@@ -324,11 +398,111 @@ fn show_toast(
         commands.entity(toast).despawn();
     }
     (*drawn).clone_from(&wanted);
-    let (Some((shown, lang)), Some(fonts)) = (wanted, fonts) else {
+    let (Some((shown, place, lang)), Some(fonts)) = (wanted, fonts) else {
         return;
     };
     let width = windows.iter().next().map_or(1280.0, Window::width);
-    spawn_toast(&mut commands, &fonts, Metrics::of(width), lang, &shown);
+    spawn_toast(
+        &mut commands,
+        &fonts,
+        Metrics::of(width),
+        lang,
+        shown.as_ref(),
+        &place,
+    );
+}
+
+/// The line under the headline: the exact folder and error where the
+/// installation's folder is read-only, the notice's own reason otherwise.
+fn reason_of(shown: &Shown, place: &UpdatePlace, lang: Lang) -> Option<String> {
+    match (shown, &place.read_only) {
+        (
+            Shown::Available {
+                why: Why::Folder, ..
+            },
+            Some((folder, error)),
+        ) => Some(Phrase::UpdateWhyReadOnly.fill(lang, &[folder, error])),
+        _ => shown.reason(lang).map(str::to_owned),
+    }
+}
+
+/// Whether the notice offers the move: it is only a link because of where
+/// the app lies, and a move is possible.
+fn offers_move(shown: &Shown, place: &UpdatePlace) -> bool {
+    !place.moves.is_empty()
+        && matches!(
+            shown,
+            Shown::Available {
+                why: Why::Folder | Why::MoveApp,
+                ..
+            }
+        )
+}
+
+/// One small line of text for the toast or the settings.
+fn small_line(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text: String) -> Entity {
+    commands
+        .spawn((
+            Text::new(text),
+            tf(fonts, metrics.small),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// A row of buttons that wraps.
+fn button_row(commands: &mut Commands, buttons: &[Entity]) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                column_gap: px(8),
+                row_gap: px(6),
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_children(buttons);
+    row
+}
+
+/// The move's buttons, one per destination, then what moving does, and
+/// the last failure if there was one.
+fn move_part(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    place: &UpdatePlace,
+) -> Vec<Entity> {
+    let buttons: Vec<Entity> = place
+        .moves
+        .iter()
+        .map(|to| {
+            our_button(
+                commands,
+                fonts,
+                metrics,
+                to.phrase().text(lang),
+                UpdateButton::Move(*to),
+            )
+        })
+        .collect();
+    let mut parts = vec![
+        button_row(commands, &buttons),
+        small_line(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateMoveWhat.text(lang).to_owned(),
+        ),
+    ];
+    if let Some(failed) = &place.failed {
+        parts.push(small_line(commands, fonts, metrics, failed.clone()));
+    }
+    parts
 }
 
 fn spawn_toast(
@@ -336,7 +510,8 @@ fn spawn_toast(
     fonts: &UiFonts,
     metrics: Metrics,
     lang: Lang,
-    shown: &Shown,
+    shown: Option<&Shown>,
+    place: &UpdatePlace,
 ) -> Entity {
     let toast = commands
         .spawn((
@@ -358,54 +533,78 @@ fn spawn_toast(
             GlobalZIndex(40),
         ))
         .id();
-    let headline = commands
-        .spawn((
-            Text::new(shown.headline(lang)),
-            tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(toast).add_child(headline);
-    if let Some(reason) = shown.reason(lang) {
-        let line = commands
+    let headline = |commands: &mut Commands, text: String| {
+        commands
             .spawn((
-                Text::new(reason),
-                tf(fonts, metrics.small),
-                TextColor(palette::MUTED),
+                Text::new(text),
+                tf(fonts, metrics.text),
+                TextColor(palette::INK),
                 Pickable::IGNORE,
             ))
-            .id();
-        commands.entity(toast).add_child(line);
-    }
-    let buttons = commands
-        .spawn((
-            Node {
-                column_gap: px(8),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    if let Some(page) = shown.page() {
-        let notes = our_button(
+            .id()
+    };
+    // After a move, the old copy's question comes first: it is asked once.
+    if let Some((now, old)) = &place.moved {
+        let title = headline(commands, Phrase::UpdateMoved.fill(lang, &[now]));
+        let line = small_line(
             commands,
             fonts,
             metrics,
-            Phrase::ReleaseNotes.text(lang),
-            UpdateButton::Open(page.to_owned()),
+            Phrase::UpdateOldCopy.fill(lang, &[old]),
         );
-        commands.entity(buttons).add_child(notes);
+        let trash = our_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateTrashOld.text(lang),
+            UpdateButton::TrashOld,
+        );
+        let keep = our_button(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateKeepOld.text(lang),
+            UpdateButton::KeepOld,
+        );
+        let row = button_row(commands, &[trash, keep]);
+        commands.entity(toast).add_children(&[title, line, row]);
+        if let Some(failed) = &place.failed {
+            let failed = small_line(commands, fonts, metrics, failed.clone());
+            commands.entity(toast).add_child(failed);
+        }
     }
-    let hide = our_button(
+    let mut buttons = Vec::new();
+    if let Some(shown) = shown {
+        let title = headline(commands, shown.headline(lang));
+        commands.entity(toast).add_child(title);
+        if let Some(reason) = reason_of(shown, place, lang) {
+            let line = small_line(commands, fonts, metrics, reason);
+            commands.entity(toast).add_child(line);
+        }
+        if offers_move(shown, place) {
+            for part in move_part(commands, fonts, metrics, lang, place) {
+                commands.entity(toast).add_child(part);
+            }
+        }
+        if let Some(page) = shown.page() {
+            buttons.push(our_button(
+                commands,
+                fonts,
+                metrics,
+                Phrase::ReleaseNotes.text(lang),
+                UpdateButton::Open(page.to_owned()),
+            ));
+        }
+    }
+    buttons.push(our_button(
         commands,
         fonts,
         metrics,
         Phrase::UpdateHide.text(lang),
         UpdateButton::Hide,
-    );
-    commands.entity(buttons).add_child(hide);
-    commands.entity(toast).add_child(buttons);
+    ));
+    let row = button_row(commands, &buttons);
+    commands.entity(toast).add_child(row);
     toast
 }
 
@@ -554,8 +753,71 @@ pub(crate) fn controls(
         ))
         .id();
     commands.entity(line).add_children(&[now, status]);
-    commands.entity(root).add_child(line);
+    let place = commands
+        .spawn((
+            PlaceRow,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(root).add_children(&[line, place]);
     Some(root)
+}
+
+/// Fills the settings' [`PlaceRow`] from [`UpdatePlace`]: why installing is
+/// off where the app lies, or that macOS runs it from a read-only copy, and
+/// the move. Rebuilt when the place changes or the row is new.
+fn show_place(
+    mut commands: Commands,
+    place: Res<UpdatePlace>,
+    fonts: Option<Res<UiFonts>>,
+    settings: Option<Res<ClientSettings>>,
+    windows: Query<&Window>,
+    rows: Query<(Entity, Option<&Children>), With<PlaceRow>>,
+    fresh: Query<(), Added<PlaceRow>>,
+) {
+    if !place.is_changed() && fresh.is_empty() {
+        return;
+    }
+    let Some(fonts) = fonts else {
+        return;
+    };
+    let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
+    let metrics = Metrics::of(windows.iter().next().map_or(1280.0, Window::width));
+    for (row, children) in &rows {
+        for child in children.into_iter().flatten() {
+            commands.entity(*child).despawn();
+        }
+        if !place.worth_saying() {
+            continue;
+        }
+        let said = if let Some((folder, error)) = &place.read_only {
+            Some(Phrase::UpdateWhyReadOnly.fill(lang, &[folder, error]))
+        } else if place.translocated {
+            Some(Phrase::UpdateTranslocated.text(lang).to_owned())
+        } else {
+            None
+        };
+        if let Some(said) = said {
+            let line = small_line(&mut commands, &fonts, metrics, said);
+            commands.entity(row).add_child(line);
+        }
+        if place.moves.is_empty() {
+            if let Some(failed) = &place.failed {
+                let line = small_line(&mut commands, &fonts, metrics, failed.clone());
+                commands.entity(row).add_child(line);
+            }
+        } else {
+            for part in move_part(&mut commands, &fonts, metrics, lang, &place) {
+                commands.entity(row).add_child(part);
+            }
+        }
+    }
 }
 
 /// Keeps the settings' switch labels and status line true.

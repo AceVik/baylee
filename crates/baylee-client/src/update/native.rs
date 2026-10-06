@@ -14,14 +14,19 @@
 //! (the notice says so). The release workflow marks its builds with
 //! `BAYLEE_RELEASE_BUILD=1`.
 
-use super::{Asked, Shown, UpdateNotice, UpdatePlugin, UpdatePrefs, UpdateRequest, Why};
+use super::{
+    Asked, MoveTo, Shown, UpdateNotice, UpdatePlace, UpdatePlugin, UpdatePrefs, UpdateRequest, Why,
+};
+use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_update::apply::{self, Install, Recovery, Unplaceable};
 use baylee_update::check::{Context, GITHUB_RELEASES, Manual, Outcome};
-use baylee_update::launch;
+use baylee_update::launch::{self, Blocked};
 use baylee_update::plan::Os;
+use baylee_update::relocate::{self, Destination, Moved};
 use baylee_update::service::{self, Command, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
 use bevy::prelude::*;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -132,6 +137,8 @@ impl Plugin for NativeUpdatePlugin {
             Ok(Some((install, lease))) => {
                 build.install = if lease.writable() {
                     Ok(install)
+                } else if lease.blocked() == Some(&Blocked::Translocated) {
+                    Err(Unplaceable::Translocated)
                 } else {
                     Err(Unplaceable::ReadOnly)
                 };
@@ -148,6 +155,25 @@ impl Plugin for NativeUpdatePlugin {
                 std::process::exit(1);
             }
         };
+        let exe = std::env::current_exe().ok();
+        let running = exe.as_deref().and_then(relocate::bundle_of);
+        let seen = lease.as_ref().map(Seen::of);
+        let mover = Mover {
+            source: running.clone(),
+            original: lease
+                .as_ref()
+                .and_then(|l| l.original().map(Path::to_path_buf)),
+            home: std::env::var_os("HOME").map(PathBuf::from),
+        };
+        let mut place = place_of(
+            seen.as_ref(),
+            running.is_some() && cfg!(target_os = "macos"),
+            || relocate::can_write(&Destination::System.folder(Path::new("/"))),
+        );
+        place.moved = moved_here(mover.here().as_deref());
+        app.insert_resource(place)
+            .insert_resource(mover)
+            .add_systems(Update, relocate_on_request);
         if let Some(lease) = lease {
             let _ = CLIENT_LEASE.set(lease);
         }
@@ -268,6 +294,8 @@ fn forward(mut requests: MessageReader<UpdateRequest>, updater: Res<Updater>) {
         service.send(match request {
             UpdateRequest::CheckNow => Command::CheckNow,
             UpdateRequest::Prefs(prefs) => Command::Settings(settings(*prefs)),
+            // `relocate` answers these; the thread has no part in them.
+            UpdateRequest::Move(_) | UpdateRequest::TrashOld | UpdateRequest::KeepOld => continue,
         });
     }
 }
@@ -390,6 +418,196 @@ pub(crate) fn exit_with(install: &Install, from: &str, allowed: bool, dev: bool)
         Ok(version) => format!("installed {version}; it starts next time"),
         Err(err) => format!("did not install {}: {err}", staged.version),
     })
+}
+
+/// What the launcher said about the place, as `place_of` needs it.
+pub(crate) struct Seen {
+    pub writable: bool,
+    pub blocked: Option<Blocked>,
+    pub translocated: bool,
+}
+
+impl Seen {
+    fn of(lease: &launch::ClientLease) -> Self {
+        Self {
+            writable: lease.writable(),
+            blocked: lease.blocked().cloned(),
+            translocated: lease.translocated(),
+        }
+    }
+}
+
+/// What the face says about where the app lies, and the moves it offers:
+/// on macOS, from a bundle, when installing is off where it lies or macOS
+/// translocates it. `/Applications` is offered too where this user may
+/// write it (`system_writable`, asked only then). A runtime the launcher
+/// did not start (`None`) has nothing to say.
+pub(crate) fn place_of(
+    seen: Option<&Seen>,
+    movable: bool,
+    system_writable: impl FnOnce() -> bool,
+) -> UpdatePlace {
+    let mut place = UpdatePlace::default();
+    let Some(seen) = seen else {
+        return place;
+    };
+    if let Some(Blocked::ReadOnly { folder, error }) = &seen.blocked {
+        place.read_only = Some((folder.display().to_string(), error.clone()));
+    }
+    place.translocated = seen.translocated || seen.blocked == Some(Blocked::Translocated);
+    if movable && (!seen.writable || place.translocated) {
+        place.moves.push(MoveTo::Home);
+        if system_writable() {
+            place.moves.push(MoveTo::System);
+        }
+    }
+    place
+}
+
+/// Where the move's marker is kept, beside the settings: the copy reads it
+/// at its first start to offer the old one to the Trash.
+const MOVED_FILE: &str = "moved.json";
+
+/// What the move needs to know about this process.
+#[derive(Resource, Clone, Debug)]
+pub(crate) struct Mover {
+    /// The bundle this runtime runs from: the original package (perhaps a
+    /// translocation mount of it) or the update generation the launcher
+    /// selected, which is a complete release bundle of the newest version.
+    pub source: Option<PathBuf>,
+    /// The original package, where it lies (never a mount), if known.
+    pub original: Option<PathBuf>,
+    /// The player's home.
+    pub home: Option<PathBuf>,
+}
+
+impl Mover {
+    /// The package this process belongs to, to compare with a marker.
+    fn here(&self) -> Option<PathBuf> {
+        self.original.clone().or_else(|| self.source.clone())
+    }
+
+    /// Copies the running bundle to `to`, under the original's name.
+    fn copy(&self, to: MoveTo) -> Result<PathBuf, String> {
+        let source = self
+            .source
+            .as_ref()
+            .ok_or("Baylee is not running from an app bundle")?;
+        let home = self.home.as_ref().ok_or("no home folder")?;
+        let name = self
+            .original
+            .as_deref()
+            .and_then(Path::file_name)
+            .map_or_else(
+                || "Baylee.app".to_owned(),
+                |n| n.to_string_lossy().into_owned(),
+            );
+        let folder = destination(to).folder(home);
+        relocate::copy_bundle(source, &folder, &name).map_err(|err| err.to_string())
+    }
+}
+
+fn destination(to: MoveTo) -> Destination {
+    match to {
+        MoveTo::Home => Destination::Home,
+        MoveTo::System => Destination::System,
+    }
+}
+
+/// The old copy to offer to the Trash, if the marker names this package as
+/// the copy and the old one is still there; a stale marker is removed.
+fn moved_here(here: Option<&Path>) -> Option<(String, String)> {
+    let text = crate::settings::store::read_named(MOVED_FILE)?;
+    let moved: Moved = serde_json::from_str(&text).ok()?;
+    let same = |a: &Path, b: &Path| {
+        std::fs::canonicalize(a)
+            .ok()
+            .zip(std::fs::canonicalize(b).ok())
+            .is_some_and(|(a, b)| a == b)
+    };
+    if !here.is_some_and(|here| same(here, &moved.to)) {
+        // The old copy is running again, or something else: ask the copy.
+        return None;
+    }
+    if std::fs::symlink_metadata(&moved.from).is_err() {
+        crate::settings::store::remove_named(MOVED_FILE);
+        return None;
+    }
+    Some((
+        moved.to.display().to_string(),
+        moved.from.display().to_string(),
+    ))
+}
+
+/// Answers the move's buttons: copy, start the copy and quit; or put the
+/// old copy in the Trash; or keep it. Synchronous: the copy is a clone on
+/// the same APFS volume, and a plain copy from a translocation mount took
+/// TODO s in the live check.
+fn relocate_on_request(
+    mut requests: MessageReader<UpdateRequest>,
+    mut place: ResMut<UpdatePlace>,
+    mover: Res<Mover>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
+    for request in requests.read() {
+        match request {
+            UpdateRequest::Move(to) => {
+                let copied = mover.copy(*to);
+                let started = copied.and_then(|copy| {
+                    if let Some(from) = &mover.original {
+                        let moved = Moved {
+                            from: from.clone(),
+                            to: copy.clone(),
+                        };
+                        if let Ok(text) = serde_json::to_string_pretty(&moved) {
+                            crate::settings::store::write_named(MOVED_FILE, &text);
+                        }
+                    }
+                    relocate::relaunch(&copy).map_err(|err| {
+                        format!("{} was made, but did not start ({err})", copy.display())
+                    })
+                });
+                match started {
+                    Ok(()) => {
+                        info!("updates: moved; the copy is starting, this one quits");
+                        exit.write(AppExit::Success);
+                    }
+                    Err(why) => {
+                        warn!("updates: move failed: {why}");
+                        place.failed = Some(Phrase::UpdateMoveFailed.fill(lang, &[&why]));
+                    }
+                }
+            }
+            UpdateRequest::TrashOld => {
+                let Some((_, old)) = place.moved.clone() else {
+                    continue;
+                };
+                let Some(home) = &mover.home else {
+                    continue;
+                };
+                match relocate::trash(Path::new(&old), home) {
+                    Ok(at) => {
+                        info!("updates: the old copy is in the Trash: {}", at.display());
+                        crate::settings::store::remove_named(MOVED_FILE);
+                        place.moved = None;
+                        place.failed = None;
+                    }
+                    Err(err) => {
+                        place.failed =
+                            Some(Phrase::UpdateTrashFailed.fill(lang, &[&err.to_string()]));
+                    }
+                }
+            }
+            UpdateRequest::KeepOld => {
+                crate::settings::store::remove_named(MOVED_FILE);
+                place.moved = None;
+                place.failed = None;
+            }
+            UpdateRequest::CheckNow | UpdateRequest::Prefs(_) => {}
+        }
+    }
 }
 
 #[cfg(test)]

@@ -524,10 +524,62 @@ messages! {
         en: "Baylee cannot write to its own folder, so it cannot replace itself.",
         de: "Baylee darf seinen eigenen Ordner nicht beschreiben und sich darum nicht ersetzen.",
     },
-    /// Why: macOS runs the app from a read-only copy (App Translocation).
+    /// Why: macOS runs the app from a read-only copy (App Translocation)
+    /// and would not say where the original is.
     UpdateWhyMoveApp {
-        en: "macOS runs Baylee from a read-only copy. Move Baylee.app (into Applications, say) and it can update itself.",
-        de: "macOS startet Baylee aus einer schreibgeschützten Kopie. Verschiebe Baylee.app (etwa nach „Programme“), dann kann es sich selbst aktualisieren.",
+        en: "macOS runs Baylee from a read-only copy. Move it to Applications and it can update itself.",
+        de: "macOS startet Baylee aus einer schreibgeschützten Kopie. Verschiebe es nach „Programme“, dann kann es sich selbst aktualisieren.",
+    },
+    /// Why, exactly: the folder of the installation cannot be written by
+    /// this user. `{0}` the folder, `{1}` what the system answered.
+    UpdateWhyReadOnly {
+        en: "Baylee installs no updates here: it may not write to {0} ({1}). Move it to your Applications folder and it can.",
+        de: "Baylee installiert hier keine Updates: Es darf {0} nicht beschreiben ({1}). Verschiebe es in deinen Programme-Ordner, dann kann es das.",
+    },
+    /// Settings: macOS runs the app from a read-only copy, and updates
+    /// install anyway.
+    UpdateTranslocated {
+        en: "macOS runs Baylee from a read-only copy, because it still lies where it was unpacked. Updates install anyway; moved to Applications, it starts without the detour.",
+        de: "macOS startet Baylee aus einer schreibgeschützten Kopie, weil es noch dort liegt, wo es entpackt wurde. Updates installieren sich trotzdem; nach „Programme“ verschoben, startet es ohne diesen Umweg.",
+    },
+    /// The button: copy the app into `~/Applications` and start it there.
+    UpdateMoveHome {
+        en: "Move to my Applications folder",
+        de: "In meinen Programme-Ordner verschieben",
+    },
+    /// The button: copy the app into `/Applications`, for every user.
+    UpdateMoveSystem {
+        en: "Move to Applications for all users",
+        de: "Für alle nach „Programme“ verschieben",
+    },
+    /// Under the buttons: what moving does.
+    UpdateMoveWhat {
+        en: "Copies Baylee there, starts the copy and closes this one. The old copy is deleted only if you say so.",
+        de: "Kopiert Baylee dorthin, startet die Kopie und schließt diese. Die alte Kopie wird nur gelöscht, wenn du es sagst.",
+    },
+    /// Moving failed. `{0}` why.
+    UpdateMoveFailed {
+        en: "Baylee could not be moved: {0}",
+        de: "Baylee ließ sich nicht verschieben: {0}",
+    },
+    /// The first start after a move. `{0}` where it runs now.
+    UpdateMoved {
+        en: "Baylee now runs from {0}.",
+        de: "Baylee läuft jetzt aus {0}.",
+    },
+    /// Under it. `{0}` the old copy.
+    UpdateOldCopy {
+        en: "The old copy is still at {0}.",
+        de: "Die alte Kopie liegt noch unter {0}.",
+    },
+    /// Moves the old copy to the Trash.
+    UpdateTrashOld { en: "Move old copy to Trash", de: "Alte Kopie in den Papierkorb" },
+    /// Keeps the old copy, and stops asking.
+    UpdateKeepOld { en: "Keep it", de: "Behalten" },
+    /// The Trash refused. `{0}` why.
+    UpdateTrashFailed {
+        en: "It could not be moved to the Trash ({0}); drag it there yourself if you like.",
+        de: "Sie ließ sich nicht in den Papierkorb legen ({0}); zieh sie selbst hinein, wenn du magst.",
     },
     /// Why: the download's signature or checksum did not verify.
     UpdateWhyNotVerified {

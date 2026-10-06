@@ -78,13 +78,11 @@ pub fn bundle_of(exe: &Path) -> Option<PathBuf> {
     .then(|| bundle.to_path_buf())
 }
 
-/// Whether this user can create a folder entry in `dir` (made if missing).
+/// Whether this user can create an entry in the existing folder `dir`.
 #[must_use]
 pub fn can_write(dir: &Path) -> bool {
     let probe = dir.join(format!(".baylee-probe-{}", uuid::Uuid::now_v7()));
-    fs::create_dir_all(dir).is_ok()
-        && fs::write(&probe, b"").is_ok()
-        && fs::remove_file(probe).is_ok()
+    fs::write(&probe, b"").is_ok() && fs::remove_file(probe).is_ok()
 }
 
 /// Copies the bundle at `source` into `folder` as `name`, unquarantined and

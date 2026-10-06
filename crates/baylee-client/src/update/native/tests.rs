@@ -251,6 +251,99 @@ fn an_outcome_reaches_the_notice_and_answers_a_check_the_player_asked_for() {
     assert!(matches!(notice.shown, Some(Shown::Ready { .. })));
 }
 
+fn seen(writable: bool, blocked: Option<Blocked>, translocated: bool) -> Seen {
+    Seen {
+        writable,
+        blocked,
+        translocated,
+    }
+}
+
+/// Where the launcher's word becomes the face's: an app that installs in
+/// place offers nothing; a read-only folder names itself and offers the
+/// move (both destinations only where `/Applications` is writable); a
+/// translocated app that installs anyway still offers the move.
+#[test]
+fn the_place_follows_what_the_launcher_said() {
+    let fine = place_of(Some(&seen(true, None, false)), true, || unreachable!());
+    assert_eq!(fine, UpdatePlace::default());
+
+    let read_only = Some(Blocked::ReadOnly {
+        folder: "/Applications".into(),
+        error: "Permission denied (os error 13)".into(),
+    });
+    let place = place_of(Some(&seen(false, read_only.clone(), false)), true, || false);
+    assert_eq!(
+        place.read_only,
+        Some((
+            "/Applications".into(),
+            "Permission denied (os error 13)".into()
+        ))
+    );
+    assert_eq!(place.moves, [MoveTo::Home]);
+    let place = place_of(Some(&seen(false, read_only, false)), true, || true);
+    assert_eq!(place.moves, [MoveTo::Home, MoveTo::System]);
+
+    let translocated = place_of(Some(&seen(true, None, true)), true, || false);
+    assert!(translocated.translocated);
+    assert_eq!(translocated.moves, [MoveTo::Home]);
+
+    let unknown = place_of(
+        Some(&seen(false, Some(Blocked::Translocated), true)),
+        true,
+        || false,
+    );
+    assert!(unknown.translocated);
+    assert_eq!(unknown.moves, [MoveTo::Home]);
+
+    // A launcher that predates the reasons: still the move, no words.
+    let old = place_of(Some(&seen(false, None, false)), true, || false);
+    assert_eq!(old.read_only, None);
+    assert_eq!(old.moves, [MoveTo::Home]);
+
+    // Not a bundle (Linux, Windows, `cargo run`), or no launcher: no move.
+    let place = place_of(Some(&seen(false, None, true)), false, || true);
+    assert!(place.moves.is_empty());
+    assert_eq!(place_of(None, true, || true), UpdatePlace::default());
+}
+
+/// The move copies under the original's name, so a renamed app keeps its
+/// name, and says why when there is nothing to copy.
+#[cfg(unix)]
+#[test]
+fn the_move_keeps_the_originals_name() {
+    let root = std::env::temp_dir().join(format!("baylee-client-move-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    let source = root.join("mount/Baylee.app");
+    fs::create_dir_all(source.join("Contents/MacOS")).unwrap();
+    let mover = Mover {
+        source: Some(source.clone()),
+        original: Some(root.join("Downloads/Baylee Beta.app")),
+        home: Some(root.join("home")),
+    };
+    if cfg!(target_os = "macos") {
+        // An unsigned bundle is refused by the signature check, and nothing
+        // is left behind; the signed path is `relocate`'s own test.
+        let err = mover.copy(MoveTo::Home).unwrap_err();
+        assert!(err.contains("signature"), "{err}");
+        assert_eq!(
+            fs::read_dir(root.join("home/Applications"))
+                .unwrap()
+                .count(),
+            0
+        );
+    } else {
+        let to = mover.copy(MoveTo::Home).unwrap();
+        assert_eq!(to, root.join("home/Applications/Baylee Beta.app"));
+    }
+    let nothing = Mover {
+        source: None,
+        ..mover
+    };
+    assert!(nothing.copy(MoveTo::Home).is_err());
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn every_reason_is_worded() {
     for (manual, why) in [
