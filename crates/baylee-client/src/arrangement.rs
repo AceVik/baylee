@@ -150,7 +150,8 @@ pub fn choose(
 /// two meanings"). A camera arrangement never comes here — its visit moves
 /// the camera and no card.
 ///
-/// The change tears the table (the owner, 07.10.2026; `layout::transition`):
+/// The change tears the table where the arrangement tears
+/// (`Arrangement::tears`; the owner, 07.10.2026; `layout::transition`):
 /// the stages are layouts the cards glide to, the instant layout the last of
 /// them. Reduced motion, or a table not laid out yet, takes the cut.
 pub fn lay_the_interest(mut duel: ResMut<Duel>, prefs: Option<Res<crate::prefs::Prefs>>) {
@@ -165,7 +166,9 @@ pub fn lay_the_interest(mut duel: ResMut<Duel>, prefs: Option<Res<crate::prefs::
         .or_else(|| duel.layout.clone());
     duel.tear = None;
     crate::rebuild_board(&mut duel);
-    if still {
+    // The Turntable's change is two slides: the cards glide to the instant
+    // layout.
+    if still || !duel.arrangement.tears() {
         return;
     }
     let (Some(from), Some(to)) = (from, duel.layout.clone()) else {

@@ -386,14 +386,31 @@ impl SeatSlot {
         }
         self.reclaimed = PILE_STRIP - crate::tabletop::MAT_MARGIN;
         let side = Vec2::new(self.facing.cos(), -self.facing.sin());
-        self.center -= side * (self.reclaimed * 0.5);
-        self.half_extent.x += self.reclaimed * 0.5;
+        self.center -= side * (self.reclaimed * 0.5 * self.scale);
+        self.half_extent.x += self.reclaimed * 0.5 * self.scale;
+    }
+
+    /// The pod's half extent in its own units: what a duel's pod of the same
+    /// board would measure, [`half_extent`](Self::half_extent) undrawn by
+    /// [`scale`](Self::scale). Every card-sized constant is measured against
+    /// this; every length a method here returns is then drawn at `scale`.
+    #[must_use]
+    pub fn reach(&self) -> Vec2 {
+        self.half_extent / self.scale.max(1e-3)
+    }
+
+    /// A point of the pod laid out in its own units (about its centre)
+    /// drawn where the scaled pod has it: the homothety about the centre.
+    #[must_use]
+    pub fn drawn(&self, point: Vec2) -> Vec2 {
+        self.center + (point - self.center) * self.scale
     }
 
     /// Centre of the original footprint, including the remaining pile strip.
     #[must_use]
     pub fn footprint_center(&self) -> Vec2 {
-        self.center + Vec2::new(self.facing.cos(), -self.facing.sin()) * (self.reclaimed * 0.5)
+        self.center
+            + Vec2::new(self.facing.cos(), -self.facing.sin()) * (self.reclaimed * 0.5 * self.scale)
     }
     /// Usable width of one lane inside this pod.
     #[must_use]
@@ -420,7 +437,9 @@ impl SeatSlot {
     /// advance. The creature lane additionally owns that advance margin.
     #[must_use]
     pub fn lane_height(&self) -> f32 {
-        (self.mat_depth() - crate::tabletop::MAT_LEDGE - STAGE_STEP) / LaneKind::ALL.len() as f32
+        (self.reach().y * 2.0 - crate::tabletop::MAT_LEDGE - STAGE_STEP)
+            / LaneKind::ALL.len() as f32
+            * self.scale
     }
 
     /// Where a merged card's count badge stands on this seat's rows: over
@@ -428,7 +447,9 @@ impl SeatSlot {
     /// duel's), beside its right edge where they do not (a ring's).
     #[must_use]
     pub fn badge_place(&self) -> crate::cardplate::BadgePlace {
-        crate::cardplate::BadgePlace::for_margin((self.lane_height() - CARD_HEIGHT) * 0.5)
+        crate::cardplate::BadgePlace::for_margin(
+            (self.lane_height() / self.scale.max(1e-3) - CARD_HEIGHT) * 0.5,
+        )
     }
 
     /// Centre of a lane in table space.
@@ -438,7 +459,7 @@ impl SeatSlot {
             .iter()
             .position(|l| *l == lane)
             .unwrap_or_default() as f32;
-        let h = self.lane_height();
+        let h = self.lane_height() / self.scale.max(1e-3);
         // Lane 0 (creatures) sits towards the table centre and lands at the
         // back, at every seat and whichever edge the shelf is on: where a
         // card stands is the seat's own business and does not turn round
@@ -450,9 +471,9 @@ impl SeatSlot {
         } else {
             crate::tabletop::MAT_LEDGE
         };
-        let offset_from_front = front + STAGE_STEP + (index + 0.5) * h - self.half_extent.y;
+        let offset_from_front = front + STAGE_STEP + (index + 0.5) * h - self.reach().y;
         let away = Vec2::new(self.facing.sin(), self.facing.cos());
-        self.center - away * offset_from_front
+        self.center - away * (offset_from_front * self.scale)
     }
 
     /// The row whose band of felt `point` lies in, if any: across the lane's
@@ -470,7 +491,7 @@ impl SeatSlot {
             let off = point - self.lane_center(lane);
             let depth = off.dot(forward);
             let front = if lane == LaneKind::Creatures {
-                h + STAGE_STEP
+                h + STAGE_STEP * self.scale
             } else {
                 h
             };
@@ -535,9 +556,10 @@ impl SeatSlot {
         // what put a bar 0.46 units inside its own ledge — the ink followed
         // this rectangle to the pixel and this rectangle was not the one on
         // screen.
-        let near =
-            self.center + away * (reach * (self.half_extent.y + crate::tabletop::MAT_MARGIN));
-        let far = self.center + away * (reach * (self.half_extent.y - crate::tabletop::MAT_LEDGE));
+        let near = self.center
+            + away * (reach * (self.half_extent.y + crate::tabletop::MAT_MARGIN * self.scale));
+        let far = self.center
+            + away * (reach * (self.half_extent.y - crate::tabletop::MAT_LEDGE * self.scale));
         // The length stops at the playing extent even though the band drawn
         // there runs the whole width of the mat, and that is deliberate: the
         // border is a margin for the ink to stop inside, and a bar running
@@ -558,7 +580,7 @@ impl SeatSlot {
         // The pod's own sideways direction: `away` turned a quarter to the
         // right, which for a seat facing up the table is the world's `+x`.
         let side = Vec2::new(self.facing.cos(), -self.facing.sin());
-        let out = pile.side() * (self.half_extent.x + PILE_REACH);
+        let out = pile.side() * (self.half_extent.x + PILE_REACH * self.scale);
         self.lane_center(pile.row()) + side * out
     }
 
@@ -624,8 +646,8 @@ impl SeatSlot {
             // card the pointer is on — outwards being further from the mat,
             // which is the only direction that is neither the board nor
             // another card of the fan.
-            at: self.pile_center(pile) - away * (toward * FAN_STEP * rung)
-                + side * (pile.side() * pop),
+            at: self.pile_center(pile) - away * (toward * FAN_STEP * rung * self.scale)
+                + side * (pile.side() * pop * self.scale),
             lift: FAN_FLOAT + FAN_RISE * rung,
             // A card lies flat facing its owner, and tipping it about that
             // axis raises the edge furthest from the owner. That is towards
@@ -648,7 +670,7 @@ impl SeatSlot {
     #[must_use]
     pub fn footprint(&self) -> Vec2 {
         Vec2::new(
-            self.half_extent.x + PILE_STRIP - self.reclaimed * 0.5,
+            self.half_extent.x + (PILE_STRIP - self.reclaimed * 0.5) * self.scale,
             self.half_extent.y,
         )
     }
@@ -1052,8 +1074,8 @@ impl TableLayout {
         match arrangement {
             Arrangement::UprightRing => arrangement::upright(seats, aspect),
             Arrangement::Spotlight => arrangement::spotlight(seats, aspect, interest),
+            Arrangement::Turntable => arrangement::turntable(seats, aspect, interest),
             Arrangement::Ring
-            | Arrangement::Turntable
             | Arrangement::ArcRail
             | Arrangement::Pods
             | Arrangement::TurntableRows

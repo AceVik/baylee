@@ -457,7 +457,8 @@ pub(super) fn lying_flat(slot: &SeatSlot, lift: f32) -> Transform {
         translation: to_world(slot.center, TABLE_Y + lift),
         rotation: Quat::from_rotation_y(-slot.facing)
             * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
-        scale: Vec3::ONE,
+        // A quad cut to the pod's own size, drawn at its scale.
+        scale: Vec3::splat(slot.scale),
     }
 }
 

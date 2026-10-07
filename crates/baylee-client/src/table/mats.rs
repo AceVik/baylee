@@ -367,7 +367,9 @@ pub fn sync_zones(
         seen.insert(pod.player);
         let mood = Mood::of(pod);
         let accent = seat_accent(slot);
-        let size = slot.half_extent * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
+        // Cut to the pod's own size and drawn at its scale (`lying_flat`),
+        // so the mat's bands are the duel's on a side mat too.
+        let size = slot.reach() * 2.0 + Vec2::splat(ZONE_MARGIN * 2.0);
         let params = mat_params(
             accent,
             size,
@@ -538,16 +540,18 @@ pub struct SeatMat(pub PlayerId);
 
 /// Whether two slots are the same ground: a zone built for one can be
 /// carried to the other whole.
+///
+/// Its own size, not its drawn one: a side mat brought across (a Turntable's
+/// change of interest) is the same ground drawn larger, and glides there.
 fn same_ground(a: &SeatSlot, b: &SeatSlot) -> bool {
-    a.half_extent.abs_diff_eq(b.half_extent, 1e-5)
-        && (a.reclaimed - b.reclaimed).abs() <= 1e-5
-        && (a.scale - b.scale).abs() <= 1e-5
+    a.reach().abs_diff_eq(b.reach(), 1e-4) && (a.reclaimed - b.reclaimed).abs() <= 1e-5
 }
 
 /// A seat's own frame in the world: its centre on the felt, turned by its
 /// facing.
 pub(super) fn seat_frame(slot: &SeatSlot) -> Mat4 {
-    Mat4::from_rotation_translation(
+    Mat4::from_scale_rotation_translation(
+        Vec3::splat(slot.scale),
         Quat::from_rotation_y(-slot.facing),
         to_world(slot.center, 0.0),
     )

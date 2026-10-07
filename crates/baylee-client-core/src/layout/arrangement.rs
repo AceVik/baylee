@@ -18,6 +18,7 @@ use crate::i18n::Phrase;
 
 mod pair;
 pub mod transition;
+mod turntable;
 mod upright;
 
 /// How a board square to my chair is turned (the owner, 07.10.2026: *a
@@ -37,6 +38,9 @@ pub(crate) fn facing_for(seats: &[super::Seat], index: usize) -> f32 {
     if ally { 0.0 } else { core::f32::consts::PI }
 }
 pub(super) use pair::spotlight;
+#[cfg(test)]
+pub(super) use turntable::side_scale;
+pub(super) use turntable::turntable;
 pub(super) use upright::upright;
 
 /// Whether two upright places stand a pile strip apart (the rule the
@@ -173,7 +177,10 @@ impl Arrangement {
     /// ([`Self::package`]): the owner sees the whole set from the first day.
     #[must_use]
     pub const fn built(self) -> bool {
-        matches!(self, Self::Ring | Self::UprightRing | Self::Spotlight)
+        matches!(
+            self,
+            Self::Ring | Self::UprightRing | Self::Spotlight | Self::Turntable
+        )
     }
 
     /// The work package that builds it (DESIGN-v8 §4).
@@ -209,6 +216,16 @@ impl Arrangement {
         )
     }
 
+    /// Whether a change of seat of interest tears the table
+    /// (`transition`): the arrangements that swap one far side for another
+    /// across a pair, every other seat parked (Spotlight, the Focus ring).
+    /// The Turntable's seats all stand on the felt, on both sides of any
+    /// line across it; its change is two slides (DESIGN-v8 §1 row 3).
+    #[must_use]
+    pub const fn tears(self) -> bool {
+        matches!(self, Self::Spotlight | Self::FocusRing)
+    }
+
     /// Whether it is offered at a table of `seats` on a window of `frame`
     /// (DESIGN-v8 §2.5), and if not, the sentence a greyed menu row and
     /// `/state.arrangement.reason` say instead.
@@ -227,14 +244,17 @@ impl Arrangement {
         if !self.built() {
             return Err(Phrase::ArrComing);
         }
-        let wide = matches!(frame, Wide | Vast);
         match self {
             Self::Ring
             | Self::UprightRing
             | Self::ArcRail
             | Self::Spotlight
             | Self::TurntableRows => Ok(()),
-            Self::Turntable if seats <= 4 || wide => Ok(()),
+            // Where the pair keeps the duel's size beside its flanks
+            // (measured, `every_board_is_on_screen_or_one_interest_away`:
+            // at five and six seats a 1708 window holds it and an 1180 one
+            // does not; seven and eight hold it on none).
+            Self::Turntable if seats <= 4 || (seats <= 6 && frame == Vast) => Ok(()),
             Self::Turntable => Err(Phrase::ArrNotHereSeats),
             Self::Pods => match frame {
                 Phone => Err(Phrase::ArrNotOnAPhone),
@@ -254,11 +274,14 @@ impl Arrangement {
     /// What it places the seats as at this table: itself, except the
     /// Turntable with rows, which is a rule (DESIGN-v8 §1 row 7) — Turntable
     /// up to four seats on a window that is not a phone's, Spotlight from
-    /// five or on a phone. Decided from the seat count and the frame alone,
-    /// so it never flips while a game goes on.
+    /// five or on a phone — and the Turntable on a phone, whose side mats
+    /// fold into the strip's chips (§1 row 3): the pair alone on the felt,
+    /// which is the Spotlight. Decided from the seat count and the frame
+    /// alone, so it never flips while a game goes on.
     #[must_use]
     pub fn resolve(self, seats: usize, frame: TableFrame) -> Self {
         match self {
+            Self::Turntable if frame == TableFrame::Phone => Self::Spotlight,
             Self::TurntableRows => {
                 if seats <= 4 && frame != TableFrame::Phone {
                     Self::Turntable

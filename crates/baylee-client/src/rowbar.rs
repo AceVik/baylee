@@ -116,7 +116,7 @@ pub fn lay(
     let (centre, thick) = if layout.on_felt().count() <= 2 {
         (
             slot.lane_center(lane) + back * half,
-            ((slot.lane_height() - baylee_client_core::layout::CARD_HEIGHT) * 0.5)
+            ((slot.lane_height() - baylee_client_core::layout::CARD_HEIGHT * slot.scale) * 0.5)
                 .clamp(SEAM_BAR, GRAB),
         )
     } else {

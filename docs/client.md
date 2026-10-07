@@ -857,8 +857,39 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   a chip, `F`, `H` bring a seat across through `lay_the_interest`. My
   blockers question in a layout arrangement brings the attacker across
   rather than home, so what attacks me is on the felt.
-- **The tear** (the owner's of 07.10.2026, on Spotlight; every layout
-  arrangement takes it): a change of seat of interest tears the table along
+- **Turntable** (WA4, `layout/arrangement/turntable.rs`): the pair, and
+  every other seat a **side mat** on a flank, squared to my chair
+  (`facing_for`) and drawn at `side_scale` (0.55 at three and four seats,
+  0.40 at five and six, 0.33 at seven and eight); the sides between mine
+  and the one across, clockwise, on the left from the bottom up, the rest
+  on the right from the top down, a column too tall standing up from just
+  behind my seat (`the_turntable_seats_the_pair_and_stands_the_rest_on_the_flanks`).
+  A duel's boards stretch to the canvas's width, so the pair is seated at
+  the widest aspect that leaves pair and flanks no wider than the canvas
+  (bisected): narrowed, it keeps the duel's depth and with it the duel's
+  card size; its rows fan sooner. **`SeatSlot::scale`**: `half_extent` is
+  the drawn footprint; `reach()` is the pod in its own units, every
+  geometry method (`lane_center`, `pile_center`, `ledge_corners`,
+  `lane_height`, `footprint`, `fan_pose`) answers drawn (the homothety about
+  the centre, `a_scaled_pod_is_the_duel_pod_drawn_smaller`), `Lane::pack`
+  packs in the pod's own units and `placements` draws the offsets at the
+  scale; `card_transform`, `lying_flat` and `seat_frame` carry it, so cards,
+  plates, badges and shells (children), mats, glows and piles are the
+  duel's drawn smaller (`a_side_mat_draws_its_cards_and_ground_at_its_scale`),
+  and a mat brought across glides there growing (`same_ground` compares
+  `reach`). The change of interest is two slides, no tear
+  (`Arrangement::tears`: Spotlight and the Focus ring only;
+  `a_turntable_change_slides_to_the_instant_layout_without_a_tear`). On a
+  phone it resolves to the Spotlight (its side mats fold into the strip's
+  chips). Offered at three and four seats, and at five and six on a Vast
+  window: measured (`every_board_is_on_screen_or_one_interest_away`, which
+  asks only where an arrangement is offered), at five and six a 1708 window
+  holds the across card at 40 px and an 1180 one does not, and seven and
+  eight hold it nowhere. Measured at 1708 × 1028 (creature card, projected,
+  home/as interest): four seats, mine 47, across 43, side mats 25 (44 once
+  across); three seats, across 44, the side mat 26.
+- **The tear** (the owner's of 07.10.2026, on Spotlight and the Focus ring;
+  `Arrangement::tears`): a change of seat of interest tears the table along
   a jagged, seeded line; the far piece sinks into a void under the table
   and only then the new seat's piece rises out of it in the same place and
   docks with a weld. `layout::transition::Tear` plans it as keyframes — my

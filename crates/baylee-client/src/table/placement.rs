@@ -24,6 +24,11 @@ pub(crate) fn to_world(table: Vec2, height: f32) -> Vec3 {
 }
 
 /// The transform of one card.
+///
+/// `position` is where the slot's own geometry put it (already drawn at the
+/// slot's [`scale`](SeatSlot::scale)); the card itself, and how high it
+/// stands, are drawn at that scale too — a Turntable's side mat is a duel's
+/// board drawn smaller about its centre, cards and all.
 pub(super) fn card_transform(
     slot: &SeatSlot,
     position: Vec2,
@@ -39,9 +44,9 @@ pub(super) fn card_transform(
             * Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2);
     }
     Transform {
-        translation: to_world(position, TABLE_Y + CARD_LIFT + lift),
+        translation: to_world(position, TABLE_Y + (CARD_LIFT + lift) * slot.scale),
         rotation,
-        scale: Vec3::ONE,
+        scale: Vec3::splat(slot.scale),
     }
 }
 
@@ -245,13 +250,16 @@ fn tuck(
         return false;
     }
     let forward = slot.forward();
+    // Measured in the pod's own units: a side mat folds exactly as the duel
+    // board it is drawn from would.
+    let scale = slot.scale.max(1e-3);
     let depth = if tapped { CARD_WIDTH } else { CARD_HEIGHT };
     let ahead = if lane == baylee_client_core::layout::LaneKind::Creatures {
-        (slot.center + forward * (slot.half_extent.y - tabletop::MAT_LEDGE)).dot(forward)
+        (slot.center + forward * (slot.half_extent.y - tabletop::MAT_LEDGE * scale)).dot(forward)
     } else {
         slot.lane_center(lane).dot(forward) + slot.lane_height() * 0.5
     };
-    let mut room = (ahead - position.dot(forward) - depth * 0.5).max(0.0);
+    let mut room = ((ahead - position.dot(forward)) / scale - depth * 0.5).max(0.0);
     if tapped {
         // Inside the card's footprint untapped, over whose top edge the next
         // card's badge stands in a duel ([`BadgePlace::Above`]).
@@ -259,7 +267,7 @@ fn tuck(
     }
     let n = host.attached.len() as f32;
     let folded = room + 1e-4 < ATTACH_PEEK * n;
-    let peek = if folded { 0.0 } else { ATTACH_PEEK };
+    let peek = if folded { 0.0 } else { ATTACH_PEEK * scale };
     let drop = ATTACH_DROP.min(ATTACH_DEPTH / n);
     for (k, card) in (1_u16..).zip(&host.attached) {
         let k = f32::from(k);
@@ -359,7 +367,11 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
             for (i, (group, offset)) in lane.groups.iter().zip(packing.offsets.iter()).enumerate() {
                 let along = Vec2::new(slot.facing.cos(), -slot.facing.sin());
                 let stage = if staged[i] { STAGE_STEP } else { 0.0 };
-                let position = center + along * (*offset + window.shift) + slot.forward() * stage;
+                // The row packs in the pod's own units (`Lane::pack`) and
+                // is drawn at its scale.
+                let position = center
+                    + along * ((*offset + window.shift) * slot.scale)
+                    + slot.forward() * (stage * slot.scale);
                 // Later in the row is higher, so a fanned lane shingles the
                 // way a hand of cards does — each card over the one before
                 // it, and never in bands of both.

@@ -82,7 +82,7 @@ pub(super) fn place(
                 Zone::Hand => return Some(pose_on(corners, Panel::Identity)),
             };
             let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
-            let middle = lens.project(slot.pile_center(pile) + side * 0.91)?;
+            let middle = lens.project(slot.pile_center(pile) + side * (0.91 * slot.scale))?;
             return Some((middle - panel.size() * 0.5, tilt, scale));
         }
         Some(pose_on(corners, panel))

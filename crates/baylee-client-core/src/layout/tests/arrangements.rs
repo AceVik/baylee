@@ -834,3 +834,119 @@ fn the_tear_line_is_jagged_and_never_a_comb() {
         assert!(wander > 0.4, "seed {seed}: no chunks ({wander:.2})");
     }
 }
+
+/// The Turntable (DESIGN-v8 §1 row 3): the seat of interest's side across
+/// as the duel's, at the duel's size, and every other seat a side mat on a
+/// flank, drawn at its seat count's scale and squared to my chair; the
+/// sides between mine and the one across, clockwise, on the left from the
+/// bottom up, the rest on the right from the top down — the ring's order
+/// read round from my chair.
+#[test]
+fn the_turntable_seats_the_pair_and_stands_the_rest_on_the_flanks() {
+    use super::super::arrangement::side_scale;
+    for n in 3..=8_u8 {
+        for aspect in ASPECTS {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            for across in 1..n {
+                let table = TableLayout::arranged(
+                    &roster,
+                    aspect,
+                    Arrangement::Turntable,
+                    Some(PlayerId::new(across)),
+                );
+                let what = format!("n={n} aspect={aspect} across={across}");
+                let duel = TableLayout::seated(
+                    &[
+                        Seat::alone(PlayerId::new(0)),
+                        Seat::alone(PlayerId::new(across)),
+                    ],
+                    aspect,
+                    None,
+                );
+                let there = table.slots[usize::from(across)];
+                assert!(there.center.x.abs() < 1e-3, "{what}: across, in the middle");
+                assert!(
+                    (there.scale - 1.0).abs() < 1e-6,
+                    "{what}: across at duel size"
+                );
+                assert!(
+                    table.slots.iter().all(|s| !s.parked),
+                    "{what}: nobody parked"
+                );
+                // The pair keeps the duel's depth: narrowed, not shrunk (what
+                // the camera then draws it at is measured in the client,
+                // `every_board_is_on_screen_or_one_interest_away`).
+                let (lo, hi) = table.extent().expect("seated");
+                let (dlo, dhi) = duel.extent().expect("a duel");
+                assert!(
+                    n > 6 || (hi.y - lo.y) <= (dhi.y - dlo.y) + 1e-3,
+                    "{what}: no deeper than the duel"
+                );
+                let pair_reach = there.footprint().x;
+                let left: Vec<&SeatSlot> = table.slots[1..usize::from(across)].iter().collect();
+                let right: Vec<&SeatSlot> = table.slots[usize::from(across) + 1..].iter().collect();
+                for slot in left.iter().chain(&right) {
+                    assert!(
+                        (slot.scale - side_scale(usize::from(n))).abs() < 1e-6,
+                        "{what}: {:?} drawn at {}",
+                        slot.player,
+                        slot.scale
+                    );
+                    assert!(slot.center.x.abs() > pair_reach, "{what}: on a flank");
+                    assert!((slot.facing - core::f32::consts::PI).abs() < 1e-6, "{what}");
+                }
+                assert!(left.iter().all(|s| s.center.x < 0.0), "{what}: left");
+                assert!(right.iter().all(|s| s.center.x > 0.0), "{what}: right");
+                assert!(
+                    left.windows(2).all(|w| w[0].center.y < w[1].center.y),
+                    "{what}: the left flank from the bottom up"
+                );
+                assert!(
+                    right.windows(2).all(|w| w[0].center.y > w[1].center.y),
+                    "{what}: the right flank from the top down"
+                );
+            }
+        }
+    }
+}
+
+/// A scaled pod is a duel's pod drawn smaller about its centre: every place
+/// on it (rows, piles, the ledge) is the unscaled one moved in by the
+/// scale, every length it reports is scaled, and its rows pack exactly as
+/// the duel's do — the same cards, the same overlaps, only drawn smaller.
+#[test]
+fn a_scaled_pod_is_the_duel_pod_drawn_smaller() {
+    let pair: Vec<Seat> = seats(2).into_iter().map(Seat::alone).collect();
+    let full = TableLayout::seated(&pair, HUD_ASPECT, None).slots[1];
+    for scale in [0.33_f32, 0.4, 0.55] {
+        let small = SeatSlot {
+            half_extent: full.half_extent * scale,
+            scale,
+            ..full
+        };
+        let shrunk = |p: Vec2| full.center + (p - full.center) * scale;
+        for lane in LaneKind::ALL {
+            assert!(
+                small
+                    .lane_center(lane)
+                    .distance(shrunk(full.lane_center(lane)))
+                    < 1e-4
+            );
+        }
+        for pile in [PileKind::Library, PileKind::Graveyard, PileKind::Exile] {
+            assert!(
+                small
+                    .pile_center(pile)
+                    .distance(shrunk(full.pile_center(pile)))
+                    < 1e-4
+            );
+        }
+        for (a, b) in small.ledge_corners().into_iter().zip(full.ledge_corners()) {
+            assert!(a.distance(shrunk(b)) < 1e-4);
+        }
+        assert!((small.lane_height() - full.lane_height() * scale).abs() < 1e-5);
+        assert!((small.footprint() - full.footprint() * scale).length() < 1e-4);
+        assert_eq!(small.badge_place(), full.badge_place());
+        assert!(small.reach().abs_diff_eq(full.reach(), 1e-4));
+    }
+}

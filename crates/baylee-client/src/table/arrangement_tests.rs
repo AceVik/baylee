@@ -148,6 +148,10 @@ fn every_board_is_on_screen_or_one_interest_away() {
             let duel = duel_across(window);
             let (home_floor, near_floor) = (HOME_FLOOR.min(duel * 0.9), NEAR_FLOOR.min(duel));
             for n in 3..=8 {
+                // Where it is not offered the ring is drawn instead.
+                if arrangement.offered(usize::from(n), frame).is_err() {
+                    continue;
+                }
                 for (player, seen) in seen(arrangement, n, window) {
                     let what = format!(
                         "{arrangement:?} {n} seats {window}: seat {} {seen:?}",
@@ -632,4 +636,29 @@ fn every_mat_lands_on_its_place_when_the_table_docks() {
             player.get()
         );
     }
+}
+
+/// A side mat's cards and ground are the duel's drawn smaller (DESIGN-v8 §0,
+/// `SeatSlot::scale`): a card on a scaled slot is drawn at the slot's scale
+/// and stands its lift at that scale, and the seat's frame — which every
+/// zone part is carried in — carries the scale, so a mat built on a flank
+/// and carried across grows to the duel's size with its seat. Red while
+/// cards and frames ignored the scale.
+#[test]
+fn a_side_mat_draws_its_cards_and_ground_at_its_scale() {
+    let roster: Vec<baylee_client_core::layout::Seat> = (0..4)
+        .map(|i| baylee_client_core::layout::Seat::alone(PlayerId::new(i)))
+        .collect();
+    let table = TableLayout::arranged(&roster, 2.0, Arrangement::Turntable, Some(PlayerId::new(2)));
+    let side = *table.slot(PlayerId::new(1)).expect("a flank");
+    assert!(side.scale < 1.0);
+    let at = side.pile_center(baylee_client_core::PileKind::Library);
+    let card = card_transform(&side, at, false, 0.1);
+    assert!(card.scale.abs_diff_eq(Vec3::splat(side.scale), 1e-6));
+    assert!((card.translation.y - TABLE_Y - (CARD_LIFT + 0.1) * side.scale).abs() < 1e-6);
+    let frame = seat_frame(&side);
+    let (scale, _, _) = frame.to_scale_rotation_translation();
+    assert!(scale.abs_diff_eq(Vec3::splat(side.scale), 1e-5));
+    let flat = lying_flat(&side, 0.0);
+    assert!(flat.scale.abs_diff_eq(Vec3::splat(side.scale), 1e-6));
 }

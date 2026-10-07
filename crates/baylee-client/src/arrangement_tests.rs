@@ -513,3 +513,48 @@ fn by_default_the_table_follows_the_turn() {
         }
     }
 }
+
+/// The Turntable's change of seat of interest is two slides, not a tear
+/// (DESIGN-v8 §1 row 3): every seat stands on the felt, so the cards glide
+/// straight to the instant layout — the side mat brought across at the
+/// duel's size, the one across to its flank at the side mats'. Red while
+/// every layout arrangement tore.
+#[test]
+fn a_turntable_change_slides_to_the_instant_layout_without_a_tear() {
+    use baylee_core::ids::PlayerId;
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .insert_resource(seated_duel(Arrangement::Turntable))
+        .add_systems(Update, (lay_the_interest, run_the_tear).chain());
+    let instant = {
+        let mut duel = seated_duel(Arrangement::Turntable);
+        duel.visiting = Some(PlayerId::new(1));
+        crate::rebuild_board(&mut duel);
+        duel.layout.expect("seated")
+    };
+    let before = app
+        .world()
+        .resource::<Duel>()
+        .layout
+        .as_ref()
+        .and_then(|l| l.slot(PlayerId::new(1)).copied())
+        .expect("seat 1");
+    assert!(before.scale < 1.0, "seat 1 starts on a flank");
+    crate::input::navigate_to_player(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        PlayerId::new(1),
+    );
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(std::time::Duration::from_secs_f32(1.0 / 60.0));
+    app.update();
+    let duel = app.world().resource::<Duel>();
+    assert!(duel.tear.is_none(), "no tear");
+    assert_eq!(duel.layout.as_ref(), Some(&instant), "the instant layout");
+    let across = instant.slot(PlayerId::new(1)).expect("seat 1");
+    assert!(
+        (across.scale - 1.0).abs() < 1e-6,
+        "brought across at the duel's size"
+    );
+}

@@ -465,10 +465,12 @@ impl Lane {
     /// gap after every merged card whose count badge stands beside it held
     /// at a whole cell ([`crate::layout::HELD_PITCH`]), room left of every
     /// pile for the cards under it ([`pile_reach`]), and a row that does not
-    /// fit that way scrolls ([`LanePacking::overflowing`]).
+    /// fit that way scrolls ([`LanePacking::overflowing`]). Packed in the
+    /// pod's own units ([`SeatSlot::reach`]): on a scaled pod (a Turntable's
+    /// side mat) its offsets are drawn at [`SeatSlot::scale`] by the caller.
     #[must_use]
     pub fn pack(&self, slot: &SeatSlot) -> LanePacking {
-        self.pack_at(slot.lane_width(), slot.badge_place())
+        self.pack_at(slot.lane_width() / slot.scale.max(1e-3), slot.badge_place())
     }
 
     /// [`Self::pack`] into a lane `width` wide whose badges stand at
