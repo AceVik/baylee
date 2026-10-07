@@ -47,6 +47,18 @@ pub const COMPASS_R: f32 = 1.30;
 /// number on it is never crossed.
 pub const HUB_R: f32 = 0.72;
 
+/// Where the five enamel stones stand, in table units: a band between the hub
+/// plate and the outer gold ring. They stood at the firewheel's feet (0.68,
+/// `firewheel::FOOT_RADIUS`, whose flame model the shader no longer draws)
+/// and moved out because a hub that holds three digits is wider than their
+/// old circle — the first close-up mock drew "128" across two stones.
+pub const STONE_R: f32 = 0.875;
+
+/// How far the turn hand reaches, and the priority hand.
+pub const TURN_TIP: f32 = 1.22;
+/// See [`TURN_TIP`]: the priority hand stops inside the outer gold ring.
+pub const PRIO_TIP: f32 = 1.00;
+
 /// How far apart two allies' jewels stand on their side's bearing, in
 /// radians, per seat.
 pub const ALLY_SPREAD: f32 = 0.20;
@@ -246,6 +258,8 @@ pub struct DialFacts {
     pub deciding: Vec<PlayerId>,
     /// This client's own seat.
     pub me: Option<PlayerId>,
+    /// Whether the game has ended: both hands retract, the jewels stay.
+    pub over: bool,
 }
 
 /// A light the hub plate flashes once, on a hand arriving at me.
@@ -299,19 +313,25 @@ impl Dial {
             if let Some(to) = turn_to {
                 self.turn = Hand::standing(to);
             }
-        } else if self.turn.advance(turn_to.or(Some(self.turn.to)), dt, still) {
+        } else if self.turn.advance(
+            if facts.over {
+                None
+            } else {
+                turn_to.or(Some(self.turn.to))
+            },
+            dt,
+            still,
+        ) {
             self.turn_arrived_at = Some(now);
             if facts.active.is_some() && facts.active == facts.me {
                 self.pulse = Some((Pulse::Turn, now));
             }
         }
-        if turn_to.is_some() && self.turn.length < 1.0 {
-            self.turn.length = 1.0;
-        }
+
         // Several seats deciding at once is not one direction: no hand,
         // arcs on their jewels instead (the shader reads `deciding`).
         self.priority_shown = facts.deciding.is_empty();
-        let prio_to = if self.priority_shown {
+        let prio_to = if self.priority_shown && !facts.over {
             facts.awaiting.and_then(bearing)
         } else {
             None
@@ -366,6 +386,7 @@ mod tests {
             awaiting: awaiting.map(seat),
             deciding: Vec::new(),
             me: Some(seat(0)),
+            over: false,
         }
     }
 
@@ -466,6 +487,18 @@ mod tests {
         assert_eq!(dial.pulse, None, "another seat's arrival is silent");
         run(&mut dial, &facts(1, Some(0)), 1.0);
         assert!(matches!(dial.pulse, Some((Pulse::Priority, _))));
+    }
+
+    /// A game that has ended: both hands retract into the hub.
+    #[test]
+    fn both_hands_retract_when_the_game_is_over() {
+        let mut dial = Dial::default();
+        run(&mut dial, &facts(1, Some(2)), 0.2);
+        let mut ended = facts(1, None);
+        ended.over = true;
+        run(&mut dial, &ended, 1.0);
+        assert!(dial.turn.length.abs() < 1e-6, "the turn hand is in");
+        assert!(dial.priority.length.abs() < 1e-6, "the priority hand is in");
     }
 
     /// Two allies on one side stand apart on the compass.

@@ -79,11 +79,30 @@ struct FeltParams {
     gain: f32,
     /// How thick the slab is, so the apron can be shaded down its height.
     thickness: f32,
-    rotation: f32,
+    /// How many seats stand on the dial (0 to 8).
+    seats: f32,
     pattern: vec4<f32>,
     /// The texel offset of each cellular field's cells in `vein_points`:
     /// trunk in `xy`, capillary in `zw`.
     veins: vec4<f32>,
+    /// The two hands, as table-space vectors (`baylee_client_core::dial`):
+    /// the turn hand in `xy`, the priority hand in `zw`.
+    hands: vec4<f32>,
+    /// `x` the priority hand's length (0 retracted, 1 whole), `y` whether it
+    /// points at me, `z` when the turn hand arrived, `w` when the priority
+    /// hand did — on `globals.time`'s clock.
+    dial: vec4<f32>,
+    /// `x` when the hub last pulsed, `y` which light (1 ivory, 2 teal, 0
+    /// none).
+    pulse: vec4<f32>,
+    /// Each seat's jewel direction, two per vector: `xy` then `zw`.
+    jewels: array<vec4<f32>, 4>,
+    /// Each seat's jewel colour (display-referred) in `rgb`; `a` 1 for a seat
+    /// at the table, 0.4 for one that has left, plus 2 while it is choosing
+    /// its opening hand (the mulligan arc).
+    tints: array<vec4<f32>, 8>,
+    /// A team's colour round the jewel, `a` 1 where the seat has a team.
+    teams: array<vec4<f32>, 8>,
 }
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: FeltParams;
@@ -115,6 +134,18 @@ const INLAY_GREEN: vec3<f32> = vec3<f32>(0.36, 0.66, 0.42);
 const ENGRAVING: vec3<f32> = vec3<f32>(0.52, 0.44, 0.31);
 /// Worn gold, for the firewheel's two rings.
 const GILT: vec3<f32> = vec3<f32>(0.62, 0.50, 0.26);
+/// The turn hand: ivory, v6's *am Zug*.
+const IVORY: vec3<f32> = vec3<f32>(0.95, 0.91, 0.80);
+/// The priority hand: teal, v6's *wartet* (`palette::ACCENT`).
+const TEAL: vec3<f32> = vec3<f32>(0.33, 0.75, 0.71);
+/// The dial (`baylee_client_core::dial`): compass, hub plate, stones' band.
+const COMPASS_R: f32 = 1.30;
+const HUB_R: f32 = 0.72;
+const STONE_R: f32 = 0.875;
+const STONE_SCALE: f32 = 0.80;
+const TURN_TIP: f32 = 1.22;
+const PRIO_TIP: f32 = 1.00;
+const OUTLINE: f32 = 0.012;
 
 const TAU: f32 = 6.2831855;
 
@@ -350,11 +381,13 @@ fn inlay_stone(i: u32) -> vec3<f32> {
 fn firewheel(start: vec3<f32>, table: vec2<f32>, pixel: f32, t: f32) -> vec3<f32> {
     var lit = start;
     for (var i = 0u; i < 5u; i = i + 1u) {
-        let angle = 1.5707964 - TAU * f32(i) / 5.0 + params.rotation;
+        let angle = 1.5707964 - TAU * f32(i) / 5.0;
         let axis = vec2<f32>(cos(angle), sin(angle));
         let tangent = vec2<f32>(-axis.y, axis.x);
-        let p = table - axis * 0.68;
-        let diamond = abs(dot(p, tangent)) * 0.85 + abs(dot(p, axis)) * 0.58;
+        let p = table - axis * STONE_R;
+        // A fifth smaller than at the old feet, so a stone stands between
+        // the hub plate (0.72) and the outer gold ring (1.03) and on neither.
+        let diamond = (abs(dot(p, tangent)) * 0.85 + abs(dot(p, axis)) * 0.58) / STONE_SCALE;
         var strength = params.flames_tail.x;
         if i < 4u { strength = params.flames[i]; }
         let breath = 0.72 + 0.28 * sin(t * 1.25 + f32(i) * 1.7);
@@ -367,6 +400,127 @@ fn firewheel(start: vec3<f32>, table: vec2<f32>, pixel: f32, t: f32) -> vec3<f32
         let glow = 1.0 - smoothstep(0.06, 0.36, length(p));
         lit += tint * glow * glow * (0.12 + 0.30 * strength) * breath;
     }
+    return lit;
+}
+
+// How far `p` lies outside a hand pointing along `dir` from the middle,
+// `tip` long, `root` half-wide at the pivot and `end` half-wide at the tip;
+// negative inside. A capsule-free taper: two hands per pixel, no loop.
+fn hand_distance(p: vec2<f32>, dir: vec2<f32>, tip: f32, root: f32, end: f32) -> f32 {
+    let along = dot(p, dir);
+    let across = abs(p.x * dir.y - p.y * dir.x);
+    let half = mix(root, end, clamp(along / max(tip, 1e-3), 0.0, 1.0));
+    return max(max(across - half, along - tip), -along);
+}
+
+// A light that rose at `at` and fades over 0.6 s, or the resting 0.35 when
+// the table holds still.
+fn arrival(at: f32) -> f32 {
+    if params.motion < 0.5 {
+        return 0.35;
+    }
+    let age = globals.time - at;
+    if age < 0.0 || age > 0.6 {
+        return 0.35;
+    }
+    return mix(1.0, 0.35, smoothstep(0.0, 0.6, age));
+}
+
+// The dial (DESIGN-v7 §3): one jewel per seat on the compass, the hub plate
+// the turn number stands on, and two hands — the turn hand (ivory, long,
+// tapered) at the active seat and the priority hand (teal, short, a flag at
+// its tip) at the seat the table waits for. Only inside the firewheel's reach,
+// so the other 99 % of the slab pays nothing; uniforms only.
+fn clock_face(start: vec3<f32>, table: vec2<f32>, radius: f32, pixel: f32) -> vec3<f32> {
+    var lit = start;
+    let ink = to_linear(ENGRAVING) * 0.35;
+
+    // The jewels, and a seat choosing its opening hand wears a teal arc.
+    for (var i = 0u; i < 8u; i = i + 1u) {
+        if f32(i) >= params.seats {
+            break;
+        }
+        let pair = params.jewels[i / 2u];
+        var dir = pair.xy;
+        if (i % 2u) == 1u {
+            dir = pair.zw;
+        }
+        let tint = params.tints[i];
+        let state = tint.a;
+        let at = dir * COMPASS_R;
+        let d = length(table - at);
+        if state >= 2.0 {
+            let off = abs(atan2(dir.x * table.y - dir.y * table.x, dot(dir, table)));
+            let arc = (1.0 - smoothstep(0.17, 0.18 + pixel, off))
+                * (1.0 - smoothstep(0.03 - pixel, 0.03 + pixel, abs(radius - 1.13)));
+            lit = mix(lit, to_linear(TEAL), arc * 0.9);
+        }
+        if d > 0.10 {
+            continue;
+        }
+        var colour = to_linear(tint.rgb);
+        if fract(state) > 0.01 {
+            colour = mix(to_linear(ENGRAVING), colour, 0.25) * 0.5;
+        }
+        let team = params.teams[i];
+        let ring = 1.0 - smoothstep(0.008 - pixel, 0.008 + pixel, abs(d - 0.080));
+        lit = mix(lit, to_linear(team.rgb), ring * team.a);
+        let rim = 1.0 - smoothstep(0.065 - pixel, 0.065 + pixel, d);
+        lit = mix(lit, ink, rim);
+        let body = 1.0 - smoothstep(0.055 - pixel, 0.055 + pixel, d);
+        lit = mix(lit, colour, body);
+    }
+
+    // The two hands, drawn beneath the hub plate: only what lies outside it
+    // shows, so the number on the plate is never crossed.
+    let outside = smoothstep(HUB_R - pixel, HUB_R + pixel, radius);
+    let turn_len = length(params.hands.xy);
+    if turn_len > 0.01 {
+        let dir = params.hands.xy / turn_len;
+        let tip = HUB_R + (TURN_TIP - HUB_R) * min(turn_len, 1.0);
+        let d = hand_distance(table, dir, tip, 0.035, 0.007);
+        let edge = (1.0 - smoothstep(OUTLINE - pixel, OUTLINE + pixel, d)) * outside;
+        let blade = (1.0 - smoothstep(-pixel, pixel, d)) * outside;
+        lit = mix(lit, ink, edge);
+        lit = mix(lit, to_linear(IVORY), blade);
+        let pool = 1.0 - smoothstep(0.0, 0.14, length(table - dir * tip));
+        lit += to_linear(IVORY) * pool * pool * 0.35 * arrival(params.dial.z);
+    }
+    let prio_len = params.dial.x;
+    if prio_len > 0.01 {
+        let dir = normalize(params.hands.zw);
+        let tip = HUB_R + (PRIO_TIP - HUB_R) * prio_len;
+        let bar = hand_distance(table, dir, tip, 0.014, 0.014);
+        let flag = hand_distance(table, dir, tip, 0.04, 0.04);
+        let at_flag = smoothstep(tip - 0.10 - pixel, tip - 0.10 + pixel, dot(table, dir));
+        let d = mix(bar, min(bar, flag), at_flag);
+        let edge = (1.0 - smoothstep(OUTLINE - pixel, OUTLINE + pixel, d)) * outside;
+        let body = (1.0 - smoothstep(-pixel, pixel, d)) * outside;
+        lit = mix(lit, ink, edge);
+        lit = mix(lit, to_linear(TEAL), body);
+        let pool = 1.0 - smoothstep(0.0, 0.14, length(table - dir * tip));
+        lit += to_linear(TEAL) * pool * pool * 0.35 * arrival(params.dial.w) * prio_len;
+    }
+
+    // The hub plate: the cloth darkened the way the black body is, with a
+    // gilt hairline at its edge that pulses once when a hand arrives at me.
+    let plate = 1.0 - smoothstep(HUB_R - pixel, HUB_R + pixel, radius);
+    lit = mix(lit, lit * 0.22, plate);
+    var rim_colour = to_linear(GILT) * 0.8;
+    var rim_gain = 0.75;
+    if params.pulse.y > 0.5 && params.motion > 0.5 {
+        let age = globals.time - params.pulse.x;
+        if age >= 0.0 && age <= 0.6 {
+            let swell = sin(age / 0.6 * 3.1415927) * 0.8;
+            var light = to_linear(IVORY);
+            if params.pulse.y > 1.5 {
+                light = to_linear(TEAL);
+            }
+            rim_colour = mix(rim_colour, light, swell);
+            rim_gain = rim_gain + swell * 0.25;
+        }
+    }
+    lit = mix(lit, rim_colour, hairline(radius - HUB_R, 0.010, pixel) * rim_gain);
     return lit;
 }
 
@@ -452,13 +606,12 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     colour = mix(colour, jewel, circuit * glint * 0.55);
     colour += ENGRAVING * etch * hairline(inset - 0.255, 0.035, pixel) * 0.13;
 
-    // An engraved compass around the firewheel. Low contrast and static; no
-    // animated wash ever crosses card artwork.
+    // An engraved compass around the dial. Low contrast and static: the ten
+    // rotating ticks are gone, because a spinning bezel under two hands is a
+    // clock with a loose dial (DESIGN-v7 §3.2).
     let radius = length(table);
-    let compass = hairline(radius - 1.30, 0.008, pixel);
-    let breaks = pow(abs(sin((atan2(table.y, table.x) - params.rotation) * 10.0)), 14.0);
-    let ticks = hairline(radius - 1.41, 0.065, pixel) * breaks;
-    colour = mix(colour, ENGRAVING, (compass * 0.22 + ticks * 0.16) * smoothstep(0.4, 0.8, inset));
+    let compass = hairline(radius - COMPASS_R, 0.008, pixel);
+    colour = mix(colour, ENGRAVING, compass * 0.22 * smoothstep(0.4, 0.8, inset));
 
     // The wheel's own two rings, in worn gold. They were a 512-texel quad
     // inlaid over the felt and are hairlines in the cloth now: sharper (that
@@ -473,12 +626,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // Ring wear is only evaluated in its small footprint.
     var tarnish = 0.9;
     if radius < FLAME_REACH { tarnish = 0.80 + 0.20 * vnoise(table * 6.0); }
-    let rings = clamp(
-        hairline(radius - 1.03, 0.017, pixel) * 0.85
-            + hairline(radius - 0.26, 0.010, pixel) * 0.55,
-        0.0,
-        1.0,
-    );
+    let rings = clamp(hairline(radius - 1.03, 0.017, pixel) * 0.85, 0.0, 1.0);
     colour = mix(colour, GILT * tarnish, rings);
 
     // The lamp. It enters at the active seat's own edge and runs round the
@@ -523,7 +671,9 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // detail — a flame is something the table emits, so a white one would go
     // blue at night if it were graded by the sky like the cloth under it.
     if radius < FLAME_REACH {
-        lit = firewheel(lit, table, pixel, mix(STILL_AT, globals.time, params.motion));
+        let t = mix(STILL_AT, globals.time, params.motion);
+        lit = firewheel(lit, table, pixel, t);
+        lit = clock_face(lit, table, radius, pixel);
     }
     return vec4<f32>(lit + glow, 1.0);
 }

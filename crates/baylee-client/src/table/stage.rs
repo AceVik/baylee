@@ -381,7 +381,7 @@ pub(crate) fn image_of(texture: &tabletop::Texture) -> Image {
 /// on the table, "mine" is the one edge a player never has to look for. The
 /// others take the colours of the pie in ring order, which makes a four-way
 /// game four distinguishable places rather than three anonymous opponents.
-pub(super) fn seat_accent(slot: &SeatSlot) -> Color {
+pub(crate) fn seat_accent(slot: &SeatSlot) -> Color {
     if slot.is_local {
         return Color::srgb(0.78, 0.63, 0.33);
     }

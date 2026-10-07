@@ -206,7 +206,7 @@ pub fn sync_table(
         let (veins, vein_offsets) = crate::feltmat::vein_points(span, duel.table_pattern.0);
         commands.spawn((
             DuelStage,
-            crate::compass::Compass::default(),
+            crate::dial::DialFace::default(),
             Slab {
                 cut: span,
                 shown: Vec4::ZERO,
@@ -239,9 +239,17 @@ pub fn sync_table(
                     motion,
                     gain: crate::feltmat::WASH_GAIN,
                     thickness: TABLE_THICKNESS,
-                    rotation: 0.0,
+                    seats: 0.0,
                     pattern: duel.table_pattern.0,
                     veins: vein_offsets,
+                    // The dial is written by `dial::turn_the_dial` once a
+                    // table is there; until then no hand and no jewel.
+                    hands: Vec4::ZERO,
+                    dial: Vec4::new(0.0, 0.0, -100.0, -100.0),
+                    pulse: Vec4::new(-100.0, 0.0, 0.0, 0.0),
+                    jewels: [Vec4::ZERO; 4],
+                    tints: [Vec4::ZERO; 8],
+                    teams: [Vec4::ZERO; 8],
                 },
                 veins: images.add(veins),
             })),

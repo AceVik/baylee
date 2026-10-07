@@ -291,6 +291,8 @@ pub(crate) fn table_icon_tf(fonts: &UiFonts, glyph: char, size: f32) -> TextFont
 pub(crate) mod glyph {
     /// Hourglass from the shipped Font Awesome Free cmap (until end of turn).
     pub const HOURGLASS: char = '\u{f254}';
+    /// Sun, from the same cmap: the seat whose turn it is (DESIGN-v7 §3.6).
+    pub const SUN: char = '\u{f185}';
     /// Heart (life total).
     pub const HEART: char = '\u{f004}';
     /// Hand (cards in hand).
@@ -2208,7 +2210,9 @@ pub use ledge::log::{
     sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
-pub use ledge::players::{PlayersRevision, glow_the_players, sync_players};
+pub use ledge::players::{
+    ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
+};
 pub use ledge::pool::{PoolRevision, grow_the_pool, sync_pool, zoom_the_pool};
 pub use ledge::tray::{StripRevision, TrayZones, sync_tray_strip};
 pub use ledge::{

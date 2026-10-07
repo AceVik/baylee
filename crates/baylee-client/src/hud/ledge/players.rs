@@ -36,6 +36,16 @@
 //! [`glow_the_players`] runs all three, and a player who asked for less
 //! motion gets each of them standing still at its end.
 //!
+//! # Two tags, for the two states a colour alone must not carry
+//!
+//! The candle line and the breathing border are a hue and a movement; the
+//! seat whose turn it is also wears a **☀** on an ivory tag and the seat the
+//! table waits for an **⌛** on a teal-outlined one, at the button's right end
+//! (DESIGN-v7 §3.6, v6 §3: colour and glyph, never a hue alone). Both can
+//! stand on one button. They are spawned with the button and shown or hidden
+//! by [`glow_the_players`], never rebuilt: priority moves several times a
+//! step, and a row rewritten on each move would be a row that flickers.
+//!
 //! # Narrow windows
 //!
 //! The row degrades by [`Tier`] and not by height: a strip is one line, and
@@ -273,6 +283,70 @@ pub struct TurnLine;
 #[derive(Component)]
 pub struct CameraBar;
 
+/// One of a button's two tags: whose turn it is (☀) or who the table waits
+/// for (⌛). `/state.chips` reads which are showing.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ChipTag {
+    /// The seat the button is.
+    pub player: PlayerId,
+    /// Which of the two.
+    pub kind: TagKind,
+}
+
+/// The two tags.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TagKind {
+    /// ☀, ivory: this seat's turn.
+    Turn,
+    /// ⌛, teal: the table waits for this seat.
+    Wait,
+}
+
+impl TagKind {
+    /// The name `/state.chips` prints.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Turn => "turn",
+            Self::Wait => "wait",
+        }
+    }
+
+    /// Whether this tag shows on `player`'s button in `view`.
+    #[must_use]
+    pub fn shows(self, view: &baylee_view::PlayerView, player: PlayerId) -> bool {
+        match self {
+            Self::Turn => view.active == player,
+            Self::Wait => view.awaiting == Some(player) || view.deciding.contains(player),
+        }
+    }
+}
+
+/// Shows each button's ☀ and ⌛ while they are true and hides them after;
+/// a write only where one changed.
+pub fn show_the_tags(duel: Res<Duel>, mut tags: Query<(&ChipTag, &mut Node)>) {
+    let Some(view) = duel.view.as_ref() else {
+        return;
+    };
+    for (tag, mut node) in &mut tags {
+        let want = if tag.kind.shows(view, tag.player) {
+            Display::Flex
+        } else {
+            Display::None
+        };
+        if node.display != want {
+            node.display = want;
+        }
+    }
+}
+
+/// A tag's square, logical pixels.
+const TAG: f32 = 14.0;
+
+/// The turn tag's ivory (v6 §3's *am Zug*), and the dark glyph on it.
+const TAG_IVORY: Color = Color::srgb(0.95, 0.91, 0.80);
+const TAG_INK: Color = Color::srgb(0.10, 0.09, 0.07);
+
 /// A life that has just changed, lit and easing back to its ink.
 #[derive(Component)]
 pub struct LifeFlash {
@@ -498,7 +572,7 @@ pub fn sync_players(
                     GAP_IN_TEAM
                 };
                 last_side = facts.team;
-                let button = spawn_button(&mut commands, facts, gap);
+                let button = spawn_button(&mut commands, &fonts, facts, gap);
                 let words = write(&mut commands, &fonts, facts, tier, None);
                 commands.entity(button).add_child(words);
                 button
@@ -519,7 +593,7 @@ fn ground_of(facts: &SeatFacts) -> Color {
 }
 
 /// A seat's button, with its two edge lights and nothing written on it yet.
-fn spawn_button(commands: &mut Commands, facts: &SeatFacts, gap: f32) -> Entity {
+fn spawn_button(commands: &mut Commands, fonts: &UiFonts, facts: &SeatFacts, gap: f32) -> Entity {
     let ground = ground_of(facts);
     commands
         .spawn((
@@ -579,9 +653,51 @@ fn spawn_button(commands: &mut Commands, facts: &SeatFacts, gap: f32) -> Entity 
                     BackgroundColor(CAMERA_INK.with_alpha(0.0)),
                     Pickable::IGNORE,
                 ),
+                tag(fonts, facts.player, TagKind::Turn),
+                tag(fonts, facts.player, TagKind::Wait),
             ],
         ))
         .id()
+}
+
+/// One tag, hidden until [`glow_the_players`] shows it: ☀ on ivory at the
+/// button's right end, ⌛ in a teal outline beside it.
+fn tag(fonts: &UiFonts, player: PlayerId, kind: TagKind) -> impl Bundle {
+    let (glyph, ground, rim, ink, right) = match kind {
+        TagKind::Turn => (glyph::SUN, TAG_IVORY, TAG_IVORY, TAG_INK, 2.0),
+        TagKind::Wait => (
+            glyph::HOURGLASS,
+            Color::NONE,
+            palette::ACCENT,
+            palette::ACCENT,
+            2.0 + TAG + 2.0,
+        ),
+    };
+    (
+        ChipTag { player, kind },
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(2),
+            right: px(right),
+            width: px(TAG),
+            height: px(TAG),
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(3)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            display: Display::None,
+            ..default()
+        },
+        BackgroundColor(ground),
+        BorderColor::all(rim),
+        Pickable::IGNORE,
+        children![(
+            Text::new(glyph.to_string()),
+            icon_tf(fonts, 8.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        )],
+    )
 }
 
 /// What is written on a button: the spine, the mark, the name, the numbers.
@@ -1047,6 +1163,24 @@ mod tests {
 
     /// The progress an edge runs on: there and back at its own two paces,
     /// and at the end at once for a player who asked for less motion.
+    #[test]
+    fn the_tags_follow_the_turn_and_the_wait() {
+        use baylee_client_core::test_support::ViewBuilder;
+        let mut view = ViewBuilder::new(4).build();
+        view.active = PlayerId::new(1);
+        view.awaiting = Some(PlayerId::new(2));
+        let shows = |view: &baylee_view::PlayerView, kind: TagKind| -> Vec<u8> {
+            (0..4u8)
+                .filter(|p| kind.shows(view, PlayerId::new(*p)))
+                .collect()
+        };
+        assert_eq!(shows(&view, TagKind::Turn), [1]);
+        assert_eq!(shows(&view, TagKind::Wait), [2]);
+        view.awaiting = Some(PlayerId::new(1));
+        assert_eq!(shows(&view, TagKind::Wait), [1], "both on one seat");
+        assert_eq!(shows(&view, TagKind::Turn), [1]);
+    }
+
     #[test]
     fn an_edge_arrives_slower_than_it_leaves() {
         let arriving = approach(0.0, true, TURN_IN, TURN_OUT, 0.06, false);

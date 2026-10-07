@@ -1382,6 +1382,11 @@ struct Believed<'w, 's> {
         Option<Res<'w, crate::table::CameraRig>>,
         Option<Res<'w, crate::table::CameraPose>>,
     ),
+    /// What the dial shows (DESIGN-v7 §2.7): the two hands, the arcs, the
+    /// hub's pulse and the turn number's drawn size.
+    dial: Option<Res<'w, crate::dial::DialReport>>,
+    /// The ☀ / ⌛ tags on the strip's seat buttons, and whether each shows.
+    chips: Query<'w, 's, (&'static crate::hud::ChipTag, &'static Node)>,
     /// Every card on the table, with the transform `glide` has it at right
     /// now rather than the one it is heading for, and whether it is drawn:
     /// a scrolled row does not draw the cards outside the run it shows.
@@ -1963,9 +1968,11 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
-         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement}}}",
+         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips}}}",
         shell = shell_keys_json(believed),
         camera = camera_json(believed, duel),
+        dial = dial_json(believed),
+        chips = chips_json(believed),
         arrangement = quoted(&format!("{:?}", duel.arrangement)),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
@@ -2092,6 +2099,52 @@ fn camera_json(believed: &Believed, duel: &Duel) -> String {
                 .map_or("ring", baylee_client_core::tableview::VisitFrame::name)
         ),
         pose.dial_in_frame,
+    )
+}
+
+/// The seat buttons' tags that are showing (DESIGN-v7 WT5): per seat, which
+/// of ☀ (`turn`) and ⌛ (`wait`) stand on its button.
+fn chips_json(believed: &Believed) -> String {
+    let mut seats: std::collections::BTreeMap<u8, Vec<&str>> = std::collections::BTreeMap::new();
+    for (tag, node) in &believed.chips {
+        let shown = seats.entry(tag.player.get()).or_default();
+        if node.display != Display::None {
+            shown.push(tag.kind.name());
+        }
+    }
+    let rows: Vec<String> = seats
+        .iter()
+        .map(|(seat, tags)| {
+            let tags: Vec<String> = tags.iter().map(|t| quoted(t)).collect();
+            format!("{{\"seat\":{seat},\"tags\":[{}]}}", tags.join(","))
+        })
+        .collect();
+    format!("[{}]", rows.join(","))
+}
+
+/// The dial (DESIGN-v7 §2.7): where the hands point, who is deciding, the
+/// hub's pulse, and how big the turn number and the dial are drawn.
+fn dial_json(believed: &Believed) -> String {
+    let Some(dial) = believed.dial.as_deref() else {
+        return "null".to_string();
+    };
+    let vector = |v: Option<Vec2>| {
+        v.map_or_else(
+            || "null".to_string(),
+            |v| format!("[{:.4},{:.4}]", v.x, v.y),
+        )
+    };
+    let deciding: Vec<String> = dial.deciding.iter().map(|p| p.get().to_string()).collect();
+    format!(
+        "{{\"turn_hand\":{},\"priority_hand\":{},\"deciding\":[{}],\"hub_pulse\":{:.3},\"number_px\":{:.2},\"number_w\":{:.2},\"dial_px\":{:.2},\"uploads\":{}}}",
+        vector(dial.turn_hand),
+        vector(dial.priority_hand),
+        deciding.join(","),
+        dial.hub_pulse,
+        dial.number_px,
+        dial.number_w,
+        dial.dial_px,
+        dial.uploads,
     )
 }
 

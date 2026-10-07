@@ -53,12 +53,12 @@ pub mod castmodes;
 pub mod choices;
 mod combatfx;
 pub mod combatlines;
-pub mod compass;
 pub mod depart;
 /// The dev-control harness. Native dev builds only; see the module docs for
 /// why it is a compile-time feature rather than a runtime switch.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub mod devctl;
+pub mod dial;
 pub mod face;
 pub mod feltmat;
 pub mod filterui;
@@ -1460,7 +1460,7 @@ fn add_present_systems(app: &mut App) {
                 .before(hud::sync_overlay),
             table::sync_scene,
             (table::sync_zones, table::sync_library_fan).chain(),
-            (table::sync_table, compass::rotate).chain(),
+            (table::sync_table, dial::turn_the_dial).chain(),
             sky::hang_sky,
             sky::sync_sky,
             sky::light_the_table.after(sky::sync_sky),
@@ -1650,6 +1650,7 @@ fn add_present_systems(app: &mut App) {
                     hud::sync_tray_strip.after(hud::sync_ledge),
                     hud::sync_players.after(hud::sync_ledge),
                     hud::glow_the_players.after(hud::sync_players),
+                    hud::show_the_tags.after(hud::sync_players),
                 ),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog
@@ -1836,6 +1837,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
             .init_resource::<table::CameraPose>()
+            .init_resource::<dial::DialReport>()
             .init_resource::<Reconnect>()
             .init_resource::<sheen::Sheen>()
             .init_resource::<touch::Touched>()

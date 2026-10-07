@@ -1,4 +1,4 @@
-//! Smoked glass over animated elemental strata, with a mechanical compass.
+//! Smoked glass over animated elemental strata, with the dial in the middle.
 //! Analytic reflections and caustics keep the surface in one opaque pass;
 //! card art stays unlit and independent of the eased day/night exposure.
 
@@ -71,14 +71,32 @@ pub struct FeltParams {
     pub gain: f32,
     /// How thick the slab is, so the apron can be shaded down its height.
     pub thickness: f32,
-    /// Mechanical compass angle, in radians.
-    pub rotation: f32,
+    /// How many seats stand on the dial (0 to 8): the jewels drawn.
+    pub seats: f32,
     /// Per-duel domain offset, orientation, and scale of the vascular pattern.
     pub pattern: Vec4,
     /// Where each cellular field's cells sit in [`FeltMaterial::veins`]: the
     /// texel offset of the trunk field in `xy`, of the capillary field in
     /// `zw` (`baylee_client_core::feltveins::VeinTable::offsets`).
     pub veins: Vec4,
+    /// The dial's two hands as table-space vectors (DESIGN-v7 §3.2): the turn
+    /// hand in `xy`, the priority hand in `zw`. Written by
+    /// [`crate::dial::turn_the_dial`] only while one moves.
+    pub hands: Vec4,
+    /// `x` the priority hand's length (0 retracted), `y` whether it points at
+    /// me, `z`/`w` when the turn and the priority hand last arrived, on the
+    /// shader's clock (the tip lights fade from there).
+    pub dial: Vec4,
+    /// `x` when the hub last pulsed, `y` which light: 1 ivory (the turn came
+    /// to me), 2 teal (priority did), 0 none.
+    pub pulse: Vec4,
+    /// Every seat's jewel direction, two per vector (`xy`, `zw`).
+    pub jewels: [Vec4; 4],
+    /// Every seat's jewel colour in `rgb` (display-referred); `a` 1 at the
+    /// table, 0.4 left the game, plus 2 while choosing an opening hand.
+    pub tints: [Vec4; 8],
+    /// A team's colour round the jewel; `a` 1 where the seat has a team.
+    pub teams: [Vec4; 8],
 }
 
 /// Random presentation seed, sampled once when a duel is created.

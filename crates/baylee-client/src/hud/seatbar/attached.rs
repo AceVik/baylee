@@ -31,7 +31,7 @@ impl Panel {
         match self {
             Self::Identity => Vec2::new(HEADER_W, HEADER_H),
             Self::Zone(_) => Vec2::new(54.0, HEADER_H),
-            Self::Turn => Vec2::splat(60.0),
+            Self::Turn => Vec2::new(TURN_CELL * 3.0, TURN_EM * 1.2),
             Self::Phases => Vec2::new(TRACK_H, TRACK_W),
         }
     }
@@ -61,12 +61,15 @@ pub(super) fn place(
         let corners = lens.corners(slot.ledge_corners())?;
         let (_, tilt, scale) = pose_on(corners, Panel::Identity);
         if matches!(panel, Panel::Turn) {
+            // The number's size rule (DESIGN-v7 §3.4): a share of the dial's
+            // drawn diameter, floored at 16 px and capped at 40, so a turn
+            // past 100 reads at eight seats and does not shout on a visit.
             let middle = lens.project(Vec2::ZERO)?;
-            let edge = lens.project(Vec2::X * 0.25)?;
+            let across = crate::dial::dial_px(lens)?;
             return Some((
                 middle - panel.size() * 0.5,
                 0.0,
-                (middle.distance(edge) / 24.0).min(1.4),
+                baylee_client_core::dial::number_px(across) / TURN_EM,
             ));
         }
         if let Panel::Zone(zone) = panel {
@@ -748,7 +751,21 @@ pub(crate) fn highlight_player(
     }
 }
 
+/// The turn number's drawn em at scale 1, in logical pixels; [`place`]
+/// scales the panel to the dial's size rule from here.
+const TURN_EM: f32 = 40.0;
+
+/// One digit's cell: [`baylee_client_core::dial::CELL_EM`] of the em, wide
+/// enough for Faustina's widest figure at weight 800.
+const TURN_CELL: f32 = baylee_client_core::dial::CELL_EM * TURN_EM;
+
 /// Kept in the same retained tree as the seats, rebuilt only on game changes.
+///
+/// Each digit stands in a fixed cell of its own rather than in one run of
+/// text: Faustina's figures are proportional (a `1` is 444/1000 em, a `0`
+/// 616), so 99 → 100 would shuffle the digits and 7, 77, 777 would each sit
+/// off the hub's centre by a different amount. Cells make the number
+/// tabular without asking the font for `tnum` (DESIGN-v7 §3.4).
 pub(super) fn spawn_turn(
     commands: &mut Commands,
     root: Entity,
@@ -756,17 +773,41 @@ pub(super) fn spawn_turn(
     fonts: &UiFonts,
 ) {
     let panel = frame(commands, root, view.seat, Panel::Turn);
-    let number = commands
+    let row = commands
         .spawn((
-            Text::new(view.turn.to_string()),
-            tf_serif(fonts, 34.0, 800),
-            TextLayout::justify(Justify::Center),
-            bevy::text::LineHeight::Px(34.0),
-            TextColor(palette::CANDLE),
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(panel).add_child(number);
+    for digit in view.turn.to_string().chars() {
+        let cell = commands
+            .spawn((
+                Node {
+                    width: px(TURN_CELL),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+                children![(
+                    Text::new(digit.to_string()),
+                    tf_serif(fonts, TURN_EM / crate::hud::SERIF_SCALE, 800),
+                    TextLayout::justify(Justify::Center),
+                    bevy::text::LineHeight::Px(TURN_EM),
+                    TextColor(palette::CANDLE),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(row).add_child(cell);
+    }
+    commands.entity(panel).add_child(row);
 }
 
 #[cfg(test)]
