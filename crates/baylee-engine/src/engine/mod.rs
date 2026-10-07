@@ -1787,6 +1787,8 @@ mod leave_probe_tests;
 #[cfg(test)]
 mod leave_tests;
 #[cfg(test)]
+mod loop_false_positive_tests;
+#[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
 mod m2_tests;
