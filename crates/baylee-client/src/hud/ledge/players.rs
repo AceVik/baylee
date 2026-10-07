@@ -879,7 +879,7 @@ pub fn glow_the_players(
         let player = button.player;
         let turn = view.is_some_and(|v| v.active == player);
         let waited = view.is_some_and(|v| v.awaiting == Some(player));
-        let framed = match duel.focus {
+        let framed = match duel.visiting {
             Some(focus) => focus == player,
             None => view.is_some_and(|v| v.seat == player),
         };

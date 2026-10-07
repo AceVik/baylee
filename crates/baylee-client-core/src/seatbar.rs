@@ -318,17 +318,27 @@ impl Density {
     /// cannot hold two rows of ink would be drawing the second one on the
     /// creature lane behind it.
     ///
-    /// Depth is asked *only* about the split form. The four single-row forms
-    /// are a ladder in length and answering "too deep for a bar at all" with
-    /// a poorer bar would be answering the wrong question: a shelf too
-    /// shallow for the mark form is a table nothing can be written on, and
-    /// dropping to a form that is no shorter would not help.
+    /// The four single-row forms are a ladder in length, and their ink is a
+    /// ladder in height as well (28, 28, 16, 14 px with the halo): a shelf
+    /// long enough for a form but too shallow for its ink steps down the
+    /// ladder until the ink fits, so a bar never stands on the creature lane
+    /// behind its ledge. That happens on a steep ring's far seats, whose
+    /// ledges foreshorten (DESIGN-v7's 0.62 lean at seven and eight seats). A
+    /// shelf too shallow even for the mark form keeps the mark: a table
+    /// nothing can be written on is not helped by writing less.
     #[must_use]
     pub fn for_shelf(length: f32, depth: f32, designated: bool) -> Self {
         if length >= Self::Split.min_length(designated) && depth >= Self::Split.ink_height() {
             return Self::Split;
         }
-        Self::for_length(length, designated)
+        let ladder = [Self::Full, Self::Compact, Self::Pip, Self::Mark];
+        let first = Self::for_length(length, designated);
+        ladder
+            .iter()
+            .skip_while(|form| **form != first)
+            .find(|form| depth >= form.ink_height())
+            .copied()
+            .unwrap_or(Self::Mark)
     }
 
     /// The shortest shelf this density may be drawn on.
@@ -1236,5 +1246,23 @@ mod tests {
                 Density::for_length(min - 0.5, designated)
             );
         }
+    }
+
+    /// A shelf long enough for the pip form but a pixel too shallow for its
+    /// ink takes the mark form, whose ink fits: a steep ring's far ledges
+    /// foreshorten, and a bar must not stand on the lane behind its ledge.
+    #[test]
+    fn a_shallow_shelf_steps_down_until_the_ink_fits() {
+        let length = Density::Pip.min_length(false) + 1.0;
+        assert_eq!(Density::for_length(length, false), Density::Pip);
+        let shallow = Density::Pip.ink_height() - 1.0;
+        assert!(shallow >= Density::Mark.ink_height());
+        assert_eq!(Density::for_shelf(length, shallow, false), Density::Mark);
+        assert_eq!(
+            Density::for_shelf(length, Density::Pip.ink_height(), false),
+            Density::Pip,
+            "a shelf deep enough keeps its form"
+        );
+        assert_eq!(Density::for_shelf(length, 1.0, false), Density::Mark);
     }
 }

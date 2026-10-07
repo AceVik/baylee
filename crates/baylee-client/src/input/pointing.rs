@@ -24,7 +24,6 @@ pub fn pointer(
     parents: Query<&ChildOf>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
-    mut rig: ResMut<crate::table::CameraRig>,
     mut touched: ResMut<crate::touch::Touched>,
     keys: Option<Res<ButtonInput<KeyCode>>>,
 ) {
@@ -67,12 +66,11 @@ pub fn pointer(
             {
                 continue;
             }
-            // Your own tab (or the already-focused one) brings the camera
-            // home; any other opponent's tab frames their pod.
-            if duel.seat() == Some(tab.player) || duel.focus == Some(tab.player) {
-                navigate_home(&mut duel, &mut rig);
-            } else {
-                navigate_to_player(&mut duel, &mut rig, tab.player);
+            // Your own tab, or the one being visited, brings the camera
+            // home; any other seat's tab visits it.
+            match baylee_client_core::tableview::press(duel.seat(), duel.visiting, tab.player) {
+                Some(seat) => navigate_to_player(&mut duel, seat),
+                None => navigate_home(&mut duel),
             }
             continue;
         }
@@ -541,39 +539,36 @@ fn hover_zone(view: &baylee_view::PlayerView, object: ObjectId) -> Option<HoverZ
         .then_some(HoverZone::Shown)
 }
 
-/// Navigates the camera to a seat.s pod, framing it in the free canvas
-/// area (clear of the tab strip and the hand zone), cards upright. Also
-/// marks the seat as the layout.s focus so its pod is enlarged.
-pub fn navigate_to_player(
-    duel: &mut Duel,
-    rig: &mut crate::table::CameraRig,
-    player: baylee_core::ids::PlayerId,
-) {
-    let Some(slot) = duel.layout.as_ref().and_then(|l| l.slot(player).copied()) else {
+/// Sends the camera to stand behind a seat (DESIGN-v7 §2.2): its board
+/// upright above the hand, nothing on the felt moved.
+///
+/// This only names the seat; [`crate::table::frame_table`] computes the shot
+/// on the next tick, from the layout and the window as they stand then, and
+/// [`crate::table::apply_camera_rig`] orbits there. My own seat is home.
+pub fn navigate_to_player(duel: &mut Duel, player: baylee_core::ids::PlayerId) {
+    if duel.seat() == Some(player)
+        || duel
+            .layout
+            .as_ref()
+            .is_none_or(|layout| layout.slot(player).is_none())
+    {
+        duel.visiting = None;
         return;
-    };
-    let world = Vec2::new(slot.center.x, -slot.center.y);
-    *rig = crate::table::CameraRig::framing(&slot, world);
-    duel.focus = Some(player);
-    // Aimed on purpose, so the table stops framing itself: this is the *one*
-    // seat the player asked to look at, and re-framing the whole ring on the
-    // next resize would take it away from them.
-    duel.camera_held = true;
-    crate::rebuild_board(duel);
+    }
+    if duel.visiting != Some(player) {
+        duel.visiting = Some(player);
+    }
 }
 
-/// Returns the camera to the view behind the local seat that takes in the
-/// whole table.
+/// Brings the camera home: the whole ring, behind the local seat.
 ///
-/// The rig is set back to its default rather than to that framing, because
-/// the framing depends on the window and on the layout this call is about to
-/// change: `table::frame_table` recognises the default as "nobody aimed this"
-/// and puts the table back in frame on the next tick.
-pub fn navigate_home(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
-    *rig = crate::table::CameraRig::default();
-    duel.focus = None;
-    duel.camera_held = false;
-    crate::rebuild_board(duel);
+/// Clearing the visit is the whole of it — `frame_table` re-frames the home
+/// shot on the next tick and the camera orbits back. Nothing is rebuilt,
+/// because a visit never changed the layout.
+pub fn navigate_home(duel: &mut Duel) {
+    if duel.visiting.is_some() {
+        duel.visiting = None;
+    }
 }
 
 /// Stack navigation must not steal a pending target choice.

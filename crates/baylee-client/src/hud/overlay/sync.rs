@@ -101,7 +101,7 @@ pub fn sync_overlay(
         i.focus_position()
             .map(|(focus, count)| (focus, count, i.declared()))
     });
-    let focus = duel.focus;
+    let focus = duel.visiting;
     let preview_scale = settings.preview_scale;
     let armed_deed = duel.armed.clone();
     // Rounded to whole pixels: a window being dragged reports fractional

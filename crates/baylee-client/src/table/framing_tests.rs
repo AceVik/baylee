@@ -17,6 +17,7 @@ fn app(window: Vec2) -> App {
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .init_resource::<CameraRig>()
+        .init_resource::<CameraPose>()
         .init_resource::<Duel>()
         .add_systems(Update, frame_table);
     let mut w = Window::default();
@@ -90,16 +91,10 @@ fn opponent() -> PlayerId {
     PlayerId::new(1)
 }
 
-/// Frames that seat the way the `F` key and a tap on its board do.
+/// Visits that seat the way the `F` key and a press on its button do.
 fn look_at_a_seat(app: &mut App) {
-    let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");
-    let mut rig = app
-        .world_mut()
-        .remove_resource::<CameraRig>()
-        .expect("a rig");
-    crate::input::navigate_to_player(&mut duel, &mut rig, opponent());
-    app.world_mut().insert_resource(duel);
-    app.world_mut().insert_resource(rig);
+    let mut duel = app.world_mut().resource_mut::<Duel>();
+    crate::input::navigate_to_player(&mut duel, opponent());
     app.update();
 }
 
@@ -117,8 +112,8 @@ fn nothing_a_hand_does_moves_the_table() {
         "a hand still moves the table"
     );
     assert!(
-        !app.world().resource::<Duel>().camera_held,
-        "and it takes the camera off the table on the way"
+        app.world().resource::<Duel>().visiting.is_none(),
+        "and it sends the camera visiting on the way"
     );
 }
 
@@ -153,58 +148,63 @@ fn the_table_is_still_framed_after_every_gesture() {
     );
 }
 
-/// And the other direction, which is the whole of what is left: looking at
-/// one seat *is* a view the player asked for, so it holds — and holding is
-/// what stops the next resize from taking it away again.
+/// And the other direction: a visit is a view the player asked for, so it
+/// stays a visit through a resize — re-fitted to the new window, never
+/// dropped back to the home shot (DESIGN-v7 §2.4).
 ///
 /// This is the counter-test the test above needs. Without it a rig that
 /// nothing could move for a quite different reason — the system unhooked,
 /// the layout missing — would pass by standing still.
 #[test]
-fn looking_at_one_seat_holds_the_camera() {
+fn looking_at_one_seat_holds_the_visit() {
     let mut app = app(WINDOW);
     let before = *app.world().resource::<CameraRig>();
 
     look_at_a_seat(&mut app);
     let after = *app.world().resource::<CameraRig>();
     assert_ne!(after.target, before.target, "the seat was never framed");
-    assert!(
-        app.world().resource::<Duel>().camera_held,
-        "a seat the player asked to see can only mean the camera"
+    assert_eq!(
+        app.world().resource::<Duel>().visiting,
+        Some(opponent()),
+        "a seat the player asked to see is the visit"
     );
 
+    let wider = Vec2::new(2400.0, 1052.0);
     let mut windows = app.world_mut().query::<&mut Window>();
     windows
         .iter_mut(app.world_mut())
         .next()
         .expect("a window")
         .resolution
-        .set(2400.0, 1052.0);
+        .set(wider.x, wider.y);
     app.update();
+    let layout = app
+        .world()
+        .resource::<Duel>()
+        .layout
+        .clone()
+        .expect("a layout");
+    let visit = CameraRig::visit(&layout, Canvas::hud(wider), opponent(), Shot::default())
+        .expect("the seat is at the table")
+        .0;
     assert_eq!(
         *app.world().resource::<CameraRig>(),
-        after,
-        "a resize does not take back a view the player asked for"
+        visit,
+        "a resize re-fits the visit rather than taking it away"
     );
 }
 
 /// `navigate_home` is the way back, and it is the *only* way back a key
-/// or a chip needs to know about: it asks for the one rig that means
-/// nobody aimed this.
+/// or a chip needs to know about: it clears the visit, and the next tick
+/// frames the whole table again.
 #[test]
 fn going_home_gives_the_camera_back_to_the_table() {
     let mut app = app(WINDOW);
     look_at_a_seat(&mut app);
-    assert!(app.world().resource::<Duel>().camera_held);
+    assert!(app.world().resource::<Duel>().visiting.is_some());
 
-    let mut duel = app.world_mut().remove_resource::<Duel>().expect("a duel");
-    let mut rig = app
-        .world_mut()
-        .remove_resource::<CameraRig>()
-        .expect("a rig");
-    crate::input::navigate_home(&mut duel, &mut rig);
-    app.world_mut().insert_resource(duel);
-    app.world_mut().insert_resource(rig);
+    let mut duel = app.world_mut().resource_mut::<Duel>();
+    crate::input::navigate_home(&mut duel);
     app.update();
 
     let layout = app
@@ -213,10 +213,108 @@ fn going_home_gives_the_camera_back_to_the_table() {
         .layout
         .clone()
         .expect("a layout");
-    assert!(!app.world().resource::<Duel>().camera_held);
+    assert!(app.world().resource::<Duel>().visiting.is_none());
     assert_eq!(
         *app.world().resource::<CameraRig>(),
         CameraRig::home(&layout, Canvas::hud(WINDOW)),
         "and the table framed itself again on the next tick"
     );
+}
+
+/// A visit moves no card: the layout every `Motion` target is read from is
+/// the same before and after it, and after the return (DESIGN-v7 §2.5).
+#[test]
+fn a_visit_moves_no_card() {
+    let mut app = app(WINDOW);
+    let before = app.world().resource::<Duel>().layout.clone();
+    look_at_a_seat(&mut app);
+    assert_eq!(
+        app.world().resource::<Duel>().layout,
+        before,
+        "a visit re-seated the table"
+    );
+    let mut duel = app.world_mut().resource_mut::<Duel>();
+    crate::input::navigate_home(&mut duel);
+    app.update();
+    assert_eq!(app.world().resource::<Duel>().layout, before);
+}
+
+fn view(active: u8) -> baylee_view::PlayerView {
+    let mut view = baylee_client_core::test_support::ViewBuilder::new(4).build();
+    view.active = PlayerId::new(active);
+    view
+}
+
+/// The camera comes home by itself on my turn's start and on my own combat
+/// question, and on nothing else: not another seat's turn, not my priority.
+#[test]
+fn the_camera_comes_home_on_my_turn_and_my_combat_question_only() {
+    let mut duel = Duel::default();
+    duel.receive_view(view(1));
+    duel.visiting = Some(PlayerId::new(2));
+    duel.receive_view(view(2));
+    assert_eq!(duel.visiting, Some(PlayerId::new(2)), "no auto-follow");
+    duel.receive_choice(baylee_engine::choice::Pending::Priority {
+        player: PlayerId::new(0),
+        legal: Box::default(),
+    });
+    assert_eq!(
+        duel.visiting,
+        Some(PlayerId::new(2)),
+        "my priority keeps the visit"
+    );
+    duel.receive_choice(baylee_engine::choice::Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: PlayerId::new(0),
+        attacker: PlayerId::new(2),
+        blockers: Vec::new(),
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+        bounds: Vec::new(),
+    });
+    assert_eq!(duel.visiting, None, "my blockers bring it home");
+    duel.visiting = Some(PlayerId::new(3));
+    duel.receive_view(view(0));
+    assert_eq!(duel.visiting, None, "my turn brings it home");
+}
+
+/// A visit is a timed orbit: the shown camera reaches the rig in about the
+/// orbit's 0.55 s and not in the first frame; under reduced motion it is
+/// there the same frame.
+#[test]
+fn a_visit_orbits_in_its_time_and_cuts_under_reduced_motion() {
+    for still in [false, true] {
+        let mut app = app(WINDOW);
+        app.init_resource::<ShownRig>()
+            .init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .add_systems(Update, apply_camera_rig.after(frame_table));
+        if still {
+            let mut prefs = app.world_mut().resource_mut::<crate::prefs::Prefs>();
+            prefs.edit().reduce_motion = true;
+        }
+        app.update();
+        look_at_a_seat(&mut app);
+        let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
+        let mut frames = 0;
+        loop {
+            let shown = app.world().resource::<ShownRig>().rig().expect("shown");
+            let target = *app.world().resource::<CameraRig>();
+            if shown == target {
+                break;
+            }
+            frames += 1;
+            assert!(frames < 60, "the orbit never arrived");
+            app.world_mut().resource_mut::<Time>().advance_by(step);
+            app.update();
+        }
+        if still {
+            assert_eq!(frames, 0, "reduced motion cuts");
+        } else {
+            assert!(
+                (20..=34).contains(&frames),
+                "the orbit took {frames} frames at 60 Hz, not about 0.55 s"
+            );
+        }
+    }
 }

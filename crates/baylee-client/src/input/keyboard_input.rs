@@ -16,7 +16,6 @@ pub fn keyboard(
     mut typed: MessageReader<KeyboardInput>,
     mut duel: ResMut<Duel>,
     mut prefs: ResMut<crate::prefs::Prefs>,
-    mut rig: ResMut<crate::table::CameraRig>,
     mut settings: ResMut<crate::settings::ClientSettings>,
     mut had_keyboard: Local<bool>,
     desk: Option<Res<crate::report::ReportDesk>>,
@@ -91,7 +90,7 @@ pub fn keyboard(
     // The keyboard's half of the same rule as the pointer's: any bound key
     // forgets a half-pressed concession.
     duel.concede_armed = false;
-    look_around(fired, &mut duel, &mut rig, &mut settings, &mut prefs);
+    look_around(fired, &mut duel, &mut settings, &mut prefs);
     // An armed deed owns the keyboard first, and ahead of the ability menu:
     // arming is where the chooser *ends*, so a confirm key reaching the menu
     // instead would pick a second ability rather than send the first.
@@ -130,6 +129,10 @@ pub fn keyboard(
     }
     if duel.interaction.is_some() {
         answer_the_question(fired, &mut duel, &mut prefs);
+    } else if fired.has(Action::Cancel) && duel.visiting.is_some() {
+        // Between two questions there is nothing to take back: `Esc` is
+        // "back" to the home shot (DESIGN-v7 §2.4).
+        navigate_home(&mut duel);
     }
 }
 
@@ -138,15 +141,17 @@ pub fn keyboard(
 pub(super) fn look_around(
     fired: Fired,
     duel: &mut Duel,
-    rig: &mut crate::table::CameraRig,
     settings: &mut crate::settings::ClientSettings,
     prefs: &mut crate::prefs::Prefs,
 ) {
     if fired.has(Action::FocusNextSeat) {
-        focus_next_opponent(duel, rig);
+        visit_next_seat(duel, true);
+    }
+    if fired.has(Action::FocusPrevSeat) {
+        visit_next_seat(duel, false);
     }
     if fired.has(Action::FocusHome) {
-        navigate_home(duel, rig);
+        navigate_home(duel);
     }
     // The rail: move the highlight here, toggle it with the primary key.
     if fired.has(Action::RailUp) {

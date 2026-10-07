@@ -201,6 +201,16 @@ pub(super) fn answer_the_question(fired: Fired, duel: &mut Duel, prefs: &mut cra
             duel.browser.close();
         } else if prefs.orders().selected().is_some() {
             prefs.rail_cursor().clear_selection();
+        } else if duel.visiting.is_some()
+            && duel
+                .interaction
+                .as_ref()
+                .is_none_or(|i| i.selected().next().is_none() && i.assignments().is_empty())
+        {
+            // Lowest of all: a visit is a view, and `Esc` is "back" once
+            // nothing on the screen or in the answer is left to take back
+            // (DESIGN-v7 §2.4).
+            navigate_home(duel);
         } else if let Some(i) = duel.interaction.as_mut() {
             i.cancel();
         }

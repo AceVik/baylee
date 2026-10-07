@@ -137,6 +137,13 @@ pub struct ClientSettings {
     /// music's own level above.
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub audio: baylee_client_core::audiomix::AudioMix,
+    /// How this device frames the table: the ring's lean (D20) and where
+    /// a visit stands (D21), DESIGN-v7. Per device, beside the graphics
+    /// knobs: a shot is a fact about the screen it is taken for
+    /// (`baylee_client_core::tableview` says why). A file from before it
+    /// reads the recommended defaults.
+    #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
+    pub table: baylee_client_core::tableview::TableView,
     /// The shell's text step, this device's (the shell design, §8): five
     /// steps around today's size, `Ctrl/Cmd + = − 0` and Settings › Display
     /// & Interface. The table's faces do not follow it. A file from before
@@ -176,6 +183,7 @@ impl Default for ClientSettings {
             music: baylee_client_core::music::MusicLevel::default(),
             graphics: None,
             audio: baylee_client_core::audiomix::AudioMix::default(),
+            table: baylee_client_core::tableview::TableView::default(),
             text_size: crate::shellkit::TextSize::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
@@ -680,7 +688,13 @@ mod tests {
                 let mut audio = baylee_client_core::audiomix::AudioMix::default();
                 audio.set_master(0.4);
                 audio.mute_in_background = true;
+                audio.priority_cue = false;
                 audio
+            },
+            table: baylee_client_core::tableview::TableView {
+                lean: baylee_client_core::tableview::RingLean::Gentle,
+                visit: baylee_client_core::tableview::VisitCamera::Across,
+                ..Default::default()
             },
             reports: baylee_client_core::bugreport::Consent {
                 log: true,
@@ -696,6 +710,7 @@ mod tests {
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
         assert_eq!(read.graphics, written.graphics);
         assert_eq!(read.audio, written.audio);
+        assert_eq!(read.table, written.table);
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);

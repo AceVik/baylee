@@ -1376,6 +1376,12 @@ struct Believed<'w, 's> {
     /// camera the last rendered frame was drawn with — so a rect measured
     /// here answers for the picture a `/screenshot` would return.
     rig: Option<Res<'w, crate::table::ShownRig>>,
+    /// The camera's target rig and its pose (DESIGN-v7 §2.7): what
+    /// `/state.camera` reports beside the shown rig above.
+    camera: (
+        Option<Res<'w, crate::table::CameraRig>>,
+        Option<Res<'w, crate::table::CameraPose>>,
+    ),
     /// Every card on the table, with the transform `glide` has it at right
     /// now rather than the one it is heading for, and whether it is drawn:
     /// a scrolled row does not draw the cards outside the run it shows.
@@ -1957,8 +1963,10 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
-         \"shell\":{shell}}}",
+         \"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement}}}",
         shell = shell_keys_json(believed),
+        camera = camera_json(believed, duel),
+        arrangement = quoted(&format!("{:?}", duel.arrangement)),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
         shell_nodes = shell_nodes_json(believed),
@@ -2042,6 +2050,44 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
         // burst from a tap. `0` when nothing has been heard yet, and `1` for
         // every cue that has no amount in it.
         last_count = duel.cues.last().map_or(0, |beat| beat.count),
+    )
+}
+
+/// The camera (DESIGN-v7 §2.7): the rig it is going to, the rig it is at,
+/// the seat it visits, whether a visit or a return is under way, which fit
+/// bound the shot, the pose and its frame.
+fn camera_json(believed: &Believed, duel: &Duel) -> String {
+    let rig_json = |rig: crate::table::CameraRig| {
+        format!(
+            "{{\"target\":[{:.3},{:.3}],\"distance\":{:.3},\"yaw\":{:.4},\"lean\":{:.3}}}",
+            rig.target.x, rig.target.y, rig.distance, rig.yaw, rig.lean
+        )
+    };
+    let Some(rig) = believed.camera.0.as_deref().copied() else {
+        return "null".to_string();
+    };
+    let shown = believed.rig.as_deref().copied();
+    let pose = believed.camera.1.as_deref().copied().unwrap_or_default();
+    format!(
+        "{{\"rig\":{},\"shown\":{},\"visiting\":{},\"moving\":{},\"binds\":{},\"pose\":{},\"frame\":{},\"dial_in_frame\":{}}}",
+        rig_json(rig),
+        shown
+            .and_then(crate::table::ShownRig::rig)
+            .map_or_else(|| "null".to_string(), rig_json),
+        duel.visiting
+            .map_or_else(|| "null".to_string(), |seat| seat.get().to_string()),
+        shown.is_some_and(crate::table::ShownRig::moving),
+        quoted(pose.binds.name()),
+        quoted(if duel.visiting.is_some() {
+            "visit"
+        } else {
+            "home"
+        }),
+        quoted(
+            pose.frame
+                .map_or("ring", baylee_client_core::tableview::VisitFrame::name)
+        ),
+        pose.dial_in_frame,
     )
 }
 

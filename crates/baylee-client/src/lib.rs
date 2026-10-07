@@ -451,8 +451,20 @@ pub struct Duel {
     pub interaction: Option<Interaction>,
     /// Seat geometry for the current table.
     pub layout: Option<TableLayout>,
-    /// The opponent whose board is being inspected.
-    pub focus: Option<PlayerId>,
+    /// The seat the camera is visiting (DESIGN-v7 §2): `None` is home, the
+    /// whole ring. A visit moves the camera and nothing else — no card, no
+    /// lane, no seat: it never reaches the layout ([`rebuild_board`] seats
+    /// the ring without it), so every `Motion` target stands still through
+    /// it. Set by a seat's button and `F`/`Shift+F`
+    /// ([`input::navigate_to_player`]); cleared by `H`, `Esc`, my own button,
+    /// the visited button again, my turn beginning and my own combat
+    /// question ([`input::navigate_home`]); read by [`table::frame_table`].
+    pub visiting: Option<PlayerId>,
+    /// How the seats are placed, as this device's settings say
+    /// (`ClientSettings::table`, copied here by [`table::track_canvas`] so
+    /// [`rebuild_board`], which has no settings, can place them). The one
+    /// seam for later arrangements: see `baylee_client_core::tableview::Arrangement`.
+    pub arrangement: baylee_client_core::tableview::Arrangement,
     /// The card the pointer or keyboard cursor is on.
     pub hovered: Option<ObjectId>,
     /// The *place* the pointer is on, for a pile that is drawn through no
@@ -517,20 +529,6 @@ pub struct Duel {
     /// Whether this seat has said it has drawn its table since it last
     /// attached; set only after the renderer acknowledges the prepared table.
     pub ready_sent: bool,
-    /// Whether the player has aimed the camera themselves.
-    ///
-    /// While this is false the table frames itself ([`table::frame_table`]),
-    /// so every resize and every seat joining is re-framed. It is set by the
-    /// gestures that can only mean the camera — a wheel over the felt, a
-    /// right- or middle-drag, a pinch, the arrows — and by
-    /// [`input::navigate_to_player`]; it is cleared by
-    /// [`input::navigate_home`] and by the table changing size.
-    ///
-    /// A flag and not a comparison, because it *was* a comparison: the
-    /// framing stopped following the moment the rig differed from the
-    /// computed one by anything at all, which the since-deleted left-drag
-    /// orbit did on every click that travelled a pixel.
-    pub camera_held: bool,
     /// Hand bar scroll offset in pixels.
     pub hand_scroll: f32,
     /// The first card each scrolled battlefield row shows
@@ -980,6 +978,16 @@ impl Duel {
         self.clock
             .sync(view.decision_remaining_ms, view.awaiting == Some(view.seat));
         self.known_cards.extend(view.cards());
+        // My turn beginning brings the camera home (DESIGN-v7 §2.4): an edge
+        // read against the view before this one, never a state per frame.
+        if baylee_client_core::tableview::comes_home(&baylee_client_core::tableview::HomeEdge {
+            me: view.seat,
+            active_before: self.view.as_ref().map(|v| v.active),
+            active_now: Some(view.active),
+            combat_question_opened: false,
+        }) {
+            self.visiting = None;
+        }
         self.view = Some(view);
         let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
@@ -1136,6 +1144,7 @@ impl Duel {
         ) {
             self.subtype_filter.clear();
         }
+        let combat_before = self.interaction.as_ref().is_some_and(my_combat_question);
         self.interaction = Some(Interaction::new_keeping(
             pending,
             self.view
@@ -1144,6 +1153,19 @@ impl Duel {
             self.interaction.as_ref(),
         ));
         self.refresh_owed_plan();
+        // My own attackers or blockers being asked for brings the camera home
+        // as the question opens: its subject is my board (DESIGN-v7 §2.4).
+        // My priority, a target or a yes-no do not — a player visits a seat
+        // to target what is on it.
+        if baylee_client_core::tableview::comes_home(&baylee_client_core::tableview::HomeEdge {
+            me: seat,
+            active_before: None,
+            active_now: None,
+            combat_question_opened: !combat_before
+                && self.interaction.as_ref().is_some_and(my_combat_question),
+        }) {
+            self.visiting = None;
+        }
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own
         // question — which happens every time anybody at the table says
@@ -1455,8 +1477,7 @@ fn add_present_systems(app: &mut App) {
             // they have moved.
             combatlines::sync_combat_lines.after(table::glide),
             combatlines::sync_focus_ring.after(table::glide),
-            table::frame_table,
-            table::apply_camera_rig,
+            (table::frame_table, table::apply_camera_rig).chain(),
             // One entry and not two, because the tuple is at its twenty: a card
             // that has left the hand is taken out of the row before the row
             // is rebuilt, and chaining is what says so. The commands of the
@@ -1804,6 +1825,7 @@ impl Plugin for DuelPlugin {
             .init_resource::<table::ZoneWatch>()
             .init_resource::<table::CameraRig>()
             .init_resource::<table::ShownRig>()
+            .init_resource::<table::CameraPose>()
             .init_resource::<Reconnect>()
             .init_resource::<sheen::Sheen>()
             .init_resource::<touch::Touched>()
@@ -2706,8 +2728,12 @@ pub fn rebuild_board(duel: &mut Duel) {
         .chain(view.opponents_in_turn_order())
         .map(|player| Seat::on(player, team_of(player)))
         .collect();
-    let mut layout =
-        TableLayout::seated(&seats, duel.canvas_aspect.unwrap_or(16.0 / 9.0), duel.focus);
+    let mut layout = TableLayout::arranged(
+        &seats,
+        duel.canvas_aspect.unwrap_or(16.0 / 9.0),
+        duel.arrangement,
+        duel.visiting,
+    );
     for slot in &mut layout.slots {
         if view
             .seats
@@ -3125,3 +3151,12 @@ pub(crate) fn registry_printed(slot: u32, controller: u8, name: &str) -> baylee_
 
 #[cfg(test)]
 mod stack_tests;
+
+/// Whether a question asks this seat to declare attackers or blockers.
+fn my_combat_question(interaction: &Interaction) -> bool {
+    interaction.is_mine()
+        && matches!(
+            interaction.pending(),
+            Pending::ChooseAttackers { .. } | Pending::ChooseBlockers { .. }
+        )
+}

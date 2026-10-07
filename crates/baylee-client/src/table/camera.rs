@@ -2,6 +2,9 @@
 
 #[allow(clippy::wildcard_imports)] // the table's shared vocabulary
 use super::*;
+use baylee_client_core::tableview::{
+    Arrangement, RingLean, VisitCamera, VisitFrame, WindowClass as Frame,
+};
 
 /// The table camera.
 #[derive(Component)]
@@ -77,22 +80,35 @@ impl CameraRig {
     // as a decal from straight overhead, and a seat looking along its own
     // board sees the backs of its front row.
 
-    /// Moves the rig so `pod` (a seat's table-space centre) fills the free
-    /// canvas area: camera outside the ellipse looking inward, cards
-    /// upright with their bottoms toward the screen bottom, the pod
-    /// shifted clear of the own-board overlay.
+    /// A camera standing behind `slot` on its own axis, its cards upright,
+    /// looking at a point toward the middle of the table.
+    ///
+    /// Kept for the tests that look at the table from every chair (plates,
+    /// shells): they want *a* camera behind each seat, not the visit's fit.
+    /// The yaw is the pod's facing and not its bearing from the middle —
+    /// `world_center.y.atan2(world_center.x) + π/2` agreed with the facing
+    /// on the flanks and gave the home azimuth for the seat across, so the
+    /// far board was drawn upside down from behind the local chair
+    /// (DESIGN-v7 §2.2).
     #[must_use]
     pub fn framing(slot: &SeatSlot, world_center: Vec2) -> Self {
         Self {
             target: world_center * 0.72,
             distance: (slot.half_extent.length() * 2.6).clamp(9.0, Self::MAX_DISTANCE),
-            yaw: world_center.y.atan2(world_center.x) + std::f32::consts::FRAC_PI_2,
+            yaw: behind(slot),
             lean: CAMERA_LEAN,
         }
     }
 
     /// The whole table, framed inside the part of the window it is actually
-    /// seen through.
+    /// seen through, at the recommended shot ([`Shot::default`]).
+    #[must_use]
+    pub fn home(layout: &TableLayout, canvas: Canvas) -> Self {
+        Self::home_shot(layout, canvas, Shot::default()).0
+    }
+
+    /// The whole table, framed inside the part of the window it is actually
+    /// seen through, and which of the two fits bound it.
     ///
     /// This is the shot a duel opens on and the one `navigate_home` returns
     /// to, and it is computed rather than written down because the thing it
@@ -101,120 +117,440 @@ impl CameraRig {
     /// The hard-coded 20 units it replaced put the local seat's own mat under
     /// the hand zone on every screen — a player could not see their own
     /// creatures, which made every later piece of board legibility moot.
+    ///
+    /// A ring (three seats or more) stands closer and steeper than it did
+    /// before v7: the device's [`RingLean`] (0.62 by default, D20) and
+    /// [`ring_air`] (1.0 on a desktop) instead of [`CAMERA_LEAN`] and
+    /// [`AIR`]. Every seat stays whole in the frame; mine, nearest the eye,
+    /// collects most of what the steeper angle saves. On a phone the frame is
+    /// my own pod and the dial's near half (DESIGN-v7 §1.4): a 266-px band
+    /// cannot hold eight readable boards, and a far seat is read by visiting.
     #[must_use]
-    pub fn home(layout: &TableLayout, canvas: Canvas) -> Self {
+    pub fn home_shot(layout: &TableLayout, canvas: Canvas, shot: Shot) -> (Self, Binds) {
+        match shot.arrangement {
+            Arrangement::Ring => Self::ring_home(layout, canvas, shot),
+        }
+    }
+
+    /// The ring's home shot ([`Self::home_shot`]).
+    fn ring_home(layout: &TableLayout, canvas: Canvas, shot: Shot) -> (Self, Binds) {
         let Some((min, max)) = layout.extent() else {
-            return Self::default();
+            return (Self::default(), Binds::Deep);
         };
+        let class = canvas.class();
+        let ring = layout.slots.len() >= 3;
         // A wide duel can show the table's depth without foreshortening side
-        // seats. Blend in as the window grows; rings and small windows keep
-        // the readable plan view and its breathing room.
+        // seats. Blend in as the window grows; small windows keep the
+        // readable plan view and its breathing room.
         let framing = if layout.slots.len() == 2 && canvas.aspect() >= 1.4 {
             ((canvas.window.x - 800.0) / 480.0).clamp(0.0, 1.0)
         } else {
             0.0
         };
-        let tilt = CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing;
-        let air = AIR - (AIR - DUEL_AIR) * framing;
+        let (tilt, air) = if class == Frame::Phone && ring {
+            (PHONE_LEAN, ring_air(class))
+        } else if ring {
+            (shot.lean.tangent(), ring_air(class))
+        } else {
+            (
+                CAMERA_LEAN + (DUEL_LEAN - CAMERA_LEAN) * framing,
+                AIR - (AIR - DUEL_AIR) * framing,
+            )
+        };
+        if class == Frame::Phone
+            && ring
+            && let Some(local) = layout.local()
+        {
+            // My own pod and the dial's near half, in my own (unturned)
+            // frame: the local seat's facing is zero.
+            let (lo, hi) = pod_box(local, air);
+            let lo = lo.min(Vec2::new(-DIAL_REACH, -DIAL_REACH));
+            let hi = hi.max(Vec2::new(DIAL_REACH, 0.0));
+            let corners = box_corners(lo, hi);
+            let fit = fit(lo, hi, &corners, tilt, canvas);
+            return (fit.rig(0.0, tilt, |p| p), fit.binds);
+        }
         let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
-        let span = max - min;
-
-        // The free band, as normalised device coordinates: +1 is the top of
-        // the window, and the tab strip and the hand zone eat inwards.
-        let top = 1.0 - 2.0 * canvas.top / canvas.window.y.max(1.0);
-        let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y.max(1.0);
-        let right = 1.0 - 2.0 * canvas.right / canvas.window.x.max(1.0);
-        let aspect = canvas.window.x / canvas.window.y.max(1.0);
-
-        // Vertically this is exact: `ground` is linear in the eye distance,
-        // so the distance at which the table's far edge lands on `top` and
-        // its near edge on `bottom` is one division.
-        let g_top = ground(top, tilt);
-        let g_bottom = ground(bottom, tilt);
-        let deep = span.y / (g_top - g_bottom).max(1e-3);
-        // Horizontally, every corner is asked, and each one asks about its own
-        // depth. A perspective camera sees less of the felt where the felt is
-        // closer, so a mat at the near edge needs more room than the same mat
-        // across the table — and the corners of the *box* are not on the
-        // table at all, they are the bare felt a ring leaves in its corners.
-        // Fitting the box is what left a three-seat shot filling 86% of the
-        // width it was given and 81% of the height, binding on neither.
-        //
-        // With the look point centred (below), a corner's depth is
-        // `eye·(1 + k·ḡ) + k·(y − ȳ)` — linear in `eye`, which is what keeps
-        // this arithmetic. Two corners fit together when the near band holds
-        // both, so each *pair* gives a division and the widest pair wins.
-        let mean = f32::midpoint(g_top, g_bottom);
-        let middle = f32::midpoint(min.y, max.y);
-        let k = tilt / (1.0 + tilt * tilt).sqrt();
-        let scale = (half_fov().tan() * aspect).max(1e-3);
-        let carry = k.mul_add(mean, 1.0);
         let corners = layout.corners(air);
-        let mut wide: f32 = 0.0;
-        for a in &corners {
-            for b in &corners {
-                // `a` against the right edge of the band and `b` against the
-                // left: the room the two of them need between them, less what
-                // their own depths already give, over what a unit of eye buys.
-                let held = right * k * (a.y - middle) + k * (b.y - middle);
-                wide = wide.max(((a.x - b.x) / scale - held) / (carry * (1.0 + right)));
-            }
-        }
-        // Clamped *before* the look point is derived from it. Aiming for a
-        // camera the clamp then moves is the one way this can put the table
-        // off screen while every number above is still right: the far edge
-        // would be pinned for an eye that is not there, and land above the
-        // tab strip. Clamped first, a table too big for `MAX_DISTANCE` keeps
-        // its far edge pinned and overflows at the bottom, which is the
-        // graceful direction.
-        let lean = (1.0 + tilt * tilt).sqrt();
-        let eye = deep
-            .max(wide)
-            .clamp(Self::MIN_DISTANCE * lean, Self::MAX_DISTANCE * lean);
+        let fit = fit(min, max, &corners, tilt, canvas);
+        (fit.rig(0.0, tilt, |p| p), fit.binds)
+    }
 
-        // The table is **centred** in the band, on both axes. Whichever of
-        // the two fits binds, the slack the other one has left over is split
-        // evenly instead of being pushed to one edge: the far edge used to be
-        // pinned under the tab strip and every spare unit opened up in front
-        // of the local seat, which on a duel was a fifth of the window of
-        // bare felt below the mats and the whole table riding high.
-        //
-        // Where a centred look point may stand is an interval — far enough
-        // back that the far edge clears `top`, far enough forward that the
-        // near edge clears `bottom` — and the middle of it is the shot. A
-        // table too big for `MAX_DISTANCE` has no such interval, and there
-        // the far edge is pinned again and the overflow goes out of the
-        // bottom, which is the graceful direction: a mat behind the tab strip
-        // is a mat nobody can see, and one under the hand zone is one the
-        // player can pull into view.
-        //
-        // Sideways the span is centred in the band as it stands at the near
-        // edge, for the same reason `wide` is measured there: centring on the
-        // look plane's band leaves the front row off-centre, and the rail
-        // makes the band asymmetric, so being off-centre costs a whole mat on
-        // one side.
-        let pinned = max.y - eye * g_top;
-        let forward = min.y - eye * g_bottom;
-        let along = pinned.max(f32::midpoint(pinned, forward));
-        // And sideways, the same interval read off the corners themselves:
-        // as far right as the leftmost corner allows, as far left as the
-        // rightmost one does, and the middle of that.
-        let (mut left, mut right_most) = (f32::NEG_INFINITY, f32::INFINITY);
-        for c in &corners {
-            let band = (eye + k * (c.y - along)).max(1e-3) * scale;
-            left = left.max(c.x - right * band);
-            right_most = right_most.min(c.x + band);
+    /// The shot of one seat's board, the camera standing behind it so its
+    /// cards are upright above the hand (DESIGN-v7 §2.2) — or across from it,
+    /// by the device's [`VisitCamera`] — and which frame it took.
+    ///
+    /// **No card moves.** The ring is the one the home shot frames; this only
+    /// says where the eye stands. The yaw is the pod's facing (its inward
+    /// normal, [`behind`]), not the direction from the middle to the pod: on
+    /// a wide ring the two differ, and only the facing draws a pod upright.
+    ///
+    /// The framed depth runs from the pod's outer edge to a far edge the
+    /// [`VisitFrame`] names, measured once per table on the seat **across**
+    /// from mine and then held for every seat: my near lane at three and
+    /// four seats, the dial from five, the pod alone on a phone. Held, so a
+    /// visit draws every seat's board at the same size — the visit is the
+    /// equaliser the steeper home shot gave up. A seat further from the
+    /// middle than the one across (the ends of a wide ring) keeps that depth
+    /// rather than reaching for the dial, so there the dial may fall outside
+    /// the frame; `/state.camera.dial_in_frame` says so.
+    ///
+    /// `None` for a seat that is not at this table.
+    #[must_use]
+    pub fn visit(
+        layout: &TableLayout,
+        canvas: Canvas,
+        seat: PlayerId,
+        shot: Shot,
+    ) -> Option<(Self, VisitFrame, Binds)> {
+        match shot.arrangement {
+            Arrangement::Ring => Self::ring_visit(layout, canvas, seat, shot),
         }
-        let look = Vec2::new(f32::midpoint(left, right_most), along);
+    }
+
+    /// The ring's visit ([`Self::visit`]).
+    fn ring_visit(
+        layout: &TableLayout,
+        canvas: Canvas,
+        seat: PlayerId,
+        shot: Shot,
+    ) -> Option<(Self, VisitFrame, Binds)> {
+        let slot = layout.slot(seat)?;
+        let class = canvas.class();
+        let phone = class == Frame::Phone;
+        let tilt = if phone { PHONE_LEAN } else { DUEL_LEAN };
+        let air = ring_air(class);
+        // One frame's box and fit: the visited pod in its own frame (`+y`
+        // toward the middle), run to the frame's far edge; seen from across,
+        // the same box turned half round, the pod at the far side.
+        let shoot = |frame: VisitFrame| -> Option<Fit> {
+            let reach = visit_reach(layout, frame, air)?;
+            let (lo, hi) = pod_box(slot, air);
+            let (lo, hi) = (lo, Vec2::new(hi.x, lo.y + reach));
+            let (lo, hi) = if frame == VisitFrame::Across {
+                (-hi, -lo)
+            } else {
+                (lo, hi)
+            };
+            Some(fit(lo, hi, &box_corners(lo, hi), tilt, canvas))
+        };
+        let frame = if shot.visit == VisitCamera::Behind && !phone {
+            VisitFrame::of(
+                shot.visit,
+                shoot(VisitFrame::Lane)?.eye,
+                shoot(VisitFrame::Dial)?.eye,
+                phone,
+            )
+        } else {
+            VisitFrame::of(shot.visit, 0.0, 0.0, phone)
+        };
+        let fit = shoot(frame)?;
+        let across = frame == VisitFrame::Across;
+        let turn = if across { std::f32::consts::PI } else { 0.0 };
+        let facing = slot.facing;
+        let yaw = (behind(slot) + turn).rem_euclid(std::f32::consts::TAU);
+        let rig = fit.rig(yaw, tilt, |p| {
+            let p = if across { -p } else { p };
+            from_pod_frame(facing, p)
+        });
+        Some((rig, frame, fit.binds))
+    }
+
+    /// Whether the dial's whole disc is inside the band this rig shows.
+    #[must_use]
+    pub fn sees_the_dial(self, canvas: Canvas) -> bool {
+        let lens = Lens::new(self, canvas.window);
+        (0..16).all(|k| {
+            #[allow(clippy::cast_precision_loss)]
+            let at = Vec2::from_angle(std::f32::consts::TAU * k as f32 / 16.0)
+                * baylee_client_core::dial::COMPASS_R;
+            lens.project(at).is_some_and(|p| {
+                p.x >= 0.0
+                    && p.x <= canvas.window.x - canvas.right
+                    && p.y >= canvas.top
+                    && p.y <= canvas.window.y - canvas.bottom
+            })
+        })
+    }
+}
+
+/// How a device wants its table shot: the two settings of DESIGN-v7 (D20,
+/// D21), read from `ClientSettings::table`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Shot {
+    /// How the seats are placed: which home and visit poses apply.
+    pub arrangement: Arrangement,
+    /// The ring's lean.
+    pub lean: RingLean,
+    /// Where a visit stands.
+    pub visit: VisitCamera,
+}
+
+impl From<baylee_client_core::tableview::TableView> for Shot {
+    fn from(view: baylee_client_core::tableview::TableView) -> Self {
         Self {
+            arrangement: view.arrangement,
+            lean: view.lean,
+            visit: view.visit,
+        }
+    }
+}
+
+/// Which of the fit's two divisions decided the eye distance: the table's
+/// depth against the band's height, or its width against the band's width.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Binds {
+    /// The depth bound.
+    #[default]
+    Deep,
+    /// The width bound.
+    Wide,
+}
+
+impl Binds {
+    /// The name `/state.camera.binds` prints.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Deep => "deep",
+            Self::Wide => "wide",
+        }
+    }
+}
+
+/// The yaw that stands the eye behind a seat, on its pod's own axis.
+///
+/// `CameraRig::eye` puts the eye at `(sin yaw, cos yaw)` from the look point
+/// in world x/z, which is table `(sin yaw, −cos yaw)`; behind the pod is
+/// against its inward normal `(sin f, cos f)`, so `yaw = −facing`. The local
+/// seat (facing 0) gives 0, the home azimuth; the seat across gives π.
+#[must_use]
+pub fn behind(slot: &SeatSlot) -> f32 {
+    (-slot.facing).rem_euclid(std::f32::consts::TAU)
+}
+
+/// The dial's reach from the middle, its far rim plus half a unit: what a
+/// frame that keeps the dial in view runs to.
+const DIAL_REACH: f32 = baylee_client_core::firewheel::FLAME_REACH + 0.5;
+
+/// A wide ring's air on a desktop: the mat's printed border and a little
+/// felt, not the three and a half units of bare cloth rings used to keep.
+pub(super) const RING_AIR: f32 = 1.0;
+
+/// The lean a phone's ring takes: a steeper shot foreshortens a 266-px band
+/// too far (DESIGN-v7 §1.4).
+pub(super) const PHONE_LEAN: f32 = 0.50;
+
+/// The air a ring keeps, by the window's class (DESIGN-v7 §1.4).
+#[must_use]
+pub fn ring_air(class: Frame) -> f32 {
+    match class {
+        // The design said 0.5; the mat's printed border is `ZONE_MARGIN`
+        // (0.55) wide, and a frame inside it crops the border on the very
+        // screen that can least afford to lose an edge.
+        Frame::Phone => PHONE_AIR,
+        // The design said 0.8. Under 1.2 a narrow window's flank seat
+        // reaches the square beside the report button
+        // (`the_corner_beside_the_report_button_lies_on_no_seat_s_place`,
+        // 4 seats at 800 x 600), so 1.2 is the measured floor.
+        Frame::Narrow => 1.2,
+        Frame::Wide => RING_AIR,
+    }
+}
+const _: () = assert!(RING_AIR > ZONE_MARGIN);
+/// A phone's ring air: just past the mat's printed border.
+const PHONE_AIR: f32 = 0.6;
+const _: () = assert!(PHONE_AIR > ZONE_MARGIN);
+
+/// A point in a pod's own frame (`+y` toward the middle, the frame its
+/// corners are measured in) turned back into table space.
+fn from_pod_frame(facing: f32, p: Vec2) -> Vec2 {
+    let (sin, cos) = facing.sin_cos();
+    Vec2::new(cos.mul_add(p.x, sin * p.y), (-sin).mul_add(p.x, cos * p.y))
+}
+
+/// A table point in a pod's own frame: the inverse of [`from_pod_frame`].
+fn into_pod_frame(facing: f32, p: Vec2) -> Vec2 {
+    let (sin, cos) = facing.sin_cos();
+    Vec2::new(cos.mul_add(p.x, -sin * p.y), sin.mul_add(p.x, cos * p.y))
+}
+
+/// A seat's whole footprint plus `air`, as a box in its own frame.
+fn pod_box(slot: &SeatSlot, air: f32) -> (Vec2, Vec2) {
+    let centre = into_pod_frame(slot.facing, slot.footprint_center());
+    let half = slot.footprint() + Vec2::splat(air);
+    (centre - half, centre + half)
+}
+
+/// How deep a visit's frame runs from the visited pod's outer edge (its air
+/// included), measured on the seat across from mine (DESIGN-v7 §2.2).
+fn visit_reach(layout: &TableLayout, frame: VisitFrame, air: f32) -> Option<f32> {
+    let local = layout.local()?;
+    let across = layout.slots.iter().max_by(|a, b| {
+        let off =
+            |s: &SeatSlot| (s.facing - std::f32::consts::PI).rem_euclid(std::f32::consts::TAU);
+        let near = |s: &SeatSlot| off(s).min(std::f32::consts::TAU - off(s));
+        near(b).total_cmp(&near(a))
+    })?;
+    let (lo, hi) = pod_box(across, air);
+    let far = match frame {
+        VisitFrame::Pod => hi.y - air + 0.5,
+        VisitFrame::Dial | VisitFrame::Across => DIAL_REACH,
+        VisitFrame::Lane => {
+            // My lane nearest the middle, its far side: the lane's centre
+            // less half its depth, away from the middle, in my frame; then
+            // every corner of it in the across seat's.
+            let lane = local.lane_center(baylee_client_core::layout::LaneKind::Creatures);
+            let away = Vec2::new(local.facing.sin(), local.facing.cos());
+            let side = Vec2::new(local.facing.cos(), -local.facing.sin());
+            let back = lane - away * (local.lane_height() * 0.5);
+            let half = local.half_extent.x;
+            [back + side * half, back - side * half]
+                .into_iter()
+                .map(|p| into_pod_frame(across.facing, p).y)
+                .fold(f32::NEG_INFINITY, f32::max)
+                + 0.5
+        }
+    };
+    Some((far - lo.y).max(hi.y - lo.y))
+}
+
+/// A box's four corners.
+fn box_corners(lo: Vec2, hi: Vec2) -> [Vec2; 4] {
+    [lo, Vec2::new(hi.x, lo.y), hi, Vec2::new(lo.x, hi.y)]
+}
+
+/// What one fit decided: where the eye looks (in the frame the box was given
+/// in) and how far off it stands.
+pub(super) struct Fit {
+    pub(super) look: Vec2,
+    pub(super) eye: f32,
+    pub(super) binds: Binds,
+}
+
+impl Fit {
+    /// The rig for this fit, with `to_table` turning the look point out of
+    /// the frame the box was fitted in.
+    pub(super) fn rig(&self, yaw: f32, tilt: f32, to_table: impl Fn(Vec2) -> Vec2) -> CameraRig {
+        let lean = (1.0 + tilt * tilt).sqrt();
+        let look = to_table(self.look);
+        CameraRig {
             // `ground` works from the eye's true distance; the rig stores the
             // height it stands at, which the lean makes shorter.
-            distance: eye / lean,
+            distance: self.eye / lean,
             // Table space to world: `+y` away from the local seat is `-z`.
             target: Vec2::new(look.x, -look.y),
-            yaw: 0.0,
+            yaw,
             lean: tilt,
         }
+    }
+}
+
+/// Fits a box (`min`..`max`, with `corners` the points that must stay in
+/// the band) into the canvas, seen from `-y` at lean `tilt`.
+///
+/// One fit for every shot: home, a phone's own pod and a visit hand it a
+/// box in the frame the camera looks along (`+y` up the screen), and get
+/// back a look point in that frame. The arithmetic is the home shot's as it
+/// was, unchanged.
+pub(super) fn fit(min: Vec2, max: Vec2, corners: &[Vec2], tilt: f32, canvas: Canvas) -> Fit {
+    let span = max - min;
+
+    // The free band, as normalised device coordinates: +1 is the top of
+    // the window, and the tab strip and the hand zone eat inwards.
+    let top = 1.0 - 2.0 * canvas.top / canvas.window.y.max(1.0);
+    let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y.max(1.0);
+    let right = 1.0 - 2.0 * canvas.right / canvas.window.x.max(1.0);
+    let aspect = canvas.window.x / canvas.window.y.max(1.0);
+
+    // Vertically this is exact: `ground` is linear in the eye distance,
+    // so the distance at which the table's far edge lands on `top` and
+    // its near edge on `bottom` is one division.
+    let g_top = ground(top, tilt);
+    let g_bottom = ground(bottom, tilt);
+    let deep = span.y / (g_top - g_bottom).max(1e-3);
+    // Horizontally, every corner is asked, and each one asks about its own
+    // depth. A perspective camera sees less of the felt where the felt is
+    // closer, so a mat at the near edge needs more room than the same mat
+    // across the table — and the corners of the *box* are not on the
+    // table at all, they are the bare felt a ring leaves in its corners.
+    // Fitting the box is what left a three-seat shot filling 86% of the
+    // width it was given and 81% of the height, binding on neither.
+    //
+    // With the look point centred (below), a corner's depth is
+    // `eye·(1 + k·ḡ) + k·(y − ȳ)` — linear in `eye`, which is what keeps
+    // this arithmetic. Two corners fit together when the near band holds
+    // both, so each *pair* gives a division and the widest pair wins.
+    let mean = f32::midpoint(g_top, g_bottom);
+    let middle = f32::midpoint(min.y, max.y);
+    let k = tilt / (1.0 + tilt * tilt).sqrt();
+    let scale = (half_fov().tan() * aspect).max(1e-3);
+    let carry = k.mul_add(mean, 1.0);
+    let mut wide: f32 = 0.0;
+    for a in corners {
+        for b in corners {
+            // `a` against the right edge of the band and `b` against the
+            // left: the room the two of them need between them, less what
+            // their own depths already give, over what a unit of eye buys.
+            let held = right * k * (a.y - middle) + k * (b.y - middle);
+            wide = wide.max(((a.x - b.x) / scale - held) / (carry * (1.0 + right)));
+        }
+    }
+    // Clamped *before* the look point is derived from it. Aiming for a
+    // camera the clamp then moves is the one way this can put the table
+    // off screen while every number above is still right: the far edge
+    // would be pinned for an eye that is not there, and land above the
+    // tab strip. Clamped first, a table too big for `MAX_DISTANCE` keeps
+    // its far edge pinned and overflows at the bottom, which is the
+    // graceful direction.
+    let lean = (1.0 + tilt * tilt).sqrt();
+    let eye = deep.max(wide).clamp(
+        CameraRig::MIN_DISTANCE * lean,
+        CameraRig::MAX_DISTANCE * lean,
+    );
+    let binds = if deep >= wide {
+        Binds::Deep
+    } else {
+        Binds::Wide
+    };
+
+    // The table is **centred** in the band, on both axes. Whichever of
+    // the two fits binds, the slack the other one has left over is split
+    // evenly instead of being pushed to one edge: the far edge used to be
+    // pinned under the tab strip and every spare unit opened up in front
+    // of the local seat, which on a duel was a fifth of the window of
+    // bare felt below the mats and the whole table riding high.
+    //
+    // Where a centred look point may stand is an interval — far enough
+    // back that the far edge clears `top`, far enough forward that the
+    // near edge clears `bottom` — and the middle of it is the shot. A
+    // table too big for `MAX_DISTANCE` has no such interval, and there
+    // the far edge is pinned again and the overflow goes out of the
+    // bottom, which is the graceful direction: a mat behind the tab strip
+    // is a mat nobody can see, and one under the hand zone is one the
+    // player can pull into view.
+    //
+    // Sideways the span is centred in the band as it stands at the near
+    // edge, for the same reason `wide` is measured there: centring on the
+    // look plane's band leaves the front row off-centre, and the rail
+    // makes the band asymmetric, so being off-centre costs a whole mat on
+    // one side.
+    let pinned = max.y - eye * g_top;
+    let forward = min.y - eye * g_bottom;
+    let along = pinned.max(f32::midpoint(pinned, forward));
+    // And sideways, the same interval read off the corners themselves:
+    // as far right as the leftmost corner allows, as far left as the
+    // rightmost one does, and the middle of that.
+    let (mut left, mut right_most) = (f32::NEG_INFINITY, f32::INFINITY);
+    for c in corners {
+        let band = (eye + k * (c.y - along)).max(1e-3) * scale;
+        left = left.max(c.x - right * band);
+        right_most = right_most.min(c.x + band);
+    }
+    Fit {
+        look: Vec2::new(f32::midpoint(left, right_most), along),
+        eye,
+        binds,
     }
 }
 
@@ -326,6 +662,14 @@ impl Canvas {
         let height = (self.window.y - self.top - self.bottom).max(1.0);
         width / height
     }
+
+    /// The window's size class for the camera (`WindowClass`),
+    /// read off the raw window: the table's faces do not follow the shell's
+    /// text step, so its width is not divided by one.
+    #[must_use]
+    pub fn class(&self) -> Frame {
+        Frame::of(self.window.x, self.window.y)
+    }
 }
 
 /// Tells the board model the shape of the space it is drawn in.
@@ -334,7 +678,18 @@ impl Canvas {
 /// places, none of which has a window — it answers a view arriving, a
 /// preference changing, a focus moving. The window changes on its own
 /// schedule, and this is the one place that notices.
-pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
+pub fn track_canvas(
+    windows: Query<&Window>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    mut duel: ResMut<Duel>,
+) {
+    // The arrangement is this device's setting and the layout's input: a
+    // change of it is a different table, so the board is seated again.
+    let arrangement = settings.map_or_else(Default::default, |s| s.table.arrangement);
+    if duel.arrangement != arrangement {
+        duel.arrangement = arrangement;
+        crate::rebuild_board(&mut duel);
+    }
     let Ok(window) = windows.single() else {
         return;
     };
@@ -365,29 +720,26 @@ pub fn track_proposals(mut duel: ResMut<Duel>) {
     }
 }
 
-/// Keeps the table framed as seats, focus and window size change.
+/// Keeps the table framed as seats, a visit and the window size change.
 ///
-/// Whether it may is [`Duel::camera_held`], and that used to be a float
-/// comparison: this system kept the framing it had last computed and followed
-/// the table only while the rig still *equalled* it. Anything that moved the
-/// rig by any amount at all — one pixel of the left-drag orbit that has since
-/// been deleted, during an ordinary click on a card — switched the automatic
-/// framing off for the rest of the session, silently, and the table then
-/// stayed wherever the accident left it through a resize and through a seat
-/// joining. Nothing said so and nothing could put it back except a key nobody
-/// knew to press.
+/// The camera has two poses and this is the one door both are computed
+/// through: home ([`CameraRig::home_shot`]) while [`Duel::visiting`] is
+/// `None`, the visit ([`CameraRig::visit`]) while it names a seat. Both are
+/// recomputed on every frame from the layout, the window and this device's
+/// [`Shot`], so a resize or a seat joining re-frames whichever pose is
+/// standing — a visit re-fits rather than letting go. A visited seat that is
+/// no longer at the table sends the camera home.
 ///
-/// Two things put the camera back in the table's hands, and both are about a
-/// table rather than about a rig. The **seat count** changing is a different
-/// table, so a player aiming at the old one is not aiming at this one. And
-/// [`CameraRig::default`] is the one rig that means "nobody aimed this" —
-/// [`crate::input::navigate_home`] asks for exactly it, which is how a key, a
-/// tab and anything else that cannot reach the flag still comes home.
+/// What the player chose is the pose, never a rig: there is no orbit, pan or
+/// zoom control, so nothing a hand does can leave the camera somewhere this
+/// system would have to respect. That is what replaced `camera_held`, a flag
+/// set by gestures that no longer exist.
 pub fn frame_table(
     mut duel: ResMut<Duel>,
     windows: Query<&Window>,
-    mut seats: Local<usize>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     mut rig: ResMut<CameraRig>,
+    mut pose: ResMut<CameraPose>,
 ) {
     let Some(layout) = duel.layout.as_ref() else {
         return;
@@ -395,23 +747,48 @@ pub fn frame_table(
     let Ok(window) = windows.single() else {
         return;
     };
-    let next = CameraRig::home(
-        layout,
-        Canvas::hud(Vec2::new(window.width(), window.height())),
-    );
-    if *seats != layout.slots.len() {
-        *seats = layout.slots.len();
-        duel.camera_held = false;
-    }
-    if *rig == CameraRig::default() {
-        duel.camera_held = false;
-    }
-    if duel.camera_held {
-        return;
+    let canvas = Canvas::hud(Vec2::new(window.width(), window.height()));
+    let shot = settings.map_or_else(Shot::default, |s| Shot::from(s.table));
+    let visit = duel
+        .visiting
+        .and_then(|seat| CameraRig::visit(layout, canvas, seat, shot));
+    let (next, frame, binds) = if let Some((rig, frame, binds)) = visit {
+        (rig, Some(frame), binds)
+    } else {
+        let (rig, binds) = CameraRig::home_shot(layout, canvas, shot);
+        (rig, None, binds)
+    };
+    if visit.is_none() && duel.visiting.is_some() {
+        duel.visiting = None;
     }
     if *rig != next {
         *rig = next;
     }
+    if pose.rig != Some(next) || pose.visiting != duel.visiting {
+        *pose = CameraPose {
+            visiting: duel.visiting,
+            frame,
+            binds,
+            dial_in_frame: next.sees_the_dial(canvas),
+            rig: Some(next),
+        };
+    }
+}
+
+/// What the camera is doing, for `/state.camera` and the dial: the pose it
+/// was asked for and what that shot took in.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct CameraPose {
+    /// The seat being visited; `None` is home.
+    pub visiting: Option<PlayerId>,
+    /// A visit's frame; `None` at home.
+    pub frame: Option<VisitFrame>,
+    /// Which fit bound the shot.
+    pub binds: Binds,
+    /// Whether the dial's whole disc is in the band.
+    pub dial_in_frame: bool,
+    /// The rig this was computed for.
+    pub rig: Option<CameraRig>,
 }
 
 /// How far the camera stands off to the side, as a fraction of its height.
@@ -486,52 +863,125 @@ pub const FOV: f32 = 0.42;
 /// Where the camera actually is, as against where the rig says it should be.
 ///
 /// A second copy rather than smoothing the rig itself, because the rig is
-/// *input*: a drag writes it, the framing writes it, focusing a seat writes it,
-/// and every one of those wants to be able to say "there" without having to
-/// know that something else is interpolating behind it.
+/// *input*: the framing writes it, a visit writes it, and every one of those
+/// wants to be able to say "there" without having to know that something
+/// else is interpolating behind it.
 #[derive(Resource, Clone, Copy, Default)]
-pub struct ShownRig(Option<CameraRig>);
+pub struct ShownRig {
+    rig: Option<CameraRig>,
+    /// The pose the camera last settled on or set out for: `None` is home,
+    /// a seat a visit. A change is what starts an orbit.
+    pose: Option<PlayerId>,
+    /// Whether a pose has been seen at all: the first is a cut.
+    posed: bool,
+    /// The timed move between two poses, while it runs.
+    orbit: Option<Orbit>,
+}
+
+/// A visit or a return: a timed move, not the exponential settle.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Orbit {
+    /// Where the camera was when the move began.
+    from: CameraRig,
+    /// Seconds into it.
+    elapsed: f32,
+}
+
+/// How long a visit or a return takes (DESIGN-v7 §2.3): the same for a flank
+/// and for the seat across, because yaw, target, distance and lean move
+/// together on one clock.
+pub const ORBIT_SECS: f32 = 0.55;
+
+/// Ease-in-out cubic: a move that starts and stops gently.
+fn ease_in_out(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    if t < 0.5 {
+        4.0 * t * t * t
+    } else {
+        1.0 - (-2.0f32).mul_add(t, 2.0).powi(3) / 2.0
+    }
+}
+
+/// The rig `t` of the way from `from` to `to`, yaw the short way round.
+fn between(from: CameraRig, to: CameraRig, t: f32) -> CameraRig {
+    let turn = std::f32::consts::TAU;
+    let yaw_delta =
+        (to.yaw - from.yaw + std::f32::consts::PI).rem_euclid(turn) - std::f32::consts::PI;
+    CameraRig {
+        target: from.target.lerp(to.target, t),
+        distance: from.distance + (to.distance - from.distance) * t,
+        yaw: from.yaw + yaw_delta * t,
+        lean: from.lean + (to.lean - from.lean) * t,
+    }
+}
 
 /// Turns the rig into the camera transform: a near-plan view of the
-/// battlefield canvas, leaning by [`CAMERA_LEAN`] so the cards have
-/// somewhere to cast a shadow; the rig decides target, zoom, and azimuth.
+/// battlefield canvas, leaning so the cards have somewhere to cast a shadow;
+/// the rig decides target, distance and azimuth.
 ///
-/// The camera follows the rig rather than snapping to it, so tabbing to
-/// another seat is a move across the table and not a cut. Yaw is interpolated
-/// the short way around, or focusing the seat on your left would spin the
-/// table three-quarters of the way round to reach it.
+/// Two ways of following it. A **visit or a return** (the pose in
+/// [`Duel::visiting`] changed) is a timed orbit of [`ORBIT_SECS`], eased in
+/// and out, yaw the short way round, re-aimed every frame at the rig as it
+/// stands so a re-fit during the move is followed. Anything else — a resize,
+/// a seat joining — is the exponential settle at `CAMERA_SETTLE`, which is
+/// right for a few units of re-framing. Under reduced motion both are cuts.
 pub fn apply_camera_rig(
     rig: Res<CameraRig>,
     time: Res<Time>,
+    duel: Option<Res<Duel>>,
     prefs: Res<crate::prefs::Prefs>,
     mut shown: ResMut<ShownRig>,
     mut cams: Query<&mut Transform, With<TableCamera>>,
 ) {
     let target = *rig;
-    let current = match shown.0 {
+    let still = prefs.all().reduce_motion;
+    let pose = duel.and_then(|duel| duel.visiting);
+    let mut orbit = shown.orbit;
+    if let Some(current) = shown.rig
+        && shown.posed
+        && shown.pose != pose
+        && !still
+    {
+        orbit = Some(Orbit {
+            from: current,
+            elapsed: 0.0,
+        });
+    }
+    let current = match (shown.rig, orbit) {
         // The first frame is a cut by definition: there is nowhere to come
         // from. So is a table a player has asked to hold still.
-        None => target,
-        Some(_) if prefs.all().reduce_motion => target,
-        Some(current) => {
-            let t = 1.0 - (-CAMERA_SETTLE * time.delta_secs()).exp();
-            let turn = std::f32::consts::TAU;
-            let yaw_delta = (target.yaw - current.yaw + std::f32::consts::PI).rem_euclid(turn)
-                - std::f32::consts::PI;
-            CameraRig {
-                target: current.target.lerp(target.target, t),
-                distance: current.distance + (target.distance - current.distance) * t,
-                yaw: current.yaw + yaw_delta * t,
-                lean: current.lean + (target.lean - current.lean) * t,
+        (None, _) => target,
+        (Some(_), _) if still => target,
+        (Some(_), Some(mut journey)) => {
+            journey.elapsed += time.delta_secs();
+            let t = journey.elapsed / ORBIT_SECS;
+            orbit = (t < 1.0).then_some(journey);
+            if t < 1.0 {
+                between(journey.from, target, ease_in_out(t))
+            } else {
+                target
             }
         }
+        (Some(current), None) => {
+            let t = 1.0 - (-CAMERA_SETTLE * time.delta_secs()).exp();
+            between(current, target, t)
+        }
     };
+    if still {
+        orbit = None;
+    }
     // Nothing moved and nothing was asked for: the camera stands still most
     // of the time and should cost nothing then.
-    if shown.0 == Some(current) && !rig.is_changed() {
+    if shown.rig == Some(current) && shown.pose == pose && shown.orbit == orbit && !rig.is_changed()
+    {
         return;
     }
-    shown.0 = Some(current);
+    *shown = ShownRig {
+        rig: Some(current),
+        pose,
+        posed: true,
+        orbit,
+    };
 
     let eye = current.eye();
     for mut transform in &mut cams {
@@ -543,7 +993,13 @@ impl ShownRig {
     /// Where the camera stands *this frame*, or `None` before the first one.
     #[must_use]
     pub fn rig(self) -> Option<CameraRig> {
-        self.0
+        self.rig
+    }
+
+    /// Whether a visit or a return is under way.
+    #[must_use]
+    pub fn moving(self) -> bool {
+        self.orbit.is_some()
     }
 }
 

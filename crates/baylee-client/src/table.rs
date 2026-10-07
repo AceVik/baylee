@@ -430,6 +430,9 @@ pub use stage::*;
 mod camera_tests;
 
 #[cfg(test)]
+mod visit_tests;
+
+#[cfg(test)]
 mod zone_tests;
 
 #[cfg(test)]

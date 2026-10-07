@@ -475,7 +475,7 @@ pub fn sync_seat_bars(
     let fresh = BarRevision {
         seq: duel.board.as_ref().map(|b| b.seq),
         orders: Some(orders.clone()),
-        focus: duel.focus,
+        focus: duel.visiting,
         densities,
         // Who is answering for each chair, and it is in the key rather than
         // left to `seq` for a reason that is invisible until it bites. `seq`

@@ -21,6 +21,13 @@ pub struct AudioMix {
     effects: f32,
     /// Silence while another window has the focus.
     pub mute_in_background: bool,
+    /// Whether the priority cue (`cue::Cue::YourMove`) is played on this
+    /// device (DESIGN-v7 §4.5, D22). Off, the cue is still decided and
+    /// reported (`/state.last_cue`), and nothing is played: the
+    /// `Loudness::Off` discipline, one cue wide. Never gated by the music,
+    /// which is a different knob. On by default, and a file from before it
+    /// reads on.
+    pub priority_cue: bool,
 }
 
 impl Default for AudioMix {
@@ -31,6 +38,7 @@ impl Default for AudioMix {
             master: 1.0,
             effects: 1.0,
             mute_in_background: false,
+            priority_cue: true,
         }
     }
 }

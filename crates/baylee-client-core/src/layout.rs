@@ -637,6 +637,29 @@ impl SeatSlot {
     }
 }
 
+/// How the seats are placed at the table, and with that which home and visit
+/// shots the camera takes.
+///
+/// **The seam for the arrangements to come** (the owner, 07.10.2026: every
+/// arrangement explored in the table designs is to be built and switchable
+/// live; `.claude/ux-table/DESIGN-v8-arrangements.md` §0). One decision
+/// point: [`TableLayout::arranged`] places the seats for an arrangement, and
+/// the client's camera poses (`CameraRig::home_shot` and `CameraRig::visit`
+/// in `baylee-client`) match on it. The device's choice lives in
+/// `ClientSettings::table` beside the ring's lean and the visit camera. A new
+/// arrangement is a variant here, an arm in [`TableLayout::arranged`] and an
+/// arm in each of the two poses; the dial, the sound and picking read only
+/// the layout and the rig, never this.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Arrangement {
+    /// Every seat a duel's width on one ring, clockwise in turn order, mine
+    /// at the near edge ([`TableLayout::seated`]). A *camera* arrangement:
+    /// the seat of interest is visited by the camera, no card moves.
+    #[default]
+    Ring,
+}
+
 /// Where every seat sits, and how much room each one gets.
 #[derive(Clone, PartialEq, Debug)]
 pub struct TableLayout {
@@ -1009,6 +1032,25 @@ impl TableLayout {
     pub fn new(seats: &[PlayerId], aspect: f32, focus: Option<PlayerId>) -> Self {
         let alone: Vec<Seat> = seats.iter().copied().map(Seat::alone).collect();
         Self::seated(&alone, aspect, focus)
+    }
+
+    /// Places the seats for an [`Arrangement`] on a canvas of `aspect`.
+    ///
+    /// `interest` is the seat of interest (the client's `Duel::visiting`): a
+    /// *layout* arrangement re-solves the slots around it, a *camera* one —
+    /// the ring, today's only — ignores it, because there the camera visits
+    /// and no card moves.
+    #[must_use]
+    pub fn arranged(
+        seats: &[Seat],
+        aspect: f32,
+        arrangement: Arrangement,
+        interest: Option<PlayerId>,
+    ) -> Self {
+        let _ = interest;
+        match arrangement {
+            Arrangement::Ring => Self::seated(seats, aspect, None),
+        }
     }
 
     /// The same, for a table where some of the seats are allied.

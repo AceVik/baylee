@@ -3,35 +3,23 @@
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
 
-/// Frames the next opponent's board, wrapping back to your own.
+/// Visits the next seat in ring order (`F`), or the previous (`Shift+F`),
+/// coming home past either end (TABLE-KEYBOARD §9).
 ///
 /// One key that walks the table rather than a numbered key per chair: a
 /// four-seat game has three opponents, and a binding screen listing nine
-/// "focus seat N" rows would be listing six that can never fire.
-pub(super) fn focus_next_opponent(duel: &mut Duel, rig: &mut crate::table::CameraRig) {
-    let Some(board) = duel.board.as_ref() else {
+/// "focus seat N" rows would be listing six that can never fire. Ring order
+/// is the layout's slot order — clockwise in turn order from my own seat —
+/// so `F` walks the table the way the eye goes round it.
+pub(super) fn visit_next_seat(duel: &mut Duel, forward: bool) {
+    let (Some(layout), Some(me)) = (duel.layout.as_ref(), duel.seat()) else {
         return;
     };
-    let opponents: Vec<_> = board
-        .pods
-        .iter()
-        .filter(|p| !p.is_local)
-        .map(|p| p.player)
-        .collect();
-    if opponents.is_empty() {
-        return;
-    }
-    let next = match duel.focus {
-        None => Some(opponents[0]),
-        Some(current) => opponents
-            .iter()
-            .position(|p| *p == current)
-            .and_then(|i| opponents.get(i + 1).copied()),
-    };
-    match next {
-        Some(player) => navigate_to_player(duel, rig, player),
-        // Past the last opponent is home again, so the key never dead-ends.
-        None => navigate_home(duel, rig),
+    let ring: Vec<_> = layout.slots.iter().map(|slot| slot.player).collect();
+    match baylee_client_core::tableview::step_seat(&ring, me, duel.visiting, forward) {
+        Some(seat) => navigate_to_player(duel, seat),
+        // Past the last seat is home again, so the key never dead-ends.
+        None => navigate_home(duel),
     }
 }
 

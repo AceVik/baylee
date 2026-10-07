@@ -30,7 +30,7 @@ fn project(rig: CameraRig, canvas: Canvas, table: Vec2) -> Vec2 {
 }
 
 #[test]
-fn only_a_wide_duel_takes_the_more_oblique_shot() {
+fn a_ring_takes_the_chosen_lean_and_a_narrow_duel_the_upright_one() {
     let desktop = Canvas::hud(WINDOW);
     let portrait = Canvas::hud(Vec2::new(430.0, 932.0));
     let duel = TableLayout::new(&seats(2), desktop.aspect(), None);
@@ -39,13 +39,28 @@ fn only_a_wide_duel_takes_the_more_oblique_shot() {
     let wide = CameraRig::home(&duel, desktop);
     let pod = CameraRig::home(&ring, desktop);
     let narrow = CameraRig::home(&phone, portrait);
-    assert!(wide.lean > pod.lean);
     assert!(
-        (pod.lean - narrow.lean).abs() < 1e-6,
-        "a ring and a phone duel share the upright shot: {} against {}",
-        pod.lean,
+        wide.lean > narrow.lean,
+        "a narrow duel keeps the upright shot"
+    );
+    assert!(
+        (narrow.lean - CAMERA_LEAN).abs() < 1e-6,
+        "a phone duel takes the upright shot: {}",
         narrow.lean
     );
+    // A ring takes the lean this device chose (D20): a wide duel's by
+    // default, the old upright one when asked for.
+    assert!(
+        (pod.lean - DUEL_LEAN).abs() < 1e-6,
+        "a ring at {}",
+        pod.lean
+    );
+    let gentle = Shot {
+        lean: baylee_client_core::tableview::RingLean::Gentle,
+        ..Shot::default()
+    };
+    let upright = CameraRig::home_shot(&ring, desktop, gentle).0;
+    assert!((upright.lean - CAMERA_LEAN).abs() < 1e-6);
 }
 
 /// Every seat's bar fits the shelf it is written on, at every table.
@@ -91,8 +106,17 @@ fn the_bar_fits_its_ledge_at_every_seat_of_an_eight_ring() {
                 density.width(false),
                 shelf.along
             );
+            // The mark is the smallest form there is, and at eight seats
+            // under the 0.62 lean (D20) the seat across draws its ledge
+            // 13.9 px deep against the mark's 14 px of ink: an eighth of a
+            // pixel, measured and allowed for that form alone.
+            let give = if density == baylee_client_core::seatbar::Density::Mark {
+                0.25
+            } else {
+                0.0
+            };
             assert!(
-                shelf.depth >= density.ink_height(),
+                shelf.depth + give >= density.ink_height(),
                 "at {n} seats, seat {}'s shelf projects {} deep and the \
                  {density:?} bar draws {} of ink — it would stand on the \
                  creature lane",
@@ -425,8 +449,18 @@ fn drawn_width(rig: CameraRig, canvas: Canvas, slot: &SeatSlot) -> f32 {
 ///
 /// The phone keeps 1.18 and did not move — it was already 16.5% at three
 /// seats for the reason below, and the taller canvas took it to 17.5%.
+///
+/// Since DESIGN-v7 this holds for the **gentle** lean only (`RingLean::Gentle`,
+/// the owner's D20 option): the recommended 0.62 shoots a ring at a wide
+/// duel's angle and gives this equality up at home on purpose, my own board
+/// collecting what the far seats lose. The visit is where boards are equal
+/// now (`the_visited_board_is_drawn_at_the_same_width_from_every_chair`).
 #[test]
-fn every_seat_is_drawn_a_board_of_the_same_width() {
+fn at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width() {
+    let gentle = Shot {
+        lean: baylee_client_core::tableview::RingLean::Gentle,
+        ..Shot::default()
+    };
     // A phone is allowed a little more. Its ring is nearly a column —
     // 2.5 × 11.2 at three seats — so the near seat stands a far larger
     // fraction of the eye distance closer than it does on a ring that had
@@ -434,12 +468,15 @@ fn every_seat_is_drawn_a_board_of_the_same_width() {
     for (window, bound) in [
         (WINDOW, 1.14),
         (Vec2::new(1280.0, 800.0), 1.14),
-        (Vec2::new(430.0, 932.0), 1.18),
+        // 1.20 since v7: a ring keeps one unit of air where it kept three
+        // and a half, the camera stands closer and the near seat gains on
+        // the far ones (19.7 % at five seats, measured).
+        (Vec2::new(430.0, 932.0), 1.20),
     ] {
         let canvas = Canvas::hud(window);
         for n in 2..=8u8 {
             let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
-            let rig = CameraRig::home(&layout, canvas);
+            let rig = CameraRig::home_shot(&layout, canvas, gentle).0;
             let drawn: Vec<f32> = layout
                 .slots
                 .iter()
@@ -488,6 +525,13 @@ fn a_seats_printed_border_is_inside_the_band_too() {
         for n in 2..=8u8 {
             let layout = TableLayout::new(&seats(n), canvas.aspect(), None);
             let rig = CameraRig::home(&layout, canvas);
+            // A phone's ring frames my own pod and the dial at home
+            // (DESIGN-v7 §1.4): the far seats are read by visiting. My own
+            // border is still held.
+            let mut layout = layout;
+            if n >= 3 && canvas.class() == baylee_client_core::tableview::WindowClass::Phone {
+                layout.slots.truncate(1);
+            }
             for corner in box_corners(&layout, |slot| slot.half_extent + Vec2::splat(ZONE_MARGIN)) {
                 let at = project(rig, canvas, corner);
                 assert!(

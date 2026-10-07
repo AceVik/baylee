@@ -1209,10 +1209,12 @@ messages! {
     ActRailUp { en: "Rail selection up", de: "Phasenleiste hoch" },
     /// Rail selection down
     ActRailDown { en: "Rail selection down", de: "Phasenleiste runter" },
-    /// Look at the next opponent
-    ActFocusNextSeat { en: "Look at the next opponent", de: "Zum nächsten Gegner sehen" },
-    /// Look at your own board
-    ActFocusHome { en: "Look at your own board", de: "Auf das eigene Brett sehen" },
+    /// Visit the next seat (TABLE-KEYBOARD §9)
+    ActFocusNextSeat { en: "Visit the next seat", de: "Sitz ansehen" },
+    /// Visit the previous seat
+    ActFocusPrevSeat { en: "Visit the previous seat", de: "Vorigen Sitz ansehen" },
+    /// Back to my own seat
+    ActFocusHome { en: "Back to my seat", de: "Zurück zu meinem Platz" },
     /// Answering
     GroupAnswering { en: "Answering", de: "Antworten" },
     /// Moving around

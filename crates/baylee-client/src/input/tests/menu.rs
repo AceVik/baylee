@@ -372,13 +372,12 @@ fn the_log_key_opens_the_log_and_shuts_it() {
     let keymap = Keymap::standard();
     let l = Fired::of(&press(bevy::prelude::KeyCode::KeyL), &keymap);
     let mut duel = crate::Duel::default();
-    let mut rig = crate::table::CameraRig::default();
     let mut settings = crate::settings::ClientSettings::default();
     let mut prefs = crate::prefs::Prefs::default();
 
-    crate::input::look_around(l, &mut duel, &mut rig, &mut settings, &mut prefs);
+    crate::input::look_around(l, &mut duel, &mut settings, &mut prefs);
     assert!(duel.log_open, "L did not open the log");
-    crate::input::look_around(l, &mut duel, &mut rig, &mut settings, &mut prefs);
+    crate::input::look_around(l, &mut duel, &mut settings, &mut prefs);
     assert!(!duel.log_open, "L did not shut it again");
 }
 

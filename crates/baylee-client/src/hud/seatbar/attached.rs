@@ -940,7 +940,13 @@ mod tests {
         let (me, them) = (PlayerId::new(0), PlayerId::new(1));
         let layout = TableLayout::new(&[me, them], canvas.aspect(), Some(them));
         let slot = *layout.slot(them).expect("the opponent has a seat");
-        let rig = CameraRig::framing(&slot, Vec2::new(slot.center.x, -slot.center.y));
+        // Looking at the opponent from my own side of the table (the home
+        // azimuth, not the visit, which stands behind them): that is what
+        // pushes my own band down under the hand zone.
+        let rig = CameraRig {
+            yaw: 0.0,
+            ..CameraRig::framing(&slot, Vec2::new(slot.center.x, -slot.center.y))
+        };
         let lens = crate::table::Lens::new(rig, window);
         let mine = layout.slot(me).expect("so do I");
         let (corner, tilt, scale) = pose_on(

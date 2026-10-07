@@ -101,9 +101,11 @@ pub enum Action {
     RailUp,
     /// Move the phase-rail selection down.
     RailDown,
-    /// Look at the next opponent's board.
+    /// Visit the next seat in ring order (the camera, never a card).
     FocusNextSeat,
-    /// Look back at your own.
+    /// Visit the previous seat in ring order.
+    FocusPrevSeat,
+    /// Bring the camera home.
     FocusHome,
     /// Open the report form (#309), from the lobby or the table.
     Report,
@@ -111,7 +113,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 32] = [
+    pub const ALL: [Self; 33] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -124,6 +126,7 @@ impl Action {
         Self::CursorLeft,
         Self::CursorRight,
         Self::FocusNextSeat,
+        Self::FocusPrevSeat,
         Self::FocusHome,
         Self::CombatFocusNext,
         Self::CombatFocusPrev,
@@ -184,6 +187,7 @@ impl Action {
             Self::RailUp => Phrase::ActRailUp,
             Self::RailDown => Phrase::ActRailDown,
             Self::FocusNextSeat => Phrase::ActFocusNextSeat,
+            Self::FocusPrevSeat => Phrase::ActFocusPrevSeat,
             Self::FocusHome => Phrase::ActFocusHome,
             Self::Report => Phrase::ReportButton,
         }
@@ -209,6 +213,7 @@ impl Action {
             | Self::CursorUp
             | Self::CursorDown
             | Self::FocusNextSeat
+            | Self::FocusPrevSeat
             | Self::FocusHome => Phrase::GroupMovingAround,
             Self::CombatFocusNext | Self::CombatFocusPrev | Self::CombatNone => Phrase::GroupCombat,
             Self::NextPhase
@@ -473,6 +478,7 @@ impl Keymap {
         bind(Action::RailUp, vec![Chord::shift("KeyW")]);
         bind(Action::RailDown, vec![Chord::shift("KeyS")]);
         bind(Action::FocusNextSeat, vec![Chord::key("KeyF")]);
+        bind(Action::FocusPrevSeat, vec![Chord::shift("KeyF")]);
         bind(Action::FocusHome, vec![Chord::key("KeyH")]);
         bind(Action::Report, vec![Chord::key("F8")]);
         Self { bindings }
@@ -504,6 +510,7 @@ impl Keymap {
         map.bindings.remove(&Action::Report);
         map.bindings.remove(&Action::ConfirmTargetBatch);
         map.bindings.remove(&Action::GrantedActions);
+        map.bindings.remove(&Action::FocusPrevSeat);
         map
     }
 

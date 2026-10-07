@@ -199,7 +199,7 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
         matches!(interaction.confirm(), Some(PlayerAction::ChooseTargets { players, objects })
         if players == vec![PlayerId::new(1)] && objects.is_empty())
     );
-    assert!(app.world().resource::<crate::Duel>().focus.is_none());
+    assert!(app.world().resource::<crate::Duel>().visiting.is_none());
     let illegal = app
         .world_mut()
         .spawn(crate::hud::PlayerTab {
@@ -207,7 +207,7 @@ fn player_summary_children_target_the_seat_without_moving_the_camera() {
         })
         .id();
     click(&mut app, illegal);
-    assert!(app.world().resource::<crate::Duel>().focus.is_none());
+    assert!(app.world().resource::<crate::Duel>().visiting.is_none());
     click(&mut app, life);
     assert_eq!(
         app.world()
