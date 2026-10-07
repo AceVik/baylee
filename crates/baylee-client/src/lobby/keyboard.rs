@@ -258,17 +258,14 @@ pub(super) fn keyboard(
             }
             return;
         }
-        if super::editing::builder_keys(
+        super::editing::builder_keys(
             &mut keys,
             &codes,
             &mut state,
             &mut scrolled,
             clipboard.as_deref_mut(),
             &mut paste,
-        ) {
-            let request = state.lobby.save_deck();
-            dispatch(&mut state, &mailbox, request);
-        }
+        );
         return;
     }
     // The table screen has two fields of its own — the search box and the

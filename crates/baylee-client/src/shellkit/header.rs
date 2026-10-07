@@ -250,7 +250,7 @@ fn gateway_pill(
 }
 
 /// The bell: its glyph, and the unread count on it when there is one.
-fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundle) -> Entity {
+pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundle) -> Entity {
     let face = commands
         .spawn((
             Node {
@@ -304,7 +304,7 @@ fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundle) -
 }
 
 /// The account pill on a narrow header: the handle's first letter in a disc.
-fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bundle) -> Entity {
+pub fn avatar(commands: &mut Commands, kit: Kit, handle: &str, action: impl Bundle) -> Entity {
     let letter: String = handle
         .chars()
         .next()

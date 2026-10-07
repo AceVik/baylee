@@ -39,14 +39,22 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         || state.terms.up()
         || state.about_open
         || state.lobby.deleting_account().is_some()
-        || state.lobby.library().page.is_some();
-    let menu = state.front_menu || state.completion.is_some() || state.header_menu.is_some();
+        || state.lobby.library().page.is_some()
+        || (screen == Context::Builder && builder_modal(state));
+    let menu = state.front_menu
+        || state.header_menu.is_some()
+        || (screen == Context::Builder
+            && (state.build.menu.is_some() || state.build.syntax || state.build.rail));
     // Settings types only into its own boxes (the key capture, the seat
     // panel); behind it the lobby's caret is idle (`keyboard` returns early).
     let field = if screen == Context::Settings {
         state.settings.capturing().is_some() || state.seat.typing()
+    } else if screen == Context::Builder {
+        // Only while the caret is in the search or the name: on a list row
+        // the bare keys are the keymap's (`/`, `?`, `r`).
+        state.build.nav == crate::buildui::Nav::Field
     } else {
-        state.lobby.typing_here() || screen == Context::Builder
+        state.lobby.typing_here()
     };
     ShellStack {
         stack: Stack {
@@ -58,6 +66,18 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         },
         live: true,
     }
+}
+
+/// Whether something of the builder's stands over it as a sheet: the
+/// printing picker, import or export, the card, "Discard changes?", the
+/// phone's Stats.
+fn builder_modal(state: &LobbyState) -> bool {
+    let deck = state.lobby.builder();
+    deck.picker().is_some()
+        || deck.transfer().is_some()
+        || deck.inspecting().is_some()
+        || state.confirm_leave
+        || state.build.stats_sheet
 }
 
 /// Writes [`ShellStack`] from the lobby every frame, and stands it down
@@ -104,6 +124,11 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
     let hub = matches!(state.lobby.screen(), Screen::Table)
         && state.lobby.awaiting().is_none()
         && state.lobby.library().page.is_none();
+    let builder = matches!(state.lobby.screen(), Screen::Build)
+        && !state.settings.is_open()
+        && state.confirmation.is_none()
+        && state.build.menu.is_none()
+        && !builder_modal(state);
     match action {
         ShellAction::GoSettings | ShellAction::OpenSettings
             if !state.settings.is_open()
@@ -121,6 +146,19 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
             Some(Press::Hub(HubPress::NewDeck))
         }
         ShellAction::Search if hub => Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        // The builder's doors (`KEYBOARD.md` §7.7), while nothing stands
+        // over it.
+        ShellAction::Search if builder => Some(Press::Build(BuildPress::FocusBuild(
+            baylee_client_core::deckbuilder::BuildField::Search,
+        ))),
+        ShellAction::SaveDeck if builder => Some(Press::Build(BuildPress::SaveDeck)),
+        ShellAction::ImportDeck if builder && !state.lobby.busy() => {
+            Some(Press::Build(BuildPress::OpenImport))
+        }
+        ShellAction::ExportDeck if builder && !state.lobby.busy() => {
+            Some(Press::Build(BuildPress::OpenExport))
+        }
+        ShellAction::Back if builder => Some(Press::Build(BuildPress::CloseBuilder)),
         // `r`: the seated strip's Return, wherever the strip stands.
         ShellAction::ReturnToGame if super::header::seated(state).is_some() => {
             Some(Press::Header(super::header::HeaderPress::Return))
@@ -159,6 +197,7 @@ pub(super) fn run_fired(
                 Press::Settings(press) => press.handle(cx),
                 Press::Shared(press) => press.handle(cx),
                 Press::Header(press) => press.handle(cx),
+                Press::Build(press) => press.handle(cx),
                 _ => {}
             }
             if !closing {

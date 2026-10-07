@@ -223,19 +223,7 @@ pub(crate) fn text_field_with(
         ));
     }
     if let Some(glyph) = look.lead {
-        let mark = commands
-            .spawn((
-                Text::new(glyph.to_string()),
-                crate::hud::icon_tf(fonts, metrics.small * 0.85),
-                TextColor(palette::MUTED),
-                Node {
-                    margin: UiRect::right(px(metrics.gap * 0.5)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
+        let mark = lead_mark(commands, fonts, metrics, glyph);
         commands.entity(boxed).add_child(mark);
     }
     for run in field_runs(commands, fonts, metrics, look) {
@@ -274,8 +262,32 @@ pub(crate) fn text_field_with(
             commands.entity(boxed).add_child(button);
         }
     }
-    commands.entity(column).add_children(&[caption, boxed]);
+    // A box with no caption (the builder's search and title) is the box
+    // alone: an empty line above it would be a line of nothing.
+    if label.is_empty() {
+        commands.entity(caption).despawn();
+        commands.entity(column).add_child(boxed);
+    } else {
+        commands.entity(column).add_children(&[caption, boxed]);
+    }
     column
+}
+
+/// The glyph a box leads with (the search's magnifier).
+fn lead_mark(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, glyph: char) -> Entity {
+    commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(fonts, metrics.small * 0.85),
+            TextColor(palette::MUTED),
+            Node {
+                margin: UiRect::right(px(metrics.gap * 0.5)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 /// The eye at the end of a password box.

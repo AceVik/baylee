@@ -278,8 +278,19 @@ impl Reading<'_> {
         if card.url.is_some() && !reads_text {
             return None;
         }
-        let pool = self.state.as_deref()?.lobby.builder().pool();
-        let face = crate::face::of_pool(pool.iter().find(|c| Some(c.index) == card.index)?);
+        let builder = self.state.as_deref()?.lobby.builder();
+        let pool = builder.pool();
+        let mut face = crate::face::of_pool(pool.iter().find(|c| Some(c.index) == card.index)?);
+        // The foot's Set · Artist (WP6), where the builder has been told about
+        // the printing the row shows: its art's id is the URL's last part.
+        face.credit = card.index.and_then(|index| {
+            let id = card
+                .url
+                .as_deref()
+                .and_then(|url| url.rsplit('/').next())
+                .map_or("", |file| file.trim_end_matches(".jpg"));
+            builder.printing_credit(index, id)
+        });
         Some((face, self.fonts.as_deref()?))
     }
 

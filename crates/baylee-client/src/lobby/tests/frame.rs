@@ -110,8 +110,12 @@ fn crossing_a_breakpoint_rebuilds_the_tree() {
     );
 }
 
+/// A narrow window shows one pane at a time, with a tab bar to the others
+/// (§7: "960: one column, bottom tab bar Pool · Deck n · Stats"); the rail's
+/// filters are behind Filters.
 #[test]
-fn a_phone_shows_one_half_of_the_builder_at_a_time() {
+fn a_narrow_window_shows_one_pane_of_the_builder_at_a_time() {
+    use crate::buildui::{DeckTab, Pane};
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 390.0);
@@ -122,44 +126,42 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     app.update();
     let cards = presses(&mut app);
     assert!(
-        cards.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))),
+        cards.contains(&Press::Build(BuildPress::AddFromPool(0, false))),
         "the pool is showing"
     );
     assert!(
-        !cards.contains(&Press::Build(BuildPress::SetZone(Zone::Side))),
+        !cards.contains(&Press::Build(BuildPress::SetTab(DeckTab::Side))),
         "and the deck is not: {cards:?}"
     );
     assert!(
-        cards.contains(&Press::Build(BuildPress::ShowPane(Pane::Deck))),
+        cards.contains(&Press::Build(BuildPress::SetPane(Pane::Deck))),
         "with a way over"
     );
-    // The chips are folded away, or the list under them would be four
-    // rows tall.
     assert!(
         !cards.contains(&Press::Build(BuildPress::SetKind(Some("Creature")))),
         "{cards:?}"
     );
     assert!(
-        cards.contains(&Press::Build(BuildPress::ToggleFilters)),
+        cards.contains(&Press::Build(BuildPress::ToggleRail)),
         "but reachable"
     );
-    app.world_mut().resource_mut::<LobbyState>().filters_open = true;
+    app.world_mut().resource_mut::<LobbyState>().build.rail = true;
     app.update();
     assert!(
         presses(&mut app).contains(&Press::Build(BuildPress::SetKind(Some("Creature")))),
         "unfolded, every filter is there"
     );
-    app.world_mut().resource_mut::<LobbyState>().filters_open = false;
+    app.world_mut().resource_mut::<LobbyState>().build.rail = false;
 
-    app.world_mut().resource_mut::<LobbyState>().pane = Pane::Deck;
+    app.world_mut().resource_mut::<LobbyState>().build.pane = Pane::Deck;
     app.update();
     let list = presses(&mut app);
     assert!(
-        list.contains(&Press::Build(BuildPress::SetZone(Zone::Side))),
+        list.contains(&Press::Build(BuildPress::SetTab(DeckTab::Side))),
         "{list:?}"
     );
     assert!(
-        !list.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))),
+        !list.contains(&Press::Build(BuildPress::AddFromPool(0, false))),
         "{list:?}"
     );
 
@@ -168,8 +170,8 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     app.update();
     let both = presses(&mut app);
     assert!(
-        both.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main)))
-            && both.contains(&Press::Build(BuildPress::SetZone(Zone::Side)))
+        both.contains(&Press::Build(BuildPress::AddFromPool(0, false)))
+            && both.contains(&Press::Build(BuildPress::SetTab(DeckTab::Side)))
     );
 }
 

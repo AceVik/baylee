@@ -63,6 +63,8 @@ pub(super) fn clicks(
     motion: Res<super::front::FrontMotion>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
+    // Shift on a pool row's `+` sends the card to the other list (§7).
+    codes: Option<Res<ButtonInput<KeyCode>>>,
 ) {
     // A panel on its way out or in answers nothing: what is under the
     // pointer is half of a form that is going, or not yet there.
@@ -98,12 +100,17 @@ pub(super) fn clicks(
             }
             continue;
         }
-        let Some(press) = in_lineage(click.entity, &presses, &parents) else {
-            if !crate::buildui::autocomplete::suggestions(&state).is_empty() {
-                state.completion_hidden = true;
-                state.completion = None;
-            }
+        let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
+        };
+        let shift = codes
+            .as_deref()
+            .is_some_and(|c| c.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]));
+        let press = match press {
+            Press::Build(BuildPress::AddFromPool(slot, false)) if shift => {
+                Press::Build(BuildPress::AddFromPool(slot, true))
+            }
+            other => other,
         };
         let cx = Cx {
             state: &mut state,
@@ -112,7 +119,7 @@ pub(super) fn clicks(
             mailbox: &mailbox,
             settings: &mut settings,
         };
-        run(*press, cx);
+        run(press, cx);
     }
 }
 
@@ -155,16 +162,6 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         {
             return;
         }
-        if !matches!(
-            press,
-            Press::Build(
-                BuildPress::CompleteSearch(_) | BuildPress::FocusBuild(BuildField::Search)
-            )
-        ) && !crate::buildui::autocomplete::suggestions(state).is_empty()
-        {
-            state.completion_hidden = true;
-            state.completion = None;
-        }
         if state.confirmation.is_some()
             && !matches!(
                 press,
@@ -183,6 +180,11 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
             )
         {
             state.front_menu = false;
+        }
+        // A builder menu closes on any press that is not the builder's own
+        // (those close it themselves, `BuildPress::handle`).
+        if state.build.menu.is_some() && !matches!(press, Press::Build(_)) {
+            state.build.menu = None;
         }
         // Anything but the header's own controls closes a header popover.
         if state.header_menu.is_some() && !matches!(*press, Press::Header(_)) {

@@ -18,7 +18,8 @@ fn transfer(app: &App) -> Option<Transfer> {
         .cloned()
 }
 
-/// Presses one key for one frame, and lets it go.
+/// Presses one key for one frame, and lets it go: in `ButtonInput`, and as
+/// the event the shell keymap reads (a letter as its character).
 fn key(app: &mut App, held: Option<KeyCode>, code: KeyCode) {
     {
         let mut codes = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
@@ -27,6 +28,24 @@ fn key(app: &mut App, held: Option<KeyCode>, code: KeyCode) {
         }
         codes.press(code);
     }
+    let name = format!("{code:?}");
+    let letter = name
+        .strip_prefix("Key")
+        .filter(|l| l.len() == 1)
+        .map(str::to_lowercase);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(KeyboardInput {
+            key_code: code,
+            logical_key: letter.clone().map_or(
+                Key::Unidentified(bevy::input::keyboard::NativeKey::Unidentified),
+                |l| Key::Character(l.into()),
+            ),
+            state: bevy::input::ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
     app.update();
     let mut codes = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
     codes.release_all();
@@ -97,8 +116,14 @@ fn the_export_dialog_offers_every_format_and_answers_its_keys() {
         assert!(builder.add(0, Zone::Main), "the pool has that card");
     }
     app.update();
-    // The builder's own chord opens it, on every platform.
-    key(&mut app, Some(KeyCode::ControlLeft), KeyCode::KeyE);
+    // The builder's own chord opens it, on every platform: the shell
+    // keymap's Export (Cmd on macOS, Ctrl elsewhere).
+    let command = if crate::shellkit::keys::mac() {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    key(&mut app, Some(command), KeyCode::KeyE);
     assert!(
         matches!(transfer(&app), Some(Transfer::Export(_))),
         "Ctrl+E opened the export dialog"

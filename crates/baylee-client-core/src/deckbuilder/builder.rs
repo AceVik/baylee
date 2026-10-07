@@ -81,6 +81,37 @@ impl DeckBuilder {
         self.dirty
     }
 
+    /// How many edits the deck has had since it was last saved or loaded:
+    /// the number the header's "Unsaved · n changes" reads. A run of
+    /// keystrokes into the name is one edit, not one per letter.
+    #[must_use]
+    pub fn changes(&self) -> u32 {
+        self.changes
+    }
+
+    /// The cards most recently added, newest first, at most
+    /// [`LAST_ADDED`] — the phone's deck rail shows them.
+    #[must_use]
+    pub fn last_added(&self) -> &[usize] {
+        &self.last_added
+    }
+
+    /// Marks one edit to the cards: the deck is unsaved, and one more change.
+    pub(super) fn touch(&mut self) {
+        self.dirty = true;
+        self.changes = self.changes.saturating_add(1);
+        self.naming = false;
+    }
+
+    /// Marks an edit to the name: a run of them counts once.
+    pub(super) fn touch_name(&mut self) {
+        self.dirty = true;
+        if !self.naming {
+            self.changes = self.changes.saturating_add(1);
+            self.naming = true;
+        }
+    }
+
     /// Which list an "add" goes to.
     #[must_use]
     pub fn zone(&self) -> Zone {
@@ -825,7 +856,7 @@ impl DeckBuilder {
                     entries.push(original);
                 }
                 self.sort_zone(zone);
-                self.dirty = true;
+                self.touch();
                 true
             } else {
                 false
@@ -939,7 +970,10 @@ impl DeckBuilder {
                 note: None,
             });
         }
-        self.dirty = true;
+        self.touch();
+        self.last_added.retain(|held| *held != slot);
+        self.last_added.insert(0, slot);
+        self.last_added.truncate(LAST_ADDED);
         self.sort_zone(zone);
         true
     }
@@ -958,7 +992,7 @@ impl DeckBuilder {
             return false;
         };
         Self::take_one(entries, at);
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -975,7 +1009,7 @@ impl DeckBuilder {
             return false;
         }
         Self::take_one(entries, at);
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -994,25 +1028,25 @@ impl DeckBuilder {
         self.commanders.clear();
         self.pending.clear();
         self.missing.clear();
-        self.dirty = true;
+        self.touch();
     }
 
     /// Sets the deck's name.
     pub fn set_name(&mut self, name: &str) {
         self.name = crate::textbuf::TextBuffer::new(name);
-        self.dirty = true;
+        self.touch_name();
     }
 
     /// Types one character into the name.
     pub fn type_name(&mut self, ch: char) {
         self.name.insert(&ch.to_string());
-        self.dirty = true;
+        self.touch_name();
     }
 
     /// Deletes the last character of the name.
     pub fn backspace_name(&mut self) {
         self.name.delete_back();
-        self.dirty = true;
+        self.touch_name();
     }
 
     // ----------------------------------------------------------- one card
@@ -1125,7 +1159,7 @@ impl DeckBuilder {
         }
         match field {
             BuildField::Search => self.retext(),
-            BuildField::Name => self.dirty = true,
+            BuildField::Name => self.touch_name(),
             BuildField::PickerSet => {
                 if let Some(p) = &mut self.picker {
                     p.set_cursor = 0;
@@ -1405,7 +1439,7 @@ impl DeckBuilder {
             return false;
         }
         self.commanders = vec![slot];
-        self.dirty = true;
+        self.touch();
         self.stale_commander = None;
         true
     }
@@ -1431,7 +1465,7 @@ impl DeckBuilder {
             return false;
         }
         self.commanders.push(slot);
-        self.dirty = true;
+        self.touch();
         true
     }
 
@@ -1439,7 +1473,9 @@ impl DeckBuilder {
     pub fn remove_commander(&mut self, slot: usize) {
         let before = self.commanders.len();
         self.commanders.retain(|leader| *leader != slot);
-        self.dirty |= before != self.commanders.len();
+        if before != self.commanders.len() {
+            self.touch();
+        }
     }
 
     /// Takes every commander mark off, leaving the cards in the deck.
@@ -1450,7 +1486,7 @@ impl DeckBuilder {
         let marked = !std::mem::take(&mut self.commanders).is_empty();
         let stale = self.stale_commander.take().is_some();
         if marked || stale {
-            self.dirty = true;
+            self.touch();
         }
     }
 
@@ -1524,6 +1560,8 @@ impl DeckBuilder {
     /// Marks the deck as saved.
     pub fn saved(&mut self, deck_id: Option<&str>) {
         self.dirty = false;
+        self.changes = 0;
+        self.naming = false;
         // A new deck becomes the deck being edited the moment it has an id.
         // Without this the next save would post it a second time, and the
         // player would find two decks where they saved one.
@@ -1543,6 +1581,9 @@ impl DeckBuilder {
         self.editing = None;
         self.zone = Zone::Main;
         self.dirty = false;
+        self.changes = 0;
+        self.naming = false;
+        self.last_added.clear();
         self.inspecting = None;
         self.commanders.clear();
         self.pending_commander.clear();
@@ -1589,6 +1630,8 @@ impl DeckBuilder {
         }
         self.resolve_pending();
         self.dirty = false;
+        self.changes = 0;
+        self.naming = false;
         // This one already has a name; what is wanted is the next card.
         self.focus_on(BuildField::Search);
     }
