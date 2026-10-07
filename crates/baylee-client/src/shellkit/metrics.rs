@@ -4,7 +4,7 @@
 //! menu, the report form over the table) and stays as it is; shell screens
 //! read [`ShellMetrics::of`] instead: today's values multiplied by the text
 //! step's factor, with floors where a finger or a small screen needs them.
-//! A test holds `hud/**` off it (`lint::the_table_never_reads_the_shell_s_metrics`).
+//! A test holds the 3D table and its felt off it (`lint::the_table_never_reads_the_shell_s_metrics`); the table's HUD may read it.
 //!
 //! Every length a shell module writes goes through [`ShellMetrics::px`]
 //! (scaled) or [`px_fixed`] (hairlines, the focus ring, gutters, the QR

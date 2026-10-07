@@ -384,3 +384,35 @@ fn the_overlay_runs_what_it_highlights() {
         "Larger text did not run"
     );
 }
+
+/// At a table only a modal kit sheet walks and types (a sheet over the
+/// table — the table design's amendment to KEYBOARD §6): the page's stops
+/// take no focus there, the sheet's do, and a focused kit field holds the
+/// keyboard, which the table's keymap asks before it acts.
+#[test]
+fn at_a_table_only_a_modal_sheet_takes_focus() {
+    let mut app = app();
+    app.init_resource::<super::KitHolds>()
+        .add_systems(Update, super::hold_the_keyboard);
+    app.world_mut()
+        .resource_mut::<NextState<crate::DuelPhase>>()
+        .set(crate::DuelPhase::Playing);
+    app.update();
+    tab(&mut app, false);
+    assert_eq!(focused(&app), None, "the gallery is no sheet");
+    app.world_mut().resource_mut::<Overlay>().open = true;
+    app.update();
+    app.update();
+    tab(&mut app, false);
+    let stop = focused(&app).expect("the sheet takes focus");
+    assert_eq!(stop.table, OVERLAY_ORDER.name);
+    focus_on(&mut app, OVERLAY_ORDER.name, "search");
+    key(&mut app, KeyCode::KeyW, Key::Character("w".into()), &[]);
+    assert_eq!(value(&mut app, OVERLAY_ORDER.name, "search"), "w");
+    assert!(app.world().resource::<super::KitHolds>().0);
+    assert_eq!(
+        app.world().resource::<ShellLog>().resolved,
+        0,
+        "no shell key at a table"
+    );
+}

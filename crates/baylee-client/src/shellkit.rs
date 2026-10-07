@@ -48,9 +48,15 @@ pub use size::{Frame, InputClass, Platform, TextSize, Viewport};
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
-/// Whether the kit holds the keyboard: the `?` overlay is up, or the dev
-/// gallery. The lobby's own key handling stands aside while it does, so a
-/// key typed into the overlay's search is not also typed behind it.
+/// Whether the kit holds the keyboard: the `?` overlay is up, the dev
+/// gallery, or a kit field has focus. The lobby's own key handling stands
+/// aside while it does, so a key typed into the overlay's search is not
+/// also typed behind it; at a table, a sheet with a kit field (the table
+/// design's amendment to KEYBOARD §6) is the case the table's keymap asks
+/// this about, as it asks the report form's `holds_keyboard`. Like the
+/// report form's, a key that closes the sheet is still the sheet's in the
+/// frame it closed it: the field editor reads the frame's keys before the
+/// sheet goes.
 #[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct KitHolds(pub bool);
 
@@ -86,6 +92,8 @@ pub(crate) fn install(app: &mut App) {
 /// Keeps [`KitHolds`] true while the overlay or the gallery is up.
 fn hold_the_keyboard(
     overlay: Res<overlay::Overlay>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    fields: Query<(), With<focus::ShellField>>,
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))] gallery: Option<
         Res<gallery::Gallery>,
     >,
@@ -95,7 +103,11 @@ fn hold_the_keyboard(
     let gallery = gallery.is_some_and(|g| g.open);
     #[cfg(not(all(feature = "dev-control", not(target_arch = "wasm32"))))]
     let gallery = false;
-    let now = overlay::holds(&overlay) || gallery;
+    let typing = focus
+        .as_deref()
+        .and_then(bevy::input_focus::InputFocus::get)
+        .is_some_and(|f| fields.contains(f));
+    let now = overlay::holds(&overlay) || gallery || typing;
     if holds.0 != now {
         holds.0 = now;
     }

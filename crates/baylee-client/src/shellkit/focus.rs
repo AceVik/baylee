@@ -261,20 +261,20 @@ fn walk(
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
 ) {
-    if !table_open(phase.as_deref()) {
-        keys.clear();
-        if focus.get().is_some() {
-            focus.clear();
-        }
-        return;
-    }
     let drawn: Vec<(Entity, Stop)> = stops.iter().map(|(e, s)| (e, *s)).collect();
-    // A focused stop that went away (its screen redrew) leaves nothing
-    // focused rather than a dangling entity.
-    if focus.get().is_some_and(|f| stops.get(f).is_err()) {
+    // At a table only a modal kit sheet walks (a sheet over the table, such
+    // as a chooser with a field — the table design's amendment to KEYBOARD
+    // §6); the table's own Tab is next phase, and nothing else keeps focus.
+    let at_table = !table_open(phase.as_deref());
+    let order = active(&drawn).filter(|t| t.modal || !at_table);
+    // A focused stop that went away (its screen redrew, its sheet closed)
+    // leaves nothing focused rather than a dangling entity.
+    if focus.get().is_some()
+        && (focus.get().is_some_and(|f| stops.get(f).is_err()) || (at_table && order.is_none()))
+    {
         focus.clear();
     }
-    let Some(order) = active(&drawn) else {
+    let Some(order) = order else {
         keys.clear();
         return;
     };
@@ -429,11 +429,9 @@ fn activate(
     parents: Query<&ChildOf>,
     mut out: MessageWriter<Activated>,
 ) {
-    if !table_open(phase.as_deref()) {
-        keys.clear();
-        clicks.clear();
-        return;
-    }
+    // At a table a stop answers only inside a modal kit sheet.
+    let at_table = !table_open(phase.as_deref());
+    let answers = |stop: &Stop| !at_table || table(stop.table).is_some_and(|t| t.modal);
     for key in keys.read() {
         if key.state != ButtonState::Pressed || key.repeat {
             continue;
@@ -445,7 +443,7 @@ fn activate(
         if fields.contains(entity) || off.contains(entity) {
             continue;
         }
-        if let Ok(stop) = stops.get(entity) {
+        if let Ok(stop) = stops.get(entity).ok().filter(|s| answers(s)).ok_or(()) {
             out.write(Activated {
                 entity,
                 stop: *stop,
@@ -456,7 +454,7 @@ fn activate(
         let mut at = Some(click.entity);
         while let Some(e) = at {
             if let Ok(stop) = stops.get(e) {
-                if !off.contains(e) {
+                if !off.contains(e) && answers(stop) {
                     out.write(Activated {
                         entity: e,
                         stop: *stop,

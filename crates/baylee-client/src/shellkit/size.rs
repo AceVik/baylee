@@ -131,7 +131,11 @@ impl Frame {
     /// The shell's reading: all five classes (§2.7, §8).
     #[must_use]
     pub fn classify(view: Viewport, step: TextSize) -> Self {
-        if view.platform.is_phone() || view.height < PHONE_HEIGHT {
+        // The raw height alone: a native tablet (Android or iOS, 1180 x 820)
+        // is Wide + Touch like an iPad in a browser, not a phone; a phone in
+        // landscape is under 500 tall at every scale measured (the table
+        // design, amendment to §2.7).
+        if view.height < PHONE_HEIGHT {
             return Self::Phone;
         }
         let effective = view.width / step.factor();
@@ -154,8 +158,9 @@ pub enum Platform {
     Desktop,
     /// A browser.
     Web,
-    /// Android or iOS: always `Phone`-sized and `Touch`.
-    Phone,
+    /// Android or iOS: always `Touch`, and sized by its window like any
+    /// other — a tablet is not a phone.
+    Mobile,
 }
 
 impl Platform {
@@ -163,7 +168,7 @@ impl Platform {
     #[must_use]
     pub const fn current() -> Self {
         if cfg!(any(target_os = "android", target_os = "ios")) {
-            Self::Phone
+            Self::Mobile
         } else if cfg!(target_arch = "wasm32") {
             Self::Web
         } else {
@@ -171,10 +176,10 @@ impl Platform {
         }
     }
 
-    /// Whether this platform forces the `Phone` class.
+    /// Whether this platform is touch-only (Android, iOS).
     #[must_use]
-    pub const fn is_phone(self) -> bool {
-        matches!(self, Self::Phone)
+    pub const fn is_mobile(self) -> bool {
+        matches!(self, Self::Mobile)
     }
 }
 
@@ -221,7 +226,7 @@ pub enum InputClass {
 
 impl Default for InputClass {
     fn default() -> Self {
-        if Platform::current().is_phone() {
+        if Platform::current().is_mobile() {
             Self::Touch
         } else {
             Self::Pointer
@@ -248,7 +253,7 @@ pub(crate) fn follow_the_input(
         pinned.0
     } else if touched {
         InputClass::Touch
-    } else if moved && !Platform::current().is_phone() {
+    } else if moved && !Platform::current().is_mobile() {
         InputClass::Pointer
     } else {
         *class
@@ -302,12 +307,18 @@ mod tests {
             Frame::classify(Viewport::desktop(700.0, 700.0), TextSize::L),
             Frame::Compact
         );
-        // A phone platform is a phone whatever its window says.
-        let tablet_sized = Viewport {
-            platform: Platform::Phone,
-            ..Viewport::desktop(1366.0, 1024.0)
+        // A native tablet is sized by its window: Wide, not Phone; a native
+        // phone in landscape is a Phone by its height.
+        let tablet = Viewport {
+            platform: Platform::Mobile,
+            ..Viewport::desktop(1180.0, 820.0)
         };
-        assert_eq!(Frame::classify(tablet_sized, TextSize::L), Frame::Phone);
+        assert_eq!(Frame::classify(tablet, TextSize::L), Frame::Wide);
+        let phone = Viewport {
+            platform: Platform::Mobile,
+            ..Viewport::desktop(920.0, 443.0)
+        };
+        assert_eq!(Frame::classify(phone, TextSize::L), Frame::Phone);
     }
 
     /// The old width-only reading never answers the shell's two new classes,

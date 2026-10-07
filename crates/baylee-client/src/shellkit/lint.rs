@@ -119,11 +119,25 @@ mod tests {
         }
     }
 
+    /// The 3D table and its felt never read the shell's metrics: they are
+    /// laid out in world units, and a text step must not move a card. The
+    /// table's HUD may (the table design, §9: text steps reach it with
+    /// floors), so `hud/**` is not held to this.
     #[test]
     fn the_table_never_reads_the_shell_s_metrics() {
-        let mut files = module_files("hud");
-        files.retain(|p| p.exists());
-        assert!(files.len() > 5, "hud/** not found");
+        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = module_files("table");
+        files.extend(
+            ["feltmat.rs", "tabletop.rs", "cardmat.rs", "shellmat.rs"]
+                .iter()
+                .map(|f| src.join(f))
+                .filter(|p| p.exists()),
+        );
+        assert!(
+            files.len() > 10,
+            "the table's files not found: {}",
+            files.len()
+        );
         for path in files {
             let source = std::fs::read_to_string(&path).expect("a source file");
             for needle in ["shellkit", "ShellMetrics"] {
