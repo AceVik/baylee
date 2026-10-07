@@ -58,9 +58,10 @@ pub struct FaceMode {
     pub held: bool,
     /// The interface's text step (WP6): the overlay's faces multiply their
     /// clamps by it, the table's ignore it. The setting that chooses it is
-    /// the shell's (`ClientSettings::text_size`, WP0b-1), which writes it
-    /// here; until then it is the default, or in a dev-control build
-    /// `BAYLEE_TEXT_STEP` (one to five), so the steps can be photographed.
+    /// the shell's (`ClientSettings::text_size`), which
+    /// `shellkit::face_follows_the_text_size` writes here; a dev-control
+    /// build launched with `BAYLEE_TEXT_STEP` (one to five) keeps that step
+    /// instead, so the steps can be photographed.
     pub step: textface::Step,
 }
 

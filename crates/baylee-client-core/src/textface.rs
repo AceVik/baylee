@@ -393,8 +393,8 @@ pub const BODY_FLOORS: [f32; 5] = [12.0, 13.0, 14.0, 14.0, 16.0];
 /// stay, so a 308-pixel preview keeps its 19-pixel rules at every step, and
 /// the step bites on the small faces the clamps hold. The table's faces do
 /// not follow it. The setting that chooses it is the shell's
-/// (`ClientSettings::text_size`, WP0b-1); until then a face is set at
-/// [`Step::DEFAULT`].
+/// (`ClientSettings::text_size`), which the client writes into its face
+/// mode; a face starts at [`Step::DEFAULT`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Step(u8);
 

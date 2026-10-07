@@ -48,7 +48,10 @@ impl Plugin for ShellKitPlugin {
             .add_message::<KeyboardInput>()
             .init_resource::<InputClass>()
             .add_systems(PreUpdate, size::follow_the_input)
-            .add_systems(Update, step_the_text_size);
+            .add_systems(
+                Update,
+                (step_the_text_size, face_follows_the_text_size).chain(),
+            );
         controls::install(app);
         #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
         gallery::install(app);
@@ -148,6 +151,44 @@ fn step_the_text_size(
     }
 }
 
+/// The interface's card faces take the shell's text step (WP6's
+/// `FaceMode::step`): the setting is the one source, written through when it
+/// changes and once at start.
+///
+/// A dev-control build launched with `BAYLEE_TEXT_STEP` keeps the step that
+/// variable names, so WP6's per-step photographs stay what they say.
+fn face_follows_the_text_size(
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    mode: Option<ResMut<crate::face::FaceMode>>,
+) {
+    let (Some(settings), Some(mut mode)) = (settings, mode) else {
+        return;
+    };
+    if !settings.is_changed() || pinned_by_the_environment() {
+        return;
+    }
+    let step = face_step(settings.text_size);
+    if mode.step != step {
+        mode.step = step;
+    }
+}
+
+/// The face's step for a shell step: the same five, numbered alike.
+#[must_use]
+pub fn face_step(size: TextSize) -> baylee_client_core::textface::Step {
+    baylee_client_core::textface::Step::new(size.step())
+}
+
+#[cfg(feature = "dev-control")]
+fn pinned_by_the_environment() -> bool {
+    std::env::var_os("BAYLEE_TEXT_STEP").is_some()
+}
+
+#[cfg(not(feature = "dev-control"))]
+const fn pinned_by_the_environment() -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,6 +215,43 @@ mod tests {
         assert_eq!(
             SizeChord::of(&Key::Character("a".into()), KeyCode::KeyA),
             None
+        );
+    }
+
+    /// The shell's five steps are the face's five, in order (WP6 reads
+    /// `FaceMode::step`; the shell's setting writes it).
+    #[test]
+    fn the_shell_step_and_the_face_step_are_the_same_five() {
+        for (i, size) in TextSize::ALL.into_iter().enumerate() {
+            let face = face_step(size);
+            assert_eq!(usize::from(face.number()), i + 1);
+            assert!((face.factor() - size.factor()).abs() < 1e-6);
+        }
+        assert_eq!(
+            face_step(TextSize::default()),
+            baylee_client_core::textface::Step::DEFAULT
+        );
+    }
+
+    /// Changing the setting moves the faces' step; nothing else does.
+    #[test]
+    fn the_setting_writes_the_face_step() {
+        let mut app = App::new();
+        app.insert_resource(crate::settings::ClientSettings::default())
+            .insert_resource(crate::face::FaceMode::default())
+            .add_systems(Update, face_follows_the_text_size);
+        app.update();
+        assert_eq!(
+            app.world().resource::<crate::face::FaceMode>().step,
+            baylee_client_core::textface::Step::DEFAULT
+        );
+        app.world_mut()
+            .resource_mut::<crate::settings::ClientSettings>()
+            .text_size = TextSize::Xl;
+        app.update();
+        assert_eq!(
+            app.world().resource::<crate::face::FaceMode>().step,
+            baylee_client_core::textface::Step::XL
         );
     }
 
