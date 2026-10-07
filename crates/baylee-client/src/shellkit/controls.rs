@@ -179,6 +179,10 @@ pub fn button(
             Role::Button,
             Node {
                 min_height: px_fixed(kit.m.control),
+                // The face fills its hit area: as wide as its words in a
+                // wrapper of its own size, the whole width where a screen
+                // stretches the wrapper (a full-width primary).
+                flex_grow: 1.0,
                 padding: UiRect::axes(kit.m.px(side), px_fixed(0.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,

@@ -225,11 +225,21 @@ pub(crate) async fn list_shared_decks(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let _ = authed(&state, &headers).await?;
-    let decks: Vec<_> = store::shared_decks(&state.db)
+    let decks = store::shared_decks(&state.db)
         .await
-        .map_err(|e| db_down(&e))?
+        .map_err(|e| db_down(&e))?;
+    // What `GET /decks` says about a deck beyond its name, said here too
+    // (WG-3b): a house tile pictures its deck and credits the painter by
+    // the same rule as one of the player's own.
+    let mut digests: Vec<_> = decks
         .iter()
-        .map(|d| {
+        .map(|d| baylee_cards::digest::digest(&d.cards, &d.sideboard, &d.commanders))
+        .collect();
+    credit_artists(&state, &mut digests).await;
+    let decks: Vec<_> = decks
+        .iter()
+        .zip(digests)
+        .map(|(d, digest)| {
             serde_json::json!({
                 "id": d.id,
                 "kind": d.kind,
@@ -240,6 +250,11 @@ pub(crate) async fn list_shared_decks(
                 "sideboard": d.sideboard.len(),
                 "commanders": d.commanders,
                 "version": d.version,
+                "copies": digest.copies,
+                "identity": digest.identity,
+                "leaders": digest.leaders,
+                "signature": digest.signature,
+                "unplayable": digest.unplayable,
             })
         })
         .collect();

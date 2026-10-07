@@ -361,9 +361,7 @@ fn contents(
 /// A control of the deck library: the house decks and a deck's history.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum LibraryPress {
-    BrowseHouse,
     BrowseHistory,
-    DeckHistory(usize),
     CloseLibrary,
     RetryLibrary,
     PreviewHouse(usize),
@@ -382,9 +380,7 @@ impl LibraryPress {
             ..
         } = cx;
         match self {
-            LibraryPress::BrowseHouse
-            | LibraryPress::BrowseHistory
-            | LibraryPress::RetryLibrary => {
+            LibraryPress::BrowseHistory | LibraryPress::RetryLibrary => {
                 scrolled.set(List::Library, 0.0);
                 let history = self == LibraryPress::BrowseHistory
                     || (self == LibraryPress::RetryLibrary
@@ -404,12 +400,6 @@ impl LibraryPress {
                     state.lobby.browse_house()
                 };
                 dispatch(state, mailbox, request);
-            }
-            LibraryPress::DeckHistory(index) => {
-                if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
-                    let request = state.lobby.browse_deck_history(&id);
-                    dispatch(state, mailbox, request);
-                }
             }
             LibraryPress::CloseLibrary => state.lobby.close_library(),
             LibraryPress::PreviewHouse(index) => {

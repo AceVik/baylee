@@ -4,21 +4,19 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Destructive {
-    Delete(String),
     Clear(Option<String>),
     /// A saved gateway leaving this device's list, by address.
     ForgetGateway(String),
     /// A guest signing out, which is the end of it (#269). Carried out by
     /// the sign-out itself, not by [`accept`].
     SignOutGuest,
+    /// The host leaving their table, which passes it on or closes it
+    /// (DESIGN-v5 §5 "Leaving"), by game id.
+    LeaveHosting(String),
 }
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
     match state.confirmation.take()? {
-        Destructive::Delete(id) => {
-            let at = state.lobby.decks().iter().position(|d| d.id == id)?;
-            state.lobby.delete_deck(at)
-        }
         Destructive::Clear(id) => {
             if state.lobby.builder().editing() == id.as_deref() {
                 state.lobby.builder_mut().clear_deck();
@@ -30,6 +28,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             None
         }
         Destructive::SignOutGuest => None,
+        Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
 
@@ -46,16 +45,6 @@ pub(super) fn draw(
     let lang = state.lobby.lang();
     let chosen;
     let (phrase, name, said) = match action {
-        Destructive::Delete(id) => (
-            Phrase::DeleteDeckQuestion,
-            state
-                .lobby
-                .decks()
-                .iter()
-                .find(|d| &d.id == id)
-                .map_or("", |d| d.name.as_str()),
-            Phrase::DestructiveHint,
-        ),
         Destructive::Clear(_) => (
             Phrase::ClearDeckQuestion,
             state.lobby.builder().name(),
@@ -76,6 +65,16 @@ pub(super) fn draw(
                 .kept_guest()
                 .map_or("", |kept| kept.handle.as_str()),
             Phrase::GuestSignOutHint,
+        ),
+        Destructive::LeaveHosting(game) => (
+            Phrase::LeaveHostingQuestion,
+            state
+                .lobby
+                .games()
+                .iter()
+                .find(|g| &g.id == game)
+                .map_or("", |g| g.name.as_str()),
+            Phrase::LeaveHostingHint,
         ),
     };
     let (shade, panel) = modal(

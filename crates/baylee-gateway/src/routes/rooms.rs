@@ -33,6 +33,10 @@ pub(crate) struct CreateGameBody {
     /// Seconds a seat may be gone before the house answers for it, same.
     #[serde(default)]
     reconnect_window_secs: Option<u32>,
+    /// The house AI's difficulty for `mode: "ai"`, by its name
+    /// (`AIProfile::NAMED`); `steady` when absent, refused when unknown.
+    #[serde(default)]
+    ai: Option<String>,
 }
 
 pub(crate) async fn create_game(
@@ -62,10 +66,16 @@ pub(crate) async fn create_game(
     if body.mode == "ai" {
         let (deck_name, deck) =
             chosen.ok_or_else(|| err(StatusCode::BAD_REQUEST, "pick a deck first"))?;
+        // Which house: the one Play's difficulty caret named, else the one
+        // every one-tap game has always been.
+        let difficulty = body.ai.as_deref().unwrap_or("steady");
+        let profile = baylee_core::preset::AIProfile::named(difficulty)
+            .ok_or_else(|| err(StatusCode::BAD_REQUEST, "no such difficulty"))?;
         {
             let mut preset = ai_preset(&deck, auth::new_game_seed())?;
             preset.house_rules = house_rules.clone();
             preset.seats[0].controller = baylee_core::preset::SeatController::Open;
+            preset.seats[1].controller = baylee_core::preset::SeatController::Ai(profile);
             state.art.warm(table_prints(&preset));
             let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
             seats[0].account_id = Some(account_id.clone());
@@ -73,7 +83,7 @@ pub(crate) async fn create_game(
             seats[0].deck_name = deck_name;
             seats[0].deck = Some(deck);
             seats[1].kind = lobby::SeatKind::Ai;
-            seats[1].ai = Some("steady".to_string());
+            seats[1].ai = Some(difficulty.to_string());
             seats[1].deck_name = "Victory".to_string();
             let mut game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
             game.house_rules = house_rules;

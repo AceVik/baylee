@@ -254,6 +254,10 @@ impl Offline {
                             identity: digest.identity,
                             commanders: d.commanders.clone(),
                             leaders: digest.leaders,
+                            signature: digest.signature,
+                            unplayable: digest.unplayable,
+                            // The offline file keeps no save times.
+                            updated_at: 0,
                         }
                     })
                     .collect(),
@@ -306,9 +310,18 @@ impl Offline {
                 mode,
                 chairs,
                 name,
+                ai,
                 ..
             } => {
                 let seated = self.open_room(&deck_id, chairs, name);
+                // Play's difficulty caret: the house chair plays at it, as
+                // the gateway's does for `mode: "ai"`.
+                if let Some(ai) = ai.filter(|a| baylee_core::preset::AIProfile::named(a).is_some())
+                    && let Some(room) = self.room.as_mut()
+                    && let Some(chair) = room.chairs.get_mut(1)
+                {
+                    chair.ai = ai;
+                }
                 // `mode: "ai"` is the one-tap duel, and online it means the
                 // table is arranged *and* the engine ordered before the
                 // answer comes back — the seat handed over is usable at once,
@@ -439,6 +452,7 @@ impl Offline {
                         cards: d.cards.len(),
                         sideboard: d.sideboard.len(),
                         commanders: d.commanders.clone(),
+                        ..Default::default()
                     })
                     .collect(),
             ),
@@ -666,6 +680,7 @@ impl Offline {
                 .all(|(at, c)| (at == 0 || c.ready) && c.deck.is_some()),
             rematch: false,
             setup: room.setup.clone(),
+            clock: None,
             seats: room
                 .chairs
                 .iter()
@@ -1016,6 +1031,8 @@ mod tests {
             chairs,
             name: "Offline".to_string(),
             password: String::new(),
+            clock: None,
+            ai: None,
         });
         offline
     }
@@ -1391,6 +1408,8 @@ mod tests {
             chairs: 2,
             name: String::new(),
             password: String::new(),
+            clock: None,
+            ai: None,
         });
         assert!(matches!(answer, LobbyEvent::Seated(_)), "got {answer:?}");
         let preset = offline.take_started().expect("the duel was built");
@@ -1434,6 +1453,8 @@ mod tests {
             chairs: 2,
             name: String::new(),
             password: String::new(),
+            clock: None,
+            ai: None,
         });
         assert!(matches!(again, LobbyEvent::Seated(_)), "got {again:?}");
         assert!(offline.take_started().is_some(), "a second duel was built");

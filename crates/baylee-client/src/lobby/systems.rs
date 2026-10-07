@@ -114,6 +114,14 @@ pub(super) fn poll(
                     }
                 }
                 dispatch(&mut state, &mailbox, next);
+                // The Create-table sheet's rules, once its room is open.
+                let setup = state.lobby.take_pending_setup();
+                dispatch(&mut state, &mailbox, setup);
+            }
+            Reply::Clocks(clocks) => {
+                if state.lobby.clocks() != clocks {
+                    state.lobby.set_clocks(clocks);
+                }
             }
             Reply::Registration {
                 registration,
@@ -623,6 +631,8 @@ pub(super) fn came_back(
     // its own duel is the same case in production.
     match ended_as(duel.as_deref()) {
         Some((result, seat, team, own)) => {
+            // Play's Recent games (this session), before the seat goes.
+            super::play::remember(&mut state, duel.as_deref(), result, seat, team);
             state
                 .lobby
                 .stand_up_after(&result, seat, team, own.as_ref());

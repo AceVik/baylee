@@ -1,6 +1,6 @@
 //! The pointer: a click on a lobby control turned into an intent.
 
-use super::press::{Cx, in_lineage};
+use super::press::{Cx, in_lineage, in_lineage_entity};
 use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
@@ -19,6 +19,11 @@ pub(super) fn sign_out(
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     let guest = state.lobby.guest();
+    // A deletion still waiting for its Undo goes out while the session is
+    // still the account's (S-10).
+    let waiting = state.lobby.flush_delete();
+    dispatch(state, mailbox, waiting);
+    state.undo = None;
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
     prefs.detach();
     scrolled.set(List::Table, 0.0);
@@ -45,6 +50,7 @@ pub(super) fn clicks(
     mut ends: MessageReader<Pointer<DragEnd>>,
     mut scrolled: ResMut<Scrolled>,
     presses: Query<&Press>,
+    disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
     // The filter builder's own buttons carry the model's vocabulary rather
     // than a `Press`, and one query reads all of them — the same one the zone
     // browser reads. `crate::filterui` puts a `FilterAct` on every button it
@@ -94,6 +100,12 @@ pub(super) fn clicks(
             }
             continue;
         }
+        // A kit control that is drawn but off keeps its press so it can take
+        // focus and say why; a click on it does nothing (§2.4).
+        if in_lineage_entity(click.entity, &presses, &parents).is_some_and(|e| disabled.contains(e))
+        {
+            continue;
+        }
         let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
         };
@@ -133,6 +145,11 @@ pub(super) fn clicks(
         // Anything but the header's own controls closes a header popover.
         if state.header_menu.is_some() && !matches!(press, Press::Header(_)) {
             state.header_menu = None;
+        }
+        // Anything but a menu's own opener closes the menu open; an item
+        // acts first and closes it the same way.
+        if state.menu.is_some() && !matches!(press, Press::Shared(SharedPress::OpenMenu(_))) {
+            state.menu = None;
         }
         // Any other control answers the question the back button asked.
         //
@@ -183,18 +200,7 @@ pub(super) fn clicks(
             mailbox: &mailbox,
             settings: &mut settings,
         };
-        match press {
-            Press::Front(press) => press.handle(cx),
-            Press::Hub(press) => press.handle(cx),
-            Press::Library(press) => press.handle(cx),
-            Press::Room(press) => press.handle(cx),
-            Press::Build(press) => press.handle(cx),
-            Press::Settings(press) => press.handle(cx),
-            // Game-over actions are handled by `leave_clicks`.
-            Press::End(_) => {}
-            Press::Shared(press) => press.handle(cx),
-            Press::Header(press) => press.handle(cx),
-        }
+        super::press::run(press, cx);
     }
 }
 

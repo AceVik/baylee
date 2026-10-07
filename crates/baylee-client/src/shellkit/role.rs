@@ -61,6 +61,11 @@ pub enum Role {
     /// A count beside a chip's or a tab's label: not part of the label's
     /// budget (§2.3 budgets the words).
     Count,
+    /// A picture: Scryfall's `art_crop` on a deck tile or the Play hero
+    /// (WP3). Nothing is drawn on it; its credit stands beside it.
+    Art,
+    /// The artist's credit under a picture: held to 4.5 : 1 (WP3).
+    Credit,
 }
 
 impl Role {
@@ -92,6 +97,8 @@ impl Role {
             Self::Tag => "tag",
             Self::KeyCap => "keycap",
             Self::Count => "count",
+            Self::Art => "art",
+            Self::Credit => "credit",
         }
     }
 

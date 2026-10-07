@@ -4182,7 +4182,260 @@ messages! {
     ShellUpdateRequired { en: "Update required \u{2014} this gateway runs a newer version", de: "Update n\u{f6}tig \u{2014} dieses Gateway l\u{e4}uft mit einer neueren Version" },
     // ---- front door + terms (WP1) ----------------------------------------
     // ---- play + room (WP2) -----------------------------------------------
+    /// A clock's span in minutes. `{0}` minutes.
+    ClockMinutes { en: "{0} min", de: "{0} Min." },
+    /// A clock's span in seconds. `{0}` seconds.
+    ClockSeconds { en: "{0} s", de: "{0} s" },
+    /// The `casual` clock's name.
+    ClockCasual { en: "casual", de: "gemütlich" },
+    /// The `standard` clock's name.
+    ClockStandard { en: "standard", de: "normal" },
+    /// The `blitz` clock's name.
+    ClockBlitz { en: "blitz", de: "Blitz" },
+    /// The `untimed` clock's name.
+    ClockUntimed { en: "untimed", de: "ohne Uhr" },
+    /// The `casual` clock's help line.
+    ClockCasualHelp { en: "Ten minutes a decision; the pace every table used to play at.", de: "Zehn Minuten pro Entscheidung; das Tempo, in dem jeder Tisch früher spielte." },
+    /// The `standard` clock's help line.
+    ClockStandardHelp { en: "Two minutes a decision.", de: "Zwei Minuten pro Entscheidung." },
+    /// The `blitz` clock's help line.
+    ClockBlitzHelp { en: "Thirty seconds a decision.", de: "Dreißig Sekunden pro Entscheidung." },
+    /// The `untimed` clock's help line.
+    ClockUntimedHelp { en: "No decision clock; an absent player can still be stood in for.", de: "Keine Entscheidungsuhr; für Abwesende springt trotzdem jemand ein." },
+    /// A table filter: leave out tables of house AIs only.
+    PlayHideAiOnly { en: "Hide AI-only", de: "Ohne KI-Tische" },
+    /// A table filter: two-chair tables.
+    PlayDuel { en: "Duel", de: "Duell" },
+    /// The tables' sort: the gateway's order.
+    PlaySortNewest { en: "newest", de: "Neueste zuerst" },
+    /// The tables' sort: most open chairs first.
+    PlaySortOpenSeats { en: "open seats", de: "Freie Plätze" },
+    /// The tables' sort: by name.
+    PlaySortName { en: "name", de: "Name" },
+    /// Before a Join: the next game's deck is of another format than the
+    /// host's. `{0}` mine, `{1}` the host's.
+    PlayFormatWarning { en: "Your next-game deck is {0}; this table's host plays {1}. You can pick another deck in the room.", de: "Dein Deck fürs nächste Spiel ist {0}; der Gastgeber spielt {1}. Im Raum kannst du ein anderes wählen." },
+    /// A template card: Commander.
+    TemplateCommander { en: "Commander", de: "Commander" },
+    /// A template card: a twenty-life duel.
+    TemplateDuel { en: "Duel 20", de: "Duell 20" },
+    /// A template card: every seat starts with five lands.
+    TemplateFiveLand { en: "Five-land start", de: "Fünf Länder" },
+    /// The rules line: starting life. `{0}` life.
+    RulesLife { en: "{0} life", de: "{0} Leben" },
+    /// The rules line: one free mulligan. `{0}` the count.
+    RulesMulliganOne { en: "{0} free mulligan", de: "{0} freier Mulligan" },
+    /// The rules line: free mulligans. `{0}` the count.
+    RulesMulliganMany { en: "{0} free mulligans", de: "{0} freie Mulligans" },
+    /// The rules line: the five-land start.
+    RulesFiveLands { en: "five lands in play", de: "fünf Länder im Spiel" },
+    /// The footer hint: Enter on a table row.
+    PlayHintJoin { en: "on a row to join", de: "auf einer Zeile: mitspielen" },
+    /// Why the starts are off while the player's game runs. `{0}` the table.
+    PlayPlayingAt { en: "You are playing at {0}", de: "Du spielst an {0}" },
+    /// Why the starts are off without a game host (`POST /lobby/games` 503).
+    PlayNoHost { en: "This gateway has no game host right now", de: "Dieses Gateway hat gerade keinen Spielhost" },
+    /// The hero on first run, and why Play the house waits.
+    PlayPickToStart { en: "Pick a deck to start", de: "Wähle ein Deck zum Start" },
+    /// The hero's caption.
+    PlayYourNextGame { en: "Your next game", de: "Dein nächstes Spiel" },
+    /// The hero: choose another deck.
+    PlayChangeDeck { en: "Change deck", de: "Deck wechseln" },
+    /// Recent games' caption.
+    PlayRecentGames { en: "Recent games · this session", de: "Letzte Spiele · diese Sitzung" },
+    /// A recent game against the house alone.
+    PlayVsHouse { en: "vs the house", de: "gegen das Haus" },
+    /// A recent game's opponents. `{0}` their names.
+    PlayVs { en: "vs {0}", de: "gegen {0}" },
+    /// A recent game won.
+    PlayWon { en: "won", de: "gewonnen" },
+    /// A recent game lost.
+    PlayLost { en: "lost", de: "verloren" },
+    /// A recent game drawn.
+    PlayDrawn { en: "draw", de: "unentschieden" },
+    /// A recent game again, one press.
+    PlayRematch { en: "Rematch", de: "Revanche" },
+    /// A recent game's settings in the Create-table sheet.
+    PlayEditAndRematch { en: "Edit and rematch", de: "Ändern & Revanche" },
+    /// Over the tables while the player holds a chair. `{0}` the table.
+    PlayJoinOff { en: "Join is off while you are seated at {0}", de: "Mitspielen ist aus, solange du an {0} sitzt" },
+    /// A table being played.
+    PlayPlaying { en: "playing", de: "läuft" },
+    /// A table's chairs. `{0}` taken, `{1}` chairs.
+    PlaySeats { en: "{0}/{1} seats", de: "{0}/{1} Plätze" },
+    /// A table's house chairs. `{0}` the count.
+    PlayAiCount { en: "AI ×{0}", de: "KI ×{0}" },
+    /// A locked table's inline password box, while empty.
+    PlayPassword { en: "Password", de: "Passwort" },
+    /// The sheet's name field.
+    SheetName { en: "Name", de: "Name" },
+    /// The sheet's players control.
+    SheetPlayers { en: "Players", de: "Spieler" },
+    /// The sheet's templates.
+    SheetTemplate { en: "Template", de: "Vorlage" },
+    /// The sheet's rules drawer.
+    SheetAdjust { en: "Adjust", de: "Anpassen" },
+    /// The sheet's password field.
+    SheetPassword { en: "Password · optional", de: "Passwort · optional" },
+    /// The sheet's empty password box.
+    SheetNoPassword { en: "No password", de: "Kein Passwort" },
+    /// The sheet's clock control.
+    SheetClock { en: "Clock", de: "Uhr" },
+    /// The sheet's way out.
+    SheetCancel { en: "Cancel", de: "Abbrechen" },
+    /// The sheet's primary over a room.
+    SheetApply { en: "Apply", de: "Übernehmen" },
+    /// The sheet's primary.
+    SheetOpenTable { en: "Open table", de: "Tisch öffnen" },
+    /// The sheet's title over a room.
+    SheetEditRules { en: "Edit rules", de: "Regeln ändern" },
+    /// A new table's name. `{0}` the host's name.
+    SheetDefaultName { en: "{0}\u{2019}s table", de: "Tisch von {0}" },
+    /// The room's badge, and its rules line, for a locked room.
+    RoomPasswordSet { en: "password set", de: "Passwort gesetzt" },
+    /// The room's Copy invite.
+    RoomCopyInvite { en: "Copy invite", de: "Einladung kopieren" },
+    /// Copy invite, once copied.
+    RoomInviteCopied { en: "Invite copied", de: "Kopiert" },
+    /// The rules rail's first line. `{0}` the format, `{1}` the chairs.
+    RoomRulesPlayers { en: "{0} · {1} players", de: "{0} · {1} Spieler" },
+    /// The rail: no sides.
+    RoomTeamsOn { en: "Teams: on", de: "Teams: an" },
+    /// The rail: sides.
+    RoomTeamsOff { en: "Teams: off", de: "Teams: aus" },
+    /// The rail: sides for each chair.
+    RoomSetTeams { en: "Set teams", de: "Teams festlegen" },
+    /// A chair nobody holds.
+    RoomEmptySeat { en: "\u{2014} empty \u{2014}", de: "\u{2014} frei \u{2014}" },
+    /// Why Start waits. `{0}` who.
+    RoomWaitingFor { en: "waiting for {0} to be ready", de: "wartet, bis {0} bereit ist" },
+    /// Why Start waits, said by the gateway's listing.
+    RoomNotStartable { en: "not every chair is settled yet", de: "noch ist nicht jeder Platz bereit" },
+    /// A seat's menu: hand the room on.
+    RoomMakeHost { en: "Make host", de: "Zum Gastgeber machen" },
+    /// A seat's menu: the next side.
+    RoomNextTeam { en: "Next team", de: "Nächstes Team" },
+    /// A seat's menu: its own starting life.
+    RoomLifeOverride { en: "Life override…", de: "Eigene Lebenspunkte …" },
+    /// A seat's menu: its starting board.
+    RoomStartingPosition { en: "Starting position…", de: "Startposition …" },
+    /// A seat's menu: the house or a model out, a person's chair again.
+    RoomMakeOpen { en: "Make it an open seat", de: "Zum freien Platz machen" },
+    /// Under the house AI's name.
+    RoomHouseAi { en: "house AI", de: "Haus-KI" },
+    /// A language model's chair, and the button that seats one.
+    RoomLanguageModel { en: "Language model", de: "Sprachmodell" },
+    /// Under the host's name.
+    RoomHost { en: "Host", de: "Gastgeber" },
+    /// Under a delegated chair. `{0}` whose.
+    RoomFor { en: "for {0}", de: "für {0}" },
+    /// An open chair's AI menu button.
+    RoomAi { en: "AI", de: "KI" },
+    /// Before another player's deck.
+    RoomDeckWord { en: "deck", de: "Deck" },
+    /// The seat's deck plays the host's format.
+    RoomFits { en: "fits", de: "passt" },
+    /// The seat's deck plays another format. `{0}` the host's.
+    RoomOtherFormat { en: "{0} table", de: "{0}-Tisch" },
+    /// Over a seat's drawer.
+    RoomForTesting { en: "For testing and puzzles", de: "Für Tests und Rätsel" },
+    /// The chair sheet's primary.
+    RoomSeat { en: "Seat", de: "Setzen" },
+    /// The chair sheet without a model to seat.
+    RoomNoModel { en: "No language model is set up on this computer yet.", de: "Auf diesem Rechner ist noch kein Sprachmodell eingerichtet." },
+    /// The chair sheet's way to set one up.
+    RoomSetUpModel { en: "Set up a model…", de: "Modell einrichten …" },
+    /// The chair sheet's title. `{0}` the chair.
+    RoomChairTitle { en: "Chair {0} · language model", de: "Platz {0} · Sprachmodell" },
+    /// The host's Leave, asked (DESIGN-v5 §5). `{0}` the table's name.
+    LeaveHostingQuestion { en: "Leave \u{201c}{0}\u{201d}?", de: "\u{201e}{0}\u{201c} verlassen?" },
+    /// Under it: what leaving does to the table.
+    LeaveHostingHint {
+        en: "You host this table: it passes to the player seated longest, or closes if nobody else is seated.",
+        de: "Du leitest diesen Tisch: Er geht an den, der am l\u{e4}ngsten sitzt, oder schlie\u{df}t, wenn sonst niemand sitzt.",
+    },
+    /// Why Start waits: one chair nobody holds. `{0}` the count.
+    RoomOpenSeatOne { en: "{0} seat is open \u{2014} a player, the house or a model takes it", de: "{0} Platz ist frei \u{2014} ein Spieler, das Haus oder ein Modell nimmt ihn" },
+    /// Why Start waits: chairs nobody holds. `{0}` the count.
+    RoomOpenSeatMany { en: "{0} seats are open \u{2014} players, the house or models take them", de: "{0} Plätze sind frei \u{2014} Spieler, das Haus oder Modelle nehmen sie" },
     // ---- decks, house decks, history (WP3) -------------------------------
+    /// The decks' sort: newest save first.
+    DecksSortSaved { en: "last saved", de: "Speicherdatum" },
+    /// The decks' sort: by name.
+    DecksSortName { en: "name", de: "Name" },
+    /// The decks' sort: by format.
+    DecksSortFormat { en: "format", de: "Format" },
+    /// The decks' sort: by colour identity.
+    DecksSortColours { en: "colours", de: "Farben" },
+    /// A deck's format: Commander.
+    FormatCommander { en: "Commander", de: "Commander" },
+    /// A deck's format: anything without a commander.
+    FormatFreeform { en: "Freeform", de: "Frei" },
+    /// A deck saved under a minute ago.
+    SavedJustNow { en: "saved just now", de: "gerade gespeichert" },
+    /// A deck saved minutes ago. `{0}` minutes.
+    SavedMinutesAgo { en: "saved {0} min ago", de: "vor {0} Min. gespeichert" },
+    /// A deck saved hours ago. `{0}` hours.
+    SavedHoursAgo { en: "saved {0} h ago", de: "vor {0} Std. gespeichert" },
+    /// A deck saved yesterday.
+    SavedYesterday { en: "saved yesterday", de: "gestern gespeichert" },
+    /// A deck saved days ago. `{0}` days.
+    SavedDaysAgo { en: "saved {0} days ago", de: "vor {0} Tagen gespeichert" },
+    /// A tile's meta line. `{0}` cards, `{1}` sideboard cards.
+    DeckMeta { en: "{0} · SB {1}", de: "{0} · SB {1}" },
+    /// A tile's badge: the deck the next game is played with.
+    DecksNextGame { en: "next game", de: "nächstes Spiel" },
+    /// A tile's badge: one card will not play. `{0}` the count.
+    DecksUnplayableOne { en: "{0} card won\u{2019}t play", de: "{0} Karte spielt nicht" },
+    /// A tile's badge: cards that will not play. `{0}` the count.
+    DecksUnplayableMany { en: "{0} cards won\u{2019}t play", de: "{0} Karten spielen nicht" },
+    /// The shelf's search box, while empty.
+    DecksSearchHint { en: "Search decks…", de: "Decks suchen …" },
+    /// Play's table sort button. `{0}` the order (German: the order alone,
+    /// which says it).
+    PlaySortBy { en: "Sort: {0}", de: "{0}" },
+    /// The sort button. `{0}` the sort.
+    DecksSortBy { en: "Sort: {0}", de: "Nach {0}" },
+    /// The shelf, when the search matched nothing. `{0}` the search.
+    DecksNoMatch { en: "No deck matches \u{201c}{0}\u{201d}", de: "Kein Deck passt zu \u{201e}{0}\u{201c}" },
+    /// A tile's menu: a copy of the deck.
+    DecksDuplicate { en: "Duplicate", de: "Duplizieren" },
+    /// A tile's menu: the deck's saved versions.
+    DecksHistory { en: "History…", de: "Verlauf …" },
+    /// A tile's menu: star the deck.
+    DecksFavourite { en: "Favourite", de: "Favorit" },
+    /// A tile's menu: unstar it.
+    DecksUnfavourite { en: "No longer a favourite", de: "Kein Favorit mehr" },
+    /// The empty shelf.
+    DecksEmptyTitle { en: "Your shelf is empty \u{2014} start from a house deck, build one, or import a list.", de: "Dein Regal ist leer \u{2014} beginne mit einem Hausdeck, baue eins oder importiere eine Liste." },
+    /// The New deck tile's line under a pointer, natively.
+    DecksNewTileHint { en: "or import a list \u{2014} Ctrl/Cmd+V or drop a file", de: "oder eine Liste importieren \u{2014} Strg/Cmd+V oder Datei ablegen" },
+    /// The New deck tile's line under a finger, or in a browser.
+    DecksNewTileTouch { en: "or import a list \u{203a}", de: "oder eine Liste importieren \u{203a}" },
+    /// A house deck: a copy to the shelf, staying here.
+    HouseAdd { en: "Add", de: "Hinzufügen" },
+    /// A house deck: its cards, in a sheet.
+    HousePreview { en: "Preview", de: "Ansehen" },
+    /// The artist's credit under a picture. `{0}` the artist.
+    ArtCredit { en: "Art · {0}", de: "Illus. · {0}" },
+    /// The history sheet's title. `{0}` the deck.
+    HistoryTitle { en: "History · {0}", de: "Verlauf · {0}" },
+    /// A past version. `{0}` the number.
+    HistoryRow { en: "v{0}", de: "v{0}" },
+    /// The current version. `{0}` the number.
+    HistoryCurrentRow { en: "v{0} · current", de: "v{0} · aktuell" },
+    /// Over the changes: what this version holds against the deck now.
+    HistoryAgainstCurrent { en: "Against the current version", de: "Gegenüber der aktuellen Version" },
+    /// Over the changes: this version is the deck as it is.
+    HistoryIsCurrent { en: "This is the deck as it is now", de: "So ist das Deck jetzt" },
+    /// List every card of the version.
+    HistoryShowAll { en: "Show all cards", de: "Alle Karten" },
+    /// The history sheet's primary.
+    HistoryRestore { en: "Restore version", de: "Wiederherstellen" },
+    /// Why Restore is off: the version shown is the deck as it is.
+    HistoryRestoreCurrent { en: "This is the current version", de: "Das ist die aktuelle Version" },
+    /// The toast after a restore, with Undo.
+    HistoryRestored { en: "Version restored", de: "Version wiederhergestellt" },
     // ---- the deck builder (WP4) ------------------------------------------
     /// The builder's title while the deck has no name yet.
     BuildUntitled { en: "New deck", de: "Neues Deck" },

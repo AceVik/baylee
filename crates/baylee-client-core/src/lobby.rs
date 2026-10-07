@@ -15,7 +15,9 @@ pub mod gateway_info;
 pub mod gateway_list;
 pub mod gateway_use;
 pub mod library;
+pub mod play;
 pub mod room;
+pub mod shelf;
 pub mod strips;
 
 use crate::deckbuilder::DeckBuilder;
@@ -90,6 +92,9 @@ pub enum Field {
     /// What the table list is being searched for. Also on the table screen,
     /// and also not a sign-in field.
     Search,
+    /// What the Decks screen's shelf is being searched for (WP3): the
+    /// decks' own box, apart from the tables'.
+    DeckSearch,
     /// The password again, asked before the account is deleted (#292). The
     /// confirmation's own box and never the sign-in form's, so a password
     /// half-typed on one is not sent from the other.
@@ -211,6 +216,17 @@ pub struct DeckSummary {
     /// The same commanders, each with the printing to picture it by.
     #[serde(default)]
     pub leaders: Vec<Leader>,
+    /// The last save, in unix seconds (WG-3); zero from an older gateway.
+    #[serde(default)]
+    pub updated_at: u64,
+    /// Main-deck copies this build cannot play (WG-3).
+    #[serde(default)]
+    pub unplayable: u32,
+    /// The picture of a deck without commanders: its most expensive
+    /// non-land, shaped as a [`Leader`] (WG-3). `None` for a commander deck,
+    /// whose [`Self::leaders`] are its picture.
+    #[serde(default)]
+    pub signature: Option<Leader>,
 }
 
 /// The fewest chairs a table may have.
@@ -335,6 +351,9 @@ pub struct GameSummary {
     /// Rules and starting positions advertised by the host.
     #[serde(default)]
     pub setup: baylee_core::preset::RoomSetup,
+    /// The pace it plays at; `None` from a gateway that does not say.
+    #[serde(default)]
+    pub clock: Option<play::TableClock>,
 }
 
 impl GameSummary {
@@ -612,6 +631,12 @@ pub enum LobbyRequest {
         name: String,
         /// A password for the room. Empty leaves it open.
         password: String,
+        /// The clock, by the name `GET /auth/config` lists; `None` is the
+        /// gateway's default.
+        clock: Option<String>,
+        /// The house AI's difficulty for [`GameMode::Ai`]; `None` is the
+        /// gateway's (steady).
+        ai: Option<String>,
     },
     /// `POST /lobby/games/{id}/join`.
     JoinGame {
@@ -865,6 +890,18 @@ enum GatewaySelection {
 pub struct Lobby {
     library: library::Library,
     copied_deck: Option<String>,
+    /// A house deck just copied by **Add and use**: once the list names it,
+    /// it becomes the next game's deck.
+    use_once_listed: Option<String>,
+    /// A deck whose deletion waits for its Undo (S-10): off the shelf, not
+    /// yet off the gateway.
+    staged_delete: Option<String>,
+    /// This session's finished games, newest first (Play's Recent games).
+    recent: Vec<play::RecentGame>,
+    /// The clocks the gateway offers (`GET /auth/config`'s `clocks`).
+    clocks: Vec<play::ClockPreset>,
+    /// Rules the Create-table sheet chose, applied once the room is open.
+    pending_setup: Option<baylee_core::preset::RoomSetup>,
     screen: Screen,
     focus: Field,
     username: TextBuffer,
@@ -883,6 +920,7 @@ pub struct Lobby {
     room_edit: Option<room::Draft>,
     room_saving: bool,
     search: TextBuffer,
+    deck_search: TextBuffer,
     performer: Performer,
     decks: Vec<DeckSummary>,
     games: Vec<GameSummary>,
@@ -1078,6 +1116,7 @@ impl Lobby {
             | Field::GuestName
             | Field::InviteKey
             | Field::Search
+            | Field::DeckSearch
             | Field::RoomName
             | Field::RoomBoard(_)
             | Field::RoomCounter => FieldKind::Name,
@@ -1110,6 +1149,7 @@ impl Lobby {
             Field::RoomCounter => &self.room_counter,
             Field::RoomBoard(at) => &self.room_boards[usize::from(at).min(7)],
             Field::Search => &self.search,
+            Field::DeckSearch => &self.deck_search,
             Field::AccountPassword => &self.account_password,
         }
     }
@@ -1568,9 +1608,12 @@ impl Lobby {
                 | Field::RoomBoard(_)
                 | Field::RoomCounter
                 | Field::Search
+                | Field::DeckSearch
                 | Field::AccountPassword => false,
             },
             Screen::Table => match self.focus {
+                // The Create-table sheet's name, before there is a room.
+                Field::RoomName if self.awaiting.is_none() => true,
                 Field::RoomName | Field::RoomBoard(_) | Field::RoomCounter => {
                     self.awaiting.is_some() && self.room_edit.as_ref().is_some_and(|d| d.host)
                 }
@@ -1578,7 +1621,7 @@ impl Lobby {
                     self.awaiting.is_none()
                         || (!self.offline() && self.room_edit.as_ref().is_some_and(|d| d.host))
                 }
-                Field::Search => self.awaiting.is_none(),
+                Field::Search | Field::DeckSearch => self.awaiting.is_none(),
                 _ => false,
             },
             Screen::Build | Screen::Seated(_) => false,
@@ -1778,9 +1821,57 @@ impl Lobby {
 
     /// Picks a deck to sit down with.
     pub fn select_deck(&mut self, index: usize) {
-        if index < self.decks.len() {
+        if index < self.decks.len() && self.deck != Some(index) {
             self.deck = Some(index);
         }
+    }
+
+    /// The deck the next game is played with (Play's hero).
+    #[must_use]
+    pub fn next_deck(&self) -> Option<&DeckSummary> {
+        self.deck.and_then(|i| self.decks.get(i))
+    }
+
+    /// Takes a deck off the shelf until its Undo runs out (S-10): it is
+    /// hidden at once and deleted only by [`Self::flush_delete`]. A deck
+    /// already waiting is flushed first, and that request is handed back.
+    pub fn stage_delete(&mut self, index: usize) -> Option<LobbyRequest> {
+        let id = self.decks.get(index)?.id.clone();
+        if self.staged_delete.as_deref() == Some(id.as_str()) {
+            return None;
+        }
+        let earlier = self.flush_delete();
+        if self.deck == Some(index) {
+            self.deck = self
+                .decks
+                .iter()
+                .position(|d| d.id != id && Some(&d.id) != self.staged_delete.as_ref());
+        }
+        self.staged_delete = Some(id);
+        earlier
+    }
+
+    /// The deck waiting for its Undo, by id.
+    #[must_use]
+    pub fn staged_delete(&self) -> Option<&str> {
+        self.staged_delete.as_deref()
+    }
+
+    /// Undo: the deck is back on the shelf, and nothing was sent.
+    pub fn undo_delete(&mut self) {
+        self.staged_delete = None;
+    }
+
+    /// Sends the waiting deletion now: its Undo ran out, or the screen
+    /// changed, or the client is closing (S-10). Sent whatever else is in
+    /// flight, because a player who saw the deck go must not see it again.
+    pub fn flush_delete(&mut self) -> Option<LobbyRequest> {
+        let deck_id = self.staged_delete.take()?;
+        if !self.has_a_performer() {
+            return None;
+        }
+        self.busy = true;
+        Some(LobbyRequest::DeleteDeck { deck_id })
     }
 
     /// Saves a deck outright. `cards` are gateway rows, each `"N Card Name"`.
@@ -2077,6 +2168,8 @@ impl Lobby {
             chairs: chairs.clamp(MIN_CHAIRS, MAX_CHAIRS),
             name,
             password,
+            clock: None,
+            ai: None,
         })
     }
 
@@ -2566,6 +2659,12 @@ impl Lobby {
         self.account_password.clear();
         self.close_library();
         self.copied_deck = None;
+        self.use_once_listed = None;
+        // The shell flushes a waiting deletion before it signs out; one
+        // that is left here belongs to an account that is gone.
+        self.staged_delete = None;
+        self.recent.clear();
+        self.pending_setup = None;
         self.performer = Performer::Nobody;
         self.decks.clear();
         self.games.clear();
@@ -2667,12 +2766,27 @@ impl Lobby {
             }
             LobbyEvent::LoggedOut => None,
             LobbyEvent::Decks(decks) => {
+                // The selection follows its deck, not its place: the list is
+                // ordered newest save first, so a save moves a deck.
+                let chosen = self
+                    .deck
+                    .and_then(|i| self.decks.get(i))
+                    .map(|d| d.id.clone());
                 self.decks = decks;
-                // Keep a selection that still points at a deck.
-                self.deck = match self.deck {
-                    Some(i) if i < self.decks.len() => Some(i),
-                    _ => (!self.decks.is_empty()).then_some(0),
-                };
+                let at = |id: &str| self.decks.iter().position(|d| d.id == id);
+                self.deck = self
+                    .use_once_listed
+                    .take()
+                    .and_then(|id| at(&id))
+                    .or_else(|| chosen.and_then(|id| at(&id)))
+                    .or_else(|| (!self.decks.is_empty()).then_some(0));
+                if self
+                    .staged_delete
+                    .as_ref()
+                    .is_some_and(|id| !self.decks.iter().any(|d| &d.id == id))
+                {
+                    self.staged_delete = None;
+                }
                 if let Some(deck_id) = self.copied_deck.take() {
                     self.busy = true;
                     return Some(LobbyRequest::LoadDeck { deck_id });
@@ -2885,6 +2999,7 @@ impl Lobby {
             Field::RoomCounter => &mut self.room_counter,
             Field::RoomBoard(at) => &mut self.room_boards[usize::from(at).min(7)],
             Field::Search => &mut self.search,
+            Field::DeckSearch => &mut self.deck_search,
             Field::AccountPassword => &mut self.account_password,
         }
     }

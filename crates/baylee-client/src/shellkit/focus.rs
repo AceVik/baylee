@@ -49,6 +49,16 @@ pub struct TabOrder {
 /// Every table the kit knows, so a stop's table name finds its order.
 pub const TABLES: &[&TabOrder] = &[
     &super::overlay::OVERLAY_ORDER,
+    // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
+    &crate::lobby::orders::PLAY,
+    &crate::lobby::orders::DECKS,
+    &crate::lobby::orders::ROOM,
+    &crate::lobby::orders::CREATE,
+    &crate::lobby::orders::HISTORY,
+    &crate::lobby::orders::PREVIEW,
+    &crate::lobby::orders::PICKER,
+    &crate::lobby::orders::CHAIR,
+    &crate::lobby::orders::MENU,
     &crate::buildui::BUILDER_ORDER,
     &crate::buildui::BUILDER_SHEET_ORDER,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]

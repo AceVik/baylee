@@ -152,7 +152,8 @@ fn a_moving_caret_redraws_its_field_and_nothing_else() {
 #[test]
 fn a_refresh_raises_no_veil() {
     let mut app = signed_in();
-    press(&mut app, Press::Hub(HubPress::Refresh));
+    // F5 / Ctrl+R (the shell key), the refresh Play no longer draws.
+    tap_press(&mut app, Press::Hub(HubPress::Refresh));
     let state = app.world().resource::<LobbyState>();
     assert!(state.lobby.busy(), "the refresh went out");
     assert!(state.lobby.refreshing(), "it is a refresh");

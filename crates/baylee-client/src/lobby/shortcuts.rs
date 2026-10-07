@@ -35,12 +35,23 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
             Hub::Decks => Context::Decks,
         },
     };
+    // The house list is the Decks screen's data, not a sheet (WP3); a
+    // deck's history, a house deck's cards, the Create-table sheet and the
+    // deck picker are.
     let modal = state.confirmation.is_some()
         || state.lobby.deleting_account().is_some()
-        || state.lobby.library().page.is_some()
+        || matches!(
+            state.lobby.library().page,
+            Some(client_core::lobby::library::Page::History(_))
+        )
+        || state.decks.preview.is_some()
+        || state.play.sheet.is_some()
+        || state.play.picker
+        || state.chair_sheet.is_some()
         || (screen == Context::Builder && builder_modal(state));
     let menu = state.front_menu
         || state.header_menu.is_some()
+        || state.menu.is_some()
         || (screen == Context::Builder
             && (state.build.menu.is_some() || state.build.syntax || state.build.rail));
     // Settings types only into its own boxes (the key capture, the seat
@@ -53,6 +64,8 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
         state.build.nav == crate::buildui::Nav::Field
     } else {
         state.lobby.typing_here()
+            && (!matches!(state.lobby.screen(), Screen::Table)
+                || super::keyboard::field_drawn(state))
     };
     ShellStack {
         stack: Stack {
@@ -103,15 +116,48 @@ pub(super) fn write_stack(
 /// The press a shell action means on the lobby's current screen, if it has
 /// a door there yet.
 pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press> {
-    let hub = matches!(state.lobby.screen(), Screen::Table)
-        && state.lobby.awaiting().is_none()
-        && state.lobby.library().page.is_none();
+    let table = matches!(state.lobby.screen(), Screen::Table) && !state.settings.is_open();
+    let in_room = table
+        && !state.room_away
+        && state.lobby.awaiting().is_some_and(|h| {
+            state
+                .lobby
+                .games()
+                .iter()
+                .any(|g| g.id == h.game_id && g.state == "waiting")
+        });
+    let hub = table && !in_room && state.lobby.awaiting().is_none_or(|_| state.room_away);
+    let sheet = state.play.sheet.is_some()
+        || state.play.picker
+        || state.decks.preview.is_some()
+        || matches!(
+            state.lobby.library().page,
+            Some(client_core::lobby::library::Page::History(_))
+        );
+    let play = hub && state.hub == Hub::Play && !sheet;
+    let decks = hub && state.hub == Hub::Decks && !sheet;
     let builder = matches!(state.lobby.screen(), Screen::Build)
         && !state.settings.is_open()
         && state.confirmation.is_none()
         && state.build.menu.is_none()
         && !builder_modal(state);
     match action {
+        // The screens a key goes to: through the header's nav, which steps
+        // away from a room and keeps the seat (M-7).
+        ShellAction::GoPlay if table && (in_room || state.hub != Hub::Play) => {
+            Some(Press::Header(super::header::HeaderPress::Nav(0)))
+        }
+        ShellAction::GoDecks if table && (in_room || state.hub != Hub::Decks) => {
+            Some(Press::Header(super::header::HeaderPress::Nav(1)))
+        }
+        ShellAction::Undo if state.undo.is_some() => {
+            Some(Press::Decks(super::decks::DecksPress::Undo))
+        }
+        ShellAction::CreateTable if play => Some(Press::Play(super::play::PlayPress::CreateTable)),
+        ShellAction::NewDeck if decks => Some(Press::Decks(super::decks::DecksPress::NewDeck)),
+        ShellAction::ImportDeck if decks => Some(Press::Decks(super::decks::DecksPress::Import)),
+        ShellAction::Search if decks => Some(Press::Shared(SharedPress::Focus(Field::DeckSearch))),
+        ShellAction::StartGame if in_room => super::room::start_press(state),
         ShellAction::GoSettings | ShellAction::OpenSettings
             if !state.settings.is_open()
                 && !matches!(state.lobby.screen(), Screen::Build | Screen::Seated(_)) =>
@@ -121,13 +167,8 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         ShellAction::GoPlay | ShellAction::GoDecks if state.settings.is_open() => {
             Some(Press::Settings(SettingsPress::CloseSettings))
         }
-        ShellAction::GoPlay if hub => Some(Press::Hub(HubPress::Tab(Hub::Play))),
-        ShellAction::GoDecks if hub => Some(Press::Hub(HubPress::Tab(Hub::Decks))),
         ShellAction::Refresh if hub => Some(Press::Hub(HubPress::Refresh)),
-        ShellAction::NewDeck if hub && state.hub == Hub::Decks => {
-            Some(Press::Hub(HubPress::NewDeck))
-        }
-        ShellAction::Search if hub => Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        ShellAction::Search if play => Some(Press::Shared(SharedPress::Focus(Field::Search))),
         // The builder's doors (`KEYBOARD.md` §7.7), while nothing stands
         // over it.
         ShellAction::Search if builder => Some(Press::Build(BuildPress::FocusBuild(
@@ -152,6 +193,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
 /// Answers the shell actions the lobby has doors for, through the same
 /// handlers a click reaches. A move to Play or Decks from Settings closes
 /// Settings and then switches the hub.
+#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 pub(super) fn run_fired(
     mut fired: MessageReader<ShellFired>,
     mut state: ResMut<LobbyState>,
@@ -159,29 +201,34 @@ pub(super) fn run_fired(
     mut scrolled: ResMut<Scrolled>,
     mailbox: Res<Mailbox>,
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    tiles: Query<&super::focusing::TileOf>,
 ) {
+    let tile = focus
+        .as_deref()
+        .and_then(|f| super::focusing::focused_tile(f, &tiles));
     for ShellFired(action) in fired.read() {
         // Settings closes first; the hub tab follows on the same key.
         for _ in 0..2 {
-            let Some(press) = press_for(&state, *action) else {
+            // `e` / `F2` on the focused deck tile (`KEYBOARD.md` §7.6).
+            let edit = (*action == ShellAction::EditTile)
+                .then_some(tile)
+                .flatten()
+                .map(|i| Press::Decks(super::decks::DecksPress::Edit(i)));
+            let Some(press) = edit.or_else(|| press_for(&state, *action)) else {
                 break;
             };
             let closing = press == Press::Settings(SettingsPress::CloseSettings);
-            let cx = Cx {
-                state: &mut state,
-                prefs: &mut prefs,
-                scrolled: &mut scrolled,
-                mailbox: &mailbox,
-                settings: &mut settings,
-            };
-            match press {
-                Press::Hub(press) => press.handle(cx),
-                Press::Settings(press) => press.handle(cx),
-                Press::Shared(press) => press.handle(cx),
-                Press::Header(press) => press.handle(cx),
-                Press::Build(press) => press.handle(cx),
-                _ => {}
-            }
+            super::press::run(
+                press,
+                Cx {
+                    state: &mut state,
+                    prefs: &mut prefs,
+                    scrolled: &mut scrolled,
+                    mailbox: &mailbox,
+                    settings: &mut settings,
+                },
+            );
             if !closing {
                 break;
             }

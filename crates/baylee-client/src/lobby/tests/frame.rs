@@ -88,7 +88,7 @@ fn a_phone_drops_what_it_has_no_room_for() {
     assert!(
         narrow
             .iter()
-            .any(|l| l == Phrase::SelectedDeck.text(Lang::En)),
+            .any(|l| l.eq_ignore_ascii_case(Phrase::PlayPickToStart.text(Lang::En))),
         "everything that matters is still there: {narrow:?}"
     );
 }
@@ -176,7 +176,7 @@ fn a_narrow_window_shows_one_pane_of_the_builder_at_a_time() {
 }
 
 #[test]
-fn issue_186_library_replaces_editable_ui_and_keeps_navigation_on_phone() {
+fn issue_186_the_house_tab_offers_copies_and_never_an_edit_on_every_frame() {
     use client_core::lobby::library::{HouseDeck, Reply};
     let mut app = headless();
     {
@@ -198,35 +198,45 @@ fn issue_186_library_replaces_editable_ui_and_keeps_navigation_on_phone() {
                 cards: 70,
                 sideboard: 0,
                 commanders: vec!["Aang and Katara".into()],
+                ..Default::default()
             }])));
+    }
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.hub = Hub::Decks;
+        state.decks.tab = super::decks::DecksTab::House;
     }
     for width in [390.0, 900.0, 1400.0] {
         sized(&mut app, width);
         app.update();
         let controls = presses(&mut app);
         for wanted in [
-            Press::Library(LibraryPress::CloseLibrary),
-            Press::Library(LibraryPress::PreviewHouse(0)),
-            Press::Library(LibraryPress::CopyHouse(0)),
+            Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
+            Press::Decks(DecksPress::Preview(0)),
+            Press::Decks(DecksPress::Add(0)),
+            Press::Decks(DecksPress::AddAndUse(0)),
         ] {
             assert!(controls.contains(&wanted), "{wanted:?} missing at {width}");
         }
         assert!(!controls.iter().any(|p| matches!(
             p,
-            Press::Hub(HubPress::EditDeck(_) | HubPress::DeleteDeck(_))
+            Press::Decks(DecksPress::Edit(_) | DecksPress::Delete(_))
                 | Press::Build(BuildPress::SaveDeck)
         )));
         let before = roots(&mut app);
         app.update();
-        assert_eq!(roots(&mut app), before, "idle library must retain its tree");
+        assert_eq!(
+            roots(&mut app),
+            before,
+            "an idle shelf must retain its tree"
+        );
     }
-    press(&mut app, Press::Library(LibraryPress::CloseLibrary));
-    assert!(
-        app.world()
-            .resource::<LobbyState>()
-            .lobby
-            .library()
-            .page
-            .is_none()
+    press(
+        &mut app,
+        Press::Decks(DecksPress::Tab(super::decks::DecksTab::Mine)),
+    );
+    assert_eq!(
+        app.world().resource::<LobbyState>().decks.tab,
+        super::decks::DecksTab::Mine
     );
 }
