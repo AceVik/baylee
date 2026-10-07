@@ -60,7 +60,9 @@
 /// creature if it attacked this turn");
 /// `verb_tests::if_event_object_matches_body_is_visited`.
 /// Linked counter cleanup adds a delayed body; its traversal has a behavioral test.
-const NESTING_FIELDS: usize = 29;
+/// Raised 29 → 30 on 2026-10-07 for `BottomCardFromHand::then` (Vendilion
+/// Clique's "if you do"); `verb_tests::bottom_card_from_hand_body_is_visited`.
+const NESTING_FIELDS: usize = 30;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -93,7 +95,9 @@ const NESTING_FIELDS: usize = 29;
 /// one branch. `IfEventObjectMatches` moved both on 2026-09-30: one new
 /// carrier, one branch.
 /// `ScheduleLinkedCounterCleanup` is the twenty-sixth carrier.
-const CARRYING_VARIANTS: usize = 26;
+/// `BottomCardFromHand` is the twenty-seventh (2026-10-07): one new
+/// carrier, one branch.
+const CARRYING_VARIANTS: usize = 27;
 
 /// The floor under the reader itself.
 ///

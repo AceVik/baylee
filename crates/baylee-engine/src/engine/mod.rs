@@ -1771,6 +1771,8 @@ mod granted_this_tests;
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
+mod if_you_do_tests;
+#[cfg(test)]
 mod investigate_tests;
 #[cfg(test)]
 mod keyword_tests;
