@@ -428,6 +428,11 @@ pub fn row(
                 width: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 column_gap: px_fixed(kit.m.gap),
+                // A control wider than the room beside the words (five
+                // 44-px segments under a finger on a phone) goes under them
+                // rather than out of the row.
+                flex_wrap: FlexWrap::Wrap,
+                row_gap: px_fixed(kit.m.gap),
                 ..default()
             },
             Pickable::IGNORE,
@@ -439,6 +444,7 @@ pub fn row(
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
+                flex_basis: kit.m.px(160.0),
                 min_width: px_fixed(0.0),
                 row_gap: kit.m.px(2.0),
                 ..default()

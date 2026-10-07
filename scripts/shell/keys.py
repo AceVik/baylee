@@ -35,6 +35,8 @@ def press(name, char=None):
     devctl.call("/key", body); time.sleep(0.2)
 def ring_pixels(png, n):
     img = Image.open(png).convert("RGB"); px = img.load(); hits = 0
+    if max(img.convert("L").getextrema()) < 24:
+        raise SystemExit(f"{png} is black - is the display asleep? (no measurement)")
     for x in range(int(n["x"]) - 4, int(n["x"] + n["w"]) + 4):
         for y in (int(n["y"]) - 3, int(n["y"] + n["h"]) + 2):
             if 0 <= x < img.size[0] and 0 <= y < img.size[1]:

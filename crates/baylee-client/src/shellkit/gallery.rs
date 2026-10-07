@@ -12,12 +12,12 @@ use super::ShellMetrics;
 use super::controls::{self, Kit, Live, Weight};
 use super::focus::{Current, ShellField, Stop, TabOrder};
 use super::metrics::px_fixed;
-use super::role::Role;
+
 use super::size::{Frame, InputClass, Platform, TextSize, Viewport};
 use super::states;
 use super::surfaces::{self, MenuItem, SheetWidth, Storage, TileLook};
 use super::tokens;
-use crate::hud::{UiFonts, icon_tf, tf, tf_bold};
+use crate::hud::{UiFonts, tf};
 use crate::settings::ClientSettings;
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::shellkeys::ShellAction as A;
@@ -350,83 +350,42 @@ fn line(commands: &mut Commands, kit: Kit, children: &[Entity]) -> Entity {
     line
 }
 
+/// The kit's header, as every signed-in screen wears it (§2.1), with the
+/// gallery's stops on its controls.
 fn header(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
-    let m = kit.m;
-    let bar = commands
-        .spawn((
-            Role::Header,
-            Node {
-                width: Val::Percent(100.0),
-                min_height: px_fixed(m.header),
-                padding: UiRect::axes(px_fixed(m.body), px_fixed(0.0)),
-                column_gap: px_fixed(m.gap),
-                align_items: AlignItems::Center,
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(tokens::PANEL),
-        ))
-        .id();
-    let brand = commands
-        .spawn((
-            Text::new(Phrase::AppName.text(lang)),
-            tf_bold(kit.fonts, m.head),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(bar).add_child(brand);
-    // The build's short form beside the wordmark on Wide and Vast only
-    // (`legal.md`); Narrow and Phone keep it in the popover and colophon.
-    if matches!(m.frame, Frame::Wide | Frame::Vast) {
-        let build = controls::label(commands, kit, "0.1.0-beta.5", m.small, tokens::MUTED);
-        commands.entity(bar).add_child(build);
-    }
-    for (i, phrase) in [Phrase::ShellPlay, Phrase::ShellDecks, Phrase::Settings]
-        .into_iter()
-        .enumerate()
-    {
-        let n = u8::try_from(i).unwrap_or(0);
-        let nav = controls::nav(commands, kit, phrase.text(lang), i == 0, item("nav", n));
-        if i == 0 {
-            commands.entity(nav).insert(Current(true));
-        }
-        commands.entity(bar).add_child(nav);
-    }
-    let gap = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(bar).add_child(gap);
-    let reach = if matches!(m.frame, Frame::Wide | Frame::Vast) {
-        "Baylee Sanctuary · 3 tables · 12 online"
-    } else {
-        "Baylee Sanctuary"
+    let counts = Phrase::ShellTablesOnline.fill(lang, &["3", "12"]);
+    let look = super::header::HeaderLook {
+        brand: Phrase::AppName.text(lang),
+        build: "0.1.0-beta.5",
+        nav: [
+            Phrase::ShellPlay.text(lang),
+            Phrase::ShellDecks.text(lang),
+            Phrase::Settings.text(lang),
+        ],
+        active: Some(0),
+        reach: super::header::Reach::Up,
+        gateway: "Baylee Sanctuary",
+        counts: &counts,
+        unread: 1,
+        handle: Some("AceVik#0007"),
+        return_pill: None,
+        tools: &[],
     };
-    let gateway = controls::pill(
+    super::header::header(
         commands,
         kit,
-        Some(tokens::ACCENT),
-        reach,
-        true,
-        stop("gateway"),
-    );
-    let bell = commands
-        .spawn((
-            Text::new("\u{f0f3}"),
-            icon_tf(kit.fonts, m.text),
-            TextColor(tokens::INK),
-        ))
-        .id();
-    let bell = controls::hit(commands, kit, bell, stop("bell"));
-    let account = controls::pill(commands, kit, None, "AceVik#0007", true, stop("account"));
-    commands.entity(bar).add_children(&[gateway, bell, account]);
-    bar
+        &look,
+        super::header::HeaderActions {
+            nav: |i| {
+                let n = u8::try_from(i).unwrap_or(0);
+                (item("nav", n), current(i == 0))
+            },
+            gateway: stop("gateway"),
+            bell: stop("bell"),
+            account: stop("account"),
+            back: (),
+        },
+    )
 }
 
 fn type_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {

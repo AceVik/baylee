@@ -90,6 +90,17 @@ def check_overflow(nodes):
     return faults
 
 
+def check_window(nodes, width, height):
+    """No control (a hit wrapper) leaves the window: a pill pushed off the
+    header's right end overflows nothing the overflow check can see."""
+    return [
+        f"window: {box(n)} leaves the {width:.0f} x {height:.0f} window"
+        for n in nodes
+        if n.get("k") == "hit"
+        and (n["x"] < -1 or n["x"] + n["w"] > width + 1)
+    ]
+
+
 def check_siblings(nodes):
     faults = []
     for n in nodes:
@@ -166,6 +177,10 @@ def check_contrast(nodes, png, width, height):
     from PIL import Image
 
     image = Image.open(png).convert("RGB")
+    # A sleeping or locked display hands back a black frame, on which every
+    # ratio passes: that is no measurement, so it fails.
+    if max(image.convert("L").getextrema()) < 24:
+        return [f"contrast: {os.path.basename(png)} is black - is the display asleep?"], []
     sx, sy = image.size[0] / width, image.size[1] / height
     pixels = image.load()
     faults, report = [], []
@@ -257,6 +272,7 @@ def gallery(outdir):
                     nodes = tree(st["shell_nodes"], root="gallery")
                     faults = (
                         check_overflow(nodes)
+                        + check_window(nodes, width, height)
                         + check_siblings(nodes)
                         + check_budget(nodes, lang == "de")
                         + check_hit(nodes, touch)

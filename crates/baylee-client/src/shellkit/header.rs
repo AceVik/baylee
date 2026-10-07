@@ -273,10 +273,12 @@ fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundle) -
         let count = commands
             .spawn((
                 Role::Count,
+                // Sized by its number, never under 16: a scaled height
+                // shorter than the digit's line let it spill (step 1).
                 Node {
-                    min_width: kit.m.px(16.0),
-                    height: kit.m.px(16.0),
-                    padding: UiRect::axes(kit.m.px(4.0), px_fixed(0.0)),
+                    min_width: px_fixed(16.0),
+                    min_height: px_fixed(16.0),
+                    padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
                     margin: UiRect::left(kit.m.px(-6.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
