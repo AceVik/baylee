@@ -3589,8 +3589,9 @@ chord is bound by the **character** a key produces (`/` is `Shift+7` on a
 German keyboard) or by the physical code (digits, arrows, F-keys); `command`
 stands for ⌘ on macOS and Ctrl elsewhere, so one account-wide map is right on
 both; and a rebind onto a held chord is refused, naming the holder, until a
-second request takes it. The map is written to `/settings` only once it
-differs from the standard one.
+second request takes it. The map is always written to `/settings`, as the
+table's is: the gateway merges per top-level key, so a key left out would
+keep a rebind the player has since reset.
 
 `shellkit::keys` resolves every key event against a context stack — text
 field, menu, sheet, screen, global, innermost first — that the screen on show

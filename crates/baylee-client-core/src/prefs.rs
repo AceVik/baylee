@@ -795,9 +795,10 @@ pub struct Preferences {
     /// holds at a friend's machine, and bound by `command` rather than Ctrl
     /// or ⌘, so one map means the same on a Mac and a PC.
     ///
-    /// Not written while it is the standard map: a player who never rebinds
-    /// stores nothing and gains whatever later defaults bring.
-    #[serde(skip_serializing_if = "crate::shellkeys::ShellKeymap::is_standard")]
+    /// Always written, as [`Self::keymap`] is: the gateway merges a `PUT
+    /// /settings` per top-level key (WG-5), so a key left out means "keep
+    /// what is stored", and a player who rebinds and then resets would get
+    /// the rebind back from the account on the next load.
     pub shell_keys: crate::shellkeys::ShellKeymap,
     /// Every top-level key this client does not know, kept as it came.
     ///
@@ -1300,16 +1301,18 @@ mod tests {
         }
     }
 
-    /// The shell's keymap is stored with the account beside the table's, is
-    /// left out while it is standard, and a shell rebind leaves the table's
-    /// keymap byte for byte as it was (`KEYBOARD.md` §5.4, §9.11).
+    /// The shell's keymap is stored with the account beside the table's,
+    /// always — a reset to the standard map must reach the gateway, whose
+    /// per-key merge keeps a key that is left out — and a shell rebind
+    /// leaves the table's keymap byte for byte as it was (`KEYBOARD.md`
+    /// §5.4, §9.11).
     #[test]
     fn the_shell_keys_ride_with_the_account_and_leave_the_table_keys_alone() {
         use crate::shellkeys::{ShellAction, ShellChord};
         let plain = Preferences::default();
         assert!(
-            !plain.to_json().contains("shell_keys"),
-            "a standard shell map was written: {}",
+            plain.to_json().contains(r#""shell_keys":{"go-play":"#),
+            "a standard shell map was left out, so a reset would not reach the gateway: {}",
             plain.to_json()
         );
         let mut rebound = plain.clone();

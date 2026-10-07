@@ -615,13 +615,6 @@ impl ShellKeymap {
         }
     }
 
-    /// Whether this is exactly the standard map (what a player who never
-    /// rebound anything has; the stored preferences leave it out).
-    #[must_use]
-    pub fn is_standard(&self) -> bool {
-        *self == Self::standard()
-    }
-
     /// An action's chords.
     #[must_use]
     pub fn chords(&self, action: ShellAction) -> &[ShellChord] {
