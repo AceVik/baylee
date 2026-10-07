@@ -145,7 +145,9 @@ pub fn strip(lobby: &Lobby) -> Option<Strip> {
 /// the strip is never drawn (the room has its own Leave).
 #[must_use]
 pub fn in_the_room(lobby: &Lobby, settings_open: bool) -> bool {
-    if settings_open || lobby.library().page.is_some() {
+    // The house list (`Page::House`) is the Decks screen's data (WP3) and
+    // stands over nothing; a deck's history is a sheet on Decks.
+    if settings_open {
         return false;
     }
     let Some(handover) = lobby.awaiting() else {

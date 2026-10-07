@@ -178,7 +178,15 @@ pub(super) fn keyboard(
         crate::seatpanel::keys(&mut keys, &codes, &mut state, clipboard.as_deref_mut());
         return;
     }
-    if state.lobby.library().page.is_some() {
+    // The Decks and Play screens' menus and sheets (WP2, WP3): Esc closes
+    // the innermost one and nothing behind it hears the key (`KEYBOARD.md`
+    // §2.5); a room is never left by Esc.
+    if matches!(state.lobby.screen(), Screen::Table) && shell_layer_keys(&codes, &mut state) {
+        keys.clear();
+        return;
+    }
+    // The builder's own history page (WP4).
+    if matches!(state.lobby.screen(), Screen::Build) && state.lobby.library().page.is_some() {
         keys.clear();
         if codes.just_pressed(KeyCode::Escape) && !state.lobby.library().loading {
             state.lobby.close_library();
@@ -309,6 +317,70 @@ pub(super) fn keyboard(
     );
 }
 
+/// The table screen's menus and sheets (WP2, WP3): `Esc` closes the
+/// innermost open thing, one per press (`KEYBOARD.md` §2.5). Answers
+/// whether the keys are the layer's (nothing under it hears them); the
+/// Create-table sheet keeps its two fields typing.
+fn shell_layer_keys(codes: &ButtonInput<KeyCode>, state: &mut ResMut<LobbyState>) -> bool {
+    let escape = codes.just_pressed(KeyCode::Escape);
+    if state.menu.is_some() {
+        if escape {
+            state.menu = None;
+        }
+        return true;
+    }
+    if state.chair_sheet.is_some() {
+        if escape {
+            state.chair_sheet = None;
+        }
+        return true;
+    }
+    if state.decks.preview.is_some() {
+        if escape {
+            state.decks.preview = None;
+        }
+        return true;
+    }
+    if matches!(
+        state.lobby.library().page,
+        Some(client_core::lobby::library::Page::History(_))
+    ) {
+        if escape && !state.lobby.library().loading {
+            state.lobby.close_library();
+        }
+        return true;
+    }
+    if state.play.picker {
+        if escape {
+            state.play.picker = false;
+        }
+        return true;
+    }
+    if state.play.sheet.is_some() && escape {
+        state.play.sheet = None;
+        state.lobby.focus_on(Field::Search);
+        return true;
+    }
+    false
+}
+
+/// Whether the focused field is one the table screen draws now: the
+/// Create-table sheet's name and password only while it is up, a room's
+/// starting-board search only in its open drawer, a locked row's password
+/// only on the list. A field that is not drawn takes no keys.
+pub(super) fn field_drawn(state: &LobbyState) -> bool {
+    let sheet = state.play.sheet.is_some();
+    let room = state.lobby.awaiting().is_some() && !state.room_away;
+    match state.lobby.focus() {
+        Field::RoomName => sheet,
+        Field::RoomPassword => sheet || !room,
+        Field::RoomBoard(seat) => room && state.room_setup_seat == Some(seat),
+        Field::RoomCounter => room && state.room_setup_seat.is_some(),
+        Field::Search | Field::DeckSearch => !room && !sheet,
+        _ => true,
+    }
+}
+
 /// Chooses a saved gateway, which turns the front door to the account form.
 ///
 /// One door for the pointer and the keyboard, so that choosing by Enter on a
@@ -365,6 +437,18 @@ fn paste_into_form(
 /// The room's optional editors are shell state. Tab only visits fields the
 /// room currently draws; the other forms keep the core's normal field ring.
 fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
+    // The Create-table sheet: its name and its password, the only two
+    // fields it draws (offline, the name alone).
+    if state.play.sheet.is_some() {
+        let next = if state.lobby.focus() == Field::RoomName && !state.lobby.offline() {
+            Field::RoomPassword
+        } else {
+            Field::RoomName
+        };
+        state.lobby.focus_on(next);
+        state.lobby.select_all();
+        return;
+    }
     let lobby = &mut state.lobby;
     if lobby.screen() != &Screen::Table
         || lobby.awaiting().is_none()
@@ -381,10 +465,9 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
     else {
         return;
     };
-    let mut fields = vec![Field::RoomName];
-    if !lobby.offline() {
-        fields.push(Field::RoomPassword);
-    }
+    // The room draws no name or password box (Edit rules opens the sheet
+    // for them, WP2): only an open drawer's board search and counter.
+    let mut fields = Vec::new();
     if let Some(seat) = state
         .room_setup_seat
         .filter(|s| usize::from(*s) < room.seats.len())
@@ -394,7 +477,13 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
             fields.push(Field::RoomCounter);
         }
     }
-    let at = fields.iter().position(|f| *f == lobby.focus()).unwrap_or(0);
+    if fields.is_empty() {
+        return;
+    }
+    let at = fields
+        .iter()
+        .position(|f| *f == lobby.focus())
+        .unwrap_or(fields.len() - 1);
     let next = match direction {
         Tab::Next => (at + 1) % fields.len(),
         Tab::Back => (at + fields.len() - 1) % fields.len(),
@@ -403,7 +492,7 @@ fn cycle_form_focus(state: &mut LobbyState, direction: Tab) {
     lobby.select_all();
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard and its pending answer ride along
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the clipboard rides along; one flat match
 fn text_field_keys(
     keys: &mut MessageReader<KeyboardInput>,
     codes: &ButtonInput<KeyCode>,
@@ -456,15 +545,18 @@ fn text_field_keys(
             }
             continue;
         }
-        // On the front door Tab is the kit's focus walker (`front::keys`);
-        // elsewhere it moves the caret between the screen's fields.
+        // Tab is the kit's focus walker on the front door and on the table
+        // screen (Play, Decks, the room and their sheets; `front::keys`,
+        // `focusing`); only the account deletion's password box, a lobby
+        // field with no stop, still moves the caret with it.
         if key.logical_key == Key::Tab {
-            if table || state.lobby.deleting_account().is_some() {
+            if state.lobby.deleting_account().is_some() {
                 cycle_form_focus(state, if shift { Tab::Back } else { Tab::Next });
             }
             continue;
         }
-        if !state.lobby.typing_here() {
+        // Everything else needs the caret in a field this screen is drawing.
+        if !state.lobby.typing_here() || (table && !field_drawn(state)) {
             continue;
         }
         match &key.logical_key {
@@ -519,6 +611,38 @@ fn text_field_keys(
                 let focus = state.lobby.focus();
                 state.lobby.set_field(focus, "");
             }
+            // A search box with text: Esc clears it (HTML's search input).
+            Key::Escape
+                if table
+                    && matches!(state.lobby.focus(), Field::Search | Field::DeckSearch)
+                    && !state.lobby.field(state.lobby.focus()).is_empty() =>
+            {
+                let focus = state.lobby.focus();
+                state.lobby.set_field(focus, "");
+                if focus == Field::Search {
+                    let request = state.lobby.search_again();
+                    dispatch(state, mailbox, request);
+                }
+            }
+            // The Create-table sheet's default button (`KEYBOARD.md` §7.4).
+            Key::Enter if table && state.play.sheet.is_some() => {
+                if let Some((draft, editing)) = state.play.sheet.take() {
+                    let request = if editing {
+                        state.lobby.apply_table(&draft)
+                    } else {
+                        state.lobby.open_table(&draft)
+                    };
+                    if request.is_none() {
+                        state.play.sheet = Some((draft, editing));
+                    } else {
+                        state.lobby.focus_on(Field::Search);
+                    }
+                    dispatch(state, mailbox, request);
+                }
+            }
+            // The shelf's search filters as it is typed; Enter has nothing
+            // more to ask.
+            Key::Enter if table && state.lobby.focus() == Field::DeckSearch => {}
             Key::Enter => {
                 let request = if table {
                     state.lobby.search_again()

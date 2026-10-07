@@ -151,7 +151,10 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
             &format!("\u{2039} {}", Phrase::Back.text(lang)),
             controls::Weight::Secondary,
             controls::Live::Yes,
-            Some("Esc"),
+            // Esc is its key only before sign-in, where no header stands
+            // over the screen; signed in, Settings' Esc is nothing
+            // (`KEYBOARD.md` §2.5) and the header leaves it.
+            (state.lobby.token().is_none() && !state.lobby.offline()).then_some("Esc"),
             (Press::Settings(SettingsPress::CloseSettings), stop("back")),
         );
         commands.entity(holder).add_child(back);

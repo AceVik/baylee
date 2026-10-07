@@ -232,3 +232,33 @@ fn focus_survives_the_rebuild_a_keystroke_brings() {
         "ada"
     );
 }
+
+/// Enter on a focused front-door control runs its press once: the front
+/// door's activation and the lobby screens' (`focusing::keys_press`) each
+/// answer their own tables, so a toggle is not toggled back the same frame.
+#[test]
+fn enter_on_a_front_door_toggle_turns_it_once() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    app.update();
+    let music = {
+        let mut query = app.world_mut().query::<(Entity, &Press, &Stop)>();
+        query
+            .iter(app.world())
+            .find(|(_, p, _)| **p == Press::Shared(SharedPress::ToggleMusic))
+            .map(|(e, _, _)| e)
+            .expect("the text row's Music")
+    };
+    let heard = |app: &App| {
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .music
+            .muted()
+    };
+    let before = heard(&app);
+    app.world_mut()
+        .resource_mut::<InputFocus>()
+        .set(music, bevy::input_focus::FocusCause::Navigated);
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert_ne!(heard(&app), before, "Enter turned the music once");
+}

@@ -197,19 +197,29 @@ pub(super) fn build(
             chairs,
             name,
             password,
-        } => (
-            json_post(
-                &format!("{base}/lobby/games"),
-                &serde_json::json!({
-                    "deck_id": deck_id,
-                    "mode": mode.wire(),
-                    "seats": chairs,
-                    "name": name,
-                    "password": password,
-                }),
-            ),
-            Expect::Seat,
-        ),
+            clock,
+            ai,
+        } => {
+            let mut body = serde_json::json!({
+                "deck_id": deck_id,
+                "mode": mode.wire(),
+                "seats": chairs,
+                "name": name,
+                "password": password,
+            });
+            // Left out unless chosen: a gateway that predates either takes
+            // its own default, as it always did.
+            if let Some(clock) = clock {
+                body["clock"] = serde_json::Value::String(clock);
+            }
+            if let Some(ai) = ai {
+                body["ai"] = serde_json::Value::String(ai);
+            }
+            (
+                json_post(&format!("{base}/lobby/games"), &body),
+                Expect::Seat,
+            )
+        }
         LobbyRequest::JoinGame {
             game_id,
             deck_id,
@@ -646,6 +656,20 @@ struct AuthConfig {
     guests_enabled: bool,
 }
 
+/// The clocks `GET /auth/config` lists, for the Create-table sheet. Read
+/// apart from [`AuthConfig`], so a gateway that sends none — or one this
+/// client cannot read — changes nothing about who may sign in.
+#[derive(serde::Deserialize)]
+struct ClockList {
+    #[serde(default)]
+    clocks: Vec<client_core::lobby::play::ClockPreset>,
+}
+
+/// The clocks in a `GET /auth/config` body; empty when it names none.
+pub(super) fn auth_clocks(body: &str) -> Vec<client_core::lobby::play::ClockPreset> {
+    serde_json::from_str::<ClockList>(body).map_or_else(|_| Vec::new(), |list| list.clocks)
+}
+
 pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
     let box_ = Arc::clone(&mailbox.0);
     let gateway = state.gateway.clone();
@@ -657,17 +681,24 @@ pub(super) fn probe_registration(state: &LobbyState, mailbox: &Mailbox) {
         ehttp::Request::get(&url).with_timeout(Some(PROBE_TIMEOUT)),
         move |result| {
             pending.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-            let reply = match result {
-                Ok(response) if response.ok => response.text().and_then(auth_config),
+            let body = match &result {
+                Ok(response) if response.ok => response.text(),
                 // A gateway that is not up yet says nothing about registration.
                 // Leaving the offer standing is the recoverable failure.
                 _ => None,
             };
-            let Some(reply) = reply else {
+            let Some(body) = body else {
+                return;
+            };
+            let clocks = auth_clocks(body);
+            let Some(reply) = auth_config(body) else {
                 return;
             };
             if let Ok(mut box_) = box_.lock() {
                 box_.push(Reply::Remote(epoch, Box::new(reply)));
+                if !clocks.is_empty() {
+                    box_.push(Reply::Remote(epoch, Box::new(Reply::Clocks(clocks))));
+                }
             }
         },
     );

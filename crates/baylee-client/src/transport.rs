@@ -22,7 +22,7 @@
 //! changes one path and nothing else.
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) use native::{WsSender, fetch, tls, ws_connect};
+pub(crate) use native::{WsSender, fetch, fetch_blocking, tls, ws_connect};
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) use ehttp::fetch;
@@ -102,7 +102,10 @@ mod native {
         }
     }
 
-    fn fetch_blocking(request: &ehttp::Request) -> ehttp::Result<ehttp::Response> {
+    /// The same request, answered on the calling thread: for the one
+    /// request that must go out before the process ends (a deletion whose
+    /// Undo the player let run out by quitting, S-10).
+    pub(crate) fn fetch_blocking(request: &ehttp::Request) -> ehttp::Result<ehttp::Response> {
         let mut builder = ureq::http::Request::builder()
             .method(request.method.as_str())
             .uri(&request.url);

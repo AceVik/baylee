@@ -64,6 +64,11 @@ pub enum Role {
     /// A scroll container: what it holds may lie past its edges, scrolled
     /// out of view rather than overflowing (the checks read it so).
     Scroll,
+    /// A picture: Scryfall's `art_crop` on a deck tile or the Play hero
+    /// (WP3). Nothing is drawn on it; its credit stands beside it.
+    Art,
+    /// The artist's credit under a picture: held to 4.5 : 1 (WP3).
+    Credit,
 }
 
 impl Role {
@@ -96,6 +101,8 @@ impl Role {
             Self::KeyCap => "keycap",
             Self::Count => "count",
             Self::Scroll => "scroll",
+            Self::Art => "art",
+            Self::Credit => "credit",
         }
     }
 

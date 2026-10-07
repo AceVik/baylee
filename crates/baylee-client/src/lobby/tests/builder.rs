@@ -8,15 +8,23 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     let mut app = headless();
     stocked(&mut app);
     app.update();
+    to_decks(&mut app);
     let found = presses(&mut app);
     for wanted in [
-        Press::Hub(HubPress::NewDeck),
-        Press::Hub(HubPress::EditDeck(0)),
-        Press::Hub(HubPress::DeleteDeck(0)),
-        Press::Library(LibraryPress::BrowseHouse),
+        Press::Decks(DecksPress::NewDeck),
+        Press::Decks(DecksPress::Edit(0)),
+        Press::Shared(SharedPress::OpenMenu(ShellMenu::Deck(0))),
+        Press::Decks(DecksPress::Tab(super::decks::DecksTab::House)),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
+    // Delete is in the tile's `⋯` (§6), last, after a rule.
+    press(
+        &mut app,
+        Press::Shared(SharedPress::OpenMenu(ShellMenu::Deck(0))),
+    );
+    app.update();
+    assert!(presses(&mut app).contains(&Press::Decks(DecksPress::Delete(0))));
 }
 
 /// #254: the deckbuilder says which build it is, as the lobby does, on every
@@ -686,17 +694,72 @@ fn issue_188_search_keeps_deck_rows_and_repeated_listings_keep_the_root() {
 }
 
 #[test]
-fn issue_191_delete_cancel_never_dispatches_a_delete() {
+fn issue_191_a_deleted_deck_leaves_the_shelf_and_undo_never_dispatches_a_delete() {
     let mut app = headless();
     stocked(&mut app);
     app.update();
-    press(&mut app, Press::Hub(HubPress::DeleteDeck(0)));
-    assert!(app.world().resource::<LobbyState>().confirmation.is_some());
-    assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
-    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
-    assert!(app.world().resource::<LobbyState>().confirmation.is_none());
-    assert!(!app.world().resource::<LobbyState>().lobby.busy());
-    assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
+    to_decks(&mut app);
+    press(
+        &mut app,
+        Press::Shared(SharedPress::OpenMenu(ShellMenu::Deck(0))),
+    );
+    app.update();
+    press(&mut app, Press::Decks(DecksPress::Delete(0)));
+    // No confirm sheet (S-10): the deck leaves the shelf at once, an Undo
+    // toast stands, and nothing has gone to the gateway.
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.confirmation.is_none());
+        assert_eq!(state.lobby.staged_delete(), Some("d1"));
+        assert!(state.undo.is_some());
+        assert!(!state.lobby.busy(), "nothing was sent");
+        assert_eq!(state.lobby.decks().len(), 1);
+    }
+    assert!(!presses(&mut app).contains(&Press::Decks(DecksPress::Edit(0))));
+    // The toast lane draws its Undo a frame after the press.
+    app.update();
+    press(&mut app, Press::Decks(DecksPress::Undo));
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.lobby.staged_delete(), None);
+    assert!(state.undo.is_none());
+    assert!(!state.lobby.busy(), "Undo sends nothing either");
+    assert!(presses(&mut app).contains(&Press::Decks(DecksPress::Edit(0))));
+}
+
+/// The Undo runs out on its own and only then is the deletion sent; leaving
+/// the Decks screen sends it at once (S-10).
+#[test]
+fn a_waiting_deletion_is_sent_when_its_undo_runs_out_or_the_screen_changes() {
+    for leave in [false, true] {
+        let mut app = headless();
+        stocked(&mut app);
+        app.update();
+        to_decks(&mut app);
+        press(
+            &mut app,
+            Press::Shared(SharedPress::OpenMenu(ShellMenu::Deck(0))),
+        );
+        app.update();
+        press(&mut app, Press::Decks(DecksPress::Delete(0)));
+        assert!(!app.world().resource::<LobbyState>().lobby.busy());
+        if leave {
+            app.world_mut().resource_mut::<LobbyState>().hub = Hub::Play;
+            app.update();
+        } else {
+            app.world_mut()
+                .resource_mut::<LobbyState>()
+                .undo
+                .as_mut()
+                .expect("an undo")
+                .left = 0.0;
+            app.update();
+        }
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.staged_delete(), None, "leave: {leave}");
+        // Flushed: what it sends is `Lobby::flush_delete`'s (client-core's
+        // tests); the answer of a gateway this app does not have is not.
+        assert!(state.undo.is_none());
+    }
 }
 
 #[test]
@@ -1046,9 +1109,9 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
         tap_control(&mut app, "play offline", |p| {
             *p == Press::Front(FrontPress::PlayOffline)
         });
-        tap_control(&mut app, "new deck", |p| {
-            *p == Press::Hub(HubPress::NewDeck)
-        });
+        to_decks(&mut app);
+        press(&mut app, Press::Decks(DecksPress::NewDeck));
+        settle(&mut app);
         {
             let state = app.world().resource::<LobbyState>();
             assert_eq!(*state.lobby.screen(), Screen::Build, "{round}");

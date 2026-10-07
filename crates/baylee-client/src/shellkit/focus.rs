@@ -57,6 +57,16 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::ABOUT,
     &crate::settingsui::keys::SETTINGS,
     &crate::settingsui::keys::PROFILE_SHEET,
+    // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
+    &crate::lobby::orders::PLAY,
+    &crate::lobby::orders::DECKS,
+    &crate::lobby::orders::ROOM,
+    &crate::lobby::orders::CREATE,
+    &crate::lobby::orders::HISTORY,
+    &crate::lobby::orders::PREVIEW,
+    &crate::lobby::orders::PICKER,
+    &crate::lobby::orders::CHAIR,
+    &crate::lobby::orders::MENU,
     &crate::buildui::BUILDER_ORDER,
     &crate::buildui::BUILDER_SHEET_ORDER,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]

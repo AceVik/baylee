@@ -41,6 +41,23 @@ use baylee_client_core::lobby::{
     DeckSummary, GameListing, GameQuery, GameSeat, GameSummary, SeatHandover,
 };
 
+use super::decks::DecksPress;
+use super::menus::ShellMenu;
+use super::play::PlayPress;
+
+/// The Decks screen (WP3), as the header's nav shows it.
+fn to_decks(app: &mut App) {
+    app.world_mut().resource_mut::<LobbyState>().hub = Hub::Decks;
+    app.update();
+}
+
+/// Opens the Create-table sheet and opens the table it describes, as a
+/// player's two presses do (WP2).
+fn open_a_table(app: &mut App) {
+    press(app, Press::Play(PlayPress::CreateTable));
+    tap_control(app, "open table", |p| *p == Press::Play(PlayPress::Open));
+}
+
 fn body(request: &ehttp::Request) -> serde_json::Value {
     serde_json::from_slice(&request.body).expect("a JSON body")
 }

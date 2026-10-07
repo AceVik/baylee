@@ -30,6 +30,10 @@ pub(crate) enum Press {
     Shared(SharedPress),
     /// The shell's header and strips (WP0b-3).
     Header(super::header::HeaderPress),
+    /// The Decks screen (WP3).
+    Decks(super::decks::DecksPress),
+    /// The Play screen and its sheets (WP2).
+    Play(super::play::PlayPress),
 }
 
 /// A control more than one screen draws.
@@ -48,6 +52,10 @@ pub(crate) enum SharedPress {
     PickerNothing,
     /// The front door's text row: the music on or off (this device's).
     ToggleMusic,
+    /// Opens a menu from its `⋯` or caret; the open one closes it again.
+    OpenMenu(super::menus::ShellMenu),
+    /// The scrim behind an open menu: close it.
+    CloseMenu,
 }
 
 /// What a press's handler may touch: the resources the `clicks` system
@@ -121,8 +129,55 @@ impl SharedPress {
                 dispatch(state, mailbox, request);
             }
             SharedPress::CancelDestructive => state.confirmation = None,
+            SharedPress::OpenMenu(menu) => {
+                state.menu = if state.menu == Some(menu) {
+                    None
+                } else {
+                    Some(menu)
+                };
+            }
+            SharedPress::CloseMenu => {
+                if state.menu.is_some() {
+                    state.menu = None;
+                }
+            }
         }
     }
+}
+
+/// Carries out a press, whatever made it: a click (`clicks`), a key on a
+/// focused control (`focusing`), a shell key (`shortcuts`).
+pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
+    match press {
+        Press::Front(press) => press.handle(cx),
+        Press::Hub(press) => press.handle(cx),
+        Press::Library(press) => press.handle(cx),
+        Press::Room(press) => press.handle(cx),
+        Press::Build(press) => press.handle(cx),
+        Press::Settings(press) => press.handle(cx),
+        // Game-over actions are handled by `leave_clicks`.
+        Press::End(_) => {}
+        Press::Shared(press) => press.handle(cx),
+        Press::Header(press) => press.handle(cx),
+        Press::Decks(press) => press.handle(cx),
+        Press::Play(press) => press.handle(cx),
+    }
+}
+
+/// The entity carrying the nearest [`Press`] at or above `entity`.
+pub(super) fn in_lineage_entity(
+    entity: Entity,
+    presses: &Query<&Press>,
+    parents: &Query<&ChildOf>,
+) -> Option<Entity> {
+    let mut current = Some(entity);
+    while let Some(e) = current {
+        if presses.contains(e) {
+            return Some(e);
+        }
+        current = parents.get(e).ok().map(ChildOf::parent);
+    }
+    None
 }
 
 /// The nearest [`Press`] at or above an entity, so a click on a button's

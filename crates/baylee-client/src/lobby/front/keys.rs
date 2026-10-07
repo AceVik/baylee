@@ -239,8 +239,25 @@ pub(crate) fn unpark_on_placement(mut state: ResMut<LobbyState>, mut seen: Local
     }
 }
 
-/// Enter or Space on a focused front-door control (not a field): the
-/// control's own press.
+/// The tables whose Enter and Space are [`activate_by_key`]'s: the front
+/// door's faces and sheets, and the settings screen with its profile sheet.
+/// Play, Decks and the room are `focusing::keys_press`', the builder its own.
+pub(in crate::lobby) fn ours(table: &str) -> bool {
+    [
+        GATEWAY.name,
+        SIGN_IN.name,
+        CREATE.name,
+        GUEST.name,
+        TERMS.name,
+        ABOUT.name,
+        crate::settingsui::keys::SETTINGS.name,
+        crate::settingsui::keys::PROFILE_SHEET.name,
+    ]
+    .contains(&table)
+}
+
+/// Enter or Space on a focused front-door or settings control (not a
+/// field): the control's own press.
 #[allow(clippy::too_many_arguments)] // a Bevy system: the press's resources ride along
 pub(in crate::lobby) fn activate_by_key(
     mut activated: MessageReader<Activated>,
@@ -253,7 +270,7 @@ pub(in crate::lobby) fn activate_by_key(
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
 ) {
     for hit in activated.read() {
-        if !hit.by_key || fields.contains(hit.entity) {
+        if !hit.by_key || fields.contains(hit.entity) || !ours(hit.stop.table) {
             continue;
         }
         let Ok(press) = presses.get(hit.entity) else {

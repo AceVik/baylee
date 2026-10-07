@@ -25,6 +25,8 @@ fn hosting_names_the_selected_deck() {
             chairs: 2,
             name: String::new(),
             password: String::new(),
+            clock: None,
+            ai: None,
         })
     );
 }
@@ -87,6 +89,8 @@ fn the_room_password_goes_with_the_next_table_and_is_then_forgotten() {
             chairs: 3,
             name: "Kitchen".to_string(),
             password: "supper".to_string(),
+            clock: None,
+            ai: None,
         })
     );
     assert!(lobby.room_password().is_empty());

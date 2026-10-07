@@ -32,42 +32,6 @@ fn chips(
     commands.entity(parent).add_children(&[label, line]);
 }
 
-/// The chip that seats a language model in an open chair, or the line
-/// that says why none can be.
-pub(super) fn offer(
-    commands: &mut Commands,
-    (tools, card): (Entity, Entity),
-    state: &LobbyState,
-    fonts: &UiFonts,
-    m: Metrics,
-    index: usize,
-    chair: u32,
-) {
-    let lang = state.lobby.lang();
-    let b = chip(
-        commands,
-        fonts,
-        m,
-        Phrase::SeatToLlm.text(lang),
-        Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Plan)),
-        false,
-    );
-    commands.entity(tools).add_child(b);
-    if let Some(said) = state.llm.said(chair) {
-        add_note(commands, card, fonts, m, &said);
-        let open = button(
-            commands,
-            fonts,
-            m,
-            Phrase::Settings.text(lang),
-            Press::Settings(SettingsPress::OpenSettings),
-            palette::PANEL_LIT,
-            true,
-        );
-        commands.entity(card).add_child(open);
-    }
-}
-
 /// The editor of a chair a language model is planned for.
 #[allow(clippy::too_many_lines)] // one editor, read top to bottom
 pub(super) fn editor(

@@ -6,6 +6,7 @@ use baylee_core::deckdigest::Leader;
 use baylee_core::preset::Finish;
 
 #[test]
+#[allow(clippy::too_many_lines)] // one row per route
 fn every_request_hits_the_route_the_gateway_serves() {
     let cases = [
         (
@@ -80,6 +81,8 @@ fn every_request_hits_the_route_the_gateway_serves() {
                 chairs: 2,
                 name: String::new(),
                 password: String::new(),
+                clock: None,
+                ai: None,
             },
             "POST",
             "http://gw/lobby/games",
@@ -176,6 +179,8 @@ fn the_bodies_carry_the_field_names_the_gateway_deserialises() {
             chairs: 2,
             name: String::new(),
             password: String::new(),
+            clock: None,
+            ai: None,
         },
     );
     assert_eq!(
@@ -386,6 +391,7 @@ fn a_deck_row_decodes_from_a_gateway_before_and_after_254() {
             identity: String::new(),
             commanders: Vec::new(),
             leaders: Vec::new(),
+            ..Default::default()
         }])
     );
     // A row as `GET /decks` writes it since #254. The second leader has no
@@ -427,6 +433,7 @@ fn a_deck_row_decodes_from_a_gateway_before_and_after_254() {
                     artist: String::new(),
                 },
             ],
+            ..Default::default()
         }])
     );
 }

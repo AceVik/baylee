@@ -73,7 +73,11 @@ impl Plugin for LobbyPlugin {
             app.add_plugins(bevy::ui_widgets::ScrollbarPlugin);
         }
         crate::prefs::install(app);
+        app.add_message::<bevy::window::FileDragAndDrop>();
         crate::ambience::install(app);
+        // A deletion waiting for its Undo goes out as the client closes.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Last, decks::flush_on_exit);
         crate::vista::install(app);
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
@@ -85,11 +89,13 @@ impl Plugin for LobbyPlugin {
         install_builder(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
+            .init_resource::<thumbnails::ArtCache>()
             .init_resource::<dock::Surfaces>()
             .init_resource::<Mailbox>()
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
+            .init_resource::<focusing::Kept>()
             .init_resource::<UiRebuilds>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
@@ -149,7 +155,12 @@ impl Plugin for LobbyPlugin {
                         crate::buildui::focus::scroll_to_the_cursor,
                         crate::buildui::focus::place_menus,
                     ),
-                    thumbnails::load,
+                    (
+                        thumbnails::load,
+                        thumbnails::prefetch_art,
+                        thumbnails::load_art,
+                        thumbnails::fade_art,
+                    ),
                     thumbnails::quantities,
                     waiting,
                 )
@@ -220,6 +231,46 @@ impl Plugin for LobbyPlugin {
                         .after(keyboard)
                         .before(ui),
                 )
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
+            // The Decks screen's Undo, Play's first-run house list (WP2,
+            // WP3), and the menus placed once laid out.
+            .add_systems(
+                Update,
+                (
+                    decks::undo_clock,
+                    decks::write_clipboard,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    decks::paste_or_drop,
+                    play::ask_for_house,
+                    play::follow_the_room,
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    menus::place.after(bevy::ui::UiSystems::Layout),
+                    focusing::follow_focus,
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
+            // The keyboard on the stops the screens draw (WP2, WP3): Enter
+            // and Space, a tile's own keys, a screen's first focus.
+            .add_systems(
+                Update,
+                (
+                    focusing::keys_press,
+                    focusing::tile_keys,
+                    focusing::initial_focus,
+                    focusing::down_from_search,
+                )
+                    .after(crate::shellkit::focus::FocusSystems)
+                    // Before the tree is drawn: a press a key made lands in
+                    // this frame's tree, and the focused entity a key reads
+                    // is not one a rebuild has just despawned (unordered,
+                    // Enter on the Create-table sheet found no focus).
+                    .before(ui)
                     .run_if(in_state(DuelPhase::Closed)),
             )
             // In every phase: a table is where most pictures and text are
@@ -372,6 +423,26 @@ pub struct LobbyState {
     pub(crate) caps_lock: bool,
     /// The settings screen's section, query and asks (WP5).
     pub(crate) settings_view: SettingsView,
+    /// The menu open from a `⋯` or a caret (`menus`).
+    pub(crate) menu: Option<menus::ShellMenu>,
+    /// The Decks screen's own choices (WP3).
+    pub(crate) decks: decks::DecksUi,
+    /// The Play screen's own choices and sheets (WP2).
+    pub(crate) play: play::PlayUi,
+    /// The Undo the toast lane offers (S-10).
+    pub(crate) undo: Option<decks::Undo>,
+    /// The player holds a chair at a waiting room and has stepped away
+    /// from it to another screen (M-7): the seated strip shows, and Return
+    /// brings the room back.
+    pub(crate) room_away: bool,
+    /// The room's chair sheet (a language model, desktop builds), by seat.
+    pub(crate) chair_sheet: Option<u32>,
+    /// The room's seats show their side as a chip that steps on (Set teams).
+    pub(crate) teams_edit: bool,
+    /// Copy invite was pressed in this room.
+    pub(crate) invite_copied: bool,
+    /// Text a press asked to put on the clipboard (`parts::write_clipboard`).
+    pub(crate) clipboard_out: Option<String>,
 }
 
 /// The settings screen's own state (WP5): which section is shown, what the
@@ -617,6 +688,15 @@ impl LobbyState {
             about_open: false,
             caps_lock: false,
             settings_view: SettingsView::default(),
+            menu: None,
+            decks: decks::DecksUi::default(),
+            play: play::PlayUi::default(),
+            undo: None,
+            room_away: false,
+            chair_sheet: None,
+            teams_edit: false,
+            invite_copied: false,
+            clipboard_out: None,
         }
     }
 }
@@ -664,6 +744,8 @@ enum Reply {
     /// The terms of use (WG-1): what a sign-in said, and the sheet's
     /// requests' answers (`front::terms`).
     Terms(front::terms::TermsReply),
+    /// `GET /auth/config`'s `clocks`: what the Create-table sheet offers.
+    Clocks(Vec<client_core::lobby::play::ClockPreset>),
 }
 
 /// What the shell should make of a successful response body.
@@ -707,13 +789,14 @@ enum Expect {
 mod build_press;
 mod clicks;
 mod confirm;
+mod decks;
 pub(crate) mod dock;
 mod editing;
-mod empty;
 mod end_screen;
 mod entrance;
 mod feed;
 mod field;
+mod focusing;
 mod header;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
@@ -824,3 +907,7 @@ pub(crate) mod scrollbars;
 pub(crate) mod button_style;
 
 mod localization;
+mod menus;
+pub(crate) mod orders;
+mod parts;
+mod play;

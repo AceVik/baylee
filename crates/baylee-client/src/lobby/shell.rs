@@ -112,15 +112,6 @@ impl Metrics {
     pub(crate) fn stacked(self) -> bool {
         self.frame == Frame::Compact
     }
-
-    /// The width of the deck panel beside the table list.
-    pub(super) fn decks_width(self) -> Val {
-        match self.frame {
-            Frame::Compact | Frame::Phone => percent(100),
-            Frame::Narrow => px(280),
-            Frame::Wide | Frame::Vast => px(360),
-        }
-    }
 }
 
 /// The lobby's own camera. The duel brings its own and the two never coexist:
@@ -402,7 +393,9 @@ pub(super) fn ui(
         return;
     }
 
-    if state.lobby.library().page.is_some() {
+    // The builder's own history page (WP4); on the Decks screen a
+    // deck's history is a sheet, and the house list is a tab (WP3).
+    if state.lobby.library().page.is_some() && state.lobby.screen() == &Screen::Build {
         super::header::draw(&mut commands, root, &state, kit, metrics);
         super::library_ui::screen(&mut commands, root, &state, &fonts, metrics, &scrolled_to);
         return;
@@ -435,6 +428,7 @@ pub(super) fn ui(
             metrics,
             &scrolled_to,
             kit,
+            prefs.all(),
         ),
         Screen::Build => {
             // The builder keeps its own header; the seated strip stands

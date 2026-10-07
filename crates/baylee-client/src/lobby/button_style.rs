@@ -1,5 +1,5 @@
 //! Quiet primary surfaces share one shader; action icons use bundled Font Awesome.
-use super::{BuildPress, FrontPress, HubPress, LibraryPress, Press};
+use super::{BuildPress, FrontPress, LibraryPress, Press};
 use crate::ambience::{AmbienceMaterial, AmbienceParams};
 use crate::hud::{UiFonts, icon_tf, palette};
 use bevy::prelude::*;
@@ -23,11 +23,9 @@ pub(crate) fn primary(commands: &mut Commands, id: Entity) {
 pub(crate) fn icon(commands: &mut Commands, fonts: &UiFonts, id: Entity, press: Press, size: f32) {
     // Only Font Awesome glyphs here; no new Mana/Wizards symbols are introduced.
     let glyph = match press {
-        Press::Library(LibraryPress::BrowseHistory | LibraryPress::DeckHistory(_)) => '\u{f1da}',
-        Press::Library(LibraryPress::BrowseHouse) => '\u{f015}',
+        Press::Library(LibraryPress::BrowseHistory) => '\u{f1da}',
         Press::Build(BuildPress::SaveDeck) => '\u{f0c7}',
-        Press::Hub(HubPress::NewDeck) => '\u{f067}',
-        Press::Build(BuildPress::ClearDeck) | Press::Hub(HubPress::DeleteDeck(_)) => '\u{f2ed}',
+        Press::Build(BuildPress::ClearDeck) => '\u{f2ed}',
         Press::Build(BuildPress::ChooseCommander(_)) => '\u{f521}',
         Press::Front(FrontPress::LeaveGateway) => '\u{f053}',
         _ => return,

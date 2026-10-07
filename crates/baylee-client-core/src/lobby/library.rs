@@ -1,10 +1,11 @@
 //! Account deck library: shared starters and append-only saved versions.
 use super::{Lobby, LobbyRequest, Screen};
+use baylee_core::deckdigest::Leader;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
 /// A shared deck, readable but never edited by an ordinary account.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
 pub struct HouseDeck {
     /// Server identity.
     pub id: String,
@@ -25,6 +26,50 @@ pub struct HouseDeck {
     /// Commander names.
     #[serde(default)]
     pub commanders: Vec<String>,
+    /// Cards counting copies, as `GET /decks` says it; zero from a gateway
+    /// that does not say.
+    #[serde(default)]
+    pub copies: u32,
+    /// The colour identity as `WUBRG` letters.
+    #[serde(default)]
+    pub identity: String,
+    /// The commanders' printings, each with its artist.
+    #[serde(default)]
+    pub leaders: Vec<Leader>,
+    /// A deck without commanders: its picture.
+    #[serde(default)]
+    pub signature: Option<Leader>,
+    /// Main-deck copies this build cannot play.
+    #[serde(default)]
+    pub unplayable: u32,
+}
+
+impl HouseDeck {
+    /// What pictures it: the first commander, else the signature.
+    #[must_use]
+    pub fn picture(&self) -> Option<&Leader> {
+        self.leaders.first().or(self.signature.as_ref())
+    }
+
+    /// The art its tile shows; `None` without a credited artist.
+    #[must_use]
+    pub fn art(&self) -> Option<super::shelf::DeckArt> {
+        self.picture()
+            .and_then(|p| super::shelf::art_at(&crate::images::art_base(), p))
+    }
+}
+
+/// What happens once a house deck is copied.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AfterCopy {
+    /// Open the copy in the builder (the builder's own path).
+    #[default]
+    Edit,
+    /// Keep it on the shelf and stay where the press was (**Add**).
+    Keep,
+    /// Keep it and make it the next game's deck (**Add and use**, and the
+    /// first-run mini-tiles; S-3).
+    Use,
 }
 
 /// A superseded save, newest first in the server response.
@@ -95,6 +140,14 @@ pub struct Library {
     pub confirm_restore: bool,
     /// The latest library failure, kept apart from background lobby polling.
     pub error: Option<String>,
+    /// What the copy in flight is for.
+    after_copy: AfterCopy,
+    /// Whether the restore in flight came from the Decks screen's history
+    /// sheet, which stays on the shelf, rather than from the builder.
+    restore_stays: bool,
+    /// The last restore made from the history sheet: the deck, and the
+    /// version that was its head before, for the Undo toast.
+    pub restored: Option<(String, i32)>,
 }
 
 /// Library API operations, carried intact through the HTTP response.
@@ -172,6 +225,11 @@ impl Lobby {
         Some(self.library_request(Request::History(id)))
     }
 
+    /// The Undo of the last restore has run out: nothing is offered any more.
+    pub fn forget_restore(&mut self) {
+        self.library.restored = None;
+    }
+
     /// Close the read-only page without touching the working deck.
     pub fn close_library(&mut self) {
         self.library = Library::default();
@@ -207,6 +265,13 @@ impl Lobby {
 
     /// Make a private copy; shared originals have no edit/delete path.
     pub fn copy_house(&mut self, index: usize) -> Option<LobbyRequest> {
+        self.copy_house_then(index, AfterCopy::Edit)
+    }
+
+    /// The same, with what follows the copy: the builder, nothing, or the
+    /// next game (**Add**, **Add and use**, and the first-run mini-tiles
+    /// that reuse them).
+    pub fn copy_house_then(&mut self, index: usize, after: AfterCopy) -> Option<LobbyRequest> {
         if self.library.loading || !self.has_a_performer() || self.library.page != Some(Page::House)
         {
             return None;
@@ -214,7 +279,61 @@ impl Lobby {
         let id = self.library.house.get(index)?.id.clone();
         self.library.loading = true;
         self.library.error = None;
+        self.library.after_copy = after;
         Some(self.library_request(Request::Copy(id)))
+    }
+
+    /// Duplicates one of the account's own decks (the tile's `⋯`): the same
+    /// `POST /decks/{id}/copy` a house deck takes, kept on the shelf.
+    pub fn duplicate_deck(&mut self, index: usize) -> Option<LobbyRequest> {
+        if self.library.loading || self.busy || self.token().is_none() {
+            return None;
+        }
+        let id = self.decks.get(index)?.id.clone();
+        self.library.loading = true;
+        self.library.error = None;
+        self.library.after_copy = AfterCopy::Keep;
+        Some(self.library_request(Request::Copy(id)))
+    }
+
+    /// Restores the previewed version straight away, from the Decks
+    /// screen's history sheet: no second click, because the Undo toast that
+    /// follows is the safety (S-10), and the sheet stays on the shelf.
+    pub fn restore_version(&mut self) -> Option<LobbyRequest> {
+        if self.library.loading || self.busy || self.token().is_none() {
+            return None;
+        }
+        let Some(Page::History(id)) = &self.library.page else {
+            return None;
+        };
+        let (preview_id, snapshot) = self.library.preview.as_ref()?;
+        let head = self.library.history.as_ref()?.version;
+        if preview_id != id || head == snapshot.version {
+            return None;
+        }
+        let (id, version) = (id.clone(), snapshot.version);
+        self.library.loading = true;
+        self.library.error = None;
+        self.library.restore_stays = true;
+        self.library.restored = Some((id.clone(), head));
+        Some(self.library_request(Request::Restore(id, version)))
+    }
+
+    /// Undoes the last restore made from the history sheet: the head before
+    /// it is restored in turn — a new version again, as every restore is.
+    pub fn undo_restore(&mut self) -> Option<LobbyRequest> {
+        if self.token().is_none() || self.library.loading {
+            return None;
+        }
+        // Taken: the restore this sends is not itself offered for Undo.
+        let (id, version) = self.library.restored.take()?;
+        self.library = Library {
+            page: Some(Page::History(id.clone())),
+            loading: true,
+            restore_stays: true,
+            ..Library::default()
+        };
+        Some(self.library_request(Request::Restore(id, version)))
     }
 
     /// The first click asks explicitly; the second restores as a new save.
@@ -244,8 +363,11 @@ impl Lobby {
     }
 
     pub(super) fn library_reply(&mut self, reply: Reply) -> Option<LobbyRequest> {
-        // A closed page or signed-out account cannot be reopened by a late reply.
-        if self.library.page.is_none() || !self.has_a_performer() {
+        // A closed page or signed-out account cannot be reopened by a late
+        // reply. A duplicate opens no page and is answered all the same.
+        let duplicate =
+            self.library.page.is_none() && matches!(self.library.pending, Some(Request::Copy(_)));
+        if (self.library.page.is_none() && !duplicate) || !self.has_a_performer() {
             return None;
         }
         let matches_request = match (&self.library.pending, &reply) {
@@ -285,11 +407,31 @@ impl Lobby {
                 self.library.preview = Some((id, snapshot));
             }
             Reply::Copied(id) => {
-                self.close_library();
-                self.screen = Screen::Build;
+                let after = std::mem::take(&mut self.library.after_copy);
                 self.busy = true;
-                // Refresh membership before loading the copy, so history is immediately available.
-                self.copied_deck = Some(id);
+                match after {
+                    AfterCopy::Edit => {
+                        self.close_library();
+                        self.screen = Screen::Build;
+                        // Refresh membership before loading the copy, so
+                        // history is immediately available.
+                        self.copied_deck = Some(id);
+                    }
+                    // The shelf stays as it is; the list is read again with
+                    // the copy on it.
+                    AfterCopy::Keep => {}
+                    AfterCopy::Use => self.use_once_listed = Some(id),
+                }
+                return Some(LobbyRequest::ListDecks);
+            }
+            Reply::Restored(id)
+                if self.library.restore_stays
+                    && self.library.page == Some(Page::History(id.clone())) =>
+            {
+                let restored = self.library.restored.take();
+                self.close_library();
+                self.library.restored = restored;
+                self.busy = true;
                 return Some(LobbyRequest::ListDecks);
             }
             Reply::Restored(id) if self.library.page == Some(Page::History(id.clone())) => {
@@ -298,7 +440,10 @@ impl Lobby {
                 self.busy = true;
                 return Some(LobbyRequest::LoadDeck { deck_id: id });
             }
-            Reply::Failed(error) => self.library.error = Some(error),
+            Reply::Failed(error) => {
+                self.library.restored = None;
+                self.library.error = Some(error);
+            }
             _ => {}
         }
         None

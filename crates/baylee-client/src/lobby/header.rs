@@ -69,7 +69,6 @@ fn active(state: &LobbyState) -> Option<usize> {
         return Some(2);
     }
     match state.lobby.screen() {
-        Screen::Table if state.lobby.library().page.is_some() => Some(1),
         Screen::Table => Some(match state.hub {
             Hub::Play => 0,
             Hub::Decks => 1,
@@ -81,7 +80,7 @@ fn active(state: &LobbyState) -> Option<usize> {
 /// The seated strip the lobby calls for, unless the room itself is shown.
 pub(super) fn seated(state: &LobbyState) -> Option<Strip> {
     strips::strip(&state.lobby)
-        .filter(|_| !strips::in_the_room(&state.lobby, state.settings.is_open()))
+        .filter(|_| state.room_away || !strips::in_the_room(&state.lobby, state.settings.is_open()))
 }
 
 /// Whether this screen wears the header: every signed-in screen but the
@@ -403,12 +402,18 @@ impl HeaderPress {
                 HubPress::SignOut.handle(cx);
             }
             HeaderPress::Nav(2) => {
+                if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
+                    cx.state.room_away = true;
+                }
                 if cx.state.library_open() {
                     cx.state.lobby.close_library();
                 }
                 SettingsPress::OpenSettings.handle(cx);
             }
             HeaderPress::Nav(n) => {
+                if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
+                    cx.state.room_away = true;
+                }
                 if cx.state.settings.is_open() {
                     cx.state.settings = SettingsPane::Closed;
                 }
@@ -446,6 +451,9 @@ fn toggle(state: &mut LobbyState, menu: HeaderMenu) {
 fn back_to_the_table(cx: Cx<'_, '_, '_, '_, '_>) {
     match strips::strip(&cx.state.lobby) {
         Some(Strip::Seated { .. }) => {
+            if cx.state.room_away {
+                cx.state.room_away = false;
+            }
             if cx.state.settings.is_open() {
                 cx.state.settings = SettingsPane::Closed;
             }
@@ -529,7 +537,12 @@ impl LobbyState {
 
     /// Whether the house decks' page stands over the hub.
     pub(super) fn library_open(&self) -> bool {
-        self.lobby.library().page.is_some()
+        // A deck's history: the house list is the Decks screen's data (WP3),
+        // not a screen of its own.
+        matches!(
+            self.lobby.library().page,
+            Some(client_core::lobby::library::Page::History(_))
+        )
     }
 
     /// Whether the chosen gateway now refuses this client's games: it was
@@ -650,7 +663,7 @@ const TOASTS_AT_ONCE: usize = 3;
 /// The toast lane: the bell's newest items for six seconds each, at most
 /// three, bottom-right (from the top on a Phone). Its own root, redrawn only
 /// when what it shows changes.
-#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system; one lane, read in order
 pub(super) fn toast_lane(
     mut commands: Commands,
     time: Res<Time>,
@@ -679,7 +692,16 @@ pub(super) fn toast_lane(
     while toasts.shown.len() > TOASTS_AT_ONCE {
         toasts.shown.remove(0);
     }
-    let now: Vec<String> = toasts.shown.iter().map(|(t, _)| t.clone()).collect();
+    // The Undo the Decks screen offers (S-10) stands first, with its action.
+    let undo = state.undo.map(|u| match u.kind {
+        super::decks::UndoKind::Delete => Phrase::ShellDeckDeleted.text(lang).to_string(),
+        super::decks::UndoKind::Restore => Phrase::HistoryRestored.text(lang).to_string(),
+    });
+    let now: Vec<String> = undo
+        .iter()
+        .cloned()
+        .chain(toasts.shown.iter().map(|(t, _)| t.clone()))
+        .collect();
     if now == toasts.drawn && (now.is_empty() || !lanes.is_empty()) {
         return;
     }
@@ -746,8 +768,23 @@ pub(super) fn toast_lane(
             Pickable::IGNORE,
         ))
         .id();
-    for text in &now {
-        let toast = surfaces::toast(&mut commands, kit, text, None);
+    for (i, text) in now.iter().enumerate() {
+        let action = (i == 0 && undo.is_some()).then(|| {
+            controls::button(
+                &mut commands,
+                kit,
+                Phrase::ShellUndo.text(lang),
+                Weight::Ghost,
+                Live::Yes,
+                Some(if crate::shellkit::keys::mac() {
+                    "Cmd+Z"
+                } else {
+                    "Ctrl+Z"
+                }),
+                Press::Decks(super::decks::DecksPress::Undo),
+            )
+        });
+        let toast = surfaces::toast(&mut commands, kit, text, action);
         commands.entity(lane).add_child(toast);
     }
 }
