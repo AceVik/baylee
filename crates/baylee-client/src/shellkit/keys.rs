@@ -133,7 +133,8 @@ fn resolve_keys(
     phase: Option<Res<State<crate::DuelPhase>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     shell: Res<ShellStack>,
-    focus: Res<super::focus::FocusReport>,
+    focus: Res<bevy::input_focus::InputFocus>,
+    fields: Query<(), With<super::focus::ShellField>>,
     overlay: Res<super::overlay::Overlay>,
     mut learnt: ResMut<LearntKeys>,
     mut log: ResMut<ShellLog>,
@@ -144,7 +145,7 @@ fn resolve_keys(
         return;
     }
     let mut stack = shell.stack;
-    stack.field |= focus.field;
+    stack.field |= focus.get().is_some_and(|f| fields.contains(f));
     stack.modal |= overlay.open;
     let standard;
     let keymap = if let Some(prefs) = prefs.as_deref() {

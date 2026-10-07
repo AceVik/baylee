@@ -78,8 +78,9 @@ pub(super) fn install(app: &mut App) {
                 clicks,
             )
                 .chain()
-                .after(super::keys::StackSystems)
-                .after(super::focus::FocusSystems),
+                // After the resolver, so the key that opens the overlay
+                // opens it in the frame it was pressed.
+                .after(super::keys::KeySystems),
         ),
     );
 }

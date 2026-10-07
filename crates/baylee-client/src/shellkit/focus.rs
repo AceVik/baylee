@@ -150,17 +150,14 @@ pub(super) fn install(app: &mut App) {
         .add_observer(give_a_ring)
         .add_systems(
             Update,
-            (
-                pointer_focus,
-                edit_fields,
-                walk,
-                activate,
-                draw_ring,
-                report,
-            )
+            (pointer_focus, edit_fields, walk, activate)
                 .chain()
                 .in_set(FocusSystems),
-        );
+        )
+        // After every system that moves focus this frame (the walker, the
+        // overlay that takes it, a screen's initial focus), so the ring and
+        // the report say where it ended up, not where it was.
+        .add_systems(PostUpdate, (draw_ring, report).chain());
 }
 
 /// The kit's focus systems, which the shell's key resolver runs after: a
