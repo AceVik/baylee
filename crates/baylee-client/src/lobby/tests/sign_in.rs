@@ -1645,3 +1645,23 @@ fn the_table_is_told_where_card_text_comes_from() {
         .expect("runs");
     assert_eq!(told(&app), None, "signed out, the table asks no gateway");
 }
+
+/// The face's wide button is pressed by a pointer as well as by Enter:
+/// a click on Sign in with both fields filled sends the sign-in (seen live
+/// once as a click that did nothing; this pins the click itself).
+#[test]
+fn a_click_on_sign_in_sends_it() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.set_field(Field::Username, "someone");
+        state.lobby.set_field(Field::Password, "correct-horse-9");
+    }
+    app.update();
+    assert!(!app.world().resource::<LobbyState>().lobby.busy());
+    press(&mut app, Press::Front(FrontPress::Submit));
+    assert!(
+        app.world().resource::<LobbyState>().lobby.busy(),
+        "the click sent the sign-in"
+    );
+}
