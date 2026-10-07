@@ -83,6 +83,11 @@ pub enum Live<'a> {
     No(&'a str),
 }
 
+/// A control that is drawn but off: it takes focus and shows its reason,
+/// and nothing acts on it.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Disabled;
+
 /// The hover text of a disabled control under a pointer.
 #[derive(Component)]
 pub struct Tooltip(pub Entity);
@@ -207,8 +212,10 @@ pub fn button(
             .insert(crate::ambience::Feel::new(ground));
         return hit(commands, kit, face, action);
     }
-    // A dead button carries no action: a click cannot find it.
-    let wrapper = hit(commands, kit, face, ());
+    // A dead button keeps its action bundle, so it stays a focus stop: a
+    // disabled control is focusable so its reason can be read (APG). What
+    // reads an action skips a wrapper marked [`Disabled`].
+    let wrapper = hit(commands, kit, face, (action, Disabled));
     let Live::No(reason) = live else {
         return wrapper;
     };
@@ -839,11 +846,14 @@ pub fn search(
         (text, tokens::INK)
     };
     let words = label(commands, kit, shown, kit.m.text, ink);
-    commands.entity(words).insert(Node {
-        flex_grow: 1.0,
-        min_width: px_fixed(0.0),
-        ..default()
-    });
+    commands.entity(words).insert((
+        super::focus::FieldWords,
+        Node {
+            flex_grow: 1.0,
+            min_width: px_fixed(0.0),
+            ..default()
+        },
+    ));
     commands.entity(face).add_children(&[glass, words]);
     if text.is_empty() {
         if let Some(cap) = key_cap(commands, kit, "/") {

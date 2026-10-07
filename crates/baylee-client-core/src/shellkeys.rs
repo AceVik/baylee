@@ -428,27 +428,23 @@ impl ShellChord {
     }
 
     /// The chord as a key cap reads it (`KEYBOARD.md` §3.3): the produced
-    /// character, never a code name the layout does not print, and `⌘ ⌥ ⇧`
-    /// on macOS, `Ctrl Alt Shift` elsewhere. A code chord shows what
-    /// `learnt` has seen the key produce, when it has.
+    /// character, never a code name the layout does not print, after the
+    /// modifiers as **words** — `Cmd+` on macOS, `Ctrl+` elsewhere, `Alt+`,
+    /// `Shift+` — as the table's keymap writes them (`Chord::display`): the
+    /// interface face carries none of `⌘ ⌥ ⇧ ↵`, and each drew an empty
+    /// advance. A code chord shows what `learnt` has seen the key produce,
+    /// when it has (`Cmd+Ü` for `⌘[` on a German Mac).
     #[must_use]
     pub fn display(&self, mac: bool, learnt: &Learnt) -> String {
         let mut out = String::new();
-        let sep = if mac { "" } else { "+" };
-        let mut push = |part: &str| {
-            if !out.is_empty() {
-                out.push_str(sep);
-            }
-            out.push_str(part);
-        };
+        if self.cmd {
+            out.push_str(if mac { "Cmd+" } else { "Ctrl+" });
+        }
         if self.alt {
-            push(if mac { "⌥" } else { "Alt" });
+            out.push_str("Alt+");
         }
         if self.shift {
-            push(if mac { "⇧" } else { "Shift" });
-        }
-        if self.cmd {
-            push(if mac { "⌘" } else { "Ctrl" });
+            out.push_str("Shift+");
         }
         let main = match (&self.ch, &self.key) {
             (Some(ch), _) => ch.to_uppercase(),
@@ -457,7 +453,7 @@ impl ShellChord {
                 .map_or_else(|| pretty_code(key), str::to_uppercase),
             (None, None) => String::new(),
         };
-        push(&main);
+        out.push_str(&main);
         out
     }
 }
@@ -469,7 +465,7 @@ fn pretty_code(key: &str) -> String {
         "ArrowRight" => "→".into(),
         "ArrowUp" => "↑".into(),
         "ArrowDown" => "↓".into(),
-        "Enter" => "↵".into(),
+        "Enter" => "Enter".into(),
         "Escape" => "Esc".into(),
         "BracketLeft" => "[".into(),
         "BracketRight" => "]".into(),
@@ -533,10 +529,18 @@ impl Learnt {
 
 /// The shell's keymap: every action's chords, stored with the account
 /// (`Preferences.shell_keys`, `KEYBOARD.md` §5.4).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+///
+/// Stored as one object keyed by each action's kebab-case name — the
+/// table's keymap's shape — not as a struct around it.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShellKeymap {
-    #[serde(serialize_with = "by_name")]
     binds: BTreeMap<ShellAction, Vec<ShellChord>>,
+}
+
+impl Serialize for ShellKeymap {
+    fn serialize<S: serde::Serializer>(&self, out: S) -> Result<S::Ok, S::Error> {
+        by_name(&self.binds, out)
+    }
 }
 
 impl Default for ShellKeymap {
@@ -611,6 +615,13 @@ impl ShellKeymap {
         }
     }
 
+    /// Whether this is exactly the standard map (what a player who never
+    /// rebound anything has; the stored preferences leave it out).
+    #[must_use]
+    pub fn is_standard(&self) -> bool {
+        *self == Self::standard()
+    }
+
     /// An action's chords.
     #[must_use]
     pub fn chords(&self, action: ShellAction) -> &[ShellChord] {
@@ -666,6 +677,30 @@ impl ShellKeymap {
         }
         self.binds.insert(action, vec![chord]);
         Ok(())
+    }
+
+    /// The key cap an action shows (`KEYBOARD.md` §3.3, §4.2): its first
+    /// chord that works on this platform — except that a macOS-only code
+    /// chord whose key the session has seen type a character wins, so Back
+    /// reads `Alt+←` until `BracketLeft` has typed `ü`, then `Cmd+Ü`. `None` for
+    /// an action with no binding here.
+    #[must_use]
+    pub fn hint(&self, action: ShellAction, mac: bool, learnt: &Learnt) -> Option<String> {
+        let here: Vec<&ShellChord> = self
+            .chords(action)
+            .iter()
+            .filter(|c| !c.mac || mac)
+            .collect();
+        let learnt_alias = here.iter().find(|c| {
+            c.mac
+                && c.key
+                    .as_deref()
+                    .is_some_and(|k| learnt.produced(k).is_some())
+        });
+        let shown = learnt_alias
+            .or_else(|| here.iter().find(|c| !c.mac))
+            .or_else(|| here.first())?;
+        Some(shown.display(mac, learnt))
     }
 
     /// Back to the defaults for one action.
@@ -822,20 +857,42 @@ mod tests {
         );
     }
 
-    /// The back hint reads `⌥←` until the session has seen what the
-    /// bracket key produces, then `⌘Ü` on a German Mac (§3.3).
+    /// The back hint reads `Alt+←` until the session has seen what the
+    /// bracket key produces, then `Cmd+Ü` on a German Mac (§3.3; the design's
+    /// `⌥←` and `⌘Ü` in words, which the interface face can draw).
     #[test]
     fn a_code_chord_shows_the_character_the_session_has_seen() {
         let mut learnt = Learnt::default();
         let alias = ShellChord::code("BracketLeft").mac_cmd();
-        assert_eq!(alias.display(true, &learnt), "⌘[");
+        assert_eq!(alias.display(true, &learnt), "Cmd+[");
         assert_eq!(
             ShellChord::code("ArrowLeft").alt().display(true, &learnt),
-            "⌥←"
+            "Alt+←"
         );
         learnt.learn(&key("BracketLeft", Some("ü")));
-        assert_eq!(alias.display(true, &learnt), "⌘Ü");
+        assert_eq!(alias.display(true, &learnt), "Cmd+Ü");
         assert_eq!(ShellChord::ch("s").cmd().display(false, &learnt), "Ctrl+S");
+        // The action's hint: `Alt+←` until the bracket is learnt, then `Cmd+Ü`;
+        // elsewhere Alt+← whatever was learnt.
+        let map = ShellKeymap::standard();
+        assert_eq!(
+            map.hint(ShellAction::Back, true, &Learnt::default())
+                .as_deref(),
+            Some("Alt+←")
+        );
+        assert_eq!(
+            map.hint(ShellAction::Back, true, &learnt).as_deref(),
+            Some("Cmd+Ü")
+        );
+        assert_eq!(
+            map.hint(ShellAction::Back, false, &learnt).as_deref(),
+            Some("Alt+←")
+        );
+        assert_eq!(
+            map.hint(ShellAction::CreateTable, false, &learnt)
+                .as_deref(),
+            Some("C")
+        );
         assert_eq!(ShellChord::ch("/").display(false, &learnt), "/");
     }
 
@@ -1000,8 +1057,25 @@ mod tests {
             json.contains(r#""search":[{"char":"/"},{"char":"f","cmd":true}]"#),
             "{json}"
         );
+        assert!(
+            json.starts_with(r#"{"go-play":[{"key":"Digit1"}],"#),
+            "the map is not one object keyed by action: {json}"
+        );
         let back: ShellKeymap = serde_json::from_str(&json).expect("reads");
         assert_eq!(back, map);
+        // A rebind survives the trip (the standard map alone could not tell
+        // a lost map from a kept one).
+        let mut rebound = ShellKeymap::standard();
+        rebound
+            .take(ShellAction::CreateTable, ShellChord::ch("t"))
+            .expect("t is free");
+        let json = serde_json::to_string(&rebound).expect("serialises");
+        let back: ShellKeymap = serde_json::from_str(&json).expect("reads");
+        assert_eq!(back, rebound);
+        assert_eq!(
+            back.chords(ShellAction::CreateTable),
+            &[ShellChord::ch("t")]
+        );
         let old =
             r#"{"search":[{"char":"s"}],"from-the-future":[{"key":"F12"}],"go-play":"nonsense"}"#;
         let read: ShellKeymap = serde_json::from_str(old).expect("tolerant");

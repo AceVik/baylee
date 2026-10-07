@@ -154,6 +154,20 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (leave_clicks, leave_keys).run_if(in_state(DuelPhase::Finished)),
             )
+            // The shell keymap: the lobby says what is open, and answers
+            // the screen moves a shell key asks for (`shortcuts`).
+            .add_systems(
+                Update,
+                (
+                    shortcuts::write_stack.in_set(crate::shellkit::keys::StackSystems),
+                    // After the lobby's own typing, so the key that moves
+                    // the caret into a field is not typed into it (`/`).
+                    shortcuts::run_fired
+                        .after(crate::shellkit::keys::KeySystems)
+                        .after(keyboard),
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+            )
             // In every phase: a table is where most pictures and text are
             // asked for.
             .init_resource::<crate::cardtext::TextGateway>()
@@ -526,6 +540,7 @@ mod room;
 mod scrolling;
 mod settings_press;
 mod shell;
+mod shortcuts;
 mod source;
 mod systems;
 pub(crate) mod thumbnails;

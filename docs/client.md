@@ -2451,8 +2451,9 @@ top clamp stands over its size on a 308-pixel preview even at the smallest
 factor, so the default preview is the same at every step and the step bites
 on the hand's clamped sizes (`a_step_moves_the_clamps_and_the_floor_and_nothing_else`).
 The table's faces do not follow it. The step lives on `face::FaceMode`,
-which the shell's setting (WP0b-1) writes; until then it is the default,
-or `BAYLEE_TEXT_STEP` in a dev-control build. `HudRevision::face_step`
+which the shell's setting writes (`ClientSettings::text_size`, through
+`shellkit::face_follows_the_text_size`, at start and on every change); a
+dev-control build launched with `BAYLEE_TEXT_STEP` keeps that step instead. `HudRevision::face_step`
 rebuilds the overlay on a change. The lobby's preview is laid at the
 default step until its owner passes one.
 
@@ -3577,6 +3578,46 @@ its own ending up there in the colour that means somebody has to do something.
 
 The lobby is `DuelPhase::Closed` only, and brings its own 2D camera — the duel
 brings its own and the two never coexist.
+
+### The shell's own keys
+
+The table's keymap (`Preferences.keymap`) holds `C`, `Tab` and most letters,
+so the screens outside a game have a second one, `ShellAction` in
+`Preferences.shell_keys` (`client-core/src/shellkeys.rs`; the design's
+`KEYBOARD.md` is normative). It differs from the table's in three ways: a
+chord is bound by the **character** a key produces (`/` is `Shift+7` on a
+German keyboard) or by the physical code (digits, arrows, F-keys); `command`
+stands for ⌘ on macOS and Ctrl elsewhere, so one account-wide map is right on
+both; and a rebind onto a held chord is refused, naming the holder, until a
+second request takes it. The map is written to `/settings` only once it
+differs from the standard one.
+
+`shellkit::keys` resolves every key event against a context stack — text
+field, menu, sheet, screen, global, innermost first — that the screen on show
+writes (`ShellStack`; the lobby's in `lobby/shortcuts.rs`) and the kit
+narrows (a focused kit field, the `?` overlay). A focused field owns every
+printable key: only chords that edit no text pass it (`Ctrl/Cmd + = − 0`,
+`Ctrl/Cmd+/`, `Ctrl/Cmd+,`, `Ctrl/Cmd+R`, F-keys). At a table the resolver
+does not run at all, so the table's keymap is alone. What resolves is a
+`ShellFired` message: the kit answers the text size and the overlay, the
+lobby the screen moves it has doors for (`1 2 3`, `Ctrl/Cmd+,`, `/`, Refresh,
+New deck); the rest resolve and are logged for the packages that build their
+screens. Where the lobby types into a field today (the sign-in form, Play's
+search box once it has the caret, the builder), bare keys stay text.
+
+Focus is `bevy_input_focus`'s `InputFocus`, moved by the kit's own walker
+(`shellkit::focus`), not by `TabNavigationPlugin`, whose window-wide Tab would
+fight the table's next-phase key. Every focusable kit control carries a
+`Stop` naming its `TabOrder` table and its place there; Tab walks the active
+table in that order (a modal table — a sheet, the overlay — while any of its
+stops is drawn), arrows walk a composite's items, a pointer press focuses
+without the ring, a key shows it (an `Outline` in `ACCENT`, 2 px out, toggled
+by colour). The tests walk the same tables the walker does, and fail on a
+drawn stop the table does not name or a name nothing draws. `?` or
+`Ctrl/Cmd+/` opens the overlay: every shell shortcut with its current key,
+searchable, Enter runs the highlighted one, focus goes back to its opener.
+`/state.shell` reports the focus, the stack, the overlay, the resolver's
+count and the actions it fired; `/key` takes a `"char"` to play a layout.
 
 ### A wait is not a veil
 

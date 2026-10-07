@@ -17,14 +17,24 @@
 //! - [`role`]: what a node *is*, for the dev-control dump and the checks
 //!   that read it (overflow, label budgets, contrast, the 44-px hit area).
 //! - [`controls`], [`surfaces`], [`states`]: the components of §2.4.
+//! - [`focus`]: the `TabOrder` tables, the Tab walker, the focus ring and
+//!   the kit's own field editor (`KEYBOARD.md` §1).
+//! - [`keys`]: the shell's second keymap wired to the keyboard — the
+//!   resolver over the context stack, the text-size chords (§2, §7.1).
+//! - [`overlay`]: the `?` overlay (§4.1).
 //! - `gallery` (dev-control builds only): every component in every state,
 //!   the screen WP0b-1 is accepted on.
 
 pub mod controls;
-#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub mod focus;
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub mod gallery;
+#[cfg(test)]
+mod keyboard_tests;
+pub mod keys;
 pub mod lint;
 pub mod metrics;
+pub mod overlay;
 pub mod role;
 pub mod size;
 pub mod states;
@@ -35,10 +45,17 @@ pub use metrics::{ShellMetrics, px_fixed};
 pub use role::Role;
 pub use size::{Frame, InputClass, Platform, TextSize, Viewport};
 
-use bevy::input::keyboard::{Key, KeyboardInput};
+use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
-/// The kit's systems: the input class, and the text-size chords.
+/// Whether the kit holds the keyboard: the `?` overlay is up, or the dev
+/// gallery. The lobby's own key handling stands aside while it does, so a
+/// key typed into the overlay's search is not also typed behind it.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct KitHolds(pub bool);
+
+/// The kit's systems: the input class, focus, the shell keymap, the `?`
+/// overlay, and the face step the text size sets.
 pub struct ShellKitPlugin;
 
 impl Plugin for ShellKitPlugin {
@@ -47,12 +64,13 @@ impl Plugin for ShellKitPlugin {
             .add_message::<bevy::input::mouse::MouseMotion>()
             .add_message::<KeyboardInput>()
             .init_resource::<InputClass>()
+            .init_resource::<KitHolds>()
             .add_systems(PreUpdate, size::follow_the_input)
-            .add_systems(
-                Update,
-                (step_the_text_size, face_follows_the_text_size).chain(),
-            );
+            .add_systems(Update, (face_follows_the_text_size, hold_the_keyboard));
         controls::install(app);
+        focus::install(app);
+        keys::install(app);
+        overlay::install(app);
         #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
         gallery::install(app);
     }
@@ -65,89 +83,21 @@ pub(crate) fn install(app: &mut App) {
     }
 }
 
-/// What a text-size chord asks for.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SizeChord {
-    /// `Ctrl/Cmd + =` (also `+`): one step larger.
-    Larger,
-    /// `Ctrl/Cmd + −`: one step smaller.
-    Smaller,
-    /// `Ctrl/Cmd + 0`: back to the default step.
-    Reset,
-}
-
-impl SizeChord {
-    /// The chord a key press is, with the platform's command modifier held.
-    ///
-    /// Read on the **logical** key first, so the German layout's `=` (which
-    /// is Shift+0) and `+` both step up; the physical keys are the fallback
-    /// for a key event that carries no character (§2.6, `KEYBOARD.md`).
-    #[must_use]
-    pub fn of(logical: &Key, code: KeyCode) -> Option<Self> {
-        if let Key::Character(text) = logical {
-            match text.as_str() {
-                "=" | "+" => return Some(Self::Larger),
-                "-" | "\u{2212}" => return Some(Self::Smaller),
-                "0" => return Some(Self::Reset),
-                _ => {}
-            }
-        }
-        match code {
-            KeyCode::Equal | KeyCode::NumpadAdd => Some(Self::Larger),
-            KeyCode::Minus | KeyCode::NumpadSubtract => Some(Self::Smaller),
-            KeyCode::Digit0 | KeyCode::Numpad0 => Some(Self::Reset),
-            _ => None,
-        }
-    }
-
-    /// The step this chord leads to from `now`.
-    #[must_use]
-    pub fn apply(self, now: TextSize) -> TextSize {
-        match self {
-            Self::Larger => now.larger(),
-            Self::Smaller => now.smaller(),
-            Self::Reset => TextSize::default(),
-        }
-    }
-}
-
-/// `Ctrl/Cmd + = − 0` step the shell's text size up, down and back (§8),
-/// on every platform. The setting is this device's (`ClientSettings`).
-///
-/// Only outside a game: on the table `⌘⇧↑↓` sizes the preview, and the
-/// table's faces do not follow the shell's step.
-fn step_the_text_size(
-    mut keys: MessageReader<KeyboardInput>,
-    codes: Option<Res<ButtonInput<KeyCode>>>,
-    phase: Option<Res<State<crate::DuelPhase>>>,
-    settings: Option<ResMut<crate::settings::ClientSettings>>,
+/// Keeps [`KitHolds`] true while the overlay or the gallery is up.
+fn hold_the_keyboard(
+    overlay: Res<overlay::Overlay>,
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))] gallery: Option<
+        Res<gallery::Gallery>,
+    >,
+    mut holds: ResMut<KitHolds>,
 ) {
-    let (Some(codes), Some(mut settings)) = (codes, settings) else {
-        keys.clear();
-        return;
-    };
-    if phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed) {
-        keys.clear();
-        return;
-    }
-    let command = codes.any_pressed([
-        KeyCode::ControlLeft,
-        KeyCode::ControlRight,
-        KeyCode::SuperLeft,
-        KeyCode::SuperRight,
-    ]);
-    for key in keys.read() {
-        if !command || !key.state.is_pressed() {
-            continue;
-        }
-        let Some(chord) = SizeChord::of(&key.logical_key, key.key_code) else {
-            continue;
-        };
-        let next = chord.apply(settings.text_size);
-        if next != settings.text_size {
-            settings.text_size = next;
-            settings.save();
-        }
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    let gallery = gallery.is_some_and(|g| g.open);
+    #[cfg(not(all(feature = "dev-control", not(target_arch = "wasm32"))))]
+    let gallery = false;
+    let now = overlay::holds(&overlay) || gallery;
+    if holds.0 != now {
+        holds.0 = now;
     }
 }
 
@@ -193,31 +143,6 @@ const fn pinned_by_the_environment() -> bool {
 mod tests {
     use super::*;
 
-    /// The German layout's `=` is Shift+0 and arrives as the character `=`
-    /// on the `Digit0` key: it steps up, it does not reset (§2.6, S4-8).
-    #[test]
-    fn the_logical_character_wins_over_the_physical_key() {
-        let equal_on_zero = SizeChord::of(&Key::Character("=".into()), KeyCode::Digit0);
-        assert_eq!(equal_on_zero, Some(SizeChord::Larger));
-        let plus = SizeChord::of(&Key::Character("+".into()), KeyCode::BracketRight);
-        assert_eq!(plus, Some(SizeChord::Larger));
-        assert_eq!(
-            SizeChord::of(&Key::Character("0".into()), KeyCode::Digit0),
-            Some(SizeChord::Reset)
-        );
-        assert_eq!(
-            SizeChord::of(
-                &Key::Unidentified(bevy::input::keyboard::NativeKey::Unidentified),
-                KeyCode::Minus
-            ),
-            Some(SizeChord::Smaller)
-        );
-        assert_eq!(
-            SizeChord::of(&Key::Character("a".into()), KeyCode::KeyA),
-            None
-        );
-    }
-
     /// The shell's five steps are the face's five, in order (WP6 reads
     /// `FaceMode::step`; the shell's setting writes it).
     #[test]
@@ -256,10 +181,9 @@ mod tests {
     }
 
     #[test]
-    fn the_steps_stop_at_both_ends_and_reset_to_the_default() {
-        assert_eq!(SizeChord::Larger.apply(TextSize::Xl), TextSize::Xl);
-        assert_eq!(SizeChord::Smaller.apply(TextSize::Xs), TextSize::Xs);
-        assert_eq!(SizeChord::Larger.apply(TextSize::M), TextSize::L);
-        assert_eq!(SizeChord::Reset.apply(TextSize::Xs), TextSize::L);
+    fn the_steps_stop_at_both_ends() {
+        assert_eq!(TextSize::Xl.larger(), TextSize::Xl);
+        assert_eq!(TextSize::Xs.smaller(), TextSize::Xs);
+        assert_eq!(TextSize::M.larger(), TextSize::L);
     }
 }

@@ -22,6 +22,7 @@ mod perf;
 mod printings;
 mod report;
 mod settings;
+mod shortcuts;
 mod sign_in;
 mod tables;
 mod transfer;

@@ -994,6 +994,13 @@ fn press_chord(
     // could only tap could not reach that at all.
     let hold = flag(body, "hold");
     let release = flag(body, "release");
+    // `"char"` names the character the key produces, so a script can play
+    // a layout: `{"name":"Digit7","char":"/"}` with Shift held is the German
+    // `/` (`KEYBOARD.md` §9.4). Without it the name's own character.
+    let produced = field(body, "char").map(str::to_string);
+    let logical = produced
+        .as_ref()
+        .map_or_else(|| logical_key(name), |c| Key::Character(c.as_str().into()));
     if let Some(window) = window {
         // Both channels, because a real key reaches both.
         let states: &[ButtonState] = if hold {
@@ -1006,9 +1013,9 @@ fn press_chord(
         for state in states {
             typing.write(KeyboardInput {
                 key_code: key,
-                logical_key: logical_key(name),
+                logical_key: logical.clone(),
                 state: *state,
-                text: None,
+                text: produced.as_deref().map(Into::into),
                 repeat: false,
                 window,
             });
@@ -1321,6 +1328,15 @@ struct Believed<'w, 's> {
     /// How many interface text faces have been built (WP6): a number that
     /// moves on every frame is a face rebuilt per frame.
     face_builds: Option<Res<'w, crate::face::FaceBuilds>>,
+    /// The shell keyboard (WP0b-2): where focus stands, what the resolver
+    /// read and answered, the stack it read it against, the `?` overlay.
+    #[allow(clippy::type_complexity)] // four optional resources, read together
+    shell_keys: (
+        Option<Res<'w, crate::shellkit::focus::FocusReport>>,
+        Option<Res<'w, crate::shellkit::keys::ShellLog>>,
+        Option<Res<'w, crate::shellkit::keys::ShellStack>>,
+        Option<Res<'w, crate::shellkit::overlay::Overlay>>,
+    ),
     /// Every way out of a finished game, and which of them the keyboard can
     /// see.
     ///
@@ -1554,6 +1570,53 @@ fn exits_json(believed: &Believed) -> String {
 ///
 /// `null` outside the lobby plugin. The counter is monotonic: a caller
 /// measures a span by reading it twice.
+/// `/state.shell`: the shell keyboard's state (`KEYBOARD.md` §9.1 asks the
+/// probe for the focused control, its context stack, `focus_visible`, open
+/// sheets and the actions fired).
+fn shell_keys_json(believed: &Believed) -> String {
+    let (focus, log, stack, overlay) = &believed.shell_keys;
+    let focus = focus.as_deref().copied().unwrap_or_default();
+    let stop = focus.stop.map_or_else(
+        || "null".to_string(),
+        |s| {
+            format!(
+                "{{\"table\":\"{}\",\"id\":\"{}\",\"item\":{}}}",
+                s.table, s.id, s.item
+            )
+        },
+    );
+    let fired = log.as_deref().map_or_else(String::new, |l| {
+        l.fired
+            .iter()
+            .map(|a| format!("\"{}\"", a.name()))
+            .collect::<Vec<_>>()
+            .join(",")
+    });
+    let resolved = log.as_deref().map_or(0, |l| l.resolved);
+    let stack = stack.as_deref().copied().unwrap_or_default();
+    let screen = stack
+        .stack
+        .screen
+        .map_or_else(|| "null".to_string(), |c| format!("\"{c:?}\""));
+    format!(
+        "{{\"table\":{},\"focus\":{stop},\"focus_visible\":{},\"field\":{},         \"overlay\":{},\"live\":{},\"screen\":{screen},\"modal\":{},\"menu\":{},         \"typing\":{},\"resolved\":{resolved},\"fired\":[{fired}],\"text_size\":{}}}",
+        focus
+            .table
+            .map_or_else(|| "null".to_string(), |t| format!("\"{t}\"")),
+        focus.visible,
+        focus.field,
+        overlay.as_deref().is_some_and(|o| o.open),
+        stack.live,
+        stack.stack.modal,
+        stack.stack.menu,
+        stack.stack.field,
+        believed
+            .settings
+            .as_deref()
+            .map_or(4, |s| s.text_size.step()),
+    )
+}
+
 fn rebuilds_json(believed: &Believed) -> String {
     let report = believed.report.as_deref().map_or(0, |desk| desk.redraws);
     believed.rebuilds.as_deref().map_or_else(
@@ -1866,7 +1929,9 @@ fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"last_cue\":{last_cue},\"last_count\":{last_count},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"exits\":{exits},\"face_builds\":{face_builds},\
-         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls}}}",
+         \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\
+         \"shell\":{shell}}}",
+        shell = shell_keys_json(believed),
         ui_rebuilds = rebuilds_json(believed),
         desk_controls = desk_controls_json(believed),
         shell_nodes = shell_nodes_json(believed),

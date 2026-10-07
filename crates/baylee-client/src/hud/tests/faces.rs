@@ -225,6 +225,29 @@ fn every_chord_this_names_can_be_drawn() {
     }
 }
 
+/// Every key cap the shell's keymap can draw is in the face it is drawn in
+/// (the same trap as above: `⌘` drew an empty advance), on macOS and
+/// elsewhere, learnt characters aside.
+#[test]
+fn every_shell_key_cap_can_be_drawn() {
+    use baylee_client_core::shellkeys::{Learnt, ShellAction, ShellKeymap};
+    let face = std::fs::read(path("AlegreyaSans-Regular.ttf")).expect("the regular cut");
+    let map = ShellKeymap::standard();
+    for mac in [true, false] {
+        for action in ShellAction::ALL {
+            for chord in map.chords(action) {
+                let shown = chord.display(mac, &Learnt::default());
+                for ch in shown.chars() {
+                    assert!(
+                        glyph(&face, ch as u32) > 0,
+                        "{action:?} is drawn as {shown:?}; this face has no {ch:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// Every mark `hud::glyph` names is one the icon face actually has.
 ///
 /// The same trap as the chords above, in the font it is easiest to fall

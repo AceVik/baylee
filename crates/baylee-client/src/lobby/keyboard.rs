@@ -27,10 +27,14 @@ pub(super) fn keyboard(
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
     desk: Option<Res<crate::report::ReportDesk>>,
+    // The `?` overlay and the dev gallery stand over the lobby and type
+    // into fields of their own.
+    holds: Option<Res<crate::shellkit::KitHolds>>,
 ) {
     if journey.as_ref().is_some_and(|j| j.active())
         || entrance.active()
         || desk.is_some_and(|desk| desk.holds_keyboard())
+        || holds.is_some_and(|h| h.0)
     {
         keys.clear();
         return;

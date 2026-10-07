@@ -790,6 +790,15 @@ pub struct Preferences {
     /// [`Loudness::Full`](crate::cue::Loudness::Full), so a settings blob
     /// written before there was sound opens a client that makes some.
     pub sound: crate::cue::Loudness,
+    /// The shell's own shortcuts, beside the table's [`Self::keymap`]
+    /// (`KEYBOARD.md` §5.4): with the account, so a rebind made at home
+    /// holds at a friend's machine, and bound by `command` rather than Ctrl
+    /// or ⌘, so one map means the same on a Mac and a PC.
+    ///
+    /// Not written while it is the standard map: a player who never rebinds
+    /// stores nothing and gains whatever later defaults bring.
+    #[serde(skip_serializing_if = "crate::shellkeys::ShellKeymap::is_standard")]
+    pub shell_keys: crate::shellkeys::ShellKeymap,
     /// Every top-level key this client does not know, kept as it came.
     ///
     /// A newer client on the player's other device may have stored a
@@ -1227,7 +1236,7 @@ mod tests {
     /// each survives (a test that only read `{}` could not fail).
     #[test]
     fn an_unknown_key_rides_through_and_a_bad_one_costs_only_itself() {
-        let unknown = r#""shell_keys":{"search":[{"key":"KeyF","meta":true}],"zoom":[]}"#;
+        let unknown = r#""pinned":{"search":[{"key":"KeyF","meta":true}],"zoom":[]}"#;
         let stored = format!(
             r#"{{"sound":{{"level":3}},"sky":"night","auto":{{"pass_when_nothing_to_do":false}},{unknown}}}"#
         );
@@ -1246,7 +1255,7 @@ mod tests {
             !prefs.auto.pass_when_nothing_to_do,
             "a bad sibling cost the automation"
         );
-        assert!(prefs.rest.contains_key("shell_keys"), "{:?}", prefs.rest);
+        assert!(prefs.rest.contains_key("pinned"), "{:?}", prefs.rest);
         assert!(
             prefs.to_json().ends_with(&format!(",{unknown}}}")),
             "the unknown key did not come back as it came: {}",
@@ -1270,18 +1279,61 @@ mod tests {
         changed
             .keymap
             .bind(Action::Confirm, vec![Chord::key("KeyQ")]);
+        changed
+            .shell_keys
+            .take(
+                crate::shellkeys::ShellAction::CreateTable,
+                crate::shellkeys::ShellChord::ch("t"),
+            )
+            .expect("t is not a fixed key");
         let fixtures = [
             Preferences::default().to_json(),
             changed.to_json(),
             with_unknown(&Preferences::default(), r#""favourites":["a","b"]"#),
             with_unknown(
                 &changed,
-                r#""a_newer_key":1.25,"graphics":{"msaa":4,"preset":"high"},"shell_keys":{}"#,
+                r#""a_newer_key":1.25,"graphics":{"msaa":4,"preset":"high"},"pinned":{}"#,
             ),
         ];
         for stored in fixtures {
             assert_eq!(Preferences::from_json(&stored).to_json(), stored);
         }
+    }
+
+    /// The shell's keymap is stored with the account beside the table's, is
+    /// left out while it is standard, and a shell rebind leaves the table's
+    /// keymap byte for byte as it was (`KEYBOARD.md` §5.4, §9.11).
+    #[test]
+    fn the_shell_keys_ride_with_the_account_and_leave_the_table_keys_alone() {
+        use crate::shellkeys::{ShellAction, ShellChord};
+        let plain = Preferences::default();
+        assert!(
+            !plain.to_json().contains("shell_keys"),
+            "a standard shell map was written: {}",
+            plain.to_json()
+        );
+        let mut rebound = plain.clone();
+        rebound
+            .shell_keys
+            .take(ShellAction::NewDeck, ShellChord::ch("+"))
+            .expect("+ is not fixed");
+        let stored = rebound.to_json();
+        assert!(stored.contains(r#""shell_keys":{"#), "{stored}");
+        let read = Preferences::from_json(&stored);
+        assert_eq!(read.shell_keys, rebound.shell_keys);
+        assert_eq!(
+            serde_json::to_string(&read.keymap).expect("serialises"),
+            serde_json::to_string(&plain.keymap).expect("serialises"),
+            "a shell rebind touched the table's keymap"
+        );
+        // A newer client's action this one does not know is dropped, the
+        // rest of the stored map kept.
+        let newer = r#"{"shell_keys":{"new-deck":[{"char":"+"}],"teleport":[{"char":"t"}]}}"#;
+        let read = Preferences::from_json(newer);
+        assert_eq!(
+            read.shell_keys.chords(ShellAction::NewDeck),
+            [ShellChord::ch("+")]
+        );
     }
 
     /// Text that is not an object at all is the one case that still falls

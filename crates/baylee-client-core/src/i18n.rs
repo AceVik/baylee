@@ -4100,7 +4100,7 @@ messages! {
     /// The text-size row (Display & Interface).
     ShellTextSize { en: "Text size", de: "Textgröße" },
     /// The text-size row's help.
-    ShellTextSizeHelp { en: "Ctrl/⌘ + and − change it anywhere outside a game.", de: "Strg/⌘ + und − ändern sie überall außerhalb eines Spiels." },
+    ShellTextSizeHelp { en: "Ctrl/Cmd + and − change it anywhere outside a game.", de: "Strg/Cmd + und − ändern sie überall außerhalb eines Spiels." },
     /// The master volume row.
     ShellMasterVolume { en: "Master volume", de: "Gesamtlautstärke" },
     /// An account row.
@@ -4129,6 +4129,14 @@ messages! {
     ShellKeySave { en: "Save deck", de: "Deck speichern" },
     /// A shell key: export the deck.
     ShellKeyExport { en: "Export", de: "Exportieren" },
+    /// The shortcuts overlay's search field, while empty.
+    ShellOverlaySearch { en: "Search shortcuts", de: "Kürzel suchen" },
+    /// The shortcuts overlay's way to Settings › Controls.
+    ShellOverlayEditKeys { en: "Edit keys…", de: "Tasten ändern …" },
+    /// Closes a sheet.
+    ShellClose { en: "Close", de: "Schließen" },
+    /// The shortcuts overlay, when nothing matches the search.
+    ShellOverlayNoMatch { en: "No shortcut matches", de: "Kein Kürzel passt" },
     // ---- front door + terms (WP1) ----------------------------------------
     // ---- play + room (WP2) -----------------------------------------------
     // ---- decks, house decks, history (WP3) -------------------------------

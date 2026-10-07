@@ -10,6 +10,7 @@
 
 use super::ShellMetrics;
 use super::controls::{self, Kit, Live, Weight};
+use super::focus::{Current, ShellField, Stop, TabOrder};
 use super::metrics::px_fixed;
 use super::role::Role;
 use super::size::{Frame, InputClass, Platform, TextSize, Viewport};
@@ -19,9 +20,82 @@ use super::tokens;
 use crate::hud::{UiFonts, icon_tf, tf, tf_bold};
 use crate::settings::ClientSettings;
 use baylee_client_core::i18n::{Lang, Phrase};
+use baylee_client_core::shellkeys::ShellAction as A;
 use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+
+/// The gallery's focus order (`KEYBOARD.md` §1.3, §9.5): every control it
+/// draws, in reading order. A composite (the nav, the chips, the tabs, a
+/// radio group, a stepper, the menu) is one stop walked with the arrows.
+pub const GALLERY_ORDER: TabOrder = TabOrder {
+    name: "gallery",
+    stops: &[
+        "nav",
+        "gateway",
+        "bell",
+        "account",
+        "create",
+        "return",
+        "edit",
+        "details",
+        "delete",
+        "play-house",
+        "chips",
+        "tabs",
+        "sizes",
+        "toggle-on",
+        "toggle-off",
+        "stepper",
+        "search",
+        "search-full",
+        "text-size",
+        "volume",
+        "hold-still",
+        "advanced",
+        "menu",
+        "undo",
+        "row-1",
+        "join",
+        "row-2",
+        "retry",
+        "create-empty",
+        "tile-1-use",
+        "tile-1-edit",
+        "tile-2-use",
+        "tile-2-edit",
+        "add-and-use",
+        "sheet-name",
+        "sheet-players",
+        "sheet-cancel",
+        "sheet-open",
+    ],
+    modal: false,
+};
+
+const fn stop(id: &'static str) -> Stop {
+    Stop::new(GALLERY_ORDER.name, id)
+}
+
+const fn item(id: &'static str, n: u8) -> Stop {
+    Stop::item(GALLERY_ORDER.name, id, n)
+}
+
+/// Whether an item holds its composite's place.
+const fn current(here: bool) -> Current {
+    Current(here)
+}
+
+/// The key caps the gallery shows for the actions it draws, read from the
+/// account's shell keymap and what the session has learnt: the page redraws
+/// when one changes (§9.3: every drawn cap shows the current key).
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+struct Caps {
+    create: Option<String>,
+    back_to_game: Option<String>,
+    edit: Option<String>,
+    undo: Option<String>,
+}
 
 /// Whether the gallery is up.
 #[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
@@ -39,23 +113,27 @@ pub struct GalleryRoot;
 struct GalleryBody;
 
 /// Everything the drawn page depends on.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 struct Drawn {
     width: f32,
     height: f32,
     step: TextSize,
     input: InputClass,
     german: bool,
+    caps: Caps,
 }
 
 pub(super) fn install(app: &mut App) {
     app.init_resource::<Gallery>()
-        .add_systems(Update, (draw, scroll, hide_the_lobby).chain());
+        .add_systems(Update, (draw, scroll).chain());
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    app.add_systems(Update, hide_the_lobby);
 }
 
 /// The lobby's own tree stands aside while the gallery is up: the gallery's
 /// panels are translucent, and the contrast check is to read the painting
 /// under them, as a shell screen's would, not a lobby button behind them.
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 fn hide_the_lobby(
     gallery: Res<Gallery>,
     mut roots: Query<(&mut Visibility, Ref<crate::lobby::LobbyRoot>)>,
@@ -82,6 +160,8 @@ fn draw(
     mut commands: Commands,
     gallery: Res<Gallery>,
     settings: Option<Res<ClientSettings>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    learnt: Res<super::keys::LearntKeys>,
     input: Res<InputClass>,
     fonts: Option<Res<UiFonts>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -102,16 +182,28 @@ fn draw(
         .single()
         .map_or((1280.0, 800.0), |w| (w.width(), w.height()));
     let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let standard = baylee_client_core::shellkeys::ShellKeymap::standard();
+    let keymap = prefs.as_deref().map_or(&standard, |p| &p.all().shell_keys);
+    let hint = |action| keymap.hint(action, super::keys::mac(), &learnt.0);
     let now = Drawn {
         width,
         height,
         step: settings.as_deref().map_or(TextSize::L, |s| s.text_size),
         input: *input,
         german: lang == Lang::De,
+        caps: Caps {
+            create: hint(A::CreateTable),
+            back_to_game: hint(A::ReturnToGame),
+            edit: hint(A::EditTile),
+            undo: hint(A::Undo),
+        },
     };
-    if *drawn == Some(now) && !roots.is_empty() {
+    if drawn.as_ref() == Some(&now) && !roots.is_empty() {
         return;
     }
+    let caps = now.caps.clone();
+    let step = now.step;
+    let touch = now.input;
     *drawn = Some(now);
     for root in &roots {
         commands.entity(root).despawn();
@@ -120,14 +212,14 @@ fn draw(
         width,
         height,
         platform: Platform::current(),
-        input: now.input,
+        input: touch,
     };
     let kit = Kit {
         fonts: &fonts,
-        m: ShellMetrics::of(view, now.step),
-        german: now.german,
+        m: ShellMetrics::of(view, step),
+        german: lang == Lang::De,
     };
-    page(&mut commands, kit, lang);
+    page(&mut commands, kit, lang, &caps);
 }
 
 /// Scrolls the body under the wheel; the page is taller than a phone.
@@ -151,7 +243,7 @@ fn scroll(
     }
 }
 
-fn page(commands: &mut Commands, kit: Kit, lang: Lang) {
+fn page(commands: &mut Commands, kit: Kit, lang: Lang, caps: &Caps) {
     let m = kit.m;
     let root = commands
         .spawn((
@@ -201,12 +293,12 @@ fn page(commands: &mut Commands, kit: Kit, lang: Lang) {
         .id();
     let panels = [
         type_panel(commands, kit, lang),
-        buttons_panel(commands, kit, lang),
+        buttons_panel(commands, kit, lang, caps),
         choices_panel(commands, kit, lang),
         rows_panel(commands, kit, lang),
-        surfaces_panel(commands, kit, lang),
+        surfaces_panel(commands, kit, lang, caps),
         lists_panel(commands, kit, lang),
-        tiles_panel(commands, kit, lang),
+        tiles_panel(commands, kit, lang, caps),
         sheet_panel(commands, kit, lang),
     ];
     commands.entity(wrap).add_children(&panels);
@@ -294,7 +386,11 @@ fn header(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         .into_iter()
         .enumerate()
     {
-        let nav = controls::nav(commands, kit, phrase.text(lang), i == 0, ());
+        let n = u8::try_from(i).unwrap_or(0);
+        let nav = controls::nav(commands, kit, phrase.text(lang), i == 0, item("nav", n));
+        if i == 0 {
+            commands.entity(nav).insert(Current(true));
+        }
         commands.entity(bar).add_child(nav);
     }
     let gap = commands
@@ -312,7 +408,14 @@ fn header(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     } else {
         "Baylee Sanctuary"
     };
-    let gateway = controls::pill(commands, kit, Some(tokens::ACCENT), reach, true, ());
+    let gateway = controls::pill(
+        commands,
+        kit,
+        Some(tokens::ACCENT),
+        reach,
+        true,
+        stop("gateway"),
+    );
     let bell = commands
         .spawn((
             Text::new("\u{f0f3}"),
@@ -320,8 +423,8 @@ fn header(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             TextColor(tokens::INK),
         ))
         .id();
-    let bell = controls::hit(commands, kit, bell, ());
-    let account = controls::pill(commands, kit, None, "AceVik#0007", true, ());
+    let bell = controls::hit(commands, kit, bell, stop("bell"));
+    let account = controls::pill(commands, kit, None, "AceVik#0007", true, stop("account"));
     commands.entity(bar).add_children(&[gateway, bell, account]);
     bar
 }
@@ -350,7 +453,7 @@ fn type_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     panel
 }
 
-fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
+fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang, caps: &Caps) -> Entity {
     let panel = section(commands, kit, Phrase::CreateTable.text(lang));
     let primary = controls::button(
         commands,
@@ -358,8 +461,8 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Phrase::CreateTable.text(lang),
         Weight::Primary,
         Live::Yes,
-        Some("C"),
-        (),
+        caps.create.as_deref(),
+        stop("create"),
     );
     let gold = controls::button(
         commands,
@@ -367,8 +470,8 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Phrase::ShellReturnToGame.text(lang),
         Weight::Gold,
         Live::Yes,
-        Some("R"),
-        (),
+        caps.back_to_game.as_deref(),
+        stop("return"),
     );
     let secondary = controls::button(
         commands,
@@ -377,7 +480,7 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Secondary,
         Live::Yes,
         None,
-        (),
+        stop("edit"),
     );
     let ghost = controls::button(
         commands,
@@ -386,7 +489,7 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Ghost,
         Live::Yes,
         None,
-        (),
+        stop("details"),
     );
     let danger = controls::button(
         commands,
@@ -395,7 +498,7 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Danger,
         Live::Yes,
         None,
-        (),
+        stop("delete"),
     );
     let dead = controls::button(
         commands,
@@ -404,7 +507,7 @@ fn buttons_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Primary,
         Live::No(Phrase::ShellNeedsGateway.text(lang)),
         None,
-        (),
+        stop("play-house"),
     );
     let first = line(commands, kit, &[primary, gold]);
     let second = line(commands, kit, &[secondary, ghost, danger]);
@@ -422,7 +525,7 @@ fn choices_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         true,
         None,
         false,
-        (),
+        item("chips", 0),
     );
     let off = controls::chip(
         commands,
@@ -431,9 +534,17 @@ fn choices_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         false,
         Some(4),
         false,
-        (),
+        item("chips", 1),
     );
-    let gone = controls::chip(commands, kit, "Commander", true, None, true, ());
+    let gone = controls::chip(
+        commands,
+        kit,
+        "Commander",
+        true,
+        None,
+        true,
+        item("chips", 2),
+    );
     let chips = line(commands, kit, &[on, off, gone]);
     let tabs = controls::tabs(
         commands,
@@ -443,22 +554,31 @@ fn choices_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             (Phrase::ShellHouseDecks.text(lang), Some(18)),
         ],
         0,
-        |_| (),
+        |i| (item("tabs", u8::try_from(i).unwrap_or(0)), current(i == 0)),
     );
-    let sizes = controls::segmented(commands, kit, &["A", "A", "A", "A", "A"], 3, |_| ());
+    let sizes = controls::segmented(commands, kit, &["A", "A", "A", "A", "A"], 3, |i| {
+        (item("sizes", u8::try_from(i).unwrap_or(0)), current(i == 3))
+    });
     let toggles = {
-        let on = controls::toggle(commands, kit, true, ());
-        let off = controls::toggle(commands, kit, false, ());
-        let stepper = controls::stepper(commands, kit, "4", (), ());
+        let on = controls::toggle(commands, kit, true, stop("toggle-on"));
+        let off = controls::toggle(commands, kit, false, stop("toggle-off"));
+        let stepper = controls::stepper(commands, kit, "4", item("stepper", 0), item("stepper", 1));
         line(commands, kit, &[on, off, stepper])
     };
-    let search_empty = controls::search(commands, kit, "", Phrase::SearchTables.text(lang), ());
+    let hint = Phrase::SearchTables.text(lang);
+    let search_empty = controls::search(
+        commands,
+        kit,
+        "",
+        hint,
+        (stop("search"), ShellField::new("", hint)),
+    );
     let search_full = controls::search(
         commands,
         kit,
         "thursday",
-        Phrase::SearchTables.text(lang),
-        (),
+        hint,
+        (stop("search-full"), ShellField::new("thursday", hint)),
     );
     commands
         .entity(panel)
@@ -468,7 +588,12 @@ fn choices_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
 
 fn rows_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     let panel = section(commands, kit, Phrase::Settings.text(lang));
-    let size = controls::segmented(commands, kit, &["XS", "S", "M", "L", "XL"], 3, |_| ());
+    let size = controls::segmented(commands, kit, &["XS", "S", "M", "L", "XL"], 3, |i| {
+        (
+            item("text-size", u8::try_from(i).unwrap_or(0)),
+            current(i == 3),
+        )
+    });
     let size = surfaces::row(
         commands,
         kit,
@@ -477,7 +602,7 @@ fn rows_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         size,
         Some((Storage::Device, Phrase::ShellThisDevice.text(lang))),
     );
-    let volume = controls::slider(commands, kit, 70, ());
+    let volume = controls::slider(commands, kit, 70, stop("volume"));
     let holder = commands
         .spawn((
             Node {
@@ -496,7 +621,7 @@ fn rows_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         holder,
         Some((Storage::Device, Phrase::ShellThisDevice.text(lang))),
     );
-    let still = controls::toggle(commands, kit, false, ());
+    let still = controls::toggle(commands, kit, false, stop("hold-still"));
     let still = surfaces::row(
         commands,
         kit,
@@ -512,7 +637,7 @@ fn rows_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Phrase::ShellAdvanced.text(lang),
         true,
         &[advanced_body],
-        (),
+        stop("advanced"),
     );
     commands
         .entity(panel)
@@ -520,7 +645,7 @@ fn rows_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     panel
 }
 
-fn surfaces_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
+fn surfaces_panel(commands: &mut Commands, kit: Kit, lang: Lang, caps: &Caps) -> Entity {
     let panel = section(commands, kit, Phrase::ShellDetails.text(lang));
     let menu = surfaces::menu(
         commands,
@@ -528,21 +653,21 @@ fn surfaces_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         [
             MenuItem {
                 text: Phrase::ShellEdit.text(lang),
-                keys: Some("E"),
+                keys: caps.edit.as_deref(),
                 destructive: false,
-                action: (),
+                action: item("menu", 0),
             },
             MenuItem {
                 text: Phrase::ShellCopyHandle.text(lang),
                 keys: None,
                 destructive: false,
-                action: (),
+                action: item("menu", 1),
             },
             MenuItem {
                 text: Phrase::Delete.text(lang),
                 keys: Some("Del"),
                 destructive: true,
-                action: (),
+                action: item("menu", 2),
             },
         ],
     );
@@ -562,8 +687,8 @@ fn surfaces_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Phrase::ShellUndo.text(lang),
         Weight::Ghost,
         Live::Yes,
-        Some("⌘Z"),
-        (),
+        caps.undo.as_deref(),
+        stop("undo"),
     );
     let toast = surfaces::toast(
         commands,
@@ -584,7 +709,7 @@ fn lists_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Secondary,
         Live::Yes,
         None,
-        (),
+        stop("join"),
     );
     let first = surfaces::list_row(
         commands,
@@ -592,9 +717,16 @@ fn lists_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         "Thursday pod",
         "Maik#0012 · Commander · 40",
         &[join],
-        (),
+        stop("row-1"),
     );
-    let second = surfaces::list_row(commands, kit, "quick duel", "Guest#0013 · 20", &[], ());
+    let second = surfaces::list_row(
+        commands,
+        kit,
+        "quick duel",
+        "Guest#0013 · 20",
+        &[],
+        stop("row-2"),
+    );
     let skeleton = states::skeleton(commands, kit, 2);
     let retry = controls::button(
         commands,
@@ -603,7 +735,7 @@ fn lists_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Secondary,
         Live::Yes,
         None,
-        (),
+        stop("retry"),
     );
     let error = states::error_line(
         commands,
@@ -618,7 +750,7 @@ fn lists_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Primary,
         Live::Yes,
         None,
-        (),
+        stop("create-empty"),
     );
     let empty = states::empty(
         commands,
@@ -633,7 +765,7 @@ fn lists_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     panel
 }
 
-fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
+fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang, caps: &Caps) -> Entity {
     let panel = section(commands, kit, Phrase::ShellMyDecks.text(lang));
     let grid = commands
         .spawn((
@@ -646,7 +778,10 @@ fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             Pickable::IGNORE,
         ))
         .id();
-    for (name, identity, cards) in [("Weltenbaum", "WUG", 100), ("Goblins", "R", 60)] {
+    for (name, identity, cards, (use_id, edit_id)) in [
+        ("Weltenbaum", "WUG", 100, ("tile-1-use", "tile-1-edit")),
+        ("Goblins", "R", 60, ("tile-2-use", "tile-2-edit")),
+    ] {
         let use_it = controls::button(
             commands,
             kit,
@@ -654,7 +789,7 @@ fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             Weight::Primary,
             Live::Yes,
             None,
-            (),
+            stop(use_id),
         );
         let edit = controls::button(
             commands,
@@ -662,8 +797,8 @@ fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
             Phrase::ShellEdit.text(lang),
             Weight::Secondary,
             Live::Yes,
-            Some("E"),
-            (),
+            caps.edit.as_deref(),
+            stop(edit_id),
         );
         let meta = Phrase::LibraryCounts.fill(lang, &[&cards.to_string(), "0"]);
         let tile = surfaces::tile(
@@ -698,7 +833,7 @@ fn tiles_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Secondary,
         Live::Yes,
         None,
-        (),
+        stop("add-and-use"),
     );
     let more = line(commands, kit, &[house]);
     commands.entity(panel).add_children(&[grid, more]);
@@ -712,9 +847,18 @@ fn sheet_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         kit,
         "Thursday pod",
         Phrase::SearchTables.text(lang),
-        (),
+        (
+            stop("sheet-name"),
+            ShellField::new("Thursday pod", Phrase::SearchTables.text(lang)),
+        ),
     );
-    let stepper = controls::stepper(commands, kit, "4", (), ());
+    let stepper = controls::stepper(
+        commands,
+        kit,
+        "4",
+        item("sheet-players", 0),
+        item("sheet-players", 1),
+    );
     let cancel = controls::button(
         commands,
         kit,
@@ -722,7 +866,7 @@ fn sheet_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Weight::Ghost,
         Live::Yes,
         Some("Esc"),
-        (),
+        stop("sheet-cancel"),
     );
     let open = controls::button(
         commands,
@@ -730,8 +874,8 @@ fn sheet_panel(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
         Phrase::CreateTable.text(lang),
         Weight::Primary,
         Live::Yes,
-        Some("↵"),
-        (),
+        Some("Enter"),
+        stop("sheet-open"),
     );
     let sheet = surfaces::sheet_box(
         commands,
