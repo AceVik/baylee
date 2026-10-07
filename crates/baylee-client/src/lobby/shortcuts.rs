@@ -39,6 +39,9 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
     // deck's history, a house deck's cards, the Create-table sheet and the
     // deck picker are.
     let modal = state.confirmation.is_some()
+        || state.terms.up()
+        || state.about_open
+        || (state.settings_open() && state.settings_view.profile_sheet)
         || state.lobby.deleting_account().is_some()
         || matches!(
             state.lobby.library().page,
@@ -94,6 +97,8 @@ fn builder_modal(state: &LobbyState) -> bool {
 /// Writes [`ShellStack`] from the lobby every frame, and stands it down
 /// while the arrival, the entrance or the report form holds the keyboard.
 pub(super) fn write_stack(
+    mut yields: ResMut<crate::shellkit::focus::WalkerYields>,
+    focus: Res<crate::shellkit::focus::FocusReport>,
     state: Res<LobbyState>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
@@ -103,11 +108,25 @@ pub(super) fn write_stack(
     let held = journey.as_ref().is_some_and(|j| j.active())
         || entrance.active()
         || desk.is_some_and(|d| d.holds_keyboard());
-    let now = if held {
+    // The seat panel's boxes walk with Tab themselves.
+    let seat = state.settings_open() && state.seat.typing();
+    if yields.0 != seat {
+        yields.0 = seat;
+    }
+    let mut now = if held {
         ShellStack::default()
     } else {
         stack_of(&state)
     };
+    // Settings' nav takes letters as type-ahead (`KEYBOARD.md` §1.5);
+    // digits and `?` stay shortcuts.
+    if state.settings_open()
+        && focus
+            .stop
+            .is_some_and(|s| s.table == crate::settingsui::keys::SETTINGS.name && s.id == "nav")
+    {
+        now.stack.typeahead = true;
+    }
     if *shell != now {
         *shell = now;
     }

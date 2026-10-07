@@ -1289,8 +1289,7 @@ pub(crate) mod palette {
     pub const INK: Color = Color::srgb(0.90, 0.93, 0.94);
     /// Secondary text.
     pub const MUTED: Color = Color::srgb(0.58, 0.64, 0.68);
-    /// Moonlit mist behind the legal copy; fades into the garden above it.
-    pub const COLOPHON_MIST: Color = Color::srgb(0.045, 0.095, 0.13);
+
     /// Translucent blue-green glass carrying the garden's lobby/editor panels.
     pub const SANCTUARY_PANEL: Color = Color::srgba(0.035, 0.075, 0.105, 0.88);
     /// A seat that has lost.
@@ -2209,7 +2208,7 @@ pub use ledge::log::{
     LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log, hover_log_links,
     sync_log,
 };
-pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, sync_menu};
+pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub use ledge::players::{
     ChipTag, PlayersRevision, TagKind, glow_the_players, show_the_tags, sync_players,
 };

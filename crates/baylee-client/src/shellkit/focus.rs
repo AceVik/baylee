@@ -49,6 +49,14 @@ pub struct TabOrder {
 /// Every table the kit knows, so a stop's table name finds its order.
 pub const TABLES: &[&TabOrder] = &[
     &super::overlay::OVERLAY_ORDER,
+    &crate::lobby::front::keys::GATEWAY,
+    &crate::lobby::front::keys::SIGN_IN,
+    &crate::lobby::front::keys::CREATE,
+    &crate::lobby::front::keys::GUEST,
+    &crate::lobby::front::keys::TERMS,
+    &crate::lobby::front::keys::ABOUT,
+    &crate::settingsui::keys::SETTINGS,
+    &crate::settingsui::keys::PROFILE_SHEET,
     // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
     &crate::lobby::orders::PLAY,
     &crate::lobby::orders::DECKS,
@@ -129,6 +137,18 @@ impl ShellField {
 #[derive(Component)]
 pub struct FieldWords;
 
+/// A screen's own editor has the keys (the settings screen's seat panel,
+/// whose boxes walk with Tab themselves): the walker leaves Tab alone.
+/// Written every frame by the screen, before the walker runs.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct WalkerYields(pub bool);
+
+/// The stop focus last stood on. A screen that rebuilds its tree draws the
+/// same stop on a new entity, and focus follows it there. Whoever moves
+/// focus outside the walker (a screen's initial focus) may write it too.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Remembered(pub Option<Stop>);
+
 /// A focused stop was activated: Enter or Space on it, or a click.
 #[derive(Message, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Activated {
@@ -136,6 +156,10 @@ pub struct Activated {
     pub entity: Entity,
     /// Its table and name.
     pub stop: Stop,
+    /// Enter or Space, not a click. A screen whose controls already answer
+    /// a click (the lobby's `Press`) acts only on these, so a click is never
+    /// answered twice.
+    pub by_key: bool,
 }
 
 /// Where focus stands, for `/state` and the tests: the active table, the
@@ -156,6 +180,8 @@ pub(super) fn install(app: &mut App) {
     app.init_resource::<InputFocus>()
         .init_resource::<InputFocusVisible>()
         .init_resource::<FocusReport>()
+        .init_resource::<Remembered>()
+        .init_resource::<WalkerYields>()
         .add_message::<Activated>()
         .add_message::<Pointer<Press>>()
         .add_message::<Pointer<Click>>()
@@ -272,8 +298,41 @@ fn walk(
     fields: Query<(), With<ShellField>>,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
+    mut remembered: ResMut<Remembered>,
+    mut last: Local<Option<Entity>>,
+    yields: Res<WalkerYields>,
 ) {
+    if yields.0 {
+        keys.clear();
+        return;
+    }
     let drawn: Vec<(Entity, Stop)> = stops.iter().map(|(e, s)| (e, *s)).collect();
+    // A screen rebuilt from its state (the lobby redraws its tree on every
+    // change) despawns the focused stop and draws the same one anew: focus
+    // follows it to the new entity, ring and all, rather than being lost to
+    // every keystroke. `bevy_input_focus` clears the focus of a despawned
+    // entity itself, so a focus that went to nothing is followed too —
+    // while the table it stood in is still the one drawn.
+    // (A focus cleared on purpose, its stop still drawn, stays cleared.)
+    let lost = match focus.get() {
+        Some(f) => stops.get(f).is_err(),
+        None => {
+            last.is_some_and(|e| stops.get(e).is_err())
+                && remembered
+                    .0
+                    .is_some_and(|r| active(&drawn).is_some_and(|t| t.name == r.table))
+        }
+    };
+    if lost
+        && let Some(stop) = remembered.0
+        && let Some((entity, _)) = drawn.iter().find(|(_, s)| *s == stop)
+    {
+        focus.set(*entity, FocusCause::Navigated);
+    }
+    if let Some((entity, stop)) = focus.get().and_then(|f| stops.get(f).ok()) {
+        remembered.0 = Some(*stop);
+        *last = Some(entity);
+    }
     // At a table only a modal kit sheet walks (a sheet over the table, such
     // as a chooser with a field — the table design's amendment to KEYBOARD
     // §6); the table's own Tab is next phase, and nothing else keeps focus.
@@ -288,6 +347,7 @@ fn walk(
     }
     let Some(order) = order else {
         keys.clear();
+        remembered.0 = None;
         return;
     };
     let ctrl_alt_meta = codes.as_deref().is_some_and(|c| {
@@ -349,6 +409,10 @@ fn walk(
             }
             _ => {}
         }
+    }
+    if let Some((entity, stop)) = focus.get().and_then(|f| stops.get(f).ok()) {
+        remembered.0 = Some(*stop);
+        *last = Some(entity);
     }
 }
 
@@ -459,6 +523,7 @@ fn activate(
             out.write(Activated {
                 entity,
                 stop: *stop,
+                by_key: true,
             });
         }
     }
@@ -470,6 +535,7 @@ fn activate(
                     out.write(Activated {
                         entity: e,
                         stop: *stop,
+                        by_key: false,
                     });
                 }
                 break;

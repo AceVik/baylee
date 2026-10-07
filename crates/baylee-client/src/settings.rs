@@ -166,6 +166,17 @@ pub struct ClientSettings {
     /// first one (`bugreport::kept_device_id`). Never sent to a gateway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_device: Option<String>,
+    /// The terms version this device last accepted at each gateway, by
+    /// address (WG-1, `DESIGN-v5` §11). A copy, with one job: a guest coming
+    /// back with its kept session signs in to nothing, so no `terms_stale`
+    /// says whether to ask; this does, against `/info.terms`. The account's
+    /// own record is the gateway's. Named in `docs/privacy.md`.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub terms: std::collections::BTreeMap<String, String>,
+    /// The report form's Attachments disclosure was closed (remembered per
+    /// device, §12; open until it is).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub report_attachments_closed: bool,
 }
 
 impl Default for ClientSettings {
@@ -188,6 +199,8 @@ impl Default for ClientSettings {
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
             report_device: None,
+            terms: std::collections::BTreeMap::new(),
+            report_attachments_closed: false,
         }
     }
 }
@@ -644,8 +657,11 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // one literal naming every field, then one read of each
     fn settings_round_trip_through_json() {
         let written = ClientSettings {
+            terms: std::iter::once(("https://example.test".to_string(), "v1".to_string()))
+                .collect(),
             gateways: vec!["https://example.test".into()],
             preview_scale: 1.75,
             lang: "de".to_string(),
@@ -705,6 +721,7 @@ mod tests {
             feedback_url: Some("https://feedback.example.test".into()),
             report_device: Some("0123456789abcdef0123456789abcdef".into()),
             text_size: crate::shellkit::TextSize::Xl,
+            report_attachments_closed: true,
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");

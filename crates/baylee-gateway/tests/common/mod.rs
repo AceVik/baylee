@@ -255,12 +255,17 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     // run leaves both halves of the evidence in one place.
     let stderr_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.stderr"));
     let log_path = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.log"));
+    let cwd = std::env::temp_dir().join(format!("baylee-gateway-{label}-{id}.cwd"));
+    let _ = std::fs::remove_dir_all(&cwd);
+    std::fs::create_dir_all(&cwd).expect("the gateway's working directory");
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
     let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
-        // The gateway reads `data/acceptance-decks.txt` for the house deck by
-        // a workspace-relative path; a test binary's working directory is its
-        // own crate, which is not where that file is.
-        .current_dir(workspace_root())
+        // Started from an empty directory of its own: a gateway reads nothing
+        // from where it was started (the house deck once came from a
+        // cwd-relative `data/`, and every gateway started elsewhere answered
+        // an AI seat with a 500), and what it would write there lands here
+        // rather than in the repository.
+        .current_dir(&cwd)
         .env("PORT", "0")
         .env("BAYLEE_PORT_FILE", &port_file)
         .env("STORE_PATH", &store_path)
@@ -834,14 +839,6 @@ pub async fn next_msg(ws: &mut Socket) -> Option<v1::envelope::Msg> {
             return Some(msg);
         }
     }
-}
-
-/// The workspace root, two levels above this crate.
-fn workspace_root() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("the workspace root is above this crate")
 }
 
 /// The same client for a body that is not text, and an answer that is not

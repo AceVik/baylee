@@ -268,7 +268,10 @@ Urheber- und Medienrecht.
    only where somebody knows to look. The client's front door draws it
    under the Fan Content notice, on every panel: the address the gateway
    it points at gave, else the client's own repository
-   (`lobby::front::source_address`). Since #299 it is a link that opens
+   (`lobby::front::source_address`) — as text beside the full notice on a
+   desktop window (Wide, Vast), and on the smaller classes as the one-line
+   colophon's **Source (AGPL-3.0)**, a press away from the address itself
+   (see §"The front door's notices", below). Since #299 it is a link that opens
    the address in the player's browser on their click, with the same
    address as a QR code under it on a screen a phone can be held up to.
    Both are drawn only for an address that passes the client's own check
@@ -671,3 +674,42 @@ Open for the owner: the runtime statically links FUSE code, whose upstream
 libfuse is LGPL-2.1; what that asks of a project that redistributes the
 pinned runtime binary (20251108, sources public at that tag) has not been
 reviewed here.
+
+## The front door's notices (WP1, 2026-10-07)
+
+The shell redesign (`.claude/ux-b6/DESIGN-v5.md` §3, principle 8, owner-
+approved 06.10.2026; its Q12 recommends exactly this amendment) keeps the
+notices on every face of the front door at every size class, and changes
+where their *full* text stands on the smaller ones:
+
+- **Wide and Vast** (a desktop window): under the card, on a mist plate,
+  the build, the Fan Content notice **word for word**
+  (`lobby::front::FAN_CONTENT_NOTICE`, pinned by
+  `the_notice_is_the_policy_s_own_words`), Scryfall's credit, and the
+  source address as text and link, with its QR code — as before.
+- **Narrow, Compact and Phone**: the **one-line colophon** on every face —
+  the build, **"Unofficial Fan Content"** (which opens About), "Card data
+  and images by Scryfall", and **"Source (AGPL-3.0)"** (which opens the
+  address) — and the **About** sheet, one press away from every face (the
+  text row's About, and the colophon's notice), with the notice word for
+  word, Scryfall's credit, the licence, the source address as text and
+  link, its code, and the third-party licences.
+
+Checked against the
+[Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
+reread for this change: "Tell the Community it's unofficial. Make it clear
+that your Fan Content is not endorsed or sponsored by Wizards—i.e.,
+unofficial." Every face says "Unofficial Fan Content" at every size; the
+full notice the policy gives is in the client on every face, one press
+away where a phone's height has no room for its three sentences. This is
+the grey-area record AGENTS.md asks for: the policy's own notice is not on
+every *screen* of a phone face, only one press from it. The owner approved
+the design that does this (06.10.2026, DESIGN-v5 Q12); the PM routes this
+entry to the owner for the explicit okay on the wording above. Scryfall's
+attribution ("data and images provided by Scryfall") and the AGPL §13
+offer (an "opportunity to receive the Corresponding Source" for every
+user interacting remotely) are met on every face: the credit is on the
+line itself, the offer is a press on the same line. The third-party
+licences (Alegreya Sans, Faustina, Font Awesome, Mana — OFL 1.1; MTGJSON
+— MIT; the Rust crates, under their own) are now named in the client
+itself (About, N4-8), not only in `NOTICE`.

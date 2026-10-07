@@ -80,6 +80,8 @@ pub(crate) enum DeskPress {
     Crashes,
     /// Open or close the preview.
     Preview,
+    /// Open or close the attachments.
+    Attachments,
     /// Send.
     Send,
     /// Close the form.
@@ -232,6 +234,29 @@ pub(super) fn scroll(
 }
 
 /// Everything the tree shows, folded into one number.
+/// The count beside the Attachments disclosure.
+#[derive(Component)]
+pub(crate) struct AttachedCount;
+
+/// How many attachments are ticked of those this report has, as said.
+fn attached_words(desk: &ReportDesk, settings: &ClientSettings, lang: Lang) -> String {
+    let (ticked, there) = attached(desk, settings);
+    Phrase::ReportAttachmentsCount.fill(lang, &[&ticked.to_string(), &there.to_string()])
+}
+
+/// How many attachments are ticked of those this report has.
+fn attached(desk: &ReportDesk, settings: &ClientSettings) -> (usize, usize) {
+    let there: Vec<Category> = Category::ALL
+        .into_iter()
+        .filter(|c| desk.gathered.has(*c))
+        .collect();
+    let ticked = there
+        .iter()
+        .filter(|c| settings.reports.allows(**c))
+        .count();
+    (ticked, there.len())
+}
+
 fn signature(desk: &ReportDesk, settings: &ClientSettings, route: &Route, width: f32) -> u64 {
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     desk.form.send_record.hash(&mut hash);
@@ -257,6 +282,8 @@ fn signature(desk: &ReportDesk, settings: &ClientSettings, route: &Route, width:
     desk.form.text.selection().hash(&mut hash);
     format!("{:?}", desk.form.status).hash(&mut hash);
     desk.form.preview.hash(&mut hash);
+    // The disclosure (its count is redrawn in place by [`retick`]).
+    settings.report_attachments_closed.hash(&mut hash);
     settings.lang.hash(&mut hash);
     (width as u32).hash(&mut hash);
     hash.finish()
@@ -346,10 +373,17 @@ pub(super) fn retick(
     desk: Res<ReportDesk>,
     settings: Res<ClientSettings>,
     mut controls: Query<(&DeskPress, &mut crate::ambience::Feel, Option<&Children>)>,
-    mut marks: Query<(&mut Text, &mut TextColor)>,
+    mut marks: Query<(&mut Text, &mut TextColor), Without<AttachedCount>>,
+    mut counts: Query<&mut Text, With<AttachedCount>>,
 ) {
     if !desk.open {
         return;
+    }
+    let said = attached_words(&desk, &settings, Lang::of(&settings.lang));
+    for mut count in &mut counts {
+        if count.0 != said {
+            count.0.clone_from(&said);
+        }
     }
     for (press, mut feel, children) in &mut controls {
         let lit = match *press {
@@ -615,13 +649,57 @@ fn form(
         },
         palette::MUTED,
     ));
-    parts.push(words(
+    // What goes with the text, behind one disclosure (remembered): its
+    // head counts what is ticked of what this report has.
+    let open = !settings.report_attachments_closed;
+    let head = row(commands, metrics, false);
+    let disclosure = button(
+        commands,
+        fonts,
+        metrics,
+        &format!(
+            "{} {}",
+            Phrase::ReportAttachments.text(lang),
+            if open { "\u{25b4}" } else { "\u{25be}" }
+        ),
+        DeskPress::Attachments,
+        open,
+        true,
+    );
+    let count = words(
+        commands,
+        tf(fonts, metrics.small),
+        attached_words(desk, settings, lang),
+        palette::MUTED,
+    );
+    commands.entity(count).insert(AttachedCount);
+    commands.entity(head).add_children(&[disclosure, count]);
+    parts.push(head);
+    if open {
+        parts.extend(attachments(commands, desk, settings, fonts, metrics, lang));
+    }
+    form_foot(
+        commands, desk, settings, route, fonts, metrics, lang, &mut parts,
+    );
+    commands.entity(panel).add_children(&parts);
+}
+
+/// The attachments' boxes: each kind with its size or why there is none,
+/// automatic crash reports, and the local game's record.
+fn attachments(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    settings: &ClientSettings,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+) -> Vec<Entity> {
+    let mut parts = vec![words(
         commands,
         tf_bold(fonts, metrics.text),
         Phrase::ReportIncludeHeading.text(lang),
         palette::INK,
-    ));
-
+    )];
     for category in Category::ALL {
         let there = desk.gathered.has(category);
         let ticked = settings.reports.allows(category);
@@ -686,7 +764,22 @@ fn form(
         crashes,
     ));
     parts.extend(record_boxes(commands, desk, settings, fonts, metrics, lang));
+    parts
+}
 
+/// The form's foot: the preview, where the report goes, how sending went,
+/// Close and Send.
+#[allow(clippy::too_many_arguments)] // the form's own readers, passed on
+fn form_foot(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    settings: &ClientSettings,
+    route: &Route,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    parts: &mut Vec<Entity>,
+) {
     let preview_label = if desk.form.preview {
         Phrase::ReportPreviewHide
     } else {
@@ -705,40 +798,18 @@ fn form(
     commands.entity(preview_row).add_child(toggle);
     parts.push(preview_row);
     if desk.form.preview {
-        let device = settings
-            .report_device
-            .as_deref()
-            .unwrap_or(DEVICE_TO_BE_MADE);
-        let full = desk
-            .form
-            .preview_text(&desk.gathered, &settings.reports, via(route, device));
-        let total = full.chars().count();
-        let mut shown: String = full.chars().take(PREVIEW_CHARS).collect();
-        if total > PREVIEW_CHARS {
-            shown.push_str("\n… (+");
-            shown.push_str(&(total - PREVIEW_CHARS).to_string());
-            shown.push(')');
-        }
-        let pane = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    padding: UiRect::all(px(metrics.gap)),
-                    border_radius: BorderRadius::all(px(6)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                BackgroundColor(Color::BLACK.with_alpha(0.45)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let text = words(commands, tf(fonts, metrics.small), shown, palette::INK);
-        commands.entity(pane).add_child(text);
-        parts.push(pane);
+        parts.push(preview_pane(
+            commands, desk, settings, route, fonts, metrics,
+        ));
     }
 
     match route {
-        Route::Gateway(_) => {}
+        Route::Gateway(at) => parts.push(words(
+            commands,
+            tf(fonts, metrics.small),
+            Phrase::ReportGoesGateway.fill(lang, &[&service_of(at)]),
+            palette::MUTED,
+        )),
         Route::Direct(url) => parts.push(words(
             commands,
             tf(fonts, metrics.small),
@@ -800,7 +871,47 @@ fn form(
     );
     commands.entity(actions).add_children(&[close, send]);
     parts.push(actions);
-    commands.entity(panel).add_children(&parts);
+}
+
+/// Exactly what is sent, as the preview shows it.
+fn preview_pane(
+    commands: &mut Commands,
+    desk: &ReportDesk,
+    settings: &ClientSettings,
+    route: &Route,
+    fonts: &UiFonts,
+    metrics: Metrics,
+) -> Entity {
+    let device = settings
+        .report_device
+        .as_deref()
+        .unwrap_or(DEVICE_TO_BE_MADE);
+    let full = desk
+        .form
+        .preview_text(&desk.gathered, &settings.reports, via(route, device));
+    let total = full.chars().count();
+    let mut shown: String = full.chars().take(PREVIEW_CHARS).collect();
+    if total > PREVIEW_CHARS {
+        shown.push_str("\n… (+");
+        shown.push_str(&(total - PREVIEW_CHARS).to_string());
+        shown.push(')');
+    }
+    let pane = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                padding: UiRect::all(px(metrics.gap)),
+                border_radius: BorderRadius::all(px(6)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(Color::BLACK.with_alpha(0.45)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let text = words(commands, tf(fonts, metrics.small), shown, palette::INK);
+    commands.entity(pane).add_child(text);
+    pane
 }
 
 /// How a report goes by `route`, for the form's own calls.
@@ -1276,6 +1387,10 @@ fn pressed(
             settings.save();
         }
         DeskPress::Preview => desk.form.preview = !desk.form.preview,
+        DeskPress::Attachments => {
+            settings.report_attachments_closed = !settings.report_attachments_closed;
+            settings.save();
+        }
         DeskPress::Send => {
             let desk = desk.as_mut();
             super::ask_to_send(desk, &holders, &mut settings, &answers);

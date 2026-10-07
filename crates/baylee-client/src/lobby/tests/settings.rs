@@ -17,6 +17,12 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
 
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
     assert!(app.world().resource::<LobbyState>().settings.is_open());
 
     press(
@@ -75,6 +81,12 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
 
     press(
         &mut app,
@@ -129,6 +141,12 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Controls,
+        )),
+    );
 
     let found = presses(&mut app);
     for action in Action::ALL {
@@ -137,6 +155,14 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
             "{action:?} cannot be rebound from the screen"
         );
     }
+    // Automation, where to stop and the presets are Gameplay's (WP5).
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Gameplay,
+        )),
+    );
+    let found = presses(&mut app);
     for rule in AutoRule::ALL {
         assert!(
             found.contains(&Press::Settings(SettingsPress::ToggleAuto(rule))),
@@ -245,6 +271,71 @@ fn closing_the_settings_puts_the_lobby_back_as_it_was() {
     );
 }
 
+/// DESIGN-v7's three device controls: the table angle and the visit camera
+/// under Graphics, the priority sound under Audio — drawn there, and each
+/// press written to this device's settings.
+#[test]
+fn the_table_angle_the_visit_camera_and_the_priority_sound_are_settings() {
+    use baylee_client_core::settings_map::Section;
+    use baylee_client_core::tableview::{RingLean, VisitCamera};
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    app.world_mut().resource_mut::<LobbyState>().settings = SettingsPane::Open;
+    app.update();
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(Section::Graphics)),
+    );
+    let shown = labels(&mut app);
+    for label in [
+        "Table angle",
+        "Steep",
+        "Flat",
+        "Looking at a seat",
+        "Across",
+    ] {
+        assert!(
+            shown.iter().any(|l| l == label),
+            "{label} is not on Graphics"
+        );
+    }
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::TableLean(RingLean::Gentle)),
+    );
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::VisitCamera(VisitCamera::Across)),
+    );
+    let table = app
+        .world()
+        .resource::<crate::settings::ClientSettings>()
+        .table;
+    assert_eq!(table.lean, RingLean::Gentle);
+    assert_eq!(table.visit, VisitCamera::Across);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(Section::Audio)),
+    );
+    assert!(labels(&mut app).iter().any(|l| l == "Priority sound"));
+    assert!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .audio
+            .priority_cue
+    );
+    press(&mut app, Press::Settings(SettingsPress::PriorityCue));
+    assert!(
+        !app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .audio
+            .priority_cue
+    );
+}
+
 /// Audio lives behind settings, leaving the header for navigation.
 #[test]
 fn music_controls_live_in_quick_settings_and_full_settings() {
@@ -258,6 +349,12 @@ fn music_controls_live_in_quick_settings_and_full_settings() {
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
     assert!(labels(&mut app).iter().any(|l| l == "Music"));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Audio,
+        )),
+    );
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
 }
 
@@ -270,6 +367,12 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         app.update();
         press(&mut app, Press::Front(FrontPress::FrontMenu));
         press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+        press(
+            &mut app,
+            Press::Settings(SettingsPress::Section(
+                baylee_client_core::settings_map::Section::Controls,
+            )),
+        );
         let list = app
             .world_mut()
             .query::<(Entity, &Scrollable)>()
@@ -384,6 +487,12 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat
@@ -430,8 +539,8 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     // Anything else pressed takes the caret out of the panel.
     press(
         &mut app,
-        Press::Settings(SettingsPress::Rebind(
-            baylee_client_core::prefs::Action::Confirm,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::Privacy,
         )),
     );
     assert_eq!(focus(&app), None);
@@ -473,6 +582,12 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     app.update();
     press(&mut app, Press::Front(FrontPress::FrontMenu));
     press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat
@@ -548,4 +663,159 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     assert!(labels(&mut app).iter().all(|l| !l.contains("SECRET")));
     assert!(!path.exists(), "a key box writes no file");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Language models (§12): the profiles stand in a list, and a profile's
+/// fields on its sheet — the first ones shown, Advanced's behind its
+/// disclosure; Close and Esc put the sheet away, and the list's row opens
+/// it again.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_profile_is_edited_on_its_sheet_with_advanced_behind_a_disclosure() {
+    use baylee_client_core::llmseat::panel::{Act, Slot};
+
+    let dir = std::env::temp_dir().join(format!("baylee-seatsheet-ui-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(dir.join(baylee_client_core::llmseat::FILE));
+    app.update();
+    let name = Phrase::SeatName.text(Lang::En).to_string();
+    let tokens = Slot::MaxTokens.label().text(Lang::En).to_string();
+    assert!(
+        !labels(&mut app).contains(&name),
+        "no sheet before a profile"
+    );
+
+    press(&mut app, Press::Settings(SettingsPress::Seat(Act::Add)));
+    let shown = labels(&mut app);
+    assert!(shown.contains(&name), "a new profile opens its sheet");
+    assert!(!shown.contains(&tokens), "Advanced starts closed");
+    press(&mut app, Press::Settings(SettingsPress::ProfileAdvanced));
+    assert!(labels(&mut app).contains(&tokens), "Advanced opened");
+
+    press(&mut app, Press::Settings(SettingsPress::CloseProfile));
+    assert!(!labels(&mut app).contains(&name), "Close puts it away");
+    assert!(
+        presses(&mut app).contains(&Press::Settings(SettingsPress::OpenProfile(0))),
+        "the profile is a row of the list"
+    );
+    press(&mut app, Press::Settings(SettingsPress::OpenProfile(0)));
+    assert!(labels(&mut app).contains(&name), "the row opens it again");
+    super::front_keys::press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(!labels(&mut app).contains(&name), "Esc puts it away");
+    assert!(
+        app.world().resource::<LobbyState>().settings.is_open(),
+        "and only the sheet"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Opens the settings screen at `section`, signed in, with a settings file.
+fn settings_at(section: baylee_client_core::settings_map::Section) -> App {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(&mut app, Press::Settings(SettingsPress::Section(section)));
+    app
+}
+
+/// §17 WP5: a graphics preset writes the device's rows only — never an
+/// account field (atmosphere, hold the table still, sky, sound).
+#[test]
+fn a_preset_never_writes_an_account_field() {
+    use baylee_client_core::graphics::Preset;
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Graphics);
+    let account = |app: &App| {
+        serde_json::to_string(app.world().resource::<crate::prefs::Prefs>().all()).unwrap()
+    };
+    let before = account(&app);
+    for preset in [Preset::Low, Preset::Ultra, Preset::Medium, Preset::High] {
+        press(
+            &mut app,
+            Press::Settings(SettingsPress::GraphicsPreset(preset)),
+        );
+        let device = app
+            .world()
+            .resource::<crate::settings::ClientSettings>()
+            .graphics
+            .map(|g| g.preset);
+        assert_eq!(device, Some(preset), "the device took {preset:?}");
+        assert_eq!(account(&app), before, "{preset:?} wrote the account");
+    }
+}
+
+/// §17 WP5 (`KEYBOARD.md` §5): a shortcut's new key that another action
+/// holds is refused with the holder named, nothing written; asked again,
+/// it is taken.
+#[test]
+fn a_rebind_conflict_is_refused_with_its_reason_and_then_taken() {
+    use baylee_client_core::shellkeys::{Refused, ShellAction, ShellChord};
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Controls);
+    let keys = |app: &App| {
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .shell_keys
+            .clone()
+    };
+    let before = keys(&app);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::RebindShell(ShellAction::CreateTable)),
+    );
+    super::front_keys::press_key(&mut app, KeyCode::Slash, Key::Character("/".into()), &[]);
+    let why = crate::settingsui::bindings::refusal(Refused::Held(ShellAction::Search), Lang::En);
+    assert!(
+        labels(&mut app).iter().any(|l| l.contains(&why)),
+        "the refusal names its holder: {why}"
+    );
+    assert_eq!(keys(&app), before, "a refusal writes nothing");
+    press(&mut app, Press::Settings(SettingsPress::TakeShell));
+    assert_eq!(
+        keys(&app).chords(ShellAction::CreateTable),
+        std::slice::from_ref(&ShellChord::ch("/")),
+        "asked again, it is taken"
+    );
+}
+
+/// `KEYBOARD.md` §1.5 (W10 step 1): on the nav, letters are type-ahead —
+/// `c` `o` shows Controls, and focus stands on its item.
+#[test]
+fn letters_on_the_nav_jump_to_the_section_they_begin() {
+    use super::front_keys::{focused, press_key};
+    use baylee_client_core::settings_map::Section;
+    let mut app = settings_at(Section::Graphics);
+    for _ in 0..8 {
+        if focused(&app).is_some_and(|s| s.id == "nav") {
+            break;
+        }
+        press_key(&mut app, KeyCode::Tab, Key::Tab, &[]);
+    }
+    assert_eq!(focused(&app).map(|s| s.id), Some("nav"));
+    press_key(&mut app, KeyCode::KeyC, Key::Character("c".into()), &[]);
+    press_key(&mut app, KeyCode::KeyO, Key::Character("o".into()), &[]);
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.settings_section(), Section::Controls);
+    let at = focused(&app).expect("focus");
+    assert_eq!((at.id, at.item), ("nav", 3), "focus on Controls");
 }

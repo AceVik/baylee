@@ -182,6 +182,16 @@ pub(super) fn teardown(
     }
 }
 
+/// What the kit and the settings screen read beside the lobby (one
+/// parameter, under Bevy's sixteen).
+type KitInputs<'w, 's> = (
+    Res<'w, crate::shellkit::InputClass>,
+    Option<Res<'w, crate::settings::ClientSettings>>,
+    Option<Res<'w, crate::quality::InUse>>,
+    Option<Res<'w, crate::quality::DisplayTrial>>,
+    Query<'w, 's, (), With<bevy::window::Monitor>>,
+);
+
 /// What the lobby's tree was last built for, on the kit's side: the size
 /// class read on the raw height, the text step, the input class, and
 /// whether a seated strip stands (the builder's patch path draws none).
@@ -191,6 +201,8 @@ pub(super) struct KitDrawn {
     step: crate::shellkit::TextSize,
     input: crate::shellkit::InputClass,
     strip: bool,
+    /// Tall enough for the front door's full colophon.
+    tall: bool,
 }
 
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
@@ -217,10 +229,9 @@ pub(super) fn ui(
     cast: Res<super::front::FrontCast>,
     // The shell's header and strips are measured by the kit: the text step
     // and the input class (WP0b-3).
-    kit_inputs: (
-        Res<crate::shellkit::InputClass>,
-        Option<Res<crate::settings::ClientSettings>>,
-    ),
+    // And the settings screen's graphics rows (WP5): what is in force,
+    // the display mode's trial, how many monitors there are.
+    kit_inputs: KitInputs,
     mut drawn: Local<Option<Frame>>,
     mut kit_drawn: Local<Option<KitDrawn>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
@@ -242,6 +253,7 @@ pub(super) fn ui(
         step,
         input: *kit_inputs.0,
         strip: super::header::seated(&state).is_some(),
+        tall: height >= super::front::door::FULL_COLOPHON_HEIGHT,
     };
     let kit_same = kit_drawn.as_ref() == Some(&kit_now);
     if !state.is_changed()
@@ -359,18 +371,24 @@ pub(super) fn ui(
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
         super::header::draw(&mut commands, root, &state, kit, metrics);
-        crate::settingsui::screen(
-            &mut commands,
-            root,
-            prefs.all(),
-            state.settings.capturing(),
-            state.lobby.token().is_some(),
-            state.lobby.lang(),
-            &fonts,
+        let (_, _, in_use, trial, monitors) = &kit_inputs;
+        let settings = kit_inputs.1.as_deref();
+        let view = crate::settingsui::View {
+            state: &state,
+            prefs: prefs.all(),
+            settings,
+            graphics: crate::settingsui::keys::shown_graphics(settings, in_use.as_deref()),
+            trial: trial
+                .as_deref()
+                .and_then(|t| t.previous.map(|_| t.seconds())),
+            monitors: monitors.iter().count(),
+            builds: crate::settingsui::builds(),
             metrics,
-            scrolled_to.get(List::Settings),
-            &state.seat,
-        );
+            scroll: scrolled_to.get(List::Settings),
+            sheet_scroll: scrolled_to.get(List::ProfileSheet),
+            nav_scroll: scrolled_to.get(List::SettingsNav),
+        };
+        crate::settingsui::screen(&mut commands, root, &view, kit);
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);
         return;
     }
@@ -388,16 +406,19 @@ pub(super) fn ui(
                 Scrollable(List::Table),
                 ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
             ));
+            let music_on = kit_inputs.1.as_deref().is_none_or(|s| s.music.gain() > 0.0);
             super::front::front_door(
                 &mut commands,
                 root,
                 &state,
                 &cast,
-                &fonts,
-                metrics,
+                kit,
                 &scrolled_to,
                 assets.as_deref(),
+                music_on,
+                height,
             );
+            super::front::door::about(&mut commands, root, &state, kit, &scrolled_to);
         }
         Screen::Table => table(
             &mut commands,
@@ -444,4 +465,6 @@ pub(super) fn ui(
     if state.confirmation.is_some() {
         *builder_drawn = None;
     }
+    // The terms stand over whatever the sign-in led to, until answered.
+    super::front::terms::sheet(&mut commands, root, &state, kit, &scrolled_to);
 }

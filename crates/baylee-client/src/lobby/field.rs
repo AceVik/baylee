@@ -140,6 +140,19 @@ pub(crate) fn caret_lit(since: f32, still: bool) -> bool {
     still || since % (BLINK_SECS * 2.0) < BLINK_SECS
 }
 
+/// The kit's focus stops a field carries (the front door's, WP1): the
+/// box's, with the field it types into, and its eye's.
+#[derive(Clone, Copy)]
+pub(crate) struct FieldStops {
+    /// The box's stop.
+    pub(crate) field: crate::shellkit::focus::Stop,
+    /// The lobby's field the box types into (`None`: a box whose own
+    /// editor takes the keys once pressed, the seat panel's).
+    pub(crate) typed: Option<Field>,
+    /// The eye's stop, on a password.
+    pub(crate) eye: Option<crate::shellkit::focus::Stop>,
+}
+
 /// A labelled text box that takes the caret when tapped.
 pub(crate) fn text_field(
     commands: &mut Commands,
@@ -147,6 +160,18 @@ pub(crate) fn text_field(
     metrics: Metrics,
     label: &str,
     look: &FieldLook,
+) -> Entity {
+    text_field_with(commands, fonts, metrics, label, look, None)
+}
+
+/// [`text_field`], carrying the kit's focus stops.
+pub(crate) fn text_field_with(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    look: &FieldLook,
+    stops: Option<FieldStops>,
 ) -> Entity {
     let column = commands
         .spawn((
@@ -191,20 +216,18 @@ pub(crate) fn text_field(
             look.press,
         ))
         .id();
+    if let Some(stops) = stops {
+        commands
+            .entity(boxed)
+            .insert((stops.field, crate::shellkit::role::Role::Field));
+        if let Some(typed) = stops.typed {
+            commands
+                .entity(boxed)
+                .insert(super::front::keys::LobbyField(typed));
+        }
+    }
     if let Some(glyph) = look.lead {
-        let mark = commands
-            .spawn((
-                Text::new(glyph.to_string()),
-                crate::hud::icon_tf(fonts, metrics.small * 0.85),
-                TextColor(palette::MUTED),
-                Node {
-                    margin: UiRect::right(px(metrics.gap * 0.5)),
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
+        let mark = lead_mark(commands, fonts, metrics, glyph);
         commands.entity(boxed).add_child(mark);
     }
     for run in field_runs(commands, fonts, metrics, look) {
@@ -234,6 +257,9 @@ pub(crate) fn text_field(
         let eye = look
             .mask
             .and_then(|m| eye_button(commands, fonts, metrics, m));
+        if let (Some(eye), Some(stop)) = (eye, stops.and_then(|s| s.eye)) {
+            commands.entity(eye).insert(stop);
+        }
         commands.entity(boxed).add_children(eye.as_slice());
         if let Some(tail) = look.tail {
             let button = icon_button(commands, fonts, metrics, tail);
@@ -249,6 +275,23 @@ pub(crate) fn text_field(
         commands.entity(column).add_children(&[caption, boxed]);
     }
     column
+}
+
+/// The glyph a box leads with (the search's magnifier).
+fn lead_mark(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, glyph: char) -> Entity {
+    commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(fonts, metrics.small * 0.85),
+            TextColor(palette::MUTED),
+            Node {
+                margin: UiRect::right(px(metrics.gap * 0.5)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id()
 }
 
 /// The eye at the end of a password box.
@@ -447,6 +490,10 @@ pub(super) fn retrace_runs(
         return;
     };
     let focus = state.lobby.focus();
+    // A parked caret (focus on a control, WP1) is drawn in no field.
+    if state.lobby.caret_parked() {
+        return;
+    }
     for (entity, mut drawn, children) in &mut boxes {
         if drawn.field != focus {
             continue;

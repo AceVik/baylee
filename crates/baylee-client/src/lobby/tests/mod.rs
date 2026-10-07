@@ -16,6 +16,8 @@ mod end_screen;
 mod entrance;
 mod feed;
 mod frame;
+mod front_keys;
+mod front_terms;
 mod gateway;
 mod guests;
 mod header;
@@ -143,8 +145,12 @@ fn settle(app: &mut App) {
     app.update();
 }
 
+/// The presses a player can make: every control drawn, less the kit's
+/// disabled ones (drawn and focusable for their reason, answering nothing).
 fn presses(app: &mut App) -> Vec<Press> {
-    let mut query = app.world_mut().query::<&Press>();
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&Press, Without<crate::shellkit::controls::Disabled>>();
     let mut found: Vec<Press> = query.iter(app.world()).copied().collect();
     found.sort_by_key(|p| format!("{p:?}"));
     found
@@ -203,9 +209,14 @@ fn tap_control(app: &mut App, what: &str, pick: impl Fn(&Press) -> bool) {
     }
 }
 
+/// Every text drawn: each `Text`, and each run of a text set in spans (the
+/// colophon's paragraph), on its own.
 fn labels(app: &mut App) -> Vec<String> {
     let mut query = app.world_mut().query::<&Text>();
-    query.iter(app.world()).map(|t| t.0.clone()).collect()
+    let mut said: Vec<String> = query.iter(app.world()).map(|t| t.0.clone()).collect();
+    let mut spans = app.world_mut().query::<&TextSpan>();
+    said.extend(spans.iter(app.world()).map(|t| t.0.clone()));
+    said
 }
 
 /// Moves the app into a phase and lets that transition's systems run.

@@ -13,6 +13,9 @@
 /// The modules (relative to `src/`) whose lengths follow the text step.
 pub const SHELL_MODULES: &[&str] = &[
     "shellkit",
+    // The front door and the settings screen (WP1, WP5).
+    "lobby/front",
+    "settingsui",
     // The deck builder (WP4), file by file: its printing picker and its
     // import / export dialogs still draw at the lobby's sizes.
     "buildui/header",
@@ -100,7 +103,9 @@ mod tests {
                 let source = std::fs::read_to_string(&path).expect("a source file");
                 // A file's own tests may spell the forbidden shape on purpose
                 // (this one does, to prove the lint bites).
-                let code = source.split("#[cfg(test)]").next().unwrap_or("");
+                // A test-only item inside the code (`#[cfg(test)] fn`) is
+                // still code; only the tests module is left out.
+                let code = source.split("#[cfg(test)]\nmod ").next().unwrap_or("");
                 let lines = bare_px_literals(code);
                 assert!(
                     lines.is_empty(),

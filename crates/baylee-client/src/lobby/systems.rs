@@ -158,6 +158,9 @@ pub(super) fn poll(
                     state.lobby.set_stats(stats);
                 }
             }
+            Reply::Terms(reply) => {
+                super::front::terms::receive(reply, &mut state, &mailbox, &mut settings);
+            }
             Reply::Gateway { url, probe } => {
                 if state.gateway_answered(url, probe)
                     && let Some(settings) = settings.as_mut()

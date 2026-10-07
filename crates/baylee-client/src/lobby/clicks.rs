@@ -109,25 +109,6 @@ pub(super) fn clicks(
         let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
         };
-        if state.confirmation.is_some()
-            && !matches!(
-                press,
-                Press::Shared(SharedPress::ConfirmDestructive | SharedPress::CancelDestructive)
-            )
-        {
-            continue;
-        }
-        // Anything pressed but the menu's own controls closes the gear menu,
-        // the veil around it included.
-        if state.front_menu
-            && !matches!(
-                press,
-                Press::Front(FrontPress::FrontMenu)
-                    | Press::Shared(SharedPress::PickLang(_) | SharedPress::PickerNothing)
-            )
-        {
-            state.front_menu = false;
-        }
         let shift = codes
             .as_deref()
             .is_some_and(|c| c.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]));
@@ -137,13 +118,82 @@ pub(super) fn clicks(
             }
             other => other,
         };
+        let cx = Cx {
+            state: &mut state,
+            prefs: &mut prefs,
+            scrolled: &mut scrolled,
+            mailbox: &mailbox,
+            settings: &mut settings,
+        };
+        run(press, cx);
+    }
+}
+
+/// What a press does, whether a click or a key brought it (`Enter` on a
+/// focused control, `front::keys::activate_by_key`): the guards every press
+/// passes, then its screen's handler.
+#[allow(clippy::too_many_lines)] // the guards every press passes, read top to bottom
+pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
+    let Cx {
+        state,
+        prefs,
+        scrolled,
+        mailbox,
+        settings,
+    } = cx;
+    {
+        let press = &press;
+        // A sheet over the front door or the lobby holds the screen: only
+        // its own controls answer (the terms are answered before anything
+        // else; About is closed or followed to the source).
+        if state.terms.up()
+            && !matches!(
+                press,
+                Press::Front(
+                    FrontPress::TermsAccept
+                        | FrontPress::TermsNotNow
+                        | FrontPress::TermsStay
+                        | FrontPress::TermsRetry
+                ) | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
+        if state.about_open
+            && !matches!(
+                press,
+                Press::Front(FrontPress::About(_) | FrontPress::OpenSource)
+                    | Press::Shared(SharedPress::PickerNothing)
+            )
+        {
+            return;
+        }
+        if state.confirmation.is_some()
+            && !matches!(
+                press,
+                Press::Shared(SharedPress::ConfirmDestructive | SharedPress::CancelDestructive)
+            )
+        {
+            return;
+        }
+        // Anything pressed but the menu's own controls closes the gear menu,
+        // the veil around it included.
+        if state.front_menu
+            && !matches!(
+                *press,
+                Press::Front(FrontPress::FrontMenu)
+                    | Press::Shared(SharedPress::PickLang(_) | SharedPress::PickerNothing)
+            )
+        {
+            state.front_menu = false;
+        }
         // A builder menu closes on any press that is not the builder's own
         // (those close it themselves, `BuildPress::handle`).
         if state.build.menu.is_some() && !matches!(press, Press::Build(_)) {
             state.build.menu = None;
         }
         // Anything but the header's own controls closes a header popover.
-        if state.header_menu.is_some() && !matches!(press, Press::Header(_)) {
+        if state.header_menu.is_some() && !matches!(*press, Press::Header(_)) {
             state.header_menu = None;
         }
         // Anything but a menu's own opener closes the menu open; an item
@@ -157,14 +207,14 @@ pub(super) fn clicks(
         // state marks it changed, and a changed state rebuilds the whole tree
         // (§10 #1 of the shell design) — so a press that changes nothing
         // must not write anything either (`a_press_that_changes_nothing_marks_nothing`).
-        if press != Press::Build(BuildPress::CloseBuilder) && state.confirm_leave {
+        if *press != Press::Build(BuildPress::CloseBuilder) && state.confirm_leave {
             state.confirm_leave = false;
         }
         // A filter that changes what is in the list puts it back at the top:
         // finding yourself halfway down a fresh search is disorienting, and
         // the row you were reading is not in it any more anyway.
         if matches!(
-            press,
+            *press,
             Press::Build(
                 BuildPress::ToggleColor(_)
                     | BuildPress::SetKind(_)
@@ -180,27 +230,27 @@ pub(super) fn clicks(
         // rebinding in progress. Leaving it armed would mean the next key
         // pressed anywhere lands on whichever row was last tapped.
         if state.settings.capturing().is_some()
-            && !matches!(press, Press::Settings(SettingsPress::Rebind(_)))
+            && !matches!(*press, Press::Settings(SettingsPress::Rebind(_)))
         {
             state.settings = SettingsPane::Open;
         }
         // And anything but the seat panel's own controls takes the caret out
         // of its box.
         if !matches!(
-            press,
+            *press,
             Press::Settings(SettingsPress::Seat(_) | SettingsPress::SeatKey(_))
         ) && state.seat.typing()
         {
             state.seat.blur();
         }
         let cx = Cx {
-            state: &mut state,
-            prefs: &mut prefs,
-            scrolled: &mut scrolled,
-            mailbox: &mailbox,
-            settings: &mut settings,
+            state,
+            prefs,
+            scrolled,
+            mailbox,
+            settings,
         };
-        super::press::run(press, cx);
+        super::press::run(*press, cx);
     }
 }
 

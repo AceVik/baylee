@@ -66,21 +66,29 @@ fn kept_in_the_file(app: &App) -> Option<KeptGuest> {
 #[test]
 fn the_entry_is_drawn_only_for_a_gateway_that_takes_guests() {
     let mut closed = headless();
-    assert!(!presses(&mut closed).contains(&Press::Front(FrontPress::PlayAsGuest)));
+    assert!(!presses(&mut closed).contains(&Press::Front(FrontPress::GuestFace)));
     assert!(!presses(&mut closed).contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
 
+    // The sign-in face offers the guest's door (WP1); the name is on the
+    // guest's own face, one press on.
     let mut open = welcoming();
     let found = presses(&mut open);
     assert_eq!(
         found
             .iter()
-            .filter(|p| **p == Press::Front(FrontPress::PlayAsGuest))
+            .filter(|p| **p == Press::Front(FrontPress::GuestFace))
             .count(),
         1,
         "{found:?}"
     );
-    assert!(found.contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
+    assert!(!found.contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
     assert!(labels(&mut open).contains(&"Play as guest".to_string()));
+    open.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .open_guest_face();
+    settle(&mut open);
+    assert!(presses(&mut open).contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
 }
 
 /// The guest this device keeps here is offered back by its handle, with no

@@ -37,12 +37,20 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
+pub(crate) mod door;
+pub(crate) mod faces;
+pub(crate) mod keys;
+pub(crate) mod terms;
+
 use super::keyboard::choose_gateway;
 use super::press::Cx;
 use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use crate::frontal::FrontalMaterial;
+use crate::shellkit::controls::Kit;
+use crate::shellkit::metrics::px_fixed;
+use crate::shellkit::role::Role;
 use bevy::ui::{UiTransform, Val2};
 
 /// How long the panels take to move, in either motion.
@@ -87,26 +95,20 @@ const HEADER_HEIGHT: f32 = 36.0;
 ///
 /// Not a `Phrase`: it is quoted, not written, and a translation of it would
 /// be a notice nobody approved. It stands under the panel in every language.
-pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy.\nNot approved/endorsed by Wizards.\nPortions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
+pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
 
-/// The width of a panel on a tablet and a desktop. A phone gives it the
-/// whole page.
-fn card_width(frame: Frame) -> Val {
-    match frame {
-        Frame::Compact | Frame::Phone => percent(100),
-        Frame::Narrow => px(480),
-        Frame::Wide | Frame::Vast => px(600),
+/// The card's width (§3, §2.7): 600 × the text step on a desktop, the
+/// body's width on a tablet (up to 960 × the step) and on the smallest
+/// window, and its column beside the logo on a phone.
+fn card_width(kit: Kit) -> (Val, Val) {
+    match kit.m.frame {
+        Frame::Compact | Frame::Phone => (Val::Percent(100.0), Val::Percent(100.0)),
+        Frame::Narrow => (Val::Percent(100.0), kit.m.px(960.0)),
+        Frame::Wide | Frame::Vast => (kit.m.px(600.0), Val::Percent(100.0)),
     }
 }
 
-/// Reserve a stable place for the gateway and sign-in cards. The body alone
-/// scrolls when a taller form or shorter viewport needs more room; the legal
-/// footer is a separate, non-shrinking sibling.
-fn stage_height(_frame: Frame) -> Val {
-    Val::Auto
-}
-
-/// The three panels.
+/// The four panels.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(super) enum Panel {
     /// Choose a gateway.
@@ -116,17 +118,21 @@ pub(super) enum Panel {
     SignIn,
     /// Create an account there.
     Create,
+    /// Play there as a guest.
+    Guest,
 }
 
 impl Panel {
     /// The panel the lobby asks for.
     fn of(state: &LobbyState) -> Self {
-        if !state.lobby.gateway_chosen() {
-            Self::Gateway
-        } else if matches!(state.lobby.screen(), Screen::SignIn { registering: true }) {
-            Self::Create
+        if state.lobby.gateway_chosen() {
+            match state.lobby.face() {
+                baylee_client_core::lobby::Face::SignIn => Self::SignIn,
+                baylee_client_core::lobby::Face::Create => Self::Create,
+                baylee_client_core::lobby::Face::Guest => Self::Guest,
+            }
         } else {
-            Self::SignIn
+            Self::Gateway
         }
     }
 
@@ -137,6 +143,7 @@ impl Panel {
             Self::Gateway => 1,
             Self::SignIn => 10,
             Self::Create => 11,
+            Self::Guest => 12,
         }
     }
 }
@@ -361,11 +368,12 @@ fn pose(motion: &FrontMotion, panel: Panel, width: f32) -> Pose {
         let film = (motion.progress() * PASSAGE_IN - FILM_START) / MOVE_SECONDS;
         door_pose(panel, ease(film), motion.anchor)
     } else {
-        // 0 with signing in up, 1 with creating an account up.
-        let round = if motion.to == Panel::Create {
-            eased
-        } else {
+        // 0 with signing in up, 1 with the other face (creating an
+        // account, playing as a guest) up.
+        let round = if motion.to == Panel::SignIn {
             1.0 - eased
+        } else {
+            eased
         };
         carousel_pose(panel, round, width)
     }
@@ -661,18 +669,15 @@ pub(super) fn stage(
     commands: &mut Commands,
     state: &LobbyState,
     cast: &FrontCast,
-    fonts: &UiFonts,
-    metrics: Metrics,
+    kit: Kit,
     scrolled_to: &Scrolled,
 ) -> Entity {
-    // The room the tallest panel needs, so the page does not jump when the
-    // panel changes, with the stage in its middle.
+    let (width, max_width) = card_width(kit);
     let room = commands
         .spawn((
             Node {
-                width: card_width(metrics.frame),
-                max_width: percent(100),
-                min_height: stage_height(metrics.frame),
+                width,
+                max_width,
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -685,7 +690,7 @@ pub(super) fn stage(
         .spawn((
             Node {
                 display: Display::Grid,
-                width: percent(100),
+                width: Val::Percent(100.0),
                 grid_template_columns: vec![GridTrack::flex(1.0)],
                 grid_template_rows: vec![GridTrack::auto()],
                 ..default()
@@ -700,15 +705,7 @@ pub(super) fn stage(
     commands.entity(room).add_child(stage);
     let panels = [Some(cast.shown), cast.going];
     for panel in panels.into_iter().flatten() {
-        let card = card(
-            commands,
-            state,
-            panel,
-            cast.going.is_none(),
-            fonts,
-            metrics,
-            scrolled_to,
-        );
+        let card = card(commands, state, panel, kit, scrolled_to);
         commands.entity(stage).add_child(card);
     }
     room
@@ -723,53 +720,56 @@ pub(super) fn card_shadow() -> BoxShadow {
     BoxShadow(vec![
         ShadowStyle {
             color: Color::srgba(0.0, 0.0, 0.0, 0.35),
-            x_offset: px(0),
-            y_offset: px(2),
-            spread_radius: px(0),
-            blur_radius: px(6),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(2.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(6.0),
         },
         ShadowStyle {
             color: Color::srgba(0.0, 0.0, 0.0, 0.50),
-            x_offset: px(0),
-            y_offset: px(12),
-            spread_radius: px(-2),
-            blur_radius: px(30),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(12.0),
+            spread_radius: px_fixed(-2.0),
+            blur_radius: px_fixed(30.0),
         },
     ])
 }
 
-/// One panel. `standing` is whether it is at rest, which is when its gear
-/// menu may be open.
+/// One panel: the dock's leather and its inlays, the card's own shadow,
+/// and the face it shows.
 fn card(
     commands: &mut Commands,
     state: &LobbyState,
     panel: Panel,
-    standing: bool,
-    fonts: &UiFonts,
-    metrics: Metrics,
+    kit: Kit,
     scrolled_to: &Scrolled,
 ) -> Entity {
-    let side = metrics.pad * 1.6;
+    let side = kit.m.pad * 1.2;
     let card = commands
         .spawn((
             FrontCard(panel),
+            Role::Panel,
             Node {
                 grid_row: GridPlacement::start(1),
                 grid_column: GridPlacement::start(1),
-                width: percent(100),
+                width: Val::Percent(100.0),
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: px(card_gap(metrics)),
+                row_gap: kit.m.px(if kit.m.frame == Frame::Phone {
+                    8.0
+                } else {
+                    14.0
+                }),
                 // The foot's inlays stand clear of the tooled line, and the
                 // last row stands clear of them.
                 padding: UiRect {
-                    left: px(side),
-                    right: px(side),
-                    top: px(HEADER_TOP),
-                    bottom: px(side + super::dock::INLAY_LIFT),
+                    left: px_fixed(side),
+                    right: px_fixed(side),
+                    top: px_fixed(side * 0.8),
+                    bottom: px_fixed(side + super::dock::INLAY_LIFT),
                 },
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(CARD_RADIUS)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(CARD_RADIUS)),
                 ..default()
             },
             // No fill of its own: the leather under it is the fill, cut to
@@ -784,24 +784,21 @@ fn card(
         ))
         .id();
     match panel {
-        Panel::Gateway => gateway_face(commands, card, state, fonts, metrics, scrolled_to),
-        Panel::SignIn => account_face(commands, card, state, fonts, metrics, false),
-        Panel::Create => account_face(commands, card, state, fonts, metrics, true),
-    }
-    if standing && state.front_menu {
-        let menu = gear_menu(commands, state, fonts, metrics, side);
-        commands.entity(card).add_child(menu);
+        Panel::Gateway => faces::gateway(commands, card, state, kit, scrolled_to),
+        Panel::SignIn => faces::sign_in(commands, card, state, kit),
+        Panel::Create => faces::create(commands, card, state, kit),
+        Panel::Guest => faces::guest(commands, card, state, kit),
     }
     let shade = commands
         .spawn((
             FrontShade,
             Node {
                 position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(0),
-                top: px(0),
-                bottom: px(0),
-                border_radius: BorderRadius::all(px(CARD_RADIUS - 1.0)),
+                left: px_fixed(0.0),
+                right: px_fixed(0.0),
+                top: px_fixed(0.0),
+                bottom: px_fixed(0.0),
+                border_radius: BorderRadius::all(px_fixed(CARD_RADIUS - 1.0)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
@@ -811,130 +808,6 @@ fn card(
         .id();
     commands.entity(card).add_child(shade);
     card
-}
-
-/// A panel's first row, above the leather's tooled line: an optional way
-/// back, the title, and the gear.
-fn header(
-    commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    back: bool,
-    title: &str,
-) -> Entity {
-    let lang = state.lobby.lang();
-    let header = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: px(HEADER_HEIGHT),
-                flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                column_gap: px(metrics.gap),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    if back {
-        let busy = state.lobby.busy();
-        let back = icon_button(
-            commands,
-            fonts,
-            metrics,
-            BACK_GLYPH,
-            (!busy).then_some(Press::Front(FrontPress::LeaveGateway)),
-            Phrase::Back.text(lang),
-            false,
-        );
-        commands.entity(header).add_child(back);
-    }
-    let words = commands
-        .spawn((
-            Text::new(title),
-            tf(fonts, metrics.head),
-            TextColor(palette::INK),
-            TextLayout::no_wrap(),
-            Node {
-                flex_grow: 1.0,
-                min_width: px(0),
-                overflow: Overflow::clip_x(),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let gear = icon_button(
-        commands,
-        fonts,
-        metrics,
-        GEAR_GLYPH,
-        Some(Press::Front(FrontPress::FrontMenu)),
-        Phrase::LanguageAndSettings.text(lang),
-        state.front_menu,
-    );
-    commands.entity(header).add_children(&[words, gear]);
-    header
-}
-
-/// A square button with one glyph and its meaning in a hint.
-fn icon_button(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    glyph: char,
-    press: Option<Press>,
-    meaning: &str,
-    lit: bool,
-) -> Entity {
-    let side = if metrics.frame == Frame::Compact {
-        metrics.tap
-    } else {
-        HEADER_HEIGHT
-    };
-    let rest = if lit { palette::PANEL_HOT } else { Color::NONE };
-    let button = commands
-        .spawn((
-            Node {
-                width: px(side),
-                height: px(side),
-                flex_shrink: 0.0,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::all(px(6)),
-                ..default()
-            },
-            BackgroundColor(rest),
-            super::hint::HoverHint(meaning.to_string()),
-        ))
-        .id();
-    match press {
-        Some(press) => {
-            commands.entity(button).insert((
-                press,
-                crate::ambience::Feel::rising_to(rest, palette::PANEL_HOT),
-            ));
-        }
-        None => {
-            commands.entity(button).insert(Pickable::IGNORE);
-        }
-    }
-    let ink = if press.is_some() {
-        palette::DOCK_INK
-    } else {
-        palette::MUTED
-    };
-    let glyph = commands
-        .spawn((
-            Text::new(glyph.to_string()),
-            crate::hud::icon_tf(fonts, metrics.text),
-            TextColor(ink),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(button).add_child(glyph);
-    button
 }
 
 /// The gear's menu, under the gear: the language, by each language's own
@@ -954,10 +827,10 @@ pub(super) fn gear_menu(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(0),
-                top: px(0),
-                bottom: px(0),
+                left: px_fixed(0.0),
+                right: px_fixed(0.0),
+                top: px_fixed(0.0),
+                bottom: px_fixed(0.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -967,10 +840,10 @@ pub(super) fn gear_menu(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(-4000),
-                right: px(-4000),
-                top: px(-4000),
-                bottom: px(-4000),
+                left: px_fixed(-4000.0),
+                right: px_fixed(-4000.0),
+                top: px_fixed(-4000.0),
+                bottom: px_fixed(-4000.0),
                 ..default()
             },
             BackgroundColor(Color::NONE),
@@ -984,12 +857,12 @@ pub(super) fn gear_menu(
                 position_type: PositionType::Absolute,
                 top: px(HEADER_TOP + HEADER_HEIGHT + 4.0),
                 right: px(side - 6.0),
-                width: px(240),
+                width: px_fixed(240.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(metrics.gap),
                 padding: UiRect::all(px(metrics.pad * 0.8)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(10)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(10.0)),
                 ..default()
             },
             BackgroundColor(palette::PANEL_LIT.with_alpha(1.0)),
@@ -1049,7 +922,7 @@ fn rule(commands: &mut Commands) -> Entity {
         .spawn((
             Node {
                 width: percent(100),
-                height: px(1),
+                height: px_fixed(1.0),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -1057,228 +930,6 @@ fn rule(commands: &mut Commands) -> Entity {
             Pickable::IGNORE,
         ))
         .id()
-}
-
-/// The space between two rows of a panel.
-fn card_gap(metrics: Metrics) -> f32 {
-    metrics.gap * 1.5
-}
-
-/// The lobby's status line, between two rows of a panel: the slot is a
-/// sliver, and the line is laid over it and the two gaps round it, which
-/// hold two lines with air. A refusal arriving does not push the form about,
-/// and an empty status leaves no hole in it.
-fn status_slot(
-    commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-) -> Entity {
-    let sliver = metrics.small;
-    let slot = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: px(sliver),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let status = commands
-        .spawn((
-            Text::new(state.lobby.status()),
-            tf(fonts, metrics.small),
-            TextColor(status_ink(state.lobby.tone())),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let band = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(0),
-                top: px(-card_gap(metrics)),
-                height: px(2.0 * card_gap(metrics) + sliver),
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(band).add_child(status);
-    commands.entity(slot).add_child(band);
-    slot
-}
-
-/// Under the panels: this build, the notice the Fan Content Policy asks
-/// for, word for word, and where the source is.
-///
-/// The build is the same string the signed-in header draws
-/// (`baylee_build::short()`), for the same reason: it is what a bug report
-/// is worthless without. The source line is the AGPL's §13 offer (#270),
-/// drawn where every player passes; see [`source_address`].
-#[allow(clippy::too_many_lines)] // one legal footer: build, quoted notice, source link and QR
-pub(super) fn colophon(
-    commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-) -> Entity {
-    let colophon = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                max_width: percent(100),
-                flex_shrink: 0.0,
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: px(3),
-                padding: UiRect {
-                    left: px(if metrics.frame == Frame::Compact {
-                        12.0
-                    } else {
-                        110.0
-                    }),
-                    right: px(if metrics.frame == Frame::Compact {
-                        12.0
-                    } else {
-                        110.0
-                    }),
-                    top: px(8),
-                    bottom: px(8),
-                },
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    // Extend the soft scrim into the scene, with no hard rectangular edge.
-    // Legal copy stays in its reserved, non-scrolling area above the mist.
-    commands.entity(colophon).with_child((
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(0),
-            right: px(0),
-            top: px(-52),
-            bottom: px(0),
-            ..default()
-        },
-        BackgroundGradient::from(LinearGradient::to_bottom(vec![
-            ColorStop::percent(palette::COLOPHON_MIST.with_alpha(0.0), 0.0),
-            ColorStop::px(palette::COLOPHON_MIST.with_alpha(0.86), 52.0),
-            ColorStop::percent(palette::COLOPHON_MIST.with_alpha(0.92), 100.0),
-        ])),
-        Pickable::IGNORE,
-    ));
-    let build = commands
-        .spawn((
-            Text::new(baylee_build::short()),
-            tf(fonts, 12.5),
-            TextColor(palette::INK.with_alpha(0.82)),
-            TextLayout::justify(Justify::Center),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let notice = commands
-        .spawn((
-            Text::new(FAN_CONTENT_NOTICE),
-            Node {
-                width: percent(100),
-                max_width: px(960),
-                ..default()
-            },
-            tf(fonts, 12.5),
-            TextColor(palette::INK),
-            TextLayout::justify(Justify::Center),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let mut source = commands.spawn((
-        Text::new(Phrase::SourceCode.fill(state.lobby.lang(), &[source_address(state)])),
-        Node {
-            max_width: percent(100),
-            ..default()
-        },
-        tf(fonts, 12.5),
-        TextColor(palette::INK),
-        // An address is one long word; on a phone it breaks where it
-        // must rather than running off the card.
-        TextLayout::new(Justify::Center, LineBreak::WordOrCharacter),
-    ));
-    // A link only for an address that passed the check at the door
-    // (`source::keep_the_code`), and the same address as a code beside it
-    // on a screen a phone could be held up to (#299).
-    let code = state.source_code.as_ref();
-    if code.is_some() {
-        source.insert((
-            Button,
-            Press::Front(FrontPress::OpenSource),
-            Underline,
-            UnderlineColor(palette::MUTED.with_alpha(0.5)),
-        ));
-    } else {
-        source.insert(Pickable::IGNORE);
-    }
-    let source = source.id();
-    // Scryfall's attribution, which its terms ask of a client that shows
-    // its data and images (`docs/legal.md` §3, #325): ours to translate,
-    // unlike the quoted notice above it.
-    let credit = commands
-        .spawn((
-            Text::new(Phrase::ScryfallCredit.text(state.lobby.lang())),
-            Node {
-                width: percent(100),
-                max_width: px(960),
-                ..default()
-            },
-            tf(fonts, 12.5),
-            TextColor(palette::INK),
-            TextLayout::justify(Justify::Center),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands
-        .entity(colophon)
-        .add_children(&[build, notice, credit, source]);
-    if let Some(code) = code.filter(|_| metrics.frame != Frame::Compact) {
-        #[allow(clippy::cast_precision_loss)] // a code is at most 177 modules a side
-        let side = px(code.side as f32 * super::source::MODULE_PX);
-        let picture = commands
-            .spawn((
-                ImageNode::new(code.image.clone()),
-                Node {
-                    width: side,
-                    height: side,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        // Framed like the form it belongs to (#295), so it is a plate of
-        // the page and not a hole in the scene.
-        let frame = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: px(12),
-                    bottom: px(10),
-                    padding: UiRect::all(px(3)),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::all(px(5)),
-                    ..default()
-                },
-                BackgroundColor(palette::PANEL),
-                BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
-                Button,
-                Press::Front(FrontPress::OpenSource),
-            ))
-            .add_child(picture)
-            .id();
-        commands.entity(colophon).add_child(frame);
-    }
-    colophon
 }
 
 /// Where the source is, for the colophon.
@@ -1314,9 +965,9 @@ fn halves(commands: &mut Commands, metrics: Metrics, controls: &[Entity]) -> Ent
             .entity(control)
             .entry::<Node>()
             .and_modify(|mut node| {
-                node.flex_basis = px(0);
+                node.flex_basis = px_fixed(0.0);
                 node.flex_grow = 1.0;
-                node.min_width = px(0);
+                node.min_width = px_fixed(0.0);
                 node.justify_content = JustifyContent::Center;
             });
         commands.entity(halves).add_child(control);
@@ -1324,420 +975,42 @@ fn halves(commands: &mut Commands, metrics: Metrics, controls: &[Entity]) -> Ent
     halves
 }
 
-/// Panel one: which gateway.
-fn gateway_face(
-    commands: &mut Commands,
-    card: Entity,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    scrolled_to: &Scrolled,
-) {
-    let lang = state.lobby.lang();
-    let header = header(
-        commands,
-        state,
-        fonts,
-        metrics,
-        false,
-        Phrase::ChooseGateway.text(lang),
-    );
-    let hint = note(commands, fonts, metrics, Phrase::GatewayHint.text(lang));
-    commands.entity(card).add_children(&[header, hint]);
-
-    if !state.gateways.is_empty() {
-        let list = super::gateway::list(commands, state, fonts, metrics, scrolled_to);
-        commands.entity(card).add_child(list);
-    }
-
-    let field = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::GatewayAddress.text(lang),
-        &FieldLook {
-            buffer: state.lobby.buffer(Field::Gateway),
-            focused: state.lobby.focus() == Field::Gateway,
-            mask: None,
-            press: Press::Shared(SharedPress::Focus(Field::Gateway)),
-            lead: None,
-            hint: Some("https://"),
-            tail: None,
-        },
-    );
-    let save = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::SaveGateway.text(lang),
-        Press::Front(FrontPress::AddGateway),
-        palette::PANEL_LIT,
-        !state.lobby.busy() && state.adding.is_none(),
-    );
-    if metrics.frame == Frame::Compact {
-        commands.entity(card).add_children(&[field, save]);
-    } else {
-        // The address and its button, one group on one line: the box grows,
-        // the button keeps its width, and the two share a baseline because
-        // the row sits at its foot, under the box's caption.
-        let add = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    align_items: AlignItems::FlexEnd,
-                    column_gap: px(metrics.gap * 1.5),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands
-            .entity(field)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.flex_grow = 1.0;
-                node.min_width = px(0);
-            });
-        commands
-            .entity(save)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.width = Val::Auto;
-                node.min_width = px(150);
-                node.justify_content = JustifyContent::Center;
-            });
-        commands.entity(add).add_children(&[field, save]);
-        commands.entity(card).add_child(add);
-    }
-    let status = status_slot(commands, state, fonts, metrics);
-    let rule = rule(commands);
-    // Playing without a gateway, apart from the list, across the whole
-    // panel: the one door on this panel that does not lead to a gateway.
-    let offline = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::PlayOffline.text(lang),
-        Press::Front(FrontPress::PlayOffline),
-        palette::PANEL,
-        true,
-    );
-    commands
-        .entity(offline)
-        .entry::<Node>()
-        .and_modify(|mut node| {
-            node.width = percent(100);
-            node.justify_content = JustifyContent::Center;
-        });
-    commands.entity(offline).insert(super::hint::HoverHint(
-        Phrase::OfflineBenefit.text(lang).to_string(),
-    ));
-    commands.entity(card).add_children(&[status, rule, offline]);
-}
-
-/// Panels two and three: the account, at the gateway chosen on panel one,
-/// signing in or creating one.
+/// The front door (§3): the logo, the tagline and the card, the text row
+/// under it, the colophon at the foot, and the About sheet when it is up.
 ///
-/// The primary action names the current form; its neighbour switches forms.
-#[allow(clippy::too_many_lines)] // one flat form, read top to bottom
-fn account_face(
-    commands: &mut Commands,
-    card: Entity,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    registering: bool,
-) {
-    let lobby = &state.lobby;
-    let lang = lobby.lang();
-
-    let title = super::gateway::title_of(state, &state.gateway);
-    let header = header(commands, state, fonts, metrics, true, &title);
-    let line = super::gateway::chosen_line(commands, state, fonts, metrics);
-    commands.entity(card).add_children(&[header, line]);
-
-    if registering && lobby.invite_key_offered() {
-        invite_entry(commands, card, state, fonts, metrics);
-    }
-
-    let fields = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.gap)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(10)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.02, 0.06, 0.09, 0.24)),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.25)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(card).add_child(fields);
-    let plain = |field: Field| FieldLook {
-        buffer: lobby.buffer(field),
-        focused: lobby.focus() == field,
-        mask: None,
-        press: Press::Shared(SharedPress::Focus(field)),
-        lead: None,
-        hint: None,
-        tail: None,
-    };
-    let masked = |field: Field| FieldLook {
-        mask: Some(Masked {
-            field: Some(field),
-            shown: lobby.showing(field),
-        }),
-        ..plain(field)
-    };
-    let username = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Username.text(lang),
-        &plain(Field::Username),
-    );
-    commands.entity(fields).add_child(username);
-    if registering {
-        let name = text_field(
-            commands,
-            fonts,
-            metrics,
-            Phrase::DisplayName.text(lang),
-            &plain(Field::DisplayName),
-        );
-        let hint = note(commands, fonts, metrics, Phrase::AccountNameHint.text(lang));
-        commands.entity(fields).add_children(&[name, hint]);
-    }
-    let password = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Password.text(lang),
-        &masked(Field::Password),
-    );
-    commands.entity(fields).add_child(password);
-    if registering {
-        let again = text_field(
-            commands,
-            fonts,
-            metrics,
-            Phrase::PasswordAgain.text(lang),
-            &masked(Field::PasswordAgain),
-        );
-        let hint = note(
-            commands,
-            fonts,
-            metrics,
-            Phrase::AccountPasswordHint.text(lang),
-        );
-        commands.entity(fields).add_children(&[again, hint]);
-    }
-
-    let submit = button(
-        commands,
-        fonts,
-        metrics,
-        if registering {
-            Phrase::CreateAccount
-        } else {
-            Phrase::SignIn
-        }
-        .text(lang),
-        Press::Front(FrontPress::Submit),
-        palette::ACCENT,
-        state.gateway_selected && !lobby.busy(),
-    );
-    commands.entity(submit).insert(AccountSubmit);
-    let switch = button(
-        commands,
-        fonts,
-        metrics,
-        if registering {
-            Phrase::SignIn
-        } else {
-            Phrase::CreateAccount
-        }
-        .text(lang),
-        Press::Front(FrontPress::ToggleRegistering),
-        palette::PANEL,
-        !lobby.busy() && (registering || lobby.registration_enabled()),
-    );
-    let actions = halves(commands, metrics, &[submit, switch]);
-    let status = status_slot(commands, state, fonts, metrics);
-    commands.entity(card).add_children(&[status, actions]);
-
-    // Returning players can submit before reaching the optional guest path.
-    // A registration key stays before its form; on sign-in it belongs to
-    // the new-guest section, because existing accounts need no beta key.
-    if lobby.guest_offered() {
-        let rule = rule(commands);
-        commands.entity(card).add_child(rule);
-        if !registering && lobby.invite_key_offered() {
-            invite_entry(commands, card, state, fonts, metrics);
-        }
-        guest_entry(commands, card, state, fonts, metrics);
-    }
-}
-
-fn invite_entry(
-    commands: &mut Commands,
-    card: Entity,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-) {
-    let lobby = &state.lobby;
-    let lang = lobby.lang();
-    let key = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::InviteKey.text(lang),
-        &FieldLook {
-            buffer: lobby.buffer(Field::InviteKey),
-            focused: lobby.focus() == Field::InviteKey,
-            mask: None,
-            press: Press::Shared(SharedPress::Focus(Field::InviteKey)),
-            lead: None,
-            hint: Some(Phrase::InviteKeyShape.text(lang)),
-            tail: None,
-        },
-    );
-    let hint = note(commands, fonts, metrics, Phrase::InviteKeyHint.text(lang));
-    commands.entity(card).add_children(&[key, hint]);
-}
-
-/// The guest's way in (#269): the guest this device keeps here, as one
-/// full-width button with its handle, or a name to play under and the button
-/// beside it — the gateway form's address row, in shape and in behaviour.
-/// Either way the hint says what a guest is.
-fn guest_entry(
-    commands: &mut Commands,
-    card: Entity,
-    state: &LobbyState,
-    fonts: &UiFonts,
-    metrics: Metrics,
-) {
-    let lobby = &state.lobby;
-    let lang = lobby.lang();
-    let enabled = state.gateway_selected && !lobby.busy();
-    let hint = super::hint::HoverHint(Phrase::GuestNotice.text(lang).to_string());
-    if let Some(kept) = lobby.kept_guest() {
-        let back = button(
-            commands,
-            fonts,
-            metrics,
-            &Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
-            Press::Front(FrontPress::PlayAsGuest),
-            palette::PANEL_LIT,
-            enabled,
-        );
-        commands
-            .entity(back)
-            .insert(hint)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.width = percent(100);
-                node.justify_content = JustifyContent::Center;
-            });
-        commands.entity(card).add_child(back);
-        return;
-    }
-    let field = text_field(
-        commands,
-        fonts,
-        metrics,
-        Phrase::GuestName.text(lang),
-        &FieldLook {
-            buffer: lobby.buffer(Field::GuestName),
-            focused: lobby.focus() == Field::GuestName,
-            mask: None,
-            press: Press::Shared(SharedPress::Focus(Field::GuestName)),
-            lead: None,
-            hint: Some(Phrase::GuestDefaultName.text(lang)),
-            tail: None,
-        },
-    );
-    let play = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::PlayAsGuest.text(lang),
-        Press::Front(FrontPress::PlayAsGuest),
-        palette::PANEL_LIT,
-        enabled,
-    );
-    commands.entity(play).insert(hint);
-    if metrics.frame == Frame::Compact {
-        commands.entity(card).add_children(&[field, play]);
-        return;
-    }
-    let row = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                align_items: AlignItems::FlexEnd,
-                column_gap: px(metrics.gap * 1.5),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands
-        .entity(field)
-        .entry::<Node>()
-        .and_modify(|mut node| {
-            node.flex_grow = 1.0;
-            node.min_width = px(0);
-        });
-    commands
-        .entity(play)
-        .entry::<Node>()
-        .and_modify(|mut node| {
-            node.width = px(170);
-            node.justify_content = JustifyContent::Center;
-        });
-    commands.entity(row).add_children(&[field, play]);
-    commands.entity(card).add_child(row);
-}
-
-/// Font Awesome's chevron-left.
-const BACK_GLYPH: char = '\u{f053}';
-
-/// Font Awesome's gear.
-const GEAR_GLYPH: char = '\u{f013}';
-
-#[allow(clippy::too_many_arguments)] // the front door also consumes its brand artwork
+/// A phone sets the logo small at the left and the card at the right,
+/// rising to the top so every field ends above the keyboard (§2.7); every
+/// other class stacks them, centred.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // the whole door, by size class
 pub(super) fn front_door(
     commands: &mut Commands,
     root: Entity,
     state: &LobbyState,
-    cast: &super::front::FrontCast,
-    fonts: &UiFonts,
-    metrics: Metrics,
+    cast: &FrontCast,
+    kit: Kit,
     scrolled_to: &Scrolled,
     assets: Option<&AssetServer>,
+    music_on: bool,
+    height: f32,
 ) {
+    let phone = kit.m.frame == Frame::Phone;
     let page = commands
         .spawn((
             Node {
-                width: percent(100),
-                min_height: px(0),
+                width: Val::Percent(100.0),
+                min_height: px_fixed(0.0),
                 flex_grow: 1.0,
                 overflow: Overflow::scroll_y(),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexStart,
-                padding: UiRect::all(px(metrics.pad * 0.8)),
-                row_gap: px(metrics.pad * 0.8),
+                padding: UiRect::all(px_fixed(kit.m.body)),
+                row_gap: px_fixed(kit.m.gap),
                 ..default()
             },
             Scrollable(List::Table),
             ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            Role::Scroll,
             // Empty space between fields must receive wheel/swipe gestures too.
             Pickable::default(),
         ))
@@ -1751,16 +1024,20 @@ pub(super) fn front_door(
         .and_modify(|mut node| node.overflow = Overflow::clip());
     commands.entity(root).add_child(page);
     let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
+    let logo_width = match kit.m.frame {
+        Frame::Phone => 120.0,
+        Frame::Compact | Frame::Narrow => 180.0,
+        Frame::Wide | Frame::Vast => 300.0,
+    };
     let brand = commands
         .spawn((
             ImageNode::new(logo),
             Node {
-                width: Val::Vh(27.0),
-                max_width: px(if metrics.frame == Frame::Compact {
-                    190.0
-                } else {
-                    280.0
-                }),
+                width: px_fixed(logo_width),
+                max_width: Val::Percent(100.0),
+                // Never more than a sixth of a short window's height: the
+                // card and the notices come first.
+                max_height: Val::Vh(if phone { 30.0 } else { 15.0 }),
                 aspect_ratio: Some(1942.0 / 809.0),
                 flex_shrink: 0.0,
                 ..default()
@@ -1768,41 +1045,93 @@ pub(super) fn front_door(
             Pickable::IGNORE,
         ))
         .id();
-    let tagline = note(
-        commands,
-        fonts,
-        metrics,
-        Phrase::WelcomeNote.text(state.lobby.lang()),
-    );
-    let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
-    let colophon = super::front::colophon(commands, state, fonts, metrics);
-    // Auto margins consume spare height, but collapse to zero when the form
-    // needs to scroll. `justify-content: center` would hide its top on overflow.
-    let composition = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                flex_shrink: 0.0,
-                row_gap: px(metrics.pad),
-                margin: UiRect::vertical(if metrics.frame == Frame::Compact {
-                    px(0)
-                } else {
-                    Val::Auto
-                }),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands
-        .entity(tagline)
-        .insert(TextLayout::justify(Justify::Center));
-    commands
-        .entity(composition)
-        .add_children(&[brand, tagline, stage]);
-    commands.entity(page).add_child(composition);
+    let stage = stage(commands, state, cast, kit, scrolled_to);
+    let text_row = door::text_row(commands, state, kit, music_on);
+    if phone {
+        // Two panes, width the plentiful axis: the logo at the left, the
+        // card at the right, the text row under the logo.
+        let panes = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    column_gap: px_fixed(kit.m.gap),
+                    align_items: AlignItems::FlexStart,
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let left = commands
+            .spawn((
+                Node {
+                    width: px_fixed(logo_width + 8.0),
+                    flex_shrink: 0.0,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px_fixed(kit.m.gap),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(left).add_children(&[brand, text_row]);
+        commands
+            .entity(stage)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_grow = 1.0;
+                node.flex_shrink = 1.0;
+                node.min_width = px_fixed(0.0);
+            });
+        commands.entity(panes).add_children(&[left, stage]);
+        commands.entity(page).add_child(panes);
+    } else {
+        let tagline = door::tagline(commands, state, kit);
+        // Auto margins consume spare height, but collapse to zero when the
+        // form needs to scroll; `justify-content: center` would hide its top
+        // on overflow.
+        let composition = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    flex_shrink: 0.0,
+                    row_gap: px_fixed(kit.m.gap),
+                    margin: UiRect::vertical(if kit.m.frame == Frame::Compact {
+                        px_fixed(0.0)
+                    } else {
+                        Val::Auto
+                    }),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands
+            .entity(composition)
+            .add_children(&[brand, tagline, stage, text_row]);
+        commands.entity(page).add_child(composition);
+    }
+    let colophon = if door::full_colophon(kit, height) {
+        door::full(commands, state, kit)
+    } else {
+        let line = door::one_line(commands, state, kit);
+        let holder = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_shrink: 0.0,
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::axes(px_fixed(kit.m.body), kit.m.px(4.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(holder).add_child(line);
+        holder
+    };
     commands.entity(root).add_child(colophon);
 }
 
@@ -1824,10 +1153,27 @@ pub(crate) enum FrontPress {
     Submit,
     /// Play the house AI in this process, no account needed.
     PlayOffline,
-    /// Play as a guest (#269): the one kept here, or a new one.
-    PlayAsGuest,
     /// Open the source address in the browser (#299).
     OpenSource,
+    /// Nothing (a control drawn while the form is busy).
+    Nothing,
+    /// `‹ Back` on the create-account and guest faces.
+    BackToSignIn,
+    /// The sign-in face's Play as guest: the guest's face, or a kept
+    /// guest at once.
+    GuestFace,
+    /// Ask an unreachable gateway again.
+    RetryGateway,
+    /// Open (`true`) or close the About sheet.
+    About(bool),
+    /// The terms sheet's Accept and continue.
+    TermsAccept,
+    /// The terms sheet's Not now (a guest's second press signs it out).
+    TermsNotNow,
+    /// A guest stays on the terms sheet.
+    TermsStay,
+    /// Ask for the terms again after a failure.
+    TermsRetry,
 }
 
 impl FrontPress {
@@ -1854,16 +1200,12 @@ impl FrontPress {
             }
             FrontPress::LeaveGateway => state.leave_gateway(),
             FrontPress::FrontMenu => state.front_menu = !state.front_menu,
-            FrontPress::OpenSource => super::source::open(state),
-            FrontPress::ToggleRegistering => state.lobby.toggle_registering(),
-            FrontPress::Submit => {
-                let request = state.lobby.submit();
-                dispatch(state, mailbox, request);
+            FrontPress::Nothing => {}
+            FrontPress::BackToSignIn => {
+                state.lobby.back_to_sign_in();
             }
-            FrontPress::PlayAsGuest => {
-                let request = state.lobby.play_as_guest();
-                // A kept guest is back at once, with no answer to wait for:
-                // that is the use of the gateway.
+            FrontPress::GuestFace => {
+                let request = state.lobby.open_guest_face();
                 if state.lobby.guest() {
                     let gateway = state.gateway.clone();
                     state.uses.record(&gateway);
@@ -1871,6 +1213,41 @@ impl FrontPress {
                         keep_gateways(state, settings);
                     }
                 }
+                dispatch(state, mailbox, request);
+            }
+            FrontPress::RetryGateway => {
+                let url = state.gateway.clone();
+                state.probes.insert(url.clone(), Probe::Asking);
+                http::probe_gateway(url, mailbox);
+                http::probe_registration(state, mailbox);
+            }
+            FrontPress::About(open) => {
+                if state.about_open != open {
+                    state.about_open = open;
+                    scrolled.set(List::About, 0.0);
+                }
+            }
+            FrontPress::TermsAccept => {
+                if let Some(ask) = state.terms.accept() {
+                    terms::perform(ask, state, prefs, scrolled, mailbox, settings);
+                }
+            }
+            FrontPress::TermsNotNow => {
+                let guest = state.lobby.guest();
+                if let Some(ask) = state.terms.not_now(guest) {
+                    terms::perform(ask, state, prefs, scrolled, mailbox, settings);
+                }
+            }
+            FrontPress::TermsStay => state.terms.stay(),
+            FrontPress::TermsRetry => {
+                if let Some(ask) = state.terms.retry() {
+                    terms::perform(ask, state, prefs, scrolled, mailbox, settings);
+                }
+            }
+            FrontPress::OpenSource => super::source::open(state),
+            FrontPress::ToggleRegistering => state.lobby.toggle_registering(),
+            FrontPress::Submit => {
+                let request = state.lobby.submit();
                 dispatch(state, mailbox, request);
             }
             // Not a duel any more. Offline is the lobby with a different
@@ -1905,20 +1282,6 @@ mod tests {
             to,
             t,
             anchor: Vec2::new(0.0, -80.0),
-        }
-    }
-
-    #[test]
-    fn the_status_band_holds_two_lines_at_every_width() {
-        // `status_slot` lays the line over the sliver and the gap either
-        // side of it, instead of reserving two empty lines, so a refusal
-        // must still find two lines of room there. Bevy's default line
-        // height is 1.2 of the font.
-        for width in [390.0, 900.0, 1728.0] {
-            let metrics = Metrics::of(width);
-            let band = 2.0 * card_gap(metrics) + metrics.small;
-            let two_lines = 2.0 * 1.2 * metrics.small;
-            assert!(band >= two_lines, "{width}: band {band} < {two_lines}");
         }
     }
 

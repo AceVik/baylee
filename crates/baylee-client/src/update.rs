@@ -295,6 +295,7 @@ impl Plugin for UpdatePlugin {
             .init_resource::<UpdatePlace>()
             .insert_resource(UpdatePrefs::load())
             .add_message::<UpdateRequest>()
+            .add_message::<crate::shellkit::focus::Activated>()
             .add_systems(
                 Update,
                 (press, show_toast, show_settings, show_place).chain(),
@@ -305,13 +306,21 @@ impl Plugin for UpdatePlugin {
 /// Answers a click on any of the updater's buttons.
 fn press(
     mut clicks: MessageReader<Pointer<Click>>,
+    mut keyed: MessageReader<crate::shellkit::focus::Activated>,
     buttons: Query<&UpdateButton>,
     mut notice: ResMut<UpdateNotice>,
     mut prefs: ResMut<UpdatePrefs>,
     mut requests: MessageWriter<UpdateRequest>,
 ) {
-    for click in clicks.read() {
-        let Ok(button) = buttons.get(click.entity) else {
+    // A click, or Enter / Space on a focused button (the settings screen's
+    // Updates section walks with the keys, WP5).
+    let pressed: Vec<Entity> = clicks
+        .read()
+        .map(|click| click.entity)
+        .chain(keyed.read().filter(|hit| hit.by_key).map(|hit| hit.entity))
+        .collect();
+    for entity in pressed {
+        let Ok(button) = buttons.get(entity) else {
             continue;
         };
         match button {
@@ -481,13 +490,17 @@ fn move_part(
         .moves
         .iter()
         .map(|to| {
-            our_button(
+            let id = our_button(
                 commands,
                 fonts,
                 metrics,
                 to.phrase().text(lang),
                 UpdateButton::Move(*to),
-            )
+            );
+            commands
+                .entity(id)
+                .insert(update_stop(&UpdateButton::Move(*to)));
+            id
         })
         .collect();
     let mut parts = vec![
@@ -609,6 +622,19 @@ fn spawn_toast(
 }
 
 /// A lobby button that answers to [`press`] rather than to the lobby.
+/// An Updates control's place in the settings screen's tab order.
+fn update_stop(action: &UpdateButton) -> crate::shellkit::focus::Stop {
+    let item = match action {
+        UpdateButton::ToggleCheck => 0,
+        UpdateButton::ToggleInstall => 1,
+        UpdateButton::CheckNow => 2,
+        UpdateButton::Move(MoveTo::Home) => 3,
+        UpdateButton::Move(MoveTo::System) => 4,
+        _ => 9,
+    };
+    crate::shellkit::focus::Stop::item(crate::settingsui::keys::SETTINGS.name, "update", item)
+}
+
 fn our_button(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -687,7 +713,7 @@ pub(crate) fn controls(
             Pickable::IGNORE,
         ))
         .id();
-    for (label, why, action, readout) in [
+    for switch in [
         (
             Phrase::UpdateAutoCheck,
             Phrase::UpdateAutoCheckWhy,
@@ -701,38 +727,7 @@ pub(crate) fn controls(
             Readout::Install,
         ),
     ] {
-        let line = lobby::row(commands, metrics, false);
-        let words = commands
-            .spawn((
-                Node {
-                    flex_grow: 1.0,
-                    flex_direction: FlexDirection::Column,
-                    ..default()
-                },
-                Pickable::IGNORE,
-                children![
-                    (
-                        Text::new(label.text(lang)),
-                        tf(fonts, metrics.text),
-                        TextColor(palette::INK),
-                    ),
-                    (
-                        Text::new(why.text(lang)),
-                        tf(fonts, metrics.small),
-                        TextColor(palette::MUTED),
-                    )
-                ],
-            ))
-            .id();
-        let switch = our_button(commands, fonts, metrics, "", action);
-        commands.entity(switch).with_child((
-            Text::new(Phrase::SwitchOn.text(lang)),
-            tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            readout,
-            Pickable::IGNORE,
-        ));
-        commands.entity(line).add_children(&[words, switch]);
+        let line = switch_line(commands, fonts, metrics, lang, switch);
         commands.entity(root).add_child(line);
     }
     let line = lobby::row(commands, metrics, true);
@@ -743,6 +738,9 @@ pub(crate) fn controls(
         Phrase::UpdateCheckNow.text(lang),
         UpdateButton::CheckNow,
     );
+    commands
+        .entity(now)
+        .insert(update_stop(&UpdateButton::CheckNow));
     let status = commands
         .spawn((
             Text::new(""),
@@ -767,6 +765,51 @@ pub(crate) fn controls(
         .id();
     commands.entity(root).add_children(&[line, place]);
     Some(root)
+}
+
+/// One of the two switches: its label and why, and the button showing it.
+fn switch_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    (label, why, action, readout): (Phrase, Phrase, UpdateButton, Readout),
+) -> Entity {
+    let line = lobby::row(commands, metrics, false);
+    let words = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+            children![
+                (
+                    Text::new(label.text(lang)),
+                    tf(fonts, metrics.text),
+                    TextColor(palette::INK),
+                ),
+                (
+                    Text::new(why.text(lang)),
+                    tf(fonts, metrics.small),
+                    TextColor(palette::MUTED),
+                )
+            ],
+        ))
+        .id();
+    let stop = update_stop(&action);
+    let switch = our_button(commands, fonts, metrics, "", action);
+    commands.entity(switch).insert(stop);
+    commands.entity(switch).with_child((
+        Text::new(Phrase::SwitchOn.text(lang)),
+        tf(fonts, metrics.text),
+        TextColor(palette::INK),
+        readout,
+        Pickable::IGNORE,
+    ));
+    commands.entity(line).add_children(&[words, switch]);
+    line
 }
 
 /// Fills the settings' [`PlaceRow`] from [`UpdatePlace`]: why installing is

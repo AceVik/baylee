@@ -1209,6 +1209,41 @@ messages! {
     ActRailUp { en: "Rail selection up", de: "Phasenleiste hoch" },
     /// Rail selection down
     ActRailDown { en: "Rail selection down", de: "Phasenleiste runter" },
+    /// The table-angle row (DESIGN-v7 D20)
+    RowTableLean { en: "Table angle", de: "Tischwinkel" },
+    /// What the table angle does
+    HelpTableLean {
+        en: "How steeply the camera looks at a table of three seats or more. Steep draws your own board about a third larger and the far seats a little smaller; flat draws every seat's board the same size.",
+        de: "Wie steil die Kamera auf einen Tisch mit drei oder mehr Plätzen blickt. Steil zeichnet dein eigenes Brett etwa ein Drittel größer und die fernen Plätze etwas kleiner; flach zeichnet alle Bretter gleich groß.",
+    },
+    /// The steep lean
+    LeanSteep { en: "Steep", de: "Steil" },
+    /// The gentle lean
+    LeanGentle { en: "Flat", de: "Flach" },
+    /// The visit-camera row (DESIGN-v7 D21)
+    RowVisitCamera { en: "Looking at a seat", de: "Sitz ansehen" },
+    /// What the visit camera does
+    HelpVisitCamera {
+        en: "Where the camera stands when you look at another seat (its button, F): behind it with your own lane or the dial in view, behind it with the dial always in view, or across from it.",
+        de: "Wo die Kamera steht, wenn du einen anderen Platz ansiehst (sein Knopf, F): dahinter mit deiner Reihe oder dem Zifferblatt im Bild, dahinter immer mit dem Zifferblatt, oder gegenüber.",
+    },
+    /// Behind, with the rule
+    VisitBehind { en: "Behind", de: "Dahinter" },
+    /// Behind, the dial always
+    VisitBehindDial { en: "Behind, dial", de: "Dahinter, Zifferblatt" },
+    /// Across
+    VisitAcross { en: "Across", de: "Gegenüber" },
+    /// The game menu's priority-sound switch, on
+    PriorityCueOn { en: "Priority sound: on", de: "Prioritätston: an" },
+    /// …and off
+    PriorityCueOff { en: "Priority sound: off", de: "Prioritätston: aus" },
+    /// The priority-sound row (DESIGN-v7 D22)
+    RowPriorityCue { en: "Priority sound", de: "Prioritätston" },
+    /// What the priority sound does
+    HelpPriorityCue {
+        en: "A soft strike when the table starts waiting for you — only on your own device, never for the others. It has its own switch; the music's switch never silences it.",
+        de: "Ein weicher Schlag, wenn der Tisch auf dich zu warten beginnt — nur auf deinem eigenen Gerät, nie für die anderen. Er hat einen eigenen Schalter; der Musik-Schalter schaltet ihn nie stumm.",
+    },
     /// Visit the next seat (TABLE-KEYBOARD §9)
     ActFocusNextSeat { en: "Visit the next seat", de: "Sitz ansehen" },
     /// Visit the previous seat
@@ -4183,6 +4218,80 @@ messages! {
     /// The gateway now refuses this client's protocol: an update is needed.
     ShellUpdateRequired { en: "Update required \u{2014} this gateway runs a newer version", de: "Update n\u{f6}tig \u{2014} dieses Gateway l\u{e4}uft mit einer neueren Version" },
     // ---- front door + terms (WP1) ----------------------------------------
+    /// The badge beside a closed-beta gateway's name on the front door.
+    FrontClosedBeta { en: "closed beta", de: "geschlossene Beta" },
+    /// The front door's version verdict when nothing is wrong.
+    FrontCompatible { en: "compatible", de: "kompatibel" },
+    /// The front door's line naming this client's own version. `{0}`.
+    FrontThisClient { en: "this client {0}", de: "dieser Client {0}" },
+    /// Under Create account and Play as guest on a closed beta.
+    FrontKeyHint { en: "This gateway needs a beta key \u{2014} the key box opens under the button you choose.", de: "Dieses Gateway braucht einen Beta-Schl\u{fc}ssel \u{2014} das Feld \u{f6}ffnet sich unter dem Knopf, den du w\u{e4}hlst." },
+    /// Under the username when an account is made.
+    FrontUsernameHint { en: "Signs you in; nobody else sees it", de: "Zum Anmelden; niemand sonst sieht ihn" },
+    /// Under a password while Caps Lock looks on.
+    FrontCapsLock { en: "Caps Lock is on", de: "Feststelltaste ist an" },
+    /// The gateway did not answer: the head of the sign-in face. `{0}` the
+    /// gateway.
+    FrontUnreachable { en: "Can\u{2019}t reach {0}", de: "{0} ist nicht erreichbar" },
+    /// Asks the gateway again.
+    FrontRetry { en: "Retry", de: "Erneut" },
+    /// The guest's face's title and its button.
+    FrontGuestTitle { en: "Play as guest", de: "Als Gast spielen" },
+    /// The text row's door to the About sheet.
+    FrontAbout { en: "About", de: "\u{dc}ber" },
+    /// The one-line colophon's notice: the policy's words, shortened; the
+    /// full notice is on the About sheet one press away (`docs/legal.md`).
+    ColophonNotice { en: "Unofficial Fan Content", de: "Inoffizieller Fan-Content" },
+    /// The one-line colophon's Scryfall credit.
+    ColophonScryfall { en: "Card data and images by Scryfall", de: "Kartendaten und -bilder von Scryfall" },
+    /// The one-line colophon's source link.
+    ColophonSource { en: "Source (AGPL-3.0)", de: "Quellcode (AGPL-3.0)" },
+    /// The About sheet's title.
+    AboutTitle { en: "About Baylee", de: "\u{dc}ber Baylee" },
+    /// The About sheet: the licence of this program.
+    AboutLicence { en: "Baylee is free software: you may run, study, share and change it under the GNU Affero General Public License, version 3. Whoever runs a changed gateway offers its players that version\u{2019}s source.", de: "Baylee ist freie Software: Du darfst sie unter der GNU Affero General Public License, Version 3, ausf\u{fc}hren, untersuchen, weitergeben und ver\u{e4}ndern. Wer ein ver\u{e4}ndertes Gateway betreibt, bietet seinen Spielern den Quellcode dieser Fassung an." },
+    /// The About sheet: the heading over the third-party licences.
+    AboutThirdParty { en: "Third-party licences", de: "Lizenzen Dritter" },
+    /// The About sheet: the interface's and the card text's typefaces.
+    AboutFonts { en: "Alegreya Sans (Juan Pablo del Peral, Huerta Tipogr\u{e1}fica) and Faustina (Omnibus-Type): SIL Open Font License 1.1.", de: "Alegreya Sans (Juan Pablo del Peral, Huerta Tipogr\u{e1}fica) und Faustina (Omnibus-Type): SIL Open Font License 1.1." },
+    /// The About sheet: the icon font.
+    AboutIcons { en: "Font Awesome Free 6.7.2 (Fonticons, Inc.): the font files under the SIL Open Font License 1.1.", de: "Font Awesome Free 6.7.2 (Fonticons, Inc.): die Schriftdateien unter der SIL Open Font License 1.1." },
+    /// The About sheet: the mana font.
+    AboutMana { en: "Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. The symbols it draws are Wizards of the Coast\u{2019}s.", de: "Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. Die Symbole, die sie zeichnet, geh\u{f6}ren Wizards of the Coast." },
+    /// The About sheet: the engine and the libraries.
+    AboutCrates { en: "Bevy and the other Rust crates this build links: each under its own licence (MIT, Apache-2.0 and the like), held to an allow-list by cargo-deny; NOTICE in the source names the rest.", de: "Bevy und die anderen Rust-Crates dieses Builds: jede unter ihrer eigenen Lizenz (MIT, Apache-2.0 und \u{e4}hnliche), von cargo-deny gegen eine Liste gepr\u{fc}ft; NOTICE im Quellcode nennt den Rest." },
+    /// The About sheet: the preconstructed deck lists.
+    AboutPrecons { en: "Preconstructed deck lists from MTGJSON (Zach Halpern): MIT License.", de: "Vorgefertigte Decklisten von MTGJSON (Zach Halpern): MIT-Lizenz." },
+    /// Closes a sheet.
+    SheetClose { en: "Close", de: "Schlie\u{df}en" },
+    /// The terms sheet's title. `{0}` the gateway.
+    TermsTitle { en: "Before you play at {0}", de: "Bevor du bei {0} spielst" },
+    /// The terms sheet's caption. `{0}` the version.
+    TermsVersion { en: "Terms of this gateway \u{b7} version {0}", de: "Bedingungen dieses Gateways \u{b7} Version {0}" },
+    /// After the version: when the operator last changed them. `{0}`.
+    TermsUpdated { en: "updated {0}", de: "aktualisiert {0}" },
+    /// While the text is asked for.
+    TermsLoading { en: "Loading the terms\u{2026}", de: "Die Bedingungen werden geladen \u{2026}" },
+    /// The text could not be read; nothing is accepted.
+    TermsLoadFailed { en: "Couldn\u{2019}t load the terms", de: "Die Bedingungen konnten nicht geladen werden" },
+    /// Asks for the text again.
+    TermsRetry { en: "Retry", de: "Erneut" },
+    /// Signs out, nothing stored (a guest is asked first).
+    TermsNotNow { en: "Not now", de: "Nicht jetzt" },
+    /// Accepts the terms shown.
+    TermsAccept { en: "Accept & continue", de: "Annehmen & weiter" },
+    /// Why Accept waits.
+    TermsScrollToAccept { en: "Read to the end to accept", de: "Bis zum Ende lesen, um anzunehmen" },
+    /// While the acceptance is on its way.
+    TermsSending { en: "Sending\u{2026}", de: "Wird gesendet \u{2026}" },
+    /// What accepting stores, and where.
+    TermsStoredNote { en: "Read to the end to accept. Your acceptance (version and time) is stored with your account on this gateway; this device remembers it too.", de: "Lies bis zum Ende, um anzunehmen. Deine Zustimmung (Version und Zeit) wird mit deinem Konto auf diesem Gateway gespeichert; dieses Ger\u{e4}t merkt sie sich auch." },
+    /// A guest pressed Not now.
+    TermsGuestAsk { en: "A guest that signs out loses its decks. Sign out anyway?", de: "Ein Gast, der sich abmeldet, verliert seine Decks. Trotzdem abmelden?" },
+    /// The guest stays and reads on.
+    TermsStay { en: "Stay", de: "Bleiben" },
+    /// The guest signs out after all.
+    TermsSignOut { en: "Sign out", de: "Abmelden" },
     // ---- play + room (WP2) -----------------------------------------------
     /// A clock's span in minutes. `{0}` minutes.
     ClockMinutes { en: "{0} min", de: "{0} Min." },
@@ -4600,6 +4709,244 @@ messages! {
     /// The builder with no card search on its gateway.
     BuildNoCatalog { en: "This gateway has no card search \u{2014} the pool shows the compiled cards only", de: "Dieses Gateway hat keine Kartensuche \u{2014} der Pool zeigt nur die eingebauten Karten" },
     // ---- settings, report, language models, updates (WP5) ---------------
+    /// The settings section: graphics.
+    SectionGraphics { en: "Graphics", de: "Grafik" },
+    /// The settings section: sound.
+    SectionAudio { en: "Audio", de: "Audio" },
+    /// The settings section: language, text, preview.
+    SectionDisplay { en: "Display & Interface", de: "Anzeige & Oberfl\u{e4}che" },
+    /// The settings section: keys.
+    SectionControls { en: "Controls", de: "Steuerung" },
+    /// The settings section: automation.
+    SectionGameplay { en: "Gameplay", de: "Spielablauf" },
+    /// The settings section: the account.
+    SectionAccount { en: "Account", de: "Konto" },
+    /// The settings section: the gateway.
+    SectionNetwork { en: "Network & Gateway", de: "Netzwerk & Gateway" },
+    /// The settings section: the language-model seat.
+    SectionLanguageModels { en: "Language models", de: "Sprachmodelle" },
+    /// The settings section: the updater.
+    SectionUpdates { en: "Updates", de: "Updates" },
+    /// The settings section: what is kept and sent.
+    SectionPrivacy { en: "Privacy & Data", de: "Datenschutz & Daten" },
+    /// A row's storage tag: this device.
+    TagDevice { en: "this device", de: "dieses Ger\u{e4}t" },
+    /// A row's storage tag: the account, on every device.
+    TagAccount { en: "your account", de: "dein Konto" },
+    /// A row's storage tag: this machine's seat file.
+    TagMachine { en: "this machine", de: "dieser Rechner" },
+    /// The settings search field's hint.
+    SettingsSearch { en: "Search settings\u{2026}", de: "Einstellungen suchen \u{2026}" },
+    /// The settings search found nothing.
+    SettingsNoMatch { en: "Nothing matches", de: "Nichts gefunden" },
+    /// Puts the shown section's rows back.
+    SettingsResetSection { en: "Reset this section", de: "Bereich zur\u{fc}cksetzen" },
+    /// Display & Interface, on a chip.
+    SectionDisplayShort { en: "Display", de: "Anzeige" },
+    /// Network & Gateway, on a chip.
+    SectionNetworkShort { en: "Network", de: "Netzwerk" },
+    /// Language models, on a chip.
+    SectionModelsShort { en: "Models", de: "Modelle" },
+    /// Privacy & Data, on a chip.
+    SectionPrivacyShort { en: "Privacy", de: "Datenschutz" },
+    /// An account row before sign-in.
+    SettingsSignInToChange { en: "Sign in to change", de: "Zum \u{c4}ndern anmelden" },
+    /// The rule over Graphics' account rows.
+    SettingsAccountRule { en: "Your account's rows hold on every device; a device row never raises them", de: "Die Zeilen deines Kontos gelten auf jedem Ger\u{e4}t; eine Ger\u{e4}tezeile hebt sie nie an" },
+    /// The save line under a section.
+    SettingsSaveLine { en: "Saved at once \u{b7} tagged rows go with your account", de: "Sofort gespeichert \u{b7} markierte Zeilen gehen mit deinem Konto" },
+    /// The save line before sign-in.
+    SettingsSaveLineOffline { en: "Saved on this device \u{b7} sign in and the tagged rows follow your account", de: "Auf diesem Ger\u{e4}t gespeichert \u{b7} melde dich an, und die markierten Zeilen folgen deinem Konto" },
+    /// Graphics: the preset.
+    RowPreset { en: "Preset", de: "Voreinstellung" },
+    /// Graphics: what the preset does.
+    HelpPreset { en: "Writes this device's rows below; Custom once one of them differs", de: "Setzt die Ger\u{e4}tezeilen darunter; Eigene, sobald eine davon abweicht" },
+    /// Graphics: the GPU the preset was picked for. {0} its name.
+    HelpPresetAuto { en: "Picked for {0}", de: "Gew\u{e4}hlt f\u{fc}r {0}" },
+    /// Graphics: windowed, borderless or fullscreen.
+    RowDisplayMode { en: "Display mode", de: "Anzeigemodus" },
+    /// Graphics: the display mode's revert.
+    HelpDisplayMode { en: "A change asks to be kept and reverts in 15 s", de: "Eine \u{c4}nderung fragt nach und wird nach 15 s zur\u{fc}ckgenommen" },
+    /// A display mode.
+    DisplayWindowed { en: "Windowed", de: "Fenster" },
+    /// A display mode.
+    DisplayBorderless { en: "Borderless", de: "Randlos" },
+    /// A display mode.
+    DisplayFullscreen { en: "Fullscreen", de: "Vollbild" },
+    /// The 15-s revert's question. {0} seconds left.
+    KeepDisplayMode { en: "Keep these settings? Reverts in {0} s", de: "Diese Einstellung behalten? Zur\u{fc}ck in {0} s" },
+    /// Keeps a changed display mode.
+    KeepIt { en: "Keep", de: "Behalten" },
+    /// Puts the display mode back at once.
+    RevertIt { en: "Revert", de: "Zur\u{fc}ck" },
+    /// Graphics: which monitor.
+    RowMonitor { en: "Monitor", de: "Bildschirm" },
+    /// Graphics: the monitor row.
+    HelpMonitor { en: "Which screen the window stands on", de: "Auf welchem Bildschirm das Fenster steht" },
+    /// Graphics: edge smoothing's cost.
+    HelpAntiAliasing { en: "Smooths card edges and lettering \u{b7} GPU \u{2191}", de: "Gl\u{e4}ttet Kartenkanten und Schrift \u{b7} GPU \u{2191}" },
+    /// Graphics: anti-aliasing on a phone.
+    AntiAliasingLocked { en: "Off on phones \u{2014} tilers pay most for it", de: "Auf Telefonen aus \u{2014} Kachel-GPUs zahlen am meisten daf\u{fc}r" },
+    /// Graphics: vsync's effect.
+    HelpVSync { en: "Waits for the display: no tearing, one frame of delay \u{b7} power \u{2193}", de: "Wartet auf den Bildschirm: kein Zerrei\u{df}en, ein Bild Verz\u{f6}gerung \u{b7} Strom \u{2193}" },
+    /// Graphics: the frame limit's effect.
+    HelpFrameLimit { en: "Caps frames per second \u{b7} lower is cooler and quieter", de: "Begrenzt die Bilder pro Sekunde \u{b7} weniger ist k\u{fc}hler und leiser" },
+    /// Graphics: the background limit's effect.
+    HelpBackgroundLimit { en: "Frames per second while another window has the focus \u{b7} power \u{2193}\u{2193}", de: "Bilder pro Sekunde, w\u{e4}hrend ein anderes Fenster vorn ist \u{b7} Strom \u{2193}\u{2193}" },
+    /// Graphics: the frame-time counter.
+    RowShowFrameRate { en: "Show frame rate", de: "Bildrate anzeigen" },
+    /// Graphics: the counter.
+    HelpShowFrameRate { en: "A small counter in a corner; a report carries it too", de: "Ein kleiner Z\u{e4}hler in einer Ecke; ein Bericht tr\u{e4}gt ihn mit" },
+    /// Graphics: the painting behind the panels.
+    RowBackdrop { en: "Backdrop", de: "Hintergrund" },
+    /// Graphics: the backdrop's effect.
+    HelpBackdrop { en: "The painting behind every screen; Plain is the easiest to read and the cheapest frame", de: "Das Gem\u{e4}lde hinter jedem Bildschirm; Schlicht liest sich am leichtesten und kostet am wenigsten" },
+    /// A backdrop.
+    BackdropPainting { en: "Painting", de: "Gem\u{e4}lde" },
+    /// A backdrop.
+    BackdropDimmed { en: "Dimmed", de: "Gedimmt" },
+    /// A backdrop.
+    BackdropPlain { en: "Plain", de: "Schlicht" },
+    /// Graphics: ambient detail's effect.
+    HelpAmbient { en: "Drifting light and dust; never above your account's Atmosphere \u{b7} GPU \u{2191}", de: "Treibendes Licht und Staub; nie \u{fc}ber der Atmosph\u{e4}re deines Kontos \u{b7} GPU \u{2191}" },
+    /// Ambient detail: standing still.
+    AmbientStill { en: "Still", de: "Ruhig" },
+    /// Ambient detail: the lighter one.
+    AmbientSoft { en: "Soft", de: "Sanft" },
+    /// Ambient detail: everything.
+    AmbientFull { en: "Full", de: "Voll" },
+    /// Graphics: the account's atmosphere.
+    HelpAtmosphere { en: "The ceiling for ambient detail on every device", de: "Die Obergrenze f\u{fc}r Umgebungsdetails auf jedem Ger\u{e4}t" },
+    /// Graphics: the account's reduce-motion switch.
+    RowHoldStill { en: "Hold the table still", de: "Tisch ruhig halten" },
+    /// Graphics: holding the table still.
+    HelpHoldStill { en: "Cards jump instead of gliding, everywhere; every rule stays", de: "Karten springen statt zu gleiten, \u{fc}berall; jede Regel bleibt" },
+    /// Graphics: the sky.
+    HelpSky { en: "The light behind the table: follows your clock, or stays at day or night", de: "Das Licht hinter dem Tisch: folgt deiner Uhr oder bleibt bei Tag oder Nacht" },
+    /// Audio: the master volume.
+    HelpMaster { en: "Every sound, the music included", de: "Jeder Klang, die Musik eingeschlossen" },
+    /// Audio: the music.
+    RowMusic { en: "Music", de: "Musik" },
+    /// Audio: the music's volume.
+    HelpMusic { en: "The lobby's own score; every lobby screen has its switch", de: "Die eigene Musik der Lobby; jeder Lobby-Bildschirm hat ihren Schalter" },
+    /// Audio: the table's sounds.
+    HelpEffects { en: "The table's sounds, under your account's Table sounds", de: "Die Kl\u{e4}nge des Tisches, unter den Tischkl\u{e4}ngen deines Kontos" },
+    /// Audio: silence behind other windows.
+    HelpMuteUnfocused { en: "Silence while another window has the focus", de: "Stille, w\u{e4}hrend ein anderes Fenster vorn ist" },
+    /// Audio: the account's table sounds.
+    RowTableSounds { en: "Table sounds", de: "Tischkl\u{e4}nge" },
+    /// Audio: the account's ceiling.
+    HelpTableSounds { en: "Off, half or full on every device; Off wins over every slider", de: "Aus, halb oder voll auf jedem Ger\u{e4}t; Aus gewinnt gegen jeden Regler" },
+    /// Display: the language.
+    HelpLanguage { en: "The interface's language, and the card text's where the gateway has it", de: "Die Sprache der Oberfl\u{e4}che und, wo das Gateway sie hat, der Kartentexte" },
+    /// Display: the five text steps.
+    RowTextSize { en: "Text size", de: "Textgr\u{f6}\u{df}e" },
+    /// Display: the text steps.
+    HelpTextSize { en: "Five steps for every screen outside the table \u{b7} Ctrl/Cmd + = \u{2212} 0", de: "F\u{fc}nf Stufen f\u{fc}r jeden Bildschirm au\u{df}erhalb des Tisches \u{b7} Strg/Cmd + = \u{2212} 0" },
+    /// Display: the card preview's size.
+    RowPreviewSize { en: "Card preview size", de: "Gr\u{f6}\u{df}e der Kartenvorschau" },
+    /// Display: the preview.
+    HelpPreviewSize { en: "How large a card shows when pointed at", de: "Wie gro\u{df} eine Karte erscheint, auf die gezeigt wird" },
+    /// Display: the text face.
+    RowTextFace { en: "Prefer the text face", de: "Textansicht bevorzugen" },
+    /// Display: the text face's effect.
+    HelpTextFace { en: "Draw cards as text instead of their print; the modifier key swaps for as long as it is held", de: "Karten als Text statt als Druck zeichnen; die Zusatztaste tauscht, solange sie gehalten wird" },
+    /// Controls: the shell's shortcuts.
+    RowShellKeys { en: "Shortcuts", de: "Tastenk\u{fc}rzel" },
+    /// Controls: rebinding a shortcut.
+    HelpShellKeys { en: "The keys of every screen outside the table; a key already in use is refused, a second press takes it", de: "Die Tasten jedes Bildschirms au\u{df}erhalb des Tisches; eine belegte Taste wird abgelehnt, ein zweiter Druck nimmt sie" },
+    /// Controls: the table's keys.
+    RowTableKeys { en: "Table keys", de: "Tasten am Tisch" },
+    /// Controls: the table's keys.
+    HelpTableKeys { en: "The keys while a game is open", de: "Die Tasten, w\u{e4}hrend ein Spiel offen ist" },
+    /// Gameplay: automation.
+    HelpAutomation { en: "What the client answers for you; no rule changes", de: "Was der Client f\u{fc}r dich beantwortet; keine Regel \u{e4}ndert sich" },
+    /// Gameplay: kept ability answers.
+    RowAbilityAnswers { en: "Ability answers", de: "Antworten auf F\u{e4}higkeiten" },
+    /// Gameplay: kept ability answers.
+    HelpAbilityAnswers { en: "Answers you asked the client to keep giving", de: "Antworten, die der Client f\u{fc}r dich weiter geben soll" },
+    /// Account: the handle.
+    RowHandle { en: "Handle", de: "Name" },
+    /// Account: the handle.
+    HelpHandle { en: "What other players see you as", de: "Wie andere Spieler dich sehen" },
+    /// Account: copies the handle.
+    CopyHandle { en: "Copy my handle", de: "Meinen Namen kopieren" },
+    /// Account: signing out.
+    RowSignOut { en: "Sign out", de: "Abmelden" },
+    /// Account: what signing out does.
+    HelpSignOut { en: "Ends this session here and on the gateway", de: "Beendet diese Sitzung hier und auf dem Gateway" },
+    /// Account: what deleting does.
+    HelpDeleteAccount { en: "The account, its decks and its settings, for good", de: "Das Konto, seine Decks und seine Einstellungen, f\u{fc}r immer" },
+    /// Network: the gateway.
+    RowGateway { en: "Gateway", de: "Gateway" },
+    /// Network: the gateway row.
+    HelpGateway { en: "Where this client plays, and which version it runs", de: "Wo dieser Client spielt und welche Version dort l\u{e4}uft" },
+    /// Network: back to the list.
+    HelpSwitchGateway { en: "Back to the list of gateways", de: "Zur\u{fc}ck zur Liste der Gateways" },
+    /// Network: the connection's state.
+    RowDiagnostics { en: "Diagnostics", de: "Diagnose" },
+    /// Network: diagnostics.
+    HelpDiagnostics { en: "The connection's state as text, to copy into a report", de: "Der Zustand der Verbindung als Text, zum Kopieren in einen Bericht" },
+    /// Copies diagnostics.
+    CopyAsText { en: "Copy as text", de: "Als Text kopieren" },
+    /// Network: playing offline.
+    NetworkOffline { en: "Offline \u{b7} local decks, no gateway", de: "Offline \u{b7} lokale Decks, kein Gateway" },
+    /// Language models: the profiles.
+    RowProfiles { en: "Profiles", de: "Profile" },
+    /// Opens a profile's sheet.
+    ProfileOpen { en: "Edit", de: "Bearbeiten" },
+    /// The report's attachments, a disclosure.
+    ReportAttachments { en: "Attachments", de: "Anh\u{e4}nge" },
+    /// Beside it: how many are ticked of how many this report has.
+    ReportAttachmentsCount { en: "{0} of {1}", de: "{0} von {1}" },
+    /// Where a report goes, signed in: the gateway, by name or address.
+    ReportGoesGateway { en: "Goes to {0} with your session", de: "Geht mit deiner Sitzung an {0}" },
+    /// Updates: checking on its own.
+    RowCheckUpdates { en: "Check automatically", de: "Automatisch pr\u{fc}fen" },
+    /// Updates: what checking sends.
+    HelpCheckUpdates { en: "Asks GitHub at start and every six hours; GitHub sees your IP address and this version. Off: no request at all", de: "Fragt GitHub beim Start und alle sechs Stunden; GitHub sieht deine IP-Adresse und diese Version. Aus: gar keine Anfrage" },
+    /// Updates: installing on its own.
+    RowInstallUpdates { en: "Install automatically", de: "Automatisch installieren" },
+    /// Updates: installing.
+    HelpInstallUpdates { en: "Downloads a signed update and installs it when you quit", de: "L\u{e4}dt ein signiertes Update und installiert es beim Beenden" },
+    /// Updates: asking now.
+    RowCheckNow { en: "Check now", de: "Jetzt pr\u{fc}fen" },
+    /// Updates: what was found, and why it does not install.
+    HelpCheckNow { en: "What the last check found, and why an update does not install itself", de: "Was die letzte Pr\u{fc}fung fand, und warum sich ein Update nicht selbst installiert" },
+    /// Privacy: what is kept and sent.
+    RowWhatIsKept { en: "What is kept and sent", de: "Was gespeichert und gesendet wird" },
+    /// Privacy: the true list.
+    HelpWhatIsKept { en: "The gateway keeps your account, decks, settings and which terms you accepted. This client sends, on its own, only update checks to GitHub (desktop, while checking is on), crash reports once you agree, and asks Scryfall for card images in a browser", de: "Das Gateway speichert dein Konto, deine Decks, Einstellungen und welche Bedingungen du angenommen hast. Dieser Client sendet von selbst nur Update-Pr\u{fc}fungen an GitHub (Desktop, solange gepr\u{fc}ft wird), Absturzberichte nach deiner Zustimmung und fragt im Browser Scryfall nach Kartenbildern" },
+    /// Privacy: what a report may carry.
+    RowReportConsent { en: "What a report may carry", de: "Was ein Bericht mitnehmen darf" },
+    /// Privacy: consent.
+    HelpReportConsent { en: "Ticked here, ticked on the report form; a report shows exactly what is sent", de: "Hier angehakt, im Berichtsformular angehakt; ein Bericht zeigt genau, was gesendet wird" },
+    /// Privacy: crash reports.
+    RowCrashReports { en: "Crash reports", de: "Absturzberichte" },
+    /// Privacy: crash reports.
+    HelpCrashReports { en: "After a crash: send a report, ask each time, or never", de: "Nach einem Absturz: Bericht senden, jedes Mal fragen oder nie" },
+    /// Crash reports: always.
+    CrashSend { en: "Send", de: "Senden" },
+    /// Crash reports: ask.
+    CrashAsk { en: "Ask", de: "Fragen" },
+    /// Crash reports: never.
+    CrashNever { en: "Never", de: "Nie" },
+    /// Privacy: the report form.
+    HelpReportProblem { en: "Opens the report form (F8)", de: "\u{d6}ffnet das Berichtsformular (F8)" },
+    /// Opens the report form.
+    ReportOpen { en: "Report a problem", de: "Problem melden" },
+    /// Language models on a browser or phone build.
+    LanguageModelsElsewhere { en: "Language models are set up on a desktop client", de: "Sprachmodelle werden in einem Desktop-Client eingerichtet" },
+    /// Controls: a key no shortcut may take.
+    KeyFixed { en: "This key is fixed and cannot be bound", de: "Diese Taste ist fest und l\u{e4}sst sich nicht belegen" },
+    /// Controls: a key another shortcut holds. `{0}` the holder.
+    KeyHeldBy { en: "Already {0} \u{2014} press the key again, or take it", de: "Schon {0} \u{2014} dr\u{fc}cke die Taste noch einmal oder nimm sie" },
+    /// Controls: takes the refused key.
+    KeyTake { en: "Take it", de: "Nehmen" },
+    /// Gameplay: no ability answers kept.
+    NoAbilityAnswers { en: "None kept yet", de: "Noch keine" },
+    /// A volume at nothing.
+    SliderOff { en: "off", de: "aus" },
 }
 
 #[cfg(test)]

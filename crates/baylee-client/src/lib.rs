@@ -1651,6 +1651,7 @@ fn add_present_systems(app: &mut App) {
                     hud::sync_players.after(hud::sync_ledge),
                     hud::glow_the_players.after(hud::sync_players),
                     hud::show_the_tags.after(hud::sync_players),
+                    hud::show_priority_switch,
                 ),
                 // The zone dialog, on a revision of its own for the same
                 // reason as the shelf and with a louder symptom: the dialog

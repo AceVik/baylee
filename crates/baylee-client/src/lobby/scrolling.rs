@@ -34,6 +34,14 @@ pub(crate) enum List {
     Settings,
     /// The import or export dialog.
     Transfer,
+    /// The terms sheet's text (WP1).
+    Terms,
+    /// The About sheet's text (WP1).
+    About,
+    /// A language-model profile's sheet (WP5).
+    ProfileSheet,
+    /// The settings screen's section list (WP5).
+    SettingsNav,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -54,6 +62,10 @@ pub(crate) struct Scrolled {
     picker_panel: f32,
     settings: f32,
     transfer: f32,
+    terms: f32,
+    about: f32,
+    profile_sheet: f32,
+    settings_nav: f32,
 }
 
 impl Scrolled {
@@ -69,10 +81,14 @@ impl Scrolled {
             List::PickerPanel => self.picker_panel,
             List::Settings => self.settings,
             List::Transfer => self.transfer,
+            List::Terms => self.terms,
+            List::About => self.about,
+            List::ProfileSheet => self.profile_sheet,
+            List::SettingsNav => self.settings_nav,
         }
     }
 
-    pub(super) fn set(&mut self, list: List, at: f32) {
+    pub(crate) fn set(&mut self, list: List, at: f32) {
         match list {
             List::Pool => self.pool = at,
             List::Deck => self.deck = at,
@@ -84,6 +100,10 @@ impl Scrolled {
             List::PickerPanel => self.picker_panel = at,
             List::Settings => self.settings = at,
             List::Transfer => self.transfer = at,
+            List::Terms => self.terms = at,
+            List::About => self.about = at,
+            List::ProfileSheet => self.profile_sheet = at,
+            List::SettingsNav => self.settings_nav = at,
         }
     }
 }

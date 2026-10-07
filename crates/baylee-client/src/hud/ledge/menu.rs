@@ -408,6 +408,8 @@ pub fn sync_menu(
         lang,
     );
     commands.entity(panel).add_child(music);
+    let priority = priority_switch(&mut commands, &fonts);
+    commands.entity(panel).add_child(priority);
     if let Some(line) =
         crate::update::menu_line(&mut commands, &fonts, lang, update.as_deref(), VERSION_PT)
     {
@@ -514,8 +516,88 @@ pub fn grow_the_menu(
     }
 }
 
+/// The priority sound's switch (DESIGN-v7 §4.5, D22), beside the music's:
+/// this device's `AudioMix::priority_cue`, saved with its settings. Its words
+/// say the state and are kept current by [`show_priority_switch`].
+#[derive(Component)]
+pub struct PrioritySwitch;
+
+fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
+    let metrics = crate::lobby::Metrics::of(MENU_W);
+    let id = crate::lobby::button(
+        commands,
+        fonts,
+        metrics,
+        "",
+        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
+        palette::PANEL,
+        true,
+    );
+    commands
+        .entity(id)
+        .remove::<crate::lobby::Press>()
+        .insert(Button)
+        .with_child((
+            Text::new(""),
+            crate::hud::tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            PrioritySwitch,
+            Pickable::IGNORE,
+        ))
+        .observe(
+            |mut click: On<Pointer<Click>>,
+             mut settings: ResMut<crate::settings::ClientSettings>| {
+                click.propagate(false);
+                settings.audio.priority_cue = !settings.audio.priority_cue;
+                settings.save();
+            },
+        );
+    id
+}
+
+/// Writes the switch's words when the setting or the language changed.
+pub fn show_priority_switch(
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    mut labels: Query<&mut Text, With<PrioritySwitch>>,
+) {
+    let Some(settings) = settings else {
+        return;
+    };
+    let lang = Lang::of(&settings.lang);
+    let words = if settings.audio.priority_cue {
+        Phrase::PriorityCueOn
+    } else {
+        Phrase::PriorityCueOff
+    }
+    .text(lang);
+    for mut text in &mut labels {
+        if text.0 != words {
+            text.0 = words.to_string();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    /// The game menu's priority-sound switch says the device's state, and
+    /// follows it when it changes (DESIGN-v7 §4.5).
+    #[test]
+    fn the_priority_switch_says_its_state() {
+        let mut app = App::new();
+        app.insert_resource(crate::settings::ClientSettings::default())
+            .add_systems(Update, show_priority_switch);
+        let label = app.world_mut().spawn((Text::new(""), PrioritySwitch)).id();
+        app.update();
+        let said = |app: &App| app.world().get::<Text>(label).expect("a text").0.clone();
+        assert_eq!(said(&app), "Priority sound: on");
+        app.world_mut()
+            .resource_mut::<crate::settings::ClientSettings>()
+            .audio
+            .priority_cue = false;
+        app.update();
+        assert_eq!(said(&app), "Priority sound: off");
+    }
+
     use super::*;
 
     /// The panel is wide enough for everything it can ever say.

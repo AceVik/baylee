@@ -219,9 +219,9 @@ fn the_panel_survives_the_rebuild_the_arming_press_causes() {
     let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
     assert!(shown, "the menu is open");
     assert_eq!(
-        rows, 7,
-        "two ways out, the report row, music controls, a rule, the version \
-         and Scryfall's attribution"
+        rows, 8,
+        "two ways out, the report row, music controls, the priority sound's \
+         switch, a rule, the version and Scryfall's attribution"
     );
     // The shelf's own children, less the two casts: those are spawned
     // with the shelf and exempt from its rebuild, so counting them would

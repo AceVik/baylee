@@ -72,12 +72,23 @@ pub(crate) fn table_prints(preset: &baylee_core::preset::GamePreset) -> Vec<Stri
     ids
 }
 
+/// The acceptance decks, embedded when the gateway is built.
+///
+/// Not read at run time: a path relative to the working directory made every
+/// gateway started anywhere but the repository root (or a directory a deploy
+/// had copied the file into) answer an AI seat without a deck with a 500. The
+/// decks name cards by the pool compiled into this binary, so the file is part
+/// of the build in any case; editing it rebuilds the gateway, as it already
+/// rebuilds the client and the seat bridge.
+const ACCEPTANCE_DECKS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/acceptance-decks.txt"
+));
+
 /// The deck an AI seat plays when the host did not give it one.
 pub(crate) fn house_deck() -> Result<baylee_cards::decks::LoadedDeck, (StatusCode, Json<ErrorBody>)>
 {
-    let text = std::fs::read_to_string("data/acceptance-decks.txt")
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "deck data missing"))?;
-    baylee_cards::decks::load_acceptance(&text, "Victory")
+    baylee_cards::decks::load_acceptance(ACCEPTANCE_DECKS, "Victory")
         .map_err(|_e| err(StatusCode::INTERNAL_SERVER_ERROR, "house deck missing"))
 }
 

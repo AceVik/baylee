@@ -246,6 +246,61 @@ impl Effects {
     }
 }
 
+/// The painting behind every screen outside the table (WP5, N4-6): whole,
+/// dimmed, or none at all — readability for low vision, and a cheaper frame
+/// on a weak GPU (the scene is not drawn at all on `Plain`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Backdrop {
+    /// The painting as it is.
+    #[default]
+    Painting,
+    /// At 40 % of its light.
+    Dimmed,
+    /// None: the flat ground the camera clears to.
+    Plain,
+}
+
+impl Backdrop {
+    /// Every choice, in the order a picker offers them.
+    pub const ALL: [Self; 3] = [Self::Painting, Self::Dimmed, Self::Plain];
+
+    /// How much of the painting is drawn: its alpha over the flat ground.
+    #[must_use]
+    pub const fn share(self) -> f32 {
+        match self {
+            Self::Painting => 1.0,
+            Self::Dimmed => 0.4,
+            Self::Plain => 0.0,
+        }
+    }
+}
+
+/// How the window stands on a desktop (WP5): a window, a borderless window
+/// over the whole monitor, or the monitor's own fullscreen. Not a preset's
+/// knob: a preset never moves the window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DisplayMode {
+    /// A window.
+    #[default]
+    Windowed,
+    /// A window without its frame, covering the monitor.
+    Borderless,
+    /// The monitor's fullscreen.
+    Fullscreen,
+}
+
+impl DisplayMode {
+    /// Every choice, in the order a picker offers them.
+    pub const ALL: [Self; 3] = [Self::Windowed, Self::Borderless, Self::Fullscreen];
+}
+
+/// Seconds a changed display mode stands before it reverts by itself,
+/// unless kept (S4-7): a mode the monitor cannot show leaves the player a
+/// way back without seeing anything.
+pub const DISPLAY_REVERT_SECS: f32 = 15.0;
+
 /// Seconds without any input after which the front door and the lobby draw
 /// at the background rate. Never at the table, where an opponent's move is
 /// worth watching at full rate whether or not the mouse moves.
@@ -265,7 +320,7 @@ pub const HIDDEN_FPS: u32 = 1;
 
 /// The device's graphics settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, from = "Stored")]
 pub struct Graphics {
     /// The preset last picked, `Custom` once a knob was moved by hand.
     #[serde(deserialize_with = "lenient")]
@@ -285,12 +340,89 @@ pub struct Graphics {
     /// How much the ambient surfaces do.
     #[serde(deserialize_with = "lenient")]
     pub effects: Effects,
+    /// The painting behind the screens outside the table.
+    #[serde(deserialize_with = "lenient")]
+    pub backdrop: Backdrop,
+    /// How the window stands (desktop). Not a preset's knob.
+    #[serde(deserialize_with = "lenient")]
+    pub display_mode: DisplayMode,
+    /// The frame-time counter in a corner. Not a preset's knob.
+    pub show_frame_rate: bool,
 }
 
 impl Default for Graphics {
     fn default() -> Self {
         Self::of(Preset::Medium)
     }
+}
+
+/// [`Graphics`] as a file holds it. A file written before the backdrop
+/// existed has none: it takes its preset's, so a device on Low stays
+/// Low, painting and all, and is not turned `Custom` by its next change.
+#[derive(Deserialize)]
+#[serde(default)]
+struct Stored {
+    #[serde(deserialize_with = "lenient")]
+    preset: Preset,
+    #[serde(deserialize_with = "lenient")]
+    anti_aliasing: AntiAliasing,
+    #[serde(deserialize_with = "lenient")]
+    vsync: VSync,
+    #[serde(deserialize_with = "lenient")]
+    frame_limit: FrameLimit,
+    #[serde(deserialize_with = "lenient")]
+    background_limit: BackgroundLimit,
+    #[serde(deserialize_with = "lenient")]
+    effects: Effects,
+    #[serde(deserialize_with = "lenient_option")]
+    backdrop: Option<Backdrop>,
+    #[serde(deserialize_with = "lenient")]
+    display_mode: DisplayMode,
+    show_frame_rate: bool,
+}
+
+impl Default for Stored {
+    fn default() -> Self {
+        let g = Graphics::default();
+        Self {
+            preset: g.preset,
+            anti_aliasing: g.anti_aliasing,
+            vsync: g.vsync,
+            frame_limit: g.frame_limit,
+            background_limit: g.background_limit,
+            effects: g.effects,
+            backdrop: None,
+            display_mode: g.display_mode,
+            show_frame_rate: g.show_frame_rate,
+        }
+    }
+}
+
+impl From<Stored> for Graphics {
+    fn from(s: Stored) -> Self {
+        Self {
+            preset: s.preset,
+            anti_aliasing: s.anti_aliasing,
+            vsync: s.vsync,
+            frame_limit: s.frame_limit,
+            background_limit: s.background_limit,
+            effects: s.effects,
+            backdrop: s.backdrop.unwrap_or(Self::of(s.preset).backdrop),
+            display_mode: s.display_mode,
+            show_frame_rate: s.show_frame_rate,
+        }
+    }
+}
+
+/// [`lenient`] for a value a file may leave out: what does not parse is
+/// absent.
+fn lenient_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).ok())
 }
 
 impl Graphics {
@@ -334,7 +466,52 @@ impl Graphics {
             frame_limit,
             background_limit,
             effects,
+            backdrop: if matches!(preset, Preset::Low) {
+                Backdrop::Plain
+            } else {
+                Backdrop::Painting
+            },
+            display_mode: DisplayMode::Windowed,
+            show_frame_rate: false,
         }
+    }
+
+    /// These settings with `preset`'s knobs, keeping what no preset sets
+    /// (the display mode, the frame-rate counter): the preset row writes
+    /// the preset's knobs and nothing else.
+    #[must_use]
+    pub const fn with_preset(self, preset: Preset) -> Self {
+        let mut next = Self::of(preset);
+        next.display_mode = self.display_mode;
+        next.show_frame_rate = self.show_frame_rate;
+        next
+    }
+
+    /// The knobs that differ from the named preset's, for the preset row's
+    /// *Custom · n changes* disclosure; none when it is a named preset.
+    #[must_use]
+    pub fn changes_from(&self, preset: Preset) -> Vec<&'static str> {
+        let base = Self::of(preset);
+        let mut out = Vec::new();
+        if self.anti_aliasing != base.anti_aliasing {
+            out.push("anti_aliasing");
+        }
+        if self.vsync != base.vsync {
+            out.push("vsync");
+        }
+        if self.frame_limit != base.frame_limit {
+            out.push("frame_limit");
+        }
+        if self.background_limit != base.background_limit {
+            out.push("background_limit");
+        }
+        if self.effects != base.effects {
+            out.push("effects");
+        }
+        if self.backdrop != base.backdrop {
+            out.push("backdrop");
+        }
+        out
     }
 
     /// The named preset whose knobs these are, or `Custom`.
@@ -352,6 +529,7 @@ impl Graphics {
             && self.frame_limit == other.frame_limit
             && self.background_limit == other.background_limit
             && self.effects == other.effects
+            && self.backdrop == other.backdrop
     }
 
     /// Changes one knob through `change`, and names the preset that now
@@ -544,6 +722,119 @@ mod tests {
             assert!(low.effects.detail() <= high.effects.detail());
         }
         assert_eq!(Graphics::default(), Graphics::of(Preset::Medium));
+    }
+
+    /// A file from before the backdrop takes its preset's; one that names
+    /// a backdrop keeps it; a WP5 file reads back as written.
+    #[test]
+    fn a_file_without_a_backdrop_takes_its_preset_s() {
+        // Low as a file before WP5 wrote it: every knob but the new three.
+        let mut old = serde_json::to_value(Graphics::of(Preset::Low)).unwrap();
+        for new in ["backdrop", "display_mode", "show_frame_rate"] {
+            old.as_object_mut().unwrap().remove(new);
+        }
+        let g: Graphics = serde_json::from_value(old).expect("reads");
+        assert_eq!(g.preset, Preset::Low);
+        assert_eq!(g.backdrop, Graphics::of(Preset::Low).backdrop);
+        let mut moved = g;
+        moved.adjust(|_| {});
+        assert_eq!(moved.preset, Preset::Low, "still Low, not Custom");
+        let named = r#"{"preset":"low","backdrop":"dimmed"}"#;
+        let g: Graphics = serde_json::from_str(named).expect("reads");
+        assert_eq!(g.backdrop, Backdrop::Dimmed);
+        let mut g = Graphics::of(Preset::High);
+        g.show_frame_rate = true;
+        let back: Graphics = serde_json::from_str(&serde_json::to_string(&g).unwrap()).unwrap();
+        assert_eq!(back, g);
+        let junk: Graphics = serde_json::from_str(r#"{"backdrop":7}"#).expect("reads");
+        assert_eq!(junk, Graphics::default());
+    }
+
+    /// *Custom* appears iff a device row differs from the preset's table
+    /// (WP5): every knob a preset sets, moved alone, makes it `Custom`; the
+    /// knobs no preset sets (display mode, the counter) never do; and the
+    /// preset row keeps those when it writes a preset.
+    #[test]
+    fn custom_appears_iff_a_preset_knob_differs() {
+        for preset in Preset::NAMED {
+            let base = Graphics::of(preset);
+            assert!(base.changes_from(preset).is_empty());
+            let moved: [fn(&mut Graphics); 6] = [
+                |g| {
+                    g.anti_aliasing = if g.anti_aliasing == AntiAliasing::Off {
+                        AntiAliasing::Fxaa
+                    } else {
+                        AntiAliasing::Off
+                    }
+                },
+                |g| {
+                    g.vsync = if g.vsync == VSync::Off {
+                        VSync::On
+                    } else {
+                        VSync::Off
+                    }
+                },
+                |g| {
+                    g.frame_limit = if g.frame_limit == FrameLimit::Fps30 {
+                        FrameLimit::Fps60
+                    } else {
+                        FrameLimit::Fps30
+                    }
+                },
+                |g| {
+                    g.background_limit = if g.background_limit == BackgroundLimit::Fps5 {
+                        BackgroundLimit::Fps60
+                    } else {
+                        BackgroundLimit::Fps5
+                    }
+                },
+                |g| {
+                    g.effects = if g.effects == Effects::Low {
+                        Effects::High
+                    } else {
+                        Effects::Low
+                    }
+                },
+                |g| {
+                    g.backdrop = if g.backdrop == Backdrop::Dimmed {
+                        Backdrop::Plain
+                    } else {
+                        Backdrop::Dimmed
+                    }
+                },
+            ];
+            for change in moved {
+                let mut g = base;
+                g.adjust(change);
+                // Moving one knob may land on another preset's table; it is
+                // then that preset, never a wrong name.
+                let named = g.matching_preset();
+                assert_eq!(g.preset, named);
+                if named == Preset::Custom {
+                    assert_eq!(g.changes_from(preset).len(), 1, "{preset:?}");
+                }
+                assert_ne!(named, preset, "{preset:?}: a moved knob kept its name");
+            }
+            for change in [
+                (|g: &mut Graphics| g.display_mode = DisplayMode::Fullscreen) as fn(&mut Graphics),
+                |g| g.show_frame_rate = true,
+            ] {
+                let mut g = base;
+                g.adjust(change);
+                assert_eq!(g.preset, preset, "not a preset's knob");
+            }
+        }
+        let mine = Graphics {
+            display_mode: DisplayMode::Borderless,
+            show_frame_rate: true,
+            ..Graphics::of(Preset::Low)
+        };
+        let high = mine.with_preset(Preset::High);
+        assert_eq!(high.preset, Preset::High);
+        assert_eq!(
+            (high.display_mode, high.show_frame_rate),
+            (DisplayMode::Borderless, true)
+        );
     }
 
     /// Moving a knob makes the preset `Custom`, and moving it back names the

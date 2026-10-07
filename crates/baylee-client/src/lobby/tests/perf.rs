@@ -163,3 +163,25 @@ fn a_refresh_raises_no_veil() {
         "a veil stood over a list being read again"
     );
 }
+
+/// Idle frames rebuild nothing, with every resource the live client has
+/// that the settings screen's systems read (the display trial, the
+/// graphics in force): one of them taking `&mut` of the lobby each frame
+/// rebuilt the tree every frame, and a click or a Tab then landed on an
+/// entity already gone (WP5, measured live: 3 rebuilds in 3 frames).
+#[test]
+fn idle_frames_rebuild_nothing() {
+    let mut app = signed_in();
+    app.insert_resource(crate::quality::DisplayTrial::default())
+        .insert_resource(crate::quality::InUse(
+            baylee_client_core::graphics::Graphics::default(),
+        ));
+    for _ in 0..3 {
+        app.update();
+    }
+    let before = rebuilt(&app);
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(rebuilt(&app), before, "an idle frame rebuilt the tree");
+}

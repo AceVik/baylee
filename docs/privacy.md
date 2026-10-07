@@ -33,6 +33,7 @@ the pointers, because line numbers move.
 | A report the player sends | leaves the device for the gateway (`POST /reports`), or, signed in nowhere, for the feedback service (`POST /client/reports`) | see [Reports](#reports-and-crash-reports-309-310-314) | — |
 | Record of a game the client hosted (against the house) | the player's device, `records/` beside the settings (native only) | the last 20 games, at most 64 MiB together | the client, oldest first; the player |
 | Device id for direct reports (random) | the player's device, `client-settings.json` (`report_device`) | until the player removes it | the player |
+| Which terms version this device accepted at each gateway (a copy) | the player's device, `client-settings.json` (`terms`, by gateway address) | until the next acceptance there replaces it | the player |
 | Game record | Postgres, written by the gateway (#315) | without a time limit | nothing |
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
@@ -377,6 +378,13 @@ decks and settings as JSON.
   - in `client-settings.json`, `report_device`: a random id (32 hex digits)
     made for the first report sent straight to the feedback service, and
     `feedback_url`, that service's address when the player set one;
+  - in `client-settings.json`, `terms`: per gateway address, the version of
+    its terms of use this device last accepted there (WG-1). A copy with one
+    job: a guest coming back with its kept session signs in to nothing, so
+    the gateway says nothing about its terms; the client holds `/info`'s
+    version against this one and asks again only when they differ. The
+    account's own record (version and time) is the gateway's, above; the
+    terms sheet's note says both;
   - `preferences.json`;
   - `offline-decks.json`;
   - a card-text cache per language.

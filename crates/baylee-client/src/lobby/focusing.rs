@@ -76,6 +76,9 @@ pub(super) fn keys_press(
     let mut fired: Vec<Press> = activated
         .read()
         .filter(|a| !clicked.contains(&a.entity) && !disabled.contains(a.entity))
+        // The front door and the settings screen answer their own keys
+        // (`front::keys::activate_by_key`): a press is never run twice.
+        .filter(|a| !super::front::keys::ours(a.stop.table))
         .filter_map(|a| {
             // Enter on a choice of the Create-table sheet is the sheet's
             // default button (`KEYBOARD.md` W2 step 6); Space chooses.

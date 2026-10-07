@@ -615,12 +615,14 @@ fn wall_ms() -> u64 {
 
 /// The dev duel: Allytifact vs Victory, human on seat 0, AI on seat 1.
 fn acceptance_duel_preset() -> GamePreset {
-    let text = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/acceptance-decks.txt"),
-    )
-    .expect("acceptance deck file");
-    let allytifact = baylee_cards::decks::load_acceptance(&text, "Allytifact").expect("Allytifact");
-    let victory = baylee_cards::decks::load_acceptance(&text, "Victory").expect("Victory");
+    // Embedded, not read from the build machine's checkout at run time: an
+    // installed binary carries no source tree beside it.
+    const TEXT: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../data/acceptance-decks.txt"
+    ));
+    let allytifact = baylee_cards::decks::load_acceptance(TEXT, "Allytifact").expect("Allytifact");
+    let victory = baylee_cards::decks::load_acceptance(TEXT, "Victory").expect("Victory");
     let mut preset = baylee_cards::decks::preset_for(1, &allytifact, &victory);
     // Seat 0 is the connecting human.
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;

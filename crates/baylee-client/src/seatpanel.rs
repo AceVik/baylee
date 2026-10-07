@@ -22,8 +22,9 @@
 
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{
-    FieldLook, Metrics, Press, SettingsPress, button, chip, heading, note, panel, row, text_field,
+    FieldLook, Metrics, Press, SettingsPress, button, chip, heading, note, panel, row,
 };
+use crate::shellkit::focus::Stop;
 use baylee_client_core::i18n::{Lang, Phrase};
 #[cfg(not(target_arch = "wasm32"))]
 use baylee_client_core::llmseat::keys::KeyEntry;
@@ -610,6 +611,7 @@ pub(crate) fn draw(
         panel,
         faults: &faults,
         keys: &seat.keys,
+        tabs: Tabs::new(crate::settingsui::keys::SETTINGS.name, "llm"),
     };
     match panel.disk() {
         Disk::Refused(why) => {
@@ -632,15 +634,148 @@ pub(crate) fn draw(
         );
     }
     if panel.editable() {
-        out.profiles(column);
-        if let Some(at) = panel.selected() {
-            out.profile(column, at);
-        }
+        out.list(column);
         out.caps(column);
     }
     out.spent(column);
     if panel.editable() {
         out.footer(column);
+    }
+}
+
+/// The shown profile's sheet (§12): its name, model, key and effort, and
+/// behind Advanced its protocol, address, command, answers and money;
+/// Save, Discard and Close at its foot. `None` where nothing is shown.
+pub(crate) fn sheet(
+    commands: &mut Commands,
+    seat: &SeatDesk,
+    lang: Lang,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    advanced: bool,
+    scroll: f32,
+) -> Option<Entity> {
+    if !DESKTOP {
+        return None;
+    }
+    let panel = seat.panel()?;
+    let at = panel.selected()?;
+    if !panel.editable() {
+        return None;
+    }
+    let phone = metrics.frame == crate::lobby::Frame::Compact;
+    let surface = commands
+        .spawn((
+            crate::shellkit::role::Role::Opaque,
+            Node {
+                width: if phone { percent(100) } else { px(760) },
+                max_width: percent(100),
+                max_height: percent(100),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px(metrics.pad * 1.5)),
+                row_gap: px(metrics.gap * 0.8),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(if phone { 0 } else { 14 })),
+                ..default()
+            },
+            BackgroundColor(crate::shellkit::tokens::OPAQUE),
+            BorderColor::all(crate::shellkit::tokens::BORDER),
+            Press::Shared(crate::lobby::SharedPress::PickerNothing),
+        ))
+        .id();
+    let name = panel.name(at).unwrap_or_default().to_string();
+    let title = heading(commands, fonts, metrics, &name);
+    let body = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 1.0,
+                min_height: px(0),
+                row_gap: px(metrics.gap * 0.8),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ScrollPosition(Vec2::new(0.0, scroll)),
+            crate::lobby::Scrollable(crate::lobby::List::ProfileSheet),
+            crate::shellkit::role::Role::Scroll,
+            Pickable::default(),
+        ))
+        .id();
+    let foot = row(commands, metrics, true);
+    commands.entity(surface).add_children(&[title, body, foot]);
+    let faults = panel.faults();
+    let mut out = Drawn {
+        commands,
+        fonts,
+        metrics,
+        lang,
+        panel,
+        faults: &faults,
+        keys: &seat.keys,
+        tabs: Tabs::new(crate::settingsui::keys::PROFILE_SHEET.name, "field"),
+    };
+    out.basic(body, at);
+    // Advanced opens by itself where something in it is wrong or has the
+    // caret: a fault is shown where it is.
+    let inside =
+        |spot: &Spot| matches!(spot, Spot::Profile(p, slot) if *p == at && ADVANCED.contains(slot));
+    let open = advanced
+        || out.faults.iter().any(|f| inside(&f.spot))
+        || out.panel.focus().as_ref().is_some_and(inside);
+    let toggle = chip(
+        out.commands,
+        out.fonts,
+        out.metrics,
+        &format!(
+            "{} {}",
+            Phrase::ShellAdvanced.text(lang),
+            if open { "\u{25b4}" } else { "\u{25be}" }
+        ),
+        Press::Settings(SettingsPress::ProfileAdvanced),
+        open,
+    );
+    out.tab(toggle);
+    out.commands.entity(body).add_child(toggle);
+    if open {
+        out.advanced(body, at);
+    }
+    out.tabs = Tabs::new(crate::settingsui::keys::PROFILE_SHEET.name, "foot");
+    out.sheet_foot(foot);
+    Some(crate::shellkit::surfaces::sheet(commands, surface))
+}
+
+/// The fields behind a sheet's Advanced.
+const ADVANCED: [Slot; 11] = [
+    Slot::Provider,
+    Slot::Answer,
+    Slot::MaxTokens,
+    Slot::ThinkSecs,
+    Slot::PriceIn,
+    Slot::PriceOut,
+    Slot::GameUsd,
+    Slot::GameTokens,
+    Slot::GameCalls,
+    Slot::BaseUrl,
+    Slot::Command,
+];
+
+/// Where the panel's controls stand in the kit's tab order: items of one
+/// composite stop, numbered in the order they are drawn.
+struct Tabs {
+    table: &'static str,
+    id: &'static str,
+    next: u8,
+}
+
+impl Tabs {
+    const fn new(table: &'static str, id: &'static str) -> Self {
+        Self { table, id, next: 0 }
+    }
+
+    fn take(&mut self) -> Stop {
+        let stop = Stop::item(self.table, self.id, self.next);
+        self.next = self.next.saturating_add(1);
+        stop
     }
 }
 
@@ -653,9 +788,16 @@ struct Drawn<'a, 'w, 's> {
     panel: &'a SeatPanel,
     faults: &'a [PanelFault],
     keys: &'a KeyDesk,
+    tabs: Tabs,
 }
 
 impl Drawn<'_, '_, '_> {
+    /// Gives `control` the next stop.
+    fn tab(&mut self, control: Entity) {
+        let stop = self.tabs.take();
+        self.commands.entity(control).insert(stop);
+    }
+
     /// A line of text in `ink`, under `parent`.
     fn line(&mut self, parent: Entity, words: &str, ink: Color) -> Entity {
         let id = self
@@ -747,7 +889,19 @@ impl Drawn<'_, '_, '_> {
             lead: None,
             hint: hint.as_deref(),
         };
-        let boxed = text_field(self.commands, self.fonts, self.metrics, label, &look);
+        let stops = crate::lobby::FieldStops {
+            field: self.tabs.take(),
+            typed: None,
+            eye: None,
+        };
+        let boxed = crate::lobby::text_field_with(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            label,
+            &look,
+            Some(stops),
+        );
         self.commands.entity(cell).add_child(boxed);
         self.faults_at(cell, spot);
         cell
@@ -772,59 +926,33 @@ impl Drawn<'_, '_, '_> {
             .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
         for (words, press, on) in chips {
             let chip = chip(self.commands, self.fonts, self.metrics, words, *press, *on);
+            self.tab(chip);
             self.commands.entity(line).add_child(chip);
         }
         self.commands.entity(cell).add_children(&[caption, line]);
         cell
     }
 
-    /// The profiles as chips, the one shown lit, and Add.
-    fn profiles(&mut self, parent: Entity) {
-        let line = row(self.commands, self.metrics, true);
-        self.commands
-            .entity(line)
-            .entry::<Node>()
-            .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
-        self.commands.entity(parent).add_child(line);
+    /// The profiles, one row each (name, protocol, model; pressed, its
+    /// sheet), with Make default, Duplicate and Remove beside it; then Add
+    /// and the ready-made adapters.
+    fn list(&mut self, parent: Entity) {
+        let lang = self.lang;
         for at in 0..self.panel.len() {
-            let name = self.panel.name(at).unwrap_or_default();
-            let words = if self.panel.default() == Some(at) {
-                Phrase::SeatChipDefault.fill(self.lang, &[name])
-            } else {
-                name.to_string()
-            };
-            let on = self.panel.selected() == Some(at);
-            let id = chip(
-                self.commands,
-                self.fonts,
-                self.metrics,
-                &words,
-                Press::Settings(SettingsPress::Seat(Act::Select(at))),
-                on,
-            );
-            // A profile with something wrong in it says so from the list,
-            // so a fault in a profile not shown is not a Save that is dead
-            // for no reason on screen.
-            if self
-                .faults
-                .iter()
-                .any(|fault| matches!(fault.spot, Spot::Profile(p, _) if p == at))
-            {
-                self.commands
-                    .entity(id)
-                    .insert(BorderColor::all(palette::DANGER));
-            }
-            self.commands.entity(line).add_child(id);
+            self.profile_row(parent, at);
         }
+        let line = row(self.commands, self.metrics, true);
+        self.commands.entity(parent).add_child(line);
         let add = button(
             self.commands,
             self.fonts,
             self.metrics,
-            Phrase::SeatAdd.text(self.lang),
+            Phrase::SeatAdd.text(lang),
             Press::Settings(SettingsPress::Seat(Act::Add)),
             palette::PANEL_LIT,
             true,
         );
+        self.tab(add);
         self.commands.entity(line).add_child(add);
         let presets: Vec<(&str, Press, bool)> = Preset::ALL
             .iter()
@@ -837,35 +965,66 @@ impl Drawn<'_, '_, '_> {
             })
             .collect();
         // A row of its own across the panel, not a cell of a form's row.
-        let row_of_presets = self.choice(parent, Phrase::SeatPresets.text(self.lang), &presets);
+        let row_of_presets = self.choice(parent, Phrase::SeatPresets.text(lang), &presets);
         self.commands
             .entity(row_of_presets)
             .entry::<Node>()
             .and_modify(|mut node| node.width = percent(100));
         if self.panel.is_empty() && matches!(self.panel.disk(), Disk::Read(_)) {
-            self.line(
-                parent,
-                Phrase::SeatNoProfiles.text(self.lang),
-                palette::MUTED,
-            );
+            self.line(parent, Phrase::SeatNoProfiles.text(lang), palette::MUTED);
         } else if !self.panel.is_empty() {
             let words = if self.panel.default().is_some() {
                 Phrase::SeatDefaultAbout
             } else {
                 Phrase::SeatDefaultNone
             };
-            self.line(parent, words.text(self.lang), palette::MUTED);
+            self.line(parent, words.text(lang), palette::MUTED);
         }
         self.faults_at(parent, Spot::Default);
     }
 
-    /// The shown profile's boxes and choices.
-    #[allow(clippy::too_many_lines)] // one form, read top to bottom
-    fn profile(&mut self, parent: Entity, at: usize) {
+    /// One profile in the list: its name, protocol and model (pressed, its
+    /// sheet), Make default, Duplicate, Remove.
+    fn profile_row(&mut self, parent: Entity, at: usize) {
         let lang = self.lang;
-        let doors = row(self.commands, self.metrics, true);
-        self.commands.entity(parent).add_child(doors);
+        let line = row(self.commands, self.metrics, true);
+        self.commands.entity(parent).add_child(line);
+        let name = self.panel.name(at).unwrap_or_default();
+        let model = self
+            .panel
+            .buffer(Spot::Profile(at, Slot::Model))
+            .map(|b| b.text().trim().to_string())
+            .filter(|m| !m.is_empty())
+            .unwrap_or_else(|| "\u{2014}".to_string());
+        let protocol = protocol_label(self.panel.provider(at).unwrap_or(Provider::Anthropic));
         let is_default = self.panel.default() == Some(at);
+        let named = if is_default {
+            Phrase::SeatChipDefault.fill(lang, &[name])
+        } else {
+            name.to_string()
+        };
+        let open = button(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            &format!("{named} \u{b7} {protocol} \u{b7} {model}"),
+            Press::Settings(SettingsPress::OpenProfile(at)),
+            palette::PANEL_LIT,
+            true,
+        );
+        // A profile with something wrong in it says so from the list,
+        // so a fault in a profile not shown is not a Save that is dead
+        // for no reason on screen.
+        if self
+            .faults
+            .iter()
+            .any(|fault| matches!(fault.spot, Spot::Profile(p, _) if p == at))
+        {
+            self.commands
+                .entity(open)
+                .insert(BorderColor::all(palette::DANGER));
+        }
+        self.tab(open);
         let default = chip(
             self.commands,
             self.fonts,
@@ -874,6 +1033,7 @@ impl Drawn<'_, '_, '_> {
             Press::Settings(SettingsPress::Seat(Act::Default(at))),
             is_default,
         );
+        self.tab(default);
         let copy = button(
             self.commands,
             self.fonts,
@@ -883,6 +1043,7 @@ impl Drawn<'_, '_, '_> {
             palette::PANEL_LIT,
             true,
         );
+        self.tab(copy);
         let remove = button(
             self.commands,
             self.fonts,
@@ -892,25 +1053,20 @@ impl Drawn<'_, '_, '_> {
             palette::DANGER,
             true,
         );
+        self.tab(remove);
         self.commands
-            .entity(doors)
-            .add_children(&[default, copy, remove]);
+            .entity(line)
+            .add_children(&[open, default, copy, remove]);
+    }
 
+    /// The sheet's first fields: the name, the model (with the priced
+    /// suggestions), the key's variable and its sealed box, and the effort.
+    fn basic(&mut self, parent: Entity, at: usize) {
+        let lang = self.lang;
         let spot = |slot| Spot::Profile(at, slot);
-        let provider = self.panel.provider(at).unwrap_or(Provider::Anthropic);
         let first = self.cells(parent);
         self.field(first, spot(Slot::Name), Phrase::SeatName.text(lang));
-        let protocols = [Provider::Anthropic, Provider::OpenAi, Provider::Cli].map(|p| {
-            (
-                protocol_label(p),
-                Press::Settings(SettingsPress::Seat(Act::Provider(at, p))),
-                provider == p,
-            )
-        });
-        self.choice(first, Phrase::SeatProvider.text(lang), &protocols);
-
-        let model = self.cells(parent);
-        let cell = self.field(model, spot(Slot::Model), Phrase::SeatModel.text(lang));
+        let cell = self.field(first, spot(Slot::Model), Phrase::SeatModel.text(lang));
         let offered = self.panel.suggestions(at);
         if !offered.is_empty() {
             let line = row(self.commands, self.metrics, true);
@@ -933,6 +1089,7 @@ impl Drawn<'_, '_, '_> {
                     Press::Settings(SettingsPress::Seat(Act::Suggest(at, index))),
                     chosen.as_deref() == Some(name),
                 );
+                self.tab(id);
                 self.commands.entity(line).add_child(id);
             }
             self.line(cell, Phrase::SeatPricedAbout.text(lang), palette::MUTED);
@@ -940,46 +1097,59 @@ impl Drawn<'_, '_, '_> {
         if let Some(note) = self.panel.model_note(at, lang) {
             self.line(cell, &note, palette::MUTED);
         }
-        let answer = self.panel.answer(at);
-        self.choice(
-            model,
-            Phrase::SeatAnswer.text(lang),
-            &[
-                (
-                    Phrase::SeatAnswerBuild.text(lang),
-                    Press::Settings(SettingsPress::Seat(Act::Answer(at, None))),
-                    answer.is_none(),
-                ),
-                (
-                    Phrase::SeatAnswerTools.text(lang),
-                    Press::Settings(SettingsPress::Seat(Act::Answer(
-                        at,
-                        Some(AnswerMode::Tools),
-                    ))),
-                    answer == Some(AnswerMode::Tools),
-                ),
-                (
-                    Phrase::SeatAnswerJson.text(lang),
-                    Press::Settings(SettingsPress::Seat(Act::Answer(at, Some(AnswerMode::Json)))),
-                    answer == Some(AnswerMode::Json),
-                ),
-                (
-                    Phrase::SeatAnswerJsonSchema.text(lang),
-                    Press::Settings(SettingsPress::Seat(Act::Answer(
-                        at,
-                        Some(AnswerMode::JsonSchema),
-                    ))),
-                    answer == Some(AnswerMode::JsonSchema),
-                ),
-            ],
-        );
-        self.faults_at(model, spot(Slot::Answer));
-
+        let reach = self.cells(parent);
+        if self.panel.shows(spot(Slot::KeyEnv)) {
+            let key = self.field(reach, spot(Slot::KeyEnv), Phrase::SeatKeyEnv.text(lang));
+            if let Some((words, set)) = self.panel.key_line(at, &is_set, lang) {
+                self.line(key, &words, if set { palette::INK } else { palette::MUTED });
+            }
+            self.key_box(reach, at);
+        }
         let play = self.cells(parent);
-        for slot in [Slot::Effort, Slot::MaxTokens, Slot::ThinkSecs] {
+        self.field(play, spot(Slot::Effort), Slot::Effort.label().text(lang));
+    }
+
+    /// Behind Advanced: the protocol, how it answers, the reply's limits,
+    /// the money, and where the API or the program is.
+    fn advanced(&mut self, parent: Entity, at: usize) {
+        let lang = self.lang;
+        let spot = |slot| Spot::Profile(at, slot);
+        let provider = self.panel.provider(at).unwrap_or(Provider::Anthropic);
+        let first = self.cells(parent);
+        let protocols = [Provider::Anthropic, Provider::OpenAi, Provider::Cli].map(|p| {
+            (
+                protocol_label(p),
+                Press::Settings(SettingsPress::Seat(Act::Provider(at, p))),
+                provider == p,
+            )
+        });
+        self.choice(first, Phrase::SeatProvider.text(lang), &protocols);
+        let answer = self.panel.answer(at);
+        let answers = [
+            (Phrase::SeatAnswerBuild, None),
+            (Phrase::SeatAnswerTools, Some(AnswerMode::Tools)),
+            (Phrase::SeatAnswerJson, Some(AnswerMode::Json)),
+            (Phrase::SeatAnswerJsonSchema, Some(AnswerMode::JsonSchema)),
+        ]
+        .map(|(words, mode)| {
+            (
+                words.text(lang),
+                Press::Settings(SettingsPress::Seat(Act::Answer(at, mode))),
+                answer == mode,
+            )
+        });
+        self.choice(first, Phrase::SeatAnswer.text(lang), &answers);
+        self.faults_at(first, spot(Slot::Answer));
+        let reach = self.cells(parent);
+        for slot in [Slot::BaseUrl, Slot::Command] {
+            if self.panel.shows(spot(slot)) {
+                self.field(reach, spot(slot), slot.label().text(lang));
+            }
+        }
+        let play = self.cells(parent);
+        for slot in [Slot::MaxTokens, Slot::ThinkSecs] {
             self.field(play, spot(slot), slot.label().text(lang));
         }
-
         let money = self.cells(parent);
         for slot in [
             Slot::PriceIn,
@@ -996,20 +1166,6 @@ impl Drawn<'_, '_, '_> {
         self.line(parent, &price, palette::MUTED);
         if let Some(warning) = self.panel.warning(at, lang) {
             self.line(parent, &warning, palette::ACCENT);
-        }
-
-        let reach = self.cells(parent);
-        for slot in [Slot::BaseUrl, Slot::Command] {
-            if self.panel.shows(spot(slot)) {
-                self.field(reach, spot(slot), slot.label().text(lang));
-            }
-        }
-        if self.panel.shows(spot(Slot::KeyEnv)) {
-            let key = self.field(reach, spot(Slot::KeyEnv), Phrase::SeatKeyEnv.text(lang));
-            if let Some((words, set)) = self.panel.key_line(at, &is_set, lang) {
-                self.line(key, &words, if set { palette::INK } else { palette::MUTED });
-            }
-            self.key_box(reach, at);
         }
     }
 
@@ -1057,12 +1213,18 @@ impl Drawn<'_, '_, '_> {
                 Phrase::SeatKeyHint.text(lang)
             }),
         };
-        let boxed = text_field(
+        let stops = crate::lobby::FieldStops {
+            field: self.tabs.take(),
+            typed: None,
+            eye: None,
+        };
+        let boxed = crate::lobby::text_field_with(
             self.commands,
             self.fonts,
             self.metrics,
             Phrase::SeatKeyBox.text(lang),
             &look,
+            Some(stops),
         );
         self.commands.entity(cell).add_child(boxed);
         let doors = row(self.commands, self.metrics, true);
@@ -1085,6 +1247,8 @@ impl Drawn<'_, '_, '_> {
             palette::DANGER,
             matches!(state, Some(KeyState::Set)) && !busy,
         );
+        self.tab(keep);
+        self.tab(forget);
         self.commands.entity(doors).add_children(&[keep, forget]);
         self.line(cell, &words, ink);
         if let Some(why) = self.keys.said(&entry) {
@@ -1124,12 +1288,33 @@ impl Drawn<'_, '_, '_> {
         }
     }
 
+    /// Save, Discard and Close at a sheet's foot.
+    fn sheet_foot(&mut self, line: Entity) {
+        self.save_buttons(line);
+        let close = button(
+            self.commands,
+            self.fonts,
+            self.metrics,
+            Phrase::SheetClose.text(self.lang),
+            Press::Settings(SettingsPress::CloseProfile),
+            palette::PANEL_LIT,
+            true,
+        );
+        self.tab(close);
+        self.commands.entity(line).add_child(close);
+    }
+
     /// Save, Discard, and how the last save went or why none can be made.
     fn footer(&mut self, parent: Entity) {
-        let lang = self.lang;
         self.faults_at(parent, Spot::File);
         let line = row(self.commands, self.metrics, true);
         self.commands.entity(parent).add_child(line);
+        self.save_buttons(line);
+    }
+
+    /// Save and Discard into `line`, and the save's state after them.
+    fn save_buttons(&mut self, line: Entity) {
+        let lang = self.lang;
         let can_save = self.panel.to_save().is_some();
         let save = button(
             self.commands,
@@ -1150,6 +1335,8 @@ impl Drawn<'_, '_, '_> {
             palette::PANEL_LIT,
             can_revert,
         );
+        self.tab(save);
+        self.tab(revert);
         self.commands.entity(line).add_children(&[save, revert]);
         let status = match self.panel.last_save() {
             Some(Saved::Written) => {
