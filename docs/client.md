@@ -3798,7 +3798,7 @@ depend on the wrong default: `PoolCard::default()` is a stub, so a test about
 finding a card by its German name was only finding it because stubs were
 shown.
 
-**The builder filters twice, and now says so once.** Four chips and a query
+**The builder filters twice, and now says so once.** Chips and a query
 box, and the filter panel edits the box alone — so a player who opens the
 gear, types a condition and cannot find their card is reading one of two
 truths. `DeckBuilder::chips_in_force` reports what else is narrowing the list
@@ -3842,7 +3842,7 @@ while a search offers candidates and showing every card that prints a name is
 what a search is for.
 
 Which piece of cardboard is the other question, and it gets its own dialog.
-`◈` on a pool row opens the **printing picker**: `DeckBuilder::open_picker`
+A row's print (or its `⋯` › Choose printing…) opens the **printing picker**: `DeckBuilder::open_picker`
 fires `GET /printings?card=<index>`, the dialog opens immediately on the
 printing the row already names, and the answer fills a carousel — art from the
 Scryfall CDN, the set and collector number underneath, language chips, and
@@ -3921,12 +3921,14 @@ The held modifier that turns a table card to its text is not read here. A
 preview whose picture is still on its way waits for it, as before, rather than
 drawing the text face in the meantime.
 
-**The card panel is where a card is moved, not just read.** `?` opens a menu
-over the card: add it to the deck or to the sideboard, move the copy that is
-already there from one to the other, remove it, or set it as the commander.
-Moving keeps the printing — the whole point of having chosen one — and the
-panel says what is where ("2 in the deck, 1 in the sideboard") so the buttons
-are not the only way to find out. A card that cannot lead a deck is refused as
+**The card sheet is where a card is moved, not just read.** A press on a
+row (or Space on it) opens the card as a sheet over the builder: add it to the
+main deck or to the sideboard, choose its printing, or set it as the
+commander; ←→ walk the list it came from. A row's `⋯` holds the same for the
+row — the other list, the printing, the card; on a deck row Move to the other
+list, the printing, Remove all. Moving keeps the printing — the whole point of
+having chosen one — and the sheet says what is where ("2 in the deck, 1 in the
+sideboard") so the buttons are not the only way to find out. A card that cannot lead a deck is refused as
 a commander rather than offered and then rejected on save; naming one that is
 not in the deck yet seats a copy, because a commander that is not in its own
 deck is not a legal deck and the builder should not need to be told twice.
@@ -3972,19 +3974,50 @@ cannot widen the way the card's does — the digits give way instead
 (`WIDE_NUMERAL`). That is the trade, and it is named here because it is the
 half a reader would otherwise find by looking at Jace.
 
-Leaving a deck with unsaved changes takes two
-presses — the first turns the back button into *Leave without saving*, and
-anything else answers the question — because a deck is half an hour of work
-and the way out sits in the busiest corner of the screen.
+Leaving a deck with unsaved changes asks first — "Discard changes?", Keep
+editing focused, the builder's one confirm — because a deck is half an hour
+of work and the way out sits in the busiest corner of the screen. Esc never
+leaves: it closes the innermost thing open, ends a renaming, clears the
+search, and then does nothing (`editing::escape`); Back is `‹`, Alt+← or ⌘[.
+While a deck is unsaved the builder keeps a draft of it on the device
+(`buildui::draft`, `builder-drafts.json` beside the settings, a second after
+the last edit), forgets it when the deck saves or is discarded, and takes it
+back when the same deck is opened again with something the gateway never got.
 
-The frame decides the shape twice. A desktop and a tablet show the pool and
-the deck side by side; a phone shows one at a time behind a switch that names
-what is in the other, because the count is the whole reason to look. And a
-phone folds the filter chips away behind a *Filters* button — three wrapped
-rows of them is most of a phone screen, and what is under them is the point —
-keeping *sort* and *clear* outside the fold. Both text boxes go through the
-same `softkeys.rs` path as the sign-in form, so a phone raises a real keyboard,
-and Enter in the search box adds the first hit.
+**The shell's builder (WP4).** The screen follows the shell design's §7 on the
+kit (`crate::shellkit`): the pool on the left, three fifths, the deck on the
+right; on Narrow (960 × 700) one pane and a bottom tab bar Pool · Deck n ·
+Stats; on a phone the pool and a 260-px deck rail (commander, Main n ·
+Sideboard n, the last three added, Stats as a sheet), and at 640 one pane with
+a Pool / Deck switch in the header. Every list row is one line per cell, cut
+rather than wrapped, at the kit's row pitch (`shell.row`, 72 at step 4) and
+clipped, so a row's height is its pitch whatever its words are — two-line
+names had overlapped at 960 × 700 when a fixed pitch met free content
+(`buildui::virtual_rows`: every item's top known before layout, rows mounted a
+viewport either side of the window, `/state.ui_rebuilds.placeholders` counting
+any row found visible before it was there). A pool row says name, type line ·
+P/T · its front face's first keyword (never rules text), pips, how many the
+deck holds, one `+` (Shift: the other list) and `⋯`. Under the search, one
+chip row: the colour identity's six discs, the type and mana value chips in
+force, *Filters* (a rail of card type, mana value and what to show; a sheet
+on a phone — the pool carries no rarity, set or keyword facts, so the rail
+offers none), Playable only, the order, Clear; `?` in the box opens what the
+search understands, a press inserting the example. The deck side has its
+commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
+value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
+with one type lit, the colour pips' shares, the type counts, the land share
+and Draw seven (a fresh shuffle, nothing leaves the deck). The header holds
+the one save state ("Unsaved · n changes", "Saved ✓ · n min ago", "Couldn't
+save · Retry"). The tree is retained section by section (`buildui::retained`):
+a key typed into the search patches the toolbar and the list, and nothing is
+rebuilt whole. The keyboard (`KEYBOARD.md` §7.7): `/` the search, ↓ onto the
+first row (the list under the box is the search's suggestion list; there is
+no second one over it), ↑↓ Home End PageUp PageDown, Enter adds, ⇧Enter to the
+other list, `+ −`, Space the card, ⇧F10 the row's menu, F2 renames (the name
+selected); Save, Import, Export, `/` and Back are the shell keymap's, and Tab
+walks the `BUILDER_ORDER` table (Enter or Space on a focused control presses
+it). Both text boxes go through the same `softkeys.rs` path as the sign-in
+form, so a phone raises a real keyboard.
 
 Every list scrolls, and that took wiring: Bevy's `Overflow::scroll_y` only
 clips, so `Scrollable` + `ScrollPosition` and a wheel-and-swipe handler

@@ -556,6 +556,11 @@ pub(crate) fn glyph(
             Text::new(mark.to_string()),
             icon_tf(kit.fonts, size),
             TextColor(ink),
+            // A mark is never squeezed: the words beside it give way.
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
             Pickable::IGNORE,
         ))
         .id()

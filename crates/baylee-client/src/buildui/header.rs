@@ -451,10 +451,11 @@ fn save_state(commands: &mut Commands, env: &Env) -> Entity {
     let node = commands
         .spawn((
             SaveStateNode,
+            // Its mark never gives way; its sentence may (the cell clips).
             Node {
                 align_items: AlignItems::Center,
                 column_gap: m.px(6.0),
-                min_width: px_fixed(0.0),
+                min_width: px_fixed(m.small * 1.2),
                 flex_shrink: 1.0,
                 ..default()
             },

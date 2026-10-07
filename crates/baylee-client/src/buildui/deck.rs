@@ -126,6 +126,10 @@ pub(super) fn head(commands: &mut Commands, holder: Entity, env: &Env) {
     let ui = env.ui();
     let slot = commander_slot(commands, env, false);
     commands.entity(holder).add_child(slot);
+    // Narrow's Stats pane is the numbers alone: its tabs are the bar's.
+    if env.layout == Layout::Single && stats_shown(env) {
+        return;
+    }
 
     let counts = deck.counts();
     let mut items: Vec<(&str, Option<u32>)> = vec![

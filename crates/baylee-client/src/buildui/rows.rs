@@ -232,8 +232,8 @@ fn badge(commands: &mut Commands, kit: Kit, slot: usize, deck: &DeckBuilder) -> 
     let disc = commands
         .spawn((
             Node {
-                min_width: m.px(22.0),
-                height: m.px(22.0),
+                min_width: px_fixed(m.scaled(22.0).max(m.small * 1.6)),
+                min_height: px_fixed(m.scaled(22.0).max(m.small * 1.6)),
                 padding: UiRect::axes(m.px(6.0), px_fixed(0.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
