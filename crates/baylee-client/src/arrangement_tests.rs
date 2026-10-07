@@ -595,3 +595,26 @@ fn the_focus_ring_peeks_beside_the_pair_and_frames_the_table_between() {
         );
     }
 }
+
+/// A peek shows its parked board as chips (WA9): seat 1's thirty Soldiers
+/// are one chip on its peek, counted; a chip stands for the pile's
+/// representative, which a press answers with as the card on the table.
+#[test]
+fn a_peek_shows_its_parked_board_as_chips() {
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    let mut duel = seated_duel(Arrangement::FocusRing);
+    let soldiers: Vec<_> = (0..30)
+        .map(|i| token(500 + i, 1, "Soldier", 1, 1))
+        .collect();
+    duel.receive_view(ViewBuilder::new(4).with_battlefield(1, soldiers).build());
+    crate::rebuild_board(&mut duel);
+    let (left, _) = crate::hud::peeks::columns(&duel, Lang::En);
+    let seat_one = left.first().expect("seat 1 peeks from the left");
+    let chip = seat_one.chips.chips.first().expect("a chip");
+    assert_eq!(chip.count, 30, "thirty tokens, one chip");
+    assert!(
+        (500..530).contains(&chip.object.slot()),
+        "the pile's representative: {:?}",
+        chip.object
+    );
+}

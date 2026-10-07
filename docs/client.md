@@ -940,6 +940,20 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   `the_focus_ring_peeks_at_every_parked_seat_on_its_side`). The columns cost
   the across card 1 px at 1708 (45 → 44, 2 %). Rebuilt only when what they
   say changes (`PeeksRevision`). Not on a phone or a compact window.
+- **Peek chips** (WA9, `client-core::peekchips`): under its counts a peek
+  shows its parked board as chips — while a question is open its legal
+  targets first (outlined in the accent, never folded away), then its
+  planeswalkers (`PW n`: a defender each), then its creatures as
+  power/toughness (`·d` for damage, dimmed tapped), a pile as one chip with
+  its count (`×30`); two chips, the rest as `+n`, its lands as `n` and the
+  icon face's mountain-sun; a face-down chip names nothing. Read off the
+  board model, so hidden information stays unrepresentable
+  (`a_parked_board_reads_as_chips`, `a_peek_shows_its_parked_board_as_chips`).
+  A chip is a `PeekChip`: a press answers with its permanent as a press on
+  the card would (`input::pointing` → `activate`). Not built: the
+  Spotlight's rows (DESIGN-v5 §4.2 in a side column) — the side column is
+  not reserved (decided), so the Spotlight reads its parked seats from the
+  strip and the Focus ring is the arrangement with chips.
 - **The tear** (the owner's of 07.10.2026, on Spotlight and the Focus ring;
   `Arrangement::tears`): a change of seat of interest tears the table along
   a jagged, seeded line; the far piece sinks into a void under the table

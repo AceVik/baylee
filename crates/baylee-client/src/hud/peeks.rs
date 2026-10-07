@@ -10,6 +10,15 @@
 //! while a question can (a target, the defender of an attack), and brings
 //! the seat across otherwise.
 //!
+//! Under its counts a peek shows the board it stands for as chips
+//! (`peekchips`, WA9: DESIGN-v5 §4.2's rows, v6 §2.2's peek line): while a
+//! question is open its legal targets first, then its planeswalkers (a
+//! defender each), then its creatures as power/toughness, a pile as one chip
+//! with its count; the rest as `+n` and its lands as a count. A chip is a
+//! [`PeekChip`]: a press answers with its permanent exactly as a press on
+//! the card on the table would (`input::pointing`), so a target or a
+//! blocker on a parked board is one press away.
+//!
 //! The columns are the one declared exception to "the arrangement does not
 //! move the HUD" (DESIGN-v8 §3, invariant 5): the camera frames the table
 //! between them (`Canvas::for_table`), and their width is constant against
@@ -17,8 +26,9 @@
 
 use baylee_client_core::i18n::Lang;
 use baylee_client_core::layout::{Seat, peeks};
+use baylee_client_core::peekchips::{ChipKind, SeatChips, seat_chips};
 use baylee_client_core::tableview::{Arrangement, TableFrame};
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use bevy::prelude::*;
 
 use crate::ambience::Feel;
@@ -47,6 +57,19 @@ pub fn column_width(frame: TableFrame) -> f32 {
 #[derive(Component)]
 pub struct PeekColumn;
 
+/// A chip on a peek, by the permanent a press on it answers with.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PeekChip {
+    /// The permanent (a pile's representative).
+    pub object: ObjectId,
+}
+
+/// How many chips a peek shows before it folds the rest into `+n`.
+const CHIPS: usize = 2;
+
+/// The icon face's mountain-sun (`fa-solid-900`, DESIGN-v5 S-E).
+const MOUNTAIN_SUN: char = '\u{e52f}';
+
 /// What one peek says. Compared whole.
 #[derive(Clone, PartialEq, Debug)]
 pub struct PeekFacts {
@@ -61,6 +84,8 @@ pub struct PeekFacts {
     /// The table waits for it.
     pub waited: bool,
     lost: bool,
+    /// Its board as chips.
+    pub chips: SeatChips,
 }
 
 /// What the columns were last drawn from.
@@ -101,8 +126,19 @@ pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
         return (Vec::new(), Vec::new());
     }
     let (left, right) = peeks(&roster(duel), duel.visiting);
+    let aimed = |object: ObjectId| {
+        duel.interaction
+            .as_ref()
+            .is_some_and(|i| i.selectable().contains(&object))
+    };
     let facts = |player: PlayerId| -> Option<PeekFacts> {
         let seat = view.seats.iter().find(|s| s.player == player)?;
+        let chips = duel
+            .board
+            .as_ref()
+            .and_then(|board| board.pod(player))
+            .map(|pod| seat_chips(pod, CHIPS, aimed))
+            .unwrap_or_default();
         let role = crate::hud::seatbar::role_of(duel, player);
         Some(PeekFacts {
             player,
@@ -113,6 +149,7 @@ pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
             turn: view.active == player,
             waited: view.awaiting == Some(player),
             lost: seat.has_lost(),
+            chips,
         })
     };
     (
@@ -270,6 +307,8 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
         .id();
     commands.entity(hand).add_children(&[mark, count]);
     commands.entity(peek).add_child(hand);
+    let chips = spawn_chips(commands, fonts, &facts.chips, ink);
+    commands.entity(peek).add_child(chips);
     if !tags.is_empty() {
         let tags = commands
             .spawn((
@@ -282,4 +321,100 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
         commands.entity(peek).add_child(tags);
     }
     peek
+}
+
+/// The chip line: the chips, then `+n` and the lands' count.
+fn spawn_chips(commands: &mut Commands, fonts: &UiFonts, chips: &SeatChips, ink: Color) -> Entity {
+    let line = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::Center,
+                column_gap: px(3.0),
+                row_gap: px(3.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for chip in &chips.chips {
+        let mut words = match chip.kind {
+            ChipKind::Creature {
+                power,
+                toughness,
+                damage,
+            } => {
+                if damage > 0 {
+                    format!("{power}/{toughness}\u{b7}{damage}")
+                } else {
+                    format!("{power}/{toughness}")
+                }
+            }
+            ChipKind::Planeswalker { loyalty } => format!("PW {loyalty}"),
+            ChipKind::Other => chip
+                .name
+                .clone()
+                .unwrap_or_default()
+                .chars()
+                .take(8)
+                .collect(),
+        };
+        if chip.count > 1 {
+            words = format!("{words} \u{d7}{}", chip.count);
+        }
+        let colour = if chip.tapped {
+            palette::DIALOG_SOFT
+        } else {
+            ink
+        };
+        let edge = if chip.target {
+            palette::ACCENT
+        } else {
+            palette::DIALOG_LINE
+        };
+        let node = commands
+            .spawn((
+                PeekChip {
+                    object: chip.object,
+                },
+                Node {
+                    padding: UiRect::axes(px(4.0), px(1.0)),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(4.0)),
+                    ..default()
+                },
+                BorderColor::all(edge),
+                Button,
+                children![(
+                    Text::new(words),
+                    tf(fonts, 13.0),
+                    TextColor(colour),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(line).add_child(node);
+    }
+    let mut words = |text: String, font: TextFont| {
+        let id = commands
+            .spawn((
+                Text::new(text),
+                font,
+                TextColor(palette::DIALOG_SOFT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(line).add_child(id);
+    };
+    if chips.folded > 0 {
+        words(format!("+{}", chips.folded), tf(fonts, 11.0));
+    }
+    // The land count as the rows wrote it (DESIGN-v5 S-E): `n` and the
+    // icon face's mountain-sun, never an `L`.
+    if chips.lands > 0 {
+        words(chips.lands.to_string(), tf(fonts, 11.0));
+        words(MOUNTAIN_SUN.to_string(), crate::hud::icon_tf(fonts, 10.0));
+    }
+    line
 }

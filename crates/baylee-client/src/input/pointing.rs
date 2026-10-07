@@ -15,6 +15,7 @@ pub fn pointer(
     cards: Query<&CardVisual>,
     hand_cards: Query<&HandCardVisual>,
     tabs: Query<&PlayerTab>,
+    peek_chips: Query<&crate::hud::peeks::PeekChip>,
     seat_steps: Query<&crate::hud::SeatStep>,
     menu_buttons: Query<&MenuButton>,
     prompt_buttons: Query<&PromptButton>,
@@ -52,6 +53,13 @@ pub fn pointer(
             // wears no touch, and the call is harmless there because the
             // release has already taken the finger off nothing.
             let answer = activate(&mut duel, object, whole);
+            crate::touch::answer(&mut touched, answer);
+            continue;
+        }
+        // A chip on a Focus ring peek stands for a permanent the table does
+        // not draw (WA9): pressed, it answers as that card would.
+        if let Some(chip) = find_in_lineage(e, &peek_chips, &parents) {
+            let answer = activate(&mut duel, chip.object, whole);
             crate::touch::answer(&mut touched, answer);
             continue;
         }
