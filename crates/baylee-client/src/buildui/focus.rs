@@ -6,7 +6,7 @@
 use super::rows::{DeckRowAt, PoolRowAt, ROW_GROUND};
 use super::sheets::PlacedMenu;
 use super::virtual_rows::{VirtualList, is_pool, place_of};
-use super::{BUILDER, BuildMenu, Nav};
+use super::{BUILDER, BUILDER_SHEET, BuildMenu, Nav};
 use crate::lobby::LobbyState;
 use crate::shellkit::focus::Stop;
 use crate::shellkit::tokens;
@@ -78,6 +78,20 @@ pub(crate) fn follow(
             .next()
     };
     let field = state.lobby.builder().focus();
+    // "Discard changes?" opens with Keep editing focused (KEYBOARD §2.5), so
+    // Enter keeps editing.
+    if state.confirm_leave {
+        let on_sheet = focus
+            .get()
+            .and_then(|e| stops.get(e).ok())
+            .is_some_and(|(_, s)| s.table == BUILDER_SHEET);
+        if !on_sheet && let Some(keep) = find("keep", BUILDER_SHEET, None) {
+            focus.set(keep, FocusCause::Navigated);
+            seen.focus = Some(keep);
+            seen.stop = Some(Stop::new(BUILDER_SHEET, "keep"));
+        }
+        return;
+    }
     // The keyboard model moved: the focus follows it.
     if state.build.nav_epoch != seen.epoch {
         seen.epoch = state.build.nav_epoch;

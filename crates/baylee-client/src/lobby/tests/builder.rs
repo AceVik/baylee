@@ -332,7 +332,12 @@ fn leaving_a_deck_with_unsaved_work_asks_first() {
         labels(&mut app).iter().any(|l| l == "Discard changes?"),
         "and says so"
     );
-    press(&mut app, Press::Build(BuildPress::KeepEditing));
+    // Keep editing is focused: Enter keeps editing (KEYBOARD §2.5).
+    app.update();
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Enter, Key::Enter));
+    app.update();
     assert!(!app.world().resource::<LobbyState>().confirm_leave);
     assert!(matches!(
         app.world().resource::<LobbyState>().lobby.screen(),

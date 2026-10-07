@@ -120,6 +120,12 @@ pub(crate) fn keep_the_draft(
         }
         return;
     }
+    // Until the deck just opened has arrived, the builder still holds the
+    // one before it: a draft written now would be the old deck's, and could
+    // bring back one the player has just discarded.
+    if kept.restore {
+        return;
+    }
     let deck = state.lobby.builder();
     if !deck.dirty() {
         kept.pending = None;
