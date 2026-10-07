@@ -240,7 +240,8 @@ pub(crate) fn text_field(
             commands.entity(boxed).add_child(button);
         }
     }
-    // A search box says what it is by its glass and hint: no caption.
+    // A box with no caption (the builder's search and title) is the box
+    // alone: an empty line above it would be a line of nothing.
     if label.is_empty() {
         commands.entity(caption).despawn();
         commands.entity(column).add_child(boxed);

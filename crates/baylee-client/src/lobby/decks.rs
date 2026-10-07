@@ -1429,7 +1429,7 @@ impl DecksPress {
                 let request = state.lobby.flush_delete();
                 dispatch(state, mailbox, request);
                 state.commander_pick = None;
-                state.pane = Pane::Deck;
+                state.build = crate::buildui::BuildUi::opened();
                 let request = state.lobby.edit_deck(index);
                 dispatch(state, mailbox, request);
             }
@@ -1474,7 +1474,7 @@ impl DecksPress {
                 let request = state.lobby.flush_delete();
                 dispatch(state, mailbox, request);
                 state.commander_pick = None;
-                state.pane = Pane::Deck;
+                state.build = crate::buildui::BuildUi::opened();
                 let request = state.lobby.build_deck();
                 dispatch(state, mailbox, request);
             }
@@ -1550,7 +1550,7 @@ pub(super) fn open_import(
     text: Option<&str>,
 ) {
     state.commander_pick = None;
-    state.pane = Pane::Deck;
+    state.build = crate::buildui::BuildUi::opened();
     let request = state.lobby.build_deck();
     dispatch(state, mailbox, request);
     if matches!(state.lobby.screen(), Screen::Build) {

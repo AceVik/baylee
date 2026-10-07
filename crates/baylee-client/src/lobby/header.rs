@@ -117,7 +117,10 @@ pub(super) fn draw(
         bar(commands, root, state, kit, metrics, seated.is_some());
     }
     strips(commands, root, state, kit, seated);
-    if let Some(menu) = state.header_menu.filter(|_| wears_header(state)) {
+    // The builder wears a header of its own (`buildui::header`) with the
+    // same dot, bell and account, and their popovers are these.
+    let builder = matches!(state.lobby.screen(), Screen::Build);
+    if let Some(menu) = state.header_menu.filter(|_| wears_header(state) || builder) {
         let popover = popover(commands, state, kit, menu);
         commands.entity(root).add_child(popover);
     }

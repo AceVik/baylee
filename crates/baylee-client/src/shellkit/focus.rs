@@ -59,6 +59,8 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::orders::PICKER,
     &crate::lobby::orders::CHAIR,
     &crate::lobby::orders::MENU,
+    &crate::buildui::BUILDER_ORDER,
+    &crate::buildui::BUILDER_SHEET_ORDER,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
     &super::gallery::GALLERY_ORDER,
 ];

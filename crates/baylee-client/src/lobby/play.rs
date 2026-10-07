@@ -1765,7 +1765,7 @@ impl PlayPress {
             PlayPress::EditNext => {
                 if let Some(index) = state.lobby.selected() {
                     state.commander_pick = None;
-                    state.pane = Pane::Deck;
+                    state.build = crate::buildui::BuildUi::opened();
                     let request = state.lobby.edit_deck(index);
                     dispatch(state, mailbox, request);
                 }

@@ -11,7 +11,21 @@
 //!    and do not follow the shell's text step.
 
 /// The modules (relative to `src/`) whose lengths follow the text step.
-pub const SHELL_MODULES: &[&str] = &["shellkit"];
+pub const SHELL_MODULES: &[&str] = &[
+    "shellkit",
+    // The deck builder (WP4), file by file: its printing picker and its
+    // import / export dialogs still draw at the lobby's sizes.
+    "buildui/header",
+    "buildui/pool",
+    "buildui/rows",
+    "buildui/deck",
+    "buildui/stats",
+    "buildui/sheets",
+    "buildui/focus",
+    "buildui/draft",
+    "buildui/retained",
+    "buildui/virtual_rows",
+];
 
 /// The lines (1-based) of `source` that write a bare numeric `px(`.
 ///

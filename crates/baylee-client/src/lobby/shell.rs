@@ -31,6 +31,10 @@ pub(crate) struct UiRebuilds {
     pub(crate) total: u64,
     /// Builder patches: the retained builder updated in place.
     pub(crate) patches: u64,
+    /// The builder's sections those patches redrew (§10 #2): a key typed
+    /// into its search is one patch of two sections, the toolbar and the
+    /// list.
+    pub(crate) sections: u64,
     /// Rebuilds a changed `LobbyState` asked for.
     pub(crate) state: u64,
     /// Rebuilds changed account preferences asked for.
@@ -263,6 +267,24 @@ pub(super) fn ui(
     let Some(fonts) = fonts else {
         return;
     };
+    let kit = crate::shellkit::controls::Kit {
+        fonts: &fonts,
+        m: shell_m,
+        german: state.lobby.lang() == Lang::De,
+    };
+    // The builder's Save key cap, from the account's keymap.
+    let save_keys = prefs.all().shell_keys.hint(
+        baylee_client_core::shellkeys::ShellAction::SaveDeck,
+        crate::shellkit::keys::mac(),
+        &baylee_client_core::shellkeys::Learnt::default(),
+    );
+    let build_env = crate::buildui::Env {
+        kit,
+        state: &state,
+        scrolled: &scrolled_to,
+        layout: crate::buildui::Layout::of(shell_m.frame, width),
+        save_keys: save_keys.as_deref(),
+    };
     if state.lobby.screen() == &Screen::Build
         && !state.settings.is_open()
         && state.lobby.library().page.is_none()
@@ -270,20 +292,13 @@ pub(super) fn ui(
         && !prefs.is_changed()
         && *drawn == Some(metrics.frame)
         && kit_same
-        && metrics.frame != Frame::Compact
         && !root.is_empty()
         && let Some(cached) = builder_drawn.as_mut()
+        && cached.fits(&build_env)
     {
-        cached.patch(
-            &mut commands,
-            &state,
-            &fonts,
-            metrics,
-            &scrolled_to,
-            assets.as_deref(),
-            cards.as_mut(),
-        );
+        let redrawn = cached.patch(&mut commands, &build_env, assets.as_deref(), cards.as_mut());
         rebuilds.patches += 1;
+        rebuilds.sections += u64::from(redrawn);
         return;
     }
     rebuilds.total += 1;
@@ -297,11 +312,6 @@ pub(super) fn ui(
     }
     *drawn = Some(metrics.frame);
     *kit_drawn = Some(kit_now);
-    let kit = crate::shellkit::controls::Kit {
-        fonts: &fonts,
-        m: shell_m,
-        german: state.lobby.lang() == Lang::De,
-    };
 
     let full_bleed = true;
     // A phone puts the sign-in form near the top instead of centring it: the
@@ -406,10 +416,7 @@ pub(super) fn ui(
             *builder_drawn = Some(crate::buildui::builder(
                 &mut commands,
                 root,
-                &state,
-                &fonts,
-                metrics,
-                &scrolled_to,
+                &build_env,
                 assets.as_deref(),
                 cards.as_mut(),
             ));

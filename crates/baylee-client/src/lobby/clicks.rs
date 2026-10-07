@@ -68,6 +68,8 @@ pub(super) fn clicks(
     motion: Res<super::front::FrontMotion>,
     entrance: Res<super::entrance::Entrance>,
     journey: Option<Res<crate::arrival::Journey>>,
+    // Shift on a pool row's `+` sends the card to the other list (§7).
+    codes: Option<Res<ButtonInput<KeyCode>>>,
 ) {
     // A panel on its way out or in answers nothing: what is under the
     // pointer is half of a form that is going, or not yet there.
@@ -104,23 +106,9 @@ pub(super) fn clicks(
         {
             continue;
         }
-        let Some(press) = in_lineage(click.entity, &presses, &parents) else {
-            if !crate::buildui::autocomplete::suggestions(&state).is_empty() {
-                state.completion_hidden = true;
-                state.completion = None;
-            }
+        let Some(&press) = in_lineage(click.entity, &presses, &parents) else {
             continue;
         };
-        if !matches!(
-            press,
-            Press::Build(
-                BuildPress::CompleteSearch(_) | BuildPress::FocusBuild(BuildField::Search)
-            )
-        ) && !crate::buildui::autocomplete::suggestions(&state).is_empty()
-        {
-            state.completion_hidden = true;
-            state.completion = None;
-        }
         if state.confirmation.is_some()
             && !matches!(
                 press,
@@ -133,20 +121,34 @@ pub(super) fn clicks(
         // the veil around it included.
         if state.front_menu
             && !matches!(
-                *press,
+                press,
                 Press::Front(FrontPress::FrontMenu)
                     | Press::Shared(SharedPress::PickLang(_) | SharedPress::PickerNothing)
             )
         {
             state.front_menu = false;
         }
+        let shift = codes
+            .as_deref()
+            .is_some_and(|c| c.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]));
+        let press = match press {
+            Press::Build(BuildPress::AddFromPool(slot, false)) if shift => {
+                Press::Build(BuildPress::AddFromPool(slot, true))
+            }
+            other => other,
+        };
+        // A builder menu closes on any press that is not the builder's own
+        // (those close it themselves, `BuildPress::handle`).
+        if state.build.menu.is_some() && !matches!(press, Press::Build(_)) {
+            state.build.menu = None;
+        }
         // Anything but the header's own controls closes a header popover.
-        if state.header_menu.is_some() && !matches!(*press, Press::Header(_)) {
+        if state.header_menu.is_some() && !matches!(press, Press::Header(_)) {
             state.header_menu = None;
         }
         // Anything but a menu's own opener closes the menu open; an item
         // acts first and closes it the same way.
-        if state.menu.is_some() && !matches!(*press, Press::Shared(SharedPress::OpenMenu(_))) {
+        if state.menu.is_some() && !matches!(press, Press::Shared(SharedPress::OpenMenu(_))) {
             state.menu = None;
         }
         // Any other control answers the question the back button asked.
@@ -155,14 +157,14 @@ pub(super) fn clicks(
         // state marks it changed, and a changed state rebuilds the whole tree
         // (§10 #1 of the shell design) — so a press that changes nothing
         // must not write anything either (`a_press_that_changes_nothing_marks_nothing`).
-        if *press != Press::Build(BuildPress::CloseBuilder) && state.confirm_leave {
+        if press != Press::Build(BuildPress::CloseBuilder) && state.confirm_leave {
             state.confirm_leave = false;
         }
         // A filter that changes what is in the list puts it back at the top:
         // finding yourself halfway down a fresh search is disorienting, and
         // the row you were reading is not in it any more anyway.
         if matches!(
-            *press,
+            press,
             Press::Build(
                 BuildPress::ToggleColor(_)
                     | BuildPress::SetKind(_)
@@ -178,14 +180,14 @@ pub(super) fn clicks(
         // rebinding in progress. Leaving it armed would mean the next key
         // pressed anywhere lands on whichever row was last tapped.
         if state.settings.capturing().is_some()
-            && !matches!(*press, Press::Settings(SettingsPress::Rebind(_)))
+            && !matches!(press, Press::Settings(SettingsPress::Rebind(_)))
         {
             state.settings = SettingsPane::Open;
         }
         // And anything but the seat panel's own controls takes the caret out
         // of its box.
         if !matches!(
-            *press,
+            press,
             Press::Settings(SettingsPress::Seat(_) | SettingsPress::SeatKey(_))
         ) && state.seat.typing()
         {
@@ -198,7 +200,7 @@ pub(super) fn clicks(
             mailbox: &mailbox,
             settings: &mut settings,
         };
-        super::press::run(*press, cx);
+        super::press::run(press, cx);
     }
 }
 
