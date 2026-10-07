@@ -19,8 +19,10 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     }
 }
 
-/// #254: the deckbuilder says which build it is, as the lobby does, and on a
-/// phone too, where the bar drops its title.
+/// #254: the deckbuilder says which build it is, as the lobby does, on every
+/// frame: beside the brand where there is room (the shell design §2.1, the
+/// short form), and in the gateway's popover — the whole build — everywhere,
+/// a narrow header included.
 #[test]
 fn the_builder_names_its_build_on_every_frame() {
     for width in [1400.0, 390.0] {
@@ -32,9 +34,17 @@ fn the_builder_names_its_build_on_every_frame() {
             .lobby
             .build_deck();
         app.update();
+        if width > 1000.0 {
+            let drawn = labels(&mut app);
+            assert!(
+                drawn.iter().any(|l| l == baylee_build::VERSION),
+                "{width} px: {drawn:?}"
+            );
+        }
+        press(&mut app, Press::Header(crate::lobby::HeaderPress::Gateway));
         let drawn = labels(&mut app);
         assert!(
-            drawn.iter().any(|l| l == baylee_build::short()),
+            drawn.iter().any(|l| l.contains(baylee_build::short())),
             "{width} px: {drawn:?}"
         );
     }
@@ -54,27 +64,35 @@ fn the_builder_screen_builds_with_its_controls() {
     for wanted in [
         Press::Build(BuildPress::CloseBuilder),
         Press::Build(BuildPress::FocusBuild(BuildField::Search)),
-        Press::Build(BuildPress::FocusBuild(BuildField::Name)),
-        Press::Build(BuildPress::SetZone(Zone::Main)),
-        Press::Build(BuildPress::SetZone(Zone::Side)),
+        Press::Build(BuildPress::Rename),
+        Press::Build(BuildPress::SetTab(crate::buildui::DeckTab::Main)),
+        Press::Build(BuildPress::SetTab(crate::buildui::DeckTab::Side)),
+        Press::Build(BuildPress::SetTab(crate::buildui::DeckTab::Stats)),
         Press::Build(BuildPress::ToggleColor('G')),
-        Press::Build(BuildPress::SetKind(Some("Creature"))),
-        Press::Build(BuildPress::SetCmc(0)),
+        Press::Build(BuildPress::ToggleRail),
+        Press::Build(BuildPress::ToggleSyntax),
         Press::Build(BuildPress::TogglePlayable),
         Press::Build(BuildPress::CycleSort),
+        Press::Build(BuildPress::ToggleHeaderMenu),
         // Both pool rows are offered, so the search does not have to be
-        // used to reach a two-card pool.
-        Press::Build(BuildPress::AddCardTo(0, Zone::Main)),
-        Press::Build(BuildPress::AddCardTo(1, Zone::Main)),
+        // used to reach a two-card pool — one `+` each (§7).
+        Press::Build(BuildPress::AddFromPool(0, false)),
+        Press::Build(BuildPress::AddFromPool(1, false)),
+        Press::Build(BuildPress::PoolMenu(0)),
         // Every row can be read as well as taken.
         Press::Build(BuildPress::Inspect(0)),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
-    // Nothing is saveable yet: no name, no cards.
+    // The rail's filters are behind Filters, not a second chip row (§7).
+    assert!(!found.contains(&Press::Build(BuildPress::SetKind(Some("Creature")))));
+    // Nothing is saveable yet: no name, no cards — Save stands, and is off.
+    let save = press_target(&mut app, Press::Build(BuildPress::SaveDeck));
     assert!(
-        !found.contains(&Press::Build(BuildPress::SaveDeck)),
-        "a deck the gateway would refuse offers no save"
+        app.world()
+            .entity(save)
+            .contains::<crate::shellkit::controls::Disabled>(),
+        "a deck the gateway would refuse offers no live save"
     );
 }
 
@@ -186,10 +204,12 @@ fn every_scrolling_list_carries_what_bevy_needs_to_scroll_it() {
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 1400.0);
-    app.world_mut()
-        .resource_mut::<LobbyState>()
-        .lobby
-        .build_deck();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        // An empty deck shows its empty state, not a list.
+        state.lobby.builder_mut().add(0, Zone::Main);
+    }
     app.update();
     let mut query = app
         .world_mut()
@@ -221,7 +241,7 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     let mut rows = app.world_mut().query::<(Entity, &Press)>();
     let card = rows
         .iter(app.world())
-        .find(|(_, press)| **press == Press::Build(BuildPress::AddCardTo(0, Zone::Main)))
+        .find(|(_, press)| **press == Press::Build(BuildPress::AddFromPool(0, false)))
         .map(|(entity, _)| entity)
         .expect("a card row");
     let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
@@ -287,8 +307,10 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     );
 }
 
+/// Back with unsaved work asks "Discard changes?" (KEYBOARD §2.5): Keep
+/// editing stays, Discard leaves; a saved deck leaves at once.
 #[test]
-fn leaving_a_deck_with_unsaved_work_takes_two_presses() {
+fn leaving_a_deck_with_unsaved_work_asks_first() {
     let mut app = headless();
     stocked(&mut app);
     sized(&mut app, 1400.0);
@@ -298,10 +320,7 @@ fn leaving_a_deck_with_unsaved_work_takes_two_presses() {
         state.lobby.builder_mut().set_name("Half a deck");
     }
     app.update();
-    let back = press_target(&mut app, Press::Build(BuildPress::CloseBuilder));
-
-    tap(&mut app, back);
-    app.update();
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
     assert!(
         matches!(
             app.world().resource::<LobbyState>().lobby.screen(),
@@ -310,13 +329,18 @@ fn leaving_a_deck_with_unsaved_work_takes_two_presses() {
         "the first press asks rather than leaves"
     );
     assert!(
-        labels(&mut app).iter().any(|l| l == "Leave without saving"),
+        labels(&mut app).iter().any(|l| l == "Discard changes?"),
         "and says so"
     );
+    press(&mut app, Press::Build(BuildPress::KeepEditing));
+    assert!(!app.world().resource::<LobbyState>().confirm_leave);
+    assert!(matches!(
+        app.world().resource::<LobbyState>().lobby.screen(),
+        Screen::Build
+    ));
 
-    let back = press_target(&mut app, Press::Build(BuildPress::CloseBuilder));
-    tap(&mut app, back);
-    app.update();
+    press(&mut app, Press::Build(BuildPress::CloseBuilder));
+    press(&mut app, Press::Build(BuildPress::DiscardAndLeave));
     assert!(matches!(
         app.world().resource::<LobbyState>().lobby.screen(),
         Screen::Table
@@ -373,7 +397,7 @@ fn issue_188_adding_a_card_keeps_the_pool_and_its_scroll_position() {
         .entity_mut(pool_entity)
         .insert(ScrollPosition(Vec2::new(0.0, 90.0)));
 
-    let card = press_target(&mut app, Press::Build(BuildPress::AddCardTo(0, Zone::Main)));
+    let card = press_target(&mut app, Press::Build(BuildPress::AddFromPool(0, false)));
     tap(&mut app, card);
     app.update();
 
@@ -523,8 +547,10 @@ fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
     );
     assert!(said.contains(playable), "and did not name it: {said}");
 
-    // A colour and a type join it, each in its own words.
+    // A colour and a type join it, each in its own words (the type from
+    // the Filters rail).
     press(&mut app, Press::Build(BuildPress::ToggleColor('G')));
+    press(&mut app, Press::Build(BuildPress::ToggleRail));
     press(
         &mut app,
         Press::Build(BuildPress::SetKind(Some("Creature"))),
@@ -579,7 +605,7 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
     }
     app.update();
     if !presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)) {
-        press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
+        press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
     }
     press(&mut app, Press::Build(BuildPress::ClearDeck));
     assert_eq!(
@@ -602,7 +628,7 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
         1
     );
     if !presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)) {
-        press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
+        press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
     }
     press(&mut app, Press::Build(BuildPress::ClearDeck));
     press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
@@ -781,20 +807,18 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
         .find(|(_, p, _)| **p == Press::Build(BuildPress::PickCommanderPrint(0)))
         .map(|(entity, _, node)| (entity, node.clone()))
         .expect("the commander's picture opens the picker");
-    assert_eq!(node.width, Val::Auto, "as tall as its row, as a deck row's");
-    assert_eq!(node.height, percent(100));
-    assert!(node.aspect_ratio.is_some());
-    let line = app
-        .world()
-        .entity(picture)
-        .get::<ChildOf>()
-        .unwrap()
-        .parent();
+    let (Val::Px(w), Val::Px(h)) = (node.width, node.height) else {
+        panic!("a print at a fixed size: {node:?}");
+    };
+    assert!(
+        (w / h - 5.0 / 7.0).abs() < 0.05,
+        "a card's own aspect: {w} × {h}"
+    );
     let hover = app
         .world()
-        .entity(line)
+        .entity(picture)
         .get::<HoverCard>()
-        .expect("the line previews its card");
+        .expect("the picture previews its card");
     let url = hover.url.clone().expect("a real id has art");
     assert!(
         url.contains(chosen),
@@ -828,9 +852,11 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
     );
 }
 
+/// The deck list is virtual too: rows far from the window are unmounted and
+/// come back when the window returns (§10 #6).
 #[test]
 fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
-    use crate::buildui::virtual_rows::VirtualRow;
+    use crate::buildui::virtual_rows::VirtualList;
     use bevy::ui::CalculatedClip;
     let mut app = headless();
     stocked(&mut app);
@@ -845,30 +871,29 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
         .builder_mut()
         .add(0, Zone::Main);
     app.update();
-    let rows: Vec<_> = app
+    let lists: Vec<_> = app
         .world_mut()
-        .query_filtered::<Entity, With<VirtualRow>>()
+        .query_filtered::<Entity, With<VirtualList>>()
         .iter(app.world())
         .collect();
-    assert!(!rows.is_empty());
-    for &row in &rows {
-        app.world_mut()
-            .entity_mut(row)
-            .get_mut::<ComputedNode>()
-            .unwrap()
-            .size = Vec2::new(400.0, 112.0);
-        app.world_mut().entity_mut(row).insert(CalculatedClip {
-            clip: Rect::new(0.0, 1000.0, 400.0, 1500.0),
-        });
-    }
-    app.update();
+    assert_eq!(lists.len(), 2, "the pool and the deck");
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::RemoveRow(0))));
+    let place = |app: &mut App, clip: Rect| {
+        for &list in &lists {
+            let mut entity = app.world_mut().entity_mut(list);
+            entity.get_mut::<ComputedNode>().unwrap().size = Vec2::new(400.0, 300.0);
+            entity.insert(UiGlobalTransform::from(
+                bevy::math::Affine2::from_translation(Vec2::new(200.0, 150.0)),
+            ));
+            entity.insert(CalculatedClip { clip });
+        }
+        app.update();
+    };
+    // The window far below the list: everything is unmounted.
+    place(&mut app, Rect::new(0.0, 5000.0, 400.0, 5300.0));
     assert!(!presses(&mut app).contains(&Press::Build(BuildPress::RemoveRow(0))));
-    for row in rows {
-        app.world_mut().entity_mut(row).insert(CalculatedClip {
-            clip: Rect::new(-400.0, -200.0, 400.0, 500.0),
-        });
-    }
-    app.update();
+    // And back.
+    place(&mut app, Rect::new(0.0, 0.0, 400.0, 300.0));
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::RemoveRow(0))));
 }
 
@@ -908,7 +933,7 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
     }
     app.update();
     assert!(!presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
-    assert!(presses(&mut app).contains(&Press::Build(BuildPress::ToggleDeckActions)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::ToggleHeaderMenu)));
     let target = app
         .world_mut()
         .query::<(&Press, &Node)>()
@@ -916,16 +941,18 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
         .find(|(p, _)| **p == Press::Build(BuildPress::PickRowPrint(0)))
         .unwrap()
         .1;
-    assert_eq!(target.width, Val::Auto);
-    assert_eq!(target.height, percent(100));
-    assert!(target.aspect_ratio.is_some());
-    press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
+    // The print stands at a card's own aspect (§7: 48 × 67 in a pool row).
+    let (Val::Px(w), Val::Px(h)) = (target.width, target.height) else {
+        panic!("a print at a fixed size: {target:?}");
+    };
+    assert!((w / h - 5.0 / 7.0).abs() < 0.05, "{w} × {h}");
+    press(&mut app, Press::Build(BuildPress::ToggleHeaderMenu));
     assert!(presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
 }
 
 #[test]
 fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
-    use crate::buildui::virtual_rows::VirtualPool;
+    use crate::buildui::virtual_rows::VirtualList;
     use bevy::ui::CalculatedClip;
     let mut app = headless();
     stocked(&mut app);
@@ -949,20 +976,24 @@ fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
     assert!(
         presses(&mut app)
             .iter()
-            .filter(|p| matches!(p, Press::Build(BuildPress::AddCardTo(_, Zone::Main))))
+            .filter(|p| matches!(p, Press::Build(BuildPress::AddFromPool(_, false))))
             .count()
-            <= 10
+            <= 24,
+        "the first draw mounts two screens' worth, not the catalog"
     );
     let list = app
         .world_mut()
-        .query_filtered::<Entity, With<VirtualPool>>()
-        .single(app.world())
+        .query_filtered::<(Entity, &VirtualList), ()>()
+        .iter(app.world())
+        .find(|(_, list)| crate::buildui::virtual_rows::is_pool(list))
+        .map(|(e, _)| e)
         .unwrap();
     {
         let mut entity = app.world_mut().entity_mut(list);
-        entity.get_mut::<ComputedNode>().unwrap().size = Vec2::new(600.0, 13440.0);
+        // 120 rows at the kit's 72-px pitch (step 4).
+        entity.get_mut::<ComputedNode>().unwrap().size = Vec2::new(600.0, 8640.0);
         entity.insert(UiGlobalTransform::from(
-            bevy::math::Affine2::from_translation(Vec2::new(0.0, 6720.0)),
+            bevy::math::Affine2::from_translation(Vec2::new(0.0, 4320.0)),
         ));
         entity.insert(CalculatedClip {
             clip: Rect::new(0.0, 0.0, 600.0, 380.0),
@@ -975,17 +1006,18 @@ fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
         .entity_mut(scroller)
         .get_mut::<ScrollPosition>()
         .unwrap()
-        .y = 13060.0;
+        .y = 8260.0;
     app.update();
     let visible = presses(&mut app);
-    assert!(visible.contains(&Press::Build(BuildPress::AddCardTo(119, Zone::Main))));
-    assert!(!visible.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))));
+    assert!(visible.contains(&Press::Build(BuildPress::AddFromPool(119, false))));
+    assert!(!visible.contains(&Press::Build(BuildPress::AddFromPool(0, false))));
     assert!(
         visible
             .iter()
-            .filter(|p| matches!(p, Press::Build(BuildPress::AddCardTo(_, Zone::Main))))
+            .filter(|p| matches!(p, Press::Build(BuildPress::AddFromPool(_, false))))
             .count()
-            < 10
+            < 24,
+        "a window and a window's worth on either side"
     );
 }
 

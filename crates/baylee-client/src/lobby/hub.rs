@@ -986,13 +986,13 @@ impl HubPress {
             }
             HubPress::NewDeck => {
                 state.commander_pick = None;
-                state.pane = Pane::Deck;
+                state.build = crate::buildui::BuildUi::opened();
                 let request = state.lobby.build_deck();
                 dispatch(state, mailbox, request);
             }
             HubPress::ImportDeck => {
                 state.commander_pick = None;
-                state.pane = Pane::Deck;
+                state.build = crate::buildui::BuildUi::opened();
                 let request = state.lobby.build_deck();
                 dispatch(state, mailbox, request);
                 if matches!(state.lobby.screen(), Screen::Build) {
@@ -1002,7 +1002,7 @@ impl HubPress {
             }
             HubPress::EditDeck(index) => {
                 state.commander_pick = None;
-                state.pane = Pane::Deck;
+                state.build = crate::buildui::BuildUi::opened();
                 let request = state.lobby.edit_deck(index);
                 dispatch(state, mailbox, request);
             }

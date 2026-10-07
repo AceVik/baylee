@@ -65,6 +65,7 @@ const STARTER: &str = "Allytifact";
 pub struct LobbyPlugin;
 
 impl Plugin for LobbyPlugin {
+    #[allow(clippy::too_many_lines)] // one plugin: every system the lobby runs, in order
     fn build(&self, app: &mut App) {
         // The keymap is the account's, and the account is signed into here —
         // shared with the duel, whichever of the two got there first.
@@ -81,6 +82,7 @@ impl Plugin for LobbyPlugin {
         crate::loading::install(app);
         crate::shellkit::install(app);
         header::install(app);
+        install_builder(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
             .init_resource::<dock::Surfaces>()
@@ -135,8 +137,13 @@ impl Plugin for LobbyPlugin {
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
                     (preview, hint::hint_panel, crate::face::show_scrollbars),
-                    crate::buildui::virtual_rows::update,
-                    crate::buildui::virtual_rows::update_pool,
+                    (
+                        crate::buildui::virtual_rows::update,
+                        crate::buildui::virtual_rows::in_deck,
+                        crate::buildui::focus::light_the_cursor,
+                        crate::buildui::focus::scroll_to_the_cursor,
+                        crate::buildui::focus::place_menus,
+                    ),
                     thumbnails::load,
                     thumbnails::quantities,
                     waiting,
@@ -187,6 +194,28 @@ impl Plugin for LobbyPlugin {
             )
             .add_systems(OnExit(DuelPhase::Finished), despawn_leave_button);
     }
+}
+
+/// The deck builder's systems beside the lobby's: Enter on a focused
+/// control, its keyboard place and the kit's focus as one, its draft, its
+/// save state — after the kit's focus and the lobby's keys, before the tree
+/// is drawn.
+fn install_builder(app: &mut App) {
+    app.init_resource::<crate::buildui::virtual_rows::ListProbe>()
+        .add_systems(
+            Update,
+            (
+                build_press::activate_focused,
+                crate::buildui::focus::follow,
+                crate::buildui::draft::keep_the_draft,
+                crate::buildui::draft::follow_the_save,
+            )
+                .chain()
+                .after(crate::shellkit::focus::FocusSystems)
+                .after(keyboard)
+                .before(ui)
+                .run_if(in_state(DuelPhase::Closed)),
+        );
 }
 
 // ------------------------------------------------------------- resources
@@ -245,22 +274,15 @@ pub struct LobbyState {
     /// the screen, and a deck is half an hour of work.
     pub(crate) confirm_leave: bool,
     pub(super) confirmation: Option<confirm::Destructive>,
-    /// Whether a phone is showing the filter chips. They are three wrapped
-    /// rows, which on a phone is most of the screen — the list they filter
-    /// would be four rows tall underneath them.
-    pub(crate) filters_open: bool,
-    pub(crate) stats_open: bool,
-    pub(crate) deck_actions_open: bool,
+    /// The deck builder's own view state: its tabs, panes, menus, the
+    /// keyboard's place and the save state (`crate::buildui::BuildUi`).
+    pub(crate) build: crate::buildui::BuildUi,
     pub(crate) completion: Option<usize>,
     pub(crate) completion_hidden: bool,
     /// What the import and export dialogs asked of the clipboard and the
     /// file system this frame, for `buildui::transfer::act` to carry out.
     pub(crate) transfer_asks: Vec<crate::buildui::transfer::Ask>,
     pub(crate) commander_pick: Option<bool>, // false: primary; true: compatible partner
-    /// Which half of the builder a phone is showing. Purely a matter of how
-    /// much room there is, so it lives here and not in the state machine:
-    /// every wider frame shows both halves and never reads it.
-    pub(crate) pane: Pane,
     pub(crate) hub: Hub,
     pub(crate) room_deck_seat: Option<u32>,
     /// The seat whose optional starting-position editor is expanded.
@@ -328,16 +350,6 @@ impl SettingsPane {
             _ => None,
         }
     }
-}
-
-/// The half of the deck builder a narrow screen is showing.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub(crate) enum Pane {
-    /// The searchable pool.
-    #[default]
-    Cards,
-    /// The deck being built.
-    Deck,
 }
 
 /// The two tasks in the signed-in hub.
@@ -430,14 +442,11 @@ impl LobbyState {
             connected: false,
             confirm_leave: false,
             confirmation: None,
-            filters_open: false,
-            stats_open: false,
-            deck_actions_open: false,
+            build: crate::buildui::BuildUi::default(),
             completion: None,
             completion_hidden: false,
             transfer_asks: Vec::new(),
             commander_pick: None,
-            pane: Pane::Cards,
             hub: Hub::Play,
             room_deck_seat: None,
             room_setup_seat: None,
@@ -630,6 +639,7 @@ pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
 pub(crate) use front::FrontPress;
+pub(crate) use header::HeaderPress;
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};

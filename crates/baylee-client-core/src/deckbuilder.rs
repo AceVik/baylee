@@ -792,6 +792,7 @@ impl BuildField {
 
 /// The deck builder's whole state.
 #[derive(Clone, Debug, Default)]
+#[allow(clippy::struct_excessive_bools)] // independent facts: unsaved, naming, rules text, stubs shown
 pub struct DeckBuilder {
     pool_revision: u64,
     pool: Vec<PoolCard>,

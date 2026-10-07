@@ -1,6 +1,8 @@
 //! Search suggestions stay inside the field's interaction model.
 #[allow(clippy::wildcard_imports)] // This screen module shares its widget vocabulary.
 use super::*;
+use crate::hud::{btn_radius, palette};
+use baylee_client_core::deckbuilder::BuildField;
 
 pub(crate) fn suggestions(state: &LobbyState) -> Vec<usize> {
     let deck = state.lobby.builder();
