@@ -1763,6 +1763,8 @@ mod timing_window_tests;
 #[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
+mod enter_zone_tests;
+#[cfg(test)]
 mod event_player_tests;
 #[cfg(test)]
 mod granted_this_tests;
