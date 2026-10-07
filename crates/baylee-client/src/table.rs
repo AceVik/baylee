@@ -442,6 +442,10 @@ mod tests;
 #[cfg(test)]
 mod glide_tests;
 
+/// The arrangements as the camera draws them (DESIGN-v8 §3).
+#[cfg(test)]
+mod arrangement_tests;
+
 /// The ways off the table and the ways back onto it.
 ///
 /// Geometry, not implementation: what is asserted is that a card bound for a

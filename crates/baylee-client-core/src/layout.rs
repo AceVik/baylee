@@ -40,6 +40,8 @@ use crate::cardplate::PlateRoom;
 
 mod arrangement;
 pub use arrangement::Arrangement;
+#[cfg(test)]
+use arrangement::upright_apart as arrangement_upright_apart;
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 
@@ -1049,8 +1051,8 @@ impl TableLayout {
             return Self::seated(seats, aspect, None);
         }
         match arrangement {
+            Arrangement::UprightRing => arrangement::upright(seats, aspect),
             Arrangement::Ring
-            | Arrangement::UprightRing
             | Arrangement::Turntable
             | Arrangement::ArcRail
             | Arrangement::Pods

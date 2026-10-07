@@ -34,7 +34,7 @@ fn rotations() -> Vec<Quat> {
 #[test]
 fn a_card_on_its_mark_is_never_written_again() {
     let mut app = App::new();
-    app.add_plugins(bevy::time::TimePlugin)
+    app.init_resource::<Time>()
         .init_resource::<crate::prefs::Prefs>()
         .init_resource::<GlideReport>()
         .add_systems(Update, glide);

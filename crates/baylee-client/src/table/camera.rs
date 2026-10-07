@@ -128,9 +128,13 @@ impl CameraRig {
     #[must_use]
     pub fn home_shot(layout: &TableLayout, canvas: Canvas, shot: Shot) -> (Self, Binds) {
         match shot.arrangement {
+            // The upright ring's flank seats stand square to the table, and
+            // at three seats the left one reaches the arrangement pill's
+            // corner: this arrangement's home keeps below the pill's line
+            // (DESIGN-v8 §2.2's fallback — the arm pays, never the others).
+            Arrangement::UprightRing => Self::ring_home(layout, canvas.below_the_pill(), shot),
             // An arrangement not built yet seats the ring, and is shot as one.
             Arrangement::Ring
-            | Arrangement::UprightRing
             | Arrangement::Turntable
             | Arrangement::ArcRail
             | Arrangement::Pods
@@ -212,8 +216,10 @@ impl CameraRig {
         shot: Shot,
     ) -> Option<(Self, VisitFrame, Binds)> {
         match shot.arrangement {
+            Arrangement::UprightRing => {
+                Self::zoom_visit(layout, canvas.below_the_pill(), seat, shot)
+            }
             Arrangement::Ring
-            | Arrangement::UprightRing
             | Arrangement::Turntable
             | Arrangement::ArcRail
             | Arrangement::Pods
@@ -221,6 +227,39 @@ impl CameraRig {
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::ring_visit(layout, canvas, seat, shot),
         }
+    }
+
+    /// A visit that is a zoom (DESIGN-v8 §1 rows 2 and 5): the pod is upright
+    /// already, so the eye keeps the home azimuth (yaw 0) and only comes in —
+    /// the visited pod and its air framed at a wide duel's lean, nothing else.
+    ///
+    /// Seen from across where the choice says so (an opponent, under
+    /// *Automatic*): the eye at yaw π, the board read as a duel opponent's.
+    fn zoom_visit(
+        layout: &TableLayout,
+        canvas: Canvas,
+        seat: PlayerId,
+        shot: Shot,
+    ) -> Option<(Self, VisitFrame, Binds)> {
+        let slot = layout.slot(seat)?;
+        let class = canvas.class();
+        let tilt = if class == Frame::Phone {
+            PHONE_LEAN
+        } else {
+            DUEL_LEAN
+        };
+        let air = ring_air(class);
+        let (lo, hi) = pod_box(slot, air);
+        let (lo, hi) = (
+            from_pod_frame(slot.facing, lo).min(from_pod_frame(slot.facing, hi)),
+            from_pod_frame(slot.facing, lo).max(from_pod_frame(slot.facing, hi)),
+        );
+        let across = shot.visit.resolve(shot.teammate(seat)) == VisitCamera::Across;
+        let (lo, hi) = if across { (-hi, -lo) } else { (lo, hi) };
+        let fit = fit(lo, hi, &box_corners(lo, hi), tilt, canvas);
+        let yaw = if across { std::f32::consts::PI } else { 0.0 };
+        let rig = fit.rig(yaw, tilt, |p| if across { -p } else { p });
+        Some((rig, VisitFrame::Pod, fit.binds))
     }
 
     /// The ring's visit ([`Self::visit`]).
@@ -235,6 +274,11 @@ impl CameraRig {
         let phone = class == Frame::Phone;
         let tilt = if phone { PHONE_LEAN } else { DUEL_LEAN };
         let air = ring_air(class);
+        // *Automatic* answers by the roster: a teammate's board from behind
+        // it, an opponent's from across (the owner, 07.10.2026). A phone
+        // frames the pod alone either way, from the side the choice says.
+        let choice = shot.visit.resolve(shot.teammate(seat));
+        let across = choice == VisitCamera::Across;
         // One frame's box and fit: the visited pod in its own frame (`+y`
         // toward the middle), run to the frame's far edge; seen from across,
         // the same box turned half round, the pod at the far side.
@@ -242,25 +286,20 @@ impl CameraRig {
             let reach = visit_reach(layout, frame, air)?;
             let (lo, hi) = pod_box(slot, air);
             let (lo, hi) = (lo, Vec2::new(hi.x, lo.y + reach));
-            let (lo, hi) = if frame == VisitFrame::Across {
-                (-hi, -lo)
-            } else {
-                (lo, hi)
-            };
+            let (lo, hi) = if across { (-hi, -lo) } else { (lo, hi) };
             Some(fit(lo, hi, &box_corners(lo, hi), tilt, canvas))
         };
-        let frame = if shot.visit == VisitCamera::Behind && !phone {
+        let frame = if choice == VisitCamera::Behind && !phone {
             VisitFrame::of(
-                shot.visit,
+                choice,
                 shoot(VisitFrame::Lane)?.eye,
                 shoot(VisitFrame::Dial)?.eye,
                 phone,
             )
         } else {
-            VisitFrame::of(shot.visit, 0.0, 0.0, phone)
+            VisitFrame::of(choice, 0.0, 0.0, phone)
         };
         let fit = shoot(frame)?;
-        let across = frame == VisitFrame::Across;
         let turn = if across { std::f32::consts::PI } else { 0.0 };
         let facing = slot.facing;
         let yaw = (behind(slot) + turn).rem_euclid(std::f32::consts::TAU);
@@ -299,6 +338,34 @@ pub struct Shot {
     pub lean: RingLean,
     /// Where a visit stands.
     pub visit: VisitCamera,
+    /// My teammates, one bit per seat (`1 << PlayerId::get`): who
+    /// *Automatic* visits from behind. From the roster's teams
+    /// (`GameStatic`), never anything hidden; empty at a table without teams.
+    pub teammates: u16,
+}
+
+impl Shot {
+    /// Whether `seat` is on my team.
+    #[must_use]
+    pub fn teammate(self, seat: PlayerId) -> bool {
+        u32::from(seat.get()) < 16 && self.teammates & (1 << seat.get()) != 0
+    }
+
+    /// The teammates of `me` in a roster of `(seat, team)` pairs.
+    #[must_use]
+    pub fn teammates_of(
+        me: PlayerId,
+        roster: impl IntoIterator<Item = (PlayerId, Option<u8>)>,
+    ) -> u16 {
+        let roster: Vec<(PlayerId, Option<u8>)> = roster.into_iter().collect();
+        let Some(mine) = roster.iter().find(|(p, _)| *p == me).and_then(|(_, t)| *t) else {
+            return 0;
+        };
+        roster
+            .iter()
+            .filter(|(p, t)| *p != me && *t == Some(mine) && p.get() < 16)
+            .fold(0, |bits, (p, _)| bits | (1 << p.get()))
+    }
 }
 
 impl From<baylee_client_core::tableview::TableView> for Shot {
@@ -307,6 +374,7 @@ impl From<baylee_client_core::tableview::TableView> for Shot {
             arrangement: view.arrangement,
             lean: view.lean,
             visit: view.visit,
+            teammates: 0,
         }
     }
 }
@@ -678,6 +746,17 @@ impl Canvas {
         width / height
     }
 
+    /// The same canvas with its top kept below the line every top-pinned
+    /// panel keeps below ([`crate::hud::TOP_CLEAR`]): for an arrangement
+    /// whose seats would otherwise reach the switcher's pill.
+    #[must_use]
+    pub fn below_the_pill(self) -> Self {
+        Self {
+            top: self.top.max(crate::hud::TOP_CLEAR),
+            ..self
+        }
+    }
+
     /// The window's size class for the camera (`WindowClass`),
     /// read off the raw window: the table's faces do not follow the shell's
     /// text step, so its width is not divided by one.
@@ -757,8 +836,17 @@ pub fn frame_table(
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the
     // per-count memory and the offer may all have overruled.
+    let teammates = duel.seat().map_or(0, |me| {
+        Shot::teammates_of(
+            me,
+            duel.statics
+                .iter()
+                .flat_map(|statics| statics.seats.iter().map(|s| (s.player, s.team))),
+        )
+    });
     let shot = Shot {
         arrangement: duel.arrangement,
+        teammates,
         ..settings.map_or_else(Shot::default, |s| Shot::from(s.table))
     };
     let visit = duel
@@ -985,7 +1073,12 @@ pub fn apply_camera_rig(
         }
         (Some(current), None) => {
             let t = 1.0 - (-CAMERA_SETTLE * time.delta_secs()).exp();
-            between(current, target, t)
+            let next = between(current, target, t);
+            // The last thousandth of a unit is put on the mark, as a card's
+            // is (`glide`'s SETTLED): an exponential left to run converges on
+            // the target only to the last bit of an `f32`, and every frame
+            // until then writes the camera's transform on a still table.
+            if next.close_to(target) { target } else { next }
         }
     };
     if still {
@@ -1025,6 +1118,20 @@ impl ShownRig {
 }
 
 impl CameraRig {
+    /// Whether this rig is within a thousandth of `other` in every part: on
+    /// its mark, for the settle's purpose.
+    #[must_use]
+    pub fn close_to(self, other: Self) -> bool {
+        const NEAR: f32 = 1e-3;
+        self.target.abs_diff_eq(other.target, NEAR)
+            && (self.distance - other.distance).abs() <= NEAR
+            && (self.lean - other.lean).abs() <= NEAR * 1e-1
+            && ((self.yaw - other.yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+                - std::f32::consts::PI)
+                .abs()
+                <= NEAR * 1e-1
+    }
+
     /// The camera transform this rig asks for.
     ///
     /// Extracted from [`apply_camera_rig`] rather than copied, because

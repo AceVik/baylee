@@ -1224,9 +1224,11 @@ messages! {
     RowVisitCamera { en: "Looking at a seat", de: "Sitz ansehen" },
     /// What the visit camera does
     HelpVisitCamera {
-        en: "Where the camera stands when you look at another seat (its button, F): behind it with your own lane or the dial in view, behind it with the dial always in view, or across from it.",
-        de: "Wo die Kamera steht, wenn du einen anderen Platz ansiehst (sein Knopf, F): dahinter mit deiner Reihe oder dem Zifferblatt im Bild, dahinter immer mit dem Zifferblatt, oder gegenüber.",
+        en: "Where the camera stands when you look at another seat (its button, F). Automatic: behind a teammate, as if sitting beside them, and across from an opponent, whose board you then read as in a duel. Or always behind it with your own lane or the dial in view, behind it with the dial always in view, or across from it.",
+        de: "Wo die Kamera steht, wenn du einen anderen Platz ansiehst (sein Knopf, F). Automatisch: hinter einem Mitspieler, als säßest du neben ihm, und gegenüber einem Gegner, dessen Brett du dann wie im Duell liest. Oder immer dahinter mit deiner Reihe oder dem Zifferblatt im Bild, dahinter immer mit dem Zifferblatt, oder gegenüber.",
     },
+    /// The automatic visit: behind a teammate, across from an opponent
+    VisitAuto { en: "Automatic", de: "Automatisch" },
     /// Behind, with the rule
     VisitBehind { en: "Behind", de: "Dahinter" },
     /// Behind, the dial always

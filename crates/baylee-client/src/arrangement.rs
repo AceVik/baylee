@@ -108,7 +108,8 @@ pub fn choose(
     let frame = window.map(|w| TableFrame::of(w.x, w.y));
     let seats = seat_count(&duel);
     let height = window.map_or(0.0, |w| w.y);
-    if measured.frame != frame || measured.seats != seats || measured.height != height {
+    if measured.frame != frame || measured.seats != seats || (measured.height - height).abs() > 0.5
+    {
         measured.frame = frame;
         measured.seats = seats;
         measured.height = height;
@@ -424,6 +425,7 @@ const SHORT_WINDOW: f32 = 860.0;
 
 /// What the pill and the menu were last drawn from.
 #[derive(Resource, Default, Clone, PartialEq, Debug)]
+#[allow(clippy::struct_excessive_bools)] // the facts one drawing is keyed on
 pub struct SwitcherRevision {
     shown: bool,
     effective: Option<Arrangement>,

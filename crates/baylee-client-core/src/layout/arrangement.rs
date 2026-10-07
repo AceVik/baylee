@@ -15,6 +15,16 @@
 //! home).
 
 use crate::i18n::Phrase;
+
+mod upright;
+pub(super) use upright::upright;
+
+/// Whether two upright places stand a pile strip apart (the rule the
+/// upright ring is grown by), for the layout's tests.
+#[cfg(test)]
+pub(super) fn upright_apart(a: &super::SeatSlot, b: &super::SeatSlot) -> bool {
+    upright::apart(a, b, super::PILE_STRIP)
+}
 use crate::tableview::TableFrame;
 
 /// How the seats are placed at the table, and with that which home and visit
@@ -143,7 +153,7 @@ impl Arrangement {
     /// ([`Self::package`]): the owner sees the whole set from the first day.
     #[must_use]
     pub const fn built(self) -> bool {
-        matches!(self, Self::Ring)
+        matches!(self, Self::Ring | Self::UprightRing)
     }
 
     /// The work package that builds it (DESIGN-v8 §4).

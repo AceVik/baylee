@@ -53,14 +53,27 @@ impl RingLean {
     pub const ALL: [Self; 2] = [Self::Steep, Self::Gentle];
 }
 
-/// Where the camera stands when it visits a seat (D21).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// Where the camera stands when it visits a seat (D21, and the owner's of
+/// 07.10.2026: *"The current view fits for teammates; if it is not a
+/// teammate it should be rotated 180 degrees."*).
+///
+/// Stored by name. **`"behind"` is read as [`VisitCamera::Auto`]**: it was
+/// v7's default, a table file writes every field, so a file holding it
+/// cannot say whether a player chose it — and v7 had been on `main` for
+/// hours when the owner moved the default. A player who chooses *Behind*
+/// from now on is written `"behind_seat"` and read back as such; the other
+/// two v7 names keep their meaning.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum VisitCamera {
+    /// A teammate's board seen from behind it (as if sitting beside them),
+    /// an opponent's from across (a duel opponent's board): the default.
+    /// With no teams, every other seat is an opponent. The relation comes
+    /// from the roster's teams, never from anything hidden.
+    #[default]
+    Auto,
     /// Behind the visited seat, its board upright above my hand; my own near
     /// lane stays in frame while it costs the visited board little (three
-    /// and four seats), the dial instead from five seats up. Recommended.
-    #[default]
+    /// and four seats), the dial instead from five seats up.
     Behind,
     /// Behind the visited seat with the dial always in frame: the visited
     /// board larger, my own never in view.
@@ -72,7 +85,50 @@ pub enum VisitCamera {
 
 impl VisitCamera {
     /// Every choice, in the order a settings row shows them.
-    pub const ALL: [Self; 3] = [Self::Behind, Self::BehindDial, Self::Across];
+    pub const ALL: [Self; 4] = [Self::Auto, Self::Behind, Self::BehindDial, Self::Across];
+
+    /// The name a settings file holds.
+    #[must_use]
+    pub const fn tag(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Behind => "behind_seat",
+            Self::BehindDial => "behind_dial",
+            Self::Across => "across",
+        }
+    }
+
+    /// What the camera does for a visit to a seat that is (`teammate`) or
+    /// is not on my team: *Automatic* chooses behind or across, every other
+    /// choice is itself.
+    #[must_use]
+    pub const fn resolve(self, teammate: bool) -> Self {
+        match self {
+            Self::Auto if teammate => Self::Behind,
+            Self::Auto => Self::Across,
+            other => other,
+        }
+    }
+}
+
+impl Serialize for VisitCamera {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.tag())
+    }
+}
+
+impl<'de> Deserialize<'de> for VisitCamera {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(match name.as_str() {
+            // v7's default, written whether chosen or not: the new default.
+            "behind" => Self::Auto,
+            other => Self::ALL
+                .into_iter()
+                .find(|v| v.tag() == other)
+                .unwrap_or_default(),
+        })
+    }
 }
 
 /// This device's table framing (`ClientSettings::table`).
@@ -302,13 +358,16 @@ impl VisitFrame {
     /// off as the dial shot. Asked of the two fits and not of the seat count:
     /// a three-seat ring is round and wide, and there my lane would cost two
     /// fifths, where at four seats it costs a tenth.
+    ///
+    /// `choice` is the resolved one ([`VisitCamera::resolve`]); an
+    /// unresolved *Automatic* is read as across, its answer for an opponent.
     #[must_use]
     pub fn of(choice: VisitCamera, lane_eye: f32, dial_eye: f32, phone: bool) -> Self {
         if phone {
             return Self::Pod;
         }
         match choice {
-            VisitCamera::Across => Self::Across,
+            VisitCamera::Across | VisitCamera::Auto => Self::Across,
             VisitCamera::Behind if lane_eye <= dial_eye * LANE_COST => Self::Lane,
             VisitCamera::Behind | VisitCamera::BehindDial => Self::Dial,
         }
@@ -484,7 +543,7 @@ mod tests {
     fn the_defaults_are_the_recommendations_and_unknown_choices_fall_back() {
         let view = TableView::default();
         assert_eq!(view.lean, RingLean::Steep);
-        assert_eq!(view.visit, VisitCamera::Behind);
+        assert_eq!(view.visit, VisitCamera::Auto);
         assert!((RingLean::Steep.tangent() - 0.62).abs() < f32::EPSILON);
         let read: TableView =
             serde_json::from_str(r#"{"lean":"sideways","visit":"across"}"#).expect("reads");
@@ -527,6 +586,36 @@ mod tests {
         );
         let back: TableView = serde_json::from_str(&json).expect("reads");
         assert_eq!(back, view);
+    }
+
+    /// *Automatic* is the default; v7's default name reads as it, every
+    /// other name keeps its meaning, an explicit *Behind* round-trips under
+    /// its own name, and *Automatic* answers behind for a teammate and
+    /// across for an opponent.
+    #[test]
+    fn automatic_is_the_visit_s_default_and_v7_s_default_reads_as_it() {
+        let read = |json: &str| -> TableView { serde_json::from_str(json).expect("reads") };
+        assert_eq!(read(r#"{"visit":"behind"}"#).visit, VisitCamera::Auto);
+        assert_eq!(
+            read(r#"{"visit":"behind_dial"}"#).visit,
+            VisitCamera::BehindDial
+        );
+        assert_eq!(read(r#"{"visit":"across"}"#).visit, VisitCamera::Across);
+        assert_eq!(read(r#"{"visit":"sideways"}"#).visit, VisitCamera::Auto);
+        for choice in VisitCamera::ALL {
+            let view = TableView {
+                visit: choice,
+                ..TableView::default()
+            };
+            let json = serde_json::to_string(&view).expect("writes");
+            assert_eq!(read(&json).visit, choice, "{json}");
+        }
+        assert_eq!(VisitCamera::Auto.resolve(true), VisitCamera::Behind);
+        assert_eq!(VisitCamera::Auto.resolve(false), VisitCamera::Across);
+        assert_eq!(
+            VisitCamera::BehindDial.resolve(false),
+            VisitCamera::BehindDial
+        );
     }
 
     /// The classes change where the shell's do.

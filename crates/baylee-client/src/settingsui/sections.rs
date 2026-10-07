@@ -203,6 +203,7 @@ pub(crate) fn graphics(out: &mut Out, view: &View) {
     let names = labels(
         lang,
         &[
+            Phrase::VisitAuto,
             Phrase::VisitBehind,
             Phrase::VisitBehindDial,
             Phrase::VisitAcross,

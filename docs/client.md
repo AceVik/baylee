@@ -405,6 +405,19 @@ three and four seats and gives up equal home widths (the visit equalises
 them), or the flat 0.36 the rings had before, where every board is drawn
 within the old bound (`at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width`).
 A phone's ring takes 0.50 and frames its own pod and the dial.
+
+**Where a visit stands** is the device's `VisitCamera` (D21), and its default
+since the owner's word of 07.10.2026 (*"The current view fits for teammates;
+if it is not a teammate it should be rotated 180 degrees"*) is **Automatic**:
+a teammate's board seen from behind it, as if sitting beside them, an
+opponent's from across, read as a duel opponent's (with no teams, every other
+seat is an opponent). The relation is `Shot::teammates`, from the roster's
+teams in `GameStatic`, never anything hidden. Every camera arrangement keeps
+it (the ring's orbit, the upright ring's zoom at yaw π);
+`visit_tests::an_opponent_is_visited_from_across_and_a_teammate_from_behind`.
+Behind, behind-with-the-dial and across stay choosable. A settings file's
+`"visit": "behind"` was v7's default and is written whether chosen or not,
+so it reads as Automatic; an explicit Behind is written `"behind_seat"`.
 `a_ring_takes_the_chosen_lean_and_a_narrow_duel_the_upright_one` holds the
 cases apart, and **`CameraRig::lean` is the value everything downstream
 reads** — the projection test writes it out forwards
@@ -807,6 +820,22 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   per arrangement, those not built yet dead with the package that brings
   them), *Tisch folgt dem Zug* (off, D25) and *Je Sitzzahl* (a stepper per
   seat count through *Default* and the built arrangements).
+- **Upright ring** (WA2, `layout/arrangement/upright.rs`): `seated`'s places,
+  every slot `facing = 0`, then each axis of the ring scaled on its own to the
+  shape the camera frames closest while no two upright places meet (a pile
+  strip apart). The design asked only for growth; measured, a flank pod stood
+  upright is a duel's board across the ring, so at four seats the flanks come
+  *in* (×0.79 × 1.30) and at three, where the round ring's two opponents
+  meet upright, it grows (×1.42 × 1.29). A visit is a zoom (`zoom_visit`):
+  yaw 0, the pod and its air at the duel's lean. Its seats reach the pill's
+  corner at three seats, so its home and visit keep below `TOP_CLEAR`
+  (`Canvas::below_the_pill`, §2.2's fallback: the arm pays).
+- **Invariant 4** (`table::arrangement_tests`): every board whole on screen at
+  home or as the seat of interest, and every other seat's creature card at
+  least 36 px at home or 40 near (Wide, Vast, Narrow), or as large as a duel
+  draws its across card on that window where even that is smaller (32 px at
+  1180 × 816, 24 at 960 × 696). My own board and the ring's v7 numbers are
+  recorded, not held (`print_the_arrangements`).
 - **`/state.arrangement`**: `current`, `chosen`, `game`, `default`,
   `by_seats`, `offered`, `reason`, `follow`, `interest`, `moves_cards`,
   `seats`, `frame`, `moving` (cards gliding or the camera orbiting),

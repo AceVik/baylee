@@ -13,6 +13,16 @@ const WINDOWS: [Vec2; 3] = [
     Vec2::new(960.0, 700.0),
 ];
 
+/// v7's visit, from behind the seat: what these tests were written about.
+/// The default is *Automatic* since the owner's word of 07.10.2026
+/// (`an_opponent_is_visited_from_across_and_a_teammate_from_behind`).
+const BEHIND: Shot = Shot {
+    arrangement: baylee_client_core::tableview::Arrangement::Ring,
+    lean: RingLean::Steep,
+    visit: VisitCamera::Behind,
+    teammates: 0,
+};
+
 fn seats(n: u8) -> Vec<PlayerId> {
     (0..n).map(PlayerId::new).collect()
 }
@@ -144,7 +154,7 @@ fn the_visited_pod_is_upright() {
         for n in [3u8, 4, 6, 8] {
             let layout = layout(n, canvas);
             for slot in layout.slots.iter().skip(1) {
-                let (rig, _, _) = CameraRig::visit(&layout, canvas, slot.player, Shot::default())
+                let (rig, _, _) = CameraRig::visit(&layout, canvas, slot.player, BEHIND)
                     .expect("the seat is at the table");
                 let lens = Lens::new(rig, window);
                 let away = Vec2::new(slot.facing.sin(), slot.facing.cos());
@@ -163,8 +173,7 @@ fn the_visited_pod_is_upright() {
     let canvas = Canvas::hud(WINDOWS[0]);
     let four = layout(4, canvas);
     let across = four.slots[2];
-    let (rig, _, _) =
-        CameraRig::visit(&four, canvas, across.player, Shot::default()).expect("seat");
+    let (rig, _, _) = CameraRig::visit(&four, canvas, across.player, BEHIND).expect("seat");
     assert!(
         (rig.yaw - std::f32::consts::PI).abs() < 1e-3,
         "the seat across is visited at yaw {}",
@@ -186,8 +195,7 @@ fn the_visited_board_is_drawn_at_the_same_width_from_every_chair() {
                 .skip(1)
                 .map(|slot| {
                     let (rig, _, _) =
-                        CameraRig::visit(&layout, canvas, slot.player, Shot::default())
-                            .expect("seat");
+                        CameraRig::visit(&layout, canvas, slot.player, BEHIND).expect("seat");
                     drawn_width(&Lens::new(rig, window), slot)
                 })
                 .collect();
@@ -226,7 +234,7 @@ fn a_visit_draws_the_board_larger_than_home() {
             let mine = drawn_width(&home, &layout.slots[0]);
             for slot in layout.slots.iter().skip(1) {
                 let (rig, _, _) =
-                    CameraRig::visit(&layout, canvas, slot.player, Shot::default()).expect("seat");
+                    CameraRig::visit(&layout, canvas, slot.player, BEHIND).expect("seat");
                 let visited = drawn_width(&Lens::new(rig, window), slot);
                 let own_home = drawn_width(&home, slot);
                 let of_a_duel = match n {
@@ -261,7 +269,7 @@ fn a_visit_frames_the_pod_and_what_its_rule_names() {
             let layout = layout(n, canvas);
             for slot in layout.slots.iter().skip(1) {
                 let (rig, frame, _) =
-                    CameraRig::visit(&layout, canvas, slot.player, Shot::default()).expect("seat");
+                    CameraRig::visit(&layout, canvas, slot.player, BEHIND).expect("seat");
                 assert!(matches!(frame, VisitFrame::Lane | VisitFrame::Dial));
                 let lens = Lens::new(rig, window);
                 for corner in footprint(slot) {
@@ -276,7 +284,7 @@ fn a_visit_frames_the_pod_and_what_its_rule_names() {
             // At the seat across, the rule's far edge is in frame.
             let across = layout.slots[usize::from(n) / 2];
             let (rig, frame, _) =
-                CameraRig::visit(&layout, canvas, across.player, Shot::default()).expect("seat");
+                CameraRig::visit(&layout, canvas, across.player, BEHIND).expect("seat");
             let lens = Lens::new(rig, window);
             if frame == VisitFrame::Lane {
                 let mine = layout.slots[0];
@@ -356,7 +364,7 @@ fn print_the_numbers() {
             let across = layout.slots[usize::from(n) / 2];
             let far = drawn_width(&home, &across);
             let (rig, frame, _) =
-                CameraRig::visit(&layout, canvas, across.player, Shot::default()).expect("seat");
+                CameraRig::visit(&layout, canvas, across.player, BEHIND).expect("seat");
             let visited = drawn_width(&Lens::new(rig, window), &across);
             eprintln!(
                 "{window} n{n}: eye {:.1}->{now_eye:.1} ({:.2}) binds {:?}/{binds:?} \
@@ -387,10 +395,68 @@ fn a_phone_frames_one_pod() {
         assert!(in_band(at, canvas), "my own corner at {at}");
     }
     let (rig, frame, _) =
-        CameraRig::visit(&layout, canvas, layout.slots[2].player, Shot::default()).expect("seat");
+        CameraRig::visit(&layout, canvas, layout.slots[2].player, BEHIND).expect("seat");
     assert_eq!(frame, VisitFrame::Pod);
     let lens = Lens::new(rig, window);
     for corner in footprint(&layout.slots[2]) {
         assert!(in_band(lens.project(corner).expect("in front"), canvas));
+    }
+}
+
+/// The owner (07.10.2026): *"The current view fits for teammates; if it is
+/// not a teammate it should be rotated 180 degrees."* Under the default
+/// (*Automatic*) an opponent's board is seen from across — the eye half a
+/// turn from behind it, its cards upside down to me as a duel opponent's
+/// are — and a teammate's from behind, upright. In every camera
+/// arrangement. Red on v7, whose default visited every seat from behind.
+#[test]
+fn an_opponent_is_visited_from_across_and_a_teammate_from_behind() {
+    use baylee_client_core::layout::Seat;
+    use baylee_client_core::tableview::Arrangement;
+    let canvas = Canvas::hud(WINDOWS[0]);
+    for arrangement in [Arrangement::Ring, Arrangement::UprightRing] {
+        for n in [3_u8, 4, 6] {
+            // Teams of two from four seats: seat 2 is my teammate.
+            let roster: Vec<Seat> = seats(n)
+                .into_iter()
+                .map(|p| {
+                    let team = (n >= 4).then_some(p.get() % 2);
+                    Seat::on(p, team)
+                })
+                .collect();
+            let layout = TableLayout::arranged(&roster, canvas.aspect(), arrangement, None);
+            let shot = Shot {
+                arrangement,
+                teammates: Shot::teammates_of(
+                    PlayerId::new(0),
+                    roster.iter().map(|s| (s.player, s.team)),
+                ),
+                ..Shot::default()
+            };
+            assert_eq!(shot.visit, VisitCamera::Auto, "the default");
+            for slot in layout.slots.iter().skip(1) {
+                let (rig, _, _) =
+                    CameraRig::visit(&layout, canvas, slot.player, shot).expect("a seat");
+                let teammate = roster[slot.ring_index].team.is_some()
+                    && roster[slot.ring_index].team == roster[0].team;
+                let off = (rig.yaw - behind(slot) + std::f32::consts::PI)
+                    .rem_euclid(std::f32::consts::TAU)
+                    - std::f32::consts::PI;
+                let what = format!("{arrangement:?} {n} seats, seat {}", slot.player.get());
+                if teammate {
+                    assert!(off.abs() < 1e-3, "{what}: a teammate from behind ({off})");
+                } else {
+                    assert!(
+                        (off.abs() - std::f32::consts::PI).abs() < 1e-3,
+                        "{what}: an opponent from across ({off})"
+                    );
+                }
+                let lens = Lens::new(rig, canvas.window);
+                assert!(
+                    footprint(slot).iter().all(|p| lens.project(*p).is_some()),
+                    "{what}: the visited board is in front of the eye"
+                );
+            }
+        }
     }
 }

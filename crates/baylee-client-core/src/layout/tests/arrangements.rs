@@ -183,3 +183,130 @@ fn arranged_reads_only_the_roster() {
         }
     }
 }
+
+/// The upright ring: every board faces me, every seat stays on its side of
+/// the middle (each axis of the ring scaled on its own), and the shape the
+/// search takes is framed no further off than the design's rule — the whole
+/// ring grown until the upright places part — would have been.
+#[test]
+fn the_upright_ring_stands_every_board_up_on_the_ring_s_bearings() {
+    let reach = |table: &TableLayout, aspect: f32| {
+        let (lo, hi) = table.extent().expect("seats");
+        let span = hi - lo;
+        (span.x / aspect).max(span.y)
+    };
+    for n in 3..=8 {
+        for aspect in ASPECTS {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let ring = TableLayout::seated(&roster, aspect, None);
+            let up = TableLayout::arranged(&roster, aspect, Arrangement::UprightRing, None);
+            let scale = up.radius / ring.radius;
+            for (r, u) in ring.slots.iter().zip(&up.slots) {
+                assert!(u.facing.abs() < 1e-6, "n={n}: {:?} not upright", u.player);
+                assert!((u.angle - r.angle).abs() < 1e-6);
+                assert!(
+                    u.center.distance(r.center * scale) < 1e-3,
+                    "n={n} aspect={aspect}: {:?} left its place on the ring",
+                    u.player
+                );
+            }
+            // The design's rule, for comparison: grown, never shrunk.
+            let mut upright: Vec<SeatSlot> = ring.slots.clone();
+            for slot in &mut upright {
+                slot.facing = 0.0;
+            }
+            let grown = (100..=400)
+                .map(|k| k as f32 / 100.0)
+                .find_map(|f| {
+                    let slots: Vec<SeatSlot> = upright
+                        .iter()
+                        .map(|s| SeatSlot {
+                            center: s.center * f,
+                            ..*s
+                        })
+                        .collect();
+                    let holds = slots.iter().enumerate().all(|(i, a)| {
+                        slots[i + 1..]
+                            .iter()
+                            .all(|b| arrangement_upright_apart(a, b))
+                    });
+                    holds.then(|| TableLayout {
+                        slots,
+                        radius: ring.radius * f,
+                    })
+                })
+                .expect("a ring four times as large holds anything");
+            assert!(
+                reach(&up, aspect) <= reach(&grown, aspect) + 1e-3,
+                "n={n} aspect={aspect}: the search framed a larger table than growing would"
+            );
+        }
+    }
+}
+
+/// How much the upright ring grows over the ring, per seat count, on the
+/// laptop's canvas (DESIGN-v8 §1.2's hypothesis: +12 % at six, +20 % at
+/// eight). `cargo test -p baylee-client-core print_the_upright_growth --
+/// --ignored --nocapture`.
+#[test]
+#[ignore = "prints numbers for real8-measures.md"]
+fn print_the_upright_growth() {
+    for n in 3..=8 {
+        let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+        let ring = TableLayout::seated(&roster, HUD_ASPECT, None);
+        let up = TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::UprightRing, None);
+        let scale = up.radius / ring.radius;
+        println!("{n} seats: ring scaled {:.3} x {:.3}", scale.x, scale.y);
+    }
+}
+
+/// Invariant 7: the dial is a compass of the roster in every arrangement —
+/// a jewel for every seat, no two in one direction, mine straight down; and
+/// where the arrangement keeps the ring's order round the table (the ring
+/// and the upright ring), the jewels go round clockwise in turn order, one
+/// turn exactly.
+#[test]
+fn the_dial_is_a_compass_of_the_roster_in_every_arrangement() {
+    for arrangement in Arrangement::ALL {
+        for n in 3..=8 {
+            for aspect in ASPECTS {
+                let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+                let layout = TableLayout::arranged(&roster, aspect, arrangement, None);
+                let jewels = crate::dial::bearings(
+                    &layout
+                        .slots
+                        .iter()
+                        .map(|s| (s.player, s.center, None))
+                        .collect::<Vec<_>>(),
+                );
+                let what = format!("{arrangement:?} n={n} aspect={aspect}");
+                assert_eq!(jewels.len(), usize::from(n), "{what}");
+                assert!(
+                    jewels[0].1.dot(Vec2::NEG_Y) > 0.99,
+                    "{what}: my jewel at {:?}",
+                    jewels[0].1
+                );
+                for (i, a) in jewels.iter().enumerate() {
+                    for b in &jewels[i + 1..] {
+                        assert!(a.1.dot(b.1) < 0.9999, "{what}: two jewels in one direction");
+                    }
+                }
+                if matches!(arrangement, Arrangement::Ring | Arrangement::UprightRing) {
+                    let angle = |v: Vec2| v.y.atan2(v.x);
+                    let mut turned = 0.0_f32;
+                    for k in 0..jewels.len() {
+                        let from = angle(jewels[k].1);
+                        let to = angle(jewels[(k + 1) % jewels.len()].1);
+                        let step = (from - to).rem_euclid(std::f32::consts::TAU);
+                        assert!(step > 1e-3, "{what}: jewels {k} and {} out of order", k + 1);
+                        turned += step;
+                    }
+                    assert!(
+                        (turned - std::f32::consts::TAU).abs() < 1e-3,
+                        "{what}: the jewels go round {turned} radians"
+                    );
+                }
+            }
+        }
+    }
+}
