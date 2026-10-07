@@ -55,7 +55,13 @@ def key(name, **mods):
 
 def resize(width, height):
     answer = call("/window", {"width": width, "height": height})
-    until(lambda: (health()["width"], health()["height"]) == (width, height), 10)
+    # The window manager may round a logical size by a pixel (920 x 443
+    # comes back 920 x 444 on a Retina Mac at scale 1); a pixel is not a
+    # different size class, and the checks read the size the client reports.
+    until(
+        lambda: abs(health()["width"] - width) <= 1 and abs(health()["height"] - height) <= 1,
+        10,
+    )
     return answer
 
 

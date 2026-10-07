@@ -4074,7 +4074,7 @@ messages! {
     /// A house deck: copy it and make it the next game's deck.
     ShellAddAndUse { en: "Add and use", de: "Hinzufügen & nutzen" },
     /// The gold primary while the player holds a seat.
-    ShellReturnToGame { en: "Return to your game", de: "Zurück zum Spiel" },
+    ShellReturnToGame { en: "Return to game", de: "Zurück zum Spiel" },
     /// Why a control is off while there is no gateway.
     ShellNeedsGateway { en: "Needs the gateway", de: "Braucht das Gateway" },
     /// Why the starts are off while the player holds a seat. `{0}` the table.

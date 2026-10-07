@@ -101,12 +101,17 @@ def check_siblings(nodes):
     return faults
 
 
+NOT_LABEL = ("keycap", "count")
+
+
 def label_of(nodes, i):
+    """The words of a control: its text without key caps and count badges
+    (the budget is the label's, §2.3; a count stands after it)."""
     words = []
     for d in descendants(nodes, i):
-        if d.get("k") == "keycap":
+        if d.get("k") in NOT_LABEL:
             continue
-        if any(a.get("k") == "keycap" for a in ancestors(nodes, d["index"], stop=i)):
+        if any(a.get("k") in NOT_LABEL for a in ancestors(nodes, d["index"], stop=i)):
             continue
         if "t" in d and d["t"].strip():
             words.append(d["t"])
@@ -168,19 +173,45 @@ def check_contrast(nodes, png, width, height):
         kind = n.get("k")
         if kind not in ("panel", "header", "mist", "opaque"):
             continue
-        cover = [d for d in descendants(nodes, n["index"]) if "t" in d or "k" in d]
+        # Everything drawn on the panel is cover, not ground: text, a node
+        # with a role, and every leaf (a knob, a disc, a glyph, a rule),
+        # which carries neither. What is left is the panel over the painting.
+        below = descendants(nodes, n["index"])
+        parents = {d["parent"] for d in below}
+        cover = [d for d in below if "t" in d or "k" in d or d["index"] not in parents]
+        # A container's own hairline (a row's rule, a box's border, which a
+        # rounded corner pulls up to 3 px in) lies on its edge: drawn, not
+        # ground.
+        edges = [d for d in below if d not in cover and d["w"] > 0 and d["h"] > 0]
         x0, y0 = max(n["x"], 0), max(n["y"], 0)
         x1, y1 = min(n["x"] + n["w"], width), min(n["y"] + n["h"], height)
         if x1 - x0 < 4 or y1 - y0 < 4:
             continue
         brightest, seen = None, 0
+        # A panel's corners are rounded (radius 14, `px_fixed`): the square
+        # corner of its rect shows the painting, not the panel.
+        corner = 16
         y = y0 + 3
         while y < y1 - 3:
             x = x0 + 3
             while x < x1 - 3:
+                in_corner = (x - n["x"] < corner or n["x"] + n["w"] - x < corner) and (
+                    y - n["y"] < corner or n["y"] + n["h"] - y < corner
+                )
+                if in_corner:
+                    x += 3
+                    continue
                 covered = any(
                     d["x"] - 2 <= x <= d["x"] + d["w"] + 2 and d["y"] - 2 <= y <= d["y"] + d["h"] + 2
                     for d in cover
+                ) or any(
+                    d["x"] - 2 <= x <= d["x"] + d["w"] + 2
+                    and d["y"] - 2 <= y <= d["y"] + d["h"] + 2
+                    and (
+                        min(abs(x - d["x"]), abs(x - d["x"] - d["w"])) <= 4
+                        or min(abs(y - d["y"]), abs(y - d["y"] - d["h"])) <= 4
+                    )
+                    for d in edges
                 )
                 if not covered:
                     px = pixels[int(x * sx), int(y * sy)]
@@ -235,19 +266,23 @@ def gallery(outdir):
                     if step == "l" and not touch:
                         png = os.path.join(outdir, f"gallery-{tag}.png")
                         devctl.screenshot(png)
-                        more, contrast = check_contrast(nodes, png, width, height)
+                        size = devctl.health()
+                        more, contrast = check_contrast(nodes, png, size["width"], size["height"])
                         faults += more
                     with open(os.path.join(outdir, f"gallery-{tag}.json"), "w") as f:
                         json.dump(st["shell_nodes"], f)
                     failures += len(faults)
                     worst = min((c[1] for c in contrast), default=None)
                     worst_muted = min((c[2] for c in contrast if c[0] != "mist"), default=None)
+                    actual = devctl.health()
                     summary.append(
-                        f"{tag}: {len(nodes)} nodes, {len(faults)} faults"
+                        f"{tag} (client {actual['width']:.0f}x{actual['height']:.0f}): "
+                        f"{len(nodes)} nodes, {len(faults)} faults"
                         + (f", ink >= {worst}, muted >= {worst_muted}" if contrast else "")
                     )
                     for fault in faults[:8]:
                         summary.append("    " + fault)
+                    print(summary[-1 - min(len(faults), 8)], flush=True)
     devctl.shell(text_size="l", lang="en", input="auto", gallery=False)
     print("\n".join(summary))
     print(f"failures: {failures}")

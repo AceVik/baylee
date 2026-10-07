@@ -50,7 +50,29 @@ struct Drawn {
 
 pub(super) fn install(app: &mut App) {
     app.init_resource::<Gallery>()
-        .add_systems(Update, (draw, scroll).chain());
+        .add_systems(Update, (draw, scroll, hide_the_lobby).chain());
+}
+
+/// The lobby's own tree stands aside while the gallery is up: the gallery's
+/// panels are translucent, and the contrast check is to read the painting
+/// under them, as a shell screen's would, not a lobby button behind them.
+fn hide_the_lobby(
+    gallery: Res<Gallery>,
+    mut roots: Query<(&mut Visibility, Ref<crate::lobby::LobbyRoot>)>,
+) {
+    for (mut shown, root) in &mut roots {
+        if !gallery.is_changed() && !root.is_added() {
+            continue;
+        }
+        let want = if gallery.open {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
+        if *shown != want {
+            *shown = want;
+        }
+    }
 }
 
 /// Builds the page when it opens or what it depends on changes, and takes

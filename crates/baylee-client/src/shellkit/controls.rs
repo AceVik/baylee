@@ -414,6 +414,7 @@ pub fn chip(
     commands.entity(face).add_child(words);
     if let Some(n) = count {
         let badge = label(commands, kit, &n.to_string(), kit.m.small, tokens::MUTED);
+        commands.entity(badge).insert(Role::Count);
         commands.entity(face).add_child(badge);
     }
     if removable {
@@ -475,6 +476,7 @@ pub fn tabs<B: Bundle>(
         commands.entity(face).add_child(words);
         if let Some(n) = count {
             let badge = label(commands, kit, &n.to_string(), kit.m.small, tokens::MUTED);
+            commands.entity(badge).insert(Role::Count);
             commands.entity(face).add_child(badge);
         }
         let wrapper = hit(commands, kit, face, action(i));

@@ -1,29 +1,36 @@
 //! The shell's tokens (the shell design, §2.2), measured rather than chosen.
 //!
-//! The panel is today's sanctuary glass at α .88 over the dock's leather: the
-//! lowest alpha at which ink and muted ink still pass against the painting's
-//! white pixels is .84, so .88 stays. Sheets, menus and popovers are opaque.
-//! **No text stands on the painting without a mist plate** (`MIST` ≥ .80),
-//! and muted ink is never used on one: small text there is `INK`.
+//! **Measured on the client's own pixels, the panel needs α .97.** The
+//! design's table (11.5 : 1 for ink at α .88) composited in sRGB; the
+//! renderer blends in linear light, where `SANCTUARY_PANEL` at .88 over the
+//! painting's white leaves a ground of about (96, 96, 96): ink 5.1 : 1 and
+//! muted 2.3 : 1, both under the floors (7 and 4.5), as the gallery's
+//! contrast check read off its screenshots (WP0b-1, 07.10.2026). In linear
+//! light muted ink first passes at α .97 (4.7 : 1; ink 10.3) and ink alone
+//! on a mist plate at .94 (7.5); so the panel is .97 and the plate .95.
+//! Sheets, menus and popovers are opaque. **No text stands on the painting
+//! without a mist plate**, and muted ink is never used on one: small text
+//! there is `INK`.
 
 use crate::hud::palette;
 use bevy::prelude::*;
 
-/// The panel ground: `SANCTUARY_PANEL` at α .88.
-pub const PANEL: Color = palette::SANCTUARY_PANEL;
+/// The panel ground: `SANCTUARY_PANEL`'s colour at α .97 (see above).
+pub const PANEL: Color = Color::srgba(0.035, 0.075, 0.105, 0.97);
 /// Sheets, menus, popovers: the same ground, opaque.
 pub const OPAQUE: Color = Color::srgb(0.035, 0.075, 0.105);
 /// A selected row (`PANEL_HOT`, 5.6 : 1 for muted ink).
 pub const SELECTED: Color = palette::PANEL_HOT;
 /// A panel's border: `DOCK_EDGE` at .4.
 pub const BORDER: Color = Color::srgba(0.48, 0.43, 0.33, 0.4);
-/// The plate under every line that would otherwise stand on the painting.
-pub const MIST: Color = Color::srgba(0.045, 0.095, 0.13, 0.80);
+/// The plate under every line that would otherwise stand on the painting:
+/// α .95, where ink reads 8.2 : 1 over the painting's white in linear light.
+pub const MIST: Color = Color::srgba(0.045, 0.095, 0.13, 0.95);
 /// The scrim behind a sheet.
 pub const SCRIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
-/// Primary text: 11.5 : 1 on a panel against the painting's whitest pixel.
+/// Primary text: 10.3 : 1 on a panel against the painting's whitest pixel.
 pub const INK: Color = palette::INK;
-/// Secondary text: 5.2 : 1 on a panel. Never on a mist plate.
+/// Secondary text: 4.7 : 1 on a panel. Never on a mist plate.
 pub const MUTED: Color = palette::MUTED;
 /// Disabled text: decoration only, always with a reason line.
 pub const DISABLED: Color = Color::srgba(0.90, 0.93, 0.94, 0.40);

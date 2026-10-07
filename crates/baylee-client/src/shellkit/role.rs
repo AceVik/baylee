@@ -58,6 +58,9 @@ pub enum Role {
     Tag,
     /// A key cap (Pointer only).
     KeyCap,
+    /// A count beside a chip's or a tab's label: not part of the label's
+    /// budget (§2.3 budgets the words).
+    Count,
 }
 
 impl Role {
@@ -88,6 +91,7 @@ impl Role {
             Self::Error => "error",
             Self::Tag => "tag",
             Self::KeyCap => "keycap",
+            Self::Count => "count",
         }
     }
 
