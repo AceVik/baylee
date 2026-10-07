@@ -173,14 +173,22 @@ pub fn keyboard(
     }
     if duel.interaction.is_some() {
         answer_the_question(fired, &mut duel, &mut prefs);
-    } else if fired.has(Action::Cancel) && duel.reveals.current().is_some() {
+    } else {
+        between_questions(fired, &mut duel);
+    }
+}
+
+/// `Esc` between two questions, innermost first: a reveal another seat
+/// made, then a visit.
+fn between_questions(fired: Fired, duel: &mut Duel) {
+    if fired.has(Action::Cancel) && duel.reveals.current().is_some() {
         // A reveal stands between two questions as well, and is put away
         // first, as it is in front of one (`answer_the_question`).
         duel.reveals.dismiss();
     } else if fired.has(Action::Cancel) && duel.visiting.is_some() {
         // Between two questions there is nothing to take back: `Esc` is
         // "back" to the home shot (DESIGN-v7 §2.4).
-        navigate_home(&mut duel);
+        navigate_home(duel);
     }
 }
 
