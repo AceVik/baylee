@@ -442,6 +442,61 @@ pub fn comes_home(edge: &HomeEdge) -> bool {
     my_turn_began || edge.combat_question_opened
 }
 
+/// What *Tisch folgt dem Zug* does on a turn's edge (DESIGN-v8 §1.1, D25).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Follow {
+    /// Nothing: the switch is off, the turn did not change hands, or it is
+    /// my own turn (my board is home).
+    Stay,
+    /// Show the active player's seat now.
+    Show(PlayerId),
+    /// Show it once the question open for me is answered, or the pointer
+    /// has left the board it rests on: never move the table under a
+    /// decision or a reading hand.
+    Defer(PlayerId),
+}
+
+/// The follow switch's rule, at the start of a turn: off, nothing; my own
+/// turn, nothing (my turn beginning brings the table home by
+/// [`comes_home`]); another player's, show that seat — deferred while a
+/// question is open for me or the pointer rests on the board shown now.
+/// The manual seat of interest holds until the next turn starts, because
+/// this only answers a turn changing hands.
+#[must_use]
+pub fn follow(edge: &FollowEdge) -> Follow {
+    if !edge.on {
+        return Follow::Stay;
+    }
+    let Some(active) = edge.active_now else {
+        return Follow::Stay;
+    };
+    if edge.active_before == Some(active) || active == edge.me {
+        return Follow::Stay;
+    }
+    if edge.question_for_me || edge.pointer_on_interest {
+        Follow::Defer(active)
+    } else {
+        Follow::Show(active)
+    }
+}
+
+/// The facts [`follow`] reads.
+#[derive(Clone, Copy, Debug)]
+pub struct FollowEdge {
+    /// The switch.
+    pub on: bool,
+    /// This client's seat.
+    pub me: PlayerId,
+    /// Whose turn it was.
+    pub active_before: Option<PlayerId>,
+    /// Whose turn it is.
+    pub active_now: Option<PlayerId>,
+    /// Whether a question is open for me.
+    pub question_for_me: bool,
+    /// Whether the pointer rests on the board of the seat shown now.
+    pub pointer_on_interest: bool,
+}
+
 /// The two edges [`comes_home`] reads.
 #[derive(Clone, Copy, Debug)]
 pub struct HomeEdge {
@@ -535,6 +590,39 @@ mod tests {
             VisitFrame::of(VisitCamera::Across, 10.0, 10.0, true),
             VisitFrame::Pod
         );
+    }
+
+    /// The follow rule: nothing when off or on my own turn or within one
+    /// turn; another player's turn shows that seat, or defers it under an
+    /// open question or a reading pointer.
+    #[test]
+    fn the_table_follows_the_turn_only_when_asked_and_never_under_a_decision() {
+        let edge = |on: bool, before: u8, now: u8, question: bool, pointer: bool| FollowEdge {
+            on,
+            me: p(0),
+            active_before: Some(p(before)),
+            active_now: Some(p(now)),
+            question_for_me: question,
+            pointer_on_interest: pointer,
+        };
+        assert_eq!(
+            follow(&edge(false, 0, 1, false, false)),
+            Follow::Stay,
+            "off"
+        );
+        assert_eq!(follow(&edge(true, 0, 1, false, false)), Follow::Show(p(1)));
+        assert_eq!(
+            follow(&edge(true, 1, 1, false, false)),
+            Follow::Stay,
+            "same turn"
+        );
+        assert_eq!(
+            follow(&edge(true, 3, 0, false, false)),
+            Follow::Stay,
+            "my turn"
+        );
+        assert_eq!(follow(&edge(true, 1, 2, true, false)), Follow::Defer(p(2)));
+        assert_eq!(follow(&edge(true, 1, 2, false, true)), Follow::Defer(p(2)));
     }
 
     /// The defaults are the recommended options, and a file naming a choice

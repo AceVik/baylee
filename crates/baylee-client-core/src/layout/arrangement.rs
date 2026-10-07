@@ -16,7 +16,26 @@
 
 use crate::i18n::Phrase;
 
+mod pair;
 mod upright;
+
+/// How a board square to my chair is turned (the owner, 07.10.2026: *a
+/// non-teammate's board is rendered rotated 180° — exactly as the
+/// opponent's board is drawn in the 1v1 duel*): mine and my teammates' as
+/// mine (`0`), every other seat's as a duel's opponent half (`π`, its
+/// creature row toward the middle and me, its cards facing their owner).
+/// The relation is the roster's teams; with none, everyone else is an
+/// opponent. Read by every arrangement that squares a board to my chair
+/// (the upright ring, the Turntable's side mats, the pods); the ring and
+/// the arc turn each board to face the middle, the duel's own rule, and
+/// their across seat is the duel's opponent exactly.
+#[must_use]
+pub(crate) fn facing_for(seats: &[super::Seat], index: usize) -> f32 {
+    let mine = seats.first().and_then(|s| s.team);
+    let ally = index == 0 || (mine.is_some() && seats.get(index).and_then(|s| s.team) == mine);
+    if ally { 0.0 } else { core::f32::consts::PI }
+}
+pub(super) use pair::spotlight;
 pub(super) use upright::upright;
 
 /// Whether two upright places stand a pile strip apart (the rule the
@@ -153,7 +172,7 @@ impl Arrangement {
     /// ([`Self::package`]): the owner sees the whole set from the first day.
     #[must_use]
     pub const fn built(self) -> bool {
-        matches!(self, Self::Ring | Self::UprightRing)
+        matches!(self, Self::Ring | Self::UprightRing | Self::Spotlight)
     }
 
     /// The work package that builds it (DESIGN-v8 §4).

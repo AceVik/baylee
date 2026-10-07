@@ -280,7 +280,7 @@ fn wanted_lines(
     };
     let at_end = |end: LineEnd| match end {
         LineEnd::Object(id) => at_object(id),
-        LineEnd::Seat(player) => layout.slot(player).map(|slot| player_end(slot, lens)),
+        LineEnd::Seat(player) => layout.shown(player).map(|slot| player_end(slot, lens)),
     };
 
     combat
@@ -478,7 +478,7 @@ fn focus_position(
             .iter()
             .find(|(card, _)| card.object == id)
             .map(|(_, at)| Vec3::new(at.translation.x, LINE_Y, at.translation.z)),
-        LineEnd::Seat(player) => layout.slot(player).map(|slot| player_end(slot, lens)),
+        LineEnd::Seat(player) => layout.shown(player).map(|slot| player_end(slot, lens)),
     }
 }
 

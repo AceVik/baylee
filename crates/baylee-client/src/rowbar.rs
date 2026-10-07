@@ -113,7 +113,7 @@ pub fn lay(
         depth: half * 2.0,
     };
     // A duel's bar in the seam under its own row; a ring's in the margin.
-    let (centre, thick) = if layout.slots.len() <= 2 {
+    let (centre, thick) = if layout.on_felt().count() <= 2 {
         (
             slot.lane_center(lane) + back * half,
             ((slot.lane_height() - baylee_client_core::layout::CARD_HEIGHT) * 0.5)
@@ -230,7 +230,7 @@ pub fn sync_row_bars(
     let mut wanted: HashMap<(RowKey, Part), Transform> = HashMap::new();
     if let (Some(board), Some(layout)) = (duel.board.as_ref(), duel.layout.as_ref()) {
         for pod in &board.pods {
-            let Some(slot) = layout.slot(pod.player) else {
+            let Some(slot) = layout.shown(pod.player) else {
                 continue;
             };
             for lane in &pod.lanes {

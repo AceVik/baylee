@@ -1046,17 +1046,16 @@ impl TableLayout {
         arrangement: Arrangement,
         interest: Option<PlayerId>,
     ) -> Self {
-        let _ = interest;
         if seats.len() <= 2 || !arrangement.built() {
             return Self::seated(seats, aspect, None);
         }
         match arrangement {
             Arrangement::UprightRing => arrangement::upright(seats, aspect),
+            Arrangement::Spotlight => arrangement::spotlight(seats, aspect, interest),
             Arrangement::Ring
             | Arrangement::Turntable
             | Arrangement::ArcRail
             | Arrangement::Pods
-            | Arrangement::Spotlight
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::seated(seats, aspect, None),
         }
@@ -1321,6 +1320,20 @@ impl TableLayout {
     #[must_use]
     pub fn slot(&self, player: PlayerId) -> Option<&SeatSlot> {
         self.slots.iter().find(|s| s.player == player)
+    }
+
+    /// The slot belonging to a seat, if that seat is on the felt: what every
+    /// reader that **draws** a seat asks (its mat, its bar, its rows, a
+    /// combat line to it). A parked seat (DESIGN-v8 §0) is read from its
+    /// strip chip instead.
+    #[must_use]
+    pub fn shown(&self, player: PlayerId) -> Option<&SeatSlot> {
+        self.slot(player).filter(|s| !s.parked)
+    }
+
+    /// Every seat on the felt, in slot order.
+    pub fn on_felt(&self) -> impl Iterator<Item = &SeatSlot> {
+        self.slots.iter().filter(|s| !s.parked)
     }
 }
 

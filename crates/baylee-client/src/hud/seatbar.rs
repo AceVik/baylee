@@ -340,7 +340,7 @@ pub fn measure_shelves(
     let size = Vec2::new(window.width(), window.height());
     let lens = crate::table::Lens::new(rig, size);
     let designated = duel.view.as_ref().is_some_and(|v| v.day_night.is_some());
-    for slot in &layout.slots {
+    for slot in layout.on_felt() {
         let Some(corners) = lens.corners(slot.ledge_corners()) else {
             continue;
         };

@@ -479,6 +479,18 @@ pub struct Duel {
     /// choice is written to the device's per-count memory; unticked, it is
     /// this game's alone.
     pub arrangement_remember: bool,
+    /// *Tisch folgt dem Zug*, as this device's settings say (copied by
+    /// [`arrangement::choose`]; DESIGN-v8 §1.1).
+    pub follow: bool,
+    /// A seat the follow switch is waiting to show: a turn changed hands
+    /// while a question was open for me or the pointer was reading the
+    /// board shown; shown at the first view that allows it, dropped at the
+    /// next turn's start.
+    pub follow_pending: Option<PlayerId>,
+    /// The follow switch moved the table and it has not settled yet: a
+    /// `Space` pressed now is dropped (DESIGN-v8 §1.1 — a card that moved
+    /// under the finger is not the card the finger meant).
+    pub follow_settling: bool,
     /// The game menu's arrangement row was pressed: the menu opens on the
     /// next frame ([`arrangement::choose`], which holds the settings).
     pub arrangement_menu_asked: bool,
@@ -1027,7 +1039,9 @@ impl Duel {
             combat_question_opened: false,
         }) {
             self.visiting = None;
+            self.follow_pending = None;
         }
+        self.follow_the_turn(&view);
         self.view = Some(view);
         let was_choosing = self.browser.for_choice();
         if let Some(v) = self.view.as_ref() {
@@ -1204,7 +1218,20 @@ impl Duel {
             combat_question_opened: !combat_before
                 && self.interaction.as_ref().is_some_and(my_combat_question),
         }) {
-            self.visiting = None;
+            // A layout arrangement keeps my board on the felt whatever the
+            // seat of interest is, so my blockers question brings the
+            // attacker across instead of the side across the ring: the
+            // creatures to block stand on the felt (DESIGN-v8 §1.1).
+            let blocking = self
+                .interaction
+                .as_ref()
+                .is_some_and(|i| matches!(i.pending(), Pending::ChooseBlockers { .. }));
+            let attacker = self.view.as_ref().map(|v| v.active).filter(|a| *a != seat);
+            self.visiting = if self.arrangement.moves_cards() && blocking {
+                attacker
+            } else {
+                None
+            };
         }
         // The flank, not the state: `Cues` remembers whether the last
         // question was this seat's, so the acting seat being re-sent its own
@@ -1295,6 +1322,42 @@ impl Duel {
     #[must_use]
     pub fn seat(&self) -> Option<PlayerId> {
         self.statics.as_ref().map(|s| s.your_seat)
+    }
+
+    /// The follow switch's half of a view arriving (DESIGN-v8 §1.1): a turn
+    /// that changed hands shows its active seat, now or once nothing holds
+    /// the table still; a seat waiting to be shown is shown when that is so.
+    fn follow_the_turn(&mut self, view: &PlayerView) {
+        let question_for_me = view.awaiting == Some(view.seat);
+        let pointer_on_interest = self.hovered.is_some_and(|id| {
+            view.object(id)
+                .is_some_and(|o| Some(o.controller) == self.visiting)
+        });
+        let edge = baylee_client_core::tableview::FollowEdge {
+            on: self.follow,
+            me: view.seat,
+            active_before: self.view.as_ref().map(|v| v.active),
+            active_now: Some(view.active),
+            question_for_me,
+            pointer_on_interest,
+        };
+        let show = match baylee_client_core::tableview::follow(&edge) {
+            baylee_client_core::tableview::Follow::Show(seat) => Some(seat),
+            baylee_client_core::tableview::Follow::Defer(seat) => {
+                self.follow_pending = Some(seat);
+                None
+            }
+            baylee_client_core::tableview::Follow::Stay => self
+                .follow_pending
+                .filter(|_| self.follow && !question_for_me && !pointer_on_interest),
+        };
+        if let Some(seat) = show {
+            self.follow_pending = None;
+            if self.visiting != Some(seat) {
+                self.visiting = Some(seat);
+                self.follow_settling = true;
+            }
+        }
     }
 
     /// The seat the **camera** visits: [`Self::visiting`] under a camera

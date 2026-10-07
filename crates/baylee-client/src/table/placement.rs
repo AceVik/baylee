@@ -545,6 +545,14 @@ pub(super) fn placements(duel: &Duel) -> Vec<Placement> {
             });
         }
     }
+    // A parked seat's cards (DESIGN-v8 §0) stand where its slot is and are
+    // not drawn: hidden where they wait, as a scrolled row's are, so a seat
+    // brought back onto the felt glides in rather than being spawned.
+    for placement in &mut out {
+        if placement.slot.parked {
+            placement.shown = false;
+        }
+    }
     out
 }
 

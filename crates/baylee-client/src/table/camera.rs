@@ -150,11 +150,13 @@ impl CameraRig {
             return (Self::default(), Binds::Deep);
         };
         let class = canvas.class();
-        let ring = layout.slots.len() >= 3;
+        // Seats on the felt: a pair with every other seat parked is shot as
+        // the duel it is (Spotlight, DESIGN-v8 §1 row 6).
+        let ring = layout.on_felt().count() >= 3;
         // A wide duel can show the table's depth without foreshortening side
         // seats. Blend in as the window grows; small windows keep the
         // readable plan view and its breathing room.
-        let framing = if layout.slots.len() == 2 && canvas.aspect() >= 1.4 {
+        let framing = if layout.on_felt().count() == 2 && canvas.aspect() >= 1.4 {
             ((canvas.window.x - 800.0) / 480.0).clamp(0.0, 1.0)
         } else {
             0.0
@@ -249,16 +251,18 @@ impl CameraRig {
             DUEL_LEAN
         };
         let air = ring_air(class);
-        let (lo, hi) = pod_box(slot, air);
-        let (lo, hi) = (
-            from_pod_frame(slot.facing, lo).min(from_pod_frame(slot.facing, hi)),
-            from_pod_frame(slot.facing, lo).max(from_pod_frame(slot.facing, hi)),
-        );
+        // The pod in its own frame, as the ring's visit fits it; behind it
+        // is its owner's chair, across is the duel opponent's view of it.
         let across = shot.visit.resolve(shot.teammate(seat)) == VisitCamera::Across;
+        let (lo, hi) = pod_box(slot, air);
         let (lo, hi) = if across { (-hi, -lo) } else { (lo, hi) };
         let fit = fit(lo, hi, &box_corners(lo, hi), tilt, canvas);
-        let yaw = if across { std::f32::consts::PI } else { 0.0 };
-        let rig = fit.rig(yaw, tilt, |p| if across { -p } else { p });
+        let turn = if across { std::f32::consts::PI } else { 0.0 };
+        let yaw = (behind(slot) + turn).rem_euclid(std::f32::consts::TAU);
+        let facing = slot.facing;
+        let rig = fit.rig(yaw, tilt, |p| {
+            from_pod_frame(facing, if across { -p } else { p })
+        });
         Some((rig, VisitFrame::Pod, fit.binds))
     }
 

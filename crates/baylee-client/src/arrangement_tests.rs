@@ -271,3 +271,120 @@ fn the_per_count_stepper_walks_default_and_the_built_ones() {
         *built.last().expect("one at least")
     );
 }
+
+/// A four-seat duel model at home, under `arrangement`, its board seated.
+fn seated_duel(arrangement: Arrangement) -> Duel {
+    use baylee_client_core::test_support::{ViewBuilder, statics};
+    let mut duel = Duel::default();
+    let mut table = statics(0);
+    table.seats = (0..4)
+        .map(|i| baylee_view::SeatIdentity {
+            player: baylee_core::ids::PlayerId::new(i),
+            display_name: format!("Seat {i}"),
+            is_ai: i != 0,
+            away: false,
+            team: None,
+        })
+        .collect();
+    duel.statics = Some(table);
+    duel.receive_view(ViewBuilder::new(4).build());
+    duel.arrangement = arrangement;
+    crate::rebuild_board(&mut duel);
+    duel
+}
+
+fn parked(duel: &Duel) -> Vec<u8> {
+    duel.layout
+        .as_ref()
+        .expect("seated")
+        .slots
+        .iter()
+        .filter(|s| s.parked)
+        .map(|s| s.player.get())
+        .collect()
+}
+
+/// A layout arrangement is seated again whenever the seat of interest
+/// moves, whoever moved it — here `navigate_to_player`, which knows nothing
+/// of arrangements (v7's note: it does not call `rebuild_board`).
+#[test]
+fn a_layout_arrangement_follows_the_seat_of_interest_wherever_it_moved() {
+    use baylee_core::ids::PlayerId;
+    let mut app = App::new();
+    app.insert_resource(seated_duel(Arrangement::Spotlight))
+        .add_systems(Update, lay_the_interest);
+    assert_eq!(
+        parked(app.world().resource::<Duel>()),
+        vec![1, 3],
+        "home: seat 2 across"
+    );
+    crate::input::navigate_to_player(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        PlayerId::new(1),
+    );
+    app.update();
+    assert_eq!(
+        parked(app.world().resource::<Duel>()),
+        vec![2, 3],
+        "seat 1 across"
+    );
+    crate::input::navigate_home(&mut app.world_mut().resource_mut::<Duel>());
+    app.update();
+    assert_eq!(
+        parked(app.world().resource::<Duel>()),
+        vec![1, 3],
+        "home again"
+    );
+    // A camera arrangement never re-seats: the visit moves the camera.
+    let mut ring = App::new();
+    ring.insert_resource(seated_duel(Arrangement::Ring))
+        .add_systems(Update, lay_the_interest);
+    let before = ring.world().resource::<Duel>().layout.clone();
+    crate::input::navigate_to_player(
+        &mut ring.world_mut().resource_mut::<Duel>(),
+        PlayerId::new(1),
+    );
+    ring.update();
+    assert_eq!(ring.world().resource::<Duel>().layout, before);
+    assert_eq!(
+        ring.world().resource::<Duel>().camera_visit(),
+        Some(PlayerId::new(1))
+    );
+}
+
+/// *Tisch folgt dem Zug*: off, another player's turn shows nothing; on, it
+/// shows the active seat — deferred while a question is open for me, shown
+/// at the first view without one — and my own turn brings the table home.
+#[test]
+fn the_follow_switch_shows_the_active_seat_and_waits_out_my_question() {
+    use baylee_client_core::test_support::ViewBuilder;
+    use baylee_core::ids::PlayerId;
+    let turn = |active: u8, awaiting: Option<u8>| {
+        let mut view = ViewBuilder::new(4).with_awaiting(awaiting).build();
+        view.active = PlayerId::new(active);
+        view
+    };
+    let mut duel = seated_duel(Arrangement::Spotlight);
+    duel.receive_view(turn(1, Some(1)));
+    assert_eq!(duel.visiting, None, "off by default");
+
+    let mut duel = seated_duel(Arrangement::Spotlight);
+    duel.follow = true;
+    duel.receive_view(turn(1, Some(1)));
+    assert_eq!(duel.visiting, Some(PlayerId::new(1)));
+    assert!(
+        duel.follow_settling,
+        "a Space now is dropped until it settles"
+    );
+    duel.receive_view(turn(2, Some(0)));
+    assert_eq!(
+        duel.visiting,
+        Some(PlayerId::new(1)),
+        "my question holds the table"
+    );
+    assert_eq!(duel.follow_pending, Some(PlayerId::new(2)));
+    duel.receive_view(turn(2, Some(2)));
+    assert_eq!(duel.visiting, Some(PlayerId::new(2)), "shown once answered");
+    duel.receive_view(turn(0, Some(0)));
+    assert_eq!(duel.visiting, None, "my turn is home");
+}

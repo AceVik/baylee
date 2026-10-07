@@ -114,6 +114,13 @@ pub fn keyboard(
     if fired.quiet() {
         return;
     }
+    // A table the follow switch is still moving drops the confirm key: the
+    // card under the finger moved, and the press was meant for the one that
+    // was there (DESIGN-v8 §1.1). Only the follow's moves — a switch or a
+    // chip the player pressed is theirs and governs nothing here.
+    if duel.follow_settling && fired.has(Action::Confirm) {
+        return;
+    }
     // The keyboard's half of the same rule as the pointer's: any bound key
     // forgets a half-pressed concession.
     duel.concede_armed = false;

@@ -118,6 +118,12 @@ pub fn choose(
         measured.flash = (measured.flash - time.delta_secs()).max(0.0);
     }
     let table = settings.as_deref().map(|s| s.table).unwrap_or_default();
+    if duel.follow != table.follow {
+        duel.follow = table.follow;
+        if !table.follow {
+            duel.follow_pending = None;
+        }
+    }
     let (effective, latch) = in_effect(&duel, &table, seats, measured.class());
     if duel.arrangement_latch != latch {
         duel.arrangement_latch = latch;
@@ -146,6 +152,24 @@ pub fn choose(
 pub fn lay_the_interest(mut duel: ResMut<Duel>) {
     if duel.arrangement.moves_cards() && duel.visiting != duel.interest_laid {
         crate::rebuild_board(&mut duel);
+    }
+}
+
+/// Clears [`Duel::follow_settling`] once every card the follow switch moved
+/// is on its mark and the camera has arrived: from then on `Space` is a
+/// press again.
+pub fn settle_the_follow(
+    mut duel: ResMut<Duel>,
+    glide: Option<Res<crate::table::GlideReport>>,
+    shown: Option<Res<crate::table::ShownRig>>,
+) {
+    if !duel.follow_settling {
+        return;
+    }
+    let cards = glide.is_none_or(|g| g.moving == 0);
+    let camera = shown.is_none_or(|s| !s.moving());
+    if cards && camera {
+        duel.follow_settling = false;
     }
 }
 
@@ -985,6 +1009,7 @@ pub fn plugin(app: &mut App) {
             lay_the_interest
                 .after(choose)
                 .before(crate::table::sync_scene),
+            settle_the_follow.after(crate::table::glide),
         )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),

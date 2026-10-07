@@ -48,12 +48,7 @@ pub(super) fn place(
 ) {
     let pose = (|| {
         let lens = lens?;
-        let slot = duel
-            .layout
-            .as_ref()?
-            .slots
-            .iter()
-            .find(|s| s.player == player)?;
+        let slot = duel.layout.as_ref()?.shown(player)?;
         // The seat's own band, projected: the strip along the rim nearest the
         // middle of the table. Taken from the model rather than measured off
         // `half_extent` here, so the ink and `Shelf` — the density probe and

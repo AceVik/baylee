@@ -180,7 +180,7 @@ pub fn sync_table(
         .pods
         .iter()
         .find(|pod| pod.is_active)
-        .and_then(|pod| layout.slot(pod.player))
+        .and_then(|pod| layout.shown(pod.player))
         .map_or(Vec4::new(0.0, -1.0, 0.0, 1.0), |slot| {
             let inward = (-slot.center).try_normalize().unwrap_or(Vec2::Y);
             Vec4::new(slot.center.x, slot.center.y, inward.x, inward.y)
@@ -351,7 +351,9 @@ pub fn sync_zones(
 
     let mut seen: HashSet<PlayerId> = HashSet::new();
     for pod in &board.pods {
-        let Some(slot) = layout.slot(pod.player) else {
+        // A parked seat has no mat: left out of `seen`, its zone is taken
+        // down below like a seat that left.
+        let Some(slot) = layout.shown(pod.player) else {
             continue;
         };
         seen.insert(pod.player);

@@ -246,8 +246,14 @@ fn frames_to_settle(from: &TableLayout, to: &TableLayout, still: bool) -> u32 {
             .reduce_motion = true;
     }
     for (a, b) in from.slots.iter().zip(&to.slots) {
+        // A seat parked by `to` is hidden as `sync_scene` hides it.
+        let seen = if b.parked {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        };
         for (shown, target) in poses(a).into_iter().zip(poses(b)) {
-            app.world_mut().spawn((Motion { target }, shown));
+            app.world_mut().spawn((Motion { target }, shown, seen));
         }
     }
     let step = std::time::Duration::from_secs_f32(1.0 / 60.0);
@@ -297,6 +303,40 @@ fn a_switch_settles_within_the_ceiling_and_cuts_when_still() {
         }
     }
     println!("the slowest switch settled in {worst} frames");
+}
+
+/// Invariant 8 for a layout arrangement's seat of interest: a chip press
+/// swaps the seat across within [`SWITCH_FRAMES`] (the Spotlight's own
+/// acceptance, 45), in one frame under reduced motion.
+#[test]
+fn a_new_seat_of_interest_settles_within_the_ceiling() {
+    let canvas = Canvas::hud(Vec2::new(1708.0, 1028.0));
+    let mut worst = 0;
+    for arrangement in Arrangement::ALL
+        .into_iter()
+        .filter(|a| a.built() && a.moves_cards())
+    {
+        for n in 3..=8 {
+            let seats = roster(n);
+            let interests: Vec<Option<PlayerId>> = std::iter::once(None)
+                .chain(seats.iter().skip(1).map(|s| Some(s.player)))
+                .collect();
+            for from in &interests {
+                for to in &interests {
+                    let a = TableLayout::arranged(&seats, canvas.aspect(), arrangement, *from);
+                    let b = TableLayout::arranged(&seats, canvas.aspect(), arrangement, *to);
+                    let frames = frames_to_settle(&a, &b, false);
+                    worst = worst.max(frames);
+                    assert!(
+                        frames <= SWITCH_FRAMES,
+                        "{arrangement:?} {n}: {from:?} -> {to:?} took {frames} frames"
+                    );
+                    assert_eq!(frames_to_settle(&a, &b, true), 1);
+                }
+            }
+        }
+    }
+    println!("the slowest swap settled in {worst} frames");
 }
 
 /// Invariant 8, the camera's half: a switch moves the home rig, and the

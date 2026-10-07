@@ -202,7 +202,17 @@ fn the_upright_ring_stands_every_board_up_on_the_ring_s_bearings() {
             let up = TableLayout::arranged(&roster, aspect, Arrangement::UprightRing, None);
             let scale = up.radius / ring.radius;
             for (r, u) in ring.slots.iter().zip(&up.slots) {
-                assert!(u.facing.abs() < 1e-6, "n={n}: {:?} not upright", u.player);
+                let want = if u.is_local {
+                    0.0
+                } else {
+                    std::f32::consts::PI
+                };
+                assert!(
+                    (u.facing - want).abs() < 1e-6,
+                    "n={n}: {:?} turned {}",
+                    u.player,
+                    u.facing
+                );
                 assert!((u.angle - r.angle).abs() < 1e-6);
                 assert!(
                     u.center.distance(r.center * scale) < 1e-3,
@@ -213,7 +223,11 @@ fn the_upright_ring_stands_every_board_up_on_the_ring_s_bearings() {
             // The design's rule, for comparison: grown, never shrunk.
             let mut upright: Vec<SeatSlot> = ring.slots.clone();
             for slot in &mut upright {
-                slot.facing = 0.0;
+                slot.facing = if slot.is_local {
+                    0.0
+                } else {
+                    std::f32::consts::PI
+                };
             }
             let grown = (100..=400)
                 .map(|k| k as f32 / 100.0)
@@ -307,6 +321,112 @@ fn the_dial_is_a_compass_of_the_roster_in_every_arrangement() {
                     );
                 }
             }
+        }
+    }
+}
+
+/// Spotlight: my side and the seat of interest's side seated exactly as a
+/// duel of the two would be, the interest's side across from me, and every
+/// other seat parked; at home the side across the ring is the one brought
+/// across; a teammate as the interest changes nothing (my side is mine).
+#[test]
+fn the_spotlight_seats_the_interest_across_as_a_duel_and_parks_the_rest() {
+    for n in 3..=8 {
+        for aspect in ASPECTS {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            for interest in
+                std::iter::once(None).chain(roster.iter().skip(1).map(|s| Some(s.player)))
+            {
+                let table =
+                    TableLayout::arranged(&roster, aspect, Arrangement::Spotlight, interest);
+                let across = interest.unwrap_or(PlayerId::new(n / 2));
+                let shown: Vec<PlayerId> = table
+                    .slots
+                    .iter()
+                    .filter(|s| !s.parked)
+                    .map(|s| s.player)
+                    .collect();
+                assert_eq!(shown, vec![PlayerId::new(0), across], "n={n} {interest:?}");
+                let duel = TableLayout::seated(
+                    &[Seat::alone(PlayerId::new(0)), Seat::alone(across)],
+                    aspect,
+                    None,
+                );
+                for (slot, want) in [(0, 0), (usize::from(across.get()), 1)] {
+                    let got = table.slots[slot];
+                    let want = duel.slots[want];
+                    assert!(got.center.distance(want.center) < 1e-4, "n={n}");
+                    assert!((got.facing - want.facing).abs() < 1e-6);
+                    assert_eq!(got.half_extent, want.half_extent);
+                }
+            }
+        }
+    }
+    let teams: Vec<Seat> = seats(4)
+        .into_iter()
+        .map(|p| Seat::on(p, Some(p.get() % 2)))
+        .collect();
+    let home = TableLayout::arranged(&teams, HUD_ASPECT, Arrangement::Spotlight, None);
+    let partner = TableLayout::arranged(
+        &teams,
+        HUD_ASPECT,
+        Arrangement::Spotlight,
+        Some(PlayerId::new(2)),
+    );
+    assert_eq!(home, partner, "a teammate as the interest keeps the pair");
+    assert!(
+        home.slots.iter().all(|s| !s.parked),
+        "two sides of two: all four seated"
+    );
+}
+
+/// The owner's rule of 07.10.2026: a board an arrangement squares to my
+/// chair is drawn as the duel draws its opponent when it is an opponent's —
+/// its lanes in the duel opponent's order and its cards turned as theirs —
+/// and as mine when it is my teammate's. Read off the lanes themselves: the
+/// creature, support and land rows of an opponent's pod stand where the
+/// duel opponent's stand relative to their pod (red on the upright ring as
+/// first built, every board facing me).
+#[test]
+fn an_opponent_s_square_board_is_the_duel_opponent_s_and_a_teammate_s_is_mine() {
+    let lanes = |slot: &SeatSlot| -> Vec<Vec2> {
+        LaneKind::ALL
+            .iter()
+            .map(|lane| slot.lane_center(*lane) - slot.center)
+            .collect()
+    };
+    let close = |a: &[Vec2], b: &[Vec2]| {
+        a.iter()
+            .zip(b)
+            .all(|(x, y)| (*x / x.length().max(1e-6)).distance(*y / y.length().max(1e-6)) < 1e-3)
+    };
+    let duel = TableLayout::seated(
+        &[Seat::alone(PlayerId::new(0)), Seat::alone(PlayerId::new(1))],
+        HUD_ASPECT,
+        None,
+    );
+    let (mine, theirs) = (lanes(&duel.slots[0]), lanes(&duel.slots[1]));
+    for n in [4_u8, 6] {
+        let roster: Vec<Seat> = seats(n)
+            .into_iter()
+            .map(|p| Seat::on(p, Some(p.get() % 2)))
+            .collect();
+        let up = TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::UprightRing, None);
+        for slot in &up.slots {
+            let teammate = slot.player.get() % 2 == 0;
+            let want = if teammate { &mine } else { &theirs };
+            assert!(
+                close(&lanes(slot), want),
+                "n={n}: seat {} (teammate {teammate}) lanes {:?}",
+                slot.player.get(),
+                lanes(slot)
+            );
+            let duel_facing = if teammate {
+                duel.slots[0].facing
+            } else {
+                duel.slots[1].facing
+            };
+            assert!((slot.facing - duel_facing).abs() < 1e-6, "card orientation");
         }
     }
 }

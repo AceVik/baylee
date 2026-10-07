@@ -820,8 +820,21 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   per arrangement, those not built yet dead with the package that brings
   them), *Tisch folgt dem Zug* (off, D25) and *Je Sitzzahl* (a stepper per
   seat count through *Default* and the built arrangements).
+- **A board squared to my chair** (the owner, 07.10.2026: *a non-teammate's
+  board is rendered rotated 180° — exactly as the opponent's board is drawn
+  in the 1v1 duel*): wherever an arrangement turns a board square to me
+  instead of to the table's middle (the upright ring, and the Turntable's
+  side mats and the pods to come), a teammate's is drawn as mine
+  (`facing = 0`) and every other seat's as the duel's opponent half
+  (`facing = π`: its creature row toward the middle and me, its cards
+  facing their owner) — `layout::arrangement::facing_for`, from the roster's
+  teams only. The ring and the arc already turn every board to the middle,
+  the duel's own rule, and their across seat is the duel opponent exactly;
+  their flanks stay turned along the ring (reading the rule as a 180° turn
+  of a flank would be the upright ring again).
+  `an_opponent_s_square_board_is_the_duel_opponent_s_and_a_teammate_s_is_mine`.
 - **Upright ring** (WA2, `layout/arrangement/upright.rs`): `seated`'s places,
-  every slot `facing = 0`, then each axis of the ring scaled on its own to the
+  every board square to my chair (`facing_for`), then each axis of the ring scaled on its own to the
   shape the camera frames closest while no two upright places meet (a pile
   strip apart). The design asked only for growth; measured, a flank pod stood
   upright is a duel's board across the ring, so at four seats the flanks come
@@ -830,6 +843,27 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   yaw 0, the pod and its air at the duel's lean. Its seats reach the pill's
   corner at three seats, so its home and visit keep below `TOP_CLEAR`
   (`Canvas::below_the_pill`, §2.2's fallback: the arm pays).
+- **Spotlight** (WA3, `layout/arrangement/pair.rs`): my side and the seat of
+  interest's side seated exactly as a duel of the two (`seated` of the pair),
+  at home the side across the ring; every other seat `parked` — at its ring
+  place, or further out on the same bearing where that is inside the pair's
+  reach, so the dial's jewel keeps pointing the ring's way and a switch to
+  the ring finds its cards home. Every reader that draws a seat asks
+  `TableLayout::shown`/`on_felt` (mats, bars, row bars, combat lines, the
+  light's source); `placements` hides a parked seat's cards, and `glide` puts
+  any hidden card straight on its mark (a scrolled row's too: a glide nobody
+  sees is a transform written for nothing). The camera shoots a pair as the
+  duel it is (`on_felt().count() == 2`). The strip's chips are the roster;
+  a chip, `F`, `H` bring a seat across through `lay_the_interest`. My
+  blockers question in a layout arrangement brings the attacker across
+  rather than home, so what attacks me is on the felt.
+- **Tisch folgt dem Zug** (`tableview::follow`, `Duel::follow_the_turn`):
+  off by default; on, another player's turn shows that seat (a camera
+  arrangement visits, a layout one brings it across), deferred while a
+  question is open for me or the pointer rests on a card of the seat shown
+  now, never on my turn; while the moved table settles a `Space` is dropped
+  (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
+  the camera are still). A seat chosen by hand holds until the next turn.
 - **Invariant 4** (`table::arrangement_tests`): every board whole on screen at
   home or as the seat of interest, and every other seat's creature card at
   least 36 px at home or 40 near (Wide, Vast, Narrow), or as large as a duel

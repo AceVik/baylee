@@ -2,6 +2,7 @@
 //! places, every board turned to face me.
 
 use super::super::{PILE_STRIP, Seat, SeatSlot, TableLayout};
+use super::facing_for;
 use glam::Vec2;
 
 /// Whether two upright pods stand apart: their whole places (ground and
@@ -22,7 +23,9 @@ const LEAST: f32 = 0.35;
 /// The widest.
 const MOST: f32 = 3.0;
 
-/// `seated`'s places, every slot facing the local seat (`facing = 0`), and
+/// `seated`'s places, every board square to my chair — a teammate's as mine
+/// (`facing = 0`), an opponent's as a duel opponent's (`facing = π`, the
+/// owner's rule of 07.10.2026: [`facing_for`]) — and
 /// the ring re-shaped — each axis scaled on its own, every seat staying on
 /// its side of the middle — to the shape the camera can frame closest
 /// while no two upright places meet (§1.2's rule: disjoint by
@@ -46,7 +49,7 @@ const MOST: f32 = 3.0;
 pub fn upright(seats: &[Seat], aspect: f32) -> TableLayout {
     let mut layout = TableLayout::seated(seats, aspect, None);
     for slot in &mut layout.slots {
-        slot.facing = 0.0;
+        slot.facing = facing_for(seats, slot.ring_index);
     }
     let scale = shape(&layout, aspect);
     for slot in &mut layout.slots {

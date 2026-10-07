@@ -129,13 +129,18 @@ pub struct Motion {
 pub fn glide(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
-    mut cards: Query<(&Motion, &mut Transform, Option<&crate::combatfx::Recoil>)>,
+    mut cards: Query<(
+        &Motion,
+        &mut Transform,
+        Option<&crate::combatfx::Recoil>,
+        Option<&Visibility>,
+    )>,
     report: Option<ResMut<GlideReport>>,
 ) {
     let still = prefs.all().reduce_motion;
     let t = 1.0 - (-SETTLE * time.delta_secs()).exp();
     let mut moving = 0_usize;
-    for (motion, mut transform, recoil) in &mut cards {
+    for (motion, mut transform, recoil, seen) in &mut cards {
         let mut target = motion.target;
         if !still && let Some(recoil) = recoil {
             target.translation += recoil.offset(time.elapsed_secs());
@@ -149,7 +154,12 @@ pub fn glide(
             && (transform.rotation.abs_diff_eq(target.rotation, SETTLED)
                 || transform.rotation.abs_diff_eq(-target.rotation, SETTLED))
             && transform.scale.distance_squared(target.scale) < SETTLED * SETTLED;
-        if still || there {
+        // A card nobody can see is put on its mark: a parked seat's cards
+        // going off the felt (DESIGN-v8 §0) and a scrolled row's cards
+        // outside its window travel unseen, and a glide nobody watches is a
+        // transform written every frame for nothing.
+        let hidden = matches!(seen, Some(Visibility::Hidden));
+        if still || there || hidden {
             if *transform != target {
                 *transform = target;
             }
