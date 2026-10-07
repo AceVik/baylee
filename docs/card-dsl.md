@@ -2374,6 +2374,19 @@ Filters, conditions, modifiers and durations:
   dealt to a player (`Trigger::DealsCombatDamageToPlayer` and its
   siblings): the seat the damage went to, read off the triggered ability.
   At a table of three it is the one Ragavan hit, not "an opponent".
+- **`PlayerRel::EventPlayer`** is "that player" and "they" of a trigger on a
+  player's event (07.10.2026): who drew (Sheoldred, the Apocalypse's
+  "whenever an opponent draws a card, they lose 2 life"), who cast the spell
+  (Rhystic Study's "unless that player pays {1}"), who played the land,
+  cycled, discarded, whose life changed, whose pool the mana went to, or who
+  was dealt the damage (there it is the same seat as `DamagedPlayer`). The
+  trigger's relation says whose events count; this names the one whose
+  event it was. Never write `PlayerRel::Opponent` or `EachOpponent` for
+  "they": heads-up it is the same seat, at a table of four it drains or asks
+  every opponent (Sheoldred) or the first in seat order (Rhystic Study).
+  `PlayerRel::ControllerOfEvent` stays "that player" for an event about an
+  *object*: the controller of the creature that died (Massacre Wurm) or of
+  the land tapped for mana (Manabarbs).
 - **`FaceDef.dash: Option<ManaCost>`** is "Dash [cost]" (CR 702.109a). The
   cast offers `CastModeKind::Dash` beside the mana cost, from wherever the
   card may be cast. The engine writes the rest: the permanent the spell

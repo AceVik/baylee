@@ -360,6 +360,7 @@ impl<L: CardLookup> Engine<L> {
                 event_object_identity: None,
                 counter_source_version: None,
                 event_damage: None,
+                event_player: None,
                 event_mana: None,
                 event_mana_value: None,
                 event_departure: None,

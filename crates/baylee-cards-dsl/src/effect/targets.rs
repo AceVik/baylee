@@ -52,6 +52,11 @@ pub enum PlayerRel {
     /// targeted (CR 115.1): the seat is read off the event the ability
     /// triggered on, and a player who has since left the game is nobody's
     /// "that player" (CR 800.4a).
+    ///
+    /// The damage-trigger spelling of [`Self::EventPlayer`], and the same
+    /// seat: for a damage event the player the event is about is the one it
+    /// was dealt to. It stays because the reader writes it
+    /// (`TriggeredTarget` of a `DamageDone` trigger).
     DamagedPlayer,
     /// The active player, the one whose turn it is (CR 102.1): "that
     /// player" of a trigger at the beginning of a step — Copper Tablet's
@@ -66,6 +71,21 @@ pub enum PlayerRel {
     ControllerOfAttached,
     /// The owner of the ability's source, including its last known incarnation.
     OwnerOfSource,
+    /// "That player" or "they" of a trigger whose event is a player's: the
+    /// player who drew (Sheoldred, the Apocalypse: "whenever an opponent
+    /// draws a card, **they** lose 2 life"), who cast the spell (Rhystic
+    /// Study: "… unless **that player** pays {1}"), who played the land,
+    /// discarded, cycled, whose life changed, or who was dealt the damage.
+    ///
+    /// One seat, never "each opponent": the trigger's relation says whose
+    /// events count, and this names the one whose event this was. Nothing
+    /// is targeted (CR 115.1): the seat is written onto the triggered
+    /// ability as it is put on the stack, read off the event it triggered
+    /// on (CR 603.2), and a player who has since left the game is nobody's
+    /// "that player" (CR 800.4a). A spell's caster is the player who put it
+    /// on the stack (CR 112.2), whoever controls the spell by the time the
+    /// ability resolves.
+    EventPlayer,
 }
 
 /// Target specifications (chosen at cast/activation, CR 601.2c).

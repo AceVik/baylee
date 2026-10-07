@@ -293,6 +293,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         )),
         event_mana: None,
         event_damage: None,
+        event_player: None,
         implicit_target: None,
         synthetic_effects: None,
         synthetic_target: None,
