@@ -29,7 +29,7 @@ pub(super) fn full_colophon(kit: Kit, height: f32) -> bool {
 }
 
 /// The least window height (logical px) the full colophon stands in.
-const FULL_COLOPHON_HEIGHT: f32 = 900.0;
+pub(in crate::lobby) const FULL_COLOPHON_HEIGHT: f32 = 900.0;
 
 /// A mist plate holding a row of things that would stand on the painting.
 fn plate(commands: &mut Commands, kit: Kit) -> Entity {

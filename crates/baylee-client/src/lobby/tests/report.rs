@@ -1038,3 +1038,48 @@ fn a_local_game_s_form_does_not_promise_a_gateway_s_record() {
         "{words}"
     );
 }
+
+/// The attachments stand behind one disclosure (§12): open until it is
+/// closed, closed again on the next report (the device remembers), and its
+/// count follows a tick without the form being drawn again.
+#[test]
+fn the_attachments_close_behind_their_count_and_stay_closed() {
+    let mut app = with_settings();
+    open_form(&mut app);
+    let toggles = |app: &mut App| {
+        desk_presses(app)
+            .iter()
+            .filter(|(_, p)| matches!(p, DeskPress::Toggle(_)))
+            .count()
+    };
+    assert!(toggles(&mut app) > 0, "open on a first report");
+    let words = form_words(&mut app);
+    let there = words
+        .split("0 of ")
+        .nth(1)
+        .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next())
+        .expect("the count beside the disclosure")
+        .to_string();
+    let redraws = desk(&app).redraws;
+    click_desk(&mut app, "the system box", |p| {
+        matches!(p, DeskPress::Toggle(Category::System))
+    });
+    assert_eq!(desk(&app).redraws, redraws, "a tick redrew the form");
+    let one = format!("1 of {there}");
+    assert!(!there.is_empty() && there != "0", "{words}");
+    assert!(form_words(&mut app).contains(&one), "the count followed");
+
+    click_desk(&mut app, "the disclosure", |p| {
+        matches!(p, DeskPress::Attachments)
+    });
+    assert_eq!(toggles(&mut app), 0, "closed");
+    keys(&mut app, [pressed(KeyCode::Escape, Key::Escape)]);
+    app.update();
+    open_form(&mut app);
+    assert_eq!(toggles(&mut app), 0, "still closed on the next report");
+    assert!(
+        app.world()
+            .resource::<ClientSettings>()
+            .report_attachments_closed
+    );
+}

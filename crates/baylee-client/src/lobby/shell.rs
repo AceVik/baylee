@@ -262,7 +262,7 @@ pub(super) fn ui(
         step,
         input: *kit_inputs.0,
         strip: super::header::seated(&state).is_some(),
-        tall: height >= 900.0,
+        tall: height >= super::front::door::FULL_COLOPHON_HEIGHT,
     };
     let kit_same = kit_drawn.as_ref() == Some(&kit_now);
     if !state.is_changed()
@@ -394,6 +394,7 @@ pub(super) fn ui(
             builds: crate::settingsui::builds(),
             metrics,
             scroll: scrolled_to.get(List::Settings),
+            sheet_scroll: scrolled_to.get(List::ProfileSheet),
         };
         crate::settingsui::screen(&mut commands, root, &view, kit);
         super::confirm::draw_deletion(&mut commands, root, &state, &fonts, metrics);

@@ -392,6 +392,10 @@ pub(crate) struct SettingsView {
     /// The graphics in force, as last seen (a device that never chose
     /// starts from its GPU's preset when it first moves a knob).
     pub(crate) in_use: baylee_client_core::graphics::Graphics,
+    /// A language-model profile's sheet is open over the list.
+    pub(crate) profile_sheet: bool,
+    /// Its Advanced fields are shown.
+    pub(crate) profile_advanced: bool,
 }
 /// The settings overlay's state.
 ///
@@ -797,7 +801,7 @@ use systems::{
 
 pub(crate) use build_press::BuildPress;
 pub(crate) use end_screen::EndPress;
-pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
+pub(crate) use field::{FieldLook, FieldStops, FieldTail, Masked, text_field, text_field_with};
 pub(crate) use front::FrontPress;
 pub(crate) use header::HeaderPress;
 pub(crate) use hub::HubPress;

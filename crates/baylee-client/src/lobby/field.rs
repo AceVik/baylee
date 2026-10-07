@@ -146,8 +146,9 @@ pub(crate) fn caret_lit(since: f32, still: bool) -> bool {
 pub(crate) struct FieldStops {
     /// The box's stop.
     pub(crate) field: crate::shellkit::focus::Stop,
-    /// The field the box types into.
-    pub(crate) typed: Field,
+    /// The lobby's field the box types into (`None`: a box whose own
+    /// editor takes the keys once pressed, the seat panel's).
+    pub(crate) typed: Option<Field>,
     /// The eye's stop, on a password.
     pub(crate) eye: Option<crate::shellkit::focus::Stop>,
 }
@@ -216,11 +217,14 @@ pub(crate) fn text_field_with(
         ))
         .id();
     if let Some(stops) = stops {
-        commands.entity(boxed).insert((
-            stops.field,
-            super::front::keys::LobbyField(stops.typed),
-            crate::shellkit::role::Role::Field,
-        ));
+        commands
+            .entity(boxed)
+            .insert((stops.field, crate::shellkit::role::Role::Field));
+        if let Some(typed) = stops.typed {
+            commands
+                .entity(boxed)
+                .insert(super::front::keys::LobbyField(typed));
+        }
     }
     if let Some(glyph) = look.lead {
         let mark = lead_mark(commands, fonts, metrics, glyph);

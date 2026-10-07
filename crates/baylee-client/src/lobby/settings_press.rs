@@ -101,6 +101,12 @@ pub(crate) enum SettingsPress {
     ResetShell(baylee_client_core::shellkeys::ShellAction),
     /// Controls: take the refused key from its holder (the second request).
     TakeShell,
+    /// Language models: this profile's sheet.
+    OpenProfile(usize),
+    /// Language models: the sheet put away.
+    CloseProfile,
+    /// Language models: the sheet's Advanced fields shown or hidden.
+    ProfileAdvanced,
 }
 
 /// The device's graphics, starting from what is in force when the device
@@ -229,6 +235,20 @@ impl SettingsPress {
             SettingsPress::KeepDisplay(keep) => {
                 state.settings_view.display_answer = Some(keep);
             }
+            SettingsPress::OpenProfile(at) => {
+                state
+                    .seat
+                    .act(baylee_client_core::llmseat::panel::Act::Select(at));
+                state.settings_view.profile_sheet = true;
+                scrolled.set(List::ProfileSheet, 0.0);
+            }
+            SettingsPress::CloseProfile => {
+                state.seat.blur();
+                state.settings_view.profile_sheet = false;
+            }
+            SettingsPress::ProfileAdvanced => {
+                state.settings_view.profile_advanced = !state.settings_view.profile_advanced;
+            }
             SettingsPress::CopyHandle => {
                 if let Some(me) = state.lobby.me() {
                     state.settings_view.copy = Some(me.handle.clone());
@@ -264,6 +284,20 @@ impl SettingsPress {
                     state.settings = SettingsPane::Open;
                 }
             }
+            SettingsPress::Seat(act) => {
+                use baylee_client_core::llmseat::panel::Act;
+                state.seat.act(act);
+                // A new profile is filled in on its sheet; a removed one's
+                // sheet has nothing left to show.
+                match act {
+                    Act::Add | Act::AddPreset(_) | Act::Duplicate(_) => {
+                        state.settings_view.profile_sheet = true;
+                        scrolled.set(List::ProfileSheet, 0.0);
+                    }
+                    Act::Remove(_) => state.settings_view.profile_sheet = false,
+                    _ => {}
+                }
+            }
             _ => return false,
         }
         true
@@ -295,7 +329,6 @@ impl SettingsPress {
             SettingsPress::CloseSettings if state.settings.is_open() => {
                 state.settings = SettingsPane::Closed;
             }
-            SettingsPress::Seat(act) => state.seat.act(act),
             SettingsPress::SeatKey(key) => state.seat.key_press(key),
             SettingsPress::AskToDeleteAccount => state.lobby.ask_to_delete_account(),
             SettingsPress::CancelAccountDeletion => state.lobby.cancel_account_deletion(),
@@ -345,6 +378,10 @@ impl SettingsPress {
             | SettingsPress::Jump(_)
             | SettingsPress::ResetSection(_)
             | SettingsPress::KeepDisplay(_)
+            | SettingsPress::OpenProfile(_)
+            | SettingsPress::Seat(_)
+            | SettingsPress::CloseProfile
+            | SettingsPress::ProfileAdvanced
             | SettingsPress::CopyHandle
             | SettingsPress::CopyDiagnostics
             | SettingsPress::SwitchGateway

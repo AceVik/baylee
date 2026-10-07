@@ -599,3 +599,63 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     assert!(!path.exists(), "a key box writes no file");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Language models (§12): the profiles stand in a list, and a profile's
+/// fields on its sheet — the first ones shown, Advanced's behind its
+/// disclosure; Close and Esc put the sheet away, and the list's row opens
+/// it again.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_profile_is_edited_on_its_sheet_with_advanced_behind_a_disclosure() {
+    use baylee_client_core::llmseat::panel::{Act, Slot};
+
+    let dir = std::env::temp_dir().join(format!("baylee-seatsheet-ui-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Section(
+            baylee_client_core::settings_map::Section::LanguageModels,
+        )),
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .seat
+        .open_at(dir.join(baylee_client_core::llmseat::FILE));
+    app.update();
+    let name = Phrase::SeatName.text(Lang::En).to_string();
+    let tokens = Slot::MaxTokens.label().text(Lang::En).to_string();
+    assert!(
+        !labels(&mut app).contains(&name),
+        "no sheet before a profile"
+    );
+
+    press(&mut app, Press::Settings(SettingsPress::Seat(Act::Add)));
+    let shown = labels(&mut app);
+    assert!(shown.contains(&name), "a new profile opens its sheet");
+    assert!(!shown.contains(&tokens), "Advanced starts closed");
+    press(&mut app, Press::Settings(SettingsPress::ProfileAdvanced));
+    assert!(labels(&mut app).contains(&tokens), "Advanced opened");
+
+    press(&mut app, Press::Settings(SettingsPress::CloseProfile));
+    assert!(!labels(&mut app).contains(&name), "Close puts it away");
+    assert!(
+        presses(&mut app).contains(&Press::Settings(SettingsPress::OpenProfile(0))),
+        "the profile is a row of the list"
+    );
+    press(&mut app, Press::Settings(SettingsPress::OpenProfile(0)));
+    assert!(labels(&mut app).contains(&name), "the row opens it again");
+    super::front_keys::press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(!labels(&mut app).contains(&name), "Esc puts it away");
+    assert!(
+        app.world().resource::<LobbyState>().settings.is_open(),
+        "and only the sheet"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

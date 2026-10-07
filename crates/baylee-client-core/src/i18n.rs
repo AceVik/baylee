@@ -4597,6 +4597,12 @@ messages! {
     RowProfiles { en: "Profiles", de: "Profile" },
     /// Opens a profile's sheet.
     ProfileOpen { en: "Edit", de: "Bearbeiten" },
+    /// The report's attachments, a disclosure.
+    ReportAttachments { en: "Attachments", de: "Anh\u{e4}nge" },
+    /// Beside it: how many are ticked of how many this report has.
+    ReportAttachmentsCount { en: "{0} of {1}", de: "{0} von {1}" },
+    /// Where a report goes, signed in: the gateway, by name or address.
+    ReportGoesGateway { en: "Goes to {0} with your session", de: "Geht mit deiner Sitzung an {0}" },
     /// Updates: checking on its own.
     RowCheckUpdates { en: "Check automatically", de: "Automatisch pr\u{fc}fen" },
     /// Updates: what checking sends.

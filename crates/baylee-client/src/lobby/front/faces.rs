@@ -133,7 +133,7 @@ fn field(
     };
     let stops = keys::field_stop(state, which).map(|field| FieldStops {
         field,
-        typed: which,
+        typed: Some(which),
         eye: eye.map(|id| keys::stop(state, id)),
     });
     let boxed = text_field_with(

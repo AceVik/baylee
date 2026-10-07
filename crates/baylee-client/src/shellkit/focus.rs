@@ -56,6 +56,7 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::TERMS,
     &crate::lobby::front::keys::ABOUT,
     &crate::settingsui::keys::SETTINGS,
+    &crate::settingsui::keys::PROFILE_SHEET,
     &crate::buildui::BUILDER_ORDER,
     &crate::buildui::BUILDER_SHEET_ORDER,
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]

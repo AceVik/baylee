@@ -153,6 +153,16 @@ pub(super) fn keyboard(
         return;
     }
     if state.settings.is_open() {
+        // A profile's sheet: Esc puts it away (in a box, Esc leaves the box
+        // first).
+        if codes.just_pressed(KeyCode::Escape)
+            && state.settings_view.profile_sheet
+            && !state.seat.typing()
+        {
+            keys.clear();
+            state.settings_view.profile_sheet = false;
+            return;
+        }
         // Opened from the front door, no header stands over it: Esc is its
         // way back (signed in, the nav is).
         if codes.just_pressed(KeyCode::Escape)

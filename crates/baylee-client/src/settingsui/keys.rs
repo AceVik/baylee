@@ -75,12 +75,25 @@ pub(crate) const SETTINGS: TabOrder = TabOrder {
         // Network & Gateway
         "switch-gateway",
         "copy-diagnostics",
+        // Language models: the list, the caps, Save (`seatpanel`)
+        "llm",
+        // Updates
+        "update",
         // Privacy & Data
         "consent",
         "crash",
         "report-problem",
     ],
     modal: false,
+};
+
+/// A language-model profile's sheet (§12): its fields and choices in the
+/// order drawn, then Save, Discard and Close. A box once pressed walks
+/// with Tab itself (`seatpanel::keys`).
+pub(crate) const PROFILE_SHEET: TabOrder = TabOrder {
+    name: "profile-sheet",
+    stops: &["field", "foot"],
+    modal: true,
 };
 
 /// The display mode's question line, while a trial runs.
@@ -247,7 +260,12 @@ pub(crate) fn watch_trial(
     let Some(mut trial) = trial else {
         return;
     };
-    if let Some(keep) = state.take_display_answer() {
+    // Asked through `Deref` first: taking `&mut` marks the lobby changed,
+    // and a changed lobby is a rebuilt tree — every frame, which eats every
+    // click and every Tab.
+    if state.settings_view.display_answer.is_some()
+        && let Some(keep) = state.take_display_answer()
+    {
         if keep {
             trial.keep();
         } else {

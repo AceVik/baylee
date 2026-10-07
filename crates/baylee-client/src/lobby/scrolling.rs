@@ -38,6 +38,8 @@ pub(crate) enum List {
     Terms,
     /// The About sheet's text (WP1).
     About,
+    /// A language-model profile's sheet (WP5).
+    ProfileSheet,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -60,6 +62,7 @@ pub(crate) struct Scrolled {
     transfer: f32,
     terms: f32,
     about: f32,
+    profile_sheet: f32,
 }
 
 impl Scrolled {
@@ -77,6 +80,7 @@ impl Scrolled {
             List::Transfer => self.transfer,
             List::Terms => self.terms,
             List::About => self.about,
+            List::ProfileSheet => self.profile_sheet,
         }
     }
 
@@ -94,6 +98,7 @@ impl Scrolled {
             List::Transfer => self.transfer = at,
             List::Terms => self.terms = at,
             List::About => self.about = at,
+            List::ProfileSheet => self.profile_sheet = at,
         }
     }
 }

@@ -38,6 +38,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
     let modal = state.confirmation.is_some()
         || state.terms.up()
         || state.about_open
+        || (state.settings_open() && state.settings_view.profile_sheet)
         || state.lobby.deleting_account().is_some()
         || state.lobby.library().page.is_some()
         || (screen == Context::Builder && builder_modal(state));

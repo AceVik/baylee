@@ -320,7 +320,7 @@ pub const HIDDEN_FPS: u32 = 1;
 
 /// The device's graphics settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, from = "Stored")]
 pub struct Graphics {
     /// The preset last picked, `Custom` once a knob was moved by hand.
     #[serde(deserialize_with = "lenient")]
@@ -354,6 +354,75 @@ impl Default for Graphics {
     fn default() -> Self {
         Self::of(Preset::Medium)
     }
+}
+
+/// [`Graphics`] as a file holds it. A file written before the backdrop
+/// existed has none: it takes its preset's, so a device on Low stays
+/// Low, painting and all, and is not turned `Custom` by its next change.
+#[derive(Deserialize)]
+#[serde(default)]
+struct Stored {
+    #[serde(deserialize_with = "lenient")]
+    preset: Preset,
+    #[serde(deserialize_with = "lenient")]
+    anti_aliasing: AntiAliasing,
+    #[serde(deserialize_with = "lenient")]
+    vsync: VSync,
+    #[serde(deserialize_with = "lenient")]
+    frame_limit: FrameLimit,
+    #[serde(deserialize_with = "lenient")]
+    background_limit: BackgroundLimit,
+    #[serde(deserialize_with = "lenient")]
+    effects: Effects,
+    #[serde(deserialize_with = "lenient_option")]
+    backdrop: Option<Backdrop>,
+    #[serde(deserialize_with = "lenient")]
+    display_mode: DisplayMode,
+    show_frame_rate: bool,
+}
+
+impl Default for Stored {
+    fn default() -> Self {
+        let g = Graphics::default();
+        Self {
+            preset: g.preset,
+            anti_aliasing: g.anti_aliasing,
+            vsync: g.vsync,
+            frame_limit: g.frame_limit,
+            background_limit: g.background_limit,
+            effects: g.effects,
+            backdrop: None,
+            display_mode: g.display_mode,
+            show_frame_rate: g.show_frame_rate,
+        }
+    }
+}
+
+impl From<Stored> for Graphics {
+    fn from(s: Stored) -> Self {
+        Self {
+            preset: s.preset,
+            anti_aliasing: s.anti_aliasing,
+            vsync: s.vsync,
+            frame_limit: s.frame_limit,
+            background_limit: s.background_limit,
+            effects: s.effects,
+            backdrop: s.backdrop.unwrap_or(Self::of(s.preset).backdrop),
+            display_mode: s.display_mode,
+            show_frame_rate: s.show_frame_rate,
+        }
+    }
+}
+
+/// [`lenient`] for a value a file may leave out: what does not parse is
+/// absent.
+fn lenient_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).ok())
 }
 
 impl Graphics {
@@ -653,6 +722,32 @@ mod tests {
             assert!(low.effects.detail() <= high.effects.detail());
         }
         assert_eq!(Graphics::default(), Graphics::of(Preset::Medium));
+    }
+
+    /// A file from before the backdrop takes its preset's; one that names
+    /// a backdrop keeps it; a WP5 file reads back as written.
+    #[test]
+    fn a_file_without_a_backdrop_takes_its_preset_s() {
+        // Low as a file before WP5 wrote it: every knob but the new three.
+        let mut old = serde_json::to_value(Graphics::of(Preset::Low)).unwrap();
+        for new in ["backdrop", "display_mode", "show_frame_rate"] {
+            old.as_object_mut().unwrap().remove(new);
+        }
+        let g: Graphics = serde_json::from_value(old).expect("reads");
+        assert_eq!(g.preset, Preset::Low);
+        assert_eq!(g.backdrop, Graphics::of(Preset::Low).backdrop);
+        let mut moved = g;
+        moved.adjust(|_| {});
+        assert_eq!(moved.preset, Preset::Low, "still Low, not Custom");
+        let named = r#"{"preset":"low","backdrop":"dimmed"}"#;
+        let g: Graphics = serde_json::from_str(named).expect("reads");
+        assert_eq!(g.backdrop, Backdrop::Dimmed);
+        let mut g = Graphics::of(Preset::High);
+        g.show_frame_rate = true;
+        let back: Graphics = serde_json::from_str(&serde_json::to_string(&g).unwrap()).unwrap();
+        assert_eq!(back, g);
+        let junk: Graphics = serde_json::from_str(r#"{"backdrop":7}"#).expect("reads");
+        assert_eq!(junk, Graphics::default());
     }
 
     /// *Custom* appears iff a device row differs from the preset's table

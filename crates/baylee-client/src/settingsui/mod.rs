@@ -67,6 +67,8 @@ pub(crate) struct View<'a> {
     pub(crate) metrics: Metrics,
     /// Where the panel was scrolled to.
     pub(crate) scroll: f32,
+    /// Where a language-model profile's sheet was scrolled to.
+    pub(crate) sheet_scroll: f32,
 }
 
 /// The sidebar's width on a desktop and on a phone.
@@ -114,6 +116,22 @@ pub(crate) fn screen(commands: &mut Commands, root: Entity, view: &View, kit: Ki
     let nav = nav(commands, view, kit, side);
     let panel = section_panel(commands, view, kit, signed_in, lang);
     commands.entity(body).add_children(&[nav, panel]);
+    // A language-model profile's sheet, over the list it was opened from.
+    if state.settings_view.profile_sheet
+        && state.settings_section() == Section::LanguageModels
+        && state.settings_query().is_empty()
+        && let Some(sheet) = crate::seatpanel::sheet(
+            commands,
+            &state.seat,
+            lang,
+            kit.fonts,
+            view.metrics,
+            state.settings_view.profile_advanced,
+            view.sheet_scroll,
+        )
+    {
+        commands.entity(root).add_child(sheet);
+    }
 }
 
 /// The sections: a sidebar with the search at its top and the build at its
@@ -513,6 +531,9 @@ fn results(out: &mut Out, view: &View, query: &str) {
 pub(crate) fn show(state: &mut LobbyState, section: Section) {
     if state.settings_section() != section {
         state.set_settings_section(section);
+    }
+    if state.settings_view.profile_sheet {
+        state.settings_view.profile_sheet = false;
     }
     if !state.settings_query().is_empty() {
         state.set_settings_query(String::new());
