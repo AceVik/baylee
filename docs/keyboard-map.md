@@ -28,8 +28,9 @@ Two consequences worth knowing before changing anything here:
 | Move the card cursor (hand → own board → opponents) | `W A S D` | implemented |
 | Activate the card under the cursor (play / select); on a merged card, one more of it — or one fewer, on a card of ones already chosen | `E` | implemented |
 | The whole merged card at once: declare, block or pick every permanent it stands for, as far as the choice takes (the pointer's `⇧`-click) | `⇧E` | implemented |
-| Look at the next opponent's board (wraps home) | `F` | implemented |
-| Look at your own board | `H` | implemented |
+| Visit the next seat in ring order — the camera stands behind it, no card moves (past the last: home) | `F` | implemented |
+| Visit the previous seat in ring order | `⇧F` | implemented |
+| Back to my seat (also `Esc` when nothing else is open, my own chip, the visited chip again) | `H` | implemented |
 | Aim the next attack (or block) at the next defender | `C` / `⇧C` | implemented |
 | Declare nothing — no attackers, or no blockers | `O` | implemented |
 | Show a card's text instead of its art (while held) | `Cmd` / `Alt` | implemented |
@@ -58,9 +59,10 @@ Two consequences worth knowing before changing anything here:
 There are **no camera controls left**, and the rows above are the whole of the
 keyboard. The camera has one job — framing the table against the part of the
 window the table is seen through — and `table::frame_table` does it on every
-seat count, focus and resize. The two viewpoints that remain are in the table
-above and in the keymap like everything else: `F` walks to the next
-opponent's board and `H` comes home.
+seat count, visit and resize. The viewpoints that remain are in the table
+above and in the keymap like everything else: `F` and `⇧F` visit the seats in
+ring order (DESIGN-v7: the camera orbits behind the seat, no card moves) and
+`H` comes home.
 
 That is also why the arrows have no exception written into them any more. They
 are `NumberUp`/`NumberDown` and nothing else, and while a text box holds the

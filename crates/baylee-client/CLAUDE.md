@@ -80,10 +80,12 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 
 ## Camera and layout
 
-- Never hard-code the rig: `CameraRig::home(layout, canvas)` from `TableLayout::extent` and `Canvas` (window minus bottom hand zone; `Canvas::hud.top` = 0); `frame_table` reapplies on seat, focus, window change, pausing on a single-seat view. The fit is one division.
-- `CAMERA_LEAN` (0.36, owner's call) is the ring lean, wide duels ease to `DUEL_LEAN` (0.62); it trades against equal board widths (`every_seat_is_drawn_a_board_of_the_same_width`); FOV cannot help.
+- Never hard-code the rig: `CameraRig::home_shot(layout, canvas, Shot)` from `TableLayout::extent` and `Canvas` (window minus bottom hand zone; `Canvas::hud.top` = 0); `frame_table` recomputes home or `CameraRig::visit` every frame from `Duel::visiting` (DESIGN-v7). One fit (`camera::fit`) for every shot.
+- A ring (3+ seats) takes the device's `RingLean` (`ClientSettings::table`, D20: 0.62 default, 0.36 gentle) and `ring_air` (1.0 desktop, 1.2 narrow, 0.6 phone); a phone frames its own pod and the dial. Wide duels ease `CAMERA_LEAN` 0.36 → `DUEL_LEAN` 0.62 as before. Equal home widths hold only at the gentle lean (`at_the_gentle_lean_every_seat_is_drawn_a_board_of_the_same_width`); the visit equalises (`visit_tests`).
+- A visit moves the camera, never a card: behind the seat on its pod's axis (`camera::behind`, yaw = −facing), frame `Lane`/`Dial`/`Pod`/`Across` (`tableview::VisitFrame`, D21's `VisitCamera`), a 0.55-s eased orbit (`ShownRig`), a cut under `reduce_motion`. Home on H, Esc (lowest), own/visited chip, my turn's start, my attackers/blockers question; never on priority or another seat's turn.
+- `TableLayout::arranged(seats, aspect, Arrangement, interest)` is the seam for DESIGN-v8's arrangements (`Arrangement::Ring` only); the camera poses match on `Shot::arrangement`.
 - Three-seat FFA sits on a circle (`layout::ROUND_COST`).
-- No orbit, zoom or pan (no `input::camera_controls`). Viewpoints via keymap (F, H; docs/keyboard-map.md).
+- No orbit, zoom or pan controls (no `input::camera_controls`). Viewpoints via keymap (F/Shift+F visit in ring order, H home; docs/keyboard-map.md).
 - Place UI via `table::Lens` from `CameraRig::eye`, never the camera's `GlobalTransform` (a frame stale).
 
 ## Seat bars

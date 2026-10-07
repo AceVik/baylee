@@ -123,11 +123,20 @@ keyboard stop toggles. Phase lighting is anchored to the game step, so a new
 snapshot cannot restart its transition. `tableicons` is the audited Mana /
 Font Awesome map; tests check it against the bundled font files.
 
-The central compass shows just the turn number. Its stones breathe, and its
-ring advances one mechanical detent per turn over 1.15 seconds. A short gear
-and catch sound is synthesised once and follows the sound preference. Joining
-a game does not rotate or play it; priority changes do not move it. Reduced
-motion settles the ring immediately and freezes the shader clocks.
+The centre of the table is a dial (DESIGN-v7 §3; `client-core::dial` decides,
+`dial.rs` packs the felt's uniforms, `felt.wgsl`'s `clock_face` draws). One
+jewel per seat stands on the compass at its pod's bearing (allies spread
+apart, a team ring, darkened when the seat has left, a teal arc while it
+chooses its opening hand). A long ivory turn hand points at the active seat,
+a short teal priority hand at the seat the table waits for; both sweep the
+shorter arc in 0.7 s, the priority hand retracts into the hub when nobody is
+awaited and both when the game ends. They are drawn beneath a dark hub plate
+holding the turn number (0.29 of the dial's drawn diameter, 16–40 px, fixed
+digit cells), whose gilt rim pulses once when a hand arrives at me. The five
+stones stand at 0.875. Uniforms are written only on change; the arrival
+lights fade on the shader's clock. Reduced motion puts the hands at their
+targets at once and stills every light. The turn's gear-and-catch sound is
+`Cue::TurnPassed`, played by the sink under the device's volumes.
 
 The **drawer** shares the **ledge**'s material. Its bottom remains open, and
 its measured width removes the ledge rail's top tooling across the join. Both
