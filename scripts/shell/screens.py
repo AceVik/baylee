@@ -62,7 +62,10 @@ def go(screen):
 
 def leave(screen):
     if screen == "create":
-        press("Play(CloseSheet)")
+        # Esc closes the sheet wherever its Cancel stands (a phone's footer
+        # may be under the fold).
+        devctl.key("Escape")
+        time.sleep(0.5)
 
 
 def rows_of(nodes, kind):
@@ -103,27 +106,32 @@ def phone_counts(screen, nodes, height):
 
 
 def credit_contrast(nodes, png):
-    """Muted ink against the brightest pixel of a 2..5 px ring round each
-    credit line (the ground it is read on)."""
+    """Muted ink against the brightest pixel of the ground each credit line
+    stands on: its plate (the line's parent), outside the line's own box
+    (a glyph is not ground)."""
     from PIL import Image
 
     image = Image.open(png).convert("RGB")
     px = image.load()
     worst = None
     for n in rows_of(nodes, "credit"):
-        if n["w"] < 4:
+        if n["w"] < 4 or n["parent"] is None:
+            continue
+        plate = nodes[n["parent"]]
+        # A credit scrolled out of its panel is clipped, not shown: the
+        # pixels there are whatever lies under the panel.
+        panel = next(
+            (a for a in check.ancestors(nodes, n["index"], stop=None) if a.get("k") == "panel"),
+            None,
+        )
+        if panel is not None and not check.inside(plate, panel, slack=-8.0):
             continue
         brightest = None
-        for dy in range(-5, int(n["h"]) + 6, 1):
-            for dx in range(-5, int(n["w"]) + 6, 2):
-                inside = -2 < dx < n["w"] + 2 and -2 < dy < n["h"] + 2
-                if inside:
-                    continue
-                x, y = int(n["x"] + dx), int(n["y"] + dy)
+        for x in range(int(plate["x"]) + 1, int(plate["x"] + plate["w"]) - 1):
+            if n["x"] - 3 <= x <= n["x"] + n["w"] + 3:
+                continue
+            for y in range(int(plate["y"]) + 2, int(plate["y"] + plate["h"]) - 2):
                 if not (0 <= x < image.size[0] and 0 <= y < image.size[1]):
-                    continue
-                # Above the line is the picture, not the line's ground.
-                if dy < 0:
                     continue
                 rgb = tuple(c / 255 for c in px[x, y])
                 if brightest is None or check.luminance(rgb) > check.luminance(brightest):
@@ -154,6 +162,11 @@ def measure(screen, out, width, height, lang, step, touch, summary):
         png = os.path.join(out, f"{screen}-{width}x{height}-{lang}-{'touch' if touch else 'pointer'}.png")
         devctl.screenshot(png)
         more, contrast = check.check_contrast(nodes, png, width, height)
+        if screen == "create":
+            # The sheet's scrim (and on a phone the sheet) stands over the
+            # header, which is not read while it is up.
+            more = [f for f in more if " on header " not in f]
+            contrast = [c for c in contrast if c[0] != "header"]
         faults += more
         if contrast:
             extra["ink_min"] = min(c[1] for c in contrast)

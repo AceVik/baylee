@@ -482,3 +482,80 @@ fn the_bell_rings_when_somebody_sits_down() {
             .any(|l| l == "Lina#0031 sat down at your table")
     );
 }
+
+/// `KEYBOARD.md` W2 steps 3-6: in the Create-table sheet the arrows choose
+/// along a radio group (players, template, clock), and Enter on a choice is
+/// Open table.
+#[test]
+fn the_sheets_choices_are_chosen_by_the_arrows_and_enter_opens() {
+    let mut app = headless();
+    stocked(&mut app);
+    window(&mut app, 1400.0, 900.0);
+    for _ in 0..3 {
+        app.update();
+    }
+    press(&mut app, Press::Play(PlayPress::CreateTable));
+    app.update();
+    let key = |app: &mut App, code: KeyCode, logical: Key| {
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(code);
+        app.world_mut()
+            .resource_mut::<Messages<KeyboardInput>>()
+            .write(pressed(code, logical));
+        app.update();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(code);
+        app.update();
+        app.update();
+    };
+    let draft = |app: &App| {
+        app.world()
+            .resource::<LobbyState>()
+            .play
+            .sheet
+            .as_ref()
+            .map(|(d, _)| d.clone())
+    };
+    let stop = |app: &mut App| {
+        let focused = app
+            .world()
+            .resource::<bevy::input_focus::InputFocus>()
+            .get();
+        focused.and_then(|e| {
+            app.world()
+                .get::<crate::shellkit::focus::Stop>(e)
+                .map(|s| (s.id, s.item))
+        })
+    };
+    key(&mut app, KeyCode::Tab, Key::Tab);
+    assert_eq!(stop(&mut app).map(|s| s.0), Some("players"));
+    key(&mut app, KeyCode::Tab, Key::Tab);
+    assert_eq!(
+        stop(&mut app).map(|s| s.0),
+        Some("templates"),
+        "{:?}",
+        stop(&mut app)
+    );
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::ArrowRight, Key::ArrowRight));
+    app.update();
+    assert_eq!(stop(&mut app), Some(("templates", 1)));
+    assert_eq!(
+        draft(&app).map(|d| d.template),
+        Some(baylee_client_core::lobby::play::Template::Duel),
+        "the arrow chose"
+    );
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Enter);
+    app.world_mut()
+        .resource_mut::<Messages<KeyboardInput>>()
+        .write(pressed(KeyCode::Enter, Key::Enter));
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.play.sheet.is_none(), "Enter opened the table");
+    assert!(state.lobby.busy(), "the table was asked for");
+}

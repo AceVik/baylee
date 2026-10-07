@@ -4207,9 +4207,9 @@ messages! {
     /// A table filter: two-chair tables.
     PlayDuel { en: "Duel", de: "Duell" },
     /// The tables' sort: the gateway's order.
-    PlaySortNewest { en: "newest", de: "neueste" },
+    PlaySortNewest { en: "newest", de: "Neueste zuerst" },
     /// The tables' sort: most open chairs first.
-    PlaySortOpenSeats { en: "open seats", de: "freie Plätze" },
+    PlaySortOpenSeats { en: "open seats", de: "Freie Plätze" },
     /// The tables' sort: by name.
     PlaySortName { en: "name", de: "Name" },
     /// Before a Join: the next game's deck is of another format than the
@@ -4360,7 +4360,7 @@ messages! {
     RoomOpenSeatMany { en: "{0} seats are open \u{2014} players, the house or models take them", de: "{0} Plätze sind frei \u{2014} Spieler, das Haus oder Modelle nehmen sie" },
     // ---- decks, house decks, history (WP3) -------------------------------
     /// The decks' sort: newest save first.
-    DecksSortSaved { en: "last saved", de: "zuletzt gespeichert" },
+    DecksSortSaved { en: "last saved", de: "Speicherdatum" },
     /// The decks' sort: by name.
     DecksSortName { en: "name", de: "Name" },
     /// The decks' sort: by format.
@@ -4391,8 +4391,11 @@ messages! {
     DecksUnplayableMany { en: "{0} cards won\u{2019}t play", de: "{0} Karten spielen nicht" },
     /// The shelf's search box, while empty.
     DecksSearchHint { en: "Search decks…", de: "Decks suchen …" },
+    /// Play's table sort button. `{0}` the order (German: the order alone,
+    /// which says it).
+    PlaySortBy { en: "Sort: {0}", de: "{0}" },
     /// The sort button. `{0}` the sort.
-    DecksSortBy { en: "Sort: {0}", de: "Sortierung: {0}" },
+    DecksSortBy { en: "Sort: {0}", de: "Nach {0}" },
     /// The shelf, when the search matched nothing. `{0}` the search.
     DecksNoMatch { en: "No deck matches \u{201c}{0}\u{201d}", de: "Kein Deck passt zu \u{201e}{0}\u{201c}" },
     /// A tile's menu: a copy of the deck.
@@ -4414,7 +4417,7 @@ messages! {
     /// A house deck: its cards, in a sheet.
     HousePreview { en: "Preview", de: "Ansehen" },
     /// The artist's credit under a picture. `{0}` the artist.
-    ArtCredit { en: "Art · {0}", de: "Illustration · {0}" },
+    ArtCredit { en: "Art · {0}", de: "Illus. · {0}" },
     /// The history sheet's title. `{0}` the deck.
     HistoryTitle { en: "History · {0}", de: "Verlauf · {0}" },
     /// A past version. `{0}` the number.

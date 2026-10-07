@@ -95,6 +95,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
+            .init_resource::<focusing::Kept>()
             .init_resource::<UiRebuilds>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()

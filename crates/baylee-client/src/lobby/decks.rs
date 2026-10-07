@@ -223,7 +223,7 @@ pub(super) fn draw(
     commands.entity(scroll).add_child(grid);
 
     match ui.tab {
-        DecksTab::Mine => mine(commands, root, grid, scroll, state, prefs, metrics, kit),
+        DecksTab::Mine => mine(commands, root, grid, scroll, state, prefs, kit),
         DecksTab::House => house(commands, root, grid, scroll, state, kit),
     }
 
@@ -315,7 +315,9 @@ fn toolbar(
     let lang = lobby.lang();
     let ui = &state.decks;
     let phone = kit.m.frame == ShellFrame::Phone;
-    let bar = parts::row(commands, kit, !phone);
+    // It wraps on every frame: a German Import does not fit beside the tabs
+    // at 640, and a control pushed past the window is not there.
+    let bar = parts::row(commands, kit, true);
     commands
         .entity(bar)
         .entry::<Node>()
@@ -473,7 +475,6 @@ fn mine(
     scroll: Entity,
     state: &LobbyState,
     prefs: &baylee_client_core::prefs::Preferences,
-    metrics: Metrics,
     kit: Kit,
 ) {
     let lobby = &state.lobby;
@@ -502,7 +503,9 @@ fn mine(
         commands.entity(scroll).add_child(none);
     }
     let now = parts::now_secs();
-    let tiny = kit.m.frame == ShellFrame::Phone && metrics.frame == Frame::Compact;
+    // A phone's tile keeps one action and its `⋯` (Edit is in the menu), so
+    // the row stays one line in German too (M4-6).
+    let tiny = kit.m.frame == ShellFrame::Phone;
     let mut walked = 0;
     for index in order {
         let deck = &lobby.decks()[index];
@@ -995,7 +998,11 @@ pub(super) fn tile(
             Node {
                 margin: UiRect::top(Val::Auto),
                 column_gap: kit.m.px(8.0),
+                row_gap: kit.m.px(8.0),
                 align_items: AlignItems::Center,
+                // A German pair under Touch outgrows a narrow tile: the row
+                // wraps rather than pushing `⋯` out of it.
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             Pickable::IGNORE,

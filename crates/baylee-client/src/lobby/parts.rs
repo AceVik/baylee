@@ -305,9 +305,24 @@ pub(super) fn identity_gradient(identity: &str) -> BackgroundGradient {
     let first = identity.chars().next().unwrap_or('C');
     let last = identity.chars().last().unwrap_or('C');
     BackgroundGradient::from(LinearGradient::to_right(vec![
-        identity_colour(first).0.with_alpha(0.20).into(),
-        identity_colour(last).0.with_alpha(0.06).into(),
+        tinted(identity_colour(first).0, 0.18).into(),
+        tinted(identity_colour(last).0, 0.08).into(),
     ]))
+}
+
+/// The opaque ground a band is drawn in: `share` of the colour over the
+/// tile's own dark, mixed here rather than blended, so the name and the
+/// credit on it keep their contrast (ink 7 : 1, muted 4.5 : 1) under a white
+/// identity too.
+fn tinted(colour: Color, share: f32) -> Color {
+    let ground = tokens::OPAQUE.to_srgba();
+    let colour = colour.to_srgba();
+    let mix = |a: f32, b: f32| a + (b - a) * share;
+    Color::srgb(
+        mix(ground.red, colour.red),
+        mix(ground.green, colour.green),
+        mix(ground.blue, colour.blue),
+    )
 }
 
 /// The art band's picture and its credit under it: Scryfall's `art_crop`,
@@ -326,8 +341,6 @@ pub(super) fn art_with_credit(
                 flex_direction: FlexDirection::Column,
                 row_gap: kit.m.px(3.0),
                 flex_shrink: 0.0,
-                max_width: kit.m.px(width.max(120.0)),
-                overflow: Overflow::clip_x(),
                 ..default()
             },
             Pickable::IGNORE,
@@ -347,7 +360,24 @@ pub(super) fn art_with_credit(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(column).add_children(&[picture, credit]);
+    // The credit stands on its own dark ground: a docked panel's leather and
+    // a light identity band are both too bright for muted ink (4.5 : 1,
+    // measured by `scripts/shell/screens.py`).
+    let ground = commands
+        .spawn((
+            Node {
+                align_self: AlignSelf::FlexStart,
+                padding: UiRect::axes(px_fixed(5.0), px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(4.0)),
+                max_width: percent(100),
+                ..default()
+            },
+            BackgroundColor(tokens::OPAQUE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(ground).add_child(credit);
+    commands.entity(column).add_children(&[picture, ground]);
     column
 }
 

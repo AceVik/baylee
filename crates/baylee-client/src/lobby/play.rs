@@ -347,6 +347,8 @@ fn hero(
                 Node {
                     flex_direction: FlexDirection::Column,
                     row_gap: kit.m.px(4.0),
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
                     flex_shrink: 1.0,
                     min_width: px(0),
                     ..default()
@@ -365,13 +367,27 @@ fn hero(
         // On a phone and a narrow strip, `⋯` (Change deck · Edit) stands
         // beside the name (M4-6).
         let name_row = parts::row(commands, kit, false);
+        // The name takes the row beside `⋯` and wraps there; it never
+        // shrinks out of sight.
         commands.entity(name).insert(Node {
+            flex_grow: 1.0,
             flex_shrink: 1.0,
-            min_width: px(0),
+            min_width: kit.m.px(48.0),
             ..default()
         });
         commands.entity(name_row).add_child(name);
-        commands.entity(words).add_child(name_row);
+        if phone {
+            // A phone's rail is 220-280 wide: the name takes its own line
+            // over the picture, with `⋯` at its end, so a long one is not
+            // squeezed beside the art.
+            commands
+                .entity(name_row)
+                .entry::<Node>()
+                .and_modify(|mut n| n.width = percent(100));
+            commands.entity(panel).add_child(name_row);
+        } else {
+            commands.entity(words).add_child(name_row);
+        }
         let pips = parts::row(commands, kit, true);
         let format = parts::badge(
             commands,
@@ -497,7 +513,10 @@ fn hero(
         .spawn((
             Node {
                 column_gap: kit.m.px(8.0),
+                row_gap: kit.m.px(8.0),
                 align_items: AlignItems::Start,
+                // A 220 rail (640 x 360) puts the difficulty under it.
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             Pickable::IGNORE,
@@ -795,9 +814,8 @@ fn tables(
         let hunt = commands
             .spawn((
                 Node {
-                    width: if phone { Val::Auto } else { kit.m.px(320.0) },
-                    flex_grow: if phone { 1.0 } else { 0.0 },
-                    flex_shrink: 1.0,
+                    width: if phone { percent(42) } else { kit.m.px(320.0) },
+                    flex_shrink: if phone { 0.0 } else { 1.0 },
                     min_width: px(100),
                     ..default()
                 },
@@ -825,7 +843,9 @@ fn tables(
     }
     commands.entity(panel).add_child(head);
 
-    // Chips and Sort: one row (on a phone, a row that scrolls sideways).
+    // Chips and Sort: one row; on a phone they share the search's row and
+    // scroll sideways there, Sort first (M4-6: search and chips in one 44
+    // row).
     let mut sort_anchor = None;
     if !offline {
         let chips = commands
@@ -844,7 +864,9 @@ fn tables(
                     } else {
                         Overflow::visible()
                     },
-                    flex_shrink: 0.0,
+                    flex_shrink: if phone { 1.0 } else { 0.0 },
+                    flex_grow: if phone { 1.0 } else { 0.0 },
+                    min_width: px(0),
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -863,18 +885,23 @@ fn tables(
             orders::item(commands, c, &orders::PLAY, "chips", chip as usize);
             commands.entity(chips).add_child(c);
         }
-        let gap = parts::grow(commands);
         let sort = parts::menu_button(
             commands,
             kit,
-            &Phrase::DecksSortBy.fill(lang, &[state.play.sort.phrase().text(lang)]),
+            &Phrase::PlaySortBy.fill(lang, &[state.play.sort.phrase().text(lang)]),
             Weight::Ghost,
             Press::Shared(SharedPress::OpenMenu(ShellMenu::TableSort)),
         );
         orders::stop(commands, sort, &orders::PLAY, "sort");
         sort_anchor = Some(sort);
-        commands.entity(chips).add_children(&[gap, sort]);
-        commands.entity(panel).add_child(chips);
+        if phone {
+            commands.entity(chips).insert_children(0, &[sort]);
+            commands.entity(head).add_child(chips);
+        } else {
+            let gap = parts::grow(commands);
+            commands.entity(chips).add_children(&[gap, sort]);
+            commands.entity(panel).add_child(chips);
+        }
     }
 
     // While seated, Join is off for every other row, said once (§2.1).
@@ -1048,6 +1075,10 @@ fn table_row(
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let wide = matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
+    // A phone's row is two lines, 60 high (M4-6): the name, then the counts
+    // with the format warning as a badge; host, life and clock wait for the
+    // room. Three rows stand over the fold at 844 x 390.
+    let phone = kit.m.frame == ShellFrame::Phone;
     let row = commands
         .spawn((
             Role::Row,
@@ -1108,11 +1139,15 @@ fn table_row(
     if let Some(clock) = game.clock {
         meta.push(model::table_clock_label(lang, &lobby.clocks(), clock));
     }
-    let meta = parts::line(commands, kit, &meta.join(" · "), kit.m.small, tokens::MUTED);
-    commands.entity(words).add_children(&[title, meta]);
+    commands.entity(words).add_child(title);
+    if !phone {
+        let meta = parts::line(commands, kit, &meta.join(" · "), kit.m.small, tokens::MUTED);
+        commands.entity(words).add_child(meta);
+    }
     commands.entity(top).add_child(words);
-    // The counts: seats, the lock, the AI.
-    let counts = parts::row(commands, kit, false);
+    // The counts: seats, the lock, the AI (wrapping on a phone, where they
+    // share the name's column with Join beside it).
+    let counts = parts::row(commands, kit, phone);
     let taken = game
         .seats
         .iter()
@@ -1146,11 +1181,28 @@ fn table_row(
         );
         commands.entity(counts).add_child(ai);
     }
-    if wide {
-        commands.entity(top).add_child(counts);
-    }
     // The one action that applies.
     let mine = game.seated() || game.yours;
+    let mut password_line = None;
+    if phone
+        && !mine
+        && model::format_warning(lang, mine_format, game).is_some()
+        && let Some(theirs) = model::host_format(game)
+    {
+        let warn = parts::badge_with(
+            commands,
+            kit,
+            parts::WARNING,
+            &Phrase::RoomOtherFormat.fill(lang, &[&shelf::format_label(lang, theirs)]),
+            tokens::GOLD,
+        );
+        commands.entity(counts).add_child(warn);
+    }
+    if wide {
+        commands.entity(top).add_child(counts);
+    } else if phone {
+        commands.entity(words).add_child(counts);
+    }
     if game.seated() && game.rematch && !game.i_am_ready() {
         // A rematch room keeps this player's chair reserved: it is
         // claimed by playing again, never by Ready.
@@ -1215,7 +1267,17 @@ fn table_row(
                 },
             );
             commands.entity(password).add_child(field);
-            commands.entity(top).add_child(password);
+            if phone {
+                // A phone's row has no room beside the name: the password
+                // takes a line of its own under it.
+                commands
+                    .entity(password)
+                    .entry::<Node>()
+                    .and_modify(|mut n| n.width = percent(100));
+                password_line = Some(password);
+            } else {
+                commands.entity(top).add_child(password);
+            }
         }
         let join = controls::button(
             commands,
@@ -1237,11 +1299,16 @@ fn table_row(
         commands.entity(top).add_child(join);
     }
     commands.entity(row).add_child(top);
-    if !wide {
-        // The second meta line (Narrow, Phone).
+    if let Some(password) = password_line {
+        commands.entity(row).add_child(password);
+    }
+    if !wide && !phone {
+        // The second meta line (Narrow).
         commands.entity(row).add_child(counts);
     }
-    if let Some(warning) = model::format_warning(lang, mine_format, game).filter(|_| !mine) {
+    if let Some(warning) =
+        model::format_warning(lang, mine_format, game).filter(|_| !mine && !phone)
+    {
         let line = parts::glyph_line(commands, kit, parts::WARNING, &warning, tokens::GOLD);
         commands.entity(row).add_child(line);
     }

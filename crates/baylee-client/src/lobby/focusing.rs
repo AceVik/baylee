@@ -25,6 +25,13 @@ use crate::shellkit::focus::{Activated, Current, Stop};
 use bevy::input::ButtonState;
 use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible};
 
+/// The stop that last had the ring, so a rebuilt screen gives it back. It is
+/// written as soon as the ring moves (`keys_press`, the frame the walker
+/// moved it) and not only after the frame: a press that the move made can
+/// rebuild the tree in that same frame.
+#[derive(Resource, Default)]
+pub(crate) struct Kept(Option<Stop>);
+
 /// What Enter or Space means on a focused control that is not itself a
 /// button: a tile, a table row.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
@@ -43,6 +50,11 @@ pub(super) fn keys_press(
     presses: Query<&Press>,
     primaries: Query<&Primary>,
     disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
+    focus: Res<InputFocus>,
+    stops: Query<&Stop>,
+    codes: Option<Res<ButtonInput<KeyCode>>>,
+    mut was: Local<Option<Stop>>,
+    mut kept: ResMut<Kept>,
     mut state: ResMut<LobbyState>,
     mut prefs: ResMut<crate::prefs::Prefs>,
     mut scrolled: ResMut<Scrolled>,
@@ -58,10 +70,18 @@ pub(super) fn keys_press(
             })
         })
         .collect();
-    let fired: Vec<Press> = activated
+    let enter = codes
+        .as_deref()
+        .is_some_and(|c| c.any_just_pressed([KeyCode::Enter, KeyCode::NumpadEnter]));
+    let mut fired: Vec<Press> = activated
         .read()
         .filter(|a| !clicked.contains(&a.entity) && !disabled.contains(a.entity))
         .filter_map(|a| {
+            // Enter on a choice of the Create-table sheet is the sheet's
+            // default button (`KEYBOARD.md` W2 step 6); Space chooses.
+            if enter && radio(&a.stop, presses.get(a.entity).ok()) {
+                return Some(Press::Play(super::play::PlayPress::Open));
+            }
             primaries
                 .get(a.entity)
                 .map(|p| p.0)
@@ -69,6 +89,30 @@ pub(super) fn keys_press(
                 .or_else(|| presses.get(a.entity).ok().copied())
         })
         .collect();
+    // The sheet's choices are radio groups: an arrow that moves the ring
+    // along one chooses what it lands on (`KEYBOARD.md` W2 steps 3-5).
+    let now = focus.get().and_then(|f| stops.get(f).ok().map(|s| (f, *s)));
+    if let Some((entity, stop)) = now
+        && let Some(before) = *was
+        && before != stop
+        && before.table == stop.table
+        && before.id == stop.id
+        && let Ok(press) = presses.get(entity)
+        && radio(&stop, Some(press))
+        && !clicked.contains(&entity)
+    {
+        fired.push(*press);
+    }
+    // A move along the same screen is remembered at once (a press it made
+    // may rebuild the tree this frame); a move into a menu is left to
+    // `follow_focus`, which keeps the opener.
+    if let Some((_, stop)) = now
+        && was.is_some_and(|w| w.table == stop.table)
+        && kept.0 != Some(stop)
+    {
+        kept.0 = Some(stop);
+    }
+    *was = now.map(|(_, s)| s);
     for press in fired {
         super::press::run(
             press,
@@ -81,6 +125,19 @@ pub(super) fn keys_press(
             },
         );
     }
+}
+
+/// A choice in one of the Create-table sheet's radio groups (players, the
+/// template, the clock), not a stepper's buttons.
+fn radio(stop: &Stop, press: Option<&Press>) -> bool {
+    use super::play::PlayPress;
+    stop.table == super::orders::CREATE.name
+        && matches!(
+            press,
+            Some(Press::Play(
+                PlayPress::Players(_) | PlayPress::Template(_) | PlayPress::Clock(_)
+            ))
+        )
 }
 
 /// The field a focused control types into, if it is a field's box.
@@ -100,29 +157,29 @@ pub(super) fn follow_focus(
     current: Query<&Current>,
     presses: Query<&Press>,
     mut state: ResMut<LobbyState>,
-    mut kept: Local<Option<Stop>>,
+    mut kept: ResMut<Kept>,
     mut ring_was: Local<Option<Entity>>,
     mut caret_was: Local<Option<(Field, u64)>>,
     mut opener: Local<Option<Stop>>,
 ) {
     if !matches!(state.lobby.screen(), Screen::Table) || state.settings_open() {
-        *kept = None;
+        kept.0 = None;
         return;
     }
     let drawn = |stop: &Stop| stops.iter().find(|(_, s)| *s == stop).map(|(e, _)| e);
     // A menu that closed gives the ring back to the control that opened it
     // (`KEYBOARD.md` §1.8): the stop that had it before the menu took it.
-    let in_menu = kept.is_some_and(|s| s.table == super::orders::MENU.name);
+    let in_menu = kept.0.is_some_and(|s| s.table == super::orders::MENU.name);
     if state.menu.is_none() && in_menu {
-        *kept = opener.take();
+        kept.0 = opener.take();
     } else if state.menu.is_none() {
         *opener = None;
     } else if !in_menu && opener.is_none() {
-        *opener = *kept;
+        *opener = kept.0;
     }
     // A rebuilt screen: the stop that had the ring has a new entity.
     if focus.get().is_none_or(|f| !stops.contains(f))
-        && let Some(stop) = *kept
+        && let Some(stop) = kept.0
         && let Some(entity) = drawn(&stop)
     {
         focus.set(entity, FocusCause::Navigated);
@@ -130,8 +187,9 @@ pub(super) fn follow_focus(
     let ring = focus.get().filter(|f| stops.contains(*f));
     if let Some(entity) = ring
         && let Ok((_, stop)) = stops.get(entity)
+        && kept.0 != Some(*stop)
     {
-        *kept = Some(*stop);
+        kept.0 = Some(*stop);
     }
     // The caret went into a field (a tap, `/`): the ring follows it.
     let caret = (state.lobby.focus(), state.lobby.focus_epoch());
@@ -146,7 +204,7 @@ pub(super) fn follow_focus(
         {
             focus.set(entity, FocusCause::Navigated);
             *ring_was = Some(entity);
-            *kept = stops.get(entity).ok().map(|(_, s)| *s);
+            kept.0 = stops.get(entity).ok().map(|(_, s)| *s);
             return;
         }
     }
