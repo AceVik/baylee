@@ -950,3 +950,60 @@ fn a_scaled_pod_is_the_duel_pod_drawn_smaller() {
         assert!(small.reach().abs_diff_eq(full.reach(), 1e-4));
     }
 }
+
+/// Pods (DESIGN-v8 §1 row 5): my pod where the ring has it, every other
+/// seat a pod of the ring's own size (a duel's board wide) in a grid above
+/// it — one row up to three, two from four — squared to my chair, in turn
+/// order from the front row's left; a seat visited moves no card.
+#[test]
+fn the_pods_stand_in_a_grid_above_me() {
+    use super::super::arrangement::rows_for;
+    for n in 3..=8_u8 {
+        for aspect in ASPECTS {
+            let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+            let table = TableLayout::arranged(&roster, aspect, Arrangement::Pods, None);
+            let what = format!("n={n} aspect={aspect}");
+            // Mine just in front of the dial's gap; every board one size.
+            let mine = table.slots[0];
+            let board = mine.half_extent;
+            assert!(
+                mine.center.x.abs() < 1e-4 && mine.facing.abs() < 1e-6,
+                "{what}"
+            );
+            assert!(
+                (mine.center.y + mine.footprint().y + super::super::arrangement::DIAL_GAP * 0.5)
+                    .abs()
+                    < 1e-4,
+                "{what}: just in front of the dial"
+            );
+            let others = &table.slots[1..];
+            let mut rows: Vec<f32> = others.iter().map(|s| s.center.y).collect();
+            rows.sort_by(f32::total_cmp);
+            rows.dedup_by(|a, b| (*a - *b).abs() < 1e-3);
+            assert_eq!(rows.len(), rows_for(others.len()), "{what}: rows");
+            for slot in others {
+                assert!(slot.center.y > table.slots[0].center.y, "{what}: above me");
+                assert_eq!(slot.half_extent, board, "{what}: every board one size");
+                assert!(
+                    (slot.facing - core::f32::consts::PI).abs() < 1e-6,
+                    "{what}: squared to my chair"
+                );
+            }
+            // Turn order: the front row left to right, then the next.
+            for pair in others.windows(2) {
+                let (a, b) = (pair[0].center, pair[1].center);
+                assert!(
+                    (b.y > a.y + 1e-3) || ((b.y - a.y).abs() < 1e-3 && b.x > a.x),
+                    "{what}: {a} then {b}"
+                );
+            }
+            for interest in roster.iter().map(|s| Some(s.player)) {
+                assert_eq!(
+                    TableLayout::arranged(&roster, aspect, Arrangement::Pods, interest),
+                    table,
+                    "{what}: a visit moves no card"
+                );
+            }
+        }
+    }
+}

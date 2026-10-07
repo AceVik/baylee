@@ -17,6 +17,7 @@
 use crate::i18n::Phrase;
 
 mod pair;
+mod pods;
 pub mod transition;
 mod turntable;
 mod upright;
@@ -38,6 +39,9 @@ pub(crate) fn facing_for(seats: &[super::Seat], index: usize) -> f32 {
     if ally { 0.0 } else { core::f32::consts::PI }
 }
 pub(super) use pair::spotlight;
+pub(super) use pods::pods;
+#[cfg(test)]
+pub(super) use pods::{DIAL_GAP, rows_for};
 #[cfg(test)]
 pub(super) use turntable::side_scale;
 pub(super) use turntable::turntable;
@@ -184,6 +188,7 @@ impl Arrangement {
                 | Self::Spotlight
                 | Self::Turntable
                 | Self::TurntableRows
+                | Self::Pods
         )
     }
 

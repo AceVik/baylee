@@ -1085,10 +1085,10 @@ impl TableLayout {
                     arrangement::spotlight(seats, aspect, interest)
                 }
             }
-            Arrangement::Ring
-            | Arrangement::ArcRail
-            | Arrangement::Pods
-            | Arrangement::FocusRing => Self::seated(seats, aspect, None),
+            Arrangement::Pods => arrangement::pods(seats, aspect),
+            Arrangement::Ring | Arrangement::ArcRail | Arrangement::FocusRing => {
+                Self::seated(seats, aspect, None)
+            }
         }
     }
 

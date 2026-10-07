@@ -133,15 +133,29 @@ impl CameraRig {
             // corner: this arrangement's home keeps below the pill's line
             // (DESIGN-v8 §2.2's fallback — the arm pays, never the others).
             Arrangement::UprightRing => Self::ring_home(layout, canvas.below_the_pill(), shot),
+            Arrangement::Pods => Self::pods_home(layout, canvas.below_the_pill()),
             // An arrangement not built yet seats the ring, and is shot as one.
             Arrangement::Ring
             | Arrangement::Turntable
             | Arrangement::ArcRail
-            | Arrangement::Pods
             | Arrangement::Spotlight
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::ring_home(layout, canvas, shot),
         }
+    }
+
+    /// The pods' home shot (DESIGN-v8 §1 row 5): nearly straight down at
+    /// [`PODS_LEAN`] — not quite, so a card's edge and its shadow still say
+    /// it lies on the felt — over the whole grid and my pod, below the pill.
+    fn pods_home(layout: &TableLayout, canvas: Canvas) -> (Self, Binds) {
+        let Some((min, max)) = layout.extent() else {
+            return (Self::default(), Binds::Deep);
+        };
+        let air = ring_air(canvas.class());
+        let (min, max) = (min - Vec2::splat(air), max + Vec2::splat(air));
+        let corners = layout.corners(air);
+        let fit = fit(min, max, &corners, PODS_LEAN, canvas);
+        (fit.rig(0.0, PODS_LEAN, |p| p), fit.binds)
     }
 
     /// The ring's home shot ([`Self::home_shot`]).
@@ -218,13 +232,12 @@ impl CameraRig {
         shot: Shot,
     ) -> Option<(Self, VisitFrame, Binds)> {
         match shot.arrangement {
-            Arrangement::UprightRing => {
+            Arrangement::UprightRing | Arrangement::Pods => {
                 Self::zoom_visit(layout, canvas.below_the_pill(), seat, shot)
             }
             Arrangement::Ring
             | Arrangement::Turntable
             | Arrangement::ArcRail
-            | Arrangement::Pods
             | Arrangement::Spotlight
             | Arrangement::TurntableRows
             | Arrangement::FocusRing => Self::ring_visit(layout, canvas, seat, shot),
@@ -427,6 +440,10 @@ pub(super) const RING_AIR: f32 = 1.0;
 /// The lean a phone's ring takes: a steeper shot foreshortens a 266-px band
 /// too far (DESIGN-v7 §1.4).
 pub(super) const PHONE_LEAN: f32 = 0.50;
+
+/// The pods' lean (DESIGN-v8 §1 row 5): a hair off straight down, so the
+/// edge and the shadow that say a card lies on the felt survive.
+pub(super) const PODS_LEAN: f32 = 0.05;
 
 /// The air a ring keeps, by the window's class (DESIGN-v7 §1.4).
 #[must_use]

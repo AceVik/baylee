@@ -888,6 +888,25 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   eight hold it nowhere. Measured at 1708 × 1028 (creature card, projected,
   home/as interest): four seats, mine 47, across 43, side mats 25 (44 once
   across); three seats, across 44, the side mat 26.
+- **Turntable with rows** (WA5): a rule, not a geometry
+  (`Arrangement::resolve`): Turntable up to four seats on a window that is
+  not a phone's, Spotlight from five or on a phone, latched per table; the
+  menu row says what it resolved to.
+- **Pods** (WA6, `layout/arrangement/pods.rs`, a camera arrangement): my
+  pod near and every other seat an upright pod (`facing_for`) in a grid
+  above — one row up to three others, two from four, turn order from the
+  front row's left, a back row of the same odd count standing a quarter
+  cell aside so no two jewels share a bearing — with the dial in the gap
+  between my pod and the grid (`DIAL_GAP`), at the table's middle. The
+  boards are cut at the widest aspect whose grid is no wider than the
+  canvas (bisected, as the Turntable's pair): cut at the canvas's own, three
+  duel-wide boards abreast drew a card 16 px at four seats on a laptop.
+  Home (`CameraRig::pods_home`) is nearly straight down, `PODS_LEAN` 0.05,
+  below the pill; a visit is the upright ring's zoom. Not on a phone; on a
+  compact window up to three seats, a narrow one up to five
+  (`the_pods_stand_in_a_grid_above_me`). Measured at 1708 × 1028 (creature
+  card, projected, home/visited): 3 seats 45/89, 4 seats 31/89, 6 seats
+  30/89, 8 seats 23/89 (MULTIPLAYER §C's hypothesis was 32 at eight).
 - **The tear** (the owner's of 07.10.2026, on Spotlight and the Focus ring;
   `Arrangement::tears`): a change of seat of interest tears the table along
   a jagged, seeded line; the far piece sinks into a void under the table
