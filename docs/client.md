@@ -7807,6 +7807,68 @@ Known limits, each a later view version:
 - An ability line cannot tell activated from triggered.
 - `CounterKind::badge` is English, so the counter nouns are written here.
 
+### Another seat's reveal is held up (07.10.2026)
+
+A reveal shows a card to every player "for a brief time" (CR 701.20a), and
+the host tells every seat which card: the log names it `Known` to all of them.
+The client showed it only to the seat its question was about, because the
+zone browser draws `PlayerView::looking_at` and the host fills that for the
+searcher alone. Everyone else got a line in a log they might not have open
+(the owner's report: Mystical Tutor, General Tazri, Vendilion Clique, a wish,
+a reveal-land).
+
+`baylee-client-core/src/reveals.rs` decides, without a renderer.
+`Reveals::take` is the one door the log comes in by: `poll_host` hands it
+every frame's tail with that frame's view, it appends to the book
+(`LogBook::append`) and hears the entries that were new. From those it keeps
+each `LogEvent::Revealed` by **another** seat, with only the cards the line
+named `Known` with a card or a token. A `Hidden` card and a `FaceDown` one
+(CR 708.5) are never shown, and a line naming nothing else shows nothing.
+A card the seat's own `looking_at` already shows is left out, because the
+sheet its question opened draws it. The seat's own reveal is not echoed:
+it chose the card and saw it.
+
+**Only news stands up.** The host tells a socket the whole log again on
+every attach, reattach and rebuild, and every such telling starts at line 0;
+a live socket's tails start where the last ended. So a tail from 0 is history,
+and so is every further chunk of the same telling, which repeats its view's
+`seq` (`LOG_TAIL_CAP`). A reveal from before the socket attached, or one it
+missed while it was down, is in the log and never stands up. An empty tail
+from 0 (a question asked again) tells nothing and marks nothing.
+
+**A frame's reveals by one seat are one picture**; reveals by different seats
+queue, oldest first, at most `WAITING_CAP` (6) waiting, and the oldest
+waiting one is let go past that (never the one standing). Each stands
+`SHOW_SECS` (7 s), 1.5 s more for each card past the first, at most 15 s,
+counted from when it stood up, on the game's `Time` (so `dev-control`'s
+`/pause` holds it). It does **not** go when this seat answers something: the
+autopilot and standing orders answer for it, and an opponent's tutor on their
+own turn would close on the pass that follows it before anybody saw it.
+
+`hud::revealed` draws `Reveals::current` and nothing else: a sheet of the
+preview slip's parchment, centred under `TOP_CLEAR`, with "Bo reveals" (and
+"N more to come" while others wait) over the cards. Each card is drawn the
+way a log link previews it (#300), from the printing the line named
+(`LogLink::art`, `ArtSize::Normal`) and not from an object on the table,
+since a card revealed out of a library or a hand is no object the seat's
+view holds. Every card is drawn, at one size: `reveals::fit` finds the widest
+(at most 240 logical pixels) at which all of them fit the room between the
+report corner and the hand zone, in one row where that costs nothing. Nothing
+is drawn on a print, and the sheet does not move, so `reduce_motion` has
+nothing to hold.
+
+It stands on the log's rung (`Z_LOG`), a sheet only showing the game: a zone
+dialog answering a question stands over it, the hover preview over that, and
+the band across the window lets the pointer through. It takes no key but
+`Esc`, which puts it away first among the standing panels, one reveal a
+press (docs/keyboard-map.md), and a press on the sheet does the same
+(`MenuAction::DismissReveal`). Nothing is held up over the end screen, which
+shows the whole log. Tests: `reveals::tests` (the edge, the filter, the
+queue, the clock, the fit), `log_feed_tests::another_seat_s_reveal_…` (the
+join through `poll_host`), `hud::revealed::tests` (the sheet), and
+`input::tests::menu` (`Esc`, and a question in front of a reveal answered
+by its own key).
+
 ## Reporting a problem (#309, #310)
 
 One form, `src/report.rs` and `src/report/`, stands over the lobby and the

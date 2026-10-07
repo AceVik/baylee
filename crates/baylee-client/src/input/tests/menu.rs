@@ -336,6 +336,115 @@ fn escape_puts_the_game_menu_away_before_it_reaches_the_browser() {
     );
 }
 
+/// Cards another seat revealed stand up unasked, so they are the first
+/// standing thing `Esc` puts away, one reveal a press, before the menu the
+/// player opened. The counter-test is the menu alone, closed by the first.
+#[test]
+fn escape_puts_a_reveal_away_first_one_at_a_time() {
+    use crate::keys::Fired;
+    use baylee_client_core::prefs::Keymap;
+    use baylee_client_core::test_support::{hear_live, revealed_line};
+
+    let keymap = Keymap::standard();
+    let escape = Fired::of(&press(bevy::prelude::KeyCode::Escape), &keymap);
+    let mut prefs = crate::prefs::Prefs::default();
+
+    let mut duel = crate::Duel::default();
+    {
+        let duel = &mut duel;
+        hear_live(
+            &mut duel.log,
+            &mut duel.reveals,
+            vec![revealed_line(1, 40, 7), revealed_line(1, 41, 8)],
+        );
+    }
+    duel.game_menu = true;
+    assert_eq!(duel.reveals.waiting(), 1, "the premise: two reveals");
+
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(duel.game_menu, "the menu went before the reveal over it");
+    assert_eq!(duel.reveals.waiting(), 0, "one press, one reveal");
+    assert!(duel.reveals.current().is_some());
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(duel.reveals.current().is_none());
+    assert!(duel.game_menu, "and the press stopped there");
+    answer_the_question(escape, &mut duel, &mut prefs);
+    assert!(!duel.game_menu, "the next press reaches the menu");
+}
+
+/// A reveal standing holds up no answer: the question in front of it is
+/// answered by its own key, through the real keyboard system, and the reveal
+/// is still standing afterwards. And between two questions `Esc` still puts
+/// it away, through the same system.
+#[test]
+fn a_reveal_standing_holds_up_no_answer() {
+    use baylee_client_core::test_support::{hear_live, revealed_line};
+    use baylee_engine::choice::YesNoPrompt;
+    use bevy::input::ButtonInput;
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+
+    let keyboard_app = |duel: crate::Duel| {
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<crate::table::CameraRig>()
+            .init_resource::<crate::settings::ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .insert_resource(duel)
+            .add_systems(Update, keyboard);
+        app
+    };
+    let revealing = |duel: &mut crate::Duel| {
+        hear_live(
+            &mut duel.log,
+            &mut duel.reveals,
+            vec![revealed_line(1, 40, 7)],
+        );
+    };
+
+    let mut duel = crate::Duel {
+        interaction: Some(baylee_client_core::interaction::Interaction::new(
+            Pending::YesNo {
+                player: PlayerId::new(0),
+                prompt: YesNoPrompt::Generic,
+                source: None,
+            },
+            PlayerId::new(0),
+        )),
+        ..Default::default()
+    };
+    revealing(&mut duel);
+    let mut app = keyboard_app(duel);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::KeyY);
+    app.update();
+    let duel = app.world().resource::<crate::Duel>();
+    assert_eq!(
+        duel.outbox(),
+        [PlayerAction::YesNo(true)],
+        "Y answered the question in front of the reveal"
+    );
+    assert!(duel.reveals.current().is_some(), "and took nothing else");
+
+    let mut duel = crate::Duel::default();
+    revealing(&mut duel);
+    let mut app = keyboard_app(duel);
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Escape);
+    app.update();
+    assert!(
+        app.world()
+            .resource::<crate::Duel>()
+            .reveals
+            .current()
+            .is_none(),
+        "with no question, Esc puts the reveal away"
+    );
+}
+
 /// The game log is a rung on the same ladder: under the menu, which the
 /// player opened over it, and over the browser, which a question may be
 /// holding.

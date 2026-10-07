@@ -329,3 +329,68 @@ pub fn statics(count: u16) -> GameStatic {
             .collect(),
     }
 }
+
+/// A line saying `player` revealed one card the reader may see: object
+/// `slot`, printing `print`.
+#[must_use]
+pub fn revealed_line(player: u8, slot: u32, print: u16) -> baylee_view::LogEntry {
+    baylee_view::LogEntry {
+        turn: 3,
+        repeat: 1,
+        at: 0,
+        event: baylee_view::LogEvent::Revealed {
+            player: PlayerId::new(player),
+            cards: vec![baylee_view::LogObject::Known {
+                id: ObjectId::new(slot, 0),
+                card: Some(CardIdentity {
+                    index: CardIndex::new(u32::from(print)),
+                    print: PrintRef::new(print),
+                    face: 0,
+                }),
+                token: None,
+                name: "Lightning Bolt".to_string(),
+            }],
+        },
+    }
+}
+
+/// Tells seat 0 of a two-seat table each of `lines` as news, a frame
+/// apiece, after a first line of history, the way a live socket hears them:
+/// what stands a reveal up for a test that is about what the reveal does.
+pub fn hear_live(
+    book: &mut crate::gamelog::LogBook,
+    reveals: &mut crate::reveals::Reveals,
+    lines: Vec<baylee_view::LogEntry>,
+) {
+    let mut view = ViewBuilder::new(2).build();
+    if book.is_empty() {
+        let first = baylee_view::LogEntry {
+            turn: 1,
+            repeat: 1,
+            at: 0,
+            event: baylee_view::LogEvent::TurnStarted {
+                active: PlayerId::new(0),
+            },
+        };
+        reveals.take(
+            book,
+            &baylee_view::LogTail {
+                from: 0,
+                entries: vec![first],
+            },
+            &view,
+        );
+    }
+    for line in lines {
+        view.seq += 1;
+        let from = u32::try_from(book.len()).unwrap_or(u32::MAX);
+        reveals.take(
+            book,
+            &baylee_view::LogTail {
+                from,
+                entries: vec![line],
+            },
+            &view,
+        );
+    }
+}

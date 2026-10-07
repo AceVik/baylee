@@ -700,6 +700,12 @@ pub struct Duel {
     /// game's. A reconnect keeps it, and the host's retelling from the start
     /// adds only what is missing.
     pub log: baylee_client_core::gamelog::LogBook,
+    /// Cards another seat revealed, held up for this seat (`hud::revealed`).
+    ///
+    /// Read off the log as it arrives ([`baylee_client_core::reveals`]), so
+    /// it lives and dies with [`Self::log`]: a new game starts with none, and
+    /// a reconnect's telling of the log from its first line stands none up.
+    pub reveals: baylee_client_core::reveals::Reveals,
     /// The game menu's "report a problem" was pressed: `report` opens its
     /// form on the next frame (#309). A flag rather than a call, because the
     /// menu's handler holds only the duel.
@@ -1443,6 +1449,7 @@ fn add_present_systems(app: &mut App) {
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
+        .init_resource::<hud::revealed::RevealRevision>()
         .init_resource::<input::TrayGlide>();
     app.add_systems(
         Update,
@@ -1636,6 +1643,15 @@ fn add_present_systems(app: &mut App) {
                     hud::follow_the_log.after(hud::sync_log),
                     hud::hover_log_links.after(hud::sync_log),
                     hud::update_ai_log,
+                    // Cards another seat revealed: the clock, then the sheet
+                    // it leaves standing, after the shelf for the log's
+                    // reason (both hang off the overlay's root).
+                    (
+                        hud::revealed::tick,
+                        hud::revealed::sync
+                            .after(hud::revealed::tick)
+                            .after(hud::sync_ledge),
+                    ),
                 ),
                 // The tray's doors stand in the shelf's row but not in its
                 // layout, so they need nothing the shelf worked out — but
@@ -2001,8 +2017,13 @@ fn poll_host(
                 // A frame that only carries the next part of the log repeats
                 // the view the client already holds, and its lines are no
                 // less new for that.
+                //
+                // The same door hears which of them are another seat's
+                // reveals, read against the same frame: a reveal is news only
+                // on a live socket, never in a telling from the first line.
                 if let Some(tail) = &log {
-                    duel.log.append(tail, &view);
+                    let duel = &mut *duel;
+                    duel.reveals.take(&mut duel.log, tail, &view);
                 }
                 if let Some(journey) = journey.as_mut() {
                     journey.changed_scene();

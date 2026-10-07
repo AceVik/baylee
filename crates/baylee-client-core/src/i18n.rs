@@ -2284,6 +2284,12 @@ messages! {
     GameLogEmpty { en: "Nothing has happened yet", de: "Noch ist nichts passiert" },
     /// The game log panel has been scrolled up, and lines arrived under it.
     GameLogNewBelow { en: "New lines below", de: "Neue Zeilen unten" },
+    /// The head of the sheet that holds up cards another seat revealed.
+    /// `{0}` is the seat's name. Present tense, unlike the log's line: the
+    /// sheet stands while the cards are being shown (CR 701.20a).
+    RevealedBy { en: "{0} reveals", de: "{0} zeigt offen vor" },
+    /// Under that head: how many more reveals wait behind this one.
+    RevealedWaiting { en: "{0} more to come", de: "{0} weitere folgen" },
     /// The indicator that says this seat is not being asked right now.
     HoldingPriority { en: "Not asking you", de: "Du wirst nicht gefragt" },
     /// The button that cancels a running hold.

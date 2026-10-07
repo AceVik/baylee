@@ -590,6 +590,9 @@ pub enum MenuAction {
     HoldForStack,
     /// Send the armed deed (`crate::Armed`).
     SendArmed,
+    /// Put away the cards another seat revealed (`hud::revealed`): a press
+    /// on the sheet, as `Esc` does. The next waiting reveal stands up.
+    DismissReveal,
     /// Put it back with nothing on the wire.
     ///
     /// Both of these are `MenuButton`s rather than a component of their own
@@ -2173,6 +2176,7 @@ mod motion;
 mod overlay;
 mod preview_keys;
 pub(crate) mod rail;
+pub(crate) mod revealed;
 mod scroll;
 pub(crate) mod seatbar;
 mod sheet;
