@@ -1672,8 +1672,10 @@ pub enum Effect {
     /// Create a token that's a copy of the first creature token you
     /// control (populate; no-op if none).
     CreateTokenCopyOfFirstToken,
-    /// A relative player puts a filtered card from their hand on the
-    /// bottom of their library (Vendilion Clique).
+    /// A relative player reveals a filtered card from their hand, which the
+    /// ability's controller chose, and puts it on the bottom of their
+    /// library (Vendilion Clique). The reveal shows it to every player
+    /// (CR 701.20a).
     BottomCardFromHand {
         /// Whose hand.
         player: PlayerRel,

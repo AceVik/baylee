@@ -1821,6 +1821,8 @@ mod regenerate_tests;
 #[cfg(test)]
 mod resolution_tests;
 #[cfg(test)]
+mod reveal_tests;
+#[cfg(test)]
 mod reversal_tests;
 #[cfg(test)]
 mod s3_tests;
