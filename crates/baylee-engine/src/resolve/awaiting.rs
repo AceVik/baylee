@@ -277,6 +277,8 @@ pub enum AwaitingOp {
     BottomFromHand {
         /// Whose hand.
         player: PlayerId,
+        /// What "if you do" adds, run only once a card was bottomed.
+        then: &'static [Effect],
     },
     /// After `ChangeTarget` or `ChooseNewTargets`: the next target of the
     /// spell being changed is asked about (CR 115.7, `retarget`). Boxed, as

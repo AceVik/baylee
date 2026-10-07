@@ -540,7 +540,12 @@ impl Effect {
             | Effect::IfNotLostLifeThisTurn { then }
             | Effect::IfResolvedTimesThisTurn { times: _, then }
             | Effect::IfActivatedThisTurnAtLeast { n: _, then }
-            | Effect::IfControlGreatestCmc { filter: _, then } => (then, NONE),
+            | Effect::IfControlGreatestCmc { filter: _, then }
+            | Effect::BottomCardFromHand {
+                player: _,
+                filter: _,
+                then,
+            } => (then, NONE),
             Effect::IfKicked { then, otherwise }
             | Effect::IfCondition {
                 condition: _,
@@ -716,7 +721,6 @@ impl Effect {
             | Effect::CreateTokenCopyOfTarget { .. }
             | Effect::CreateTokenCopyOfSource { .. }
             | Effect::CreateTokenCopyOfFirstToken
-            | Effect::BottomCardFromHand { .. }
             | Effect::CopyTargetSpell { .. }
             | Effect::CopyTargetAbility
             | Effect::CastFaceDownUsingSpentX

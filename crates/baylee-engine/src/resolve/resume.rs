@@ -427,7 +427,7 @@ pub(super) fn resume_inner(
                 );
             }
         }
-        AwaitingOp::BottomFromHand { player } => {
+        AwaitingOp::BottomFromHand { player, then } => {
             // "That player reveals the chosen card" (Vendilion Clique): the
             // chooser has seen the hand, the rest of the table has not, and
             // a reveal shows it to every player (CR 701.20a) while it is
@@ -445,6 +445,14 @@ pub(super) fn resume_inner(
                     ZonePosition::Bottom,
                     Cause::Effect,
                 );
+            }
+            // "If you do, …": what follows runs next, in the order written
+            // (CR 608.2c), and only when a card was chosen. Declined, it is
+            // skipped, as it is when nothing could be chosen and nobody was
+            // asked.
+            if !chosen.is_empty() {
+                let next = res.pc + 1;
+                res.effects.splice(next..next, then.iter().copied());
             }
         }
         AwaitingOp::WishToHand => {

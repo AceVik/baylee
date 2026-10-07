@@ -32,16 +32,15 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[triggered!(
         Trigger::ETB,
-        &[
-            Effect::BottomCardFromHand {
-                player: PlayerRel::Chosen,
-                filter: &Filter::NONLAND,
-            },
-            Effect::DrawCardsFor {
+        // "If you do, … then draws a card": only when a card was chosen.
+        &[Effect::BottomCardFromHand {
+            player: PlayerRel::Chosen,
+            filter: &Filter::NONLAND,
+            then: &[Effect::DrawCardsFor {
                 amount: Amount::Fixed(1),
                 who: PlayerRel::Chosen,
-            },
-        ],
+            }],
+        }],
         targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
     )],
 );

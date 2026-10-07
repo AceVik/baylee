@@ -505,7 +505,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
-        Effect::BottomCardFromHand { player, filter } => {
+        Effect::BottomCardFromHand {
+            player,
+            filter,
+            then,
+        } => {
             let player = players_of(player, state, you, res).first().copied()?;
             let options: Vec<ObjectId> = state
                 .zones
@@ -530,7 +534,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // decide. Asking the owner to pick which of their own cards to
             // bury inverted it: a seat attacked by the Clique chose their
             // worst card and thanked you for the draw.
-            res.awaiting = Some(AwaitingOp::BottomFromHand { player });
+            res.awaiting = Some(AwaitingOp::BottomFromHand { player, then });
             Some(Pending::ChooseCards {
                 player: you,
                 options,

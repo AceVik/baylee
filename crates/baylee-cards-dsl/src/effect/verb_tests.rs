@@ -339,3 +339,24 @@ fn a_continuous_effect_derives_its_own_layer() {
 fn etb_is_the_trigger_the_pool_writes_a_hundred_times() {
     assert_eq!(Trigger::ETB, Trigger::EntersBattlefield(&Filter::This));
 }
+
+/// Vendilion Clique's "if you do, … then draws a card" rides on
+/// `BottomCardFromHand::then`, and the walk reaches it.
+#[test]
+fn bottom_card_from_hand_body_is_visited() {
+    static EFFECTS: &[Effect] = &[Effect::BottomCardFromHand {
+        player: PlayerRel::Chosen,
+        filter: &Filter::NONLAND,
+        then: &[Effect::DrawCardsFor {
+            amount: Amount::Fixed(1),
+            who: PlayerRel::Chosen,
+        }],
+    }];
+    let mut seen = 0;
+    let mut body_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        body_seen |= matches!(effect, Effect::DrawCardsFor { .. });
+    });
+    assert_eq!(seen, 2);
+    assert!(body_seen);
+}

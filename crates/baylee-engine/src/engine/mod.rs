@@ -1771,6 +1771,8 @@ mod granted_this_tests;
 #[cfg(test)]
 mod house_rules_tests;
 #[cfg(test)]
+mod if_you_do_tests;
+#[cfg(test)]
 mod investigate_tests;
 #[cfg(test)]
 mod keyword_tests;
@@ -1784,6 +1786,8 @@ mod land_type_tests;
 mod leave_probe_tests;
 #[cfg(test)]
 mod leave_tests;
+#[cfg(test)]
+mod loop_false_positive_tests;
 #[cfg(test)]
 mod loop_tests;
 #[cfg(test)]
