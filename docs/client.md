@@ -812,6 +812,10 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   name, what it does, a greyed row's reason or the *experimentell* tag, its
   digit), then *remember for N seats* (ticked: the per-count memory;
   unticked: this game only). A veil behind it shuts it on a press elsewhere.
+  *experimentell* (`Arrangement::experimental`, WA10) stays on the arc rail
+  alone, whose own promise did not hold; every other built arrangement keeps
+  invariant 4 wherever it is offered. The numbers, model and live:
+  `.claude/ux-table/mocks/real/real8-measures.md`.
 - **Keys** (`docs/keyboard-map.md`): `P` opens the menu, which then holds the
   keyboard (`↑↓`/`W S`, `Enter`/`Space`, `1`–`8`, `Esc`); `⇧P` takes the next
   offered arrangement and flashes the pill's name for 1.2 s. Both are out of

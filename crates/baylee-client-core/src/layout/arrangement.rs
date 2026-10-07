@@ -214,10 +214,16 @@ impl Arrangement {
     }
 
     /// Whether the menu tags it *experimentell*: a measurement its package
-    /// promised is still outstanding (DESIGN-v8 §7.1).
+    /// promised did not hold (DESIGN-v8 §7.1; WA10,
+    /// `.claude/ux-table/mocks/real/real8-measures.md`). Every built arm
+    /// keeps invariant 4 where it is offered (the offers narrowed where it
+    /// did not: the Turntable to four seats, six on a vast window); the arc
+    /// rail's own promise — three boards abreast at a duel's size — did not
+    /// hold (27 px at home on a laptop, its visit 77), and its overflow chip
+    /// is not built, so it keeps the tag. Not built yet: tagged too.
     #[must_use]
     pub const fn experimental(self) -> bool {
-        !matches!(self, Self::Ring)
+        matches!(self, Self::ArcRail) || !self.built()
     }
 
     /// Whether the seat of interest moves **cards** (a layout arrangement:
