@@ -672,3 +672,24 @@ fn the_field_an_older_client_sends_is_read_only_when_the_new_one_is_empty() {
         "and is not read at all when it does"
     );
 }
+
+/// The house deck does not depend on where the gateway was started.
+///
+/// It once came from `data/acceptance-decks.txt` relative to the working
+/// directory, so a gateway started anywhere but the repository root answered
+/// an AI seat without a deck with 500 "deck data missing". A test runs in its
+/// own crate's directory, which has no `data/`: the guard below keeps that
+/// true, or this test would pass on the old code too.
+#[test]
+fn the_house_deck_is_dealt_from_any_working_directory() {
+    assert!(
+        !std::path::Path::new("data/acceptance-decks.txt").exists(),
+        "this test must run where no deck file lies under the working directory"
+    );
+    let deck = match house_deck() {
+        Ok(deck) => deck,
+        Err((status, Json(body))) => panic!("no house deck: {status} {}", body.error),
+    };
+    assert_eq!(deck.name, "Victory");
+    assert!(!deck.main.is_empty(), "the house deck has a main deck");
+}

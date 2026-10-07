@@ -116,9 +116,6 @@ stage() {
     rm -rf "$state/staged"
     mkdir -p "$state/staged"
     cp target/release/{baylee-gateway,baylee-catalog} "$state/staged/"
-    # The gateway reads the house AI's deck from `data/` under its working
-    # directory at run time; without it no game against the AI starts.
-    cp data/acceptance-decks.txt "$state/staged/"
     echo "$rev" > "$state/staged/rev"
     date +%s > "$state/staged/since"
     # Before the agent stops: the wasm build is the long one, and games
@@ -223,7 +220,6 @@ finish() {
     fi
 
     sudo install -m755 "$state/staged/"{baylee-gateway,baylee-catalog} "$bin/"
-    sudo install -D -m644 "$state/staged/acceptance-decks.txt" /var/lib/baylee/data/acceptance-decks.txt
     play_install
     sudo systemctl restart baylee-gateway
     for _ in $(seq 20); do curl -fsS -m 2 "$gateway/info" >/dev/null 2>&1 && break; sleep 1; done

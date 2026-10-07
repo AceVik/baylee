@@ -161,7 +161,6 @@ fn stage_on(server: Server) -> (PathBuf, String, String) {
     let (root, stubs) = (scratch.join("opt"), scratch.join("stubs"));
     for dir in [
         "src/target/release",
-        "src/data",
         "src/web/feedback",
         "src/crates/baylee-client",
         "bin",
@@ -173,7 +172,6 @@ fn stage_on(server: Server) -> (PathBuf, String, String) {
     for binary in ["baylee-gateway", "baylee-catalog"] {
         std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
     }
-    std::fs::write(root.join("src/data/acceptance-decks.txt"), b"").unwrap();
     let calls: PathBuf = scratch.join("calls");
 
     stub(
