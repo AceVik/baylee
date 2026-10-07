@@ -485,7 +485,7 @@ fn button(
         fonts,
         metrics,
         label,
-        crate::lobby::Press::PickerNothing,
+        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
         tone,
         enabled,
     );

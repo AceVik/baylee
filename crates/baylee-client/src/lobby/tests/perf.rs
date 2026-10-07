@@ -51,12 +51,12 @@ fn a_press_that_changes_nothing_marks_nothing() {
         (prefs.sky, prefs.sound, prefs.atmosphere)
     };
     let quiet = [
-        Press::Hub(hub),
-        Press::PickSky(sky),
-        Press::PickSound(sound),
-        Press::PickAtmosphere(air),
-        Press::PickLang(lang),
-        Press::CloseSettings,
+        Press::Hub(HubPress::Tab(hub)),
+        Press::Settings(SettingsPress::PickSky(sky)),
+        Press::Settings(SettingsPress::PickSound(sound)),
+        Press::Settings(SettingsPress::PickAtmosphere(air)),
+        Press::Shared(SharedPress::PickLang(lang)),
+        Press::Settings(SettingsPress::CloseSettings),
     ];
     for press in quiet {
         let state = app.world().resource_ref::<LobbyState>().last_changed();
@@ -89,7 +89,7 @@ fn a_press_that_changes_nothing_marks_nothing() {
         Hub::Play
     };
     let before = rebuilt(&app);
-    tap_press(&mut app, Press::Hub(other));
+    tap_press(&mut app, Press::Hub(HubPress::Tab(other)));
     assert_eq!(rebuilt(&app), before + 1, "a real change was not drawn");
 }
 
@@ -98,7 +98,7 @@ fn a_press_that_changes_nothing_marks_nothing() {
 #[test]
 fn a_moving_caret_redraws_its_field_and_nothing_else() {
     let mut app = signed_in();
-    press(&mut app, Press::Focus(Field::Search));
+    press(&mut app, Press::Shared(SharedPress::Focus(Field::Search)));
     {
         let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
         for ch in "abc".chars() {
@@ -152,7 +152,7 @@ fn a_moving_caret_redraws_its_field_and_nothing_else() {
 #[test]
 fn a_refresh_raises_no_veil() {
     let mut app = signed_in();
-    press(&mut app, Press::Refresh);
+    press(&mut app, Press::Hub(HubPress::Refresh));
     let state = app.world().resource::<LobbyState>();
     assert!(state.lobby.busy(), "the refresh went out");
     assert!(state.lobby.refreshing(), "it is a refresh");

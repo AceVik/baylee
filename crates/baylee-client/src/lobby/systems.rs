@@ -537,8 +537,8 @@ pub(super) fn leave_keys(
     let mut again = false;
     for press in &exits {
         match press {
-            Press::Leave => leave = true,
-            Press::PlayAgain => again = true,
+            Press::End(EndPress::Leave) => leave = true,
+            Press::End(EndPress::PlayAgain) => again = true,
             _ => {}
         }
     }
@@ -546,14 +546,14 @@ pub(super) fn leave_keys(
     // the first answer on a slip is the lead — so the lead is the rematch when
     // the sheet has one and the way back otherwise.
     let lead = if again {
-        Press::PlayAgain
+        Press::End(EndPress::PlayAgain)
     } else if leave {
-        Press::Leave
+        Press::End(EndPress::Leave)
     } else {
         return;
     };
     let way = if fired.has(Action::Cancel) && leave {
-        Press::Leave
+        Press::End(EndPress::Leave)
     } else if fired.has(Action::Confirm) || fired.has(Action::Primary) {
         lead
     } else {
@@ -570,8 +570,8 @@ pub(super) fn leave_keys(
 /// already in flight — see `Lobby::want_rematch`.
 fn take_the_way_out(way: Press, state: &mut LobbyState, closes: &mut MessageWriter<DuelCommand>) {
     match way {
-        Press::Leave => {}
-        Press::PlayAgain => {
+        Press::End(EndPress::Leave) => {}
+        Press::End(EndPress::PlayAgain) => {
             let played = match state.lobby.screen() {
                 Screen::Seated(handover) => Some(handover.game_id.clone()),
                 _ => None,

@@ -70,9 +70,12 @@ pub(super) fn spawn_leave_button(
     let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local);
     let mut ways: Vec<(&str, Press)> = Vec::new();
     if networked {
-        ways.push((Phrase::PlayAgain.text(lang), Press::PlayAgain));
+        ways.push((
+            Phrase::PlayAgain.text(lang),
+            Press::End(EndPress::PlayAgain),
+        ));
     }
-    ways.push((Phrase::BackToLobby.text(lang), Press::Leave));
+    ways.push((Phrase::BackToLobby.text(lang), Press::End(EndPress::Leave)));
 
     // In the sheet these are the slip's own answers, so they obey the slip's
     // own rule: the first one is what the sheet is *for* and is the only one
@@ -110,4 +113,15 @@ pub(super) fn despawn_leave_button(
     for entity in &buttons {
         commands.entity(entity).despawn();
     }
+}
+
+/// One of the ways out of a finished game, which `leave_clicks` and
+/// `leave_keys` take; `clicks` answers neither.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum EndPress {
+    /// Leave a finished game.
+    Leave,
+    /// Play that game again. Beside [`EndPress::Leave`], because those are the
+    /// only two things left to do with a table that is over.
+    PlayAgain,
 }

@@ -66,17 +66,20 @@ fn kept_in_the_file(app: &App) -> Option<KeptGuest> {
 #[test]
 fn the_entry_is_drawn_only_for_a_gateway_that_takes_guests() {
     let mut closed = headless();
-    assert!(!presses(&mut closed).contains(&Press::PlayAsGuest));
-    assert!(!presses(&mut closed).contains(&Press::Focus(Field::GuestName)));
+    assert!(!presses(&mut closed).contains(&Press::Front(FrontPress::PlayAsGuest)));
+    assert!(!presses(&mut closed).contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
 
     let mut open = welcoming();
     let found = presses(&mut open);
     assert_eq!(
-        found.iter().filter(|p| **p == Press::PlayAsGuest).count(),
+        found
+            .iter()
+            .filter(|p| **p == Press::Front(FrontPress::PlayAsGuest))
+            .count(),
         1,
         "{found:?}"
     );
-    assert!(found.contains(&Press::Focus(Field::GuestName)));
+    assert!(found.contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
     assert!(labels(&mut open).contains(&"Play as guest".to_string()));
 }
 
@@ -93,7 +96,7 @@ fn a_kept_guest_is_offered_back_by_its_handle() {
     }
     settle(&mut app);
     assert!(labels(&mut app).contains(&"Continue as Casper#0007".to_string()));
-    assert!(!presses(&mut app).contains(&Press::Focus(Field::GuestName)));
+    assert!(!presses(&mut app).contains(&Press::Shared(SharedPress::Focus(Field::GuestName))));
 }
 
 /// Choosing a gateway hands the lobby the guest kept for it, and only for it.
@@ -152,7 +155,9 @@ fn a_guest_the_gateway_has_ended_is_forgotten_here_too() {
 #[test]
 fn a_guest_is_asked_before_it_signs_out_and_forgotten_after() {
     let mut app = in_as_a_guest();
-    tap_control(&mut app, "sign out", |p| *p == Press::SignOut);
+    tap_control(&mut app, "sign out", |p| {
+        *p == Press::Hub(HubPress::SignOut)
+    });
     assert!(matches!(
         app.world().resource::<LobbyState>().confirmation,
         Some(super::confirm::Destructive::SignOutGuest)
@@ -160,7 +165,9 @@ fn a_guest_is_asked_before_it_signs_out_and_forgotten_after() {
     assert_eq!(kept_in_the_file(&app), Some(kept()), "not yet");
     assert!(labels(&mut app).contains(&"Sign out Casper#0007?".to_string()));
 
-    tap_control(&mut app, "the answer", |p| *p == Press::ConfirmDestructive);
+    tap_control(&mut app, "the answer", |p| {
+        *p == Press::Shared(SharedPress::ConfirmDestructive)
+    });
     assert_eq!(kept_in_the_file(&app), None);
     let state = app.world().resource::<LobbyState>();
     assert_eq!(state.lobby.token(), None);
@@ -190,7 +197,9 @@ fn an_account_signing_out_leaves_the_kept_guest_alone() {
         }),
     );
     settle(&mut app);
-    tap_control(&mut app, "sign out", |p| *p == Press::SignOut);
+    tap_control(&mut app, "sign out", |p| {
+        *p == Press::Hub(HubPress::SignOut)
+    });
     let state = app.world().resource::<LobbyState>();
     assert!(state.confirmation.is_none(), "nothing to ask");
     assert_eq!(state.lobby.token(), None);

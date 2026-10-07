@@ -225,7 +225,7 @@ fn over_the_end_screen_the_form_s_keys_are_not_the_sheet_s_answers() {
         state.connected = true;
     }
     phase(&mut app, DuelPhase::Finished);
-    assert!(presses(&mut app).contains(&Press::PlayAgain));
+    assert!(presses(&mut app).contains(&Press::End(EndPress::PlayAgain)));
     open_form(&mut app);
     let closes = |app: &mut App| {
         app.world_mut()

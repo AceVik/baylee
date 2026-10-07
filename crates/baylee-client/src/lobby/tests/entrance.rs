@@ -27,7 +27,9 @@ fn login_flies_over_the_lobby_and_blocks_its_controls_until_arrival() {
         app.world().resource::<LobbyState>().lobby.screen(),
         &Screen::Table
     );
-    tap_control(&mut app, "new deck", |press| *press == Press::NewDeck);
+    tap_control(&mut app, "new deck", |press| {
+        *press == Press::Hub(HubPress::NewDeck)
+    });
     assert_eq!(
         app.world().resource::<LobbyState>().lobby.screen(),
         &Screen::Table
@@ -37,7 +39,9 @@ fn login_flies_over_the_lobby_and_blocks_its_controls_until_arrival() {
     }
     let scene = app.world().resource::<crate::vista::FrontScene>();
     assert!(!scene.entering && !scene.shown);
-    tap_control(&mut app, "new deck", |press| *press == Press::NewDeck);
+    tap_control(&mut app, "new deck", |press| {
+        *press == Press::Hub(HubPress::NewDeck)
+    });
     assert_eq!(
         app.world().resource::<LobbyState>().lobby.screen(),
         &Screen::Build

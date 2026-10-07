@@ -32,7 +32,7 @@ pub(super) fn draw(
         fonts,
         metrics,
         Phrase::ChooseCommander.text(lang),
-        Press::ChooseCommander(false),
+        Press::Build(BuildPress::ChooseCommander(false)),
         false,
     );
     commands.entity(actions).add_children(&[title, choose]);
@@ -42,7 +42,7 @@ pub(super) fn draw(
             fonts,
             metrics,
             Phrase::ChoosePartner.text(lang),
-            Press::ChooseCommander(true),
+            Press::Build(BuildPress::ChooseCommander(true)),
             false,
         );
         commands.entity(actions).add_child(partner);
@@ -70,6 +70,7 @@ pub(super) fn draw(
 /// A commander that has left the list (moved to the sideboard) keeps its
 /// line, since it is still named, but shows the pool's printing and offers
 /// no picker: there is no row for a printing to be chosen for.
+#[allow(clippy::too_many_lines)] // one line of the box, built in order
 fn leader(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -99,15 +100,16 @@ fn leader(
             },
             BackgroundColor(palette::PANEL_LIT),
             crate::ambience::Feel::tinting_to(palette::PANEL_LIT, palette::PANEL_LIT.lighter(0.06)),
-            Press::Inspect(slot),
+            Press::Build(BuildPress::Inspect(slot)),
             hover.clone(),
         ))
         .id();
     let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
     if held.is_some() {
-        commands
-            .entity(thumb)
-            .insert((Press::PickCommanderPrint(slot), Pickable::default()));
+        commands.entity(thumb).insert((
+            Press::Build(BuildPress::PickCommanderPrint(slot)),
+            Pickable::default(),
+        ));
     }
     fill_thumbnail(commands, thumb);
 
@@ -165,7 +167,13 @@ fn leader(
     }
     let kind = note(commands, fonts, metrics, &card.type_line);
     let actions = card_actions(commands, metrics);
-    let remove = card_action(commands, fonts, metrics, "×", Press::RemoveCommander(slot));
+    let remove = card_action(
+        commands,
+        fonts,
+        metrics,
+        "×",
+        Press::Build(BuildPress::RemoveCommander(slot)),
+    );
     commands.entity(actions).add_child(remove);
     commands
         .entity(details)

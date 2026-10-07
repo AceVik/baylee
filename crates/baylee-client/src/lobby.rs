@@ -498,6 +498,7 @@ enum Expect {
     Left,
 }
 
+mod build_press;
 mod clicks;
 mod confirm;
 pub(crate) mod dock;
@@ -522,6 +523,7 @@ mod preview;
 mod print_catalog;
 mod room;
 mod scrolling;
+mod settings_press;
 mod shell;
 mod source;
 mod systems;
@@ -585,11 +587,18 @@ use systems::{
 // into files stays an internal matter: every other module still says
 // `crate::lobby::button`.
 
+pub(crate) use build_press::BuildPress;
+pub(crate) use end_screen::EndPress;
 pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
-pub(crate) use press::Press;
+pub(crate) use front::FrontPress;
+pub(crate) use hub::HubPress;
+pub(crate) use library_ui::LibraryPress;
+pub(crate) use press::{Press, SharedPress};
 pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use room::RoomPress;
 pub(crate) use scrolling::Scrollable;
 pub(crate) use scrolling::{List, Scrolled};
+pub(crate) use settings_press::SettingsPress;
 pub(crate) use shell::{Frame, Metrics};
 pub(crate) use widgets::{button, chip, heading, note, panel, print_mark, row, scroller, spacer};
 

@@ -1,4 +1,5 @@
 //! A dedicated waiting room: host rules beside each player's own deck choice.
+use super::press::Cx;
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use super::{FieldLook, Masked, button, chip, heading, note, panel, row, text_field};
@@ -69,7 +70,7 @@ pub(super) fn draw(
         fonts,
         m,
         Phrase::Leave.text(lang),
-        Press::LeaveTable(index),
+        Press::Room(RoomPress::LeaveTable(index)),
         palette::PANEL_LIT,
         !lobby.busy(),
     );
@@ -186,7 +187,7 @@ pub(super) fn draw(
                 fonts,
                 m,
                 label,
-                Press::RoomAdjust(Adjustment::Template(value)),
+                Press::Room(RoomPress::RoomAdjust(Adjustment::Template(value))),
                 false,
             );
             commands.entity(presets).add_child(b);
@@ -234,7 +235,7 @@ pub(super) fn draw(
             fonts,
             m,
             Phrase::RoomApply.text(lang),
-            Press::SaveRoom(false),
+            Press::Room(RoomPress::SaveRoom(false)),
             palette::ACCENT,
             !lobby.busy(),
         );
@@ -245,7 +246,7 @@ pub(super) fn draw(
                 fonts,
                 m,
                 Phrase::RoomUnlock.text(lang),
-                Press::SaveRoom(true),
+                Press::Room(RoomPress::SaveRoom(true)),
                 palette::PANEL_LIT,
                 !lobby.busy(),
             );
@@ -306,7 +307,7 @@ pub(super) fn draw(
                 Phrase::Ready
             }
             .text(lang),
-            Press::Ready(index, !ready),
+            Press::Room(RoomPress::Ready(index, !ready)),
             palette::ACCENT,
             !lobby.busy() && own_deck,
         );
@@ -318,7 +319,7 @@ pub(super) fn draw(
             fonts,
             m,
             Phrase::Start.text(lang),
-            Press::StartRoom(index),
+            Press::Room(RoomPress::StartRoom(index)),
             palette::ACCENT,
             game.startable && !lobby.busy() && !lobby.room_dirty() && lobby.games_can_start(),
         );
@@ -435,7 +436,7 @@ fn seat_card(
             fonts,
             m,
             &label,
-            Press::SeatTeam(index, seat.seat, next),
+            Press::Room(RoomPress::SeatTeam(index, seat.seat, next)),
             seat.team.is_some(),
         );
         commands.entity(tools).add_child(team);
@@ -451,7 +452,7 @@ fn seat_card(
                     fonts,
                     m,
                     label.text(lang),
-                    Press::SeatKind(index, seat.seat, kind),
+                    Press::Room(RoomPress::SeatKind(index, seat.seat, kind)),
                     false,
                 );
                 commands.entity(tools).add_child(b);
@@ -463,7 +464,7 @@ fn seat_card(
                 fonts,
                 m,
                 Phrase::MakeHost.text(lang),
-                Press::HandOver(index, seat.seat),
+                Press::Room(RoomPress::HandOver(index, seat.seat)),
                 false,
             );
             commands.entity(tools).add_child(b);
@@ -485,7 +486,7 @@ fn seat_card(
                 fonts,
                 m,
                 super::ai_name(lang, name),
-                Press::SeatAi(index, seat.seat, name),
+                Press::Room(RoomPress::SeatAi(index, seat.seat, name)),
                 seat.ai.as_deref() == Some(name),
             );
             commands.entity(tools).add_child(b);
@@ -507,7 +508,7 @@ fn seat_card(
             fonts,
             m,
             Phrase::RoomPickDeck.text(lang),
-            Press::RoomDeckPicker(seat.seat),
+            Press::Room(RoomPress::RoomDeckPicker(seat.seat)),
             palette::PANEL_LIT,
             !lobby.busy(),
         );
@@ -520,7 +521,7 @@ fn seat_card(
                     fonts,
                     m,
                     &format!("{} · {}", deck.name, deck.format),
-                    Press::RoomDeck(index, seat.seat, at),
+                    Press::Room(RoomPress::RoomDeck(index, seat.seat, at)),
                     palette::PANEL_LIT,
                     !lobby.busy(),
                 );
@@ -532,7 +533,7 @@ fn seat_card(
                     fonts,
                     m,
                     Phrase::HouseDecks.text(lang),
-                    Press::BrowseHouse,
+                    Press::Library(LibraryPress::BrowseHouse),
                     palette::ACCENT,
                     !lobby.busy(),
                 );
@@ -581,7 +582,7 @@ fn seat_card(
                 if expanded { "−" } else { "+" },
                 Phrase::RoomStartingCards.fill(lang, &[&count.to_string()])
             ),
-            Press::RoomSetup(seat.seat as u8),
+            Press::Room(RoomPress::RoomSetup(seat.seat as u8)),
             expanded,
         );
         commands.entity(toggle).entry::<Node>().and_modify(|mut n| {
@@ -639,7 +640,7 @@ fn stepper(
             fonts,
             m,
             text,
-            Press::RoomAdjust(press),
+            Press::Room(RoomPress::RoomAdjust(press)),
             palette::PANEL_LIT,
             enabled,
         );
@@ -674,11 +675,198 @@ fn field(
                 field: Some(field),
                 shown: state.lobby.showing(field),
             }),
-            press: Press::Focus(field),
+            press: Press::Shared(SharedPress::Focus(field)),
             lead: None,
             hint: None,
             tail: None,
         },
     );
     commands.entity(parent).add_child(e);
+}
+
+/// A control of a waiting room: its rules, its chairs and the board a
+/// chair starts with.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum RoomPress {
+    /// A language-model control of a chair: the room's index, the chair.
+    RoomLlm(usize, u32, crate::tableseats::LlmPress),
+    /// Edit the local room draft.
+    RoomAdjust(baylee_client_core::lobby::room::Adjustment),
+    /// Apply the host draft; true explicitly removes the password.
+    SaveRoom(bool),
+    /// Apply a chosen deck directly to this seat.
+    RoomDeck(usize, u32, usize),
+    /// Toggle the deck choices for a seat.
+    RoomDeckPicker(u32),
+    /// Expand or collapse a seat's optional starting-position editor.
+    RoomSetup(u8),
+    RoomCardAdd(u8, usize, bool),
+    RoomCardRemove(u8, usize),
+    RoomCardEdit(u8, usize),
+    RoomCardPrint(u8, usize),
+    RoomCounterAdd(u8, usize),
+    RoomCounterStep(u8, usize, usize, i16),
+    /// Give up a chair. The room outlives it.
+    LeaveTable(usize),
+    /// Say whether this player is ready at a listed table.
+    Ready(usize, bool),
+    /// Start a room this account hosts.
+    StartRoom(usize),
+    /// Hand the room to the player in a chair.
+    HandOver(usize, u32),
+    /// Make a chair a person's or the AI's.
+    SeatKind(usize, u32, SeatKind),
+    /// Set an AI chair's difficulty.
+    SeatAi(usize, u32, &'static str),
+    /// Move a chair onto a side. `0` puts it back on its own.
+    SeatTeam(usize, u32, u8),
+}
+
+impl RoomPress {
+    /// What a click on this control does.
+    #[allow(clippy::too_many_lines)] // one flat match, read top to bottom
+    pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
+        let Cx { state, mailbox, .. } = cx;
+        match self {
+            RoomPress::RoomCardAdd(seat, slot, printing) => {
+                let count = state
+                    .lobby
+                    .room_draft()
+                    .and_then(|d| d.setup.seats.get(usize::from(seat)))
+                    .map_or(0, |s| s.permanents.len());
+                state.lobby.room_add_card(seat, slot);
+                if printing {
+                    let request = state.lobby.room_pick_print(seat, count);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::RoomCardRemove(seat, at) => {
+                state.room_card_edit = None;
+                state.lobby.room_remove_card(seat, at);
+            }
+            RoomPress::RoomCardEdit(seat, at) => {
+                state.room_card_edit = if state.room_card_edit == Some((seat, at)) {
+                    None
+                } else {
+                    Some((seat, at))
+                };
+            }
+            RoomPress::RoomCardPrint(seat, at) => {
+                let request = state.lobby.room_pick_print(seat, at);
+                dispatch(state, mailbox, request);
+            }
+            RoomPress::RoomCounterAdd(seat, at) => state.lobby.room_add_counter(seat, at),
+            RoomPress::RoomCounterStep(seat, at, counter, delta) => {
+                state.lobby.room_counter_step(seat, at, counter, delta);
+            }
+            RoomPress::RoomDeckPicker(seat) => {
+                state.room_deck_seat = (state.room_deck_seat != Some(seat)).then_some(seat);
+            }
+            RoomPress::RoomSetup(seat) => {
+                state.room_setup_seat = (state.room_setup_seat != Some(seat)).then_some(seat);
+                state.room_card_edit = None;
+                // Collapsing or switching editors must not leave a hidden
+                // card search (or counter field) receiving keyboard input.
+                if matches!(
+                    state.lobby.focus(),
+                    Field::RoomBoard(_) | Field::RoomCounter
+                ) {
+                    state.lobby.focus_on(Field::RoomName);
+                }
+            }
+            RoomPress::RoomAdjust(change) => state.lobby.adjust_room(change),
+            RoomPress::SaveRoom(remove_password) => {
+                let request = state.lobby.save_room(remove_password);
+                dispatch(state, mailbox, request);
+            }
+            RoomPress::RoomDeck(index, seat, deck) => {
+                state.lobby.select_deck(deck);
+                state.room_deck_seat = None;
+                if let Some(game) = state.lobby.games().get(index).map(|g| g.id.clone()) {
+                    let request = state.lobby.seat_deck(&game, seat);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::LeaveTable(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.leave_table(&game);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::Ready(index, ready) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.set_ready(&game, ready);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::StartRoom(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.start_room(&game);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::HandOver(index, seat) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.hand_over(&game, seat);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::RoomLlm(index, seat, press) => {
+                let found = state.lobby.games().get(index).map(|g| {
+                    let phase = if g.state == "waiting" {
+                        crate::tableseats::Phase::Waiting
+                    } else {
+                        crate::tableseats::Phase::Playing
+                    };
+                    let house = g
+                        .seats
+                        .iter()
+                        .any(|s| s.seat == seat && s.kind == SeatKind::Ai);
+                    (g.id.clone(), phase, house)
+                });
+                if let Some((game, phase, house)) = found {
+                    let open_it = state.llm.press(seat, press, phase, "steady");
+                    // The house's chair is the gateway's: open it, and the
+                    // bridge takes it once the room lists it open.
+                    if open_it && house {
+                        let request =
+                            state
+                                .lobby
+                                .set_seat(&game, seat, Some(SeatKind::Human), None);
+                        dispatch(state, mailbox, request);
+                    }
+                }
+            }
+            RoomPress::SeatKind(index, seat, kind) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    // Open or the house's: no language model of ours here.
+                    state.llm.unplan(seat);
+                    let request = state.lobby.set_seat(&game, seat, Some(kind), None);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::SeatAi(index, seat, profile) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request =
+                        state
+                            .lobby
+                            .set_seat(&game, seat, None, Some(profile.to_string()));
+                    dispatch(state, mailbox, request);
+                }
+            }
+            RoomPress::SeatTeam(index, seat, team) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.seat_team(&game, seat, team);
+                    dispatch(state, mailbox, request);
+                }
+            }
+        }
+    }
 }

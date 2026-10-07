@@ -39,17 +39,20 @@ fn a_pasted_list_is_imported_from_the_deck_list_and_reported() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::ImportDeck);
+    press(&mut app, Press::Hub(HubPress::ImportDeck));
     assert!(
         matches!(transfer(&app), Some(Transfer::Import(_))),
         "the deck list's Import opens the builder on the import dialog"
     );
     let found = presses(&mut app);
-    for wanted in [Press::ImportPaste, Press::TransferClose] {
+    for wanted in [
+        Press::Build(BuildPress::ImportPaste),
+        Press::Build(BuildPress::TransferClose),
+    ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
     assert!(
-        !found.contains(&Press::ImportTake),
+        !found.contains(&Press::Build(BuildPress::ImportTake)),
         "nothing pasted, nothing to take: {found:?}"
     );
 
@@ -66,7 +69,7 @@ fn a_pasted_list_is_imported_from_the_deck_list_and_reported() {
         drawn.iter().any(|l| l.contains("4 Llanowar Elves")),
         "the pasted text is shown: {drawn:?}"
     );
-    press(&mut app, Press::ImportTake);
+    press(&mut app, Press::Build(BuildPress::ImportTake));
     let state = app.world().resource::<LobbyState>();
     let deck = state.lobby.builder();
     assert_eq!(deck.counts().main, 24, "both known cards were taken");
@@ -103,13 +106,19 @@ fn the_export_dialog_offers_every_format_and_answers_its_keys() {
     let found = presses(&mut app);
     for format in FormatId::ALL {
         assert!(
-            found.contains(&Press::ExportFormat(format)),
+            found.contains(&Press::Build(BuildPress::ExportFormat(format))),
             "{format:?} missing from {found:?}"
         );
     }
-    assert!(found.contains(&Press::ExportCopy), "{found:?}");
+    assert!(
+        found.contains(&Press::Build(BuildPress::ExportCopy)),
+        "{found:?}"
+    );
 
-    press(&mut app, Press::ExportFormat(FormatId::Json));
+    press(
+        &mut app,
+        Press::Build(BuildPress::ExportFormat(FormatId::Json)),
+    );
     let drawn = labels(&mut app);
     assert!(
         drawn.iter().any(|l| l.contains("\"version\": 1")),

@@ -334,7 +334,7 @@ fn drawn_field(app: &mut App, field: Field) -> Vec<String> {
     let mut boxes = app.world_mut().query::<(&Press, &Children)>();
     let kids: Vec<Entity> = boxes
         .iter(app.world())
-        .find(|(press, _)| **press == Press::Focus(field))
+        .find(|(press, _)| **press == Press::Shared(SharedPress::Focus(field)))
         .map(|(_, children)| children.iter().collect())
         .unwrap_or_default();
     kids.into_iter()

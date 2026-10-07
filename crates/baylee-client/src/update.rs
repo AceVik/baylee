@@ -621,7 +621,7 @@ fn our_button(
         fonts,
         metrics,
         label,
-        lobby::Press::PickerNothing,
+        lobby::Press::Shared(lobby::SharedPress::PickerNothing),
         palette::PANEL,
         true,
     );

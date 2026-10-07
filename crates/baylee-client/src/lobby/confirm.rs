@@ -78,7 +78,11 @@ pub(super) fn draw(
             Phrase::GuestSignOutHint,
         ),
     };
-    let (shade, panel) = modal(commands, metrics, Press::CancelDestructive);
+    let (shade, panel) = modal(
+        commands,
+        metrics,
+        Press::Shared(SharedPress::CancelDestructive),
+    );
     let title = heading(commands, fonts, metrics, &phrase.fill(lang, &[name]));
     let hint = note(commands, fonts, metrics, said.text(lang));
     let actions = row(commands, metrics, true);
@@ -87,7 +91,7 @@ pub(super) fn draw(
         fonts,
         metrics,
         Phrase::ActCancel.text(lang),
-        Press::CancelDestructive,
+        Press::Shared(SharedPress::CancelDestructive),
         palette::PANEL_LIT,
         true,
     );
@@ -96,7 +100,7 @@ pub(super) fn draw(
         fonts,
         metrics,
         Phrase::ConfirmOk.text(lang),
-        Press::ConfirmDestructive,
+        Press::Shared(SharedPress::ConfirmDestructive),
         palette::DANGER,
         !state.lobby.busy(),
     );
@@ -131,7 +135,7 @@ fn modal(commands: &mut Commands, metrics: Metrics, cancel: Press) -> (Entity, E
         .entry::<Node>()
         .and_modify(|mut n| n.max_width = px(520));
     commands.entity(panel).insert((
-        Press::PickerNothing,
+        Press::Shared(SharedPress::PickerNothing),
         BackgroundColor(palette::PANEL.with_alpha(0.98)),
     ));
     (shade, panel)
@@ -156,7 +160,11 @@ pub(super) fn draw_deletion(
         return;
     };
     let lang = lobby.lang();
-    let (shade, panel) = modal(commands, metrics, Press::CancelAccountDeletion);
+    let (shade, panel) = modal(
+        commands,
+        metrics,
+        Press::Settings(SettingsPress::CancelAccountDeletion),
+    );
     let question = Phrase::DeleteAccountQuestion.fill(lang, &[lobby.account_name()]);
     let title = heading(commands, fonts, metrics, &question);
     let said = if lobby.guest() {
@@ -180,7 +188,7 @@ pub(super) fn draw_deletion(
                     field: Some(field),
                     shown: lobby.showing(field),
                 }),
-                press: Press::Focus(field),
+                press: Press::Shared(SharedPress::Focus(field)),
                 lead: None,
                 hint: None,
                 tail: None,
@@ -205,7 +213,7 @@ pub(super) fn draw_deletion(
         fonts,
         metrics,
         Phrase::ActCancel.text(lang),
-        Press::CancelAccountDeletion,
+        Press::Settings(SettingsPress::CancelAccountDeletion),
         palette::PANEL_LIT,
         true,
     );
@@ -214,7 +222,7 @@ pub(super) fn draw_deletion(
         fonts,
         metrics,
         Phrase::DeleteAccountConfirm.text(lang),
-        Press::ConfirmAccountDeletion,
+        Press::Settings(SettingsPress::ConfirmAccountDeletion),
         palette::DANGER,
         !lobby.busy(),
     );

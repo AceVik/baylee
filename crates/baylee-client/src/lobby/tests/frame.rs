@@ -122,28 +122,31 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     app.update();
     let cards = presses(&mut app);
     assert!(
-        cards.contains(&Press::AddCardTo(0, Zone::Main)),
+        cards.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))),
         "the pool is showing"
     );
     assert!(
-        !cards.contains(&Press::SetZone(Zone::Side)),
+        !cards.contains(&Press::Build(BuildPress::SetZone(Zone::Side))),
         "and the deck is not: {cards:?}"
     );
     assert!(
-        cards.contains(&Press::ShowPane(Pane::Deck)),
+        cards.contains(&Press::Build(BuildPress::ShowPane(Pane::Deck))),
         "with a way over"
     );
     // The chips are folded away, or the list under them would be four
     // rows tall.
     assert!(
-        !cards.contains(&Press::SetKind(Some("Creature"))),
+        !cards.contains(&Press::Build(BuildPress::SetKind(Some("Creature")))),
         "{cards:?}"
     );
-    assert!(cards.contains(&Press::ToggleFilters), "but reachable");
+    assert!(
+        cards.contains(&Press::Build(BuildPress::ToggleFilters)),
+        "but reachable"
+    );
     app.world_mut().resource_mut::<LobbyState>().filters_open = true;
     app.update();
     assert!(
-        presses(&mut app).contains(&Press::SetKind(Some("Creature"))),
+        presses(&mut app).contains(&Press::Build(BuildPress::SetKind(Some("Creature")))),
         "unfolded, every filter is there"
     );
     app.world_mut().resource_mut::<LobbyState>().filters_open = false;
@@ -151,16 +154,22 @@ fn a_phone_shows_one_half_of_the_builder_at_a_time() {
     app.world_mut().resource_mut::<LobbyState>().pane = Pane::Deck;
     app.update();
     let list = presses(&mut app);
-    assert!(list.contains(&Press::SetZone(Zone::Side)), "{list:?}");
-    assert!(!list.contains(&Press::AddCardTo(0, Zone::Main)), "{list:?}");
+    assert!(
+        list.contains(&Press::Build(BuildPress::SetZone(Zone::Side))),
+        "{list:?}"
+    );
+    assert!(
+        !list.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))),
+        "{list:?}"
+    );
 
     // Both halves are reachable on a desktop at once.
     sized(&mut app, 1400.0);
     app.update();
     let both = presses(&mut app);
     assert!(
-        both.contains(&Press::AddCardTo(0, Zone::Main))
-            && both.contains(&Press::SetZone(Zone::Side))
+        both.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main)))
+            && both.contains(&Press::Build(BuildPress::SetZone(Zone::Side)))
     );
 }
 
@@ -194,21 +203,22 @@ fn issue_186_library_replaces_editable_ui_and_keeps_navigation_on_phone() {
         app.update();
         let controls = presses(&mut app);
         for wanted in [
-            Press::CloseLibrary,
-            Press::PreviewHouse(0),
-            Press::CopyHouse(0),
+            Press::Library(LibraryPress::CloseLibrary),
+            Press::Library(LibraryPress::PreviewHouse(0)),
+            Press::Library(LibraryPress::CopyHouse(0)),
         ] {
             assert!(controls.contains(&wanted), "{wanted:?} missing at {width}");
         }
         assert!(!controls.iter().any(|p| matches!(
             p,
-            Press::EditDeck(_) | Press::DeleteDeck(_) | Press::SaveDeck
+            Press::Hub(HubPress::EditDeck(_) | HubPress::DeleteDeck(_))
+                | Press::Build(BuildPress::SaveDeck)
         )));
         let before = roots(&mut app);
         app.update();
         assert_eq!(roots(&mut app), before, "idle library must retain its tree");
     }
-    press(&mut app, Press::CloseLibrary);
+    press(&mut app, Press::Library(LibraryPress::CloseLibrary));
     assert!(
         app.world()
             .resource::<LobbyState>()

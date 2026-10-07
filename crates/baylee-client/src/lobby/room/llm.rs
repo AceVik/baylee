@@ -49,7 +49,7 @@ pub(super) fn offer(
         fonts,
         m,
         Phrase::SeatToLlm.text(lang),
-        Press::RoomLlm(index, chair, LlmPress::Plan),
+        Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Plan)),
         false,
     );
     commands.entity(tools).add_child(b);
@@ -60,7 +60,7 @@ pub(super) fn offer(
             fonts,
             m,
             Phrase::Settings.text(lang),
-            Press::OpenSettings,
+            Press::Settings(SettingsPress::OpenSettings),
             palette::PANEL_LIT,
             true,
         );
@@ -126,7 +126,7 @@ pub(super) fn editor(
                     "{name} · {}",
                     baylee_client_core::llmseat::seating::protocol_label(profile.provider)
                 ),
-                Press::RoomLlm(index, chair, LlmPress::Profile(at)),
+                Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Profile(at))),
                 *name == planned.profile,
             )
         })
@@ -147,7 +147,7 @@ pub(super) fn editor(
         .map(|(at, model)| {
             (
                 model.caption(),
-                Press::RoomLlm(index, chair, LlmPress::Model(at)),
+                Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Model(at))),
                 model.id == planned.model,
             )
         })
@@ -164,13 +164,13 @@ pub(super) fn editor(
     if let Some(current) = &current {
         let mut efforts = vec![(
             Phrase::RoomLlmEffortOwn.text(lang).to_string(),
-            Press::RoomLlm(index, chair, LlmPress::Effort(None)),
+            Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Effort(None))),
             planned.effort.is_none(),
         )];
         efforts.extend(current.efforts.iter().enumerate().map(|(at, e)| {
             (
                 (*e).to_string(),
-                Press::RoomLlm(index, chair, LlmPress::Effort(Some(at))),
+                Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Effort(Some(at)))),
                 planned.effort.as_deref() == Some(*e),
             )
         }));
@@ -200,7 +200,7 @@ pub(super) fn editor(
         .map(|(at, name)| {
             (
                 (*name).to_string(),
-                Press::RoomLlm(index, chair, LlmPress::Deck(at)),
+                Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Deck(at))),
                 *name == deck,
             )
         })
@@ -224,7 +224,7 @@ pub(super) fn editor(
         fonts,
         m,
         Phrase::RoomLlmSave.text(lang),
-        Press::RoomLlm(index, chair, LlmPress::Save),
+        Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Save)),
         palette::PANEL_LIT,
         true,
     );
@@ -233,7 +233,7 @@ pub(super) fn editor(
         fonts,
         m,
         Phrase::RoomLlmRemove.text(lang),
-        Press::RoomLlm(index, chair, LlmPress::Remove),
+        Press::Room(RoomPress::RoomLlm(index, chair, LlmPress::Remove)),
         palette::DANGER,
         true,
     );

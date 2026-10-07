@@ -372,7 +372,7 @@ fn gateway_row(
         fonts,
         metrics,
         "",
-        Press::SelectGateway(index),
+        Press::Front(FrontPress::SelectGateway(index)),
         palette::PANEL,
         enabled,
     );
@@ -568,7 +568,7 @@ fn bin(
         .id();
     if enabled {
         commands.entity(bin).insert((
-            Press::ForgetGateway(index),
+            Press::Front(FrontPress::ForgetGateway(index)),
             crate::ambience::Feel::rising_to(Color::NONE, palette::PANEL_HOT),
         ));
     } else {

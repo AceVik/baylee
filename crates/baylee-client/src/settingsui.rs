@@ -14,7 +14,9 @@
 //! other screen without a second copy of any of them.
 
 use crate::hud::{UiFonts, palette, tf};
-use crate::lobby::{Metrics, Press, button, chip, heading, panel, row, spacer};
+use crate::lobby::{
+    Metrics, Press, SettingsPress, SharedPress, button, chip, heading, panel, row, spacer,
+};
 use baylee_client_core::atmosphere::Atmosphere;
 use baylee_client_core::automation::{RAIL_ROWS, RailPreset, RailSide};
 use baylee_client_core::cue::Loudness;
@@ -48,7 +50,7 @@ pub(crate) fn screen(
         fonts,
         metrics,
         Phrase::Back.text(lang),
-        Press::CloseSettings,
+        Press::Settings(SettingsPress::CloseSettings),
         palette::PANEL_LIT,
         true,
     );
@@ -78,7 +80,7 @@ pub(crate) fn screen(
             fonts,
             metrics,
             Phrase::DeleteAccount.text(lang),
-            Press::AskToDeleteAccount,
+            Press::Settings(SettingsPress::AskToDeleteAccount),
             palette::PANEL_LIT,
             true,
         );
@@ -182,7 +184,7 @@ fn keymap_panel(
         fonts,
         metrics,
         Phrase::ResetAll.text(lang),
-        Press::ResetAllBindings,
+        Press::Settings(SettingsPress::ResetAllBindings),
         palette::PANEL_LIT,
         true,
     );
@@ -229,7 +231,7 @@ fn binding_row(
         fonts,
         metrics,
         &text,
-        Press::Rebind(action),
+        Press::Settings(SettingsPress::Rebind(action)),
         waiting,
     );
     commands.entity(line).add_child(key);
@@ -243,7 +245,7 @@ fn binding_row(
             fonts,
             metrics,
             "↺",
-            Press::ResetBinding(action),
+            Press::Settings(SettingsPress::ResetBinding(action)),
             false,
         );
         commands.entity(line).add_child(reset);
@@ -318,7 +320,7 @@ fn automation_panel(
             } else {
                 Phrase::SwitchOff.text(lang)
             },
-            Press::ToggleAuto(rule),
+            Press::Settings(SettingsPress::ToggleAuto(rule)),
             on,
         );
         commands.entity(line).add_children(&[text, switch]);
@@ -382,7 +384,7 @@ fn automation_panel(
                 fonts,
                 metrics,
                 step.name().text(lang),
-                Press::ToggleRail(side, step),
+                Press::Settings(SettingsPress::ToggleRail(side, step)),
                 skipped,
             );
             commands.entity(strip).add_child(button);
@@ -435,7 +437,7 @@ fn preset_row(
         fonts,
         metrics,
         Phrase::UsePreset.text(lang),
-        Press::SetRail(preset),
+        Press::Settings(SettingsPress::SetRail(preset)),
         on,
     );
     commands.entity(line).add_children(&[text, use_it]);
@@ -456,7 +458,7 @@ fn spawn_ability_orders(
             fonts,
             metrics,
             Phrase::StackResetRules.text(lang),
-            Press::ResetAbilityOrders,
+            Press::Settings(SettingsPress::ResetAbilityOrders),
             false,
         );
         commands.entity(column).add_child(reset);
@@ -473,7 +475,7 @@ fn spawn_ability_orders(
                 fonts,
                 metrics,
                 Phrase::Reset.text(lang),
-                Press::ForgetAbility(order.ability),
+                Press::Settings(SettingsPress::ForgetAbility(order.ability)),
                 false,
             );
             commands.entity(line).add_children(&[text, reset]);
@@ -508,7 +510,7 @@ fn language_row(commands: &mut Commands, lang: Lang, fonts: &UiFonts, metrics: M
             fonts,
             metrics,
             offered.name(),
-            Press::PickLang(offered),
+            Press::Shared(SharedPress::PickLang(offered)),
             offered == lang,
         );
         commands.entity(line).add_child(pick);
@@ -561,7 +563,7 @@ fn motion_row(
         } else {
             Phrase::SwitchOff.text(lang)
         },
-        Press::ToggleMotion,
+        Press::Settings(SettingsPress::ToggleMotion),
         prefs.reduce_motion,
     );
     commands.entity(line).add_children(&[label, switch]);
@@ -612,7 +614,7 @@ fn sky_row(
             fonts,
             metrics,
             sky_name(offered).text(lang),
-            Press::PickSky(offered),
+            Press::Settings(SettingsPress::PickSky(offered)),
             offered == prefs.sky,
         );
         commands.entity(line).add_child(pick);
@@ -663,7 +665,7 @@ fn atmosphere_row(
             fonts,
             metrics,
             atmosphere_name(offered).text(lang),
-            Press::PickAtmosphere(offered),
+            Press::Settings(SettingsPress::PickAtmosphere(offered)),
             offered == prefs.atmosphere,
         );
         commands.entity(line).add_child(pick);
@@ -726,7 +728,7 @@ fn sound_row(
             fonts,
             metrics,
             sound_name(offered).text(lang),
-            Press::PickSound(offered),
+            Press::Settings(SettingsPress::PickSound(offered)),
             offered == prefs.sound,
         );
         commands.entity(line).add_child(pick);

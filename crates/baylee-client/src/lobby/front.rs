@@ -37,6 +37,9 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
+use super::keyboard::choose_gateway;
+use super::press::Cx;
+use super::systems::keep_gateways;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use crate::frontal::FrontalMaterial;
@@ -464,7 +467,7 @@ pub(super) fn pose_front(
             let found: Vec<(String, Vec2)> = rows
                 .iter()
                 .filter_map(|(press, node, at)| match press {
-                    Press::SelectGateway(index) if node.size().y > 0.0 => state
+                    Press::Front(FrontPress::SelectGateway(index)) if node.size().y > 0.0 => state
                         .gateways
                         .get(*index)
                         .map(|url| (url.clone(), (at.translation - centre) * scale)),
@@ -841,7 +844,7 @@ fn header(
             fonts,
             metrics,
             BACK_GLYPH,
-            (!busy).then_some(Press::LeaveGateway),
+            (!busy).then_some(Press::Front(FrontPress::LeaveGateway)),
             Phrase::Back.text(lang),
             false,
         );
@@ -867,7 +870,7 @@ fn header(
         fonts,
         metrics,
         GEAR_GLYPH,
-        Some(Press::FrontMenu),
+        Some(Press::Front(FrontPress::FrontMenu)),
         Phrase::LanguageAndSettings.text(lang),
         state.front_menu,
     );
@@ -972,7 +975,7 @@ pub(super) fn gear_menu(
             },
             BackgroundColor(Color::NONE),
             GlobalZIndex(590),
-            Press::FrontMenu,
+            Press::Front(FrontPress::FrontMenu),
         ))
         .id();
     let menu = commands
@@ -994,7 +997,7 @@ pub(super) fn gear_menu(
             soft_shadow(),
             GlobalZIndex(600),
             // A press on the menu's own ground is not a press outside it.
-            Press::PickerNothing,
+            Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
     let caption = note(commands, fonts, metrics, Phrase::Language.text(lang));
@@ -1005,7 +1008,7 @@ pub(super) fn gear_menu(
             fonts,
             metrics,
             offered.name(),
-            Press::PickLang(offered),
+            Press::Shared(SharedPress::PickLang(offered)),
             palette::PANEL,
             true,
         );
@@ -1025,7 +1028,7 @@ pub(super) fn gear_menu(
         fonts,
         metrics,
         Phrase::AllSettings.text(lang),
-        Press::OpenSettings,
+        Press::Settings(SettingsPress::OpenSettings),
         palette::PANEL,
         true,
     );
@@ -1211,7 +1214,7 @@ pub(super) fn colophon(
     if code.is_some() {
         source.insert((
             Button,
-            Press::OpenSource,
+            Press::Front(FrontPress::OpenSource),
             Underline,
             UnderlineColor(palette::MUTED.with_alpha(0.5)),
         ));
@@ -1269,7 +1272,7 @@ pub(super) fn colophon(
                 BackgroundColor(palette::PANEL),
                 BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
                 Button,
-                Press::OpenSource,
+                Press::Front(FrontPress::OpenSource),
             ))
             .add_child(picture)
             .id();
@@ -1356,7 +1359,7 @@ fn gateway_face(
             buffer: state.lobby.buffer(Field::Gateway),
             focused: state.lobby.focus() == Field::Gateway,
             mask: None,
-            press: Press::Focus(Field::Gateway),
+            press: Press::Shared(SharedPress::Focus(Field::Gateway)),
             lead: None,
             hint: Some("https://"),
             tail: None,
@@ -1367,7 +1370,7 @@ fn gateway_face(
         fonts,
         metrics,
         Phrase::SaveGateway.text(lang),
-        Press::AddGateway,
+        Press::Front(FrontPress::AddGateway),
         palette::PANEL_LIT,
         !state.lobby.busy() && state.adding.is_none(),
     );
@@ -1415,7 +1418,7 @@ fn gateway_face(
         fonts,
         metrics,
         Phrase::PlayOffline.text(lang),
-        Press::PlayOffline,
+        Press::Front(FrontPress::PlayOffline),
         palette::PANEL,
         true,
     );
@@ -1478,7 +1481,7 @@ fn account_face(
         buffer: lobby.buffer(field),
         focused: lobby.focus() == field,
         mask: None,
-        press: Press::Focus(field),
+        press: Press::Shared(SharedPress::Focus(field)),
         lead: None,
         hint: None,
         tail: None,
@@ -1544,7 +1547,7 @@ fn account_face(
             Phrase::SignIn
         }
         .text(lang),
-        Press::Submit,
+        Press::Front(FrontPress::Submit),
         palette::ACCENT,
         state.gateway_selected && !lobby.busy(),
     );
@@ -1559,7 +1562,7 @@ fn account_face(
             Phrase::CreateAccount
         }
         .text(lang),
-        Press::ToggleRegistering,
+        Press::Front(FrontPress::ToggleRegistering),
         palette::PANEL,
         !lobby.busy() && (registering || lobby.registration_enabled()),
     );
@@ -1598,7 +1601,7 @@ fn invite_entry(
             buffer: lobby.buffer(Field::InviteKey),
             focused: lobby.focus() == Field::InviteKey,
             mask: None,
-            press: Press::Focus(Field::InviteKey),
+            press: Press::Shared(SharedPress::Focus(Field::InviteKey)),
             lead: None,
             hint: Some(Phrase::InviteKeyShape.text(lang)),
             tail: None,
@@ -1629,7 +1632,7 @@ fn guest_entry(
             fonts,
             metrics,
             &Phrase::ContinueAsGuest.fill(lang, &[&kept.handle]),
-            Press::PlayAsGuest,
+            Press::Front(FrontPress::PlayAsGuest),
             palette::PANEL_LIT,
             enabled,
         );
@@ -1653,7 +1656,7 @@ fn guest_entry(
             buffer: lobby.buffer(Field::GuestName),
             focused: lobby.focus() == Field::GuestName,
             mask: None,
-            press: Press::Focus(Field::GuestName),
+            press: Press::Shared(SharedPress::Focus(Field::GuestName)),
             lead: None,
             hint: Some(Phrase::GuestDefaultName.text(lang)),
             tail: None,
@@ -1664,7 +1667,7 @@ fn guest_entry(
         fonts,
         metrics,
         Phrase::PlayAsGuest.text(lang),
-        Press::PlayAsGuest,
+        Press::Front(FrontPress::PlayAsGuest),
         palette::PANEL_LIT,
         enabled,
     );
@@ -1801,6 +1804,95 @@ pub(super) fn front_door(
         .add_children(&[brand, tagline, stage]);
     commands.entity(page).add_child(composition);
     commands.entity(root).add_child(colophon);
+}
+
+/// A control of the front door: the saved gateways, the account form,
+/// guests, offline play and the source link.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum FrontPress {
+    AddGateway,
+    SelectGateway(usize),
+    /// Asks, in the confirm dialog, whether a saved gateway leaves the list.
+    ForgetGateway(usize),
+    /// Back from the account form to the gateway form.
+    LeaveGateway,
+    /// Opens or closes the front door's gear menu.
+    FrontMenu,
+    /// Swap the form between log-in and sign-up.
+    ToggleRegistering,
+    /// Send the sign-in form.
+    Submit,
+    /// Play the house AI in this process, no account needed.
+    PlayOffline,
+    /// Play as a guest (#269): the one kept here, or a new one.
+    PlayAsGuest,
+    /// Open the source address in the browser (#299).
+    OpenSource,
+}
+
+impl FrontPress {
+    /// What a click on this control does.
+    pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
+        let Cx {
+            state,
+            prefs,
+            scrolled,
+            mailbox,
+            settings,
+        } = cx;
+        match self {
+            FrontPress::AddGateway => {
+                if let Some(url) = state.check_gateway() {
+                    http::probe_gateway(url, mailbox);
+                }
+            }
+            FrontPress::SelectGateway(index) => choose_gateway(state, prefs, mailbox, index),
+            FrontPress::ForgetGateway(index) => {
+                if let Some(url) = state.gateways.get(index) {
+                    state.confirmation = Some(confirm::Destructive::ForgetGateway(url.clone()));
+                }
+            }
+            FrontPress::LeaveGateway => state.leave_gateway(),
+            FrontPress::FrontMenu => state.front_menu = !state.front_menu,
+            FrontPress::OpenSource => super::source::open(state),
+            FrontPress::ToggleRegistering => state.lobby.toggle_registering(),
+            FrontPress::Submit => {
+                let request = state.lobby.submit();
+                dispatch(state, mailbox, request);
+            }
+            FrontPress::PlayAsGuest => {
+                let request = state.lobby.play_as_guest();
+                // A kept guest is back at once, with no answer to wait for:
+                // that is the use of the gateway.
+                if state.lobby.guest() {
+                    let gateway = state.gateway.clone();
+                    state.uses.record(&gateway);
+                    if let Some(settings) = settings.as_mut() {
+                        keep_gateways(state, settings);
+                    }
+                }
+                dispatch(state, mailbox, request);
+            }
+            // Not a duel any more. Offline is the lobby with a different
+            // performer behind it, so this opens the *table screen* with the
+            // player's own decks in it and a room to arrange. What the button
+            // skips is still the sign-in; what it no longer skips is choosing
+            // who you are playing and with what.
+            FrontPress::PlayOffline => {
+                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+                prefs.detach();
+                scrolled.set(List::Table, 0.0);
+                // Whatever is already here is kept. `HubPress::SignOut` is the only
+                // thing that clears it, so a player coming back to offline
+                // play finds the decks and the room they left.
+                state
+                    .offline
+                    .get_or_insert_with(super::offline::Offline::load);
+                let request = state.lobby.play_offline();
+                dispatch(state, mailbox, request);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -52,7 +52,7 @@ pub(super) fn draw(
                     },
                     BackgroundColor(palette::PANEL_LIT),
                     BorderColor::all(palette::DOCK_EDGE),
-                    Press::RoomCardEdit(seat, at),
+                    Press::Room(RoomPress::RoomCardEdit(seat, at)),
                 ))
                 .id();
             let slot = lobby.builder().slot_of(&entry.name);
@@ -88,7 +88,7 @@ pub(super) fn draw(
                     fonts,
                     m,
                     "×",
-                    Press::RoomCardRemove(seat, at),
+                    Press::Room(RoomPress::RoomCardRemove(seat, at)),
                     false,
                 );
                 commands
@@ -158,7 +158,7 @@ pub(super) fn draw(
                             ..default()
                         },
                         BackgroundColor(palette::PANEL_LIT),
-                        Press::RoomCardAdd(seat, slot, false),
+                        Press::Room(RoomPress::RoomCardAdd(seat, slot, false)),
                         hover.clone(),
                     ))
                     .id();
@@ -178,7 +178,7 @@ pub(super) fn draw(
                     fonts,
                     m,
                     Phrase::RoomCardAppearance.text(lang),
-                    Press::RoomCardAdd(seat, slot, true),
+                    Press::Room(RoomPress::RoomCardAdd(seat, slot, true)),
                     false,
                 );
                 commands
@@ -197,7 +197,7 @@ pub(super) fn draw(
                 fonts,
                 m,
                 Phrase::RoomCardAppearance.text(lang),
-                Press::RoomCardPrint(which, at),
+                Press::Room(RoomPress::RoomCardPrint(which, at)),
                 false,
             );
             commands.entity(tools).add_child(appearance);
@@ -225,7 +225,7 @@ pub(super) fn draw(
                             fonts,
                             m,
                             label,
-                            Press::RoomCounterStep(seat, at, index, delta),
+                            Press::Room(RoomPress::RoomCounterStep(seat, at, index, delta)),
                             false,
                         );
                         commands.entity(line).add_child(b);
@@ -255,7 +255,7 @@ pub(super) fn draw(
                 fonts,
                 m,
                 Phrase::RoomAddCounter.text(lang),
-                Press::RoomCounterAdd(seat, at),
+                Press::Room(RoomPress::RoomCounterAdd(seat, at)),
                 palette::PANEL_LIT,
                 baylee_cards_dsl::CounterKind::from_setup_name(lobby.field(Field::RoomCounter))
                     .is_some(),

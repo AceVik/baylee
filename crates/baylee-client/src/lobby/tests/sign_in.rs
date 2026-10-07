@@ -11,21 +11,24 @@ fn the_sign_in_screen_builds_with_its_controls() {
     assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
     let found = presses(&mut app);
     for wanted in [
-        Press::Focus(Field::Username),
-        Press::Focus(Field::Password),
-        Press::Submit,
-        Press::ToggleRegistering,
-        Press::LeaveGateway,
+        Press::Shared(SharedPress::Focus(Field::Username)),
+        Press::Shared(SharedPress::Focus(Field::Password)),
+        Press::Front(FrontPress::Submit),
+        Press::Front(FrontPress::ToggleRegistering),
+        Press::Front(FrontPress::LeaveGateway),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
     for registering in [Field::DisplayName, Field::PasswordAgain] {
         assert!(
-            !found.contains(&Press::Focus(registering)),
+            !found.contains(&Press::Shared(SharedPress::Focus(registering))),
             "{registering:?} is only asked for when registering"
         );
     }
-    for elsewhere in [Press::PlayOffline, Press::AddGateway] {
+    for elsewhere in [
+        Press::Front(FrontPress::PlayOffline),
+        Press::Front(FrontPress::AddGateway),
+    ] {
         assert!(
             !found.contains(&elsewhere),
             "{elsewhere:?} is on the other face of the card"
@@ -61,7 +64,7 @@ fn the_sign_in_screen_builds_with_its_controls() {
 #[test]
 fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
     let mut app = headless();
-    press(&mut app, Press::ToggleRegistering);
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
     settle(&mut app);
     let found = presses(&mut app);
     for wanted in [
@@ -70,7 +73,10 @@ fn creating_an_account_asks_for_the_password_twice_and_names_itself_once() {
         Field::Password,
         Field::PasswordAgain,
     ] {
-        assert!(found.contains(&Press::Focus(wanted)), "{wanted:?} missing");
+        assert!(
+            found.contains(&Press::Shared(SharedPress::Focus(wanted))),
+            "{wanted:?} missing"
+        );
     }
     let drawn = labels(&mut app);
     let said = |text: &str| drawn.iter().filter(|l| l.as_str() == text).count();
@@ -99,15 +105,18 @@ fn the_primary_action_submits_and_the_secondary_opens_the_other_form() {
     let mut app = headless();
     assert_eq!(
         lit(&mut app),
-        [(Phrase::SignIn.text(Lang::En).to_string(), Press::Submit)]
+        [(
+            Phrase::SignIn.text(Lang::En).to_string(),
+            Press::Front(FrontPress::Submit)
+        )]
     );
-    press(&mut app, Press::ToggleRegistering);
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
     settle(&mut app);
     assert_eq!(
         lit(&mut app),
         [(
             Phrase::CreateAccount.text(Lang::En).to_string(),
-            Press::Submit
+            Press::Front(FrontPress::Submit)
         )],
         "registration is now the primary submission action"
     );
@@ -163,7 +172,7 @@ fn the_source_line_is_a_link_and_a_code_only_for_a_plain_address() {
     let links = |app: &mut App| {
         presses(app)
             .into_iter()
-            .filter(|press| *press == Press::OpenSource)
+            .filter(|press| *press == Press::Front(FrontPress::OpenSource))
             .count()
     };
     for (width, codes) in [(1400.0, 1), (390.0, 0)] {
@@ -218,19 +227,19 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
     assert_eq!(roots(&mut app).len(), 1, "exactly one tree");
     let found = presses(&mut app);
     for wanted in [
-        Press::Focus(Field::Gateway),
-        Press::AddGateway,
-        Press::PlayOffline,
-        Press::FrontMenu,
+        Press::Shared(SharedPress::Focus(Field::Gateway)),
+        Press::Front(FrontPress::AddGateway),
+        Press::Front(FrontPress::PlayOffline),
+        Press::Front(FrontPress::FrontMenu),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
     for elsewhere in [
-        Press::Submit,
-        Press::Focus(Field::Username),
-        Press::LeaveGateway,
+        Press::Front(FrontPress::Submit),
+        Press::Shared(SharedPress::Focus(Field::Username)),
+        Press::Front(FrontPress::LeaveGateway),
         // Behind the gear, until it is pressed.
-        Press::OpenSettings,
+        Press::Settings(SettingsPress::OpenSettings),
     ] {
         assert!(
             !found.contains(&elsewhere),
@@ -258,16 +267,16 @@ fn the_gateway_form_builds_with_its_controls_and_none_of_the_account_s() {
 #[test]
 fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
     fn open(app: &mut App) -> bool {
-        presses(app).contains(&Press::OpenSettings)
+        presses(app).contains(&Press::Settings(SettingsPress::OpenSettings))
     }
     let mut app = headless();
     assert!(!open(&mut app));
-    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
     assert!(open(&mut app), "the gear opens its menu");
     let found = presses(&mut app);
     let drawn = labels(&mut app);
     for offered in Lang::ALL {
-        assert!(found.contains(&Press::PickLang(offered)));
+        assert!(found.contains(&Press::Shared(SharedPress::PickLang(offered))));
         assert!(
             drawn.iter().any(|l| l == offered.name()),
             "each language by its own name: {offered:?}"
@@ -275,7 +284,7 @@ fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
     }
 
     // Picking a language keeps the menu open, to see what was picked.
-    press(&mut app, Press::PickLang(Lang::De));
+    press(&mut app, Press::Shared(SharedPress::PickLang(Lang::De)));
     assert_eq!(app.world().resource::<LobbyState>().lobby.lang(), Lang::De);
     assert!(open(&mut app));
 
@@ -286,7 +295,7 @@ fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
             .query_filtered::<(Entity, &Press), With<GlobalZIndex>>();
         veils
             .iter(app.world())
-            .find(|(_, press)| **press == Press::FrontMenu)
+            .find(|(_, press)| **press == Press::Front(FrontPress::FrontMenu))
             .map(|(entity, _)| entity)
             .expect("a veil behind the menu")
     };
@@ -295,7 +304,7 @@ fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
     assert!(!open(&mut app));
 
     // Escape closes the menu and only the menu.
-    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
     assert!(open(&mut app));
     app.world_mut()
         .resource_mut::<Messages<KeyboardInput>>()
@@ -309,7 +318,7 @@ fn the_gear_opens_the_languages_and_the_way_to_every_setting() {
 
     to_gateway_face(&mut app);
     assert!(
-        presses(&mut app).contains(&Press::FrontMenu),
+        presses(&mut app).contains(&Press::Front(FrontPress::FrontMenu)),
         "on both faces"
     );
 }
@@ -577,11 +586,11 @@ fn the_eye_shows_the_password_and_the_bullets_come_back() {
     }
     app.update();
     assert!(
-        presses(&mut app).contains(&Press::Reveal(Field::Password)),
+        presses(&mut app).contains(&Press::Shared(SharedPress::Reveal(Field::Password))),
         "a password box carries an eye"
     );
     assert!(
-        !presses(&mut app).contains(&Press::Reveal(Field::Username)),
+        !presses(&mut app).contains(&Press::Shared(SharedPress::Reveal(Field::Username))),
         "and a box that is not masked does not"
     );
     app.world_mut()
@@ -725,7 +734,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
     assert!(state.lobby.submit().is_none());
     app.world_mut().insert_resource(state);
     app.update();
-    assert!(!presses(&mut app).contains(&Press::Submit));
+    assert!(!presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         // The pinned live gateway leads the list.
@@ -742,7 +751,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
         state.lobby.apply(LobbyEvent::Failed("test".into()));
     }
     app.update();
-    assert!(presses(&mut app).contains(&Press::Submit));
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
     // An old registration reply cannot enable this gateway's registration.
     app.world()
         .resource::<Mailbox>()
@@ -804,7 +813,7 @@ fn issue_187_sign_out_ignores_late_account_responses() {
         });
     app.update();
     let epoch = app.world().resource::<LobbyState>().gateway_epoch;
-    press(&mut app, Press::SignOut);
+    press(&mut app, Press::Hub(HubPress::SignOut));
     app.world()
         .resource::<Mailbox>()
         .0
@@ -824,7 +833,10 @@ fn issue_187_sign_out_ignores_late_account_responses() {
 #[test]
 fn deeply_nested_button_contents_still_activate_their_button() {
     let mut app = headless();
-    let button = app.world_mut().spawn(Press::PlayOffline).id();
+    let button = app
+        .world_mut()
+        .spawn(Press::Front(FrontPress::PlayOffline))
+        .id();
     let mut leaf = button;
     for _ in 0..12 {
         let child = app.world_mut().spawn_empty().id();
@@ -909,7 +921,7 @@ fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
     }
     app.update();
     assert!(
-        !presses(&mut app).contains(&Press::AddGateway),
+        !presses(&mut app).contains(&Press::Front(FrontPress::AddGateway)),
         "no second question while one is out"
     );
     app.world()
@@ -930,8 +942,8 @@ fn the_save_button_waits_for_the_answer_the_mailbox_brings() {
         ]
     );
     let pressable = presses(&mut app);
-    assert!(pressable.contains(&Press::AddGateway));
-    assert!(pressable.contains(&Press::SelectGateway(1)));
+    assert!(pressable.contains(&Press::Front(FrontPress::AddGateway)));
+    assert!(pressable.contains(&Press::Front(FrontPress::SelectGateway(1))));
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l == "New Hall"), "the name leads");
     assert!(
@@ -1140,6 +1152,7 @@ fn frames_to_land(app: &mut App) -> usize {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // one journey, in and back out
 fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     let mut app = headless();
     {
@@ -1193,15 +1206,18 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     );
 
     // Pressed while it moves, neither panel answers.
-    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
     assert!(!app.world().resource::<LobbyState>().front_menu);
 
     let landed = frames_to_land(&mut app);
     assert!(landed <= 7, "landed in {landed} more frames");
     assert_eq!(card_poses(&mut app), [(Panel::SignIn, 1.0, 1)]);
     let found = presses(&mut app);
-    assert!(found.contains(&Press::Submit) && found.contains(&Press::LeaveGateway));
-    assert!(!found.contains(&Press::AddGateway));
+    assert!(
+        found.contains(&Press::Front(FrontPress::Submit))
+            && found.contains(&Press::Front(FrontPress::LeaveGateway))
+    );
+    assert!(!found.contains(&Press::Front(FrontPress::AddGateway)));
     assert_eq!(
         ink_on(&mut app, Panel::SignIn, continuing),
         Some(1.0),
@@ -1253,14 +1269,14 @@ fn choosing_a_gateway_goes_into_it_and_back_comes_out_the_same_way() {
     app.world_mut().resource_mut::<LobbyState>().leave_gateway();
     frames_to_land(&mut app);
     assert_eq!(card_poses(&mut app), [(Panel::Gateway, 1.0, 1)]);
-    assert!(presses(&mut app).contains(&Press::AddGateway));
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::AddGateway)));
 }
 
 #[test]
 fn the_tabs_turn_the_form_round_with_both_sides_in_sight() {
     let mut app = headless();
     frames_of_a_fifth(&mut app);
-    press(&mut app, Press::ToggleRegistering);
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
     app.update();
     let poses = card_poses(&mut app);
     let [(Panel::SignIn, leaving, _), (Panel::Create, coming, _)] = poses[..] else {
@@ -1286,7 +1302,7 @@ fn the_tabs_turn_the_form_round_with_both_sides_in_sight() {
 
     frames_to_land(&mut app);
     assert_eq!(card_poses(&mut app), [(Panel::Create, 1.0, 1)]);
-    assert!(presses(&mut app).contains(&Press::Focus(Field::PasswordAgain)));
+    assert!(presses(&mut app).contains(&Press::Shared(SharedPress::Focus(Field::PasswordAgain))));
 }
 
 #[test]
@@ -1305,7 +1321,7 @@ fn under_reduce_motion_the_front_door_changes_panel_at_once() {
             .select_gateway(0)
     );
     app.update();
-    assert!(presses(&mut app).contains(&Press::Submit));
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
     assert_eq!(
         card_poses(&mut app),
         [(Panel::SignIn, 1.0, 1)],
@@ -1317,7 +1333,7 @@ fn under_reduce_motion_the_front_door_changes_panel_at_once() {
         .lobby
         .set_registration(Registration::Open);
     app.update();
-    press(&mut app, Press::ToggleRegistering);
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
     app.update();
     assert_eq!(card_poses(&mut app), [(Panel::Create, 1.0, 1)]);
 }
@@ -1338,20 +1354,23 @@ fn a_saved_gateway_leaves_the_list_only_once_the_player_says_so() {
         "the used one is drawn first"
     );
     let found = presses(&mut app);
-    assert!(found.contains(&Press::ForgetGateway(0)) && found.contains(&Press::ForgetGateway(1)));
+    assert!(
+        found.contains(&Press::Front(FrontPress::ForgetGateway(0)))
+            && found.contains(&Press::Front(FrontPress::ForgetGateway(1)))
+    );
 
-    press(&mut app, Press::ForgetGateway(0));
+    press(&mut app, Press::Front(FrontPress::ForgetGateway(0)));
     assert!(
         labels(&mut app)
             .iter()
             .any(|l| l.contains("https://b.example")),
         "the question names the gateway"
     );
-    press(&mut app, Press::CancelDestructive);
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
     assert_eq!(app.world().resource::<LobbyState>().gateways.len(), 2);
 
-    press(&mut app, Press::ForgetGateway(0));
-    press(&mut app, Press::ConfirmDestructive);
+    press(&mut app, Press::Front(FrontPress::ForgetGateway(0)));
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
     assert_eq!(
         app.world().resource::<LobbyState>().gateways,
         ["https://a.example"]
@@ -1404,12 +1423,17 @@ fn the_arrows_walk_the_saved_gateways_and_enter_goes_into_one() {
         let mut rows = app.world_mut().query::<(&Press, &BorderColor)>();
         rows.iter(app.world())
             .filter(|(press, border)| {
-                matches!(press, Press::SelectGateway(_)) && border.top == palette::ACCENT
+                matches!(press, Press::Front(FrontPress::SelectGateway(_)))
+                    && border.top == palette::ACCENT
             })
             .map(|(press, _)| *press)
             .collect::<Vec<_>>()
     };
-    assert_eq!(lit, [Press::SelectGateway(1)], "the row the arrows are on");
+    assert_eq!(
+        lit,
+        [Press::Front(FrontPress::SelectGateway(1))],
+        "the row the arrows are on"
+    );
 
     key(&mut app, KeyCode::Enter, Key::Enter);
     let state = app.world().resource::<LobbyState>();

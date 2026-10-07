@@ -18,9 +18,11 @@ fn a_keyboard_can_leave_the_end_screen() {
         app.world_mut().resource_mut::<LobbyState>().offline =
             Some(super::offline::Offline::without_a_file());
         to_gateway_face(&mut app);
-        tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+        tap_control(&mut app, "play offline", |p| {
+            *p == Press::Front(FrontPress::PlayOffline)
+        });
         tap_control(&mut app, "play the house", |p| {
-            *p == Press::Host(GameMode::Ai)
+            *p == Press::Hub(HubPress::Host(GameMode::Ai))
         });
         for phase in [DuelPhase::Playing, DuelPhase::Finished] {
             app.world_mut()
@@ -32,7 +34,9 @@ fn a_keyboard_can_leave_the_end_screen() {
         // row's buttons are here — which is all this reads.
         let mut exits = app.world_mut().query::<&Press>();
         assert!(
-            exits.iter(app.world()).any(|p| *p == Press::Leave),
+            exits
+                .iter(app.world())
+                .any(|p| *p == Press::End(EndPress::Leave)),
             "the way back is drawn"
         );
         app.world_mut()
@@ -88,7 +92,8 @@ fn a_keyboard_answers_the_lead_way_out_and_escape_still_leaves() {
         phase(&mut app, DuelPhase::Finished);
         let found = presses(&mut app);
         assert!(
-            found.contains(&Press::PlayAgain) && found.contains(&Press::Leave),
+            found.contains(&Press::End(EndPress::PlayAgain))
+                && found.contains(&Press::End(EndPress::Leave)),
             "both ways out are drawn: {found:?}"
         );
         app.world_mut()
@@ -131,9 +136,11 @@ fn coming_back_from_an_offline_duel_leaves_no_table_and_no_refusal() {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
     to_gateway_face(&mut app);
-    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "play offline", |p| {
+        *p == Press::Front(FrontPress::PlayOffline)
+    });
     tap_control(&mut app, "play the house", |p| {
-        *p == Press::Host(GameMode::Ai)
+        *p == Press::Hub(HubPress::Host(GameMode::Ai))
     });
     // One tap seats you without re-reading the list, so the room is not in
     // `games()` yet — it is the refresh on the way *back* that lists it, and
@@ -244,9 +251,11 @@ fn came_back_from_a_duel(duel: Option<crate::Duel>) -> App {
     app.world_mut().resource_mut::<LobbyState>().offline =
         Some(super::offline::Offline::without_a_file());
     to_gateway_face(&mut app);
-    tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
+    tap_control(&mut app, "play offline", |p| {
+        *p == Press::Front(FrontPress::PlayOffline)
+    });
     tap_control(&mut app, "play the house", |p| {
-        *p == Press::Host(GameMode::Ai)
+        *p == Press::Hub(HubPress::Host(GameMode::Ai))
     });
     if let Some(duel) = duel {
         app.world_mut().insert_resource(duel);
@@ -288,10 +297,10 @@ fn a_duel_against_the_house_offers_one_way_out_and_no_rematch() {
 
     let found = presses(&mut app);
     assert!(
-        !found.contains(&Press::PlayAgain),
+        !found.contains(&Press::End(EndPress::PlayAgain)),
         "there is no table to ask for another of: {found:?}"
     );
-    assert!(found.contains(&Press::Leave), "{found:?}");
+    assert!(found.contains(&Press::End(EndPress::Leave)), "{found:?}");
 }
 
 /// The ways out belong *in* the duel's end screen, not floating over the board.
@@ -323,7 +332,7 @@ fn the_ways_out_are_put_in_the_row_the_end_screen_left_for_them() {
     let mut buttons = app.world_mut().query::<(Entity, &Press)>();
     let ways: Vec<Entity> = buttons
         .iter(app.world())
-        .filter(|(_, p)| matches!(p, Press::PlayAgain | Press::Leave))
+        .filter(|(_, p)| matches!(p, Press::End(EndPress::PlayAgain | EndPress::Leave)))
         .map(|(e, _)| e)
         .collect();
     assert_eq!(ways.len(), 2, "both ways out");
@@ -350,7 +359,7 @@ fn the_ways_out_are_put_in_the_row_the_end_screen_left_for_them() {
     assert_eq!(
         again
             .iter(app.world())
-            .filter(|p| matches!(p, Press::PlayAgain | Press::Leave))
+            .filter(|p| matches!(p, Press::End(EndPress::PlayAgain | EndPress::Leave)))
             .count(),
         2,
         "the ways out were spawned again on the next frame"
@@ -384,10 +393,16 @@ fn playing_again_is_asked_for_from_the_button_over_a_finished_game() {
     }
     phase(&mut app, DuelPhase::Finished);
     let found = presses(&mut app);
-    assert!(found.contains(&Press::PlayAgain), "{found:?}");
-    assert!(found.contains(&Press::Leave), "leaving stays on offer");
+    assert!(
+        found.contains(&Press::End(EndPress::PlayAgain)),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&Press::End(EndPress::Leave)),
+        "leaving stays on offer"
+    );
 
-    press(&mut app, Press::PlayAgain);
+    press(&mut app, Press::End(EndPress::PlayAgain));
     assert_eq!(
         app.world().resource::<LobbyState>().lobby.rematch_wanted(),
         Some("g1"),

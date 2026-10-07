@@ -15,11 +15,14 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
     sized(&mut app, 1400.0);
     app.update();
 
-    press(&mut app, Press::FrontMenu);
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
     assert!(app.world().resource::<LobbyState>().settings.is_open());
 
-    press(&mut app, Press::Rebind(Action::Confirm));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Rebind(Action::Confirm)),
+    );
     assert_eq!(
         app.world().resource::<LobbyState>().settings.capturing(),
         Some(Action::Confirm),
@@ -45,7 +48,10 @@ fn a_key_can_be_rebound_from_the_settings_screen() {
     );
 
     // And it can be put back, one row at a time.
-    press(&mut app, Press::ResetBinding(Action::Confirm));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::ResetBinding(Action::Confirm)),
+    );
     assert_eq!(
         app.world()
             .resource::<crate::prefs::Prefs>()
@@ -67,10 +73,13 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::FrontMenu);
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
 
-    press(&mut app, Press::Rebind(Action::Cancel));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Rebind(Action::Cancel)),
+    );
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(KeyCode::Escape);
@@ -91,7 +100,10 @@ fn arming_a_row_can_be_backed_out_of_or_used_to_unbind() {
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .clear();
-    press(&mut app, Press::Rebind(Action::Cancel));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Rebind(Action::Cancel)),
+    );
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(KeyCode::Backspace);
@@ -115,41 +127,47 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::FrontMenu);
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
 
     let found = presses(&mut app);
     for action in Action::ALL {
         assert!(
-            found.contains(&Press::Rebind(action)),
+            found.contains(&Press::Settings(SettingsPress::Rebind(action))),
             "{action:?} cannot be rebound from the screen"
         );
     }
     for rule in AutoRule::ALL {
         assert!(
-            found.contains(&Press::ToggleAuto(rule)),
+            found.contains(&Press::Settings(SettingsPress::ToggleAuto(rule))),
             "{rule:?} is missing"
         );
     }
     for side in RailSide::BOTH {
         for row in RAIL_ROWS {
             assert!(
-                found.contains(&Press::ToggleRail(side, row)),
+                found.contains(&Press::Settings(SettingsPress::ToggleRail(side, row))),
                 "{side:?}/{row:?} is missing from the rail"
             );
         }
     }
     for preset in RailPreset::ALL {
         assert!(
-            found.contains(&Press::SetRail(preset)),
+            found.contains(&Press::Settings(SettingsPress::SetRail(preset))),
             "{preset:?} cannot be reached from the screen"
         );
     }
-    assert!(found.contains(&Press::CloseSettings), "no way back");
+    assert!(
+        found.contains(&Press::Settings(SettingsPress::CloseSettings)),
+        "no way back"
+    );
 
     // A preset writes the whole rail, and the rail it writes is one nothing
     // else on the screen could have produced by accident.
-    press(&mut app, Press::SetRail(RailPreset::Competitive));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::SetRail(RailPreset::Competitive)),
+    );
     let orders = app
         .world()
         .resource::<crate::prefs::Prefs>()
@@ -179,9 +197,15 @@ fn the_settings_screen_offers_every_switch_and_both_rails() {
             .skip_empty_blocks
     };
     let before = skips(&app);
-    press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::ToggleAuto(AutoRule::SkipEmptyBlocks)),
+    );
     assert_eq!(skips(&app), !before, "the switch did not take");
-    press(&mut app, Press::ToggleAuto(AutoRule::SkipEmptyBlocks));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::ToggleAuto(AutoRule::SkipEmptyBlocks)),
+    );
     assert_eq!(skips(&app), before, "the switch did not come back");
 }
 
@@ -207,7 +231,7 @@ fn closing_the_settings_puts_the_lobby_back_as_it_was() {
     // way a press would.
     app.world_mut().resource_mut::<LobbyState>().settings = SettingsPane::Open;
     app.update();
-    press(&mut app, Press::CloseSettings);
+    press(&mut app, Press::Settings(SettingsPress::CloseSettings));
     assert!(
         matches!(
             app.world().resource::<LobbyState>().lobby.screen(),
@@ -216,7 +240,7 @@ fn closing_the_settings_puts_the_lobby_back_as_it_was() {
         "the builder was lost"
     );
     assert!(
-        presses(&mut app).contains(&Press::CloseBuilder),
+        presses(&mut app).contains(&Press::Build(BuildPress::CloseBuilder)),
         "not redrawn"
     );
 }
@@ -230,10 +254,10 @@ fn music_controls_live_in_quick_settings_and_full_settings() {
     sized(&mut app, 1400.0);
     app.update();
     assert!(!labels(&mut app).iter().any(|l| l == "50 %"));
-    press(&mut app, Press::FrontMenu);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
     assert!(labels(&mut app).iter().any(|l| l == "Music"));
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
     assert!(labels(&mut app).iter().any(|l| l == "50 %"));
 }
 
@@ -244,8 +268,8 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         stocked(&mut app);
         sized(&mut app, width);
         app.update();
-        press(&mut app, Press::FrontMenu);
-        press(&mut app, Press::OpenSettings);
+        press(&mut app, Press::Front(FrontPress::FrontMenu));
+        press(&mut app, Press::Settings(SettingsPress::OpenSettings));
         let list = app
             .world_mut()
             .query::<(Entity, &Scrollable)>()
@@ -262,7 +286,7 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
             content_size: Vec2::new(width, 1900.0),
             ..default()
         });
-        let row = press_target(&mut app, Press::ResetAllBindings);
+        let row = press_target(&mut app, Press::Settings(SettingsPress::ResetAllBindings));
         app.world_mut()
             .resource_mut::<Messages<Pointer<Scroll>>>()
             .write(aimed(
@@ -291,7 +315,9 @@ fn settings_scroll_by_wheel_and_swipe_and_keep_the_offset_after_an_edit() {
         assert!((app.world().get::<ScrollPosition>(list).unwrap().y - 120.0).abs() < 0.01);
         press(
             &mut app,
-            Press::Rebind(baylee_client_core::prefs::Action::Confirm),
+            Press::Settings(SettingsPress::Rebind(
+                baylee_client_core::prefs::Action::Confirm,
+            )),
         );
         let position = app
             .world_mut()
@@ -356,8 +382,8 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::FrontMenu);
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat
@@ -369,7 +395,7 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
         "no file, and it says so"
     );
 
-    press(&mut app, Press::Seat(Act::Add));
+    press(&mut app, Press::Settings(SettingsPress::Seat(Act::Add)));
     // The new profile's name is selected: typing replaces it.
     keys(&mut app, text("mine"));
     keys(&mut app, vec![pressed(KeyCode::Tab, Key::Tab)]);
@@ -382,7 +408,7 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
         "the key is refused beside its box"
     );
     assert!(
-        !presses(&mut app).contains(&Press::Seat(Act::Save)),
+        !presses(&mut app).contains(&Press::Settings(SettingsPress::Seat(Act::Save))),
         "Save stands dead while a fault does"
     );
     keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
@@ -390,7 +416,7 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
 
     select_all(&mut app);
     keys(&mut app, text("claude-opus-5-5"));
-    assert!(presses(&mut app).contains(&Press::Seat(Act::Save)));
+    assert!(presses(&mut app).contains(&Press::Settings(SettingsPress::Seat(Act::Save))));
     keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
     let written = std::fs::read_to_string(&path).expect("saved");
     assert!(
@@ -404,7 +430,9 @@ fn the_seat_panel_is_typed_into_and_saved_from_the_settings_screen() {
     // Anything else pressed takes the caret out of the panel.
     press(
         &mut app,
-        Press::Rebind(baylee_client_core::prefs::Action::Confirm),
+        Press::Settings(SettingsPress::Rebind(
+            baylee_client_core::prefs::Action::Confirm,
+        )),
     );
     assert_eq!(focus(&app), None);
     let _ = std::fs::remove_dir_all(&dir);
@@ -443,14 +471,17 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     stocked(&mut app);
     sized(&mut app, 1400.0);
     app.update();
-    press(&mut app, Press::FrontMenu);
-    press(&mut app, Press::OpenSettings);
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
     app.world_mut()
         .resource_mut::<LobbyState>()
         .seat
         .open_at(path.clone());
     app.update();
-    press(&mut app, Press::Seat(Act::AddPreset(Preset::DeepSeek)));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::Seat(Act::AddPreset(Preset::DeepSeek))),
+    );
     // The frame after the box is drawn asks the store about it.
     app.update();
 
@@ -462,7 +493,7 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
         labels(&mut app)
     );
     assert!(
-        !presses(&mut app).contains(&Press::SeatKey(KeyPress::Focus(0))),
+        !presses(&mut app).contains(&Press::Settings(SettingsPress::SeatKey(KeyPress::Focus(0)))),
         "no box where no store can keep a key"
     );
 
@@ -486,11 +517,14 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
     assert!(
         !presses(&mut app)
             .iter()
-            .any(|p| matches!(p, Press::Reveal(_))),
+            .any(|p| matches!(p, Press::Shared(SharedPress::Reveal(_)))),
         "a key box has no eye"
     );
 
-    press(&mut app, Press::SeatKey(KeyPress::Focus(0)));
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::SeatKey(KeyPress::Focus(0))),
+    );
     keys(&mut app, SECRET.chars().map(typed).collect());
     let drawn = labels(&mut app);
     assert!(
@@ -502,7 +536,7 @@ fn a_key_typed_into_its_box_is_only_ever_drawn_as_dots() {
         drawn.iter().any(|l| l.contains(&dots)),
         "the key is not drawn as dots: {drawn:?}"
     );
-    assert!(presses(&mut app).contains(&Press::SeatKey(KeyPress::Submit)));
+    assert!(presses(&mut app).contains(&Press::Settings(SettingsPress::SeatKey(KeyPress::Submit))));
 
     keys(&mut app, vec![pressed(KeyCode::Enter, Key::Enter)]);
     app.update();

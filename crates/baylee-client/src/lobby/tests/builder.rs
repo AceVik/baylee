@@ -10,10 +10,10 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     app.update();
     let found = presses(&mut app);
     for wanted in [
-        Press::NewDeck,
-        Press::EditDeck(0),
-        Press::DeleteDeck(0),
-        Press::BrowseHouse,
+        Press::Hub(HubPress::NewDeck),
+        Press::Hub(HubPress::EditDeck(0)),
+        Press::Hub(HubPress::DeleteDeck(0)),
+        Press::Library(LibraryPress::BrowseHouse),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
@@ -52,28 +52,28 @@ fn the_builder_screen_builds_with_its_controls() {
     app.update();
     let found = presses(&mut app);
     for wanted in [
-        Press::CloseBuilder,
-        Press::FocusBuild(BuildField::Search),
-        Press::FocusBuild(BuildField::Name),
-        Press::SetZone(Zone::Main),
-        Press::SetZone(Zone::Side),
-        Press::ToggleColor('G'),
-        Press::SetKind(Some("Creature")),
-        Press::SetCmc(0),
-        Press::TogglePlayable,
-        Press::CycleSort,
+        Press::Build(BuildPress::CloseBuilder),
+        Press::Build(BuildPress::FocusBuild(BuildField::Search)),
+        Press::Build(BuildPress::FocusBuild(BuildField::Name)),
+        Press::Build(BuildPress::SetZone(Zone::Main)),
+        Press::Build(BuildPress::SetZone(Zone::Side)),
+        Press::Build(BuildPress::ToggleColor('G')),
+        Press::Build(BuildPress::SetKind(Some("Creature"))),
+        Press::Build(BuildPress::SetCmc(0)),
+        Press::Build(BuildPress::TogglePlayable),
+        Press::Build(BuildPress::CycleSort),
         // Both pool rows are offered, so the search does not have to be
         // used to reach a two-card pool.
-        Press::AddCardTo(0, Zone::Main),
-        Press::AddCardTo(1, Zone::Main),
+        Press::Build(BuildPress::AddCardTo(0, Zone::Main)),
+        Press::Build(BuildPress::AddCardTo(1, Zone::Main)),
         // Every row can be read as well as taken.
-        Press::Inspect(0),
+        Press::Build(BuildPress::Inspect(0)),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
     // Nothing is saveable yet: no name, no cards.
     assert!(
-        !found.contains(&Press::SaveDeck),
+        !found.contains(&Press::Build(BuildPress::SaveDeck)),
         "a deck the gateway would refuse offers no save"
     );
 }
@@ -92,9 +92,12 @@ fn a_deck_worth_saving_offers_the_save() {
     }
     app.update();
     let found = presses(&mut app);
-    assert!(found.contains(&Press::SaveDeck), "{found:?}");
     assert!(
-        found.contains(&Press::RemoveRow(0)),
+        found.contains(&Press::Build(BuildPress::SaveDeck)),
+        "{found:?}"
+    );
+    assert!(
+        found.contains(&Press::Build(BuildPress::RemoveRow(0))),
         "a card in the deck can come back out: {found:?}"
     );
 }
@@ -218,7 +221,7 @@ fn a_swipe_scrolls_the_list_rather_than_adding_the_card_under_it() {
     let mut rows = app.world_mut().query::<(Entity, &Press)>();
     let card = rows
         .iter(app.world())
-        .find(|(_, press)| **press == Press::AddCardTo(0, Zone::Main))
+        .find(|(_, press)| **press == Press::Build(BuildPress::AddCardTo(0, Zone::Main)))
         .map(|(entity, _)| entity)
         .expect("a card row");
     let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
@@ -295,7 +298,7 @@ fn leaving_a_deck_with_unsaved_work_takes_two_presses() {
         state.lobby.builder_mut().set_name("Half a deck");
     }
     app.update();
-    let back = press_target(&mut app, Press::CloseBuilder);
+    let back = press_target(&mut app, Press::Build(BuildPress::CloseBuilder));
 
     tap(&mut app, back);
     app.update();
@@ -311,7 +314,7 @@ fn leaving_a_deck_with_unsaved_work_takes_two_presses() {
         "and says so"
     );
 
-    let back = press_target(&mut app, Press::CloseBuilder);
+    let back = press_target(&mut app, Press::Build(BuildPress::CloseBuilder));
     tap(&mut app, back);
     app.update();
     assert!(matches!(
@@ -340,7 +343,10 @@ fn a_card_can_be_read_in_the_builder() {
         shown.iter().any(|l| l == "{T}: Add {G}."),
         "the rules text is on screen: {shown:?}"
     );
-    assert!(presses(&mut app).contains(&Press::CloseCard), "and closes");
+    assert!(
+        presses(&mut app).contains(&Press::Build(BuildPress::CloseCard)),
+        "and closes"
+    );
 }
 
 #[test]
@@ -367,7 +373,7 @@ fn issue_188_adding_a_card_keeps_the_pool_and_its_scroll_position() {
         .entity_mut(pool_entity)
         .insert(ScrollPosition(Vec2::new(0.0, 90.0)));
 
-    let card = press_target(&mut app, Press::AddCardTo(0, Zone::Main));
+    let card = press_target(&mut app, Press::Build(BuildPress::AddCardTo(0, Zone::Main)));
     tap(&mut app, card);
     app.update();
 
@@ -423,7 +429,7 @@ fn the_filter_panel_is_drawn_and_its_buttons_reach_the_builder() {
     app.update();
 
     // The cogwheel inside the search box.
-    press(&mut app, Press::ToggleFilterPanel);
+    press(&mut app, Press::Build(BuildPress::ToggleFilterPanel));
     assert!(
         app.world()
             .resource::<LobbyState>()
@@ -504,7 +510,7 @@ fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
         .lobby
         .build_deck();
     app.update();
-    press(&mut app, Press::ToggleFilterPanel);
+    press(&mut app, Press::Build(BuildPress::ToggleFilterPanel));
 
     // The switch is on by default, so the line is up before anything is
     // picked — which is the case it was written for.
@@ -518,8 +524,11 @@ fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
     assert!(said.contains(playable), "and did not name it: {said}");
 
     // A colour and a type join it, each in its own words.
-    press(&mut app, Press::ToggleColor('G'));
-    press(&mut app, Press::SetKind(Some("Creature")));
+    press(&mut app, Press::Build(BuildPress::ToggleColor('G')));
+    press(
+        &mut app,
+        Press::Build(BuildPress::SetKind(Some("Creature"))),
+    );
     let said = labels(&mut app).join(" | ");
     for wanted in [
         Phrase::ColorGreen.text(Lang::En),
@@ -531,12 +540,15 @@ fn the_filter_panel_says_when_a_chip_is_filtering_as_well() {
 
     // And with every chip off, the line goes: a notice that is always there
     // is not a notice.
-    press(&mut app, Press::ToggleColor('G'));
+    press(&mut app, Press::Build(BuildPress::ToggleColor('G')));
     // A second tap on the open chip is how a type is cleared; `SetKind(None)`
     // is on no button, so pressing it would be answering a question the
     // screen never asks.
-    press(&mut app, Press::SetKind(Some("Creature")));
-    press(&mut app, Press::TogglePlayable);
+    press(
+        &mut app,
+        Press::Build(BuildPress::SetKind(Some("Creature"))),
+    );
+    press(&mut app, Press::Build(BuildPress::TogglePlayable));
     let said = labels(&mut app).join(" | ");
     assert!(
         !said.contains("Chips are narrowing this list as well"),
@@ -566,10 +578,10 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
         state.lobby.builder_mut().add(1, Zone::Side);
     }
     app.update();
-    if !presses(&mut app).contains(&Press::ClearDeck) {
-        press(&mut app, Press::ToggleDeckActions);
+    if !presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)) {
+        press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
     }
-    press(&mut app, Press::ClearDeck);
+    press(&mut app, Press::Build(BuildPress::ClearDeck));
     assert_eq!(
         app.world()
             .resource::<LobbyState>()
@@ -579,7 +591,7 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
             .len(),
         1
     );
-    press(&mut app, Press::CancelDestructive);
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
     assert_eq!(
         app.world()
             .resource::<LobbyState>()
@@ -589,11 +601,11 @@ fn issue_191_clear_requires_confirmation_and_cancel_preserves_both_zones() {
             .len(),
         1
     );
-    if !presses(&mut app).contains(&Press::ClearDeck) {
-        press(&mut app, Press::ToggleDeckActions);
+    if !presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)) {
+        press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
     }
-    press(&mut app, Press::ClearDeck);
-    press(&mut app, Press::ConfirmDestructive);
+    press(&mut app, Press::Build(BuildPress::ClearDeck));
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
     let builder = app.world().resource::<LobbyState>().lobby.builder();
     assert!(builder.entries(Zone::Main).is_empty());
     assert!(builder.entries(Zone::Side).is_empty());
@@ -611,13 +623,19 @@ fn issue_188_search_keeps_deck_rows_and_repeated_listings_keep_the_root() {
         state.lobby.builder_mut().focus_on(BuildField::Search);
     }
     app.update();
-    let remove = press_target(&mut app, Press::RemoveRow(0));
+    let remove = press_target(&mut app, Press::Build(BuildPress::RemoveRow(0)));
     app.world_mut()
         .resource_mut::<Messages<KeyboardInput>>()
         .write(typed('F'));
     app.update();
-    assert_eq!(press_target(&mut app, Press::RemoveRow(0)), remove);
-    let search = press_target(&mut app, Press::FocusBuild(BuildField::Search));
+    assert_eq!(
+        press_target(&mut app, Press::Build(BuildPress::RemoveRow(0))),
+        remove
+    );
+    let search = press_target(
+        &mut app,
+        Press::Build(BuildPress::FocusBuild(BuildField::Search)),
+    );
     for _ in 0..5 {
         app.world()
             .resource::<Mailbox>()
@@ -627,7 +645,10 @@ fn issue_188_search_keeps_deck_rows_and_repeated_listings_keep_the_root() {
             .push(Reply::Event(LobbyEvent::Games(GameListing::default())));
         app.update();
         assert_eq!(
-            press_target(&mut app, Press::FocusBuild(BuildField::Search)),
+            press_target(
+                &mut app,
+                Press::Build(BuildPress::FocusBuild(BuildField::Search))
+            ),
             search
         );
     }
@@ -638,10 +659,10 @@ fn issue_191_delete_cancel_never_dispatches_a_delete() {
     let mut app = headless();
     stocked(&mut app);
     app.update();
-    press(&mut app, Press::DeleteDeck(0));
+    press(&mut app, Press::Hub(HubPress::DeleteDeck(0)));
     assert!(app.world().resource::<LobbyState>().confirmation.is_some());
     assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
-    press(&mut app, Press::CancelDestructive);
+    press(&mut app, Press::Shared(SharedPress::CancelDestructive));
     assert!(app.world().resource::<LobbyState>().confirmation.is_none());
     assert!(!app.world().resource::<LobbyState>().lobby.busy());
     assert_eq!(app.world().resource::<LobbyState>().lobby.decks().len(), 1);
@@ -696,13 +717,13 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
         state.lobby.builder_mut().set_pool(cards, true);
     }
     app.update();
-    press(&mut app, Press::ChooseCommander(false));
-    press(&mut app, Press::SetCommander(0));
-    assert!(presses(&mut app).contains(&Press::RemoveCommander(0)));
-    press(&mut app, Press::ChooseCommander(true));
-    assert!(presses(&mut app).contains(&Press::AddPartner(1)));
-    assert!(!presses(&mut app).contains(&Press::AddPartner(0)));
-    press(&mut app, Press::AddPartner(1));
+    press(&mut app, Press::Build(BuildPress::ChooseCommander(false)));
+    press(&mut app, Press::Build(BuildPress::SetCommander(0)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::RemoveCommander(0))));
+    press(&mut app, Press::Build(BuildPress::ChooseCommander(true)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::AddPartner(1))));
+    assert!(!presses(&mut app).contains(&Press::Build(BuildPress::AddPartner(0))));
+    press(&mut app, Press::Build(BuildPress::AddPartner(1)));
     assert_eq!(
         app.world()
             .resource::<LobbyState>()
@@ -711,7 +732,7 @@ fn issue_194_commander_management_is_visible_without_opening_card_details() {
             .commanders(),
         &[0, 1]
     );
-    press(&mut app, Press::RemoveCommander(0));
+    press(&mut app, Press::Build(BuildPress::RemoveCommander(0)));
     assert_eq!(
         app.world()
             .resource::<LobbyState>()
@@ -757,7 +778,7 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
         .world_mut()
         .query::<(Entity, &Press, &Node)>()
         .iter(app.world())
-        .find(|(_, p, _)| **p == Press::PickCommanderPrint(0))
+        .find(|(_, p, _)| **p == Press::Build(BuildPress::PickCommanderPrint(0)))
         .map(|(entity, _, node)| (entity, node.clone()))
         .expect("the commander's picture opens the picker");
     assert_eq!(node.width, Val::Auto, "as tall as its row, as a deck row's");
@@ -781,7 +802,7 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
     );
     assert_eq!(hover.finish, FinishTreatment::Foil);
 
-    press(&mut app, Press::PickCommanderPrint(0));
+    press(&mut app, Press::Build(BuildPress::PickCommanderPrint(0)));
     let state = app.world().resource::<LobbyState>();
     let picker = state.lobby.builder().picker().expect("the picker is open");
     assert!(picker.replacing(), "it restyles the commander's row");
@@ -797,8 +818,14 @@ fn a_commanders_picture_is_a_deck_rows_picture() {
     }
     app.update();
     let found = presses(&mut app);
-    assert!(found.contains(&Press::RemoveCommander(0)), "{found:?}");
-    assert!(!found.contains(&Press::PickCommanderPrint(0)), "{found:?}");
+    assert!(
+        found.contains(&Press::Build(BuildPress::RemoveCommander(0))),
+        "{found:?}"
+    );
+    assert!(
+        !found.contains(&Press::Build(BuildPress::PickCommanderPrint(0))),
+        "{found:?}"
+    );
 }
 
 #[test]
@@ -835,14 +862,14 @@ fn virtual_rows_unmount_offscreen_controls_and_restore_them_on_return() {
         });
     }
     app.update();
-    assert!(!presses(&mut app).contains(&Press::RemoveRow(0)));
+    assert!(!presses(&mut app).contains(&Press::Build(BuildPress::RemoveRow(0))));
     for row in rows {
         app.world_mut().entity_mut(row).insert(CalculatedClip {
             clip: Rect::new(-400.0, -200.0, 400.0, 500.0),
         });
     }
     app.update();
-    assert!(presses(&mut app).contains(&Press::RemoveRow(0)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::RemoveRow(0))));
 }
 
 #[test]
@@ -859,7 +886,7 @@ fn autocomplete_selects_a_name_without_adding_a_card() {
     }
     app.update();
     let slot = crate::buildui::autocomplete::suggestions(app.world().resource::<LobbyState>())[0];
-    press(&mut app, Press::CompleteSearch(slot));
+    press(&mut app, Press::Build(BuildPress::CompleteSearch(slot)));
     let state = app.world().resource::<LobbyState>();
     assert_eq!(
         state.lobby.builder().text(),
@@ -880,20 +907,20 @@ fn thumbnails_open_printing_and_empty_deck_is_inside_the_menu() {
         state.lobby.builder_mut().add(0, Zone::Main);
     }
     app.update();
-    assert!(!presses(&mut app).contains(&Press::ClearDeck));
-    assert!(presses(&mut app).contains(&Press::ToggleDeckActions));
+    assert!(!presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::ToggleDeckActions)));
     let target = app
         .world_mut()
         .query::<(&Press, &Node)>()
         .iter(app.world())
-        .find(|(p, _)| **p == Press::PickRowPrint(0))
+        .find(|(p, _)| **p == Press::Build(BuildPress::PickRowPrint(0)))
         .unwrap()
         .1;
     assert_eq!(target.width, Val::Auto);
     assert_eq!(target.height, percent(100));
     assert!(target.aspect_ratio.is_some());
-    press(&mut app, Press::ToggleDeckActions);
-    assert!(presses(&mut app).contains(&Press::ClearDeck));
+    press(&mut app, Press::Build(BuildPress::ToggleDeckActions));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::ClearDeck)));
 }
 
 #[test]
@@ -922,7 +949,7 @@ fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
     assert!(
         presses(&mut app)
             .iter()
-            .filter(|p| matches!(p, Press::AddCardTo(_, Zone::Main)))
+            .filter(|p| matches!(p, Press::Build(BuildPress::AddCardTo(_, Zone::Main))))
             .count()
             <= 10
     );
@@ -951,12 +978,12 @@ fn virtual_catalog_reaches_past_sixty_results_without_mounting_every_row() {
         .y = 13060.0;
     app.update();
     let visible = presses(&mut app);
-    assert!(visible.contains(&Press::AddCardTo(119, Zone::Main)));
-    assert!(!visible.contains(&Press::AddCardTo(0, Zone::Main)));
+    assert!(visible.contains(&Press::Build(BuildPress::AddCardTo(119, Zone::Main))));
+    assert!(!visible.contains(&Press::Build(BuildPress::AddCardTo(0, Zone::Main))));
     assert!(
         visible
             .iter()
-            .filter(|p| matches!(p, Press::AddCardTo(_, Zone::Main)))
+            .filter(|p| matches!(p, Press::Build(BuildPress::AddCardTo(_, Zone::Main))))
             .count()
             < 10
     );
@@ -1003,8 +1030,12 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
         app.world_mut().resource_mut::<LobbyState>().offline =
             Some(super::offline::Offline::without_a_file());
         to_gateway_face(&mut app);
-        tap_control(&mut app, "play offline", |p| *p == Press::PlayOffline);
-        tap_control(&mut app, "new deck", |p| *p == Press::NewDeck);
+        tap_control(&mut app, "play offline", |p| {
+            *p == Press::Front(FrontPress::PlayOffline)
+        });
+        tap_control(&mut app, "new deck", |p| {
+            *p == Press::Hub(HubPress::NewDeck)
+        });
         {
             let state = app.world().resource::<LobbyState>();
             assert_eq!(*state.lobby.screen(), Screen::Build, "{round}");
@@ -1013,8 +1044,12 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
                 "{round}: the pool is here"
             );
         }
-        tap_control(&mut app, "the way out", |p| *p == Press::CloseBuilder);
-        tap_control(&mut app, "sign out", |p| *p == Press::SignOut);
+        tap_control(&mut app, "the way out", |p| {
+            *p == Press::Build(BuildPress::CloseBuilder)
+        });
+        tap_control(&mut app, "sign out", |p| {
+            *p == Press::Hub(HubPress::SignOut)
+        });
         assert!(
             !app.world()
                 .resource::<LobbyState>()
@@ -1042,7 +1077,7 @@ fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
     assert!(
         presses(&mut app)
             .iter()
-            .any(|p| matches!(p, Press::CompleteSearch(_)))
+            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
     );
     app.world_mut()
         .resource_mut::<LobbyState>()
@@ -1053,7 +1088,7 @@ fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
     assert!(
         !presses(&mut app)
             .iter()
-            .any(|p| matches!(p, Press::CompleteSearch(_)))
+            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
     );
     app.world_mut()
         .resource_mut::<LobbyState>()
@@ -1064,7 +1099,7 @@ fn artwork_modal_hides_and_then_restores_existing_search_suggestions() {
     assert!(
         presses(&mut app)
             .iter()
-            .any(|p| matches!(p, Press::CompleteSearch(_)))
+            .any(|p| matches!(p, Press::Build(BuildPress::CompleteSearch(_))))
     );
 }
 

@@ -269,7 +269,7 @@ fn eye_button(
             } else {
                 crate::hud::glyph::EYE
             },
-            press: Press::Reveal(field),
+            press: Press::Shared(SharedPress::Reveal(field)),
             lit: masked.shown,
         },
     ))
@@ -409,7 +409,7 @@ fn hint_ghost(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, words:
 /// place when only the caret moves ([`retrace_runs`]).
 fn mark_runs(commands: &mut Commands, boxed: Entity, metrics: Metrics, look: &FieldLook) {
     if look.focused
-        && let Press::Focus(field) = look.press
+        && let Press::Shared(SharedPress::Focus(field)) = look.press
     {
         commands.entity(boxed).insert(RunsOf {
             field,
@@ -459,7 +459,7 @@ pub(super) fn retrace_runs(
             buffer,
             focused: true,
             mask: drawn.mask,
-            press: Press::Focus(focus),
+            press: Press::Shared(SharedPress::Focus(focus)),
             tail: None,
             lead: None,
             hint: None,

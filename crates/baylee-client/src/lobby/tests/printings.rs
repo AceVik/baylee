@@ -39,29 +39,29 @@ fn the_printing_picker_offers_every_control_it_needs() {
     app.update();
     let found = presses(&mut app);
     for wanted in [
-        Press::PickerStep(-1),
-        Press::PickerStep(1),
-        Press::PickerGo(1),
-        Press::PickerLang(None),
-        Press::PickerLang(Some(0)),
-        Press::PickerLang(Some(1)),
-        Press::PickerFinish(Finish::Foil),
-        Press::PickerRefresh,
-        Press::PickerForceFinish,
-        Press::FocusBuild(BuildField::PickerSet),
-        Press::PickerConfirm,
-        Press::PickerClose,
+        Press::Build(BuildPress::PickerStep(-1)),
+        Press::Build(BuildPress::PickerStep(1)),
+        Press::Build(BuildPress::PickerGo(1)),
+        Press::Build(BuildPress::PickerLang(None)),
+        Press::Build(BuildPress::PickerLang(Some(0))),
+        Press::Build(BuildPress::PickerLang(Some(1))),
+        Press::Build(BuildPress::PickerFinish(Finish::Foil)),
+        Press::Build(BuildPress::PickerRefresh),
+        Press::Build(BuildPress::PickerForceFinish),
+        Press::Build(BuildPress::FocusBuild(BuildField::PickerSet)),
+        Press::Build(BuildPress::PickerConfirm),
+        Press::Build(BuildPress::PickerClose),
     ] {
         assert!(found.contains(&wanted), "{wanted:?} missing from {found:?}");
     }
-    assert!(!found.contains(&Press::PickerSet(Some(1))));
+    assert!(!found.contains(&Press::Build(BuildPress::PickerSet(Some(1)))));
     app.world_mut()
         .resource_mut::<LobbyState>()
         .lobby
         .builder_mut()
         .focus_on(BuildField::PickerSet);
     app.update();
-    assert!(presses(&mut app).contains(&Press::PickerSet(Some(1))));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::PickerSet(Some(1)))));
 }
 
 /// The row the pool draws is the one that opens the picker; without it
@@ -77,7 +77,10 @@ fn a_pool_row_offers_a_way_to_choose_its_printing() {
     }
     app.update();
     let found = presses(&mut app);
-    assert!(found.contains(&Press::PickPrint(0)), "{found:?}");
+    assert!(
+        found.contains(&Press::Build(BuildPress::PickPrint(0))),
+        "{found:?}"
+    );
 }
 
 /// A deck row previews the printing it names, not the one the registry

@@ -1,5 +1,7 @@
 //! The signed-in hub: Play and Decks, side by side or stacked.
 
+use super::clicks::sign_out;
+use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
@@ -119,7 +121,7 @@ pub(super) fn table(
         fonts,
         metrics,
         Phrase::Settings.text(lang),
-        Press::FrontMenu,
+        Press::Front(FrontPress::FrontMenu),
         palette::PANEL_LIT,
         true,
     );
@@ -128,7 +130,7 @@ pub(super) fn table(
         fonts,
         metrics,
         Phrase::SignOut.text(lang),
-        Press::SignOut,
+        Press::Hub(HubPress::SignOut),
         palette::PANEL_LIT,
         true,
     );
@@ -235,7 +237,7 @@ pub(super) fn table(
             fonts,
             metrics,
             phrase.text(lang),
-            Press::Hub(hub),
+            Press::Hub(HubPress::Tab(hub)),
             state.hub == hub,
         );
         commands.entity(navigation).add_child(tab);
@@ -245,7 +247,7 @@ pub(super) fn table(
         fonts,
         metrics,
         Phrase::HouseDecks.text(lang),
-        Press::BrowseHouse,
+        Press::Library(LibraryPress::BrowseHouse),
         false,
     );
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
@@ -287,7 +289,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::CreateTable.text(lang),
-            Press::OpenRoom(2),
+            Press::Hub(HubPress::OpenRoom(2)),
             palette::ACCENT,
             !lobby.busy() && lobby.games_can_start(),
         );
@@ -359,7 +361,7 @@ pub(super) fn table(
         fonts,
         metrics,
         Phrase::NewDeck.text(lang),
-        Press::NewDeck,
+        Press::Hub(HubPress::NewDeck),
         palette::ACCENT,
         true,
     );
@@ -370,7 +372,7 @@ pub(super) fn table(
         fonts,
         metrics,
         Phrase::ImportDeck.text(lang),
-        Press::ImportDeck,
+        Press::Hub(HubPress::ImportDeck),
         palette::PANEL_LIT,
         true,
     );
@@ -397,7 +399,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::HouseDecks.text(lang),
-            Press::BrowseHouse,
+            Press::Library(LibraryPress::BrowseHouse),
             palette::ACCENT,
             !lobby.busy(),
         );
@@ -406,7 +408,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::NewDeck.text(lang),
-            Press::NewDeck,
+            Press::Hub(HubPress::NewDeck),
             palette::PANEL_LIT,
             true,
         );
@@ -415,7 +417,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::ImportDeck.text(lang),
-            Press::ImportDeck,
+            Press::Hub(HubPress::ImportDeck),
             palette::PANEL_LIT,
             true,
         );
@@ -454,7 +456,7 @@ pub(super) fn table(
                 } else {
                     Color::NONE
                 }),
-                Press::SelectDeck(index),
+                Press::Hub(HubPress::SelectDeck(index)),
                 crate::ambience::Feel::new(palette::PANEL_LIT),
             ))
             .id();
@@ -506,8 +508,14 @@ pub(super) fn table(
         // Nested inside a row that is itself a `Press`: `in_lineage` takes the
         // nearest one, so these win over selecting the deck.
         for (label, press) in [
-            (Phrase::Edit.text(lang), Press::EditDeck(index)),
-            (Phrase::Delete.text(lang), Press::DeleteDeck(index)),
+            (
+                Phrase::Edit.text(lang),
+                Press::Hub(HubPress::EditDeck(index)),
+            ),
+            (
+                Phrase::Delete.text(lang),
+                Press::Hub(HubPress::DeleteDeck(index)),
+            ),
         ] {
             let tool = chip(commands, fonts, metrics, label, press, false);
             commands.entity(actions).add_child(tool);
@@ -518,7 +526,7 @@ pub(super) fn table(
                 fonts,
                 metrics,
                 Phrase::DeckHistory.text(lang),
-                Press::DeckHistory(index),
+                Press::Library(LibraryPress::DeckHistory(index)),
                 palette::PANEL_LIT,
                 lobby.token().is_some() && !lobby.busy(),
             );
@@ -532,7 +540,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::ChooseDeck.text(lang),
-            Press::Hub(Hub::Decks),
+            Press::Hub(HubPress::Tab(Hub::Decks)),
             palette::PANEL_LIT,
             true,
         );
@@ -613,7 +621,7 @@ pub(super) fn table(
                 buffer: lobby.buffer(Field::Search),
                 focused: lobby.focus() == Field::Search,
                 mask: None,
-                press: Press::Focus(Field::Search),
+                press: Press::Shared(SharedPress::Focus(Field::Search)),
                 lead: Some(crate::hud::glyph::MAGNIFIER),
                 hint: Some(Phrase::SearchTables.text(lang)),
                 tail: None,
@@ -629,12 +637,12 @@ pub(super) fn table(
             [
                 (
                     Phrase::DoSearch.text(lang),
-                    Press::Search,
+                    Press::Hub(HubPress::Search),
                     palette::PANEL_LIT,
                 ),
                 (
                     Phrase::Refresh.text(lang),
-                    Press::Refresh,
+                    Press::Hub(HubPress::Refresh),
                     palette::PANEL_LIT,
                 ),
             ],
@@ -655,7 +663,7 @@ pub(super) fn table(
             fonts,
             metrics,
             Phrase::PlayTheHouse.text(lang),
-            Press::Host(GameMode::Ai),
+            Press::Hub(HubPress::Host(GameMode::Ai)),
             palette::PANEL_LIT,
             !lobby.busy() && lobby.games_can_start(),
         );
@@ -671,28 +679,28 @@ pub(super) fn table(
                 Phrase::NoMatches,
                 Phrase::NoTableMatches.fill(lang, &[hunt]),
                 Phrase::ClearTableSearch,
-                Press::ClearSearch,
+                Press::Hub(HubPress::ClearSearch),
             )
         } else if lobby.selected().is_none() {
             (
                 Phrase::EmptyTablesTitle,
                 Phrase::ChooseDeckToBegin.text(lang).to_string(),
                 Phrase::HouseDecks,
-                Press::BrowseHouse,
+                Press::Library(LibraryPress::BrowseHouse),
             )
         } else if alone {
             (
                 Phrase::EmptyTablesTitle,
                 Phrase::OfflineReadyToPlay.text(lang).to_string(),
                 Phrase::PlayTheHouse,
-                Press::Host(GameMode::Ai),
+                Press::Hub(HubPress::Host(GameMode::Ai)),
             )
         } else {
             (
                 Phrase::EmptyTablesTitle,
                 Phrase::NoTablesOpen.text(lang).to_string(),
                 Phrase::CreateTable,
-                Press::OpenRoom(2),
+                Press::Hub(HubPress::OpenRoom(2)),
             )
         };
         let empty = super::empty::state(commands, fonts, metrics, title.text(lang), &said);
@@ -787,7 +795,7 @@ pub(super) fn table(
                             field: Some(Field::RoomPassword),
                             shown: lobby.showing(Field::RoomPassword),
                         }),
-                        press: Press::Focus(Field::RoomPassword),
+                        press: Press::Shared(SharedPress::Focus(Field::RoomPassword)),
                         lead: None,
                         hint: None,
                         tail: None,
@@ -800,7 +808,7 @@ pub(super) fn table(
                 fonts,
                 metrics,
                 Phrase::Join.text(lang),
-                Press::Join(index),
+                Press::Hub(HubPress::Join(index)),
                 palette::ACCENT,
                 !lobby.busy(),
             );
@@ -812,7 +820,7 @@ pub(super) fn table(
                 fonts,
                 metrics,
                 Phrase::PlayAgain.text(lang),
-                Press::Rematch(index),
+                Press::Hub(HubPress::Rematch(index)),
                 palette::ACCENT,
                 !lobby.busy(),
             );
@@ -860,7 +868,7 @@ pub(super) fn table(
                 fonts,
                 metrics,
                 label,
-                Press::Page(forwards),
+                Press::Hub(HubPress::Page(forwards)),
                 palette::PANEL_LIT,
                 live && !lobby.busy(),
             );
@@ -903,7 +911,7 @@ pub(super) fn host_note(lang: Lang, game: &GameSummary) -> String {
 
 /// A house AI's difficulty, in the player's own language.
 ///
-/// The name itself stays the gateway's word — it is what `Press::SeatAi`
+/// The name itself stays the gateway's word — it is what `RoomPress::SeatAi`
 /// sends and what `SeatSpec` stores; only the label is translated. The
 /// lookup is [`baylee_client_core::i18n::ai_name`] rather than a `match`
 /// here, because the *table* needs the same answer this list gives and did
@@ -921,4 +929,142 @@ pub(super) fn ai_name(lang: Lang, name: &str) -> &'static str {
 /// enough to fit on a phone.
 fn short_id(id: &str) -> String {
     id.chars().take(8).collect()
+}
+
+/// A control of the signed-in hub: its two tabs, the table list and the
+/// deck list.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum HubPress {
+    /// Show one of the hub's two tasks.
+    Tab(Hub),
+    /// Forget the account.
+    SignOut,
+    /// Re-read decks and tables.
+    Refresh,
+    /// Read the table list again for whatever the search box says.
+    Search,
+    /// Clear a table search and return to its first page.
+    ClearSearch,
+    /// Step one page through the table list. `true` is forwards.
+    Page(bool),
+    /// Pick a deck by its index in the list.
+    SelectDeck(usize),
+    /// Open a new table.
+    Host(GameMode),
+    /// Open a table with a chosen number of chairs.
+    OpenRoom(usize),
+    /// Sit down at a listed table by its index.
+    Join(usize),
+    /// Take the chair kept for this player at a listed rematch room.
+    Rematch(usize),
+    /// Open the builder on a new deck.
+    NewDeck,
+    /// Open the builder on a new deck with the import dialog over it.
+    ImportDeck,
+    /// Open the builder on a saved deck, by its index in the list.
+    EditDeck(usize),
+    /// Throw a saved deck away, by its index in the list.
+    DeleteDeck(usize),
+}
+
+impl HubPress {
+    /// What a click on this control does.
+    #[allow(clippy::too_many_lines)] // one flat match, read top to bottom
+    pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
+        let Cx {
+            state,
+            prefs,
+            scrolled,
+            mailbox,
+            settings,
+        } = cx;
+        match self {
+            HubPress::Tab(hub) => {
+                if state.hub != hub {
+                    state.hub = hub;
+                    scrolled.set(List::Table, 0.0);
+                }
+            }
+            // A guest is asked first: signed out, it is gone (#269).
+            HubPress::SignOut if state.lobby.guest() => {
+                state.confirmation = Some(confirm::Destructive::SignOutGuest);
+            }
+            HubPress::SignOut => {
+                sign_out(state, prefs, scrolled, mailbox, settings);
+            }
+            HubPress::Refresh => {
+                let request = state.lobby.refresh();
+                dispatch(state, mailbox, request);
+            }
+            HubPress::Search => {
+                let request = state.lobby.search_again();
+                dispatch(state, mailbox, request);
+            }
+            HubPress::ClearSearch => {
+                state.lobby.set_field(Field::Search, "");
+                let request = state.lobby.search_again();
+                dispatch(state, mailbox, request);
+            }
+            HubPress::Page(forwards) => {
+                let request = state.lobby.page(forwards);
+                dispatch(state, mailbox, request);
+            }
+            HubPress::SelectDeck(index) => state.lobby.select_deck(index),
+            HubPress::Host(mode) => {
+                let request = state.lobby.host(mode);
+                dispatch(state, mailbox, request);
+            }
+            HubPress::Join(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.join(&game);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            HubPress::OpenRoom(chairs) => {
+                state.room_setup_seat = None;
+                state.room_card_edit = None;
+                state.room_deck_seat = None;
+                let request = state.lobby.open_room(GameMode::Open, chairs, String::new());
+                dispatch(state, mailbox, request);
+            }
+            // The same press as the button on the veil, from the other side:
+            // this player went back to the lobby and their chair at the next
+            // table is waiting there for them.
+            HubPress::Rematch(index) => {
+                let game = state.lobby.games().get(index).map(|g| g.id.clone());
+                if let Some(game) = game {
+                    let request = state.lobby.rematch(&game);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            HubPress::NewDeck => {
+                state.commander_pick = None;
+                state.pane = Pane::Deck;
+                let request = state.lobby.build_deck();
+                dispatch(state, mailbox, request);
+            }
+            HubPress::ImportDeck => {
+                state.commander_pick = None;
+                state.pane = Pane::Deck;
+                let request = state.lobby.build_deck();
+                dispatch(state, mailbox, request);
+                if matches!(state.lobby.screen(), Screen::Build) {
+                    scrolled.set(List::Transfer, 0.0);
+                    state.lobby.builder_mut().open_import();
+                }
+            }
+            HubPress::EditDeck(index) => {
+                state.commander_pick = None;
+                state.pane = Pane::Deck;
+                let request = state.lobby.edit_deck(index);
+                dispatch(state, mailbox, request);
+            }
+            HubPress::DeleteDeck(index) => {
+                if let Some(deck) = state.lobby.decks().get(index) {
+                    state.confirmation = Some(confirm::Destructive::Delete(deck.id.clone()));
+                }
+            }
+        }
+    }
 }

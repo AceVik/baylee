@@ -770,7 +770,7 @@ pub(crate) fn button(
         fonts,
         metrics,
         baylee_client_core::i18n::Phrase::ReportButton.text(lang),
-        crate::lobby::Press::PickerNothing,
+        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
         crate::hud::palette::PANEL,
         true,
     );

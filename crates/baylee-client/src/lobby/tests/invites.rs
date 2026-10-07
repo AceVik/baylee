@@ -38,7 +38,7 @@ fn registering(app: &mut App) {
 }
 
 fn key_box_drawn(app: &mut App) -> bool {
-    presses(app).contains(&Press::Focus(Field::InviteKey))
+    presses(app).contains(&Press::Shared(SharedPress::Focus(Field::InviteKey)))
 }
 
 #[test]
@@ -110,7 +110,10 @@ fn a_key_typed_into_the_box_lands_there() {
     let mut app =
         at(r#"{"registration_enabled":true,"registration":"invite","guests_enabled":true}"#);
     registering(&mut app);
-    press(&mut app, Press::Focus(Field::InviteKey));
+    press(
+        &mut app,
+        Press::Shared(SharedPress::Focus(Field::InviteKey)),
+    );
     {
         let mut messages = app.world_mut().resource_mut::<Messages<KeyboardInput>>();
         for ch in "7k3m".chars() {

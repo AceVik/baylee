@@ -85,7 +85,7 @@ pub(super) fn draw(
                 } else {
                     palette::PANEL
                 }),
-                Press::CompleteSearch(slot),
+                Press::Build(BuildPress::CompleteSearch(slot)),
                 crate::ambience::Feel::tinting_to(
                     if state.completion == Some(at) {
                         palette::PANEL_LIT

@@ -271,7 +271,7 @@ fn control_button(
         } else {
             label
         },
-        crate::lobby::Press::PickerNothing,
+        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
         crate::hud::palette::PANEL,
         true,
     );

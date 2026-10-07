@@ -1,5 +1,5 @@
 //! Visible-card localization for gateways without a translated catalog.
-use super::{LobbyState, Press};
+use super::{BuildPress, LobbyState, Press};
 use baylee_client_core::card_face::CardTextEntry;
 use bevy::prelude::*;
 use std::collections::BTreeSet;
@@ -77,7 +77,7 @@ pub(super) fn update(
     let card = rows
         .iter()
         .filter_map(|p| match p {
-            Press::Inspect(slot) => state.lobby.builder().card(*slot),
+            Press::Build(BuildPress::Inspect(slot)) => state.lobby.builder().card(*slot),
             _ => None,
         })
         .find(|c| {

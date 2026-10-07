@@ -55,7 +55,7 @@ pub(crate) fn transfer_dialog(
                 ..default()
             },
             BackgroundColor(palette::SHADOW.with_alpha(0.82)),
-            Press::TransferClose,
+            Press::Build(BuildPress::TransferClose),
             ZIndex(20),
         ))
         .id();
@@ -80,7 +80,7 @@ pub(crate) fn transfer_dialog(
             BackgroundColor(palette::PANEL.with_alpha(0.98)),
             BorderColor::all(palette::DOCK_EDGE),
             crate::hud::soft_shadow(),
-            Press::TransferNothing,
+            Press::Build(BuildPress::TransferNothing),
             crate::lobby::Scrollable(List::Transfer),
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Transfer))),
         ))
@@ -104,7 +104,7 @@ pub(crate) fn transfer_dialog(
         fonts,
         metrics,
         Phrase::TransferClose.text(lang),
-        Press::TransferClose,
+        Press::Build(BuildPress::TransferClose),
         palette::PANEL_LIT,
         true,
     );
@@ -126,7 +126,7 @@ pub(crate) fn transfer_dialog(
                     fonts,
                     metrics,
                     format_label(format, lang),
-                    Press::ExportFormat(format),
+                    Press::Build(BuildPress::ExportFormat(format)),
                     format == exporting.format,
                 );
                 commands.entity(chips).add_child(chip);
@@ -147,7 +147,7 @@ pub(crate) fn transfer_dialog(
                 fonts,
                 metrics,
                 Phrase::CopyToClipboard.text(lang),
-                Press::ExportCopy,
+                Press::Build(BuildPress::ExportCopy),
                 palette::ACCENT,
                 true,
             );
@@ -158,7 +158,7 @@ pub(crate) fn transfer_dialog(
                     fonts,
                     metrics,
                     Phrase::SaveToFile.text(lang),
-                    Press::ExportSave,
+                    Press::Build(BuildPress::ExportSave),
                     palette::PANEL_LIT,
                     true,
                 );
@@ -192,7 +192,7 @@ fn import_face(
             fonts,
             metrics,
             Phrase::PasteFromClipboard.text(lang),
-            Press::ImportPaste,
+            Press::Build(BuildPress::ImportPaste),
             palette::ACCENT,
             true,
         );
@@ -201,7 +201,7 @@ fn import_face(
             fonts,
             metrics,
             Phrase::ImportClear.text(lang),
-            Press::ImportClear,
+            Press::Build(BuildPress::ImportClear),
             palette::PANEL_LIT,
             !importing.pasted().is_empty(),
         );
@@ -224,7 +224,7 @@ fn import_face(
             fonts,
             metrics,
             Phrase::TransferClose.text(lang),
-            Press::TransferClose,
+            Press::Build(BuildPress::TransferClose),
             palette::ACCENT,
             true,
         );
@@ -235,7 +235,7 @@ fn import_face(
             fonts,
             metrics,
             Phrase::ImportTake.text(lang),
-            Press::ImportTake,
+            Press::Build(BuildPress::ImportTake),
             palette::ACCENT,
             importing.ready(),
         );

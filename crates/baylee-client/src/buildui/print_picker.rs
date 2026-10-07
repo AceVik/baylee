@@ -37,7 +37,7 @@ pub(crate) fn printing_picker(
             BackgroundColor(palette::SHADOW.with_alpha(0.82)),
             // Tapping the dark outside puts it away — the same gesture every
             // dialog on a phone answers to.
-            Press::PickerClose,
+            Press::Build(BuildPress::PickerClose),
             ZIndex(20),
         ))
         .id();
@@ -65,7 +65,7 @@ pub(crate) fn printing_picker(
             crate::hud::soft_shadow(),
             // Swallows the tap so a press inside the dialog is not also a
             // press on the shade behind it.
-            Press::PickerNothing,
+            Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
     commands.entity(panel).insert((
@@ -93,7 +93,7 @@ pub(crate) fn printing_picker(
         fonts,
         metrics,
         "\u{f00d}",
-        Press::PickerClose,
+        Press::Build(BuildPress::PickerClose),
         false,
     );
     let refresh = icon_button(
@@ -101,7 +101,7 @@ pub(crate) fn printing_picker(
         fonts,
         metrics,
         "\u{f2f1}",
-        Press::PickerRefresh,
+        Press::Build(BuildPress::PickerRefresh),
         picker.loading(),
     );
     for child in [title, gap, refresh, close] {
@@ -122,7 +122,7 @@ pub(crate) fn printing_picker(
         fonts,
         metrics,
         "\u{f053}",
-        Press::PickerStep(-1),
+        Press::Build(BuildPress::PickerStep(-1)),
         false,
     );
     commands.entity(back).insert(Node {
@@ -140,7 +140,7 @@ pub(crate) fn printing_picker(
         fonts,
         metrics,
         "\u{f054}",
-        Press::PickerStep(1),
+        Press::Build(BuildPress::PickerStep(1)),
         false,
     );
     commands.entity(forward).insert(Node {
@@ -247,7 +247,7 @@ pub(crate) fn printing_picker(
             },
         );
         commands.entity(thumb).insert((
-            Press::PickerGo(at),
+            Press::Build(BuildPress::PickerGo(at)),
             Pickable::default(),
             BorderColor::all(if at == picker.at() {
                 palette::ACCENT
@@ -281,7 +281,7 @@ pub(crate) fn printing_picker(
             } else {
                 "All languages"
             },
-            Press::PickerLang(None),
+            Press::Build(BuildPress::PickerLang(None)),
             picker.lang().is_none(),
         );
         commands.entity(langs).add_child(all);
@@ -292,7 +292,7 @@ pub(crate) fn printing_picker(
                 fonts,
                 metrics,
                 &code.to_uppercase(),
-                Press::PickerLang(Some(i)),
+                Press::Build(BuildPress::PickerLang(Some(i))),
                 on,
             );
             commands.entity(langs).add_child(c);
@@ -309,7 +309,7 @@ pub(crate) fn printing_picker(
         } else {
             "Enforce foil / etched"
         },
-        Press::PickerForceFinish,
+        Press::Build(BuildPress::PickerForceFinish),
         picker.force_finish(),
     );
     let check = commands
@@ -355,7 +355,7 @@ pub(crate) fn printing_picker(
             fonts,
             metrics,
             label,
-            Press::PickerFinish(finish),
+            Press::Build(BuildPress::PickerFinish(finish)),
             if sold && picker.finish() == finish {
                 palette::ACCENT
             } else {
@@ -407,7 +407,7 @@ pub(crate) fn printing_picker(
             Phrase::AddPrinting
         }
         .text(lang),
-        Press::PickerConfirm,
+        Press::Build(BuildPress::PickerConfirm),
         true,
     );
     commands.entity(add).insert(Node {
@@ -618,7 +618,7 @@ fn set_search(
             buffer: deck.buffer(BuildField::PickerSet),
             focused: picker.set_open(),
             mask: None,
-            press: Press::FocusBuild(BuildField::PickerSet),
+            press: Press::Build(BuildPress::FocusBuild(BuildField::PickerSet)),
             lead: Some(crate::hud::glyph::MAGNIFIER),
             hint: Some(&hint),
             tail: None,
@@ -650,7 +650,7 @@ fn set_search(
                     - 160.0)
                     .max(0.0),
             )),
-            Press::PickerNothing,
+            Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
     let all = chip(
@@ -658,7 +658,7 @@ fn set_search(
         fonts,
         metrics,
         Phrase::AllSets.text(lang),
-        Press::PickerSet(None),
+        Press::Build(BuildPress::PickerSet(None)),
         picker.set().is_none(),
     );
     commands.entity(popup).add_child(all);
@@ -670,7 +670,7 @@ fn set_search(
             fonts,
             metrics,
             &label,
-            Press::PickerSet(Some(i)),
+            Press::Build(BuildPress::PickerSet(Some(i))),
             cursor == picker.set_cursor(),
         );
         commands.entity(item).insert(Node {

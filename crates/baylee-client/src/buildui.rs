@@ -11,8 +11,9 @@ use crate::cardmat::UiCards;
 use crate::hud::{UiFonts, btn_radius, palette, tf};
 use crate::lobby::heading;
 use crate::lobby::{
-    FieldLook, FieldTail, Frame, List, LobbyState, Metrics, Pane, Press, Scrolled, button, chip,
-    hover_of_card, hover_of_entry, note, print_mark, row, scroller, spacer, text_field,
+    BuildPress, FieldLook, FieldTail, Frame, LibraryPress, List, LobbyState, Metrics, Pane, Press,
+    Scrolled, SettingsPress, SharedPress, button, chip, hover_of_card, hover_of_entry, note,
+    print_mark, row, scroller, spacer, text_field,
 };
 use baylee_client_core::deckbuilder::{
     BuildField, CURVE_BUCKETS, Coverage, DeckBuilder, Group, Picker, Zone,
@@ -44,7 +45,7 @@ const COLORS: [(char, Phrase); 6] = [
 
 /// The card types worth a chip of their own, each with the word it is drawn
 /// as. The key stays English: it is matched against a printed type line and
-/// is what `Press::SetKind` carries, so translating it would filter for a
+/// is what `BuildPress::SetKind` carries, so translating it would filter for a
 /// word no card is printed with.
 const KINDS: [(&str, Phrase); 7] = [
     ("Creature", Phrase::KindCreature),
@@ -146,7 +147,7 @@ pub(crate) fn builder(
                 fonts,
                 metrics,
                 &label,
-                Press::ShowPane(pane),
+                Press::Build(BuildPress::ShowPane(pane)),
                 chosen,
             );
             commands.entity(tab).insert(Node {
@@ -267,7 +268,7 @@ fn build_bar(
         } else {
             Phrase::BackToDecks.text(lang)
         },
-        Press::CloseBuilder,
+        Press::Build(BuildPress::CloseBuilder),
         if state.confirm_leave {
             palette::DANGER
         } else {
@@ -312,7 +313,7 @@ fn build_bar(
         fonts,
         metrics,
         Phrase::Settings.text(lang),
-        Press::OpenSettings,
+        Press::Settings(SettingsPress::OpenSettings),
         palette::PANEL_LIT,
         true,
     );
@@ -320,8 +321,8 @@ fn build_bar(
     // Import and export, beside the history: all three are about the deck
     // as a whole rather than a card in it.
     for (label, press) in [
-        (Phrase::ImportDeck, Press::OpenImport),
-        (Phrase::ExportDeck, Press::OpenExport),
+        (Phrase::ImportDeck, Press::Build(BuildPress::OpenImport)),
+        (Phrase::ExportDeck, Press::Build(BuildPress::OpenExport)),
     ] {
         let open = button(
             commands,
@@ -341,7 +342,7 @@ fn build_bar(
             fonts,
             metrics,
             Phrase::DeckHistory.text(lang),
-            Press::BrowseHistory,
+            Press::Library(LibraryPress::BrowseHistory),
             palette::PANEL_LIT,
             !state.lobby.busy() && state.lobby.token().is_some() && deck.editing().is_some(),
         );
@@ -385,7 +386,7 @@ fn build_bar(
         fonts,
         metrics,
         label.text(lang),
-        Press::SaveDeck,
+        Press::Build(BuildPress::SaveDeck),
         palette::ACCENT,
         live,
     );
@@ -424,7 +425,7 @@ fn pool_panel(
                 && deck.panel().is_none()
                 && deck.picker().is_none(),
             mask: None,
-            press: Press::FocusBuild(BuildField::Search),
+            press: Press::Build(BuildPress::FocusBuild(BuildField::Search)),
             lead: Some(crate::hud::glyph::MAGNIFIER),
             hint: Some(Phrase::SearchCards.text(lang)),
             // The cogwheel is *inside* the box, which is what says it is
@@ -433,7 +434,7 @@ fn pool_panel(
             // no frame of its own to say so: it is a mode of this field.
             tail: Some(FieldTail {
                 glyph: crate::hud::glyph::GEAR,
-                press: Press::ToggleFilterPanel,
+                press: Press::Build(BuildPress::ToggleFilterPanel),
                 lit: deck.panel().is_some(),
             }),
         },
@@ -472,7 +473,7 @@ fn pool_panel(
             } else {
                 Phrase::ShowFilters.text(lang)
             },
-            Press::ToggleFilters,
+            Press::Build(BuildPress::ToggleFilters),
             state.filters_open,
         );
         commands.entity(bar).add_child(open);
@@ -486,7 +487,7 @@ fn pool_panel(
                     fonts,
                     metrics,
                     Phrase::ClearFilters.text(lang),
-                    Press::ClearFilters,
+                    Press::Build(BuildPress::ClearFilters),
                     true,
                 );
                 commands.entity(bar).add_child(clear);
@@ -496,7 +497,7 @@ fn pool_panel(
                 fonts,
                 metrics,
                 &Phrase::SortBy.fill(lang, &[deck.sort().label().text(lang)]),
-                Press::CycleSort,
+                Press::Build(BuildPress::CycleSort),
                 false,
             );
             commands.entity(bar).add_child(sort);
@@ -520,7 +521,7 @@ fn pool_panel(
                 fonts,
                 metrics,
                 &label,
-                Press::ToggleColor(letter),
+                Press::Build(BuildPress::ToggleColor(letter)),
                 on,
             );
             if on {
@@ -541,7 +542,7 @@ fn pool_panel(
                 fonts,
                 metrics,
                 name.text(lang),
-                Press::SetKind(Some(kind)),
+                Press::Build(BuildPress::SetKind(Some(kind))),
                 on,
             );
             commands.entity(kinds).add_child(c);
@@ -562,7 +563,7 @@ fn pool_panel(
                 fonts,
                 metrics,
                 &label,
-                Press::SetCmc(cmc),
+                Press::Build(BuildPress::SetCmc(cmc)),
                 deck.cmc() == Some(cmc),
             );
             commands.entity(tail).add_child(c);
@@ -575,7 +576,7 @@ fn pool_panel(
             fonts,
             metrics,
             &Phrase::SortBy.fill(lang, &[deck.sort().label().text(lang)]),
-            Press::CycleSort,
+            Press::Build(BuildPress::CycleSort),
             false,
         );
         // The default is on, and it is the honest one: everything hidden by it is
@@ -585,7 +586,7 @@ fn pool_panel(
             fonts,
             metrics,
             Phrase::PlayableOnly.text(lang),
-            Press::TogglePlayable,
+            Press::Build(BuildPress::TogglePlayable),
             deck.playable_only(),
         );
         commands.entity(switches).add_child(sort);
@@ -596,7 +597,7 @@ fn pool_panel(
                 fonts,
                 metrics,
                 Phrase::ClearFilters.text(lang),
-                Press::ClearFilters,
+                Press::Build(BuildPress::ClearFilters),
                 false,
             );
             commands.entity(switches).add_child(clear);
@@ -622,7 +623,7 @@ fn pool_panel(
             fonts,
             metrics,
             Phrase::DoneChoosing.text(lang),
-            Press::CancelCommanderPick,
+            Press::Build(BuildPress::CancelCommanderPick),
             false,
         );
         commands.entity(panel).add_children(&[hint, done]);
@@ -731,7 +732,14 @@ fn card_detail(
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     let cost =
         crate::manaui::spawn_cost_or_text(commands, fonts, &card.mana_cost, metrics.small * 1.15);
-    let close = chip(commands, fonts, metrics, "\u{d7}", Press::CloseCard, false);
+    let close = chip(
+        commands,
+        fonts,
+        metrics,
+        "\u{d7}",
+        Press::Build(BuildPress::CloseCard),
+        false,
+    );
     for child in [Some(title), Some(gap), cost, Some(close)]
         .into_iter()
         .flatten()
@@ -814,10 +822,14 @@ fn card_menu(
     let in_side = deck.count_of(slot, Zone::Side);
 
     for (label, press, lit) in [
-        (Phrase::AddToDeck, Press::AddCardTo(slot, Zone::Main), false),
+        (
+            Phrase::AddToDeck,
+            Press::Build(BuildPress::AddCardTo(slot, Zone::Main)),
+            false,
+        ),
         (
             Phrase::AddToSideboard,
-            Press::AddCardTo(slot, Zone::Side),
+            Press::Build(BuildPress::AddCardTo(slot, Zone::Side)),
             false,
         ),
     ] {
@@ -845,7 +857,7 @@ fn card_menu(
             fonts,
             metrics,
             label.text(lang),
-            Press::MoveRow(at),
+            Press::Build(BuildPress::MoveRow(at)),
             false,
         );
         commands.entity(holder).add_child(button);
@@ -854,7 +866,7 @@ fn card_menu(
             fonts,
             metrics,
             Phrase::RemoveCard.text(lang),
-            Press::RemoveRow(at),
+            Press::Build(BuildPress::RemoveRow(at)),
             false,
         );
         commands.entity(holder).add_child(out);
@@ -874,9 +886,9 @@ fn card_menu(
                 Phrase::SetCommander.text(lang)
             },
             if leading {
-                Press::ClearCommander
+                Press::Build(BuildPress::ClearCommander)
             } else {
-                Press::SetCommander(slot)
+                Press::Build(BuildPress::SetCommander(slot))
             },
             leading,
         );
@@ -927,7 +939,13 @@ fn deck_panel(
             n.width = Val::Auto;
             n.flex_grow = 1.0;
         });
-    let menu = card_action(commands, fonts, metrics, "⋯", Press::ToggleDeckActions);
+    let menu = card_action(
+        commands,
+        fonts,
+        metrics,
+        "⋯",
+        Press::Build(BuildPress::ToggleDeckActions),
+    );
     commands.entity(title).add_children(&[overview, menu]);
     commands.entity(panel).add_child(title);
     if state.deck_actions_open
@@ -938,7 +956,7 @@ fn deck_panel(
             fonts,
             metrics,
             Phrase::EmptyTheDeck.text(lang),
-            Press::ClearDeck,
+            Press::Build(BuildPress::ClearDeck),
         );
         commands.entity(panel).add_child(clear);
     }
@@ -951,7 +969,7 @@ fn deck_panel(
             buffer: deck.buffer(BuildField::Name),
             focused: deck.focus() == BuildField::Name,
             mask: None,
-            press: Press::FocusBuild(BuildField::Name),
+            press: Press::Build(BuildPress::FocusBuild(BuildField::Name)),
             lead: None,
             hint: None,
             tail: None,
@@ -978,7 +996,7 @@ fn deck_panel(
             fonts,
             metrics,
             &label,
-            Press::SetZone(zone),
+            Press::Build(BuildPress::SetZone(zone)),
             deck.zone() == zone,
         );
         commands.entity(tab).insert(Node {
@@ -1019,7 +1037,7 @@ fn deck_panel(
         fonts,
         metrics,
         Phrase::DeckStatistics.text(lang),
-        Press::ToggleStatistics,
+        Press::Build(BuildPress::ToggleStatistics),
         state.stats_open,
     );
     commands.entity(panel).add_child(toggle);
@@ -1179,7 +1197,7 @@ fn curve_bars(
                     row_gap: px(2),
                     ..default()
                 },
-                Press::SetCmc(cmc),
+                Press::Build(BuildPress::SetCmc(cmc)),
             ))
             .id();
         let tally = commands
@@ -1365,14 +1383,15 @@ fn pool_row(
             },
             BackgroundColor(palette::PANEL_LIT),
             crate::ambience::Feel::tinting_to(palette::PANEL_LIT, palette::PANEL_LIT.lighter(0.06)),
-            Press::Inspect(slot),
+            Press::Build(BuildPress::Inspect(slot)),
             hover.clone(),
         ))
         .id();
     let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
-    commands
-        .entity(thumb)
-        .insert((Press::PickPrint(slot), Pickable::default()));
+    commands.entity(thumb).insert((
+        Press::Build(BuildPress::PickPrint(slot)),
+        Pickable::default(),
+    ));
     fill_thumbnail(commands, thumb);
     let info = commands
         .spawn((
@@ -1469,7 +1488,7 @@ fn pool_row(
             fonts,
             metrics,
             "−",
-            Press::RemoveCardFrom(slot, zone),
+            Press::Build(BuildPress::RemoveCardFrom(slot, zone)),
         );
         let quantity = commands
             .spawn((
@@ -1480,7 +1499,13 @@ fn pool_row(
                 Pickable::IGNORE,
             ))
             .id();
-        let more = card_action(commands, fonts, metrics, "+", Press::AddCardTo(slot, zone));
+        let more = card_action(
+            commands,
+            fonts,
+            metrics,
+            "+",
+            Press::Build(BuildPress::AddCardTo(slot, zone)),
+        );
         commands
             .entity(group)
             .add_children(&[label, less, quantity, more]);
@@ -1499,9 +1524,9 @@ fn pool_row(
             }
             .text(lang),
             if partner {
-                Press::AddPartner(slot)
+                Press::Build(BuildPress::AddPartner(slot))
             } else {
-                Press::SetCommander(slot)
+                Press::Build(BuildPress::SetCommander(slot))
             },
         );
         commands.entity(info).add_child(leader);
@@ -1538,7 +1563,7 @@ fn deck_row(
             // Clicking a row in the deck reads the card, the same as
             // clicking one in the pool — and a row that reports nothing
             // could not be hovered for a preview either.
-            Press::Inspect(entry.slot),
+            Press::Build(BuildPress::Inspect(entry.slot)),
             hover_of_entry(card, &entry.print),
         ))
         .id();
@@ -1549,9 +1574,10 @@ fn deck_row(
             palette::PANEL_LIT.lighter(0.06),
         ));
     let thumb = crate::lobby::thumbnails::spawn(commands, &hover_of_entry(card, &entry.print));
-    commands
-        .entity(thumb)
-        .insert((Press::PickRowPrint(at), Pickable::default()));
+    commands.entity(thumb).insert((
+        Press::Build(BuildPress::PickRowPrint(at)),
+        Pickable::default(),
+    ));
     fill_thumbnail(commands, thumb);
     let details = commands
         .spawn((
@@ -1625,8 +1651,8 @@ fn deck_row(
     for (label, press) in [
         // Removal is by *row*, not by card: two printings of one card are
         // two lines, and a tap on one of them means that one.
-        ("−", Press::RemoveRow(at)),
-        ("+", Press::AddRow(at)),
+        ("−", Press::Build(BuildPress::RemoveRow(at))),
+        ("+", Press::Build(BuildPress::AddRow(at))),
         // One tap to send a copy the other way. The builder shows one
         // list at a time, so without this a card has to be removed here
         // and found again over there.
@@ -1636,16 +1662,16 @@ fn deck_row(
             } else {
                 Phrase::MoveToDeck.text(lang)
             },
-            Press::MoveRow(at),
+            Press::Build(BuildPress::MoveRow(at)),
         ),
     ] {
-        if matches!(press, Press::MoveRow(_)) {
+        if matches!(press, Press::Build(BuildPress::MoveRow(_))) {
             let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
             commands.entity(actions).add_child(gap);
         }
         let step = card_action(commands, fonts, metrics, label, press);
         commands.entity(actions).add_child(step);
-        if matches!(press, Press::RemoveRow(_)) {
+        if matches!(press, Press::Build(BuildPress::RemoveRow(_))) {
             commands.entity(actions).add_child(count);
         }
     }

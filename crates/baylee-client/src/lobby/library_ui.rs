@@ -1,4 +1,5 @@
 //! The library reads snapshots without borrowing the builder's editable state.
+use super::press::Cx;
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use client_core::lobby::library::{Page, Snapshot, row_changes};
@@ -31,7 +32,7 @@ pub(super) fn screen(
         fonts,
         metrics,
         Phrase::LibraryBack.text(lang),
-        Press::CloseLibrary,
+        Press::Library(LibraryPress::CloseLibrary),
         palette::PANEL_LIT,
         !lib.loading,
     );
@@ -90,7 +91,7 @@ pub(super) fn screen(
             fonts,
             metrics,
             Phrase::LibraryRetry.text(lang),
-            Press::RetryLibrary,
+            Press::Library(LibraryPress::RetryLibrary),
             palette::PANEL_LIT,
             !lib.loading,
         );
@@ -147,7 +148,7 @@ pub(super) fn screen(
                 fonts,
                 metrics,
                 Phrase::InspectDeck.text(lang),
-                Press::PreviewHouse(index),
+                Press::Library(LibraryPress::PreviewHouse(index)),
                 palette::PANEL_LIT,
                 !lib.loading,
             );
@@ -156,7 +157,7 @@ pub(super) fn screen(
                 fonts,
                 metrics,
                 Phrase::CopyToDecks.text(lang),
-                Press::CopyHouse(index),
+                Press::Library(LibraryPress::CopyHouse(index)),
                 palette::ACCENT,
                 !lib.loading,
             );
@@ -195,7 +196,7 @@ pub(super) fn screen(
                 fonts,
                 metrics,
                 &label,
-                Press::PreviewVersion(version),
+                Press::Library(LibraryPress::PreviewVersion(version)),
                 if selected {
                     palette::ACCENT
                 } else {
@@ -263,7 +264,7 @@ pub(super) fn screen(
                         Phrase::RestoreVersion
                     }
                     .text(lang),
-                    Press::RestoreVersion,
+                    Press::Library(LibraryPress::RestoreVersion),
                     if lib.confirm_restore {
                         palette::DANGER
                     } else {
@@ -354,5 +355,91 @@ fn contents(
         let title = heading(commands, fonts, metrics, label.text(lang));
         let text = note(commands, fonts, metrics, &rows.join("\n"));
         commands.entity(parent).add_children(&[title, text]);
+    }
+}
+
+/// A control of the deck library: the house decks and a deck's history.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum LibraryPress {
+    BrowseHouse,
+    BrowseHistory,
+    DeckHistory(usize),
+    CloseLibrary,
+    RetryLibrary,
+    PreviewHouse(usize),
+    PreviewVersion(i32),
+    CopyHouse(usize),
+    RestoreVersion,
+}
+
+impl LibraryPress {
+    /// What a click on this control does.
+    pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
+        let Cx {
+            state,
+            scrolled,
+            mailbox,
+            ..
+        } = cx;
+        match self {
+            LibraryPress::BrowseHouse
+            | LibraryPress::BrowseHistory
+            | LibraryPress::RetryLibrary => {
+                scrolled.set(List::Library, 0.0);
+                let history = self == LibraryPress::BrowseHistory
+                    || (self == LibraryPress::RetryLibrary
+                        && matches!(
+                            state.lobby.library().page,
+                            Some(client_core::lobby::library::Page::History(_))
+                        ));
+                let request = if history {
+                    if let Some(client_core::lobby::library::Page::History(id)) =
+                        state.lobby.library().page.clone()
+                    {
+                        state.lobby.browse_deck_history(&id)
+                    } else {
+                        state.lobby.browse_history()
+                    }
+                } else {
+                    state.lobby.browse_house()
+                };
+                dispatch(state, mailbox, request);
+            }
+            LibraryPress::DeckHistory(index) => {
+                if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
+                    let request = state.lobby.browse_deck_history(&id);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            LibraryPress::CloseLibrary => state.lobby.close_library(),
+            LibraryPress::PreviewHouse(index) => {
+                let choice = state
+                    .lobby
+                    .library()
+                    .house
+                    .get(index)
+                    .map(|d| (d.id.clone(), d.version));
+                if let Some((id, version)) = choice {
+                    let request = state.lobby.preview_version(&id, version);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            LibraryPress::PreviewVersion(version) => {
+                if let Some(client_core::lobby::library::Page::History(id)) =
+                    state.lobby.library().page.clone()
+                {
+                    let request = state.lobby.preview_version(&id, version);
+                    dispatch(state, mailbox, request);
+                }
+            }
+            LibraryPress::CopyHouse(index) => {
+                let request = state.lobby.copy_house(index);
+                dispatch(state, mailbox, request);
+            }
+            LibraryPress::RestoreVersion => {
+                let request = state.lobby.restore_preview();
+                dispatch(state, mailbox, request);
+            }
+        }
     }
 }

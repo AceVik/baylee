@@ -22,7 +22,7 @@
 
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{
-    FieldLook, Metrics, Press, button, chip, heading, note, panel, row, text_field,
+    FieldLook, Metrics, Press, SettingsPress, button, chip, heading, note, panel, row, text_field,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 #[cfg(not(target_arch = "wasm32"))]
@@ -742,7 +742,7 @@ impl Drawn<'_, '_, '_> {
             buffer,
             focused: self.panel.focus() == Some(spot),
             mask: None,
-            press: Press::Seat(Act::Focus(spot)),
+            press: Press::Settings(SettingsPress::Seat(Act::Focus(spot))),
             tail: None,
             lead: None,
             hint: hint.as_deref(),
@@ -799,7 +799,7 @@ impl Drawn<'_, '_, '_> {
                 self.fonts,
                 self.metrics,
                 &words,
-                Press::Seat(Act::Select(at)),
+                Press::Settings(SettingsPress::Seat(Act::Select(at))),
                 on,
             );
             // A profile with something wrong in it says so from the list,
@@ -821,14 +821,20 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatAdd.text(self.lang),
-            Press::Seat(Act::Add),
+            Press::Settings(SettingsPress::Seat(Act::Add)),
             palette::PANEL_LIT,
             true,
         );
         self.commands.entity(line).add_child(add);
         let presets: Vec<(&str, Press, bool)> = Preset::ALL
             .iter()
-            .map(|preset| (preset.label(), Press::Seat(Act::AddPreset(*preset)), false))
+            .map(|preset| {
+                (
+                    preset.label(),
+                    Press::Settings(SettingsPress::Seat(Act::AddPreset(*preset))),
+                    false,
+                )
+            })
             .collect();
         // A row of its own across the panel, not a cell of a form's row.
         let row_of_presets = self.choice(parent, Phrase::SeatPresets.text(self.lang), &presets);
@@ -865,7 +871,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatDefault.text(lang),
-            Press::Seat(Act::Default(at)),
+            Press::Settings(SettingsPress::Seat(Act::Default(at))),
             is_default,
         );
         let copy = button(
@@ -873,7 +879,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatDuplicate.text(lang),
-            Press::Seat(Act::Duplicate(at)),
+            Press::Settings(SettingsPress::Seat(Act::Duplicate(at))),
             palette::PANEL_LIT,
             true,
         );
@@ -882,7 +888,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatRemove.text(lang),
-            Press::Seat(Act::Remove(at)),
+            Press::Settings(SettingsPress::Seat(Act::Remove(at))),
             palette::DANGER,
             true,
         );
@@ -897,7 +903,7 @@ impl Drawn<'_, '_, '_> {
         let protocols = [Provider::Anthropic, Provider::OpenAi, Provider::Cli].map(|p| {
             (
                 protocol_label(p),
-                Press::Seat(Act::Provider(at, p)),
+                Press::Settings(SettingsPress::Seat(Act::Provider(at, p))),
                 provider == p,
             )
         });
@@ -924,7 +930,7 @@ impl Drawn<'_, '_, '_> {
                     self.fonts,
                     self.metrics,
                     &words,
-                    Press::Seat(Act::Suggest(at, index)),
+                    Press::Settings(SettingsPress::Seat(Act::Suggest(at, index))),
                     chosen.as_deref() == Some(name),
                 );
                 self.commands.entity(line).add_child(id);
@@ -941,22 +947,28 @@ impl Drawn<'_, '_, '_> {
             &[
                 (
                     Phrase::SeatAnswerBuild.text(lang),
-                    Press::Seat(Act::Answer(at, None)),
+                    Press::Settings(SettingsPress::Seat(Act::Answer(at, None))),
                     answer.is_none(),
                 ),
                 (
                     Phrase::SeatAnswerTools.text(lang),
-                    Press::Seat(Act::Answer(at, Some(AnswerMode::Tools))),
+                    Press::Settings(SettingsPress::Seat(Act::Answer(
+                        at,
+                        Some(AnswerMode::Tools),
+                    ))),
                     answer == Some(AnswerMode::Tools),
                 ),
                 (
                     Phrase::SeatAnswerJson.text(lang),
-                    Press::Seat(Act::Answer(at, Some(AnswerMode::Json))),
+                    Press::Settings(SettingsPress::Seat(Act::Answer(at, Some(AnswerMode::Json)))),
                     answer == Some(AnswerMode::Json),
                 ),
                 (
                     Phrase::SeatAnswerJsonSchema.text(lang),
-                    Press::Seat(Act::Answer(at, Some(AnswerMode::JsonSchema))),
+                    Press::Settings(SettingsPress::Seat(Act::Answer(
+                        at,
+                        Some(AnswerMode::JsonSchema),
+                    ))),
                     answer == Some(AnswerMode::JsonSchema),
                 ),
             ],
@@ -1036,7 +1048,7 @@ impl Drawn<'_, '_, '_> {
             buffer: typing.map_or(&blank, |(_, buffer)| buffer),
             focused: typing.is_some(),
             mask: Some(crate::lobby::Masked::sealed()),
-            press: Press::SeatKey(KeyPress::Focus(at)),
+            press: Press::Settings(SettingsPress::SeatKey(KeyPress::Focus(at))),
             tail: None,
             lead: None,
             hint: Some(if matches!(state, Some(KeyState::Set)) {
@@ -1060,7 +1072,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatKeyKeep.text(lang),
-            Press::SeatKey(KeyPress::Submit),
+            Press::Settings(SettingsPress::SeatKey(KeyPress::Submit)),
             palette::ACCENT,
             typing.is_some_and(|(_, b)| !b.is_empty()) && !busy,
         );
@@ -1069,7 +1081,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatKeyForget.text(lang),
-            Press::SeatKey(KeyPress::Delete(at)),
+            Press::Settings(SettingsPress::SeatKey(KeyPress::Delete(at))),
             palette::DANGER,
             matches!(state, Some(KeyState::Set)) && !busy,
         );
@@ -1124,7 +1136,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatSave.text(lang),
-            Press::Seat(Act::Save),
+            Press::Settings(SettingsPress::Seat(Act::Save)),
             palette::ACCENT,
             can_save,
         );
@@ -1134,7 +1146,7 @@ impl Drawn<'_, '_, '_> {
             self.fonts,
             self.metrics,
             Phrase::SeatRevert.text(lang),
-            Press::Seat(Act::Revert),
+            Press::Settings(SettingsPress::Seat(Act::Revert)),
             palette::PANEL_LIT,
             can_revert,
         );
