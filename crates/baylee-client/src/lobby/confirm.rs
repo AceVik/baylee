@@ -10,6 +10,9 @@ pub(crate) enum Destructive {
     /// A guest signing out, which is the end of it (#269). Carried out by
     /// the sign-out itself, not by [`accept`].
     SignOutGuest,
+    /// The host leaving their table, which passes it on or closes it
+    /// (DESIGN-v5 §5 "Leaving"), by game id.
+    LeaveHosting(String),
 }
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
@@ -25,6 +28,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             None
         }
         Destructive::SignOutGuest => None,
+        Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
 
@@ -61,6 +65,16 @@ pub(super) fn draw(
                 .kept_guest()
                 .map_or("", |kept| kept.handle.as_str()),
             Phrase::GuestSignOutHint,
+        ),
+        Destructive::LeaveHosting(game) => (
+            Phrase::LeaveHostingQuestion,
+            state
+                .lobby
+                .games()
+                .iter()
+                .find(|g| &g.id == game)
+                .map_or("", |g| g.name.as_str()),
+            Phrase::LeaveHostingHint,
         ),
     };
     let (shade, panel) = modal(

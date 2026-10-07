@@ -1233,8 +1233,12 @@ impl RoomPress {
                 }
             }
             RoomPress::LeaveTable(index) => {
-                let game = state.lobby.games().get(index).map(|g| g.id.clone());
-                if let Some(game) = game {
+                let game = state.lobby.games().get(index);
+                // The host's Leave hands the table on or closes it: asked.
+                if let Some(game) = game.filter(|g| g.yours) {
+                    state.confirmation =
+                        Some(super::confirm::Destructive::LeaveHosting(game.id.clone()));
+                } else if let Some(game) = game.map(|g| g.id.clone()) {
                     let request = state.lobby.leave_table(&game);
                     dispatch(state, mailbox, request);
                 }

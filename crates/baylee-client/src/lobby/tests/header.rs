@@ -26,6 +26,11 @@ fn window(app: &mut App, width: f32, height: f32) {
 /// Signed in with a deck, holding a chair at a waiting room "Thursday pod"
 /// (three of four chairs taken, one ready), as the listing says it.
 fn seated() -> App {
+    seated_as(false)
+}
+
+/// The same, hosting it when `host`.
+fn seated_as(host: bool) -> App {
     let mut app = headless();
     stocked(&mut app);
     {
@@ -43,6 +48,7 @@ fn seated() -> App {
                 id: "pod".to_string(),
                 name: "Thursday pod".to_string(),
                 host: Some("Maik#0012".to_string()),
+                yours: host,
                 state: "waiting".to_string(),
                 seats: vec![
                     seat(0, Some("Maik#0012"), false, true),
@@ -76,6 +82,82 @@ fn strips(app: &mut App) -> usize {
 
 fn count(app: &mut App, wanted: Press) -> usize {
     presses(app).into_iter().filter(|p| *p == wanted).count()
+}
+
+/// The gateway answers what the seating asked (the listing again), so the
+/// lobby is not busy and its Leave is live.
+fn answered(app: &mut App) {
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let games = state.lobby.games().to_vec();
+        state.lobby.apply(LobbyEvent::Games(GameListing {
+            total: games.len(),
+            games,
+            ..GameListing::default()
+        }));
+    }
+    app.update();
+    assert!(!app.world().resource::<LobbyState>().lobby.busy());
+}
+
+/// DESIGN-v5 §5: an empty chair offers AI to the host on every build, and
+/// Language model only where a bridge can be spawned (`tableseats::
+/// available`: a desktop build with its store open and `baylee-seat`
+/// beside it; never wasm, Android or iOS, never a test). The control is
+/// present or absent, never drawn with a tag.
+#[test]
+fn an_empty_chair_offers_a_language_model_only_where_one_can_sit() {
+    let mut app = seated_as(true);
+    answered(&mut app);
+    let drawn = presses(&mut app);
+    assert!(drawn.contains(&Press::Shared(SharedPress::OpenMenu(ShellMenu::SeatAi(3)))));
+    let llm = drawn
+        .iter()
+        .filter(|p| matches!(p, Press::Room(RoomPress::OpenChair(..))))
+        .count();
+    assert!(!crate::tableseats::available(), "a test opens no store");
+    assert_eq!(llm, 0, "no Language model button where none can sit");
+    assert!(
+        !labels(&mut app).iter().any(|l| l.contains("desktop")),
+        "and no tag saying why"
+    );
+}
+
+/// DESIGN-v5 §5 "Leaving": the host's Leave hands the table on, so it is
+/// asked first and sends nothing until the answer; a guest's leaves at once.
+#[test]
+fn the_hosts_leave_is_asked_first() {
+    let mut app = seated_as(true);
+    answered(&mut app);
+    press(&mut app, Press::Room(RoomPress::LeaveTable(0)));
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(
+            matches!(
+                state.confirmation,
+                Some(super::super::confirm::Destructive::LeaveHosting(ref id)) if id == "pod"
+            ),
+            "asked"
+        );
+        assert!(!state.lobby.busy(), "nothing sent before the answer");
+    }
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|l| l == "Leave \u{201c}Thursday pod\u{201d}?"),
+        "the question names the table"
+    );
+    press(&mut app, Press::Shared(SharedPress::ConfirmDestructive));
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.confirmation.is_none());
+    assert!(state.lobby.busy(), "the leave went out");
+
+    let mut app = seated();
+    answered(&mut app);
+    press(&mut app, Press::Room(RoomPress::LeaveTable(0)));
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.confirmation.is_none(), "a guest is not asked");
+    assert!(state.lobby.busy());
 }
 
 /// §2.1, M-7: the seated strip stands on every screen but the room — the
@@ -146,6 +228,111 @@ fn a_phone_header_returns_and_draws_no_strip() {
         "in the gateway dot's place"
     );
     assert!(labels(&mut app).iter().any(|l| l == "Return"));
+}
+
+/// DESIGN-v5 §4, §17 WP2: while my game is being played, Play's hero leads
+/// with the gold Return and its two starts stand disabled with the reason;
+/// on a Phone the header's pill is the way back and the hero has no Return.
+#[test]
+fn while_my_game_runs_the_hero_returns_and_its_starts_wait() {
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::Games(GameListing {
+            games: vec![GameSummary {
+                id: "pod".to_string(),
+                name: "Thursday pod".to_string(),
+                host: Some("me#0007".to_string()),
+                yours: true,
+                state: "playing".to_string(),
+                seats: vec![
+                    GameSeat {
+                        seat: 0,
+                        taken: true,
+                        player: Some("me#0007".to_string()),
+                        you: true,
+                        ..GameSeat::default()
+                    },
+                    GameSeat {
+                        seat: 1,
+                        taken: true,
+                        player: Some("Ole#0009".to_string()),
+                        ..GameSeat::default()
+                    },
+                ],
+                ..GameSummary::default()
+            }],
+            total: 1,
+            ..GameListing::default()
+        }));
+    }
+    window(&mut app, 1400.0, 900.0);
+    for _ in 0..3 {
+        app.update();
+    }
+    let off = |app: &mut App, wanted: Press| {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<&Press, With<crate::shellkit::controls::Disabled>>();
+        query.iter(app.world()).any(|p| *p == wanted)
+    };
+    // The hero's Return is its stop "return"; a table row has its own.
+    let hero_return = |app: &mut App| {
+        let mut query = app
+            .world_mut()
+            .query::<(&Press, &crate::shellkit::focus::Stop)>();
+        query
+            .iter(app.world())
+            .filter(|(p, s)| **p == Press::Play(PlayPress::Return) && s.id == "return")
+            .count()
+    };
+    assert_eq!(hero_return(&mut app), 1, "gold Return");
+    assert!(
+        off(&mut app, Press::Play(PlayPress::PlayHouse)),
+        "Play the house waits"
+    );
+    assert!(
+        off(&mut app, Press::Play(PlayPress::CreateTable)),
+        "Create table waits"
+    );
+    window(&mut app, 844.0, 390.0);
+    app.update();
+    app.update();
+    assert_eq!(hero_return(&mut app), 0, "no hero Return");
+    assert_eq!(
+        count(&mut app, Press::Header(HeaderPress::Return)),
+        1,
+        "the header's pill"
+    );
+    assert!(off(&mut app, Press::Play(PlayPress::PlayHouse)));
+}
+
+/// DESIGN-v5 §5 (S4-2): the Create-table sheet's Players is a segmented
+/// control, and a stepper on a Phone.
+#[test]
+fn players_is_a_stepper_on_a_phone() {
+    for (width, height, stepper) in [(1400.0, 900.0, false), (844.0, 390.0, true)] {
+        let mut app = headless();
+        stocked(&mut app);
+        window(&mut app, width, height);
+        for _ in 0..3 {
+            app.update();
+        }
+        press(&mut app, Press::Play(PlayPress::CreateTable));
+        app.update();
+        let drawn = presses(&mut app);
+        assert_eq!(
+            drawn.contains(&Press::Play(PlayPress::StepPlayers(true))),
+            stepper,
+            "{width}: stepper"
+        );
+        assert_eq!(
+            drawn.contains(&Press::Play(PlayPress::Players(3))),
+            !stepper,
+            "{width}: segments"
+        );
+    }
 }
 
 /// §2.5 (S4-12): a `401` on the feed or a request lands on the front door

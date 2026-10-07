@@ -4347,6 +4347,13 @@ messages! {
     RoomSetUpModel { en: "Set up a model…", de: "Modell einrichten …" },
     /// The chair sheet's title. `{0}` the chair.
     RoomChairTitle { en: "Chair {0} · language model", de: "Platz {0} · Sprachmodell" },
+    /// The host's Leave, asked (DESIGN-v5 §5). `{0}` the table's name.
+    LeaveHostingQuestion { en: "Leave \u{201c}{0}\u{201d}?", de: "\u{201e}{0}\u{201c} verlassen?" },
+    /// Under it: what leaving does to the table.
+    LeaveHostingHint {
+        en: "You host this table: it passes to the player seated longest, or closes if nobody else is seated.",
+        de: "Du leitest diesen Tisch: Er geht an den, der am l\u{e4}ngsten sitzt, oder schlie\u{df}t, wenn sonst niemand sitzt.",
+    },
     /// Why Start waits: one chair nobody holds. `{0}` the count.
     RoomOpenSeatOne { en: "{0} seat is open \u{2014} a player, the house or a model takes it", de: "{0} Platz ist frei \u{2014} ein Spieler, das Haus oder ein Modell nimmt ihn" },
     /// Why Start waits: chairs nobody holds. `{0}` the count.
