@@ -2837,11 +2837,12 @@ impl Tear {
     }
 
     /// Whether `player`'s board is drawn although the table parks it: it is
-    /// turning out on the leaving piece, which goes until the pieces dock.
+    /// sinking away on the leaving piece, which is drawn until it is under
+    /// the void.
     #[must_use]
     pub fn draws(&self, player: PlayerId) -> bool {
-        self.phase() < baylee_client_core::layout::transition::Phase::Dock
-            && self.plan.leaving.0.contains(&player)
+        use baylee_client_core::layout::transition::Piece;
+        self.plan.leaving.contains(&player) && self.plan.pose(Piece::Leaving, self.t).shown
     }
 
     /// How high `player`'s board rides over the table now: its piece's lift.
