@@ -659,3 +659,75 @@ fn a_profile_is_edited_on_its_sheet_with_advanced_behind_a_disclosure() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Opens the settings screen at `section`, signed in, with a settings file.
+fn settings_at(section: baylee_client_core::settings_map::Section) -> App {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.update();
+    press(&mut app, Press::Front(FrontPress::FrontMenu));
+    press(&mut app, Press::Settings(SettingsPress::OpenSettings));
+    press(&mut app, Press::Settings(SettingsPress::Section(section)));
+    app
+}
+
+/// §17 WP5: a graphics preset writes the device's rows only — never an
+/// account field (atmosphere, hold the table still, sky, sound).
+#[test]
+fn a_preset_never_writes_an_account_field() {
+    use baylee_client_core::graphics::Preset;
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Graphics);
+    let account = |app: &App| {
+        serde_json::to_string(app.world().resource::<crate::prefs::Prefs>().all()).unwrap()
+    };
+    let before = account(&app);
+    for preset in [Preset::Low, Preset::Ultra, Preset::Medium, Preset::High] {
+        press(
+            &mut app,
+            Press::Settings(SettingsPress::GraphicsPreset(preset)),
+        );
+        let device = app
+            .world()
+            .resource::<crate::settings::ClientSettings>()
+            .graphics
+            .map(|g| g.preset);
+        assert_eq!(device, Some(preset), "the device took {preset:?}");
+        assert_eq!(account(&app), before, "{preset:?} wrote the account");
+    }
+}
+
+/// §17 WP5 (`KEYBOARD.md` §5): a shortcut's new key that another action
+/// holds is refused with the holder named, nothing written; asked again,
+/// it is taken.
+#[test]
+fn a_rebind_conflict_is_refused_with_its_reason_and_then_taken() {
+    use baylee_client_core::shellkeys::{Refused, ShellAction, ShellChord};
+    let mut app = settings_at(baylee_client_core::settings_map::Section::Controls);
+    let keys = |app: &App| {
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .shell_keys
+            .clone()
+    };
+    let before = keys(&app);
+    press(
+        &mut app,
+        Press::Settings(SettingsPress::RebindShell(ShellAction::CreateTable)),
+    );
+    super::front_keys::press_key(&mut app, KeyCode::Slash, Key::Character("/".into()), &[]);
+    let why = crate::settingsui::bindings::refusal(Refused::Held(ShellAction::Search), Lang::En);
+    assert!(
+        labels(&mut app).iter().any(|l| l.contains(&why)),
+        "the refusal names its holder: {why}"
+    );
+    assert_eq!(keys(&app), before, "a refusal writes nothing");
+    press(&mut app, Press::Settings(SettingsPress::TakeShell));
+    assert_eq!(
+        keys(&app).chords(ShellAction::CreateTable),
+        std::slice::from_ref(&ShellChord::ch("/")),
+        "asked again, it is taken"
+    );
+}

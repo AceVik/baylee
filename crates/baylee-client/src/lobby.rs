@@ -212,9 +212,13 @@ impl Plugin for LobbyPlugin {
                     shortcuts::write_stack.in_set(crate::shellkit::keys::StackSystems),
                     // After the lobby's own typing, so the key that moves
                     // the caret into a field is not typed into it (`/`).
+                    // And before the tree is drawn, so what a key opened (the
+                    // builder's Export) is on screen that frame; unordered,
+                    // it was sometimes a frame late.
                     shortcuts::run_fired
                         .after(crate::shellkit::keys::KeySystems)
-                        .after(keyboard),
+                        .after(keyboard)
+                        .before(ui),
                 )
                     .run_if(in_state(DuelPhase::Closed)),
             )

@@ -7300,12 +7300,10 @@ file or `localStorage` as the client settings. Signing in replaces the local
 copy with the account's, which is the only ordering that does not quietly
 upload one machine's defaults over a player's real bindings.
 
-The screen itself is `settingsui.rs`, drawn over the lobby rather than beside
+The screen itself is `settingsui/`, drawn over the lobby rather than beside
 it: coming back has to land exactly where the player left, including halfway
-through a deck. It is its own module because `lobby.rs` is already the
-largest file in the crate, and it borrows that module's `Metrics`, `Press`
-and widget helpers so it looks like every other screen without a second copy
-of any of them. `SettingsPane` is an enum rather than a flag plus an
+through a deck. Its shape is §"The settings screen's ten sections" below.
+`SettingsPane` is an enum rather than a flag plus an
 `Option<Action>`, because "waiting for a key while closed" is not a state —
 and a pair of fields would let it happen, with the symptom that the next key
 pressed anywhere rebinds something.
@@ -7324,8 +7322,9 @@ saved a week earlier and had no row for it. `Keymap::migrated` now gives each
 already holds. An empty row is the player's decision and stays empty, and no
 key the player bound is taken or shadowed.
 
-Below the two columns, on a desktop only, is the language-model seat's panel
-(`seatpanel.rs`, `docs/llm-seat.md` §"The settings panel"). What it edits is
+In the Language models section, on a desktop only, is the language-model
+seat's panel (`seatpanel.rs`, `docs/llm-seat.md` §"The settings panel"): the
+profiles as a list, one row each, and a profile's fields on its sheet. What it edits is
 neither the account's nor the screen's: `llm-seat.json` belongs to the machine
 the seat bridge runs on, so it is in neither store, never leaves the machine,
 and is written only through `llmseat::store::save`. Its boxes type like the
@@ -7337,6 +7336,69 @@ into it is drawn only as dots and it has no eye, `Keep` hands it to
 to show back (`docs/llm-seat.md` §"Where a key is kept"). A key typed into
 any other box is refused there. In a test no key job runs: the panel is
 answered that there is no store.
+
+### The settings screen's ten sections (WP5)
+
+`.claude/ux-b6/DESIGN-v5.md` §12 is the design; this is how it stands.
+What decides is pure and tested in client-core: `settings_map` names the
+ten sections, every row with its section, its storage (`Scope`: this
+device, your account, this machine — the tag drawn beside it) and the
+builds it is drawn on (`Builds`: no Updates in a browser or on a phone,
+no VSync, frame limits or display mode in a browser, Monitor only with
+two), and the search over the rows' words in either language
+(umlauts folded). A row without a mechanism is not drawn (principle 5):
+there is no Interface slider, because no lobby cue exists.
+
+The screen is a sidebar (Wide, Vast; 180 px on a phone, which keeps the
+list and three rows in view at 844 × 390) or a chip row (Narrow, Compact)
+of sections with the search at its top, and a panel: title, scope badge,
+**Reset this section** (Graphics, Audio, Display, Controls, Gameplay),
+the rows in a scroll, and the save line. It is readable before sign-in;
+the account's rows then say "sign in to change". The nav is one stop
+walked with the arrows, letters typed there are type-ahead; focus
+walking onto a section shows it. `settingsui/keys.rs` holds its
+`TabOrder` and the systems that read controls back (the search field,
+the sliders, the display trial, the copies).
+
+Graphics and Audio bind to `client-core::graphics` and `audiomix` in
+`ClientSettings` — the one model `quality.rs` applies, never a copy. A
+preset writes device rows only (`a_preset_never_writes_an_account_field`)
+and *Custom* is derived, never stored. Display mode changes run a 15-s
+trial (`quality::DisplayTrial`): Keep, or the old mode comes back. The
+backdrop's share scales the painting behind the panels (Plain draws
+none). A settings file from before the backdrop takes its preset's.
+Show frame rate is a corner counter. Controls rebinds the shell's keys
+(`KEYBOARD.md` §5): a chord another live action holds is refused naming
+it, nothing written, and the same key again (or *Take it*) moves it
+(`a_rebind_conflict_is_refused_with_its_reason_and_then_taken`).
+
+Every press a section draws is a `SettingsPress`; a device row's press is
+answered by `SettingsPress::on_device` (written and saved only when it
+differs, the redraw asked only then), the screen's own by `on_screen`.
+Nothing the screen's systems run every frame may take `&mut` of the
+lobby: a changed `LobbyState` is a rebuilt tree, and a tree rebuilt every
+frame eats every click and every Tab (it did, once — the display trial's
+watcher; `idle_frames_rebuild_nothing`).
+
+The language models' section lists the profiles (name · protocol ·
+model; Make default, Duplicate, Remove; Add and the ready-made adapters;
+the caps across games; what was spent; Save and Discard). A row opens the
+profile's **sheet**, a modal `TabOrder` (`PROFILE_SHEET`): name, model
+and its priced suggestions, the key's variable and the sealed key box,
+effort; behind **Advanced** the protocol, how it answers, the reply's
+limits, the five money fields and the address or command. Advanced opens
+by itself where a fault or the caret is, so nothing wrong is hidden. Add,
+an adapter and Duplicate open the new profile's sheet; Close and `Esc`
+(the second, once the caret has left its box) put it away. A box pressed
+or entered with `Enter` takes the keys itself and walks with `Tab`
+(`WalkerYields` keeps the kit's walker out of it meanwhile).
+
+Updates (desktop builds) is the updater's own face (`update::controls`):
+both switches, Check now, why it does not install, and Move to
+Applications where macOS runs a translocated copy — each a stop of the
+screen, so `Enter` and `Space` press them. `scripts/shell/settings.py`
+walks every section at the seven sizes in English and German with the
+kit's checks.
 
 ## The interface's own words
 
@@ -7828,6 +7890,19 @@ breaks open (`Seam`). Then `caretspot::follow` scrolls the box just far enough
 to keep the caret in it. The caret blinks at the lobby's rate and holds still
 under `reduce_motion` (`lobby::caret_lit`). The box has no Up/Down: the buffer
 moves by character, word and line end only, as it did before.
+
+### The report as one sheet (WP5)
+
+The form keeps one sheet (§12): the kind (Bug, Improvement, Feedback,
+Other), the text, then the attachments behind one disclosure —
+**Attachments ▾** with "n of m" beside it, ticked of those this report
+has — open until a player closes it, and then closed on this device's
+next report too (`ClientSettings.report_attachments_closed`). The count
+is redrawn in place with a tick, like the ticks themselves, so a tick
+never rebuilds the form. Signed in, a line says where it goes ("Goes to
+<gateway> with your session"); "Show what is sent" is the preview of the
+exact body. None of this touches the payload: the builder and its tests
+in client-core are unchanged.
 
 ## Embedding (the open-world plan)
 
