@@ -61,7 +61,7 @@ pub(super) fn draw(
                 let thumb = super::super::thumbnails::spawn(commands, &hover);
                 commands.entity(badge).insert(hover).add_child(thumb);
             }
-            let mark = super::super::ui::print_mark(&entry.print);
+            let mark = super::super::print_mark(&entry.print);
             let caption = if mark.is_empty() {
                 entry.name.clone()
             } else {

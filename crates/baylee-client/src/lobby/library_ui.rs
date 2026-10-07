@@ -109,7 +109,7 @@ pub(super) fn screen(
         });
         commands.entity(body).add_child(grid);
         for (index, deck) in lib.house.iter().enumerate() {
-            let card = super::ui::surface(commands, metrics);
+            let card = super::surface(commands, metrics);
             commands
                 .entity(card)
                 .entry::<Node>()
@@ -211,7 +211,7 @@ pub(super) fn screen(
             commands.entity(body).add_child(empty);
         }
         if let Some((_, snapshot)) = &lib.preview {
-            let card = super::ui::surface(commands, metrics);
+            let card = super::surface(commands, metrics);
             let title = heading(
                 commands,
                 fonts,

@@ -110,7 +110,7 @@ fn a_moving_caret_redraws_its_field_and_nothing_else() {
     let runs = |app: &mut App| {
         let mut query = app
             .world_mut()
-            .query_filtered::<&Text, With<super::super::ui::FieldRun>>();
+            .query_filtered::<&Text, With<super::super::FieldRun>>();
         query
             .iter(app.world())
             .map(|t| t.0.clone())

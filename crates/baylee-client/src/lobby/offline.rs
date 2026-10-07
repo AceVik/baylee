@@ -1331,7 +1331,7 @@ mod tests {
         for (wire, profile) in AIProfile::NAMED {
             preset.seats[1].controller = SeatController::Ai(profile);
             for lang in [Lang::En, Lang::De] {
-                let listed = super::ui::ai_name(lang, wire);
+                let listed = super::ai_name(lang, wire);
                 assert_eq!(
                     seat_names(&preset, lang)[1],
                     format!("{listed} 1"),

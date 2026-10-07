@@ -1922,7 +1922,7 @@ pub(super) fn leave_clicks(
 pub(super) fn leave_keys(
     keys: Res<ButtonInput<KeyCode>>,
     prefs: Res<crate::prefs::Prefs>,
-    exits: Query<&Press, With<super::ui::DuelExit>>,
+    exits: Query<&Press, With<super::DuelExit>>,
     mut state: ResMut<LobbyState>,
     mut closes: MessageWriter<DuelCommand>,
     desk: Option<Res<crate::report::ReportDesk>>,

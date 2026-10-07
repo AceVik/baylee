@@ -37,7 +37,6 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
-use super::ui::{Masked, status_ink};
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::*;
 use crate::frontal::FrontalMaterial;
@@ -1708,6 +1707,101 @@ const BACK_GLYPH: char = '\u{f053}';
 
 /// Font Awesome's gear.
 const GEAR_GLYPH: char = '\u{f013}';
+
+#[allow(clippy::too_many_arguments)] // the front door also consumes its brand artwork
+pub(super) fn front_door(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    cast: &super::front::FrontCast,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    scrolled_to: &Scrolled,
+    assets: Option<&AssetServer>,
+) {
+    let page = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                min_height: px(0),
+                flex_grow: 1.0,
+                overflow: Overflow::scroll_y(),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::FlexStart,
+                padding: UiRect::all(px(metrics.pad * 0.8)),
+                row_gap: px(metrics.pad * 0.8),
+                ..default()
+            },
+            Scrollable(List::Table),
+            ScrollPosition(Vec2::new(0.0, scrolled_to.get(List::Table))),
+            // Empty space between fields must receive wheel/swipe gestures too.
+            Pickable::default(),
+        ))
+        .id();
+    commands
+        .entity(root)
+        .remove::<(Scrollable, ScrollPosition)>();
+    commands
+        .entity(root)
+        .entry::<Node>()
+        .and_modify(|mut node| node.overflow = Overflow::clip());
+    commands.entity(root).add_child(page);
+    let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
+    let brand = commands
+        .spawn((
+            ImageNode::new(logo),
+            Node {
+                width: Val::Vh(27.0),
+                max_width: px(if metrics.frame == Frame::Phone {
+                    190.0
+                } else {
+                    280.0
+                }),
+                aspect_ratio: Some(1942.0 / 809.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let tagline = note(
+        commands,
+        fonts,
+        metrics,
+        Phrase::WelcomeNote.text(state.lobby.lang()),
+    );
+    let stage = super::front::stage(commands, state, cast, fonts, metrics, scrolled_to);
+    let colophon = super::front::colophon(commands, state, fonts, metrics);
+    // Auto margins consume spare height, but collapse to zero when the form
+    // needs to scroll. `justify-content: center` would hide its top on overflow.
+    let composition = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                row_gap: px(metrics.pad),
+                margin: UiRect::vertical(if metrics.frame == Frame::Phone {
+                    px(0)
+                } else {
+                    Val::Auto
+                }),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands
+        .entity(tagline)
+        .insert(TextLayout::justify(Justify::Center));
+    commands
+        .entity(composition)
+        .add_children(&[brand, tagline, stage]);
+    commands.entity(page).add_child(composition);
+    commands.entity(root).add_child(colophon);
+}
 
 #[cfg(test)]
 mod tests {

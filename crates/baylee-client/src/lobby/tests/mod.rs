@@ -30,7 +30,7 @@ mod transfer;
 use super::*;
 
 #[allow(clippy::wildcard_imports)]
-use super::{http::*, preview::*, systems::*, ui::*};
+use super::{http::*, preview::*, systems::*};
 
 use baylee_client_core::lobby::{
     DeckSummary, GameListing, GameQuery, GameSeat, GameSummary, SeatHandover,

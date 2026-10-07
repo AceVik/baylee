@@ -86,7 +86,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<feed::Feed>()
             .init_resource::<SoftKeyboard>()
             .init_resource::<Scrolled>()
-            .init_resource::<ui::UiRebuilds>()
+            .init_resource::<UiRebuilds>()
             .insert_resource(LobbyState::new())
             .init_resource::<hint::Hinted>()
             .init_resource::<front::FrontMotion>()
@@ -121,13 +121,13 @@ impl Plugin for LobbyPlugin {
                         front::move_front,
                         front::show_scene.before(crate::vista::paint),
                         ui,
-                        ui::retrace_runs,
+                        retrace_runs,
                         front::pose_front,
                     )
                         .chain(),
                     // After the rebuild, so a music switch it just stood up
                     // says the right thing on its first frame.
-                    ui::blink,
+                    blink,
                     dock::materialize,
                     button_style::materialize,
                     // The duel's own runs only while there is a duel, and a
@@ -502,27 +502,44 @@ mod confirm;
 pub(crate) mod dock;
 mod editing;
 mod empty;
+mod end_screen;
 mod entrance;
 mod feed;
+mod field;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
 mod front;
 mod gateway;
 mod hint;
 mod http;
+mod hub;
 mod library_ui;
 pub(crate) mod offline;
 mod preview;
 mod print_catalog;
 mod room;
+mod shell;
 mod source;
 mod systems;
 pub(crate) mod thumbnails;
-mod ui;
+mod widgets;
+
+// The shell and the makers every screen builds from, under one roof for the
+// modules beside them, which read the lobby through `use super::*`.
+#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+use end_screen::*;
+#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+use field::*;
+#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+use hub::*;
+#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+use shell::*;
+#[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
+use widgets::*;
 
 /// The end screen's keyboard marker, for the probe and for nothing else.
 ///
-/// A re-export rather than `pub(crate) mod ui`, because what `devctl` needs
+/// A re-export rather than `pub(crate) mod end_screen`, because what `devctl` needs
 /// is this one component and none of the several hundred items beside it.
 /// `Press` is already re-exported below with the rest of the lobby's
 /// vocabulary; this is the half that was private, and it is the half that
@@ -539,12 +556,12 @@ mod ui;
 /// which is the same fault as the one that put this commit here, in the
 /// other direction, and it was found the same way: by compiling both.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-pub(crate) use ui::DuelExit;
-pub(crate) use ui::caret_lit;
+pub(crate) use end_screen::DuelExit;
+pub(crate) use field::caret_lit;
 /// The tree's root and its rebuild count, for `devctl`'s `shell_nodes` and
 /// `ui_rebuilds` rows, under the probe's own `cfg` for the reason above.
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-pub(crate) use ui::{LobbyRoot, UiRebuilds};
+pub(crate) use shell::{LobbyRoot, UiRebuilds};
 
 #[cfg(test)]
 mod tests;
@@ -555,20 +572,18 @@ use systems::{
     art_follows_the_session, came_back, clicks, keyboard, leave_clicks, leave_keys, poll, scrolls,
     softkeys, text_follows_the_session, waiting, watch,
 };
-use ui::{despawn_leave_button, spawn_camera, spawn_leave_button, teardown, ui};
 
 // The vocabulary the lobby's own halves share, and that `buildui` and
 // `settingsui` build their screens out of. Re-exported here so the split
 // into files stays an internal matter: every other module still says
 // `crate::lobby::button`.
 
+pub(crate) use field::{FieldLook, FieldTail, Masked, text_field};
 pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry};
+pub(crate) use shell::{Frame, Metrics};
 pub(crate) use systems::Scrollable;
 pub(crate) use systems::{List, Press, Scrolled};
-pub(crate) use ui::{
-    FieldLook, FieldTail, Frame, Masked, Metrics, button, chip, heading, note, panel, print_mark,
-    row, scroller, spacer, text_field,
-};
+pub(crate) use widgets::{button, chip, heading, note, panel, print_mark, row, scroller, spacer};
 
 pub(crate) mod scrollbars;
 

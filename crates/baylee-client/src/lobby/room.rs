@@ -1,7 +1,7 @@
 //! A dedicated waiting room: host rules beside each player's own deck choice.
-use super::ui::{FieldLook, Masked, button, chip, heading, note, panel, row, text_field};
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use super::{FieldLook, Masked, button, chip, heading, note, panel, row, text_field};
 use baylee_client_core::lobby::room::Adjustment;
 mod cards;
 mod llm;
@@ -355,7 +355,7 @@ fn seat_card(
     commands.entity(card).insert(super::dock::Dock(4));
     commands.entity(parent).add_child(card);
     let who = if seat.kind == SeatKind::Ai {
-        super::ui::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string()
+        super::ai_name(lang, seat.ai.as_deref().unwrap_or("steady")).to_string()
     } else {
         let player = seat
             .player
@@ -484,7 +484,7 @@ fn seat_card(
                 commands,
                 fonts,
                 m,
-                super::ui::ai_name(lang, name),
+                super::ai_name(lang, name),
                 Press::SeatAi(index, seat.seat, name),
                 seat.ai.as_deref() == Some(name),
             );

@@ -125,7 +125,7 @@ fn modal(commands: &mut Commands, metrics: Metrics, cancel: Press) -> (Entity, E
             cancel,
         ))
         .id();
-    let panel = super::ui::surface(commands, metrics);
+    let panel = super::surface(commands, metrics);
     commands
         .entity(panel)
         .entry::<Node>()
@@ -176,7 +176,7 @@ pub(super) fn draw_deletion(
             &FieldLook {
                 buffer: lobby.buffer(field),
                 focused: lobby.focus() == field,
-                mask: Some(super::ui::Masked {
+                mask: Some(super::Masked {
                     field: Some(field),
                     shown: lobby.showing(field),
                 }),

@@ -1,5 +1,5 @@
 //! Original card-back ornament and a clear next step for an empty lobby.
-use super::ui::Metrics;
+use super::Metrics;
 use crate::hud::{UiFonts, palette, tf};
 use bevy::prelude::*;
 
