@@ -41,7 +41,7 @@ use crate::cardplate::PlateRoom;
 mod arrangement;
 #[cfg(test)]
 use arrangement::upright_apart as arrangement_upright_apart;
-pub use arrangement::{Arrangement, IN_VIEW, rail_window, transition};
+pub use arrangement::{Arrangement, IN_VIEW, peeks, rail_window, transition};
 use baylee_core::ids::PlayerId;
 use glam::Vec2;
 
@@ -1073,7 +1073,11 @@ impl TableLayout {
         }
         match arrangement {
             Arrangement::UprightRing => arrangement::upright(seats, aspect),
-            Arrangement::Spotlight => arrangement::spotlight(seats, aspect, interest),
+            // The pair, every other seat parked: what the Focus ring adds
+            // is its peeks beside the felt, which the client draws.
+            Arrangement::Spotlight | Arrangement::FocusRing => {
+                arrangement::spotlight(seats, aspect, interest)
+            }
             Arrangement::Turntable => arrangement::turntable(seats, aspect, interest),
             // A rule, not a geometry: the client hands over what it resolved
             // to (`Arrangement::resolve`); asked directly, it is resolved
@@ -1087,7 +1091,7 @@ impl TableLayout {
             }
             Arrangement::Pods => arrangement::pods(seats, aspect),
             Arrangement::ArcRail => arrangement::arc(seats, aspect),
-            Arrangement::Ring | Arrangement::FocusRing => Self::seated(seats, aspect, None),
+            Arrangement::Ring => Self::seated(seats, aspect, None),
         }
     }
 

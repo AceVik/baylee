@@ -51,7 +51,7 @@ pub(super) fn on_screen(lens: &Lens, canvas: Canvas, slot: &SeatSlot) -> bool {
                     (-sin).mul_add(local.x, cos * local.y),
                 );
             lens.project(p).is_some_and(|at| {
-                at.x >= -0.5
+                at.x >= canvas.left - 0.5
                     && at.x <= canvas.window.x - canvas.right + 0.5
                     && at.y >= canvas.top - 0.5
                     && at.y <= canvas.window.y - canvas.bottom + 0.5
@@ -70,9 +70,9 @@ pub(super) struct Seen {
 
 /// What `arrangement` shows of every seat at a table of `n` in `window`.
 pub(super) fn seen(arrangement: Arrangement, n: u8, window: Vec2) -> Vec<(PlayerId, Seen)> {
-    let canvas = Canvas::hud(window);
     let frame = TableFrame::of(window.x, window.y);
     let arrangement = arrangement.effective(usize::from(n), frame);
+    let canvas = Canvas::for_table(window, arrangement);
     let seats = roster(n);
     let shot = Shot {
         arrangement,

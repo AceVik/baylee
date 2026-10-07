@@ -1084,3 +1084,55 @@ fn the_arc_rail_stands_the_others_on_one_arc() {
         }
     }
 }
+
+/// The Focus ring (DESIGN-v8 §1 row 8): the Spotlight's pair, and every
+/// parked seat a peek beside the felt — the sides between mine and the one
+/// across, clockwise, in the left column from the bottom up, the rest in
+/// the right column from the top down, the Turntable's flank rule. Every
+/// parked seat has a peek, and no seat on the felt has one.
+#[test]
+fn the_focus_ring_peeks_at_every_parked_seat_on_its_side() {
+    use super::super::peeks;
+    for n in 3..=8_u8 {
+        let roster: Vec<Seat> = seats(n).into_iter().map(Seat::alone).collect();
+        for interest in std::iter::once(None).chain((1..n).map(|i| Some(PlayerId::new(i)))) {
+            let table =
+                TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::FocusRing, interest);
+            assert_eq!(
+                table,
+                TableLayout::arranged(&roster, HUD_ASPECT, Arrangement::Spotlight, interest),
+                "the Spotlight's pair"
+            );
+            let (left, right) = peeks(&roster, interest);
+            let mut peeked: Vec<PlayerId> = left.iter().chain(&right).copied().collect();
+            peeked.sort_unstable();
+            let parked: Vec<PlayerId> = table
+                .slots
+                .iter()
+                .filter(|s| s.parked)
+                .map(|s| s.player)
+                .collect();
+            assert_eq!(
+                peeked, parked,
+                "n={n} {interest:?}: a peek for every parked seat"
+            );
+            let across = interest.unwrap_or(PlayerId::new(n / 2));
+            assert!(
+                left.iter().all(|p| p.get() < across.get()),
+                "n={n}: left before across"
+            );
+            assert!(
+                right.iter().all(|p| p.get() > across.get()),
+                "n={n}: right after it"
+            );
+            assert!(
+                left.windows(2).all(|w| w[0].get() < w[1].get()),
+                "bottom up"
+            );
+            assert!(
+                right.windows(2).all(|w| w[0].get() < w[1].get()),
+                "top down"
+            );
+        }
+    }
+}

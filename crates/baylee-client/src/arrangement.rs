@@ -1068,7 +1068,8 @@ pub fn flash_the_pill(
 pub fn plugin(app: &mut App) {
     app.init_resource::<ArrangementFrame>()
         .init_resource::<crate::table::GlideReport>()
-        .init_resource::<SwitcherRevision>();
+        .init_resource::<SwitcherRevision>()
+        .init_resource::<crate::hud::peeks::PeeksRevision>();
     app.add_systems(
         Update,
         (
@@ -1089,7 +1090,11 @@ pub fn plugin(app: &mut App) {
     );
     app.add_systems(
         Update,
-        (sync_switcher, flash_the_pill.after(sync_switcher))
+        (
+            sync_switcher,
+            flash_the_pill.after(sync_switcher),
+            crate::hud::peeks::sync_peeks,
+        )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),
     );

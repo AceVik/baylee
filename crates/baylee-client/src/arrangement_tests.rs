@@ -558,3 +558,40 @@ fn a_turntable_change_slides_to_the_instant_layout_without_a_tear() {
         "brought across at the duel's size"
     );
 }
+
+/// The Focus ring's peeks (DESIGN-v8 §1 row 8): at home on four seats the
+/// pair is me and seat 2, seat 1 peeks from the left column and seat 3
+/// from the right; brought across, seat 1 leaves its peek and seat 2 takes
+/// one. Another arrangement has no peeks. The camera frames the table
+/// between the two columns, whose width is the window's alone (invariant
+/// 5's one declared exception: constant against the game).
+#[test]
+fn the_focus_ring_peeks_beside_the_pair_and_frames_the_table_between() {
+    use crate::hud::peeks::{column_width, columns};
+    use baylee_core::ids::PlayerId;
+    let ids = |list: &[crate::hud::peeks::PeekFacts]| -> Vec<u8> {
+        list.iter().map(|f| f.player.get()).collect()
+    };
+    let mut duel = seated_duel(Arrangement::FocusRing);
+    let (left, right) = columns(&duel, Lang::En);
+    assert_eq!((ids(&left), ids(&right)), (vec![1], vec![3]));
+    crate::input::navigate_to_player(&mut duel, PlayerId::new(1));
+    crate::rebuild_board(&mut duel);
+    let (left, right) = columns(&duel, Lang::En);
+    assert_eq!((ids(&left), ids(&right)), (vec![], vec![2, 3]));
+    let spotlight = seated_duel(Arrangement::Spotlight);
+    assert_eq!(columns(&spotlight, Lang::En), (vec![], vec![]), "no peeks");
+
+    for window in [Vec2::new(1708.0, 1028.0), Vec2::new(1000.0, 760.0)] {
+        let frame = TableFrame::of(window.x, window.y);
+        let canvas = crate::table::Canvas::for_table(window, Arrangement::FocusRing);
+        assert!((canvas.left - column_width(frame)).abs() < 1e-6);
+        assert!((canvas.right - column_width(frame)).abs() < 1e-6);
+        let plain = crate::table::Canvas::for_table(window, Arrangement::Spotlight);
+        assert!(plain.left.abs() < 1e-6 && plain.right.abs() < 1e-6);
+        assert!(
+            canvas.aspect() < plain.aspect(),
+            "the table framed between them"
+        );
+    }
+}

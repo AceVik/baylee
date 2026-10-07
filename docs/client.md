@@ -924,6 +924,22 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   in the strip, and the strip is how a seat off the rail is reached
   (`the_arc_rail_stands_the_others_on_one_arc`). Measured at 1180: 19 px at
   home, 54 visited.
+- **Focus ring** (WA8, `hud/peeks.rs`): the Spotlight's pair, and every
+  parked seat a **peek** in a column at the arena's left or right edge
+  (`layout::peeks`, the Turntable's flank rule: left bottom-up, right
+  top-down), 104 px wide (84 on a narrow window), between `TOP_CLEAR` and
+  the hand zone. A peek is the strip's chip stood upright — the name in the
+  seat's colour, its life, its hand, a sun on the active seat and an
+  hourglass (and an accent edge) on the awaited one — and is a
+  `PlayerTab`, so a press goes the strip's one road (a target or a
+  defender while a question can point at a player, else the seat comes
+  across, tearing as the Spotlight does). The camera frames the table
+  between the columns (`Canvas::for_table`, `Canvas.left`/`right`, `fit`
+  takes both edges): the one declared exception to invariant 5, its width
+  the window's alone (`the_focus_ring_peeks_beside_the_pair_and_frames_the_table_between`,
+  `the_focus_ring_peeks_at_every_parked_seat_on_its_side`). The columns cost
+  the across card 1 px at 1708 (45 → 44, 2 %). Rebuilt only when what they
+  say changes (`PeeksRevision`). Not on a phone or a compact window.
 - **The tear** (the owner's of 07.10.2026, on Spotlight and the Focus ring;
   `Arrangement::tears`): a change of seat of interest tears the table along
   a jagged, seeded line; the far piece sinks into a void under the table

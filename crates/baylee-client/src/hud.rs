@@ -2174,6 +2174,7 @@ mod ledge;
 pub(crate) use ledge::ai_log::update_ai_log;
 mod motion;
 mod overlay;
+pub(crate) mod peeks;
 mod preview_keys;
 pub(crate) mod rail;
 mod scroll;

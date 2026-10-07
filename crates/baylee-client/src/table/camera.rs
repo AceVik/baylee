@@ -366,7 +366,7 @@ impl CameraRig {
             let at = Vec2::from_angle(std::f32::consts::TAU * k as f32 / 16.0)
                 * baylee_client_core::dial::COMPASS_R;
             lens.project(at).is_some_and(|p| {
-                p.x >= 0.0
+                p.x >= canvas.left
                     && p.x <= canvas.window.x - canvas.right
                     && p.y >= canvas.top
                     && p.y <= canvas.window.y - canvas.bottom
@@ -595,6 +595,7 @@ pub(super) fn fit(min: Vec2, max: Vec2, corners: &[Vec2], tilt: f32, canvas: Can
     let top = 1.0 - 2.0 * canvas.top / canvas.window.y.max(1.0);
     let bottom = -1.0 + 2.0 * canvas.bottom / canvas.window.y.max(1.0);
     let right = 1.0 - 2.0 * canvas.right / canvas.window.x.max(1.0);
+    let left_edge = -1.0 + 2.0 * canvas.left / canvas.window.x.max(1.0);
     let aspect = canvas.window.x / canvas.window.y.max(1.0);
 
     // Vertically this is exact: `ground` is linear in the eye distance,
@@ -626,8 +627,8 @@ pub(super) fn fit(min: Vec2, max: Vec2, corners: &[Vec2], tilt: f32, canvas: Can
             // `a` against the right edge of the band and `b` against the
             // left: the room the two of them need between them, less what
             // their own depths already give, over what a unit of eye buys.
-            let held = right * k * (a.y - middle) + k * (b.y - middle);
-            wide = wide.max(((a.x - b.x) / scale - held) / (carry * (1.0 + right)));
+            let held = right * k * (a.y - middle) - left_edge * k * (b.y - middle);
+            wide = wide.max(((a.x - b.x) / scale - held) / (carry * (right - left_edge)));
         }
     }
     // Clamped *before* the look point is derived from it. Aiming for a
@@ -679,7 +680,7 @@ pub(super) fn fit(min: Vec2, max: Vec2, corners: &[Vec2], tilt: f32, canvas: Can
     for c in corners {
         let band = (eye + k * (c.y - along)).max(1e-3) * scale;
         left = left.max(c.x - right * band);
-        right_most = right_most.min(c.x + band);
+        right_most = right_most.min(c.x - left_edge * band);
     }
     Fit {
         look: Vec2::new(f32::midpoint(left, right_most), along),
@@ -768,8 +769,13 @@ pub struct Canvas {
     /// Covered on the right. Nothing: the menu pills are a corner rather than
     /// a column, and the stack panel is drawn over the felt on purpose — a
     /// stack lasts a few seconds and the camera must not lurch when one
-    /// appears.
+    /// appears. The Focus ring's right column of peeks (`with_peeks`).
     pub right: f32,
+    /// Covered on the left: nothing, but for the Focus ring's left column
+    /// of peeks (DESIGN-v8 §1 row 8: the one declared exception to "the
+    /// arrangement does not move the HUD", constant against everything the
+    /// game does).
+    pub left: f32,
 }
 
 impl Canvas {
@@ -781,6 +787,31 @@ impl Canvas {
             top: 0.0,
             bottom: crate::hud::HAND_ZONE_H,
             right: 0.0,
+            left: 0.0,
+        }
+    }
+
+    /// The canvas a table in `arrangement` is framed in: the HUD's, and for
+    /// the Focus ring its two columns of peeks ([`crate::hud::peeks`]).
+    #[must_use]
+    pub fn for_table(window: Vec2, arrangement: Arrangement) -> Self {
+        let canvas = Self::hud(window);
+        if arrangement == Arrangement::FocusRing {
+            canvas.with_peeks(crate::hud::peeks::column_width(
+                baylee_client_core::tableview::TableFrame::of(window.x, window.y),
+            ))
+        } else {
+            canvas
+        }
+    }
+
+    /// With a column of `width` on each side.
+    #[must_use]
+    pub fn with_peeks(self, width: f32) -> Self {
+        Self {
+            left: self.left.max(width),
+            right: self.right.max(width),
+            ..self
         }
     }
 
@@ -792,7 +823,7 @@ impl Canvas {
     /// nothing like the `16.0 / 9.0` the layout used to assume.
     #[must_use]
     pub fn aspect(&self) -> f32 {
-        let width = (self.window.x - self.right).max(1.0);
+        let width = (self.window.x - self.right - self.left).max(1.0);
         let height = (self.window.y - self.top - self.bottom).max(1.0);
         width / height
     }
@@ -829,7 +860,8 @@ pub fn track_canvas(windows: Query<&Window>, mut duel: ResMut<Duel>) {
     let Ok(window) = windows.single() else {
         return;
     };
-    let aspect = Canvas::hud(Vec2::new(window.width(), window.height())).aspect();
+    let aspect =
+        Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement).aspect();
     // A resize is a rebuild of the whole layout, so the comparison has to be
     // loose enough that a window nudged by a pixel does not do one per frame.
     if duel
@@ -886,7 +918,7 @@ pub fn frame_table(
     let Ok(window) = windows.single() else {
         return;
     };
-    let canvas = Canvas::hud(Vec2::new(window.width(), window.height()));
+    let canvas = Canvas::for_table(Vec2::new(window.width(), window.height()), duel.arrangement);
     // The device's lean and visit camera, and the arrangement in effect at
     // this table — not the device's default, which this game's switch, the
     // per-count memory and the offer may all have overruled.

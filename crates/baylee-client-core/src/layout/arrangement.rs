@@ -45,6 +45,7 @@ pub(super) use pair::spotlight;
 pub(super) use pods::pods;
 #[cfg(test)]
 pub(super) use pods::{DIAL_GAP, rows_for};
+pub use turntable::peeks;
 #[cfg(test)]
 pub(super) use turntable::side_scale;
 pub(super) use turntable::turntable;
@@ -193,6 +194,7 @@ impl Arrangement {
                 | Self::TurntableRows
                 | Self::Pods
                 | Self::ArcRail
+                | Self::FocusRing
         )
     }
 

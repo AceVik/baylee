@@ -27,6 +27,32 @@ pub fn side_scale(seats: usize) -> f32 {
     }
 }
 
+/// The seats beside the pair, as indices into `seats`, in the order they
+/// stand: on the left the sides between mine and the one `across`, going
+/// clockwise, from the bottom up; on the right the rest, from the top down
+/// — the ring's order read round from my chair. The Turntable's side mats
+/// and the Focus ring's peeks both stand so. `None` when `across` is not a
+/// side of the table.
+#[must_use]
+pub fn flanks(seats: &[Seat], across: &[usize]) -> Option<(Vec<usize>, Vec<usize>)> {
+    let sides = sides_of(seats);
+    let across_at = sides.iter().position(|side| side.as_slice() == across)?;
+    let between: Vec<usize> = sides[1..across_at].iter().flatten().copied().collect();
+    let rest: Vec<usize> = sides[across_at + 1..].iter().flatten().copied().collect();
+    Some((between, rest))
+}
+
+/// The seats the Focus ring stands as peeks beside the pair (DESIGN-v8 §1
+/// row 8), left column bottom up and right column top down: every seat the
+/// pair round `interest` leaves parked, by [`flanks`]' rule.
+#[must_use]
+pub fn peeks(seats: &[Seat], interest: Option<PlayerId>) -> (Vec<PlayerId>, Vec<PlayerId>) {
+    let across = across_side(seats, interest);
+    let (left, right) = flanks(seats, &across).unwrap_or_default();
+    let players = |list: Vec<usize>| list.into_iter().map(|i| seats[i].player).collect();
+    (players(left), players(right))
+}
+
 /// The air between the pair's footprint and a flank, and between two side
 /// mats on one flank, table units.
 pub const FLANK_GAP: f32 = 1.0;
@@ -72,16 +98,8 @@ pub fn turntable(seats: &[Seat], aspect: f32, interest: Option<PlayerId>) -> Tab
 /// The pair seated at `aspect` with every other seat on its flank.
 fn flanked(seats: &[Seat], aspect: f32, across: &[usize]) -> TableLayout {
     let mut layout = pair(seats, aspect, across);
-    let sides = sides_of(seats);
-    let Some(across_at) = sides.iter().position(|side| side.as_slice() == across) else {
+    let Some((left, right)) = flanks(seats, across) else {
         return layout;
-    };
-    let (left, right): (Vec<usize>, Vec<usize>) = {
-        let between: Vec<usize> = sides[1..across_at].iter().flatten().copied().collect();
-        // The rest, from just past the side across round to just before
-        // mine: top to bottom on the right.
-        let rest: Vec<usize> = sides[across_at + 1..].iter().flatten().copied().collect();
-        (between, rest)
     };
     let scale = side_scale(seats.len());
     let (lo, hi) = layout

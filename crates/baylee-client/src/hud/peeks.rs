@@ -1,0 +1,285 @@
+//! The Focus ring's peeks (DESIGN-v8 §1 row 8, WA8): every seat the pair
+//! leaves parked stands as a peek in a column at the arena's left or right
+//! edge — the Turntable's flank rule (`layout::peeks`): the sides between
+//! mine and the one across, clockwise, on the left from the bottom up, the
+//! rest on the right from the top down. A peek is the strip's chip stood
+//! upright: the seat's name in its colour, its life and hand, and a sun on
+//! the seat whose turn it is, an hourglass on the one the table waits for.
+//! A peek is a [`PlayerTab`](crate::hud::PlayerTab), so a press on it
+//! goes the strip's one road (`input::pointing`): it points at the player
+//! while a question can (a target, the defender of an attack), and brings
+//! the seat across otherwise.
+//!
+//! The columns are the one declared exception to "the arrangement does not
+//! move the HUD" (DESIGN-v8 §3, invariant 5): the camera frames the table
+//! between them (`Canvas::for_table`), and their width is constant against
+//! everything the game does. Rebuilt only when what they say changes.
+
+use baylee_client_core::i18n::Lang;
+use baylee_client_core::layout::{Seat, peeks};
+use baylee_client_core::tableview::{Arrangement, TableFrame};
+use baylee_core::ids::PlayerId;
+use bevy::prelude::*;
+
+use crate::ambience::Feel;
+use crate::hud::{UiFonts, btn_radius, palette, tf, tf_bold};
+use crate::{Duel, DuelPhase};
+
+/// A peek column's width on a wide window, logical pixels (v6 §2.1).
+pub const COLUMN: f32 = 104.0;
+/// On a narrow one.
+pub const COLUMN_NARROW: f32 = 84.0;
+/// The gap between two peeks, and round a column.
+const GAP: f32 = 6.0;
+/// Over the felt and under the switcher's menu.
+const PEEK_Z: i32 = 700;
+
+/// The width of each column on a window of `frame`.
+#[must_use]
+pub fn column_width(frame: TableFrame) -> f32 {
+    match frame {
+        TableFrame::Narrow => COLUMN_NARROW,
+        TableFrame::Phone | TableFrame::Compact | TableFrame::Wide | TableFrame::Vast => COLUMN,
+    }
+}
+
+/// A peek's column.
+#[derive(Component)]
+pub struct PeekColumn;
+
+/// What one peek says. Compared whole.
+#[derive(Clone, PartialEq, Debug)]
+pub struct PeekFacts {
+    /// Whose peek it is.
+    pub player: PlayerId,
+    name: String,
+    colour: Color,
+    life: i32,
+    hand: u32,
+    /// Its turn.
+    pub turn: bool,
+    /// The table waits for it.
+    pub waited: bool,
+    lost: bool,
+}
+
+/// What the columns were last drawn from.
+#[derive(Resource, Default, Clone, PartialEq, Debug)]
+pub struct PeeksRevision {
+    /// The left column, bottom up, and the right, top down; empty when the
+    /// Focus ring is not the table's arrangement.
+    pub columns: (Vec<PeekFacts>, Vec<PeekFacts>),
+    width: f32,
+    lang: Option<Lang>,
+}
+
+/// The table's roster as the layout reads it: me, then the others in turn
+/// order, each with its team.
+fn roster(duel: &Duel) -> Vec<Seat> {
+    let Some(view) = duel.view.as_ref() else {
+        return Vec::new();
+    };
+    let team_of = |player: PlayerId| {
+        duel.statics
+            .as_ref()
+            .and_then(|statics| statics.seats.iter().find(|seat| seat.player == player))
+            .and_then(|seat| seat.team)
+    };
+    std::iter::once(view.seat)
+        .chain(view.opponents_in_turn_order())
+        .map(|player| Seat::on(player, team_of(player)))
+        .collect()
+}
+
+/// What the columns should say now.
+#[must_use]
+pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
+    let Some(view) = duel.view.as_ref() else {
+        return (Vec::new(), Vec::new());
+    };
+    if duel.arrangement != Arrangement::FocusRing {
+        return (Vec::new(), Vec::new());
+    }
+    let (left, right) = peeks(&roster(duel), duel.visiting);
+    let facts = |player: PlayerId| -> Option<PeekFacts> {
+        let seat = view.seats.iter().find(|s| s.player == player)?;
+        let role = crate::hud::seatbar::role_of(duel, player);
+        Some(PeekFacts {
+            player,
+            name: crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), player, role),
+            colour: crate::hud::seat_colour(view.seat, duel.statics.as_ref(), player),
+            life: seat.life,
+            hand: seat.hand_count,
+            turn: view.active == player,
+            waited: view.awaiting == Some(player),
+            lost: seat.has_lost(),
+        })
+    };
+    (
+        left.into_iter().filter_map(facts).collect(),
+        right.into_iter().filter_map(facts).collect(),
+    )
+}
+
+/// Draws the peeks while the Focus ring is the table's arrangement, and
+/// nothing otherwise. Writes nothing while what they say is unchanged.
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)] // a Bevy system
+pub fn sync_peeks(
+    mut commands: Commands,
+    phase: Option<Res<State<DuelPhase>>>,
+    fonts: Option<Res<UiFonts>>,
+    duel: Res<Duel>,
+    measured: Res<crate::arrangement::ArrangementFrame>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
+    mut revision: ResMut<PeeksRevision>,
+    standing: Query<Entity, With<PeekColumn>>,
+) {
+    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let next = if up {
+        PeeksRevision {
+            columns: columns(&duel, lang),
+            width: column_width(measured.class()),
+            lang: Some(lang),
+        }
+    } else {
+        PeeksRevision::default()
+    };
+    if *revision == next {
+        return;
+    }
+    revision.clone_from(&next);
+    for e in &standing {
+        commands.entity(e).despawn();
+    }
+    let Some(fonts) = fonts else {
+        return;
+    };
+    let (left, right) = &next.columns;
+    if left.is_empty() && right.is_empty() {
+        return;
+    }
+    for (side, list) in [(-1.0_f32, left), (1.0, right)] {
+        let column = commands
+            .spawn((
+                PeekColumn,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: if side < 0.0 { px(0.0) } else { Val::Auto },
+                    right: if side > 0.0 { px(0.0) } else { Val::Auto },
+                    top: px(crate::hud::TOP_CLEAR),
+                    bottom: px(crate::hud::HAND_ZONE_H),
+                    width: px(next.width),
+                    padding: UiRect::all(px(GAP)),
+                    row_gap: px(GAP),
+                    flex_direction: if side < 0.0 {
+                        FlexDirection::ColumnReverse
+                    } else {
+                        FlexDirection::Column
+                    },
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+                GlobalZIndex(PEEK_Z),
+            ))
+            .id();
+        for facts in list {
+            let peek = spawn_peek(&mut commands, &fonts, facts);
+            commands.entity(column).add_child(peek);
+        }
+    }
+}
+
+/// One peek: the chip stood upright.
+fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> Entity {
+    let ground = palette::DIALOG.with_alpha(0.88);
+    let ink = if facts.lost {
+        palette::DIALOG_SOFT
+    } else {
+        palette::DIALOG_INK
+    };
+    let edge = if facts.waited {
+        palette::ACCENT
+    } else {
+        palette::DIALOG_LINE
+    };
+    // The strip's own marks, in the icon face: a sun on the seat whose
+    // turn it is, an hourglass on the one the table waits for.
+    let mut tags = String::new();
+    if facts.turn {
+        tags.push(crate::hud::glyph::SUN);
+    }
+    if facts.waited {
+        tags.push(crate::hud::glyph::HOURGLASS);
+    }
+    let peek = commands
+        .spawn((
+            crate::hud::PlayerTab {
+                player: facts.player,
+            },
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(px(4.0), px(6.0)),
+                row_gap: px(2.0),
+                min_height: px(44.0),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(ground),
+            BorderColor::all(edge),
+            Button,
+            Feel::new(ground),
+        ))
+        .id();
+    let mut line = |text: String, font: TextFont, colour: Color| {
+        let id = commands
+            .spawn((Text::new(text), font, TextColor(colour), Pickable::IGNORE))
+            .id();
+        commands.entity(peek).add_child(id);
+    };
+    line(facts.name.clone(), tf_bold(fonts, 12.0), facts.colour);
+    line(facts.life.to_string(), tf_bold(fonts, 18.0), ink);
+    let hand = commands
+        .spawn((
+            Node {
+                column_gap: px(4.0),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mark = commands
+        .spawn((
+            Text::new(crate::hud::glyph::HAND.to_string()),
+            crate::hud::icon_tf(fonts, 10.0),
+            TextColor(palette::DIALOG_SOFT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let count = commands
+        .spawn((
+            Text::new(facts.hand.to_string()),
+            tf(fonts, 11.0),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(hand).add_children(&[mark, count]);
+    commands.entity(peek).add_child(hand);
+    if !tags.is_empty() {
+        let tags = commands
+            .spawn((
+                Text::new(tags),
+                crate::hud::icon_tf(fonts, 12.0),
+                TextColor(palette::ACCENT),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(peek).add_child(tags);
+    }
+    peek
+}
