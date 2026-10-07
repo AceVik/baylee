@@ -922,9 +922,9 @@ fn deck_panel(
     let counts = deck.counts();
     let stats = deck.statistics();
     let width = match metrics.frame {
-        Frame::Compact => percent(100),
+        Frame::Compact | Frame::Phone => percent(100),
         Frame::Narrow => percent(54),
-        Frame::Wide => percent(52),
+        Frame::Wide | Frame::Vast => percent(52),
     };
     let grow = f32::from(u8::from(metrics.frame == Frame::Compact));
     let panel = build_panel(commands, metrics, width, grow);

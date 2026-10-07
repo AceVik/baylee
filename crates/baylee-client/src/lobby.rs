@@ -79,6 +79,7 @@ impl Plugin for LobbyPlugin {
         // The report form stands over the lobby and every table (#309).
         crate::report::install(app);
         crate::loading::install(app);
+        crate::shellkit::install(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
             .init_resource::<dock::Surfaces>()

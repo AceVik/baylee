@@ -93,6 +93,7 @@ pub mod seatpanel;
 pub mod settings;
 pub mod settingsui;
 pub mod sheen;
+pub mod shellkit;
 pub mod shellmat;
 pub mod shellui;
 pub mod sky;

@@ -28,8 +28,8 @@ pub(super) fn spawn(
     initially_visible: bool,
 ) -> Entity {
     let height = match (row, metrics.frame) {
-        (Row::Deck(_), Frame::Compact) => 144.0,
-        (Row::Deck(_), Frame::Narrow | Frame::Wide) => 90.0,
+        (Row::Deck(_), Frame::Compact | Frame::Phone) => 144.0,
+        (Row::Deck(_), Frame::Narrow | Frame::Wide | Frame::Vast) => 90.0,
     };
     let entity = commands
         .spawn((

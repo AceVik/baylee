@@ -4043,6 +4043,97 @@ messages! {
     },
     /// Settings that cannot be written at all.
     SeatFaultFile { en: "These settings cannot be written.", de: "Diese Einstellungen lassen sich nicht schreiben." },
+
+    // ====================================================================
+    // The shell redesign (`.claude/ux-b6/DESIGN-v5.md`): one append region
+    // per package, so packages working side by side add their words without
+    // meeting on the same lines. A region holds its screens' words; a word
+    // two screens share goes in the shell's. Labels keep their component's
+    // budget (§2.3: button 18, German 20; chip 14; tab 16; nav 12), and a
+    // German label shortened to fit is chosen here, once.
+    //
+    // ---- the shell (WP0b): header, kit, keyboard, bell, strips -----------
+    /// Navigation: the play screen.
+    ShellPlay { en: "Play", de: "Spielen" },
+    /// Navigation: the decks screen.
+    ShellDecks { en: "Decks", de: "Decks" },
+    /// A settings row kept on this device (`ClientSettings`).
+    ShellThisDevice { en: "This device", de: "Dieses Gerät" },
+    /// A settings row kept with the account, on every device (`Preferences`).
+    ShellYourAccount { en: "Your account", de: "Dein Konto" },
+    /// An error line's action.
+    ShellRetry { en: "Retry", de: "Erneut versuchen" },
+    /// A toast's action after a deletion.
+    ShellUndo { en: "Undo", de: "Rückgängig" },
+    /// A toast's action that opens more.
+    ShellDetails { en: "Details", de: "Details" },
+    /// A deck tile's primary.
+    ShellUseForNextGame { en: "Use for next game", de: "Fürs nächste Spiel" },
+    /// A deck tile's second action.
+    ShellEdit { en: "Edit", de: "Bearbeiten" },
+    /// A house deck: copy it and make it the next game's deck.
+    ShellAddAndUse { en: "Add and use", de: "Hinzufügen & nutzen" },
+    /// The gold primary while the player holds a seat.
+    ShellReturnToGame { en: "Return to your game", de: "Zurück zum Spiel" },
+    /// Why a control is off while there is no gateway.
+    ShellNeedsGateway { en: "Needs the gateway", de: "Braucht das Gateway" },
+    /// Why the starts are off while the player holds a seat. `{0}` the table.
+    ShellSeatedAt { en: "You are seated at {0}", de: "Du sitzt an {0}" },
+    /// An error line. `{0}` the gateway's name.
+    ShellCouldNotReach { en: "Couldn't reach {0}", de: "{0} ist nicht erreichbar" },
+    /// Play's empty tables list.
+    ShellNoOneWaiting { en: "No one is waiting", de: "Niemand wartet" },
+    /// A list read a moment ago.
+    ShellUpdatedJustNow { en: "updated just now", de: "gerade aktualisiert" },
+    /// A table filter.
+    ShellOpenSeats { en: "Open seats", de: "Freie Plätze" },
+    /// A table filter.
+    ShellNoPassword { en: "No password", de: "Ohne Passwort" },
+    /// The decks screen's first tab.
+    ShellMyDecks { en: "My decks", de: "Meine Decks" },
+    /// The decks screen's second tab.
+    ShellHouseDecks { en: "House decks", de: "Hausdecks" },
+    /// A deck was deleted; the toast offers Undo.
+    ShellDeckDeleted { en: "Deck deleted", de: "Deck gelöscht" },
+    /// The account popover.
+    ShellCopyHandle { en: "Copy my handle", de: "Mein Handle kopieren" },
+    /// The text-size row (Display & Interface).
+    ShellTextSize { en: "Text size", de: "Textgröße" },
+    /// The text-size row's help.
+    ShellTextSizeHelp { en: "Ctrl/⌘ + and − change it anywhere outside a game.", de: "Strg/⌘ + und − ändern sie überall außerhalb eines Spiels." },
+    /// The master volume row.
+    ShellMasterVolume { en: "Master volume", de: "Gesamtlautstärke" },
+    /// An account row.
+    ShellHoldStill { en: "Hold the table still", de: "Tisch ruhig halten" },
+    /// A drawer of expert fields.
+    ShellAdvanced { en: "Advanced", de: "Erweitert" },
+    /// The dev gallery's title.
+    ShellGallery { en: "Shell components", de: "Shell-Bausteine" },
+    /// A shell key: focus the screen's search.
+    ShellKeySearch { en: "Search", de: "Suchen" },
+    /// A shell key: the shortcuts overlay.
+    ShellKeyOverlay { en: "Keyboard shortcuts", de: "Tastenkürzel" },
+    /// A shell key: the overlay in go-to mode.
+    ShellKeyQuickSwitch { en: "Go to…", de: "Gehe zu …" },
+    /// A shell key: read this screen's data again.
+    ShellKeyRefresh { en: "Refresh", de: "Aktualisieren" },
+    /// A shell key: text one step larger.
+    ShellKeyTextLarger { en: "Larger text", de: "Größerer Text" },
+    /// A shell key: text one step smaller.
+    ShellKeyTextSmaller { en: "Smaller text", de: "Kleinerer Text" },
+    /// A shell key: text back to the default size.
+    ShellKeyTextReset { en: "Default text size", de: "Normale Textgröße" },
+    /// A shell key: start the game (the room's host).
+    ShellKeyStart { en: "Start the game", de: "Spiel starten" },
+    /// A shell key: save the deck.
+    ShellKeySave { en: "Save deck", de: "Deck speichern" },
+    /// A shell key: export the deck.
+    ShellKeyExport { en: "Export", de: "Exportieren" },
+    // ---- front door + terms (WP1) ----------------------------------------
+    // ---- play + room (WP2) -----------------------------------------------
+    // ---- decks, house decks, history (WP3) -------------------------------
+    // ---- the deck builder (WP4) ------------------------------------------
+    // ---- settings, report, language models, updates (WP5) ---------------
 }
 
 #[cfg(test)]

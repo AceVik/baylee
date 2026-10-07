@@ -41,33 +41,16 @@ pub(crate) struct UiRebuilds {
     pub(crate) frame: u64,
 }
 
-/// How much room there is, in three sizes.
+/// How much room there is: the shell's five size classes (§2.7), one enum
+/// for the lobby and the kit.
 ///
 /// Breakpoints rather than a continuous scale: what changes between a phone
 /// and a desktop is the *shape* of the screen — one column or two, a card that
-/// fills the width or one that floats — and shape does not interpolate.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) enum Frame {
-    /// A window narrower than 760 logical pixels (the shell design, §2.7).
-    Compact,
-    /// 760 to 1180: a tablet, or a half-screen window.
-    Narrow,
-    /// 1180 and wider: a desktop window, a large tablet.
-    Wide,
-}
-
-impl Frame {
-    /// The frame a window of this width is in.
-    pub(crate) fn of(width: f32) -> Self {
-        if width < 760.0 {
-            Self::Compact
-        } else if width < 1180.0 {
-            Self::Narrow
-        } else {
-            Self::Wide
-        }
-    }
-}
+/// fills the width or one that floats — and shape does not interpolate. The
+/// lobby's screens still read [`Frame::of`], the width-only reading that
+/// answers only `Compact`, `Narrow` and `Wide`; each screen's package moves
+/// it onto `Frame::classify` (raw height, text step) with the shell.
+pub(crate) use crate::shellkit::Frame;
 
 /// Every size the layout takes from the frame, in one place.
 #[derive(Clone, Copy)]
@@ -91,7 +74,7 @@ pub(crate) struct Metrics {
 impl Metrics {
     pub(crate) fn of(width: f32) -> Self {
         match Frame::of(width) {
-            Frame::Compact => Self {
+            Frame::Compact | Frame::Phone => Self {
                 frame: Frame::Compact,
                 text: 15.0,
                 head: 17.0,
@@ -109,7 +92,7 @@ impl Metrics {
                 pad: 16.0,
                 gap: 10.0,
             },
-            Frame::Wide => Self {
+            Frame::Wide | Frame::Vast => Self {
                 frame: Frame::Wide,
                 text: 16.0,
                 head: 22.0,
@@ -129,9 +112,9 @@ impl Metrics {
     /// The width of the deck panel beside the table list.
     pub(super) fn decks_width(self) -> Val {
         match self.frame {
-            Frame::Compact => percent(100),
+            Frame::Compact | Frame::Phone => percent(100),
             Frame::Narrow => px(280),
-            Frame::Wide => px(360),
+            Frame::Wide | Frame::Vast => px(360),
         }
     }
 }

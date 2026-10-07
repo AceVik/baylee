@@ -103,6 +103,79 @@ pub(crate) fn window_size() -> Option<(f32, f32)> {
         .then_some((f32::from(width), f32::from(height)))
 }
 
+/// `/shell {"text_size":"xl","lang":"de","input":"touch","gallery":"true"}`:
+/// the shell's knobs, for its checks (every field optional).
+///
+/// `text_size` is the device's step (`xs s m l xl`); `lang` the interface's
+/// language (`en de`), in the settings and the lobby both; `input` pins the
+/// input class (`touch pointer`, `auto` unpins it); `gallery` opens or
+/// closes the kit's gallery. Nothing is written to the settings file.
+fn shell_knobs(
+    mut commands: Commands,
+    mut control: ResMut<DevControl>,
+    settings: Option<ResMut<ClientSettings>>,
+    gallery: Option<ResMut<crate::shellkit::gallery::Gallery>>,
+    lobby: Option<ResMut<crate::lobby::LobbyState>>,
+) {
+    if control.shell_jobs.is_empty() {
+        return;
+    }
+    let (mut settings, mut gallery, mut lobby) = (settings, gallery, lobby);
+    for job in std::mem::take(&mut control.shell_jobs) {
+        let body = job.body.as_str();
+        let mut said = Vec::new();
+        if let Some(step) = field(body, "text_size") {
+            let step = match step {
+                "xs" => Some(crate::shellkit::TextSize::Xs),
+                "s" => Some(crate::shellkit::TextSize::S),
+                "m" => Some(crate::shellkit::TextSize::M),
+                "l" => Some(crate::shellkit::TextSize::L),
+                "xl" => Some(crate::shellkit::TextSize::Xl),
+                _ => None,
+            };
+            if let (Some(step), Some(settings)) = (step, settings.as_mut()) {
+                settings.text_size = step;
+                said.push(format!("\"text_size\":{}", step.step()));
+            }
+        }
+        if let Some(code) = field(body, "lang").filter(|c| matches!(*c, "en" | "de")) {
+            if let Some(settings) = settings.as_mut() {
+                settings.lang = code.to_string();
+            }
+            if let Some(lobby) = lobby.as_mut() {
+                lobby.lobby.set_lang(Lang::of(code));
+            }
+            said.push(format!("\"lang\":{}", quoted(code)));
+        }
+        match field(body, "input") {
+            Some("touch") => {
+                commands.insert_resource(crate::shellkit::size::PinnedInput(
+                    crate::shellkit::InputClass::Touch,
+                ));
+                said.push("\"input\":\"touch\"".to_string());
+            }
+            Some("pointer") => {
+                commands.insert_resource(crate::shellkit::size::PinnedInput(
+                    crate::shellkit::InputClass::Pointer,
+                ));
+                said.push("\"input\":\"pointer\"".to_string());
+            }
+            Some("auto") => {
+                commands.remove_resource::<crate::shellkit::size::PinnedInput>();
+                said.push("\"input\":\"auto\"".to_string());
+            }
+            _ => {}
+        }
+        if let (Some(open), Some(gallery)) = (field(body, "gallery"), gallery.as_mut()) {
+            gallery.open = open == "true";
+            said.push(format!("\"gallery\":{}", gallery.open));
+        }
+        let _ = job
+            .reply
+            .send(format!("{{\"ok\":true,{}}}", said.join(",")));
+    }
+}
+
 /// `/window {"width":844,"height":390}`: sets the window's logical size.
 ///
 /// The shell is checked at seven sizes (the shell design, §2.7), and a
@@ -212,12 +285,16 @@ impl Plugin for DevControlPlugin {
             held: Vec::new(),
             clicking: Vec::new(),
             stepping: None,
+            shell_jobs: Vec::new(),
             frame: 0,
         })
         // After `InputSystem`: bevy has already cleared last frame's
         // `just_pressed` by then, so a key pressed here is `just_pressed`
         // for exactly the frame that follows, the way a real one is.
-        .add_systems(PreUpdate, pump.after(bevy::input::InputSystems));
+        .add_systems(
+            PreUpdate,
+            (pump, shell_knobs).chain().after(bevy::input::InputSystems),
+        );
         perf::install(app);
     }
 }
@@ -236,6 +313,9 @@ struct DevControl {
     clicking: Vec<Click>,
     /// A `/step` running: the clock has been let go until it counts out.
     stepping: Option<Stepping>,
+    /// `/shell` requests, answered by `shell_knobs` after `pump` (they write
+    /// the settings `pump` only reads).
+    shell_jobs: Vec<Job>,
     frame: u64,
 }
 
@@ -712,6 +792,10 @@ fn pump(
                 continue;
             }
             "/timescale" | "/pause" => set_clock(&job.path, &job.body, &mut clock),
+            "/shell" => {
+                control.shell_jobs.push(job);
+                continue;
+            }
             "/window" => match windows.single_mut() {
                 Ok((_, mut win)) => resize(&job.body, &mut win),
                 Err(_) => "{\"error\":\"no primary window\"}".to_string(),
@@ -1180,6 +1264,9 @@ struct Believed<'w, 's> {
     >,
     /// The lobby tree's root, and every node under it, for `shell_nodes`.
     shell_roots: Query<'w, 's, Entity, With<crate::lobby::LobbyRoot>>,
+    /// The kit's gallery, dumped after the lobby with `"r":"gallery"` on
+    /// its root.
+    gallery_roots: Query<'w, 's, Entity, With<crate::shellkit::gallery::GalleryRoot>>,
     #[allow(clippy::type_complexity)] // one row of a tree walk
     shell_nodes: Query<
         'w,
@@ -1191,6 +1278,7 @@ struct Believed<'w, 's> {
             Option<&'static UiGlobalTransform>,
             Option<&'static Children>,
             bevy::ecs::query::Has<crate::lobby::Press>,
+            Option<&'static crate::shellkit::Role>,
         ),
     >,
     legal_text: Query<
@@ -1508,9 +1596,21 @@ fn desk_controls_json(believed: &Believed) -> String {
 /// may legitimately change under such a refactor — no entity index, no
 /// `Press` spelling — and nothing a player typed into a masked field: a
 /// `Masked` field draws dots, and the dots are what is reported.
+///
+/// A node the shell's kit made also says what it is (`"k"`, a
+/// `shellkit::Role`), which is what the shell's checks read
+/// (`scripts/shell/check.py`): a button's label against its budget, a hit
+/// wrapper against 44 × 44, a panel's rect as the ground for contrast.
 fn shell_nodes_json(believed: &Believed) -> String {
-    fn walk(believed: &Believed, entity: Entity, depth: usize, out: &mut Vec<String>) {
-        let Ok((text, _, node, place, children, pressable)) = believed.shell_nodes.get(entity)
+    fn walk(
+        believed: &Believed,
+        entity: Entity,
+        depth: usize,
+        root: Option<&str>,
+        out: &mut Vec<String>,
+    ) {
+        let Ok((text, _, node, place, children, pressable, role)) =
+            believed.shell_nodes.get(entity)
         else {
             return;
         };
@@ -1540,15 +1640,26 @@ fn shell_nodes_json(believed: &Believed) -> String {
         if pressable {
             row.push_str(",\"i\":true");
         }
+        if let Some(role) = role {
+            row.push_str(",\"k\":");
+            row.push_str(&quoted(role.name()));
+        }
+        if let Some(root) = root {
+            row.push_str(",\"r\":");
+            row.push_str(&quoted(root));
+        }
         row.push('}');
         out.push(row);
         for child in children.into_iter().flatten() {
-            walk(believed, *child, depth + 1, out);
+            walk(believed, *child, depth + 1, None, out);
         }
     }
     let mut out = Vec::new();
     for root in &believed.shell_roots {
-        walk(believed, root, 0, &mut out);
+        walk(believed, root, 0, None, &mut out);
+    }
+    for root in &believed.gallery_roots {
+        walk(believed, root, 0, Some("gallery"), &mut out);
     }
     format!("[{}]", out.join(","))
 }
@@ -2606,6 +2717,7 @@ mod tests {
                 held: Vec::new(),
                 clicking: Vec::new(),
                 stepping: None,
+                shell_jobs: Vec::new(),
                 frame: 0,
             })
             .init_resource::<perf::Probe>()

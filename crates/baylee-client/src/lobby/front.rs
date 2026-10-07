@@ -93,9 +93,9 @@ pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content pe
 /// whole page.
 fn card_width(frame: Frame) -> Val {
     match frame {
-        Frame::Compact => percent(100),
+        Frame::Compact | Frame::Phone => percent(100),
         Frame::Narrow => px(480),
-        Frame::Wide => px(600),
+        Frame::Wide | Frame::Vast => px(600),
     }
 }
 

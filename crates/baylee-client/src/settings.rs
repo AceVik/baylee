@@ -137,6 +137,12 @@ pub struct ClientSettings {
     /// music's own level above.
     #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
     pub audio: baylee_client_core::audiomix::AudioMix,
+    /// The shell's text step, this device's (the shell design, §8): five
+    /// steps around today's size, `Ctrl/Cmd + = − 0` and Settings › Display
+    /// & Interface. The table's faces do not follow it. A file from before
+    /// it, or one naming a step this build does not know, reads `L`.
+    #[serde(default, deserialize_with = "baylee_client_core::graphics::lenient")]
+    pub text_size: crate::shellkit::TextSize,
     /// What this device lets a report carry, and whether it sends crash
     /// reports (#309, #310). Per device, like the music: the form is open
     /// before anybody signs in, and a crash happens whoever is signed in.
@@ -170,6 +176,7 @@ impl Default for ClientSettings {
             music: baylee_client_core::music::MusicLevel::default(),
             graphics: None,
             audio: baylee_client_core::audiomix::AudioMix::default(),
+            text_size: crate::shellkit::TextSize::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
             report_device: None,
@@ -683,6 +690,7 @@ mod tests {
             },
             feedback_url: Some("https://feedback.example.test".into()),
             report_device: Some("0123456789abcdef0123456789abcdef".into()),
+            text_size: crate::shellkit::TextSize::Xl,
         };
         let text = serde_json::to_string_pretty(&written).expect("serializes");
         let read: ClientSettings = serde_json::from_str(&text).expect("decodes");
@@ -690,6 +698,10 @@ mod tests {
         assert_eq!(read.audio, written.audio);
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_device, written.report_device);
+        assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
+        let unknown: ClientSettings =
+            serde_json::from_str(r#"{"text_size":"huge"}"#).expect("a step it does not know reads");
+        assert_eq!(unknown.text_size, crate::shellkit::TextSize::L);
         assert_eq!(read.reports, written.reports);
         assert_eq!(read.gateways, written.gateways);
         assert!((read.preview_scale - 1.75).abs() < f32::EPSILON);
