@@ -17,6 +17,7 @@ mod feed;
 mod frame;
 mod gateway;
 mod guests;
+mod header;
 mod invites;
 mod perf;
 mod printings;
@@ -269,6 +270,23 @@ fn stocked(app: &mut App) {
     state.lobby.apply(LobbyEvent::Pool {
         cards: pool_cards(),
         has_text: true,
+    });
+}
+
+/// Signs out the way a player does: the account pill, then Sign out in
+/// its menu (the shell design, §2.1).
+fn sign_out_from_the_header(app: &mut App) {
+    use super::header::HeaderPress;
+    // Offline there is no account: the gateway pill's menu leaves.
+    let offline = app.world().resource::<LobbyState>().lobby.offline();
+    let pill = if offline {
+        HeaderPress::Gateway
+    } else {
+        HeaderPress::Account
+    };
+    tap_control(app, "the pill", |p| *p == Press::Header(pill));
+    tap_control(app, "sign out", |p| {
+        *p == Press::Header(HeaderPress::SignOut)
     });
 }
 

@@ -46,6 +46,13 @@ pub(super) fn keyboard(
         }
         return;
     }
+    // A header popover is a menu: Esc closes it, and nothing under it
+    // takes the key (`KEYBOARD.md` §2.5).
+    if state.header_menu.is_some() && codes.just_pressed(KeyCode::Escape) {
+        keys.clear();
+        state.header_menu = None;
+        return;
+    }
     // A rebinding in progress takes every key, including the ones that mean
     // something everywhere else — a player who wants `Esc` on some other
     // action has to be able to press it. Escape and backspace are the two

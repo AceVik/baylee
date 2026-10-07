@@ -800,3 +800,56 @@ pub(super) fn decode_library(
         parsed.unwrap_or_else(|_| Reply::Failed(Phrase::LibraryReadFailed.text(lang).to_string())),
     )
 }
+
+/// What a side question to the gateway answered: the body, a spent session,
+/// or nothing worth saying (an older gateway's `404`, an error).
+pub(super) enum Side<T> {
+    /// It answered.
+    Said(T),
+    /// A `401`: the session has ended.
+    Expired,
+    /// Nothing to say.
+    Nothing,
+}
+
+/// Reads a side question's answer.
+pub(super) fn read_side<T: serde::de::DeserializeOwned>(
+    answer: &Result<ehttp::Response, String>,
+) -> Side<T> {
+    match answer {
+        Ok(response) if response.ok => {
+            serde_json::from_slice(&response.bytes).map_or(Side::Nothing, Side::Said)
+        }
+        Ok(response) if response.status == 401 => Side::Expired,
+        _ => Side::Nothing,
+    }
+}
+
+/// Asks `GET {gateway}{path}` with the session, off the lobby's one-request
+/// chain (WP0b-3: `/me`, `/lobby/stats`): nothing waits for it, and an
+/// answer for a gateway since left is dropped by its epoch.
+pub(super) fn ask_aside<T: serde::de::DeserializeOwned + Send + 'static>(
+    gateway: &str,
+    path: &str,
+    token: &str,
+    epoch: u64,
+    mailbox: &Mailbox,
+    reply: fn(T) -> Reply,
+) {
+    let url = format!("{}{path}", gateway.trim_end_matches('/'));
+    let request = bearer(
+        ehttp::Request::get(url).with_timeout(Some(PROBE_TIMEOUT)),
+        Some(token),
+    );
+    let box_ = Arc::clone(&mailbox.0);
+    crate::transport::fetch(request, move |answer| {
+        let said = match read_side::<T>(&answer) {
+            Side::Said(body) => reply(body),
+            Side::Expired => Reply::Expired,
+            Side::Nothing => return,
+        };
+        if let Ok(mut box_) = box_.lock() {
+            box_.push(Reply::Remote(epoch, Box::new(said)));
+        }
+    });
+}

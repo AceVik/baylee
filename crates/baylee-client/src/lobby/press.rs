@@ -28,6 +28,8 @@ pub(crate) enum Press {
     End(EndPress),
     /// More than one screen.
     Shared(SharedPress),
+    /// The shell's header and strips (WP0b-3).
+    Header(super::header::HeaderPress),
 }
 
 /// A control more than one screen draws.

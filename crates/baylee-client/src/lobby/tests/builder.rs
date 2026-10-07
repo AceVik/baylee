@@ -1047,9 +1047,7 @@ fn offline_play_builds_from_its_own_pool_after_a_sign_out() {
         tap_control(&mut app, "the way out", |p| {
             *p == Press::Build(BuildPress::CloseBuilder)
         });
-        tap_control(&mut app, "sign out", |p| {
-            *p == Press::Hub(HubPress::SignOut)
-        });
+        sign_out_from_the_header(&mut app);
         assert!(
             !app.world()
                 .resource::<LobbyState>()

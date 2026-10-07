@@ -3620,6 +3620,34 @@ searchable, Enter runs the highlighted one, focus goes back to its opener.
 `/state.shell` reports the focus, the stack, the overlay, the resolver's
 count and the actions it fired; `/key` takes a `"char"` to play a layout.
 
+### The shell's header and strips
+
+Every signed-in lobby screen but the builder wears the shell's header
+(`lobby/header.rs` over `shellkit::header`; the builder keeps its own and
+gets only the strips): Play · Decks · Settings, the gateway pill (its reach
+dot, `/info`'s name, and `GET /lobby/stats`'s tables and players, or the
+listing's waiting tables until it answers), the quick-settings gear, the
+bell, and the account pill (`GET /me`'s handle; offline, no account: the
+gateway pill's menu is the way back to the gateways). `/me` and the stats
+are side questions off the lobby's one-request chain (`http::ask_aside`,
+dropped by the gateway epoch, a `401` ends the session), the stats every
+20 s on the hub, `/info` every five minutes so an upgrade under a running
+client turns into the "Update required" strip. Each answer is written only
+when it changes, since a write is a rebuild.
+
+Below it, the seated strip ("Seated at … · 3 of 4 seated · 1 ready",
+Return, Leave at a waiting table; "Playing at …", Return alone) stands on
+every screen but the room itself (`strips::in_the_room`); on a Phone it
+folds into the header as the gold Return pill in the gateway dot's place.
+`r` is its Return. The reconnecting strip stands while a feed that was
+live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
+somebody sitting down at or leaving the player's waiting table and for the
+table filling (`strips::table_news`); each ring is a toast for six seconds,
+at most three, bottom-right (from the top on a Phone), in a lane of its own
+outside the lobby's tree. A `401` lands on the front door with "Signed out
+— your session ended · Sign in again", and the builder's draft and pool are
+kept for the next sign-in.
+
 ### A wait is not a veil
 
 `lobby/systems::waiting` says what the lobby is waiting for on every frame it

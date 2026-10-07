@@ -4137,6 +4137,49 @@ messages! {
     ShellClose { en: "Close", de: "Schließen" },
     /// The shortcuts overlay, when nothing matches the search.
     ShellOverlayNoMatch { en: "No shortcut matches", de: "Kein Kürzel passt" },
+    /// The seated strip at a waiting table. `{0}` the table, `{1}` chairs
+    /// taken, `{2}` chairs, `{3}` ready.
+    ShellSeatedStrip { en: "Seated at \u{201c}{0}\u{201d} · {1} of {2} seated · {3} ready", de: "Am Tisch \u{201e}{0}\u{201c} · {1} von {2} sitzen · {3} bereit" },
+    /// The seated strip while the game is played. `{0}` the table.
+    ShellPlayingStrip { en: "Playing at \u{201c}{0}\u{201d}", de: "Du spielst an \u{201e}{0}\u{201c}" },
+    /// The strip's way back to the table.
+    ShellReturn { en: "Return", de: "Zurück" },
+    /// The strip's way to give the chair up (waiting tables only).
+    ShellLeave { en: "Leave", de: "Verlassen" },
+    /// The gateway pill's counts. `{0}` tables waiting, `{1}` players online.
+    ShellTablesOnline { en: "{0} tables · {1} online", de: "{0} Tische · {1} online" },
+    /// The gateway pill's count before `/lobby/stats` has answered. `{0}`
+    /// tables waiting.
+    ShellTablesWaiting { en: "{0} waiting", de: "{0} warten" },
+    /// The lobby feed is down and being dialled again.
+    ShellReconnecting { en: "Reconnecting\u{2026}", de: "Verbinde neu\u{2009}\u{2026}" },
+    /// Dial the lobby feed again now.
+    ShellRetryNow { en: "Retry now", de: "Jetzt versuchen" },
+    /// The front door after a `401`: the session ended, nothing typed is lost.
+    ShellSessionEnded { en: "Signed out \u{2014} your session ended · Sign in again", de: "Abgemeldet \u{2014} deine Sitzung ist abgelaufen · Melde dich neu an" },
+    /// The account pill's menu: sign out.
+    ShellSignOut { en: "Sign out", de: "Abmelden" },
+    /// The account pill's menu: back to the gateway picker.
+    ShellSwitchGateway { en: "Switch gateway", de: "Gateway wechseln" },
+    /// The account pill's menu: the report form.
+    ShellReportProblem { en: "Report a problem", de: "Problem melden" },
+    /// The bell, with nothing in it.
+    ShellBellEmpty { en: "Nothing new", de: "Nichts Neues" },
+    /// A bell line: somebody sat down at the player's table. `{0}` who.
+    ShellBellJoined { en: "{0} sat down at your table", de: "{0} hat sich an deinen Tisch gesetzt" },
+    /// A bell line: somebody left the player's table. `{0}` who.
+    ShellBellLeft { en: "{0} left your table", de: "{0} hat deinen Tisch verlassen" },
+    /// A bell line: every chair at the player's table is taken.
+    ShellBellFilled { en: "Your table is full", de: "Dein Tisch ist voll" },
+    /// The gateway pill while there is no gateway.
+    ShellOfflinePill { en: "Offline · local decks", de: "Offline · lokale Decks" },
+    /// The gateway popover: this client's version follows.
+    ShellThisClient { en: "This client", de: "Dieser Client" },
+    /// The gateway popover's counts. `{0}` players online, `{1}` tables
+    /// waiting, `{2}` games running.
+    ShellStatsLine { en: "{0} online · {1} waiting · {2} playing", de: "{0} online · {1} warten · {2} spielen" },
+    /// The gateway now refuses this client's protocol: an update is needed.
+    ShellUpdateRequired { en: "Update required \u{2014} this gateway runs a newer version", de: "Update n\u{f6}tig \u{2014} dieses Gateway l\u{e4}uft mit einer neueren Version" },
     // ---- front door + terms (WP1) ----------------------------------------
     // ---- play + room (WP2) -----------------------------------------------
     // ---- decks, house decks, history (WP3) -------------------------------

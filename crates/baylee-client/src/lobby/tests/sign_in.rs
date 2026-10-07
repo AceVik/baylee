@@ -813,7 +813,7 @@ fn issue_187_sign_out_ignores_late_account_responses() {
         });
     app.update();
     let epoch = app.world().resource::<LobbyState>().gateway_epoch;
-    press(&mut app, Press::Hub(HubPress::SignOut));
+    sign_out_from_the_header(&mut app);
     app.world()
         .resource::<Mailbox>()
         .0

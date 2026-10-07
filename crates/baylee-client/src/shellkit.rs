@@ -22,6 +22,7 @@
 //! - [`keys`]: the shell's second keymap wired to the keyboard — the
 //!   resolver over the context stack, the text-size chords (§2, §7.1).
 //! - [`overlay`]: the `?` overlay (§4.1).
+//! - [`header`]: the header and its strips (§2.1).
 //! - `gallery` (dev-control builds only): every component in every state,
 //!   the screen WP0b-1 is accepted on.
 
@@ -29,6 +30,7 @@ pub mod controls;
 pub mod focus;
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub mod gallery;
+pub mod header;
 #[cfg(test)]
 mod keyboard_tests;
 pub mod keys;

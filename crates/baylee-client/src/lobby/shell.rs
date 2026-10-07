@@ -187,6 +187,17 @@ pub(super) fn teardown(
     }
 }
 
+/// What the lobby's tree was last built for, on the kit's side: the size
+/// class read on the raw height, the text step, the input class, and
+/// whether a seated strip stands (the builder's patch path draws none).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) struct KitDrawn {
+    frame: Frame,
+    step: crate::shellkit::TextSize,
+    input: crate::shellkit::InputClass,
+    strip: bool,
+}
+
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
 /// into a different frame.
 ///
@@ -209,20 +220,41 @@ pub(super) fn ui(
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
     cast: Res<super::front::FrontCast>,
+    // The shell's header and strips are measured by the kit: the text step
+    // and the input class (WP0b-3).
+    kit_inputs: (
+        Res<crate::shellkit::InputClass>,
+        Option<Res<crate::settings::ClientSettings>>,
+    ),
     mut drawn: Local<Option<Frame>>,
+    mut kit_drawn: Local<Option<KitDrawn>>,
     mut builder_drawn: Local<Option<crate::buildui::Retained>>,
     mut rebuilds: ResMut<UiRebuilds>,
 ) {
-    let width = windows
-        .iter()
-        .next()
-        .map_or(1280.0, |w| w.resolution.width());
+    let (width, height) = windows.iter().next().map_or((1280.0, 800.0), |w| {
+        (w.resolution.width(), w.resolution.height())
+    });
     let metrics = Metrics::of(width);
+    let step = kit_inputs
+        .1
+        .as_deref()
+        .map_or_else(Default::default, |s| s.text_size);
+    let shell_m = super::header::kit_metrics(width, height, step, *kit_inputs.0);
+    // Only what the header draws from the kit's side; compared, never read
+    // off a change flag (a settings save is not a rebuild).
+    let kit_now = KitDrawn {
+        frame: shell_m.frame,
+        step,
+        input: *kit_inputs.0,
+        strip: super::header::seated(&state).is_some(),
+    };
+    let kit_same = kit_drawn.as_ref() == Some(&kit_now);
     if !state.is_changed()
         && !prefs.is_changed()
         && !cast.is_changed()
         && !root.is_empty()
         && *drawn == Some(metrics.frame)
+        && kit_same
     {
         return;
     }
@@ -246,6 +278,7 @@ pub(super) fn ui(
         && state.confirmation.is_none()
         && !prefs.is_changed()
         && *drawn == Some(metrics.frame)
+        && kit_same
         && metrics.frame != Frame::Compact
         && !root.is_empty()
         && let Some(cached) = builder_drawn.as_mut()
@@ -266,12 +299,18 @@ pub(super) fn ui(
     rebuilds.state += u64::from(state.is_changed());
     rebuilds.prefs += u64::from(prefs.is_changed());
     rebuilds.cast += u64::from(cast.is_changed());
-    rebuilds.frame += u64::from(root.is_empty() || *drawn != Some(metrics.frame));
+    rebuilds.frame += u64::from(root.is_empty() || *drawn != Some(metrics.frame) || !kit_same);
     *builder_drawn = None;
     for entity in &root {
         commands.entity(entity).despawn();
     }
     *drawn = Some(metrics.frame);
+    *kit_drawn = Some(kit_now);
+    let kit = crate::shellkit::controls::Kit {
+        fonts: &fonts,
+        m: shell_m,
+        german: state.lobby.lang() == Lang::De,
+    };
 
     let full_bleed = true;
     // A phone puts the sign-in form near the top instead of centring it: the
@@ -318,6 +357,7 @@ pub(super) fn ui(
     // account's, not the gateway's, and coming back has to land exactly where
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
+        super::header::draw(&mut commands, root, &state, kit, metrics);
         crate::settingsui::screen(
             &mut commands,
             root,
@@ -335,6 +375,7 @@ pub(super) fn ui(
     }
 
     if state.lobby.library().page.is_some() {
+        super::header::draw(&mut commands, root, &state, kit, metrics);
         super::library_ui::screen(&mut commands, root, &state, &fonts, metrics, &scrolled_to);
         return;
     }
@@ -355,8 +396,19 @@ pub(super) fn ui(
                 assets.as_deref(),
             );
         }
-        Screen::Table => table(&mut commands, root, &state, &fonts, metrics, &scrolled_to),
+        Screen::Table => table(
+            &mut commands,
+            root,
+            &state,
+            &fonts,
+            metrics,
+            &scrolled_to,
+            kit,
+        ),
         Screen::Build => {
+            // The builder keeps its own header; the seated strip stands
+            // above it.
+            super::header::draw(&mut commands, root, &state, kit, metrics);
             *builder_drawn = Some(crate::buildui::builder(
                 &mut commands,
                 root,

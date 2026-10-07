@@ -14,6 +14,7 @@ pub(super) fn table(
     fonts: &UiFonts,
     metrics: Metrics,
     scrolled_to: &Scrolled,
+    kit: crate::shellkit::controls::Kit,
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
@@ -48,100 +49,45 @@ pub(super) fn table(
     commands.entity(root).add_child(frame);
     let root = frame;
 
-    // ---- top bar
-    let bar = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                min_height: px(metrics.tap + metrics.pad),
-                flex_shrink: 0.0,
-                align_items: AlignItems::Center,
-                column_gap: px(metrics.gap),
-                row_gap: px(6),
-                flex_wrap: FlexWrap::Wrap,
-                padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.5)),
-                ..default()
-            },
-            BackgroundColor(palette::SANCTUARY_PANEL),
-        ))
-        .id();
-    let brand = commands
-        .spawn((
-            Text::new(Phrase::AppName.text(lang)),
-            tf(fonts, metrics.head * 1.2),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(bar).add_child(brand);
-    // The build, beside the name, on every screen including a phone.
-    //
-    // It survives the narrowing that drops the gateway address below,
-    // because the two answer different questions: the address is reassurance
-    // a player already has, and this is the only thing on screen that says
-    // *which* baylee this is. It is what a bug report is worthless without,
-    // and it is half of the AGPL offer the gateway answers in full at
-    // `GET /source` — a version, so that "the source is over there" names a
-    // particular source. Twenty characters at the smallest size the lobby
-    // has, which is what lets it afford to be unconditional.
-    let build = commands
-        .spawn((
-            Text::new(baylee_build::short()),
-            tf(fonts, metrics.small * 0.9),
-            TextColor(palette::MUTED),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(bar).add_child(build);
-    // The gateway address is reassurance, not information, and the first thing
-    // a narrow screen can do without — and offline it is not even that: the
-    // address is printed from settings and nothing has been dialled.
-    if !phone && !lobby.offline() {
-        let host = commands
+    // ---- the shell's header, its strips and popovers (WP0b-3)
+    super::header::draw(commands, root, state, kit, metrics);
+    // What the lobby last said, under the header: refusals land here.
+    if !lobby.status().is_empty() {
+        let line = commands
             .spawn((
-                Text::new(state.gateway.clone()),
-                tf(fonts, metrics.small * 0.9),
-                TextColor(palette::MUTED),
+                Node {
+                    width: percent(100),
+                    justify_content: JustifyContent::FlexEnd,
+                    flex_shrink: 0.0,
+                    padding: UiRect::axes(px(metrics.pad), px(2)),
+                    ..default()
+                },
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(bar).add_child(host);
-    }
-    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-    let status = commands
-        .spawn((
-            Text::new(lobby.status()),
-            tf(fonts, metrics.small),
-            TextColor(status_ink(lobby.tone())),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let settings = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::Settings.text(lang),
-        Press::Front(FrontPress::FrontMenu),
-        palette::PANEL_LIT,
-        true,
-    );
-    let out = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::SignOut.text(lang),
-        Press::Hub(HubPress::SignOut),
-        palette::PANEL_LIT,
-        true,
-    );
-    commands.entity(bar).add_child(gap);
-    commands.entity(bar).add_child(status);
-    commands.entity(bar).add_child(settings);
-    commands.entity(bar).add_child(out);
-    commands.entity(root).add_child(bar);
-    if state.front_menu {
-        let menu = super::front::gear_menu(commands, state, fonts, metrics, metrics.pad);
-        commands.entity(bar).add_child(menu);
+        // On a mist plate: no text stands on the painting bare (§2.2).
+        let plate = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(px(8), px(2)),
+                    border_radius: BorderRadius::all(px(6)),
+                    ..default()
+                },
+                BackgroundColor(crate::shellkit::tokens::MIST),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let status = commands
+            .spawn((
+                Text::new(lobby.status()),
+                tf(fonts, metrics.small),
+                TextColor(status_ink(lobby.tone())),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(plate).add_child(status);
+        commands.entity(line).add_child(plate);
+        commands.entity(root).add_child(line);
     }
 
     if let Some(handover) = lobby.awaiting()

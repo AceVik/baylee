@@ -128,6 +128,10 @@ pub(super) fn clicks(
         {
             state.front_menu = false;
         }
+        // Anything but the header's own controls closes a header popover.
+        if state.header_menu.is_some() && !matches!(*press, Press::Header(_)) {
+            state.header_menu = None;
+        }
         // Any other control answers the question the back button asked.
         //
         // Every write in this preamble is guarded: taking `&mut` out of the
@@ -187,6 +191,7 @@ pub(super) fn clicks(
             // Game-over actions are handled by `leave_clicks`.
             Press::End(_) => {}
             Press::Shared(press) => press.handle(cx),
+            Press::Header(press) => press.handle(cx),
         }
     }
 }

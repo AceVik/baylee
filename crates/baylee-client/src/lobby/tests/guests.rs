@@ -155,9 +155,7 @@ fn a_guest_the_gateway_has_ended_is_forgotten_here_too() {
 #[test]
 fn a_guest_is_asked_before_it_signs_out_and_forgotten_after() {
     let mut app = in_as_a_guest();
-    tap_control(&mut app, "sign out", |p| {
-        *p == Press::Hub(HubPress::SignOut)
-    });
+    sign_out_from_the_header(&mut app);
     assert!(matches!(
         app.world().resource::<LobbyState>().confirmation,
         Some(super::confirm::Destructive::SignOutGuest)
@@ -197,9 +195,7 @@ fn an_account_signing_out_leaves_the_kept_guest_alone() {
         }),
     );
     settle(&mut app);
-    tap_control(&mut app, "sign out", |p| {
-        *p == Press::Hub(HubPress::SignOut)
-    });
+    sign_out_from_the_header(&mut app);
     let state = app.world().resource::<LobbyState>();
     assert!(state.confirmation.is_none(), "nothing to ask");
     assert_eq!(state.lobby.token(), None);

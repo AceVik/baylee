@@ -9,7 +9,8 @@
 //! focus model of its own (§1.7) and with it the bare keys.
 //!
 //! The doors this module opens: `1 2 3` and `Ctrl/Cmd+,` (Play, Decks,
-//! Settings), Refresh, New deck, and Search (the search box takes the caret).
+//! Settings), Refresh, New deck, Search (the search box takes the caret),
+//! and `r`, the seated strip's Return.
 //! The others resolve and are logged (`/state.shell.fired`); their doors are
 //! the screens' own, built by the packages that own those screens.
 
@@ -37,7 +38,7 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
     let modal = state.confirmation.is_some()
         || state.lobby.deleting_account().is_some()
         || state.lobby.library().page.is_some();
-    let menu = state.front_menu || state.completion.is_some();
+    let menu = state.front_menu || state.completion.is_some() || state.header_menu.is_some();
     // Settings types only into its own boxes (the key capture, the seat
     // panel); behind it the lobby's caret is idle (`keyboard` returns early).
     let field = if screen == Context::Settings {
@@ -102,6 +103,10 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
             Some(Press::Hub(HubPress::NewDeck))
         }
         ShellAction::Search if hub => Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        // `r`: the seated strip's Return, wherever the strip stands.
+        ShellAction::ReturnToGame if super::header::seated(state).is_some() => {
+            Some(Press::Header(super::header::HeaderPress::Return))
+        }
         _ => None,
     }
 }
@@ -135,6 +140,7 @@ pub(super) fn run_fired(
                 Press::Hub(press) => press.handle(cx),
                 Press::Settings(press) => press.handle(cx),
                 Press::Shared(press) => press.handle(cx),
+                Press::Header(press) => press.handle(cx),
                 _ => {}
             }
             if !closing {

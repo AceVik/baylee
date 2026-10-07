@@ -80,6 +80,7 @@ impl Plugin for LobbyPlugin {
         crate::report::install(app);
         crate::loading::install(app);
         crate::shellkit::install(app);
+        header::install(app);
         crate::flip::install(app);
         app.init_resource::<thumbnails::Cache>()
             .init_resource::<dock::Surfaces>()
@@ -280,6 +281,18 @@ pub struct LobbyState {
     /// eventually grants is marked local so the shell installs an in-process
     /// engine rather than dialling a socket.
     pub(crate) offline: Option<offline::Offline>,
+    /// The header popover that is open (WP0b-3).
+    pub(crate) header_menu: Option<header::HeaderMenu>,
+    /// The lobby feed was live and is being dialled again: the reconnecting
+    /// strip. Written by `feed::feed` only when it turns.
+    pub(crate) feed_down: bool,
+    /// Retry now was pressed: the feed dials at once.
+    pub(crate) retry_feed: bool,
+    /// What the player may have missed (`strips::Bell`).
+    pub(crate) bell: client_core::lobby::strips::Bell,
+    /// Asks a header press made of systems it cannot reach (the overlay,
+    /// the report form), carried out by `header::carry_out`.
+    pub(crate) shell_asks: Vec<header::ShellAsk>,
 }
 
 /// The settings overlay's state.
@@ -433,6 +446,11 @@ impl LobbyState {
             seat: crate::seatpanel::SeatDesk::default(),
             llm: crate::tableseats::TableSeats::default(),
             offline: None,
+            header_menu: None,
+            feed_down: false,
+            retry_feed: false,
+            bell: client_core::lobby::strips::Bell::default(),
+            shell_asks: Vec::new(),
         }
     }
 }
@@ -473,6 +491,10 @@ enum Reply {
         url: String,
         probe: Probe,
     },
+    /// `GET /me` (WP0b-3).
+    Me(client_core::lobby::strips::Me),
+    /// `GET /lobby/stats` (WP0b-3).
+    Stats(client_core::lobby::strips::LobbyStats),
 }
 
 /// What the shell should make of a successful response body.
@@ -523,6 +545,7 @@ mod end_screen;
 mod entrance;
 mod feed;
 mod field;
+mod header;
 #[cfg(test)]
 pub(crate) use feed::feed_url;
 mod front;

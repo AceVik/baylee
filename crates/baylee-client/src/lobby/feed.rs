@@ -285,3 +285,29 @@ fn open(url: &str) -> Result<Link, String> {
         delivered: false,
     })
 }
+
+/// The reconnecting strip's two halves (WP0b-3): says when a feed that was
+/// live is down — written into the lobby's state only when it turns, so a
+/// quiet feed rebuilds nothing — and dials at once on Retry now.
+pub(super) fn follow_the_feed(
+    mut feed: ResMut<Feed>,
+    mut state: ResMut<LobbyState>,
+    mut was_live: Local<bool>,
+) {
+    if state.retry_feed {
+        state.retry_feed = false;
+        feed.hang_up();
+        feed.cooldown = 0.0;
+    }
+    let reading = state.lobby.token().is_some()
+        && !state.lobby.offline()
+        && matches!(state.lobby.screen(), Screen::Table);
+    let live = feed.live();
+    if live || !reading {
+        *was_live = live;
+    }
+    let down = reading && !live && *was_live;
+    if state.feed_down != down {
+        state.feed_down = down;
+    }
+}

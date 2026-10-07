@@ -149,12 +149,13 @@ fn a_guest_whose_session_ended_is_let_go_and_the_player_told() {
     assert_eq!(guest.tone(), Tone::Refusal);
     assert!(guest.guest_name_offered(), "the next one is a new one");
 
+    // An account is signed out and told why, in the shell design's words
+    // (§2.5): a session that ended is not a sign-out the player chose.
     let mut account = seated_lobby();
     account.session_ended();
     assert_eq!(
         account.status(),
-        "signed out",
-        "an account is only signed out"
+        "Signed out \u{2014} your session ended · Sign in again"
     );
     assert_eq!(account.tone(), Tone::Note);
 }

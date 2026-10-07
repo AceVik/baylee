@@ -87,7 +87,8 @@ fn the_table_screen_builds_once_there_is_a_deck() {
     assert!(labels(&mut app).contains(&Phrase::LibraryCounts.fill(Lang::En, &["100", "4"])));
     let found = presses(&mut app);
     for wanted in [
-        Press::Hub(HubPress::SignOut),
+        // Signing out is in the account pill's menu (the shell design, §2.1).
+        Press::Header(super::super::header::HeaderPress::Account),
         Press::Hub(HubPress::Refresh),
         Press::Library(LibraryPress::BrowseHouse),
         Press::Hub(HubPress::SelectDeck(0)),

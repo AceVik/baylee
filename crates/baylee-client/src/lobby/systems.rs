@@ -138,6 +138,18 @@ pub(super) fn poll(
                     }
                 }
             }
+            // Written only when they change: the pill reads them, and a
+            // write is a rebuild (§10 #1).
+            Reply::Me(me) => {
+                if state.lobby.me() != Some(&me) {
+                    state.lobby.set_me(me);
+                }
+            }
+            Reply::Stats(stats) => {
+                if state.lobby.stats() != Some(&stats) {
+                    state.lobby.set_stats(stats);
+                }
+            }
             Reply::Gateway { url, probe } => {
                 if state.gateway_answered(url, probe)
                     && let Some(settings) = settings.as_mut()

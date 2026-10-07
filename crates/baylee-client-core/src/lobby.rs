@@ -16,6 +16,7 @@ pub mod gateway_list;
 pub mod gateway_use;
 pub mod library;
 pub mod room;
+pub mod strips;
 
 use crate::deckbuilder::DeckBuilder;
 use crate::i18n::{Lang, Phrase};
@@ -958,6 +959,10 @@ pub struct Lobby {
     deleting: Option<Deletion>,
     /// The password typed to confirm it.
     account_password: TextBuffer,
+    /// `GET /me`: the handle the account pill names (WP0b-3).
+    me: Option<strips::Me>,
+    /// `GET /lobby/stats`: the gateway pill's counts (WP0b-3).
+    stats: Option<strips::LobbyStats>,
 }
 
 /// The signed-in account's deletion, while it is being confirmed (#292).
@@ -2488,19 +2493,75 @@ impl Lobby {
     /// The gateway no longer knows the session held (a `401`). A guest's
     /// ending is the guest's (#269): it is dropped here, and the player is
     /// told, since the one they come back as next is a new one.
+    ///
+    /// Not a sign-out the player chose (the shell design, §2.5): the front
+    /// door says the session ended, and what they were writing is kept —
+    /// the builder's draft and the pool it is built from, which the same
+    /// gateway hands the next sign-in unchanged.
     pub fn session_ended(&mut self) {
         let guest = self.guest();
         if guest {
             self.kept_guest = None;
         }
+        let builder = std::mem::take(&mut self.builder);
+        let pool_requested = self.pool_requested;
         self.forget_the_session();
         if guest {
             self.refuse(Phrase::GuestEnded);
+        } else {
+            self.builder = builder;
+            self.pool_requested = pool_requested;
+            self.note(Phrase::ShellSessionEnded);
         }
+    }
+
+    /// `GET /me`'s answer. Returns whether it changed anything.
+    pub fn set_me(&mut self, me: strips::Me) -> bool {
+        if self.me.as_ref() == Some(&me) {
+            return false;
+        }
+        self.me = Some(me);
+        true
+    }
+
+    /// What `GET /me` said, once it has.
+    #[must_use]
+    pub fn me(&self) -> Option<&strips::Me> {
+        self.me.as_ref()
+    }
+
+    /// `GET /lobby/stats`'s answer. Returns whether it changed anything.
+    pub fn set_stats(&mut self, stats: strips::LobbyStats) -> bool {
+        if self.stats == Some(stats) {
+            return false;
+        }
+        self.stats = Some(stats);
+        true
+    }
+
+    /// What `GET /lobby/stats` said last, once it has.
+    #[must_use]
+    pub fn stats(&self) -> Option<&strips::LobbyStats> {
+        self.stats.as_ref()
+    }
+
+    /// Return to a game being played that holds this player's chair (the
+    /// seated strip's Return): ask for the seat again, as a client that
+    /// restarted does.
+    pub fn return_to_game(&mut self, game_id: &str) -> Option<LobbyRequest> {
+        if self.busy || self.offline() || !matches!(self.screen, Screen::Table) {
+            return None;
+        }
+        self.busy = true;
+        Some(LobbyRequest::TakeSeat {
+            game_id: game_id.to_string(),
+        })
     }
 
     /// Forgets the account and everything it bought.
     fn forget_the_session(&mut self) {
+        self.me = None;
+        self.stats = None;
         self.deleting = None;
         self.account_password.clear();
         self.close_library();
