@@ -9,6 +9,7 @@ fn table(seats: usize) -> ArrangementFrame {
         frame: Some(TableFrame::Wide),
         seats,
         flash: 0.0,
+        height: 1028.0,
     }
 }
 

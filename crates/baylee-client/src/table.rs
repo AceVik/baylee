@@ -438,6 +438,10 @@ mod zone_tests;
 #[cfg(test)]
 mod tests;
 
+/// `glide` writes nothing once every card is on its mark.
+#[cfg(test)]
+mod glide_tests;
+
 /// The ways off the table and the ways back onto it.
 ///
 /// Geometry, not implementation: what is asserted is that a card bound for a

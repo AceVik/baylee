@@ -140,8 +140,14 @@ pub fn glide(
         if !still && let Some(recoil) = recoil {
             target.translation += recoil.offset(time.elapsed_secs());
         }
+        // The rotation is compared component by component (either sign: `q`
+        // and `-q` are one rotation). `angle_between` was the test, and its
+        // `acos` near one is coarser than `SETTLED`: a card on its mark could
+        // read as a thousandth of a radian off it for ever and be slerped
+        // again every frame — a still table that never stopped writing.
         let there = transform.translation.distance_squared(target.translation) < SETTLED * SETTLED
-            && transform.rotation.angle_between(target.rotation) < SETTLED
+            && (transform.rotation.abs_diff_eq(target.rotation, SETTLED)
+                || transform.rotation.abs_diff_eq(-target.rotation, SETTLED))
             && transform.scale.distance_squared(target.scale) < SETTLED * SETTLED;
         if still || there {
             if *transform != target {

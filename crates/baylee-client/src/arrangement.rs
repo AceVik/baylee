@@ -28,6 +28,9 @@ pub struct ArrangementFrame {
     pub seats: usize,
     /// Seconds left of the pill's flash after a `Shift+P` (§2.3: 1.2 s).
     pub flash: f32,
+    /// The window's logical height: a short one gets a menu without the
+    /// one-line descriptions, so its eight rows still fit.
+    pub height: f32,
 }
 
 impl ArrangementFrame {
@@ -104,9 +107,11 @@ pub fn choose(
         .map(|w| Vec2::new(w.width(), w.height()));
     let frame = window.map(|w| TableFrame::of(w.x, w.y));
     let seats = seat_count(&duel);
-    if measured.frame != frame || measured.seats != seats {
+    let height = window.map_or(0.0, |w| w.y);
+    if measured.frame != frame || measured.seats != seats || measured.height != height {
         measured.frame = frame;
         measured.seats = seats;
+        measured.height = height;
     }
     if measured.flash > 0.0 {
         measured.flash = (measured.flash - time.delta_secs()).max(0.0);
@@ -413,6 +418,10 @@ fn pill_ground() -> Color {
     palette::DIALOG.with_alpha(0.88)
 }
 
+/// Below this logical height the menu leaves its descriptions out: eight
+/// rows of three lines are 714 px tall at 1708 × 1028.
+const SHORT_WINDOW: f32 = 860.0;
+
 /// What the pill and the menu were last drawn from.
 #[derive(Resource, Default, Clone, PartialEq, Debug)]
 pub struct SwitcherRevision {
@@ -423,6 +432,7 @@ pub struct SwitcherRevision {
     remember: bool,
     seats: usize,
     frame: Option<TableFrame>,
+    short: bool,
     lang: Option<Lang>,
     resolved_to: Option<Arrangement>,
 }
@@ -473,6 +483,7 @@ pub fn sync_switcher(
         remember: duel.arrangement_remember,
         seats: measured.seats,
         frame: measured.frame,
+        short: measured.height < SHORT_WINDOW,
         lang: Some(lang),
         resolved_to,
     };
@@ -502,6 +513,7 @@ pub fn sync_switcher(
                 seats: measured.seats,
                 frame: measured.class(),
                 phone,
+                short: measured.height > 0.0 && measured.height < SHORT_WINDOW,
             },
         );
     }
@@ -609,6 +621,7 @@ struct MenuLook {
     seats: usize,
     frame: TableFrame,
     phone: bool,
+    short: bool,
 }
 
 /// The menu: one row per arrangement — disc, name, what it does, the reason
@@ -774,24 +787,26 @@ fn arrangement_row(
             ))
             .id(),
     );
-    let blurb = match (arrangement, look.resolved_to) {
-        (Arrangement::TurntableRows, Some(to)) if current => format!(
-            "{} {}",
-            arrangement.blurb().text(lang),
-            Phrase::ArrResolvedTo.fill(lang, &[to.name().text(lang)])
-        ),
-        _ => arrangement.blurb().text(lang).to_string(),
-    };
-    words.push(
-        commands
-            .spawn((
-                Text::new(blurb),
-                tf(fonts, 11.0),
-                TextColor(soft),
-                Pickable::IGNORE,
-            ))
-            .id(),
-    );
+    if !look.short {
+        let blurb = match (arrangement, look.resolved_to) {
+            (Arrangement::TurntableRows, Some(to)) if current => format!(
+                "{} {}",
+                arrangement.blurb().text(lang),
+                Phrase::ArrResolvedTo.fill(lang, &[to.name().text(lang)])
+            ),
+            _ => arrangement.blurb().text(lang).to_string(),
+        };
+        words.push(
+            commands
+                .spawn((
+                    Text::new(blurb),
+                    tf(fonts, 11.0),
+                    TextColor(soft),
+                    Pickable::IGNORE,
+                ))
+                .id(),
+        );
+    }
     let tag = match offered {
         Err(Phrase::ArrComing) => Some(Phrase::ArrComing.fill(lang, &[arrangement.package()])),
         Err(reason) => Some(reason.text(lang).to_string()),
@@ -843,12 +858,36 @@ fn remember_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Menu
     } else {
         palette::DIALOG
     };
-    let tick = if look.remember {
-        "\u{2611}"
+    // A drawn box, and the icon face's check in it: the text face has no
+    // ballot box (U+2610 drew as nothing at all, measured live).
+    let mark = if look.remember {
+        crate::hud::glyph::CHECK.to_string()
     } else {
-        "\u{2610}"
+        String::new()
     };
-    commands
+    let tick = commands
+        .spawn((
+            Node {
+                width: px(16.0),
+                height: px(16.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(3.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BorderColor::all(palette::DIALOG_INK),
+            Pickable::IGNORE,
+            children![(
+                Text::new(mark),
+                crate::hud::icon_tf(fonts, 9.0),
+                TextColor(palette::DIALOG_INK),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    let row = commands
         .spawn((
             ArrangementRow(REMEMBER_ROW),
             Node {
@@ -862,23 +901,17 @@ fn remember_row(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Menu
             BackgroundColor(ground),
             Button,
             Feel::new(ground),
-            children![
-                (
-                    Text::new(tick),
-                    tf(fonts, 15.0),
-                    TextColor(palette::DIALOG_INK),
-                    Pickable::IGNORE,
-                ),
-                (
-                    Text::new(Phrase::ArrRememberForSeats.fill(lang, &[&look.seats.to_string()])),
-                    tf(fonts, 13.0),
-                    TextColor(palette::DIALOG_INK),
-                    Pickable::IGNORE,
-                ),
-            ],
+            children![(
+                Text::new(Phrase::ArrRememberForSeats.fill(lang, &[&look.seats.to_string()])),
+                tf(fonts, 13.0),
+                TextColor(palette::DIALOG_INK),
+                Pickable::IGNORE,
+            )],
         ))
         .observe(row_pressed)
-        .id()
+        .id();
+    commands.entity(row).insert_children(0, &[tick]);
+    row
 }
 
 /// The pill pressed: the menu opens, or shuts.
